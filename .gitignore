@@ -12,6 +12,9 @@ dist/
 client/dist/
 server/dist/
 
+# C/S 이미지 업로드 (로컬)
+server/uploads/
+
 # SQLite DB
 *.db
 *.db-journal

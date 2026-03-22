@@ -97,7 +97,7 @@ model EstimateOption {
 
 model OrderFormConfig {
   id                  String   @id @default(uuid())
-  formTitle           String   @default("클린벨 입주청소 발주서") @map("form_title")
+  formTitle           String   @default("SK클린텍 입주청소 발주서") @map("form_title")
   priceLabel          String?  @default("(특가)") @map("price_label")
   reviewEventText     String?  @map("review_event_text")
   footerNotice1       String?  @map("footer_notice_1")
@@ -111,17 +111,32 @@ model OrderFormConfig {
   @@map("order_form_config")
 }
 
+model CsReport {
+  id            String   @id @default(uuid())
+  customerName  String   @map("customer_name")
+  customerPhone String   @map("customer_phone")
+  content       String
+  imageUrls     Json     @map("image_urls") // ["url1","url2"]
+  status        String   @default("RECEIVED") @map("status")
+  memo          String?  @map("memo")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("cs_reports")
+}
+
 model OrderForm {
-  id             String   @id @default(uuid())
-  token          String   @unique
-  customerName   String   @map("customer_name")
-  totalAmount    Int      @map("total_amount")
-  depositAmount  Int      @default(20000) @map("deposit_amount")
-  balanceAmount  Int      @map("balance_amount")
-  optionNote     String?  @map("option_note")
-  createdById    String   @map("created_by_id")
-  createdAt      DateTime @default(now()) @map("created_at")
-  submittedAt    DateTime? @map("submitted_at")
+  id              String   @id @default(uuid())
+  token           String   @unique
+  customerName    String   @map("customer_name")
+  totalAmount     Int      @map("total_amount")
+  depositAmount   Int      @default(20000) @map("deposit_amount")
+  balanceAmount   Int      @map("balance_amount")
+  optionNote      String?  @map("option_note")
+  preferredDate   String?  @map("preferred_date")   // YYYY-MM-DD, 관리자 설정
+  preferredTime   String?  @map("preferred_time")  // 오전/오후, 관리자 설정
+  createdById     String   @map("created_by_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  submittedAt     DateTime? @map("submitted_at")
 
   createdBy  User      @relation("OrderFormCreatedBy", fields: [createdById], references: [id])
   inquiries  Inquiry[]

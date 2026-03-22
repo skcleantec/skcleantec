@@ -27,12 +27,16 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
     depositAmount,
     balanceAmount,
     optionNote,
+    preferredDate,
+    preferredTime,
   } = req.body as {
     customerName: string;
     totalAmount: number;
     depositAmount?: number;
     balanceAmount?: number;
     optionNote?: string;
+    preferredDate?: string;
+    preferredTime?: string;
   };
   if (!customerName?.trim()) {
     res.status(400).json({ error: '고객명을 입력해주세요.' });
@@ -53,6 +57,8 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
       depositAmount: deposit,
       balanceAmount: balance,
       optionNote: optionNote?.trim() || null,
+      preferredDate: preferredDate?.trim() || null,
+      preferredTime: preferredTime?.trim() || null,
       createdById: userId,
     },
   });
@@ -61,7 +67,7 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
 
 const DEFAULT_FORM_CONFIG = {
   id: '',
-  formTitle: '클린벨 입주청소 발주서',
+  formTitle: 'SK클린텍 입주청소 발주서',
   priceLabel: '(특가)',
   reviewEventText: '* 리뷰 별5점 이벤트 참여, 1만원 입금',
   footerNotice1: '‼️ 청소 전일 저녁, 담당 팀장 연락 드림',
@@ -163,6 +169,8 @@ router.get('/by-token/:token', async (req, res) => {
     depositAmount: form.depositAmount,
     balanceAmount: form.balanceAmount,
     optionNote: form.optionNote,
+    preferredDate: form.preferredDate,
+    preferredTime: form.preferredTime,
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
     formConfig: {
       formTitle: formConfig.formTitle,
@@ -208,9 +216,10 @@ router.post('/submit/:token', async (req, res) => {
     return;
   }
 
-  const preferredDate = body.preferredDate
-    ? new Date(body.preferredDate + 'T12:00:00')
-    : null;
+  // 관리자가 설정한 날짜/시간 우선, 없으면 고객 입력값 사용 (하위 호환)
+  const useDate = form.preferredDate || body.preferredDate;
+  const useTime = form.preferredTime || body.preferredTime;
+  const preferredDate = useDate ? new Date(useDate + 'T12:00:00') : null;
   const moveInDate = body.moveInDate
     ? new Date(body.moveInDate + 'T12:00:00')
     : null;
@@ -238,7 +247,7 @@ router.post('/submit/:token', async (req, res) => {
         balconyCount: body.balconyCount ?? null,
         kitchenCount: body.kitchenCount ?? null,
         preferredDate,
-        preferredTime: body.preferredTime || null,
+        preferredTime: useTime || null,
         memo,
         buildingType: body.buildingType || null,
         moveInDate,

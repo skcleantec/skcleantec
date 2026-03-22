@@ -15,6 +15,8 @@ export interface OrderForm {
   depositAmount: number;
   balanceAmount: number;
   optionNote: string | null;
+  preferredDate: string | null;
+  preferredTime: string | null;
   createdAt: string;
   submittedAt: string | null;
 }
@@ -39,6 +41,8 @@ export interface OrderFormPublic {
   depositAmount: number;
   balanceAmount: number;
   optionNote: string | null;
+  preferredDate: string | null;
+  preferredTime: string | null;
   options: Array<{ name: string; extraAmount: number }>;
   formConfig?: OrderFormConfigPublic;
 }
@@ -59,6 +63,8 @@ export async function createOrderForm(
     depositAmount?: number;
     balanceAmount?: number;
     optionNote?: string;
+    preferredDate?: string;
+    preferredTime?: string;
   }
 ): Promise<OrderForm> {
   const res = await fetch(`${API}/orderforms`, {
@@ -106,7 +112,7 @@ export async function updateFormConfig(
   }
 }
 
-/** 공개: 발주서 제출 (인증 없음) */
+/** 공개: 발주서 제출 (인증 없음) - preferredDate/preferredTime은 관리자 설정 시 생략 가능 */
 export async function submitOrderForm(
   token: string,
   data: {
@@ -115,8 +121,8 @@ export async function submitOrderForm(
     addressDetail?: string;
     customerPhone: string;
     areaPyeong: number;
-    preferredDate: string;
-    preferredTime: string;
+    preferredDate?: string;
+    preferredTime?: string;
     roomCount?: number;
     balconyCount?: number;
     bathroomCount?: number;

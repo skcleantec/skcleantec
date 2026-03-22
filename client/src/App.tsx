@@ -16,6 +16,8 @@ import { TeamMessagesPage } from './pages/team/TeamMessagesPage';
 import { TeamDayOffsPage } from './pages/team/TeamDayOffsPage';
 import { OrderFormPage } from './pages/order/OrderFormPage';
 import { OrderInfoPage } from './pages/order/OrderInfoPage';
+import { CsReportPage } from './pages/cs/CsReportPage';
+import { AdminCsPage } from './pages/admin/AdminCsPage';
 
 function App() {
   return (
@@ -37,10 +39,12 @@ function App() {
           <Route path="team-leaders" element={<AdminTeamLeadersPage />} />
           <Route path="messages" element={<AdminMessagesPage />} />
           <Route path="orderforms" element={<AdminOrderFormPage />} />
+          <Route path="cs" element={<AdminCsPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
         <Route path="/order/:token" element={<OrderFormPage />} />
         <Route path="/info" element={<OrderInfoPage />} />
+        <Route path="/cs" element={<CsReportPage />} />
         <Route path="/team/login" element={<TeamLoginPage />} />
         <Route
           path="/team"

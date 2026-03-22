@@ -50,6 +50,8 @@ export function OrderFormPage() {
     depositAmount: number;
     balanceAmount: number;
     optionNote: string | null;
+    preferredDate: string | null;
+    preferredTime: string | null;
     formConfig?: {
       formTitle?: string;
       priceLabel?: string | null;
@@ -76,9 +78,16 @@ export function OrderFormPage() {
           depositAmount: data.depositAmount,
           balanceAmount: data.balanceAmount,
           optionNote: data.optionNote,
+          preferredDate: data.preferredDate ?? null,
+          preferredTime: data.preferredTime ?? null,
           formConfig: data.formConfig,
         });
-        setForm((f) => ({ ...f, customerName: data.customerName }));
+        setForm((f) => ({
+          ...f,
+          customerName: data.customerName,
+          preferredDate: data.preferredDate ?? '',
+          preferredTime: data.preferredTime ?? '오전',
+        }));
         setError(null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : '발주서를 불러올 수 없습니다.'))
@@ -95,7 +104,9 @@ export function OrderFormPage() {
       if (!form.address?.trim()) throw new Error('주소를 검색해주세요.');
       if (!form.customerPhone?.trim()) throw new Error('전화번호를 입력해주세요.');
       if (isNaN(area) || area <= 0) throw new Error('평수를 입력해주세요.');
-      if (!form.preferredDate) throw new Error('청소 날짜를 선택해주세요.');
+      const useDate = order?.preferredDate || form.preferredDate;
+      const useTime = order?.preferredTime || form.preferredTime;
+      if (!useDate || !useTime) throw new Error('청소 날짜와 시간을 확인해주세요.');
       if (!form.buildingType) throw new Error('신축/구축/인테리어를 선택해주세요.');
       if (!agreeToTerms) throw new Error('고객 정보처리 동의 및 안내사항에 동의해 주세요.');
 
@@ -105,8 +116,8 @@ export function OrderFormPage() {
         addressDetail: form.addressDetail.trim() || undefined,
         customerPhone: form.customerPhone.trim(),
         areaPyeong: area,
-        preferredDate: form.preferredDate,
-        preferredTime: form.preferredTime,
+        preferredDate: useDate,
+        preferredTime: useTime,
         roomCount: form.roomCount ? parseInt(form.roomCount, 10) : undefined,
         balconyCount: form.balconyCount ? parseInt(form.balconyCount, 10) : undefined,
         bathroomCount: form.bathroomCount ? parseInt(form.bathroomCount, 10) : undefined,
@@ -178,7 +189,7 @@ export function OrderFormPage() {
           <CloseButton />
         </div>
         <h1 className="text-lg font-semibold text-gray-900 mb-1">
-          {order?.formConfig?.formTitle ?? '클린벨 입주청소 발주서'}
+          {order?.formConfig?.formTitle ?? 'SK클린텍 입주청소 발주서'}
         </h1>
         {order && (
           <div className="mb-6 p-4 bg-white border border-gray-200 rounded text-sm">
@@ -260,25 +271,37 @@ export function OrderFormPage() {
 
           <div>
             <label className={labelCls}>5. 청소 날짜 *</label>
-            <input
-              type="date"
-              className={inputCls}
-              value={form.preferredDate}
-              onChange={(e) => setForm((f) => ({ ...f, preferredDate: e.target.value }))}
-              required
-            />
+            {order?.preferredDate ? (
+              <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
+                {order.preferredDate} (고정됨)
+              </div>
+            ) : (
+              <input
+                type="date"
+                className={inputCls}
+                value={form.preferredDate}
+                onChange={(e) => setForm((f) => ({ ...f, preferredDate: e.target.value }))}
+                required
+              />
+            )}
           </div>
 
           <div>
             <label className={labelCls}>6. 오전 or 오후 선택 *</label>
-            <select
-              className={inputCls}
-              value={form.preferredTime}
-              onChange={(e) => setForm((f) => ({ ...f, preferredTime: e.target.value }))}
-            >
-              <option value="오전">오전 (8~9시 시작)</option>
-              <option value="오후">오후 (1~2시 시작)</option>
-            </select>
+            {order?.preferredTime ? (
+              <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
+                {order.preferredTime} (고정됨)
+              </div>
+            ) : (
+              <select
+                className={inputCls}
+                value={form.preferredTime}
+                onChange={(e) => setForm((f) => ({ ...f, preferredTime: e.target.value }))}
+              >
+                <option value="오전">오전 (8시~12시)</option>
+                <option value="오후">오후 (12시~4시)</option>
+              </select>
+            )}
             <p className="text-xs text-gray-500 mt-1">* 청소 중 이사 들어오는 스케줄, 서비스 불가</p>
           </div>
 

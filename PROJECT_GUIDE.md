@@ -29,6 +29,8 @@ DATABASE_URL="postgresql://skcleanteck:skcleanteck@localhost:5432/skcleanteck"
 JWT_SECRET="dev-secret-change-in-production"
 JWT_EXPIRES_IN="7d"
 PORT=3000
+# C/S 사진 업로드: Railway Volume 사용 시 자동 설정됨 (RAILWAY_VOLUME_MOUNT_PATH, RAILWAY_PUBLIC_DOMAIN)
+# 로컬 개발 시 PUBLIC_URL="http://localhost:3000" (선택)
 ```
 
 4. **테이블 생성 + 초기 데이터**

@@ -35,6 +35,8 @@ export function AdminOrderFormPage() {
     depositAmount: '20000',
     balanceAmount: '',
     optionNote: '',
+    preferredDate: '',
+    preferredTime: '오전',
   });
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   const [issueLoading, setIssueLoading] = useState(false);
@@ -98,7 +100,7 @@ export function AdminOrderFormPage() {
     })).catch(() => {
       setError('폼 메시지를 불러올 수 없습니다. 기본값으로 편집 가능합니다.');
       setMsgConfig({
-        formTitle: '클린벨 입주청소 발주서',
+        formTitle: 'SK클린텍 입주청소 발주서',
         priceLabel: '(특가)',
         reviewEventText: '* 리뷰 별5점 이벤트 참여, 1만원 입금',
         footerNotice1: '‼️ 청소 전일 저녁, 담당 팀장 연락 드림',
@@ -118,9 +120,9 @@ export function AdminOrderFormPage() {
   }, [token]);
 
   useEffect(() => {
-    if (!token || tab !== 'messages') return;
+    if (!token) return;
     refreshMsgConfig();
-  }, [token, tab]);
+  }, [token]);
 
   useEffect(() => {
     if (!token || tab !== 'list') return;
@@ -230,9 +232,11 @@ export function AdminOrderFormPage() {
         depositAmount: deposit,
         balanceAmount: balance,
         optionNote: issueForm.optionNote.trim() || undefined,
+        preferredDate: issueForm.preferredDate.trim() || undefined,
+        preferredTime: issueForm.preferredDate.trim() ? issueForm.preferredTime : undefined,
       });
       setNewOrder(order);
-      setIssueForm({ ...issueForm, customerName: '', totalAmount: '', balanceAmount: '', optionNote: '' });
+      setIssueForm({ ...issueForm, customerName: '', totalAmount: '', balanceAmount: '', optionNote: '', preferredDate: '', preferredTime: '오전' });
     } catch (e) {
       setError(e instanceof Error ? e.message : '발급 실패');
     } finally {
@@ -243,9 +247,52 @@ export function AdminOrderFormPage() {
   const getOrderLink = (orderToken: string) =>
     `${window.location.origin}/order/${orderToken}`;
 
+  const getCsLink = () => `${window.location.origin}/cs`;
+
+  const getOrderMessage = (order: OrderForm) => {
+    const link = getOrderLink(order.token);
+    const csLink = getCsLink();
+    const title = msgConfig.formTitle || 'SK클린텍 입주청소 발주서';
+    const priceLabel = msgConfig.priceLabel || '(특가)';
+    const reviewText = msgConfig.reviewEventText || '* 리뷰 별5점 이벤트 참여, 1만원 입금';
+    const footer1 = msgConfig.footerNotice1 || '‼️ 청소 전일 저녁, 담당 팀장 연락 드림';
+    const footer2 = msgConfig.footerNotice2 || '❌ 연락 없을 시, 본사 확인 요청 필';
+
+    let msg = `${title}
+
+총 금액 ${order.totalAmount.toLocaleString()}원 ${priceLabel}
+잔금 ${order.balanceAmount.toLocaleString()}원, 예약금 ${order.depositAmount.toLocaleString()}원
+${reviewText}`;
+
+    if (order.preferredDate && order.preferredTime) {
+      msg += `\n청소일시: ${order.preferredDate} (${order.preferredTime})`;
+    }
+    if (order.optionNote) {
+      msg += `\n${order.optionNote}`;
+    }
+
+    msg += `
+
+아래 링크에서 예약확정서를 작성해 주세요.
+${link}
+
+청소 후 청소팀 태도, 고객 불편 관련 신고는 본사에 직접 요청해주시면 바로 시정처리 해드리겠습니다.
+신고 URL: ${csLink}
+
+${footer1}
+${footer2}`;
+
+    return msg;
+  };
+
   const copyLink = (orderToken: string) => {
     navigator.clipboard.writeText(getOrderLink(orderToken));
     alert('링크가 복사되었습니다.');
+  };
+
+  const copyMessage = (order: OrderForm) => {
+    navigator.clipboard.writeText(getOrderMessage(order));
+    alert('고객 발송용 메시지가 복사되었습니다.');
   };
 
   const openInNewTab = (orderToken: string) => {
@@ -382,7 +429,7 @@ export function AdminOrderFormPage() {
                 <input
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="클린벨 입주청소 발주서"
+                  placeholder="SK클린텍 입주청소 발주서"
                   value={msgConfig.formTitle}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, formTitle: e.target.value }))}
                 />
@@ -482,7 +529,7 @@ export function AdminOrderFormPage() {
             <h2 className="text-base font-medium text-gray-900 mb-3">미리보기</h2>
             <div className="bg-white p-4 rounded border border-gray-200 text-sm max-w-md">
               <h3 className="font-semibold text-gray-900 mb-2">
-                {msgConfig.formTitle || '클린벨 입주청소 발주서'}
+                {msgConfig.formTitle || 'SK클린텍 입주청소 발주서'}
               </h3>
               <p className="font-medium text-gray-900">
                 총 금액 150,000원 {msgConfig.priceLabel || '(특가)'}
@@ -550,6 +597,26 @@ export function AdminOrderFormPage() {
               />
             </div>
             <div>
+              <label className="block text-sm text-gray-600 mb-1">청소 날짜</label>
+              <input
+                type="date"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                value={issueForm.preferredDate}
+                onChange={(e) => setIssueForm((f) => ({ ...f, preferredDate: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">오전/오후</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                value={issueForm.preferredTime}
+                onChange={(e) => setIssueForm((f) => ({ ...f, preferredTime: e.target.value }))}
+              >
+                <option value="오전">오전 (8시~12시)</option>
+                <option value="오후">오후 (12시~4시)</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-sm text-gray-600 mb-1">추가 사항</label>
               <input
                 type="text"
@@ -578,10 +645,17 @@ export function AdminOrderFormPage() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
+                  onClick={() => copyMessage(newOrder)}
+                  className="px-4 py-2 bg-gray-800 text-white text-sm rounded font-medium"
+                >
+                  메시지 복사
+                </button>
+                <button
+                  type="button"
                   onClick={() => copyLink(newOrder.token)}
                   className="px-4 py-2 bg-gray-700 text-white text-sm rounded"
                 >
-                  링크 복사
+                  링크만 복사
                 </button>
                 <button
                   type="button"
@@ -591,9 +665,13 @@ export function AdminOrderFormPage() {
                   새 창에서 열기
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2 break-all">
-                {getOrderLink(newOrder.token)}
-              </p>
+              <p className="text-xs text-gray-500 mt-2">메시지 복사 후 카카오톡·문자로 고객에게 보내세요.</p>
+              <details className="mt-2">
+                <summary className="text-xs text-gray-600 cursor-pointer">미리보기</summary>
+                <pre className="mt-1 p-3 bg-gray-50 rounded text-xs text-gray-700 whitespace-pre-wrap overflow-x-auto">
+                  {getOrderMessage(newOrder)}
+                </pre>
+              </details>
             </div>
           )}
         </div>
@@ -630,13 +708,20 @@ export function AdminOrderFormPage() {
                       {new Date(o.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-2">
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => copyMessage(o)}
+                          className="text-sm text-blue-600 font-medium"
+                        >
+                          메시지
+                        </button>
                         <button
                           type="button"
                           onClick={() => copyLink(o.token)}
-                          className="text-sm text-blue-600"
+                          className="text-sm text-gray-600"
                         >
-                          복사
+                          링크
                         </button>
                         <button
                           type="button"

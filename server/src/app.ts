@@ -15,6 +15,7 @@ import messagesRoutes from './modules/messages/messages.routes.js';
 import dayoffsRoutes from './modules/dayoffs/dayoffs.routes.js';
 import estimateRoutes from './modules/estimate/estimate.routes.js';
 import orderformRoutes from './modules/orderform/orderform.routes.js';
+import csRoutes from './modules/cs/cs.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -33,6 +34,14 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/dayoffs', dayoffsRoutes);
 app.use('/api/estimate', estimateRoutes);
 app.use('/api/orderforms', orderformRoutes);
+app.use('/api/cs', csRoutes);
+
+// C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙
+const uploadDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(process.cwd(), 'uploads');
+try {
+  fs.mkdirSync(path.join(uploadDir, 'cs'), { recursive: true });
+} catch {}
+app.use('/uploads', express.static(uploadDir));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
