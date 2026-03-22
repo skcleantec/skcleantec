@@ -7,23 +7,41 @@ function headers(token: string) {
   };
 }
 
-export interface TeamLeader {
+export interface UserItem {
   id: string;
   email: string;
   name: string;
   phone: string | null;
+  role?: string;
 }
 
-export async function getTeamLeaders(token: string): Promise<TeamLeader[]> {
-  const res = await fetch(`${API}/users`, { headers: headers(token) });
-  if (!res.ok) throw new Error('팀장 목록을 불러올 수 없습니다.');
+/** @deprecated UserItem 사용 */
+export type TeamLeader = UserItem;
+
+export async function getUsers(
+  token: string,
+  role: 'TEAM_LEADER' | 'MARKETER' = 'TEAM_LEADER'
+): Promise<UserItem[]> {
+  const res = await fetch(`${API}/users?role=${role}`, { headers: headers(token) });
+  if (!res.ok) throw new Error('목록을 불러올 수 없습니다.');
   return res.json();
 }
 
-export async function createTeamLeader(
+/** @deprecated getUsers 사용 */
+export async function getTeamLeaders(token: string): Promise<UserItem[]> {
+  return getUsers(token, 'TEAM_LEADER');
+}
+
+export async function createUser(
   token: string,
-  data: { email: string; password: string; name: string; phone?: string }
-): Promise<TeamLeader> {
+  data: {
+    email: string;
+    password: string;
+    name: string;
+    phone?: string;
+    role: 'TEAM_LEADER' | 'MARKETER';
+  }
+): Promise<UserItem> {
   const res = await fetch(`${API}/users`, {
     method: 'POST',
     headers: headers(token),
@@ -34,4 +52,12 @@ export async function createTeamLeader(
     throw new Error(err.error || '등록에 실패했습니다.');
   }
   return res.json();
+}
+
+/** @deprecated createUser 사용 */
+export async function createTeamLeader(
+  token: string,
+  data: { email: string; password: string; name: string; phone?: string }
+): Promise<UserItem> {
+  return createUser(token, { ...data, role: 'TEAM_LEADER' });
 }

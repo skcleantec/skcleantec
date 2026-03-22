@@ -39,6 +39,23 @@ async function main() {
     console.log('Team leader:', created.email);
   }
 
+  // 샘플 마케터 (없을 때만 생성)
+  const marketers = [{ email: 'marketer@skcleanteck.com', name: '홍마케터', phone: '010-5555-6666' }];
+  for (const m of marketers) {
+    const created = await prisma.user.upsert({
+      where: { email: m.email },
+      update: {},
+      create: {
+        email: m.email,
+        passwordHash: hash,
+        name: m.name,
+        phone: m.phone,
+        role: 'MARKETER',
+      },
+    });
+    console.log('Marketer:', created.email);
+  }
+
   // 폼 메시지 설정 (없으면 생성, 클린벨→SK클린텍 보정)
   try {
     const formConfig = await prisma.orderFormConfig.findFirst();

@@ -1,40 +1,16 @@
 import { useState, useEffect } from 'react';
-import { getDashboardStats } from '../../api/dashboard';
-import { createInquiry } from '../../api/inquiries';
+import { getDashboardStats, type DashboardStats } from '../../api/dashboard';
 import { getToken } from '../../stores/auth';
-import { AddressSearch } from '../../components/forms/AddressSearch';
 
-interface Stats {
-  todayCount: number;
-  unassignedCount: number;
-  inProgressCount: number;
+function formatCurrency(n: number): string {
+  return n.toLocaleString() + '원';
 }
-
-const SOURCE_OPTIONS = ['전화', '웹', '네이버', '인스타', '기타'];
 
 export function AdminDashboardPage() {
   const token = getToken();
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  const [form, setForm] = useState({
-    customerName: '',
-    customerPhone: '',
-    address: '',
-    addressDetail: '',
-    areaPyeong: '',
-    roomCount: 2,
-    bathroomCount: 1,
-    balconyCount: 1,
-    preferredDate: '',
-    preferredTime: '',
-    callAttempt: 1,
-    memo: '',
-    source: '전화',
-  });
 
   useEffect(() => {
     if (!token) return;
@@ -45,54 +21,21 @@ export function AdminDashboardPage() {
         setApiError(null);
       })
       .catch((err) => {
-        setStats({ todayCount: 0, unassignedCount: 0, inProgressCount: 0 });
+        setStats({
+          todayCount: 0,
+          unassignedCount: 0,
+          inProgressCount: 0,
+          todaySales: 0,
+          monthSales: 0,
+          salesByTeamLeader: [],
+          dailySales: [],
+        });
         setApiError(err instanceof Error ? err.message : '서버에 연결할 수 없습니다.');
       })
       .finally(() => setLoading(false));
-  }, [token, success]);
+  }, [token]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    const numFields = ['roomCount', 'bathroomCount', 'balconyCount', 'callAttempt', 'areaPyeong'];
-    setForm((prev) => ({
-      ...prev,
-      [name]: numFields.includes(name) ? (value === '' ? '' : Number(value)) : value,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token) return;
-    setSubmitLoading(true);
-    setSuccess(false);
-    try {
-      await createInquiry(token, {
-        ...form,
-        areaPyeong: form.areaPyeong ? Number(form.areaPyeong) : null,
-        preferredDate: form.preferredDate || null,
-      });
-      setForm({
-        customerName: '',
-        customerPhone: '',
-        address: '',
-        addressDetail: '',
-        areaPyeong: '',
-        roomCount: 2,
-        bathroomCount: 1,
-        balconyCount: 1,
-        preferredDate: '',
-        preferredTime: '',
-        callAttempt: 1,
-        memo: '',
-        source: '전화',
-      });
-      setSuccess(true);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '등록에 실패했습니다.');
-    } finally {
-      setSubmitLoading(false);
-    }
-  };
+  const maxDaily = stats?.dailySales?.length ? Math.max(...stats.dailySales.map((d) => d.amount), 1) : 1;
 
   return (
     <div className="space-y-6">
@@ -104,185 +47,96 @@ export function AdminDashboardPage() {
         </div>
       )}
 
-      {/* 통계 카드 */}
+      {/* 접수 통계 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard
-          label="오늘 접수"
-          value={loading ? '-' : stats?.todayCount ?? 0}
-        />
-        <StatCard
-          label="미분배"
-          value={loading ? '-' : stats?.unassignedCount ?? 0}
-        />
-        <StatCard
-          label="진행중"
-          value={loading ? '-' : stats?.inProgressCount ?? 0}
-        />
+        <StatCard label="오늘 접수" value={loading ? '-' : stats?.todayCount ?? 0} />
+        <StatCard label="미분배" value={loading ? '-' : stats?.unassignedCount ?? 0} />
+        <StatCard label="진행중" value={loading ? '-' : stats?.inProgressCount ?? 0} />
       </div>
 
-      {/* DB 접수 폼 */}
+      {/* 매출 통계 */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-base font-medium text-gray-800 mb-4">DB 접수 (고객 전화 시)</h2>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">이름</label>
-            <input
-              name="customerName"
-              value={form.customerName}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">연락처</label>
-            <input
-              name="customerPhone"
-              value={form.customerPhone}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              placeholder="010-0000-0000"
-              required
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-sm text-gray-600 mb-1">주소</label>
-            <AddressSearch
-              value={form.address}
-              onChange={(address) => setForm((prev) => ({ ...prev, address }))}
-              placeholder="주소 검색 버튼을 눌러 주소를 선택하세요"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-sm text-gray-600 mb-1">상세주소 (동·호수)</label>
-            <input
-              name="addressDetail"
-              value={form.addressDetail}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              placeholder="101동 1001호"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">평수</label>
-            <input
-              name="areaPyeong"
-              type="number"
-              step="0.1"
-              value={form.areaPyeong}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              placeholder="84"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">방·화·베</label>
-            <div className="flex gap-2 items-center">
-              <input
-                name="roomCount"
-                type="number"
-                min={0}
-                value={form.roomCount}
-                onChange={handleChange}
-                className="w-14 px-2 py-2 border border-gray-300 rounded text-sm text-center"
-                title="방"
-              />
-              <span className="text-gray-500">방</span>
-              <input
-                name="bathroomCount"
-                type="number"
-                min={0}
-                value={form.bathroomCount}
-                onChange={handleChange}
-                className="w-14 px-2 py-2 border border-gray-300 rounded text-sm text-center"
-                title="화장실"
-              />
-              <span className="text-gray-500">화</span>
-              <input
-                name="balconyCount"
-                type="number"
-                min={0}
-                value={form.balconyCount}
-                onChange={handleChange}
-                className="w-14 px-2 py-2 border border-gray-300 rounded text-sm text-center"
-                title="베란다"
-              />
-              <span className="text-gray-500">베</span>
+        <h2 className="text-base font-medium text-gray-800 mb-4">매출 현황</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <StatCard
+            label="오늘 매출"
+            value={loading ? '-' : formatCurrency(stats?.todaySales ?? 0)}
+            highlight
+          />
+          <StatCard
+            label="이번 달 매출"
+            value={loading ? '-' : formatCurrency(stats?.monthSales ?? 0)}
+            highlight
+          />
+        </div>
+
+        {/* 최근 7일 매출 그래프 */}
+        {stats?.dailySales && stats.dailySales.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">최근 7일 매출</h3>
+            <div className="flex gap-2 items-end h-24">
+              {stats.dailySales.map((d) => (
+                <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
+                  <div
+                    className="w-full bg-blue-500 rounded-t min-h-[4px]"
+                    style={{ height: `${Math.max(4, (d.amount / maxDaily) * 80)}px` }}
+                    title={formatCurrency(d.amount)}
+                  />
+                  <span className="text-[10px] text-gray-500">
+                    {d.date.slice(5).replace('-', '/')}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
+        )}
+
+        {/* 팀장별 매출 */}
+        {stats?.salesByTeamLeader && stats.salesByTeamLeader.length > 0 && (
           <div>
-            <label className="block text-sm text-gray-600 mb-1">희망일</label>
-            <input
-              name="preferredDate"
-              type="date"
-              value={form.preferredDate}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-            />
+            <h3 className="text-sm font-medium text-gray-700 mb-3">팀장별 매출</h3>
+            <div className="border border-gray-200 rounded overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700">팀장</th>
+                    <th className="text-right py-2 px-3 font-medium text-gray-700">매출</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.salesByTeamLeader.map((s) => (
+                    <tr key={s.teamLeaderId} className="border-t border-gray-100">
+                      <td className="py-2 px-3 text-gray-800">{s.name}</td>
+                      <td className="py-2 px-3 text-right font-medium text-gray-900">
+                        {formatCurrency(s.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">희망 시간대</label>
-            <input
-              name="preferredTime"
-              value={form.preferredTime}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              placeholder="오전 / 오후"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">통화시도</label>
-            <input
-              name="callAttempt"
-              type="number"
-              min={1}
-              value={form.callAttempt}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">유입경로</label>
-            <select
-              name="source"
-              value={form.source}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-            >
-              {SOURCE_OPTIONS.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-            </select>
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-sm text-gray-600 mb-1">특이사항</label>
-            <textarea
-              name="memo"
-              value={form.memo}
-              onChange={handleChange}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              placeholder="건물 구조, 특이사항 등"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={submitLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              {submitLoading ? '등록 중...' : '접수 등록'}
-            </button>
-          </div>
-        </form>
+        )}
       </div>
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number | string }) {
+function StatCard({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number | string;
+  highlight?: boolean;
+}) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4">
+    <div
+      className={`rounded-lg p-4 ${
+        highlight ? 'bg-blue-50 border border-blue-200' : 'bg-white border border-gray-200'
+      }`}
+    >
       <p className="text-sm text-gray-600">{label}</p>
       <p className="text-2xl font-semibold text-gray-800 mt-1">{value}</p>
     </div>

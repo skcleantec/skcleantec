@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { getInquiries, updateInquiry } from '../../api/inquiries';
+import { getInquiries, updateInquiry, createInquiry } from '../../api/inquiries';
 import { assignInquiry } from '../../api/assignments';
-import { getTeamLeaders, type TeamLeader } from '../../api/users';
+import { getTeamLeaders, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
+import { AddressSearch } from '../../components/forms/AddressSearch';
+
+const SOURCE_OPTIONS = ['전화', '웹', '네이버', '인스타', '기타'];
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
@@ -35,6 +38,7 @@ interface InquiryItem {
   specialNotes: string | null;
   createdAt: string;
   assignments: Array<{ teamLeader: { id: string; name: string } }>;
+  orderForm?: { createdBy: { id: string; name: string } } | null;
 }
 
 export function AdminInquiriesPage() {
@@ -44,7 +48,7 @@ export function AdminInquiriesPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [teamLeaders, setTeamLeaders] = useState<TeamLeader[]>([]);
+  const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
   const [editForm, setEditForm] = useState({ preferredDate: '', preferredTime: '', memo: '', teamLeaderId: '', status: '' });
   const [claimItem, setClaimItem] = useState<InquiryItem | null>(null);
@@ -52,6 +56,23 @@ export function AdminInquiriesPage() {
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [individualExpanded, setIndividualExpanded] = useState(false);
+  const [individualSubmitLoading, setIndividualSubmitLoading] = useState(false);
+  const [individualForm, setIndividualForm] = useState({
+    customerName: '',
+    customerPhone: '',
+    address: '',
+    addressDetail: '',
+    areaPyeong: '',
+    roomCount: 2,
+    bathroomCount: 1,
+    balconyCount: 1,
+    preferredDate: '',
+    preferredTime: '',
+    callAttempt: 1,
+    memo: '',
+    source: '전화',
+  });
 
   const refresh = (showLoading = false) => {
     if (!token) return;
@@ -165,6 +186,48 @@ export function AdminInquiriesPage() {
     }
   };
 
+  const handleIndividualChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const numFields = ['roomCount', 'bathroomCount', 'balconyCount', 'callAttempt', 'areaPyeong'];
+    setIndividualForm((prev) => ({
+      ...prev,
+      [name]: numFields.includes(name) ? (value === '' ? '' : Number(value)) : value,
+    }));
+  };
+
+  const handleIndividualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setIndividualSubmitLoading(true);
+    try {
+      await createInquiry(token, {
+        ...individualForm,
+        areaPyeong: individualForm.areaPyeong ? Number(individualForm.areaPyeong) : null,
+        preferredDate: individualForm.preferredDate || null,
+      });
+      setIndividualForm({
+        customerName: '',
+        customerPhone: '',
+        address: '',
+        addressDetail: '',
+        areaPyeong: '',
+        roomCount: 2,
+        bathroomCount: 1,
+        balconyCount: 1,
+        preferredDate: '',
+        preferredTime: '',
+        callAttempt: 1,
+        memo: '',
+        source: '전화',
+      });
+      refresh(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '등록에 실패했습니다.');
+    } finally {
+      setIndividualSubmitLoading(false);
+    }
+  };
+
   const formatDate = (d: string | null) => {
     if (!d) return '-';
     const date = new Date(d);
@@ -214,11 +277,110 @@ export function AdminInquiriesPage() {
         </div>
       </div>
 
+      {/* 개별접수 (접어두기) */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setIndividualExpanded((v) => !v)}
+          className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50"
+        >
+          <span className="font-medium text-gray-800">접수 목록 + 개별접수</span>
+          <span className="text-gray-500 text-sm">{individualExpanded ? '접기 ▲' : '펼치기 ▼'}</span>
+        </button>
+        {individualExpanded && (
+          <div className="border-t border-gray-200 p-6 bg-gray-50">
+            <h3 className="text-sm font-medium text-gray-700 mb-4">개별접수 (고객 전화 시)</h3>
+            <form onSubmit={handleIndividualSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">이름</label>
+                <input name="customerName" value={individualForm.customerName} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" required />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">연락처</label>
+                <input name="customerPhone" value={individualForm.customerPhone} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="010-0000-0000" required />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">주소</label>
+                <AddressSearch value={individualForm.address} onChange={(addr) => setIndividualForm((p) => ({ ...p, address: addr }))} placeholder="주소 검색" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">상세주소</label>
+                <input name="addressDetail" value={individualForm.addressDetail} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="101동 1001호" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">평수</label>
+                <input name="areaPyeong" type="number" step="0.1" value={individualForm.areaPyeong} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="84" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">방·화·베</label>
+                <div className="flex gap-2 items-center">
+                  <input name="roomCount" type="number" min={0} value={individualForm.roomCount} onChange={handleIndividualChange} className="w-14 px-2 py-2 border border-gray-300 rounded text-sm text-center" title="방" />
+                  <span className="text-gray-500 text-sm">방</span>
+                  <input name="bathroomCount" type="number" min={0} value={individualForm.bathroomCount} onChange={handleIndividualChange} className="w-14 px-2 py-2 border border-gray-300 rounded text-sm text-center" title="화장실" />
+                  <span className="text-gray-500 text-sm">화</span>
+                  <input name="balconyCount" type="number" min={0} value={individualForm.balconyCount} onChange={handleIndividualChange} className="w-14 px-2 py-2 border border-gray-300 rounded text-sm text-center" title="베란다" />
+                  <span className="text-gray-500 text-sm">베</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">희망일</label>
+                <input name="preferredDate" type="date" value={individualForm.preferredDate} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">희망 시간대</label>
+                <input name="preferredTime" value={individualForm.preferredTime} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="오전 / 오후" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">통화시도</label>
+                <input name="callAttempt" type="number" min={1} value={individualForm.callAttempt} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">유입경로</label>
+                <select name="source" value={individualForm.source} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                  {SOURCE_OPTIONS.map((o) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">특이사항</label>
+                <textarea name="memo" value={individualForm.memo} onChange={handleIndividualChange} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="건물 구조, 특이사항 등" />
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" disabled={individualSubmitLoading} className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {individualSubmitLoading ? '등록 중...' : '접수 등록'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+
       {apiError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {apiError} (서버가 실행 중인지 확인하세요.)
         </div>
       )}
+
+      {/* 마케터별 접수 건수 */}
+      {items.length > 0 && (() => {
+        const byMarketer = items.reduce<Record<string, number>>((acc, it) => {
+          const name = it.orderForm?.createdBy?.name ?? '개별접수';
+          acc[name] = (acc[name] ?? 0) + 1;
+          return acc;
+        }, {});
+        const entries = Object.entries(byMarketer).sort((a, b) => b[1] - a[1]);
+        return (
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+            <span className="font-medium text-gray-800">마케터별 접수: </span>
+            {entries.map(([name, count]) => (
+              <span key={name} className="mr-3">
+                {name} {count}건
+              </span>
+            ))}
+          </div>
+        );
+      })()}
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         {loading ? (
@@ -231,6 +393,7 @@ export function AdminInquiriesPage() {
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">접수일</th>
+                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">담당</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">고객</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">연락처</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-[90px]">주소</th>
@@ -247,6 +410,9 @@ export function AdminInquiriesPage() {
                   <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-gray-100">
                       {formatDate(item.createdAt)}
+                    </td>
+                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">
+                      {item.orderForm?.createdBy?.name ?? '-'}
                     </td>
                     <td className="py-2 px-2 font-medium text-gray-900 whitespace-nowrap">
                       {item.customerName}
@@ -420,6 +586,12 @@ export function AdminInquiriesPage() {
                   <dt className="text-gray-500">출처</dt>
                   <dd>{editItem.source ?? '-'}</dd>
                 </div>
+                {editItem.orderForm?.createdBy && (
+                  <div>
+                    <dt className="text-gray-500">담당 매케터</dt>
+                    <dd>{editItem.orderForm.createdBy.name}</dd>
+                  </div>
+                )}
                 {editItem.memo && (
                   <div>
                     <dt className="text-gray-500">메모</dt>

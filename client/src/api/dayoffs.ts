@@ -46,8 +46,12 @@ export interface ScheduleStatsByDate {
   totalTeamLeaders: number;
   assignedCount: number;
   availableNames: string[];
+  availableMorningNames?: string[];
+  availableAfternoonNames?: string[];
   morningCount: number;
   afternoonCount: number;
+  /** 미배정 총수: 팀장당 오전1·오후1 기준 빈 슬롯 수 */
+  unassignedTotal?: number;
 }
 
 export async function getScheduleStats(

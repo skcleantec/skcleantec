@@ -97,6 +97,13 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
     },
   });
 
+  function toDateKey(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   const byDate: Record<
     string,
     {
@@ -106,6 +113,8 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
       totalTeamLeaders: number;
       assignedCount: number;
       availableNames: string[];
+      availableMorningNames: string[];
+      availableAfternoonNames: string[];
       morningCount: number;
       afternoonCount: number;
     }
@@ -116,24 +125,43 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
   const rangeEnd = new Date(endDate);
   rangeEnd.setHours(23, 59, 59, 999);
   for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
-    const key = d.toISOString().slice(0, 10);
-    const dayOffList = dayOffs.filter((o) => o.date.toISOString().slice(0, 10) === key);
+    const key = toDateKey(d);
+    const dayOffList = dayOffs.filter((o) => toDateKey(o.date) === key);
     const offNames = dayOffList.map((o) => o.teamLeader.name);
     const offIds = new Set(dayOffList.map((o) => o.teamLeaderId));
     const workingCount = totalCount - offIds.size;
     const dayAssignments = assignments.filter(
-      (a) => a.inquiry.preferredDate?.toISOString().slice(0, 10) === key
+      (a) => a.inquiry.preferredDate && toDateKey(a.inquiry.preferredDate) === key
     );
     const assignedIds = new Set(dayAssignments.map((a) => a.teamLeaderId));
     const availableLeaders = teamLeaders.filter(
       (t) => !offIds.has(t.id) && !assignedIds.has(t.id)
     );
 
-    const morningCount = dayAssignments.filter((a) => {
+    const isMorning = (a: (typeof dayAssignments)[0]) => {
       const t = a.inquiry.preferredTime || '';
       return t.includes('오전') || (!t.includes('오후') && (parseInt(t, 10) || 24) < 12);
-    }).length;
-    const afternoonCount = dayAssignments.length - morningCount;
+    };
+    const morningAssignments = dayAssignments.filter(isMorning);
+    const afternoonAssignments = dayAssignments.filter((a) => !isMorning(a));
+    const morningCount = morningAssignments.length;
+    const afternoonCount = afternoonAssignments.length;
+    const morningAssignedIds = new Set(morningAssignments.map((a) => a.teamLeaderId));
+    const afternoonAssignedIds = new Set(afternoonAssignments.map((a) => a.teamLeaderId));
+
+    // 오전 배정 가능: 근무 중이면서 오전에 배정된 건이 없는 팀장
+    const availableMorningLeaders = teamLeaders.filter(
+      (t) => !offIds.has(t.id) && !morningAssignedIds.has(t.id)
+    );
+    // 오후 배정 가능: 근무 중이면서 오후에 배정된 건이 없는 팀장
+    const availableAfternoonLeaders = teamLeaders.filter(
+      (t) => !offIds.has(t.id) && !afternoonAssignedIds.has(t.id)
+    );
+
+    // 미배정 총수 = 팀장당 오전1·오후1 기준으로 비어있는 슬롯 수 (빈 오전 + 빈 오후)
+    const emptyMorning = Math.max(0, workingCount - morningCount);
+    const emptyAfternoon = Math.max(0, workingCount - afternoonCount);
+    const unassignedTotal = emptyMorning + emptyAfternoon;
 
     byDate[key] = {
       offCount: offNames.length,
@@ -142,8 +170,11 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
       totalTeamLeaders: totalCount,
       assignedCount: assignedIds.size,
       availableNames: availableLeaders.map((t) => t.name),
+      availableMorningNames: availableMorningLeaders.map((t) => t.name),
+      availableAfternoonNames: availableAfternoonLeaders.map((t) => t.name),
       morningCount,
       afternoonCount,
+      unassignedTotal,
     };
   }
 

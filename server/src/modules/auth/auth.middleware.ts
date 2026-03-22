@@ -32,3 +32,13 @@ export function adminOnly(req: Request, res: Response, next: NextFunction) {
   }
   next();
 }
+
+/** ADMIN 또는 MARKETER 허용 (발주서 발급 등) */
+export function adminOrMarketer(req: Request, res: Response, next: NextFunction) {
+  const user = (req as Request & { user?: AuthPayload }).user;
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'MARKETER')) {
+    res.status(403).json({ error: '권한이 필요합니다.' });
+    return;
+  }
+  next();
+}

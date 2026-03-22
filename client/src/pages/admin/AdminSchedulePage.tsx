@@ -14,12 +14,19 @@ const STATUS_LABELS: Record<string, string> = {
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
+function toDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function getMonthRange(year: number, month: number) {
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0);
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+    start: toDateKey(start),
+    end: toDateKey(end),
   };
 }
 
@@ -194,6 +201,13 @@ export function AdminSchedulePage() {
         <div className="py-12 text-center text-gray-500 text-sm">로딩 중...</div>
       ) : (
         <>
+          {/* 범례 */}
+          <div className="flex gap-4 text-xs text-gray-600">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 border-2 border-red-500 rounded" /> 빈 배정 있음 (팀장당 오전1·오후1 미충족)
+            </span>
+          </div>
+
           {/* 달력 그리드 */}
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className="grid grid-cols-7 text-left text-xs">
@@ -217,11 +231,17 @@ export function AdminSchedulePage() {
                 const morningCount = dayStats?.morningCount ?? 0;
                 const afternoonCount = dayStats?.afternoonCount ?? 0;
                 const offCount = dayStats?.offCount ?? 0;
+                const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = dayItems.filter((it) => !it.assignments?.[0]).length;
+                const unassignedTotal = dayStats?.unassignedTotal ?? 0;
                 const hasEvents = dayItems.length > 0;
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
                 const isHoliday = isPublicHoliday(year, month, d);
+                // 팀장당 오전1·오후1 배정 필요. 근무팀장 있으면 빈 배정 있으면 빨간 테두리
+                const hasEmptySlots =
+                  workingCount > 0 &&
+                  (unassignedCount > 0 || morningCount < workingCount || afternoonCount < workingCount);
                 const dateColor = isHoliday ? 'text-red-600' : isSaturday ? 'text-blue-600' : hasEvents ? 'text-blue-700' : 'text-gray-800';
                 return (
                   <div
@@ -229,7 +249,7 @@ export function AdminSchedulePage() {
                     onClick={() => setSelectedDate(isSelected ? null : key)}
                     className={`min-h-[68px] p-1 pt-3.5 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
                       hasEvents ? 'bg-blue-50' : ''
-                    } ${isSelected ? 'ring-2 ring-blue-500 ring-inset' : 'hover:bg-gray-50'}`}
+                    } ${isSelected ? 'ring-2 ring-blue-500 ring-inset' : hasEmptySlots ? 'ring-2 ring-red-500 ring-inset' : 'hover:bg-gray-50'}`}
                   >
                     <span className={`absolute top-0.5 left-1 text-[11px] font-semibold ${dateColor}`}>
                       {d}
@@ -238,7 +258,7 @@ export function AdminSchedulePage() {
                       <span>오전 {morningCount}</span>
                       <span>오후 {afternoonCount}</span>
                       <span>휴무 {offCount}</span>
-                      <span>미배 {unassignedCount}</span>
+                      <span>미배 {unassignedTotal}</span>
                     </div>
                   </div>
                 );
@@ -257,6 +277,26 @@ export function AdminSchedulePage() {
                 })}{' '}
                 ({(byDate[selectedDate]?.length ?? 0)}건)
               </h3>
+
+              {/* 빈 배정 경고 */}
+              {stats[selectedDate] && (() => {
+                const s = stats[selectedDate];
+                const working = s.workingCount ?? 0;
+                const morning = s.morningCount ?? 0;
+                const afternoon = s.afternoonCount ?? 0;
+                const unassigned = (byDate[selectedDate] ?? []).filter((it) => !it.assignments?.[0]).length;
+                const needsAttention =
+                  working > 0 && (unassigned > 0 || morning < working || afternoon < working);
+                if (!needsAttention) return null;
+                return (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                    <strong>빈 배정 있음</strong> · 팀장당 오전1·오후1 배정이 되어야 합니다.
+                    {unassigned > 0 && ` 미배정 ${unassigned}건`}
+                    {(morning < working || afternoon < working) &&
+                      ` · 오전 ${morning}/${working}건, 오후 ${afternoon}/${working}건`}
+                  </div>
+                );
+              })()}
 
               {/* 휴무/근무 현황 */}
               {stats[selectedDate] && (
@@ -284,14 +324,24 @@ export function AdminSchedulePage() {
                       <span className="ml-1 font-medium">{stats[selectedDate].afternoonCount}건</span>
                     </div>
                   </div>
-                  {stats[selectedDate].availableNames.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
                     <div>
-                      <span className="text-gray-500">배정 가능 팀장: </span>
+                      <span className="text-gray-500">오전 배정 가능: </span>
                       <span className="text-blue-600 font-medium">
-                        {stats[selectedDate].availableNames.join(', ')}
+                        {(stats[selectedDate].availableMorningNames ?? []).length > 0
+                          ? (stats[selectedDate].availableMorningNames ?? []).join(', ')
+                          : '-'}
                       </span>
                     </div>
-                  )}
+                    <div>
+                      <span className="text-gray-500">오후 배정 가능: </span>
+                      <span className="text-blue-600 font-medium">
+                        {(stats[selectedDate].availableAfternoonNames ?? []).length > 0
+                          ? (stats[selectedDate].availableAfternoonNames ?? []).join(', ')
+                          : '-'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
 

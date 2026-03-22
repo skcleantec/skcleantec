@@ -2,13 +2,13 @@ import { Router } from 'express';
 import { randomBytes } from 'crypto';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly } from '../auth/auth.middleware.js';
+import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 
 const router = Router();
 
-/** 관리자: 발주서 목록 */
-router.get('/', authMiddleware, adminOnly, async (req, res) => {
+/** 관리자/마케터: 발주서 목록 */
+router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const list = await prisma.orderForm.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
@@ -18,8 +18,8 @@ router.get('/', authMiddleware, adminOnly, async (req, res) => {
   res.json({ items: list });
 });
 
-/** 관리자: 발주서 발급 (고객명, 견적 입력 → 링크 생성) */
-router.post('/', authMiddleware, adminOnly, async (req, res) => {
+/** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성) */
+router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
   const {
     customerName,
@@ -79,8 +79,8 @@ const DEFAULT_FORM_CONFIG = {
   updatedAt: new Date().toISOString(),
 };
 
-/** 관리자: 폼 메시지 설정 조회 (by-token보다 먼저 선언) */
-router.get('/form-config', authMiddleware, adminOnly, async (_req, res) => {
+/** 관리자/마케터: 폼 메시지 설정 조회 (by-token보다 먼저 선언) */
+router.get('/form-config', authMiddleware, adminOrMarketer, async (_req, res) => {
   try {
     let config = await prisma.orderFormConfig.findFirst();
     if (!config) {

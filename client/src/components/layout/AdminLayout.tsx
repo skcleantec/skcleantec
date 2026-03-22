@@ -40,7 +40,7 @@ export function AdminLayout() {
               <NavLink to="/admin/dashboard" className={navClass}>대시보드</NavLink>
               <NavLink to="/admin/inquiries" className={navClass}>접수 목록</NavLink>
               <NavLink to="/admin/schedule" className={navClass}>스케줄 표</NavLink>
-              <NavLink to="/admin/team-leaders" className={navClass}>팀장 관리</NavLink>
+              <NavLink to="/admin/team-leaders" className={navClass}>사용자관리</NavLink>
               <NavLink to="/admin/orderforms" className={navClass}>발주서</NavLink>
               <NavLink to="/admin/cs" className={navClass}>C/S 관리</NavLink>
               <NavLink to="/admin/messages" className={navClass}>

@@ -16,7 +16,7 @@ router.post('/login', async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { email },
   });
-  if (!user || !user.isActive || user.role !== 'ADMIN') {
+  if (!user || !user.isActive || (user.role !== 'ADMIN' && user.role !== 'MARKETER')) {
     res.status(401).json({ error: '관리자 계정이 아닙니다.' });
     return;
   }

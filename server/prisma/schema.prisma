@@ -42,6 +42,7 @@ model UserDayOff {
 enum UserRole {
   ADMIN
   TEAM_LEADER
+  MARKETER
 }
 
 model Inquiry {
