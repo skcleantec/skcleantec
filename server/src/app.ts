@@ -12,6 +12,9 @@ import assignmentsRoutes from './modules/assignments/assignments.routes.js';
 import scheduleRoutes from './modules/schedule/schedule.routes.js';
 import teamRoutes from './modules/team/team.routes.js';
 import messagesRoutes from './modules/messages/messages.routes.js';
+import dayoffsRoutes from './modules/dayoffs/dayoffs.routes.js';
+import estimateRoutes from './modules/estimate/estimate.routes.js';
+import orderformRoutes from './modules/orderform/orderform.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -27,6 +30,9 @@ app.use('/api/assignments', assignmentsRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/dayoffs', dayoffsRoutes);
+app.use('/api/estimate', estimateRoutes);
+app.use('/api/orderforms', orderformRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });

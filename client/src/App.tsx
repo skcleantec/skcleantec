@@ -9,9 +9,13 @@ import { AdminInquiriesPage } from './pages/admin/AdminInquiriesPage';
 import { AdminSchedulePage } from './pages/admin/AdminSchedulePage';
 import { AdminTeamLeadersPage } from './pages/admin/AdminTeamLeadersPage';
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
+import { AdminOrderFormPage } from './pages/admin/AdminOrderFormPage';
 import { TeamLoginPage } from './pages/team/TeamLoginPage';
 import { TeamDashboardPage } from './pages/team/TeamDashboardPage';
 import { TeamMessagesPage } from './pages/team/TeamMessagesPage';
+import { TeamDayOffsPage } from './pages/team/TeamDayOffsPage';
+import { OrderFormPage } from './pages/order/OrderFormPage';
+import { OrderInfoPage } from './pages/order/OrderInfoPage';
 
 function App() {
   return (
@@ -32,8 +36,11 @@ function App() {
           <Route path="schedule" element={<AdminSchedulePage />} />
           <Route path="team-leaders" element={<AdminTeamLeadersPage />} />
           <Route path="messages" element={<AdminMessagesPage />} />
+          <Route path="orderforms" element={<AdminOrderFormPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
+        <Route path="/order/:token" element={<OrderFormPage />} />
+        <Route path="/info" element={<OrderInfoPage />} />
         <Route path="/team/login" element={<TeamLoginPage />} />
         <Route
           path="/team"
@@ -44,6 +51,7 @@ function App() {
           }
         >
           <Route path="dashboard" element={<TeamDashboardPage />} />
+          <Route path="dayoffs" element={<TeamDayOffsPage />} />
           <Route path="messages" element={<TeamMessagesPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>

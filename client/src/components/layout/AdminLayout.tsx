@@ -38,9 +38,10 @@ export function AdminLayout() {
             <h1 className="text-lg font-semibold text-gray-800">SK클린텍 관리자</h1>
             <nav className="flex gap-1">
               <NavLink to="/admin/dashboard" className={navClass}>대시보드</NavLink>
-              <NavLink to="/admin/inquiries" className={navClass}>문의 목록</NavLink>
+              <NavLink to="/admin/inquiries" className={navClass}>접수 목록</NavLink>
               <NavLink to="/admin/schedule" className={navClass}>스케줄 표</NavLink>
               <NavLink to="/admin/team-leaders" className={navClass}>팀장 관리</NavLink>
+              <NavLink to="/admin/orderforms" className={navClass}>발주서</NavLink>
               <NavLink to="/admin/messages" className={navClass}>
                 메시지
                 {unreadCount > 0 && (

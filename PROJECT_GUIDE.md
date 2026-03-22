@@ -6,18 +6,55 @@
 
 **클라이언트와 서버를 동시에 실행해야 합니다.** DB 데이터가 안 보이면 서버가 꺼져 있을 가능성이 높습니다.
 
-```bash
-# 루트에서 한 번에 실행 (권장)
+### 1단계: Docker + PostgreSQL (먼저 설정)
+
+**데이터베이스 관리를 위해 PostgreSQL + Docker 사용을 권장합니다.**
+
+1. **Docker Desktop 설치**
+   - 다운로드: https://www.docker.com/products/docker-desktop/
+   - 또는 Microsoft Store에서 "Docker Desktop" 검색 후 설치
+   - 설치 후 PC 재시작, Docker Desktop 실행
+
+2. **PostgreSQL 실행**
+
+```powershell
+cd c:\skcleanteck
+npm run db:up      # PostgreSQL 컨테이너 시작
+```
+
+3. **server/.env 설정** → 아래 내용으로 수정
+
+```
+DATABASE_URL="postgresql://skcleanteck:skcleanteck@localhost:5432/skcleanteck"
+JWT_SECRET="dev-secret-change-in-production"
+JWT_EXPIRES_IN="7d"
+PORT=3000
+```
+
+4. **테이블 생성 + 초기 데이터**
+
+```powershell
+npm run db:setup   # prisma db push + seed
+```
+
+### 2단계: 앱 실행
+
+```powershell
 npm install
 npm run dev
-
-# 또는 각각 별도 터미널에서
-# 터미널 1: cd server && npm run dev
-# 터미널 2: cd client && npm run dev
 ```
 
 - **관리자**: http://localhost:5173/admin/login (아이디: admin, 비밀번호: 1234)
 - **팀장**: http://localhost:5173/team/login (예: team1@skcleanteck.com / 1234)
+
+### DB 관리 명령어
+
+| 명령 | 설명 |
+|------|------|
+| `npm run db:up` | PostgreSQL Docker 컨테이너 시작 |
+| `npm run db:down` | PostgreSQL Docker 컨테이너 중지 |
+| `npm run db:setup` | 테이블 생성 + 관리자/팀장 초기 계정 생성 |
+| `npm run db:studio` | Prisma Studio (DB GUI) 실행 |
 
 > 📖 **페이지별 접속 방법**: `ACCESS_GUIDE.md` 참고
 

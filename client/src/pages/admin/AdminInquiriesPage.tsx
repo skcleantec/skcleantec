@@ -23,12 +23,16 @@ interface InquiryItem {
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
+  kitchenCount: number | null;
   preferredDate: string | null;
   preferredTime: string | null;
   status: string;
   source: string | null;
   memo: string | null;
   claimMemo: string | null;
+  buildingType: string | null;
+  moveInDate: string | null;
+  specialNotes: string | null;
   createdAt: string;
   assignments: Array<{ teamLeader: { id: string; name: string } }>;
 }
@@ -171,18 +175,24 @@ export function AdminInquiriesPage() {
     });
   };
 
-  const formatRoomInfo = (r: number | null, b: number | null, v: number | null) => {
+  const formatRoomInfo = (
+    r: number | null,
+    b: number | null,
+    v: number | null,
+    k?: number | null
+  ) => {
     const parts = [];
     if (r != null) parts.push(`${r}방`);
     if (b != null) parts.push(`${b}화`);
     if (v != null) parts.push(`${v}베`);
+    if (k != null) parts.push(`${k}주`);
     return parts.length ? parts.join(' ') : '-';
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold text-gray-800">문의 목록</h1>
+        <h1 className="text-xl font-semibold text-gray-800">접수 목록</h1>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
@@ -251,7 +261,7 @@ export function AdminInquiriesPage() {
                     </td>
                     <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{item.areaPyeong ?? '-'}</td>
                     <td className="py-2 px-2 text-gray-600 whitespace-nowrap">
-                      {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
+                      {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
                     </td>
                     <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{formatDate(item.preferredDate)}</td>
                     <td className="py-2 px-2 whitespace-nowrap">
@@ -285,7 +295,7 @@ export function AdminInquiriesPage() {
                     <td className="py-2 px-2 whitespace-nowrap">
                       <div className="flex flex-wrap gap-1">
                         <button onClick={() => openEdit(item)} className="text-blue-600 hover:underline text-xs">
-                          수정
+                          상세보기
                         </button>
                         <button onClick={() => openClaim(item)} className="text-orange-600 hover:underline text-xs">
                           클레임
@@ -348,13 +358,90 @@ export function AdminInquiriesPage() {
         </div>
       )}
 
-      {/* 수정 모달 */}
+      {/* 수정 모달 (전체 내역 + 수정) */}
       {editItem && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full my-8">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              수정 - {editItem.customerName}
+              내역 보기 / 수정 - {editItem.customerName}
             </h2>
+
+            {/* 전체 내역 (읽기 전용) */}
+            <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">전체 내역</h3>
+              <dl className="space-y-2 text-sm">
+                <div>
+                  <dt className="text-gray-500">성함</dt>
+                  <dd className="font-medium">{editItem.customerName}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">연락처</dt>
+                  <dd>{editItem.customerPhone}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">주소</dt>
+                  <dd>
+                    {editItem.address}
+                    {editItem.addressDetail ? ` ${editItem.addressDetail}` : ''}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">평수</dt>
+                  <dd>{editItem.areaPyeong ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">방/베란다/화장실/주방</dt>
+                  <dd>
+                    {formatRoomInfo(
+                      editItem.roomCount,
+                      editItem.bathroomCount,
+                      editItem.balconyCount,
+                      editItem.kitchenCount
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">청소 희망일</dt>
+                  <dd>{formatDate(editItem.preferredDate)}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">희망 시간</dt>
+                  <dd>{editItem.preferredTime ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">신축/구축/인테리어</dt>
+                  <dd>{editItem.buildingType ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">이사 날짜</dt>
+                  <dd>{editItem.moveInDate ? formatDate(editItem.moveInDate) : '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">출처</dt>
+                  <dd>{editItem.source ?? '-'}</dd>
+                </div>
+                {editItem.memo && (
+                  <div>
+                    <dt className="text-gray-500">메모</dt>
+                    <dd className="whitespace-pre-wrap">{editItem.memo}</dd>
+                  </div>
+                )}
+                {editItem.specialNotes && (
+                  <div>
+                    <dt className="text-gray-500">특이사항</dt>
+                    <dd className="whitespace-pre-wrap">{editItem.specialNotes}</dd>
+                  </div>
+                )}
+                {editItem.claimMemo && (
+                  <div>
+                    <dt className="text-gray-500 text-orange-600">클레임</dt>
+                    <dd className="whitespace-pre-wrap">{editItem.claimMemo}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+
+            {/* 수정 가능 필드 */}
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-600 mb-1">예약일</label>
@@ -400,22 +487,13 @@ export function AdminInquiriesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">C/S 내용 (클레임)</label>
-                <textarea
-                  value={editItem.claimMemo || ''}
-                  readOnly
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-200 rounded text-sm bg-gray-50"
-                  placeholder="없음"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">특이사항</label>
+                <label className="block text-sm text-gray-600 mb-1">메모 (추가/수정)</label>
                 <textarea
                   value={editForm.memo}
                   onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="관리자 메모 추가"
                 />
               </div>
             </div>

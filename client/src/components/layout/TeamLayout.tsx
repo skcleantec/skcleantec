@@ -48,6 +48,7 @@ export function TeamLayout() {
             <h1 className="text-lg font-semibold text-gray-800">SK클린텍</h1>
             <nav className="hidden sm:flex gap-1">
               <NavLink to="/team/dashboard" className={navClass}>일정</NavLink>
+              <NavLink to="/team/dayoffs" className={navClass}>휴무일</NavLink>
               <NavLink to="/team/messages" className={navClass}>
                 메시지
                 {unreadCount > 0 && (
@@ -86,6 +87,14 @@ export function TeamLayout() {
           }
         >
           일정
+        </NavLink>
+        <NavLink
+          to="/team/dayoffs"
+          className={({ isActive }) =>
+            `flex-1 py-3 px-4 text-center text-sm font-medium ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
+          }
+        >
+          휴무일
         </NavLink>
         <NavLink
           to="/team/messages"

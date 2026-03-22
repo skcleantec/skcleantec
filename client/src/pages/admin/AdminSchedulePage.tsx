@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { getSchedule, type ScheduleItem } from '../../api/schedule';
+import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getToken } from '../../stores/auth';
+import { isPublicHoliday } from '../../utils/holidays';
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
@@ -122,6 +124,7 @@ export function AdminSchedulePage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [items, setItems] = useState<ScheduleItem[]>([]);
+  const [stats, setStats] = useState<Record<string, ScheduleStatsByDate>>({});
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<ScheduleItem | null>(null);
@@ -130,9 +133,18 @@ export function AdminSchedulePage() {
     if (!token) return;
     setLoading(true);
     const { start, end } = getMonthRange(year, month);
-    getSchedule(token, start, end)
-      .then((res) => setItems(res.items))
-      .catch(() => setItems([]))
+    Promise.all([
+      getSchedule(token, start, end),
+      getScheduleStats(token, start, end),
+    ])
+      .then(([scheduleRes, statsRes]) => {
+        setItems(scheduleRes.items);
+        setStats(statsRes.byDate);
+      })
+      .catch(() => {
+        setItems([]);
+        setStats({});
+      })
       .finally(() => setLoading(false));
   }, [token, year, month]);
 
@@ -184,52 +196,50 @@ export function AdminSchedulePage() {
         <>
           {/* 달력 그리드 */}
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="grid grid-cols-7 text-center text-xs sm:text-sm">
-              {WEEKDAYS.map((w) => (
-                <div key={w} className="py-2 font-medium text-gray-600 border-b border-r border-gray-200 last:border-r-0">
+            <div className="grid grid-cols-7 text-left text-xs">
+              {WEEKDAYS.map((w, wi) => (
+                <div
+                  key={w}
+                  className={`py-1.5 px-1 font-medium border-b border-r border-gray-200 last:border-r-0 text-[10px] ${
+                    wi === 6 ? 'text-blue-600' : 'text-gray-600'
+                  }`}
+                >
                   {w}
                 </div>
               ))}
               {calendarDays.map((d, i) => {
                 if (d === null) {
-                  return <div key={`empty-${i}`} className="min-h-[70px] sm:min-h-[90px] bg-gray-50" />;
+                  return <div key={`empty-${i}`} className="min-h-[68px] bg-gray-50" />;
                 }
                 const key = getDateKey(d);
                 const dayItems = byDate[key] || [];
+                const dayStats = stats[key];
+                const morningCount = dayStats?.morningCount ?? 0;
+                const afternoonCount = dayStats?.afternoonCount ?? 0;
+                const offCount = dayStats?.offCount ?? 0;
+                const unassignedCount = dayItems.filter((it) => !it.assignments?.[0]).length;
                 const hasEvents = dayItems.length > 0;
                 const isSelected = selectedDate === key;
+                const isSaturday = i % 7 === 6;
+                const isHoliday = isPublicHoliday(year, month, d);
+                const dateColor = isHoliday ? 'text-red-600' : isSaturday ? 'text-blue-600' : hasEvents ? 'text-blue-700' : 'text-gray-800';
                 return (
                   <div
                     key={key}
                     onClick={() => setSelectedDate(isSelected ? null : key)}
-                    className={`min-h-[70px] sm:min-h-[90px] p-1 border-b border-r border-gray-200 last:border-r-0 cursor-pointer flex flex-col items-center justify-start overflow-hidden ${
+                    className={`min-h-[68px] p-1 pt-3.5 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
                       hasEvents ? 'bg-blue-50' : ''
                     } ${isSelected ? 'ring-2 ring-blue-500 ring-inset' : 'hover:bg-gray-50'}`}
                   >
-                    <span className={`text-sm font-medium shrink-0 ${hasEvents ? 'text-blue-700' : 'text-gray-800'}`}>
+                    <span className={`absolute top-0.5 left-1 text-[11px] font-semibold ${dateColor}`}>
                       {d}
                     </span>
-                    {hasEvents && (
-                      <div className="mt-0.5 flex flex-col gap-0.5 items-start w-full min-w-0 overflow-hidden text-left flex-1">
-                        <span className="px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] shrink-0">
-                          {dayItems.length}건
-                        </span>
-                        {dayItems.slice(0, 3).map((item) => (
-                          <span
-                            key={item.id}
-                            className="text-[10px] sm:text-xs text-gray-700 truncate w-full max-w-full px-0.5"
-                            title={item.customerName}
-                          >
-                            {item.customerName}
-                          </span>
-                        ))}
-                        {dayItems.length > 3 && (
-                          <span className="text-[10px] text-gray-500 px-0.5">
-                            외 {dayItems.length - 3}건
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    <div className="text-[10px] text-gray-800 font-medium grid grid-cols-2 gap-x-1 gap-y-0.5 leading-snug mt-3">
+                      <span>오전 {morningCount}</span>
+                      <span>오후 {afternoonCount}</span>
+                      <span>휴무 {offCount}</span>
+                      <span>미배 {unassignedCount}</span>
+                    </div>
                   </div>
                 );
               })}
@@ -237,7 +247,7 @@ export function AdminSchedulePage() {
           </div>
 
           {/* 선택한 날짜의 일정 목록 + 상세 보기 */}
-          {selectedDate && byDate[selectedDate] && (
+          {selectedDate && (
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <h3 className="text-base font-medium text-gray-800 mb-3">
                 {new Date(selectedDate).toLocaleDateString('ko-KR', {
@@ -245,10 +255,48 @@ export function AdminSchedulePage() {
                   day: 'numeric',
                   weekday: 'long',
                 })}{' '}
-                ({byDate[selectedDate].length}건)
+                ({(byDate[selectedDate]?.length ?? 0)}건)
               </h3>
+
+              {/* 휴무/근무 현황 */}
+              {stats[selectedDate] && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm space-y-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                      <span className="text-gray-500">휴무</span>
+                      <span className="ml-1 font-medium">{stats[selectedDate].offCount}인</span>
+                      {stats[selectedDate].offNames.length > 0 && (
+                        <span className="ml-1 text-gray-600">
+                          ({stats[selectedDate].offNames.join(', ')})
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-gray-500">근무가능</span>
+                      <span className="ml-1 font-medium">{stats[selectedDate].workingCount}명</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">오전 DB</span>
+                      <span className="ml-1 font-medium">{stats[selectedDate].morningCount}건</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">오후 DB</span>
+                      <span className="ml-1 font-medium">{stats[selectedDate].afternoonCount}건</span>
+                    </div>
+                  </div>
+                  {stats[selectedDate].availableNames.length > 0 && (
+                    <div>
+                      <span className="text-gray-500">배정 가능 팀장: </span>
+                      <span className="text-blue-600 font-medium">
+                        {stats[selectedDate].availableNames.join(', ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col gap-2">
-                {byDate[selectedDate].map((item) => (
+                {(byDate[selectedDate] ?? []).map((item) => (
                   <button
                     key={item.id}
                     onClick={() => setDetailItem(item)}
@@ -265,6 +313,11 @@ export function AdminSchedulePage() {
                   </button>
                 ))}
               </div>
+              {(byDate[selectedDate]?.length ?? 0) === 0 && (
+                <div className="text-center text-gray-500 py-6 text-sm">
+                  해당 날짜에 일정이 없습니다.
+                </div>
+              )}
             </div>
           )}
         </>

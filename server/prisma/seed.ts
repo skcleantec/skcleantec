@@ -38,6 +38,19 @@ async function main() {
     });
     console.log('Team leader:', created.email);
   }
+
+  // 폼 메시지 설정 (없으면 생성)
+  try {
+    const formConfig = await prisma.orderFormConfig.findFirst();
+    if (!formConfig) {
+      await prisma.orderFormConfig.create({
+        data: {},
+      });
+      console.log('OrderFormConfig: created');
+    }
+  } catch {
+    console.log('OrderFormConfig: skip (table may not exist yet, run db:push first)');
+  }
 }
 
 main()

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getTeamInquiries } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
+import { isPublicHoliday } from '../../utils/holidays';
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
@@ -341,8 +342,13 @@ export function TeamDashboardPage() {
             </select>
           </div>
           <div className="grid grid-cols-7 text-center text-xs">
-            {WEEKDAYS.map((w) => (
-              <div key={w} className="py-2 font-medium text-gray-500">{w}</div>
+            {WEEKDAYS.map((w, wi) => (
+              <div
+                key={w}
+                className={`py-2 font-medium ${wi === 6 ? 'text-blue-600' : 'text-gray-500'}`}
+              >
+                {w}
+              </div>
             ))}
             {calendarDays.map((d, i) => {
               if (d === null) {
@@ -353,15 +359,18 @@ export function TeamDashboardPage() {
               const hasEvents = dayItems.length > 0;
               const isToday = key === todayStr;
               const isSelected = selectedDate === key;
+              const isSaturday = i % 7 === 6;
+              const isHoliday = isPublicHoliday(year, month, d);
+              const dateColor = isHoliday ? 'text-red-600' : isSaturday ? 'text-blue-600' : hasEvents ? 'text-blue-700' : 'text-gray-800';
               return (
                 <div
                   key={key}
                   onClick={() => setSelectedDate(isSelected ? null : key)}
-                  className={`min-h-[44px] sm:min-h-[52px] p-1 flex flex-col items-center justify-center cursor-pointer touch-manipulation ${
+                  className={`min-h-[44px] sm:min-h-[52px] p-1 pt-4 relative flex flex-col items-center justify-center cursor-pointer touch-manipulation ${
                     hasEvents ? 'bg-blue-50' : ''
                   } ${isToday ? 'ring-1 ring-blue-400 ring-inset' : ''} ${isSelected ? 'bg-blue-200' : 'active:bg-gray-100'}`}
                 >
-                  <span className={`text-sm font-medium ${hasEvents ? 'text-blue-700' : 'text-gray-800'}`}>
+                  <span className={`absolute top-0.5 left-1 text-[10px] font-medium ${dateColor}`}>
                     {d}
                   </span>
                   {hasEvents && (
