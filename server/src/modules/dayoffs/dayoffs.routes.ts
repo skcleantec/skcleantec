@@ -117,6 +117,7 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
       availableAfternoonNames: string[];
       morningCount: number;
       afternoonCount: number;
+      unassignedTotal: number;
     }
   > = {};
 

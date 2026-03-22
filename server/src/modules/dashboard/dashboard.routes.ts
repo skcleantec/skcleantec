@@ -9,7 +9,7 @@ router.use(authMiddleware);
 router.use(adminOnly);
 
 /** 매출 집계 대상: 청소 완료·진행중 건 */
-const SALES_STATUS = ['COMPLETED', 'IN_PROGRESS'];
+const SALES_STATUS = ['COMPLETED', 'IN_PROGRESS'] as const;
 
 function getInquiryAmount(inq: { orderForm?: { totalAmount: number } | null; areaPyeong: number | null }, pricePerPyeong: number): number {
   if (inq.orderForm?.totalAmount != null) return inq.orderForm.totalAmount;
@@ -39,7 +39,7 @@ router.get('/stats', async (_req, res) => {
     }),
     prisma.estimateConfig.findFirst().then((c) => c?.pricePerPyeong ?? 5000),
     prisma.inquiry.findMany({
-      where: { status: { in: SALES_STATUS } },
+      where: { status: { in: [...SALES_STATUS] } },
       include: {
         orderForm: { select: { totalAmount: true } },
         assignments: { include: { teamLeader: { select: { id: true, name: true } } } },
@@ -72,7 +72,7 @@ router.get('/stats', async (_req, res) => {
   for (const inq of inquiriesForSales) {
     const amt = getInquiryAmount(inq, pricePerPyeong);
     if (amt <= 0) continue;
-    const assigned = inq.assignments[0]?.teamLeader;
+    const assigned = (inq as { assignments?: { teamLeader: { id: string; name: string } }[] }).assignments?.[0]?.teamLeader;
     if (assigned) {
       const entry = salesByTeamLeader.find((s) => s.teamLeaderId === assigned.id);
       if (entry) entry.amount += amt;
