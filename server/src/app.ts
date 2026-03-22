@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import authRoutes from './modules/auth/auth.routes.js';
 import inquiriesRoutes from './modules/inquiries/inquiries.routes.js';
@@ -32,8 +33,9 @@ app.get('/api/health', (_req, res) => {
 });
 
 // 프로덕션: React 빌드 결과 서빙 (Railway 등)
-if (process.env.NODE_ENV === 'production') {
-  const clientDir = path.join(__dirname, '../../client/dist');
+// client/dist가 있으면 SPA 폴백 (NODE_ENV 무관 - Railway에서 유연하게)
+const clientDir = path.join(__dirname, '../../client/dist');
+if (fs.existsSync(clientDir)) {
   app.use(express.static(clientDir));
   app.get('*', (_req, res) => {
     res.sendFile(path.join(clientDir, 'index.html'));
