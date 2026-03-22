@@ -8,7 +8,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/conversations', async (req, res) => {
-  const { userId } = (req as { user: AuthPayload }).user;
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
   const users = await prisma.user.findMany({
     where: { id: { not: userId }, isActive: true },
     select: { id: true, name: true, role: true },
@@ -37,7 +37,7 @@ router.get('/conversations', async (req, res) => {
 });
 
 router.get('/unread-count', async (req, res) => {
-  const { userId } = (req as { user: AuthPayload }).user;
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
   const count = await prisma.message.count({
     where: { receiverId: userId, readAt: null },
   });
@@ -45,7 +45,7 @@ router.get('/unread-count', async (req, res) => {
 });
 
 router.get('/:userId', async (req, res) => {
-  const { userId: myId } = (req as { user: AuthPayload }).user;
+  const { userId: myId } = (req as unknown as { user: AuthPayload }).user;
   const { userId: otherId } = req.params;
   const messages = await prisma.message.findMany({
     where: {
@@ -73,7 +73,7 @@ router.get('/:userId', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { userId } = (req as { user: AuthPayload }).user;
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
   const { receiverId, content } = req.body as { receiverId?: string; content?: string };
   if (!receiverId || !content?.trim()) {
     res.status(400).json({ error: '수신자와 내용을 입력해주세요.' });

@@ -14,7 +14,7 @@ router.post('/', async (req, res) => {
     inquiryId?: string;
     teamLeaderId?: string;
   };
-  const adminId = (req as { user: AuthPayload }).user.userId;
+  const adminId = (req as unknown as { user: AuthPayload }).user.userId;
 
   if (!inquiryId || !teamLeaderId) {
     res.status(400).json({ error: '문의 ID와 팀장 ID가 필요합니다.' });

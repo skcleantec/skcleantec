@@ -35,7 +35,7 @@ export function TeamMessagesPage() {
     getConversations(token)
       .then((list) => {
         // 팀장은 관리자에게만 메시지 보낼 수 있음
-        const adminOnly = list.filter((c) => c.role === 'ADMIN');
+        const adminOnly = list.filter((c: { role: string }) => c.role === 'ADMIN');
         setConversations(adminOnly);
       })
       .catch(() => setConversations([]))

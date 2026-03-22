@@ -8,7 +8,7 @@ const router = Router();
 router.use(teamAuthMiddleware);
 
 router.get('/inquiries', async (req, res) => {
-  const { userId } = (req as { user: AuthPayload }).user;
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
   const items = await prisma.inquiry.findMany({
     where: {
       assignments: {
@@ -26,7 +26,7 @@ router.get('/inquiries', async (req, res) => {
 });
 
 router.get('/schedule', async (req, res) => {
-  const { userId } = (req as { user: AuthPayload }).user;
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
   const { start, end } = req.query as { start?: string; end?: string };
   const now = new Date();
   const startDate = start ? new Date(start) : new Date(now.getFullYear(), now.getMonth(), 1);
