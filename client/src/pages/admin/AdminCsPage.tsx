@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCsReports, getCsReport, updateCsReport, type CsReport } from '../../api/cs';
+import { getCsReports, updateCsReport, type CsReport } from '../../api/cs';
 import { getToken } from '../../stores/auth';
 
 const STATUS_OPTIONS = [
