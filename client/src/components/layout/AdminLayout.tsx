@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useNavigate, NavLink } from 'react-router-dom';
+import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { clearToken, getToken } from '../../stores/auth';
 import { getUnreadCount } from '../../api/messages';
 
 export function AdminLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+  const isMessagesPage = location.pathname.includes('/messages');
 
   useEffect(() => {
     const token = getToken();
@@ -15,12 +17,12 @@ export function AdminLayout() {
     };
     fetch();
     (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount = fetch;
-    const id = setInterval(fetch, 15000);
+    const id = isMessagesPage ? setInterval(fetch, 15000) : undefined;
     return () => {
       delete (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount;
-      clearInterval(id);
+      if (id) clearInterval(id);
     };
-  }, []);
+  }, [isMessagesPage]);
 
   const handleLogout = () => {
     clearToken();

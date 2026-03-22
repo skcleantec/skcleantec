@@ -56,7 +56,7 @@ export function AdminMessagesPage() {
   }, [token, selectedId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages]);
 
   const handleSend = async (e: React.FormEvent) => {
