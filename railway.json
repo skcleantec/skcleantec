@@ -4,7 +4,7 @@
     "buildCommand": "npm install && cd server && npm install && npx prisma generate && cd ../client && npm install && cd .. && npm run build"
   },
   "deploy": {
-    "preDeployCommand": "cd server && npx prisma db push",
+    "preDeployCommand": "cd server && npx prisma db push && npm run db:seed",
     "startCommand": "cd server && npm run start",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 120
