@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Environment (보안 - 절대 push 금지)
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+client/dist/
+server/dist/
+
+# SQLite DB
+*.db
+*.db-journal
+
+# IDE
+.cursor/
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

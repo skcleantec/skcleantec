@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole @default(TEAM_LEADER)
+  phone        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
+  assignmentsGiven     Assignment[] @relation("AdminAssignments")
+  sentMessages        Message[]    @relation("SentMessages")
+  receivedMessages    Message[]    @relation("ReceivedMessages")
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  TEAM_LEADER
+}
+
+model Inquiry {
+  id              String       @id @default(uuid())
+  customerName    String       @map("customer_name")
+  customerPhone   String       @map("customer_phone")
+  address         String
+  addressDetail   String?      @map("address_detail")
+  areaPyeong      Float?       @map("area_pyeong")
+  roomCount       Int?         @map("room_count")
+  bathroomCount   Int?         @map("bathroom_count")
+  balconyCount    Int?         @map("balcony_count")
+  preferredDate   DateTime?    @map("preferred_date")
+  preferredTime   String?      @map("preferred_time")
+  callAttempt     Int?         @map("call_attempt")
+  memo            String?
+  claimMemo       String?       @map("claim_memo")
+  status          InquiryStatus @default(RECEIVED)
+  source          String?      @default("전화")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  assignments Assignment[]
+
+  @@map("inquiries")
+}
+
+enum InquiryStatus {
+  RECEIVED      // 접수
+  ASSIGNED      // 분배완료
+  IN_PROGRESS   // 진행중
+  COMPLETED     // 완료
+  CANCELLED     // 취소
+  CS_PROCESSING // C/S 처리중
+}
+
+model Assignment {
+  id            String   @id @default(uuid())
+  inquiryId     String   @map("inquiry_id")
+  teamLeaderId  String   @map("team_leader_id")
+  assignedById  String   @map("assigned_by_id")
+  assignedAt    DateTime @default(now()) @map("assigned_at")
+
+  inquiry     Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  teamLeader  User    @relation("TeamLeaderAssignments", fields: [teamLeaderId], references: [id])
+  assignedBy  User    @relation("AdminAssignments", fields: [assignedById], references: [id])
+
+  @@unique([inquiryId])
+  @@map("assignments")
+}
+
+model Message {
+  id         String    @id @default(uuid())
+  senderId   String    @map("sender_id")
+  receiverId String    @map("receiver_id")
+  content    String
+  readAt     DateTime? @map("read_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
