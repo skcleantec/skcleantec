@@ -9,12 +9,15 @@ const router = Router();
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
-  if (!email || !password) {
+  const loginId = String(email ?? '')
+    .trim()
+    .toLowerCase();
+  if (!loginId || !password) {
     res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요.' });
     return;
   }
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { email: loginId },
   });
   if (!user || !user.isActive || (user.role !== 'ADMIN' && user.role !== 'MARKETER')) {
     res.status(401).json({ error: '관리자 계정이 아닙니다.' });
@@ -38,12 +41,15 @@ router.post('/login', async (req, res) => {
 
 router.post('/team-login', async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
-  if (!email || !password) {
+  const loginId = String(email ?? '')
+    .trim()
+    .toLowerCase();
+  if (!loginId || !password) {
     res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요.' });
     return;
   }
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { email: loginId },
   });
   if (!user || !user.isActive || user.role !== 'TEAM_LEADER') {
     res.status(401).json({ error: '팀장 계정이 아닙니다.' });

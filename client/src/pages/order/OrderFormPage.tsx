@@ -10,6 +10,19 @@ const BUILDING_TYPES = [
   { value: '인테리어', label: '인테리어' },
 ];
 
+const PROPERTY_TYPE_OPTIONS = [
+  { value: '아파트', label: '아파트' },
+  { value: '오피스텔', label: '오피스텔' },
+  { value: '빌라(연립)', label: '빌라(연립)' },
+  { value: '상가', label: '상가' },
+  { value: '기타', label: '기타' },
+] as const;
+
+const AREA_BASIS_OPTIONS = [
+  { value: '공급', label: '공급면적 기준' },
+  { value: '전용', label: '전용면적 기준' },
+] as const;
+
 export function OrderFormPage() {
   const { token } = useParams<{ token: string }>();
   const [loading, setLoading] = useState(true);
@@ -17,8 +30,11 @@ export function OrderFormPage() {
   const [form, setForm] = useState<{
     customerName: string;
     customerPhone: string;
+    customerPhoneSecondary: string;
     address: string;
     addressDetail: string;
+    propertyType: string;
+    areaBasis: string;
     areaPyeong: string;
     preferredDate: string;
     preferredTime: string;
@@ -33,8 +49,11 @@ export function OrderFormPage() {
   }>({
     customerName: '',
     customerPhone: '',
+    customerPhoneSecondary: '',
     address: '',
     addressDetail: '',
+    propertyType: '',
+    areaBasis: '',
     areaPyeong: '',
     preferredDate: '',
     preferredTime: '오전',
@@ -108,8 +127,13 @@ export function OrderFormPage() {
       const area = parseFloat(form.areaPyeong.replace(/,/g, ''));
       if (!form.customerName?.trim()) throw new Error('성함을 입력해주세요.');
       if (!form.address?.trim()) throw new Error('주소를 검색해주세요.');
-      if (!form.customerPhone?.trim()) throw new Error('전화번호를 입력해주세요.');
-      if (isNaN(area) || area <= 0) throw new Error('평수를 입력해주세요.');
+      if (!form.customerPhone?.trim()) throw new Error('대표 전화번호를 입력해주세요.');
+      if (!form.customerPhoneSecondary?.trim()) throw new Error('보조 전화번호를 입력해주세요.');
+      if (!form.propertyType) throw new Error('건축물 유형을 선택해주세요.');
+      if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
+        throw new Error('평수 기준으로 공급 또는 전용을 선택해주세요.');
+      }
+      if (isNaN(area) || area <= 0) throw new Error('평수를 숫자로 입력해주세요. (단위: 평)');
       const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
       const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
       const useDate = scheduleLockedByAdmin
@@ -130,7 +154,10 @@ export function OrderFormPage() {
         address: form.address.trim(),
         addressDetail: form.addressDetail.trim() || undefined,
         customerPhone: form.customerPhone.trim(),
+        customerPhone2: form.customerPhoneSecondary.trim(),
         areaPyeong: area,
+        areaBasis: form.areaBasis,
+        propertyType: form.propertyType,
         preferredDate: useDate,
         preferredTime: useTime,
         preferredTimeDetail: useTimeDetail ?? null,
@@ -197,6 +224,8 @@ export function OrderFormPage() {
 
   const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded text-sm';
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
+  const radioGroupCls = 'flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-800';
+  const radioLabelCls = 'inline-flex items-center gap-2 cursor-pointer';
   const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
   const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
 
@@ -264,27 +293,78 @@ export function OrderFormPage() {
 
           <div>
             <label className={labelCls}>3. 전화번호 *</label>
+            <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+              전일 연락 두절시 서비스가 취소되오니 반드시 정확하게 기재 부탁드립니다.
+            </p>
+            <label className="block text-xs text-gray-600 mb-1">대표 연락처 *</label>
             <input
               type="tel"
-              className={inputCls}
+              className={`${inputCls} mb-3`}
               value={form.customerPhone}
               onChange={(e) => setForm((f) => ({ ...f, customerPhone: e.target.value }))}
               placeholder="010-0000-0000"
               required
             />
+            <label className="block text-xs text-gray-600 mb-1">보조 연락처 (필수) *</label>
+            <input
+              type="tel"
+              className={inputCls}
+              value={form.customerPhoneSecondary}
+              onChange={(e) => setForm((f) => ({ ...f, customerPhoneSecondary: e.target.value }))}
+              placeholder="예: 배우자, 가족 연락처"
+              required
+            />
           </div>
 
           <div>
-            <label className={labelCls}>4. 평수 (공급 기준) *</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              className={inputCls}
-              value={form.areaPyeong}
-              onChange={(e) => setForm((f) => ({ ...f, areaPyeong: e.target.value }))}
-              placeholder="예: 84"
-            />
-            <p className="text-xs text-gray-500 mt-1">* 복층은 층별 기재</p>
+            <label className={labelCls}>4. 건축물 유형 및 평수 *</label>
+            <p className="text-xs font-medium text-gray-700 mb-2">건축물 유형 (하나 선택) *</p>
+            <div className={radioGroupCls} role="radiogroup" aria-label="건축물 유형">
+              {PROPERTY_TYPE_OPTIONS.map((o) => (
+                <label key={o.value} className={radioLabelCls}>
+                  <input
+                    type="radio"
+                    name="propertyType"
+                    value={o.value}
+                    checked={form.propertyType === o.value}
+                    onChange={() => setForm((f) => ({ ...f, propertyType: o.value }))}
+                    className="w-4 h-4 border-gray-300 text-gray-800"
+                  />
+                  {o.label}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs font-medium text-gray-700 mt-4 mb-2">평수 기준 (하나 선택) *</p>
+            <div className={radioGroupCls} role="radiogroup" aria-label="평수 기준">
+              {AREA_BASIS_OPTIONS.map((o) => (
+                <label key={o.value} className={radioLabelCls}>
+                  <input
+                    type="radio"
+                    name="areaBasis"
+                    value={o.value}
+                    checked={form.areaBasis === o.value}
+                    onChange={() => setForm((f) => ({ ...f, areaBasis: o.value }))}
+                    className="w-4 h-4 border-gray-300 text-gray-800"
+                  />
+                  {o.label}
+                </label>
+              ))}
+            </div>
+            <label className="block text-xs text-gray-600 mt-4 mb-1">평수 (숫자만 입력) *</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                inputMode="decimal"
+                className={`${inputCls} flex-1`}
+                value={form.areaPyeong}
+                onChange={(e) => setForm((f) => ({ ...f, areaPyeong: e.target.value }))}
+                placeholder="예: 32"
+              />
+              <span className="text-sm text-gray-700 shrink-0">평</span>
+            </div>
+            <p className="text-xs text-gray-600 mt-2 leading-relaxed">
+              반드시 <span className="font-medium">평(坪)</span> 단위로 입력해 주세요. 제곱미터(㎡)가 아닙니다. 복층은 층별로 기재해 주세요.
+            </p>
           </div>
 
           <div>
@@ -363,7 +443,9 @@ export function OrderFormPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
+          <div>
+            <p className={`${labelCls} mb-2`}>8. 방·베란다·화장실·주방</p>
+            <div className="grid grid-cols-4 gap-2">
             <div>
               <label className={labelCls}>방</label>
               <input
@@ -409,9 +491,10 @@ export function OrderFormPage() {
               />
             </div>
           </div>
-          <p className="text-xs text-gray-500">
-            * 최초 견적요청 상이 시 요금 추가 또는 해당 구조 구역 청소 불가
-          </p>
+            <p className="text-xs text-gray-500 mt-2">
+              * 최초 견적요청 상이 시 요금 추가 또는 해당 구조 구역 청소 불가
+            </p>
+          </div>
 
           <div>
             <label className={labelCls}>9. 신축/구축/인테리어 선택 *</label>

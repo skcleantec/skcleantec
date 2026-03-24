@@ -50,9 +50,14 @@ router.patch('/:id', async (req, res) => {
     data: {
       ...(body.customerName != null && { customerName: String(body.customerName) }),
       ...(body.customerPhone != null && { customerPhone: String(body.customerPhone) }),
+      ...(body.customerPhone2 != null && {
+        customerPhone2: body.customerPhone2 ? String(body.customerPhone2) : null,
+      }),
       ...(body.address != null && { address: String(body.address) }),
       ...(body.addressDetail != null && { addressDetail: body.addressDetail ? String(body.addressDetail) : null }),
       ...(body.areaPyeong != null && { areaPyeong: Number(body.areaPyeong) }),
+      ...(body.areaBasis != null && { areaBasis: body.areaBasis ? String(body.areaBasis) : null }),
+      ...(body.propertyType != null && { propertyType: body.propertyType ? String(body.propertyType) : null }),
       ...(body.roomCount != null && { roomCount: Number(body.roomCount) }),
       ...(body.bathroomCount != null && { bathroomCount: Number(body.bathroomCount) }),
       ...(body.balconyCount != null && { balconyCount: Number(body.balconyCount) }),
@@ -77,9 +82,12 @@ router.post('/', async (req, res) => {
     data: {
       customerName: String(body.customerName ?? ''),
       customerPhone: String(body.customerPhone ?? ''),
+      customerPhone2: body.customerPhone2 ? String(body.customerPhone2) : null,
       address: String(body.address ?? ''),
       addressDetail: body.addressDetail ? String(body.addressDetail) : null,
       areaPyeong: body.areaPyeong != null ? Number(body.areaPyeong) : null,
+      areaBasis: body.areaBasis ? String(body.areaBasis) : null,
+      propertyType: body.propertyType ? String(body.propertyType) : null,
       roomCount: body.roomCount != null ? Number(body.roomCount) : null,
       bathroomCount: body.bathroomCount != null ? Number(body.bathroomCount) : null,
       balconyCount: body.balconyCount != null ? Number(body.balconyCount) : null,

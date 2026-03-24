@@ -19,9 +19,12 @@ interface InquiryItem {
   id: string;
   customerName: string;
   customerPhone: string;
+  customerPhone2?: string | null;
   address: string;
   addressDetail: string | null;
   areaPyeong: number | null;
+  areaBasis?: string | null;
+  propertyType?: string | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
@@ -96,6 +99,14 @@ function DetailModal({ item, onClose }: { item: InquiryItem; onClose: () => void
             <a href={`tel:${item.customerPhone}`} className="text-blue-600 underline break-all">
               {item.customerPhone}
             </a>
+            {item.customerPhone2?.trim() && (
+              <div className="mt-1">
+                <span className="text-gray-500 text-xs">보조 </span>
+                <a href={`tel:${item.customerPhone2}`} className="text-blue-600 underline break-all text-sm">
+                  {item.customerPhone2}
+                </a>
+              </div>
+            )}
           </div>
           <div>
             <span className="text-gray-500 block text-xs">주소</span>
@@ -104,11 +115,21 @@ function DetailModal({ item, onClose }: { item: InquiryItem; onClose: () => void
               {item.addressDetail ? ` ${item.addressDetail}` : ''}
             </span>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <div>
               <span className="text-gray-500 block text-xs">평수</span>
-              <span>{item.areaPyeong ?? '-'}</span>
+              <span>
+                {item.areaPyeong != null
+                  ? `${item.areaBasis ? `${item.areaBasis} ` : ''}${item.areaPyeong}평`
+                  : '-'}
+              </span>
             </div>
+            {item.propertyType && (
+              <div>
+                <span className="text-gray-500 block text-xs">건축물 유형</span>
+                <span>{item.propertyType}</span>
+              </div>
+            )}
             <div>
               <span className="text-gray-500 block text-xs">방·화·베</span>
               <span>{formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}</span>

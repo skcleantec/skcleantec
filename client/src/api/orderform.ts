@@ -123,7 +123,10 @@ export async function submitOrderForm(
     address: string;
     addressDetail?: string;
     customerPhone: string;
+    customerPhone2: string;
     areaPyeong: number;
+    areaBasis: string;
+    propertyType: string;
     preferredDate?: string;
     preferredTime?: string;
     preferredTimeDetail?: string | null;

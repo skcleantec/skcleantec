@@ -49,9 +49,12 @@ model Inquiry {
   id              String       @id @default(uuid())
   customerName    String       @map("customer_name")
   customerPhone   String       @map("customer_phone")
+  customerPhone2  String?      @map("customer_phone_2")
   address         String
   addressDetail   String?      @map("address_detail")
   areaPyeong      Float?       @map("area_pyeong")
+  areaBasis       String?      @map("area_basis")
+  propertyType    String?      @map("property_type")
   roomCount       Int?         @map("room_count")
   bathroomCount   Int?         @map("bathroom_count")
   balconyCount    Int?         @map("balcony_count")

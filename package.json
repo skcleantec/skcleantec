@@ -10,7 +10,8 @@
     "db:down": "docker compose down",
     "db:setup": "cd server && npx prisma db push && npm run db:seed",
     "db:studio": "cd server && npx prisma studio",
-    "db:seed": "cd server && npm run db:seed"
+    "db:seed": "cd server && npm run db:seed",
+    "db:check-admin": "cd server && npm run db:check-admin"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

@@ -198,7 +198,10 @@ router.post('/submit/:token', async (req, res) => {
     address: string;
     addressDetail?: string;
     customerPhone: string;
+    customerPhone2: string;
     areaPyeong: number;
+    areaBasis: string;
+    propertyType: string;
     preferredDate: string;
     preferredTime: string;
     preferredTimeDetail?: string | null;
@@ -218,6 +221,21 @@ router.post('/submit/:token', async (req, res) => {
   }
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서입니다.' });
+    return;
+  }
+
+  if (!body.customerPhone2 || !String(body.customerPhone2).trim()) {
+    res.status(400).json({ error: '보조 전화번호를 입력해주세요.' });
+    return;
+  }
+  const areaBasisNorm = String(body.areaBasis || '').trim();
+  if (areaBasisNorm !== '공급' && areaBasisNorm !== '전용') {
+    res.status(400).json({ error: '평수 기준으로 공급 또는 전용을 선택해주세요.' });
+    return;
+  }
+  const propertyTypeNorm = String(body.propertyType || '').trim();
+  if (!propertyTypeNorm) {
+    res.status(400).json({ error: '아파트·오피스텔 등 건축물 유형을 선택해주세요.' });
     return;
   }
 
@@ -259,6 +277,9 @@ router.post('/submit/:token', async (req, res) => {
 
   const memo = [
     `[발주서] 총 ${form.totalAmount.toLocaleString()}원 (예약금 ${form.depositAmount.toLocaleString()}원, 잔금 ${form.balanceAmount.toLocaleString()}원)`,
+    `보조 연락처: ${String(body.customerPhone2).trim()}`,
+    `건축물 유형: ${propertyTypeNorm}`,
+    `평수: ${areaBasisNorm} ${body.areaPyeong}평`,
     form.optionNote ? `추가: ${form.optionNote}` : null,
     `신축/구축/인테리어: ${body.buildingType || '-'}`,
     body.moveInDate ? `이사 날짜: ${body.moveInDate}` : null,
@@ -273,9 +294,12 @@ router.post('/submit/:token', async (req, res) => {
       data: {
         customerName: body.customerName || form.customerName,
         customerPhone: body.customerPhone,
+        customerPhone2: String(body.customerPhone2).trim(),
         address: body.address,
         addressDetail: body.addressDetail || null,
         areaPyeong: body.areaPyeong,
+        areaBasis: areaBasisNorm,
+        propertyType: propertyTypeNorm,
         roomCount: body.roomCount ?? null,
         bathroomCount: body.bathroomCount ?? null,
         balconyCount: body.balconyCount ?? null,

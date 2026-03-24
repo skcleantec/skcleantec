@@ -9,7 +9,7 @@ async function main() {
   // 관리자 (항상 생성/업데이트)
   const admin = await prisma.user.upsert({
     where: { email: 'admin' },
-    update: { passwordHash: hash },
+    update: { passwordHash: hash, isActive: true },
     create: {
       email: 'admin',
       passwordHash: hash,
