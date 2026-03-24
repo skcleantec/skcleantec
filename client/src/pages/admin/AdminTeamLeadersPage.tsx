@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getUsers, createUser, type UserItem } from '../../api/users';
+import { getUsers, createUser, deleteUser, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
 
 type UserRole = 'TEAM_LEADER' | 'MARKETER';
@@ -12,6 +12,7 @@ export function AdminTeamLeadersPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState<'team' | 'marketer' | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -19,10 +20,10 @@ export function AdminTeamLeadersPage() {
     phone: '',
   });
 
-  const refresh = () => {
-    if (!token) return;
+  const refresh = (): Promise<void> => {
+    if (!token) return Promise.resolve();
     setApiError(null);
-    Promise.all([
+    return Promise.all([
       getUsers(token, 'TEAM_LEADER'),
       getUsers(token, 'MARKETER'),
     ])
@@ -61,6 +62,21 @@ export function AdminTeamLeadersPage() {
       alert(err instanceof Error ? err.message : '등록에 실패했습니다.');
     } finally {
       setSubmitLoading(false);
+    }
+  };
+
+  const handleDelete = async (item: UserItem, label: '팀장' | '마케터') => {
+    if (!token) return;
+    const msg = `${label} "${item.name}" (${item.email}) 계정을 삭제(비활성)할까요? 이후 해당 계정으로 로그인할 수 없습니다.`;
+    if (!window.confirm(msg)) return;
+    setDeletingId(item.id);
+    try {
+      await deleteUser(token, item.id);
+      await refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -225,6 +241,7 @@ export function AdminTeamLeadersPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-700">아이디</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">이름</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">연락처</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700 w-24">관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -233,6 +250,16 @@ export function AdminTeamLeadersPage() {
                     <td className="px-4 py-3 text-gray-800">{item.email}</td>
                     <td className="px-4 py-3 text-gray-800">{item.name}</td>
                     <td className="px-4 py-3 text-gray-600">{item.phone || '-'}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        disabled={deletingId === item.id}
+                        onClick={() => handleDelete(item, '팀장')}
+                        className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {deletingId === item.id ? '처리 중…' : '삭제'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -255,6 +282,7 @@ export function AdminTeamLeadersPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-700">아이디</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">이름</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">연락처</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700 w-24">관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -263,6 +291,16 @@ export function AdminTeamLeadersPage() {
                     <td className="px-4 py-3 text-gray-800">{item.email}</td>
                     <td className="px-4 py-3 text-gray-800">{item.name}</td>
                     <td className="px-4 py-3 text-gray-600">{item.phone || '-'}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        disabled={deletingId === item.id}
+                        onClick={() => handleDelete(item, '마케터')}
+                        className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {deletingId === item.id ? '처리 중…' : '삭제'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -61,3 +61,14 @@ export async function createTeamLeader(
 ): Promise<UserItem> {
   return createUser(token, { ...data, role: 'TEAM_LEADER' });
 }
+
+export async function deleteUser(token: string, id: string): Promise<void> {
+  const res = await fetch(`${API}/users/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+}
