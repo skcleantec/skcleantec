@@ -20,15 +20,10 @@ import csRoutes from './modules/cs/cs.routes.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-// Railway 등 리버스 프록시 뒤에서 X-Forwarded-* 신뢰 (HTTPS 판별·리다이렉트용)
+// 리버스 프록시 뒤의 클라이언트 IP 등 (필요 시)
 app.set('trust proxy', 1);
-app.use((req, res, next) => {
-  if (req.headers['x-forwarded-proto'] === 'http') {
-    res.redirect(301, `https://${req.get('host') ?? ''}${req.originalUrl}`);
-    return;
-  }
-  next();
-});
+// HTTPS는 Railway 등에서 종료됩니다. 여기서 http→https를 강제하면 X-Forwarded-Proto/Host
+// 조합에 따라 리다이렉트 루프나 Location 오류(https:///path)로 빈 화면이 날 수 있어 두지 않습니다.
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
@@ -59,12 +54,14 @@ app.get('/api/health', (_req, res) => {
 
 // 프로덕션: React 빌드 (Railway 등에서 cwd·배포 루트에 따라 경로가 달라질 수 있음)
 const clientDistCandidates = [
+  ...(process.env.CLIENT_DIST ? [path.resolve(process.env.CLIENT_DIST)] : []),
   path.join(__dirname, '../../client/dist'),
   path.join(process.cwd(), 'client/dist'),
   path.join(process.cwd(), '../client/dist'),
 ];
 const clientDir = clientDistCandidates.find((d) => fs.existsSync(d));
 if (clientDir) {
+  console.info('[app] client 정적 파일:', clientDir);
   app.use(express.static(clientDir));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
