@@ -2,8 +2,34 @@ import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly } from '../auth/auth.middleware.js';
+import type { AuthPayload } from '../auth/auth.middleware.js';
+import {
+  buildAmountDateChangeLines,
+  buildInquiryPatchData,
+  projectAfterPatch,
+} from './inquiryPatch.helpers.js';
 
 const router = Router();
+
+const inquiryDetailInclude = {
+  assignments: {
+    include: { teamLeader: { select: { id: true, name: true } } },
+  },
+  orderForm: {
+    select: {
+      id: true,
+      totalAmount: true,
+      depositAmount: true,
+      balanceAmount: true,
+      createdBy: { select: { id: true, name: true } },
+    },
+  },
+  changeLogs: {
+    orderBy: { createdAt: 'desc' as const },
+    take: 30,
+    select: { id: true, createdAt: true, lines: true },
+  },
+};
 
 router.use(authMiddleware);
 router.use(adminOnly);
@@ -36,6 +62,11 @@ router.get('/', async (req, res) => {
             createdBy: { select: { id: true, name: true } },
           },
         },
+        changeLogs: {
+          orderBy: { createdAt: 'desc' as const },
+          take: 25,
+          select: { id: true, createdAt: true, lines: true },
+        },
       },
     }),
     prisma.inquiry.count({ where }),
@@ -46,80 +77,46 @@ router.get('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const body = req.body as Record<string, unknown>;
+  const user = (req as unknown as { user: AuthPayload }).user;
   const inquiry = await prisma.inquiry.findUnique({ where: { id } });
   if (!inquiry) {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
-  const updated = await prisma.inquiry.update({
+  const data = buildInquiryPatchData(body);
+  if (Object.keys(data).length === 0) {
+    const unchanged = await prisma.inquiry.findUnique({
+      where: { id },
+      include: inquiryDetailInclude,
+    });
+    res.json(unchanged);
+    return;
+  }
+  const beforeSnap = {
+    preferredDate: inquiry.preferredDate,
+    serviceTotalAmount: inquiry.serviceTotalAmount,
+    serviceDepositAmount: inquiry.serviceDepositAmount,
+    serviceBalanceAmount: inquiry.serviceBalanceAmount,
+  };
+  const afterSnap = projectAfterPatch(inquiry, data);
+  const lines = buildAmountDateChangeLines(beforeSnap, afterSnap);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.inquiry.update({ where: { id }, data });
+    if (lines.length > 0) {
+      await tx.inquiryChangeLog.create({
+        data: {
+          inquiryId: id,
+          actorId: user?.userId ?? null,
+          lines,
+        },
+      });
+    }
+  });
+
+  const updated = await prisma.inquiry.findUnique({
     where: { id },
-    data: {
-      ...(body.customerName != null && { customerName: String(body.customerName) }),
-      ...(body.customerPhone != null && { customerPhone: String(body.customerPhone) }),
-      ...(body.customerPhone2 != null && {
-        customerPhone2: body.customerPhone2 ? String(body.customerPhone2) : null,
-      }),
-      ...(body.address != null && { address: String(body.address) }),
-      ...(body.addressDetail != null && { addressDetail: body.addressDetail ? String(body.addressDetail) : null }),
-      ...(body.areaPyeong != null && { areaPyeong: Number(body.areaPyeong) }),
-      ...(body.areaBasis != null && { areaBasis: body.areaBasis ? String(body.areaBasis) : null }),
-      ...(body.propertyType != null && { propertyType: body.propertyType ? String(body.propertyType) : null }),
-      ...(body.roomCount !== undefined && {
-        roomCount:
-          body.roomCount === null || body.roomCount === '' ? null : Number(body.roomCount),
-      }),
-      ...(body.bathroomCount !== undefined && {
-        bathroomCount:
-          body.bathroomCount === null || body.bathroomCount === '' ? null : Number(body.bathroomCount),
-      }),
-      ...(body.balconyCount !== undefined && {
-        balconyCount:
-          body.balconyCount === null || body.balconyCount === '' ? null : Number(body.balconyCount),
-      }),
-      ...(body.preferredDate != null && {
-        preferredDate: body.preferredDate ? new Date(body.preferredDate as string) : null,
-      }),
-      ...(body.preferredTime != null && { preferredTime: body.preferredTime ? String(body.preferredTime) : null }),
-      ...(body.preferredTimeDetail != null && {
-        preferredTimeDetail: body.preferredTimeDetail ? String(body.preferredTimeDetail) : null,
-      }),
-      ...(body.buildingType !== undefined && {
-        buildingType: body.buildingType ? String(body.buildingType) : null,
-      }),
-      ...(body.moveInDate !== undefined && {
-        moveInDate: body.moveInDate ? new Date(String(body.moveInDate)) : null,
-      }),
-      ...(body.specialNotes !== undefined && {
-        specialNotes: body.specialNotes ? String(body.specialNotes) : null,
-      }),
-      ...(body.kitchenCount !== undefined && {
-        kitchenCount:
-          body.kitchenCount === null || body.kitchenCount === ''
-            ? null
-            : Number(body.kitchenCount),
-      }),
-      ...(body.serviceTotalAmount !== undefined && {
-        serviceTotalAmount:
-          body.serviceTotalAmount === null || body.serviceTotalAmount === ''
-            ? null
-            : Number(body.serviceTotalAmount),
-      }),
-      ...(body.serviceDepositAmount !== undefined && {
-        serviceDepositAmount:
-          body.serviceDepositAmount === null || body.serviceDepositAmount === ''
-            ? null
-            : Number(body.serviceDepositAmount),
-      }),
-      ...(body.serviceBalanceAmount !== undefined && {
-        serviceBalanceAmount:
-          body.serviceBalanceAmount === null || body.serviceBalanceAmount === ''
-            ? null
-            : Number(body.serviceBalanceAmount),
-      }),
-      ...(body.memo != null && { memo: body.memo ? String(body.memo) : null }),
-      ...(body.claimMemo != null && { claimMemo: body.claimMemo ? String(body.claimMemo) : null }),
-      ...(body.status != null && { status: body.status as 'RECEIVED' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'CS_PROCESSING' }),
-    },
+    include: inquiryDetailInclude,
   });
   res.json(updated);
 });

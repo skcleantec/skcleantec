@@ -7,6 +7,8 @@ import { getToken } from '../../stores/auth';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { ORDER_BUILDING_TYPE_OPTIONS, labelForBuildingType } from '../../constants/orderFormBuilding';
+import type { InquiryChangeLogEntry } from '../../api/schedule';
+import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 
 const SOURCE_OPTIONS = ['전화', '웹', '네이버', '인스타', '기타'];
 
@@ -70,6 +72,7 @@ interface InquiryItem {
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;
   serviceBalanceAmount?: number | null;
+  changeLogs?: InquiryChangeLogEntry[];
 }
 
 function effectiveInquiryAmounts(it: InquiryItem) {
@@ -797,6 +800,8 @@ export function AdminInquiriesPage() {
                 )}
               </dl>
             </div>
+
+            <InquiryChangeHistoryBlock logs={editItem.changeLogs} />
 
             {/* 수정 가능 필드 */}
             <div className="space-y-4">

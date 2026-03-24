@@ -4,6 +4,7 @@ import { updateInquiry } from '../../api/inquiries';
 import { assignInquiry } from '../../api/assignments';
 import type { UserItem } from '../../api/users';
 import type { ScheduleItem } from '../../api/schedule';
+import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { ORDER_BUILDING_TYPE_OPTIONS, labelForBuildingType } from '../../constants/orderFormBuilding';
 
@@ -326,6 +327,8 @@ export function ScheduleInquiryDetailModal({
             </div>
           </dl>
         </div>
+
+        <InquiryChangeHistoryBlock logs={item.changeLogs} />
 
         <h3 className="text-sm font-medium text-gray-800 mb-3">수정</h3>
         <div className="space-y-3 text-sm max-h-[50vh] overflow-y-auto pr-1">

@@ -35,6 +35,11 @@ router.get('/', async (req, res) => {
           createdBy: { select: { id: true, name: true } },
         },
       },
+      changeLogs: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 30,
+        select: { id: true, createdAt: true, lines: true },
+      },
     },
   });
 

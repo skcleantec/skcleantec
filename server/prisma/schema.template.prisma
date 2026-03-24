@@ -79,9 +79,24 @@ model Inquiry {
   serviceBalanceAmount Int? @map("service_balance_amount")
   orderFormId  String?       @map("order_form_id")
 
-  orderForm OrderForm? @relation(fields: [orderFormId], references: [id])
+  orderForm   OrderForm?          @relation(fields: [orderFormId], references: [id])
+  changeLogs  InquiryChangeLog[]
 
   @@map("inquiries")
+}
+
+/// 관리자 수정 시 날짜·금액 등 변경 이력 (접수 목록·스케줄에서 조회)
+model InquiryChangeLog {
+  id        String   @id @default(uuid())
+  inquiryId String   @map("inquiry_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  actorId   String?  @map("actor_id")
+  lines     Json
+
+  inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
+  @@index([inquiryId, createdAt(sort: Desc)])
+  @@map("inquiry_change_logs")
 }
 
 model EstimateConfig {

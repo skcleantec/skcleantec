@@ -6,6 +6,12 @@ function headers(token: string) {
   };
 }
 
+export interface InquiryChangeLogEntry {
+  id: string;
+  createdAt: string;
+  lines: unknown;
+}
+
 export interface ScheduleItem {
   id: string;
   customerName: string;
@@ -43,6 +49,7 @@ export interface ScheduleItem {
     createdBy?: { id: string; name: string };
   } | null;
   assignments: Array<{ teamLeader: { id: string; name: string } }>;
+  changeLogs?: InquiryChangeLogEntry[];
 }
 
 export async function getSchedule(

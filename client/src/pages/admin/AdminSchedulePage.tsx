@@ -145,9 +145,14 @@ export function AdminSchedulePage() {
       ) : (
         <>
           {/* 범례 */}
-          <div className="flex gap-4 text-xs text-gray-600">
+          <div className="flex flex-wrap gap-4 text-xs text-gray-600">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 border-2 border-red-500 rounded" /> 빈 배정 있음 (팀장당 오전1·오후1 미충족)
+              <span className="w-3 h-3 border-2 border-red-500 rounded shrink-0" />
+              빈 배정 (미배정 또는 오전·오후 슬롯 부족)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded shrink-0 bg-violet-900" />
+              마감 (휴무 반영 후 근무 팀장 기준 오전·오후 각 1건씩 배정됨)
             </span>
           </div>
 
@@ -176,33 +181,48 @@ export function AdminSchedulePage() {
                 const offCount = dayStats?.offCount ?? 0;
                 const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = dayItems.filter((it) => !it.assignments?.[0]).length;
-                const unassignedTotal = dayStats?.unassignedTotal ?? 0;
                 const hasEvents = dayItems.length > 0;
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
                 const isHoliday = isPublicHoliday(year, month, d);
-                // 팀장당 오전1·오후1 배정 필요. 근무팀장 있으면 빈 배정 있으면 빨간 테두리
                 const hasEmptySlots =
                   workingCount > 0 &&
                   (unassignedCount > 0 || morningCount < workingCount || afternoonCount < workingCount);
-                const dateColor = isHoliday ? 'text-red-600' : isSaturday ? 'text-blue-600' : hasEvents ? 'text-blue-700' : 'text-gray-800';
+                const isSlotFull =
+                  workingCount > 0 &&
+                  morningCount >= workingCount &&
+                  afternoonCount >= workingCount;
+                const dateColor = isSlotFull
+                  ? 'text-amber-200'
+                  : isHoliday
+                    ? 'text-red-600'
+                    : isSaturday
+                      ? 'text-blue-600'
+                      : hasEvents
+                        ? 'text-blue-700'
+                        : 'text-gray-800';
                 return (
                   <div
                     key={key}
                     onClick={() => setSelectedDate(isSelected ? null : key)}
-                    className={`min-h-[68px] p-1 pt-3.5 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
-                      hasEvents ? 'bg-blue-50' : ''
-                    } ${isSelected ? 'ring-2 ring-blue-500 ring-inset' : hasEmptySlots ? 'ring-2 ring-red-500 ring-inset' : 'hover:bg-gray-50'}`}
+                    className={`min-h-[52px] p-1 pt-3.5 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
+                      isSlotFull
+                        ? 'bg-gradient-to-br from-violet-900 to-indigo-950'
+                        : hasEvents
+                          ? 'bg-blue-50'
+                          : ''
+                    } ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-[1]' : ''} ${
+                      !isSelected && hasEmptySlots ? 'ring-2 ring-red-500 ring-inset' : ''
+                    } ${!isSlotFull && !hasEvents ? 'hover:bg-gray-50' : ''}`}
                   >
                     <span className={`absolute top-0.5 left-1 text-[11px] font-semibold ${dateColor}`}>
                       {d}
                     </span>
-                    <div className="text-[10px] text-gray-800 font-medium grid grid-cols-2 gap-x-1 gap-y-0.5 leading-snug mt-3">
-                      <span>오전 {morningCount}</span>
-                      <span>오후 {afternoonCount}</span>
-                      <span>휴무 {offCount}</span>
-                      <span>미배 {unassignedTotal}</span>
-                    </div>
+                    {isSlotFull && (
+                      <span className="absolute bottom-1 left-1 right-1 text-center text-[9px] font-bold text-amber-300 tracking-wide">
+                        마감
+                      </span>
+                    )}
                   </div>
                 );
               })}
