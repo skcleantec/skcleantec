@@ -26,6 +26,15 @@ router.get('/', async (req, res) => {
       assignments: {
         include: { teamLeader: { select: { id: true, name: true } } },
       },
+      orderForm: {
+        select: {
+          id: true,
+          totalAmount: true,
+          depositAmount: true,
+          balanceAmount: true,
+          createdBy: { select: { id: true, name: true } },
+        },
+      },
     },
   });
 

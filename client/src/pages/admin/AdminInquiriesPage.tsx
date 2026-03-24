@@ -19,6 +19,11 @@ function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number |
   return b ? `${b} ${item.areaPyeong}평` : `${item.areaPyeong}평`;
 }
 
+function formatWon(n: number | null | undefined) {
+  if (n == null || Number.isNaN(n)) return '-';
+  return `${n.toLocaleString('ko-KR')}원`;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
   ASSIGNED: '분배완료',
@@ -55,7 +60,24 @@ interface InquiryItem {
   callAttempt?: number | null;
   createdAt: string;
   assignments: Array<{ teamLeader: { id: string; name: string } }>;
-  orderForm?: { createdBy: { id: string; name: string } } | null;
+  orderForm?: {
+    id?: string;
+    totalAmount?: number | null;
+    depositAmount?: number | null;
+    balanceAmount?: number | null;
+    createdBy: { id: string; name: string };
+  } | null;
+  serviceTotalAmount?: number | null;
+  serviceDepositAmount?: number | null;
+  serviceBalanceAmount?: number | null;
+}
+
+function effectiveInquiryAmounts(it: InquiryItem) {
+  return {
+    total: it.serviceTotalAmount ?? it.orderForm?.totalAmount ?? null,
+    deposit: it.serviceDepositAmount ?? it.orderForm?.depositAmount ?? null,
+    balance: it.serviceBalanceAmount ?? it.orderForm?.balanceAmount ?? null,
+  };
 }
 
 export function AdminInquiriesPage() {
@@ -82,6 +104,9 @@ export function AdminInquiriesPage() {
     moveInDate: '',
     specialNotes: '',
     kitchenCount: '',
+    amountTotal: '',
+    amountDeposit: '',
+    amountBalance: '',
   });
   const [claimItem, setClaimItem] = useState<InquiryItem | null>(null);
   const [claimMemo, setClaimMemo] = useState('');
@@ -152,6 +177,7 @@ export function AdminInquiriesPage() {
 
   const openEdit = (item: InquiryItem) => {
     setEditItem(item);
+    const a = effectiveInquiryAmounts(item);
     setEditForm({
       preferredDate: item.preferredDate ? item.preferredDate.slice(0, 10) : '',
       preferredTime: item.preferredTime || '',
@@ -167,6 +193,9 @@ export function AdminInquiriesPage() {
       moveInDate: item.moveInDate ? item.moveInDate.slice(0, 10) : '',
       specialNotes: item.specialNotes || '',
       kitchenCount: item.kitchenCount != null ? String(item.kitchenCount) : '',
+      amountTotal: a.total != null ? String(a.total) : '',
+      amountDeposit: a.deposit != null ? String(a.deposit) : '',
+      amountBalance: a.balance != null ? String(a.balance) : '',
     });
   };
 
@@ -209,6 +238,15 @@ export function AdminInquiriesPage() {
     if (!token || !editItem) return;
     setSaving(true);
     try {
+      const parseWon = (s: string) => {
+        const t = s.replace(/,/g, '').trim();
+        if (t === '') return null;
+        const n = parseInt(t, 10);
+        if (Number.isNaN(n) || n < 0) {
+          throw new Error('금액은 0 이상 정수로 입력해주세요.');
+        }
+        return n;
+      };
       const patch: Record<string, unknown> = {
         preferredDate: editForm.preferredDate || null,
         preferredTime: editForm.preferredTime.trim(),
@@ -221,6 +259,9 @@ export function AdminInquiriesPage() {
         buildingType: editForm.buildingType.trim(),
         moveInDate: editForm.moveInDate.trim(),
         specialNotes: editForm.specialNotes.trim(),
+        serviceTotalAmount: parseWon(editForm.amountTotal),
+        serviceDepositAmount: parseWon(editForm.amountDeposit),
+        serviceBalanceAmount: parseWon(editForm.amountBalance),
       };
       if (editForm.areaPyeong.trim() !== '') {
         patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
@@ -698,6 +739,32 @@ export function AdminInquiriesPage() {
                   <dt className="text-gray-500">이사 날짜 (선택사항)</dt>
                   <dd>{editItem.moveInDate ? formatDate(editItem.moveInDate) : '-'}</dd>
                 </div>
+                {(() => {
+                  const a = effectiveInquiryAmounts(editItem);
+                  const fromOrderFormOnly =
+                    editItem.serviceTotalAmount == null &&
+                    editItem.serviceDepositAmount == null &&
+                    editItem.serviceBalanceAmount == null &&
+                    editItem.orderForm &&
+                    (editItem.orderForm.totalAmount != null ||
+                      editItem.orderForm.depositAmount != null ||
+                      editItem.orderForm.balanceAmount != null);
+                  return (
+                    <div>
+                      <dt className="text-gray-500">금액 (정산용)</dt>
+                      <dd>
+                        <div>총액: {formatWon(a.total)}</div>
+                        <div>예약금: {formatWon(a.deposit)}</div>
+                        <div>잔금: {formatWon(a.balance)}</div>
+                        {fromOrderFormOnly && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            발주서 금액을 표시 중입니다. 아래에서 저장하면 접수 건에 고정됩니다.
+                          </p>
+                        )}
+                      </dd>
+                    </div>
+                  );
+                })()}
                 <div>
                   <dt className="text-gray-500">출처</dt>
                   <dd>{editItem.source ?? '-'}</dd>
@@ -733,6 +800,39 @@ export function AdminInquiriesPage() {
 
             {/* 수정 가능 필드 */}
             <div className="space-y-4">
+              <div className="p-3 bg-amber-50 border border-amber-100 rounded text-xs text-amber-900">
+                정산·내역 출력용 금액(원). 비우면 해당 항목은 비움 처리됩니다.
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">총액 (원)</label>
+                <input
+                  value={editForm.amountTotal}
+                  onChange={(e) => setEditForm((p) => ({ ...p, amountTotal: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="예: 500000"
+                  inputMode="numeric"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">예약금 (원)</label>
+                <input
+                  value={editForm.amountDeposit}
+                  onChange={(e) => setEditForm((p) => ({ ...p, amountDeposit: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="예: 100000"
+                  inputMode="numeric"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">잔금 (원)</label>
+                <input
+                  value={editForm.amountBalance}
+                  onChange={(e) => setEditForm((p) => ({ ...p, amountBalance: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="예: 400000"
+                  inputMode="numeric"
+                />
+              </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">보조 연락처</label>
                 <input

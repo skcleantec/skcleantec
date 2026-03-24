@@ -73,6 +73,10 @@ model Inquiry {
   moveInDate   DateTime?     @map("move_in_date")
   specialNotes String?       @map("special_notes")
   kitchenCount Int?          @map("kitchen_count")
+  /// 정산·스케줄용 금액(발주서 연동 시 자동 입력, 개별 접수는 관리자 입력)
+  serviceTotalAmount   Int? @map("service_total_amount")
+  serviceDepositAmount Int? @map("service_deposit_amount")
+  serviceBalanceAmount Int? @map("service_balance_amount")
   orderFormId  String?       @map("order_form_id")
 
   orderForm OrderForm? @relation(fields: [orderFormId], references: [id])

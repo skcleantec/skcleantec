@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getSchedule, type ScheduleItem } from '../../api/schedule';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
+import { getTeamLeaders, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
+import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
@@ -38,6 +41,12 @@ function formatRoomInfo(r: number | null, b: number | null, v: number | null) {
   return parts.length ? parts.join(' ') : '-';
 }
 
+function scheduleAmountLine(item: ScheduleItem): string | null {
+  const total = item.serviceTotalAmount ?? item.orderForm?.totalAmount;
+  if (total == null) return null;
+  return `총액 ${total.toLocaleString()}원`;
+}
+
 function getCalendarDays(year: number, month: number) {
   const first = new Date(year, month - 1, 1);
   const last = new Date(year, month, 0);
@@ -53,78 +62,6 @@ function getCalendarDays(year: number, month: number) {
   return days;
 }
 
-function DetailModal({ item, onClose }: { item: ScheduleItem; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">상세 내역</h2>
-        <div className="flex flex-col gap-3 text-sm">
-          <div>
-            <span className="text-gray-500 block text-xs">고객명</span>
-            <span className="font-medium text-gray-900">{item.customerName}</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block text-xs">연락처</span>
-            <span className="text-gray-800 break-all">{item.customerPhone}</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block text-xs">주소</span>
-            <span className="text-gray-800 break-words">
-              {item.address}
-              {item.addressDetail ? ` ${item.addressDetail}` : ''}
-            </span>
-          </div>
-          <div className="flex gap-4">
-            <div>
-              <span className="text-gray-500 block text-xs">평수</span>
-              <span>{item.areaPyeong ?? '-'}</span>
-            </div>
-            <div>
-              <span className="text-gray-500 block text-xs">방·화·베</span>
-              <span>{formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}</span>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div>
-              <span className="text-gray-500 block text-xs">예약일</span>
-              <span>{item.preferredDate ? new Date(item.preferredDate).toLocaleDateString('ko-KR') : '-'}</span>
-            </div>
-            <div>
-              <span className="text-gray-500 block text-xs">희망 시간</span>
-              <span>{item.preferredTime || '-'}</span>
-            </div>
-          </div>
-          <div>
-            <span className="text-gray-500 block text-xs">담당</span>
-            <span>{item.assignments[0]?.teamLeader?.name ?? '미배정'}</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block text-xs">상태</span>
-            <span className="px-2 py-0.5 rounded text-xs bg-gray-200">
-              {STATUS_LABELS[item.status] ?? item.status}
-            </span>
-          </div>
-          {item.claimMemo && (
-            <div>
-              <span className="text-gray-500 block text-xs">C/S 내용</span>
-              <span className="text-gray-800 break-words">{item.claimMemo}</span>
-            </div>
-          )}
-        </div>
-        <button
-          onClick={onClose}
-          className="mt-6 w-full py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
-        >
-          닫기
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export function AdminSchedulePage() {
   const token = getToken();
   const now = new Date();
@@ -135,25 +72,40 @@ export function AdminSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<ScheduleItem | null>(null);
+  const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
+
+  const fetchMonthData = useCallback(
+    (showLoading: boolean) => {
+      if (!token) return Promise.resolve();
+      if (showLoading) setLoading(true);
+      const { start, end } = getMonthRange(year, month);
+      return Promise.all([
+        getSchedule(token, start, end),
+        getScheduleStats(token, start, end),
+      ])
+        .then(([scheduleRes, statsRes]) => {
+          setItems(scheduleRes.items);
+          setStats(statsRes.byDate);
+        })
+        .catch(() => {
+          setItems([]);
+          setStats({});
+        })
+        .finally(() => {
+          if (showLoading) setLoading(false);
+        });
+    },
+    [token, year, month]
+  );
+
+  useEffect(() => {
+    fetchMonthData(true);
+  }, [fetchMonthData]);
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
-    const { start, end } = getMonthRange(year, month);
-    Promise.all([
-      getSchedule(token, start, end),
-      getScheduleStats(token, start, end),
-    ])
-      .then(([scheduleRes, statsRes]) => {
-        setItems(scheduleRes.items);
-        setStats(statsRes.byDate);
-      })
-      .catch(() => {
-        setItems([]);
-        setStats({});
-      })
-      .finally(() => setLoading(false));
-  }, [token, year, month]);
+    getTeamLeaders(token).then(setTeamLeaders).catch(() => setTeamLeaders([]));
+  }, [token]);
 
   const byDate = items.reduce<Record<string, ScheduleItem[]>>((acc, item) => {
     const key = item.preferredDate ? item.preferredDate.slice(0, 10) : 'no-date';
@@ -346,22 +298,28 @@ export function AdminSchedulePage() {
               )}
 
               <div className="flex flex-col gap-2">
-                {(byDate[selectedDate] ?? []).map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setDetailItem(item)}
-                    className="text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex flex-col gap-1"
-                  >
-                    <span className="font-medium text-gray-900">{item.customerName}</span>
-                    <span className="text-xs text-gray-600 truncate">
-                      {item.address}
-                      {item.addressDetail ? ` ${item.addressDetail}` : ''}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {item.preferredTime || '-'} · {item.assignments[0]?.teamLeader?.name ?? '미배정'}
-                    </span>
-                  </button>
-                ))}
+                {(byDate[selectedDate] ?? []).map((item) => {
+                  const amtLine = scheduleAmountLine(item);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setDetailItem(item)}
+                      className="text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex flex-col gap-1"
+                    >
+                      <span className="font-medium text-gray-900">{item.customerName}</span>
+                      <span className="text-xs text-gray-600 truncate">
+                        {item.address}
+                        {item.addressDetail ? ` ${item.addressDetail}` : ''}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {item.preferredTime ? labelForTimeSlot(item.preferredTime) : '-'} ·{' '}
+                        {item.assignments[0]?.teamLeader?.name ?? '미배정'}
+                      </span>
+                      {amtLine && <span className="text-xs font-medium text-gray-800">{amtLine}</span>}
+                    </button>
+                  );
+                })}
               </div>
               {(byDate[selectedDate]?.length ?? 0) === 0 && (
                 <div className="text-center text-gray-500 py-6 text-sm">
@@ -373,8 +331,14 @@ export function AdminSchedulePage() {
         </>
       )}
 
-      {detailItem && (
-        <DetailModal item={detailItem} onClose={() => setDetailItem(null)} />
+      {detailItem && token && (
+        <ScheduleInquiryDetailModal
+          token={token}
+          item={detailItem}
+          teamLeaders={teamLeaders}
+          onClose={() => setDetailItem(null)}
+          onSaved={() => fetchMonthData(false)}
+        />
       )}
     </div>
   );

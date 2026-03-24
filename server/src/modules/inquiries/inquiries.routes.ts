@@ -28,7 +28,13 @@ router.get('/', async (req, res) => {
           include: { teamLeader: { select: { id: true, name: true } } },
         },
         orderForm: {
-          select: { createdBy: { select: { id: true, name: true } } },
+          select: {
+            id: true,
+            totalAmount: true,
+            depositAmount: true,
+            balanceAmount: true,
+            createdBy: { select: { id: true, name: true } },
+          },
         },
       },
     }),
@@ -58,9 +64,18 @@ router.patch('/:id', async (req, res) => {
       ...(body.areaPyeong != null && { areaPyeong: Number(body.areaPyeong) }),
       ...(body.areaBasis != null && { areaBasis: body.areaBasis ? String(body.areaBasis) : null }),
       ...(body.propertyType != null && { propertyType: body.propertyType ? String(body.propertyType) : null }),
-      ...(body.roomCount != null && { roomCount: Number(body.roomCount) }),
-      ...(body.bathroomCount != null && { bathroomCount: Number(body.bathroomCount) }),
-      ...(body.balconyCount != null && { balconyCount: Number(body.balconyCount) }),
+      ...(body.roomCount !== undefined && {
+        roomCount:
+          body.roomCount === null || body.roomCount === '' ? null : Number(body.roomCount),
+      }),
+      ...(body.bathroomCount !== undefined && {
+        bathroomCount:
+          body.bathroomCount === null || body.bathroomCount === '' ? null : Number(body.bathroomCount),
+      }),
+      ...(body.balconyCount !== undefined && {
+        balconyCount:
+          body.balconyCount === null || body.balconyCount === '' ? null : Number(body.balconyCount),
+      }),
       ...(body.preferredDate != null && {
         preferredDate: body.preferredDate ? new Date(body.preferredDate as string) : null,
       }),
@@ -82,6 +97,24 @@ router.patch('/:id', async (req, res) => {
           body.kitchenCount === null || body.kitchenCount === ''
             ? null
             : Number(body.kitchenCount),
+      }),
+      ...(body.serviceTotalAmount !== undefined && {
+        serviceTotalAmount:
+          body.serviceTotalAmount === null || body.serviceTotalAmount === ''
+            ? null
+            : Number(body.serviceTotalAmount),
+      }),
+      ...(body.serviceDepositAmount !== undefined && {
+        serviceDepositAmount:
+          body.serviceDepositAmount === null || body.serviceDepositAmount === ''
+            ? null
+            : Number(body.serviceDepositAmount),
+      }),
+      ...(body.serviceBalanceAmount !== undefined && {
+        serviceBalanceAmount:
+          body.serviceBalanceAmount === null || body.serviceBalanceAmount === ''
+            ? null
+            : Number(body.serviceBalanceAmount),
       }),
       ...(body.memo != null && { memo: body.memo ? String(body.memo) : null }),
       ...(body.claimMemo != null && { claimMemo: body.claimMemo ? String(body.claimMemo) : null }),
