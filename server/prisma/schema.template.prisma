@@ -55,8 +55,9 @@ model Inquiry {
   roomCount       Int?         @map("room_count")
   bathroomCount   Int?         @map("bathroom_count")
   balconyCount    Int?         @map("balcony_count")
-  preferredDate   DateTime?    @map("preferred_date")
-  preferredTime   String?      @map("preferred_time")
+  preferredDate       DateTime? @map("preferred_date")
+  preferredTime       String?   @map("preferred_time")
+  preferredTimeDetail String?   @map("preferred_time_detail")
   callAttempt     Int?         @map("call_attempt")
   memo            String?
   claimMemo       String?       @map("claim_memo")
@@ -133,8 +134,9 @@ model OrderForm {
   depositAmount   Int      @default(20000) @map("deposit_amount")
   balanceAmount   Int      @map("balance_amount")
   optionNote      String?  @map("option_note")
-  preferredDate   String?  @map("preferred_date")   // YYYY-MM-DD, 관리자 설정
-  preferredTime   String?  @map("preferred_time")  // 오전/오후, 관리자 설정
+  preferredDate       String?  @map("preferred_date")   // YYYY-MM-DD, 관리자 설정
+  preferredTime       String?  @map("preferred_time")    // 오전/오후/사이청소
+  preferredTimeDetail String?  @map("preferred_time_detail") // 구체적 시각 (선택)
   createdById     String   @map("created_by_id")
   createdAt       DateTime @default(now()) @map("created_at")
   submittedAt     DateTime? @map("submitted_at")

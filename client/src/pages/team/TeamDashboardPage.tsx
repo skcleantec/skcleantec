@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getTeamInquiries } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
 import { isPublicHoliday } from '../../utils/holidays';
+import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
@@ -26,11 +27,18 @@ interface InquiryItem {
   balconyCount: number | null;
   preferredDate: string | null;
   preferredTime: string | null;
+  preferredTimeDetail?: string | null;
   status: string;
   memo: string | null;
   claimMemo: string | null;
   createdAt: string;
   assignments: Array<{ teamLeader: { id: string; name: string } }>;
+}
+
+function formatScheduleLine(item: InquiryItem) {
+  const slot = item.preferredTime ? labelForTimeSlot(item.preferredTime) : '시간 미정';
+  const d = item.preferredTimeDetail?.trim();
+  return d ? `${slot} (${d})` : slot;
 }
 
 function formatRoomInfo(r: number | null, b: number | null, v: number | null) {
@@ -113,7 +121,7 @@ function DetailModal({ item, onClose }: { item: InquiryItem; onClose: () => void
             </div>
             <div>
               <span className="text-gray-500 block text-xs">희망 시간</span>
-              <span>{item.preferredTime || '-'}</span>
+              <span>{formatScheduleLine(item)}</span>
             </div>
           </div>
           <div>
@@ -234,7 +242,7 @@ export function TeamDashboardPage() {
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold text-gray-900">{item.customerName}</div>
                     <div className="text-sm text-gray-700 mt-0.5">
-                      {item.preferredTime || '시간 미정'} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} · {item.areaPyeong ?? '-'}평
+                      {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} · {item.areaPyeong ?? '-'}평
                     </div>
                     <div className="text-xs text-gray-600 mt-1 truncate">
                       {item.address}
@@ -293,7 +301,7 @@ export function TeamDashboardPage() {
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-gray-900 truncate">{item.customerName}</div>
                           <div className="text-xs text-gray-500 truncate">
-                            {item.preferredTime || '-'} · {item.address}
+                            {formatScheduleLine(item)} · {item.address}
                             {item.addressDetail ? ` ${item.addressDetail}` : ''}
                           </div>
                         </div>
@@ -405,7 +413,7 @@ export function TeamDashboardPage() {
                             {item.addressDetail ? ` ${item.addressDetail}` : ''}
                           </div>
                           <div className="text-xs text-gray-500 mt-0.5">
-                            {item.preferredTime || '-'} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} · {item.areaPyeong ?? '-'}평
+                            {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} · {item.areaPyeong ?? '-'}평
                           </div>
                         </div>
                         <a

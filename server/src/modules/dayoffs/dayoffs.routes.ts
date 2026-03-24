@@ -141,7 +141,10 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
 
     const isMorning = (a: (typeof dayAssignments)[0]) => {
       const t = a.inquiry.preferredTime || '';
-      return t.includes('오전') || (!t.includes('오후') && (parseInt(t, 10) || 24) < 12);
+      if (t.includes('사이청소')) return false;
+      if (t.includes('오전')) return true;
+      if (t.includes('오후')) return false;
+      return (parseInt(t, 10) || 24) < 12;
     };
     const morningAssignments = dayAssignments.filter(isMorning);
     const afternoonAssignments = dayAssignments.filter((a) => !isMorning(a));

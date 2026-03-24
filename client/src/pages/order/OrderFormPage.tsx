@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getOrderFormByToken, submitOrderForm } from '../../api/orderform';
 import { AddressSearch } from '../../components/forms/AddressSearch';
+import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
 
 const BUILDING_TYPES = [
   { value: '신축', label: '신축 (5년 이하)' },
@@ -21,6 +22,7 @@ export function OrderFormPage() {
     areaPyeong: string;
     preferredDate: string;
     preferredTime: string;
+    preferredTimeDetail: string;
     roomCount: string;
     balconyCount: string;
     bathroomCount: string;
@@ -36,6 +38,7 @@ export function OrderFormPage() {
     areaPyeong: '',
     preferredDate: '',
     preferredTime: '오전',
+    preferredTimeDetail: '',
     roomCount: '',
     balconyCount: '',
     bathroomCount: '',
@@ -52,6 +55,7 @@ export function OrderFormPage() {
     optionNote: string | null;
     preferredDate: string | null;
     preferredTime: string | null;
+    preferredTimeDetail: string | null;
     formConfig?: {
       formTitle?: string;
       priceLabel?: string | null;
@@ -80,6 +84,7 @@ export function OrderFormPage() {
           optionNote: data.optionNote,
           preferredDate: data.preferredDate ?? null,
           preferredTime: data.preferredTime ?? null,
+          preferredTimeDetail: data.preferredTimeDetail ?? null,
           formConfig: data.formConfig,
         });
         setForm((f) => ({
@@ -87,6 +92,7 @@ export function OrderFormPage() {
           customerName: data.customerName,
           preferredDate: data.preferredDate ?? '',
           preferredTime: data.preferredTime ?? '오전',
+          preferredTimeDetail: data.preferredTimeDetail ?? '',
         }));
         setError(null);
       })
@@ -104,9 +110,18 @@ export function OrderFormPage() {
       if (!form.address?.trim()) throw new Error('주소를 검색해주세요.');
       if (!form.customerPhone?.trim()) throw new Error('전화번호를 입력해주세요.');
       if (isNaN(area) || area <= 0) throw new Error('평수를 입력해주세요.');
-      const useDate = order?.preferredDate || form.preferredDate;
-      const useTime = order?.preferredTime || form.preferredTime;
+      const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
+      const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
+      const useDate = scheduleLockedByAdmin
+        ? order!.preferredDate!.trim()
+        : form.preferredDate.trim();
+      const useTime = scheduleLockedByAdmin
+        ? (order!.preferredTime?.trim() || form.preferredTime)
+        : form.preferredTime;
       if (!useDate || !useTime) throw new Error('청소 날짜와 시간을 확인해주세요.');
+      const useTimeDetail = detailLockedByAdmin
+        ? order!.preferredTimeDetail!.trim()
+        : form.preferredTimeDetail.trim() || undefined;
       if (!form.buildingType) throw new Error('신축/구축/인테리어를 선택해주세요.');
       if (!agreeToTerms) throw new Error('고객 정보처리 동의 및 안내사항에 동의해 주세요.');
 
@@ -118,6 +133,7 @@ export function OrderFormPage() {
         areaPyeong: area,
         preferredDate: useDate,
         preferredTime: useTime,
+        preferredTimeDetail: useTimeDetail ?? null,
         roomCount: form.roomCount ? parseInt(form.roomCount, 10) : undefined,
         balconyCount: form.balconyCount ? parseInt(form.balconyCount, 10) : undefined,
         bathroomCount: form.bathroomCount ? parseInt(form.bathroomCount, 10) : undefined,
@@ -181,6 +197,8 @@ export function OrderFormPage() {
 
   const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded text-sm';
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
+  const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
+  const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -271,9 +289,9 @@ export function OrderFormPage() {
 
           <div>
             <label className={labelCls}>5. 청소 날짜 *</label>
-            {order?.preferredDate ? (
+            {scheduleLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
-                {order.preferredDate} (고정됨)
+                {order!.preferredDate} <span className="text-gray-500">(관리자 지정·수정 불가)</span>
               </div>
             ) : (
               <input
@@ -287,10 +305,11 @@ export function OrderFormPage() {
           </div>
 
           <div>
-            <label className={labelCls}>6. 오전 or 오후 선택 *</label>
-            {order?.preferredTime ? (
+            <label className={labelCls}>6. 시간대 선택 *</label>
+            {scheduleLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
-                {order.preferredTime} (고정됨)
+                {labelForTimeSlot(order!.preferredTime)}{' '}
+                <span className="text-gray-500">(관리자 지정·수정 불가)</span>
               </div>
             ) : (
               <select
@@ -298,11 +317,50 @@ export function OrderFormPage() {
                 value={form.preferredTime}
                 onChange={(e) => setForm((f) => ({ ...f, preferredTime: e.target.value }))}
               >
-                <option value="오전">오전 (8시~12시)</option>
-                <option value="오후">오후 (12시~4시)</option>
+                {ORDER_TIME_SLOT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             )}
             <p className="text-xs text-gray-500 mt-1">* 청소 중 이사 들어오는 스케줄, 서비스 불가</p>
+          </div>
+
+          <div>
+            <label className={labelCls}>7. 구체적 시각 (선택)</label>
+            {detailLockedByAdmin ? (
+              <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
+                {order!.preferredTimeDetail}{' '}
+                <span className="text-gray-500">(관리자 지정·수정 불가)</span>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={form.preferredTimeDetail}
+                  onChange={(e) => setForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))}
+                  placeholder="예: 10:30, 오전 10시"
+                />
+                <input
+                  type="time"
+                  className={`${inputCls} mt-2`}
+                  aria-label="시·분 선택 (선택)"
+                  value={
+                    /^([01]\d|2[0-3]):[0-5]\d$/.test(form.preferredTimeDetail.trim())
+                      ? form.preferredTimeDetail.trim()
+                      : ''
+                  }
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))
+                  }
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  위에 직접 입력하거나, 아래에서 시·분만 고를 수 있습니다. 비워 두셔도 됩니다.
+                </p>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-4 gap-2">
@@ -356,7 +414,7 @@ export function OrderFormPage() {
           </p>
 
           <div>
-            <label className={labelCls}>8. 신축/구축/인테리어 선택 *</label>
+            <label className={labelCls}>9. 신축/구축/인테리어 선택 *</label>
             <select
               className={inputCls}
               value={form.buildingType}
@@ -374,7 +432,7 @@ export function OrderFormPage() {
           </div>
 
           <div>
-            <label className={labelCls}>9. 이사 날짜</label>
+            <label className={labelCls}>10. 이사 날짜</label>
             <input
               type="date"
               className={inputCls}
@@ -385,7 +443,7 @@ export function OrderFormPage() {
           </div>
 
           <div>
-            <label className={labelCls}>10. 특이사항</label>
+            <label className={labelCls}>11. 특이사항</label>
             <textarea
               className={`${inputCls} min-h-[80px]`}
               value={form.specialNotes}

@@ -29,6 +29,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     optionNote,
     preferredDate,
     preferredTime,
+    preferredTimeDetail,
   } = req.body as {
     customerName: string;
     totalAmount: number;
@@ -37,6 +38,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     optionNote?: string;
     preferredDate?: string;
     preferredTime?: string;
+    preferredTimeDetail?: string;
   };
   if (!customerName?.trim()) {
     res.status(400).json({ error: '고객명을 입력해주세요.' });
@@ -59,6 +61,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
       optionNote: optionNote?.trim() || null,
       preferredDate: preferredDate?.trim() || null,
       preferredTime: preferredTime?.trim() || null,
+      preferredTimeDetail: preferredTimeDetail?.trim() || null,
       createdById: userId,
     },
   });
@@ -171,6 +174,7 @@ router.get('/by-token/:token', async (req, res) => {
     optionNote: form.optionNote,
     preferredDate: form.preferredDate,
     preferredTime: form.preferredTime,
+    preferredTimeDetail: form.preferredTimeDetail,
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
     formConfig: {
       formTitle: formConfig.formTitle,
@@ -197,6 +201,7 @@ router.post('/submit/:token', async (req, res) => {
     areaPyeong: number;
     preferredDate: string;
     preferredTime: string;
+    preferredTimeDetail?: string | null;
     roomCount?: number;
     balconyCount?: number;
     bathroomCount?: number;
@@ -216,10 +221,38 @@ router.post('/submit/:token', async (req, res) => {
     return;
   }
 
-  // 관리자가 설정한 날짜/시간 우선, 없으면 고객 입력값 사용 (하위 호환)
-  const useDate = form.preferredDate || body.preferredDate;
-  const useTime = form.preferredTime || body.preferredTime;
-  const preferredDate = useDate ? new Date(useDate + 'T12:00:00') : null;
+  // 관리자가 발급 시 날짜를 넣었으면 그 날짜는 고객이 바꿀 수 없음(본문 무시). 미지정이면 고객 입력 사용.
+  const adminDateLocked = Boolean(form.preferredDate && String(form.preferredDate).trim());
+  let useDateStr: string;
+  let useTimeStr: string;
+  if (adminDateLocked) {
+    useDateStr = String(form.preferredDate).trim();
+    useTimeStr =
+      (form.preferredTime && String(form.preferredTime).trim()) ||
+      (body.preferredTime && String(body.preferredTime).trim()) ||
+      '';
+  } else {
+    useDateStr = (body.preferredDate && String(body.preferredDate).trim()) || '';
+    useTimeStr =
+      (body.preferredTime && String(body.preferredTime).trim()) ||
+      (form.preferredTime && String(form.preferredTime).trim()) ||
+      '';
+  }
+  if (!useDateStr || !useTimeStr) {
+    res.status(400).json({ error: '청소 날짜와 시간을 입력해주세요.' });
+    return;
+  }
+
+  const adminDetailLocked = Boolean(
+    form.preferredTimeDetail && String(form.preferredTimeDetail).trim()
+  );
+  const useDetailStr = adminDetailLocked
+    ? String(form.preferredTimeDetail).trim()
+    : body.preferredTimeDetail != null && String(body.preferredTimeDetail).trim()
+      ? String(body.preferredTimeDetail).trim()
+      : null;
+
+  const preferredDate = new Date(useDateStr + 'T12:00:00');
   const moveInDate = body.moveInDate
     ? new Date(body.moveInDate + 'T12:00:00')
     : null;
@@ -230,6 +263,7 @@ router.post('/submit/:token', async (req, res) => {
     `신축/구축/인테리어: ${body.buildingType || '-'}`,
     body.moveInDate ? `이사 날짜: ${body.moveInDate}` : null,
     body.specialNotes ? `특이사항: ${body.specialNotes}` : null,
+    useDetailStr ? `희망 시각: ${useDetailStr}` : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -247,7 +281,8 @@ router.post('/submit/:token', async (req, res) => {
         balconyCount: body.balconyCount ?? null,
         kitchenCount: body.kitchenCount ?? null,
         preferredDate,
-        preferredTime: useTime || null,
+        preferredTime: useTimeStr,
+        preferredTimeDetail: useDetailStr,
         memo,
         buildingType: body.buildingType || null,
         moveInDate,

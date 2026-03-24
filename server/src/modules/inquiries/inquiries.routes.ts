@@ -60,6 +60,9 @@ router.patch('/:id', async (req, res) => {
         preferredDate: body.preferredDate ? new Date(body.preferredDate as string) : null,
       }),
       ...(body.preferredTime != null && { preferredTime: body.preferredTime ? String(body.preferredTime) : null }),
+      ...(body.preferredTimeDetail != null && {
+        preferredTimeDetail: body.preferredTimeDetail ? String(body.preferredTimeDetail) : null,
+      }),
       ...(body.memo != null && { memo: body.memo ? String(body.memo) : null }),
       ...(body.claimMemo != null && { claimMemo: body.claimMemo ? String(body.claimMemo) : null }),
       ...(body.status != null && { status: body.status as 'RECEIVED' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'CS_PROCESSING' }),
@@ -82,6 +85,7 @@ router.post('/', async (req, res) => {
       balconyCount: body.balconyCount != null ? Number(body.balconyCount) : null,
       preferredDate: body.preferredDate ? new Date(body.preferredDate as string) : null,
       preferredTime: body.preferredTime ? String(body.preferredTime) : null,
+      preferredTimeDetail: body.preferredTimeDetail ? String(body.preferredTimeDetail) : null,
       callAttempt: body.callAttempt != null ? Number(body.callAttempt) : null,
       memo: body.memo ? String(body.memo) : null,
       source: body.source ? String(body.source) : '전화',

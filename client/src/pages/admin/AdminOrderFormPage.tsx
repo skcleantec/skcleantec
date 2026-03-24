@@ -17,6 +17,7 @@ import {
   type OrderFormConfigPublic,
 } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
+import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 
 type Tab = 'config' | 'messages' | 'issue' | 'list';
 
@@ -37,6 +38,7 @@ export function AdminOrderFormPage() {
     optionNote: '',
     preferredDate: '',
     preferredTime: '오전',
+    preferredTimeDetail: '',
   });
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   const [issueLoading, setIssueLoading] = useState(false);
@@ -210,6 +212,15 @@ export function AdminOrderFormPage() {
     }
   };
 
+  const addToTotalAmount = (delta: number) => {
+    setIssueForm((f) => {
+      const raw = f.totalAmount.replace(/,/g, '').trim();
+      const n = parseInt(raw, 10);
+      const base = Number.isFinite(n) && !Number.isNaN(n) ? n : 0;
+      return { ...f, totalAmount: String(base + delta) };
+    });
+  };
+
   const handleIssue = async () => {
     if (!token) return;
     const total = parseInt(issueForm.totalAmount.replace(/,/g, ''), 10);
@@ -234,9 +245,19 @@ export function AdminOrderFormPage() {
         optionNote: issueForm.optionNote.trim() || undefined,
         preferredDate: issueForm.preferredDate.trim() || undefined,
         preferredTime: issueForm.preferredDate.trim() ? issueForm.preferredTime : undefined,
+        preferredTimeDetail: issueForm.preferredTimeDetail.trim() || undefined,
       });
       setNewOrder(order);
-      setIssueForm({ ...issueForm, customerName: '', totalAmount: '', balanceAmount: '', optionNote: '', preferredDate: '', preferredTime: '오전' });
+      setIssueForm({
+        ...issueForm,
+        customerName: '',
+        totalAmount: '',
+        balanceAmount: '',
+        optionNote: '',
+        preferredDate: '',
+        preferredTime: '오전',
+        preferredTimeDetail: '',
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : '발급 실패');
     } finally {
@@ -265,7 +286,13 @@ export function AdminOrderFormPage() {
 ${reviewText}`;
 
     if (order.preferredDate && order.preferredTime) {
-      msg += `\n청소일시: ${order.preferredDate} (${order.preferredTime})`;
+      const slotLabel =
+        ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === order.preferredTime)?.label ??
+        order.preferredTime;
+      msg += `\n청소일시: ${order.preferredDate} (${slotLabel})`;
+    }
+    if (order.preferredTimeDetail?.trim()) {
+      msg += `\n희망 시각: ${order.preferredTimeDetail.trim()}`;
     }
     if (order.optionNote) {
       msg += `\n${order.optionNote}`;
@@ -570,11 +597,35 @@ ${footer2}`;
               <label className="block text-sm text-gray-600 mb-1">총 금액 (원) *</label>
               <input
                 type="text"
+                inputMode="numeric"
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                 placeholder="150000"
                 value={issueForm.totalAmount}
                 onChange={(e) => setIssueForm((f) => ({ ...f, totalAmount: e.target.value }))}
               />
+              <div className="flex flex-wrap gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => addToTotalAmount(1_000)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-800 hover:bg-gray-50"
+                >
+                  +천원
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addToTotalAmount(10_000)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-800 hover:bg-gray-50"
+                >
+                  +만원
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addToTotalAmount(100_000)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-800 hover:bg-gray-50"
+                >
+                  +십만원
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-sm text-gray-600 mb-1">예약금 (원)</label>
@@ -604,17 +655,40 @@ ${footer2}`;
                 value={issueForm.preferredDate}
                 onChange={(e) => setIssueForm((f) => ({ ...f, preferredDate: e.target.value }))}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                비워 두면 고객이 발주서에서 날짜·오전/오후를 직접 선택합니다. 지정하면 고객은 수정할 수 없습니다.
+              </p>
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">오전/오후</label>
+              <label className="block text-sm text-gray-600 mb-1">시간대</label>
               <select
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                 value={issueForm.preferredTime}
                 onChange={(e) => setIssueForm((f) => ({ ...f, preferredTime: e.target.value }))}
+                disabled={!issueForm.preferredDate.trim()}
               >
-                <option value="오전">오전 (8시~12시)</option>
-                <option value="오후">오후 (12시~4시)</option>
+                {ORDER_TIME_SLOT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
+              {!issueForm.preferredDate.trim() && (
+                <p className="text-xs text-gray-500 mt-1">날짜를 먼저 선택하면 함께 저장됩니다. (날짜 미지정 시 고객이 선택)</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">구체적 시각 (선택)</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                placeholder="예: 10:30, 오전 10시"
+                value={issueForm.preferredTimeDetail}
+                onChange={(e) => setIssueForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                입력 시 고객 발주서에서 수정할 수 없습니다. 비우면 고객이 직접 적을 수 있습니다.
+              </p>
             </div>
             <div>
               <label className="block text-sm text-gray-600 mb-1">추가 사항</label>

@@ -17,6 +17,7 @@ export interface OrderForm {
   optionNote: string | null;
   preferredDate: string | null;
   preferredTime: string | null;
+  preferredTimeDetail: string | null;
   createdAt: string;
   submittedAt: string | null;
 }
@@ -43,6 +44,7 @@ export interface OrderFormPublic {
   optionNote: string | null;
   preferredDate: string | null;
   preferredTime: string | null;
+  preferredTimeDetail: string | null;
   options: Array<{ name: string; extraAmount: number }>;
   formConfig?: OrderFormConfigPublic;
 }
@@ -65,6 +67,7 @@ export async function createOrderForm(
     optionNote?: string;
     preferredDate?: string;
     preferredTime?: string;
+    preferredTimeDetail?: string;
   }
 ): Promise<OrderForm> {
   const res = await fetch(`${API}/orderforms`, {
@@ -123,6 +126,7 @@ export async function submitOrderForm(
     areaPyeong: number;
     preferredDate?: string;
     preferredTime?: string;
+    preferredTimeDetail?: string | null;
     roomCount?: number;
     balconyCount?: number;
     bathroomCount?: number;
