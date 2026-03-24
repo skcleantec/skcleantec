@@ -25,10 +25,17 @@ function getMonthRange(year: number, month: number) {
   };
 }
 
-function scheduleAmountLine(item: ScheduleItem): string | null {
-  const total = item.serviceTotalAmount ?? item.orderForm?.totalAmount;
-  if (total == null) return null;
-  return `총액 ${total.toLocaleString()}원`;
+/** 접수 정산 필드 우선, 없으면 발주서 금액 (발주서 상단 블록과 동일한 표기) */
+function effectiveScheduleAmounts(item: ScheduleItem) {
+  return {
+    total: item.serviceTotalAmount ?? item.orderForm?.totalAmount ?? null,
+    deposit: item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null,
+    balance: item.serviceBalanceAmount ?? item.orderForm?.balanceAmount ?? null,
+  };
+}
+
+function hasScheduleAmountDisplay(a: ReturnType<typeof effectiveScheduleAmounts>) {
+  return a.total != null || a.deposit != null || a.balance != null;
 }
 
 function getCalendarDays(year: number, month: number) {
@@ -283,7 +290,8 @@ export function AdminSchedulePage() {
 
               <div className="flex flex-col gap-2">
                 {(byDate[selectedDate] ?? []).map((item) => {
-                  const amtLine = scheduleAmountLine(item);
+                  const amt = effectiveScheduleAmounts(item);
+                  const showAmt = hasScheduleAmountDisplay(amt);
                   return (
                     <button
                       key={item.id}
@@ -291,6 +299,17 @@ export function AdminSchedulePage() {
                       onClick={() => setDetailItem(item)}
                       className="text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex flex-col gap-1"
                     >
+                      {showAmt && (
+                        <div className="mb-1 pb-2 border-b border-gray-100">
+                          <p className="text-sm font-medium text-gray-900">
+                            총 금액 {(amt.total ?? 0).toLocaleString()}원
+                          </p>
+                          <p className="text-xs text-gray-600 mt-0.5">
+                            잔금 {(amt.balance ?? 0).toLocaleString()}원, 예약금{' '}
+                            {(amt.deposit ?? 0).toLocaleString()}원
+                          </p>
+                        </div>
+                      )}
                       <span className="font-medium text-gray-900">{item.customerName}</span>
                       <span className="text-xs text-gray-600 truncate">
                         {item.address}
@@ -300,7 +319,6 @@ export function AdminSchedulePage() {
                         {item.preferredTime ? labelForTimeSlot(item.preferredTime) : '-'} ·{' '}
                         {item.assignments[0]?.teamLeader?.name ?? '미배정'}
                       </span>
-                      {amtLine && <span className="text-xs font-medium text-gray-800">{amtLine}</span>}
                     </button>
                   );
                 })}
