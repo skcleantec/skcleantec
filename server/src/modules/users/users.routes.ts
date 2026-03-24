@@ -57,6 +57,75 @@ router.post('/', async (req, res) => {
   res.status(201).json(user);
 });
 
+router.patch('/:id', async (req, res) => {
+  const { id } = req.params;
+  const body = req.body as {
+    email?: string;
+    name?: string;
+    phone?: string | null;
+    password?: string;
+  };
+  const existing = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, role: true, email: true },
+  });
+  if (!existing || (existing.role !== 'TEAM_LEADER' && existing.role !== 'MARKETER')) {
+    res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const data: {
+    email?: string;
+    name?: string;
+    phone?: string | null;
+    passwordHash?: string;
+  } = {};
+  if (body.name != null) {
+    const name = String(body.name).trim();
+    if (!name) {
+      res.status(400).json({ error: '이름을 입력해주세요.' });
+      return;
+    }
+    data.name = name;
+  }
+  if (body.phone !== undefined) {
+    data.phone = body.phone ? String(body.phone).trim() : null;
+  }
+  if (body.password != null && String(body.password).trim() !== '') {
+    data.passwordHash = await bcrypt.hash(String(body.password).trim(), 10);
+  }
+  if (body.email != null) {
+    const newEmail = String(body.email).trim().toLowerCase();
+    if (!newEmail) {
+      res.status(400).json({ error: '아이디를 입력해주세요.' });
+      return;
+    }
+    if (newEmail !== existing.email.toLowerCase()) {
+      const taken = await prisma.user.findFirst({
+        where: { email: newEmail, NOT: { id } },
+      });
+      if (taken) {
+        res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
+        return;
+      }
+      data.email = newEmail;
+    }
+  }
+  if (Object.keys(data).length === 0) {
+    const u = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, name: true, phone: true, role: true },
+    });
+    res.json(u);
+    return;
+  }
+  const updated = await prisma.user.update({
+    where: { id },
+    data,
+    select: { id: true, email: true, name: true, phone: true, role: true },
+  });
+  res.json(updated);
+});
+
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   const user = await prisma.user.findUnique({

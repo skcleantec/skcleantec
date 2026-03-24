@@ -62,6 +62,29 @@ export async function createTeamLeader(
   return createUser(token, { ...data, role: 'TEAM_LEADER' });
 }
 
+export async function updateUser(
+  token: string,
+  id: string,
+  data: {
+    email?: string;
+    name?: string;
+    phone?: string | null;
+    /** 비우면 비밀번호는 그대로 둡니다. */
+    password?: string;
+  }
+): Promise<UserItem> {
+  const res = await fetch(`${API}/users/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '수정에 실패했습니다.');
+  }
+  return res.json();
+}
+
 export async function deleteUser(token: string, id: string): Promise<void> {
   const res = await fetch(`${API}/users/${encodeURIComponent(id)}`, {
     method: 'DELETE',

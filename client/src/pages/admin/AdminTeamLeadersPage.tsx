@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getUsers, createUser, deleteUser, type UserItem } from '../../api/users';
+import { createPortal } from 'react-dom';
+import { getUsers, createUser, updateUser, deleteUser, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
 
 type UserRole = 'TEAM_LEADER' | 'MARKETER';
@@ -13,6 +14,14 @@ export function AdminTeamLeadersPage() {
   const [showForm, setShowForm] = useState<'team' | 'marketer' | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
+  const [editForm, setEditForm] = useState({
+    email: '',
+    name: '',
+    phone: '',
+    password: '',
+  });
+  const [editLoading, setEditLoading] = useState(false);
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -62,6 +71,44 @@ export function AdminTeamLeadersPage() {
       alert(err instanceof Error ? err.message : '등록에 실패했습니다.');
     } finally {
       setSubmitLoading(false);
+    }
+  };
+
+  const openEdit = (item: UserItem) => {
+    setEditingUser(item);
+    setEditForm({
+      email: item.email,
+      name: item.name,
+      phone: item.phone ?? '',
+      password: '',
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editingUser) return;
+    setEditLoading(true);
+    try {
+      const payload: {
+        email: string;
+        name: string;
+        phone: string | null;
+        password?: string;
+      } = {
+        email: editForm.email.trim().toLowerCase(),
+        name: editForm.name.trim(),
+        phone: editForm.phone.trim() || null,
+      };
+      if (editForm.password.trim()) {
+        payload.password = editForm.password.trim();
+      }
+      await updateUser(token, editingUser.id, payload);
+      setEditingUser(null);
+      refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '수정에 실패했습니다.');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -250,7 +297,14 @@ export function AdminTeamLeadersPage() {
                     <td className="px-4 py-3 text-gray-800">{item.email}</td>
                     <td className="px-4 py-3 text-gray-800">{item.name}</td>
                     <td className="px-4 py-3 text-gray-600">{item.phone || '-'}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(item)}
+                        className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
+                      >
+                        수정
+                      </button>
                       <button
                         type="button"
                         disabled={deletingId === item.id}
@@ -291,7 +345,14 @@ export function AdminTeamLeadersPage() {
                     <td className="px-4 py-3 text-gray-800">{item.email}</td>
                     <td className="px-4 py-3 text-gray-800">{item.name}</td>
                     <td className="px-4 py-3 text-gray-600">{item.phone || '-'}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(item)}
+                        className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
+                      >
+                        수정
+                      </button>
                       <button
                         type="button"
                         disabled={deletingId === item.id}
@@ -308,6 +369,83 @@ export function AdminTeamLeadersPage() {
           )}
         </div>
       </div>
+
+      {editingUser &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] overflow-y-auto overscroll-y-contain bg-black/40 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="user-edit-title"
+          >
+            <div className="mx-auto mt-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+              <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800 mb-1">
+                사용자 수정
+              </h2>
+              <p className="text-xs text-gray-500 mb-4">
+                역할: {editingUser.role === 'MARKETER' ? '마케터' : '팀장'} · 새 비밀번호는 변경할 때만 입력
+              </p>
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">아이디 (로그인용)</label>
+                  <input
+                    value={editForm.email}
+                    onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    required
+                    autoComplete="username"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">이름</label>
+                  <input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">연락처 (선택)</label>
+                  <input
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    placeholder="010-0000-0000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">새 비밀번호 (선택)</label>
+                  <input
+                    type="password"
+                    value={editForm.password}
+                    onChange={(e) => setEditForm((p) => ({ ...p, password: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    placeholder="비우면 기존 비밀번호 유지"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={editLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {editLoading ? '저장 중…' : '저장'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingUser(null)}
+                    className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
+                  >
+                    취소
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
