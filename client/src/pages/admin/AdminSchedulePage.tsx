@@ -171,7 +171,7 @@ export function AdminSchedulePage() {
               ))}
               {calendarDays.map((d, i) => {
                 if (d === null) {
-                  return <div key={`empty-${i}`} className="min-h-[68px] bg-gray-50" />;
+                  return <div key={`empty-${i}`} className="min-h-[72px] bg-gray-50" />;
                 }
                 const key = getDateKey(d);
                 const dayItems = byDate[key] || [];
@@ -200,11 +200,12 @@ export function AdminSchedulePage() {
                       : hasEvents
                         ? 'text-blue-700'
                         : 'text-gray-800';
+                const countTextCls = isSlotFull ? 'text-amber-100' : 'text-gray-700';
                 return (
                   <div
                     key={key}
                     onClick={() => setSelectedDate(isSelected ? null : key)}
-                    className={`min-h-[52px] p-1 pt-3.5 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
+                    className={`min-h-[72px] p-1 pt-3.5 pb-5 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
                       isSlotFull
                         ? 'bg-gradient-to-br from-violet-900 to-indigo-950'
                         : hasEvents
@@ -217,8 +218,14 @@ export function AdminSchedulePage() {
                     <span className={`absolute top-0.5 left-1 text-[11px] font-semibold ${dateColor}`}>
                       {d}
                     </span>
+                    <div
+                      className={`mt-3 text-[10px] font-medium grid grid-cols-2 gap-x-1 gap-y-0.5 leading-snug ${countTextCls}`}
+                    >
+                      <span>오전 {morningCount}</span>
+                      <span>오후 {afternoonCount}</span>
+                    </div>
                     {isSlotFull && (
-                      <span className="absolute bottom-1 left-1 right-1 text-center text-[9px] font-bold text-amber-300 tracking-wide">
+                      <span className="absolute bottom-0.5 left-0 right-0 text-center text-[9px] font-bold text-amber-300 tracking-wide">
                         마감
                       </span>
                     )}
