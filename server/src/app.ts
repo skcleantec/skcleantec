@@ -20,6 +20,16 @@ import csRoutes from './modules/cs/cs.routes.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
+// Railway 등 리버스 프록시 뒤에서 X-Forwarded-* 신뢰 (HTTPS 판별·리다이렉트용)
+app.set('trust proxy', 1);
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] === 'http') {
+    res.redirect(301, `https://${req.get('host') ?? ''}${req.originalUrl}`);
+    return;
+  }
+  next();
+});
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
@@ -47,13 +57,32 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
-// 프로덕션: React 빌드 결과 서빙 (Railway 등)
-// client/dist가 있으면 SPA 폴백 (NODE_ENV 무관 - Railway에서 유연하게)
-const clientDir = path.join(__dirname, '../../client/dist');
-if (fs.existsSync(clientDir)) {
+// 프로덕션: React 빌드 (Railway 등에서 cwd·배포 루트에 따라 경로가 달라질 수 있음)
+const clientDistCandidates = [
+  path.join(__dirname, '../../client/dist'),
+  path.join(process.cwd(), 'client/dist'),
+  path.join(process.cwd(), '../client/dist'),
+];
+const clientDir = clientDistCandidates.find((d) => fs.existsSync(d));
+if (clientDir) {
   app.use(express.static(clientDir));
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(clientDir, 'index.html'));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(clientDir, 'index.html'), (err) => {
+      if (err) next(err);
+    });
+  });
+} else {
+  console.warn(
+    '[app] client/dist 없음. 시도한 경로:',
+    clientDistCandidates.join(' | '),
+    '| cwd=',
+    process.cwd()
+  );
+  app.get('/', (_req, res) => {
+    res.status(503).type('html').send(
+      '<p>프론트 빌드(client/dist)가 없습니다. Railway Root Directory를 저장소 루트로 두고, 빌드에 <code>npm run build</code>(루트)가 포함되는지 확인하세요.</p>'
+    );
   });
 }
 
