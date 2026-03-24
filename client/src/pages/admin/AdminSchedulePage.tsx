@@ -178,7 +178,6 @@ export function AdminSchedulePage() {
                 const dayStats = stats[key];
                 const morningCount = dayStats?.morningCount ?? 0;
                 const afternoonCount = dayStats?.afternoonCount ?? 0;
-                const offCount = dayStats?.offCount ?? 0;
                 const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = dayItems.filter((it) => !it.assignments?.[0]).length;
                 const hasEvents = dayItems.length > 0;
