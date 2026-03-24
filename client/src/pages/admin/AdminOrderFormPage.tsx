@@ -18,8 +18,33 @@ import {
 } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
+import {
+  ORDER_FORM_CONFIG_DEFAULTS,
+  orderFormConfigLine,
+} from '../../constants/orderFormConfigDefaults';
 
 type Tab = 'config' | 'messages' | 'issue' | 'list';
+
+type FormMsgDefaultKey = keyof typeof ORDER_FORM_CONFIG_DEFAULTS;
+
+function withDefaultText(raw: string | null | undefined, key: FormMsgDefaultKey): string {
+  return orderFormConfigLine(raw, ORDER_FORM_CONFIG_DEFAULTS[key]);
+}
+
+/** API 응답을 편집용 상태로: 비어 있는 항목은 기본 문구로 채워 placeholder 없이 바로 수정 가능 */
+function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): OrderFormConfigPublic {
+  return {
+    formTitle: withDefaultText(c.formTitle, 'formTitle'),
+    priceLabel: withDefaultText(c.priceLabel, 'priceLabel'),
+    reviewEventText: withDefaultText(c.reviewEventText, 'reviewEventText'),
+    footerNotice1: withDefaultText(c.footerNotice1, 'footerNotice1'),
+    footerNotice2: withDefaultText(c.footerNotice2, 'footerNotice2'),
+    infoContent: c.infoContent?.trim() ?? '',
+    infoLinkText: withDefaultText(c.infoLinkText, 'infoLinkText'),
+    submitSuccessTitle: withDefaultText(c.submitSuccessTitle, 'submitSuccessTitle'),
+    submitSuccessBody: withDefaultText(c.submitSuccessBody, 'submitSuccessBody'),
+  };
+}
 
 export function AdminOrderFormPage() {
   const token = getToken();
@@ -49,18 +74,20 @@ export function AdminOrderFormPage() {
   const [newOptionAmount, setNewOptionAmount] = useState('');
   const [configSaving, setConfigSaving] = useState(false);
 
-  // 폼 메시지 설정
-  const [msgConfig, setMsgConfig] = useState<OrderFormConfigPublic>({
-    formTitle: '',
-    priceLabel: '',
-    reviewEventText: '',
-    footerNotice1: '',
-    footerNotice2: '',
-    infoContent: '',
-    infoLinkText: '',
-    submitSuccessTitle: '',
-    submitSuccessBody: '',
-  });
+  // 폼 메시지 설정 (빈 API와 동일하게 기본 문구로 채워 두어 첫 화면부터 실제 문구가 보임)
+  const [msgConfig, setMsgConfig] = useState<OrderFormConfigPublic>(() =>
+    normalizeMsgConfigForEditor({
+      formTitle: '',
+      priceLabel: '',
+      reviewEventText: '',
+      footerNotice1: '',
+      footerNotice2: '',
+      infoContent: '',
+      infoLinkText: '',
+      submitSuccessTitle: '',
+      submitSuccessBody: '',
+    })
+  );
   const [msgSaving, setMsgSaving] = useState(false);
 
   const refreshConfig = () => {
@@ -89,30 +116,24 @@ export function AdminOrderFormPage() {
 
   const refreshMsgConfig = () => {
     if (!token) return;
-    getFormConfig(token).then((c) => setMsgConfig({
-      formTitle: c.formTitle ?? '',
-      priceLabel: c.priceLabel ?? '',
-      reviewEventText: c.reviewEventText ?? '',
-      footerNotice1: c.footerNotice1 ?? '',
-      footerNotice2: c.footerNotice2 ?? '',
-      infoContent: c.infoContent ?? '',
-      infoLinkText: c.infoLinkText ?? '',
-      submitSuccessTitle: c.submitSuccessTitle ?? '',
-      submitSuccessBody: c.submitSuccessBody ?? '',
-    })).catch(() => {
-      setError('폼 메시지를 불러올 수 없습니다. 기본값으로 편집 가능합니다.');
-      setMsgConfig({
-        formTitle: 'SK클린텍 입주청소 발주서',
-        priceLabel: '(특가)',
-        reviewEventText: '* 리뷰 별5점 이벤트 참여, 1만원 입금',
-        footerNotice1: '‼️ 청소 전일 저녁, 담당 팀장 연락 드림',
-        footerNotice2: '❌ 연락 없을 시, 본사 확인 요청 필',
-        infoContent: '',
-        infoLinkText: '안내사항',
-        submitSuccessTitle: '제출이 완료되었습니다.',
-        submitSuccessBody: '청소 전일 저녁, 담당 팀장이 연락드립니다.',
+    getFormConfig(token)
+      .then((c) => setMsgConfig(normalizeMsgConfigForEditor(c)))
+      .catch(() => {
+        setError('폼 메시지를 불러올 수 없습니다. 기본값으로 편집 가능합니다.');
+        setMsgConfig(
+          normalizeMsgConfigForEditor({
+            formTitle: '',
+            priceLabel: '',
+            reviewEventText: '',
+            footerNotice1: '',
+            footerNotice2: '',
+            infoContent: '',
+            infoLinkText: '',
+            submitSuccessTitle: '',
+            submitSuccessBody: '',
+          })
+        );
       });
-    });
   };
 
   useEffect(() => {
@@ -273,11 +294,11 @@ export function AdminOrderFormPage() {
   const getOrderMessage = (order: OrderForm) => {
     const link = getOrderLink(order.token);
     const csLink = getCsLink();
-    const title = msgConfig.formTitle || 'SK클린텍 입주청소 발주서';
-    const priceLabel = msgConfig.priceLabel || '(특가)';
-    const reviewText = msgConfig.reviewEventText || '* 리뷰 별5점 이벤트 참여, 1만원 입금';
-    const footer1 = msgConfig.footerNotice1 || '‼️ 청소 전일 저녁, 담당 팀장 연락 드림';
-    const footer2 = msgConfig.footerNotice2 || '❌ 연락 없을 시, 본사 확인 요청 필';
+    const title = withDefaultText(msgConfig.formTitle, 'formTitle');
+    const priceLabel = withDefaultText(msgConfig.priceLabel, 'priceLabel');
+    const reviewText = withDefaultText(msgConfig.reviewEventText, 'reviewEventText');
+    const footer1 = withDefaultText(msgConfig.footerNotice1, 'footerNotice1');
+    const footer2 = withDefaultText(msgConfig.footerNotice2, 'footerNotice2');
 
     let msg = `${title}
 
@@ -455,8 +476,7 @@ ${footer2}`;
                 <label className="block text-sm text-gray-600 mb-1">폼 제목</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="SK클린텍 입주청소 발주서"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
                   value={msgConfig.formTitle}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, formTitle: e.target.value }))}
                 />
@@ -465,8 +485,7 @@ ${footer2}`;
                 <label className="block text-sm text-gray-600 mb-1">금액 라벨 (예: 특가)</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="(특가)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
                   value={msgConfig.priceLabel ?? ''}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, priceLabel: e.target.value }))}
                 />
@@ -475,8 +494,7 @@ ${footer2}`;
                 <label className="block text-sm text-gray-600 mb-1">리뷰 이벤트 문구</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="* 리뷰 별5점 이벤트 참여, 1만원 입금"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
                   value={msgConfig.reviewEventText ?? ''}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, reviewEventText: e.target.value }))}
                 />
@@ -485,8 +503,7 @@ ${footer2}`;
                 <label className="block text-sm text-gray-600 mb-1">안내 문구 1</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="‼️ 청소 전일 저녁, 담당 팀장 연락 드림"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
                   value={msgConfig.footerNotice1 ?? ''}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, footerNotice1: e.target.value }))}
                 />
@@ -495,8 +512,7 @@ ${footer2}`;
                 <label className="block text-sm text-gray-600 mb-1">안내 문구 2</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="❌ 연락 없을 시, 본사 확인 요청 필"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
                   value={msgConfig.footerNotice2 ?? ''}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, footerNotice2: e.target.value }))}
                 />
@@ -505,8 +521,7 @@ ${footer2}`;
                 <label className="block text-sm text-gray-600 mb-1">안내사항 (클릭 시 모달로 표시, 비우면 고객에게 안 보임)</label>
                 <textarea
                   rows={5}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="안내사항 내용을 입력하세요. 고객이 '안내사항'을 클릭하면 이 내용이 모달로 표시됩니다."
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
                   value={msgConfig.infoContent ?? ''}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, infoContent: e.target.value }))}
                 />
@@ -515,8 +530,7 @@ ${footer2}`;
                 <label className="block text-sm text-gray-600 mb-1">안내사항 버튼 텍스트 (작게 표시됨)</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="안내사항"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
                   value={msgConfig.infoLinkText ?? ''}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, infoLinkText: e.target.value }))}
                 />
@@ -525,8 +539,7 @@ ${footer2}`;
                 <label className="block text-sm text-gray-600 mb-1">제출 완료 제목</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="제출이 완료되었습니다."
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
                   value={msgConfig.submitSuccessTitle ?? ''}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, submitSuccessTitle: e.target.value }))}
                 />
@@ -535,8 +548,7 @@ ${footer2}`;
                 <label className="block text-sm text-gray-600 mb-1">제출 완료 안내</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="청소 전일 저녁, 담당 팀장이 연락드립니다."
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
                   value={msgConfig.submitSuccessBody ?? ''}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, submitSuccessBody: e.target.value }))}
                 />
@@ -556,20 +568,18 @@ ${footer2}`;
             <h2 className="text-base font-medium text-gray-900 mb-3">미리보기</h2>
             <div className="bg-white p-4 rounded border border-gray-200 text-sm max-w-md">
               <h3 className="font-semibold text-gray-900 mb-2">
-                {msgConfig.formTitle || 'SK클린텍 입주청소 발주서'}
+                {withDefaultText(msgConfig.formTitle, 'formTitle')}
               </h3>
               <p className="font-medium text-gray-900">
-                총 금액 150,000원 {msgConfig.priceLabel || '(특가)'}
+                총 금액 150,000원 {withDefaultText(msgConfig.priceLabel, 'priceLabel')}
               </p>
               <p className="text-gray-600 mt-1">잔금 130,000원, 예약금 20,000원</p>
-              {(msgConfig.reviewEventText || '* 리뷰 별5점 이벤트 참여, 1만원 입금') && (
-                <p className="text-gray-500 text-xs mt-1">
-                  {msgConfig.reviewEventText || '* 리뷰 별5점 이벤트 참여, 1만원 입금'}
-                </p>
-              )}
-              <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
-                <p>{msgConfig.footerNotice1 || '‼️ 청소 전일 저녁, 담당 팀장 연락 드림'}</p>
-                <p>{msgConfig.footerNotice2 || '❌ 연락 없을 시, 본사 확인 요청 필'}</p>
+              <p className="text-gray-800 text-xs mt-1">
+                {withDefaultText(msgConfig.reviewEventText, 'reviewEventText')}
+              </p>
+              <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-700">
+                <p>{withDefaultText(msgConfig.footerNotice1, 'footerNotice1')}</p>
+                <p>{withDefaultText(msgConfig.footerNotice2, 'footerNotice2')}</p>
                 {msgConfig.infoContent && (
                   <p className="text-gray-500 mt-2">안내사항: {msgConfig.infoContent.slice(0, 50)}...</p>
                 )}

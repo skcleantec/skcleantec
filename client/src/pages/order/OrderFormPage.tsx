@@ -3,6 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { getOrderFormByToken, submitOrderForm } from '../../api/orderform';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
+import {
+  ORDER_FORM_CONFIG_DEFAULTS,
+  orderFormConfigLine,
+} from '../../constants/orderFormConfigDefaults';
 
 const BUILDING_TYPES = [
   { value: '신축', label: '신축 (5년 이하)' },
@@ -209,8 +213,14 @@ export function OrderFormPage() {
   }
 
   if (submitted) {
-    const successTitle = order?.formConfig?.submitSuccessTitle ?? '제출이 완료되었습니다.';
-    const successBody = order?.formConfig?.submitSuccessBody ?? '청소 전일 저녁, 담당 팀장이 연락드립니다.';
+    const successTitle = orderFormConfigLine(
+      order?.formConfig?.submitSuccessTitle,
+      ORDER_FORM_CONFIG_DEFAULTS.submitSuccessTitle
+    );
+    const successBody = orderFormConfigLine(
+      order?.formConfig?.submitSuccessBody,
+      ORDER_FORM_CONFIG_DEFAULTS.submitSuccessBody
+    );
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative">
         <div className="absolute top-4 right-4"><CloseButton /></div>
@@ -236,21 +246,24 @@ export function OrderFormPage() {
           <CloseButton />
         </div>
         <h1 className="text-lg font-semibold text-gray-900 mb-1">
-          {order?.formConfig?.formTitle ?? 'SK클린텍 입주청소 발주서'}
+          {orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle)}
         </h1>
         {order && (
           <div className="mb-6 p-4 bg-white border border-gray-200 rounded text-sm">
             <p className="font-medium text-gray-900">
-              총 금액 {order.totalAmount.toLocaleString()}원 {order.formConfig?.priceLabel ?? '(특가)'}
+              총 금액 {(order.totalAmount ?? 0).toLocaleString()}원{' '}
+              {orderFormConfigLine(order.formConfig?.priceLabel, ORDER_FORM_CONFIG_DEFAULTS.priceLabel)}
             </p>
             <p className="text-gray-600 mt-1">
-              잔금 {order.balanceAmount.toLocaleString()}원, 예약금 {order.depositAmount.toLocaleString()}원
+              잔금 {(order.balanceAmount ?? 0).toLocaleString()}원, 예약금{' '}
+              {(order.depositAmount ?? 0).toLocaleString()}원
             </p>
-            {(order.formConfig?.reviewEventText ?? '* 리뷰 별5점 이벤트 참여, 1만원 입금') && (
-              <p className="text-gray-500 text-xs mt-1">
-                {order.formConfig?.reviewEventText ?? '* 리뷰 별5점 이벤트 참여, 1만원 입금'}
-              </p>
-            )}
+            <p className="text-gray-600 text-xs mt-1">
+              {orderFormConfigLine(
+                order.formConfig?.reviewEventText,
+                ORDER_FORM_CONFIG_DEFAULTS.reviewEventText
+              )}
+            </p>
             {order.optionNote && (
               <p className="text-gray-600 mt-2">추가: {order.optionNote}</p>
             )}
@@ -570,8 +583,18 @@ export function OrderFormPage() {
         </form>
 
         <div className="text-xs text-gray-500 mt-8 text-center">
-          <p>{order?.formConfig?.footerNotice1 ?? '‼️ 청소 전일 저녁, 담당 팀장 연락 드림'}</p>
-          <p>{order?.formConfig?.footerNotice2 ?? '❌ 연락 없을 시, 본사 확인 요청 필'}</p>
+          <p>
+            {orderFormConfigLine(
+              order?.formConfig?.footerNotice1,
+              ORDER_FORM_CONFIG_DEFAULTS.footerNotice1
+            )}
+          </p>
+          <p>
+            {orderFormConfigLine(
+              order?.formConfig?.footerNotice2,
+              ORDER_FORM_CONFIG_DEFAULTS.footerNotice2
+            )}
+          </p>
         </div>
       </div>
     </div>

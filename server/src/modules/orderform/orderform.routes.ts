@@ -82,6 +82,39 @@ const DEFAULT_FORM_CONFIG = {
   updatedAt: new Date().toISOString(),
 };
 
+type FormConfigRow = {
+  formTitle: string;
+  priceLabel: string | null;
+  reviewEventText: string | null;
+  footerNotice1: string | null;
+  footerNotice2: string | null;
+  infoContent: string | null;
+  infoLinkText: string | null;
+  submitSuccessTitle: string | null;
+  submitSuccessBody: string | null;
+};
+
+/** 고객용: DB에 ""·null이 있어도 기본 문구로 내려줌 (클라이언트 ?? 만으로는 빈 문자열이 남음) */
+function resolvedPublicFormConfig(row: FormConfigRow) {
+  const d = DEFAULT_FORM_CONFIG;
+  const line = (v: string | null | undefined, def: string) => {
+    const t = v != null ? String(v).trim() : '';
+    return t || def;
+  };
+  const infoTrimmed = row.infoContent != null ? String(row.infoContent).trim() : '';
+  return {
+    formTitle: line(row.formTitle, d.formTitle),
+    priceLabel: line(row.priceLabel, d.priceLabel),
+    reviewEventText: line(row.reviewEventText, d.reviewEventText),
+    footerNotice1: line(row.footerNotice1, d.footerNotice1),
+    footerNotice2: line(row.footerNotice2, d.footerNotice2),
+    infoContent: infoTrimmed || null,
+    infoLinkText: line(row.infoLinkText, d.infoLinkText),
+    submitSuccessTitle: line(row.submitSuccessTitle, d.submitSuccessTitle),
+    submitSuccessBody: line(row.submitSuccessBody, d.submitSuccessBody),
+  };
+}
+
 /** 관리자/마케터: 폼 메시지 설정 조회 (by-token보다 먼저 선언) */
 router.get('/form-config', authMiddleware, adminOrMarketer, async (_req, res) => {
   try {
@@ -176,17 +209,7 @@ router.get('/by-token/:token', async (req, res) => {
     preferredTime: form.preferredTime,
     preferredTimeDetail: form.preferredTimeDetail,
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
-    formConfig: {
-      formTitle: formConfig.formTitle,
-      priceLabel: formConfig.priceLabel,
-      reviewEventText: formConfig.reviewEventText,
-      footerNotice1: formConfig.footerNotice1,
-      footerNotice2: formConfig.footerNotice2,
-      infoContent: formConfig.infoContent,
-      infoLinkText: formConfig.infoLinkText,
-      submitSuccessTitle: formConfig.submitSuccessTitle,
-      submitSuccessBody: formConfig.submitSuccessBody,
-    },
+    formConfig: resolvedPublicFormConfig(formConfig),
   });
 });
 

@@ -4,8 +4,27 @@ import { assignInquiry } from '../../api/assignments';
 import { getTeamLeaders, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
 import { AddressSearch } from '../../components/forms/AddressSearch';
+import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 
 const SOURCE_OPTIONS = ['전화', '웹', '네이버', '인스타', '기타'];
+
+const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
+const AREA_BASIS_EDIT = ['공급', '전용'] as const;
+
+function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number | null }) {
+  if (item.areaPyeong == null) return '-';
+  const b = item.areaBasis?.trim();
+  return b ? `${b} ${item.areaPyeong}평` : `${item.areaPyeong}평`;
+}
+
+function formatPreferredSchedule(item: {
+  preferredTime?: string | null;
+  preferredTimeDetail?: string | null;
+}) {
+  const slot = item.preferredTime ? labelForTimeSlot(item.preferredTime) : '-';
+  const d = item.preferredTimeDetail?.trim();
+  return d ? `${slot} · ${d}` : slot;
+}
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
@@ -20,15 +39,19 @@ interface InquiryItem {
   id: string;
   customerName: string;
   customerPhone: string;
+  customerPhone2?: string | null;
   address: string;
   addressDetail: string | null;
   areaPyeong: number | null;
+  areaBasis?: string | null;
+  propertyType?: string | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
   kitchenCount: number | null;
   preferredDate: string | null;
   preferredTime: string | null;
+  preferredTimeDetail?: string | null;
   status: string;
   source: string | null;
   memo: string | null;
@@ -50,7 +73,18 @@ export function AdminInquiriesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
-  const [editForm, setEditForm] = useState({ preferredDate: '', preferredTime: '', memo: '', teamLeaderId: '', status: '' });
+  const [editForm, setEditForm] = useState({
+    preferredDate: '',
+    preferredTime: '',
+    preferredTimeDetail: '',
+    memo: '',
+    teamLeaderId: '',
+    status: '',
+    customerPhone2: '',
+    propertyType: '',
+    areaBasis: '',
+    areaPyeong: '',
+  });
   const [claimItem, setClaimItem] = useState<InquiryItem | null>(null);
   const [claimMemo, setClaimMemo] = useState('');
   const [assigningId, setAssigningId] = useState<string | null>(null);
@@ -123,9 +157,14 @@ export function AdminInquiriesPage() {
     setEditForm({
       preferredDate: item.preferredDate ? item.preferredDate.slice(0, 10) : '',
       preferredTime: item.preferredTime || '',
+      preferredTimeDetail: item.preferredTimeDetail || '',
       memo: item.memo || '',
       teamLeaderId: item.assignments[0]?.teamLeader?.id ?? '',
       status: item.status,
+      customerPhone2: item.customerPhone2 || '',
+      propertyType: item.propertyType || '',
+      areaBasis: item.areaBasis || '',
+      areaPyeong: item.areaPyeong != null ? String(item.areaPyeong) : '',
     });
   };
 
@@ -168,12 +207,20 @@ export function AdminInquiriesPage() {
     if (!token || !editItem) return;
     setSaving(true);
     try {
-      await updateInquiry(token, editItem.id, {
+      const patch: Record<string, unknown> = {
         preferredDate: editForm.preferredDate || null,
         preferredTime: editForm.preferredTime || null,
+        preferredTimeDetail: editForm.preferredTimeDetail.trim(),
         memo: editForm.memo || null,
         status: editForm.status || undefined,
-      });
+        customerPhone2: editForm.customerPhone2.trim(),
+        propertyType: editForm.propertyType.trim(),
+        areaBasis: editForm.areaBasis.trim(),
+      };
+      if (editForm.areaPyeong.trim() !== '') {
+        patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
+      }
+      await updateInquiry(token, editItem.id, patch);
       if (editForm.teamLeaderId) {
         await assignInquiry(token, editItem.id, editForm.teamLeaderId);
       }
@@ -425,7 +472,7 @@ export function AdminInquiriesPage() {
                       {item.address}
                       {item.addressDetail ? ` ${item.addressDetail}` : ''}
                     </td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{item.areaPyeong ?? '-'}</td>
+                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{formatAreaLine(item)}</td>
                     <td className="py-2 px-2 text-gray-600 whitespace-nowrap">
                       {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
                     </td>
@@ -545,6 +592,10 @@ export function AdminInquiriesPage() {
                   <dd>{editItem.customerPhone}</dd>
                 </div>
                 <div>
+                  <dt className="text-gray-500">보조 연락처</dt>
+                  <dd>{editItem.customerPhone2?.trim() || '-'}</dd>
+                </div>
+                <div>
                   <dt className="text-gray-500">주소</dt>
                   <dd>
                     {editItem.address}
@@ -552,8 +603,12 @@ export function AdminInquiriesPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">평수</dt>
-                  <dd>{editItem.areaPyeong ?? '-'}</dd>
+                  <dt className="text-gray-500">건축물 유형</dt>
+                  <dd>{editItem.propertyType?.trim() || '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">평수 (기준·숫자)</dt>
+                  <dd>{formatAreaLine(editItem)}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">방/베란다/화장실/주방</dt>
@@ -571,8 +626,8 @@ export function AdminInquiriesPage() {
                   <dd>{formatDate(editItem.preferredDate)}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">희망 시간</dt>
-                  <dd>{editItem.preferredTime ?? '-'}</dd>
+                  <dt className="text-gray-500">희망 시간대·구체적 시각</dt>
+                  <dd>{formatPreferredSchedule(editItem)}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">신축/구축/인테리어</dt>
@@ -588,7 +643,7 @@ export function AdminInquiriesPage() {
                 </div>
                 {editItem.orderForm?.createdBy && (
                   <div>
-                    <dt className="text-gray-500">담당 매케터</dt>
+                    <dt className="text-gray-500">담당 마케터</dt>
                     <dd>{editItem.orderForm.createdBy.name}</dd>
                   </div>
                 )}
@@ -616,6 +671,50 @@ export function AdminInquiriesPage() {
             {/* 수정 가능 필드 */}
             <div className="space-y-4">
               <div>
+                <label className="block text-sm text-gray-600 mb-1">보조 연락처</label>
+                <input
+                  value={editForm.customerPhone2}
+                  onChange={(e) => setEditForm((p) => ({ ...p, customerPhone2: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="비우면 저장 시 비움 처리"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">건축물 유형</label>
+                <select
+                  value={editForm.propertyType}
+                  onChange={(e) => setEditForm((p) => ({ ...p, propertyType: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                >
+                  <option value="">선택</option>
+                  {PROPERTY_TYPE_EDIT.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">평수 기준</label>
+                <select
+                  value={editForm.areaBasis}
+                  onChange={(e) => setEditForm((p) => ({ ...p, areaBasis: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                >
+                  <option value="">선택</option>
+                  {AREA_BASIS_EDIT.map((v) => (
+                    <option key={v} value={v}>{v === '공급' ? '공급면적' : '전용면적'}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">평수 (숫자)</label>
+                <input
+                  value={editForm.areaPyeong}
+                  onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="예: 32"
+                />
+              </div>
+              <div>
                 <label className="block text-sm text-gray-600 mb-1">예약일</label>
                 <input
                   type="date"
@@ -625,12 +724,21 @@ export function AdminInquiriesPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">희망 시간대</label>
+                <label className="block text-sm text-gray-600 mb-1">희망 시간대 (오전·오후·사이청소 코드)</label>
                 <input
                   value={editForm.preferredTime}
                   onChange={(e) => setEditForm((p) => ({ ...p, preferredTime: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="오전 / 오후"
+                  placeholder="오전 / 오후 / 사이청소"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">구체적 시각</label>
+                <input
+                  value={editForm.preferredTimeDetail}
+                  onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="예: 10:30"
                 />
               </div>
               <div>
