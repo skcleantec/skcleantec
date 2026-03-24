@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { getInquiries, updateInquiry, createInquiry } from '../../api/inquiries';
 import { assignInquiry } from '../../api/assignments';
 import { getTeamLeaders, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
 import { AddressSearch } from '../../components/forms/AddressSearch';
-import { labelForTimeSlot } from '../../constants/orderFormSchedule';
+import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
+import { ORDER_BUILDING_TYPE_OPTIONS, labelForBuildingType } from '../../constants/orderFormBuilding';
 
 const SOURCE_OPTIONS = ['전화', '웹', '네이버', '인스타', '기타'];
 
@@ -15,15 +17,6 @@ function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number |
   if (item.areaPyeong == null) return '-';
   const b = item.areaBasis?.trim();
   return b ? `${b} ${item.areaPyeong}평` : `${item.areaPyeong}평`;
-}
-
-function formatPreferredSchedule(item: {
-  preferredTime?: string | null;
-  preferredTimeDetail?: string | null;
-}) {
-  const slot = item.preferredTime ? labelForTimeSlot(item.preferredTime) : '-';
-  const d = item.preferredTimeDetail?.trim();
-  return d ? `${slot} · ${d}` : slot;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -59,6 +52,7 @@ interface InquiryItem {
   buildingType: string | null;
   moveInDate: string | null;
   specialNotes: string | null;
+  callAttempt?: number | null;
   createdAt: string;
   assignments: Array<{ teamLeader: { id: string; name: string } }>;
   orderForm?: { createdBy: { id: string; name: string } } | null;
@@ -84,6 +78,10 @@ export function AdminInquiriesPage() {
     propertyType: '',
     areaBasis: '',
     areaPyeong: '',
+    buildingType: '',
+    moveInDate: '',
+    specialNotes: '',
+    kitchenCount: '',
   });
   const [claimItem, setClaimItem] = useState<InquiryItem | null>(null);
   const [claimMemo, setClaimMemo] = useState('');
@@ -165,6 +163,10 @@ export function AdminInquiriesPage() {
       propertyType: item.propertyType || '',
       areaBasis: item.areaBasis || '',
       areaPyeong: item.areaPyeong != null ? String(item.areaPyeong) : '',
+      buildingType: item.buildingType || '',
+      moveInDate: item.moveInDate ? item.moveInDate.slice(0, 10) : '',
+      specialNotes: item.specialNotes || '',
+      kitchenCount: item.kitchenCount != null ? String(item.kitchenCount) : '',
     });
   };
 
@@ -209,16 +211,30 @@ export function AdminInquiriesPage() {
     try {
       const patch: Record<string, unknown> = {
         preferredDate: editForm.preferredDate || null,
-        preferredTime: editForm.preferredTime || null,
+        preferredTime: editForm.preferredTime.trim(),
         preferredTimeDetail: editForm.preferredTimeDetail.trim(),
         memo: editForm.memo || null,
         status: editForm.status || undefined,
         customerPhone2: editForm.customerPhone2.trim(),
         propertyType: editForm.propertyType.trim(),
         areaBasis: editForm.areaBasis.trim(),
+        buildingType: editForm.buildingType.trim(),
+        moveInDate: editForm.moveInDate.trim(),
+        specialNotes: editForm.specialNotes.trim(),
       };
       if (editForm.areaPyeong.trim() !== '') {
         patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
+      }
+      if (editForm.kitchenCount.trim() === '') {
+        patch.kitchenCount = null;
+      } else {
+        const kc = parseInt(editForm.kitchenCount, 10);
+        if (Number.isNaN(kc)) {
+          alert('주방 개수는 숫자로 입력해주세요.');
+          setSaving(false);
+          return;
+        }
+        patch.kitchenCount = kc;
       }
       await updateInquiry(token, editItem.id, patch);
       if (editForm.teamLeaderId) {
@@ -375,7 +391,19 @@ export function AdminInquiriesPage() {
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">희망 시간대</label>
-                <input name="preferredTime" value={individualForm.preferredTime} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="오전 / 오후" />
+                <select
+                  name="preferredTime"
+                  value={individualForm.preferredTime}
+                  onChange={handleIndividualChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                >
+                  <option value="">선택</option>
+                  {ORDER_TIME_SLOT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">통화시도</label>
@@ -447,6 +475,7 @@ export function AdminInquiriesPage() {
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">평수</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">방화베</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
+                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap max-w-[100px]">시간대</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">담당</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">작업</th>
@@ -454,7 +483,12 @@ export function AdminInquiriesPage() {
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr
+                    key={item.id}
+                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer active:bg-gray-100"
+                    onClick={() => openEdit(item)}
+                    title="행을 누르면 상세보기"
+                  >
                     <td className="py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-gray-100">
                       {formatDate(item.createdAt)}
                     </td>
@@ -477,7 +511,10 @@ export function AdminInquiriesPage() {
                       {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
                     </td>
                     <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{formatDate(item.preferredDate)}</td>
-                    <td className="py-2 px-2 whitespace-nowrap">
+                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap max-w-[100px] truncate align-top" title={item.preferredTime ? labelForTimeSlot(item.preferredTime) : ''}>
+                      {item.preferredTime ? labelForTimeSlot(item.preferredTime) : '-'}
+                    </td>
+                    <td className="py-2 px-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={item.status}
                         onChange={(e) => handleStatusChange(item.id, e.target.value)}
@@ -489,7 +526,7 @@ export function AdminInquiriesPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="py-2 px-2">
+                    <td className="py-2 px-2" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={item.assignments[0]?.teamLeader?.id ?? ''}
                         onChange={(e) => {
@@ -505,16 +542,25 @@ export function AdminInquiriesPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="py-2 px-2 whitespace-nowrap">
+                    <td className="py-2 px-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <div className="flex flex-wrap gap-1">
-                        <button onClick={() => openEdit(item)} className="text-blue-600 hover:underline text-xs">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(item)}
+                          className="text-blue-600 hover:underline text-xs"
+                        >
                           상세보기
                         </button>
-                        <button onClick={() => openClaim(item)} className="text-orange-600 hover:underline text-xs">
+                        <button
+                          type="button"
+                          onClick={() => openClaim(item)}
+                          className="text-orange-600 hover:underline text-xs"
+                        >
                           클레임
                         </button>
                         {item.status === 'CS_PROCESSING' && (
                           <button
+                            type="button"
                             onClick={() => handleStatusChange(item.id, 'COMPLETED')}
                             disabled={saving}
                             className="text-green-600 hover:underline text-xs font-medium"
@@ -532,50 +578,59 @@ export function AdminInquiriesPage() {
         )}
         {total > 0 && (
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
-            총 {total}건 · 모바일에서 가로 스크롤 가능
+            총 {total}건 · 행을 누르면 상세보기 · 모바일에서 가로 스크롤 가능
           </div>
         )}
       </div>
 
-      {/* 클레임 등록 모달 */}
-      {claimItem && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              C/S 등록 - {claimItem.customerName}
-            </h2>
-            <p className="text-xs text-gray-500 mb-2">클레임 내용을 입력하면 상태가 C/S 처리중으로 변경됩니다.</p>
-            <textarea
-              value={claimMemo}
-              onChange={(e) => setClaimMemo(e.target.value)}
-              rows={4}
-              placeholder="고객 클레임 내용을 입력하세요"
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-4"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveClaim}
-                disabled={saving}
-                className="px-4 py-2 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
-              >
-                {saving ? '저장 중...' : 'C/S 등록'}
-              </button>
-              <button
-                onClick={() => setClaimItem(null)}
-                className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
-              >
-                취소
-              </button>
+      {/* 클레임·상세 모달은 body로 포털 (AdminLayout main overflow 등에 잘리지 않도록) */}
+      {claimItem &&
+        createPortal(
+          <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto overscroll-y-contain bg-black/40 px-4 py-6 sm:py-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
+            <div className="my-auto w-full max-w-md shrink-0 rounded-lg bg-white p-6 shadow-xl">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                C/S 등록 - {claimItem.customerName}
+              </h2>
+              <p className="text-xs text-gray-500 mb-2">클레임 내용을 입력하면 상태가 C/S 처리중으로 변경됩니다.</p>
+              <textarea
+                value={claimMemo}
+                onChange={(e) => setClaimMemo(e.target.value)}
+                rows={4}
+                placeholder="고객 클레임 내용을 입력하세요"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-4"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveClaim}
+                  disabled={saving}
+                  className="px-4 py-2 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {saving ? '저장 중...' : 'C/S 등록'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClaimItem(null)}
+                  className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
+                >
+                  취소
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
-      {/* 수정 모달 (전체 내역 + 수정) */}
-      {editItem && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full my-8">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+      {editItem &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] overflow-y-auto overscroll-y-contain bg-black/40 px-4 pb-24 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pb-28 sm:pt-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inquiry-edit-title"
+          >
+            <div className="mx-auto w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <h2 id="inquiry-edit-title" className="text-lg font-semibold text-gray-800 mb-4">
               내역 보기 / 수정 - {editItem.customerName}
             </h2>
 
@@ -626,15 +681,21 @@ export function AdminInquiriesPage() {
                   <dd>{formatDate(editItem.preferredDate)}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">희망 시간대·구체적 시각</dt>
-                  <dd>{formatPreferredSchedule(editItem)}</dd>
+                  <dt className="text-gray-500">희망 시간대</dt>
+                  <dd>
+                    {editItem.preferredTime ? labelForTimeSlot(editItem.preferredTime) : '-'}
+                  </dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">신축/구축/인테리어</dt>
-                  <dd>{editItem.buildingType ?? '-'}</dd>
+                  <dt className="text-gray-500">구체적 시각</dt>
+                  <dd>{editItem.preferredTimeDetail?.trim() || '-'}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">이사 날짜</dt>
+                  <dt className="text-gray-500">신축/구축/인테리어/거주</dt>
+                  <dd>{labelForBuildingType(editItem.buildingType)}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">이사 날짜 (선택사항)</dt>
                   <dd>{editItem.moveInDate ? formatDate(editItem.moveInDate) : '-'}</dd>
                 </div>
                 <div>
@@ -647,18 +708,20 @@ export function AdminInquiriesPage() {
                     <dd>{editItem.orderForm.createdBy.name}</dd>
                   </div>
                 )}
-                {editItem.memo && (
+                {editItem.callAttempt != null && (
                   <div>
-                    <dt className="text-gray-500">메모</dt>
-                    <dd className="whitespace-pre-wrap">{editItem.memo}</dd>
+                    <dt className="text-gray-500">통화 시도</dt>
+                    <dd>{editItem.callAttempt}</dd>
                   </div>
                 )}
-                {editItem.specialNotes && (
-                  <div>
-                    <dt className="text-gray-500">특이사항</dt>
-                    <dd className="whitespace-pre-wrap">{editItem.specialNotes}</dd>
-                  </div>
-                )}
+                <div>
+                  <dt className="text-gray-500">접수 메모 (발주서 요약 등)</dt>
+                  <dd className="whitespace-pre-wrap">{editItem.memo?.trim() || '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">특이사항 (고객 작성)</dt>
+                  <dd className="whitespace-pre-wrap">{editItem.specialNotes?.trim() || '-'}</dd>
+                </div>
                 {editItem.claimMemo && (
                   <div>
                     <dt className="text-gray-500 text-orange-600">클레임</dt>
@@ -724,13 +787,19 @@ export function AdminInquiriesPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">희망 시간대 (오전·오후·사이청소 코드)</label>
-                <input
+                <label className="block text-sm text-gray-600 mb-1">희망 시간대</label>
+                <select
                   value={editForm.preferredTime}
                   onChange={(e) => setEditForm((p) => ({ ...p, preferredTime: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="오전 / 오후 / 사이청소"
-                />
+                >
+                  <option value="">선택 안 함</option>
+                  {ORDER_TIME_SLOT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">구체적 시각</label>
@@ -739,6 +808,51 @@ export function AdminInquiriesPage() {
                   onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                   placeholder="예: 10:30"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">신축/구축/인테리어/거주</label>
+                <select
+                  value={editForm.buildingType}
+                  onChange={(e) => setEditForm((p) => ({ ...p, buildingType: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                >
+                  <option value="">선택 안 함</option>
+                  {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">이사 날짜 (선택사항)</label>
+                <input
+                  type="date"
+                  value={editForm.moveInDate}
+                  onChange={(e) => setEditForm((p) => ({ ...p, moveInDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">주방 개수</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={editForm.kitchenCount}
+                  onChange={(e) => setEditForm((p) => ({ ...p, kitchenCount: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="비우면 저장 시 비움"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">특이사항 (고객 작성)</label>
+                <textarea
+                  value={editForm.specialNotes}
+                  onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="고객 발주서 특이사항"
                 />
               </div>
               <div>
@@ -779,6 +893,7 @@ export function AdminInquiriesPage() {
             </div>
             <div className="flex gap-2 mt-6">
               <button
+                type="button"
                 onClick={handleSaveEdit}
                 disabled={saving}
                 className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
@@ -786,15 +901,17 @@ export function AdminInquiriesPage() {
                 {saving ? '저장 중...' : '저장'}
               </button>
               <button
+                type="button"
                 onClick={() => setEditItem(null)}
                 className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
               >
                 취소
               </button>
             </div>
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -68,6 +68,21 @@ router.patch('/:id', async (req, res) => {
       ...(body.preferredTimeDetail != null && {
         preferredTimeDetail: body.preferredTimeDetail ? String(body.preferredTimeDetail) : null,
       }),
+      ...(body.buildingType !== undefined && {
+        buildingType: body.buildingType ? String(body.buildingType) : null,
+      }),
+      ...(body.moveInDate !== undefined && {
+        moveInDate: body.moveInDate ? new Date(String(body.moveInDate)) : null,
+      }),
+      ...(body.specialNotes !== undefined && {
+        specialNotes: body.specialNotes ? String(body.specialNotes) : null,
+      }),
+      ...(body.kitchenCount !== undefined && {
+        kitchenCount:
+          body.kitchenCount === null || body.kitchenCount === ''
+            ? null
+            : Number(body.kitchenCount),
+      }),
       ...(body.memo != null && { memo: body.memo ? String(body.memo) : null }),
       ...(body.claimMemo != null && { claimMemo: body.claimMemo ? String(body.claimMemo) : null }),
       ...(body.status != null && { status: body.status as 'RECEIVED' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'CS_PROCESSING' }),

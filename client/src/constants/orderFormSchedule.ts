@@ -2,8 +2,8 @@
 export type OrderTimeSlot = '오전' | '오후' | '사이청소';
 
 export const ORDER_TIME_SLOT_OPTIONS: { value: OrderTimeSlot; label: string }[] = [
-  { value: '오전', label: '오전 (8시 ~12시 시작)' },
-  { value: '오후', label: '오후 (12시 ~16시 시작)' },
+  { value: '오전', label: '오전 (8시~9시 시작)' },
+  { value: '오후', label: '오후 (12시~14시 시작)' },
   { value: '사이청소', label: '사이청소 (이사 전·입주 사이 등)' },
 ];
 

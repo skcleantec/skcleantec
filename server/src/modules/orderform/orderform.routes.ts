@@ -304,7 +304,7 @@ router.post('/submit/:token', async (req, res) => {
     `건축물 유형: ${propertyTypeNorm}`,
     `평수: ${areaBasisNorm} ${body.areaPyeong}평`,
     form.optionNote ? `추가: ${form.optionNote}` : null,
-    `신축/구축/인테리어: ${body.buildingType || '-'}`,
+    `신축/구축/인테리어/거주: ${body.buildingType || '-'}`,
     body.moveInDate ? `이사 날짜: ${body.moveInDate}` : null,
     body.specialNotes ? `특이사항: ${body.specialNotes}` : null,
     useDetailStr ? `희망 시각: ${useDetailStr}` : null,

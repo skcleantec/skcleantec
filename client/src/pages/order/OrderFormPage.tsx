@@ -7,12 +7,7 @@ import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
-
-const BUILDING_TYPES = [
-  { value: '신축', label: '신축 (5년 이하)' },
-  { value: '구축', label: '구축' },
-  { value: '인테리어', label: '인테리어' },
-];
+import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -150,7 +145,7 @@ export function OrderFormPage() {
       const useTimeDetail = detailLockedByAdmin
         ? order!.preferredTimeDetail!.trim()
         : form.preferredTimeDetail.trim() || undefined;
-      if (!form.buildingType) throw new Error('신축/구축/인테리어를 선택해주세요.');
+      if (!form.buildingType) throw new Error('신축·구축·인테리어·거주(짐이있는상태) 중 하나를 선택해주세요.');
       if (!agreeToTerms) throw new Error('고객 정보처리 동의 및 안내사항에 동의해 주세요.');
 
       await submitOrderForm(token, {
@@ -510,7 +505,7 @@ export function OrderFormPage() {
           </div>
 
           <div>
-            <label className={labelCls}>9. 신축/구축/인테리어 선택 *</label>
+            <label className={labelCls}>9. 신축/구축/인테리어/거주 선택 *</label>
             <select
               className={inputCls}
               value={form.buildingType}
@@ -518,7 +513,7 @@ export function OrderFormPage() {
               required
             >
               <option value="">선택</option>
-              {BUILDING_TYPES.map((o) => (
+              {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
@@ -528,7 +523,7 @@ export function OrderFormPage() {
           </div>
 
           <div>
-            <label className={labelCls}>10. 이사 날짜</label>
+            <label className={labelCls}>10. 이사 날짜 (선택사항)</label>
             <input
               type="date"
               className={inputCls}
@@ -541,10 +536,12 @@ export function OrderFormPage() {
           <div>
             <label className={labelCls}>11. 특이사항</label>
             <textarea
-              className={`${inputCls} min-h-[80px]`}
+              className={`${inputCls} min-h-[96px]`}
               value={form.specialNotes}
               onChange={(e) => setForm((f) => ({ ...f, specialNotes: e.target.value }))}
-              placeholder="전화 상담 시 언급 내용, 꼭 재 작성"
+              placeholder={
+                '전화 상담 시 언급 내용, 꼭 재 작성\n타운하우스, 주택 등 층수로 나눠진 건물은 반드시 정확히 적어주세요.'
+              }
             />
             <p className="text-xs text-gray-500 mt-1">* 미작성 시 전달 누락</p>
           </div>
