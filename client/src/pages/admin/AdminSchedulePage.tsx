@@ -7,14 +7,6 @@ import { isPublicHoliday } from '../../utils/holidays';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 
-const STATUS_LABELS: Record<string, string> = {
-  RECEIVED: '접수',
-  ASSIGNED: '분배',
-  IN_PROGRESS: '진행',
-  COMPLETED: '완료',
-  CS_PROCESSING: 'C/S처리중',
-};
-
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function toDateKey(d: Date): string {
@@ -31,14 +23,6 @@ function getMonthRange(year: number, month: number) {
     start: toDateKey(start),
     end: toDateKey(end),
   };
-}
-
-function formatRoomInfo(r: number | null, b: number | null, v: number | null) {
-  const parts = [];
-  if (r != null) parts.push(`${r}방`);
-  if (b != null) parts.push(`${b}화`);
-  if (v != null) parts.push(`${v}베`);
-  return parts.length ? parts.join(' ') : '-';
 }
 
 function scheduleAmountLine(item: ScheduleItem): string | null {
