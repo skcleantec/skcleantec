@@ -38,12 +38,17 @@ export function AdminLayout() {
         <div className="max-w-6xl mx-auto flex flex-nowrap items-center justify-between gap-2 min-w-max">
           <div className="flex flex-nowrap items-center gap-1 sm:gap-2 min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
             <h1 className="text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-gray-800 whitespace-nowrap shrink-0 flex-none">SK클린텍 관리자</h1>
-            <nav className="flex flex-row flex-nowrap items-center gap-1 min-w-0 overflow-x-auto overflow-y-hidden flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <nav
+              className="flex flex-row flex-nowrap items-center gap-1 min-w-0 overflow-x-auto overflow-y-hidden flex-1"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               <NavLink to="/admin/dashboard" className={navClass}>대시보드</NavLink>
               <NavLink to="/admin/inquiries" className={navClass}>접수 목록</NavLink>
               <NavLink to="/admin/schedule" className={navClass}>스케줄 표</NavLink>
               <NavLink to="/admin/team-leaders" className={navClass}>사용자관리</NavLink>
-              <NavLink to="/admin/orderforms" className={navClass}>발주서</NavLink>
+              <NavLink to="/admin/orderforms" className={navClass}>
+                발주서
+              </NavLink>
               <NavLink to="/admin/cs" className={navClass}>C/S 관리</NavLink>
               <NavLink to="/admin/messages" className={navClass}>
                 <span className="inline-flex items-center">
@@ -68,7 +73,7 @@ export function AdminLayout() {
           </button>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-4 py-6 min-w-0 overflow-x-hidden">
+      <main className="max-w-6xl mx-auto px-4 py-6 min-w-0">
         <Outlet />
       </main>
     </div>

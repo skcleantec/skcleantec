@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getOrderFormByToken, submitOrderForm } from '../../api/orderform';
+import {
+  getOrderFormByToken,
+  getPublicProfessionalOptions,
+  submitOrderForm,
+  type ProfessionalSpecialtyOptionDto,
+} from '../../api/orderform';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
 import {
@@ -89,6 +94,14 @@ export function OrderFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [professionalOptionIds, setProfessionalOptionIds] = useState<string[]>([]);
+  const [professionalOptions, setProfessionalOptions] = useState<ProfessionalSpecialtyOptionDto[]>([]);
+
+  const toggleProfessionalOption = (id: string) => {
+    setProfessionalOptionIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -112,6 +125,14 @@ export function OrderFormPage() {
           preferredTime: data.preferredTime ?? '오전',
           preferredTimeDetail: data.preferredTimeDetail ?? '',
         }));
+        const fromForm = data.professionalOptions;
+        if (fromForm && fromForm.length > 0) {
+          setProfessionalOptions(fromForm);
+        } else {
+          void getPublicProfessionalOptions()
+            .then((r) => setProfessionalOptions(r.items))
+            .catch(() => setProfessionalOptions([]));
+        }
         setError(null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : '발주서를 불러올 수 없습니다.'))
@@ -167,6 +188,7 @@ export function OrderFormPage() {
         buildingType: form.buildingType,
         moveInDate: form.moveInDate || undefined,
         specialNotes: form.specialNotes.trim() || undefined,
+        professionalOptionIds: professionalOptionIds.length ? professionalOptionIds : undefined,
       });
       setSubmitted(true);
     } catch (e) {
@@ -546,6 +568,43 @@ export function OrderFormPage() {
             <p className="text-xs text-gray-500 mt-1">* 미작성 시 전달 누락</p>
           </div>
 
+          <div>
+            <p className={`${labelCls} mb-2`}>12. 전문 시공 옵션 (선택)</p>
+            <div className="space-y-2.5 pl-0.5">
+              {professionalOptions.length === 0 ? (
+                <p className="text-sm text-gray-500">등록된 전문 시공 옵션이 없습니다.</p>
+              ) : (
+                professionalOptions.map((o) => (
+                  <label
+                    key={o.id}
+                    className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={professionalOptionIds.includes(o.id)}
+                      onChange={() => toggleProfessionalOption(o.id)}
+                      className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
+                    />
+                    <span>
+                      {o.emoji ? (
+                        <span className="mr-1" aria-hidden>
+                          {o.emoji}
+                        </span>
+                      ) : null}
+                      <span
+                        className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
+                        style={{ backgroundColor: o.color }}
+                        aria-hidden
+                      />
+                      <span className="font-medium">{o.label}</span>{' '}
+                      {o.priceHint ? <span className="text-gray-500">({o.priceHint})</span> : null}
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
           <div className="flex items-start gap-2 py-4">
             <input
               type="checkbox"
@@ -562,7 +621,10 @@ export function OrderFormPage() {
                 className="text-blue-600 underline hover:text-blue-700"
                 onClick={(e) => e.stopPropagation()}
               >
-                고객 정보처리 동의 및 안내사항
+                {orderFormConfigLine(
+                  order?.formConfig?.infoLinkText,
+                  ORDER_FORM_CONFIG_DEFAULTS.infoLinkText
+                )}
               </Link>
               에 동의합니다. (클릭 시 전체 내용 보기)
             </label>

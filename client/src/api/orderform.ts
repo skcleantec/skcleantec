@@ -34,6 +34,18 @@ export interface OrderFormConfigPublic {
   submitSuccessBody: string | null;
 }
 
+export interface ProfessionalSpecialtyOptionDto {
+  id: string;
+  label: string;
+  priceHint: string;
+  /** 표시용 이모지 (선택) */
+  emoji: string;
+  color: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+}
+
 export interface OrderFormPublic {
   id: string;
   token: string;
@@ -46,6 +58,8 @@ export interface OrderFormPublic {
   preferredTime: string | null;
   preferredTimeDetail: string | null;
   options: Array<{ name: string; extraAmount: number }>;
+  /** 전문 시공 옵션 — 발주서와 동일 응답에 포함(별도 API 없이 표시) */
+  professionalOptions?: ProfessionalSpecialtyOptionDto[];
   formConfig?: OrderFormConfigPublic;
 }
 
@@ -79,6 +93,18 @@ export async function createOrderForm(
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '발주서 발급에 실패했습니다.');
   }
+  return res.json();
+}
+
+export interface PublicOrderGuideResponse {
+  sections: Array<{ title: string; items: string[] }>;
+  infoLinkText: string;
+}
+
+/** 공개: 고객 안내사항 (`/info`) — 인증 없음 */
+export async function getPublicOrderGuide(): Promise<PublicOrderGuideResponse> {
+  const res = await fetch(`${API}/orderforms/public-guide`);
+  if (!res.ok) throw new Error('안내를 불러올 수 없습니다.');
   return res.json();
 }
 
@@ -137,6 +163,8 @@ export async function submitOrderForm(
     buildingType: string;
     moveInDate?: string;
     specialNotes?: string;
+    /** 전문 시공 옵션 id 목록 */
+    professionalOptionIds?: string[];
   }
 ): Promise<void> {
   const res = await fetch(`${API}/orderforms/submit/${token}`, {
@@ -147,5 +175,77 @@ export async function submitOrderForm(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '제출에 실패했습니다.');
+  }
+}
+
+/** 공개: 고객 발주서 — 전문 시공 옵션 (활성만) */
+export async function getPublicProfessionalOptions(): Promise<{ items: ProfessionalSpecialtyOptionDto[] }> {
+  const res = await fetch(`${API}/orderforms/professional-options`);
+  if (!res.ok) throw new Error('전문 시공 옵션을 불러올 수 없습니다.');
+  return res.json();
+}
+
+/** 관리자: 전문 시공 옵션 전체 */
+export async function getAllProfessionalOptions(
+  authToken: string
+): Promise<ProfessionalSpecialtyOptionDto[]> {
+  const res = await fetch(`${API}/orderforms/professional-options/all`, {
+    headers: headers(authToken),
+  });
+  if (!res.ok) throw new Error('전문 시공 옵션을 불러올 수 없습니다.');
+  const data = (await res.json()) as { items: ProfessionalSpecialtyOptionDto[] };
+  return data.items ?? [];
+}
+
+export async function createProfessionalOption(
+  authToken: string,
+  data: {
+    label: string;
+    priceHint?: string;
+    emoji?: string;
+    color?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+  }
+): Promise<ProfessionalSpecialtyOptionDto> {
+  const res = await fetch(`${API}/orderforms/professional-options`, {
+    method: 'POST',
+    headers: headers(authToken),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '추가에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function updateProfessionalOption(
+  authToken: string,
+  id: string,
+  data: Partial<
+    Pick<ProfessionalSpecialtyOptionDto, 'label' | 'priceHint' | 'emoji' | 'color' | 'sortOrder' | 'isActive'>
+  >
+): Promise<ProfessionalSpecialtyOptionDto> {
+  const res = await fetch(`${API}/orderforms/professional-options/${id}`, {
+    method: 'PATCH',
+    headers: headers(authToken),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '수정에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function deleteProfessionalOption(authToken: string, id: string): Promise<void> {
+  const res = await fetch(`${API}/orderforms/professional-options/${id}`, {
+    method: 'DELETE',
+    headers: headers(authToken),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '삭제에 실패했습니다.');
   }
 }

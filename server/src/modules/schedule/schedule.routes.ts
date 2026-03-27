@@ -1,20 +1,36 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly } from '../auth/auth.middleware.js';
+import { adminOrMarketer } from '../auth/auth.middleware.js';
 
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOnly);
+router.use(adminOrMarketer);
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+/** preferredDate 조회 — 하루 단위는 KST(Asia/Seoul)와 동일하게 맞춤 (말일 일정 누락 방지) */
+function rangeFromQuery(start?: string, end?: string) {
+  const now = new Date();
+  if (start && YMD.test(start) && end && YMD.test(end)) {
+    return {
+      startDate: new Date(`${start}T00:00:00+09:00`),
+      endDate: new Date(`${end}T23:59:59.999+09:00`),
+    };
+  }
+  return {
+    startDate: new Date(now.getFullYear(), now.getMonth(), 1),
+    endDate: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+  };
+}
 
 router.get('/', async (req, res) => {
   const { start, end } = req.query as { start?: string; end?: string };
-  const now = new Date();
-  const startDate = start ? new Date(start) : new Date(now.getFullYear(), now.getMonth(), 1);
-  const endDate = end
-    ? new Date(end)
-    : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const { startDate, endDate } = rangeFromQuery(
+    typeof start === 'string' ? start : undefined,
+    typeof end === 'string' ? end : undefined
+  );
 
   const items = await prisma.inquiry.findMany({
     where: {

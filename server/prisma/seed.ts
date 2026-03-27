@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedProfessionalDefaults } from '../src/modules/orderform/defaultProfessionalOptions.js';
 
 const prisma = new PrismaClient();
 
@@ -73,6 +74,13 @@ async function main() {
     }
   } catch {
     console.log('OrderFormConfig: skip (table may not exist yet, run db:push first)');
+  }
+
+  try {
+    await seedProfessionalDefaults(prisma);
+    console.log('ProfessionalSpecialtyOption: seeded (default 8)');
+  } catch {
+    console.log('ProfessionalSpecialtyOption: skip (run db:push first)');
   }
 }
 

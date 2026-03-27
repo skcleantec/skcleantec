@@ -1,12 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { getInquiries, updateInquiry, createInquiry } from '../../api/inquiries';
+import {
+  getInquiries,
+  getMarketerOverview,
+  updateInquiry,
+  createInquiry,
+  type MarketerOverviewResponse,
+} from '../../api/inquiries';
 import { assignInquiry } from '../../api/assignments';
 import { getTeamLeaders, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
-import { ORDER_BUILDING_TYPE_OPTIONS, labelForBuildingType } from '../../constants/orderFormBuilding';
+import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 
@@ -21,9 +27,19 @@ function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number |
   return b ? `${b} ${item.areaPyeong}평` : `${item.areaPyeong}평`;
 }
 
-function formatWon(n: number | null | undefined) {
-  if (n == null || Number.isNaN(n)) return '-';
-  return `${n.toLocaleString('ko-KR')}원`;
+/** 접수일 필터용 — 서버와 동일하게 한국 날짜 */
+function kstMonthKeyNow(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+}
+
+function kstTodayYmd(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+function formatMonthKeyLabel(monthKey: string): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  if (!y || !m) return monthKey;
+  return `${y}년 ${m}월`;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -93,6 +109,13 @@ export function AdminInquiriesPage() {
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
   const [editForm, setEditForm] = useState({
+    customerName: '',
+    customerPhone: '',
+    address: '',
+    addressDetail: '',
+    roomCount: '',
+    bathroomCount: '',
+    balconyCount: '',
     preferredDate: '',
     preferredTime: '',
     preferredTimeDetail: '',
@@ -116,8 +139,11 @@ export function AdminInquiriesPage() {
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [individualExpanded, setIndividualExpanded] = useState(false);
-  const [individualSubmitLoading, setIndividualSubmitLoading] = useState(false);
+  /** 접수일(createdAt) 기준 — 당일(KST)이 기본 */
+  const [datePreset, setDatePreset] = useState<'today' | 'all' | 'month' | 'day'>('today');
+  const [monthKey, setMonthKey] = useState(() => kstMonthKeyNow());
+  /** 날짜 지정(YYYY-MM-DD, KST 하루) */
+  const [dayKey, setDayKey] = useState(() => kstTodayYmd());
   const [individualForm, setIndividualForm] = useState({
     customerName: '',
     customerPhone: '',
@@ -133,14 +159,63 @@ export function AdminInquiriesPage() {
     memo: '',
     source: '전화',
   });
+  const [marketerOverview, setMarketerOverview] = useState<MarketerOverviewResponse | null>(null);
+  const [marketerOverviewLoading, setMarketerOverviewLoading] = useState(() => Boolean(getToken()));
+  const [marketerOverviewError, setMarketerOverviewError] = useState<string | null>(null);
+  const [individualExpanded, setIndividualExpanded] = useState(false);
+  const [individualSubmitLoading, setIndividualSubmitLoading] = useState(false);
+  const loadMarketerOverview = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent === true;
+      if (!token) {
+        setMarketerOverview(null);
+        setMarketerOverviewError(null);
+        setMarketerOverviewLoading(false);
+        return;
+      }
+      if (!silent) {
+        setMarketerOverviewLoading(true);
+        setMarketerOverviewError(null);
+      }
+      try {
+        const data = await getMarketerOverview(token);
+        setMarketerOverview(data);
+        setMarketerOverviewError(null);
+      } catch (e) {
+        if (!silent) {
+          setMarketerOverview(null);
+          setMarketerOverviewError(e instanceof Error ? e.message : '집계를 불러오지 못했습니다.');
+        }
+      } finally {
+        if (!silent) setMarketerOverviewLoading(false);
+      }
+    },
+    [token]
+  );
+
+  useEffect(() => {
+    if (!token) {
+      setMarketerOverviewLoading(false);
+      return;
+    }
+    void loadMarketerOverview();
+  }, [token, loadMarketerOverview]);
 
   const refresh = (showLoading = false) => {
     if (!token) return;
     if (showLoading) setLoading(true);
-    const params: Record<string, string> = {};
+    const params: {
+      status?: string;
+      search?: string;
+      datePreset: 'today' | 'all' | 'month' | 'day';
+      month?: string;
+      day?: string;
+    } = { datePreset };
+    if (datePreset === 'month') params.month = monthKey;
+    if (datePreset === 'day') params.day = dayKey;
     if (statusFilter) params.status = statusFilter;
     if (searchQuery.trim()) params.search = searchQuery.trim();
-    getInquiries(token, Object.keys(params).length ? params : undefined)
+    getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
         setItems(res.items);
         setTotal(res.total);
@@ -151,7 +226,10 @@ export function AdminInquiriesPage() {
         setTotal(0);
         setApiError(err instanceof Error ? err.message : '서버에 연결할 수 없습니다.');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        void loadMarketerOverview({ silent: true });
+      });
   };
 
   useEffect(() => {
@@ -163,7 +241,7 @@ export function AdminInquiriesPage() {
     if (!token) return;
     const t = setTimeout(() => refresh(true), searchQuery ? 400 : 0);
     return () => clearTimeout(t);
-  }, [token, statusFilter, searchQuery]);
+  }, [token, statusFilter, searchQuery, datePreset, monthKey, dayKey]);
 
   const handleAssign = async (inquiryId: string, teamLeaderId: string) => {
     if (!token || !teamLeaderId) return;
@@ -182,6 +260,13 @@ export function AdminInquiriesPage() {
     setEditItem(item);
     const a = effectiveInquiryAmounts(item);
     setEditForm({
+      customerName: item.customerName,
+      customerPhone: item.customerPhone,
+      address: item.address,
+      addressDetail: item.addressDetail || '',
+      roomCount: item.roomCount != null ? String(item.roomCount) : '',
+      bathroomCount: item.bathroomCount != null ? String(item.bathroomCount) : '',
+      balconyCount: item.balconyCount != null ? String(item.balconyCount) : '',
       preferredDate: item.preferredDate ? item.preferredDate.slice(0, 10) : '',
       preferredTime: item.preferredTime || '',
       preferredTimeDetail: item.preferredTimeDetail || '',
@@ -250,7 +335,26 @@ export function AdminInquiriesPage() {
         }
         return n;
       };
+      if (!editForm.customerName.trim()) {
+        alert('성함을 입력해주세요.');
+        setSaving(false);
+        return;
+      }
+      if (!editForm.customerPhone.trim()) {
+        alert('연락처를 입력해주세요.');
+        setSaving(false);
+        return;
+      }
+      if (!editForm.address.trim()) {
+        alert('주소를 입력해주세요.');
+        setSaving(false);
+        return;
+      }
       const patch: Record<string, unknown> = {
+        customerName: editForm.customerName.trim(),
+        customerPhone: editForm.customerPhone.trim(),
+        address: editForm.address.trim(),
+        addressDetail: editForm.addressDetail.trim() || null,
         preferredDate: editForm.preferredDate || null,
         preferredTime: editForm.preferredTime.trim(),
         preferredTimeDetail: editForm.preferredTimeDetail.trim(),
@@ -279,6 +383,27 @@ export function AdminInquiriesPage() {
           return;
         }
         patch.kitchenCount = kc;
+      }
+      const rc = editForm.roomCount.trim();
+      patch.roomCount = rc === '' ? null : parseInt(rc, 10);
+      if (patch.roomCount !== null && Number.isNaN(patch.roomCount as number)) {
+        alert('방 개수는 숫자로 입력해주세요.');
+        setSaving(false);
+        return;
+      }
+      const bc = editForm.bathroomCount.trim();
+      patch.bathroomCount = bc === '' ? null : parseInt(bc, 10);
+      if (patch.bathroomCount !== null && Number.isNaN(patch.bathroomCount as number)) {
+        alert('화장실 개수는 숫자로 입력해주세요.');
+        setSaving(false);
+        return;
+      }
+      const vc = editForm.balconyCount.trim();
+      patch.balconyCount = vc === '' ? null : parseInt(vc, 10);
+      if (patch.balconyCount !== null && Number.isNaN(patch.balconyCount as number)) {
+        alert('베란다 개수는 숫자로 입력해주세요.');
+        setSaving(false);
+        return;
       }
       await updateInquiry(token, editItem.id, patch);
       if (editForm.teamLeaderId) {
@@ -363,24 +488,137 @@ export function AdminInquiriesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
         <h1 className="text-xl font-semibold text-gray-800">접수 목록</h1>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="고객명·연락처 검색"
-            className="px-3 py-2 border border-gray-300 rounded text-sm flex-1 min-w-0"
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded text-sm"
-          >
-            <option value="">전체 상태</option>
-            {Object.entries(STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+        <p className="text-xs text-gray-500">
+          기본은 <strong className="font-medium text-gray-700">오늘 접수된 건</strong>만 보입니다. 날짜·월별·전체로 바꿀 수 있습니다. (접수일 기준, 한국 시간) 아래 표는 목록 필터와 무관하게{' '}
+          <strong className="font-medium text-gray-700">마케터별 이번 달·오늘</strong> 접수 건수(KST, 접수 등록자 기준)입니다.
+        </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-600 shrink-0">접수일</span>
+            <div className="inline-flex rounded border border-gray-300 overflow-hidden text-sm">
+              <button
+                type="button"
+                onClick={() => setDatePreset('today')}
+                className={`px-3 py-1.5 font-medium ${
+                  datePreset === 'today' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                당일
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset('all')}
+                className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                  datePreset === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                전체
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset('month')}
+                className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                  datePreset === 'month' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                월별
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset('day')}
+                className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                  datePreset === 'day' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                날짜
+              </button>
+            </div>
+            {datePreset === 'month' && (
+              <input
+                type="month"
+                value={monthKey}
+                onChange={(e) => setMonthKey(e.target.value)}
+                className="px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900"
+                aria-label="조회할 연월"
+              />
+            )}
+            {datePreset === 'day' && (
+              <input
+                type="date"
+                value={dayKey}
+                onChange={(e) => setDayKey(e.target.value)}
+                className="px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-900"
+                aria-label="조회할 날짜"
+              />
+            )}
+          </div>
+          <div className="border border-gray-200 rounded-lg bg-gray-50 px-3 py-2.5">
+            <p className="text-xs text-gray-500 mb-2">
+              마케터별 접수
+              {marketerOverview && (
+                <>
+                  {' '}
+                  · {formatMonthKeyLabel(marketerOverview.monthKey)} · 오늘 {marketerOverview.todayYmd}
+                </>
+              )}
+            </p>
+            {marketerOverviewLoading ? (
+              <p className="text-sm text-gray-500">집계를 불러오는 중...</p>
+            ) : marketerOverviewError ? (
+              <div className="text-sm">
+                <p className="text-red-600">{marketerOverviewError}</p>
+                <button
+                  type="button"
+                  onClick={() => void loadMarketerOverview()}
+                  className="mt-2 text-sm text-gray-700 underline hover:text-gray-900"
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : marketerOverview ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse min-w-[280px]">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-gray-600">
+                      <th className="text-left py-1.5 pr-3 font-medium">이름</th>
+                      <th className="text-right py-1.5 px-2 font-medium whitespace-nowrap">이번 달</th>
+                      <th className="text-right py-1.5 pl-2 font-medium whitespace-nowrap">오늘</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-800">
+                    {marketerOverview.marketers.map((m) => (
+                      <tr key={m.marketerId} className="border-b border-gray-100 last:border-0">
+                        <td className="py-1.5 pr-3">{m.name}</td>
+                        <td className="py-1.5 px-2 text-right tabular-nums">{m.monthCount}건</td>
+                        <td className="py-1.5 pl-2 text-right tabular-nums">{m.todayCount}건</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">집계 데이터가 없습니다.</p>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="고객명·연락처 검색"
+              className="px-3 py-2 border border-gray-300 rounded text-sm flex-1 min-w-0"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded text-sm"
+            >
+              <option value="">전체 상태</option>
+              {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -480,26 +718,6 @@ export function AdminInquiriesPage() {
           {apiError} (서버가 실행 중인지 확인하세요.)
         </div>
       )}
-
-      {/* 마케터별 접수 건수 */}
-      {items.length > 0 && (() => {
-        const byMarketer = items.reduce<Record<string, number>>((acc, it) => {
-          const name = it.orderForm?.createdBy?.name ?? '개별접수';
-          acc[name] = (acc[name] ?? 0) + 1;
-          return acc;
-        }, {});
-        const entries = Object.entries(byMarketer).sort((a, b) => b[1] - a[1]);
-        return (
-          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
-            <span className="font-medium text-gray-800">마케터별 접수: </span>
-            {entries.map(([name, count]) => (
-              <span key={name} className="mr-3">
-                {name} {count}건
-              </span>
-            ))}
-          </div>
-        );
-      })()}
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         {loading ? (
@@ -622,7 +840,16 @@ export function AdminInquiriesPage() {
         )}
         {total > 0 && (
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
-            총 {total}건 · 행을 누르면 상세보기 · 모바일에서 가로 스크롤 가능
+            총 {total}건
+            {datePreset === 'today'
+              ? ' · 오늘 접수'
+              : datePreset === 'month'
+                ? ` · ${monthKey}`
+                : datePreset === 'day'
+                  ? ` · ${dayKey}`
+                  : ' · 전체 기간'}
+            {' · '}
+            행을 누르면 상세보기 · 모바일에서 가로 스크롤 가능
           </div>
         )}
       </div>
@@ -673,169 +900,56 @@ export function AdminInquiriesPage() {
             aria-modal="true"
             aria-labelledby="inquiry-edit-title"
           >
-            <div className="mx-auto w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-            <h2 id="inquiry-edit-title" className="text-lg font-semibold text-gray-800 mb-4">
-              내역 보기 / 수정 - {editItem.customerName}
+            <div className="mx-auto w-full max-w-2xl rounded-lg bg-white p-5 sm:p-6 shadow-xl">
+            <h2 id="inquiry-edit-title" className="text-lg font-semibold text-gray-800 mb-1">
+              접수 수정
             </h2>
+            <p className="text-sm text-gray-500 mb-4">필요한 항목을 바로 수정한 뒤 저장하세요.</p>
 
-            {/* 전체 내역 (읽기 전용) */}
-            <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">전체 내역</h3>
-              <dl className="space-y-2 text-sm">
-                <div>
-                  <dt className="text-gray-500">성함</dt>
-                  <dd className="font-medium">{editItem.customerName}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">연락처</dt>
-                  <dd>{editItem.customerPhone}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">보조 연락처</dt>
-                  <dd>{editItem.customerPhone2?.trim() || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">주소</dt>
-                  <dd>
-                    {editItem.address}
-                    {editItem.addressDetail ? ` ${editItem.addressDetail}` : ''}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">건축물 유형</dt>
-                  <dd>{editItem.propertyType?.trim() || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">평수 (기준·숫자)</dt>
-                  <dd>{formatAreaLine(editItem)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">방/베란다/화장실/주방</dt>
-                  <dd>
-                    {formatRoomInfo(
-                      editItem.roomCount,
-                      editItem.bathroomCount,
-                      editItem.balconyCount,
-                      editItem.kitchenCount
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">청소 희망일</dt>
-                  <dd>{formatDate(editItem.preferredDate)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">희망 시간대</dt>
-                  <dd>
-                    {editItem.preferredTime ? labelForTimeSlot(editItem.preferredTime) : '-'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">구체적 시각</dt>
-                  <dd>{editItem.preferredTimeDetail?.trim() || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">신축/구축/인테리어/거주</dt>
-                  <dd>{labelForBuildingType(editItem.buildingType)}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">이사 날짜 (선택사항)</dt>
-                  <dd>{editItem.moveInDate ? formatDate(editItem.moveInDate) : '-'}</dd>
-                </div>
-                {(() => {
-                  const a = effectiveInquiryAmounts(editItem);
-                  const fromOrderFormOnly =
-                    editItem.serviceTotalAmount == null &&
-                    editItem.serviceDepositAmount == null &&
-                    editItem.serviceBalanceAmount == null &&
-                    editItem.orderForm &&
-                    (editItem.orderForm.totalAmount != null ||
-                      editItem.orderForm.depositAmount != null ||
-                      editItem.orderForm.balanceAmount != null);
-                  return (
-                    <div>
-                      <dt className="text-gray-500">금액 (정산용)</dt>
-                      <dd>
-                        <div>총액: {formatWon(a.total)}</div>
-                        <div>예약금: {formatWon(a.deposit)}</div>
-                        <div>잔금: {formatWon(a.balance)}</div>
-                        {fromOrderFormOnly && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            발주서 금액을 표시 중입니다. 아래에서 저장하면 접수 건에 고정됩니다.
-                          </p>
-                        )}
-                      </dd>
-                    </div>
-                  );
-                })()}
-                <div>
-                  <dt className="text-gray-500">출처</dt>
-                  <dd>{editItem.source ?? '-'}</dd>
-                </div>
-                {editItem.orderForm?.createdBy && (
-                  <div>
-                    <dt className="text-gray-500">담당 마케터</dt>
-                    <dd>{editItem.orderForm.createdBy.name}</dd>
-                  </div>
-                )}
-                {editItem.callAttempt != null && (
-                  <div>
-                    <dt className="text-gray-500">통화 시도</dt>
-                    <dd>{editItem.callAttempt}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt className="text-gray-500">접수 메모 (발주서 요약 등)</dt>
-                  <dd className="whitespace-pre-wrap">{editItem.memo?.trim() || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">특이사항 (고객 작성)</dt>
-                  <dd className="whitespace-pre-wrap">{editItem.specialNotes?.trim() || '-'}</dd>
-                </div>
-                {editItem.claimMemo && (
-                  <div>
-                    <dt className="text-gray-500 text-orange-600">클레임</dt>
-                    <dd className="whitespace-pre-wrap">{editItem.claimMemo}</dd>
-                  </div>
-                )}
-              </dl>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 border-b border-gray-100 pb-3 mb-4">
+              <span>출처: {editItem.source ?? '-'}</span>
+              {editItem.orderForm?.createdBy && (
+                <span>담당 마케터: {editItem.orderForm.createdBy.name}</span>
+              )}
+              {editItem.callAttempt != null && <span>통화 시도: {editItem.callAttempt}</span>}
+              {editItem.claimMemo?.trim() && (
+                <span className="text-orange-700 font-medium">클레임 등록됨</span>
+              )}
             </div>
 
-            <InquiryChangeHistoryBlock logs={editItem.changeLogs} />
-
-            {/* 수정 가능 필드 */}
-            <div className="space-y-4">
-              <div className="p-3 bg-amber-50 border border-amber-100 rounded text-xs text-amber-900">
-                정산·내역 출력용 금액(원). 비우면 해당 항목은 비움 처리됩니다.
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">총액 (원)</label>
+                <label className="block text-sm text-gray-600 mb-1">성함</label>
                 <input
-                  value={editForm.amountTotal}
-                  onChange={(e) => setEditForm((p) => ({ ...p, amountTotal: e.target.value }))}
+                  value={editForm.customerName}
+                  onChange={(e) => setEditForm((p) => ({ ...p, customerName: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="예: 500000"
-                  inputMode="numeric"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">예약금 (원)</label>
+                <label className="block text-sm text-gray-600 mb-1">연락처</label>
                 <input
-                  value={editForm.amountDeposit}
-                  onChange={(e) => setEditForm((p) => ({ ...p, amountDeposit: e.target.value }))}
+                  value={editForm.customerPhone}
+                  onChange={(e) => setEditForm((p) => ({ ...p, customerPhone: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="예: 100000"
-                  inputMode="numeric"
+                  inputMode="tel"
                 />
               </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">잔금 (원)</label>
+              <div className="sm:col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">주소</label>
+                <AddressSearch
+                  value={editForm.address}
+                  onChange={(addr) => setEditForm((p) => ({ ...p, address: addr }))}
+                  placeholder="주소 검색"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">상세주소</label>
                 <input
-                  value={editForm.amountBalance}
-                  onChange={(e) => setEditForm((p) => ({ ...p, amountBalance: e.target.value }))}
+                  value={editForm.addressDetail}
+                  onChange={(e) => setEditForm((p) => ({ ...p, addressDetail: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="예: 400000"
-                  inputMode="numeric"
+                  placeholder="동·호수"
                 />
               </div>
               <div>
@@ -844,7 +958,7 @@ export function AdminInquiriesPage() {
                   value={editForm.customerPhone2}
                   onChange={(e) => setEditForm((p) => ({ ...p, customerPhone2: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="비우면 저장 시 비움 처리"
+                  placeholder="비우면 저장 시 비움"
                 />
               </div>
               <div>
@@ -882,8 +996,51 @@ export function AdminInquiriesPage() {
                   placeholder="예: 32"
                 />
               </div>
+              <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">방</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editForm.roomCount}
+                    onChange={(e) => setEditForm((p) => ({ ...p, roomCount: e.target.value }))}
+                    className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">화</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editForm.bathroomCount}
+                    onChange={(e) => setEditForm((p) => ({ ...p, bathroomCount: e.target.value }))}
+                    className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">베</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editForm.balconyCount}
+                    onChange={(e) => setEditForm((p) => ({ ...p, balconyCount: e.target.value }))}
+                    className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">주방</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editForm.kitchenCount}
+                    onChange={(e) => setEditForm((p) => ({ ...p, kitchenCount: e.target.value }))}
+                    className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-center"
+                    placeholder="비움"
+                  />
+                </div>
+              </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">예약일</label>
+                <label className="block text-sm text-gray-600 mb-1">예약일 (청소 희망일)</label>
                 <input
                   type="date"
                   value={editForm.preferredDate}
@@ -931,7 +1088,7 @@ export function AdminInquiriesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">이사 날짜 (선택사항)</label>
+                <label className="block text-sm text-gray-600 mb-1">이사 날짜 (선택)</label>
                 <input
                   type="date"
                   value={editForm.moveInDate}
@@ -939,25 +1096,63 @@ export function AdminInquiriesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                 />
               </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">주방 개수</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={editForm.kitchenCount}
-                  onChange={(e) => setEditForm((p) => ({ ...p, kitchenCount: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="비우면 저장 시 비움"
-                />
-              </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-sm text-gray-600 mb-1">특이사항 (고객 작성)</label>
                 <textarea
                   value={editForm.specialNotes}
                   onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
-                  rows={3}
+                  rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                   placeholder="고객 발주서 특이사항"
+                />
+              </div>
+
+              <div className="sm:col-span-2 p-3 bg-amber-50 border border-amber-100 rounded text-xs text-amber-900">
+                정산·내역 출력용 금액(원). 비우면 해당 항목은 비움 처리됩니다.
+                {(() => {
+                  const fromOrderFormOnly =
+                    editItem.serviceTotalAmount == null &&
+                    editItem.serviceDepositAmount == null &&
+                    editItem.serviceBalanceAmount == null &&
+                    editItem.orderForm &&
+                    (editItem.orderForm.totalAmount != null ||
+                      editItem.orderForm.depositAmount != null ||
+                      editItem.orderForm.balanceAmount != null);
+                  return fromOrderFormOnly ? (
+                    <span className="block mt-1 text-amber-950/90">
+                      발주서 금액을 표시 중입니다. 저장하면 접수 건에 고정됩니다.
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">총액 (원)</label>
+                <input
+                  value={editForm.amountTotal}
+                  onChange={(e) => setEditForm((p) => ({ ...p, amountTotal: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="예: 500000"
+                  inputMode="numeric"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">예약금 (원)</label>
+                <input
+                  value={editForm.amountDeposit}
+                  onChange={(e) => setEditForm((p) => ({ ...p, amountDeposit: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="예: 100000"
+                  inputMode="numeric"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">잔금 (원)</label>
+                <input
+                  value={editForm.amountBalance}
+                  onChange={(e) => setEditForm((p) => ({ ...p, amountBalance: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  placeholder="예: 400000"
+                  inputMode="numeric"
                 />
               </div>
               <div>
@@ -985,17 +1180,38 @@ export function AdminInquiriesPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">메모 (추가/수정)</label>
+              <div className="sm:col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
                 <textarea
                   value={editForm.memo}
                   onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  placeholder="관리자 메모 추가"
+                  placeholder="접수 메모"
                 />
               </div>
             </div>
+
+            {editItem.claimMemo?.trim() && (
+              <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-sm">
+                <p className="text-xs font-medium text-orange-800 mb-1">클레임 내용 (참고)</p>
+                <p className="text-gray-800 whitespace-pre-wrap">{editItem.claimMemo}</p>
+              </div>
+            )}
+
+            <details className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
+              <summary className="px-3 py-2 text-sm text-gray-700 bg-gray-50 cursor-pointer select-none hover:bg-gray-100">
+                날짜·금액 변경 이력 보기
+              </summary>
+              <div className="p-3 bg-white border-t border-gray-100">
+                <InquiryChangeHistoryBlock
+                  logs={editItem.changeLogs}
+                  className="mb-0 p-0 border-0 bg-transparent"
+                  showEmptyHint
+                />
+              </div>
+            </details>
+
             <div className="flex gap-2 mt-6">
               <button
                 type="button"

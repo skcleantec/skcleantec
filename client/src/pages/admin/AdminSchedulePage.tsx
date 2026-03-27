@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { getSchedule, type ScheduleItem } from '../../api/schedule';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getTeamLeaders, type UserItem } from '../../api/users';
+import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
+import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -61,9 +63,11 @@ export function AdminSchedulePage() {
   const [items, setItems] = useState<ScheduleItem[]>([]);
   const [stats, setStats] = useState<Record<string, ScheduleStatsByDate>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<ScheduleItem | null>(null);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
+  const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
 
   const fetchMonthData = useCallback(
     (showLoading: boolean) => {
@@ -77,10 +81,12 @@ export function AdminSchedulePage() {
         .then(([scheduleRes, statsRes]) => {
           setItems(scheduleRes.items);
           setStats(statsRes.byDate);
+          setLoadError(null);
         })
-        .catch(() => {
+        .catch((err) => {
           setItems([]);
           setStats({});
+          setLoadError(err instanceof Error ? err.message : '스케줄을 불러오지 못했습니다.');
         })
         .finally(() => {
           if (showLoading) setLoading(false);
@@ -96,6 +102,13 @@ export function AdminSchedulePage() {
   useEffect(() => {
     if (!token) return;
     getTeamLeaders(token).then(setTeamLeaders).catch(() => setTeamLeaders([]));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    getAllProfessionalOptions(token)
+      .then(setProfCatalog)
+      .catch(() => setProfCatalog([]));
   }, [token]);
 
   const byDate = items.reduce<Record<string, ScheduleItem[]>>((acc, item) => {
@@ -140,19 +153,25 @@ export function AdminSchedulePage() {
         </select>
       </div>
 
+      {loadError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{loadError}</div>
+      )}
       {loading ? (
         <div className="py-12 text-center text-gray-500 text-sm">로딩 중...</div>
       ) : (
         <>
           {/* 범례 */}
-          <div className="flex flex-wrap gap-4 text-xs text-gray-600">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-600">
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 border-2 border-red-500 rounded shrink-0" />
-              빈 배정 (미배정 또는 오전·오후 슬롯 부족)
+              빈 슬롯/미배정 (빨간 테두리)
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded shrink-0 bg-violet-900" />
-              마감 (휴무 반영 후 근무 팀장 기준 오전·오후 각 1건씩 배정됨)
+              마감 (오전·오후 슬롯 각 충족)
+            </span>
+            <span className="text-gray-500">
+              칸: 오전 · 사이(사이청소) · 오후 · 미배정(팀장 미지정)
             </span>
           </div>
 
@@ -171,13 +190,15 @@ export function AdminSchedulePage() {
               ))}
               {calendarDays.map((d, i) => {
                 if (d === null) {
-                  return <div key={`empty-${i}`} className="min-h-[72px] bg-gray-50" />;
+                  return <div key={`empty-${i}`} className="min-h-[120px] bg-gray-50" />;
                 }
                 const key = getDateKey(d);
                 const dayItems = byDate[key] || [];
                 const dayStats = stats[key];
                 const morningCount = dayStats?.morningCount ?? 0;
+                const betweenCount = dayStats?.betweenCount ?? 0;
                 const afternoonCount = dayStats?.afternoonCount ?? 0;
+                const afternoonSlots = afternoonCount + betweenCount;
                 const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = dayItems.filter((it) => !it.assignments?.[0]).length;
                 const hasEvents = dayItems.length > 0;
@@ -186,11 +207,11 @@ export function AdminSchedulePage() {
                 const isHoliday = isPublicHoliday(year, month, d);
                 const hasEmptySlots =
                   workingCount > 0 &&
-                  (unassignedCount > 0 || morningCount < workingCount || afternoonCount < workingCount);
+                  (unassignedCount > 0 || morningCount < workingCount || afternoonSlots < workingCount);
                 const isSlotFull =
                   workingCount > 0 &&
                   morningCount >= workingCount &&
-                  afternoonCount >= workingCount;
+                  afternoonSlots >= workingCount;
                 const dateColor = isSlotFull
                   ? 'text-amber-200'
                   : isHoliday
@@ -200,12 +221,11 @@ export function AdminSchedulePage() {
                       : hasEvents
                         ? 'text-blue-700'
                         : 'text-gray-800';
-                const countTextCls = isSlotFull ? 'text-amber-100' : 'text-gray-700';
                 return (
                   <div
                     key={key}
                     onClick={() => setSelectedDate(isSelected ? null : key)}
-                    className={`min-h-[72px] p-1 pt-3.5 pb-5 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
+                    className={`min-h-[120px] p-1 pt-3.5 pb-6 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
                       isSlotFull
                         ? 'bg-gradient-to-br from-violet-900 to-indigo-950'
                         : hasEvents
@@ -218,11 +238,85 @@ export function AdminSchedulePage() {
                     <span className={`absolute top-0.5 left-1 text-[11px] font-semibold ${dateColor}`}>
                       {d}
                     </span>
-                    <div
-                      className={`mt-3 text-[10px] font-medium grid grid-cols-2 gap-x-1 gap-y-0.5 leading-snug ${countTextCls}`}
-                    >
-                      <span>오전 {morningCount}</span>
-                      <span>오후 {afternoonCount}</span>
+                    <div className="mt-3.5 flex flex-col gap-0.5 pr-0.5">
+                      <div className="flex justify-between items-baseline gap-1 leading-none">
+                        <span
+                          className={
+                            isSlotFull ? 'text-amber-200/95' : 'text-amber-900 font-medium'
+                          }
+                        >
+                          오전
+                        </span>
+                        <span
+                          className={`tabular-nums text-[11px] font-bold ${
+                            isSlotFull ? 'text-amber-50' : 'text-amber-950'
+                          }`}
+                        >
+                          {morningCount}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline gap-1 leading-none">
+                        <span
+                          className={
+                            isSlotFull ? 'text-violet-200/95' : 'text-violet-800 font-medium'
+                          }
+                        >
+                          사이
+                        </span>
+                        <span
+                          className={`tabular-nums text-[11px] font-bold ${
+                            isSlotFull ? 'text-violet-100' : 'text-violet-950'
+                          }`}
+                        >
+                          {betweenCount}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline gap-1 leading-none">
+                        <span
+                          className={
+                            isSlotFull ? 'text-sky-200/95' : 'text-sky-800 font-medium'
+                          }
+                        >
+                          오후
+                        </span>
+                        <span
+                          className={`tabular-nums text-[11px] font-bold ${
+                            isSlotFull ? 'text-sky-50' : 'text-sky-950'
+                          }`}
+                        >
+                          {afternoonCount}
+                        </span>
+                      </div>
+                      <div
+                        className={`flex justify-between items-baseline gap-1 leading-none border-t pt-0.5 mt-0.5 ${
+                          isSlotFull ? 'border-white/15' : 'border-gray-200/90'
+                        }`}
+                      >
+                        <span
+                          className={
+                            isSlotFull
+                              ? 'text-amber-200/90'
+                              : unassignedCount > 0
+                                ? 'text-red-700 font-semibold'
+                                : 'text-gray-500'
+                          }
+                        >
+                          미배정
+                        </span>
+                        <span
+                          className={`tabular-nums text-[11px] font-bold ${
+                            isSlotFull
+                              ? unassignedCount > 0
+                                ? 'text-red-200'
+                                : 'text-amber-100/90'
+                              : unassignedCount > 0
+                                ? 'text-red-600'
+                                : 'text-gray-600'
+                          }`}
+                        >
+                          {unassignedCount}
+                        </span>
+                      </div>
                     </div>
                     {isSlotFull && (
                       <span className="absolute bottom-0.5 left-0 right-0 text-center text-[9px] font-bold text-amber-300 tracking-wide">
@@ -252,17 +346,19 @@ export function AdminSchedulePage() {
                 const s = stats[selectedDate];
                 const working = s.workingCount ?? 0;
                 const morning = s.morningCount ?? 0;
+                const between = s.betweenCount ?? 0;
                 const afternoon = s.afternoonCount ?? 0;
+                const afternoonSlots = afternoon + between;
                 const unassigned = (byDate[selectedDate] ?? []).filter((it) => !it.assignments?.[0]).length;
                 const needsAttention =
-                  working > 0 && (unassigned > 0 || morning < working || afternoon < working);
+                  working > 0 && (unassigned > 0 || morning < working || afternoonSlots < working);
                 if (!needsAttention) return null;
                 return (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-                    <strong>빈 배정 있음</strong> · 팀장당 오전1·오후1 배정이 되어야 합니다.
+                    <strong>빈 배정 있음</strong> · 팀장당 오전1·오후(사이·오후)1 배정이 되어야 합니다.
                     {unassigned > 0 && ` 미배정 ${unassigned}건`}
-                    {(morning < working || afternoon < working) &&
-                      ` · 오전 ${morning}/${working}건, 오후 ${afternoon}/${working}건`}
+                    {(morning < working || afternoonSlots < working) &&
+                      ` · 오전 ${morning}/${working}건, 오후슬롯 ${afternoonSlots}/${working}건(사이 ${between})`}
                   </div>
                 );
               })()}
@@ -270,7 +366,7 @@ export function AdminSchedulePage() {
               {/* 휴무/근무 현황 */}
               {stats[selectedDate] && (
                 <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm space-y-2">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                     <div>
                       <span className="text-gray-500">휴무</span>
                       <span className="ml-1 font-medium">{stats[selectedDate].offCount}인</span>
@@ -287,6 +383,12 @@ export function AdminSchedulePage() {
                     <div>
                       <span className="text-gray-500">오전 DB</span>
                       <span className="ml-1 font-medium">{stats[selectedDate].morningCount}건</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">사이 DB</span>
+                      <span className="ml-1 font-medium text-violet-800">
+                        {(stats[selectedDate].betweenCount ?? 0)}건
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-500">오후 DB</span>
@@ -336,7 +438,10 @@ export function AdminSchedulePage() {
                           </p>
                         </div>
                       )}
-                      <span className="font-medium text-gray-900">{item.customerName}</span>
+                      <span className="font-medium text-gray-900 inline-flex items-center flex-wrap gap-x-1">
+                        {item.customerName}
+                        <ProfessionalOptionDots rawIds={item.professionalOptionIds} catalog={profCatalog} />
+                      </span>
                       <span className="text-xs text-gray-600 truncate">
                         {item.address}
                         {item.addressDetail ? ` ${item.addressDetail}` : ''}
@@ -364,6 +469,7 @@ export function AdminSchedulePage() {
           token={token}
           item={detailItem}
           teamLeaders={teamLeaders}
+          professionalCatalog={profCatalog}
           onClose={() => setDetailItem(null)}
           onSaved={() => fetchMonthData(false)}
         />

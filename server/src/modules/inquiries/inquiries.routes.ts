@@ -1,13 +1,21 @@
 import { Router } from 'express';
+import type { Prisma } from '@prisma/client';
+import type { InquiryStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly } from '../auth/auth.middleware.js';
+import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { createdAtRangeFromQuery } from './inquiryListDateRange.js';
+import { buildMarketerOverview } from './inquiryMarketerOverview.js';
 import {
   buildAmountDateChangeLines,
   buildInquiryPatchData,
   projectAfterPatch,
 } from './inquiryPatch.helpers.js';
+import {
+  filterExistingProfessionalOptionIds,
+  parseProfessionalOptionIdsRaw,
+} from '../orderform/specialtyOptions.js';
 
 const router = Router();
 
@@ -32,17 +40,46 @@ const inquiryDetailInclude = {
 };
 
 router.use(authMiddleware);
-router.use(adminOnly);
+router.use(adminOrMarketer);
+
+/** 마케터별 이번 달·오늘 접수 건수 (목록 필터와 무관, 접수일 KST) */
+router.get('/marketer-overview', async (_req, res) => {
+  try {
+    const data = await buildMarketerOverview();
+    res.json(data);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('marketer-overview error:', msg, err);
+    const hint =
+      process.env.NODE_ENV !== 'production'
+        ? `${msg}`
+        : '마케터별 집계를 불러올 수 없습니다.';
+    res.status(500).json({ error: hint });
+  }
+});
 
 router.get('/', async (req, res) => {
-  const { status, limit = '50', offset = '0', search } = req.query;
-  const where: Record<string, unknown> = status ? { status: status as string } : {};
-  if (search && typeof search === 'string' && search.trim()) {
-    where.OR = [
-      { customerName: { contains: search.trim() } },
-      { customerPhone: { contains: search.trim() } },
-    ];
+  const { status, limit = '200', offset = '0', search, datePreset, month, day } = req.query;
+  const range = createdAtRangeFromQuery({
+    datePreset: typeof datePreset === 'string' ? datePreset : undefined,
+    month: typeof month === 'string' ? month : undefined,
+    day: typeof day === 'string' ? day : undefined,
+  });
+
+  const andClauses: Prisma.InquiryWhereInput[] = [];
+  if (range) {
+    andClauses.push({ createdAt: { gte: range.gte, lte: range.lte } });
   }
+  if (status && typeof status === 'string') {
+    andClauses.push({ status: status as InquiryStatus });
+  }
+  if (search && typeof search === 'string' && search.trim()) {
+    const s = search.trim();
+    andClauses.push({
+      OR: [{ customerName: { contains: s } }, { customerPhone: { contains: s } }],
+    });
+  }
+  const where: Prisma.InquiryWhereInput = andClauses.length > 0 ? { AND: andClauses } : {};
   const [items, total] = await Promise.all([
     prisma.inquiry.findMany({
       where,
@@ -84,6 +121,10 @@ router.patch('/:id', async (req, res) => {
     return;
   }
   const data = buildInquiryPatchData(body);
+  if (body.professionalOptionIds !== undefined) {
+    const raw = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
+    data.professionalOptionIds = await filterExistingProfessionalOptionIds(prisma, raw);
+  }
   if (Object.keys(data).length === 0) {
     const unchanged = await prisma.inquiry.findUnique({
       where: { id },
@@ -123,8 +164,10 @@ router.patch('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const body = req.body as Record<string, unknown>;
+  const user = (req as unknown as { user: AuthPayload }).user;
   const inquiry = await prisma.inquiry.create({
     data: {
+      createdById: user?.userId ?? null,
       customerName: String(body.customerName ?? ''),
       customerPhone: String(body.customerPhone ?? ''),
       customerPhone2: body.customerPhone2 ? String(body.customerPhone2) : null,

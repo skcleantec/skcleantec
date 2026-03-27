@@ -39,6 +39,7 @@ function App() {
           <Route path="team-leaders" element={<AdminTeamLeadersPage />} />
           <Route path="messages" element={<AdminMessagesPage />} />
           <Route path="orderforms" element={<AdminOrderFormPage />} />
+          <Route path="orderforms/notice" element={<Navigate to="/admin/orderforms?tab=notice" replace />} />
           <Route path="cs" element={<AdminCsPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>

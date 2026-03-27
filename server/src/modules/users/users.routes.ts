@@ -2,15 +2,15 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly } from '../auth/auth.middleware.js';
+import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOnly);
 
-router.get('/', async (req, res) => {
+/** 목록 조회 — 스케줄·접수에서 팀장/마케터 선택용 (마케터도 조회 가능) */
+router.get('/', adminOrMarketer, async (req, res) => {
   const role = (req.query.role as string) || 'TEAM_LEADER';
   const validRoles = ['TEAM_LEADER', 'MARKETER'];
   if (!validRoles.includes(role)) {
@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
   res.json(users);
 });
 
-router.post('/', async (req, res) => {
+router.post('/', adminOnly, async (req, res) => {
   const { email, password, name, phone, role } = req.body as {
     email?: string;
     password?: string;
@@ -126,7 +126,7 @@ router.patch('/:id', async (req, res) => {
   res.json(updated);
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', adminOnly, async (req, res) => {
   const { id } = req.params;
   const user = await prisma.user.findUnique({
     where: { id },

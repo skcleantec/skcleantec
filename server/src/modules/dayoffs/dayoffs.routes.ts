@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly } from '../auth/auth.middleware.js';
+import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 
@@ -61,13 +61,18 @@ router.delete('/me', teamAuthMiddleware, async (req, res) => {
   res.json({ ok: true });
 });
 
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
 /** 관리자: 날짜별 휴무/근무 현황 */
-router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
+router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) => {
   const { start, end } = req.query as { start?: string; end?: string };
   const now = new Date();
-  const startDate = start ? new Date(start) : new Date(now.getFullYear(), now.getMonth(), 1);
-  const endDate = end
-    ? new Date(end + 'T23:59:59')
+  const startDate =
+    start && YMD.test(start)
+      ? new Date(`${start}T00:00:00+09:00`)
+      : new Date(now.getFullYear(), now.getMonth(), 1);
+  const endDate = end && YMD.test(end)
+    ? new Date(`${end}T23:59:59.999+09:00`)
     : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
   const teamLeaders = await prisma.user.findMany({
@@ -116,6 +121,8 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
       availableMorningNames: string[];
       availableAfternoonNames: string[];
       morningCount: number;
+      /** 사이청소 건수 */
+      betweenCount: number;
       afternoonCount: number;
       unassignedTotal: number;
     }
@@ -139,6 +146,8 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
       (t) => !offIds.has(t.id) && !assignedIds.has(t.id)
     );
 
+    const isBetween = (a: (typeof dayAssignments)[0]) =>
+      (a.inquiry.preferredTime || '').includes('사이청소');
     const isMorning = (a: (typeof dayAssignments)[0]) => {
       const t = a.inquiry.preferredTime || '';
       if (t.includes('사이청소')) return false;
@@ -146,25 +155,31 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
       if (t.includes('오후')) return false;
       return (parseInt(t, 10) || 24) < 12;
     };
-    const morningAssignments = dayAssignments.filter(isMorning);
-    const afternoonAssignments = dayAssignments.filter((a) => !isMorning(a));
+    const betweenAssignments = dayAssignments.filter(isBetween);
+    const nonBetween = dayAssignments.filter((a) => !isBetween(a));
+    const morningAssignments = nonBetween.filter(isMorning);
+    const afternoonAssignments = nonBetween.filter((a) => !isMorning(a));
     const morningCount = morningAssignments.length;
+    const betweenCount = betweenAssignments.length;
     const afternoonCount = afternoonAssignments.length;
     const morningAssignedIds = new Set(morningAssignments.map((a) => a.teamLeaderId));
-    const afternoonAssignedIds = new Set(afternoonAssignments.map((a) => a.teamLeaderId));
+    /** 오후 슬롯(기존 오후 + 사이청소) — 배정 가능 팀장 계산용 */
+    const afternoonSlotAssignedIds = new Set(
+      [...afternoonAssignments, ...betweenAssignments].map((a) => a.teamLeaderId)
+    );
 
     // 오전 배정 가능: 근무 중이면서 오전에 배정된 건이 없는 팀장
     const availableMorningLeaders = teamLeaders.filter(
       (t) => !offIds.has(t.id) && !morningAssignedIds.has(t.id)
     );
-    // 오후 배정 가능: 근무 중이면서 오후에 배정된 건이 없는 팀장
+    // 오후 배정 가능: 근무 중이면서 오후·사이 슬롯에 배정된 건이 없는 팀장
     const availableAfternoonLeaders = teamLeaders.filter(
-      (t) => !offIds.has(t.id) && !afternoonAssignedIds.has(t.id)
+      (t) => !offIds.has(t.id) && !afternoonSlotAssignedIds.has(t.id)
     );
 
-    // 미배정 총수 = 팀장당 오전1·오후1 기준으로 비어있는 슬롯 수 (빈 오전 + 빈 오후)
+    // 미배정 총수 = 팀장당 오전1·오후1 기준으로 비어있는 슬롯 수 (빈 오전 + 빈 오후, 오후 슬롯은 사이청소 포함 건수로 판단)
     const emptyMorning = Math.max(0, workingCount - morningCount);
-    const emptyAfternoon = Math.max(0, workingCount - afternoonCount);
+    const emptyAfternoon = Math.max(0, workingCount - (afternoonCount + betweenCount));
     const unassignedTotal = emptyMorning + emptyAfternoon;
 
     byDate[key] = {
@@ -177,6 +192,7 @@ router.get('/schedule-stats', authMiddleware, adminOnly, async (req, res) => {
       availableMorningNames: availableMorningLeaders.map((t) => t.name),
       availableAfternoonNames: availableAfternoonLeaders.map((t) => t.name),
       morningCount,
+      betweenCount,
       afternoonCount,
       unassignedTotal,
     };

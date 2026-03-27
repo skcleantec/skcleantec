@@ -4,8 +4,193 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import {
+  DEFAULT_GUIDE_SECTIONS,
+  type GuideSection,
+} from './guideDefaults.js';
+import {
+  filterActiveProfessionalOptionIds,
+  formatProfessionalOptionsMemoLine,
+  normalizeHexColor,
+  parseProfessionalOptionIdsRaw,
+} from './specialtyOptions.js';
+import { ensureMissingProfessionalDefaults } from './defaultProfessionalOptions.js';
 
 const router = Router();
+
+function parseGuideSectionsFromDb(raw: string | null | undefined): GuideSection[] {
+  if (!raw?.trim()) return DEFAULT_GUIDE_SECTIONS;
+  const t = raw.trim();
+  if (t.startsWith('{')) {
+    try {
+      const p = JSON.parse(t) as { sections?: unknown };
+      if (Array.isArray(p.sections) && p.sections.length > 0) {
+        const out: GuideSection[] = [];
+        for (const s of p.sections) {
+          if (s && typeof s === 'object') {
+            const title = String((s as { title?: unknown }).title ?? '').trim();
+            const itemsRaw = (s as { items?: unknown }).items;
+            const items = Array.isArray(itemsRaw)
+              ? itemsRaw.map((x) => String(x).trim()).filter(Boolean)
+              : [];
+            if (title || items.length) out.push({ title: title || '안내', items });
+          }
+        }
+        if (out.length) return out;
+      }
+    } catch {
+      /* 레거시 본문 */
+    }
+  }
+  const lines = t.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length) return [{ title: '안내', items: lines }];
+  return DEFAULT_GUIDE_SECTIONS;
+}
+
+/** 공개: 고객 안내사항 페이지(`/info`)용 — 인증 없음 */
+router.get('/public-guide', async (_req, res) => {
+  try {
+    let cfg = await prisma.orderFormConfig.findFirst();
+    if (!cfg) {
+      cfg = await prisma.orderFormConfig.create({ data: {} });
+    }
+    const sections = parseGuideSectionsFromDb(cfg.infoContent);
+    const infoLinkText =
+      cfg.infoLinkText?.trim() || '고객 정보처리 동의 및 안내사항';
+    res.json({ sections, infoLinkText });
+  } catch (err) {
+    console.error('public-guide error:', err);
+    res.json({
+      sections: DEFAULT_GUIDE_SECTIONS,
+      infoLinkText: '고객 정보처리 동의 및 안내사항',
+    });
+  }
+});
+
+/** 공개: 고객 발주서 — 전문 시공 옵션 목록 (활성만, 정렬) */
+router.get('/professional-options', async (_req, res) => {
+  try {
+    const items = await prisma.professionalSpecialtyOption.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, label: true, priceHint: true, emoji: true, color: true, sortOrder: true },
+    });
+    res.json({ items });
+  } catch (err) {
+    console.error('professional-options list error:', err);
+    res.status(500).json({ error: '전문 시공 옵션을 불러올 수 없습니다.' });
+  }
+});
+
+/** 관리자/마케터: 전문 시공 옵션 전체 (비활성 포함) */
+router.get('/professional-options/all', authMiddleware, adminOrMarketer, async (_req, res) => {
+  try {
+    const items = await prisma.professionalSpecialtyOption.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    res.json({ items });
+  } catch (err) {
+    console.error('professional-options/all error:', err);
+    res.status(500).json({ error: '전문 시공 옵션을 불러올 수 없습니다.' });
+  }
+});
+
+/** 관리자/마케터: 전문 시공 옵션 추가 */
+router.post('/professional-options', authMiddleware, adminOrMarketer, async (req, res) => {
+  const body = req.body as {
+    label?: string;
+    priceHint?: string;
+    emoji?: string;
+    color?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+  };
+  const label = String(body.label ?? '').trim();
+  if (!label) {
+    res.status(400).json({ error: '항목명을 입력해주세요.' });
+    return;
+  }
+  const color = normalizeHexColor(String(body.color ?? '#6b7280'));
+  if (!color) {
+    res.status(400).json({ error: '색상은 #RRGGBB 형식(예: #2563eb)으로 입력해주세요.' });
+    return;
+  }
+  const priceHint = body.priceHint != null ? String(body.priceHint).trim() : '';
+  const emoji = body.emoji != null ? String(body.emoji).trim().slice(0, 8) : '';
+  const sortOrder = body.sortOrder != null && Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0;
+  const isActive = body.isActive !== false;
+  try {
+    const created = await prisma.professionalSpecialtyOption.create({
+      data: { label, priceHint, emoji, color, sortOrder, isActive },
+    });
+    res.json(created);
+  } catch (err) {
+    console.error('professional-options create error:', err);
+    res.status(500).json({ error: '추가에 실패했습니다.' });
+  }
+});
+
+/** 관리자/마케터: 전문 시공 옵션 수정 */
+router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async (req, res) => {
+  const { id } = req.params;
+  const body = req.body as {
+    label?: string;
+    priceHint?: string;
+    emoji?: string;
+    color?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+  };
+  const existing = await prisma.professionalSpecialtyOption.findUnique({ where: { id } });
+  if (!existing) {
+    res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+    return;
+  }
+  const data: Record<string, unknown> = {};
+  if (body.label !== undefined) {
+    const label = String(body.label).trim();
+    if (!label) {
+      res.status(400).json({ error: '항목명을 입력해주세요.' });
+      return;
+    }
+    data.label = label;
+  }
+  if (body.priceHint !== undefined) data.priceHint = String(body.priceHint).trim();
+  if (body.emoji !== undefined) data.emoji = String(body.emoji).trim().slice(0, 8);
+  if (body.color !== undefined) {
+    const color = normalizeHexColor(String(body.color));
+    if (!color) {
+      res.status(400).json({ error: '색상은 #RRGGBB 형식으로 입력해주세요.' });
+      return;
+    }
+    data.color = color;
+  }
+  if (body.sortOrder !== undefined && Number.isFinite(Number(body.sortOrder))) {
+    data.sortOrder = Number(body.sortOrder);
+  }
+  if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+  try {
+    const updated = await prisma.professionalSpecialtyOption.update({
+      where: { id },
+      data,
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('professional-options patch error:', err);
+    res.status(500).json({ error: '수정에 실패했습니다.' });
+  }
+});
+
+/** 관리자/마케터: 전문 시공 옵션 삭제 */
+router.delete('/professional-options/:id', authMiddleware, adminOrMarketer, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.professionalSpecialtyOption.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch {
+    res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+  }
+});
 
 /** 관리자/마케터: 발주서 목록 */
 router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
@@ -76,7 +261,7 @@ const DEFAULT_FORM_CONFIG = {
   footerNotice1: '‼️ 청소 전일 저녁, 담당 팀장 연락 드림',
   footerNotice2: '❌ 연락 없을 시, 본사 확인 요청 필',
   infoContent: null as string | null,
-  infoLinkText: '안내사항',
+  infoLinkText: '고객 정보처리 동의 및 안내사항',
   submitSuccessTitle: '제출이 완료되었습니다.',
   submitSuccessBody: '청소 전일 저녁, 담당 팀장이 연락드립니다.',
   updatedAt: new Date().toISOString(),
@@ -187,10 +372,23 @@ router.get('/by-token/:token', async (req, res) => {
     res.status(410).json({ error: '이미 제출된 발주서입니다.' });
     return;
   }
-  const options = await prisma.estimateOption.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: 'asc' },
-  });
+  try {
+    await ensureMissingProfessionalDefaults(prisma);
+  } catch (err) {
+    console.error('by-token ensure professional defaults:', err);
+  }
+
+  const [options, professionalOptions] = await Promise.all([
+    prisma.estimateOption.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    }),
+    prisma.professionalSpecialtyOption.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, label: true, priceHint: true, emoji: true, color: true, sortOrder: true },
+    }),
+  ]);
   let formConfig = await prisma.orderFormConfig.findFirst();
   if (!formConfig) {
     formConfig = await prisma.orderFormConfig.create({
@@ -209,6 +407,7 @@ router.get('/by-token/:token', async (req, res) => {
     preferredTime: form.preferredTime,
     preferredTimeDetail: form.preferredTimeDetail,
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
+    professionalOptions,
     formConfig: resolvedPublicFormConfig(formConfig),
   });
 });
@@ -235,7 +434,12 @@ router.post('/submit/:token', async (req, res) => {
     buildingType: string;
     moveInDate?: string;
     specialNotes?: string;
+    professionalOptionIds?: unknown;
   };
+
+  const rawIds = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
+  const professionalIds = await filterActiveProfessionalOptionIds(prisma, rawIds);
+  const professionalMemoLine = await formatProfessionalOptionsMemoLine(prisma, professionalIds);
 
   const form = await prisma.orderForm.findUnique({ where: { token } });
   if (!form) {
@@ -308,6 +512,7 @@ router.post('/submit/:token', async (req, res) => {
     body.moveInDate ? `이사 날짜: ${body.moveInDate}` : null,
     body.specialNotes ? `특이사항: ${body.specialNotes}` : null,
     useDetailStr ? `희망 시각: ${useDetailStr}` : null,
+    professionalMemoLine,
   ]
     .filter(Boolean)
     .join('\n');
@@ -315,6 +520,7 @@ router.post('/submit/:token', async (req, res) => {
   await prisma.$transaction([
     prisma.inquiry.create({
       data: {
+        createdById: form.createdById,
         customerName: body.customerName || form.customerName,
         customerPhone: body.customerPhone,
         customerPhone2: String(body.customerPhone2).trim(),
@@ -340,6 +546,7 @@ router.post('/submit/:token', async (req, res) => {
         source: '발주서',
         status: 'RECEIVED',
         orderFormId: form.id,
+        professionalOptionIds: professionalIds,
       },
     }),
     prisma.orderForm.update({

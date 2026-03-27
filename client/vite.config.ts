@@ -11,7 +11,7 @@ export default defineConfig({
     host: true, // 모바일에서 같은 Wi-Fi로 접속 가능
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
     },

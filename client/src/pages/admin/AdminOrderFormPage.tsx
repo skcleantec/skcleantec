@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
+import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
 import {
   getEstimateConfig,
   updateEstimateConfig,
@@ -23,7 +26,14 @@ import {
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
 
-type Tab = 'config' | 'messages' | 'issue' | 'list';
+type Tab = 'config' | 'messages' | 'issue' | 'list' | 'specialty' | 'notice';
+
+const VALID_TABS: Tab[] = ['config', 'messages', 'issue', 'list', 'specialty', 'notice'];
+
+function parseTabParam(raw: string | null): Tab {
+  if (raw && VALID_TABS.includes(raw as Tab)) return raw as Tab;
+  return 'issue';
+}
 
 type FormMsgDefaultKey = keyof typeof ORDER_FORM_CONFIG_DEFAULTS;
 
@@ -31,16 +41,26 @@ function withDefaultText(raw: string | null | undefined, key: FormMsgDefaultKey)
   return orderFormConfigLine(raw, ORDER_FORM_CONFIG_DEFAULTS[key]);
 }
 
+/** 폼 메시지 탭에서 다루는 필드 (고객 안내 본문은 발주서 화면의 안내사항설정 탭에서 편집) */
+type FormMessagesState = Pick<
+  OrderFormConfigPublic,
+  | 'formTitle'
+  | 'priceLabel'
+  | 'reviewEventText'
+  | 'footerNotice1'
+  | 'footerNotice2'
+  | 'submitSuccessTitle'
+  | 'submitSuccessBody'
+>;
+
 /** API 응답을 편집용 상태로: 비어 있는 항목은 기본 문구로 채워 placeholder 없이 바로 수정 가능 */
-function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): OrderFormConfigPublic {
+function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessagesState {
   return {
     formTitle: withDefaultText(c.formTitle, 'formTitle'),
     priceLabel: withDefaultText(c.priceLabel, 'priceLabel'),
     reviewEventText: withDefaultText(c.reviewEventText, 'reviewEventText'),
     footerNotice1: withDefaultText(c.footerNotice1, 'footerNotice1'),
     footerNotice2: withDefaultText(c.footerNotice2, 'footerNotice2'),
-    infoContent: c.infoContent?.trim() ?? '',
-    infoLinkText: withDefaultText(c.infoLinkText, 'infoLinkText'),
     submitSuccessTitle: withDefaultText(c.submitSuccessTitle, 'submitSuccessTitle'),
     submitSuccessBody: withDefaultText(c.submitSuccessBody, 'submitSuccessBody'),
   };
@@ -48,7 +68,21 @@ function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): OrderFormConfigP
 
 export function AdminOrderFormPage() {
   const token = getToken();
-  const [tab, setTab] = useState<Tab>('issue');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => parseTabParam(searchParams.get('tab')));
+
+  useEffect(() => {
+    setTab(parseTabParam(searchParams.get('tab')));
+  }, [searchParams]);
+
+  const goTab = (t: Tab) => {
+    setTab(t);
+    if (t === 'issue') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ tab: t }, { replace: true });
+    }
+  };
   const [options, setOptions] = useState<EstimateOption[]>([]);
   const [orderForms, setOrderForms] = useState<OrderForm[]>([]);
   const [loading, setLoading] = useState(false);
@@ -75,15 +109,15 @@ export function AdminOrderFormPage() {
   const [configSaving, setConfigSaving] = useState(false);
 
   // 폼 메시지 설정 (빈 API와 동일하게 기본 문구로 채워 두어 첫 화면부터 실제 문구가 보임)
-  const [msgConfig, setMsgConfig] = useState<OrderFormConfigPublic>(() =>
+  const [msgConfig, setMsgConfig] = useState<FormMessagesState>(() =>
     normalizeMsgConfigForEditor({
       formTitle: '',
       priceLabel: '',
       reviewEventText: '',
       footerNotice1: '',
       footerNotice2: '',
-      infoContent: '',
-      infoLinkText: '',
+      infoContent: null,
+      infoLinkText: null,
       submitSuccessTitle: '',
       submitSuccessBody: '',
     })
@@ -127,8 +161,8 @@ export function AdminOrderFormPage() {
             reviewEventText: '',
             footerNotice1: '',
             footerNotice2: '',
-            infoContent: '',
-            infoLinkText: '',
+            infoContent: null,
+            infoLinkText: null,
             submitSuccessTitle: '',
             submitSuccessBody: '',
           })
@@ -209,8 +243,6 @@ export function AdminOrderFormPage() {
         reviewEventText: msgConfig.reviewEventText || undefined,
         footerNotice1: msgConfig.footerNotice1 || undefined,
         footerNotice2: msgConfig.footerNotice2 || undefined,
-        infoContent: msgConfig.infoContent || undefined,
-        infoLinkText: msgConfig.infoLinkText || undefined,
         submitSuccessTitle: msgConfig.submitSuccessTitle || undefined,
         submitSuccessBody: msgConfig.submitSuccessBody || undefined,
       });
@@ -354,18 +386,33 @@ ${footer2}`;
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-4">발주서</h1>
 
-      <div className="flex gap-1 mb-6">
-        <button type="button" onClick={() => setTab('config')} className={tabClass('config')}>
+      <div
+        className="flex flex-wrap items-center gap-1 mb-6 w-full"
+        role="tablist"
+        aria-label="발주서 하위 메뉴"
+      >
+        <button type="button" onClick={() => goTab('config')} className={`${tabClass('config')} whitespace-nowrap`}>
           설정
         </button>
-        <button type="button" onClick={() => setTab('messages')} className={tabClass('messages')}>
+        <button type="button" onClick={() => goTab('messages')} className={`${tabClass('messages')} whitespace-nowrap`}>
           폼 메시지
         </button>
-        <button type="button" onClick={() => setTab('issue')} className={tabClass('issue')}>
+        <button type="button" onClick={() => goTab('issue')} className={`${tabClass('issue')} whitespace-nowrap`}>
           발주서 발급
         </button>
-        <button type="button" onClick={() => setTab('list')} className={tabClass('list')}>
+        <button type="button" onClick={() => goTab('list')} className={`${tabClass('list')} whitespace-nowrap`}>
           발주서 목록
+        </button>
+        <button type="button" onClick={() => goTab('specialty')} className={`${tabClass('specialty')} whitespace-nowrap`}>
+          발주서 설정
+        </button>
+        <button
+          type="button"
+          onClick={() => goTab('notice')}
+          className={`${tabClass('notice')} whitespace-nowrap`}
+          aria-label="안내사항설정"
+        >
+          안내사항설정
         </button>
       </div>
 
@@ -471,6 +518,13 @@ ${footer2}`;
             <p className="text-sm text-gray-500 mb-4">
               고객이 보는 발주서 폼에 표시되는 문구를 수정할 수 있습니다. 저장 후 발급되는 새 발주서부터 적용됩니다.
             </p>
+            <p className="text-sm text-gray-600 mb-4 p-3 bg-gray-50 border border-gray-200 rounded">
+              <span className="font-medium text-gray-800">고객 안내사항</span> 본문과 동의란 링크 문구는{' '}
+              <Link to="/admin/orderforms?tab=notice" className="text-blue-600 underline hover:text-blue-800">
+                안내사항설정
+              </Link>{' '}
+              메뉴에서 편집합니다.
+            </p>
             <div className="space-y-4 max-w-lg">
               <div>
                 <label className="block text-sm text-gray-600 mb-1">폼 제목</label>
@@ -518,24 +572,6 @@ ${footer2}`;
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">안내사항 (클릭 시 모달로 표시, 비우면 고객에게 안 보임)</label>
-                <textarea
-                  rows={5}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
-                  value={msgConfig.infoContent ?? ''}
-                  onChange={(e) => setMsgConfig((c) => ({ ...c, infoContent: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">안내사항 버튼 텍스트 (작게 표시됨)</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
-                  value={msgConfig.infoLinkText ?? ''}
-                  onChange={(e) => setMsgConfig((c) => ({ ...c, infoLinkText: e.target.value }))}
-                />
-              </div>
-              <div>
                 <label className="block text-sm text-gray-600 mb-1">제출 완료 제목</label>
                 <input
                   type="text"
@@ -580,9 +616,6 @@ ${footer2}`;
               <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-700">
                 <p>{withDefaultText(msgConfig.footerNotice1, 'footerNotice1')}</p>
                 <p>{withDefaultText(msgConfig.footerNotice2, 'footerNotice2')}</p>
-                {msgConfig.infoContent && (
-                  <p className="text-gray-500 mt-2">안내사항: {msgConfig.infoContent.slice(0, 50)}...</p>
-                )}
               </div>
             </div>
           </section>
@@ -823,6 +856,10 @@ ${footer2}`;
           )}
         </div>
       )}
+
+      {tab === 'specialty' && <AdminOrderFormSpecialtySettingsPage />}
+
+      {tab === 'notice' && <AdminOrderFormNoticePage embedded />}
     </div>
   );
 }

@@ -70,16 +70,6 @@ export function AdminLoginPage() {
             </button>
           </form>
         </div>
-        {import.meta.env.DEV && (
-          <p className="text-center text-xs text-gray-500 mt-4 px-1 leading-relaxed">
-            로컬 초기 계정: 아이디 <code className="bg-gray-100 px-1 rounded">admin</code> · 비밀번호{' '}
-            <code className="bg-gray-100 px-1 rounded">1234</code>
-            <br />
-            DB가 없거나 연결이 안 되면 프로젝트 루트에서{' '}
-            <code className="bg-gray-100 px-1 rounded">npm run db:up</code> 후{' '}
-            <code className="bg-gray-100 px-1 rounded">npm run db:setup</code>
-          </p>
-        )}
         <p className="text-center text-sm text-gray-500 mt-4">
           팀장 로그인은 별도 주소에서 이용하세요.
         </p>

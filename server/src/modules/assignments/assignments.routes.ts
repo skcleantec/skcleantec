@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly } from '../auth/auth.middleware.js';
+import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOnly);
+router.use(adminOrMarketer);
 
 router.post('/', async (req, res) => {
   const { inquiryId, teamLeaderId } = req.body as {

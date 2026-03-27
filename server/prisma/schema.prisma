@@ -23,6 +23,7 @@ model User {
   receivedMessages    Message[]    @relation("ReceivedMessages")
   dayOffs             UserDayOff[] @relation("UserDayOffs")
   orderFormsCreated   OrderForm[]  @relation("OrderFormCreatedBy")
+  inquiriesRegistered Inquiry[]    @relation("InquiryRegisteredBy")
 
   @@map("users")
 }
@@ -78,10 +79,16 @@ model Inquiry {
   serviceDepositAmount Int? @map("service_deposit_amount")
   serviceBalanceAmount Int? @map("service_balance_amount")
   orderFormId  String?       @map("order_form_id")
+  /// 접수를 등록한 사용자(개별접수: 로그인 마케터·관리자, 발주서 제출: 발주서 발급 마케터)
+  createdById String?       @map("created_by_id")
+  /// 전문 시공 옵션 id 배열(JSON) — 발주서 체크·관리자 수정
+  professionalOptionIds Json? @map("professional_option_ids")
 
   orderForm   OrderForm?          @relation(fields: [orderFormId], references: [id])
+  createdBy   User?               @relation("InquiryRegisteredBy", fields: [createdById], references: [id])
   changeLogs  InquiryChangeLog[]
 
+  @@index([createdById])
   @@map("inquiries")
 }
 
@@ -91,7 +98,6 @@ model InquiryChangeLog {
   inquiryId String   @map("inquiry_id")
   createdAt DateTime @default(now()) @map("created_at")
   actorId   String?  @map("actor_id")
-  /// string[] JSON — 예: "청소 희망일: 2025년 3월 5일 → 2025년 3월 8일"
   lines     Json
 
   inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
@@ -118,6 +124,21 @@ model EstimateOption {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("estimate_options")
+}
+
+/// 전문 시공 옵션 — 관리자가 항목·금액 문구·색상을 설정, 고객 발주서·스케줄 동그라미에 반영
+model ProfessionalSpecialtyOption {
+  id        String   @id @default(uuid())
+  label     String
+  priceHint String   @default("") @map("price_hint")
+  /// 표시용 이모지 (선택)
+  emoji     String   @default("") @map("emoji")
+  color     String   @default("#6b7280")
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("professional_specialty_options")
 }
 
 model OrderFormConfig {

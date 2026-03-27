@@ -6,13 +6,28 @@ function normalizeLines(raw: unknown): string[] {
 }
 
 /** 접수 날짜·금액 변경 이력 (관리자 PATCH 시 서버 기록) */
-export function InquiryChangeHistoryBlock({ logs }: { logs: InquiryChangeLogEntry[] | undefined }) {
+export function InquiryChangeHistoryBlock({
+  logs,
+  className = '',
+  showEmptyHint = false,
+}: {
+  logs: InquiryChangeLogEntry[] | undefined;
+  /** 기본은 카드형 여백. 접기 안쪽 등에서는 `mb-0 p-0 border-0 bg-transparent` 등으로 조정 */
+  className?: string;
+  /** true면 이력이 없을 때 안내 문구 표시 (접수 목록 상세 등) */
+  showEmptyHint?: boolean;
+}) {
   const entries =
     logs?.map((log) => ({ ...log, lines: normalizeLines(log.lines) })).filter((e) => e.lines.length > 0) ??
     [];
-  if (entries.length === 0) return null;
+  if (entries.length === 0) {
+    if (showEmptyHint) {
+      return <p className="text-xs text-gray-500">저장된 날짜·금액 변경 이력이 없습니다.</p>;
+    }
+    return null;
+  }
   return (
-    <div className="mb-6 p-4 bg-amber-50/80 border border-amber-100 rounded-lg">
+    <div className={`mb-6 p-4 bg-amber-50/80 border border-amber-100 rounded-lg ${className}`}>
       <h3 className="text-sm font-medium text-amber-900 mb-3">날짜·금액 변경 이력</h3>
       <ul className="space-y-3 text-sm">
         {entries.map((log) => (

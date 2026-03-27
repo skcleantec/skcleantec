@@ -37,6 +37,8 @@ export interface ScheduleItem {
   buildingType?: string | null;
   moveInDate?: string | null;
   specialNotes?: string | null;
+  /** 전문 시공 옵션 id 배열(JSON) */
+  professionalOptionIds?: unknown;
   /** 정산용(접수 건). 없으면 orderForm 금액으로 표시만 보조 */
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;

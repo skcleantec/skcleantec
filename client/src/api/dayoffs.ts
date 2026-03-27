@@ -49,6 +49,8 @@ export interface ScheduleStatsByDate {
   availableMorningNames?: string[];
   availableAfternoonNames?: string[];
   morningCount: number;
+  /** 사이청소 건수 */
+  betweenCount?: number;
   afternoonCount: number;
   /** 미배정 총수: 팀장당 오전1·오후1 기준 빈 슬롯 수 */
   unassignedTotal?: number;
