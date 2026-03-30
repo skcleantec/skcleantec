@@ -23,7 +23,7 @@ model User {
   receivedMessages    Message[]    @relation("ReceivedMessages")
   dayOffs             UserDayOff[] @relation("UserDayOffs")
   orderFormsCreated   OrderForm[]  @relation("OrderFormCreatedBy")
-  inquiriesRegistered Inquiry[]    @relation("InquiryRegisteredBy")
+  inquiriesCreated    Inquiry[]    @relation("InquiryCreatedBy")
 
   @@map("users")
 }
@@ -79,17 +79,30 @@ model Inquiry {
   serviceDepositAmount Int? @map("service_deposit_amount")
   serviceBalanceAmount Int? @map("service_balance_amount")
   orderFormId  String?       @map("order_form_id")
-  /// 접수를 등록한 사용자(개별접수: 로그인 마케터·관리자, 발주서 제출: 발주서 발급 마케터)
-  createdById String?       @map("created_by_id")
-  /// 전문 시공 옵션 id 배열(JSON) — 발주서 체크·관리자 수정
+  /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
+  createdById  String?       @map("created_by_id")
+  /// 전문 시공 옵션 id 목록(JSON 배열 문자열)
   professionalOptionIds Json? @map("professional_option_ids")
 
   orderForm   OrderForm?          @relation(fields: [orderFormId], references: [id])
-  createdBy   User?               @relation("InquiryRegisteredBy", fields: [createdById], references: [id])
+  createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   changeLogs  InquiryChangeLog[]
 
-  @@index([createdById])
   @@map("inquiries")
+}
+
+/// 발주서·접수에서 선택하는 전문 시공 옵션 (관리자 설정)
+model ProfessionalSpecialtyOption {
+  id        String   @id
+  label     String
+  priceHint String?  @map("price_hint")
+  emoji     String?
+  color     String?
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("professional_specialty_options")
 }
 
 /// 관리자 수정 시 날짜·금액 등 변경 이력 (접수 목록·스케줄에서 조회)
@@ -124,21 +137,6 @@ model EstimateOption {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("estimate_options")
-}
-
-/// 전문 시공 옵션 — 관리자가 항목·금액 문구·색상을 설정, 고객 발주서·스케줄 동그라미에 반영
-model ProfessionalSpecialtyOption {
-  id        String   @id @default(uuid())
-  label     String
-  priceHint String   @default("") @map("price_hint")
-  /// 표시용 이모지 (선택)
-  emoji     String   @default("") @map("emoji")
-  color     String   @default("#6b7280")
-  sortOrder Int      @default(0) @map("sort_order")
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@map("professional_specialty_options")
 }
 
 model OrderFormConfig {

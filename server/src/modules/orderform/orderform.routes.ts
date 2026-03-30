@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
@@ -121,7 +121,7 @@ router.post('/professional-options', authMiddleware, adminOrMarketer, async (req
   const isActive = body.isActive !== false;
   try {
     const created = await prisma.professionalSpecialtyOption.create({
-      data: { label, priceHint, emoji, color, sortOrder, isActive },
+      data: { id: randomUUID(), label, priceHint, emoji, color, sortOrder, isActive },
     });
     res.json(created);
   } catch (err) {
