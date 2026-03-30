@@ -18,7 +18,7 @@ export type MarketerOverviewResult = {
 };
 
 /** 접수 등록자(createdById) 기준. 과거 데이터는 orderForm.createdById로 보조 */
-function attributedToMarketer(marketerId: string): Prisma.InquiryWhereInput {
+export function whereInquiryAttributedToMarketer(marketerId: string): Prisma.InquiryWhereInput {
   return {
     OR: [
       { createdById: marketerId },
@@ -52,7 +52,7 @@ export async function buildMarketerOverview(): Promise<MarketerOverviewResult> {
 
   const rows: MarketerOverviewRow[] = await Promise.all(
     marketers.map(async (m) => {
-      const attr = attributedToMarketer(m.id);
+      const attr = whereInquiryAttributedToMarketer(m.id);
       const [monthCount, todayCount] = await Promise.all([
         prisma.inquiry.count({
           where: {

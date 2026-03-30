@@ -8,7 +8,8 @@ import {
   type MarketerOverviewResponse,
 } from '../../api/inquiries';
 import { assignInquiry } from '../../api/assignments';
-import { getTeamLeaders, type UserItem } from '../../api/users';
+import { getTeamLeaders, getUsers, type UserItem } from '../../api/users';
+import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
@@ -80,6 +81,8 @@ interface InquiryItem {
   callAttempt?: number | null;
   createdAt: string;
   assignments: Array<{ teamLeader: { id: string; name: string } }>;
+  /** 접수를 등록한 마케터(개별 접수·POST 시 설정) */
+  createdBy?: { id: string; name: string } | null;
   orderForm?: {
     id?: string;
     totalAmount?: number | null;
@@ -91,6 +94,11 @@ interface InquiryItem {
   serviceDepositAmount?: number | null;
   serviceBalanceAmount?: number | null;
   changeLogs?: InquiryChangeLogEntry[];
+}
+
+/** 목록·상세: 접수자 표시 — Inquiry.createdBy 우선, 구데이터는 발주서 작성자 */
+function inquiryMarketerLabel(item: InquiryItem): string {
+  return item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-';
 }
 
 function effectiveInquiryAmounts(it: InquiryItem) {
@@ -167,6 +175,32 @@ export function AdminInquiriesPage() {
   const [marketerOverviewError, setMarketerOverviewError] = useState<string | null>(null);
   const [individualExpanded, setIndividualExpanded] = useState(false);
   const [individualSubmitLoading, setIndividualSubmitLoading] = useState(false);
+  const [me, setMe] = useState<{ id: string; role: string; name: string } | null>(null);
+  const [marketers, setMarketers] = useState<UserItem[]>([]);
+  /** 관리자만: 빈 값이면 전체 마케터 */
+  const [marketerFilterId, setMarketerFilterId] = useState('');
+
+  useEffect(() => {
+    if (!token) {
+      setMe(null);
+      return;
+    }
+    getMe(token)
+      .then((u: { id: string; role: string; name: string }) =>
+        setMe({ id: u.id, role: u.role, name: u.name })
+      )
+      .catch(() => setMe(null));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || me?.role !== 'ADMIN') {
+      setMarketers([]);
+      return;
+    }
+    getUsers(token, 'MARKETER')
+      .then(setMarketers)
+      .catch(() => setMarketers([]));
+  }, [token, me?.role]);
   const loadMarketerOverview = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent === true;
@@ -213,11 +247,13 @@ export function AdminInquiriesPage() {
       datePreset: 'today' | 'all' | 'month' | 'day';
       month?: string;
       day?: string;
+      createdById?: string;
     } = { datePreset };
     if (datePreset === 'month') params.month = monthKey;
     if (datePreset === 'day') params.day = dayKey;
     if (statusFilter) params.status = statusFilter;
     if (searchQuery.trim()) params.search = searchQuery.trim();
+    if (me?.role === 'ADMIN' && marketerFilterId.trim()) params.createdById = marketerFilterId.trim();
     getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
         setItems(res.items);
@@ -244,7 +280,7 @@ export function AdminInquiriesPage() {
     if (!token) return;
     const t = setTimeout(() => refresh(true), searchQuery ? 400 : 0);
     return () => clearTimeout(t);
-  }, [token, statusFilter, searchQuery, datePreset, monthKey, dayKey]);
+  }, [token, statusFilter, searchQuery, datePreset, monthKey, dayKey, marketerFilterId, me?.role]);
 
   const handleAssign = async (inquiryId: string, teamLeaderId: string) => {
     if (!token || !teamLeaderId) return;
@@ -552,6 +588,32 @@ export function AdminInquiriesPage() {
               />
             )}
           </div>
+          {me?.role === 'ADMIN' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <label htmlFor="inquiry-marketer-filter" className="text-sm text-gray-600 shrink-0">
+                접수자(마케터)
+              </label>
+              <select
+                id="inquiry-marketer-filter"
+                value={marketerFilterId}
+                onChange={(e) => setMarketerFilterId(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded text-sm text-gray-900 max-w-[220px]"
+              >
+                <option value="">전체</option>
+                {marketers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-gray-500">해당 마케터가 접수한 건만 표시</span>
+            </div>
+          )}
+          {me?.role === 'MARKETER' && (
+            <p className="text-xs text-gray-600">
+              접수 목록은 <strong className="font-medium text-gray-800">본인이 접수한 건</strong>만 표시됩니다. (대기 건의 「접수자」는 개별 접수 시 로그인한 마케터입니다.)
+            </p>
+          )}
           <div className="border border-gray-200 rounded-lg bg-gray-50 px-3 py-2.5">
             <p className="text-xs text-gray-500 mb-2">
               마케터별 접수
@@ -748,7 +810,7 @@ export function AdminInquiriesPage() {
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">접수일</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">담당</th>
+                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">접수자</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">고객</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">연락처</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-[90px]">주소</th>
@@ -757,7 +819,7 @@ export function AdminInquiriesPage() {
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap max-w-[100px]">시간대</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">담당</th>
+                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">팀장</th>
                   <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">작업</th>
                 </tr>
               </thead>
@@ -780,7 +842,7 @@ export function AdminInquiriesPage() {
                       <span className="text-[11px] tabular-nums leading-tight">{formatDateCompactWithWeekday(item.createdAt)}</span>
                     </td>
                     <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
-                      {item.orderForm?.createdBy?.name ?? '-'}
+                      {inquiryMarketerLabel(item)}
                     </td>
                     <td className={`py-2 px-2 font-medium text-gray-900 whitespace-nowrap ${pBorder}`}>
                       {item.customerName}
@@ -937,8 +999,8 @@ export function AdminInquiriesPage() {
 
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 border-b border-gray-100 pb-3 mb-4">
               <span>출처: {editItem.source ?? '-'}</span>
-              {editItem.orderForm?.createdBy && (
-                <span>담당 마케터: {editItem.orderForm.createdBy.name}</span>
+              {(editItem.createdBy?.name || editItem.orderForm?.createdBy?.name) && (
+                <span>접수자(마케터): {inquiryMarketerLabel(editItem)}</span>
               )}
               {editItem.callAttempt != null && <span>통화 시도: {editItem.callAttempt}</span>}
               {editItem.claimMemo?.trim() && (

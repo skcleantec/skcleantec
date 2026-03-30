@@ -6,7 +6,10 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { createdAtRangeFromQuery } from './inquiryListDateRange.js';
-import { buildMarketerOverview } from './inquiryMarketerOverview.js';
+import {
+  buildMarketerOverview,
+  whereInquiryAttributedToMarketer,
+} from './inquiryMarketerOverview.js';
 import {
   buildAmountDateChangeLines,
   buildInquiryPatchData,
@@ -20,6 +23,7 @@ import {
 const router = Router();
 
 const inquiryDetailInclude = {
+  createdBy: { select: { id: true, name: true } },
   assignments: {
     include: { teamLeader: { select: { id: true, name: true } } },
   },
@@ -59,7 +63,8 @@ router.get('/marketer-overview', async (_req, res) => {
 });
 
 router.get('/', async (req, res) => {
-  const { status, limit = '200', offset = '0', search, datePreset, month, day } = req.query;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { status, limit = '200', offset = '0', search, datePreset, month, day, createdById } = req.query;
   const range = createdAtRangeFromQuery({
     datePreset: typeof datePreset === 'string' ? datePreset : undefined,
     month: typeof month === 'string' ? month : undefined,
@@ -79,32 +84,42 @@ router.get('/', async (req, res) => {
       OR: [{ customerName: { contains: s } }, { customerPhone: { contains: s } }],
     });
   }
+  /** 마케터: 본인 접수(또는 구 데이터 발주서 작성자)만. 관리자: 선택 시 해당 마케터만 */
+  if (user.role === 'MARKETER') {
+    andClauses.push(whereInquiryAttributedToMarketer(user.userId));
+  } else if (user.role === 'ADMIN' && typeof createdById === 'string' && createdById.trim()) {
+    andClauses.push(whereInquiryAttributedToMarketer(createdById.trim()));
+  }
+
   const where: Prisma.InquiryWhereInput = andClauses.length > 0 ? { AND: andClauses } : {};
+  const listInclude = {
+    createdBy: { select: { id: true, name: true } },
+    assignments: {
+      include: { teamLeader: { select: { id: true, name: true } } },
+    },
+    orderForm: {
+      select: {
+        id: true,
+        totalAmount: true,
+        depositAmount: true,
+        balanceAmount: true,
+        createdBy: { select: { id: true, name: true } },
+      },
+    },
+    changeLogs: {
+      orderBy: { createdAt: 'desc' as const },
+      take: 25,
+      select: { id: true, createdAt: true, lines: true },
+    },
+  } as const;
+
   const [items, total] = await Promise.all([
     prisma.inquiry.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: parseInt(limit as string, 10),
       skip: parseInt(offset as string, 10),
-      include: {
-        assignments: {
-          include: { teamLeader: { select: { id: true, name: true } } },
-        },
-        orderForm: {
-          select: {
-            id: true,
-            totalAmount: true,
-            depositAmount: true,
-            balanceAmount: true,
-            createdBy: { select: { id: true, name: true } },
-          },
-        },
-        changeLogs: {
-          orderBy: { createdAt: 'desc' as const },
-          take: 25,
-          select: { id: true, createdAt: true, lines: true },
-        },
-      },
+      include: listInclude,
     }),
     prisma.inquiry.count({ where }),
   ]);
@@ -115,10 +130,22 @@ router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const body = req.body as Record<string, unknown>;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const inquiry = await prisma.inquiry.findUnique({ where: { id } });
+  const inquiry = await prisma.inquiry.findUnique({
+    where: { id },
+    include: { orderForm: { select: { createdById: true } } },
+  });
   if (!inquiry) {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
+  }
+  if (user.role === 'MARKETER') {
+    const mine =
+      inquiry.createdById === user.userId ||
+      (inquiry.createdById == null && inquiry.orderForm?.createdById === user.userId);
+    if (!mine) {
+      res.status(403).json({ error: '본인이 접수한 건만 수정할 수 있습니다.' });
+      return;
+    }
   }
   const data = buildInquiryPatchData(body);
   if (body.professionalOptionIds !== undefined) {

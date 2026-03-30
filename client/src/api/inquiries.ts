@@ -41,6 +41,8 @@ export async function getInquiries(
     datePreset?: 'today' | 'all' | 'month' | 'day';
     month?: string;
     day?: string;
+    /** 관리자만: 해당 마케터가 접수한 건만 (서버에서 마케터는 본인만 강제) */
+    createdById?: string;
   }
 ) {
   const q = new URLSearchParams();
@@ -49,6 +51,7 @@ export async function getInquiries(
   if (params?.datePreset) q.set('datePreset', params.datePreset);
   if (params?.month) q.set('month', params.month);
   if (params?.day) q.set('day', params.day);
+  if (params?.createdById) q.set('createdById', params.createdById);
   const qs = q.toString();
   const res = await fetch(`${API}/inquiries${qs ? `?${qs}` : ''}`, {
     headers: headers(token),
