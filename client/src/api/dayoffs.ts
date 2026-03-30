@@ -54,6 +54,10 @@ export interface ScheduleStatsByDate {
   afternoonCount: number;
   /** 미배정 총수: 팀장당 오전1·오후1 기준 빈 슬롯 수 */
   unassignedTotal?: number;
+  /** 오전 슬롯에 더 배정 가능한 건수 (휴무 반영) */
+  assignableMorning?: number;
+  /** 오후 슬롯(사이+오후 합)에 더 배정 가능한 건수 — 사이/오후 행에 동일 */
+  assignableAfternoonSlot?: number;
 }
 
 export async function getScheduleStats(

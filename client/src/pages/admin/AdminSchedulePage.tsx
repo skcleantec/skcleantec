@@ -40,6 +40,22 @@ function hasScheduleAmountDisplay(a: ReturnType<typeof effectiveScheduleAmounts>
   return a.total != null || a.deposit != null || a.balance != null;
 }
 
+/** 슬롯별 배정가능(휴무 반영) — 숫자 강조 */
+function assignableClass(
+  value: number,
+  isDark: boolean,
+  tone: 'amber' | 'violet' | 'sky' | 'neutral'
+): string {
+  if (value <= 0) return isDark ? 'text-slate-400' : 'text-gray-400';
+  if (isDark) {
+    if (tone === 'amber') return 'text-amber-100 font-semibold';
+    if (tone === 'violet') return 'text-violet-100 font-semibold';
+    if (tone === 'sky') return 'text-sky-100 font-semibold';
+    return 'text-amber-100 font-semibold';
+  }
+  return 'text-blue-800 font-semibold';
+}
+
 function getCalendarDays(year: number, month: number) {
   const first = new Date(year, month - 1, 1);
   const last = new Date(year, month, 0);
@@ -173,6 +189,9 @@ export function AdminSchedulePage() {
             <span className="text-gray-500">
               칸: 오전 · 사이(사이청소) · 오후 · 미배정(팀장 미지정)
             </span>
+            <span className="text-gray-500">
+              배정가능: 슬롯별로 더 넣을 수 있는 건수(휴무 팀장 제외). 사이·오후는 같은 오후 슬롯 용량을 공유합니다.
+            </span>
           </div>
 
           {/* 달력 그리드 */}
@@ -190,7 +209,7 @@ export function AdminSchedulePage() {
               ))}
               {calendarDays.map((d, i) => {
                 if (d === null) {
-                  return <div key={`empty-${i}`} className="min-h-[120px] bg-gray-50" />;
+                  return <div key={`empty-${i}`} className="min-h-[168px] bg-gray-50" />;
                 }
                 const key = getDateKey(d);
                 const dayItems = byDate[key] || [];
@@ -201,6 +220,12 @@ export function AdminSchedulePage() {
                 const afternoonSlots = afternoonCount + betweenCount;
                 const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = dayItems.filter((it) => !it.assignments?.[0]).length;
+                const assignableMorning =
+                  dayStats?.assignableMorning ?? Math.max(0, workingCount - morningCount);
+                const assignableAfternoonSlot =
+                  dayStats?.assignableAfternoonSlot ?? Math.max(0, workingCount - afternoonSlots);
+                const assignableSlotsTotal =
+                  dayStats?.unassignedTotal ?? assignableMorning + assignableAfternoonSlot;
                 const hasEvents = dayItems.length > 0;
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
@@ -225,7 +250,7 @@ export function AdminSchedulePage() {
                   <div
                     key={key}
                     onClick={() => setSelectedDate(isSelected ? null : key)}
-                    className={`min-h-[120px] p-1 pt-3.5 pb-6 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
+                    className={`min-h-[168px] p-1 pt-3.5 pb-6 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
                       isSlotFull
                         ? 'bg-gradient-to-br from-violet-900 to-indigo-950'
                         : hasEvents
@@ -238,84 +263,139 @@ export function AdminSchedulePage() {
                     <span className={`absolute top-0.5 left-1 text-[11px] font-semibold ${dateColor}`}>
                       {d}
                     </span>
-                    <div className="mt-3.5 flex flex-col gap-0.5 pr-0.5">
-                      <div className="flex justify-between items-baseline gap-1 leading-none">
-                        <span
-                          className={
-                            isSlotFull ? 'text-amber-200/95' : 'text-amber-900 font-medium'
-                          }
-                        >
-                          오전
-                        </span>
-                        <span
-                          className={`tabular-nums text-[11px] font-bold ${
-                            isSlotFull ? 'text-amber-50' : 'text-amber-950'
-                          }`}
-                        >
-                          {morningCount}
-                        </span>
+                    <div className="mt-3.5 flex flex-col gap-1 pr-0.5">
+                      <div>
+                        <div className="flex justify-between items-baseline gap-1 leading-none">
+                          <span
+                            className={
+                              isSlotFull ? 'text-amber-200/95' : 'text-amber-900 font-medium'
+                            }
+                          >
+                            오전
+                          </span>
+                          <span
+                            className={`tabular-nums text-[11px] font-bold ${
+                              isSlotFull ? 'text-amber-50' : 'text-amber-950'
+                            }`}
+                          >
+                            {morningCount}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-baseline gap-0.5 mt-0.5">
+                          <span className={`text-[9px] ${isSlotFull ? 'text-amber-200/70' : 'text-gray-500'}`}>
+                            배정가능
+                          </span>
+                          <span
+                            className={`tabular-nums text-[10px] ${assignableClass(assignableMorning, isSlotFull, 'amber')}`}
+                          >
+                            {assignableMorning}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between items-baseline gap-1 leading-none">
-                        <span
-                          className={
-                            isSlotFull ? 'text-violet-200/95' : 'text-violet-800 font-medium'
-                          }
-                        >
-                          사이
-                        </span>
-                        <span
-                          className={`tabular-nums text-[11px] font-bold ${
-                            isSlotFull ? 'text-violet-100' : 'text-violet-950'
-                          }`}
-                        >
-                          {betweenCount}
-                        </span>
+                      <div>
+                        <div className="flex justify-between items-baseline gap-1 leading-none">
+                          <span
+                            className={
+                              isSlotFull ? 'text-violet-200/95' : 'text-violet-800 font-medium'
+                            }
+                          >
+                            사이
+                          </span>
+                          <span
+                            className={`tabular-nums text-[11px] font-bold ${
+                              isSlotFull ? 'text-violet-100' : 'text-violet-950'
+                            }`}
+                          >
+                            {betweenCount}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-baseline gap-0.5 mt-0.5">
+                          <span className={`text-[9px] ${isSlotFull ? 'text-violet-200/70' : 'text-gray-500'}`}>
+                            배정가능
+                          </span>
+                          <span
+                            className={`tabular-nums text-[10px] ${assignableClass(assignableAfternoonSlot, isSlotFull, 'violet')}`}
+                          >
+                            {assignableAfternoonSlot}
+                          </span>
+                        </div>
+                        {!isSlotFull && workingCount > 0 && (
+                          <p className="text-[8px] text-gray-400 leading-tight mt-0.5 pl-0.5">
+                            오후 슬롯 공통
+                          </p>
+                        )}
                       </div>
-                      <div className="flex justify-between items-baseline gap-1 leading-none">
-                        <span
-                          className={
-                            isSlotFull ? 'text-sky-200/95' : 'text-sky-800 font-medium'
-                          }
-                        >
-                          오후
-                        </span>
-                        <span
-                          className={`tabular-nums text-[11px] font-bold ${
-                            isSlotFull ? 'text-sky-50' : 'text-sky-950'
-                          }`}
-                        >
-                          {afternoonCount}
-                        </span>
+                      <div>
+                        <div className="flex justify-between items-baseline gap-1 leading-none">
+                          <span
+                            className={
+                              isSlotFull ? 'text-sky-200/95' : 'text-sky-800 font-medium'
+                            }
+                          >
+                            오후
+                          </span>
+                          <span
+                            className={`tabular-nums text-[11px] font-bold ${
+                              isSlotFull ? 'text-sky-50' : 'text-sky-950'
+                            }`}
+                          >
+                            {afternoonCount}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-baseline gap-0.5 mt-0.5">
+                          <span className={`text-[9px] ${isSlotFull ? 'text-sky-200/70' : 'text-gray-500'}`}>
+                            배정가능
+                          </span>
+                          <span
+                            className={`tabular-nums text-[10px] ${assignableClass(assignableAfternoonSlot, isSlotFull, 'sky')}`}
+                          >
+                            {assignableAfternoonSlot}
+                          </span>
+                        </div>
                       </div>
                       <div
-                        className={`flex justify-between items-baseline gap-1 leading-none border-t pt-0.5 mt-0.5 ${
+                        className={`border-t pt-1 mt-0.5 ${
                           isSlotFull ? 'border-white/15' : 'border-gray-200/90'
                         }`}
                       >
-                        <span
-                          className={
-                            isSlotFull
-                              ? 'text-amber-200/90'
-                              : unassignedCount > 0
-                                ? 'text-red-700 font-semibold'
-                                : 'text-gray-500'
-                          }
-                        >
-                          미배정
-                        </span>
-                        <span
-                          className={`tabular-nums text-[11px] font-bold ${
-                            isSlotFull
-                              ? unassignedCount > 0
-                                ? 'text-red-200'
-                                : 'text-amber-100/90'
-                              : unassignedCount > 0
-                                ? 'text-red-600'
-                                : 'text-gray-600'
-                          }`}
-                        >
-                          {unassignedCount}
-                        </span>
+                        <div className="flex justify-between items-baseline gap-1 leading-none">
+                          <span
+                            className={
+                              isSlotFull
+                                ? 'text-amber-200/90'
+                                : unassignedCount > 0
+                                  ? 'text-red-700 font-semibold'
+                                  : 'text-gray-500'
+                            }
+                          >
+                            미배정
+                          </span>
+                          <span
+                            className={`tabular-nums text-[11px] font-bold ${
+                              isSlotFull
+                                ? unassignedCount > 0
+                                  ? 'text-red-200'
+                                  : 'text-amber-100/90'
+                                : unassignedCount > 0
+                                  ? 'text-red-600'
+                                  : 'text-gray-600'
+                            }`}
+                          >
+                            {unassignedCount}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-baseline gap-0.5 mt-0.5">
+                          <span
+                            className={`text-[9px] ${isSlotFull ? 'text-amber-200/70' : 'text-gray-500'}`}
+                          >
+                            배정가능(슬롯합)
+                          </span>
+                          <span
+                            className={`tabular-nums text-[10px] ${assignableClass(assignableSlotsTotal, isSlotFull, 'neutral')}`}
+                          >
+                            {assignableSlotsTotal}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     {isSlotFull && (
@@ -395,6 +475,28 @@ export function AdminSchedulePage() {
                       <span className="ml-1 font-medium">{stats[selectedDate].afternoonCount}건</span>
                     </div>
                   </div>
+                  {(() => {
+                    const s = stats[selectedDate];
+                    const w = s.workingCount ?? 0;
+                    const m = s.morningCount ?? 0;
+                    const bet = s.betweenCount ?? 0;
+                    const aft = s.afternoonCount ?? 0;
+                    const aftSlots = bet + aft;
+                    const am = s.assignableMorning ?? Math.max(0, w - m);
+                    const aa = s.assignableAfternoonSlot ?? Math.max(0, w - aftSlots);
+                    const sum = s.unassignedTotal ?? am + aa;
+                    return (
+                      <div className="pt-2 border-t border-gray-200 text-sm">
+                        <span className="text-gray-500">슬롯 배정가능(건)</span>
+                        <span className="ml-2 font-semibold text-blue-800">
+                          오전 {am} · 오후슬롯(사이+오후) {aa} · 합 {sum}
+                        </span>
+                        <span className="block text-xs text-gray-500 mt-1">
+                          휴무 팀장은 근무 인원에서 제외되어 계산됩니다. 사이·오후 배정가능 숫자는 동일한 오후 슬롯 용량입니다.
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
                     <div>
                       <span className="text-gray-500">오전 배정 가능: </span>

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../../lib/prisma.js';
 import { config } from '../../config/index.js';
 import { authMiddleware, type AuthPayload } from './auth.middleware.js';
+import { isSuperAdminRoleAndEmail } from './superAdmin.js';
 
 const router = Router();
 
@@ -81,7 +82,10 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  res.json(user);
+  res.json({
+    ...user,
+    isSuperAdmin: isSuperAdminRoleAndEmail(user.role, user.email),
+  });
 });
 
 export default router;

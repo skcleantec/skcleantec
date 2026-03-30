@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
+import { isSuperAdminRoleAndEmail } from './superAdmin.js';
 
 export interface AuthPayload {
   userId: string;
@@ -38,6 +39,16 @@ export function adminOrMarketer(req: Request, res: Response, next: NextFunction)
   const user = (req as Request & { user?: AuthPayload }).user;
   if (!user || (user.role !== 'ADMIN' && user.role !== 'MARKETER')) {
     res.status(403).json({ error: '권한이 필요합니다.' });
+    return;
+  }
+  next();
+}
+
+/** 최고 관리자(기본: 이메일 admin) 전용 — 히스토리 삭제 등 */
+export function superAdminOnly(req: Request, res: Response, next: NextFunction) {
+  const user = (req as Request & { user?: AuthPayload }).user;
+  if (!user || !isSuperAdminRoleAndEmail(user.role, user.email)) {
+    res.status(403).json({ error: '최고 관리자만 할 수 있습니다.' });
     return;
   }
   next();

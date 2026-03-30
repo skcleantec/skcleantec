@@ -608,42 +608,34 @@ git push -u origin main
 
 ---
 
-## Vercel 배포 가이드
+## Railway 배포 가이드
 
-서버는 **Vercel**에서 배포합니다. 클라이언트(React)와 API(Express)가 함께 배포됩니다.
+**운영 배포는 Railway만 사용한다.** (Vercel 미사용)
 
 ### 구성 요약
 
 | 항목 | 설명 |
 |------|------|
-| **vercel.json** | 빌드/설치 명령, output 경로 |
-| **api/[[...path]].ts** | Express를 Vercel 서버리스로 래핑 |
-| **server/src/app.ts** | Express 앱 (listen 제외, export용) |
+| **railway.json** | 빌드 명령, 배포 전 DB 반영·시드, 시작 명령, 헬스체크 경로 |
+| **PostgreSQL** | Railway DB 또는 외부 `DATABASE_URL` (서버리스 파일 DB는 운영에 부적합) |
 
 ### 배포 전 필수 조건
 
-1. **DB 변경**: 현재 SQLite는 Vercel 서버리스에서 **사용 불가** (파일시스템 읽기 전용).  
-   → **PostgreSQL** (Neon, Supabase, Railway 등)로 전환 후 `DATABASE_URL` 설정 필요.
+1. **DB**: **PostgreSQL**. `DATABASE_URL`을 Railway 서비스 환경변수로 설정.
+2. **기타 환경변수** (Railway 대시보드): `JWT_SECRET`, `JWT_EXPIRES_IN` (선택) 등 서버 `.env`와 동일하게 맞출 것.
+3. **빌드 통과**: `npm run build`로 루트에서 서버·클라이언트 빌드가 되는지 사전 확인.
 
-2. **환경변수**: Vercel 대시보드에서 설정  
-   - `DATABASE_URL`  
-   - `JWT_SECRET`  
-   - `JWT_EXPIRES_IN` (선택)
+### railway.json 동작 요약
 
-3. **빌드 통과**: 서버에 TypeScript 에러가 있으면 배포 실패. `npm run build`로 사전 확인.
+- **build**: 루트에서 의존성 설치 후 `npm run build` (서버 `tsc` + 클라이언트 Vite 빌드).
+- **preDeploy**: `prisma db push` 및 `db:seed` — 운영 정책에 맞게 시드 사용 여부를 조정할 수 있음.
+- **start**: `server`에서 `npm run start`.
+- **healthcheck**: `/api/health` (타임아웃 등은 `railway.json` 참고).
 
 ### 배포 절차
 
-1. [vercel.com](https://vercel.com) 로그인 → New Project
-2. Git 저장소 연결 (또는 `vercel` CLI로 `vercel` 실행)
-3. 환경변수 입력 후 배포
-
-### 로컬에서 Vercel 환경 테스트
-
-```bash
-npm i -g vercel
-vercel dev
-```
+1. [Railway](https://railway.com)에서 프로젝트·PostgreSQL·Git 연동 설정.
+2. 환경변수 입력 후 배포. 상세는 Railway 대시보드의 Build/Deploy 로그를 기준으로 한다.
 
 ---
 

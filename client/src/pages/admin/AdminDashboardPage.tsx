@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getDashboardStats, type DashboardStats } from '../../api/dashboard';
 import { getToken } from '../../stores/auth';
+import { DashboardChangeHistory } from '../../components/admin/DashboardChangeHistory';
 
 function formatCurrency(n: number): string {
   return n.toLocaleString() + '원';
@@ -118,6 +119,8 @@ export function AdminDashboardPage() {
           </div>
         )}
       </div>
+
+      {token && <DashboardChangeHistory token={token} />}
     </div>
   );
 }

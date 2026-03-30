@@ -125,6 +125,10 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       betweenCount: number;
       afternoonCount: number;
       unassignedTotal: number;
+      /** 오전 슬롯 남은 수용 (근무 팀장 수 − 오전 배정 건) */
+      assignableMorning: number;
+      /** 오후 슬롯(사이+오후 합산) 남은 수용 — 사이·오후 행에 동일 값 표시 */
+      assignableAfternoonSlot: number;
     }
   > = {};
 
@@ -195,6 +199,8 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       betweenCount,
       afternoonCount,
       unassignedTotal,
+      assignableMorning: emptyMorning,
+      assignableAfternoonSlot: emptyAfternoon,
     };
   }
 
