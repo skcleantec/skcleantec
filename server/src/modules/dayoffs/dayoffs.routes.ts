@@ -121,14 +121,17 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       availableMorningNames: string[];
       availableAfternoonNames: string[];
       morningCount: number;
-      /** 사이청소 건수 */
+      /** 사이청소 건수 (오전·일반 오후와 별도 용량) */
       betweenCount: number;
       afternoonCount: number;
       unassignedTotal: number;
-      /** 오전 슬롯 남은 수용 (근무 팀장 수 − 오전 배정 건) */
+      /** 오전 슬롯 남은 수용 */
       assignableMorning: number;
-      /** 오후 슬롯(사이+오후 합산) 남은 수용 — 사이·오후 행에 동일 값 표시 */
+      /** 일반 오후 슬롯 남은 수용 (사이청소 제외) */
       assignableAfternoonSlot: number;
+      /** 사이청소 슬롯 남은 수용 */
+      assignableBetween: number;
+      availableBetweenNames: string[];
     }
   > = {};
 
@@ -167,24 +170,27 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     const betweenCount = betweenAssignments.length;
     const afternoonCount = afternoonAssignments.length;
     const morningAssignedIds = new Set(morningAssignments.map((a) => a.teamLeaderId));
-    /** 오후 슬롯(기존 오후 + 사이청소) — 배정 가능 팀장 계산용 */
-    const afternoonSlotAssignedIds = new Set(
-      [...afternoonAssignments, ...betweenAssignments].map((a) => a.teamLeaderId)
-    );
+    const afternoonOnlyAssignedIds = new Set(afternoonAssignments.map((a) => a.teamLeaderId));
+    const betweenAssignedIds = new Set(betweenAssignments.map((a) => a.teamLeaderId));
 
     // 오전 배정 가능: 근무 중이면서 오전에 배정된 건이 없는 팀장
     const availableMorningLeaders = teamLeaders.filter(
       (t) => !offIds.has(t.id) && !morningAssignedIds.has(t.id)
     );
-    // 오후 배정 가능: 근무 중이면서 오후·사이 슬롯에 배정된 건이 없는 팀장
+    // 일반 오후: 사이청소와 별도 — 오후(비사이) 배정이 없는 팀장
     const availableAfternoonLeaders = teamLeaders.filter(
-      (t) => !offIds.has(t.id) && !afternoonSlotAssignedIds.has(t.id)
+      (t) => !offIds.has(t.id) && !afternoonOnlyAssignedIds.has(t.id)
+    );
+    // 사이청소: 오전·일반 오후와 별도 용량
+    const availableBetweenLeaders = teamLeaders.filter(
+      (t) => !offIds.has(t.id) && !betweenAssignedIds.has(t.id)
     );
 
-    // 미배정 총수 = 팀장당 오전1·오후1 기준으로 비어있는 슬롯 수 (빈 오전 + 빈 오후, 오후 슬롯은 사이청소 포함 건수로 판단)
+    /** 팀장당 오전1·일반 오후1·사이1 — 각각 독립 상한 */
     const emptyMorning = Math.max(0, workingCount - morningCount);
-    const emptyAfternoon = Math.max(0, workingCount - (afternoonCount + betweenCount));
-    const unassignedTotal = emptyMorning + emptyAfternoon;
+    const emptyAfternoon = Math.max(0, workingCount - afternoonCount);
+    const emptyBetween = Math.max(0, workingCount - betweenCount);
+    const unassignedTotal = emptyMorning + emptyAfternoon + emptyBetween;
 
     byDate[key] = {
       offCount: offNames.length,
@@ -201,6 +207,8 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       unassignedTotal,
       assignableMorning: emptyMorning,
       assignableAfternoonSlot: emptyAfternoon,
+      assignableBetween: emptyBetween,
+      availableBetweenNames: availableBetweenLeaders.map((t) => t.name),
     };
   }
 
