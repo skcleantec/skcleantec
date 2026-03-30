@@ -50,6 +50,7 @@ export function AdminLayout() {
                 발주서
               </NavLink>
               <NavLink to="/admin/cs" className={navClass}>C/S 관리</NavLink>
+              <NavLink to="/admin/advertising" className={navClass}>광고비</NavLink>
               <NavLink to="/admin/messages" className={navClass}>
                 <span className="inline-flex items-center">
                   메시지

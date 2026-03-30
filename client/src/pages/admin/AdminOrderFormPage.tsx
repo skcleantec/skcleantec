@@ -19,7 +19,9 @@ import {
   type OrderForm,
   type OrderFormConfigPublic,
 } from '../../api/orderform';
+import { getInquiries } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
+import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 import {
   ORDER_FORM_CONFIG_DEFAULTS,
@@ -101,6 +103,8 @@ export function AdminOrderFormPage() {
   });
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   const [issueLoading, setIssueLoading] = useState(false);
+  const [pendingLinkOptions, setPendingLinkOptions] = useState<Array<{ id: string; customerName: string }>>([]);
+  const [pendingLinkId, setPendingLinkId] = useState('');
 
   // 설정 폼
   const [configForm, setConfigForm] = useState({ pricePerPyeong: '', depositAmount: '' });
@@ -184,6 +188,15 @@ export function AdminOrderFormPage() {
   useEffect(() => {
     if (!token || tab !== 'list') return;
     refreshOrderForms();
+  }, [token, tab]);
+
+  useEffect(() => {
+    if (!token || tab !== 'issue') return;
+    getInquiries(token, { status: 'PENDING', datePreset: 'all' })
+      .then((r: { items: Array<{ id: string; customerName: string }> }) => {
+        setPendingLinkOptions(r.items.map((i) => ({ id: i.id, customerName: i.customerName })));
+      })
+      .catch(() => setPendingLinkOptions([]));
   }, [token, tab]);
 
   const handleSaveConfig = async () => {
@@ -299,8 +312,10 @@ export function AdminOrderFormPage() {
         preferredDate: issueForm.preferredDate.trim() || undefined,
         preferredTime: issueForm.preferredDate.trim() ? issueForm.preferredTime : undefined,
         preferredTimeDetail: issueForm.preferredTimeDetail.trim() || undefined,
+        pendingInquiryId: pendingLinkId || undefined,
       });
       setNewOrder(order);
+      setPendingLinkId('');
       setIssueForm({
         ...issueForm,
         customerName: '',
@@ -625,7 +640,32 @@ ${footer2}`;
       {tab === 'issue' && (
         <div className="p-4 bg-white border border-gray-200 rounded max-w-md">
           <h2 className="text-base font-medium text-gray-900 mb-4">발주서 발급</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            「대기 접수 연결」에서 개별 접수로 등록한 대기 건을 선택하면, 같은 건에 링크가 붙고 고객이 제출 시 접수로 전환됩니다.
+          </p>
           <div className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">대기 접수 연결 (선택)</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                value={pendingLinkId}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setPendingLinkId(v);
+                  const row = pendingLinkOptions.find((x) => x.id === v);
+                  if (row) {
+                    setIssueForm((f) => ({ ...f, customerName: row.customerName }));
+                  }
+                }}
+              >
+                <option value="">없음 (일반 발급)</option>
+                {pendingLinkOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.customerName} · {o.id.slice(0, 8)}…
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-sm text-gray-600 mb-1">고객명 *</label>
               <input
@@ -821,8 +861,8 @@ ${footer2}`;
                         <span className="text-gray-500">미제출</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600">
-                      {new Date(o.createdAt).toLocaleDateString()}
+                    <td className="px-4 py-2 text-[11px] text-gray-600 tabular-nums">
+                      {formatDateCompactWithWeekday(o.createdAt)}
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex flex-wrap gap-2">

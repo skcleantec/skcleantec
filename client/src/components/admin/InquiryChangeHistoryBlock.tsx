@@ -1,4 +1,5 @@
 import type { InquiryChangeLogEntry } from '../../api/schedule';
+import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 
 function normalizeLines(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -32,14 +33,8 @@ export function InquiryChangeHistoryBlock({
       <ul className="space-y-3 text-sm">
         {entries.map((log) => (
           <li key={log.id} className="border-l-2 border-amber-300 pl-3">
-            <div className="text-xs text-amber-800/80">
-              {new Date(log.createdAt).toLocaleString('ko-KR', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+            <div className="text-[11px] text-amber-800/80 tabular-nums">
+              {formatDateTimeCompactWithWeekday(log.createdAt)}
             </div>
             <ul className="mt-1 space-y-0.5 text-amber-950">
               {log.lines.map((line, i) => (

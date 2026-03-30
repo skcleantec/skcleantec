@@ -203,9 +203,9 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   res.json({ items: list });
 });
 
-/** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성) */
+/** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성). `pendingInquiryId` 있으면 대기 접수에 발주서 연결 */
 router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
   const {
     customerName,
     totalAmount,
@@ -215,6 +215,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     preferredDate,
     preferredTime,
     preferredTimeDetail,
+    pendingInquiryId,
   } = req.body as {
     customerName: string;
     totalAmount: number;
@@ -224,6 +225,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     preferredDate?: string;
     preferredTime?: string;
     preferredTimeDetail?: string;
+    pendingInquiryId?: string;
   };
   if (!customerName?.trim()) {
     res.status(400).json({ error: '고객명을 입력해주세요.' });
@@ -236,6 +238,55 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const deposit = depositAmount ?? 20000;
   const balance = balanceAmount ?? Math.max(0, totalAmount - deposit);
   const token = randomBytes(12).toString('hex');
+
+  const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
+  if (pid) {
+    const pending = await prisma.inquiry.findUnique({
+      where: { id: pid },
+      select: { id: true, status: true, orderFormId: true, createdById: true },
+    });
+    if (!pending) {
+      res.status(404).json({ error: '연결할 접수를 찾을 수 없습니다.' });
+      return;
+    }
+    if (pending.status !== 'PENDING') {
+      res.status(400).json({ error: '대기 상태(고객 발주서 미제출) 접수만 연결할 수 있습니다.' });
+      return;
+    }
+    if (pending.orderFormId) {
+      res.status(400).json({ error: '이미 발주서가 연결된 접수입니다.' });
+      return;
+    }
+    if (role === 'MARKETER' && pending.createdById !== userId) {
+      res.status(403).json({ error: '본인이 등록한 대기 접수만 연결할 수 있습니다.' });
+      return;
+    }
+
+    const orderForm = await prisma.$transaction(async (tx) => {
+      const created = await tx.orderForm.create({
+        data: {
+          token,
+          customerName: customerName.trim(),
+          totalAmount,
+          depositAmount: deposit,
+          balanceAmount: balance,
+          optionNote: optionNote?.trim() || null,
+          preferredDate: preferredDate?.trim() || null,
+          preferredTime: preferredTime?.trim() || null,
+          preferredTimeDetail: preferredTimeDetail?.trim() || null,
+          createdById: userId,
+        },
+      });
+      await tx.inquiry.update({
+        where: { id: pid },
+        data: { orderFormId: created.id },
+      });
+      return created;
+    });
+    res.json(orderForm);
+    return;
+  }
+
   const orderForm = await prisma.orderForm.create({
     data: {
       token,
@@ -361,7 +412,10 @@ router.get('/by-token/:token', async (req, res) => {
   const form = await prisma.orderForm.findUnique({
     where: { token },
     include: {
-      inquiries: true,
+      inquiries: {
+        where: { status: 'PENDING' },
+        take: 1,
+      },
     },
   });
   if (!form) {
@@ -377,6 +431,33 @@ router.get('/by-token/:token', async (req, res) => {
   } catch (err) {
     console.error('by-token ensure professional defaults:', err);
   }
+
+  const pendingRow = form.inquiries[0];
+  const pendingInquiry = pendingRow
+    ? {
+        customerName: pendingRow.customerName,
+        customerPhone: pendingRow.customerPhone,
+        customerPhone2: pendingRow.customerPhone2,
+        address: pendingRow.address,
+        addressDetail: pendingRow.addressDetail,
+        areaPyeong: pendingRow.areaPyeong,
+        areaBasis: pendingRow.areaBasis,
+        propertyType: pendingRow.propertyType,
+        roomCount: pendingRow.roomCount,
+        bathroomCount: pendingRow.bathroomCount,
+        balconyCount: pendingRow.balconyCount,
+        kitchenCount: pendingRow.kitchenCount,
+        preferredDate: pendingRow.preferredDate
+          ? pendingRow.preferredDate.toISOString().slice(0, 10)
+          : null,
+        preferredTime: pendingRow.preferredTime,
+        preferredTimeDetail: pendingRow.preferredTimeDetail,
+        buildingType: pendingRow.buildingType,
+        moveInDate: pendingRow.moveInDate ? pendingRow.moveInDate.toISOString().slice(0, 10) : null,
+        specialNotes: pendingRow.specialNotes,
+        memo: pendingRow.memo,
+      }
+    : null;
 
   const [options, professionalOptions] = await Promise.all([
     prisma.estimateOption.findMany({
@@ -409,6 +490,7 @@ router.get('/by-token/:token', async (req, res) => {
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
     professionalOptions,
     formConfig: resolvedPublicFormConfig(formConfig),
+    pendingInquiry,
   });
 });
 
@@ -517,43 +599,86 @@ router.post('/submit/:token', async (req, res) => {
     .filter(Boolean)
     .join('\n');
 
-  await prisma.$transaction([
-    prisma.inquiry.create({
-      data: {
-        createdById: form.createdById,
-        customerName: body.customerName || form.customerName,
-        customerPhone: body.customerPhone,
-        customerPhone2: String(body.customerPhone2).trim(),
-        address: body.address,
-        addressDetail: body.addressDetail || null,
-        areaPyeong: body.areaPyeong,
-        areaBasis: areaBasisNorm,
-        propertyType: propertyTypeNorm,
-        roomCount: body.roomCount ?? null,
-        bathroomCount: body.bathroomCount ?? null,
-        balconyCount: body.balconyCount ?? null,
-        kitchenCount: body.kitchenCount ?? null,
-        preferredDate,
-        preferredTime: useTimeStr,
-        preferredTimeDetail: useDetailStr,
-        memo,
-        buildingType: body.buildingType || null,
-        moveInDate,
-        specialNotes: body.specialNotes || null,
-        serviceTotalAmount: form.totalAmount,
-        serviceDepositAmount: form.depositAmount,
-        serviceBalanceAmount: form.balanceAmount,
-        source: '발주서',
-        status: 'RECEIVED',
-        orderFormId: form.id,
-        professionalOptionIds: professionalIds,
-      },
-    }),
-    prisma.orderForm.update({
-      where: { id: form.id },
-      data: { submittedAt: new Date() },
-    }),
-  ]);
+  const existingPending = await prisma.inquiry.findFirst({
+    where: { orderFormId: form.id, status: 'PENDING' },
+  });
+
+  if (existingPending) {
+    await prisma.$transaction([
+      prisma.inquiry.update({
+        where: { id: existingPending.id },
+        data: {
+          customerName: body.customerName || form.customerName,
+          customerPhone: body.customerPhone,
+          customerPhone2: String(body.customerPhone2).trim(),
+          address: body.address,
+          addressDetail: body.addressDetail || null,
+          areaPyeong: body.areaPyeong,
+          areaBasis: areaBasisNorm,
+          propertyType: propertyTypeNorm,
+          roomCount: body.roomCount ?? null,
+          bathroomCount: body.bathroomCount ?? null,
+          balconyCount: body.balconyCount ?? null,
+          kitchenCount: body.kitchenCount ?? null,
+          preferredDate,
+          preferredTime: useTimeStr,
+          preferredTimeDetail: useDetailStr,
+          memo,
+          buildingType: body.buildingType || null,
+          moveInDate,
+          specialNotes: body.specialNotes || null,
+          serviceTotalAmount: form.totalAmount,
+          serviceDepositAmount: form.depositAmount,
+          serviceBalanceAmount: form.balanceAmount,
+          source: '발주서',
+          status: 'RECEIVED',
+          professionalOptionIds: professionalIds,
+        },
+      }),
+      prisma.orderForm.update({
+        where: { id: form.id },
+        data: { submittedAt: new Date() },
+      }),
+    ]);
+  } else {
+    await prisma.$transaction([
+      prisma.inquiry.create({
+        data: {
+          createdById: form.createdById,
+          customerName: body.customerName || form.customerName,
+          customerPhone: body.customerPhone,
+          customerPhone2: String(body.customerPhone2).trim(),
+          address: body.address,
+          addressDetail: body.addressDetail || null,
+          areaPyeong: body.areaPyeong,
+          areaBasis: areaBasisNorm,
+          propertyType: propertyTypeNorm,
+          roomCount: body.roomCount ?? null,
+          bathroomCount: body.bathroomCount ?? null,
+          balconyCount: body.balconyCount ?? null,
+          kitchenCount: body.kitchenCount ?? null,
+          preferredDate,
+          preferredTime: useTimeStr,
+          preferredTimeDetail: useDetailStr,
+          memo,
+          buildingType: body.buildingType || null,
+          moveInDate,
+          specialNotes: body.specialNotes || null,
+          serviceTotalAmount: form.totalAmount,
+          serviceDepositAmount: form.depositAmount,
+          serviceBalanceAmount: form.balanceAmount,
+          source: '발주서',
+          status: 'RECEIVED',
+          orderFormId: form.id,
+          professionalOptionIds: professionalIds,
+        },
+      }),
+      prisma.orderForm.update({
+        where: { id: form.id },
+        data: { submittedAt: new Date() },
+      }),
+    ]);
+  }
 
   res.json({ ok: true });
 });

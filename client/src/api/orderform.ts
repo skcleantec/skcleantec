@@ -46,6 +46,29 @@ export interface ProfessionalSpecialtyOptionDto {
   createdAt?: string;
 }
 
+/** 대기 접수 연동 시 고객 폼에 미리 채울 값 */
+export interface PendingInquiryPrefill {
+  customerName: string;
+  customerPhone: string;
+  customerPhone2: string | null;
+  address: string;
+  addressDetail: string | null;
+  areaPyeong: number | null;
+  areaBasis: string | null;
+  propertyType: string | null;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
+  kitchenCount: number | null;
+  preferredDate: string | null;
+  preferredTime: string | null;
+  preferredTimeDetail: string | null;
+  buildingType: string | null;
+  moveInDate: string | null;
+  specialNotes: string | null;
+  memo: string | null;
+}
+
 export interface OrderFormPublic {
   id: string;
   token: string;
@@ -61,6 +84,8 @@ export interface OrderFormPublic {
   /** 전문 시공 옵션 — 발주서와 동일 응답에 포함(별도 API 없이 표시) */
   professionalOptions?: ProfessionalSpecialtyOptionDto[];
   formConfig?: OrderFormConfigPublic;
+  /** 발주서가 대기 접수에 연결된 경우 고객 입력 폼에 반영 */
+  pendingInquiry?: PendingInquiryPrefill | null;
 }
 
 /** 관리자: 발주서 목록 */
@@ -82,6 +107,8 @@ export async function createOrderForm(
     preferredDate?: string;
     preferredTime?: string;
     preferredTimeDetail?: string;
+    /** 대기 접수 건 id — 연결 시 고객 제출로 동일 건이 접수로 전환 */
+    pendingInquiryId?: string;
   }
 ): Promise<OrderForm> {
   const res = await fetch(`${API}/orderforms`, {

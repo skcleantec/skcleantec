@@ -24,6 +24,7 @@ model User {
   dayOffs             UserDayOff[] @relation("UserDayOffs")
   orderFormsCreated   OrderForm[]  @relation("OrderFormCreatedBy")
   inquiriesCreated    Inquiry[]    @relation("InquiryCreatedBy")
+  adWorkSessions      AdWorkSession[]
 
   @@map("users")
 }
@@ -168,6 +169,45 @@ model CsReport {
   @@map("cs_reports")
 }
 
+model AdChannel {
+  id        String   @id @default(uuid())
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  spendLines AdSpendLine[]
+
+  @@map("ad_channels")
+}
+
+model AdWorkSession {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  startedAt DateTime  @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spendLines AdSpendLine[]
+
+  @@index([userId, startedAt])
+  @@index([userId, endedAt])
+  @@map("ad_work_sessions")
+}
+
+model AdSpendLine {
+  id        String @id @default(uuid())
+  sessionId String @map("session_id")
+  channelId String @map("channel_id")
+  amount    Int
+
+  session AdWorkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  channel AdChannel     @relation(fields: [channelId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, channelId])
+  @@map("ad_spend_lines")
+}
+
 model OrderForm {
   id              String   @id @default(uuid())
   token           String   @unique
@@ -190,6 +230,7 @@ model OrderForm {
 }
 
 enum InquiryStatus {
+  PENDING       // 대기 (마케터 선접수, 고객 발주서 미제출)
   RECEIVED      // 접수
   ASSIGNED      // 분배완료
   IN_PROGRESS   // 진행중

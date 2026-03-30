@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getDashboardStats, type DashboardStats } from '../../api/dashboard';
 import { getToken } from '../../stores/auth';
 import { DashboardChangeHistory } from '../../components/admin/DashboardChangeHistory';
+import { TelemarketingSessionBlock } from '../../components/admin/TelemarketingSessionBlock';
 
 function formatCurrency(n: number): string {
   return n.toLocaleString() + '원';
@@ -47,6 +48,8 @@ export function AdminDashboardPage() {
           {apiError} (서버가 실행 중인지 확인하세요.)
         </div>
       )}
+
+      <TelemarketingSessionBlock />
 
       {/* 접수 통계 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

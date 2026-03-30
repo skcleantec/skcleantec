@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly } from '../auth/auth.middleware.js';
+import { adminOrMarketer } from '../auth/auth.middleware.js';
 
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOnly);
+router.use(adminOrMarketer);
 
 /** 매출 집계 대상: 청소 완료·진행중 건 */
 const SALES_STATUS = ['COMPLETED', 'IN_PROGRESS'] as const;

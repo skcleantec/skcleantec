@@ -162,9 +162,25 @@ router.patch('/:id', async (req, res) => {
   res.json(updated);
 });
 
+const CREATE_STATUSES: InquiryStatus[] = [
+  'PENDING',
+  'RECEIVED',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+  'CS_PROCESSING',
+];
+
 router.post('/', async (req, res) => {
   const body = req.body as Record<string, unknown>;
   const user = (req as unknown as { user: AuthPayload }).user;
+  const rawStatus = body.status != null ? String(body.status) : '';
+  const status: InquiryStatus =
+    rawStatus && CREATE_STATUSES.includes(rawStatus as InquiryStatus)
+      ? (rawStatus as InquiryStatus)
+      : 'RECEIVED';
+
   const inquiry = await prisma.inquiry.create({
     data: {
       createdById: user?.userId ?? null,
@@ -185,6 +201,7 @@ router.post('/', async (req, res) => {
       callAttempt: body.callAttempt != null ? Number(body.callAttempt) : null,
       memo: body.memo ? String(body.memo) : null,
       source: body.source ? String(body.source) : '전화',
+      status,
     },
   });
   res.status(201).json(inquiry);

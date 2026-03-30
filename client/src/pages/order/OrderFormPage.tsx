@@ -13,6 +13,7 @@ import {
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
+import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -118,12 +119,27 @@ export function OrderFormPage() {
           preferredTimeDetail: data.preferredTimeDetail ?? null,
           formConfig: data.formConfig,
         });
+        const p = data.pendingInquiry;
         setForm((f) => ({
           ...f,
-          customerName: data.customerName,
-          preferredDate: data.preferredDate ?? '',
-          preferredTime: data.preferredTime ?? '오전',
-          preferredTimeDetail: data.preferredTimeDetail ?? '',
+          customerName: p?.customerName || data.customerName,
+          customerPhone: p?.customerPhone ?? '',
+          customerPhoneSecondary: p?.customerPhone2 ?? '',
+          address: p?.address ?? '',
+          addressDetail: p?.addressDetail ?? '',
+          propertyType: p?.propertyType ?? '',
+          areaBasis: p?.areaBasis ?? '',
+          areaPyeong: p?.areaPyeong != null ? String(p.areaPyeong) : '',
+          preferredDate: p?.preferredDate ?? data.preferredDate ?? '',
+          preferredTime: p?.preferredTime ?? data.preferredTime ?? '오전',
+          preferredTimeDetail: p?.preferredTimeDetail ?? data.preferredTimeDetail ?? '',
+          roomCount: p?.roomCount != null ? String(p.roomCount) : '',
+          bathroomCount: p?.bathroomCount != null ? String(p.bathroomCount) : '',
+          balconyCount: p?.balconyCount != null ? String(p.balconyCount) : '',
+          kitchenCount: p?.kitchenCount != null ? String(p.kitchenCount) : '',
+          buildingType: p?.buildingType ?? '',
+          moveInDate: p?.moveInDate ?? '',
+          specialNotes: p?.specialNotes ?? '',
         }));
         const fromForm = data.professionalOptions;
         if (fromForm && fromForm.length > 0) {
@@ -400,8 +416,9 @@ export function OrderFormPage() {
           <div>
             <label className={labelCls}>5. 청소 날짜 *</label>
             {scheduleLockedByAdmin ? (
-              <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
-                {order!.preferredDate} <span className="text-gray-500">(관리자 지정·수정 불가)</span>
+              <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-xs tabular-nums">
+                {formatDateCompactWithWeekday(order!.preferredDate)}{' '}
+                <span className="text-gray-500">(관리자 지정·수정 불가)</span>
               </div>
             ) : (
               <input

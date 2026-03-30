@@ -18,6 +18,7 @@ import { OrderFormPage } from './pages/order/OrderFormPage';
 import { OrderInfoPage } from './pages/order/OrderInfoPage';
 import { CsReportPage } from './pages/cs/CsReportPage';
 import { AdminCsPage } from './pages/admin/AdminCsPage';
+import { AdminAdvertisingPage } from './pages/admin/AdminAdvertisingPage';
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
           <Route path="orderforms" element={<AdminOrderFormPage />} />
           <Route path="orderforms/notice" element={<Navigate to="/admin/orderforms?tab=notice" replace />} />
           <Route path="cs" element={<AdminCsPage />} />
+          <Route path="advertising" element={<AdminAdvertisingPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
         <Route path="/order/:token" element={<OrderFormPage />} />

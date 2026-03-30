@@ -74,6 +74,7 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   if (body.claimMemo != null) data.claimMemo = body.claimMemo ? String(body.claimMemo) : null;
   if (body.status != null) {
     data.status = body.status as
+      | 'PENDING'
       | 'RECEIVED'
       | 'ASSIGNED'
       | 'IN_PROGRESS'

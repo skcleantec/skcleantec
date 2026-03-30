@@ -3,8 +3,10 @@ import { getTeamInquiries } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
+import { formatDateCompactWithWeekday, weekdayKoFromYmd } from '../../utils/dateFormat';
 
 const STATUS_LABELS: Record<string, string> = {
+  PENDING: '대기',
   RECEIVED: '접수',
   ASSIGNED: '분배',
   IN_PROGRESS: '진행',
@@ -52,18 +54,23 @@ function formatRoomInfo(r: number | null, b: number | null, v: number | null) {
   return parts.length ? parts.join(' ') : '-';
 }
 
-function formatDateLabel(dateStr: string) {
-  const d = new Date(dateStr);
+/** 오늘·내일·N일 후 등만 (없으면 null) */
+function relativeDateHint(dateStr: string): string | null {
+  const parts = dateStr.split('-').map(Number);
+  const y = parts[0];
+  const mo = parts[1];
+  const da = parts[2];
+  if (!y || !mo || !da) return null;
+  const dNorm = new Date(y, mo - 1, da);
+  dNorm.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const dNorm = new Date(d);
-  dNorm.setHours(0, 0, 0, 0);
   const diff = Math.floor((dNorm.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
   if (diff === 0) return '오늘';
   if (diff === 1) return '내일';
   if (diff === 2) return '모레';
   if (diff > 0 && diff <= 7) return `${diff}일 후`;
-  return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
+  return null;
 }
 
 function getCalendarDays(year: number, month: number) {
@@ -138,7 +145,9 @@ function DetailModal({ item, onClose }: { item: InquiryItem; onClose: () => void
           <div className="flex gap-4">
             <div>
               <span className="text-gray-500 block text-xs">예약일</span>
-              <span>{item.preferredDate ? new Date(item.preferredDate).toLocaleDateString('ko-KR') : '-'}</span>
+              <span className="text-[11px] tabular-nums">
+                {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '-'}
+              </span>
             </div>
             <div>
               <span className="text-gray-500 block text-xs">희망 시간</span>
@@ -307,8 +316,12 @@ export function TeamDashboardPage() {
                   className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm"
                 >
                   <div className="px-4 py-2.5 bg-gray-50 text-gray-700 flex items-center justify-between">
-                    <span className="font-medium">
-                      {formatDateLabel(dateKey)} · {new Date(dateKey).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
+                    <span className="font-medium text-[11px] sm:text-xs tabular-nums leading-tight">
+                      {(() => {
+                        const hint = relativeDateHint(dateKey);
+                        const compact = formatDateCompactWithWeekday(dateKey);
+                        return hint ? `${hint} · ${compact}` : compact;
+                      })()}
                     </span>
                     <span className="text-sm font-semibold text-gray-600">{dayItems.length}건</span>
                   </div>
@@ -399,8 +412,8 @@ export function TeamDashboardPage() {
                     hasEvents ? 'bg-blue-50' : ''
                   } ${isToday ? 'ring-1 ring-blue-400 ring-inset' : ''} ${isSelected ? 'bg-blue-200' : 'active:bg-gray-100'}`}
                 >
-                  <span className={`absolute top-0.5 left-1 text-[10px] font-medium ${dateColor}`}>
-                    {d}
+                  <span className={`absolute top-0.5 left-1 text-[9px] font-medium leading-tight tabular-nums ${dateColor}`}>
+                    {d} {weekdayKoFromYmd(year, month, d)}
                   </span>
                   {hasEvents && (
                     <span className="text-[10px] text-blue-600 font-medium">{dayItems.length}건</span>
@@ -412,8 +425,8 @@ export function TeamDashboardPage() {
           {/* 달력에서 날짜 선택 시 상세 목록 */}
           {selectedDate && (
             <div className="border-t border-gray-200 p-4 bg-gray-50">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                {new Date(selectedDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })} 상세
+              <h3 className="text-xs font-semibold text-gray-700 mb-3 tabular-nums">
+                {formatDateCompactWithWeekday(selectedDate)} 상세
               </h3>
               {(byDate[selectedDate]?.length ?? 0) > 0 ? (
                 <div className="flex flex-col gap-2">

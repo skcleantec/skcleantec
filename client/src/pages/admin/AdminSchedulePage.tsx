@@ -8,6 +8,7 @@ import { isPublicHoliday } from '../../utils/holidays';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
+import { formatDateCompactWithWeekday, weekdayKoFromYmd } from '../../utils/dateFormat';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -167,6 +168,10 @@ export function AdminSchedulePage() {
               빈 슬롯/미배정 (빨간 테두리)
             </span>
             <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 border-2 border-red-500 rounded shrink-0 bg-red-50/80" />
+              대기 접수 (발주서 미제출, 동일 빨간 테두리)
+            </span>
+            <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded shrink-0 bg-blue-400" />
               마감 (오전·오후·사이 각각 충족, 파란 음영)
             </span>
@@ -194,6 +199,7 @@ export function AdminSchedulePage() {
                 }
                 const key = getDateKey(d);
                 const dayItems = byDate[key] || [];
+                const pendingDayCount = dayItems.filter((it) => it.status === 'PENDING').length;
                 const dayStats = stats[key];
                 const morningCount = dayStats?.morningCount ?? 0;
                 const betweenCount = dayStats?.betweenCount ?? 0;
@@ -229,6 +235,12 @@ export function AdminSchedulePage() {
                       : hasEvents
                         ? 'text-blue-700'
                         : 'text-gray-800';
+                const pendingRing =
+                  pendingDayCount > 0 && !isSelected
+                    ? 'ring-2 ring-red-500 ring-inset z-[1]'
+                    : '';
+                const emptySlotRing =
+                  !isSelected && hasEmptySlots && pendingDayCount === 0 ? 'ring-2 ring-red-500 ring-inset' : '';
                 return (
                   <div
                     key={key}
@@ -239,13 +251,21 @@ export function AdminSchedulePage() {
                         : hasEvents
                           ? 'bg-blue-50'
                           : ''
-                    } ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-[1]' : ''} ${
-                      !isSelected && hasEmptySlots ? 'ring-2 ring-red-500 ring-inset' : ''
-                    } ${!isSlotFull && !hasEvents ? 'hover:bg-gray-50' : ''}`}
+                    } ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-[1]' : ''} ${pendingRing || emptySlotRing} ${
+                      !isSlotFull && !hasEvents ? 'hover:bg-gray-50' : ''
+                    } ${pendingDayCount > 0 ? 'bg-red-50/40' : ''}`}
                   >
-                    <span className={`absolute top-0.5 left-1 text-[11px] font-semibold ${dateColor}`}>
-                      {d}
+                    <span className={`absolute top-0.5 left-1 text-[9px] font-semibold leading-tight tabular-nums ${dateColor}`}>
+                      {d} {weekdayKoFromYmd(year, month, d)}
                     </span>
+                    {pendingDayCount > 0 && (
+                      <span
+                        className="absolute top-0.5 right-0.5 text-[9px] font-bold text-red-700 bg-red-100 px-0.5 rounded leading-tight"
+                        title="대기 접수(발주서 미제출)"
+                      >
+                        대기{pendingDayCount > 1 ? pendingDayCount : ''}
+                      </span>
+                    )}
                     <div className="mt-3.5 flex flex-col gap-0.5 pr-0.5">
                       <div className="flex justify-between items-baseline gap-1 leading-none">
                         <span
@@ -366,13 +386,9 @@ export function AdminSchedulePage() {
           {/* 선택한 날짜의 일정 목록 + 상세 보기 */}
           {selectedDate && (
             <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <h3 className="text-base font-medium text-gray-800 mb-3">
-                {new Date(selectedDate).toLocaleDateString('ko-KR', {
-                  month: 'long',
-                  day: 'numeric',
-                  weekday: 'long',
-                })}{' '}
-                ({(byDate[selectedDate]?.length ?? 0)}건)
+              <h3 className="text-sm font-medium text-gray-800 mb-3 tabular-nums">
+                {formatDateCompactWithWeekday(selectedDate)}{' '}
+                <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
               </h3>
 
               {/* 빈 배정 경고 */}
@@ -487,12 +503,17 @@ export function AdminSchedulePage() {
                 {(byDate[selectedDate] ?? []).map((item) => {
                   const amt = effectiveScheduleAmounts(item);
                   const showAmt = hasScheduleAmountDisplay(amt);
+                  const isPending = item.status === 'PENDING';
                   return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => setDetailItem(item)}
-                      className="text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex flex-col gap-1"
+                      className={`text-left p-3 rounded-lg flex flex-col gap-1 ${
+                        isPending
+                          ? 'border-2 border-red-500 bg-red-50/50 hover:bg-red-50'
+                          : 'border border-gray-200 hover:bg-gray-50'
+                      }`}
                     >
                       {showAmt && (
                         <div className="mb-1 pb-2 border-b border-gray-100">

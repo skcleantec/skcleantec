@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getCsReports, updateCsReport, type CsReport } from '../../api/cs';
 import { getToken } from '../../stores/auth';
+import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 
 const STATUS_OPTIONS = [
   { value: 'RECEIVED', label: '접수' },
   { value: 'PROCESSING', label: '처리중' },
   { value: 'DONE', label: '완료' },
 ];
-
-function formatDate(s: string) {
-  const d = new Date(s);
-  return d.toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' });
-}
 
 export function AdminCsPage() {
   const token = getToken();
@@ -109,7 +105,9 @@ export function AdminCsPage() {
                   className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                   onClick={() => openDetail(item)}
                 >
-                  <td className="p-3">{formatDate(item.createdAt)}</td>
+                  <td className="p-3 text-[11px] text-gray-700 tabular-nums whitespace-nowrap">
+                    {formatDateTimeCompactWithWeekday(item.createdAt)}
+                  </td>
                   <td className="p-3">{item.customerName}</td>
                   <td className="p-3">{item.customerPhone}</td>
                   <td className="p-3">

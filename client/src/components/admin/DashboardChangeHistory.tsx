@@ -7,17 +7,11 @@ import {
 } from '../../api/inquiryChangeLogs';
 import { getMe } from '../../api/auth';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
+import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 
 function formatWhen(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateTimeCompactWithWeekday(iso);
   } catch {
     return iso;
   }

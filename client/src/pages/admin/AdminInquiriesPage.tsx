@@ -15,6 +15,7 @@ import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/order
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
+import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 
 const SOURCE_OPTIONS = ['전화', '웹', '네이버', '인스타', '기타'];
 
@@ -43,6 +44,7 @@ function formatMonthKeyLabel(monthKey: string): string {
 }
 
 const STATUS_LABELS: Record<string, string> = {
+  PENDING: '대기',
   RECEIVED: '접수',
   ASSIGNED: '분배완료',
   IN_PROGRESS: '진행중',
@@ -145,6 +147,7 @@ export function AdminInquiriesPage() {
   /** 날짜 지정(YYYY-MM-DD, KST 하루) */
   const [dayKey, setDayKey] = useState(() => kstTodayYmd());
   const [individualForm, setIndividualForm] = useState({
+    status: 'PENDING',
     customerName: '',
     customerPhone: '',
     address: '',
@@ -245,6 +248,11 @@ export function AdminInquiriesPage() {
 
   const handleAssign = async (inquiryId: string, teamLeaderId: string) => {
     if (!token || !teamLeaderId) return;
+    const row = items.find((i) => i.id === inquiryId);
+    if (row?.status === 'PENDING') {
+      alert('대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다.');
+      return;
+    }
     setAssigningId(inquiryId);
     try {
       await assignInquiry(token, inquiryId, teamLeaderId);
@@ -406,7 +414,7 @@ export function AdminInquiriesPage() {
         return;
       }
       await updateInquiry(token, editItem.id, patch);
-      if (editForm.teamLeaderId) {
+      if (editForm.teamLeaderId && editForm.status !== 'PENDING') {
         await assignInquiry(token, editItem.id, editForm.teamLeaderId);
       }
       setEditItem(null);
@@ -434,10 +442,12 @@ export function AdminInquiriesPage() {
     try {
       await createInquiry(token, {
         ...individualForm,
+        status: individualForm.status,
         areaPyeong: individualForm.areaPyeong ? Number(individualForm.areaPyeong) : null,
         preferredDate: individualForm.preferredDate || null,
       });
       setIndividualForm({
+        status: 'PENDING',
         customerName: '',
         customerPhone: '',
         address: '',
@@ -458,16 +468,6 @@ export function AdminInquiriesPage() {
     } finally {
       setIndividualSubmitLoading(false);
     }
-  };
-
-  const formatDate = (d: string | null) => {
-    if (!d) return '-';
-    const date = new Date(d);
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
   };
 
   const formatRoomInfo = (
@@ -635,7 +635,25 @@ export function AdminInquiriesPage() {
         {individualExpanded && (
           <div className="border-t border-gray-200 p-6 bg-gray-50">
             <h3 className="text-sm font-medium text-gray-700 mb-4">개별접수 (고객 전화 시)</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              「대기」는 통화만으로 접수한 상태입니다. 발주서 메뉴에서 링크를 발급해 연결하면 고객이 제출할 때 접수로 전환됩니다.
+            </p>
             <form onSubmit={handleIndividualSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">상태</label>
+                <select
+                  name="status"
+                  value={individualForm.status}
+                  onChange={handleIndividualChange}
+                  className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded text-sm"
+                >
+                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">이름</label>
                 <input name="customerName" value={individualForm.customerName} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" required />
@@ -744,39 +762,48 @@ export function AdminInquiriesPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {items.map((item) => {
+                  const isPending = item.status === 'PENDING';
+                  const pBorder = isPending ? 'border-t-2 border-b-2 border-red-500' : 'border-b border-gray-100';
+                  const stickyBg = isPending ? 'bg-red-50/70' : 'bg-white';
+                  const stickyR = isPending ? 'border-r border-red-200' : 'border-r border-gray-100';
+                  return (
                   <tr
                     key={item.id}
-                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer active:bg-gray-100"
+                    className={`cursor-pointer active:bg-gray-100 ${
+                      isPending ? 'hover:bg-red-50/80' : 'hover:bg-gray-50'
+                    }`}
                     onClick={() => openEdit(item)}
-                    title="행을 누르면 상세보기"
+                    title={isPending ? '대기(발주서 미제출) · 행을 누르면 상세보기' : '행을 누르면 상세보기'}
                   >
-                    <td className="py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-gray-100">
-                      {formatDate(item.createdAt)}
+                    <td className={`py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 z-10 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''}`}>
+                      <span className="text-[11px] tabular-nums leading-tight">{formatDateCompactWithWeekday(item.createdAt)}</span>
                     </td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">
+                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
                       {item.orderForm?.createdBy?.name ?? '-'}
                     </td>
-                    <td className="py-2 px-2 font-medium text-gray-900 whitespace-nowrap">
+                    <td className={`py-2 px-2 font-medium text-gray-900 whitespace-nowrap ${pBorder}`}>
                       {item.customerName}
                       {item.claimMemo && (
                         <span className="ml-1 text-orange-600" title={item.claimMemo}>●</span>
                       )}
                     </td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap break-all">{item.customerPhone}</td>
-                    <td className="py-2 px-2 text-gray-600 min-w-[90px] max-w-[130px] truncate" title={item.address}>
+                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap break-all ${pBorder}`}>{item.customerPhone}</td>
+                    <td className={`py-2 px-2 text-gray-600 min-w-[90px] max-w-[130px] truncate ${pBorder}`} title={item.address}>
                       {item.address}
                       {item.addressDetail ? ` ${item.addressDetail}` : ''}
                     </td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{formatAreaLine(item)}</td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">
+                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>{formatAreaLine(item)}</td>
+                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
                       {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
                     </td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{formatDate(item.preferredDate)}</td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap max-w-[100px] truncate align-top" title={item.preferredTime ? labelForTimeSlot(item.preferredTime) : ''}>
+                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
+                      <span className="text-[11px] tabular-nums leading-tight">{formatDateCompactWithWeekday(item.preferredDate)}</span>
+                    </td>
+                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap max-w-[100px] truncate align-top ${pBorder}`} title={item.preferredTime ? labelForTimeSlot(item.preferredTime) : ''}>
                       {item.preferredTime ? labelForTimeSlot(item.preferredTime) : '-'}
                     </td>
-                    <td className="py-2 px-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <td className={`py-2 px-2 whitespace-nowrap ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={item.status}
                         onChange={(e) => handleStatusChange(item.id, e.target.value)}
@@ -788,14 +815,15 @@ export function AdminInquiriesPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="py-2 px-2" onClick={(e) => e.stopPropagation()}>
+                    <td className={`py-2 px-2 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={item.assignments[0]?.teamLeader?.id ?? ''}
                         onChange={(e) => {
                           const v = e.target.value;
                           if (v) handleAssign(item.id, v);
                         }}
-                        disabled={assigningId === item.id}
+                        disabled={assigningId === item.id || item.status === 'PENDING'}
+                        title={item.status === 'PENDING' ? '대기 건은 발주서 제출 후 분배할 수 있습니다.' : undefined}
                         className="px-2 py-1 border border-gray-300 rounded text-xs min-w-[70px]"
                       >
                         <option value="">선택</option>
@@ -804,7 +832,7 @@ export function AdminInquiriesPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="py-2 px-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <td className={`py-2 px-2 whitespace-nowrap ${pBorder} ${isPending ? 'border-r-2 border-r-red-500' : ''}`} onClick={(e) => e.stopPropagation()}>
                       <div className="flex flex-wrap gap-1">
                         <button
                           type="button"
@@ -833,7 +861,8 @@ export function AdminInquiriesPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -918,6 +947,20 @@ export function AdminInquiriesPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+              <div className="sm:col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">상태</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
+                  className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded text-sm"
+                >
+                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">성함</label>
                 <input
@@ -1156,23 +1199,13 @@ export function AdminInquiriesPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">상태</label>
-                <select
-                  value={editForm.status}
-                  onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                >
-                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm text-gray-600 mb-1">담당 팀장</label>
                 <select
                   value={editForm.teamLeaderId}
                   onChange={(e) => setEditForm((p) => ({ ...p, teamLeaderId: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  disabled={editForm.status === 'PENDING'}
+                  title={editForm.status === 'PENDING' ? '대기 건은 발주서 제출 후 분배할 수 있습니다.' : undefined}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm disabled:bg-gray-100 disabled:text-gray-500"
                 >
                   <option value="">선택 안 함</option>
                   {teamLeaders.map((tl) => (

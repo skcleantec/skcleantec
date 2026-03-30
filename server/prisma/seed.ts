@@ -57,6 +57,110 @@ async function main() {
     console.log('Marketer:', created.email);
   }
 
+  // 대기(PENDING) 샘플 접수 4건 — 발주서 미제출 선접수 테스트용 (고정 ID로 시드 재실행 시 갱신만)
+  try {
+    const marketer = await prisma.user.findFirst({ where: { role: 'MARKETER' } });
+    const createdById = marketer?.id ?? admin.id;
+    const pendingSamples: Array<{
+      id: string;
+      customerName: string;
+      customerPhone: string;
+      address: string;
+      addressDetail: string | null;
+      areaPyeong: number;
+      propertyType: string;
+      roomCount: number;
+      bathroomCount: number;
+      memo: string;
+    }> = [
+      {
+        id: 'f1e2d3c4-b5a6-4789-a012-3456789abcde',
+        customerName: '오지훈',
+        customerPhone: '010-2847-5519',
+        address: '서울 송파구 올림픽로 300',
+        addressDetail: '래미안 12동 803호',
+        areaPyeong: 32,
+        propertyType: '아파트',
+        roomCount: 3,
+        bathroomCount: 2,
+        memo: '통화만 완료 · 발주서 대기(시드)',
+      },
+      {
+        id: 'e2d3c4b5-a678-4901-b234-56789abcdef0',
+        customerName: '한서연',
+        customerPhone: '010-9136-2284',
+        address: '경기 성남시 분당구 판교역로 146',
+        addressDetail: '힐스테이트 B동 1502',
+        areaPyeong: 28,
+        propertyType: '아파트',
+        roomCount: 3,
+        bathroomCount: 2,
+        memo: '입주일 미정 · 대기(시드)',
+      },
+      {
+        id: 'd3c4b5a6-7890-4123-c456-789abcdef012',
+        customerName: '윤도현',
+        customerPhone: '010-6672-9041',
+        address: '인천 연수구 컨벤시아대로 204',
+        addressDetail: '오피스텔 7층',
+        areaPyeong: 19,
+        propertyType: '오피스텔',
+        roomCount: 2,
+        bathroomCount: 1,
+        memo: '견적 문자 발송 예정(시드)',
+      },
+      {
+        id: 'c4b5a678-9012-4234-d567-89abcdef0123',
+        customerName: '임채원',
+        customerPhone: '010-4408-7752',
+        address: '서울 마포구 월드컵북로 396',
+        addressDetail: '빌라 2층',
+        areaPyeong: 22,
+        propertyType: '빌라(연립)',
+        roomCount: 2,
+        bathroomCount: 1,
+        memo: '고객 발주서 링크 대기(시드)',
+      },
+    ];
+    for (const s of pendingSamples) {
+      await prisma.inquiry.upsert({
+        where: { id: s.id },
+        update: {
+          customerName: s.customerName,
+          customerPhone: s.customerPhone,
+          address: s.address,
+          addressDetail: s.addressDetail,
+          areaPyeong: s.areaPyeong,
+          propertyType: s.propertyType,
+          roomCount: s.roomCount,
+          bathroomCount: s.bathroomCount,
+          memo: s.memo,
+          status: 'PENDING',
+          createdById,
+          orderFormId: null,
+        },
+        create: {
+          id: s.id,
+          customerName: s.customerName,
+          customerPhone: s.customerPhone,
+          address: s.address,
+          addressDetail: s.addressDetail,
+          areaPyeong: s.areaPyeong,
+          propertyType: s.propertyType,
+          roomCount: s.roomCount,
+          bathroomCount: s.bathroomCount,
+          memo: s.memo,
+          status: 'PENDING',
+          source: '전화',
+          createdById,
+        },
+      });
+    }
+    console.log('Inquiry: 4 PENDING sample rows ensured');
+  } catch {
+    console.log('Inquiry PENDING samples: skip (run db:push first or schema mismatch)');
+  }
+
   // 폼 메시지 설정 (없으면 생성, 클린벨→SK클린텍 보정)
   try {
     const formConfig = await prisma.orderFormConfig.findFirst();
@@ -81,6 +185,20 @@ async function main() {
     console.log('ProfessionalSpecialtyOption: seeded (default 8)');
   } catch {
     console.log('ProfessionalSpecialtyOption: skip (run db:push first)');
+  }
+
+  try {
+    const defaults = ['네이버', '인스타그램', '배너', '기타'];
+    let order = 0;
+    for (const name of defaults) {
+      const existing = await prisma.adChannel.findFirst({ where: { name } });
+      if (!existing) {
+        await prisma.adChannel.create({ data: { name, sortOrder: order++ } });
+      }
+    }
+    console.log('AdChannel: default channels ensured');
+  } catch {
+    console.log('AdChannel: skip (run db:push first)');
   }
 }
 
