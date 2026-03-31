@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { teamLogin } from '../../api/teamAuth';
-import { setTeamToken } from '../../stores/teamAuth';
+import { getTeamToken, setTeamToken } from '../../stores/teamAuth';
 
 export function TeamLoginPage() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (getTeamToken()) {
+      navigate('/team/dashboard', { replace: true });
+    }
+  }, [navigate]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');

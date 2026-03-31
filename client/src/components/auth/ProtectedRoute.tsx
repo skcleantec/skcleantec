@@ -1,8 +1,9 @@
+import { useSyncExternalStore } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { getToken } from '../../stores/auth';
+import { subscribeAdminAuth, getToken } from '../../stores/auth';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const token = getToken();
+  const token = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const location = useLocation();
 
   if (!token) {

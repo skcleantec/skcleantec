@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../../api/auth';
-import { setToken } from '../../stores/auth';
+import { getToken, setToken } from '../../stores/auth';
 
 export function AdminLoginPage() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (getToken()) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [navigate]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
