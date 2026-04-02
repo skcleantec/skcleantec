@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
+import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 
 const router = Router();
 
@@ -25,17 +26,25 @@ router.get('/stats', async (_req, res) => {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
 
-  const [todayCount, unassignedCount, inProgressCount, estimateConfig, inquiriesForSales, teamLeaders] = await Promise.all([
+  /** 이번 달 미분배: 접수일(createdAt) KST 기준 이번 달 + 상태 RECEIVED */
+  const kstMonthKey = kstTodayYmd().slice(0, 7);
+  const kstThisMonth = kstMonthRangeYm(kstMonthKey);
+  if (!kstThisMonth) {
+    res.status(500).json({ error: '이번 달 구간을 계산할 수 없습니다.' });
+    return;
+  }
+
+  const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeaders] = await Promise.all([
     prisma.inquiry.count({
       where: {
         createdAt: { gte: today, lt: tomorrow },
       },
     }),
     prisma.inquiry.count({
-      where: { status: 'RECEIVED' },
-    }),
-    prisma.inquiry.count({
-      where: { status: 'IN_PROGRESS' },
+      where: {
+        status: 'RECEIVED',
+        createdAt: { gte: kstThisMonth.gte, lte: kstThisMonth.lte },
+      },
     }),
     prisma.estimateConfig.findFirst().then((c) => c?.pricePerPyeong ?? 5000),
     prisma.inquiry.findMany({
@@ -98,7 +107,6 @@ router.get('/stats', async (_req, res) => {
   res.json({
     todayCount,
     unassignedCount,
-    inProgressCount,
     todaySales,
     monthSales,
     salesByTeamLeader,

@@ -5,9 +5,11 @@ import {
   getInquiries,
   getMarketerOverview,
   updateInquiry,
-  createInquiry,
   type MarketerOverviewResponse,
 } from '../../api/inquiries';
+import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
+import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
+import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { assignInquiry } from '../../api/assignments';
 import { getTeamLeaders, getUsers, type UserItem } from '../../api/users';
 import { getMe } from '../../api/auth';
@@ -18,8 +20,6 @@ import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
-
-const SOURCE_OPTIONS = ['전화', '웹', '네이버', '인스타', '기타'];
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
@@ -43,6 +43,35 @@ function formatMonthKeyLabel(monthKey: string): string {
   const [y, m] = monthKey.split('-').map(Number);
   if (!y || !m) return monthKey;
   return `${y}년 ${m}월`;
+}
+
+/** YYYY-MM-DD가 속한 달의 1일~말일 (YYYY-MM-DD) */
+function monthRangeFromYmd(ymd: string): { start: string; end: string } {
+  const y = Number(ymd.slice(0, 4));
+  const mo = Number(ymd.slice(5, 7));
+  const lastDay = new Date(y, mo, 0).getDate();
+  const m = String(mo).padStart(2, '0');
+  return {
+    start: `${y}-${m}-01`,
+    end: `${y}-${m}-${String(lastDay).padStart(2, '0')}`,
+  };
+}
+
+function CirclePlusIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v8M8 12h8" />
+    </svg>
+  );
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -157,29 +186,13 @@ export function AdminInquiriesPage() {
   const [monthKey, setMonthKey] = useState(() => kstMonthKeyNow());
   /** 날짜 지정(YYYY-MM-DD, KST 하루) */
   const [dayKey, setDayKey] = useState(() => kstTodayYmd());
-  const [individualForm, setIndividualForm] = useState({
-    status: 'PENDING',
-    customerName: '',
-    customerPhone: '',
-    address: '',
-    addressDetail: '',
-    areaPyeong: '',
-    roomCount: 2,
-    bathroomCount: 1,
-    balconyCount: 1,
-    preferredDate: '',
-    preferredTime: '',
-    callAttempt: 1,
-    memo: '',
-    source: '전화',
-  });
+  /** 스케줄과 동일한 신규 접수 모달 — 예약일(YYYY-MM-DD) */
+  const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
+  const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
+  const [scheduleStatsForModal, setScheduleStatsForModal] = useState<Record<string, ScheduleStatsByDate>>({});
   const [marketerOverview, setMarketerOverview] = useState<MarketerOverviewResponse | null>(null);
   const [marketerOverviewLoading, setMarketerOverviewLoading] = useState(() => Boolean(getToken()));
   const [marketerOverviewError, setMarketerOverviewError] = useState<string | null>(null);
-  const [individualExpanded, setIndividualExpanded] = useState(false);
-  /** 스케줄 등에서 `?preferredDate=` 로 들어온 경우 희망일 입력 고정 */
-  const [individualPreferredDateLocked, setIndividualPreferredDateLocked] = useState(false);
-  const [individualSubmitLoading, setIndividualSubmitLoading] = useState(false);
   const [me, setMe] = useState<{ id: string; role: string; name: string } | null>(null);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
@@ -188,18 +201,27 @@ export function AdminInquiriesPage() {
   useEffect(() => {
     const pd = searchParams.get('preferredDate');
     if (!pd || !/^\d{4}-\d{2}-\d{2}$/.test(pd)) return;
-    setIndividualForm((p) => ({ ...p, preferredDate: pd }));
-    setIndividualExpanded(true);
-    setIndividualPreferredDateLocked(true);
-  }, [searchParams]);
+    setCreateInquiryModalDate(pd);
+    navigate('/admin/inquiries', { replace: true });
+  }, [searchParams, navigate]);
 
   useEffect(() => {
-    if (!individualPreferredDateLocked || !individualExpanded) return;
-    const t = window.setTimeout(() => {
-      document.getElementById('admin-individual-intake')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
-    return () => window.clearTimeout(t);
-  }, [individualPreferredDateLocked, individualExpanded]);
+    if (!token || !createInquiryModalDate) {
+      setScheduleStatsForModal({});
+      return;
+    }
+    const { start, end } = monthRangeFromYmd(createInquiryModalDate);
+    getScheduleStats(token, start, end)
+      .then((r) => setScheduleStatsForModal(r.byDate))
+      .catch(() => setScheduleStatsForModal({}));
+  }, [token, createInquiryModalDate]);
+
+  useEffect(() => {
+    if (!token) return;
+    getAllProfessionalOptions(token)
+      .then(setProfCatalog)
+      .catch(() => setProfCatalog([]));
+  }, [token]);
 
   useEffect(() => {
     if (!token) {
@@ -483,52 +505,6 @@ export function AdminInquiriesPage() {
     }
   };
 
-  const handleIndividualChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    const numFields = ['roomCount', 'bathroomCount', 'balconyCount', 'callAttempt', 'areaPyeong'];
-    setIndividualForm((prev) => ({
-      ...prev,
-      [name]: numFields.includes(name) ? (value === '' ? '' : Number(value)) : value,
-    }));
-  };
-
-  const handleIndividualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token) return;
-    setIndividualSubmitLoading(true);
-    try {
-      await createInquiry(token, {
-        ...individualForm,
-        status: individualForm.status,
-        areaPyeong: individualForm.areaPyeong ? Number(individualForm.areaPyeong) : null,
-        preferredDate: individualForm.preferredDate || null,
-      });
-      setIndividualPreferredDateLocked(false);
-      setIndividualForm({
-        status: 'PENDING',
-        customerName: '',
-        customerPhone: '',
-        address: '',
-        addressDetail: '',
-        areaPyeong: '',
-        roomCount: 2,
-        bathroomCount: 1,
-        balconyCount: 1,
-        preferredDate: '',
-        preferredTime: '',
-        callAttempt: 1,
-        memo: '',
-        source: '전화',
-      });
-      navigate('/admin/inquiries', { replace: true });
-      refresh(true);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '등록에 실패했습니다.');
-    } finally {
-      setIndividualSubmitLoading(false);
-    }
-  };
-
   const formatRoomInfo = (
     r: number | null,
     b: number | null,
@@ -546,11 +522,26 @@ export function AdminInquiriesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold text-gray-800">접수 목록</h1>
-        <p className="text-xs text-gray-500">
-          기본은 <strong className="font-medium text-gray-700">오늘 접수된 건</strong>만 보입니다. 날짜·월별·전체로 바꿀 수 있습니다. (접수일 기준, 한국 시간) 아래 표는 목록 필터와 무관하게{' '}
-          <strong className="font-medium text-gray-700">마케터별 이번 달·오늘</strong> 접수 건수(KST, 접수 등록자 기준)입니다.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold text-gray-800">접수 목록</h1>
+            <p className="text-xs text-gray-500">
+              기본은 <strong className="font-medium text-gray-700">오늘 접수된 건</strong>만 보입니다. 날짜·월별·전체로 바꿀 수 있습니다. (접수일 기준, 한국 시간) 아래 표는 목록 필터와 무관하게{' '}
+              <strong className="font-medium text-gray-700">마케터별 이번 달·오늘</strong> 접수 건수(KST, 접수 등록자 기준)입니다.
+            </p>
+          </div>
+          {token && (
+            <button
+              type="button"
+              onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
+              className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+              title="신규 접수 (스케줄과 동일한 폼)"
+              aria-label="신규 접수"
+            >
+              <CirclePlusIcon className="w-5 h-5" />
+            </button>
+          )}
+        </div>
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-gray-600 shrink-0">접수일</span>
@@ -705,138 +696,6 @@ export function AdminInquiriesPage() {
             </select>
           </div>
         </div>
-      </div>
-
-      {/* 개별접수 (접어두기) */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setIndividualExpanded((v) => !v)}
-          className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50"
-        >
-          <span className="font-medium text-gray-800">접수 목록 + 개별접수</span>
-          <span className="text-gray-500 text-sm">{individualExpanded ? '접기 ▲' : '펼치기 ▼'}</span>
-        </button>
-        {individualExpanded && (
-          <div id="admin-individual-intake" className="border-t border-gray-200 p-6 bg-gray-50 scroll-mt-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-4">개별접수 (고객 전화 시)</h3>
-            <p className="text-xs text-gray-500 mb-3">
-              「대기」는 통화만으로 접수한 상태입니다. 발주서 메뉴에서 링크를 발급해 연결하면 고객이 제출할 때 접수로 전환됩니다.
-            </p>
-            <form onSubmit={handleIndividualSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-sm text-gray-600 mb-1">상태</label>
-                <select
-                  name="status"
-                  value={individualForm.status}
-                  onChange={handleIndividualChange}
-                  className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded text-sm"
-                >
-                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">이름</label>
-                <input name="customerName" value={individualForm.customerName} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" required />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">연락처</label>
-                <input name="customerPhone" value={individualForm.customerPhone} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="010-0000-0000" required />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm text-gray-600 mb-1">주소</label>
-                <AddressSearch value={individualForm.address} onChange={(addr) => setIndividualForm((p) => ({ ...p, address: addr }))} placeholder="주소 검색" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm text-gray-600 mb-1">상세주소</label>
-                <input name="addressDetail" value={individualForm.addressDetail} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="101동 1001호" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">평수</label>
-                <input name="areaPyeong" type="number" step="0.1" value={individualForm.areaPyeong} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="84" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">방·화·베</label>
-                <div className="flex gap-2 items-center">
-                  <input name="roomCount" type="number" min={0} value={individualForm.roomCount} onChange={handleIndividualChange} className="w-14 px-2 py-2 border border-gray-300 rounded text-sm text-center" title="방" />
-                  <span className="text-gray-500 text-sm">방</span>
-                  <input name="bathroomCount" type="number" min={0} value={individualForm.bathroomCount} onChange={handleIndividualChange} className="w-14 px-2 py-2 border border-gray-300 rounded text-sm text-center" title="화장실" />
-                  <span className="text-gray-500 text-sm">화</span>
-                  <input name="balconyCount" type="number" min={0} value={individualForm.balconyCount} onChange={handleIndividualChange} className="w-14 px-2 py-2 border border-gray-300 rounded text-sm text-center" title="베란다" />
-                  <span className="text-gray-500 text-sm">베</span>
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <label className="block text-sm text-gray-600">희망일</label>
-                  {individualPreferredDateLocked && (
-                    <button
-                      type="button"
-                      onClick={() => setIndividualPreferredDateLocked(false)}
-                      className="text-xs text-blue-600 hover:text-blue-800 underline shrink-0"
-                    >
-                      날짜 변경
-                    </button>
-                  )}
-                </div>
-                <input
-                  name="preferredDate"
-                  type="date"
-                  value={individualForm.preferredDate}
-                  onChange={handleIndividualChange}
-                  readOnly={individualPreferredDateLocked}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded text-sm ${
-                    individualPreferredDateLocked ? 'bg-gray-50 text-gray-700 cursor-default' : ''
-                  }`}
-                />
-                {individualPreferredDateLocked && (
-                  <p className="text-xs text-gray-500 mt-1">스케줄에서 선택한 날짜로 고정됩니다. 바꾸려면 「날짜 변경」을 누르세요.</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">희망 시간대</label>
-                <select
-                  name="preferredTime"
-                  value={individualForm.preferredTime}
-                  onChange={handleIndividualChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                >
-                  <option value="">선택</option>
-                  {ORDER_TIME_SLOT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">통화시도</label>
-                <input name="callAttempt" type="number" min={1} value={individualForm.callAttempt} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">유입경로</label>
-                <select name="source" value={individualForm.source} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm">
-                  {SOURCE_OPTIONS.map((o) => (
-                    <option key={o} value={o}>{o}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm text-gray-600 mb-1">특이사항</label>
-                <textarea name="memo" value={individualForm.memo} onChange={handleIndividualChange} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="건물 구조, 특이사항 등" />
-              </div>
-              <div className="sm:col-span-2">
-                <button type="submit" disabled={individualSubmitLoading} className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                  {individualSubmitLoading ? '등록 중...' : '접수 등록'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
       </div>
 
       {apiError && (
@@ -1374,6 +1233,22 @@ export function AdminInquiriesPage() {
           </div>,
           document.body
         )}
+
+      {createInquiryModalDate && token && (
+        <ScheduleInquiryDetailModal
+          mode="create"
+          token={token}
+          initialPreferredDate={createInquiryModalDate}
+          teamLeaders={teamLeaders}
+          professionalCatalog={profCatalog}
+          scheduleStatsByDate={scheduleStatsForModal}
+          onClose={() => setCreateInquiryModalDate(null)}
+          onSaved={() => {
+            setCreateInquiryModalDate(null);
+            refresh(true);
+          }}
+        />
+      )}
     </div>
   );
 }

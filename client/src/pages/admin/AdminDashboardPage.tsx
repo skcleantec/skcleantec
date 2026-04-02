@@ -26,7 +26,6 @@ export function AdminDashboardPage() {
         setStats({
           todayCount: 0,
           unassignedCount: 0,
-          inProgressCount: 0,
           todaySales: 0,
           monthSales: 0,
           salesByTeamLeader: [],
@@ -52,10 +51,9 @@ export function AdminDashboardPage() {
       <TelemarketingSessionBlock />
 
       {/* 접수 통계 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatCard label="오늘 접수" value={loading ? '-' : stats?.todayCount ?? 0} />
-        <StatCard label="미분배" value={loading ? '-' : stats?.unassignedCount ?? 0} />
-        <StatCard label="진행중" value={loading ? '-' : stats?.inProgressCount ?? 0} />
+        <StatCard label="이번달 미분배" value={loading ? '-' : stats?.unassignedCount ?? 0} />
       </div>
 
       {/* 매출 통계 */}

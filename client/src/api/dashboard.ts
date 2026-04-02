@@ -3,7 +3,6 @@ const API = '/api';
 export interface DashboardStats {
   todayCount: number;
   unassignedCount: number;
-  inProgressCount: number;
   todaySales: number;
   monthSales: number;
   salesByTeamLeader: Array<{ teamLeaderId: string; name: string; amount: number }>;
