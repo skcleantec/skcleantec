@@ -36,6 +36,17 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   if (body.preferredTime != null) {
     data.preferredTime = body.preferredTime ? String(body.preferredTime) : null;
   }
+  if (body.betweenScheduleSlot !== undefined) {
+    const v = body.betweenScheduleSlot;
+    if (v === null || v === '') {
+      data.betweenScheduleSlot = null;
+    } else {
+      const s = String(v);
+      if (s === '오전' || s === '오후') {
+        data.betweenScheduleSlot = s;
+      }
+    }
+  }
   if (body.preferredTimeDetail != null) {
     data.preferredTimeDetail = body.preferredTimeDetail ? String(body.preferredTimeDetail) : null;
   }

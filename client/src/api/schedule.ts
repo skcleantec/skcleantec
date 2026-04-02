@@ -28,6 +28,8 @@ export interface ScheduleItem {
   kitchenCount?: number | null;
   preferredDate: string | null;
   preferredTime: string | null;
+  /** 사이청소만: 오전/오후 확정. 미확정 null */
+  betweenScheduleSlot?: string | null;
   preferredTimeDetail?: string | null;
   status: string;
   source?: string | null;

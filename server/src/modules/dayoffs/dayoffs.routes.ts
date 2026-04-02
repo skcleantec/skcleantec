@@ -4,6 +4,11 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import {
+  consumesAfternoonSlot,
+  consumesMorningSlot,
+  isSideCleaningPreferredTime,
+} from '../schedule/scheduleSlot.helpers.js';
 
 const router = Router();
 
@@ -89,16 +94,20 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     include: { teamLeader: { select: { id: true, name: true } } },
   });
 
-  const assignments = await prisma.assignment.findMany({
+  const inquiries = await prisma.inquiry.findMany({
     where: {
-      inquiry: {
-        preferredDate: { gte: startDate, lte: endDate },
-        status: { not: 'CANCELLED' },
-      },
+      preferredDate: { gte: startDate, lte: endDate },
+      status: { not: 'CANCELLED' },
     },
-    include: {
-      teamLeader: { select: { id: true, name: true } },
-      inquiry: { select: { preferredDate: true, preferredTime: true } },
+    select: {
+      id: true,
+      preferredDate: true,
+      preferredTime: true,
+      betweenScheduleSlot: true,
+      assignments: {
+        take: 1,
+        select: { teamLeaderId: true },
+      },
     },
   });
 
@@ -120,18 +129,19 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       availableNames: string[];
       availableMorningNames: string[];
       availableAfternoonNames: string[];
-      morningCount: number;
-      /** 사이청소 건수 (오전·일반 오후와 별도 용량) */
-      betweenCount: number;
-      afternoonCount: number;
+      availableMorningLeaderIds: string[];
+      availableAfternoonLeaderIds: string[];
+      /** 오전 슬롯 소진 건수(일반 오전 + 사이청소→오전 확정) */
+      morningOccupied: number;
+      /** 오후 슬롯 소진 건수 */
+      afternoonOccupied: number;
+      /** 사이청소 옵션 접수 건수(발주서). 표시용 */
+      sideCleaningOrderCount: number;
+      /** 사이청소 중 오전/오후 미확정 건수 */
+      sideCleaningUnconfirmedCount: number;
       unassignedTotal: number;
-      /** 오전 슬롯 남은 수용 */
       assignableMorning: number;
-      /** 일반 오후 슬롯 남은 수용 (사이청소 제외) */
       assignableAfternoonSlot: number;
-      /** 사이청소 슬롯 남은 수용 */
-      assignableBetween: number;
-      availableBetweenNames: string[];
     }
   > = {};
 
@@ -145,52 +155,54 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     const offNames = dayOffList.map((o) => o.teamLeader.name);
     const offIds = new Set(dayOffList.map((o) => o.teamLeaderId));
     const workingCount = totalCount - offIds.size;
-    const dayAssignments = assignments.filter(
-      (a) => a.inquiry.preferredDate && toDateKey(a.inquiry.preferredDate) === key
+
+    const dayInquiries = inquiries.filter(
+      (inv) => inv.preferredDate && toDateKey(inv.preferredDate) === key
     );
-    const assignedIds = new Set(dayAssignments.map((a) => a.teamLeaderId));
+
+    const assignedIds = new Set(
+      dayInquiries.filter((inv) => inv.assignments[0]).map((inv) => inv.assignments[0]!.teamLeaderId)
+    );
     const availableLeaders = teamLeaders.filter(
       (t) => !offIds.has(t.id) && !assignedIds.has(t.id)
     );
 
-    const isBetween = (a: (typeof dayAssignments)[0]) =>
-      (a.inquiry.preferredTime || '').includes('사이청소');
-    const isMorning = (a: (typeof dayAssignments)[0]) => {
-      const t = a.inquiry.preferredTime || '';
-      if (t.includes('사이청소')) return false;
-      if (t.includes('오전')) return true;
-      if (t.includes('오후')) return false;
-      return (parseInt(t, 10) || 24) < 12;
-    };
-    const betweenAssignments = dayAssignments.filter(isBetween);
-    const nonBetween = dayAssignments.filter((a) => !isBetween(a));
-    const morningAssignments = nonBetween.filter(isMorning);
-    const afternoonAssignments = nonBetween.filter((a) => !isMorning(a));
-    const morningCount = morningAssignments.length;
-    const betweenCount = betweenAssignments.length;
-    const afternoonCount = afternoonAssignments.length;
-    const morningAssignedIds = new Set(morningAssignments.map((a) => a.teamLeaderId));
-    const afternoonOnlyAssignedIds = new Set(afternoonAssignments.map((a) => a.teamLeaderId));
-    const betweenAssignedIds = new Set(betweenAssignments.map((a) => a.teamLeaderId));
+    let morningOccupied = 0;
+    let afternoonOccupied = 0;
+    let sideCleaningOrderCount = 0;
+    let sideCleaningUnconfirmedCount = 0;
+    for (const inv of dayInquiries) {
+      if (isSideCleaningPreferredTime(inv.preferredTime)) {
+        sideCleaningOrderCount += 1;
+        if (inv.betweenScheduleSlot == null || inv.betweenScheduleSlot === '') {
+          sideCleaningUnconfirmedCount += 1;
+        }
+      }
+      if (consumesMorningSlot(inv)) morningOccupied += 1;
+      if (consumesAfternoonSlot(inv)) afternoonOccupied += 1;
+    }
 
-    // 오전 배정 가능: 근무 중이면서 오전에 배정된 건이 없는 팀장
+    const morningAssignedIds = new Set(
+      dayInquiries
+        .filter((inv) => consumesMorningSlot(inv) && inv.assignments[0])
+        .map((inv) => inv.assignments[0]!.teamLeaderId)
+    );
+    const afternoonAssignedIds = new Set(
+      dayInquiries
+        .filter((inv) => consumesAfternoonSlot(inv) && inv.assignments[0])
+        .map((inv) => inv.assignments[0]!.teamLeaderId)
+    );
+
     const availableMorningLeaders = teamLeaders.filter(
       (t) => !offIds.has(t.id) && !morningAssignedIds.has(t.id)
     );
-    // 일반 오후: 사이청소와 별도 — 오후(비사이) 배정이 없는 팀장
     const availableAfternoonLeaders = teamLeaders.filter(
-      (t) => !offIds.has(t.id) && !afternoonOnlyAssignedIds.has(t.id)
-    );
-    // 사이청소: 오전·일반 오후와 별도 용량
-    const availableBetweenLeaders = teamLeaders.filter(
-      (t) => !offIds.has(t.id) && !betweenAssignedIds.has(t.id)
+      (t) => !offIds.has(t.id) && !afternoonAssignedIds.has(t.id)
     );
 
-    /** 팀장당 오전1·일반 오후1·사이1 — 각각 독립 상한 */
-    const emptyMorning = Math.max(0, workingCount - morningCount);
-    const emptyAfternoon = Math.max(0, workingCount - afternoonCount);
-    const emptyBetween = Math.max(0, workingCount - betweenCount);
-    const unassignedTotal = emptyMorning + emptyAfternoon + emptyBetween;
+    const assignableMorning = Math.max(0, workingCount - morningOccupied);
+    const assignableAfternoonSlot = Math.max(0, workingCount - afternoonOccupied);
+    const unassignedTotal = assignableMorning + assignableAfternoonSlot;
 
     byDate[key] = {
       offCount: offNames.length,
@@ -201,14 +213,15 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       availableNames: availableLeaders.map((t) => t.name),
       availableMorningNames: availableMorningLeaders.map((t) => t.name),
       availableAfternoonNames: availableAfternoonLeaders.map((t) => t.name),
-      morningCount,
-      betweenCount,
-      afternoonCount,
+      availableMorningLeaderIds: availableMorningLeaders.map((t) => t.id),
+      availableAfternoonLeaderIds: availableAfternoonLeaders.map((t) => t.id),
+      morningOccupied,
+      afternoonOccupied,
+      sideCleaningOrderCount,
+      sideCleaningUnconfirmedCount,
       unassignedTotal,
-      assignableMorning: emptyMorning,
-      assignableAfternoonSlot: emptyAfternoon,
-      assignableBetween: emptyBetween,
-      availableBetweenNames: availableBetweenLeaders.map((t) => t.name),
+      assignableMorning,
+      assignableAfternoonSlot,
     };
   }
 

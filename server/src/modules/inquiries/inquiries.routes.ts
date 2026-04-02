@@ -15,6 +15,7 @@ import {
   buildInquiryPatchData,
   projectAfterPatch,
 } from './inquiryPatch.helpers.js';
+import { isSideCleaningPreferredTime } from '../schedule/scheduleSlot.helpers.js';
 import {
   filterExistingProfessionalOptionIds,
   parseProfessionalOptionIdsRaw,
@@ -152,6 +153,17 @@ router.patch('/:id', async (req, res) => {
     const raw = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
     data.professionalOptionIds = await filterExistingProfessionalOptionIds(prisma, raw);
   }
+  const mergedTime =
+    data.preferredTime !== undefined
+      ? String(data.preferredTime)
+      : String(inquiry.preferredTime ?? '');
+  if (!isSideCleaningPreferredTime(mergedTime)) {
+    data.betweenScheduleSlot = null;
+  }
+  if (data.betweenScheduleSlot != null && !isSideCleaningPreferredTime(mergedTime)) {
+    res.status(400).json({ error: '사이청소 접수만 오전/오후 일정을 확정할 수 있습니다.' });
+    return;
+  }
   if (Object.keys(data).length === 0) {
     const unchanged = await prisma.inquiry.findUnique({
       where: { id },
@@ -168,6 +180,18 @@ router.patch('/:id', async (req, res) => {
   };
   const afterSnap = projectAfterPatch(inquiry, data);
   const lines = buildAmountDateChangeLines(beforeSnap, afterSnap);
+  const fmtBetween = (v: string | null | undefined) =>
+    v == null || v === '' ? '미확정' : String(v);
+  let mergedBetween =
+    data.betweenScheduleSlot !== undefined
+      ? (data.betweenScheduleSlot as string | null)
+      : inquiry.betweenScheduleSlot;
+  if (!isSideCleaningPreferredTime(mergedTime)) {
+    mergedBetween = null;
+  }
+  if (fmtBetween(inquiry.betweenScheduleSlot) !== fmtBetween(mergedBetween)) {
+    lines.push(`사이청소 일정 확정: ${fmtBetween(inquiry.betweenScheduleSlot)} → ${fmtBetween(mergedBetween)}`);
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.inquiry.update({ where: { id }, data });

@@ -48,19 +48,22 @@ export interface ScheduleStatsByDate {
   availableNames: string[];
   availableMorningNames?: string[];
   availableAfternoonNames?: string[];
-  /** 사이청소 배정 가능 팀장 (오전·일반 오후와 별도) */
-  availableBetweenNames?: string[];
-  morningCount: number;
-  /** 사이청소 건수 */
-  betweenCount?: number;
-  afternoonCount: number;
-  /** 남은 슬롯 합: 오전+일반 오후+사이 (각각 근무 팀장 수 상한, 휴무 반영) */
+  /** 해당일 오전 슬롯에 배정 가능한 팀장 id (스케줄 상세 담당자 선택용) */
+  availableMorningLeaderIds?: string[];
+  /** 해당일 오후 슬롯에 배정 가능한 팀장 id */
+  availableAfternoonLeaderIds?: string[];
+  /** 오전 슬롯 소진 건수 */
+  morningOccupied?: number;
+  /** 오후 슬롯 소진 건수 */
+  afternoonOccupied?: number;
+  /** 사이청소 옵션 접수 건수(해당일) */
+  sideCleaningOrderCount?: number;
+  /** 사이청소 중 오전/오후 미확정 건수 */
+  sideCleaningUnconfirmedCount?: number;
+  /** 남은 슬롯 합: 오전+오후 (휴무 반영) */
   unassignedTotal?: number;
   assignableMorning?: number;
-  /** 일반 오후(비사이) 남은 건수 */
   assignableAfternoonSlot?: number;
-  /** 사이청소 남은 건수 */
-  assignableBetween?: number;
 }
 
 export async function getScheduleStats(

@@ -62,6 +62,8 @@ model Inquiry {
   balconyCount    Int?         @map("balcony_count")
   preferredDate       DateTime? @map("preferred_date")
   preferredTime       String?   @map("preferred_time")
+  /// 사이청소만: 미확정 null, 확정 시 오전/오후 중 하나(해당 슬롯 1건 소모)
+  betweenScheduleSlot String?   @map("between_schedule_slot")
   preferredTimeDetail String?   @map("preferred_time_detail")
   callAttempt     Int?         @map("call_attempt")
   memo            String?

@@ -6,9 +6,9 @@ import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '
 import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
-import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
 import { formatDateCompactWithWeekday, weekdayKoFromYmd } from '../../utils/dateFormat';
+import { getScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -28,17 +28,25 @@ function getMonthRange(year: number, month: number) {
   };
 }
 
-/** 접수 정산 필드 우선, 없으면 발주서 금액 (발주서 상단 블록과 동일한 표기) */
-function effectiveScheduleAmounts(item: ScheduleItem) {
-  return {
-    total: item.serviceTotalAmount ?? item.orderForm?.totalAmount ?? null,
-    deposit: item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null,
-    balance: item.serviceBalanceAmount ?? item.orderForm?.balanceAmount ?? null,
-  };
+/** 주소 문자열에서 행정구역 시·구(또는 군)까지만 추출 */
+function shortSiGuFromAddress(address: string): string {
+  const parts = address.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  const acc: string[] = [];
+  for (const p of parts) {
+    acc.push(p);
+    if (p.length >= 2 && /(?:구|군)$/.test(p)) break;
+  }
+  if (acc.length >= 1 && /(?:구|군)$/.test(acc[acc.length - 1]!)) {
+    return acc.join(' ');
+  }
+  return parts.slice(0, Math.min(2, parts.length)).join(' ');
 }
 
-function hasScheduleAmountDisplay(a: ReturnType<typeof effectiveScheduleAmounts>) {
-  return a.total != null || a.deposit != null || a.balance != null;
+function formatPyeongDisplay(n: number): string {
+  const r = Math.round(n * 10) / 10;
+  if (Number.isInteger(r)) return `${Math.round(n)}평`;
+  return `${r}평`;
 }
 
 function getCalendarDays(year: number, month: number) {
@@ -56,6 +64,86 @@ function getCalendarDays(year: number, month: number) {
   return days;
 }
 
+function ScheduleDayListItem({
+  item,
+  profCatalog,
+  onPick,
+}: {
+  item: ScheduleItem;
+  profCatalog: ProfessionalSpecialtyOptionDto[];
+  onPick: () => void;
+}) {
+  const isPending = item.status === 'PENDING';
+  const bucket = getScheduleTimeBucket(item);
+  const slotAccent =
+    bucket === 'morning'
+      ? 'border-l-[6px] border-amber-500 bg-amber-50/50'
+      : bucket === 'afternoon'
+        ? 'border-l-[6px] border-sky-600 bg-sky-50/50'
+        : 'border-l-[6px] border-violet-500 bg-violet-50/40';
+  const slotBadgeClass =
+    bucket === 'morning'
+      ? 'bg-amber-200/90 text-amber-950 border border-amber-400'
+      : bucket === 'afternoon'
+        ? 'bg-sky-200/90 text-sky-950 border border-sky-500'
+        : 'bg-violet-100 text-violet-950 border border-violet-300';
+  const slotLabelShort =
+    bucket === 'morning' ? '오전' : bucket === 'afternoon' ? '오후' : '기타';
+  const timeTeamLine = `${slotLabelShort} · ${item.assignments[0]?.teamLeader?.name ?? '미배정'}`;
+
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className={`text-left w-full py-1.5 px-2 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm ${slotAccent} ${
+        isPending ? 'ring-1 ring-red-500' : ''
+      } hover:brightness-[0.99]`}
+    >
+      <span
+        className={`shrink-0 self-center inline-flex items-center justify-center min-w-[2.25rem] px-1 py-0.5 text-[10px] font-bold leading-none rounded ${slotBadgeClass}`}
+      >
+        {slotLabelShort}
+      </span>
+      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+        <div className="flex items-center justify-between gap-1.5 min-w-0">
+          <span className="font-medium text-sm text-gray-900 truncate inline-flex items-center gap-1 min-w-0">
+            {item.customerName}
+            <ProfessionalOptionDots rawIds={item.professionalOptionIds} catalog={profCatalog} />
+          </span>
+          {isPending && (
+            <span className="text-[10px] font-semibold text-red-700 shrink-0">대기</span>
+          )}
+        </div>
+        <p className="text-[11px] text-gray-600 leading-snug truncate">
+          {shortSiGuFromAddress(item.address)}
+          {item.areaPyeong != null && item.areaPyeong > 0
+            ? ` / ${formatPyeongDisplay(item.areaPyeong)}`
+            : ''}
+          <span className="text-gray-400"> · </span>
+          {timeTeamLine}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function CirclePlusIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v8M8 12h8" />
+    </svg>
+  );
+}
+
 export function AdminSchedulePage() {
   const token = getToken();
   const now = new Date();
@@ -67,6 +155,8 @@ export function AdminSchedulePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<ScheduleItem | null>(null);
+  /** 신규 접수 모달 — 선택한 캘린더 날짜로 예약일 고정 */
+  const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
 
@@ -173,10 +263,10 @@ export function AdminSchedulePage() {
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded shrink-0 bg-blue-400" />
-              마감 (오전·오후·사이 각각 충족, 파란 음영)
+              마감 (오전·오후 남은 자리 없음, 파란 음영)
             </span>
             <span className="text-gray-500">
-              사이청소는 일반 오전·오후와 별도 옵션입니다. 배정가능(TO)는 남은 슬롯 합(휴무 반영).
+              오전·오후 숫자는 남은 청소 가능 자리(휴무 반영). 사이는 발주서 옵션 접수 건수만 표시하며, 확정 시 오전/오후 중 하나를 소모합니다.
             </span>
           </div>
 
@@ -201,16 +291,12 @@ export function AdminSchedulePage() {
                 const dayItems = byDate[key] || [];
                 const pendingDayCount = dayItems.filter((it) => it.status === 'PENDING').length;
                 const dayStats = stats[key];
-                const morningCount = dayStats?.morningCount ?? 0;
-                const betweenCount = dayStats?.betweenCount ?? 0;
-                const afternoonCount = dayStats?.afternoonCount ?? 0;
+                const morningRem = dayStats?.assignableMorning ?? 0;
+                const afternoonRem = dayStats?.assignableAfternoonSlot ?? 0;
+                const sideOrderCount = dayStats?.sideCleaningOrderCount ?? 0;
+                const sideUnconfirmed = dayStats?.sideCleaningUnconfirmedCount ?? 0;
                 const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = dayItems.filter((it) => !it.assignments?.[0]).length;
-                const assignableSlotsTotal =
-                  dayStats?.unassignedTotal ??
-                  Math.max(0, workingCount - morningCount) +
-                    Math.max(0, workingCount - afternoonCount) +
-                    Math.max(0, workingCount - betweenCount);
                 const hasEvents = dayItems.length > 0;
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
@@ -218,14 +304,10 @@ export function AdminSchedulePage() {
                 const hasEmptySlots =
                   workingCount > 0 &&
                   (unassignedCount > 0 ||
-                    morningCount < workingCount ||
-                    afternoonCount < workingCount ||
-                    betweenCount < workingCount);
-                const isSlotFull =
-                  workingCount > 0 &&
-                  morningCount >= workingCount &&
-                  afternoonCount >= workingCount &&
-                  betweenCount >= workingCount;
+                    morningRem > 0 ||
+                    afternoonRem > 0 ||
+                    sideUnconfirmed > 0);
+                const isSlotFull = workingCount > 0 && morningRem === 0 && afternoonRem === 0;
                 const dateColor = isSlotFull
                   ? 'text-blue-800'
                   : isHoliday
@@ -251,7 +333,7 @@ export function AdminSchedulePage() {
                         : hasEvents
                           ? 'bg-blue-50'
                           : ''
-                    } ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-[1]' : ''} ${pendingRing || emptySlotRing} ${
+                    } ${isSelected ? 'ring-4 ring-green-600 ring-inset z-[1]' : ''} ${pendingRing || emptySlotRing} ${
                       !isSlotFull && !hasEvents ? 'hover:bg-gray-50' : ''
                     } ${pendingDayCount > 0 ? 'bg-red-50/40' : ''}`}
                   >
@@ -280,23 +362,7 @@ export function AdminSchedulePage() {
                             isSlotFull ? 'text-blue-900' : 'text-amber-950'
                           }`}
                         >
-                          {morningCount}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-baseline gap-1 leading-none">
-                        <span
-                          className={
-                            isSlotFull ? 'text-blue-800 font-medium' : 'text-violet-800 font-medium'
-                          }
-                        >
-                          사이
-                        </span>
-                        <span
-                          className={`tabular-nums text-[11px] font-bold ${
-                            isSlotFull ? 'text-blue-900' : 'text-violet-950'
-                          }`}
-                        >
-                          {betweenCount}
+                          {morningRem}
                         </span>
                       </div>
                       <div className="flex justify-between items-baseline gap-1 leading-none">
@@ -312,7 +378,7 @@ export function AdminSchedulePage() {
                             isSlotFull ? 'text-blue-900' : 'text-sky-950'
                           }`}
                         >
-                          {afternoonCount}
+                          {afternoonRem}
                         </span>
                       </div>
                       <div
@@ -346,30 +412,24 @@ export function AdminSchedulePage() {
                             {unassignedCount}
                           </span>
                         </div>
-                        <div className="flex justify-between items-baseline gap-1 leading-none">
-                          <span
-                            className={`text-[11px] font-semibold ${
-                              isSlotFull
-                                ? 'text-blue-700'
-                                : assignableSlotsTotal > 0
-                                  ? 'text-red-600'
-                                  : 'text-gray-400'
-                            }`}
-                          >
-                            배정가능(TO)
-                          </span>
-                          <span
-                            className={`tabular-nums text-[11px] font-bold ${
-                              isSlotFull
-                                ? 'text-blue-800'
-                                : assignableSlotsTotal > 0
-                                  ? 'text-red-600'
-                                  : 'text-gray-400'
-                            }`}
-                          >
-                            {assignableSlotsTotal}
-                          </span>
-                        </div>
+                        {sideOrderCount > 0 && (
+                          <div className="flex justify-between items-baseline gap-1 leading-none">
+                            <span
+                              className={
+                                isSlotFull ? 'text-blue-800 font-medium' : 'text-violet-800 font-medium'
+                              }
+                            >
+                              사이
+                            </span>
+                            <span
+                              className={`tabular-nums text-[11px] font-bold ${
+                                isSlotFull ? 'text-blue-900' : 'text-violet-950'
+                              }`}
+                            >
+                              {sideOrderCount}건
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     {isSlotFull && (
@@ -386,40 +446,26 @@ export function AdminSchedulePage() {
           {/* 선택한 날짜의 일정 목록 + 상세 보기 */}
           {selectedDate && (
             <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-800 mb-3 tabular-nums">
-                {formatDateCompactWithWeekday(selectedDate)}{' '}
-                <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
-              </h3>
-
-              {/* 빈 배정 경고 */}
-              {stats[selectedDate] && (() => {
-                const s = stats[selectedDate];
-                const working = s.workingCount ?? 0;
-                const morning = s.morningCount ?? 0;
-                const between = s.betweenCount ?? 0;
-                const afternoon = s.afternoonCount ?? 0;
-                const unassigned = (byDate[selectedDate] ?? []).filter((it) => !it.assignments?.[0]).length;
-                const needsAttention =
-                  working > 0 &&
-                  (unassigned > 0 ||
-                    morning < working ||
-                    afternoon < working ||
-                    between < working);
-                if (!needsAttention) return null;
-                return (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-                    <strong>빈 배정 있음</strong> · 팀장당 오전·일반 오후·사이청소 각각 배정 가능합니다(사이는 오전·오후와 별도).
-                    {unassigned > 0 && ` 미배정 ${unassigned}건`}
-                    {(morning < working || afternoon < working || between < working) &&
-                      ` · 오전 ${morning}/${working}, 오후 ${afternoon}/${working}, 사이 ${between}/${working}`}
-                  </div>
-                );
-              })()}
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <h3 className="text-sm font-medium text-gray-800 tabular-nums min-w-0">
+                  {formatDateCompactWithWeekday(selectedDate)}{' '}
+                  <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setCreateInquiryModalDate(selectedDate)}
+                  className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+                  title="이 날짜로 신규 접수 (상세와 동일한 폼)"
+                  aria-label="이 날짜로 신규 접수"
+                >
+                  <CirclePlusIcon className="w-5 h-5" />
+                </button>
+              </div>
 
               {/* 휴무/근무 현황 */}
               {stats[selectedDate] && (
                 <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm space-y-2">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div>
                       <span className="text-gray-500">휴무</span>
                       <span className="ml-1 font-medium">{stats[selectedDate].offCount}인</span>
@@ -434,43 +480,45 @@ export function AdminSchedulePage() {
                       <span className="ml-1 font-medium">{stats[selectedDate].workingCount}명</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">오전 DB</span>
-                      <span className="ml-1 font-medium">{stats[selectedDate].morningCount}건</span>
+                      <span className="text-gray-500">오전 소진</span>
+                      <span className="ml-1 font-medium">{stats[selectedDate].morningOccupied ?? 0}건</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">사이 DB</span>
-                      <span className="ml-1 font-medium text-violet-800">
-                        {(stats[selectedDate].betweenCount ?? 0)}건
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">오후 DB</span>
-                      <span className="ml-1 font-medium">{stats[selectedDate].afternoonCount}건</span>
+                      <span className="text-gray-500">오후 소진</span>
+                      <span className="ml-1 font-medium">{stats[selectedDate].afternoonOccupied ?? 0}건</span>
                     </div>
                   </div>
+                  {(stats[selectedDate].sideCleaningOrderCount ?? 0) > 0 && (
+                    <div className="text-sm">
+                      <span className="text-gray-500">사이청소 접수</span>
+                      <span className="ml-1 font-medium text-violet-800">
+                        {stats[selectedDate].sideCleaningOrderCount}건
+                      </span>
+                      {(stats[selectedDate].sideCleaningUnconfirmedCount ?? 0) > 0 && (
+                        <span className="ml-2 text-amber-800">
+                          (일정 미확정 {stats[selectedDate].sideCleaningUnconfirmedCount}건)
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {(() => {
                     const s = stats[selectedDate];
-                    const w = s.workingCount ?? 0;
-                    const m = s.morningCount ?? 0;
-                    const bet = s.betweenCount ?? 0;
-                    const aft = s.afternoonCount ?? 0;
-                    const am = s.assignableMorning ?? Math.max(0, w - m);
-                    const aa = s.assignableAfternoonSlot ?? Math.max(0, w - aft);
-                    const ab = s.assignableBetween ?? Math.max(0, w - bet);
-                    const sum = s.unassignedTotal ?? am + aa + ab;
+                    const am = s.assignableMorning ?? 0;
+                    const aa = s.assignableAfternoonSlot ?? 0;
+                    const sum = s.unassignedTotal ?? am + aa;
                     return (
                       <div className="pt-2 border-t border-gray-200 text-sm">
-                        <span className="text-gray-500">슬롯 배정가능(건)</span>
+                        <span className="text-gray-500">슬롯 남은 자리(건)</span>
                         <span className="ml-2 font-semibold text-blue-800">
-                          오전 {am} · 오후 {aa} · 사이 {ab} · 합(TO) {sum}
+                          오전 {am} · 오후 {aa} · 합(TO) {sum}
                         </span>
                         <span className="block text-xs text-gray-500 mt-1">
-                          휴무 팀장은 근무 인원에서 제외됩니다. 사이청소는 일반 오전·오후와 별도 용량입니다.
+                          휴무 팀장은 근무 인원에서 제외됩니다. 사이청소는 확정 시 오전 또는 오후 중 하나를 사용합니다.
                         </span>
                       </div>
                     );
                   })()}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
                     <div>
                       <span className="text-gray-500">오전 배정 가능: </span>
                       <span className="text-blue-600 font-medium">
@@ -487,61 +535,77 @@ export function AdminSchedulePage() {
                           : '-'}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-gray-500">사이 배정 가능: </span>
-                      <span className="text-violet-700 font-medium">
-                        {(stats[selectedDate].availableBetweenNames ?? []).length > 0
-                          ? (stats[selectedDate].availableBetweenNames ?? []).join(', ')
-                          : '-'}
-                      </span>
-                    </div>
                   </div>
                 </div>
               )}
 
-              <div className="flex flex-col gap-2">
-                {(byDate[selectedDate] ?? []).map((item) => {
-                  const amt = effectiveScheduleAmounts(item);
-                  const showAmt = hasScheduleAmountDisplay(amt);
-                  const isPending = item.status === 'PENDING';
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setDetailItem(item)}
-                      className={`text-left p-3 rounded-lg flex flex-col gap-1 ${
-                        isPending
-                          ? 'border-2 border-red-500 bg-red-50/50 hover:bg-red-50'
-                          : 'border border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      {showAmt && (
-                        <div className="mb-1 pb-2 border-b border-gray-100">
-                          <p className="text-sm font-medium text-gray-900">
-                            총 금액 {(amt.total ?? 0).toLocaleString()}원
-                          </p>
-                          <p className="text-xs text-gray-600 mt-0.5">
-                            잔금 {(amt.balance ?? 0).toLocaleString()}원, 예약금{' '}
-                            {(amt.deposit ?? 0).toLocaleString()}원
-                          </p>
+              {(() => {
+                const dayList = byDate[selectedDate] ?? [];
+                const morningList = dayList.filter((i) => getScheduleTimeBucket(i) === 'morning');
+                const afternoonList = dayList.filter((i) => getScheduleTimeBucket(i) === 'afternoon');
+                const otherList = dayList.filter((i) => getScheduleTimeBucket(i) === 'other');
+                return (
+                  <div className="flex flex-col gap-3">
+                    {morningList.length > 0 && (
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-2 border-b-2 border-amber-400 pb-1.5">
+                          <span className="text-sm font-bold text-amber-900">오전 일정</span>
+                          <span className="text-xs text-amber-800/80 tabular-nums">{morningList.length}건</span>
                         </div>
-                      )}
-                      <span className="font-medium text-gray-900 inline-flex items-center flex-wrap gap-x-1">
-                        {item.customerName}
-                        <ProfessionalOptionDots rawIds={item.professionalOptionIds} catalog={profCatalog} />
-                      </span>
-                      <span className="text-xs text-gray-600 truncate">
-                        {item.address}
-                        {item.addressDetail ? ` ${item.addressDetail}` : ''}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {item.preferredTime ? labelForTimeSlot(item.preferredTime) : '-'} ·{' '}
-                        {item.assignments[0]?.teamLeader?.name ?? '미배정'}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                        <div className="flex flex-col gap-1">
+                          {morningList.map((item) => (
+                            <ScheduleDayListItem
+                              key={item.id}
+                              item={item}
+                              profCatalog={profCatalog}
+                              onPick={() => setDetailItem(item)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {afternoonList.length > 0 && (
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-2 border-b-2 border-sky-600 pb-1.5">
+                          <span className="text-sm font-bold text-sky-900">오후 일정</span>
+                          <span className="text-xs text-sky-800/80 tabular-nums">{afternoonList.length}건</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {afternoonList.map((item) => (
+                            <ScheduleDayListItem
+                              key={item.id}
+                              item={item}
+                              profCatalog={profCatalog}
+                              onPick={() => setDetailItem(item)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {otherList.length > 0 && (
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-2 border-b-2 border-violet-400 pb-1.5">
+                          <span className="text-sm font-bold text-violet-900">기타 · 일정 미확정</span>
+                          <span className="text-xs text-violet-800/80 tabular-nums">{otherList.length}건</span>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-2">
+                          사이청소만 선택·오전·오후 미확정이거나 시간대가 비어 있는 접수입니다.
+                        </p>
+                        <div className="flex flex-col gap-1">
+                          {otherList.map((item) => (
+                            <ScheduleDayListItem
+                              key={item.id}
+                              item={item}
+                              profCatalog={profCatalog}
+                              onPick={() => setDetailItem(item)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               {(byDate[selectedDate]?.length ?? 0) === 0 && (
                 <div className="text-center text-gray-500 py-6 text-sm">
                   해당 날짜에 일정이 없습니다.
@@ -558,8 +622,25 @@ export function AdminSchedulePage() {
           item={detailItem}
           teamLeaders={teamLeaders}
           professionalCatalog={profCatalog}
+          scheduleStatsByDate={stats}
           onClose={() => setDetailItem(null)}
           onSaved={() => fetchMonthData(false)}
+        />
+      )}
+
+      {createInquiryModalDate && token && (
+        <ScheduleInquiryDetailModal
+          mode="create"
+          token={token}
+          initialPreferredDate={createInquiryModalDate}
+          teamLeaders={teamLeaders}
+          professionalCatalog={profCatalog}
+          scheduleStatsByDate={stats}
+          onClose={() => setCreateInquiryModalDate(null)}
+          onSaved={() => {
+            setCreateInquiryModalDate(null);
+            fetchMonthData(false);
+          }}
         />
       )}
     </div>

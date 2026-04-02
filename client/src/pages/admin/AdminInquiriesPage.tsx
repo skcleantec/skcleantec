@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
   getInquiries,
@@ -111,6 +112,8 @@ function effectiveInquiryAmounts(it: InquiryItem) {
 
 export function AdminInquiriesPage() {
   const token = getToken();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -174,11 +177,29 @@ export function AdminInquiriesPage() {
   const [marketerOverviewLoading, setMarketerOverviewLoading] = useState(() => Boolean(getToken()));
   const [marketerOverviewError, setMarketerOverviewError] = useState<string | null>(null);
   const [individualExpanded, setIndividualExpanded] = useState(false);
+  /** 스케줄 등에서 `?preferredDate=` 로 들어온 경우 희망일 입력 고정 */
+  const [individualPreferredDateLocked, setIndividualPreferredDateLocked] = useState(false);
   const [individualSubmitLoading, setIndividualSubmitLoading] = useState(false);
   const [me, setMe] = useState<{ id: string; role: string; name: string } | null>(null);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
   const [marketerFilterId, setMarketerFilterId] = useState('');
+
+  useEffect(() => {
+    const pd = searchParams.get('preferredDate');
+    if (!pd || !/^\d{4}-\d{2}-\d{2}$/.test(pd)) return;
+    setIndividualForm((p) => ({ ...p, preferredDate: pd }));
+    setIndividualExpanded(true);
+    setIndividualPreferredDateLocked(true);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!individualPreferredDateLocked || !individualExpanded) return;
+    const t = window.setTimeout(() => {
+      document.getElementById('admin-individual-intake')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [individualPreferredDateLocked, individualExpanded]);
 
   useEffect(() => {
     if (!token) {
@@ -482,6 +503,7 @@ export function AdminInquiriesPage() {
         areaPyeong: individualForm.areaPyeong ? Number(individualForm.areaPyeong) : null,
         preferredDate: individualForm.preferredDate || null,
       });
+      setIndividualPreferredDateLocked(false);
       setIndividualForm({
         status: 'PENDING',
         customerName: '',
@@ -498,6 +520,7 @@ export function AdminInquiriesPage() {
         memo: '',
         source: '전화',
       });
+      navigate('/admin/inquiries', { replace: true });
       refresh(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : '등록에 실패했습니다.');
@@ -695,7 +718,7 @@ export function AdminInquiriesPage() {
           <span className="text-gray-500 text-sm">{individualExpanded ? '접기 ▲' : '펼치기 ▼'}</span>
         </button>
         {individualExpanded && (
-          <div className="border-t border-gray-200 p-6 bg-gray-50">
+          <div id="admin-individual-intake" className="border-t border-gray-200 p-6 bg-gray-50 scroll-mt-4">
             <h3 className="text-sm font-medium text-gray-700 mb-4">개별접수 (고객 전화 시)</h3>
             <p className="text-xs text-gray-500 mb-3">
               「대기」는 통화만으로 접수한 상태입니다. 발주서 메뉴에서 링크를 발급해 연결하면 고객이 제출할 때 접수로 전환됩니다.
@@ -748,8 +771,31 @@ export function AdminInquiriesPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">희망일</label>
-                <input name="preferredDate" type="date" value={individualForm.preferredDate} onChange={handleIndividualChange} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="block text-sm text-gray-600">희망일</label>
+                  {individualPreferredDateLocked && (
+                    <button
+                      type="button"
+                      onClick={() => setIndividualPreferredDateLocked(false)}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline shrink-0"
+                    >
+                      날짜 변경
+                    </button>
+                  )}
+                </div>
+                <input
+                  name="preferredDate"
+                  type="date"
+                  value={individualForm.preferredDate}
+                  onChange={handleIndividualChange}
+                  readOnly={individualPreferredDateLocked}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded text-sm ${
+                    individualPreferredDateLocked ? 'bg-gray-50 text-gray-700 cursor-default' : ''
+                  }`}
+                />
+                {individualPreferredDateLocked && (
+                  <p className="text-xs text-gray-500 mt-1">스케줄에서 선택한 날짜로 고정됩니다. 바꾸려면 「날짜 변경」을 누르세요.</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">희망 시간대</label>

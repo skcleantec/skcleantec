@@ -15,6 +15,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:orderforms": "tsx prisma/seed-orderform-samples.ts",
+    "db:seed:schedule": "tsx prisma/seed-schedule-random.ts",
     "db:check-admin": "tsx scripts/check-admin.ts"
   },
   "dependencies": {
