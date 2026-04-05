@@ -135,6 +135,19 @@ function inquiryMarketerLabel(item: InquiryItem): string {
   return item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-';
 }
 
+const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
+
+function labelForMarketerFilter(
+  filterId: string,
+  me: { id: string; name: string } | null,
+  marketerList: UserItem[]
+): string {
+  if (!filterId) return '';
+  if (filterId === CREATED_BY_FILTER_UNASSIGNED) return '미지정';
+  if (me && filterId === me.id) return `관리자 (${me.name})`;
+  return marketerList.find((u) => u.id === filterId)?.name ?? filterId;
+}
+
 function effectiveInquiryAmounts(it: InquiryItem) {
   return {
     total: it.serviceTotalAmount ?? it.orderForm?.totalAmount ?? null,
@@ -300,7 +313,9 @@ export function AdminInquiriesPage() {
     if (datePreset === 'day') params.day = dayKey;
     if (statusFilter) params.status = statusFilter;
     if (searchQuery.trim()) params.search = searchQuery.trim();
-    if (me?.role === 'ADMIN' && marketerFilterId.trim()) params.createdById = marketerFilterId.trim();
+    if (me?.role === 'ADMIN' && marketerFilterId.trim()) {
+      params.createdById = marketerFilterId.trim();
+    }
     getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
         setItems(res.items);
@@ -606,27 +621,6 @@ export function AdminInquiriesPage() {
               />
             )}
           </div>
-          {me?.role === 'ADMIN' && (
-            <div className="flex flex-wrap items-center gap-2">
-              <label htmlFor="inquiry-marketer-filter" className="text-fluid-sm text-gray-600 shrink-0">
-                접수자(마케터)
-              </label>
-              <select
-                id="inquiry-marketer-filter"
-                value={marketerFilterId}
-                onChange={(e) => setMarketerFilterId(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded text-fluid-sm text-gray-900 max-w-[220px]"
-              >
-                <option value="">전체</option>
-                {marketers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-              <span className="text-fluid-xs text-gray-500">해당 마케터가 접수한 건만 표시</span>
-            </div>
-          )}
           {me?.role === 'MARKETER' && (
             <p className="text-fluid-xs text-gray-600">
               접수 목록은 <strong className="font-medium text-gray-800">본인이 접수한 건</strong>만 표시됩니다. (대기 건의 「접수자」는 개별 접수 시 로그인한 마케터입니다.)
@@ -640,6 +634,11 @@ export function AdminInquiriesPage() {
                   {' '}
                   · {formatMonthKeyLabel(marketerOverview.monthKey)} · 오늘 {marketerOverview.todayYmd}
                 </>
+              )}
+              {me?.role === 'ADMIN' && (
+                <span className="block sm:inline sm:before:content-['·_'] sm:before:mx-1 text-gray-600">
+                  행을 누르면 해당 접수자로 필터됩니다.
+                </span>
               )}
             </p>
             {marketerOverviewLoading ? (
@@ -667,7 +666,27 @@ export function AdminInquiriesPage() {
                   </thead>
                   <tbody className="text-gray-800">
                     {marketerOverview.marketers.map((m) => (
-                      <tr key={m.marketerId} className="border-b border-gray-100 last:border-0">
+                      <tr
+                        key={m.marketerId}
+                        role={me?.role === 'ADMIN' ? 'button' : undefined}
+                        tabIndex={me?.role === 'ADMIN' ? 0 : undefined}
+                        onClick={() => {
+                          if (me?.role === 'ADMIN') setMarketerFilterId(m.marketerId);
+                        }}
+                        onKeyDown={(e) => {
+                          if (me?.role !== 'ADMIN') return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setMarketerFilterId(m.marketerId);
+                          }
+                        }}
+                        className={`border-b border-gray-100 last:border-0 ${
+                          me?.role === 'ADMIN'
+                            ? 'cursor-pointer hover:bg-gray-100 focus-visible:outline focus-visible:ring-2 focus-visible:ring-gray-400'
+                            : ''
+                        } ${marketerFilterId === m.marketerId ? 'bg-blue-50/80' : ''}`}
+                        title={me?.role === 'ADMIN' ? '클릭하면 이 접수자로 목록 필터' : undefined}
+                      >
                         <td className="py-1.5 pr-3">{m.name}</td>
                         <td className="py-1.5 px-2 text-right tabular-nums">{m.monthCount}건</td>
                         <td className="py-1.5 pl-2 text-right tabular-nums">{m.todayCount}건</td>
@@ -680,24 +699,68 @@ export function AdminInquiriesPage() {
               <p className="text-fluid-sm text-gray-500">집계 데이터가 없습니다.</p>
             )}
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="고객명·연락처·접수번호 검색"
-              className="px-3 py-2 border border-gray-300 rounded text-fluid-sm flex-1 min-w-0"
-            />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-            >
-              <option value="">전체 상태</option>
-              {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {me?.role === 'ADMIN' && (
+                <>
+                  <label htmlFor="inquiry-marketer-filter" className="text-fluid-sm text-gray-600 shrink-0">
+                    접수자
+                  </label>
+                  <select
+                    id="inquiry-marketer-filter"
+                    value={marketerFilterId}
+                    onChange={(e) => setMarketerFilterId(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded text-fluid-sm text-gray-900 min-w-[10rem] max-w-[min(100%,18rem)]"
+                  >
+                    <option value="">전체</option>
+                    <option value={CREATED_BY_FILTER_UNASSIGNED}>미지정</option>
+                    {me && (
+                      <option value={me.id}>
+                        관리자 ({me.name})
+                      </option>
+                    )}
+                    {marketers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                  {marketerFilterId ? (
+                    <button
+                      type="button"
+                      onClick={() => setMarketerFilterId('')}
+                      className="text-fluid-xs text-gray-600 underline hover:text-gray-900 shrink-0"
+                    >
+                      접수자 필터 해제
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="고객명·연락처·접수번호 검색"
+                className="px-3 py-2 border border-gray-300 rounded text-fluid-sm flex-1 min-w-0"
+              />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded text-fluid-sm shrink-0"
+              >
+                <option value="">전체 상태</option>
+                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            {me?.role === 'ADMIN' && (
+              <p className="text-fluid-2xs text-gray-500">
+                접수자 필터는 표의 「접수자」와 같은 기준입니다. (개별 접수 등록자·발주서 작성자 포함, 미지정은 접수 등록 없음·발주서 미연결)
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -860,6 +923,12 @@ export function AdminInquiriesPage() {
                 : datePreset === 'day'
                   ? ` · ${dayKey}`
                   : ' · 전체 기간'}
+            {me?.role === 'ADMIN' && marketerFilterId ? (
+              <>
+                {' · '}
+                접수자: {labelForMarketerFilter(marketerFilterId, me, marketers)}
+              </>
+            ) : null}
             {' · '}
             행을 누르면 상세보기 · 모바일 하단 막대로 가로 이동
           </div>

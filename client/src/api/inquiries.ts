@@ -41,7 +41,7 @@ export async function getInquiries(
     datePreset?: 'today' | 'all' | 'month' | 'day';
     month?: string;
     day?: string;
-    /** 관리자만: 해당 마케터가 접수한 건만 (서버에서 마케터는 본인만 강제) */
+    /** 관리자만: 해당 사용자 기준 접수(또는 발주서 작성자). `__unassigned__`는 미지정만 */
     createdById?: string;
   }
 ) {

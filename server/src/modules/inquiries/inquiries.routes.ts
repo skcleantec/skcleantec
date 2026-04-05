@@ -90,11 +90,21 @@ router.get('/', async (req, res) => {
       ],
     });
   }
-  /** 마케터: 본인 접수(또는 구 데이터 발주서 작성자)만. 관리자: 선택 시 해당 마케터만 */
+  /** 마케터: 본인 접수(또는 구 데이터 발주서 작성자)만. 관리자: 선택 시 해당 사용자 기준 또는 미지정 */
+  const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
   if (user.role === 'MARKETER') {
     andClauses.push(whereInquiryAttributedToMarketer(user.userId));
   } else if (user.role === 'ADMIN' && typeof createdById === 'string' && createdById.trim()) {
-    andClauses.push(whereInquiryAttributedToMarketer(createdById.trim()));
+    const cid = createdById.trim();
+    if (cid === CREATED_BY_FILTER_UNASSIGNED) {
+      /** 접수 등록자 없음·발주서 미연결(화면상 접수자 '-') */
+      andClauses.push({
+        createdById: null,
+        orderFormId: null,
+      });
+    } else {
+      andClauses.push(whereInquiryAttributedToMarketer(cid));
+    }
   }
 
   const where: Prisma.InquiryWhereInput = andClauses.length > 0 ? { AND: andClauses } : {};
