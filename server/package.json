@@ -13,6 +13,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:orderforms": "tsx prisma/seed-orderform-samples.ts",
     "db:seed:schedule": "tsx prisma/seed-schedule-random.ts",
+    "db:seed:schedule:test-m3-m5": "tsx prisma/seed-schedule-mar-may-test.ts",
+    "db:purge:schedule:test-m3-m5": "tsx prisma/seed-schedule-mar-may-test.ts --purge",
     "db:check-admin": "tsx scripts/check-admin.ts",
     "db:backfill-inquiry-numbers": "tsx scripts/backfill-inquiry-numbers.ts"
   },

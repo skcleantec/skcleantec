@@ -11,7 +11,9 @@
     "db:setup": "cd server && npx prisma db push && npm run db:seed && npm run db:backfill-inquiry-numbers",
     "db:studio": "cd server && npx prisma studio",
     "db:seed": "cd server && npm run db:seed",
-    "db:check-admin": "cd server && npm run db:check-admin"
+    "db:check-admin": "cd server && npm run db:check-admin",
+    "db:seed:schedule:test-m3-m5": "cd server && npm run db:seed:schedule:test-m3-m5",
+    "db:purge:schedule:test-m3-m5": "cd server && npm run db:purge:schedule:test-m3-m5"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
