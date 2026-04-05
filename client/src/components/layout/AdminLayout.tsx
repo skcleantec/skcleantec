@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { clearToken, getToken } from '../../stores/auth';
 import { getUnreadCount } from '../../api/messages';
+import { getMe } from '../../api/auth';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -45,6 +46,18 @@ export function AdminLayout() {
   const [showNavMoreRight, setShowNavMoreRight] = useState(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
   const isMessagesPage = location.pathname.includes('/messages');
+  const [meRole, setMeRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      setMeRole(null);
+      return;
+    }
+    getMe(token)
+      .then((u: { role?: string }) => setMeRole(typeof u.role === 'string' ? u.role : null))
+      .catch(() => setMeRole(null));
+  }, []);
 
   const updateNavScrollHint = useCallback(() => {
     const el = navScrollRef.current;
@@ -134,9 +147,11 @@ export function AdminLayout() {
                 <NavLink to="/admin/schedule" className={navClass}>
                   스케줄 표
                 </NavLink>
-                <NavLink to="/admin/team-leaders" className={navClass}>
-                  사용자관리
-                </NavLink>
+                {meRole === 'ADMIN' && (
+                  <NavLink to="/admin/team-leaders" className={navClass}>
+                    사용자관리
+                  </NavLink>
+                )}
                 <NavLink to="/admin/orderforms" className={navClass}>
                   발주서
                 </NavLink>
