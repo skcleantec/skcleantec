@@ -187,7 +187,9 @@ export function AdminSchedulePage() {
   );
 
   useEffect(() => {
-    fetchMonthData(true);
+    queueMicrotask(() => {
+      void fetchMonthData(true);
+    });
   }, [fetchMonthData]);
 
   useEffect(() => {

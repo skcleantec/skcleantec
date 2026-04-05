@@ -66,7 +66,7 @@ export function DashboardChangeHistory({ token }: Props) {
       const r = await getChangeHistoryList(token, { limit: 200, offset: 0 });
       setFullItems(r.items);
       setFullTotal(r.total);
-    } catch (e) {
+    } catch {
       setFullItems([]);
       setFullTotal(0);
     } finally {

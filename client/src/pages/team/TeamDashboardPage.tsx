@@ -190,7 +190,7 @@ export function TeamDashboardPage() {
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     getTeamInquiries(token)
       .then((res: { items: InquiryItem[] }) => setItems(res.items))
       .catch(() => setItems([]))

@@ -38,7 +38,7 @@ export function TeamDayOffsPage() {
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     const { start, end } = getMonthRange(year, month);
     getMyDayOffs(token, start, end)
       .then((res) => setDayOffDates(new Set(res.items)))

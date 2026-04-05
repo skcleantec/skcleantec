@@ -16,7 +16,6 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     if (!token) return;
-    setApiError(null);
     getDashboardStats(token)
       .then((data) => {
         setStats(data);
