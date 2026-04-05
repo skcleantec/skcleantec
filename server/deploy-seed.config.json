@@ -1,7 +1,11 @@
 {
   "marMayScheduleTest": {
-    "enabled": true,
+    "enabled": false,
     "year": 2026,
     "count": 90
+  },
+  "unassignedMonthDashboardTest": {
+    "enabled": true,
+    "count": 20
   }
 }

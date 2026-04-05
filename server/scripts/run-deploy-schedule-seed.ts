@@ -1,11 +1,11 @@
 /**
  * Railway preDeploy 등에서 호출: server/deploy-seed.config.json 을 읽어
- * marMayScheduleTest.enabled 가 true 일 때만 3·4·5월 테스트 시드를 실행합니다.
+ * 활성화된 시드만 실행합니다.
  *
- * 운영에 넣고 싶을 때: JSON 에서 enabled 를 true 로 커밋·푸시 → 배포 한 번 돌면 preDeploy 에서 실행.
- * 끝나면 반드시 enabled 를 false 로 되돌려 커밋하세요(매 배포마다 동일 태그 건 삭제 후 재삽입됨).
+ * - marMayScheduleTest: 3·4·5월 랜덤 + 팀장 배정
+ * - unassignedMonthDashboardTest: 이번 달 KST · RECEIVED · 팀장 미배정 (대시보드 미분배 집계)
  *
- * 로컬 확인: cd server && npm run deploy:seed-from-config
+ * 로컬: cd server && npm run deploy:seed-from-config
  */
 import 'dotenv/config';
 import fs from 'fs';
@@ -13,6 +13,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { PrismaClient } from '@prisma/client';
 import { runMarMayScheduleSeed } from './schedule-mar-may-seed.logic.js';
+import { runUnassignedMonthDashboardSeed } from './seed-unassigned-month-dashboard.logic.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = path.join(__dirname, '../deploy-seed.config.json');
@@ -21,6 +22,10 @@ type DeploySeedConfig = {
   marMayScheduleTest?: {
     enabled?: boolean;
     year?: number;
+    count?: number;
+  };
+  unassignedMonthDashboardTest?: {
+    enabled?: boolean;
     count?: number;
   };
 };
@@ -39,20 +44,30 @@ async function main() {
     process.exit(1);
   }
 
-  const m = cfg.marMayScheduleTest;
-  if (!m?.enabled) {
-    console.log('[deploy-seed] marMayScheduleTest.enabled 가 아님 → 건너뜀');
-    return;
-  }
-
-  const year = Number(m.year) || new Date().getFullYear();
-  const count = Math.max(1, Number(m.count) || 90);
-
-  console.log(`[deploy-seed] marMayScheduleTest 실행 (year=${year}, count=${count})`);
-
   const prisma = new PrismaClient();
   try {
-    await runMarMayScheduleSeed(prisma, { year, count });
+    let ran = false;
+
+    const m = cfg.marMayScheduleTest;
+    if (m?.enabled) {
+      ran = true;
+      const year = Number(m.year) || new Date().getFullYear();
+      const count = Math.max(1, Number(m.count) || 90);
+      console.log(`[deploy-seed] marMayScheduleTest 실행 (year=${year}, count=${count})`);
+      await runMarMayScheduleSeed(prisma, { year, count });
+    }
+
+    const u = cfg.unassignedMonthDashboardTest;
+    if (u?.enabled) {
+      ran = true;
+      const count = Math.max(1, Number(u.count) || 20);
+      console.log(`[deploy-seed] unassignedMonthDashboardTest 실행 (count=${count})`);
+      await runUnassignedMonthDashboardSeed(prisma, { count });
+    }
+
+    if (!ran) {
+      console.log('[deploy-seed] 활성화된 시드 없음 → 건너뜀');
+    }
   } finally {
     await prisma.$disconnect();
   }
