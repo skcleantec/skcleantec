@@ -252,6 +252,26 @@ export function AdminInquiriesPage() {
       .catch(() => setMe(null));
   }, [token]);
 
+  /** 대시보드 등에서 ?datePreset=&month=&status= 로 들어올 때 목록 필터 반영 */
+  useEffect(() => {
+    const dp = searchParams.get('datePreset');
+    const m = searchParams.get('month');
+    const st = searchParams.get('status');
+    if (dp === 'today' || dp === 'all' || dp === 'month' || dp === 'day') {
+      setDatePreset(dp);
+    }
+    if (m && /^\d{4}-\d{2}$/.test(m)) {
+      setMonthKey(m);
+    }
+    if (st && Object.keys(STATUS_LABELS).includes(st)) {
+      setStatusFilter(st);
+    }
+    if (searchParams.has('datePreset') || searchParams.has('month') || searchParams.has('status')) {
+      setSearchQuery('');
+      if (me?.role === 'ADMIN') setMarketerFilterId('');
+    }
+  }, [searchParams, me?.role]);
+
   useEffect(() => {
     if (!token || me?.role !== 'ADMIN') {
       setMarketers([]);

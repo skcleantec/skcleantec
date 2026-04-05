@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getDashboardStats, type DashboardStats } from '../../api/dashboard';
 import { getToken } from '../../stores/auth';
 import { DashboardChangeHistory } from '../../components/admin/DashboardChangeHistory';
@@ -8,7 +9,13 @@ function formatCurrency(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
 }
 
+/** 접수 목록 필터와 동일한 KST 연월 YYYY-MM */
+function kstMonthKeyNow(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+}
+
 export function AdminDashboardPage() {
+  const navigate = useNavigate();
   const token = getToken();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,8 +58,21 @@ export function AdminDashboardPage() {
 
       {/* 접수 통계 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatCard label="오늘 접수" value={loading ? '-' : stats?.todayCount ?? 0} />
-        <StatCard label="이번달 미분배" value={loading ? '-' : stats?.unassignedCount ?? 0} />
+        <StatCard
+          label="오늘 접수"
+          value={loading ? '-' : stats?.todayCount ?? 0}
+          onClick={() => navigate('/admin/inquiries?datePreset=today')}
+        />
+        <StatCard
+          label="이번달 미분배"
+          value={loading ? '-' : stats?.unassignedCount ?? 0}
+          onClick={() => {
+            const mk = kstMonthKeyNow();
+            navigate(
+              `/admin/inquiries?datePreset=month&month=${encodeURIComponent(mk)}&status=RECEIVED`
+            );
+          }}
+        />
       </div>
 
       {/* 매출 통계 */}
@@ -129,19 +149,33 @@ function StatCard({
   label,
   value,
   highlight,
+  onClick,
 }: {
   label: string;
   value: number | string;
   highlight?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <div
-      className={`rounded-lg p-4 ${
-        highlight ? 'bg-blue-50 border border-blue-200' : 'bg-white border border-gray-200'
-      }`}
-    >
+  const inner = (
+    <>
       <p className="text-fluid-sm text-gray-600">{label}</p>
       <p className="text-fluid-2xl font-semibold text-gray-800 mt-1 tabular-nums">{value}</p>
-    </div>
+    </>
   );
+  const base = `rounded-lg p-4 text-left w-full ${
+    highlight ? 'bg-blue-50 border border-blue-200' : 'bg-white border border-gray-200'
+  }`;
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title={`${label} — 접수 목록으로 이동`}
+        className={`${base} cursor-pointer transition-colors hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100`}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return <div className={base}>{inner}</div>;
 }
