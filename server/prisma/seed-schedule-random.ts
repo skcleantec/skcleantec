@@ -6,6 +6,7 @@
  */
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
+import { pickCreatedByIdForSeed } from '../scripts/schedule-mar-may-seed.logic.js';
 
 const prisma = new PrismaClient();
 
@@ -55,6 +56,11 @@ async function main() {
     throw new Error('팀장 계정이 없습니다. npm run db:seed 를 먼저 실행하세요.');
   }
 
+  const marketers = await prisma.user.findMany({
+    where: { role: 'MARKETER', isActive: true },
+    select: { id: true },
+  });
+
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
@@ -75,12 +81,14 @@ async function main() {
     const teamLeader = randomItem(leaders);
     const name = `${randomItem(FAMILY)}${randomItem(GIVEN)}`;
     const phone = `010-${randomInt(8000, 9999)}-${randomInt(1000, 9999)}`;
+    const createdById = pickCreatedByIdForSeed(admin.id, marketers);
 
     await prisma.$transaction(async (tx) => {
       const inquiry = await tx.inquiry.create({
         data: {
           customerName: name,
           customerPhone: phone,
+          createdById,
           address: randomItem(STREETS),
           addressDetail: `${randomInt(1, 25)}동 ${randomInt(101, 2505)}호`,
           areaPyeong: randomInt(18, 42),

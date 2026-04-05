@@ -47,6 +47,12 @@ function randomPreferredDate(year: number): Date {
   return new Date(`${year}-${pad2(month)}-${pad2(day)}T12:00:00+09:00`);
 }
 
+/** 마케터가 있으면 그중 랜덤, 없으면 관리자 — seed.ts PENDING 샘플과 동일한 우선순위 */
+export function pickCreatedByIdForSeed(adminId: string, marketers: readonly { id: string }[]): string {
+  if (marketers.length > 0) return randomItem(marketers).id;
+  return adminId;
+}
+
 export async function purgeMarMayTestByYear(prisma: PrismaClient, year: number): Promise<number> {
   const tag = tagForYear(year);
   const deleted = await prisma.inquiry.deleteMany({
@@ -74,6 +80,11 @@ export async function runMarMayScheduleSeed(
     throw new Error('팀장 계정이 없습니다. npm run db:seed 를 먼저 실행하세요.');
   }
 
+  const marketers = await prisma.user.findMany({
+    where: { role: 'MARKETER', isActive: true },
+    select: { id: true },
+  });
+
   const tag = tagForYear(year);
   const removed = await purgeMarMayTestByYear(prisma, year);
   if (removed > 0) {
@@ -85,12 +96,14 @@ export async function runMarMayScheduleSeed(
     const teamLeader = randomItem(leaders);
     const name = `${randomItem(FAMILY)}${randomItem(GIVEN)}`;
     const phone = `010-${randomInt(8000, 9999)}-${randomInt(1000, 9999)}`;
+    const createdById = pickCreatedByIdForSeed(admin.id, marketers);
 
     await prisma.$transaction(async (tx) => {
       const inquiry = await tx.inquiry.create({
         data: {
           customerName: name,
           customerPhone: phone,
+          createdById,
           address: randomItem(STREETS),
           addressDetail: `${randomInt(1, 25)}동 ${randomInt(101, 2505)}호`,
           areaPyeong: randomInt(18, 42),
@@ -121,7 +134,9 @@ export async function runMarMayScheduleSeed(
     });
   }
 
+  const registrarLine =
+    marketers.length > 0 ? `접수자(마케터) ${marketers.length}명 중 랜덤` : '접수자: 관리자(마케터 없음)';
   console.log(
-    `OK: ${count}건 삽입 (${year}년 3·4·5월 랜덤, 태그 ${tag}, 팀장 ${leaders.length}명 중 랜덤 배정)`,
+    `OK: ${count}건 삽입 (${year}년 3·4·5월 랜덤, 태그 ${tag}, 팀장 ${leaders.length}명 중 랜덤, ${registrarLine})`,
   );
 }

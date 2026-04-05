@@ -14,7 +14,8 @@
     "db:check-admin": "cd server && npm run db:check-admin",
     "db:seed:schedule:test-m3-m5": "cd server && npm run db:seed:schedule:test-m3-m5",
     "db:purge:schedule:test-m3-m5": "cd server && npm run db:purge:schedule:test-m3-m5",
-    "deploy:seed-from-config": "cd server && npm run deploy:seed-from-config"
+    "deploy:seed-from-config": "cd server && npm run deploy:seed-from-config",
+    "db:backfill-seed-inquiries-created-by": "cd server && npm run db:backfill-seed-inquiries-created-by"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
