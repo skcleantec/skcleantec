@@ -1,4 +1,5 @@
 {
+  "_설명": "Railway preDeploy에서 npm run deploy:seed-from-config 가 읽습니다. enabled 가 true 인 블록만 실행. 한 번 넣은 뒤에는 반드시 false 로 바꿔 푸시하세요.",
   "marMayScheduleTest": {
     "enabled": false,
     "year": 2026,
