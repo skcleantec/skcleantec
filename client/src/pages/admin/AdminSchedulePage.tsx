@@ -144,6 +144,28 @@ function CirclePlusIcon({ className }: { className?: string }) {
   );
 }
 
+function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** 브라우저 로컬 날짜 기준 오늘 여부 */
+function isTodayYmd(year: number, month: number, day: number): boolean {
+  const t = new Date();
+  return t.getFullYear() === year && t.getMonth() + 1 === month && t.getDate() === day;
+}
+
 export function AdminSchedulePage() {
   const token = getToken();
   const now = new Date();
@@ -215,6 +237,23 @@ export function AdminSchedulePage() {
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
 
+  const goPrevMonth = () => {
+    if (month <= 1) {
+      setYear((y) => y - 1);
+      setMonth(12);
+    } else {
+      setMonth((m) => m - 1);
+    }
+  };
+  const goNextMonth = () => {
+    if (month >= 12) {
+      setYear((y) => y + 1);
+      setMonth(1);
+    } else {
+      setMonth((m) => m + 1);
+    }
+  };
+
   const getDateKey = (d: number) => {
     const m = month < 10 ? `0${month}` : `${month}`;
     const day = d < 10 ? `0${d}` : `${d}`;
@@ -222,28 +261,54 @@ export function AdminSchedulePage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 min-w-0">
-      <h1 className="text-xl font-semibold text-gray-800">스케줄 표</h1>
-
-      <div className="flex gap-2 items-center">
-        <select
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          className="px-3 py-2 border border-gray-300 rounded text-sm"
-        >
-          {yearOptions.map((y) => (
-            <option key={y} value={y}>{y}년</option>
-          ))}
-        </select>
-        <select
-          value={month}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          className="px-3 py-2 border border-gray-300 rounded text-sm"
-        >
-          {monthOptions.map((m) => (
-            <option key={m} value={m}>{m}월</option>
-          ))}
-        </select>
+    <div className="flex flex-col gap-5 min-w-0">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 tracking-tight">스케줄 표</h1>
+          <p className="text-sm text-gray-500 mt-0.5">월별 배정·슬롯 현황을 한눈에 확인합니다.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-stretch rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={goPrevMonth}
+              className="px-2.5 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-r border-gray-200"
+              aria-label="이전 달"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={goNextMonth}
+              className="px-2.5 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              aria-label="다음 달"
+            >
+              <ChevronRightIcon className="w-5 h-5" />
+            </button>
+          </div>
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300/80"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}년
+              </option>
+            ))}
+          </select>
+          <select
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300/80 min-w-[5.5rem]"
+          >
+            {monthOptions.map((m) => (
+              <option key={m} value={m}>
+                {m}월
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loadError && (
@@ -254,32 +319,38 @@ export function AdminSchedulePage() {
       ) : (
         <>
           {/* 범례 */}
-          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-600">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 border-2 border-red-500 rounded shrink-0" />
-              빈 슬롯/미배정 (빨간 테두리)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 border-2 border-red-500 rounded shrink-0 bg-red-50/80" />
-              대기 접수 (발주서 미제출, 동일 빨간 테두리)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded shrink-0 bg-blue-400" />
-              마감 (오전·오후 남은 자리 없음, 파란 음영)
-            </span>
-            <span className="text-gray-500">
-              오전·오후 숫자는 남은 청소 가능 자리(휴무 반영). 사이는 발주서 옵션 접수 건수만 표시하며, 확정 시 오전/오후 중 하나를 소모합니다.
-            </span>
+          <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2.5 text-xs text-gray-600 leading-relaxed">
+            <div className="flex flex-wrap gap-x-5 gap-y-2 items-center">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full border-2 border-rose-500 bg-white shrink-0" />
+                빈 슬롯·미배정
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-100 ring-2 ring-rose-400 shrink-0" />
+                대기 접수
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-md bg-slate-200 shrink-0" />
+                마감
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-gray-900 shrink-0" />
+                선택한 날
+              </span>
+            </div>
+            <p className="mt-2 text-[11px] text-gray-500 border-t border-gray-200/80 pt-2">
+              오전·오후 숫자는 남은 청소 가능 자리(휴무 반영)입니다. 사이는 발주서 옵션 접수 건수이며, 확정 시 오전/오후 중 하나를 사용합니다.
+            </p>
           </div>
 
-          {/* 달력 그리드 */}
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="grid grid-cols-7 text-left text-xs">
+          {/* 달력 그리드 — gap-px로 격자선 정리 */}
+          <div className="rounded-xl border border-gray-200 bg-gray-200/90 p-px shadow-sm overflow-hidden">
+            <div className="grid grid-cols-7 gap-px bg-gray-200/90 text-left">
               {WEEKDAYS.map((w, wi) => (
                 <div
                   key={w}
-                  className={`py-1.5 px-1 font-medium border-b border-r border-gray-200 last:border-r-0 text-[10px] ${
-                    wi === 6 ? 'text-blue-600' : 'text-gray-600'
+                  className={`py-2.5 px-2 text-center text-[11px] font-semibold tracking-wide bg-gray-100 ${
+                    wi === 0 ? 'text-rose-600' : wi === 6 ? 'text-slate-600' : 'text-gray-600'
                   }`}
                 >
                   {w}
@@ -287,7 +358,7 @@ export function AdminSchedulePage() {
               ))}
               {calendarDays.map((d, i) => {
                 if (d === null) {
-                  return <div key={`empty-${i}`} className="min-h-[120px] bg-gray-50" />;
+                  return <div key={`empty-${i}`} className="min-h-[128px] bg-gray-50/90" />;
                 }
                 const key = getDateKey(d);
                 const dayItems = byDate[key] || [];
@@ -302,7 +373,9 @@ export function AdminSchedulePage() {
                 const hasEvents = dayItems.length > 0;
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
+                const isSunday = i % 7 === 0;
                 const isHoliday = isPublicHoliday(year, month, d);
+                const today = isTodayYmd(year, month, d);
                 const hasEmptySlots =
                   workingCount > 0 &&
                   (unassignedCount > 0 ||
@@ -310,104 +383,111 @@ export function AdminSchedulePage() {
                     afternoonRem > 0 ||
                     sideUnconfirmed > 0);
                 const isSlotFull = workingCount > 0 && morningRem === 0 && afternoonRem === 0;
-                const dateColor = isSlotFull
-                  ? 'text-blue-800'
-                  : isHoliday
-                    ? 'text-red-600'
-                    : isSaturday
-                      ? 'text-blue-600'
-                      : hasEvents
-                        ? 'text-blue-700'
-                        : 'text-gray-800';
-                const pendingRing =
-                  pendingDayCount > 0 && !isSelected
-                    ? 'ring-2 ring-red-500 ring-inset z-[1]'
-                    : '';
-                const emptySlotRing =
-                  !isSelected && hasEmptySlots && pendingDayCount === 0 ? 'ring-2 ring-red-500 ring-inset' : '';
+                const weekdayColor =
+                  isHoliday || isSunday ? 'text-rose-600' : isSaturday ? 'text-slate-600' : 'text-gray-500';
+                const pendingAccent = pendingDayCount > 0 && !isSelected;
+                const emptyAccent = !isSelected && hasEmptySlots && pendingDayCount === 0;
+                const cellBg = isSelected
+                  ? 'bg-white ring-2 ring-gray-900 ring-inset z-[1]'
+                  : isSlotFull
+                    ? 'bg-slate-100'
+                    : hasEvents
+                      ? 'bg-slate-50/90'
+                      : 'bg-white';
                 return (
                   <div
                     key={key}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedDate(isSelected ? null : key)}
-                    className={`min-h-[120px] p-1 pt-3.5 pb-6 border-b border-r border-gray-200 last:border-r-0 cursor-pointer relative overflow-hidden text-left ${
-                      isSlotFull
-                        ? 'bg-gradient-to-br from-blue-100 via-sky-50 to-blue-200'
-                        : hasEvents
-                          ? 'bg-blue-50'
-                          : ''
-                    } ${isSelected ? 'ring-4 ring-green-600 ring-inset z-[1]' : ''} ${pendingRing || emptySlotRing} ${
-                      !isSlotFull && !hasEvents ? 'hover:bg-gray-50' : ''
-                    } ${pendingDayCount > 0 ? 'bg-red-50/40' : ''}`}
+                    onKeyDown={(ev) => {
+                      if (ev.key === 'Enter' || ev.key === ' ') {
+                        ev.preventDefault();
+                        setSelectedDate(isSelected ? null : key);
+                      }
+                    }}
+                    className={`min-h-[128px] p-1.5 pb-7 cursor-pointer relative overflow-hidden text-left transition-colors ${
+                      cellBg
+                    } ${pendingAccent ? 'ring-1 ring-rose-400/90 ring-inset' : ''} ${
+                      emptyAccent ? 'ring-1 ring-rose-300/80 ring-inset' : ''
+                    } ${!isSelected && !isSlotFull && !pendingAccent ? 'hover:bg-gray-50/95' : ''} ${
+                      pendingDayCount > 0 ? 'bg-rose-50/50' : ''
+                    }`}
                   >
-                    <span className={`absolute top-0.5 left-1 text-[9px] font-semibold leading-tight tabular-nums ${dateColor}`}>
-                      {d} {weekdayKoFromYmd(year, month, d)}
-                    </span>
-                    {pendingDayCount > 0 && (
-                      <span
-                        className="absolute top-0.5 right-0.5 text-[9px] font-bold text-red-700 bg-red-100 px-0.5 rounded leading-tight"
-                        title="대기 접수(발주서 미제출)"
-                      >
-                        대기{pendingDayCount > 1 ? pendingDayCount : ''}
-                      </span>
-                    )}
-                    <div className="mt-3.5 flex flex-col gap-0.5 pr-0.5">
-                      <div className="flex justify-between items-baseline gap-1 leading-none">
+                    <div className="flex items-start justify-between gap-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <span
                           className={
-                            isSlotFull ? 'text-blue-800 font-medium' : 'text-amber-900 font-medium'
+                            today
+                              ? 'inline-flex h-7 min-w-[1.75rem] shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white shadow-sm tabular-nums'
+                              : `text-[11px] font-semibold tabular-nums text-gray-900`
                           }
                         >
+                          {d}
+                        </span>
+                        <span className={`text-[10px] font-medium leading-tight ${weekdayColor}`}>
+                          {weekdayKoFromYmd(year, month, d)}
+                        </span>
+                      </div>
+                      {pendingDayCount > 0 && (
+                        <span
+                          className="shrink-0 text-[10px] font-semibold text-rose-800 bg-rose-100/90 px-1.5 py-0.5 rounded-md leading-none"
+                          title="대기 접수(발주서 미제출)"
+                        >
+                          대기{pendingDayCount > 1 ? pendingDayCount : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex flex-col gap-1 pr-0.5">
+                      <div className="flex justify-between items-baseline gap-1 leading-none">
+                        <span className={isSlotFull ? 'text-slate-600 font-medium' : 'text-amber-900/90 font-medium'}>
                           오전
                         </span>
                         <span
-                          className={`tabular-nums text-[11px] font-bold ${
-                            isSlotFull ? 'text-blue-900' : 'text-amber-950'
+                          className={`tabular-nums text-[11px] font-semibold ${
+                            isSlotFull ? 'text-slate-800' : 'text-amber-950'
                           }`}
                         >
                           {morningRem}
                         </span>
                       </div>
                       <div className="flex justify-between items-baseline gap-1 leading-none">
-                        <span
-                          className={
-                            isSlotFull ? 'text-blue-800 font-medium' : 'text-sky-800 font-medium'
-                          }
-                        >
+                        <span className={isSlotFull ? 'text-slate-600 font-medium' : 'text-sky-800 font-medium'}>
                           오후
                         </span>
                         <span
-                          className={`tabular-nums text-[11px] font-bold ${
-                            isSlotFull ? 'text-blue-900' : 'text-sky-950'
+                          className={`tabular-nums text-[11px] font-semibold ${
+                            isSlotFull ? 'text-slate-800' : 'text-sky-950'
                           }`}
                         >
                           {afternoonRem}
                         </span>
                       </div>
                       <div
-                        className={`flex flex-col gap-0.5 border-t pt-0.5 mt-0.5 ${
-                          isSlotFull ? 'border-blue-200/90' : 'border-gray-200/90'
+                        className={`flex flex-col gap-0.5 border-t pt-1 mt-0.5 ${
+                          isSlotFull ? 'border-slate-200' : 'border-gray-200/90'
                         }`}
                       >
                         <div className="flex justify-between items-baseline gap-1 leading-none">
                           <span
                             className={
                               isSlotFull
-                                ? 'text-blue-800 font-semibold'
+                                ? 'text-slate-600 font-semibold'
                                 : unassignedCount > 0
-                                  ? 'text-red-700 font-semibold'
+                                  ? 'text-rose-700 font-semibold'
                                   : 'text-gray-500'
                             }
                           >
                             미배정
                           </span>
                           <span
-                            className={`tabular-nums text-[11px] font-bold ${
+                            className={`tabular-nums text-[11px] font-semibold ${
                               isSlotFull
                                 ? unassignedCount > 0
-                                  ? 'text-blue-900'
-                                  : 'text-blue-800'
+                                  ? 'text-slate-900'
+                                  : 'text-slate-700'
                                 : unassignedCount > 0
-                                  ? 'text-red-600'
+                                  ? 'text-rose-600'
                                   : 'text-gray-600'
                             }`}
                           >
@@ -416,16 +496,12 @@ export function AdminSchedulePage() {
                         </div>
                         {sideOrderCount > 0 && (
                           <div className="flex justify-between items-baseline gap-1 leading-none">
-                            <span
-                              className={
-                                isSlotFull ? 'text-blue-800 font-medium' : 'text-violet-800 font-medium'
-                              }
-                            >
+                            <span className={isSlotFull ? 'text-slate-600 font-medium' : 'text-violet-800 font-medium'}>
                               사이
                             </span>
                             <span
-                              className={`tabular-nums text-[11px] font-bold ${
-                                isSlotFull ? 'text-blue-900' : 'text-violet-950'
+                              className={`tabular-nums text-[11px] font-semibold ${
+                                isSlotFull ? 'text-slate-900' : 'text-violet-950'
                               }`}
                             >
                               {sideOrderCount}건
@@ -435,7 +511,7 @@ export function AdminSchedulePage() {
                       </div>
                     </div>
                     {isSlotFull && (
-                      <span className="absolute bottom-0.5 left-0 right-0 text-center text-[9px] font-bold text-blue-800 tracking-wide">
+                      <span className="absolute bottom-1 left-0 right-0 text-center text-[10px] font-semibold text-slate-600 tracking-wide">
                         마감
                       </span>
                     )}
@@ -447,7 +523,7 @@ export function AdminSchedulePage() {
 
           {/* 선택한 날짜의 일정 목록 + 상세 보기 */}
           {selectedDate && (
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <h3 className="text-sm font-medium text-gray-800 tabular-nums min-w-0">
                   {formatDateCompactWithWeekday(selectedDate)}{' '}
