@@ -1,6 +1,6 @@
 {
   "marMayScheduleTest": {
-    "enabled": false,
+    "enabled": true,
     "year": 2026,
     "count": 90
   }
