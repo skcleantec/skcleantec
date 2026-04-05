@@ -782,21 +782,26 @@ export function AdminInquiriesPage() {
               하단 막대·◀▶ 또는 표를 좌우로 밀기
             </p>
             <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-            <table className="w-full text-fluid-sm border-collapse min-w-[480px]">
+            <table className="w-full text-fluid-sm border-separate border-spacing-0 min-w-[560px]">
               <thead>
-                <tr className="bg-gray-100 border-b border-gray-200">
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">접수일</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">접수자</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">고객</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">연락처</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 min-w-[90px]">주소</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">평수</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">방화베</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap max-w-[100px]">시간대</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">팀장</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">작업</th>
+                <tr className="bg-gray-100">
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 z-20 bg-gray-100 border-b border-r border-gray-200">
+                    접수일
+                  </th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap min-w-[6.25rem] border-b border-gray-200">
+                    접수번호
+                  </th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap border-b border-gray-200">접수자</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap border-b border-gray-200">고객</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap border-b border-gray-200">연락처</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 min-w-[90px] border-b border-gray-200">주소</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap border-b border-gray-200">평수</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap border-b border-gray-200">방화베</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap border-b border-gray-200">예약일</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap max-w-[100px] border-b border-gray-200">시간대</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap border-b border-gray-200">상태</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap border-b border-gray-200">팀장</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap border-b border-gray-200">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -814,15 +819,19 @@ export function AdminInquiriesPage() {
                     onClick={() => openEdit(item)}
                     title={isPending ? '대기(발주서 미제출) · 행을 누르면 상세보기' : '행을 누르면 상세보기'}
                   >
-                    <td className={`py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 z-10 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''}`}>
+                    <td
+                      className={`py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 z-20 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''}`}
+                    >
                       <span className="text-fluid-xs tabular-nums leading-tight block">
                         {formatDateCompactWithWeekday(item.createdAt)}
                       </span>
+                    </td>
+                    <td className={`py-2 px-2 text-center text-gray-800 whitespace-nowrap min-w-[6.25rem] ${stickyBg} ${pBorder} border-r border-gray-100`}>
                       {item.inquiryNumber ? (
-                        <span className="text-fluid-xs text-gray-500 tabular-nums block mt-0.5">
-                          {item.inquiryNumber}
-                        </span>
-                      ) : null}
+                        <span className="text-fluid-xs sm:text-fluid-sm font-medium tabular-nums">{item.inquiryNumber}</span>
+                      ) : (
+                        <span className="text-fluid-xs text-gray-400">—</span>
+                      )}
                     </td>
                     <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
                       {inquiryMarketerLabel(item)}
