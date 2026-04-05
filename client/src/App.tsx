@@ -19,6 +19,9 @@ import { OrderInfoPage } from './pages/order/OrderInfoPage';
 import { CsReportPage } from './pages/cs/CsReportPage';
 import { AdminCsPage } from './pages/admin/AdminCsPage';
 import { AdminAdvertisingPage } from './pages/admin/AdminAdvertisingPage';
+import { AdminTeamsPage } from './pages/admin/AdminTeamsPage';
+import { AdminTeamsLayout } from './components/layout/AdminTeamsLayout';
+import { AdminTeamHolidayCalendarPage } from './pages/admin/AdminTeamHolidayCalendarPage';
 
 function App() {
   return (
@@ -38,6 +41,10 @@ function App() {
           <Route path="inquiries" element={<AdminInquiriesPage />} />
           <Route path="schedule" element={<AdminSchedulePage />} />
           <Route path="team-leaders" element={<AdminTeamLeadersPage />} />
+          <Route path="teams" element={<AdminTeamsLayout />}>
+            <Route index element={<AdminTeamsPage />} />
+            <Route path="holidays" element={<AdminTeamHolidayCalendarPage />} />
+          </Route>
           <Route path="messages" element={<AdminMessagesPage />} />
           <Route path="orderforms" element={<AdminOrderFormPage />} />
           <Route path="orderforms/notice" element={<Navigate to="/admin/orderforms?tab=notice" replace />} />

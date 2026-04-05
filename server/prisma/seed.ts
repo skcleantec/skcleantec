@@ -20,15 +20,21 @@ async function main() {
   });
   console.log('Admin:', admin.email);
 
-  // 샘플 팀장 (없을 때만 생성)
+  // 샘플 팀장 8명 (upsert — 로컬 테스트용)
   const teamLeaders = [
     { email: 'team1@skcleanteck.com', name: '김팀장', phone: '010-1111-2222' },
     { email: 'team2@skcleanteck.com', name: '이팀장', phone: '010-3333-4444' },
+    { email: 'team3@skcleanteck.com', name: '박팀장', phone: '010-5555-1111' },
+    { email: 'team4@skcleanteck.com', name: '최팀장', phone: '010-5555-2222' },
+    { email: 'team5@skcleanteck.com', name: '정팀장', phone: '010-5555-3333' },
+    { email: 'team6@skcleanteck.com', name: '강팀장', phone: '010-5555-4444' },
+    { email: 'team7@skcleanteck.com', name: '조팀장', phone: '010-5555-5555' },
+    { email: 'team8@skcleanteck.com', name: '윤팀장', phone: '010-5555-7777' },
   ];
   for (const t of teamLeaders) {
     const created = await prisma.user.upsert({
       where: { email: t.email },
-      update: {},
+      update: { name: t.name, phone: t.phone, isActive: true, role: 'TEAM_LEADER' },
       create: {
         email: t.email,
         passwordHash: hash,
@@ -38,6 +44,30 @@ async function main() {
       },
     });
     console.log('Team leader:', created.email);
+  }
+
+  // 팀 미배정 현장 팀원 14명 (teamId null — 팀원 관리 화면용)
+  try {
+    for (let i = 1; i <= 14; i++) {
+      const name = `현장팀원${String(i).padStart(2, '0')}`;
+      const existing = await prisma.teamMember.findFirst({
+        where: { teamId: null, name },
+      });
+      if (existing) continue;
+      await prisma.teamMember.create({
+        data: {
+          teamId: null,
+          name,
+          phone: `010-${String(8000 + i).padStart(4, '0')}-${String(7000 + i).padStart(4, '0')}`,
+          sortOrder: i - 1,
+          isActive: true,
+        },
+      });
+    }
+    const poolCount = await prisma.teamMember.count({ where: { teamId: null, isActive: true } });
+    console.log(`TeamMember pool: ensured 14 names (active pool total: ${poolCount})`);
+  } catch (e) {
+    console.log('TeamMember pool: skip', e instanceof Error ? e.message : e);
   }
 
   // 샘플 마케터 (없을 때만 생성)

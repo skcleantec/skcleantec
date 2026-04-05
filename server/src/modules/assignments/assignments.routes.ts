@@ -59,25 +59,28 @@ router.post('/', async (req, res) => {
     return;
   }
 
-  const assignment = await prisma.assignment.upsert({
+  await prisma.$transaction(async (tx) => {
+    await tx.assignment.deleteMany({ where: { inquiryId } });
+    await tx.assignment.create({
+      data: {
+        inquiryId,
+        teamLeaderId,
+        assignedById: adminId,
+        sortOrder: 0,
+      },
+    });
+    await tx.inquiry.update({
+      where: { id: inquiryId },
+      data: { status: 'ASSIGNED' },
+    });
+  });
+
+  const assignment = await prisma.assignment.findFirst({
     where: { inquiryId },
-    create: {
-      inquiryId,
-      teamLeaderId,
-      assignedById: adminId,
-    },
-    update: {
-      teamLeaderId,
-      assignedById: adminId,
-    },
+    orderBy: { sortOrder: 'asc' },
     include: {
       teamLeader: { select: { id: true, name: true } },
     },
-  });
-
-  await prisma.inquiry.update({
-    where: { id: inquiryId },
-    data: { status: 'ASSIGNED' },
   });
 
   res.status(201).json(assignment);

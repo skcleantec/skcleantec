@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createInquiry, updateInquiry } from '../../api/inquiries';
-import { assignInquiry } from '../../api/assignments';
 import type { UserItem } from '../../api/users';
 import type { ScheduleItem } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
@@ -15,6 +14,8 @@ import {
 } from '../../constants/professionalSpecialtyOptions';
 import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
+import { formatPreferredDateInputYmd } from '../../utils/dateFormat';
+import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
@@ -42,7 +43,11 @@ type EditFormFields = {
   betweenScheduleSlot: string;
   preferredTimeDetail: string;
   memo: string;
-  teamLeaderId: string;
+  /** 배정 팀장(순서 유지). 빈 문자열은 미선택 슬롯 */
+  teamLeaderIds: string[];
+  /** null = 미입력 */
+  crewMemberCount: number | null;
+  crewMemberNote: string;
   status: string;
   customerPhone2: string;
   propertyType: string;
@@ -117,6 +122,16 @@ function buildPatchFromEditForm(editForm: EditFormFields): Record<string, unknow
   if (patch.balconyCount !== null && Number.isNaN(patch.balconyCount as number)) {
     throw new Error('베란다 개수는 숫자로 입력해주세요.');
   }
+  if (editForm.crewMemberCount === null) {
+    patch.crewMemberCount = null;
+  } else {
+    const c = editForm.crewMemberCount;
+    if (!Number.isFinite(c) || c < 0 || c > 100) {
+      throw new Error('팀원 인원은 0~100 사이로 설정해주세요.');
+    }
+    patch.crewMemberCount = Math.floor(c);
+  }
+  patch.crewMemberNote = editForm.crewMemberNote.trim() ? editForm.crewMemberNote.trim() : null;
   return patch;
 }
 
@@ -142,6 +157,7 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
     memo: p.memo,
     source: '전화',
     status: p.status ?? 'RECEIVED',
+    crewMemberCount: p.crewMemberCount === undefined ? null : p.crewMemberCount,
   };
 }
 
@@ -207,7 +223,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         betweenScheduleSlot: '',
         preferredTimeDetail: '',
         memo: '',
-        teamLeaderId: '',
+        teamLeaderIds: [''],
+        crewMemberCount: null,
+        crewMemberNote: '',
         status: 'RECEIVED',
         customerPhone2: '',
         propertyType: '',
@@ -233,19 +251,22 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       roomCount: it.roomCount != null ? String(it.roomCount) : '',
       bathroomCount: it.bathroomCount != null ? String(it.bathroomCount) : '',
       balconyCount: it.balconyCount != null ? String(it.balconyCount) : '',
-      preferredDate: it.preferredDate ? it.preferredDate.slice(0, 10) : '',
+      preferredDate: formatPreferredDateInputYmd(it.preferredDate),
       preferredTime: it.preferredTime || '',
       betweenScheduleSlot: it.betweenScheduleSlot ?? '',
       preferredTimeDetail: it.preferredTimeDetail || '',
       memo: it.memo || '',
-      teamLeaderId: it.assignments[0]?.teamLeader?.id ?? '',
+      teamLeaderIds:
+        it.assignments.length > 0 ? it.assignments.map((a) => a.teamLeader.id) : [''],
+      crewMemberCount: it.crewMemberCount ?? null,
+      crewMemberNote: it.crewMemberNote ?? '',
       status: it.status,
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
       areaBasis: it.areaBasis || '',
       areaPyeong: it.areaPyeong != null ? String(it.areaPyeong) : '',
       buildingType: it.buildingType || '',
-      moveInDate: it.moveInDate ? it.moveInDate.slice(0, 10) : '',
+      moveInDate: formatPreferredDateInputYmd(it.moveInDate),
       specialNotes: it.specialNotes || '',
       kitchenCount: it.kitchenCount != null ? String(it.kitchenCount) : '',
       amountTotal: amt.total != null ? String(amt.total) : '',
@@ -275,14 +296,22 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return [...new Set([...m, ...a])];
   }, [dayStat, editForm.preferredTime, editForm.betweenScheduleSlot]);
 
-  const teamLeaderOptions = useMemo(() => {
-    const ids = assignableLeaderIdsForSlot;
-    if (ids == null) return teamLeaders;
-    const allow = new Set(ids);
-    const cur = editForm.teamLeaderId;
-    if (cur) allow.add(cur);
-    return teamLeaders.filter((t) => allow.has(t.id));
-  }, [teamLeaders, assignableLeaderIdsForSlot, editForm.teamLeaderId]);
+  const leaderOptionsForRow = useMemo(() => {
+    return (rowIndex: number) => {
+      const ids = assignableLeaderIdsForSlot;
+      const curId = editForm.teamLeaderIds[rowIndex] ?? '';
+      const otherSelected = new Set(
+        editForm.teamLeaderIds.filter((lid, i) => i !== rowIndex && lid.trim() !== '')
+      );
+      const base = ids == null ? teamLeaders : teamLeaders.filter((t) => ids.includes(t.id));
+      const allowed = base.filter((t) => !otherSelected.has(t.id) || t.id === curId);
+      const cur = teamLeaders.find((t) => t.id === curId);
+      if (curId && cur && !allowed.some((t) => t.id === curId)) {
+        return [...allowed, cur];
+      }
+      return allowed;
+    };
+  }, [teamLeaders, assignableLeaderIdsForSlot, editForm.teamLeaderIds]);
 
   useEffect(() => {
     if (!item) return;
@@ -296,19 +325,22 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       roomCount: it.roomCount != null ? String(it.roomCount) : '',
       bathroomCount: it.bathroomCount != null ? String(it.bathroomCount) : '',
       balconyCount: it.balconyCount != null ? String(it.balconyCount) : '',
-      preferredDate: it.preferredDate ? it.preferredDate.slice(0, 10) : '',
+      preferredDate: formatPreferredDateInputYmd(it.preferredDate),
       preferredTime: it.preferredTime || '',
       betweenScheduleSlot: it.betweenScheduleSlot ?? '',
       preferredTimeDetail: it.preferredTimeDetail || '',
       memo: it.memo || '',
-      teamLeaderId: it.assignments[0]?.teamLeader?.id ?? '',
+      teamLeaderIds:
+        it.assignments.length > 0 ? it.assignments.map((x) => x.teamLeader.id) : [''],
+      crewMemberCount: it.crewMemberCount ?? null,
+      crewMemberNote: it.crewMemberNote ?? '',
       status: it.status,
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
       areaBasis: it.areaBasis || '',
       areaPyeong: it.areaPyeong != null ? String(it.areaPyeong) : '',
       buildingType: it.buildingType || '',
-      moveInDate: it.moveInDate ? it.moveInDate.slice(0, 10) : '',
+      moveInDate: formatPreferredDateInputYmd(it.moveInDate),
       specialNotes: it.specialNotes || '',
       kitchenCount: it.kitchenCount != null ? String(it.kitchenCount) : '',
       amountTotal: a.total != null ? String(a.total) : '',
@@ -320,6 +352,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   }, [item, professionalCatalog]);
 
   const handleSave = async () => {
+    if (!token) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
     if (!editForm.customerName.trim()) {
       alert('성함을 입력해주세요.');
       return;
@@ -332,62 +368,69 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       alert('주소를 입력해주세요.');
       return;
     }
+    const leaderIdsForSave = editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
+    if (leaderIdsForSave.length > 0 && editForm.status === 'PENDING') {
+      alert('대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다.');
+      return;
+    }
     setSaving(true);
     try {
-      const patch = buildPatchFromEditForm(editForm);
+      const patch = buildPatchFromEditForm(editForm) as Record<string, unknown>;
+      patch.teamLeaderIds = leaderIdsForSave;
       if (isCreate) {
         const created = (await createInquiry(token, buildCreatePostBody(editForm))) as { id: string };
         await updateInquiry(token, created.id, patch);
-        if (editForm.teamLeaderId) {
-          await assignInquiry(token, created.id, editForm.teamLeaderId);
-        }
       } else {
         await updateInquiry(token, item!.id, patch);
-        if (editForm.teamLeaderId) {
-          await assignInquiry(token, item!.id, editForm.teamLeaderId);
-        }
       }
-      onSaved();
+      setSaving(false);
       onClose();
+      onSaved();
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
-    } finally {
       setSaving(false);
     }
   };
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] overflow-y-auto overscroll-y-contain bg-black/40 px-4 pb-24 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pb-28 sm:pt-8"
+      className="fixed inset-0 z-[500] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="schedule-detail-title"
     >
-      <div className="relative mx-auto w-full max-w-2xl rounded-lg bg-white p-5 sm:p-6 shadow-xl">
-        <ModalCloseButton onClick={onClose} />
-        <h2
-          id="schedule-detail-title"
-          className="text-lg font-semibold text-gray-800 mb-1 pr-10 sm:pr-12"
-        >
-          {isCreate ? (
-            '신규 접수'
-          ) : (
-            <>
-              접수 수정
-              {item?.inquiryNumber ? (
-                <span className="ml-2 text-base font-normal text-gray-500 tabular-nums">
-                  · {item.inquiryNumber}
-                </span>
-              ) : null}
-            </>
-          )}
-        </h2>
-        <p className="text-sm text-gray-500 mb-4">
-          {isCreate
-            ? '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'
-            : '스케줄에서 연 접수입니다. 수정 후 저장하세요.'}
-        </p>
+      <div
+        className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative shrink-0 border-b border-gray-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
+          <ModalCloseButton onClick={onClose} />
+          <h2
+            id="schedule-detail-title"
+            className="text-lg font-semibold text-gray-800 mb-1 pr-10 sm:pr-12"
+          >
+            {isCreate ? (
+              '신규 접수'
+            ) : (
+              <>
+                접수 수정
+                {item?.inquiryNumber ? (
+                  <span className="ml-2 text-base font-normal text-gray-500 tabular-nums">
+                    · {item.inquiryNumber}
+                  </span>
+                ) : null}
+              </>
+            )}
+          </h2>
+          <p className="text-sm text-gray-500 mb-0">
+            {isCreate
+              ? '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'
+              : '스케줄에서 연 접수입니다. 수정 후 저장하세요.'}
+          </p>
+        </div>
 
+        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6">
         {!isCreate && item && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 border-b border-gray-100 pb-3 mb-4">
             {item.inquiryNumber ? (
@@ -756,26 +799,133 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-gray-600 mb-1">담당 팀장</label>
-            <select
-              value={editForm.teamLeaderId}
-              onChange={(e) => setEditForm((p) => ({ ...p, teamLeaderId: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+          <div className="sm:col-span-2 space-y-2">
+            <label className="block text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
+            {editForm.teamLeaderIds.map((lid, idx) => (
+              <div key={idx} className="flex gap-2 items-center">
+                <select
+                  value={lid}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setEditForm((p) => {
+                      const next = [...p.teamLeaderIds];
+                      next[idx] = v;
+                      return { ...p, teamLeaderIds: next };
+                    });
+                  }}
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-sm"
+                >
+                  <option value="">선택 안 함</option>
+                  {leaderOptionsForRow(idx).map((tl) => (
+                    <option key={tl.id} value={tl.id}>
+                      {tl.name}
+                    </option>
+                  ))}
+                </select>
+                {editForm.teamLeaderIds.length > 1 && (
+                  <button
+                    type="button"
+                    className="shrink-0 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
+                    onClick={() =>
+                      setEditForm((p) => ({
+                        ...p,
+                        teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
+                      }))
+                    }
+                  >
+                    제거
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              className="text-sm text-blue-600 hover:underline"
+              onClick={() =>
+                setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
+              }
             >
-              <option value="">선택 안 함</option>
-              {teamLeaderOptions.map((tl) => (
-                <option key={tl.id} value={tl.id}>
-                  {tl.name}
-                </option>
-              ))}
-            </select>
+              + 추가 팀장
+            </button>
             {assignableLeaderIdsForSlot != null && (
-              <p className="text-xs text-gray-500 mt-1">
-                예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장만 표시합니다. 현재 담당자는
-                항상 유지할 수 있습니다.
+              <p className="text-xs text-gray-500">
+                예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장을 우선 표시합니다. 현재 선택된
+                팀장은 항상 목록에 남습니다.
               </p>
             )}
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-gray-600 mb-1">팀원 투입</label>
+            <p className="text-xs text-gray-500 mb-2">
+              표준은 팀장 1명·팀원 {DEFAULT_CREW_UNITS_PER_INQUIRY}명이 반일(오전 또는 오후) 1건입니다. 미입력 시
+              스케줄·용량 집계는 표준 {DEFAULT_CREW_UNITS_PER_INQUIRY}명으로 봅니다. 평수가 크거나 다팀 투입이면 인원을
+              늘려 주세요.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={editForm.crewMemberCount === null ? '' : String(editForm.crewMemberCount)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEditForm((prev) => ({
+                    ...prev,
+                    crewMemberCount: v === '' ? null : Number(v),
+                  }));
+                }}
+                className="px-3 py-2 border border-gray-300 rounded text-sm min-w-[8rem]"
+              >
+                <option value="">표준({DEFAULT_CREW_UNITS_PER_INQUIRY}명) — 미입력</option>
+                {Array.from({ length: 21 }, (_, i) => (
+                  <option key={i} value={String(i)}>
+                    {i}명(명시)
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1 border border-gray-200 rounded px-1">
+                <button
+                  type="button"
+                  className="px-2 py-1 text-lg leading-none text-gray-700 hover:bg-gray-100 rounded"
+                  aria-label="한 명 줄이기"
+                  onClick={() =>
+                    setEditForm((p) => {
+                      const c = p.crewMemberCount;
+                      if (c === null) return p;
+                      if (c <= DEFAULT_CREW_UNITS_PER_INQUIRY) return { ...p, crewMemberCount: null };
+                      return { ...p, crewMemberCount: c - 1 };
+                    })
+                  }
+                >
+                  −
+                </button>
+                <span className="text-sm text-gray-600 tabular-nums min-w-[3rem] text-center">
+                  {editForm.crewMemberCount === null
+                    ? `표준(${DEFAULT_CREW_UNITS_PER_INQUIRY})`
+                    : `${editForm.crewMemberCount}명`}
+                </span>
+                <button
+                  type="button"
+                  className="px-2 py-1 text-lg leading-none text-gray-700 hover:bg-gray-100 rounded"
+                  aria-label="한 명 늘리기"
+                  onClick={() =>
+                    setEditForm((p) => {
+                      const c = p.crewMemberCount;
+                      if (c === null) return { ...p, crewMemberCount: DEFAULT_CREW_UNITS_PER_INQUIRY + 1 };
+                      return { ...p, crewMemberCount: Math.min(100, c + 1) };
+                    })
+                  }
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-gray-600 mb-1">팀원 수기 (선택)</label>
+            <input
+              value={editForm.crewMemberNote}
+              onChange={(e) => setEditForm((p) => ({ ...p, crewMemberNote: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              placeholder="예: 김, 태"
+            />
           </div>
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
@@ -810,22 +960,32 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </details>
         )}
 
-        <div className="flex gap-2 mt-6">
+        </div>
+
+        <div className="relative z-20 flex shrink-0 gap-2 border-t border-gray-200 bg-white px-5 py-3 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             disabled={saving}
-            onClick={handleSave}
-            className="flex-1 py-2 bg-blue-600 text-white rounded text-sm font-medium disabled:opacity-50"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void handleSave();
+            }}
+            className="min-h-[44px] flex-1 touch-manipulation py-2.5 bg-blue-600 text-white rounded text-sm font-medium disabled:opacity-50 active:bg-blue-700"
           >
             {saving ? (isCreate ? '등록 중…' : '저장 중…') : isCreate ? '등록' : '저장'}
           </button>
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="min-h-[44px] touch-manipulation px-4 py-2.5 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
           >
             닫기
           </button>
+        </div>
         </div>
       </div>
     </div>,

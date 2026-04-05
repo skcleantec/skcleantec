@@ -21,12 +21,44 @@ import {
   parseProfessionalOptionIdsRaw,
 } from '../orderform/specialtyOptions.js';
 import { allocateNextInquiryNumber } from './inquiryNumber.js';
+import {
+  assertCrewCapacityForInquiry,
+  preferredDateYmdKst,
+} from './crewMemberCapacity.helpers.js';
+
+function normalizeTeamLeaderIds(raw: unknown): string[] {
+  if (raw == null) return [];
+  if (typeof raw === 'string') {
+    const id = raw.trim();
+    return id ? [id] : [];
+  }
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const x of raw) {
+    const id = typeof x === 'string' ? x.trim() : String(x ?? '').trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+function canMarketerAssignInquiry(
+  inquiry: { createdById: string | null; orderForm: { createdById: string } | null },
+  marketerId: string
+): boolean {
+  if (inquiry.createdById === marketerId) return true;
+  if (inquiry.createdById == null && inquiry.orderForm?.createdById === marketerId) return true;
+  return false;
+}
 
 const router = Router();
 
 const inquiryDetailInclude = {
   createdBy: { select: { id: true, name: true } },
   assignments: {
+    orderBy: { sortOrder: 'asc' as const },
     include: { teamLeader: { select: { id: true, name: true } } },
   },
   orderForm: {
@@ -111,6 +143,7 @@ router.get('/', async (req, res) => {
   const listInclude = {
     createdBy: { select: { id: true, name: true } },
     assignments: {
+      orderBy: { sortOrder: 'asc' as const },
       include: { teamLeader: { select: { id: true, name: true } } },
     },
     orderForm: {
@@ -163,11 +196,83 @@ router.patch('/:id', async (req, res) => {
       return;
     }
   }
+
+  /** 클라이언트가 teamLeaderIds를 보낸 경우에만 분배(Assignment) 동기화 — 배열이 아닌 형태도 normalize에서 처리 */
+  const wantsTeamSync = Object.prototype.hasOwnProperty.call(body, 'teamLeaderIds');
+  const teamLeaderIds = normalizeTeamLeaderIds(body.teamLeaderIds);
+  if (wantsTeamSync) {
+    if (user.role === 'MARKETER' && !canMarketerAssignInquiry(inquiry, user.userId)) {
+      res.status(403).json({ error: '본인이 접수한 건만 분배할 수 있습니다.' });
+      return;
+    }
+    if (teamLeaderIds.length > 0 && inquiry.status === 'PENDING') {
+      res.status(400).json({
+        error:
+          '대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다. 발주서 제출 후 접수로 바뀌면 분배할 수 있습니다.',
+      });
+      return;
+    }
+    if (teamLeaderIds.length > 0) {
+      const ok = await prisma.user.count({
+        where: { id: { in: teamLeaderIds }, role: 'TEAM_LEADER', isActive: true },
+      });
+      if (ok !== teamLeaderIds.length) {
+        res.status(400).json({ error: '유효한 팀장 계정을 찾을 수 없습니다.' });
+        return;
+      }
+    }
+  }
+
   const data = buildInquiryPatchData(body);
   if (body.professionalOptionIds !== undefined) {
     const raw = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
     data.professionalOptionIds = await filterExistingProfessionalOptionIds(prisma, raw);
   }
+  if (data.crewMemberCount !== undefined && data.crewMemberCount !== null) {
+    const n = Number(data.crewMemberCount);
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      res.status(400).json({ error: '팀원 인원은 0~100 사이로 입력해주세요.' });
+      return;
+    }
+  }
+
+  const mergedPreferredDate =
+    data.preferredDate !== undefined
+      ? (data.preferredDate as Date | null)
+      : inquiry.preferredDate;
+  const mergedCrew =
+    data.crewMemberCount !== undefined
+      ? (data.crewMemberCount as number | null)
+      : inquiry.crewMemberCount;
+  const mergedStatus = data.status !== undefined ? (data.status as InquiryStatus) : inquiry.status;
+
+  /** 팀원 용량 검사: 예약일·팀원 수가 실제로 바뀔 때만 (같은 날 팀장만 수정하는 PATCH는 제외) */
+  const preferredDateKstChanged =
+    data.preferredDate !== undefined &&
+    preferredDateYmdKst(mergedPreferredDate) !== preferredDateYmdKst(inquiry.preferredDate);
+  const crewMemberCountChanged =
+    data.crewMemberCount !== undefined &&
+    (mergedCrew ?? null) !== (inquiry.crewMemberCount ?? null);
+
+  if (mergedStatus !== 'CANCELLED' && mergedPreferredDate) {
+    const capacityRelevant =
+      preferredDateKstChanged ||
+      crewMemberCountChanged ||
+      (data.status !== undefined && inquiry.status === 'CANCELLED');
+    if (capacityRelevant) {
+      const cap = await assertCrewCapacityForInquiry({
+        prisma,
+        preferredDate: mergedPreferredDate,
+        crewMemberCount: mergedCrew ?? null,
+        excludeInquiryId: id,
+      });
+      if (!cap.ok) {
+        res.status(400).json({ error: cap.error });
+        return;
+      }
+    }
+  }
+
   const mergedTime =
     data.preferredTime !== undefined
       ? String(data.preferredTime)
@@ -179,7 +284,12 @@ router.patch('/:id', async (req, res) => {
     res.status(400).json({ error: '사이청소 접수만 오전/오후 일정을 확정할 수 있습니다.' });
     return;
   }
-  if (Object.keys(data).length === 0) {
+
+  if (wantsTeamSync && teamLeaderIds.length > 0 && data.status === undefined) {
+    data.status = 'ASSIGNED';
+  }
+
+  if (Object.keys(data).length === 0 && !wantsTeamSync) {
     const unchanged = await prisma.inquiry.findUnique({
       where: { id },
       include: inquiryDetailInclude,
@@ -187,6 +297,7 @@ router.patch('/:id', async (req, res) => {
     res.json(unchanged);
     return;
   }
+
   const beforeSnap = {
     preferredDate: inquiry.preferredDate,
     serviceTotalAmount: inquiry.serviceTotalAmount,
@@ -208,18 +319,39 @@ router.patch('/:id', async (req, res) => {
     lines.push(`사이청소 일정 확정: ${fmtBetween(inquiry.betweenScheduleSlot)} → ${fmtBetween(mergedBetween)}`);
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.inquiry.update({ where: { id }, data });
-    if (lines.length > 0) {
-      await tx.inquiryChangeLog.create({
-        data: {
-          inquiryId: id,
-          actorId: user?.userId ?? null,
-          lines,
-        },
-      });
-    }
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (Object.keys(data).length > 0) {
+        await tx.inquiry.update({ where: { id }, data });
+      }
+      if (wantsTeamSync) {
+        await tx.assignment.deleteMany({ where: { inquiryId: id } });
+        if (teamLeaderIds.length > 0) {
+          await tx.assignment.createMany({
+            data: teamLeaderIds.map((teamLeaderId, sortOrder) => ({
+              inquiryId: id,
+              teamLeaderId,
+              assignedById: user.userId,
+              sortOrder,
+            })),
+          });
+        }
+      }
+      if (lines.length > 0) {
+        await tx.inquiryChangeLog.create({
+          data: {
+            inquiryId: id,
+            actorId: user?.userId ?? null,
+            lines,
+          },
+        });
+      }
+    });
+  } catch (e) {
+    console.error('PATCH inquiry transaction:', e);
+    res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
+    return;
+  }
 
   const updated = await prisma.inquiry.findUnique({
     where: { id },
@@ -247,6 +379,31 @@ router.post('/', async (req, res) => {
       ? (rawStatus as InquiryStatus)
       : 'RECEIVED';
 
+  let crewMemberCount: number | null = null;
+  if (body.crewMemberCount !== undefined && body.crewMemberCount !== null && body.crewMemberCount !== '') {
+    const n = Number(body.crewMemberCount);
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      res.status(400).json({ error: '팀원 인원은 0~100 사이로 입력해주세요.' });
+      return;
+    }
+    crewMemberCount = Math.floor(n);
+  }
+
+  const preferredDate = body.preferredDate ? new Date(body.preferredDate as string) : null;
+
+  if (status !== 'CANCELLED' && preferredDate) {
+    const cap = await assertCrewCapacityForInquiry({
+      prisma,
+      preferredDate,
+      crewMemberCount,
+      excludeInquiryId: undefined,
+    });
+    if (!cap.ok) {
+      res.status(400).json({ error: cap.error });
+      return;
+    }
+  }
+
   const inquiry = await prisma.$transaction(async (tx) => {
     const inquiryNumber = await allocateNextInquiryNumber(tx);
     return tx.inquiry.create({
@@ -264,13 +421,14 @@ router.post('/', async (req, res) => {
         roomCount: body.roomCount != null ? Number(body.roomCount) : null,
         bathroomCount: body.bathroomCount != null ? Number(body.bathroomCount) : null,
         balconyCount: body.balconyCount != null ? Number(body.balconyCount) : null,
-        preferredDate: body.preferredDate ? new Date(body.preferredDate as string) : null,
+        preferredDate,
         preferredTime: body.preferredTime ? String(body.preferredTime) : null,
         preferredTimeDetail: body.preferredTimeDetail ? String(body.preferredTimeDetail) : null,
         callAttempt: body.callAttempt != null ? Number(body.callAttempt) : null,
         memo: body.memo ? String(body.memo) : null,
         source: body.source ? String(body.source) : '전화',
         status,
+        crewMemberCount,
       },
     });
   });

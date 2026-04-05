@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
@@ -12,7 +12,6 @@ import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
-import { assignInquiry } from '../../api/assignments';
 import { getTeamLeaders, getUsers, type UserItem } from '../../api/users';
 import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
@@ -22,6 +21,7 @@ import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
@@ -115,6 +115,8 @@ interface InquiryItem {
   callAttempt?: number | null;
   createdAt: string;
   assignments: Array<{ teamLeader: { id: string; name: string } }>;
+  crewMemberCount?: number | null;
+  crewMemberNote?: string | null;
   /** 접수를 등록한 마케터(개별 접수·POST 시 설정) */
   createdBy?: { id: string; name: string } | null;
   orderForm?: {
@@ -128,6 +130,15 @@ interface InquiryItem {
   serviceDepositAmount?: number | null;
   serviceBalanceAmount?: number | null;
   changeLogs?: InquiryChangeLogEntry[];
+}
+
+function formatInquiryTeamSummary(item: InquiryItem): string {
+  const names = item.assignments.map((a) => a.teamLeader.name).join('·');
+  const parts: string[] = [];
+  parts.push(names || '미배정');
+  parts.push(`팀원${item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY}명`);
+  if (item.crewMemberNote?.trim()) parts.push(item.crewMemberNote.trim());
+  return parts.join(' · ');
 }
 
 /** 목록·상세: 접수자 표시 — Inquiry.createdBy 우선, 구데이터는 발주서 작성자 */
@@ -179,7 +190,9 @@ export function AdminInquiriesPage() {
     preferredTime: '',
     preferredTimeDetail: '',
     memo: '',
-    teamLeaderId: '',
+    teamLeaderIds: [''] as string[],
+    crewMemberCount: null as number | null,
+    crewMemberNote: '',
     status: '',
     customerPhone2: '',
     propertyType: '',
@@ -214,6 +227,16 @@ export function AdminInquiriesPage() {
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
   const [marketerFilterId, setMarketerFilterId] = useState('');
+
+  const leaderOptionsForRow = useMemo(() => {
+    return (rowIndex: number) => {
+      const curId = editForm.teamLeaderIds[rowIndex] ?? '';
+      const otherSelected = new Set(
+        editForm.teamLeaderIds.filter((lid, i) => i !== rowIndex && lid.trim() !== '')
+      );
+      return teamLeaders.filter((t) => !otherSelected.has(t.id) || t.id === curId);
+    };
+  }, [teamLeaders, editForm.teamLeaderIds]);
 
   useEffect(() => {
     const pd = searchParams.get('preferredDate');
@@ -373,7 +396,7 @@ export function AdminInquiriesPage() {
     }
     setAssigningId(inquiryId);
     try {
-      await assignInquiry(token, inquiryId, teamLeaderId);
+      await updateInquiry(token, inquiryId, { teamLeaderIds: [teamLeaderId] });
       refresh(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : '분배에 실패했습니다.');
@@ -397,7 +420,10 @@ export function AdminInquiriesPage() {
       preferredTime: item.preferredTime || '',
       preferredTimeDetail: item.preferredTimeDetail || '',
       memo: item.memo || '',
-      teamLeaderId: item.assignments[0]?.teamLeader?.id ?? '',
+      teamLeaderIds:
+        item.assignments.length > 0 ? item.assignments.map((a) => a.teamLeader.id) : [''],
+      crewMemberCount: item.crewMemberCount ?? null,
+      crewMemberNote: item.crewMemberNote ?? '',
       status: item.status,
       customerPhone2: item.customerPhone2 || '',
       propertyType: item.propertyType || '',
@@ -449,7 +475,11 @@ export function AdminInquiriesPage() {
   };
 
   const handleSaveEdit = async () => {
-    if (!token || !editItem) return;
+    if (!editItem) return;
+    if (!token) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
     setSaving(true);
     try {
       const parseWon = (s: string) => {
@@ -531,10 +561,26 @@ export function AdminInquiriesPage() {
         setSaving(false);
         return;
       }
-      await updateInquiry(token, editItem.id, patch);
-      if (editForm.teamLeaderId && editForm.status !== 'PENDING') {
-        await assignInquiry(token, editItem.id, editForm.teamLeaderId);
+      const ids = editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
+      if (ids.length > 0 && editForm.status === 'PENDING') {
+        alert('대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다.');
+        setSaving(false);
+        return;
       }
+      if (editForm.crewMemberCount !== null) {
+        const c = editForm.crewMemberCount;
+        if (!Number.isFinite(c) || c < 0 || c > 100) {
+          alert('팀원 인원은 0~100 사이로 입력해주세요.');
+          setSaving(false);
+          return;
+        }
+        patch.crewMemberCount = Math.floor(c);
+      } else {
+        patch.crewMemberCount = null;
+      }
+      patch.crewMemberNote = editForm.crewMemberNote.trim() || null;
+      patch.teamLeaderIds = ids;
+      await updateInquiry(token, editItem.id, patch);
       setEditItem(null);
       refresh(true);
     } catch (err) {
@@ -881,6 +927,12 @@ export function AdminInquiriesPage() {
                       </select>
                     </td>
                     <td className={`py-2 px-2 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className="text-[10px] text-gray-600 leading-snug mb-1 max-w-[140px] line-clamp-2"
+                        title={formatInquiryTeamSummary(item)}
+                      >
+                        {formatInquiryTeamSummary(item)}
+                      </div>
                       <select
                         value={item.assignments[0]?.teamLeader?.id ?? ''}
                         onChange={(e) => {
@@ -891,7 +943,7 @@ export function AdminInquiriesPage() {
                         title={item.status === 'PENDING' ? '대기 건은 발주서 제출 후 분배할 수 있습니다.' : undefined}
                         className="px-2 py-1 border border-gray-300 rounded text-fluid-xs min-w-[70px]"
                       >
-                        <option value="">선택</option>
+                        <option value="">빠른 배정(1명)</option>
                         {teamLeaders.map((tl) => (
                           <option key={tl.id} value={tl.id}>{tl.name}</option>
                         ))}
@@ -997,12 +1049,17 @@ export function AdminInquiriesPage() {
       {editItem &&
         createPortal(
           <div
-            className="fixed inset-0 z-[200] overflow-y-auto overscroll-y-contain bg-black/40 px-4 pb-24 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pb-28 sm:pt-8"
+            className="fixed inset-0 z-[500] flex items-end justify-center p-0 sm:items-center sm:p-4"
             role="dialog"
             aria-modal="true"
             aria-labelledby="inquiry-edit-title"
           >
-            <div className="relative mx-auto w-full max-w-2xl rounded-lg bg-white p-5 sm:p-6 shadow-xl">
+            <div className="absolute inset-0 bg-black/40" aria-hidden />
+            <div
+              className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+            <div className="relative shrink-0 border-b border-gray-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
             <ModalCloseButton onClick={() => setEditItem(null)} />
             <h2 id="inquiry-edit-title" className="text-lg font-semibold text-gray-800 mb-1 pr-10 sm:pr-12">
               접수 수정
@@ -1028,6 +1085,9 @@ export function AdminInquiriesPage() {
               )}
             </div>
 
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
               <div className="sm:col-span-2">
                 <label className="block text-fluid-sm text-gray-600 mb-1">상태</label>
@@ -1280,20 +1340,126 @@ export function AdminInquiriesPage() {
                   inputMode="numeric"
                 />
               </div>
-              <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">담당 팀장</label>
-                <select
-                  value={editForm.teamLeaderId}
-                  onChange={(e) => setEditForm((p) => ({ ...p, teamLeaderId: e.target.value }))}
+              <div className="sm:col-span-2 space-y-2">
+                <label className="block text-fluid-sm text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
+                {editForm.teamLeaderIds.map((lid, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <select
+                      value={lid}
+                      disabled={editForm.status === 'PENDING'}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setEditForm((p) => {
+                          const next = [...p.teamLeaderIds];
+                          next[idx] = v;
+                          return { ...p, teamLeaderIds: next };
+                        });
+                      }}
+                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-fluid-sm disabled:bg-gray-100"
+                    >
+                      <option value="">선택 안 함</option>
+                      {leaderOptionsForRow(idx).map((tl) => (
+                        <option key={tl.id} value={tl.id}>
+                          {tl.name}
+                        </option>
+                      ))}
+                    </select>
+                    {editForm.teamLeaderIds.length > 1 && (
+                      <button
+                        type="button"
+                        className="shrink-0 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded"
+                        onClick={() =>
+                          setEditForm((p) => ({
+                            ...p,
+                            teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
+                          }))
+                        }
+                      >
+                        제거
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="text-sm text-blue-600 hover:underline"
                   disabled={editForm.status === 'PENDING'}
-                  title={editForm.status === 'PENDING' ? '대기 건은 발주서 제출 후 분배할 수 있습니다.' : undefined}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm disabled:bg-gray-100 disabled:text-gray-500"
+                  onClick={() =>
+                    setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
+                  }
                 >
-                  <option value="">선택 안 함</option>
-                  {teamLeaders.map((tl) => (
-                    <option key={tl.id} value={tl.id}>{tl.name}</option>
-                  ))}
-                </select>
+                  + 추가 팀장
+                </button>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-fluid-sm text-gray-600 mb-1">팀원 투입</label>
+                <p className="text-fluid-xs text-gray-500 mb-2">
+                  표준: 팀장 1·팀원 {DEFAULT_CREW_UNITS_PER_INQUIRY}명이 반일 1건. 미입력 시 집계는 표준{' '}
+                  {DEFAULT_CREW_UNITS_PER_INQUIRY}명. 평수·다팀은 인원을 조정하세요.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={editForm.crewMemberCount === null ? '' : String(editForm.crewMemberCount)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setEditForm((p) => ({
+                        ...p,
+                        crewMemberCount: v === '' ? null : Number(v),
+                      }));
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded text-fluid-sm min-w-[8rem]"
+                  >
+                    <option value="">표준({DEFAULT_CREW_UNITS_PER_INQUIRY}명) — 미입력</option>
+                    {Array.from({ length: 21 }, (_, i) => (
+                      <option key={i} value={String(i)}>
+                        {i}명(명시)
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-1 border border-gray-200 rounded px-1">
+                    <button
+                      type="button"
+                      className="px-2 py-1 text-lg leading-none text-gray-700 hover:bg-gray-100 rounded"
+                      onClick={() =>
+                        setEditForm((p) => {
+                          const c = p.crewMemberCount;
+                          if (c === null) return p;
+                          if (c <= DEFAULT_CREW_UNITS_PER_INQUIRY) return { ...p, crewMemberCount: null };
+                          return { ...p, crewMemberCount: c - 1 };
+                        })
+                      }
+                    >
+                      −
+                    </button>
+                    <span className="text-sm text-gray-600 tabular-nums min-w-[3rem] text-center">
+                      {editForm.crewMemberCount === null
+                        ? `표준(${DEFAULT_CREW_UNITS_PER_INQUIRY})`
+                        : `${editForm.crewMemberCount}명`}
+                    </span>
+                    <button
+                      type="button"
+                      className="px-2 py-1 text-lg leading-none text-gray-700 hover:bg-gray-100 rounded"
+                      onClick={() =>
+                        setEditForm((p) => {
+                          const c = p.crewMemberCount;
+                          if (c === null) return { ...p, crewMemberCount: DEFAULT_CREW_UNITS_PER_INQUIRY + 1 };
+                          return { ...p, crewMemberCount: Math.min(100, c + 1) };
+                        })
+                      }
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-fluid-sm text-gray-600 mb-1">팀원 수기 (선택)</label>
+                <input
+                  value={editForm.crewMemberNote}
+                  onChange={(e) => setEditForm((p) => ({ ...p, crewMemberNote: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  placeholder="예: 김, 태"
+                />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-fluid-sm text-gray-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
@@ -1327,19 +1493,21 @@ export function AdminInquiriesPage() {
               </div>
             </details>
 
-            <div className="flex gap-2 mt-6">
+            </div>
+
+            <div className="relative z-20 flex shrink-0 gap-2 border-t border-gray-200 bg-white px-5 py-3 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
-                onClick={handleSaveEdit}
+                onClick={() => void handleSaveEdit()}
                 disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white rounded text-fluid-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                className="min-h-[44px] flex-1 touch-manipulation px-4 py-2.5 bg-blue-600 text-white rounded text-fluid-sm font-medium hover:bg-blue-700 disabled:opacity-50"
               >
                 {saving ? '저장 중...' : '저장'}
               </button>
               <button
                 type="button"
                 onClick={() => setEditItem(null)}
-                className="px-4 py-2 border border-gray-300 rounded text-fluid-sm font-medium hover:bg-gray-50"
+                className="min-h-[44px] touch-manipulation px-4 py-2.5 border border-gray-300 rounded text-fluid-sm font-medium hover:bg-gray-50"
               >
                 취소
               </button>

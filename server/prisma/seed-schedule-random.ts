@@ -117,6 +117,7 @@ async function main() {
           inquiryId: inquiry.id,
           teamLeaderId: teamLeader.id,
           assignedById: admin.id,
+          sortOrder: 0,
         },
       });
     });

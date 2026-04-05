@@ -18,6 +18,7 @@ router.get('/inquiries', async (req, res) => {
     orderBy: { preferredDate: 'asc' },
     include: {
       assignments: {
+        orderBy: { sortOrder: 'asc' },
         include: { teamLeader: { select: { id: true, name: true } } },
       },
     },
@@ -45,6 +46,7 @@ router.get('/schedule', async (req, res) => {
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     include: {
       assignments: {
+        orderBy: { sortOrder: 'asc' },
         include: { teamLeader: { select: { id: true, name: true } } },
       },
     },

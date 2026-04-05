@@ -1,16 +1,58 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getSchedule, type ScheduleItem } from '../../api/schedule';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  getSchedule,
+  postScheduleDayClosure,
+  deleteScheduleDayClosure,
+  type ScheduleItem,
+} from '../../api/schedule';
+import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
+import { getMe } from '../../api/auth';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getTeamLeaders, type UserItem } from '../../api/users';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
-import { formatDateCompactWithWeekday, weekdayKoFromYmd } from '../../utils/dateFormat';
+import {
+  formatDateCompactWithWeekday,
+  formatPreferredDateInputYmd,
+  weekdayKoFromYmd,
+} from '../../utils/dateFormat';
 import { getScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
+import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function groupScheduleItemsByKstDate(items: ScheduleItem[]) {
+  return items.reduce<Record<string, ScheduleItem[]>>((acc, item) => {
+    const key = item.preferredDate
+      ? formatPreferredDateInputYmd(item.preferredDate) || 'no-date'
+      : 'no-date';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+}
+
+/** 데이터 로드 직후: 달력에서 우측 목록이 비지 않도록 기본 선택 */
+function pickDefaultSelectedDate(
+  year: number,
+  month: number,
+  byDate: Record<string, ScheduleItem[]>
+): string | null {
+  const keys = Object.keys(byDate).filter((k) => k !== 'no-date').sort();
+  if (keys.length === 0) return null;
+  const now = new Date();
+  if (now.getFullYear() === year && now.getMonth() + 1 === month) {
+    const d = String(now.getDate()).padStart(2, '0');
+    const m = String(month).padStart(2, '0');
+    const todayKey = `${year}-${m}-${d}`;
+    if ((byDate[todayKey]?.length ?? 0) > 0) return todayKey;
+  }
+  return keys[0] ?? null;
+}
 
 function toDateKey(d: Date): string {
   const y = d.getFullYear();
@@ -68,10 +110,12 @@ function ScheduleDayListItem({
   item,
   profCatalog,
   onPick,
+  onOpenMemo,
 }: {
   item: ScheduleItem;
   profCatalog: ProfessionalSpecialtyOptionDto[];
   onPick: () => void;
+  onOpenMemo: () => void;
 }) {
   const isPending = item.status === 'PENDING';
   const bucket = getScheduleTimeBucket(item);
@@ -89,15 +133,24 @@ function ScheduleDayListItem({
         : 'bg-violet-100 text-violet-950 border border-violet-300';
   const slotLabelShort =
     bucket === 'morning' ? '오전' : bucket === 'afternoon' ? '오후' : '기타';
-  const timeTeamLine = `${slotLabelShort} · ${item.assignments[0]?.teamLeader?.name ?? '미배정'}`;
+  const leaderCrewLine = (() => {
+    const names = item.assignments.map((a) => a.teamLeader.name).join('·');
+    const parts: string[] = [];
+    parts.push(names || '미배정');
+    const crewN = item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY;
+    parts.push(`팀원${crewN}명`);
+    if (item.crewMemberNote?.trim()) parts.push(item.crewMemberNote.trim());
+    return parts.join(' · ');
+  })();
+  const timeTeamLine = `${slotLabelShort} · ${leaderCrewLine}`;
+  const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';
+  const hasScheduleMemo = Boolean(scheduleMemoLine);
 
   return (
-    <button
-      type="button"
-      onClick={onPick}
-      className={`text-left w-full py-1.5 px-2 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm text-fluid-sm ${slotAccent} ${
+    <div
+      className={`text-left w-full py-1.5 pl-2 pr-1 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm text-fluid-sm ${slotAccent} ${
         isPending ? 'ring-1 ring-red-500' : ''
-      } hover:brightness-[0.99]`}
+      }`}
     >
       <span
         className={`shrink-0 self-center inline-flex items-center justify-center min-w-[2.25rem] px-1 py-0.5 text-fluid-2xs font-bold leading-none rounded ${slotBadgeClass}`}
@@ -105,30 +158,62 @@ function ScheduleDayListItem({
         {slotLabelShort}
       </span>
       <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-        <div className="flex items-center justify-between gap-1.5 min-w-0">
-          <span className="font-medium text-gray-900 min-w-0 inline-flex items-center gap-1.5 flex-wrap">
-            <span className="truncate">{item.customerName}</span>
-            {item.inquiryNumber ? (
-              <span className="text-[10px] sm:text-fluid-2xs font-normal text-gray-400 tabular-nums shrink-0">
-                {item.inquiryNumber}
+        <div className="flex items-center gap-1 min-w-0">
+          <button
+            type="button"
+            onClick={onPick}
+            className="min-w-0 flex-1 text-left font-medium text-gray-900 inline-flex items-center gap-1.5 flex-wrap"
+          >
+            <span className="truncate min-w-0">{item.customerName}</span>
+            {(item.inquiryNumber || hasScheduleMemo) && (
+              <span className="inline-flex items-center gap-0.5 flex-nowrap shrink-0 text-[10px] sm:text-fluid-2xs font-normal">
+                {item.inquiryNumber ? (
+                  <span className="text-gray-400 tabular-nums leading-none shrink-0">{item.inquiryNumber}</span>
+                ) : null}
+                {hasScheduleMemo ? (
+                  <span
+                    className="text-[9px] sm:text-[10px] leading-none font-medium text-gray-800 bg-white/80 border border-gray-200/90 rounded px-1 py-px max-w-[min(10rem,38vw)] truncate shadow-sm"
+                    title={scheduleMemoLine}
+                  >
+                    {scheduleMemoLine}
+                  </span>
+                ) : null}
               </span>
-            ) : null}
-            <ProfessionalOptionDots rawIds={item.professionalOptionIds} catalog={profCatalog} />
-          </span>
+            )}
+            <span className="shrink-0 inline-flex">
+              <ProfessionalOptionDots rawIds={item.professionalOptionIds} catalog={profCatalog} />
+            </span>
+          </button>
           {isPending && (
             <span className="text-fluid-2xs font-semibold text-red-700 shrink-0">대기</span>
           )}
+          <button
+            type="button"
+            onClick={onOpenMemo}
+            className={`shrink-0 px-1.5 py-0.5 text-[10px] sm:text-fluid-2xs font-medium rounded border tabular-nums ${
+              hasScheduleMemo
+                ? 'border-blue-400 bg-blue-50 text-blue-900 hover:bg-blue-100'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+            title="메모"
+          >
+            메모
+          </button>
         </div>
-        <p className="text-fluid-xs text-gray-600 leading-snug truncate">
+        <button
+          type="button"
+          onClick={onPick}
+          className="text-left w-full text-fluid-xs text-gray-600 leading-snug truncate hover:brightness-[0.99]"
+        >
           {shortSiGuFromAddress(item.address)}
           {item.areaPyeong != null && item.areaPyeong > 0
             ? ` / ${formatPyeongDisplay(item.areaPyeong)}`
             : ''}
           <span className="text-gray-400"> · </span>
           {timeTeamLine}
-        </p>
+        </button>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -171,6 +256,17 @@ function isTodayYmd(year: number, month: number, day: number): boolean {
   return t.getFullYear() === year && t.getMonth() + 1 === month && t.getDate() === day;
 }
 
+function isFullDayClosure(s: ScheduleStatsByDate | undefined): boolean {
+  if (!s) return false;
+  if (s.closureScope === 'FULL') return true;
+  if (s.closureScope === 'MORNING' || s.closureScope === 'AFTERNOON') return false;
+  return Boolean(s.manualClosed);
+}
+
+function hasScheduleClosure(s: ScheduleStatsByDate | undefined): boolean {
+  return Boolean(s?.closureScope) || Boolean(s?.manualClosed);
+}
+
 export function AdminSchedulePage() {
   const token = getToken();
   const now = new Date();
@@ -182,35 +278,82 @@ export function AdminSchedulePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<ScheduleItem | null>(null);
+  const [memoModalItem, setMemoModalItem] = useState<ScheduleItem | null>(null);
   /** 신규 접수 모달 — 선택한 캘린더 날짜로 예약일 고정 */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
+  const [meRole, setMeRole] = useState<string | null>(null);
+  const [closureBusy, setClosureBusy] = useState(false);
+  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [closureModalOpen, setClosureModalOpen] = useState(false);
+  const fetchGenRef = useRef(0);
 
   const fetchMonthData = useCallback(
-    (showLoading: boolean) => {
-      if (!token) return Promise.resolve();
+    async (showLoading: boolean) => {
+      if (!token) {
+        if (showLoading) setLoading(false);
+        return;
+      }
+      const rid = ++fetchGenRef.current;
       if (showLoading) setLoading(true);
       const { start, end } = getMonthRange(year, month);
-      return Promise.all([
-        getSchedule(token, start, end),
-        getScheduleStats(token, start, end),
-      ])
-        .then(([scheduleRes, statsRes]) => {
-          setItems(scheduleRes.items);
-          setStats(statsRes.byDate);
-          setLoadError(null);
-        })
-        .catch((err) => {
-          setItems([]);
-          setStats({});
-          setLoadError(err instanceof Error ? err.message : '스케줄을 불러오지 못했습니다.');
-        })
-        .finally(() => {
-          if (showLoading) setLoading(false);
+      setLoadError(null);
+
+      let scheduleErr: string | null = null;
+      let statsErr: string | null = null;
+
+      try {
+        const scheduleRes = await getSchedule(token, start, end);
+        if (rid !== fetchGenRef.current) return;
+        setItems(scheduleRes.items);
+        const grouped = groupScheduleItemsByKstDate(scheduleRes.items);
+        setSelectedDate((prev) => {
+          if (prev != null) return prev;
+          return pickDefaultSelectedDate(year, month, grouped);
         });
+      } catch (e) {
+        if (rid !== fetchGenRef.current) return;
+        setItems([]);
+        scheduleErr = e instanceof Error ? e.message : '스케줄을 불러오지 못했습니다.';
+      }
+
+      try {
+        const statsRes = await getScheduleStats(token, start, end);
+        if (rid !== fetchGenRef.current) return;
+        setStats(statsRes.byDate);
+      } catch {
+        if (rid !== fetchGenRef.current) return;
+        setStats({});
+        statsErr = '스케줄 현황(통계)을 불러오지 못했습니다. 접수 목록은 표시됩니다.';
+      }
+
+      if (rid !== fetchGenRef.current) return;
+      if (scheduleErr && statsErr) setLoadError(`${scheduleErr} ${statsErr}`);
+      else if (scheduleErr) setLoadError(scheduleErr);
+      else if (statsErr) setLoadError(statsErr);
+      else setLoadError(null);
+
+      if (showLoading) setLoading(false);
     },
     [token, year, month]
+  );
+
+  const submitClosure = useCallback(
+    async (scope: 'FULL' | 'MORNING' | 'AFTERNOON') => {
+      if (!token || !selectedDate) return;
+      setClosureBusy(true);
+      try {
+        await postScheduleDayClosure(token, selectedDate, scope);
+        setClosureModalOpen(false);
+        await fetchMonthData(false);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : '일정 마감 처리에 실패했습니다.');
+      } finally {
+        setClosureBusy(false);
+      }
+    },
+    [token, selectedDate, fetchMonthData]
   );
 
   useEffect(() => {
@@ -219,9 +362,28 @@ export function AdminSchedulePage() {
     });
   }, [fetchMonthData]);
 
+  const prevYearMonthRef = useRef<{ y: number; m: number } | null>(null);
+  useEffect(() => {
+    const prev = prevYearMonthRef.current;
+    if (prev != null && (prev.y !== year || prev.m !== month)) {
+      setSelectedDate(null);
+    }
+    prevYearMonthRef.current = { y: year, m: month };
+  }, [year, month]);
+
   useEffect(() => {
     if (!token) return;
     getTeamLeaders(token).then(setTeamLeaders).catch(() => setTeamLeaders([]));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      setMeRole(null);
+      return;
+    }
+    getMe(token)
+      .then((u: { role?: string }) => setMeRole(typeof u.role === 'string' ? u.role : null))
+      .catch(() => setMeRole(null));
   }, [token]);
 
   useEffect(() => {
@@ -231,12 +393,7 @@ export function AdminSchedulePage() {
       .catch(() => setProfCatalog([]));
   }, [token]);
 
-  const byDate = items.reduce<Record<string, ScheduleItem[]>>((acc, item) => {
-    const key = item.preferredDate ? item.preferredDate.slice(0, 10) : 'no-date';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {});
+  const byDate = groupScheduleItemsByKstDate(items);
 
   const calendarDays = getCalendarDays(year, month);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -344,7 +501,9 @@ export function AdminSchedulePage() {
               </span>
             </div>
             <p className="mt-2 text-fluid-2xs text-gray-500 border-t border-gray-200/80 pt-2">
-              오전·오후 숫자는 남은 청소 가능 자리(휴무 반영)입니다. 사이는 발주서 옵션 접수 건수이며, 확정 시 오전/오후 중 하나를 사용합니다.
+              오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다.
+              표준 접수는 팀원 {DEFAULT_CREW_UNITS_PER_INQUIRY}명 단위로 집계합니다. 사이는 발주서 옵션 건수이며 확정 시
+              오전 또는 오후 한 칸을 씁니다.
             </p>
           </div>
 
@@ -392,7 +551,9 @@ export function AdminSchedulePage() {
                     morningRem > 0 ||
                     afternoonRem > 0 ||
                     sideUnconfirmed > 0);
-                const isSlotFull = workingCount > 0 && morningRem === 0 && afternoonRem === 0;
+                const isSlotFull =
+                  Boolean(dayStats && isFullDayClosure(dayStats)) ||
+                  (workingCount > 0 && morningRem === 0 && afternoonRem === 0);
                 const weekdayColor =
                   isHoliday || isSunday ? 'text-rose-600' : isSaturday ? 'text-slate-600' : 'text-gray-500';
                 const pendingAccent = pendingDayCount > 0 && !isSelected;
@@ -461,7 +622,7 @@ export function AdminSchedulePage() {
                           {morningRem}
                         </span>
                       </div>
-                      <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
+                        <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
                         <span className={isSlotFull ? 'text-slate-600 font-medium text-calendar-2xs' : 'text-sky-800 font-medium text-calendar-2xs'}>
                           오후
                         </span>
@@ -473,6 +634,29 @@ export function AdminSchedulePage() {
                           {afternoonRem}
                         </span>
                       </div>
+                      {dayStats &&
+                        (dayStats.crewRemaining != null || dayStats.additionalStandardJobsByCrew != null) && (
+                          <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0 pt-0.5 border-t border-gray-200/80 mt-0.5">
+                            <span
+                              className={
+                                isSlotFull
+                                  ? 'text-slate-600 font-medium text-calendar-2xs'
+                                  : 'text-emerald-900 font-medium text-calendar-2xs'
+                              }
+                              title="휴무 반영 활성 팀원 기준 잔여(명). 표준 접수는 팀원 2명 단위로 집계합니다."
+                            >
+                              팀원
+                            </span>
+                            <span
+                              className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
+                                isSlotFull ? 'text-slate-800' : 'text-emerald-950'
+                              }`}
+                              title={`휴무 ${dayStats.crewDayOffCount ?? 0}명 · 잔여 ${dayStats.crewRemaining ?? 0}명 · 표준(2명) 접수 약 ${dayStats.additionalStandardJobsByCrew ?? 0}건 가능`}
+                            >
+                              {dayStats.crewRemaining ?? 0}
+                            </span>
+                          </div>
+                        )}
                       <div
                         className={`flex flex-col gap-0.5 border-t pt-1 mt-0.5 ${
                           isSlotFull ? 'border-slate-200' : 'border-gray-200/90'
@@ -539,16 +723,75 @@ export function AdminSchedulePage() {
                   {formatDateCompactWithWeekday(selectedDate)}{' '}
                   <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => setCreateInquiryModalDate(selectedDate)}
-                  className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
-                  title="이 날짜로 신규 접수 (상세와 동일한 폼)"
-                  aria-label="이 날짜로 신규 접수"
-                >
-                  <CirclePlusIcon className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {meRole === 'ADMIN' && token && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setAvailabilityModalOpen(true)}
+                        className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-blue-200 bg-white text-blue-900 hover:bg-blue-50"
+                      >
+                        가용인원
+                      </button>
+                      {hasScheduleClosure(stats[selectedDate]) ? (
+                        <button
+                          type="button"
+                          disabled={closureBusy}
+                          onClick={async () => {
+                            setClosureBusy(true);
+                            try {
+                              await deleteScheduleDayClosure(token, selectedDate);
+                              await fetchMonthData(false);
+                            } catch (e) {
+                              alert(e instanceof Error ? e.message : '일정 마감 해제에 실패했습니다.');
+                            } finally {
+                              setClosureBusy(false);
+                            }
+                          }}
+                          className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          일정마감 해제
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={closureBusy}
+                          onClick={() => setClosureModalOpen(true)}
+                          className="px-3 py-1.5 text-fluid-xs font-medium rounded-md bg-gray-800 text-white hover:bg-gray-900 disabled:opacity-50"
+                        >
+                          일정마감
+                        </button>
+                      )}
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setCreateInquiryModalDate(selectedDate)}
+                    className="inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+                    title="이 날짜로 신규 접수 (상세와 동일한 폼)"
+                    aria-label="이 날짜로 신규 접수"
+                  >
+                    <CirclePlusIcon className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
+
+              {stats[selectedDate]?.closureScope === 'FULL' ||
+              (stats[selectedDate]?.manualClosed && !stats[selectedDate]?.closureScope) ? (
+                <p className="mb-3 text-fluid-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
+                  이 날짜는 관리자 일정마감(전체)이 적용되어 잔여 슬롯(TO)과 팀원 가용이 없는 상태로 표시됩니다.
+                </p>
+              ) : null}
+              {stats[selectedDate]?.closureScope === 'MORNING' ? (
+                <p className="mb-3 text-fluid-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
+                  이 날짜는 <strong className="font-medium">오전</strong> 일정만 마감되어 오전 잔여(TO)가 0으로 표시됩니다.
+                </p>
+              ) : null}
+              {stats[selectedDate]?.closureScope === 'AFTERNOON' ? (
+                <p className="mb-3 text-fluid-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
+                  이 날짜는 <strong className="font-medium">오후</strong> 일정만 마감되어 오후 잔여(TO)가 0으로 표시됩니다.
+                </p>
+              ) : null}
 
               {/* 휴무/근무 현황 */}
               {stats[selectedDate] && (
@@ -606,22 +849,69 @@ export function AdminSchedulePage() {
                       </div>
                     );
                   })()}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-                    <div>
-                      <span className="text-gray-500">오전 배정 가능: </span>
-                      <span className="text-blue-600 font-medium">
-                        {(stats[selectedDate].availableMorningNames ?? []).length > 0
-                          ? (stats[selectedDate].availableMorningNames ?? []).join(', ')
-                          : '-'}
+                  {stats[selectedDate]?.crewRemaining != null && (
+                    <div className="pt-2 border-t border-gray-200 text-fluid-sm">
+                      <span className="text-gray-500">팀원 투입</span>
+                      <span className="ml-2 font-semibold text-emerald-900">
+                        휴무 {stats[selectedDate].crewDayOffCount ?? 0}명 · 가용 {stats[selectedDate].crewAvailable ?? 0}명
+                        · 소진 {stats[selectedDate].crewDemand ?? 0}단위 · 잔여 {stats[selectedDate].crewRemaining}명
+                      </span>
+                      <span className="block text-fluid-xs text-gray-500 mt-1">
+                        미입력 접수는 표준 {DEFAULT_CREW_UNITS_PER_INQUIRY}명(팀장1+팀원2의 반일 1건)으로 집계합니다. 잔여
+                        기준 표준 접수 추가 가능 약 {stats[selectedDate].additionalStandardJobsByCrew ?? 0}건(참고).
                       </span>
                     </div>
+                  )}
+                  <div className="mt-2 space-y-2 border-t border-gray-200 pt-2">
                     <div>
-                      <span className="text-gray-500">오후 배정 가능: </span>
-                      <span className="text-blue-600 font-medium">
+                      <div className="text-[11px] sm:text-xs text-gray-500">
+                        오전 근무 가능{' '}
+                        <span className="tabular-nums">
+                          ({stats[selectedDate].morningWorkingCount ?? (stats[selectedDate].morningWorkingNames ?? []).length}명)
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] sm:text-xs text-gray-800 font-normal leading-snug break-words">
+                        {(stats[selectedDate].morningWorkingNames ?? []).length > 0
+                          ? (stats[selectedDate].morningWorkingNames ?? []).join(', ')
+                          : '—'}
+                      </p>
+                      <div className="mt-1.5 text-[11px] sm:text-xs text-gray-500">
+                        오전 추가 배정 가능{' '}
+                        <span className="tabular-nums">
+                          ({(stats[selectedDate].availableMorningNames ?? []).length}명)
+                        </span>
+                        <span className="text-gray-400"> · 이미 오전 일정에 배정된 팀장은 제외</span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
+                        {(stats[selectedDate].availableMorningNames ?? []).length > 0
+                          ? (stats[selectedDate].availableMorningNames ?? []).join(', ')
+                          : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <div className="text-[11px] sm:text-xs text-gray-500">
+                        오후 근무 가능{' '}
+                        <span className="tabular-nums">
+                          ({stats[selectedDate].afternoonWorkingCount ?? (stats[selectedDate].afternoonWorkingNames ?? []).length}명)
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] sm:text-xs text-gray-800 font-normal leading-snug break-words">
+                        {(stats[selectedDate].afternoonWorkingNames ?? []).length > 0
+                          ? (stats[selectedDate].afternoonWorkingNames ?? []).join(', ')
+                          : '—'}
+                      </p>
+                      <div className="mt-1.5 text-[11px] sm:text-xs text-gray-500">
+                        오후 추가 배정 가능{' '}
+                        <span className="tabular-nums">
+                          ({(stats[selectedDate].availableAfternoonNames ?? []).length}명)
+                        </span>
+                        <span className="text-gray-400"> · 이미 오후 일정에 배정된 팀장은 제외</span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
                         {(stats[selectedDate].availableAfternoonNames ?? []).length > 0
                           ? (stats[selectedDate].availableAfternoonNames ?? []).join(', ')
-                          : '-'}
-                      </span>
+                          : '—'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -646,7 +936,14 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
-                              onPick={() => setDetailItem(item)}
+                              onPick={() => {
+                                setMemoModalItem(null);
+                                setDetailItem(item);
+                              }}
+                              onOpenMemo={() => {
+                                setDetailItem(null);
+                                setMemoModalItem(item);
+                              }}
                             />
                           ))}
                         </div>
@@ -664,7 +961,14 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
-                              onPick={() => setDetailItem(item)}
+                              onPick={() => {
+                                setMemoModalItem(null);
+                                setDetailItem(item);
+                              }}
+                              onOpenMemo={() => {
+                                setDetailItem(null);
+                                setMemoModalItem(item);
+                              }}
                             />
                           ))}
                         </div>
@@ -685,7 +989,14 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
-                              onPick={() => setDetailItem(item)}
+                              onPick={() => {
+                                setMemoModalItem(null);
+                                setDetailItem(item);
+                              }}
+                              onOpenMemo={() => {
+                                setDetailItem(null);
+                                setMemoModalItem(item);
+                              }}
                             />
                           ))}
                         </div>
@@ -716,6 +1027,15 @@ export function AdminSchedulePage() {
         />
       )}
 
+      {memoModalItem && token && (
+        <ScheduleInquiryMemoModal
+          token={token}
+          item={memoModalItem}
+          onClose={() => setMemoModalItem(null)}
+          onSaved={() => void fetchMonthData(false)}
+        />
+      )}
+
       {createInquiryModalDate && token && (
         <ScheduleInquiryDetailModal
           mode="create"
@@ -729,6 +1049,77 @@ export function AdminSchedulePage() {
             setCreateInquiryModalDate(null);
             fetchMonthData(false);
           }}
+        />
+      )}
+
+      {closureModalOpen && selectedDate && token && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40"
+          role="dialog"
+          aria-modal
+          aria-labelledby="closure-scope-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="닫기"
+            onClick={() => setClosureModalOpen(false)}
+          />
+          <div
+            className="relative bg-white rounded-xl shadow-xl border border-gray-200 p-5 max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="closure-scope-title" className="text-base font-semibold text-gray-900 mb-1">
+              일정 마감 범위
+            </h3>
+            <p className="text-fluid-xs text-gray-600 mb-4">
+              선택한 구간의 잔여 TO가 0으로 표시됩니다. 전체 마감 시 팀원 가용도 0으로 표시됩니다.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={closureBusy}
+                onClick={() => void submitClosure('FULL')}
+                className="w-full py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                전체 (오전·오후)
+              </button>
+              <button
+                type="button"
+                disabled={closureBusy}
+                onClick={() => void submitClosure('MORNING')}
+                className="w-full py-2.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-950 text-sm font-medium hover:bg-amber-100 disabled:opacity-50"
+              >
+                오전만
+              </button>
+              <button
+                type="button"
+                disabled={closureBusy}
+                onClick={() => void submitClosure('AFTERNOON')}
+                className="w-full py-2.5 rounded-lg border border-sky-200 bg-sky-50 text-sky-950 text-sm font-medium hover:bg-sky-100 disabled:opacity-50"
+              >
+                오후만
+              </button>
+              <button
+                type="button"
+                disabled={closureBusy}
+                onClick={() => setClosureModalOpen(false)}
+                className="w-full py-2 rounded-lg border border-gray-200 text-gray-700 text-sm hover:bg-gray-50"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {availabilityModalOpen && selectedDate && token && (
+        <ScheduleDayAvailabilityModal
+          open={availabilityModalOpen}
+          date={selectedDate}
+          token={token}
+          onClose={() => setAvailabilityModalOpen(false)}
+          onSaved={() => void fetchMonthData(false)}
         />
       )}
     </div>

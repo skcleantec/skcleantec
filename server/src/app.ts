@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env.js';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -18,6 +18,8 @@ import orderformRoutes from './modules/orderform/orderform.routes.js';
 import csRoutes from './modules/cs/cs.routes.js';
 import inquiryChangeLogsRoutes from './modules/inquiry-change-logs/inquiryChangeLogs.routes.js';
 import advertisingRoutes from './modules/advertising/advertising.routes.js';
+import teamsRoutes from './modules/teams/teams.routes.js';
+import { prisma } from './lib/prisma.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,6 +46,7 @@ app.use('/api/orderforms', orderformRoutes);
 app.use('/api/cs', csRoutes);
 app.use('/api/inquiry-change-logs', inquiryChangeLogsRoutes);
 app.use('/api/advertising', advertisingRoutes);
+app.use('/api/teams', teamsRoutes);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙
 const uploadDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(process.cwd(), 'uploads');
@@ -52,8 +55,18 @@ try {
 } catch {}
 app.use('/uploads', express.static(uploadDir));
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true, db: true });
+  } catch (err) {
+    console.error('[health] DB 확인 실패:', err);
+    res.status(503).json({
+      ok: false,
+      db: false,
+      error: 'database_unavailable',
+    });
+  }
 });
 
 // 프로덕션: React 빌드 (Railway 등에서 cwd·배포 루트에 따라 경로가 달라질 수 있음)

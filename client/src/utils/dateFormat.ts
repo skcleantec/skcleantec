@@ -1,3 +1,14 @@
+/**
+ * ISO 예약일 → `<input type="date">`용 YYYY-MM-DD (한국 달력 기준).
+ * `toISOString().slice(0,10)`은 UTC 날짜라 KST 자정 전후로 하루 밀릴 수 있음.
+ */
+export function formatPreferredDateInputYmd(isoDate: string | null | undefined): string {
+  if (!isoDate) return '';
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return isoDate.slice(0, 10);
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
 /** JS Date#getDay() → 한 글자 요일 (일~토) */
 export const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const;
 

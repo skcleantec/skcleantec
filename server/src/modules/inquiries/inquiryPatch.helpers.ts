@@ -82,6 +82,9 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
         : Number(body.serviceBalanceAmount);
   }
   if (body.memo != null) data.memo = body.memo ? String(body.memo) : null;
+  if (body.scheduleMemo != null) {
+    data.scheduleMemo = body.scheduleMemo ? String(body.scheduleMemo) : null;
+  }
   if (body.claimMemo != null) data.claimMemo = body.claimMemo ? String(body.claimMemo) : null;
   if (body.status != null) {
     data.status = body.status as
@@ -92,6 +95,17 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
       | 'COMPLETED'
       | 'CANCELLED'
       | 'CS_PROCESSING';
+  }
+  if (body.crewMemberCount !== undefined) {
+    if (body.crewMemberCount === null || body.crewMemberCount === '') {
+      data.crewMemberCount = null;
+    } else {
+      const n = Number(body.crewMemberCount);
+      data.crewMemberCount = Number.isFinite(n) ? Math.floor(n) : null;
+    }
+  }
+  if (body.crewMemberNote !== undefined) {
+    data.crewMemberNote = body.crewMemberNote ? String(body.crewMemberNote) : null;
   }
   return data;
 }

@@ -133,6 +133,7 @@ export async function runMarMayScheduleSeed(
           inquiryId: inquiry.id,
           teamLeaderId: teamLeader.id,
           assignedById: admin.id,
+          sortOrder: 0,
         },
       });
     });

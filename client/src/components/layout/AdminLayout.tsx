@@ -123,6 +123,9 @@ export function AdminLayout() {
     navScrollRef.current?.scrollBy({ left: scrollStep(), behavior: 'smooth' });
   };
 
+  const teamMgmtActive =
+    location.pathname === '/admin/teams' || location.pathname.startsWith('/admin/teams/');
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-4 py-3">
@@ -148,9 +151,14 @@ export function AdminLayout() {
                   스케줄 표
                 </NavLink>
                 {meRole === 'ADMIN' && (
-                  <NavLink to="/admin/team-leaders" className={navClass}>
-                    사용자관리
-                  </NavLink>
+                  <>
+                    <NavLink to="/admin/team-leaders" className={navClass}>
+                      사용자관리
+                    </NavLink>
+                    <NavLink to="/admin/teams" className={() => navClass({ isActive: teamMgmtActive })}>
+                      팀 관리
+                    </NavLink>
+                  </>
                 )}
                 <NavLink to="/admin/orderforms" className={navClass}>
                   발주서

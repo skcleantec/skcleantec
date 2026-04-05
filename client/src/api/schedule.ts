@@ -35,6 +35,8 @@ export interface ScheduleItem {
   status: string;
   source?: string | null;
   memo?: string | null;
+  /** 스케줄 목록 전용 짧은 메모(특이사항·발주서 메모와 별개) */
+  scheduleMemo?: string | null;
   claimMemo?: string | null;
   callAttempt?: number | null;
   buildingType?: string | null;
@@ -46,6 +48,10 @@ export interface ScheduleItem {
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;
   serviceBalanceAmount?: number | null;
+  /** 현장 투입 팀원 수(관리자 입력) */
+  crewMemberCount?: number | null;
+  /** 팀원 수기(예: 김,태) */
+  crewMemberNote?: string | null;
   orderForm?: {
     id: string;
     totalAmount: number;
@@ -66,4 +72,110 @@ export async function getSchedule(
   const res = await fetch(`${API}/schedule?${q}`, { headers: headers(token) });
   if (!res.ok) throw new Error('스케줄을 불러올 수 없습니다.');
   return res.json();
+}
+
+/** 관리자: 해당일 일정 마감(범위별 잔여 슬롯·TO 조정) */
+export async function postScheduleDayClosure(
+  token: string,
+  date: string,
+  scope: 'FULL' | 'MORNING' | 'AFTERNOON' = 'FULL'
+): Promise<void> {
+  const res = await fetch(`${API}/schedule/closures`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ date, scope }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '일정 마감 처리에 실패했습니다.');
+  }
+}
+
+export async function deleteScheduleDayClosure(token: string, date: string): Promise<void> {
+  const q = new URLSearchParams({ date }).toString();
+  const res = await fetch(`${API}/schedule/closures?${q}`, {
+    method: 'DELETE',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '일정 마감 해제에 실패했습니다.');
+  }
+}
+
+export interface DayAvailabilityLeaderRow {
+  id: string;
+  name: string;
+  hasUserDayOff: boolean;
+  morningAvailable: boolean;
+  afternoonAvailable: boolean;
+  note: string | null;
+  hasOverride: boolean;
+}
+
+export interface DayAvailabilityMemberRow {
+  id: string;
+  name: string;
+  hasTeamMemberDayOff: boolean;
+  available: boolean;
+  note: string | null;
+  hasOverride: boolean;
+}
+
+export interface DayAvailabilityResponse {
+  date: string;
+  closureScope: 'FULL' | 'MORNING' | 'AFTERNOON' | null;
+  teamLeaders: DayAvailabilityLeaderRow[];
+  teamMembers: DayAvailabilityMemberRow[];
+  summary: {
+    morningWorkingCount: number;
+    afternoonWorkingCount: number;
+    crewAvailable: number;
+  };
+}
+
+export async function getDayAvailability(token: string, date: string): Promise<DayAvailabilityResponse> {
+  const q = new URLSearchParams({ date }).toString();
+  const res = await fetch(`${API}/schedule/day-availability?${q}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '가용 인원을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function putDayAvailability(
+  token: string,
+  payload: {
+    date: string;
+    leaders: Array<{
+      teamLeaderId: string;
+      morningAvailable: boolean;
+      afternoonAvailable: boolean;
+      note?: string | null;
+    }>;
+    members: Array<{
+      teamMemberId: string;
+      available: boolean;
+      note?: string | null;
+    }>;
+  }
+): Promise<void> {
+  const res = await fetch(`${API}/schedule/day-availability`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '가용 인원 저장에 실패했습니다.');
+  }
 }

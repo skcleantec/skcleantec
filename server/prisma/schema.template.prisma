@@ -25,8 +25,54 @@ model User {
   orderFormsCreated   OrderForm[]  @relation("OrderFormCreatedBy")
   inquiriesCreated    Inquiry[]    @relation("InquiryCreatedBy")
   adWorkSessions      AdWorkSession[]
+  /// 팀장당 1팀 (비로그인 팀원·휴무)
+  team                Team? @relation("TeamLeaderTeam")
+  scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
 
   @@map("users")
+}
+
+/// 팀장당 1팀 (팀원은 로그인 없음, 마스터·휴무만 관리)
+model Team {
+  id           String   @id @default(uuid())
+  teamLeaderId String   @unique @map("team_leader_id")
+  memo         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  teamLeader User         @relation("TeamLeaderTeam", fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  members    TeamMember[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  /// null이면 팀장 소속 없이 전사 풀 팀원
+  teamId    String?  @map("team_id")
+  name      String
+  phone     String?
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  team    Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  dayOffs TeamMemberDayOff[]
+  scheduleDaySlots ScheduleDayTeamMemberSlot[]
+
+  @@map("team_members")
+}
+
+model TeamMemberDayOff {
+  id           String   @id @default(uuid())
+  teamMemberId String   @map("team_member_id")
+  date         DateTime @db.Date @map("date")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamMemberId, date])
+  @@map("team_member_day_offs")
 }
 
 model UserDayOff {
@@ -91,6 +137,12 @@ model Inquiry {
   serviceTotalAmount   Int? @map("service_total_amount")
   serviceDepositAmount Int? @map("service_deposit_amount")
   serviceBalanceAmount Int? @map("service_balance_amount")
+  /// 현장 투입 비로그인 팀원 인원 수(관리자 입력)
+  crewMemberCount Int?       @map("crew_member_count")
+  /// 팀원 누구 투입 등 수기 메모(예: 김,태)
+  crewMemberNote  String?    @map("crew_member_note")
+  /// 스케줄 목록(이름·접수번호 옆)에만 쓰는 짧은 메모 — 특이사항·발주서 메모와 별개
+  scheduleMemo    String?    @map("schedule_memo")
   orderFormId  String?       @map("order_form_id")
   /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
   createdById  String?       @map("created_by_id")
@@ -102,6 +154,51 @@ model Inquiry {
   changeLogs  InquiryChangeLog[]
 
   @@map("inquiries")
+}
+
+enum ScheduleClosureScope {
+  FULL
+  MORNING
+  AFTERNOON
+}
+
+/// 관리자 수동 일정 마감(범위별 잔여 슬롯·TO 조정)
+model ScheduleDayClosure {
+  id        String               @id @default(uuid())
+  date      DateTime             @unique @db.Date @map("date")
+  scope     ScheduleClosureScope @default(FULL) @map("scope")
+  createdAt DateTime             @default(now()) @map("created_at")
+
+  @@map("schedule_day_closures")
+}
+
+/// 일자별 팀장 오전·오후 가용(관리자 수동, 없으면 휴무일 기준)
+model ScheduleDayLeaderSlot {
+  id                 String   @id @default(uuid())
+  date               DateTime @db.Date @map("date")
+  teamLeaderId       String   @map("team_leader_id")
+  morningAvailable   Boolean  @map("morning_available")
+  afternoonAvailable Boolean  @map("afternoon_available")
+  note               String?  @map("note")
+
+  teamLeader User @relation(fields: [teamLeaderId], references: [id], onDelete: Cascade)
+
+  @@unique([date, teamLeaderId])
+  @@map("schedule_day_leader_slots")
+}
+
+/// 일자별 팀원 가용(관리자 수동, 없으면 휴무일 기준)
+model ScheduleDayTeamMemberSlot {
+  id           String   @id @default(uuid())
+  date         DateTime @db.Date @map("date")
+  teamMemberId String   @map("team_member_id")
+  available    Boolean
+  note         String?  @map("note")
+
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([date, teamMemberId])
+  @@map("schedule_day_team_member_slots")
 }
 
 /// 발주서·접수에서 선택하는 전문 시공 옵션 (관리자 설정)
@@ -257,12 +354,14 @@ model Assignment {
   teamLeaderId  String   @map("team_leader_id")
   assignedById  String   @map("assigned_by_id")
   assignedAt    DateTime @default(now()) @map("assigned_at")
+  /// 같은 접수에 팀장 여러 명일 때 표시 순서
+  sortOrder     Int      @default(0) @map("sort_order")
 
   inquiry     Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
   teamLeader  User    @relation("TeamLeaderAssignments", fields: [teamLeaderId], references: [id])
   assignedBy  User    @relation("AdminAssignments", fields: [assignedById], references: [id])
 
-  @@unique([inquiryId])
+  @@index([inquiryId])
   @@map("assignments")
 }
 

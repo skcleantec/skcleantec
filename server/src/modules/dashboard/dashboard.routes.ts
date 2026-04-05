@@ -58,7 +58,10 @@ router.get('/stats', async (_req, res) => {
       where: { status: { in: [...SALES_STATUS] } },
       include: {
         orderForm: { select: { totalAmount: true } },
-        assignments: { include: { teamLeader: { select: { id: true, name: true } } } },
+        assignments: {
+          orderBy: { sortOrder: 'asc' },
+          include: { teamLeader: { select: { id: true, name: true } } },
+        },
       },
     }),
     prisma.user.findMany({
