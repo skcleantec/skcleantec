@@ -93,10 +93,10 @@ export function AdminCsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left p-3 font-medium text-gray-700">날짜</th>
-                <th className="text-left p-3 font-medium text-gray-700">성함</th>
-                <th className="text-left p-3 font-medium text-gray-700">연락처</th>
-                <th className="text-left p-3 font-medium text-gray-700">상태</th>
+                <th className="text-center p-3 font-medium text-gray-700">날짜</th>
+                <th className="text-center p-3 font-medium text-gray-700">성함</th>
+                <th className="text-center p-3 font-medium text-gray-700">연락처</th>
+                <th className="text-center p-3 font-medium text-gray-700">상태</th>
               </tr>
             </thead>
             <tbody>

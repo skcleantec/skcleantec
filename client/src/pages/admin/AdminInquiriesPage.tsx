@@ -11,6 +11,7 @@ import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { assignInquiry } from '../../api/assignments';
 import { getTeamLeaders, getUsers, type UserItem } from '../../api/users';
 import { getMe } from '../../api/auth';
@@ -659,9 +660,9 @@ export function AdminInquiriesPage() {
                 <table className="w-full text-fluid-sm border-collapse min-w-[280px]">
                   <thead>
                     <tr className="border-b border-gray-200 text-gray-600">
-                      <th className="text-left py-1.5 pr-3 font-medium">이름</th>
-                      <th className="text-right py-1.5 px-2 font-medium whitespace-nowrap">이번 달</th>
-                      <th className="text-right py-1.5 pl-2 font-medium whitespace-nowrap">오늘</th>
+                      <th className="text-center py-1.5 pr-3 font-medium">이름</th>
+                      <th className="text-center py-1.5 px-2 font-medium whitespace-nowrap">이번 달</th>
+                      <th className="text-center py-1.5 pl-2 font-medium whitespace-nowrap">오늘</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-800">
@@ -707,28 +708,32 @@ export function AdminInquiriesPage() {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="rounded-lg border border-gray-200 bg-white">
         {loading ? (
           <div className="p-8 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
         ) : items.length === 0 ? (
           <div className="p-8 text-center text-gray-500 text-fluid-sm">등록된 문의가 없습니다.</div>
         ) : (
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <>
+            <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 md:hidden">
+              하단 막대·◀▶ 또는 표를 좌우로 밀기
+            </p>
+            <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
             <table className="w-full text-fluid-sm border-collapse min-w-[480px]">
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">접수일</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">접수자</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">고객</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">연락처</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-[90px]">주소</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">평수</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">방화베</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap max-w-[100px]">시간대</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">팀장</th>
-                  <th className="text-left py-2 px-2 font-medium text-gray-700 whitespace-nowrap">작업</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">접수일</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">접수자</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">고객</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">연락처</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 min-w-[90px]">주소</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">평수</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">방화베</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap max-w-[100px]">시간대</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">팀장</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -842,7 +847,8 @@ export function AdminInquiriesPage() {
                 })}
               </tbody>
             </table>
-          </div>
+            </SyncHorizontalScroll>
+          </>
         )}
         {total > 0 && (
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-fluid-xs text-gray-600">
@@ -855,7 +861,7 @@ export function AdminInquiriesPage() {
                   ? ` · ${dayKey}`
                   : ' · 전체 기간'}
             {' · '}
-            행을 누르면 상세보기 · 모바일에서 가로 스크롤 가능
+            행을 누르면 상세보기 · 모바일 하단 막대로 가로 이동
           </div>
         )}
       </div>

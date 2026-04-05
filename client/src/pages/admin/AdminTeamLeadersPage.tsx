@@ -286,10 +286,10 @@ export function AdminTeamLeadersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">아이디</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">이름</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">연락처</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700 w-24">관리</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700">아이디</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700">이름</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700">연락처</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700 w-24">관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -334,10 +334,10 @@ export function AdminTeamLeadersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">아이디</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">이름</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">연락처</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700 w-24">관리</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700">아이디</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700">이름</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700">연락처</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700 w-24">관리</th>
                 </tr>
               </thead>
               <tbody>

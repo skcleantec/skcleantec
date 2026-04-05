@@ -257,14 +257,14 @@ export function AdminAdvertisingPage() {
               <table className="w-full text-fluid-sm min-w-[720px]">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left py-2 px-3">이름</th>
-                    <th className="text-left py-2 px-3">역할</th>
-                    <th className="text-right py-2 px-3">광고비</th>
-                    <th className="text-right py-2 px-3">발주 접수</th>
-                    <th className="text-right py-2 px-3">매출</th>
-                    <th className="text-right py-2 px-3">ROAS</th>
-                    <th className="text-right py-2 px-3">건당 비용</th>
-                    <th className="text-right py-2 px-3">일평균 광고비</th>
+                    <th className="text-center py-2 px-3">이름</th>
+                    <th className="text-center py-2 px-3">역할</th>
+                    <th className="text-center py-2 px-3">광고비</th>
+                    <th className="text-center py-2 px-3">발주 접수</th>
+                    <th className="text-center py-2 px-3">매출</th>
+                    <th className="text-center py-2 px-3">ROAS</th>
+                    <th className="text-center py-2 px-3">건당 비용</th>
+                    <th className="text-center py-2 px-3">일평균 광고비</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -293,9 +293,9 @@ export function AdminAdvertisingPage() {
               <table className="w-full text-fluid-sm min-w-[640px]">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left py-2 px-3">종료 시각</th>
-                    {role === 'ADMIN' && <th className="text-left py-2 px-3">담당</th>}
-                    <th className="text-left py-2 px-3">채널별 금액</th>
+                    <th className="text-center py-2 px-3">종료 시각</th>
+                    {role === 'ADMIN' && <th className="text-center py-2 px-3">담당</th>}
+                    <th className="text-center py-2 px-3">채널별 금액</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -359,9 +359,9 @@ export function AdminAdvertisingPage() {
             <table className="w-full text-fluid-sm min-w-[520px]">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left py-2 px-3 w-28">순서</th>
-                  <th className="text-left py-2 px-3">채널명</th>
-                  <th className="text-right py-2 px-3 w-40">관리</th>
+                  <th className="text-center py-2 px-3 w-28">순서</th>
+                  <th className="text-center py-2 px-3">채널명</th>
+                  <th className="text-center py-2 px-3 w-40">관리</th>
                 </tr>
               </thead>
               <tbody>

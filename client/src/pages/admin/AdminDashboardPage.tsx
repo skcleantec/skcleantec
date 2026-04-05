@@ -5,7 +5,7 @@ import { DashboardChangeHistory } from '../../components/admin/DashboardChangeHi
 import { TelemarketingSessionBlock } from '../../components/admin/TelemarketingSessionBlock';
 
 function formatCurrency(n: number): string {
-  return n.toLocaleString() + '원';
+  return n.toLocaleString('ko-KR') + '원';
 }
 
 export function AdminDashboardPage() {
@@ -100,8 +100,8 @@ export function AdminDashboardPage() {
               <table className="w-full text-fluid-sm whitespace-nowrap">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left py-2 px-3 font-medium text-gray-700">팀장</th>
-                    <th className="text-right py-2 px-3 font-medium text-gray-700">매출</th>
+                    <th className="text-center py-2 px-3 font-medium text-gray-700">팀장</th>
+                    <th className="text-center py-2 px-3 font-medium text-gray-700">매출</th>
                   </tr>
                 </thead>
                 <tbody>
