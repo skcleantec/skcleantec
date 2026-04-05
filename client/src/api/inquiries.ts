@@ -77,6 +77,19 @@ export async function updateInquiry(
   return res.json();
 }
 
+/** 관리자 전용 — 비밀번호 확인 후 접수 영구 삭제 */
+export async function deleteInquiry(token: string, id: string, password: string): Promise<void> {
+  const res = await fetch(`${API}/inquiries/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: headers(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+}
+
 export async function createInquiry(token: string, data: Record<string, unknown>) {
   const res = await fetch(`${API}/inquiries`, {
     method: 'POST',

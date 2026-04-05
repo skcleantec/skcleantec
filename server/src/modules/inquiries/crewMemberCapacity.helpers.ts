@@ -28,6 +28,80 @@ function preferredDateDayBounds(ymd: string): { gte: Date; lte: Date } {
   };
 }
 
+function toDateKeyLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * 스케줄 통계 등: 기간 내 날짜별 가용 팀원 수.
+ * `countAvailableFieldStaffOnDate`를 날마다 호출하면 N일 × 2회 DB — 일괄 조회로 치환.
+ */
+export async function countAvailableFieldStaffByDateRange(
+  prisma: PrismaClient,
+  rangeStart: Date,
+  rangeEnd: Date
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  const members = await prisma.teamMember.findMany({
+    where: { isActive: true },
+    select: { id: true },
+  });
+  const memberIdSet = new Set(members.map((m) => m.id));
+  if (members.length === 0) {
+    for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+      result.set(toDateKeyLocal(d), 0);
+    }
+    return result;
+  }
+
+  const [dayOffRows, slotRows] = await Promise.all([
+    prisma.teamMemberDayOff.findMany({
+      where: {
+        date: { gte: rangeStart, lte: rangeEnd },
+        teamMemberId: { in: [...memberIdSet] },
+      },
+      select: { teamMemberId: true, date: true },
+    }),
+    prisma.scheduleDayTeamMemberSlot.findMany({
+      where: { date: { gte: rangeStart, lte: rangeEnd } },
+    }),
+  ]);
+
+  const offByDay = new Map<string, Set<string>>();
+  for (const row of dayOffRows) {
+    const key = toDateKeyLocal(row.date);
+    if (!offByDay.has(key)) offByDay.set(key, new Set());
+    offByDay.get(key)!.add(row.teamMemberId);
+  }
+
+  const slotByDay = new Map<string, Map<string, boolean>>();
+  for (const row of slotRows) {
+    if (!memberIdSet.has(row.teamMemberId)) continue;
+    const key = toDateKeyLocal(row.date);
+    if (!slotByDay.has(key)) slotByDay.set(key, new Map());
+    slotByDay.get(key)!.set(row.teamMemberId, row.available);
+  }
+
+  for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+    const key = toDateKeyLocal(d);
+    const offSet = offByDay.get(key) ?? new Set<string>();
+    const slotMap = slotByDay.get(key) ?? new Map<string, boolean>();
+    let n = 0;
+    for (const m of members) {
+      if (slotMap.has(m.id)) {
+        if (slotMap.get(m.id)) n++;
+      } else if (!offSet.has(m.id)) {
+        n++;
+      }
+    }
+    result.set(key, n);
+  }
+  return result;
+}
+
 /** 팀원 휴무 + 일자별 관리자 수동 가용(ScheduleDayTeamMemberSlot) 병합 후 당일 투입 가능 인원 */
 export async function countAvailableFieldStaffOnDate(prisma: PrismaClient, ymd: string): Promise<number> {
   const dateOnly = new Date(`${ymd}T12:00:00+09:00`);

@@ -1,10 +1,14 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import type { Prisma } from '@prisma/client';
 import type { InquiryStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOrMarketer } from '../auth/auth.middleware.js';
-import type { AuthPayload } from '../auth/auth.middleware.js';
+import {
+  authMiddleware,
+  adminOrMarketer,
+  adminOnly,
+  type AuthPayload,
+} from '../auth/auth.middleware.js';
 import { createdAtRangeFromQuery } from './inquiryListDateRange.js';
 import {
   buildMarketerOverview,
@@ -173,6 +177,38 @@ router.get('/', async (req, res) => {
     prisma.inquiry.count({ where }),
   ]);
   res.json({ items, total });
+});
+
+/** 관리자만 — 비밀번호 확인 후 접수 영구 삭제 */
+router.delete('/:id', adminOnly, async (req, res) => {
+  const { id } = req.params;
+  const body = req.body as { password?: string };
+  const password = body.password != null ? String(body.password) : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const existing = await prisma.inquiry.findUnique({ where: { id } });
+  if (!existing) {
+    res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+    return;
+  }
+
+  await prisma.inquiry.delete({ where: { id } });
+  res.json({ ok: true });
 });
 
 router.patch('/:id', async (req, res) => {

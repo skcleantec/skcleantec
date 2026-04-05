@@ -44,25 +44,62 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
+type DockUntil = 'md' | 'lg' | 'xl';
+
+function dockVisibilityClasses(dockUntil: DockUntil): { dockHidden: string; scrollbar: string } {
+  switch (dockUntil) {
+    case 'lg':
+      return {
+        dockHidden: 'lg:hidden',
+        scrollbar:
+          'max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden lg:[scrollbar-width:thin]',
+      };
+    case 'xl':
+      return {
+        dockHidden: 'xl:hidden',
+        scrollbar:
+          'max-xl:[scrollbar-width:none] max-xl:[&::-webkit-scrollbar]:hidden xl:[scrollbar-width:thin]',
+      };
+    case 'md':
+    default:
+      return {
+        dockHidden: 'md:hidden',
+        scrollbar:
+          'max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden md:[scrollbar-width:thin]',
+      };
+  }
+}
+
 type Props = {
   children: ReactNode;
   /** 바깥 래퍼 */
   className?: string;
   /** 가로 스크롤 영역에 추가할 클래스 (패딩·-mx 등) */
   contentClassName?: string;
+  /**
+   * 이 너비 **미만**에서만 하단 고정 스크롤 막대(◀▶) 표시. 그 이상은 표 안쪽 얇은 스크롤바.
+   * @default 'md'
+   */
+  dockUntil?: DockUntil;
 };
 
 /**
- * 모바일: 표에 가로 넘침이 있으면 **화면 하단 고정** 스크롤 바(표와 scrollLeft 동기화) + ◀▶.
- * 표가 뷰포트에 안 보이면 하단 바는 숨김. 데스크톱(`md+`)은 표 아래 일반 스크롤바.
+ * 좁은 뷰포트: 표에 가로 넘침이 있으면 **뷰포트 하단 고정** 스크롤 바(표와 scrollLeft 동기화) + ◀▶.
+ * 표가 보이는 동안만 하단 바 표시(세로 스크롤 시 따라다님). 넓은 화면은 표 아래 일반 스크롤바.
  */
-export function SyncHorizontalScroll({ children, className, contentClassName = '' }: Props) {
+export function SyncHorizontalScroll({
+  children,
+  className,
+  contentClassName = '',
+  dockUntil = 'md',
+}: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const [spacerW, setSpacerW] = useState(0);
   const [hasOverflow, setHasOverflow] = useState(false);
   const [tableInView, setTableInView] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { dockHidden, scrollbar } = dockVisibilityClasses(dockUntil);
 
   useEffect(() => setMounted(true), []);
 
@@ -132,10 +169,10 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
       {showDock &&
         createPortal(
           <div
-            className="pointer-events-none fixed inset-x-0 bottom-0 z-[90] md:hidden"
+            className={`pointer-events-none fixed inset-x-0 bottom-0 z-[105] ${dockHidden}`}
             style={{ paddingBottom: 'max(0.2rem, env(safe-area-inset-bottom, 0px))' }}
           >
-            <div className="pointer-events-auto border-t border-gray-200 bg-white px-2 py-1.5">
+            <div className="pointer-events-auto border-t border-gray-200 bg-white/95 px-2 py-1.5 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm supports-[backdrop-filter]:bg-white/90">
               <div className="mx-auto flex max-w-6xl items-center gap-1">
                 <button
                   type="button"
@@ -171,7 +208,7 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
       <div
         ref={bottomRef}
         onScroll={onScrollBottom}
-        className={`w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-1 max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden md:[scrollbar-width:thin] ${contentClassName}`}
+        className={`w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-1 ${scrollbar} ${contentClassName}`}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {children}

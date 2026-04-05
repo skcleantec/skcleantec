@@ -9,8 +9,8 @@ import {
   isSideCleaningPreferredTime,
 } from '../schedule/scheduleSlot.helpers.js';
 import {
-  countAvailableFieldStaffOnDate,
-  sumCrewDemandForPreferredDate,
+  countAvailableFieldStaffByDateRange,
+  crewUnitsForInquiry,
 } from '../inquiries/crewMemberCapacity.helpers.js';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 import { resolveLeaderMorningAfternoon } from '../schedule/scheduleDayAvailability.helpers.js';
@@ -200,6 +200,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       preferredDate: true,
       preferredTime: true,
       betweenScheduleSlot: true,
+      crewMemberCount: true,
       assignments: {
         select: { teamLeaderId: true },
       },
@@ -278,6 +279,10 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
   rangeStart.setHours(0, 0, 0, 0);
   const rangeEnd = new Date(endDate);
   rangeEnd.setHours(23, 59, 59, 999);
+
+  /** 날짜별 가용 팀원 — 기존에는 루프 안에서 일마다 DB 2회(await) → 병목 */
+  const crewAvailableByDate = await countAvailableFieldStaffByDateRange(prisma, rangeStart, rangeEnd);
+
   for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
     const key = toDateKey(d);
     const dayOffList = dayOffs.filter((o) => toDateKey(o.date) === key);
@@ -367,8 +372,8 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     const assignableAfternoonSlot = Math.max(0, afternoonWorkingCount - afternoonOccupied);
     const unassignedTotal = assignableMorning + assignableAfternoonSlot;
 
-    const crewAvailable = await countAvailableFieldStaffOnDate(prisma, key);
-    const crewDemand = await sumCrewDemandForPreferredDate(prisma, key);
+    const crewAvailable = crewAvailableByDate.get(key) ?? 0;
+    const crewDemand = dayInquiries.reduce((sum, inv) => sum + crewUnitsForInquiry(inv.crewMemberCount), 0);
     const crewRemaining = Math.max(0, crewAvailable - crewDemand);
     const additionalStandardJobsByCrew = Math.floor(crewRemaining / DEFAULT_CREW_UNITS_PER_INQUIRY);
     const crewDayOffCount = Math.max(0, activeMembersTotal - crewAvailable);

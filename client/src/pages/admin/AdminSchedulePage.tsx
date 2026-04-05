@@ -303,27 +303,30 @@ export function AdminSchedulePage() {
       let scheduleErr: string | null = null;
       let statsErr: string | null = null;
 
-      try {
-        const scheduleRes = await getSchedule(token, start, end);
-        if (rid !== fetchGenRef.current) return;
-        setItems(scheduleRes.items);
-        const grouped = groupScheduleItemsByKstDate(scheduleRes.items);
+      const [scheduleOutcome, statsOutcome] = await Promise.allSettled([
+        getSchedule(token, start, end),
+        getScheduleStats(token, start, end),
+      ]);
+      if (rid !== fetchGenRef.current) return;
+
+      if (scheduleOutcome.status === 'fulfilled') {
+        setItems(scheduleOutcome.value.items);
+        const grouped = groupScheduleItemsByKstDate(scheduleOutcome.value.items);
         setSelectedDate((prev) => {
           if (prev != null) return prev;
           return pickDefaultSelectedDate(year, month, grouped);
         });
-      } catch (e) {
-        if (rid !== fetchGenRef.current) return;
+      } else {
         setItems([]);
-        scheduleErr = e instanceof Error ? e.message : '스케줄을 불러오지 못했습니다.';
+        scheduleErr =
+          scheduleOutcome.reason instanceof Error
+            ? scheduleOutcome.reason.message
+            : '스케줄을 불러오지 못했습니다.';
       }
 
-      try {
-        const statsRes = await getScheduleStats(token, start, end);
-        if (rid !== fetchGenRef.current) return;
-        setStats(statsRes.byDate);
-      } catch {
-        if (rid !== fetchGenRef.current) return;
+      if (statsOutcome.status === 'fulfilled') {
+        setStats(statsOutcome.value.byDate);
+      } else {
         setStats({});
         statsErr = '스케줄 현황(통계)을 불러오지 못했습니다. 접수 목록은 표시됩니다.';
       }

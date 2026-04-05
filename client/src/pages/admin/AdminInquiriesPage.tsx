@@ -5,12 +5,14 @@ import {
   getInquiries,
   getMarketerOverview,
   updateInquiry,
+  deleteInquiry,
   type MarketerOverviewResponse,
 } from '../../api/inquiries';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { getTeamLeaders, getUsers, type UserItem } from '../../api/users';
 import { getMe } from '../../api/auth';
@@ -227,6 +229,7 @@ export function AdminInquiriesPage() {
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
   const [marketerFilterId, setMarketerFilterId] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<InquiryItem | null>(null);
 
   const leaderOptionsForRow = useMemo(() => {
     return (rowIndex: number) => {
@@ -463,12 +466,31 @@ export function AdminInquiriesPage() {
 
   const handleStatusChange = async (inquiryId: string, newStatus: string) => {
     if (!token) return;
+    if (newStatus === 'CANCELLED') {
+      if (!window.confirm('이 접수를 취소하시겠습니까?')) {
+        return;
+      }
+    }
     setSaving(true);
     try {
       await updateInquiry(token, inquiryId, { status: newStatus });
       refresh(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : '상태 변경에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelInquiry = async (item: InquiryItem) => {
+    if (!token || item.status === 'CANCELLED') return;
+    if (!window.confirm('이 접수를 취소하시겠습니까?')) return;
+    setSaving(true);
+    try {
+      await updateInquiry(token, item.id, { status: 'CANCELLED' });
+      refresh(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '취소 처리에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -566,6 +588,12 @@ export function AdminInquiriesPage() {
         alert('대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다.');
         setSaving(false);
         return;
+      }
+      if (editForm.status === 'CANCELLED' && editItem.status !== 'CANCELLED') {
+        if (!window.confirm('이 접수를 취소하시겠습니까?')) {
+          setSaving(false);
+          return;
+        }
       }
       if (editForm.crewMemberCount !== null) {
         const c = editForm.crewMemberCount;
@@ -844,11 +872,11 @@ export function AdminInquiriesPage() {
           <div className="p-8 text-center text-gray-500 text-fluid-sm">등록된 문의가 없습니다.</div>
         ) : (
           <>
-            <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 md:hidden">
-              하단 막대·◀▶ 또는 표를 좌우로 밀기
+            <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 lg:hidden">
+              하단 막대·◀▶ 또는 표를 좌우로 밀기 (표가 보일 때 화면 아래에 고정)
             </p>
-            <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-            <table className="w-full text-fluid-sm border-collapse min-w-[480px]">
+            <SyncHorizontalScroll dockUntil="lg" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+            <table className="w-full text-fluid-sm border-collapse min-w-[520px]">
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">접수일</th>
@@ -965,6 +993,25 @@ export function AdminInquiriesPage() {
                         >
                           클레임
                         </button>
+                        {item.status !== 'CANCELLED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelInquiry(item)}
+                            disabled={saving}
+                            className="text-gray-700 hover:underline text-fluid-xs"
+                          >
+                            취소
+                          </button>
+                        )}
+                        {me?.role === 'ADMIN' && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(item)}
+                            className="text-red-600 hover:underline text-fluid-xs"
+                          >
+                            삭제
+                          </button>
+                        )}
                         {item.status === 'CS_PROCESSING' && (
                           <button
                             type="button"
@@ -1002,10 +1049,26 @@ export function AdminInquiriesPage() {
               </>
             ) : null}
             {' · '}
-            행을 누르면 상세보기 · 모바일 하단 막대로 가로 이동
+            행을 누르면 상세보기 · 좁은 화면에서는 하단 고정 막대로 가로 이동
           </div>
         )}
       </div>
+
+      <ConfirmPasswordModal
+        open={!!deleteTarget}
+        title={
+          deleteTarget
+            ? `「${deleteTarget.customerName}」 접수를 영구 삭제합니다. 복구할 수 없습니다.`
+            : ''
+        }
+        confirmLabel="삭제"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async (password) => {
+          if (!token || !deleteTarget) return;
+          await deleteInquiry(token, deleteTarget.id, password);
+          refresh(true);
+        }}
+      />
 
       {/* 클레임·상세 모달은 body로 포털 (AdminLayout main overflow 등에 잘리지 않도록) */}
       {claimItem &&
