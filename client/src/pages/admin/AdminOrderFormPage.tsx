@@ -1119,22 +1119,22 @@ ${footer2}`;
                   하단 막대·◀▶ 또는 표를 좌우로 밀기
                 </p>
                 <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-                <table className="w-full min-w-[520px] border-collapse text-fluid-sm">
+                <table className="w-full min-w-[520px] border-separate border-spacing-0 text-fluid-sm">
                   <thead>
-                    <tr className="bg-gray-100 border-b border-gray-200">
-                      <th className="text-center py-2 px-2 sm:px-3 font-medium text-gray-700 whitespace-nowrap sticky left-0 z-10 bg-gray-100 border-r border-gray-200">
+                    <tr className="bg-gray-100">
+                      <th className="sticky left-0 z-20 border-b border-r border-gray-200 bg-gray-100 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                         고객명
                       </th>
-                      <th className="text-center py-2 px-2 sm:px-3 font-medium text-gray-700 whitespace-nowrap">
+                      <th className="border-b border-gray-200 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                         총액
                       </th>
-                      <th className="text-center py-2 px-2 sm:px-3 font-medium text-gray-700 whitespace-nowrap">
+                      <th className="border-b border-gray-200 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                         상태
                       </th>
-                      <th className="text-center py-2 px-2 sm:px-3 font-medium text-gray-700 whitespace-nowrap">
+                      <th className="border-b border-gray-200 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                         발급일
                       </th>
-                      <th className="text-center py-2 px-2 sm:px-3 font-medium text-gray-700 whitespace-nowrap min-w-[11rem]">
+                      <th className="min-w-[11rem] border-b border-gray-200 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                         링크
                       </th>
                     </tr>
@@ -1143,25 +1143,25 @@ ${footer2}`;
                     {orderForms.map((o) => (
                       <tr
                         key={o.id}
-                        className="border-b border-gray-100 last:border-0 group hover:bg-gray-50"
+                        className="group hover:bg-gray-50"
                       >
-                        <td className="py-2 px-2 sm:px-3 font-medium text-gray-900 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-gray-100 group-hover:bg-gray-50">
+                        <td className="sticky left-0 z-10 border-b border-r border-gray-100 bg-white py-2 px-2 text-left text-fluid-xs font-medium text-gray-900 sm:px-3 sm:text-fluid-sm whitespace-nowrap group-hover:bg-gray-50">
                           {o.customerName}
                         </td>
-                        <td className="py-2 px-2 sm:px-3 text-right text-gray-700 whitespace-nowrap tabular-nums">
+                        <td className="border-b border-gray-100 py-2 px-2 text-right text-fluid-xs text-gray-700 tabular-nums sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                           {o.totalAmount.toLocaleString('ko-KR')}원
                         </td>
-                        <td className="py-2 px-2 sm:px-3 whitespace-nowrap">
+                        <td className="border-b border-gray-100 py-2 px-2 text-center text-fluid-xs sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                           {o.submittedAt ? (
                             <span className="text-green-600">제출완료</span>
                           ) : (
                             <span className="text-gray-500">미제출</span>
                           )}
                         </td>
-                        <td className="py-2 px-2 sm:px-3 text-gray-600 tabular-nums whitespace-nowrap text-fluid-xs">
+                        <td className="border-b border-gray-100 py-2 px-2 text-center text-fluid-2xs text-gray-600 tabular-nums sm:px-3 sm:text-fluid-xs whitespace-nowrap">
                           {formatDateCompactWithWeekday(o.createdAt)}
                         </td>
-                        <td className="py-2 px-2 sm:px-3 align-top">
+                        <td className="border-b border-gray-100 py-2 px-2 align-top sm:px-3">
                           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-1.5 sm:gap-2 min-w-[9rem]">
                             <button
                               type="button"
