@@ -6,7 +6,7 @@
     "count": 90
   },
   "unassignedMonthDashboardTest": {
-    "enabled": true,
+    "enabled": false,
     "count": 20
   }
 }
