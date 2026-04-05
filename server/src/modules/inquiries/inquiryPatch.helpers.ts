@@ -81,11 +81,19 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
         ? null
         : Number(body.serviceBalanceAmount);
   }
-  if (body.memo != null) data.memo = body.memo ? String(body.memo) : null;
-  if (body.scheduleMemo != null) {
-    data.scheduleMemo = body.scheduleMemo ? String(body.scheduleMemo) : null;
+  /** null·'' 모두 비우기 — `!= null`만 쓰면 JSON `scheduleMemo: null` 단독 PATCH가 data={}로 빠져 저장 안 됨 */
+  if (Object.prototype.hasOwnProperty.call(body, 'memo')) {
+    const v = body.memo;
+    data.memo = v == null || v === '' ? null : String(v);
   }
-  if (body.claimMemo != null) data.claimMemo = body.claimMemo ? String(body.claimMemo) : null;
+  if (Object.prototype.hasOwnProperty.call(body, 'scheduleMemo')) {
+    const v = body.scheduleMemo;
+    data.scheduleMemo = v == null || v === '' ? null : String(v);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'claimMemo')) {
+    const v = body.claimMemo;
+    data.claimMemo = v == null || v === '' ? null : String(v);
+  }
   if (body.status != null) {
     data.status = body.status as
       | 'PENDING'

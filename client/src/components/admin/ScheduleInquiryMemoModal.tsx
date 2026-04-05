@@ -8,7 +8,8 @@ type Props = {
   token: string;
   item: ScheduleItem;
   onClose: () => void;
-  onSaved: () => void;
+  /** 저장 후 스케줄 재조회 등 — Promise면 끝날 때까지 대기 */
+  onSaved: () => void | Promise<void>;
 };
 
 export function ScheduleInquiryMemoModal({ token, item, onClose, onSaved }: Props) {
@@ -23,8 +24,10 @@ export function ScheduleInquiryMemoModal({ token, item, onClose, onSaved }: Prop
     setSaving(true);
     try {
       const trimmed = draft.trim();
-      await updateInquiry(token, item.id, { scheduleMemo: trimmed ? trimmed : '' });
-      onSaved();
+      await updateInquiry(token, item.id, {
+        scheduleMemo: trimmed ? trimmed : null,
+      });
+      await onSaved();
       onClose();
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
@@ -38,8 +41,8 @@ export function ScheduleInquiryMemoModal({ token, item, onClose, onSaved }: Prop
     if (!window.confirm('메모를 비우시겠습니까?')) return;
     setSaving(true);
     try {
-      await updateInquiry(token, item.id, { scheduleMemo: '' });
-      onSaved();
+      await updateInquiry(token, item.id, { scheduleMemo: null });
+      await onSaved();
       onClose();
     } catch (e) {
       alert(e instanceof Error ? e.message : '삭제에 실패했습니다.');

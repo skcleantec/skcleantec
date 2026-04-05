@@ -55,6 +55,7 @@ import {
   updateFormConfig,
   type OrderForm,
   type OrderFormConfigPublic,
+  type OrderFormCreatedBy,
 } from '../../api/orderform';
 import { getInquiries } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
@@ -89,6 +90,14 @@ const TAB_LABELS: Record<Tab, string> = {
   specialty: '발주서 설정',
   notice: '안내사항설정',
 };
+
+/** 발주서 목록 — 발급자(마케터 이름 / 관리자는 문구만) */
+function labelOrderFormIssuer(user: OrderFormCreatedBy | null | undefined): string {
+  if (!user) return '—';
+  if (user.role === 'ADMIN') return '관리자';
+  if (!user.name?.trim()) return '—';
+  return user.name.trim();
+}
 
 function normalizeSubTabOrder(parsed: unknown): Tab[] {
   if (!Array.isArray(parsed)) return [...DEFAULT_SUB_TAB_ORDER];
@@ -1119,11 +1128,14 @@ ${footer2}`;
                   하단 막대·◀▶ 또는 표를 좌우로 밀기
                 </p>
                 <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-                <table className="w-full min-w-[520px] border-separate border-spacing-0 text-fluid-sm">
+                <table className="w-full min-w-[640px] border-separate border-spacing-0 text-fluid-sm">
                   <thead>
                     <tr className="bg-gray-100">
                       <th className="sticky left-0 z-20 border-b border-r border-gray-200 bg-gray-100 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                         고객명
+                      </th>
+                      <th className="w-[4.25rem] max-w-[4.25rem] sm:w-[5rem] sm:max-w-[5rem] border-b border-gray-200 py-1.5 px-1 text-center text-[10px] leading-tight font-medium text-gray-700 whitespace-nowrap">
+                        담당
                       </th>
                       <th className="border-b border-gray-200 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                         총액
@@ -1147,6 +1159,12 @@ ${footer2}`;
                       >
                         <td className="sticky left-0 z-10 border-b border-r border-gray-100 bg-white py-2 px-2 text-left text-fluid-xs font-medium text-gray-900 sm:px-3 sm:text-fluid-sm whitespace-nowrap group-hover:bg-gray-50">
                           {o.customerName}
+                        </td>
+                        <td
+                          className="border-b border-gray-100 py-1.5 px-1 text-left text-[10px] sm:text-[11px] leading-tight text-gray-700 max-w-[4.25rem] sm:max-w-[5rem] truncate"
+                          title={labelOrderFormIssuer(o.createdBy ?? undefined)}
+                        >
+                          {labelOrderFormIssuer(o.createdBy ?? undefined)}
                         </td>
                         <td className="border-b border-gray-100 py-2 px-2 text-right text-fluid-xs text-gray-700 tabular-nums sm:px-3 sm:text-fluid-sm whitespace-nowrap">
                           {o.totalAmount.toLocaleString('ko-KR')}원
@@ -1222,6 +1240,11 @@ ${footer2}`;
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
                   {previewModal.order.customerName} · 총액 {previewModal.order.totalAmount.toLocaleString('ko-KR')}원
+                  {previewModal.order.createdBy ? (
+                    <span className="block text-[11px] text-gray-500 mt-0.5">
+                      담당: {labelOrderFormIssuer(previewModal.order.createdBy)}
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-4">

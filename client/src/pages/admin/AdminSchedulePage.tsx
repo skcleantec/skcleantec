@@ -1032,7 +1032,7 @@ export function AdminSchedulePage() {
           token={token}
           item={memoModalItem}
           onClose={() => setMemoModalItem(null)}
-          onSaved={() => void fetchMonthData(false)}
+          onSaved={() => fetchMonthData(false)}
         />
       )}
 

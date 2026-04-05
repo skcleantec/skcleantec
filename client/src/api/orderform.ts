@@ -7,6 +7,13 @@ function headers(token: string) {
   };
 }
 
+/** 발주서 발급 계정(관리자·마케터) */
+export interface OrderFormCreatedBy {
+  id: string;
+  name: string;
+  role: string;
+}
+
 export interface OrderForm {
   id: string;
   token: string;
@@ -20,6 +27,8 @@ export interface OrderForm {
   preferredTimeDetail: string | null;
   createdAt: string;
   submittedAt: string | null;
+  /** 발급한 사용자(마케터·관리자) */
+  createdBy?: OrderFormCreatedBy | null;
 }
 
 export interface OrderFormConfigPublic {

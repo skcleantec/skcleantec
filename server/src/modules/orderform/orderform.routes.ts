@@ -193,12 +193,17 @@ router.delete('/professional-options/:id', authMiddleware, adminOrMarketer, asyn
   }
 });
 
+const orderFormCreatedBySelect = {
+  select: { id: true, name: true, role: true },
+} as const;
+
 /** 관리자/마케터: 발주서 목록 */
 router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const list = await prisma.orderForm.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
       inquiries: { take: 1 },
+      createdBy: orderFormCreatedBySelect,
     },
   });
   res.json({ items: list });
@@ -282,7 +287,13 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
         where: { id: pid },
         data: { orderFormId: created.id },
       });
-      return created;
+      return tx.orderForm.findUniqueOrThrow({
+        where: { id: created.id },
+        include: {
+          inquiries: { take: 1 },
+          createdBy: orderFormCreatedBySelect,
+        },
+      });
     });
     res.json(orderForm);
     return;
@@ -300,6 +311,9 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
       preferredTime: preferredTime?.trim() || null,
       preferredTimeDetail: preferredTimeDetail?.trim() || null,
       createdById: userId,
+    },
+    include: {
+      createdBy: orderFormCreatedBySelect,
     },
   });
   res.json(orderForm);
