@@ -7,6 +7,7 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { pickCreatedByIdForSeed } from '../scripts/schedule-mar-may-seed.logic.js';
+import { allocateNextInquiryNumber } from '../src/modules/inquiries/inquiryNumber.js';
 
 const prisma = new PrismaClient();
 
@@ -84,8 +85,10 @@ async function main() {
     const createdById = pickCreatedByIdForSeed(admin.id, marketers);
 
     await prisma.$transaction(async (tx) => {
+      const inquiryNumber = await allocateNextInquiryNumber(tx);
       const inquiry = await tx.inquiry.create({
         data: {
+          inquiryNumber,
           customerName: name,
           customerPhone: phone,
           createdById,

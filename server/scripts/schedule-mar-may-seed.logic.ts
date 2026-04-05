@@ -1,7 +1,9 @@
 /**
  * 3·4·5월 스케줄 테스트 시드 공통 로직 (CLI 시드·배포용 스크립트에서 공유).
+ * 접수번호는 API와 동일하게 daily_inquiry_counters 기준으로 발급합니다.
  */
 import type { PrismaClient } from '@prisma/client';
+import { allocateNextInquiryNumber } from '../src/modules/inquiries/inquiryNumber.js';
 
 const DEFAULT_COUNT = 90;
 
@@ -99,8 +101,10 @@ export async function runMarMayScheduleSeed(
     const createdById = pickCreatedByIdForSeed(admin.id, marketers);
 
     await prisma.$transaction(async (tx) => {
+      const inquiryNumber = await allocateNextInquiryNumber(tx);
       const inquiry = await tx.inquiry.create({
         data: {
+          inquiryNumber,
           customerName: name,
           customerPhone: phone,
           createdById,
