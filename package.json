@@ -13,7 +13,8 @@
     "db:seed": "cd server && npm run db:seed",
     "db:check-admin": "cd server && npm run db:check-admin",
     "db:seed:schedule:test-m3-m5": "cd server && npm run db:seed:schedule:test-m3-m5",
-    "db:purge:schedule:test-m3-m5": "cd server && npm run db:purge:schedule:test-m3-m5"
+    "db:purge:schedule:test-m3-m5": "cd server && npm run db:purge:schedule:test-m3-m5",
+    "deploy:seed-from-config": "cd server && npm run deploy:seed-from-config"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
