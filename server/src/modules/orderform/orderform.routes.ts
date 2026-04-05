@@ -15,6 +15,7 @@ import {
   parseProfessionalOptionIdsRaw,
 } from './specialtyOptions.js';
 import { ensureMissingProfessionalDefaults } from './defaultProfessionalOptions.js';
+import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 
 const router = Router();
 
@@ -601,13 +602,17 @@ router.post('/submit/:token', async (req, res) => {
 
   const existingPending = await prisma.inquiry.findFirst({
     where: { orderFormId: form.id, status: 'PENDING' },
+    select: { id: true, inquiryNumber: true },
   });
 
   if (existingPending) {
-    await prisma.$transaction([
-      prisma.inquiry.update({
+    await prisma.$transaction(async (tx) => {
+      const inquiryNumber =
+        existingPending.inquiryNumber ?? (await allocateNextInquiryNumber(tx));
+      await tx.inquiry.update({
         where: { id: existingPending.id },
         data: {
+          inquiryNumber,
           customerName: body.customerName || form.customerName,
           customerPhone: body.customerPhone,
           customerPhone2: String(body.customerPhone2).trim(),
@@ -634,16 +639,18 @@ router.post('/submit/:token', async (req, res) => {
           status: 'RECEIVED',
           professionalOptionIds: professionalIds,
         },
-      }),
-      prisma.orderForm.update({
+      });
+      await tx.orderForm.update({
         where: { id: form.id },
         data: { submittedAt: new Date() },
-      }),
-    ]);
+      });
+    });
   } else {
-    await prisma.$transaction([
-      prisma.inquiry.create({
+    await prisma.$transaction(async (tx) => {
+      const inquiryNumber = await allocateNextInquiryNumber(tx);
+      await tx.inquiry.create({
         data: {
+          inquiryNumber,
           createdById: form.createdById,
           customerName: body.customerName || form.customerName,
           customerPhone: body.customerPhone,
@@ -672,12 +679,12 @@ router.post('/submit/:token', async (req, res) => {
           orderFormId: form.id,
           professionalOptionIds: professionalIds,
         },
-      }),
-      prisma.orderForm.update({
+      });
+      await tx.orderForm.update({
         where: { id: form.id },
         data: { submittedAt: new Date() },
-      }),
-    ]);
+      });
+    });
   }
 
   res.json({ ok: true });

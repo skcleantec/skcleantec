@@ -47,8 +47,18 @@ enum UserRole {
   MARKETER
 }
 
+/// KST 일자별 접수 순번 (YYMMDD + 4자리 = 10자리 `inquiry_number` 발급용)
+model DailyInquiryCounter {
+  dateKey String @id @map("date_key") @db.VarChar(8)
+  lastSeq Int    @map("last_seq")
+
+  @@map("daily_inquiry_counters")
+}
+
 model Inquiry {
   id              String       @id @default(uuid())
+  /// 고객·검색용 짧은 접수번호 (KST 기준 YYMMDD + 일 4자리 순번, 10자리 숫자, 전역 유일)
+  inquiryNumber   String?      @unique @map("inquiry_number") @db.VarChar(12)
   customerName    String       @map("customer_name")
   customerPhone   String       @map("customer_phone")
   customerPhone2  String?      @map("customer_phone_2")

@@ -150,22 +150,22 @@ export function AdminAdvertisingPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-xl font-semibold text-gray-800">광고비</h1>
-      <p className="text-sm text-gray-600">
+      <h1 className="text-fluid-xl font-semibold text-gray-800">광고비</h1>
+      <p className="text-fluid-sm text-gray-600">
         {role === 'ADMIN'
           ? '전체 마케터 기준 지출·발주서 접수 실적을 집계합니다. (마케터는 본인만 조회)'
           : '본인의 광고비 지출과 발주서 접수 실적입니다.'}
       </p>
 
       {err && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{err}</div>
+        <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-fluid-sm">{err}</div>
       )}
 
       <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-wrap gap-3 items-end">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">기간 빠른 선택</label>
+          <label className="block text-fluid-xs text-gray-600 mb-1">기간 빠른 선택</label>
           <select
-            className="border border-gray-300 rounded px-2 py-1 text-sm min-w-[8.5rem]"
+            className="border border-gray-300 rounded px-2 py-1 text-fluid-sm min-w-[8.5rem]"
             value={periodPreset}
             onChange={(e) => {
               const v = e.target.value as DateRangePresetId;
@@ -182,10 +182,10 @@ export function AdminAdvertisingPage() {
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">시작일</label>
+          <label className="block text-fluid-xs text-gray-600 mb-1">시작일</label>
           <input
             type="date"
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            className="border border-gray-300 rounded px-2 py-1 text-fluid-sm"
             value={from}
             onChange={(e) => {
               setPeriodPreset('custom');
@@ -194,10 +194,10 @@ export function AdminAdvertisingPage() {
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">종료일</label>
+          <label className="block text-fluid-xs text-gray-600 mb-1">종료일</label>
           <input
             type="date"
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            className="border border-gray-300 rounded px-2 py-1 text-fluid-sm"
             value={to}
             onChange={(e) => {
               setPeriodPreset('custom');
@@ -207,9 +207,9 @@ export function AdminAdvertisingPage() {
         </div>
         {role === 'ADMIN' && (
           <div>
-            <label className="block text-xs text-gray-600 mb-1">마케터</label>
+            <label className="block text-fluid-xs text-gray-600 mb-1">마케터</label>
             <select
-              className="border border-gray-300 rounded px-2 py-1 text-sm min-w-[10rem]"
+              className="border border-gray-300 rounded px-2 py-1 text-fluid-sm min-w-[10rem]"
               value={marketerFilter}
               onChange={(e) => setMarketerFilter(e.target.value)}
             >
@@ -225,18 +225,18 @@ export function AdminAdvertisingPage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          className="px-3 py-1.5 bg-blue-600 text-white text-fluid-sm rounded hover:bg-blue-700"
         >
           조회
         </button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">불러오는 중…</p>
+        <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
       ) : (
         <>
           <div>
-            <h2 className="text-base font-medium text-gray-800 mb-3">기간 요약</h2>
+            <h2 className="text-fluid-base font-medium text-gray-800 mb-3">기간 요약</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <SummaryCard label="총 광고비" value={s ? won(s.totalAdSpend) : '—'} />
               <SummaryCard label="발주서 접수 건수" value={s ? String(s.orderInquiryCount) : '—'} />
@@ -252,9 +252,9 @@ export function AdminAdvertisingPage() {
           </div>
 
           <div>
-            <h2 className="text-base font-medium text-gray-800 mb-3">사용자별 집계</h2>
+            <h2 className="text-fluid-base font-medium text-gray-800 mb-3">사용자별 집계</h2>
             <div className="border border-gray-200 rounded overflow-x-auto bg-white">
-              <table className="w-full text-sm min-w-[720px]">
+              <table className="w-full text-fluid-sm min-w-[720px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left py-2 px-3">이름</th>
@@ -288,9 +288,9 @@ export function AdminAdvertisingPage() {
           </div>
 
           <div>
-            <h2 className="text-base font-medium text-gray-800 mb-3">작업 종료 이력 (광고비 입력)</h2>
+            <h2 className="text-fluid-base font-medium text-gray-800 mb-3">작업 종료 이력 (광고비 입력)</h2>
             <div className="border border-gray-200 rounded overflow-x-auto bg-white">
-              <table className="w-full text-sm min-w-[640px]">
+              <table className="w-full text-fluid-sm min-w-[640px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left py-2 px-3">종료 시각</th>
@@ -308,12 +308,12 @@ export function AdminAdvertisingPage() {
                   ) : (
                     history.map((h) => (
                       <tr key={h.id} className="border-t border-gray-100">
-                        <td className="py-2 px-3 whitespace-nowrap text-gray-800 text-[11px] tabular-nums">
+                        <td className="py-2 px-3 whitespace-nowrap text-gray-800 text-fluid-xs tabular-nums">
                           {h.endedAt ? formatDateTimeCompactWithWeekday(h.endedAt) : '—'}
                         </td>
                         {role === 'ADMIN' && (
                           <td className="py-2 px-3 text-gray-800">
-                            {h.user.name} <span className="text-gray-500 text-xs">({h.user.email})</span>
+                            {h.user.name} <span className="text-gray-500 text-fluid-xs">({h.user.email})</span>
                           </td>
                         )}
                         <td className="py-2 px-3 text-gray-700">
@@ -335,14 +335,14 @@ export function AdminAdvertisingPage() {
 
       {isSuperAdmin && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-base font-medium text-gray-800 mb-2">광고 채널 관리 (최고 관리자)</h2>
-          <p className="text-sm text-gray-600 mb-4">
+          <h2 className="text-fluid-base font-medium text-gray-800 mb-2">광고 채널 관리 (최고 관리자)</h2>
+          <p className="text-fluid-sm text-gray-600 mb-4">
             순서는 위·아래로 조정합니다. 이력이 있는 채널은 삭제할 수 없으며 비활성화만 가능합니다. 삭제 시 본인 비밀번호가 필요합니다.
           </p>
           <div className="flex flex-wrap gap-2 mb-4">
             <input
               type="text"
-              className="border border-gray-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[12rem]"
+              className="border border-gray-300 rounded px-3 py-1.5 text-fluid-sm flex-1 min-w-[12rem]"
               placeholder="새 채널 이름"
               value={newChannelName}
               onChange={(e) => setNewChannelName(e.target.value)}
@@ -350,13 +350,13 @@ export function AdminAdvertisingPage() {
             <button
               type="button"
               onClick={() => void handleAddChannel()}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              className="px-3 py-1.5 bg-blue-600 text-white text-fluid-sm rounded hover:bg-blue-700"
             >
               추가
             </button>
           </div>
           <div className="border border-gray-200 rounded overflow-x-auto">
-            <table className="w-full text-sm min-w-[520px]">
+            <table className="w-full text-fluid-sm min-w-[520px]">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="text-left py-2 px-3 w-28">순서</th>
@@ -370,7 +370,7 @@ export function AdminAdvertisingPage() {
                     <td className="py-2 px-3 whitespace-nowrap">
                       <button
                         type="button"
-                        className="px-1.5 py-0.5 border border-gray-300 rounded text-xs mr-1 disabled:opacity-40"
+                        className="px-1.5 py-0.5 border border-gray-300 rounded text-fluid-xs mr-1 disabled:opacity-40"
                         disabled={idx === 0}
                         onClick={() => void moveChannel(c.id, 'up')}
                         title="위로"
@@ -379,7 +379,7 @@ export function AdminAdvertisingPage() {
                       </button>
                       <button
                         type="button"
-                        className="px-1.5 py-0.5 border border-gray-300 rounded text-xs disabled:opacity-40"
+                        className="px-1.5 py-0.5 border border-gray-300 rounded text-fluid-xs disabled:opacity-40"
                         disabled={idx === sortedChannels.length - 1}
                         onClick={() => void moveChannel(c.id, 'down')}
                         title="아래로"
@@ -395,7 +395,7 @@ export function AdminAdvertisingPage() {
                       <button
                         type="button"
                         onClick={() => void handleToggleChannel(c)}
-                        className="text-xs text-blue-600 hover:underline mr-2"
+                        className="text-fluid-xs text-blue-600 hover:underline mr-2"
                       >
                         {c.isActive ? '비활성화' : '다시 사용'}
                       </button>
@@ -405,7 +405,7 @@ export function AdminAdvertisingPage() {
                           setDeleteTarget(c);
                           setDeletePassword('');
                         }}
-                        className="text-xs text-red-600 hover:underline"
+                        className="text-fluid-xs text-red-600 hover:underline"
                       >
                         삭제
                       </button>
@@ -421,13 +421,13 @@ export function AdminAdvertisingPage() {
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-lg shadow-lg max-w-sm w-full p-6">
-            <h3 className="text-base font-medium text-gray-900 mb-2">채널 삭제</h3>
-            <p className="text-sm text-gray-600 mb-3">
+            <h3 className="text-fluid-base font-medium text-gray-900 mb-2">채널 삭제</h3>
+            <p className="text-fluid-sm text-gray-600 mb-3">
               「{deleteTarget.name}」을(를) 삭제합니다. 본인 계정 비밀번호를 입력하세요.
             </p>
             <input
               type="password"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-4"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm mb-4"
               placeholder="비밀번호"
               value={deletePassword}
               onChange={(e) => setDeletePassword(e.target.value)}
@@ -436,7 +436,7 @@ export function AdminAdvertisingPage() {
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                className="px-3 py-1.5 text-fluid-sm border border-gray-300 rounded hover:bg-gray-50"
                 onClick={() => {
                   setDeleteTarget(null);
                   setDeletePassword('');
@@ -447,7 +447,7 @@ export function AdminAdvertisingPage() {
               </button>
               <button
                 type="button"
-                className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                className="px-3 py-1.5 text-fluid-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
                 onClick={() => void handleConfirmDelete()}
                 disabled={deleteSubmitting}
               >
@@ -464,9 +464,9 @@ export function AdminAdvertisingPage() {
 function SummaryCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="bg-white border border-gray-200 rounded p-3">
-      <p className="text-xs text-gray-600">{label}</p>
-      <p className="text-lg font-semibold text-gray-900 mt-1">{value}</p>
-      {sub && <p className="text-[10px] text-gray-500 mt-0.5">{sub}</p>}
+      <p className="text-fluid-xs text-gray-600">{label}</p>
+      <p className="text-fluid-lg font-semibold text-gray-900 mt-1 tabular-nums">{value}</p>
+      {sub && <p className="text-fluid-2xs text-gray-500 mt-0.5">{sub}</p>}
     </div>
   );
 }

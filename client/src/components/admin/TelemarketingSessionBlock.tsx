@@ -9,6 +9,7 @@ import {
 } from '../../api/advertising';
 import { getToken } from '../../stores/auth';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
+import { ModalCloseButton } from './ModalCloseButton';
 
 function formatTime(iso: string): string {
   return formatDateTimeCompactWithWeekday(iso);
@@ -137,8 +138,12 @@ export function TelemarketingSessionBlock() {
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">당일 광고비 입력</h3>
+          <div className="relative bg-white rounded-lg shadow-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <ModalCloseButton
+              onClick={() => setModalOpen(false)}
+              disabled={submitting}
+            />
+            <h3 className="text-lg font-medium text-gray-900 mb-2 pr-10">당일 광고비 입력</h3>
             <p className="text-sm text-gray-600 mb-4">채널별로 금액(원)을 입력하세요. 합계는 0보다 커야 합니다.</p>
             <div className="space-y-3 mb-4">
               {channels.map((c) => (

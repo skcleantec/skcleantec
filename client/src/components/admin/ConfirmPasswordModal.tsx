@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ModalCloseButton } from './ModalCloseButton';
 
 type Props = {
   open: boolean;
@@ -53,9 +54,10 @@ export function ConfirmPasswordModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="bg-white rounded-lg border border-gray-200 shadow-lg max-w-md w-full p-5"
+        className="relative bg-white rounded-lg border border-gray-200 shadow-lg max-w-md w-full p-5"
       >
-        <h2 className="text-base font-semibold text-gray-900 mb-1">{title}</h2>
+        <ModalCloseButton onClick={onClose} disabled={loading} />
+        <h2 className="text-base font-semibold text-gray-900 mb-1 pr-10">{title}</h2>
         <p className="text-sm text-gray-600 mb-4">계정 비밀번호를 입력해 주세요.</p>
         <form onSubmit={handleSubmit}>
           <input

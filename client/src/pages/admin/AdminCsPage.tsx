@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getCsReports, updateCsReport, type CsReport } from '../../api/cs';
 import { getToken } from '../../stores/auth';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
+import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 
 const STATUS_OPTIONS = [
   { value: 'RECEIVED', label: '접수' },
@@ -128,12 +129,13 @@ export function AdminCsPage() {
 
       {selected && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeDetail}>
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b flex justify-between items-center">
+          <div
+            className="relative bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalCloseButton onClick={closeDetail} />
+            <div className="p-4 border-b pr-12">
               <h2 className="font-semibold">C/S 상세</h2>
-              <button type="button" onClick={closeDetail} className="text-gray-500 hover:text-gray-700">
-                ×
-              </button>
             </div>
             <div className="p-4 space-y-3">
               <div>

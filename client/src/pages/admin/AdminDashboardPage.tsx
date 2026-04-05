@@ -39,10 +39,10 @@ export function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-800">메인 대시보드</h1>
+      <h1 className="text-fluid-xl font-semibold text-gray-800">메인 대시보드</h1>
 
       {apiError && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-fluid-sm">
           {apiError} (서버가 실행 중인지 확인하세요.)
         </div>
       )}
@@ -57,7 +57,7 @@ export function AdminDashboardPage() {
 
       {/* 매출 통계 */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-base font-medium text-gray-800 mb-4">매출 현황</h2>
+        <h2 className="text-fluid-base font-medium text-gray-800 mb-4">매출 현황</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <StatCard
             label="오늘 매출"
@@ -74,7 +74,7 @@ export function AdminDashboardPage() {
         {/* 최근 7일 매출 그래프 */}
         {stats?.dailySales && stats.dailySales.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">최근 7일 매출</h3>
+            <h3 className="text-fluid-sm font-medium text-gray-700 mb-3">최근 7일 매출</h3>
             <div className="flex gap-2 items-end h-24">
               {stats.dailySales.map((d) => (
                 <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
@@ -83,7 +83,7 @@ export function AdminDashboardPage() {
                     style={{ height: `${Math.max(4, (d.amount / maxDaily) * 80)}px` }}
                     title={formatCurrency(d.amount)}
                   />
-                  <span className="text-[10px] text-gray-500">
+                  <span className="text-fluid-2xs text-gray-500">
                     {d.date.slice(5).replace('-', '/')}
                   </span>
                 </div>
@@ -95,9 +95,9 @@ export function AdminDashboardPage() {
         {/* 팀장별 매출 */}
         {stats?.salesByTeamLeader && stats.salesByTeamLeader.length > 0 && (
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">팀장별 매출</h3>
+            <h3 className="text-fluid-sm font-medium text-gray-700 mb-3">팀장별 매출</h3>
             <div className="border border-gray-200 rounded overflow-hidden">
-              <table className="w-full text-sm">
+              <table className="w-full text-fluid-sm whitespace-nowrap">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left py-2 px-3 font-medium text-gray-700">팀장</th>
@@ -140,8 +140,8 @@ function StatCard({
         highlight ? 'bg-blue-50 border border-blue-200' : 'bg-white border border-gray-200'
       }`}
     >
-      <p className="text-sm text-gray-600">{label}</p>
-      <p className="text-2xl font-semibold text-gray-800 mt-1">{value}</p>
+      <p className="text-fluid-sm text-gray-600">{label}</p>
+      <p className="text-fluid-2xl font-semibold text-gray-800 mt-1 tabular-nums">{value}</p>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
 } from '../../api/inquiryChangeLogs';
 import { getMe } from '../../api/auth';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
+import { ModalCloseButton } from './ModalCloseButton';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 
 function formatWhen(iso: string): string {
@@ -116,14 +117,14 @@ export function DashboardChangeHistory({ token }: Props) {
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-medium text-gray-800">접수 변경 이력</h2>
-          <span className="text-xs text-gray-500">클릭 시 전체 보기</span>
+          <span className="text-fluid-xs text-gray-500">클릭 시 전체 보기</span>
         </div>
-        {loading && <p className="text-sm text-gray-500">불러오는 중…</p>}
-        {err && <p className="text-sm text-red-600">{err}</p>}
+        {loading && <p className="text-fluid-sm text-gray-500">불러오는 중…</p>}
+        {err && <p className="text-fluid-sm text-red-600">{err}</p>}
         {!loading && !err && recent.length === 0 && (
-          <p className="text-sm text-gray-500">저장된 변경 이력이 없습니다.</p>
+          <p className="text-fluid-sm text-gray-500">저장된 변경 이력이 없습니다.</p>
         )}
-        <ul className="space-y-2 text-sm text-gray-800">
+        <ul className="space-y-2 text-fluid-sm text-gray-800">
           {recent.map((row) => (
             <li key={row.id} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
               <div className="flex items-start justify-between gap-2">
@@ -131,7 +132,7 @@ export function DashboardChangeHistory({ token }: Props) {
                 {isSuperAdmin && (
                   <button
                     type="button"
-                    className="shrink-0 text-xs text-red-600 hover:underline"
+                    className="shrink-0 text-fluid-xs text-red-600 hover:underline"
                     onClick={(e) => {
                       e.stopPropagation();
                       setDeleteTarget(row);
@@ -154,24 +155,18 @@ export function DashboardChangeHistory({ token }: Props) {
         >
           <div
             role="dialog"
-            className="bg-white rounded-lg border border-gray-200 shadow-lg max-w-2xl w-full max-h-[85vh] flex flex-col"
+            className="relative bg-white rounded-lg border border-gray-200 shadow-lg max-w-2xl w-full max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+            <ModalCloseButton onClick={() => setModalOpen(false)} />
+            <div className="p-4 border-b border-gray-200 shrink-0 pr-12">
               <h2 className="text-base font-semibold text-gray-900">전체 변경 이력</h2>
-              <button
-                type="button"
-                className="text-sm text-gray-600 hover:text-gray-900"
-                onClick={() => setModalOpen(false)}
-              >
-                닫기
-              </button>
             </div>
             <div className="p-4 border-b border-gray-100 flex flex-wrap gap-2 items-end">
               <div className="flex-1 min-w-[160px]">
-                <label className="block text-xs text-gray-500 mb-1">고객 이름 필터</label>
+                <label className="block text-fluid-xs text-gray-500 mb-1">고객 이름 필터</label>
                 <input
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-fluid-sm"
                   value={filterName}
                   onChange={(e) => setFilterName(e.target.value)}
                   placeholder="이름 일부 입력"
@@ -179,7 +174,7 @@ export function DashboardChangeHistory({ token }: Props) {
               </div>
               <button
                 type="button"
-                className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded hover:bg-gray-800"
+                className="px-3 py-1.5 text-fluid-sm bg-gray-900 text-white rounded hover:bg-gray-800"
                 onClick={() => void applyFilter()}
                 disabled={fullLoading}
               >
@@ -187,11 +182,11 @@ export function DashboardChangeHistory({ token }: Props) {
               </button>
             </div>
             <div className="overflow-y-auto flex-1 p-4">
-              {fullLoading && <p className="text-sm text-gray-500">불러오는 중…</p>}
+              {fullLoading && <p className="text-fluid-sm text-gray-500">불러오는 중…</p>}
               {!fullLoading && (
-                <p className="text-xs text-gray-500 mb-2">총 {fullTotal}건 (최대 200건까지 표시)</p>
+                <p className="text-fluid-xs text-gray-500 mb-2">총 {fullTotal}건 (최대 200건까지 표시)</p>
               )}
-              <ul className="space-y-3 text-sm">
+              <ul className="space-y-3 text-fluid-sm">
                 {fullItems.map((row) => (
                   <li key={row.id} className="border border-gray-100 rounded p-3">
                     <div className="flex items-start justify-between gap-2">
@@ -207,7 +202,7 @@ export function DashboardChangeHistory({ token }: Props) {
                       {isSuperAdmin && (
                         <button
                           type="button"
-                          className="shrink-0 text-xs text-red-600 hover:underline"
+                          className="shrink-0 text-fluid-xs text-red-600 hover:underline"
                           onClick={() => {
                             setDeleteTarget(row);
                             setPwdOpen(true);
@@ -221,7 +216,7 @@ export function DashboardChangeHistory({ token }: Props) {
                 ))}
               </ul>
               {!fullLoading && fullItems.length === 0 && (
-                <p className="text-sm text-gray-500">해당 조건의 이력이 없습니다.</p>
+                <p className="text-fluid-sm text-gray-500">해당 조건의 이력이 없습니다.</p>
               )}
             </div>
           </div>

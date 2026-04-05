@@ -95,26 +95,31 @@ function ScheduleDayListItem({
     <button
       type="button"
       onClick={onPick}
-      className={`text-left w-full py-1.5 px-2 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm ${slotAccent} ${
+      className={`text-left w-full py-1.5 px-2 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm text-fluid-sm ${slotAccent} ${
         isPending ? 'ring-1 ring-red-500' : ''
       } hover:brightness-[0.99]`}
     >
       <span
-        className={`shrink-0 self-center inline-flex items-center justify-center min-w-[2.25rem] px-1 py-0.5 text-[10px] font-bold leading-none rounded ${slotBadgeClass}`}
+        className={`shrink-0 self-center inline-flex items-center justify-center min-w-[2.25rem] px-1 py-0.5 text-fluid-2xs font-bold leading-none rounded ${slotBadgeClass}`}
       >
         {slotLabelShort}
       </span>
       <div className="min-w-0 flex-1 flex flex-col gap-0.5">
         <div className="flex items-center justify-between gap-1.5 min-w-0">
-          <span className="font-medium text-sm text-gray-900 truncate inline-flex items-center gap-1 min-w-0">
-            {item.customerName}
+          <span className="font-medium text-gray-900 min-w-0 inline-flex items-center gap-1.5 flex-wrap">
+            <span className="truncate">{item.customerName}</span>
+            {item.inquiryNumber ? (
+              <span className="text-[10px] sm:text-fluid-2xs font-normal text-gray-400 tabular-nums shrink-0">
+                {item.inquiryNumber}
+              </span>
+            ) : null}
             <ProfessionalOptionDots rawIds={item.professionalOptionIds} catalog={profCatalog} />
           </span>
           {isPending && (
-            <span className="text-[10px] font-semibold text-red-700 shrink-0">대기</span>
+            <span className="text-fluid-2xs font-semibold text-red-700 shrink-0">대기</span>
           )}
         </div>
-        <p className="text-[11px] text-gray-600 leading-snug truncate">
+        <p className="text-fluid-xs text-gray-600 leading-snug truncate">
           {shortSiGuFromAddress(item.address)}
           {item.areaPyeong != null && item.areaPyeong > 0
             ? ` / ${formatPyeongDisplay(item.areaPyeong)}`
@@ -264,8 +269,8 @@ export function AdminSchedulePage() {
     <div className="flex flex-col gap-5 min-w-0">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 tracking-tight">스케줄 표</h1>
-          <p className="text-sm text-gray-500 mt-0.5">월별 배정·슬롯 현황을 한눈에 확인합니다.</p>
+          <h1 className="text-fluid-lg font-semibold text-gray-900 tracking-tight">스케줄 표</h1>
+          <p className="text-fluid-sm text-gray-500 mt-0.5">월별 배정·슬롯 현황을 한눈에 확인합니다.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-stretch rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -289,7 +294,7 @@ export function AdminSchedulePage() {
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300/80"
+            className="px-3 py-2 border border-gray-200 rounded-lg text-fluid-sm bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300/80"
           >
             {yearOptions.map((y) => (
               <option key={y} value={y}>
@@ -300,7 +305,7 @@ export function AdminSchedulePage() {
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300/80 min-w-[5.5rem]"
+            className="px-3 py-2 border border-gray-200 rounded-lg text-fluid-sm bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300/80 min-w-[5.5rem]"
           >
             {monthOptions.map((m) => (
               <option key={m} value={m}>
@@ -312,14 +317,14 @@ export function AdminSchedulePage() {
       </div>
 
       {loadError && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{loadError}</div>
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-fluid-sm text-red-700">{loadError}</div>
       )}
       {loading ? (
-        <div className="py-12 text-center text-gray-500 text-sm">로딩 중...</div>
+        <div className="py-12 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
       ) : (
         <>
           {/* 범례 */}
-          <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2.5 text-xs text-gray-600 leading-relaxed">
+          <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2.5 text-fluid-xs text-gray-600 leading-relaxed">
             <div className="flex flex-wrap gap-x-5 gap-y-2 items-center">
               <span className="inline-flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full border-2 border-rose-500 bg-white shrink-0" />
@@ -338,18 +343,18 @@ export function AdminSchedulePage() {
                 선택한 날
               </span>
             </div>
-            <p className="mt-2 text-[11px] text-gray-500 border-t border-gray-200/80 pt-2">
+            <p className="mt-2 text-fluid-2xs text-gray-500 border-t border-gray-200/80 pt-2">
               오전·오후 숫자는 남은 청소 가능 자리(휴무 반영)입니다. 사이는 발주서 옵션 접수 건수이며, 확정 시 오전/오후 중 하나를 사용합니다.
             </p>
           </div>
 
           {/* 달력 그리드 — gap-px로 격자선 정리 */}
           <div className="rounded-xl border border-gray-200 bg-gray-200/90 p-px shadow-sm overflow-hidden">
-            <div className="grid grid-cols-7 gap-px bg-gray-200/90 text-left">
+            <div className="grid grid-cols-7 gap-px bg-gray-200/90 text-left [word-break:keep-all]">
               {WEEKDAYS.map((w, wi) => (
                 <div
                   key={w}
-                  className={`py-2.5 px-2 text-center text-[11px] font-semibold tracking-wide bg-gray-100 ${
+                  className={`py-1.5 px-1 sm:py-2.5 sm:px-2.5 text-center text-calendar-xs font-semibold tracking-tight sm:tracking-wide bg-gray-100 min-w-0 ${
                     wi === 0 ? 'text-rose-600' : wi === 6 ? 'text-slate-600' : 'text-gray-600'
                   }`}
                 >
@@ -358,7 +363,12 @@ export function AdminSchedulePage() {
               ))}
               {calendarDays.map((d, i) => {
                 if (d === null) {
-                  return <div key={`empty-${i}`} className="min-h-[128px] bg-gray-50/90" />;
+                  return (
+                    <div
+                      key={`empty-${i}`}
+                      className="min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 bg-gray-50/90"
+                    />
+                  );
                 }
                 const key = getDateKey(d);
                 const dayItems = byDate[key] || [];
@@ -406,7 +416,7 @@ export function AdminSchedulePage() {
                         setSelectedDate(isSelected ? null : key);
                       }
                     }}
-                    className={`min-h-[128px] p-1.5 pb-7 cursor-pointer relative overflow-hidden text-left transition-colors ${
+                    className={`min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 px-1.5 py-1 sm:px-2 sm:py-1.5 pb-[clamp(1.35rem,3.8vmin,1.85rem)] cursor-pointer relative overflow-visible text-left transition-colors ${
                       cellBg
                     } ${pendingAccent ? 'ring-1 ring-rose-400/90 ring-inset' : ''} ${
                       emptyAccent ? 'ring-1 ring-rose-300/80 ring-inset' : ''
@@ -414,49 +424,49 @@ export function AdminSchedulePage() {
                       pendingDayCount > 0 ? 'bg-rose-50/50' : ''
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex items-start justify-between gap-0.5 sm:gap-1 min-w-0">
+                      <div className="flex items-center gap-1 min-w-0 sm:gap-1.5">
                         <span
                           className={
                             today
-                              ? 'inline-flex h-7 min-w-[1.75rem] shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white shadow-sm tabular-nums'
-                              : `text-[11px] font-semibold tabular-nums text-gray-900`
+                              ? 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-gray-900 text-calendar-xs font-bold text-white shadow-sm tabular-nums sm:h-7 sm:min-w-[1.75rem]'
+                              : `text-calendar-xs font-semibold tabular-nums text-gray-900`
                           }
                         >
                           {d}
                         </span>
-                        <span className={`text-[10px] font-medium leading-tight ${weekdayColor}`}>
+                        <span className={`text-calendar-2xs font-medium leading-tight ${weekdayColor}`}>
                           {weekdayKoFromYmd(year, month, d)}
                         </span>
                       </div>
                       {pendingDayCount > 0 && (
                         <span
-                          className="shrink-0 text-[10px] font-semibold text-rose-800 bg-rose-100/90 px-1.5 py-0.5 rounded-md leading-none"
+                          className="shrink-0 text-calendar-2xs font-semibold text-rose-800 bg-rose-100/90 px-1 sm:px-1.5 py-0.5 rounded-md leading-none max-w-[min(100%,3.8rem)] truncate"
                           title="대기 접수(발주서 미제출)"
                         >
                           대기{pendingDayCount > 1 ? pendingDayCount : ''}
                         </span>
                       )}
                     </div>
-                    <div className="mt-2 flex flex-col gap-1 pr-0.5">
-                      <div className="flex justify-between items-baseline gap-1 leading-none">
-                        <span className={isSlotFull ? 'text-slate-600 font-medium' : 'text-amber-900/90 font-medium'}>
+                    <div className="mt-1.5 sm:mt-2 flex flex-col gap-0.5 sm:gap-1 min-w-0">
+                      <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
+                        <span className={isSlotFull ? 'text-slate-600 font-medium text-calendar-2xs' : 'text-amber-900/90 font-medium text-calendar-2xs'}>
                           오전
                         </span>
                         <span
-                          className={`tabular-nums text-[11px] font-semibold ${
+                          className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
                             isSlotFull ? 'text-slate-800' : 'text-amber-950'
                           }`}
                         >
                           {morningRem}
                         </span>
                       </div>
-                      <div className="flex justify-between items-baseline gap-1 leading-none">
-                        <span className={isSlotFull ? 'text-slate-600 font-medium' : 'text-sky-800 font-medium'}>
+                      <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
+                        <span className={isSlotFull ? 'text-slate-600 font-medium text-calendar-2xs' : 'text-sky-800 font-medium text-calendar-2xs'}>
                           오후
                         </span>
                         <span
-                          className={`tabular-nums text-[11px] font-semibold ${
+                          className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
                             isSlotFull ? 'text-slate-800' : 'text-sky-950'
                           }`}
                         >
@@ -468,20 +478,20 @@ export function AdminSchedulePage() {
                           isSlotFull ? 'border-slate-200' : 'border-gray-200/90'
                         }`}
                       >
-                        <div className="flex justify-between items-baseline gap-1 leading-none">
+                        <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
                           <span
                             className={
                               isSlotFull
-                                ? 'text-slate-600 font-semibold'
+                                ? 'text-slate-600 font-semibold text-calendar-2xs'
                                 : unassignedCount > 0
-                                  ? 'text-rose-700 font-semibold'
-                                  : 'text-gray-500'
+                                  ? 'text-rose-700 font-semibold text-calendar-2xs'
+                                  : 'text-gray-500 text-calendar-2xs'
                             }
                           >
                             미배정
                           </span>
                           <span
-                            className={`tabular-nums text-[11px] font-semibold ${
+                            className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
                               isSlotFull
                                 ? unassignedCount > 0
                                   ? 'text-slate-900'
@@ -495,12 +505,12 @@ export function AdminSchedulePage() {
                           </span>
                         </div>
                         {sideOrderCount > 0 && (
-                          <div className="flex justify-between items-baseline gap-1 leading-none">
-                            <span className={isSlotFull ? 'text-slate-600 font-medium' : 'text-violet-800 font-medium'}>
+                          <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
+                            <span className={isSlotFull ? 'text-slate-600 font-medium text-calendar-2xs' : 'text-violet-800 font-medium text-calendar-2xs'}>
                               사이
                             </span>
                             <span
-                              className={`tabular-nums text-[11px] font-semibold ${
+                              className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
                                 isSlotFull ? 'text-slate-900' : 'text-violet-950'
                               }`}
                             >
@@ -511,7 +521,7 @@ export function AdminSchedulePage() {
                       </div>
                     </div>
                     {isSlotFull && (
-                      <span className="absolute bottom-1 left-0 right-0 text-center text-[10px] font-semibold text-slate-600 tracking-wide">
+                      <span className="absolute bottom-0.5 left-1 right-1 text-center text-calendar-2xs font-semibold text-slate-600 tracking-wide whitespace-nowrap">
                         마감
                       </span>
                     )}
@@ -525,7 +535,7 @@ export function AdminSchedulePage() {
           {selectedDate && (
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3 mb-3">
-                <h3 className="text-sm font-medium text-gray-800 tabular-nums min-w-0">
+                <h3 className="text-fluid-sm font-medium text-gray-800 tabular-nums min-w-0">
                   {formatDateCompactWithWeekday(selectedDate)}{' '}
                   <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
                 </h3>
@@ -542,7 +552,7 @@ export function AdminSchedulePage() {
 
               {/* 휴무/근무 현황 */}
               {stats[selectedDate] && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm space-y-2">
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg text-fluid-sm space-y-2">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div>
                       <span className="text-gray-500">휴무</span>
@@ -567,7 +577,7 @@ export function AdminSchedulePage() {
                     </div>
                   </div>
                   {(stats[selectedDate].sideCleaningOrderCount ?? 0) > 0 && (
-                    <div className="text-sm">
+                    <div className="text-fluid-sm">
                       <span className="text-gray-500">사이청소 접수</span>
                       <span className="ml-1 font-medium text-violet-800">
                         {stats[selectedDate].sideCleaningOrderCount}건
@@ -585,12 +595,12 @@ export function AdminSchedulePage() {
                     const aa = s.assignableAfternoonSlot ?? 0;
                     const sum = s.unassignedTotal ?? am + aa;
                     return (
-                      <div className="pt-2 border-t border-gray-200 text-sm">
+                      <div className="pt-2 border-t border-gray-200 text-fluid-sm">
                         <span className="text-gray-500">슬롯 남은 자리(건)</span>
                         <span className="ml-2 font-semibold text-blue-800">
                           오전 {am} · 오후 {aa} · 합(TO) {sum}
                         </span>
-                        <span className="block text-xs text-gray-500 mt-1">
+                        <span className="block text-fluid-xs text-gray-500 mt-1">
                           휴무 팀장은 근무 인원에서 제외됩니다. 사이청소는 확정 시 오전 또는 오후 중 하나를 사용합니다.
                         </span>
                       </div>
@@ -627,8 +637,8 @@ export function AdminSchedulePage() {
                     {morningList.length > 0 && (
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 border-b-2 border-amber-400 pb-1.5">
-                          <span className="text-sm font-bold text-amber-900">오전 일정</span>
-                          <span className="text-xs text-amber-800/80 tabular-nums">{morningList.length}건</span>
+                          <span className="text-fluid-sm font-bold text-amber-900">오전 일정</span>
+                          <span className="text-fluid-xs text-amber-800/80 tabular-nums">{morningList.length}건</span>
                         </div>
                         <div className="flex flex-col gap-1">
                           {morningList.map((item) => (
@@ -645,8 +655,8 @@ export function AdminSchedulePage() {
                     {afternoonList.length > 0 && (
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 border-b-2 border-sky-600 pb-1.5">
-                          <span className="text-sm font-bold text-sky-900">오후 일정</span>
-                          <span className="text-xs text-sky-800/80 tabular-nums">{afternoonList.length}건</span>
+                          <span className="text-fluid-sm font-bold text-sky-900">오후 일정</span>
+                          <span className="text-fluid-xs text-sky-800/80 tabular-nums">{afternoonList.length}건</span>
                         </div>
                         <div className="flex flex-col gap-1">
                           {afternoonList.map((item) => (
@@ -663,10 +673,10 @@ export function AdminSchedulePage() {
                     {otherList.length > 0 && (
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 border-b-2 border-violet-400 pb-1.5">
-                          <span className="text-sm font-bold text-violet-900">기타 · 일정 미확정</span>
-                          <span className="text-xs text-violet-800/80 tabular-nums">{otherList.length}건</span>
+                          <span className="text-fluid-sm font-bold text-violet-900">기타 · 일정 미확정</span>
+                          <span className="text-fluid-xs text-violet-800/80 tabular-nums">{otherList.length}건</span>
                         </div>
-                        <p className="text-xs text-gray-600 mb-2">
+                        <p className="text-fluid-xs text-gray-600 mb-2">
                           사이청소만 선택·오전·오후 미확정이거나 시간대가 비어 있는 접수입니다.
                         </p>
                         <div className="flex flex-col gap-1">
@@ -685,7 +695,7 @@ export function AdminSchedulePage() {
                 );
               })()}
               {(byDate[selectedDate]?.length ?? 0) === 0 && (
-                <div className="text-center text-gray-500 py-6 text-sm">
+                <div className="text-center text-gray-500 py-6 text-fluid-sm">
                   해당 날짜에 일정이 없습니다.
                 </div>
               )}

@@ -5,6 +5,7 @@ import { assignInquiry } from '../../api/assignments';
 import type { UserItem } from '../../api/users';
 import type { ScheduleItem } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
+import { ModalCloseButton } from './ModalCloseButton';
 import { AddressSearch } from '../forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
@@ -362,9 +363,24 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       aria-modal="true"
       aria-labelledby="schedule-detail-title"
     >
-      <div className="mx-auto w-full max-w-2xl rounded-lg bg-white p-5 sm:p-6 shadow-xl">
-        <h2 id="schedule-detail-title" className="text-lg font-semibold text-gray-800 mb-1">
-          {isCreate ? '신규 접수' : '접수 수정'}
+      <div className="relative mx-auto w-full max-w-2xl rounded-lg bg-white p-5 sm:p-6 shadow-xl">
+        <ModalCloseButton onClick={onClose} />
+        <h2
+          id="schedule-detail-title"
+          className="text-lg font-semibold text-gray-800 mb-1 pr-10 sm:pr-12"
+        >
+          {isCreate ? (
+            '신규 접수'
+          ) : (
+            <>
+              접수 수정
+              {item?.inquiryNumber ? (
+                <span className="ml-2 text-base font-normal text-gray-500 tabular-nums">
+                  · {item.inquiryNumber}
+                </span>
+              ) : null}
+            </>
+          )}
         </h2>
         <p className="text-sm text-gray-500 mb-4">
           {isCreate
@@ -374,6 +390,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
         {!isCreate && item && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 border-b border-gray-100 pb-3 mb-4">
+            {item.inquiryNumber ? (
+              <span className="font-medium text-gray-700 tabular-nums">접수번호 {item.inquiryNumber}</span>
+            ) : null}
             <span>출처: {item.source ?? '-'}</span>
             {item.orderForm?.createdBy && <span>담당 마케터: {item.orderForm.createdBy.name}</span>}
             {item.callAttempt != null && <span>통화 시도: {item.callAttempt}</span>}

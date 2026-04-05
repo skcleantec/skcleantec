@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { getUsers, createUser, updateUser, deleteUser, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
 
@@ -378,8 +379,9 @@ export function AdminTeamLeadersPage() {
             aria-modal="true"
             aria-labelledby="user-edit-title"
           >
-            <div className="mx-auto mt-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-              <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800 mb-1">
+            <div className="relative mx-auto mt-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+              <ModalCloseButton onClick={() => setEditingUser(null)} />
+              <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800 mb-1 pr-10">
                 사용자 수정
               </h2>
               <p className="text-xs text-gray-500 mb-4">

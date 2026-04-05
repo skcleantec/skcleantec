@@ -8,7 +8,7 @@
     "build": "cd server && npm run build && cd ../client && npm run build",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:setup": "cd server && npx prisma db push && npm run db:seed",
+    "db:setup": "cd server && npx prisma db push && npm run db:seed && npm run db:backfill-inquiry-numbers",
     "db:studio": "cd server && npx prisma studio",
     "db:seed": "cd server && npm run db:seed",
     "db:check-admin": "cd server && npm run db:check-admin"

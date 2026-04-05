@@ -14,6 +14,7 @@ export interface InquiryChangeLogEntry {
 
 export interface ScheduleItem {
   id: string;
+  inquiryNumber?: string | null;
   customerName: string;
   customerPhone: string;
   customerPhone2?: string | null;

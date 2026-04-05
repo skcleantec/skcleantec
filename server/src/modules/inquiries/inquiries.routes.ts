@@ -20,6 +20,7 @@ import {
   filterExistingProfessionalOptionIds,
   parseProfessionalOptionIdsRaw,
 } from '../orderform/specialtyOptions.js';
+import { allocateNextInquiryNumber } from './inquiryNumber.js';
 
 const router = Router();
 
@@ -82,7 +83,11 @@ router.get('/', async (req, res) => {
   if (search && typeof search === 'string' && search.trim()) {
     const s = search.trim();
     andClauses.push({
-      OR: [{ customerName: { contains: s } }, { customerPhone: { contains: s } }],
+      OR: [
+        { customerName: { contains: s } },
+        { customerPhone: { contains: s } },
+        { inquiryNumber: { contains: s } },
+      ],
     });
   }
   /** 마케터: 본인 접수(또는 구 데이터 발주서 작성자)만. 관리자: 선택 시 해당 마케터만 */
@@ -232,28 +237,32 @@ router.post('/', async (req, res) => {
       ? (rawStatus as InquiryStatus)
       : 'RECEIVED';
 
-  const inquiry = await prisma.inquiry.create({
-    data: {
-      createdById: user?.userId ?? null,
-      customerName: String(body.customerName ?? ''),
-      customerPhone: String(body.customerPhone ?? ''),
-      customerPhone2: body.customerPhone2 ? String(body.customerPhone2) : null,
-      address: String(body.address ?? ''),
-      addressDetail: body.addressDetail ? String(body.addressDetail) : null,
-      areaPyeong: body.areaPyeong != null ? Number(body.areaPyeong) : null,
-      areaBasis: body.areaBasis ? String(body.areaBasis) : null,
-      propertyType: body.propertyType ? String(body.propertyType) : null,
-      roomCount: body.roomCount != null ? Number(body.roomCount) : null,
-      bathroomCount: body.bathroomCount != null ? Number(body.bathroomCount) : null,
-      balconyCount: body.balconyCount != null ? Number(body.balconyCount) : null,
-      preferredDate: body.preferredDate ? new Date(body.preferredDate as string) : null,
-      preferredTime: body.preferredTime ? String(body.preferredTime) : null,
-      preferredTimeDetail: body.preferredTimeDetail ? String(body.preferredTimeDetail) : null,
-      callAttempt: body.callAttempt != null ? Number(body.callAttempt) : null,
-      memo: body.memo ? String(body.memo) : null,
-      source: body.source ? String(body.source) : '전화',
-      status,
-    },
+  const inquiry = await prisma.$transaction(async (tx) => {
+    const inquiryNumber = await allocateNextInquiryNumber(tx);
+    return tx.inquiry.create({
+      data: {
+        inquiryNumber,
+        createdById: user?.userId ?? null,
+        customerName: String(body.customerName ?? ''),
+        customerPhone: String(body.customerPhone ?? ''),
+        customerPhone2: body.customerPhone2 ? String(body.customerPhone2) : null,
+        address: String(body.address ?? ''),
+        addressDetail: body.addressDetail ? String(body.addressDetail) : null,
+        areaPyeong: body.areaPyeong != null ? Number(body.areaPyeong) : null,
+        areaBasis: body.areaBasis ? String(body.areaBasis) : null,
+        propertyType: body.propertyType ? String(body.propertyType) : null,
+        roomCount: body.roomCount != null ? Number(body.roomCount) : null,
+        bathroomCount: body.bathroomCount != null ? Number(body.bathroomCount) : null,
+        balconyCount: body.balconyCount != null ? Number(body.balconyCount) : null,
+        preferredDate: body.preferredDate ? new Date(body.preferredDate as string) : null,
+        preferredTime: body.preferredTime ? String(body.preferredTime) : null,
+        preferredTimeDetail: body.preferredTimeDetail ? String(body.preferredTimeDetail) : null,
+        callAttempt: body.callAttempt != null ? Number(body.callAttempt) : null,
+        memo: body.memo ? String(body.memo) : null,
+        source: body.source ? String(body.source) : '전화',
+        status,
+      },
+    });
   });
   res.status(201).json(inquiry);
 });
