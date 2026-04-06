@@ -7,7 +7,7 @@ export function TeamProtectedRoute({ children }: { children: React.ReactNode }) 
   const location = useLocation();
 
   if (!token) {
-    return <Navigate to="/team/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
   return <>{children}</>;
 }

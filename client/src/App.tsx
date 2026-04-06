@@ -3,14 +3,13 @@ import { AdminLayout } from './components/layout/AdminLayout';
 import { TeamLayout } from './components/layout/TeamLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { TeamProtectedRoute } from './components/auth/TeamProtectedRoute';
-import { AdminLoginPage } from './pages/admin/AdminLoginPage';
+import { LoginPage } from './pages/LoginPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminInquiriesPage } from './pages/admin/AdminInquiriesPage';
 import { AdminSchedulePage } from './pages/admin/AdminSchedulePage';
 import { AdminTeamLeadersPage } from './pages/admin/AdminTeamLeadersPage';
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
 import { AdminOrderFormPage } from './pages/admin/AdminOrderFormPage';
-import { TeamLoginPage } from './pages/team/TeamLoginPage';
 import { TeamDashboardPage } from './pages/team/TeamDashboardPage';
 import { TeamMessagesPage } from './pages/team/TeamMessagesPage';
 import { TeamDayOffsPage } from './pages/team/TeamDayOffsPage';
@@ -27,8 +26,9 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/admin/login" replace />} />
-        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin/login" element={<Navigate to="/login" replace />} />
         <Route
           path="/admin"
           element={
@@ -55,7 +55,7 @@ function App() {
         <Route path="/order/:token" element={<OrderFormPage />} />
         <Route path="/info" element={<OrderInfoPage />} />
         <Route path="/cs" element={<CsReportPage />} />
-        <Route path="/team/login" element={<TeamLoginPage />} />
+        <Route path="/team/login" element={<Navigate to="/login" replace />} />
         <Route
           path="/team"
           element={
@@ -69,7 +69,7 @@ function App() {
           <Route path="messages" element={<TeamMessagesPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
-        <Route path="*" element={<Navigate to="/admin/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

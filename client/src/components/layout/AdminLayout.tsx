@@ -103,7 +103,7 @@ export function AdminLayout() {
 
   const handleLogout = () => {
     clearToken();
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   const navClass = ({ isActive }: { isActive: boolean }) =>

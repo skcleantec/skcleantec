@@ -116,7 +116,7 @@ export function AdminTeamsPage() {
       .finally(() => setDayOffLoading(false));
   }, [token, dayOffModal, calYear, calMonth]);
 
-  if (!token) return <Navigate to="/admin/login" replace />;
+  if (!token) return <Navigate to="/login" replace />;
   if (roleGate === 'loading') {
     return <div className="text-sm text-gray-500 py-8">권한 확인 중…</div>;
   }

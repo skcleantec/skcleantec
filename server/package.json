@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node scripts/prepare-schema.js && tsx watch src/index.ts",
     "build": "node scripts/prepare-schema.js && prisma generate && tsc",
     "start": "node dist/index.js",
     "db:generate": "node scripts/prepare-schema.js && prisma generate",

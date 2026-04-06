@@ -34,7 +34,7 @@ export function TeamLayout() {
 
   const handleLogout = () => {
     clearTeamToken();
-    navigate('/team/login');
+    navigate('/login');
   };
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
