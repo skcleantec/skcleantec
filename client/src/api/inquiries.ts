@@ -43,6 +43,12 @@ export async function getInquiries(
     day?: string;
     /** 관리자만: 해당 사용자 기준 접수(또는 발주서 작성자). `__unassigned__`는 미지정만 */
     createdById?: string;
+    /** 배정 팀장. `__unassigned__`는 미배정만 */
+    teamLeaderId?: string;
+    /** 예약일(희망일) 월 단위 YYYY-MM, KST */
+    scheduleMonth?: string;
+    /** 예약일(희망일) 하루 YYYY-MM-DD, KST (scheduleMonth보다 우선) */
+    scheduleDay?: string;
   }
 ) {
   const q = new URLSearchParams();
@@ -52,6 +58,9 @@ export async function getInquiries(
   if (params?.month) q.set('month', params.month);
   if (params?.day) q.set('day', params.day);
   if (params?.createdById) q.set('createdById', params.createdById);
+  if (params?.teamLeaderId) q.set('teamLeaderId', params.teamLeaderId);
+  if (params?.scheduleMonth) q.set('scheduleMonth', params.scheduleMonth);
+  if (params?.scheduleDay) q.set('scheduleDay', params.scheduleDay);
   const qs = q.toString();
   const res = await fetch(`${API}/inquiries${qs ? `?${qs}` : ''}`, {
     headers: headers(token),

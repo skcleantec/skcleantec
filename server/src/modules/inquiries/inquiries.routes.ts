@@ -9,7 +9,11 @@ import {
   adminOnly,
   type AuthPayload,
 } from '../auth/auth.middleware.js';
-import { createdAtRangeFromQuery } from './inquiryListDateRange.js';
+import {
+  createdAtRangeFromQuery,
+  kstDayRangeYmd,
+  kstMonthRangeYm,
+} from './inquiryListDateRange.js';
 import {
   buildMarketerOverview,
   whereInquiryAttributedToMarketer,
@@ -102,7 +106,19 @@ router.get('/marketer-overview', async (_req, res) => {
 
 router.get('/', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  const { status, limit = '200', offset = '0', search, datePreset, month, day, createdById } = req.query;
+  const {
+    status,
+    limit = '200',
+    offset = '0',
+    search,
+    datePreset,
+    month,
+    day,
+    createdById,
+    teamLeaderId,
+    scheduleMonth,
+    scheduleDay,
+  } = req.query;
   const range = createdAtRangeFromQuery({
     datePreset: typeof datePreset === 'string' ? datePreset : undefined,
     month: typeof month === 'string' ? month : undefined,
@@ -140,6 +156,31 @@ router.get('/', async (req, res) => {
       });
     } else {
       andClauses.push(whereInquiryAttributedToMarketer(cid));
+    }
+  }
+
+  const TEAM_LEADER_FILTER_UNASSIGNED = '__unassigned__';
+  if (typeof teamLeaderId === 'string' && teamLeaderId.trim()) {
+    const tid = teamLeaderId.trim();
+    if (tid === TEAM_LEADER_FILTER_UNASSIGNED) {
+      andClauses.push({ assignments: { none: {} } });
+    } else {
+      andClauses.push({ assignments: { some: { teamLeaderId: tid } } });
+    }
+  }
+
+  /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선 */
+  if (typeof scheduleDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(scheduleDay.trim())) {
+    const r = kstDayRangeYmd(scheduleDay.trim());
+    if (r) {
+      andClauses.push({ preferredDate: { not: null } });
+      andClauses.push({ preferredDate: { gte: r.gte, lte: r.lte } });
+    }
+  } else if (typeof scheduleMonth === 'string' && /^\d{4}-\d{2}$/.test(scheduleMonth.trim())) {
+    const r = kstMonthRangeYm(scheduleMonth.trim());
+    if (r) {
+      andClauses.push({ preferredDate: { not: null } });
+      andClauses.push({ preferredDate: { gte: r.gte, lte: r.lte } });
     }
   }
 

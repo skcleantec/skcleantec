@@ -3,6 +3,14 @@ import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { clearToken, getToken } from '../../stores/auth';
 import { getUnreadCount } from '../../api/messages';
 import { getMe } from '../../api/auth';
+import {
+  ADMIN_NAV_DEF,
+  type AdminNavId,
+  canShowAdminNavItem,
+  insertBefore,
+  loadAdminNavOrder,
+  saveAdminNavOrder,
+} from '../../constants/adminNav';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -47,6 +55,8 @@ export function AdminLayout() {
   const navScrollRef = useRef<HTMLDivElement>(null);
   const isMessagesPage = location.pathname.includes('/messages');
   const [meRole, setMeRole] = useState<string | null>(null);
+  const [navOrder, setNavOrder] = useState<AdminNavId[]>(() => loadAdminNavOrder(false));
+  const [draggingNavId, setDraggingNavId] = useState<AdminNavId | null>(null);
 
   useEffect(() => {
     const token = getToken();
@@ -58,6 +68,42 @@ export function AdminLayout() {
       .then((u: { role?: string }) => setMeRole(typeof u.role === 'string' ? u.role : null))
       .catch(() => setMeRole(null));
   }, []);
+
+  useEffect(() => {
+    if (!meRole) return;
+    setNavOrder(loadAdminNavOrder(meRole === 'ADMIN'));
+  }, [meRole]);
+
+  const handleNavDragStart = (e: React.DragEvent, id: AdminNavId) => {
+    setDraggingNavId(id);
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleNavDragEnd = () => {
+    setDraggingNavId(null);
+  };
+
+  const handleNavDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleNavDrop = (e: React.DragEvent, targetId: AdminNavId) => {
+    e.preventDefault();
+    const raw = e.dataTransfer.getData('text/plain');
+    if (!raw || !(raw in ADMIN_NAV_DEF)) return;
+    const dragId = raw as AdminNavId;
+    if (dragId === targetId) return;
+    const isAdmin = meRole === 'ADMIN';
+    if (!canShowAdminNavItem(dragId, isAdmin) || !canShowAdminNavItem(targetId, isAdmin)) return;
+    setNavOrder((prev) => {
+      const next = insertBefore(prev, dragId, targetId);
+      saveAdminNavOrder(isAdmin, next);
+      return next;
+    });
+    setDraggingNavId(null);
+  };
 
   const updateNavScrollHint = useCallback(() => {
     const el = navScrollRef.current;
@@ -141,49 +187,90 @@ export function AdminLayout() {
                 SK클린텍 관리자
               </h1>
               <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
-                <NavLink to="/admin/dashboard" className={navClass}>
-                  대시보드
-                </NavLink>
-                <NavLink to="/admin/inquiries" className={navClass}>
-                  접수 목록
-                </NavLink>
-                <NavLink to="/admin/schedule" className={navClass}>
-                  스케줄 표
-                </NavLink>
-                {meRole === 'ADMIN' && (
-                  <>
-                    <NavLink to="/admin/team-leaders" className={navClass}>
-                      사용자관리
-                    </NavLink>
-                    <NavLink to="/admin/teams" className={() => navClass({ isActive: teamMgmtActive })}>
-                      팀 관리
-                    </NavLink>
-                  </>
-                )}
-                <NavLink to="/admin/orderforms" className={navClass}>
-                  발주서
-                </NavLink>
-                <NavLink to="/admin/cs" className={navClass}>
-                  C/S 관리
-                </NavLink>
-                <NavLink to="/admin/advertising" className={navClass}>
-                  광고비
-                </NavLink>
-                <NavLink to="/admin/messages" className={navClass}>
-                  <span className="inline-flex items-center">
-                    메시지
-                    {unreadCount > 0 && (
-                      <>
-                        <span className="ml-0.5 sm:ml-1 text-red-600 font-medium text-[clamp(0.55rem,1.2vw,0.75rem)] whitespace-nowrap">
-                          새 메시지
-                        </span>
-                        <span className="ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 rounded-full bg-red-500 text-white font-medium text-[clamp(0.55rem,1.2vw,0.75rem)]">
-                          {unreadCount}
-                        </span>
-                      </>
-                    )}
-                  </span>
-                </NavLink>
+                {navOrder.map((id) => {
+                  const isAdmin = meRole === 'ADMIN';
+                  if (!canShowAdminNavItem(id, isAdmin)) return null;
+                  const def = ADMIN_NAV_DEF[id];
+                  const dragging = draggingNavId === id;
+                  const dragHandle = (
+                    <span
+                      draggable
+                      aria-label={`${def.label} 메뉴 순서 바꾸기`}
+                      title="드래그하여 순서 변경"
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        handleNavDragStart(e, id);
+                      }}
+                      onDragEnd={handleNavDragEnd}
+                      className="inline-grid grid-cols-2 gap-px px-0.5 py-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing select-none touch-none shrink-0"
+                    >
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <span key={i} className="w-[3px] h-[3px] rounded-full bg-current" aria-hidden />
+                      ))}
+                    </span>
+                  );
+                  const rowClass = `inline-flex flex-nowrap items-center gap-0.5 rounded shrink-0 ${
+                    dragging ? 'opacity-50' : ''
+                  }`;
+                  if (id === 'teams') {
+                    return (
+                      <div
+                        key={id}
+                        className={rowClass}
+                        onDragOver={handleNavDragOver}
+                        onDrop={(e) => handleNavDrop(e, id)}
+                      >
+                        {dragHandle}
+                        <NavLink
+                          to={def.to}
+                          className={() => navClass({ isActive: teamMgmtActive })}
+                        >
+                          {def.label}
+                        </NavLink>
+                      </div>
+                    );
+                  }
+                  if (id === 'messages') {
+                    return (
+                      <div
+                        key={id}
+                        className={rowClass}
+                        onDragOver={handleNavDragOver}
+                        onDrop={(e) => handleNavDrop(e, id)}
+                      >
+                        {dragHandle}
+                        <NavLink to={def.to} className={navClass}>
+                          <span className="inline-flex items-center">
+                            {def.label}
+                            {unreadCount > 0 && (
+                              <>
+                                <span className="ml-0.5 sm:ml-1 text-red-600 font-medium text-[clamp(0.55rem,1.2vw,0.75rem)] whitespace-nowrap">
+                                  새 메시지
+                                </span>
+                                <span className="ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 rounded-full bg-red-500 text-white font-medium text-[clamp(0.55rem,1.2vw,0.75rem)]">
+                                  {unreadCount}
+                                </span>
+                              </>
+                            )}
+                          </span>
+                        </NavLink>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={id}
+                      className={rowClass}
+                      onDragOver={handleNavDragOver}
+                      onDrop={(e) => handleNavDrop(e, id)}
+                    >
+                      {dragHandle}
+                      <NavLink to={def.to} className={navClass}>
+                        {def.label}
+                      </NavLink>
+                    </div>
+                  );
+                })}
               </nav>
             </div>
             {showNavMoreLeft && (
