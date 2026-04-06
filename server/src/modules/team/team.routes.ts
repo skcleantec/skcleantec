@@ -2,10 +2,63 @@ import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCall.helpers.js';
 
 const router = Router();
 
 router.use(teamAuthMiddleware);
+
+/** 해피콜 미완 건수 (마감 전 / 마감 후) — 팀장 본인 배정만 */
+router.get('/happy-call-stats', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const rows = await prisma.inquiry.findMany({
+    where: {
+      preferredDate: { not: null },
+      happyCallCompletedAt: null,
+      status: { notIn: ['CANCELLED', 'PENDING'] },
+      assignments: { some: { teamLeaderId: userId } },
+    },
+    select: { preferredDate: true },
+  });
+  const now = new Date();
+  let overdueCount = 0;
+  let pendingBeforeDeadlineCount = 0;
+  for (const r of rows) {
+    if (!r.preferredDate) continue;
+    if (now > happyCallDeadlineEnd(r.preferredDate)) overdueCount++;
+    else pendingBeforeDeadlineCount++;
+  }
+  res.json({ overdueCount, pendingBeforeDeadlineCount });
+});
+
+/** 팀장만 — 담당 접수에 대해 해피콜 완료 처리 */
+router.post('/inquiries/:id/happy-call-complete', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const { id } = req.params;
+  const inquiry = await prisma.inquiry.findFirst({
+    where: {
+      id,
+      assignments: { some: { teamLeaderId: userId } },
+    },
+  });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  if (!isHappyCallEligible(inquiry.status, inquiry.preferredDate)) {
+    res.status(400).json({ error: '해피콜을 등록할 수 없는 접수입니다.' });
+    return;
+  }
+  if (inquiry.happyCallCompletedAt) {
+    res.json({ ok: true, alreadyCompleted: true });
+    return;
+  }
+  await prisma.inquiry.update({
+    where: { id },
+    data: { happyCallCompletedAt: new Date() },
+  });
+  res.json({ ok: true });
+});
 
 router.get('/inquiries', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;

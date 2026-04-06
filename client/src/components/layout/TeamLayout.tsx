@@ -46,8 +46,9 @@ export function TeamLayout() {
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <h1 className="text-lg font-semibold text-gray-800">SK클린텍</h1>
-            <nav className="hidden sm:flex gap-1">
-              <NavLink to="/team/dashboard" className={navClass}>일정</NavLink>
+            <nav className="hidden sm:flex flex-wrap gap-1">
+              <NavLink to="/team/dashboard" className={navClass}>대시보드</NavLink>
+              <NavLink to="/team/schedule" className={navClass}>스케줄</NavLink>
               <NavLink to="/team/dayoffs" className={navClass}>휴무일</NavLink>
               <NavLink to="/team/messages" className={navClass}>
                 메시지
@@ -83,15 +84,23 @@ export function TeamLayout() {
         <NavLink
           to="/team/dashboard"
           className={({ isActive }) =>
-            `flex-1 py-3 px-4 text-center text-sm font-medium ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
+            `flex-1 py-2.5 px-1 text-center text-[11px] sm:text-sm font-medium leading-tight ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
           }
         >
-          일정
+          대시보드
+        </NavLink>
+        <NavLink
+          to="/team/schedule"
+          className={({ isActive }) =>
+            `flex-1 py-2.5 px-1 text-center text-[11px] sm:text-sm font-medium leading-tight ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
+          }
+        >
+          스케줄
         </NavLink>
         <NavLink
           to="/team/dayoffs"
           className={({ isActive }) =>
-            `flex-1 py-3 px-4 text-center text-sm font-medium ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
+            `flex-1 py-2.5 px-1 text-center text-[11px] sm:text-sm font-medium leading-tight ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
           }
         >
           휴무일
@@ -99,7 +108,7 @@ export function TeamLayout() {
         <NavLink
           to="/team/messages"
           className={({ isActive }) =>
-            `flex-1 py-3 px-4 text-center text-sm font-medium flex flex-col items-center gap-0.5 ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
+            `flex-1 py-2.5 px-1 text-center text-[11px] sm:text-sm font-medium flex flex-col items-center justify-center gap-0.5 min-w-0 ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
           }
         >
           <span>메시지</span>

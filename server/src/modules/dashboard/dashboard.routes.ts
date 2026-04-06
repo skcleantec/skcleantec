@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { happyCallDeadlineEnd } from '../inquiries/happyCall.helpers.js';
 
 const router = Router();
 
@@ -114,6 +115,24 @@ router.get('/stats', async (_req, res) => {
     dailySales.push({ date: dateStr, amount: amt });
   }
 
+  const happyCallRows = await prisma.inquiry.findMany({
+    where: {
+      preferredDate: { not: null },
+      happyCallCompletedAt: null,
+      status: { notIn: ['CANCELLED', 'PENDING'] },
+      assignments: { some: {} },
+    },
+    select: { preferredDate: true },
+  });
+  const nowTs = new Date();
+  let happyCallOverdueCount = 0;
+  let happyCallPendingBeforeDeadlineCount = 0;
+  for (const r of happyCallRows) {
+    if (!r.preferredDate) continue;
+    if (nowTs > happyCallDeadlineEnd(r.preferredDate)) happyCallOverdueCount++;
+    else happyCallPendingBeforeDeadlineCount++;
+  }
+
   res.json({
     todayCount,
     unassignedCount,
@@ -121,6 +140,8 @@ router.get('/stats', async (_req, res) => {
     monthSales,
     salesByTeamLeader,
     dailySales,
+    happyCallOverdueCount,
+    happyCallPendingBeforeDeadlineCount,
   });
 });
 

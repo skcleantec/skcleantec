@@ -11,6 +11,7 @@ import { AdminTeamLeadersPage } from './pages/admin/AdminTeamLeadersPage';
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
 import { AdminOrderFormPage } from './pages/admin/AdminOrderFormPage';
 import { TeamDashboardPage } from './pages/team/TeamDashboardPage';
+import { TeamSchedulePage } from './pages/team/TeamSchedulePage';
 import { TeamMessagesPage } from './pages/team/TeamMessagesPage';
 import { TeamDayOffsPage } from './pages/team/TeamDayOffsPage';
 import { OrderFormPage } from './pages/order/OrderFormPage';
@@ -65,6 +66,7 @@ function App() {
           }
         >
           <Route path="dashboard" element={<TeamDashboardPage />} />
+          <Route path="schedule" element={<TeamSchedulePage />} />
           <Route path="dayoffs" element={<TeamDayOffsPage />} />
           <Route path="messages" element={<TeamMessagesPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />

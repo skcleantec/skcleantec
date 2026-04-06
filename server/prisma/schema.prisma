@@ -127,6 +127,8 @@ model Inquiry {
   status          InquiryStatus @default(RECEIVED)
   source          String?      @default("전화")
   createdAt       DateTime     @default(now()) @map("created_at")
+  /// 팀장이 고객에게 전화로 일정 안내(해피콜) 완료 시각 — 미입력이면 미완료
+  happyCallCompletedAt DateTime? @map("happy_call_completed_at")
 
   assignments   Assignment[]
   buildingType String?       @map("building_type")

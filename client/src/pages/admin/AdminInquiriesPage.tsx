@@ -24,6 +24,7 @@ import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
+import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
@@ -132,6 +133,28 @@ interface InquiryItem {
   serviceDepositAmount?: number | null;
   serviceBalanceAmount?: number | null;
   changeLogs?: InquiryChangeLogEntry[];
+  /** 팀장 해피콜 완료 시각 */
+  happyCallCompletedAt?: string | null;
+}
+
+function happyCallAdminCell(item: InquiryItem): { label: string; className: string } {
+  const hasAssignment = item.assignments.length > 0;
+  if (!hasAssignment || !isHappyCallEligible(item.status, item.preferredDate)) {
+    return { label: '—', className: 'text-gray-400' };
+  }
+  if (item.happyCallCompletedAt) {
+    return { label: '완료', className: 'text-green-700 font-medium' };
+  }
+  const tone = happyCallRowTone(
+    new Date(),
+    item.status,
+    item.preferredDate,
+    item.happyCallCompletedAt,
+    hasAssignment
+  );
+  if (tone === 'overdue') return { label: '마감초과', className: 'text-red-800 font-medium' };
+  if (tone === 'pending') return { label: '미완', className: 'text-amber-800' };
+  return { label: '—', className: 'text-gray-400' };
 }
 
 function formatInquiryTeamSummary(item: InquiryItem): string {
@@ -1000,7 +1023,7 @@ export function AdminInquiriesPage() {
               하단 막대·◀▶ 또는 표를 좌우로 밀기 (표가 보일 때 화면 아래에 고정)
             </p>
             <SyncHorizontalScroll dockUntil="lg" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-            <table className="w-full text-fluid-sm border-collapse min-w-[520px]">
+            <table className="w-full text-fluid-sm border-collapse min-w-[600px]">
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">접수일</th>
@@ -1013,6 +1036,7 @@ export function AdminInquiriesPage() {
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap max-w-[100px]">시간대</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">해피콜</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">팀장</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">작업</th>
                 </tr>
@@ -1021,18 +1045,46 @@ export function AdminInquiriesPage() {
                 {items.map((item) => {
                   const isPending = item.status === 'PENDING';
                   const pBorder = isPending ? 'border-t-2 border-b-2 border-red-500' : 'border-b border-gray-100';
-                  const stickyBg = isPending ? 'bg-red-50/70' : 'bg-white';
+                  const hcTone = isPending
+                    ? ('none' as const)
+                    : happyCallRowTone(
+                        new Date(),
+                        item.status,
+                        item.preferredDate,
+                        item.happyCallCompletedAt,
+                        item.assignments.length > 0
+                      );
+                  const stickyBg = isPending
+                    ? 'bg-red-50/70'
+                    : hcTone === 'overdue'
+                      ? 'bg-red-50/95'
+                      : hcTone === 'pending'
+                        ? 'bg-amber-50/70'
+                        : 'bg-white';
+                  const stickyHover = isPending
+                    ? 'group-hover:bg-red-50/80'
+                    : hcTone === 'overdue'
+                      ? 'group-hover:bg-red-100/90'
+                      : hcTone === 'pending'
+                        ? 'group-hover:bg-amber-100/70'
+                        : 'group-hover:bg-gray-50';
                   const stickyR = isPending ? 'border-r border-red-200' : 'border-r border-gray-100';
+                  const rowHover = isPending
+                    ? 'hover:bg-red-50/80'
+                    : hcTone === 'overdue'
+                      ? 'hover:bg-red-100/80'
+                      : hcTone === 'pending'
+                        ? 'hover:bg-amber-100/50'
+                        : 'hover:bg-gray-50';
+                  const hcCell = happyCallAdminCell(item);
                   return (
                   <tr
                     key={item.id}
-                    className={`cursor-pointer active:bg-gray-100 ${
-                      isPending ? 'hover:bg-red-50/80' : 'hover:bg-gray-50'
-                    }`}
+                    className={`cursor-pointer group active:bg-gray-100 ${rowHover}`}
                     onClick={() => openEdit(item)}
                     title={isPending ? '대기(발주서 미제출) · 행을 누르면 상세보기' : '행을 누르면 상세보기'}
                   >
-                    <td className={`py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 z-10 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''}`}>
+                    <td className={`py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 z-10 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}>
                       <span className="text-fluid-xs tabular-nums leading-tight block">
                         {formatDateCompactWithWeekday(item.createdAt)}
                       </span>
@@ -1077,6 +1129,9 @@ export function AdminInquiriesPage() {
                           <option key={value} value={value}>{label}</option>
                         ))}
                       </select>
+                    </td>
+                    <td className={`py-2 px-2 text-center whitespace-nowrap ${pBorder}`}>
+                      <span className={`text-fluid-xs ${hcCell.className}`}>{hcCell.label}</span>
                     </td>
                     <td className={`py-2 px-2 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <div

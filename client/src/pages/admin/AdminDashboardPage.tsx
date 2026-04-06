@@ -36,6 +36,8 @@ export function AdminDashboardPage() {
           monthSales: 0,
           salesByTeamLeader: [],
           dailySales: [],
+          happyCallOverdueCount: 0,
+          happyCallPendingBeforeDeadlineCount: 0,
         });
         setApiError(err instanceof Error ? err.message : '서버에 연결할 수 없습니다.');
       })
@@ -57,7 +59,7 @@ export function AdminDashboardPage() {
       <TelemarketingSessionBlock />
 
       {/* 접수 통계 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="오늘 접수"
           value={loading ? '-' : stats?.todayCount ?? 0}
@@ -72,6 +74,17 @@ export function AdminDashboardPage() {
               `/admin/inquiries?datePreset=month&month=${encodeURIComponent(mk)}&status=RECEIVED`
             );
           }}
+        />
+        <StatCard
+          label="해피콜 미완(마감 초과)"
+          value={loading ? '-' : stats?.happyCallOverdueCount ?? 0}
+          onClick={() => navigate('/admin/inquiries')}
+          highlight
+        />
+        <StatCard
+          label="해피콜 미완(마감 전)"
+          value={loading ? '-' : stats?.happyCallPendingBeforeDeadlineCount ?? 0}
+          onClick={() => navigate('/admin/inquiries')}
         />
       </div>
 
