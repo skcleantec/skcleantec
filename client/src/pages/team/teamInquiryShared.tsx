@@ -1,7 +1,68 @@
 import { useState } from 'react';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
-import { isHappyCallEligible } from '../../utils/happyCall';
+import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
+
+function PhoneMiniIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
+      />
+    </svg>
+  );
+}
+
+function CheckMiniIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20 6L9 17l-5-5" />
+    </svg>
+  );
+}
+
+/** 목록 카드에서 상세 없이 해피콜 상태 표시 (상태 배지와 동일한 pill 스타일) */
+export function TeamHappyCallBadge({ item, className = '' }: { item: InquiryItem; className?: string }) {
+  const now = new Date();
+  const hasAssignment = item.assignments.length > 0;
+  if (!isHappyCallEligible(item.status, item.preferredDate)) {
+    return null;
+  }
+  const base = `inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-fluid-2xs font-medium border shrink-0 ${className}`;
+
+  if (item.happyCallCompletedAt) {
+    return (
+      <span className={`${base} bg-green-50 text-green-800 border-green-200`} title="해피콜 완료">
+        <CheckMiniIcon className="w-3 h-3 shrink-0" />
+        해피콜 완료
+      </span>
+    );
+  }
+
+  const tone = happyCallRowTone(now, item.status, item.preferredDate, item.happyCallCompletedAt, hasAssignment);
+  if (tone === 'overdue') {
+    return (
+      <span
+        className={`${base} bg-red-50 text-red-800 border-red-200`}
+        title="해피콜 미완 · 마감 초과(작업일 전날 KST 말일)"
+      >
+        <PhoneMiniIcon className="w-3 h-3 shrink-0" />
+        미완 · 마감초과
+      </span>
+    );
+  }
+  if (tone === 'pending') {
+    return (
+      <span className={`${base} bg-amber-50 text-amber-900 border-amber-200`} title="해피콜 미완 · 마감 전">
+        <PhoneMiniIcon className="w-3 h-3 shrink-0" />
+        해피콜 미완
+      </span>
+    );
+  }
+  return null;
+}
 
 export const STATUS_LABELS: Record<string, string> = {
   PENDING: '대기',

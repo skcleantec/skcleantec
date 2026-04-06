@@ -18,7 +18,7 @@ import { getTeamLeaders, getUsers, type UserItem } from '../../api/users';
 import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
 import { AddressSearch } from '../../components/forms/AddressSearch';
-import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
+import { ORDER_TIME_SLOT_OPTIONS, shortTimeSlotLabel } from '../../constants/orderFormSchedule';
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
@@ -1034,7 +1034,7 @@ export function AdminInquiriesPage() {
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">평수</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">방화베</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap max-w-[100px]">시간대</th>
+                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap min-w-[4.5rem] max-w-[120px]">시간대</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">해피콜</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">팀장</th>
@@ -1084,7 +1084,7 @@ export function AdminInquiriesPage() {
                     onClick={() => openEdit(item)}
                     title={isPending ? '대기(발주서 미제출) · 행을 누르면 상세보기' : '행을 누르면 상세보기'}
                   >
-                    <td className={`py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 z-10 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}>
+                    <td className={`align-middle py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 z-10 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}>
                       <span className="text-fluid-xs tabular-nums leading-tight block">
                         {formatDateCompactWithWeekday(item.createdAt)}
                       </span>
@@ -1094,31 +1094,34 @@ export function AdminInquiriesPage() {
                         </span>
                       ) : null}
                     </td>
-                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
+                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
                       {inquiryMarketerLabel(item)}
                     </td>
-                    <td className={`py-2 px-2 font-medium text-gray-900 whitespace-nowrap ${pBorder}`}>
+                    <td className={`align-middle py-2 px-2 font-medium text-gray-900 whitespace-nowrap ${pBorder}`}>
                       {item.customerName}
                       {item.claimMemo && (
                         <span className="ml-1 text-orange-600" title={item.claimMemo}>●</span>
                       )}
                     </td>
-                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap break-all ${pBorder}`}>{item.customerPhone}</td>
-                    <td className={`py-2 px-2 text-gray-600 min-w-[90px] max-w-[130px] truncate ${pBorder}`} title={item.address}>
+                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap break-all ${pBorder}`}>{item.customerPhone}</td>
+                    <td className={`align-middle py-2 px-2 text-gray-600 min-w-[90px] max-w-[130px] truncate ${pBorder}`} title={item.address}>
                       {item.address}
                       {item.addressDetail ? ` ${item.addressDetail}` : ''}
                     </td>
-                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>{formatAreaLine(item)}</td>
-                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
+                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>{formatAreaLine(item)}</td>
+                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
                       {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
                     </td>
-                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
+                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
                       <span className="text-fluid-xs tabular-nums leading-tight">{formatDateCompactWithWeekday(item.preferredDate)}</span>
                     </td>
-                    <td className={`py-2 px-2 text-gray-600 whitespace-nowrap max-w-[100px] truncate align-top ${pBorder}`} title={item.preferredTime ? labelForTimeSlot(item.preferredTime) : ''}>
-                      {item.preferredTime ? labelForTimeSlot(item.preferredTime) : '-'}
+                    <td
+                      className={`align-middle py-2 px-2 text-center text-gray-600 whitespace-nowrap min-w-[4.5rem] max-w-[120px] ${pBorder}`}
+                      title={item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : ''}
+                    >
+                      {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '-'}
                     </td>
-                    <td className={`py-2 px-2 whitespace-nowrap ${pBorder}`} onClick={(e) => e.stopPropagation()}>
+                    <td className={`align-middle py-2 px-2 whitespace-nowrap ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={item.status}
                         onChange={(e) => handleStatusChange(item.id, e.target.value)}
@@ -1130,10 +1133,10 @@ export function AdminInquiriesPage() {
                         ))}
                       </select>
                     </td>
-                    <td className={`py-2 px-2 text-center whitespace-nowrap ${pBorder}`}>
+                    <td className={`align-middle py-2 px-2 text-center whitespace-nowrap ${pBorder}`}>
                       <span className={`text-fluid-xs ${hcCell.className}`}>{hcCell.label}</span>
                     </td>
-                    <td className={`py-2 px-2 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
+                    <td className={`align-middle py-2 px-2 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <div
                         className="text-[10px] text-gray-600 leading-snug mb-1 max-w-[140px] line-clamp-2"
                         title={formatInquiryTeamSummary(item)}
@@ -1156,7 +1159,7 @@ export function AdminInquiriesPage() {
                         ))}
                       </select>
                     </td>
-                    <td className={`py-2 px-2 whitespace-nowrap ${pBorder} ${isPending ? 'border-r-2 border-r-red-500' : ''}`} onClick={(e) => e.stopPropagation()}>
+                    <td className={`align-middle py-2 px-2 whitespace-nowrap ${pBorder} ${isPending ? 'border-r-2 border-r-red-500' : ''}`} onClick={(e) => e.stopPropagation()}>
                       <div className="flex flex-wrap gap-1">
                         <button
                           type="button"

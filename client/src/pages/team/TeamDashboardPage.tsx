@@ -8,6 +8,7 @@ import {
   formatScheduleLine,
   formatRoomInfo,
   relativeDateHint,
+  TeamHappyCallBadge,
   TeamInquiryDetailModal,
 } from './teamInquiryShared';
 
@@ -146,9 +147,12 @@ export function TeamDashboardPage() {
                     전화
                   </a>
                 </div>
-                <span className="inline-block mt-2 px-2 py-0.5 rounded text-fluid-xs bg-blue-200 text-blue-800">
-                  {STATUS_LABELS[item.status] ?? item.status}
-                </span>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className="inline-block px-2 py-0.5 rounded text-fluid-xs bg-blue-200 text-blue-800">
+                    {STATUS_LABELS[item.status] ?? item.status}
+                  </span>
+                  <TeamHappyCallBadge item={item} />
+                </div>
               </div>
             ))}
           </div>
@@ -196,11 +200,17 @@ export function TeamDashboardPage() {
                             {formatScheduleLine(item)} · {item.address}
                             {item.addressDetail ? ` ${item.addressDetail}` : ''}
                           </div>
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                            <span className="inline-block px-2 py-0.5 rounded text-fluid-2xs bg-gray-200 text-gray-800">
+                              {STATUS_LABELS[item.status] ?? item.status}
+                            </span>
+                            <TeamHappyCallBadge item={item} />
+                          </div>
                         </div>
                         <a
                           href={`tel:${item.customerPhone}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="ml-2 shrink-0 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-fluid-xs font-medium"
+                          className="ml-2 shrink-0 self-start px-3 py-1.5 bg-blue-600 text-white rounded-lg text-fluid-xs font-medium"
                         >
                           전화
                         </a>

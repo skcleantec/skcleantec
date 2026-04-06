@@ -12,3 +12,13 @@ export function labelForTimeSlot(value: string | null | undefined): string {
   const o = ORDER_TIME_SLOT_OPTIONS.find((x) => x.value === value);
   return o?.label ?? value;
 }
+
+/** 목록용 짧은 표기: 오전 / 오후 / 사이 */
+export function shortTimeSlotLabel(value: string | null | undefined): string {
+  if (value == null || value === '') return '-';
+  if (value === '사이청소') return '사이';
+  if (value === '오전' || value === '오후') return value;
+  const o = ORDER_TIME_SLOT_OPTIONS.find((x) => x.value === value);
+  if (o?.value === '사이청소') return '사이';
+  return value;
+}

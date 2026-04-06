@@ -10,6 +10,7 @@ import {
   formatScheduleLine,
   formatRoomInfo,
   getCalendarDays,
+  TeamHappyCallBadge,
   TeamInquiryDetailModal,
 } from './teamInquiryShared';
 
@@ -200,9 +201,12 @@ export function TeamSchedulePage() {
                           전화
                         </a>
                       </div>
-                      <span className="inline-block mt-2 px-2 py-0.5 rounded text-fluid-xs bg-gray-200">
-                        {STATUS_LABELS[item.status] ?? item.status}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <span className="inline-block px-2 py-0.5 rounded text-fluid-xs bg-gray-200 text-gray-800">
+                          {STATUS_LABELS[item.status] ?? item.status}
+                        </span>
+                        <TeamHappyCallBadge item={item} />
+                      </div>
                     </div>
                   ))}
                 </div>
