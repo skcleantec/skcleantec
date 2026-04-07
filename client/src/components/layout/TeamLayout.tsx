@@ -138,7 +138,7 @@ export function TeamLayout() {
           </NavLink>
         </nav>
       </header>
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden flex flex-col min-h-0">
         <Outlet />
       </main>
     </div>

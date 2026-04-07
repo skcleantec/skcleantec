@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { broadcastToTeamLeaders, getConversations, getMessages, sendMessage } from '../../api/messages';
 import { getToken } from '../../stores/auth';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
+import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 
 interface Conversation {
   id: string;
@@ -22,6 +24,10 @@ interface Message {
   sender: { id: string; name: string };
 }
 
+function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: ScrollBehavior = 'smooth') {
+  requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior }));
+}
+
 export function AdminMessagesPage() {
   const token = getToken();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -34,17 +40,22 @@ export function AdminMessagesPage() {
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastError, setBroadcastError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selectedId;
 
-  const loadConversations = () => {
+  const loadConversations = useCallback(() => {
     if (!token) return;
+    getConversations(token).then(setConversations).catch(() => setConversations([]));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    setLoading(true);
     getConversations(token)
       .then(setConversations)
       .catch(() => setConversations([]))
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    loadConversations();
   }, [token]);
 
   useEffect(() => {
@@ -56,13 +67,29 @@ export function AdminMessagesPage() {
       .then((msgs) => {
         setMessages(msgs);
         (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+        scrollToEnd(messagesEndRef, 'auto');
       })
       .catch(() => setMessages([]));
   }, [token, selectedId]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-  }, [messages]);
+  const pollInbox = useCallback(() => {
+    if (!token) return;
+    loadConversations();
+    const sid = selectedIdRef.current;
+    if (!sid) return;
+    const el = chatScrollRef.current;
+    const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    getMessages(token, sid)
+      .then((msgs) => {
+        setMessages(msgs);
+        (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+        if (nearBottom) scrollToEnd(messagesEndRef, 'smooth');
+      })
+      .catch(() => {});
+  }, [token, loadConversations]);
+
+  const { connected: wsConnected } = useInboxRealtime(token, pollInbox, Boolean(token));
+  useMessageThreadPoll(Boolean(token) && !wsConnected, pollInbox);
 
   const handleBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +103,7 @@ export function AdminMessagesPage() {
       if (selectedId) {
         const msgs = await getMessages(token, selectedId);
         setMessages(msgs);
+        scrollToEnd(messagesEndRef, 'auto');
       }
       (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
     } catch (err) {
@@ -94,6 +122,7 @@ export function AdminMessagesPage() {
       setMessages((prev) => [...prev, { ...msg, readAt: null }]);
       setInput('');
       loadConversations();
+      scrollToEnd(messagesEndRef, 'smooth');
     } catch {
       // ignore
     } finally {
@@ -110,10 +139,10 @@ export function AdminMessagesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 min-w-0">
-      <h1 className="text-xl font-semibold text-gray-800">메시지</h1>
+    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0">
+      <h1 className="text-xl font-semibold text-gray-800 shrink-0">메시지</h1>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
+      <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shrink-0">
         <h2 className="text-sm font-semibold text-gray-900 mb-2">전체 팀장에게 공지</h2>
         <form onSubmit={handleBroadcast} className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <textarea
@@ -139,9 +168,8 @@ export function AdminMessagesPage() {
         )}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col sm:flex-row min-h-[400px]">
-        {/* 대화 목록 */}
-        <div className="w-full sm:w-64 border-b sm:border-b-0 sm:border-r border-gray-200 flex-shrink-0">
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col sm:flex-row flex-1 min-h-0 min-w-0">
+        <div className="w-full sm:w-64 border-b sm:border-b-0 sm:border-r border-gray-200 flex-shrink-0 sm:min-h-0 sm:max-h-full overflow-y-auto overscroll-y-contain">
           {conversations.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">대화 상대가 없습니다.</div>
           ) : (
@@ -149,6 +177,7 @@ export function AdminMessagesPage() {
               {conversations.map((c) => (
                 <button
                   key={c.id}
+                  type="button"
                   onClick={() => setSelectedId(c.id)}
                   className={`w-full text-left p-4 hover:bg-gray-50 flex flex-col gap-1 ${
                     selectedId === c.id ? 'bg-blue-50' : ''
@@ -178,15 +207,18 @@ export function AdminMessagesPage() {
           )}
         </div>
 
-        {/* 채팅 영역 */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {selected ? (
             <>
-              <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 shrink-0">
                 <h2 className="font-medium text-gray-900">{selected.name}</h2>
                 <span className="text-xs text-gray-500">팀장</span>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
+              <div
+                ref={chatScrollRef}
+                className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-3"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
                 {messages.map((m) => {
                   const isMine = m.senderId !== selectedId;
                   return (
@@ -217,20 +249,24 @@ export function AdminMessagesPage() {
                 })}
                 <div ref={messagesEndRef} />
               </div>
-              <form onSubmit={handleSend} className="p-4 border-t border-gray-200">
+              <form
+                onSubmit={handleSend}
+                className="shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+              >
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="메시지 입력..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     disabled={sending}
+                    autoComplete="off"
                   />
                   <button
                     type="submit"
                     disabled={sending || !input.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50"
+                    className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
                   >
                     전송
                   </button>
@@ -238,7 +274,7 @@ export function AdminMessagesPage() {
               </form>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm min-h-[12rem]">
               대화를 선택해주세요.
             </div>
           )}

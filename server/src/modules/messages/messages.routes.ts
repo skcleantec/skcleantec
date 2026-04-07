@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
 const router = Router();
 
@@ -221,6 +222,7 @@ router.post('/team-send', async (req, res) => {
         }
       : null,
   });
+  notifyInboxRefresh([userId, ...staffIds]);
 });
 
 /** 관리자·마케터: 전체 팀장에게 공지(동일 내용) */
@@ -259,6 +261,7 @@ router.post('/broadcast-to-leaders', async (req, res) => {
     )
   );
   res.status(201).json({ batchId, recipientCount: created.length });
+  notifyInboxRefresh([userId, ...leaderIds]);
 });
 
 async function findEmployedUser(otherId: string) {
@@ -355,6 +358,7 @@ router.post('/', async (req, res) => {
     },
   });
   res.status(201).json(msg);
+  notifyInboxRefresh([userId, receiverId]);
 });
 
 export default router;

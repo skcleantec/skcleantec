@@ -3,6 +3,8 @@ import { getTeamOfficeMessages, sendTeamToManagement } from '../../api/messages'
 import { getMe } from '../../api/auth';
 import { getTeamToken } from '../../stores/teamAuth';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
+import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 
 interface Message {
   id: string;
@@ -15,6 +17,10 @@ interface Message {
   sender: { id: string; name: string };
 }
 
+function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: ScrollBehavior = 'smooth') {
+  requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior }));
+}
+
 export function TeamMessagesPage() {
   const token = getTeamToken();
   const [myId, setMyId] = useState<string | null>(null);
@@ -25,6 +31,7 @@ export function TeamMessagesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -33,31 +40,47 @@ export function TeamMessagesPage() {
       .catch(() => setMyId(null));
   }, [token]);
 
-  const loadMessages = useCallback((opts?: { silent?: boolean }) => {
-    if (!token) return;
-    if (!opts?.silent) setLoadError(null);
-    getTeamOfficeMessages(token)
-      .then((list) => {
-        setMessages(Array.isArray(list) ? list : []);
-        (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
-      })
-      .catch(() => {
-        setMessages([]);
-        setLoadError('메시지를 불러올 수 없습니다.');
-      })
-      .finally(() => {
-        if (!opts?.silent) setLoading(false);
-      });
-  }, [token]);
+  const loadMessages = useCallback(
+    (opts?: { silent?: boolean }) => {
+      if (!token) return;
+      if (!opts?.silent) setLoadError(null);
+      getTeamOfficeMessages(token)
+        .then((list) => {
+          setMessages(Array.isArray(list) ? list : []);
+          (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+          if (!opts?.silent) scrollToEnd(messagesEndRef, 'auto');
+        })
+        .catch(() => {
+          setMessages([]);
+          setLoadError('메시지를 불러올 수 없습니다.');
+        })
+        .finally(() => {
+          if (!opts?.silent) setLoading(false);
+        });
+    },
+    [token]
+  );
 
   useEffect(() => {
     setLoading(true);
     loadMessages();
   }, [loadMessages]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const pollMessages = useCallback(() => {
+    if (!token) return;
+    const el = chatScrollRef.current;
+    const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    getTeamOfficeMessages(token)
+      .then((list) => {
+        setMessages(Array.isArray(list) ? list : []);
+        (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+        if (nearBottom) scrollToEnd(messagesEndRef, 'smooth');
+      })
+      .catch(() => {});
+  }, [token]);
+
+  const { connected: wsConnected } = useInboxRealtime(token, pollMessages, Boolean(token));
+  useMessageThreadPoll(Boolean(token) && !wsConnected, pollMessages);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +90,10 @@ export function TeamMessagesPage() {
     try {
       await sendTeamToManagement(token, input.trim());
       setInput('');
-      loadMessages({ silent: true });
+      const list = await getTeamOfficeMessages(token);
+      setMessages(Array.isArray(list) ? list : []);
+      (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+      scrollToEnd(messagesEndRef, 'smooth');
     } catch (err) {
       setSendError(err instanceof Error ? err.message : '전송에 실패했습니다.');
     } finally {
@@ -82,28 +108,29 @@ export function TeamMessagesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 min-w-0">
-      <h1 className="text-xl font-semibold text-gray-800">메시지</h1>
+    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0">
+      <h1 className="text-xl font-semibold text-gray-800 shrink-0">메시지</h1>
 
       {loadError && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2">{loadError}</p>
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2 shrink-0">{loadError}</p>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col min-h-[400px]">
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col flex-1 min-h-0 min-w-0">
+        <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 shrink-0">
           <h2 className="font-medium text-gray-900">운영팀</h2>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
+        <div
+          ref={chatScrollRef}
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-3"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {messages.length === 0 ? (
             <div className="text-center text-sm text-gray-500 py-8">아직 메시지가 없습니다.</div>
           ) : (
             messages.map((m) => {
               const isMine = myId != null && m.senderId === myId;
               return (
-                <div
-                  key={m.id}
-                  className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-                >
+                <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                   <div
                     className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                       isMine ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'
@@ -126,7 +153,10 @@ export function TeamMessagesPage() {
           )}
           <div ref={messagesEndRef} />
         </div>
-        <form onSubmit={handleSend} className="p-4 border-t border-gray-200">
+        <form
+          onSubmit={handleSend}
+          className="shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        >
           {sendError && (
             <p className="text-sm text-red-600 mb-2" role="alert">
               {sendError}
@@ -138,13 +168,14 @@ export function TeamMessagesPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="메시지 입력..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={sending}
+              autoComplete="off"
             />
             <button
               type="submit"
               disabled={sending || !input.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
             >
               전송
             </button>
