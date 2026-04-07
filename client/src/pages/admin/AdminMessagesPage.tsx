@@ -139,7 +139,7 @@ export function AdminMessagesPage() {
   }
 
   return (
-    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0">
+    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full">
       <h1 className="text-xl font-semibold text-gray-800 shrink-0">메시지</h1>
 
       <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shrink-0">
@@ -168,46 +168,49 @@ export function AdminMessagesPage() {
         )}
       </div>
 
+      {/* 팀장 목록·채팅: 뷰포트(레이아웃 main) 높이 안에서만 스크롤 — 목록은 좌측 박스 내부 스크롤 */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col sm:flex-row flex-1 min-h-0 min-w-0">
-        <div className="w-full sm:w-64 border-b sm:border-b-0 sm:border-r border-gray-200 flex-shrink-0 sm:min-h-0 sm:max-h-full overflow-y-auto overscroll-y-contain">
-          {conversations.length === 0 ? (
-            <div className="p-4 text-sm text-gray-500">대화 상대가 없습니다.</div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {conversations.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setSelectedId(c.id)}
-                  className={`w-full text-left p-4 hover:bg-gray-50 flex flex-col gap-1 ${
-                    selectedId === c.id ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 min-w-0">
-                    <span className="font-medium text-gray-900 truncate flex items-center gap-1.5">
-                      {c.name}
+        <div className="flex w-full flex-col min-h-0 max-h-[min(42vh,20rem)] sm:max-h-none sm:h-full sm:w-64 sm:shrink-0 sm:self-stretch border-b sm:border-b-0 sm:border-r border-gray-200">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+            {conversations.length === 0 ? (
+              <div className="p-4 text-sm text-gray-500">대화 상대가 없습니다.</div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {conversations.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setSelectedId(c.id)}
+                    className={`w-full text-left p-4 hover:bg-gray-50 flex flex-col gap-1 ${
+                      selectedId === c.id ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="font-medium text-gray-900 truncate flex items-center gap-1.5">
+                        {c.name}
+                        {c.unreadCount > 0 && (
+                          <span className="shrink-0 text-red-600 text-xs font-medium">새 메시지</span>
+                        )}
+                      </span>
                       {c.unreadCount > 0 && (
-                        <span className="shrink-0 text-red-600 text-xs font-medium">새 메시지</span>
+                        <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-medium">
+                          {c.unreadCount}
+                        </span>
                       )}
-                    </span>
-                    {c.unreadCount > 0 && (
-                      <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-medium">
-                        {c.unreadCount}
+                    </div>
+                    {c.lastMessage && (
+                      <span className={`text-xs truncate ${c.unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>
+                        {c.lastMessage.content}
                       </span>
                     )}
-                  </div>
-                  {c.lastMessage && (
-                    <span className={`text-xs truncate ${c.unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>
-                      {c.lastMessage.content}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col min-w-0">
           {selected ? (
             <>
               <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 shrink-0">

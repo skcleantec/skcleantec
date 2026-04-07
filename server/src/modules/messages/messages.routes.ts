@@ -57,11 +57,20 @@ async function buildConversationList(myUserId: string, partners: PartnerRow[]) {
     const partnerId = m.senderId === myUserId ? m.receiverId : m.senderId;
     if (!lastByPartner.has(partnerId)) lastByPartner.set(partnerId, m);
   }
-  return partners.map((u) => ({
+  const list = partners.map((u) => ({
     ...u,
     lastMessage: lastByPartner.get(u.id) ?? null,
     unreadCount: unreadMap.get(u.id) ?? 0,
   }));
+  /** 최근 대화가 위로 (새 메시지 온 팀장이 상단에 오도록) */
+  list.sort((a, b) => {
+    const ta = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
+    const tb = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    if (b.unreadCount !== a.unreadCount) return b.unreadCount - a.unreadCount;
+    return a.name.localeCompare(b.name, 'ko');
+  });
+  return list;
 }
 
 /** 관리자·마케터: 팀장 목록 / 팀장: 관리자·마케터 목록 — N+1 최소화 */
