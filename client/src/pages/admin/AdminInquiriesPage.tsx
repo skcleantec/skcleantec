@@ -23,6 +23,7 @@ import { ORDER_TIME_SLOT_OPTIONS, shortTimeSlotLabel } from '../../constants/ord
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
+import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
@@ -1735,6 +1736,12 @@ export function AdminInquiriesPage() {
               <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-fluid-sm">
                 <p className="text-fluid-xs font-medium text-orange-800 mb-1">클레임 내용 (참고)</p>
                 <p className="text-gray-800 whitespace-pre-wrap">{editItem.claimMemo}</p>
+              </div>
+            )}
+
+            {token && (
+              <div className="mt-4 min-w-0 rounded-lg border border-gray-200 bg-white p-3">
+                <InquiryCleaningPhotosPanel inquiryId={editItem.id} variant="admin" token={token} />
               </div>
             )}
 
