@@ -41,6 +41,21 @@ function formatAreaLine(inquiry: NonNullable<CsReport['inquiry']>): string {
   return b ? `${b} ${inquiry.areaPyeong}평` : `${inquiry.areaPyeong}평`;
 }
 
+function ServiceRatingStars({ value }: { value: number | null | undefined }) {
+  if (value == null || value < 1 || value > 5) {
+    return <span className="text-gray-400">—</span>;
+  }
+  return (
+    <span className="inline-flex gap-px text-amber-500 tabular-nums" aria-label={`${value}점`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span key={n} className={n <= value ? 'text-amber-500' : 'text-slate-300'}>
+          ★
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function OpenInNewIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -196,7 +211,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
         <div className="text-sm text-gray-600 mb-4 bg-gray-50 px-3 py-2 rounded">
           고객에게 아래와 같이 안내하실 수 있습니다. 링크를 복사해 메시지에 붙여 넣어 주세요.
           <br />
-          <strong>예시:</strong> "불편 사항이 있으시면 아래 링크에서 접수해 주세요. 사진 첨부가 가능합니다. [링크]"
+          <strong>예시:</strong> "칭찬·불편 사항은 아래 링크에서 접수해 주세요. 사진 첨부·만족도 별점이 가능합니다. [링크]"
         </div>
       ) : (
         <p className="text-sm text-gray-600 mb-4">
@@ -206,18 +221,19 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
 
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto overscroll-x-contain max-w-full min-w-0">
         {loading ? (
           <div className="p-8 text-center text-gray-500">불러오는 중...</div>
         ) : items.length === 0 ? (
           <div className="p-8 text-center text-gray-500">표시할 C/S가 없습니다.</div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[520px] border-collapse">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-center p-3 font-medium text-gray-700">날짜</th>
                 <th className="text-center p-3 font-medium text-gray-700">성함</th>
                 <th className="text-center p-3 font-medium text-gray-700">연락처</th>
+                <th className="text-center p-3 font-medium text-gray-700">만족도</th>
                 <th className="text-center p-3 font-medium text-gray-700">상태</th>
               </tr>
             </thead>
@@ -233,6 +249,9 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   </td>
                   <td className="p-3">{item.customerName}</td>
                   <td className="p-3">{item.customerPhone}</td>
+                  <td className="p-3 text-center">
+                    <ServiceRatingStars value={item.serviceRating} />
+                  </td>
                   <td className="p-3">
                     <span
                       className={`px-2 py-0.5 rounded text-xs ${
@@ -334,6 +353,21 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               <div>
                 <span className="text-gray-500 text-sm">연락처</span>
                 <p className="font-medium">{selected.customerPhone}</p>
+              </div>
+              <div>
+                <span className="text-gray-500 text-sm">서비스 품질 (고객 별점)</span>
+                {selected.serviceRating != null &&
+                selected.serviceRating >= 1 &&
+                selected.serviceRating <= 5 ? (
+                  <p className="mt-0.5 flex flex-wrap items-center gap-2">
+                    <span className="text-lg leading-none">
+                      <ServiceRatingStars value={selected.serviceRating} />
+                    </span>
+                    <span className="text-sm text-gray-600 tabular-nums">{selected.serviceRating}점</span>
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-500 mt-0.5">기록 없음 (이전 접수 건)</p>
+                )}
               </div>
 
               {selected.inquiry ? (

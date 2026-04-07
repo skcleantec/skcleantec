@@ -12,6 +12,8 @@ export interface CsReport {
   customerName: string;
   customerPhone: string;
   content: string;
+  /** 1~5, 고객 별점 (구버전 건은 null) */
+  serviceRating: number | null;
   imageUrls: string[];
   status: string;
   memo: string | null;
@@ -65,6 +67,8 @@ export async function submitCsReport(data: {
   customerName: string;
   customerPhone: string;
   content: string;
+  /** 1~5 서비스 품질 별점 */
+  serviceRating: number;
   imageUrls?: string[];
 }): Promise<{ ok: boolean; id: string; inquiryId?: string }> {
   const res = await fetch(`${API}/cs/submit`, {
@@ -84,7 +88,13 @@ export async function getCsReports(token: string): Promise<{ items: CsReport[] }
   const res = await fetch(`${API}/cs`, { headers: authHeaders(token) });
   if (!res.ok) throw new Error('C/S 목록을 불러올 수 없습니다.');
   const json = await res.json();
-  return { items: (json.items || []).map((i: CsReport) => ({ ...i, imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [] })) };
+  return {
+    items: (json.items || []).map((i: CsReport) => ({
+      ...i,
+      imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [],
+      serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : null,
+    })),
+  };
 }
 
 /** 관리자: C/S 상세 */
@@ -95,7 +105,11 @@ export async function getCsReport(token: string, id: string): Promise<CsReport> 
     throw new Error(err.error || 'C/S를 찾을 수 없습니다.');
   }
   const i = await res.json();
-  return { ...i, imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [] };
+  return {
+    ...i,
+    imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [],
+    serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : i.serviceRating ?? null,
+  };
 }
 
 /** 관리자·마케터: C/S 상태/메모/처리완료 */
@@ -114,5 +128,9 @@ export async function updateCsReport(
     throw new Error(err.error || '수정에 실패했습니다.');
   }
   const i = await res.json();
-  return { ...i, imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [] };
+  return {
+    ...i,
+    imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [],
+    serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : i.serviceRating ?? null,
+  };
 }

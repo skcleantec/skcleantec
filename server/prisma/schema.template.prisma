@@ -300,6 +300,8 @@ model CsReport {
   customerName  String   @map("customer_name")
   customerPhone String   @map("customer_phone")
   content       String
+  /// 고객 서비스 품질 평가 (1~5, 별점)
+  serviceRating Int?     @map("service_rating")
   imageUrls     Json     @map("image_urls") // ["url1","url2"]
   status        String   @default("RECEIVED") @map("status")
   memo          String?  @map("memo")

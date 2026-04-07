@@ -51,6 +51,7 @@ export async function getTeamCsReports(token: string): Promise<{ items: CsReport
     items: (json.items || []).map((i: CsReport) => ({
       ...i,
       imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [],
+      serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : null,
     })),
   };
 }
@@ -71,5 +72,9 @@ export async function patchTeamCsReport(
     throw new Error((err as { error?: string }).error || '수정에 실패했습니다.');
   }
   const i = await res.json();
-  return { ...i, imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [] };
+  return {
+    ...i,
+    imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [],
+    serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : null,
+  };
 }

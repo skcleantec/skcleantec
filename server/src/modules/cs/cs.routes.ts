@@ -28,7 +28,8 @@ const storage = multer.diskStorage({
     cb(null, name);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
+/** 클라이언트에서 리사이즈·압축 후 전송. 여유 있게 상한만 둠 */
+const upload = multer({ storage, limits: { fileSize: 12 * 1024 * 1024 } }); // 12MB
 
 /** 서버 공개 URL (Railway: RAILWAY_PUBLIC_DOMAIN, 로컬: PUBLIC_URL) */
 function getBaseUrl(): string {
@@ -49,14 +50,20 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 
 /** 공개: C/S 제출 */
 router.post('/submit', async (req, res) => {
-  const { customerName, customerPhone, content, imageUrls } = req.body as {
+  const { customerName, customerPhone, content, imageUrls, serviceRating } = req.body as {
     customerName: string;
     customerPhone: string;
     content: string;
     imageUrls?: string[];
+    serviceRating?: unknown;
   };
   if (!customerName?.trim() || !customerPhone?.trim() || !content?.trim()) {
     res.status(400).json({ error: '성함, 연락처, 내용을 입력해 주세요.' });
+    return;
+  }
+  const rating = Number(serviceRating);
+  if (!Number.isFinite(rating) || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    res.status(400).json({ error: '서비스 품질을 1~5점으로 선택해 주세요.' });
     return;
   }
   const urls = Array.isArray(imageUrls) ? imageUrls : [];
@@ -66,6 +73,7 @@ router.post('/submit', async (req, res) => {
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       content: content.trim(),
+      serviceRating: rating,
       imageUrls: urls,
       ...(inquiryId ? { inquiryId } : {}),
     },
