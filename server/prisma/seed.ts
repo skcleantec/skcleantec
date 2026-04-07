@@ -20,6 +20,18 @@ async function main() {
   });
   console.log('Admin:', admin.email);
 
+  const admin2 = await prisma.user.upsert({
+    where: { email: 'admin2' },
+    update: { passwordHash: hash, isActive: true, role: 'ADMIN' },
+    create: {
+      email: 'admin2',
+      passwordHash: hash,
+      name: '관리자2',
+      role: 'ADMIN',
+    },
+  });
+  console.log('Admin2 (팀장 화면 미리보기 테스트):', admin2.email);
+
   // 샘플 팀장 8명 (upsert — 로컬 테스트용)
   const teamLeaders = [
     { email: 'team1@skcleanteck.com', name: '김팀장', phone: '010-1111-2222' },

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
+import { isTeamPreviewAdminEmail } from '../utils/teamPreview';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -19,6 +20,11 @@ export function LoginPage() {
       return;
     }
     if (a && t) {
+      /** 동일 JWT로 관리자+팀 미리보기(예: admin2) — 둘 다 유지 */
+      if (a === t) {
+        navigate('/admin/dashboard', { replace: true });
+        return;
+      }
       clearToken();
       clearTeamToken();
     }
@@ -36,7 +42,7 @@ export function LoginPage() {
     try {
       const data = await login(email, password);
       const token = data.token as string;
-      const user = data.user as { role?: string };
+      const user = data.user as { role?: string; email?: string };
       const role = user?.role;
 
       if (role === 'TEAM_LEADER') {
@@ -46,6 +52,9 @@ export function LoginPage() {
       } else if (role === 'ADMIN' || role === 'MARKETER') {
         clearTeamToken();
         setToken(token);
+        if (user?.email && isTeamPreviewAdminEmail(user.email)) {
+          setTeamToken(token);
+        }
         navigate('/admin/dashboard', { replace: true });
       } else {
         setError('지원하지 않는 계정 유형입니다.');

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, NavLink } from 'react-router-dom';
+import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { getMe } from '../../api/auth';
 import { getUnreadCount } from '../../api/messages';
@@ -33,7 +34,13 @@ export function TeamLayout() {
   }, []);
 
   const handleLogout = () => {
+    const a = getToken();
+    const t = getTeamToken();
+    const sameDual = Boolean(a && t && a === t);
     clearTeamToken();
+    if (sameDual) {
+      clearToken();
+    }
     navigate('/login');
   };
 

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { clearToken, getToken } from '../../stores/auth';
+import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAuth';
+import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getUnreadCount } from '../../api/messages';
 import { getMe } from '../../api/auth';
 import {
@@ -55,6 +57,7 @@ export function AdminLayout() {
   const navScrollRef = useRef<HTMLDivElement>(null);
   const isMessagesPage = location.pathname.includes('/messages');
   const [meRole, setMeRole] = useState<string | null>(null);
+  const [teamPreviewLink, setTeamPreviewLink] = useState(false);
   const [navOrder, setNavOrder] = useState<AdminNavId[]>(() => loadAdminNavOrder(false));
   const [draggingNavId, setDraggingNavId] = useState<AdminNavId | null>(null);
 
@@ -62,11 +65,22 @@ export function AdminLayout() {
     const token = getToken();
     if (!token) {
       setMeRole(null);
+      setTeamPreviewLink(false);
       return;
     }
     getMe(token)
-      .then((u: { role?: string }) => setMeRole(typeof u.role === 'string' ? u.role : null))
-      .catch(() => setMeRole(null));
+      .then((u: { role?: string; email?: string }) => {
+        setMeRole(typeof u.role === 'string' ? u.role : null);
+        const preview = Boolean(u.email && isTeamPreviewAdminEmail(u.email));
+        setTeamPreviewLink(preview);
+        if (preview && !getTeamToken()) {
+          setTeamToken(token);
+        }
+      })
+      .catch(() => {
+        setMeRole(null);
+        setTeamPreviewLink(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -149,6 +163,7 @@ export function AdminLayout() {
 
   const handleLogout = () => {
     clearToken();
+    clearTeamToken();
     navigate('/login');
   };
 
@@ -300,12 +315,23 @@ export function AdminLayout() {
               </div>
             )}
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-gray-600 hover:text-gray-900 whitespace-nowrap shrink-0 py-2"
-          >
-            로그아웃
-          </button>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {teamPreviewLink && (
+              <NavLink
+                to="/team/dashboard"
+                className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-blue-600 hover:text-blue-800 whitespace-nowrap py-2"
+              >
+                팀장 화면
+              </NavLink>
+            )}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-gray-600 hover:text-gray-900 whitespace-nowrap py-2"
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-6 min-w-0">

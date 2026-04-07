@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
 import type { AuthPayload } from './auth.middleware.js';
+import { isTeamPreviewAdminEmail } from './teamPreview.helpers.js';
 
 export function teamAuthMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
@@ -12,7 +13,11 @@ export function teamAuthMiddleware(req: Request, res: Response, next: NextFuncti
   const token = authHeader.slice(7);
   try {
     const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
-    if (payload.role !== 'TEAM_LEADER') {
+    const allowedTeamLeader = payload.role === 'TEAM_LEADER';
+    const allowedPreviewStaff =
+      (payload.role === 'ADMIN' || payload.role === 'MARKETER') &&
+      isTeamPreviewAdminEmail(payload.email);
+    if (!allowedTeamLeader && !allowedPreviewStaff) {
       res.status(403).json({ error: '팀장 권한이 필요합니다.' });
       return;
     }
