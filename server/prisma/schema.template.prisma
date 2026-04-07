@@ -29,6 +29,7 @@ model User {
   team                Team? @relation("TeamLeaderTeam")
   scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
   inquiryCleaningPhotosUploaded InquiryCleaningPhoto[] @relation("CleaningPhotoUploader")
+  csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
 
   @@map("users")
 }
@@ -156,6 +157,7 @@ model Inquiry {
   createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   changeLogs  InquiryChangeLog[]
   cleaningPhotos InquiryCleaningPhoto[]
+  csReports      CsReport[]
 
   @@map("inquiries")
 }
@@ -302,7 +304,18 @@ model CsReport {
   status        String   @default("RECEIVED") @map("status")
   memo          String?  @map("memo")
   createdAt     DateTime @default(now()) @map("created_at")
+  /// 접수 목록(inquiries)과 이름·연락처 매칭 시 연결 (미매칭이면 null)
+  inquiryId     String?  @map("inquiry_id")
+  inquiry       Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  /// 처리완료 시각 (상태가 DONE으로 최초 전환될 때 기록)
+  completedAt       DateTime? @map("completed_at")
+  completedById     String?   @map("completed_by_id")
+  completedBy       User?     @relation("CsReportCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  /// 어떤 방법으로 처리했는지 (전화 안내, 재방문 등)
+  completionMethod  String?   @map("completion_method") @db.Text
 
+  @@index([inquiryId])
+  @@index([completedById])
   @@map("cs_reports")
 }
 
