@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
 const router = Router();
 
@@ -11,10 +12,12 @@ router.use(authMiddleware);
 /** 대화 목록: 팀장만 (관리자가 팀장과 대화), N+1 최소화 */
 router.get('/conversations', adminOnly, async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
-  const users = await prisma.user.findMany({
+  const usersRaw = await prisma.user.findMany({
     where: { role: 'TEAM_LEADER', isActive: true },
-    select: { id: true, name: true, role: true },
+    select: { id: true, name: true, role: true, hireDate: true, resignationDate: true },
   });
+  const todayYmd = kstTodayYmd();
+  const users = usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd));
   if (users.length === 0) {
     res.json([]);
     return;

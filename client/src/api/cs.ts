@@ -83,6 +83,13 @@ export async function submitCsReport(data: {
   return res.json();
 }
 
+/** 관리자·마케터: 미처리(접수) C/S 건수 */
+export async function getCsPendingCount(token: string): Promise<{ count: number }> {
+  const res = await fetch(`${API}/cs/pending-count`, { headers: authHeaders(token) });
+  if (!res.ok) throw new Error('C/S 건수를 불러올 수 없습니다.');
+  return res.json();
+}
+
 /** 관리자: C/S 목록 */
 export async function getCsReports(token: string): Promise<{ items: CsReport[] }> {
   const res = await fetch(`${API}/cs`, { headers: authHeaders(token) });

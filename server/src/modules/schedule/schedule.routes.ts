@@ -4,6 +4,7 @@ import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import { resolveLeaderMorningAfternoon, resolveMemberAvailable } from './scheduleDayAvailability.helpers.js';
 import { countAvailableFieldStaffOnDate } from '../inquiries/crewMemberCapacity.helpers.js';
+import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 
 const router = Router();
 
@@ -107,10 +108,10 @@ router.get('/day-availability', async (req, res) => {
   }
   const d = new Date(`${date}T12:00:00+09:00`);
 
-  const [teamLeaders, members, leaderDayOffs, leaderSlots, memberSlots, closure] = await Promise.all([
+  const [teamLeadersRaw, members, leaderDayOffs, leaderSlots, memberSlots, closure] = await Promise.all([
     prisma.user.findMany({
       where: { role: 'TEAM_LEADER', isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, hireDate: true, resignationDate: true },
       orderBy: { name: 'asc' },
     }),
     prisma.teamMember.findMany({
@@ -126,6 +127,11 @@ router.get('/day-availability', async (req, res) => {
     prisma.scheduleDayTeamMemberSlot.findMany({ where: { date: d } }),
     prisma.scheduleDayClosure.findUnique({ where: { date: d }, select: { scope: true } }),
   ]);
+
+  const ymdForDay = dateToYmdKst(d);
+  const teamLeaders = teamLeadersRaw.filter((u) =>
+    isUserEmployedOnYmd(u.hireDate, u.resignationDate, ymdForDay)
+  );
 
   const offLeaderIds = new Set(leaderDayOffs.map((x) => x.teamLeaderId));
   const leaderSlotMap = new Map(leaderSlots.map((r) => [r.teamLeaderId, r]));

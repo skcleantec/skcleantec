@@ -94,6 +94,12 @@ router.get('/', authMiddleware, adminOrMarketer, async (_req, res) => {
   res.json({ items });
 });
 
+/** 관리자·마케터: 미처리(접수) C/S 건수 — 상단 메뉴 배지용 */
+router.get('/pending-count', authMiddleware, adminOrMarketer, async (_req, res) => {
+  const count = await prisma.csReport.count({ where: { status: 'RECEIVED' } });
+  res.json({ count });
+});
+
 /** 관리자·마케터: C/S 상세 */
 router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const { id } = req.params;

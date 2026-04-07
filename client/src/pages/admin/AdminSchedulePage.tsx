@@ -9,6 +9,7 @@ import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDay
 import { getMe } from '../../api/auth';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getTeamLeaders, type UserItem } from '../../api/users';
+import { kstTodayYmd } from '../../utils/dateFormat';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
@@ -399,8 +400,9 @@ export function AdminSchedulePage() {
 
   useEffect(() => {
     if (!token) return;
-    getTeamLeaders(token).then(setTeamLeaders).catch(() => setTeamLeaders([]));
-  }, [token]);
+    const ymd = createInquiryModalDate ?? selectedDate ?? kstTodayYmd();
+    getTeamLeaders(token, ymd).then(setTeamLeaders).catch(() => setTeamLeaders([]));
+  }, [token, selectedDate, createInquiryModalDate]);
 
   useEffect(() => {
     if (!token) {

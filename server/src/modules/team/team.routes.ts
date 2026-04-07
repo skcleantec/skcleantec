@@ -11,7 +11,42 @@ const router = Router();
 
 router.use(teamAuthMiddleware);
 
+/** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S — 한 요청으로 병렬 COUNT */
+router.get('/nav-badges', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const [unreadCount, csPendingCount] = await Promise.all([
+    prisma.message.count({
+      where: { receiverId: userId, readAt: null },
+    }),
+    prisma.csReport.count({
+      where: {
+        status: 'RECEIVED',
+        inquiryId: { not: null },
+        inquiry: {
+          assignments: { some: { teamLeaderId: userId } },
+        },
+      },
+    }),
+  ]);
+  res.json({ unreadCount, csPendingCount });
+});
+
 router.use('/inquiries/:inquiryId/cleaning-photos', inquiryCleaningPhotosTeamRoutes);
+
+/** 담당 미처리(접수) C/S 건수 — 상단 메뉴 배지용 */
+router.get('/cs/pending-count', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const count = await prisma.csReport.count({
+    where: {
+      status: 'RECEIVED',
+      inquiryId: { not: null },
+      inquiry: {
+        assignments: { some: { teamLeaderId: userId } },
+      },
+    },
+  });
+  res.json({ count });
+});
 
 /** 담당 접수와 연결된 C/S만 (배정 팀장 본인) */
 router.get('/cs', async (req, res) => {

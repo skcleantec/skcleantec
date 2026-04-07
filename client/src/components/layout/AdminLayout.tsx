@@ -3,7 +3,8 @@ import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { clearToken, getToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAuth';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
-import { getUnreadCount } from '../../api/messages';
+import { getAdminNavBadges } from '../../api/adminNavBadges';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { getMe } from '../../api/auth';
 import {
   ADMIN_NAV_DEF,
@@ -52,10 +53,10 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [csPendingCount, setCsPendingCount] = useState(0);
   const [showNavMoreLeft, setShowNavMoreLeft] = useState(false);
   const [showNavMoreRight, setShowNavMoreRight] = useState(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
-  const isMessagesPage = location.pathname.includes('/messages');
   const [meRole, setMeRole] = useState<string | null>(null);
   const [teamPreviewLink, setTeamPreviewLink] = useState(false);
   const [navOrder, setNavOrder] = useState<AdminNavId[]>(() => loadAdminNavOrder(false));
@@ -130,24 +131,33 @@ export function AdminLayout() {
     setShowNavMoreRight(hasOverflow && !atEnd);
   }, []);
 
+  const fetchNavBadges = useCallback(() => {
+    const token = getToken();
+    if (!token) return;
+    getAdminNavBadges(token)
+      .then((r) => {
+        setUnreadCount(r.unreadCount);
+        setCsPendingCount(r.csPendingCount);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    const fetch = () => {
-      getUnreadCount(token).then((r) => setUnreadCount(r.count)).catch(() => {});
-    };
-    fetch();
-    (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount = fetch;
-    const id = isMessagesPage ? setInterval(fetch, 15000) : undefined;
+    (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount = fetchNavBadges;
+    (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount = fetchNavBadges;
     return () => {
       delete (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount;
-      if (id) clearInterval(id);
+      delete (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount;
     };
-  }, [isMessagesPage]);
+  }, [fetchNavBadges]);
+
+  useVisibilityInterval(fetchNavBadges, 15000);
 
   useEffect(() => {
     queueMicrotask(() => updateNavScrollHint());
-  }, [location.pathname, unreadCount, updateNavScrollHint]);
+  }, [location.pathname, unreadCount, csPendingCount, updateNavScrollHint]);
 
   useEffect(() => {
     const el = navScrollRef.current;
@@ -264,6 +274,33 @@ export function AdminLayout() {
                                 </span>
                                 <span className="ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 rounded-full bg-red-500 text-white font-medium text-[clamp(0.55rem,1.2vw,0.75rem)]">
                                   {unreadCount}
+                                </span>
+                              </>
+                            )}
+                          </span>
+                        </NavLink>
+                      </div>
+                    );
+                  }
+                  if (id === 'cs') {
+                    return (
+                      <div
+                        key={id}
+                        className={rowClass}
+                        onDragOver={handleNavDragOver}
+                        onDrop={(e) => handleNavDrop(e, id)}
+                      >
+                        {dragHandle}
+                        <NavLink to={def.to} className={navClass}>
+                          <span className="inline-flex items-center">
+                            {def.label}
+                            {csPendingCount > 0 && (
+                              <>
+                                <span className="ml-0.5 sm:ml-1 text-red-600 font-medium text-[clamp(0.55rem,1.2vw,0.75rem)] whitespace-nowrap">
+                                  미확인
+                                </span>
+                                <span className="ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 rounded-full bg-red-500 text-white font-medium text-[clamp(0.55rem,1.2vw,0.75rem)]">
+                                  {csPendingCount}
                                 </span>
                               </>
                             )}

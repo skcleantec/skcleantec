@@ -19,6 +19,7 @@ import csRoutes from './modules/cs/cs.routes.js';
 import inquiryChangeLogsRoutes from './modules/inquiry-change-logs/inquiryChangeLogs.routes.js';
 import advertisingRoutes from './modules/advertising/advertising.routes.js';
 import teamsRoutes from './modules/teams/teams.routes.js';
+import adminNavBadgesRoutes from './modules/admin/adminNavBadges.routes.js';
 import { prisma } from './lib/prisma.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -44,6 +45,7 @@ app.use('/api/dayoffs', dayoffsRoutes);
 app.use('/api/estimate', estimateRoutes);
 app.use('/api/orderforms', orderformRoutes);
 app.use('/api/cs', csRoutes);
+app.use('/api/admin', adminNavBadgesRoutes);
 app.use('/api/inquiry-change-logs', inquiryChangeLogsRoutes);
 app.use('/api/advertising', advertisingRoutes);
 app.use('/api/teams', teamsRoutes);

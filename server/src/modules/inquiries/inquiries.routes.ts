@@ -33,6 +33,7 @@ import {
   assertCrewCapacityForInquiry,
   preferredDateYmdKst,
 } from './crewMemberCapacity.helpers.js';
+import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
@@ -306,6 +307,9 @@ router.patch('/:id', async (req, res) => {
   /** 클라이언트가 teamLeaderIds를 보낸 경우에만 분배(Assignment) 동기화 — 배열이 아닌 형태도 normalize에서 처리 */
   const wantsTeamSync = Object.prototype.hasOwnProperty.call(body, 'teamLeaderIds');
   const teamLeaderIds = normalizeTeamLeaderIds(body.teamLeaderIds);
+
+  const data = buildInquiryPatchData(body);
+
   if (wantsTeamSync) {
     if (user.role === 'MARKETER' && !canMarketerAssignInquiry(inquiry, user.userId)) {
       res.status(403).json({ error: '본인이 접수한 건만 분배할 수 있습니다.' });
@@ -319,17 +323,30 @@ router.patch('/:id', async (req, res) => {
       return;
     }
     if (teamLeaderIds.length > 0) {
-      const ok = await prisma.user.count({
+      const leaders = await prisma.user.findMany({
         where: { id: { in: teamLeaderIds }, role: 'TEAM_LEADER', isActive: true },
+        select: { id: true, hireDate: true, resignationDate: true },
       });
-      if (ok !== teamLeaderIds.length) {
+      if (leaders.length !== teamLeaderIds.length) {
         res.status(400).json({ error: '유효한 팀장 계정을 찾을 수 없습니다.' });
         return;
+      }
+      const mergedPd =
+        data.preferredDate !== undefined
+          ? (data.preferredDate as Date | null)
+          : inquiry.preferredDate;
+      const assignYmd = mergedPd ? dateToYmdKst(new Date(mergedPd)) : kstTodayYmd();
+      for (const l of leaders) {
+        if (!isUserEmployedOnYmd(l.hireDate, l.resignationDate, assignYmd)) {
+          res.status(400).json({
+            error: '선택한 팀장 중 해당 예약일에 배정할 수 없는 계정이 있습니다.',
+          });
+          return;
+        }
       }
     }
   }
 
-  const data = buildInquiryPatchData(body);
   if (body.professionalOptionIds !== undefined) {
     const raw = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
     data.professionalOptionIds = await filterExistingProfessionalOptionIds(prisma, raw);

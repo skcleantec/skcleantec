@@ -42,6 +42,23 @@ export async function completeTeamHappyCall(token: string, inquiryId: string): P
   }
 }
 
+/** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S — 한 요청 */
+export async function getTeamNavBadges(token: string): Promise<{
+  unreadCount: number;
+  csPendingCount: number;
+}> {
+  const res = await fetch(`${API}/team/nav-badges`, { headers: headers(token) });
+  if (!res.ok) throw new Error('배지 정보를 불러올 수 없습니다.');
+  return res.json();
+}
+
+/** 팀장: 담당 미처리(접수) C/S 건수 */
+export async function getTeamCsPendingCount(token: string): Promise<{ count: number }> {
+  const res = await fetch(`${API}/team/cs/pending-count`, { headers: headers(token) });
+  if (!res.ok) throw new Error('C/S 건수를 불러올 수 없습니다.');
+  return res.json();
+}
+
 /** 팀장: 담당 접수와 연결된 C/S 목록 */
 export async function getTeamCsReports(token: string): Promise<{ items: CsReport[] }> {
   const res = await fetch(`${API}/team/cs`, { headers: headers(token) });

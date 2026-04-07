@@ -12,6 +12,7 @@ type UserRole = 'TEAM_LEADER' | 'MARKETER';
 export function AdminTeamLeadersPage() {
   const token = getToken();
   const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other'>('loading');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,8 @@ export function AdminTeamLeadersPage() {
     name: '',
     phone: '',
     password: '',
+    hireDate: '',
+    resignationDate: '',
   });
   const [editLoading, setEditLoading] = useState(false);
   const [form, setForm] = useState({
@@ -38,8 +41,8 @@ export function AdminTeamLeadersPage() {
     if (!token) return Promise.resolve();
     setApiError(null);
     return Promise.all([
-      getUsers(token, 'TEAM_LEADER'),
-      getUsers(token, 'MARKETER'),
+      getUsers(token, 'TEAM_LEADER', { scope: 'management' }),
+      getUsers(token, 'MARKETER', { scope: 'management' }),
     ])
       .then(([teamRes, marketerRes]) => {
         setTeamLeaders(teamRes);
@@ -60,8 +63,14 @@ export function AdminTeamLeadersPage() {
       return;
     }
     getMe(token)
-      .then((u: { role?: string }) => setRoleGate(u.role === 'ADMIN' ? 'admin' : 'other'))
-      .catch(() => setRoleGate('other'));
+      .then((u: { role?: string; isSuperAdmin?: boolean }) => {
+        setRoleGate(u.role === 'ADMIN' ? 'admin' : 'other');
+        setIsSuperAdmin(Boolean(u.isSuperAdmin));
+      })
+      .catch(() => {
+        setRoleGate('other');
+        setIsSuperAdmin(false);
+      });
   }, [token]);
 
   useEffect(() => {
@@ -96,6 +105,8 @@ export function AdminTeamLeadersPage() {
       name: item.name,
       phone: item.phone ?? '',
       password: '',
+      hireDate: item.hireDate ?? '',
+      resignationDate: item.resignationDate ?? '',
     });
   };
 
@@ -109,6 +120,8 @@ export function AdminTeamLeadersPage() {
         name: string;
         phone: string | null;
         password?: string;
+        hireDate?: string | null;
+        resignationDate?: string | null;
       } = {
         email: editForm.email.trim().toLowerCase(),
         name: editForm.name.trim(),
@@ -116,6 +129,10 @@ export function AdminTeamLeadersPage() {
       };
       if (editForm.password.trim()) {
         payload.password = editForm.password.trim();
+      }
+      if (isSuperAdmin) {
+        payload.hireDate = editForm.hireDate.trim() || null;
+        payload.resignationDate = editForm.resignationDate.trim() || null;
       }
       await updateUser(token, editingUser.id, payload);
       setEditingUser(null);
@@ -462,6 +479,30 @@ export function AdminTeamLeadersPage() {
                     autoComplete="new-password"
                   />
                 </div>
+                {isSuperAdmin && (
+                  <>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">입사일 (포함)</label>
+                      <input
+                        type="date"
+                        value={editForm.hireDate}
+                        onChange={(e) => setEditForm((p) => ({ ...p, hireDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      />
+                      <p className="text-fluid-2xs text-gray-500 mt-1">해당일부터 스케줄·배정·TO에 포함됩니다. 비우면 제한 없음.</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">퇴사일 (해당일 미포함)</label>
+                      <input
+                        type="date"
+                        value={editForm.resignationDate}
+                        onChange={(e) => setEditForm((p) => ({ ...p, resignationDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      />
+                      <p className="text-fluid-2xs text-gray-500 mt-1">해당일부터 드롭다운·배정에서 제외됩니다. 비우면 재직 중.</p>
+                    </div>
+                  </>
+                )}
                 <div className="flex gap-2 pt-2">
                   <button
                     type="submit"

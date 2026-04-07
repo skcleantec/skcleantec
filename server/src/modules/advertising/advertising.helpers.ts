@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
 /** 기간 내 달력 일수 (양 끝 포함), 최소 1 */
 export function inclusiveDayCount(fromYmd: string, toYmd: string): number {
@@ -37,19 +38,25 @@ export async function loadMarketerUsers(
   prisma: PrismaClient,
   scope: { marketerIds: string[] | 'ALL_MARKETERS' }
 ): Promise<{ id: string; name: string; email: string }[]> {
+  const ymd = kstTodayYmd();
   if (scope.marketerIds === 'ALL_MARKETERS') {
-    return prisma.user.findMany({
+    const rows = await prisma.user.findMany({
       where: { role: 'MARKETER', isActive: true },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, hireDate: true, resignationDate: true },
       orderBy: { name: 'asc' },
     });
+    return rows
+      .filter((r) => isUserEmployedOnYmd(r.hireDate, r.resignationDate, ymd))
+      .map(({ id, name, email }) => ({ id, name, email }));
   }
   const rows = await prisma.user.findMany({
     where: { id: { in: scope.marketerIds }, role: 'MARKETER', isActive: true },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, hireDate: true, resignationDate: true },
     orderBy: { name: 'asc' },
   });
-  return rows;
+  return rows
+    .filter((r) => isUserEmployedOnYmd(r.hireDate, r.resignationDate, ymd))
+    .map(({ id, name, email }) => ({ id, name, email }));
 }
 
 export function sumSpendFromSessions(

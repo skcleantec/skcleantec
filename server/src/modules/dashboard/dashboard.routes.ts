@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { happyCallDeadlineEnd } from '../inquiries/happyCall.helpers.js';
 
 const router = Router();
@@ -42,7 +43,7 @@ router.get('/stats', async (_req, res) => {
     return;
   }
 
-  const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeaders] = await Promise.all([
+  const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeadersRaw] = await Promise.all([
     prisma.inquiry.count({
       where: {
         createdAt: { gte: kstTodayRange.gte, lte: kstTodayRange.lte },
@@ -67,11 +68,16 @@ router.get('/stats', async (_req, res) => {
     }),
     prisma.user.findMany({
       where: { role: 'TEAM_LEADER', isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, hireDate: true, resignationDate: true },
     }),
   ]);
 
   const pricePerPyeong = estimateConfig;
+
+  const todayYmd = kstTodayYmd();
+  const teamLeaders = teamLeadersRaw.filter((tl) =>
+    isUserEmployedOnYmd(tl.hireDate, tl.resignationDate, todayYmd)
+  );
 
   /** 오늘 매출: preferredDate가 오늘인 건 */
   const todaySales = inquiriesForSales

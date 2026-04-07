@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import { config } from '../../config/index.js';
 import { authMiddleware, type AuthPayload } from './auth.middleware.js';
 import { isSuperAdminRoleAndEmail } from './superAdmin.js';
+import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
 const router = Router();
 
@@ -22,6 +23,13 @@ async function loginWithPassword(req: Request, res: Response) {
   });
   if (!user || !user.isActive) {
     res.status(401).json({ error: '계정을 찾을 수 없거나 비활성입니다.' });
+    return;
+  }
+  if (
+    (user.role === 'TEAM_LEADER' || user.role === 'MARKETER') &&
+    !isUserEmployedOnYmd(user.hireDate, user.resignationDate, kstTodayYmd())
+  ) {
+    res.status(401).json({ error: '입사·퇴사 기간에 해당하지 않는 계정입니다.' });
     return;
   }
   if (

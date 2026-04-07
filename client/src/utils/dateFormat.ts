@@ -9,6 +9,11 @@ export function formatPreferredDateInputYmd(isoDate: string | null | undefined):
   return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
+/** 오늘 날짜 YYYY-MM-DD (KST) — 팀장 배정·직원 재직일 등과 동일 기준 */
+export function kstTodayYmd(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
 /** JS Date#getDay() → 한 글자 요일 (일~토) */
 export const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const;
 

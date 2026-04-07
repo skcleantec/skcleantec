@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
 function canMarketerActOnInquiry(
   inquiry: { createdById: string | null; orderForm: { createdById: string } | null },
@@ -38,6 +39,7 @@ router.post('/', async (req, res) => {
     }),
     prisma.user.findUnique({
       where: { id: teamLeaderId, role: 'TEAM_LEADER', isActive: true },
+      select: { id: true, hireDate: true, resignationDate: true },
     }),
   ]);
 
@@ -51,6 +53,13 @@ router.post('/', async (req, res) => {
   }
   if (!teamLeader) {
     res.status(404).json({ error: '팀장을 찾을 수 없습니다.' });
+    return;
+  }
+  const assignYmd = inquiry.preferredDate
+    ? dateToYmdKst(new Date(inquiry.preferredDate))
+    : kstTodayYmd();
+  if (!isUserEmployedOnYmd(teamLeader.hireDate, teamLeader.resignationDate, assignYmd)) {
+    res.status(400).json({ error: '해당 예약일에 배정할 수 없는 팀장 계정입니다.' });
     return;
   }
 

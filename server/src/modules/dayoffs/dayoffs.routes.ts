@@ -14,6 +14,7 @@ import {
 } from '../inquiries/crewMemberCapacity.helpers.js';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 import { resolveLeaderMorningAfternoon } from '../schedule/scheduleDayAvailability.helpers.js';
+import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 
 const router = Router();
 
@@ -178,9 +179,8 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
 
   const teamLeaders = await prisma.user.findMany({
     where: { role: 'TEAM_LEADER', isActive: true },
-    select: { id: true, name: true },
+    select: { id: true, name: true, hireDate: true, resignationDate: true },
   });
-  const totalCount = teamLeaders.length;
 
   const dayOffs = await prisma.userDayOff.findMany({
     where: {
@@ -285,6 +285,9 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
 
   for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
     const key = toDateKey(d);
+    const dayLeaders = teamLeaders.filter((t) =>
+      isUserEmployedOnYmd(t.hireDate, t.resignationDate, key)
+    );
     const dayOffList = dayOffs.filter((o) => toDateKey(o.date) === key);
     const offNames = dayOffList.map((o) => o.teamLeader.name);
     const offIds = new Set(dayOffList.map((o) => o.teamLeaderId));
@@ -298,9 +301,9 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       );
     };
 
-    const morningWorkingCount = teamLeaders.filter((t) => leaderSlotsFor(t.id).morning).length;
-    const afternoonWorkingCount = teamLeaders.filter((t) => leaderSlotsFor(t.id).afternoon).length;
-    const workingCount = teamLeaders.filter((t) => {
+    const morningWorkingCount = dayLeaders.filter((t) => leaderSlotsFor(t.id).morning).length;
+    const afternoonWorkingCount = dayLeaders.filter((t) => leaderSlotsFor(t.id).afternoon).length;
+    const workingCount = dayLeaders.filter((t) => {
       const s = leaderSlotsFor(t.id);
       return s.morning || s.afternoon;
     }).length;
@@ -315,7 +318,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
         assignedIds.add(a.teamLeaderId);
       }
     }
-    const availableLeaders = teamLeaders.filter((t) => {
+    const availableLeaders = dayLeaders.filter((t) => {
       const s = leaderSlotsFor(t.id);
       return (s.morning || s.afternoon) && !assignedIds.has(t.id);
     });
@@ -352,8 +355,8 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       }
     }
 
-    const morningWorkingLeaders = teamLeaders.filter((t) => leaderSlotsFor(t.id).morning);
-    const afternoonWorkingLeaders = teamLeaders.filter((t) => leaderSlotsFor(t.id).afternoon);
+    const morningWorkingLeaders = dayLeaders.filter((t) => leaderSlotsFor(t.id).morning);
+    const afternoonWorkingLeaders = dayLeaders.filter((t) => leaderSlotsFor(t.id).afternoon);
     const morningWorkingNames = [...morningWorkingLeaders]
       .map((t) => t.name)
       .sort((a, b) => a.localeCompare(b, 'ko'));
@@ -361,10 +364,10 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       .map((t) => t.name)
       .sort((a, b) => a.localeCompare(b, 'ko'));
 
-    const availableMorningLeaders = teamLeaders.filter(
+    const availableMorningLeaders = dayLeaders.filter(
       (t) => leaderSlotsFor(t.id).morning && !morningAssignedIds.has(t.id)
     );
-    const availableAfternoonLeaders = teamLeaders.filter(
+    const availableAfternoonLeaders = dayLeaders.filter(
       (t) => leaderSlotsFor(t.id).afternoon && !afternoonAssignedIds.has(t.id)
     );
 
@@ -382,7 +385,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       offCount: offNames.length,
       offNames,
       workingCount,
-      totalTeamLeaders: totalCount,
+      totalTeamLeaders: dayLeaders.length,
       assignedCount: assignedIds.size,
       availableNames: availableLeaders.map((t) => t.name),
       availableMorningNames: availableMorningLeaders.map((t) => t.name),

@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
+import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
 const router = Router();
 
@@ -28,11 +29,17 @@ router.get('/leader-monthly-stats', async (req, res) => {
     return;
   }
 
-  const leaders = await prisma.user.findMany({
+  const monthStartYmd = dateToYmdKst(range.gte);
+  const monthEndYmd = dateToYmdKst(range.lte);
+
+  const leadersAll = await prisma.user.findMany({
     where: { role: 'TEAM_LEADER', isActive: true },
-    select: { id: true, name: true },
+    select: { id: true, name: true, hireDate: true, resignationDate: true },
     orderBy: { name: 'asc' },
   });
+  const leaders = leadersAll.filter((l) =>
+    employmentOverlapsMonthKst(l.hireDate, l.resignationDate, monthStartYmd, monthEndYmd)
+  );
 
   const assignments = await prisma.assignment.findMany({
     where: {
@@ -132,9 +139,14 @@ router.post('/', async (req, res) => {
   }
   const leader = await prisma.user.findFirst({
     where: { id: teamLeaderId, role: 'TEAM_LEADER' },
+    select: { id: true, hireDate: true, resignationDate: true },
   });
   if (!leader) {
     res.status(400).json({ error: '유효한 팀장 계정을 찾을 수 없습니다.' });
+    return;
+  }
+  if (!isUserEmployedOnYmd(leader.hireDate, leader.resignationDate, kstTodayYmd())) {
+    res.status(400).json({ error: '입사·퇴사 기간에 해당하지 않는 팀장은 팀에 할당할 수 없습니다.' });
     return;
   }
   const existing = await prisma.team.findUnique({ where: { teamLeaderId } });

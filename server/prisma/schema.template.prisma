@@ -15,6 +15,10 @@ model User {
   role         UserRole @default(TEAM_LEADER)
   phone        String?
   isActive     Boolean  @default(true) @map("is_active")
+  /// 입사일(포함) — 해당일부터 스케줄·TO·배정 대상. null이면 제한 없음(기존 데이터 호환)
+  hireDate     DateTime? @map("hire_date") @db.Date
+  /// 퇴사일(미포함) — 해당일부터 근무·배정·드롭다운 제외. null이면 재직 중
+  resignationDate DateTime? @map("resignation_date") @db.Date
   createdAt    DateTime @default(now()) @map("created_at")
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
@@ -318,6 +322,7 @@ model CsReport {
 
   @@index([inquiryId])
   @@index([completedById])
+  @@index([status])
   @@map("cs_reports")
 }
 

@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Outlet, useNavigate, NavLink } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { getMe } from '../../api/auth';
-import { getUnreadCount } from '../../api/messages';
+import { getTeamNavBadges } from '../../api/team';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 
 export function TeamLayout() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [csPendingCount, setCsPendingCount] = useState(0);
 
   useEffect(() => {
     const token = getTeamToken();
@@ -18,20 +20,29 @@ export function TeamLayout() {
       .catch(() => setUserName(null));
   }, []);
 
+  const fetchTeamBadges = useCallback(() => {
+    const token = getTeamToken();
+    if (!token) return;
+    getTeamNavBadges(token)
+      .then((r) => {
+        setUnreadCount(r.unreadCount);
+        setCsPendingCount(r.csPendingCount);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const token = getTeamToken();
     if (!token) return;
-    const fetch = () => {
-      getUnreadCount(token).then((r) => setUnreadCount(r.count)).catch(() => {});
-    };
-    fetch();
-    (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount = fetch;
-    const id = setInterval(fetch, 15000);
+    (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount = fetchTeamBadges;
+    (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount = fetchTeamBadges;
     return () => {
       delete (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount;
-      clearInterval(id);
+      delete (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount;
     };
-  }, []);
+  }, [fetchTeamBadges]);
+
+  useVisibilityInterval(fetchTeamBadges, 15000);
 
   const handleLogout = () => {
     const a = getToken();
@@ -62,7 +73,17 @@ export function TeamLayout() {
               <NavLink to="/team/dashboard" className={navClass}>대시보드</NavLink>
               <NavLink to="/team/schedule" className={navClass}>스케줄</NavLink>
               <NavLink to="/team/dayoffs" className={navClass}>휴무일</NavLink>
-              <NavLink to="/team/cs" className={navClass}>C/S</NavLink>
+              <NavLink to="/team/cs" className={navClass}>
+                C/S
+                {csPendingCount > 0 && (
+                  <>
+                    <span className="ml-1 text-red-600 text-xs font-medium">미확인</span>
+                    <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-medium">
+                      {csPendingCount}
+                    </span>
+                  </>
+                )}
+              </NavLink>
               <NavLink to="/team/messages" className={navClass}>
                 메시지
                 {unreadCount > 0 && (
@@ -100,7 +121,12 @@ export function TeamLayout() {
             휴무일
           </NavLink>
           <NavLink to="/team/cs" className={mobileTabClass}>
-            C/S
+            <span>C/S</span>
+            {csPendingCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-medium">
+                {csPendingCount}
+              </span>
+            )}
           </NavLink>
           <NavLink to="/team/messages" className={mobileTabClass}>
             <span>메시지</span>

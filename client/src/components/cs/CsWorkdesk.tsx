@@ -151,6 +151,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
       setError(null);
       if (updated.status === 'DONE') setCompletionMethodInput('');
+      (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : '수정에 실패했습니다.');
     } finally {
@@ -176,6 +177,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
       setCompletionMethodInput('');
       setError(null);
+      (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : '처리 완료 저장에 실패했습니다.');
     } finally {
