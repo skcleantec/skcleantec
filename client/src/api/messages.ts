@@ -45,6 +45,41 @@ export async function getMessages(token: string, userId: string) {
   return res.json();
 }
 
+/** 팀장: 운영 측과 통합 대화 (한 화면) */
+export async function getTeamOfficeMessages(token: string) {
+  const res = await fetch(`${API}/messages/team-office`, { headers: headers(token) });
+  if (!res.ok) throw new Error('메시지를 불러올 수 없습니다.');
+  return res.json();
+}
+
+/** 팀장: 재직 관리자·마케터 전원에게 동일 내용 전송 */
+export async function sendTeamToManagement(token: string, content: string) {
+  const res = await fetch(`${API}/messages/team-send`, {
+    method: 'POST',
+    headers: { ...headers(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(typeof err?.error === 'string' ? err.error : '전송에 실패했습니다.');
+  }
+  return res.json() as Promise<{ batchId: string; recipientCount: number }>;
+}
+
+/** 관리자·마케터: 재직 팀장 전원에게 공지 */
+export async function broadcastToTeamLeaders(token: string, content: string) {
+  const res = await fetch(`${API}/messages/broadcast-to-leaders`, {
+    method: 'POST',
+    headers: { ...headers(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(typeof err?.error === 'string' ? err.error : '전송에 실패했습니다.');
+  }
+  return res.json() as Promise<{ batchId: string; recipientCount: number }>;
+}
+
 export async function sendMessage(token: string, receiverId: string, content: string) {
   const res = await fetch(`${API}/messages`, {
     method: 'POST',

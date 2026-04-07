@@ -420,9 +420,11 @@ model Message {
   content    String
   readAt     DateTime? @map("read_at")
   createdAt  DateTime @default(now()) @map("created_at")
+  batchId    String?   @map("batch_id")
 
   sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
+  @@index([batchId])
   @@map("messages")
 }

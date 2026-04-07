@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getConversations, getMessages, sendMessage } from '../../api/messages';
+import { broadcastToTeamLeaders, getConversations, getMessages, sendMessage } from '../../api/messages';
 import { getToken } from '../../stores/auth';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 
@@ -18,6 +18,7 @@ interface Message {
   readAt: string | null;
   senderId: string;
   receiverId: string;
+  batchId?: string | null;
   sender: { id: string; name: string };
 }
 
@@ -29,6 +30,9 @@ export function AdminMessagesPage() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [broadcastText, setBroadcastText] = useState('');
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [broadcastError, setBroadcastError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = () => {
@@ -60,6 +64,27 @@ export function AdminMessagesPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages]);
 
+  const handleBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !broadcastText.trim() || broadcasting) return;
+    setBroadcasting(true);
+    setBroadcastError(null);
+    try {
+      await broadcastToTeamLeaders(token, broadcastText.trim());
+      setBroadcastText('');
+      loadConversations();
+      if (selectedId) {
+        const msgs = await getMessages(token, selectedId);
+        setMessages(msgs);
+      }
+      (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+    } catch (err) {
+      setBroadcastError(err instanceof Error ? err.message : '전송에 실패했습니다.');
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !selectedId || !input.trim() || sending) return;
@@ -87,6 +112,32 @@ export function AdminMessagesPage() {
   return (
     <div className="flex flex-col gap-4 min-w-0">
       <h1 className="text-xl font-semibold text-gray-800">메시지</h1>
+
+      <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
+        <h2 className="text-sm font-semibold text-gray-900 mb-2">전체 팀장에게 공지</h2>
+        <form onSubmit={handleBroadcast} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <textarea
+            value={broadcastText}
+            onChange={(e) => setBroadcastText(e.target.value)}
+            rows={3}
+            placeholder="공지 내용을 입력하세요. 모든 팀장에게 동일하게 전달됩니다."
+            className="flex-1 max-w-full min-w-0 px-3 py-2 border border-gray-300 rounded text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={broadcasting}
+          />
+          <button
+            type="submit"
+            disabled={broadcasting || !broadcastText.trim()}
+            className="shrink-0 px-4 py-2.5 bg-gray-800 text-white text-sm font-medium rounded hover:bg-gray-900 disabled:opacity-50 min-h-[44px] touch-manipulation"
+          >
+            {broadcasting ? '전송 중…' : '전체 전송'}
+          </button>
+        </form>
+        {broadcastError && (
+          <p className="text-sm text-red-600 mt-2" role="alert">
+            {broadcastError}
+          </p>
+        )}
+      </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col sm:flex-row min-h-[400px]">
         {/* 대화 목록 */}
@@ -133,9 +184,7 @@ export function AdminMessagesPage() {
             <>
               <div className="p-4 border-b border-gray-200 bg-gray-50">
                 <h2 className="font-medium text-gray-900">{selected.name}</h2>
-                <span className="text-xs text-gray-500">
-                  {selected.role === 'ADMIN' ? '관리자' : selected.role === 'MARKETER' ? '마케터' : '팀장'}
-                </span>
+                <span className="text-xs text-gray-500">팀장</span>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
                 {messages.map((m) => {
@@ -156,7 +205,7 @@ export function AdminMessagesPage() {
                         <div className="break-words">{m.content}</div>
                         <div className="text-[11px] opacity-70 mt-1 flex items-center gap-2 tabular-nums">
                           <span>{formatDateTimeCompactWithWeekday(m.createdAt)}</span>
-                          {isMine && (
+                          {isMine && !m.batchId && (
                             <span className={m.readAt ? 'text-blue-300' : 'text-gray-400'}>
                               {m.readAt ? '읽음' : '읽지 않음'}
                             </span>

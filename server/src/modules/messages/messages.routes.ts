@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
@@ -9,6 +10,24 @@ const router = Router();
 router.use(authMiddleware);
 
 type PartnerRow = { id: string; name: string; role: string };
+
+async function getEmployedStaffIds(): Promise<string[]> {
+  const todayYmd = kstTodayYmd();
+  const usersRaw = await prisma.user.findMany({
+    where: { isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
+    select: { id: true, hireDate: true, resignationDate: true },
+  });
+  return usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd)).map((u) => u.id);
+}
+
+async function getEmployedTeamLeaderIds(): Promise<string[]> {
+  const todayYmd = kstTodayYmd();
+  const usersRaw = await prisma.user.findMany({
+    where: { role: 'TEAM_LEADER', isActive: true },
+    select: { id: true, hireDate: true, resignationDate: true },
+  });
+  return usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd)).map((u) => u.id);
+}
 
 async function buildConversationList(myUserId: string, partners: PartnerRow[]) {
   if (partners.length === 0) return [];
@@ -87,6 +106,161 @@ router.get('/unread-count', async (req, res) => {
   res.json({ count });
 });
 
+/** 팀장: 운영(관리자·마케터)과의 통합 대화 (선택 없이 한 화면) */
+router.get('/team-office', async (req, res) => {
+  const { userId: myId, role } = (req as unknown as { user: AuthPayload }).user;
+  if (role !== 'TEAM_LEADER') {
+    res.status(403).json({ error: '팀장만 사용할 수 있습니다.' });
+    return;
+  }
+  const staffIds = await getEmployedStaffIds();
+  if (staffIds.length === 0) {
+    res.json([]);
+    return;
+  }
+  type TeamOfficeRow = {
+    id: string;
+    content: string;
+    createdAt: Date;
+    readAt: Date | null;
+    senderId: string;
+    receiverId: string;
+    batchId: string | null;
+    sender: { id: string; name: string };
+  };
+  const raw = (await prisma.message.findMany({
+    where: {
+      OR: [
+        { senderId: myId, receiverId: { in: staffIds } },
+        { senderId: { in: staffIds }, receiverId: myId },
+      ],
+    },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      content: true,
+      createdAt: true,
+      readAt: true,
+      senderId: true,
+      receiverId: true,
+      batchId: true,
+      sender: { select: { id: true, name: true } },
+    },
+  } as any)) as TeamOfficeRow[];
+  await prisma.message.updateMany({
+    where: { senderId: { in: staffIds }, receiverId: myId, readAt: null },
+    data: { readAt: new Date() },
+  });
+
+  const seenBatch = new Set<string>();
+  const collapsed: TeamOfficeRow[] = [];
+  for (const m of raw) {
+    if (m.senderId === myId && m.batchId) {
+      if (seenBatch.has(m.batchId)) continue;
+      seenBatch.add(m.batchId);
+    }
+    collapsed.push(m);
+  }
+  res.json(collapsed);
+});
+
+/** 팀장: 운영 전체(재직 관리자·마케터)에게 동일 내용 전송 — batchId로 묶음 */
+router.post('/team-send', async (req, res) => {
+  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  if (role !== 'TEAM_LEADER') {
+    res.status(403).json({ error: '팀장만 전송할 수 있습니다.' });
+    return;
+  }
+  const { content } = req.body as { content?: string };
+  if (!content?.trim()) {
+    res.status(400).json({ error: '내용을 입력해주세요.' });
+    return;
+  }
+  const staffIds = await getEmployedStaffIds();
+  if (staffIds.length === 0) {
+    res.status(400).json({ error: '수신 가능한 운영 계정이 없습니다.' });
+    return;
+  }
+  const batchId = randomUUID();
+  const text = content.trim();
+  const created = await prisma.$transaction(
+    staffIds.map((receiverId) =>
+      prisma.message.create({
+        data: {
+          senderId: userId,
+          receiverId,
+          content: text,
+          batchId,
+        } as any,
+        include: {
+          sender: { select: { id: true, name: true } },
+          receiver: { select: { id: true, name: true } },
+        },
+      })
+    )
+  );
+  const first = created[0] as
+    | {
+        id: string;
+        content: string;
+        createdAt: Date;
+        batchId: string | null;
+        sender: { id: string; name: string };
+      }
+    | undefined;
+  res.status(201).json({
+    batchId,
+    recipientCount: created.length,
+    sample: first
+      ? {
+          id: first.id,
+          content: first.content,
+          createdAt: first.createdAt,
+          batchId: first.batchId,
+          sender: first.sender,
+        }
+      : null,
+  });
+});
+
+/** 관리자·마케터: 전체 팀장에게 공지(동일 내용) */
+router.post('/broadcast-to-leaders', async (req, res) => {
+  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  if (role !== 'ADMIN' && role !== 'MARKETER') {
+    res.status(403).json({ error: '관리자·마케터만 전송할 수 있습니다.' });
+    return;
+  }
+  const { content } = req.body as { content?: string };
+  if (!content?.trim()) {
+    res.status(400).json({ error: '내용을 입력해주세요.' });
+    return;
+  }
+  const leaderIds = await getEmployedTeamLeaderIds();
+  if (leaderIds.length === 0) {
+    res.status(400).json({ error: '수신 가능한 팀장 계정이 없습니다.' });
+    return;
+  }
+  const batchId = randomUUID();
+  const text = content.trim();
+  const created = await prisma.$transaction(
+    leaderIds.map((receiverId) =>
+      prisma.message.create({
+        data: {
+          senderId: userId,
+          receiverId,
+          content: text,
+          batchId,
+        } as any,
+        include: {
+          sender: { select: { id: true, name: true } },
+          receiver: { select: { id: true, name: true } },
+        },
+      })
+    )
+  );
+  res.status(201).json({ batchId, recipientCount: created.length });
+});
+
 async function findEmployedUser(otherId: string) {
   const todayYmd = kstTodayYmd();
   const other = await prisma.user.findUnique({
@@ -98,11 +272,7 @@ async function findEmployedUser(otherId: string) {
   return other;
 }
 
-/** 상대가 허용된 역할인지: 관리자↔팀장 간만 */
-function canMessagePair(
-  myRole: string,
-  otherRole: string
-): boolean {
+function canMessagePair(myRole: string, otherRole: string): boolean {
   const staff = myRole === 'ADMIN' || myRole === 'MARKETER';
   const otherStaff = otherRole === 'ADMIN' || otherRole === 'MARKETER';
   if (staff && otherRole === 'TEAM_LEADER') return true;
@@ -122,7 +292,7 @@ router.get('/:userId', async (req, res) => {
     res.status(403).json({ error: '대화할 수 없는 사용자입니다.' });
     return;
   }
-  const messages = await prisma.message.findMany({
+  const messages = (await prisma.message.findMany({
     where: {
       OR: [
         { senderId: myId, receiverId: otherId },
@@ -137,9 +307,19 @@ router.get('/:userId', async (req, res) => {
       readAt: true,
       senderId: true,
       receiverId: true,
+      batchId: true,
       sender: { select: { id: true, name: true } },
     },
-  });
+  } as any)) as Array<{
+    id: string;
+    content: string;
+    createdAt: Date;
+    readAt: Date | null;
+    senderId: string;
+    receiverId: string;
+    batchId: string | null;
+    sender: { id: string; name: string };
+  }>;
   await prisma.message.updateMany({
     where: { senderId: otherId, receiverId: myId, readAt: null },
     data: { readAt: new Date() },
