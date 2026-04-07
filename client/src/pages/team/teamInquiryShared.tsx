@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
-import { getTeamToken } from '../../stores/teamAuth';
+import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
@@ -163,7 +163,7 @@ export function TeamInquiryDetailModal({
   enableHappyCall?: boolean;
   onHappyCallComplete?: () => Promise<void>;
 }) {
-  const teamToken = getTeamToken();
+  const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const [happySaving, setHappySaving] = useState(false);
   const canHappy = enableHappyCall && isHappyCallEligible(item.status, item.preferredDate);
   const showHappyBlock = enableHappyCall && item.preferredDate;
@@ -187,7 +187,20 @@ export function TeamInquiryDetailModal({
         className="bg-white rounded-t-2xl sm:rounded-lg p-6 w-full sm:max-w-md max-h-[85vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">상세 내역</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">상세 내역</h2>
+        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/80 p-3 min-w-0">
+          <p className="text-fluid-sm font-medium text-blue-950 mb-2">현장 사진 (청소 전·후)</p>
+          <p className="text-fluid-xs text-blue-900/80 mb-3">
+            아래에서 구분을 고른 뒤 <strong className="font-semibold">사진 올리기</strong>를 누르면 카메라·갤러리에서 선택할 수 있습니다.
+          </p>
+          {teamToken ? (
+            <InquiryCleaningPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded />
+          ) : (
+            <p className="text-fluid-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              로그인 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
+            </p>
+          )}
+        </div>
         <div className="flex flex-col gap-3 text-fluid-sm">
           <div>
             <span className="text-gray-500 block text-fluid-xs">고객명</span>
@@ -257,9 +270,6 @@ export function TeamInquiryDetailModal({
               <span className="text-gray-500 block text-fluid-xs">C/S 내용</span>
               <span className="text-gray-800 break-words">{item.claimMemo}</span>
             </div>
-          )}
-          {teamToken && (
-            <InquiryCleaningPhotosPanel inquiryId={item.id} variant="team" token={teamToken} />
           )}
           {showHappyBlock && (
             <div className="border-t border-gray-100 pt-3 mt-1">

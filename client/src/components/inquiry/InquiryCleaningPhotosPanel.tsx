@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type CleaningPhotoItem,
   type CleaningPhotoPhase,
@@ -21,9 +21,11 @@ type Props = {
   inquiryId: string;
   variant: 'team' | 'admin';
   token: string;
+  /** 팀장 상세 상단 카드 안에 넣을 때: 바깥 제목과 겹치지 않게 구분선·소제목 정리 */
+  embedded?: boolean;
 };
 
-export function InquiryCleaningPhotosPanel({ inquiryId, variant, token }: Props) {
+export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded = false }: Props) {
   const teamUserId =
     variant === 'team' ? parseJwtPayload<{ userId?: string }>(token)?.userId ?? null : null;
 
@@ -33,6 +35,7 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token }: Props)
   const [uploadPhase, setUploadPhase] = useState<CleaningPhotoPhase>('BEFORE');
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CleaningPhotoItem | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,35 +95,53 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token }: Props)
 
   const byPhase = (phase: CleaningPhotoPhase) => items.filter((p) => p.phase === phase);
 
-  return (
-    <div className="border-t border-gray-100 pt-3 mt-1 min-w-0">
-      <span className="text-gray-500 block text-fluid-xs mb-2">청소 전·후 사진</span>
+  const wrapClass = embedded
+    ? 'min-w-0'
+    : 'border-t border-gray-100 pt-3 mt-1 min-w-0';
 
-      <div className="flex flex-wrap items-end gap-2 mb-3">
-        <label className="text-fluid-xs text-gray-600 shrink-0">구분</label>
-        <select
-          value={uploadPhase}
-          onChange={(e) => setUploadPhase(e.target.value as CleaningPhotoPhase)}
-          className="border border-gray-300 rounded px-2 py-1.5 text-fluid-sm min-w-0"
-          disabled={uploading}
-        >
-          <option value="BEFORE">{PHASE_LABEL.BEFORE}</option>
-          <option value="AFTER">{PHASE_LABEL.AFTER}</option>
-        </select>
-        <label className="inline-flex items-center gap-1 px-2 py-1.5 border border-gray-300 rounded bg-white cursor-pointer text-fluid-sm hover:bg-gray-50">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
+  return (
+    <div className={wrapClass}>
+      {!embedded && (
+        <span className="text-gray-500 block text-fluid-xs mb-2">청소 전·후 사진</span>
+      )}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-3 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <span className="text-fluid-xs text-gray-600 shrink-0">구분</span>
+          <select
+            value={uploadPhase}
+            onChange={(e) => setUploadPhase(e.target.value as CleaningPhotoPhase)}
+            className="border border-gray-300 rounded px-2 py-2 text-fluid-sm min-w-0 flex-1 sm:flex-initial"
             disabled={uploading}
-            onChange={(e) => {
-              const f = e.target.files?.[0] ?? null;
-              e.target.value = '';
-              void handleFile(f);
-            }}
-          />
-          {uploading ? '업로드 중…' : '사진 선택·업로드'}
-        </label>
+          >
+            <option value="BEFORE">{PHASE_LABEL.BEFORE}</option>
+            <option value="AFTER">{PHASE_LABEL.AFTER}</option>
+          </select>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="sr-only"
+          disabled={uploading}
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            e.target.value = '';
+            void handleFile(f);
+          }}
+        />
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => fileInputRef.current?.click()}
+          className={
+            variant === 'team'
+              ? 'w-full sm:w-auto min-h-[48px] touch-manipulation rounded-lg bg-blue-600 px-4 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 active:bg-blue-800'
+              : 'w-full sm:w-auto min-h-[44px] touch-manipulation rounded-lg border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50'
+          }
+        >
+          {uploading ? '업로드 중…' : '사진 올리기 (카메라·갤러리)'}
+        </button>
       </div>
 
       {error && <p className="text-fluid-sm text-red-600 mb-2">{error}</p>}

@@ -40,12 +40,17 @@ export function TeamLayout() {
   const navClass = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-2 text-sm font-medium rounded ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:text-gray-900'}`;
 
+  const mobileTabClass = ({ isActive }: { isActive: boolean }) =>
+    `flex-1 min-h-[44px] min-w-0 py-2 px-0.5 text-center text-[11px] font-medium leading-tight touch-manipulation flex flex-col items-center justify-center gap-0.5 ${
+      isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
+    }`;
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-16 sm:pb-0">
-      <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <h1 className="text-lg font-semibold text-gray-800">SK클린텍</h1>
+            <h1 className="text-lg font-semibold text-gray-800 shrink-0">SK클린텍</h1>
             <nav className="hidden sm:flex flex-wrap gap-1">
               <NavLink to="/team/dashboard" className={navClass}>대시보드</NavLink>
               <NavLink to="/team/schedule" className={navClass}>스케줄</NavLink>
@@ -63,62 +68,42 @@ export function TeamLayout() {
               </NavLink>
             </nav>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
             {userName && (
-              <span className="text-sm text-gray-600">{userName}</span>
+              <span className="text-sm text-gray-600 truncate max-w-[5rem] sm:max-w-none">{userName}</span>
             )}
             <button
               onClick={handleLogout}
-              className="text-sm text-gray-600 hover:text-gray-900 py-2 px-1"
+              className="text-sm text-gray-600 hover:text-gray-900 py-2 px-1 shrink-0"
             >
               로그아웃
             </button>
           </div>
         </div>
+        {/* 모바일: 상단(헤더 바로 아래) 탭 메뉴 */}
+        <nav className="flex sm:hidden border-t border-gray-100 bg-white">
+          <NavLink to="/team/dashboard" className={mobileTabClass}>
+            대시보드
+          </NavLink>
+          <NavLink to="/team/schedule" className={mobileTabClass}>
+            스케줄
+          </NavLink>
+          <NavLink to="/team/dayoffs" className={mobileTabClass}>
+            휴무일
+          </NavLink>
+          <NavLink to="/team/messages" className={mobileTabClass}>
+            <span>메시지</span>
+            {unreadCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-medium">
+                {unreadCount}
+              </span>
+            )}
+          </NavLink>
+        </nav>
       </header>
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden">
         <Outlet />
       </main>
-      {/* 모바일 하단 네비 */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex sm:hidden z-40 pb-[env(safe-area-inset-bottom)]">
-        <NavLink
-          to="/team/dashboard"
-          className={({ isActive }) =>
-            `flex-1 py-2.5 px-1 text-center text-[11px] sm:text-sm font-medium leading-tight ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
-          }
-        >
-          대시보드
-        </NavLink>
-        <NavLink
-          to="/team/schedule"
-          className={({ isActive }) =>
-            `flex-1 py-2.5 px-1 text-center text-[11px] sm:text-sm font-medium leading-tight ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
-          }
-        >
-          스케줄
-        </NavLink>
-        <NavLink
-          to="/team/dayoffs"
-          className={({ isActive }) =>
-            `flex-1 py-2.5 px-1 text-center text-[11px] sm:text-sm font-medium leading-tight ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
-          }
-        >
-          휴무일
-        </NavLink>
-        <NavLink
-          to="/team/messages"
-          className={({ isActive }) =>
-            `flex-1 py-2.5 px-1 text-center text-[11px] sm:text-sm font-medium flex flex-col items-center justify-center gap-0.5 min-w-0 ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'}`
-          }
-        >
-          <span>메시지</span>
-          {unreadCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-medium">
-              {unreadCount}
-            </span>
-          )}
-        </NavLink>
-      </nav>
     </div>
   );
 }
