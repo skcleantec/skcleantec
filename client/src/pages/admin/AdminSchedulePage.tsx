@@ -20,7 +20,7 @@ import {
   formatPreferredDateInputYmd,
   weekdayKoFromYmd,
 } from '../../utils/dateFormat';
-import { getScheduleTimeBucket } from '../../utils/scheduleTimeBucket';
+import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -119,30 +119,31 @@ function ScheduleDayListItem({
 }) {
   const isPending = item.status === 'PENDING';
   const bucket = getScheduleTimeBucket(item);
+  const isSide = isSideCleaningTime(item.preferredTime);
   const slotAccent =
     bucket === 'morning'
       ? 'border-l-[6px] border-amber-500 bg-amber-50/50'
       : bucket === 'afternoon'
         ? 'border-l-[6px] border-sky-600 bg-sky-50/50'
         : 'border-l-[6px] border-violet-500 bg-violet-50/40';
-  const slotBadgeClass =
-    bucket === 'morning'
+  /** 사이청소는 오전·오후로 분류돼도 배지는 항상 「사이」(보라) 유지 */
+  const slotBadgeClass = isSide
+    ? 'bg-violet-100 text-violet-950 border border-violet-300'
+    : bucket === 'morning'
       ? 'bg-amber-200/90 text-amber-950 border border-amber-400'
       : bucket === 'afternoon'
         ? 'bg-sky-200/90 text-sky-950 border border-sky-500'
         : 'bg-violet-100 text-violet-950 border border-violet-300';
-  const slotLabelShort =
-    bucket === 'morning' ? '오전' : bucket === 'afternoon' ? '오후' : '기타';
-  const leaderCrewLine = (() => {
-    const names = item.assignments.map((a) => a.teamLeader.name).join('·');
-    const parts: string[] = [];
-    parts.push(names || '미배정');
-    const crewN = item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY;
-    parts.push(`팀원${crewN}명`);
-    if (item.crewMemberNote?.trim()) parts.push(item.crewMemberNote.trim());
-    return parts.join(' · ');
-  })();
-  const timeTeamLine = `${slotLabelShort} · ${leaderCrewLine}`;
+  const slotLabelShort = isSide
+    ? '사이'
+    : bucket === 'morning'
+      ? '오전'
+      : bucket === 'afternoon'
+        ? '오후'
+        : '기타';
+  const leaderNamesJoined = item.assignments.map((a) => a.teamLeader.name).join('·');
+  const crewN = item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY;
+  const crewNote = item.crewMemberNote?.trim() ?? '';
   const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';
   const hasScheduleMemo = Boolean(scheduleMemoLine);
 
@@ -210,7 +211,21 @@ function ScheduleDayListItem({
             ? ` / ${formatPyeongDisplay(item.areaPyeong)}`
             : ''}
           <span className="text-gray-400"> · </span>
-          {timeTeamLine}
+          <span>{slotLabelShort}</span>
+          <span className="text-gray-400"> · </span>
+          {leaderNamesJoined ? (
+            <span>{leaderNamesJoined}</span>
+          ) : (
+            <span className="font-bold text-red-600">미배정</span>
+          )}
+          <span className="text-gray-400"> · </span>
+          <span>팀원{crewN}명</span>
+          {crewNote ? (
+            <>
+              <span className="text-gray-400"> · </span>
+              <span>{crewNote}</span>
+            </>
+          ) : null}
         </button>
       </div>
     </div>
@@ -246,6 +261,14 @@ function ChevronRightIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -488,7 +511,9 @@ export function AdminSchedulePage() {
             <div className="flex flex-wrap gap-x-5 gap-y-2 items-center">
               <span className="inline-flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full border-2 border-rose-500 bg-white shrink-0" />
-                빈 슬롯·미배정
+                <span>
+                  빈 슬롯·<span className="font-bold text-red-600">미배정</span>
+                </span>
               </span>
               <span className="inline-flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full bg-rose-100 ring-2 ring-rose-400 shrink-0" />
@@ -671,21 +696,21 @@ export function AdminSchedulePage() {
                               isSlotFull
                                 ? 'text-slate-600 font-semibold text-calendar-2xs'
                                 : unassignedCount > 0
-                                  ? 'text-rose-700 font-semibold text-calendar-2xs'
+                                  ? 'text-red-600 font-bold text-calendar-2xs'
                                   : 'text-gray-500 text-calendar-2xs'
                             }
                           >
                             미배정
                           </span>
                           <span
-                            className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
+                            className={`tabular-nums text-calendar-2xs shrink-0 ${
                               isSlotFull
                                 ? unassignedCount > 0
-                                  ? 'text-slate-900'
-                                  : 'text-slate-700'
+                                  ? 'text-slate-900 font-semibold'
+                                  : 'text-slate-700 font-semibold'
                                 : unassignedCount > 0
-                                  ? 'text-rose-600'
-                                  : 'text-gray-600'
+                                  ? 'text-red-600 font-bold'
+                                  : 'text-gray-600 font-medium'
                             }`}
                           >
                             {unassignedCount}
@@ -796,9 +821,9 @@ export function AdminSchedulePage() {
                 </p>
               ) : null}
 
-              {/* 휴무/근무 현황 */}
+              {/* 요약: 휴무·근무가능·오전·후 소진 (항상 표시) */}
               {stats[selectedDate] && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg text-fluid-sm space-y-2">
+                <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-100 text-fluid-sm">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div>
                       <span className="text-gray-500">휴무</span>
@@ -822,102 +847,100 @@ export function AdminSchedulePage() {
                       <span className="ml-1 font-medium">{stats[selectedDate].afternoonOccupied ?? 0}건</span>
                     </div>
                   </div>
-                  {(stats[selectedDate].sideCleaningOrderCount ?? 0) > 0 && (
-                    <div className="text-fluid-sm">
-                      <span className="text-gray-500">사이청소 접수</span>
-                      <span className="ml-1 font-medium text-violet-800">
-                        {stats[selectedDate].sideCleaningOrderCount}건
-                      </span>
-                      {(stats[selectedDate].sideCleaningUnconfirmedCount ?? 0) > 0 && (
-                        <span className="ml-2 text-amber-800">
-                          (일정 미확정 {stats[selectedDate].sideCleaningUnconfirmedCount}건)
+                </div>
+              )}
+
+              {stats[selectedDate] && (
+                <details className="mb-3 rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex items-center justify-between gap-2 px-3 py-2.5 text-fluid-sm font-medium text-gray-800 cursor-pointer list-none hover:bg-gray-50 active:bg-gray-100 min-h-[44px] touch-manipulation">
+                    <span>인원·슬롯 상세</span>
+                    <ChevronDownIcon className="w-4 h-4 text-gray-500 shrink-0 opacity-80" aria-hidden />
+                  </summary>
+                  <div className="px-3 pb-3 pt-0 border-t border-gray-100 bg-gray-50/90 text-fluid-sm space-y-2">
+                    {(stats[selectedDate].sideCleaningOrderCount ?? 0) > 0 && (
+                      <div>
+                        <span className="text-gray-500">사이청소 접수</span>
+                        <span className="ml-1 font-medium text-violet-800">
+                          {stats[selectedDate].sideCleaningOrderCount}건
                         </span>
-                      )}
-                    </div>
-                  )}
-                  {(() => {
-                    const s = stats[selectedDate];
-                    const am = s.assignableMorning ?? 0;
-                    const aa = s.assignableAfternoonSlot ?? 0;
-                    const sum = s.unassignedTotal ?? am + aa;
-                    return (
-                      <div className="pt-2 border-t border-gray-200 text-fluid-sm">
-                        <span className="text-gray-500">슬롯 남은 자리(건)</span>
-                        <span className="ml-2 font-semibold text-blue-800">
-                          오전 {am} · 오후 {aa} · 합(TO) {sum}
-                        </span>
-                        <span className="block text-fluid-xs text-gray-500 mt-1">
-                          휴무 팀장은 근무 인원에서 제외됩니다. 사이청소는 확정 시 오전 또는 오후 중 하나를 사용합니다.
-                        </span>
+                        {(stats[selectedDate].sideCleaningUnconfirmedCount ?? 0) > 0 && (
+                          <span className="ml-2 text-amber-800">
+                            (일정 미확정 {stats[selectedDate].sideCleaningUnconfirmedCount}건)
+                          </span>
+                        )}
                       </div>
-                    );
-                  })()}
-                  {stats[selectedDate]?.crewRemaining != null && (
-                    <div className="pt-2 border-t border-gray-200 text-fluid-sm">
-                      <span className="text-gray-500">팀원 투입</span>
-                      <span className="ml-2 font-semibold text-emerald-900">
-                        휴무 {stats[selectedDate].crewDayOffCount ?? 0}명 · 가용 {stats[selectedDate].crewAvailable ?? 0}명
-                        · 소진 {stats[selectedDate].crewDemand ?? 0}단위 · 잔여 {stats[selectedDate].crewRemaining}명
-                      </span>
-                      <span className="block text-fluid-xs text-gray-500 mt-1">
-                        미입력 접수는 표준 {DEFAULT_CREW_UNITS_PER_INQUIRY}명(팀장1+팀원2의 반일 1건)으로 집계합니다. 잔여
-                        기준 표준 접수 추가 가능 약 {stats[selectedDate].additionalStandardJobsByCrew ?? 0}건(참고).
-                      </span>
-                    </div>
-                  )}
-                  <div className="mt-2 space-y-2 border-t border-gray-200 pt-2">
-                    <div>
-                      <div className="text-[11px] sm:text-xs text-gray-500">
-                        오전 근무 가능{' '}
-                        <span className="tabular-nums">
-                          ({stats[selectedDate].morningWorkingCount ?? (stats[selectedDate].morningWorkingNames ?? []).length}명)
-                        </span>
+                    )}
+                    {(() => {
+                      const s = stats[selectedDate];
+                      const am = s.assignableMorning ?? 0;
+                      const aa = s.assignableAfternoonSlot ?? 0;
+                      const sum = s.unassignedTotal ?? am + aa;
+                      return (
+                        <div className="pt-1 border-t border-gray-200/90 text-fluid-sm">
+                          <span className="text-gray-500">슬롯 남은 자리(건)</span>
+                          <span className="ml-2 font-semibold text-blue-800">
+                            오전 {am} · 오후 {aa} · 합(TO) {sum}
+                          </span>
+                          <span className="block text-fluid-xs text-gray-500 mt-1">
+                            휴무 팀장은 근무 인원에서 제외됩니다. 사이청소는 확정 시 오전 또는 오후 중 하나를 사용합니다.
+                          </span>
+                        </div>
+                      );
+                    })()}
+                    <div className="space-y-2 border-t border-gray-200/90 pt-2">
+                      <div>
+                        <div className="text-[11px] sm:text-xs text-gray-500">
+                          오전 근무 가능{' '}
+                          <span className="tabular-nums">
+                            ({stats[selectedDate].morningWorkingCount ?? (stats[selectedDate].morningWorkingNames ?? []).length}명)
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] sm:text-xs text-gray-800 font-normal leading-snug break-words">
+                          {(stats[selectedDate].morningWorkingNames ?? []).length > 0
+                            ? (stats[selectedDate].morningWorkingNames ?? []).join(', ')
+                            : '—'}
+                        </p>
+                        <div className="mt-1.5 text-[11px] sm:text-xs text-gray-500">
+                          오전 추가 배정 가능{' '}
+                          <span className="tabular-nums">
+                            ({(stats[selectedDate].availableMorningNames ?? []).length}명)
+                          </span>
+                          <span className="text-gray-400"> · 이미 오전 일정에 배정된 팀장은 제외</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
+                          {(stats[selectedDate].availableMorningNames ?? []).length > 0
+                            ? (stats[selectedDate].availableMorningNames ?? []).join(', ')
+                            : '—'}
+                        </p>
                       </div>
-                      <p className="mt-0.5 text-[11px] sm:text-xs text-gray-800 font-normal leading-snug break-words">
-                        {(stats[selectedDate].morningWorkingNames ?? []).length > 0
-                          ? (stats[selectedDate].morningWorkingNames ?? []).join(', ')
-                          : '—'}
-                      </p>
-                      <div className="mt-1.5 text-[11px] sm:text-xs text-gray-500">
-                        오전 추가 배정 가능{' '}
-                        <span className="tabular-nums">
-                          ({(stats[selectedDate].availableMorningNames ?? []).length}명)
-                        </span>
-                        <span className="text-gray-400"> · 이미 오전 일정에 배정된 팀장은 제외</span>
+                      <div>
+                        <div className="text-[11px] sm:text-xs text-gray-500">
+                          오후 근무 가능{' '}
+                          <span className="tabular-nums">
+                            ({stats[selectedDate].afternoonWorkingCount ?? (stats[selectedDate].afternoonWorkingNames ?? []).length}명)
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] sm:text-xs text-gray-800 font-normal leading-snug break-words">
+                          {(stats[selectedDate].afternoonWorkingNames ?? []).length > 0
+                            ? (stats[selectedDate].afternoonWorkingNames ?? []).join(', ')
+                            : '—'}
+                        </p>
+                        <div className="mt-1.5 text-[11px] sm:text-xs text-gray-500">
+                          오후 추가 배정 가능{' '}
+                          <span className="tabular-nums">
+                            ({(stats[selectedDate].availableAfternoonNames ?? []).length}명)
+                          </span>
+                          <span className="text-gray-400"> · 이미 오후 일정에 배정된 팀장은 제외</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
+                          {(stats[selectedDate].availableAfternoonNames ?? []).length > 0
+                            ? (stats[selectedDate].availableAfternoonNames ?? []).join(', ')
+                            : '—'}
+                        </p>
                       </div>
-                      <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
-                        {(stats[selectedDate].availableMorningNames ?? []).length > 0
-                          ? (stats[selectedDate].availableMorningNames ?? []).join(', ')
-                          : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <div className="text-[11px] sm:text-xs text-gray-500">
-                        오후 근무 가능{' '}
-                        <span className="tabular-nums">
-                          ({stats[selectedDate].afternoonWorkingCount ?? (stats[selectedDate].afternoonWorkingNames ?? []).length}명)
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-[11px] sm:text-xs text-gray-800 font-normal leading-snug break-words">
-                        {(stats[selectedDate].afternoonWorkingNames ?? []).length > 0
-                          ? (stats[selectedDate].afternoonWorkingNames ?? []).join(', ')
-                          : '—'}
-                      </p>
-                      <div className="mt-1.5 text-[11px] sm:text-xs text-gray-500">
-                        오후 추가 배정 가능{' '}
-                        <span className="tabular-nums">
-                          ({(stats[selectedDate].availableAfternoonNames ?? []).length}명)
-                        </span>
-                        <span className="text-gray-400"> · 이미 오후 일정에 배정된 팀장은 제외</span>
-                      </div>
-                      <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
-                        {(stats[selectedDate].availableAfternoonNames ?? []).length > 0
-                          ? (stats[selectedDate].availableAfternoonNames ?? []).join(', ')
-                          : '—'}
-                      </p>
                     </div>
                   </div>
-                </div>
+                </details>
               )}
 
               {(() => {
@@ -980,11 +1003,11 @@ export function AdminSchedulePage() {
                     {otherList.length > 0 && (
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 border-b-2 border-violet-400 pb-1.5">
-                          <span className="text-fluid-sm font-bold text-violet-900">기타 · 일정 미확정</span>
+                          <span className="text-fluid-sm font-bold text-violet-900">사이 · 일정 미확정</span>
                           <span className="text-fluid-xs text-violet-800/80 tabular-nums">{otherList.length}건</span>
                         </div>
                         <p className="text-fluid-xs text-gray-600 mb-2">
-                          사이청소만 선택·오전·오후 미확정이거나 시간대가 비어 있는 접수입니다.
+                          사이청소인데 오전/오후가 아직 정해지지 않았거나, 시간대가 비어 있는 접수입니다.
                         </p>
                         <div className="flex flex-col gap-1">
                           {otherList.map((item) => (

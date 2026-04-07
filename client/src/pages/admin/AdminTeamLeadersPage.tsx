@@ -5,6 +5,7 @@ import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { getUsers, createUser, updateUser, deleteUser, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
+import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 
 type UserRole = 'TEAM_LEADER' | 'MARKETER';
 
@@ -149,7 +150,7 @@ export function AdminTeamLeadersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 w-full max-w-full">
       <div className="flex flex-col gap-4">
         <h1 className="text-xl font-semibold text-gray-800">사용자관리</h1>
         <div className="flex flex-wrap gap-2">
@@ -293,8 +294,8 @@ export function AdminTeamLeadersPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
+        <div className="min-w-0 bg-white border border-gray-200 rounded-lg">
           <h3 className="px-4 py-3 bg-gray-50 border-b border-gray-200 font-medium text-gray-800">
             팀장 ({teamLeaders.length}명)
           </h3>
@@ -303,46 +304,53 @@ export function AdminTeamLeadersPage() {
           ) : teamLeaders.length === 0 && !apiError ? (
             <div className="p-8 text-center text-gray-500">등록된 팀장이 없습니다.</div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-center font-medium text-gray-700">아이디</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-700">이름</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-700">연락처</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-700 w-24">관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teamLeaders.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100">
-                    <td className="px-4 py-3 text-gray-800">{item.email}</td>
-                    <td className="px-4 py-3 text-gray-800">{item.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{item.phone || '-'}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(item)}
-                        className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
-                      >
-                        수정
-                      </button>
-                      <button
-                        type="button"
-                        disabled={deletingId === item.id}
-                        onClick={() => handleDelete(item, '팀장')}
-                        className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {deletingId === item.id ? '처리 중…' : '삭제'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 lg:hidden">
+                표는 좌우로 스크롤할 수 있습니다.
+              </p>
+              <SyncHorizontalScroll dockUntil="lg" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+                <table className="w-full border-collapse text-fluid-sm min-w-[560px]">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700 w-28 whitespace-nowrap">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teamLeaders.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-100">
+                        <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.email}</td>
+                        <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.name}</td>
+                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap tabular-nums">{item.phone || '-'}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
+                          >
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingId === item.id}
+                            onClick={() => handleDelete(item, '팀장')}
+                            className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {deletingId === item.id ? '처리 중…' : '삭제'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </SyncHorizontalScroll>
+            </>
           )}
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="min-w-0 bg-white border border-gray-200 rounded-lg">
           <h3 className="px-4 py-3 bg-gray-50 border-b border-gray-200 font-medium text-gray-800">
             마케터 ({marketers.length}명)
           </h3>
@@ -351,42 +359,49 @@ export function AdminTeamLeadersPage() {
           ) : marketers.length === 0 && !apiError ? (
             <div className="p-8 text-center text-gray-500">등록된 마케터가 없습니다.</div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-center font-medium text-gray-700">아이디</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-700">이름</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-700">연락처</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-700 w-24">관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {marketers.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100">
-                    <td className="px-4 py-3 text-gray-800">{item.email}</td>
-                    <td className="px-4 py-3 text-gray-800">{item.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{item.phone || '-'}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(item)}
-                        className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
-                      >
-                        수정
-                      </button>
-                      <button
-                        type="button"
-                        disabled={deletingId === item.id}
-                        onClick={() => handleDelete(item, '마케터')}
-                        className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {deletingId === item.id ? '처리 중…' : '삭제'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 lg:hidden">
+                표는 좌우로 스크롤할 수 있습니다.
+              </p>
+              <SyncHorizontalScroll dockUntil="lg" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+                <table className="w-full border-collapse text-fluid-sm min-w-[560px]">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700 w-28 whitespace-nowrap">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {marketers.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-100">
+                        <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.email}</td>
+                        <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.name}</td>
+                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap tabular-nums">{item.phone || '-'}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
+                          >
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingId === item.id}
+                            onClick={() => handleDelete(item, '마케터')}
+                            className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {deletingId === item.id ? '처리 중…' : '삭제'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </SyncHorizontalScroll>
+            </>
           )}
         </div>
       </div>
