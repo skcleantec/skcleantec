@@ -18,6 +18,31 @@ const PHASE_LABEL: Record<CleaningPhotoPhase, string> = {
   AFTER: '청소 후',
 };
 
+function CameraUploadIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function SparklesUploadIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+      />
+    </svg>
+  );
+}
+
 type Props = {
   inquiryId: string;
   variant: 'team' | 'admin';
@@ -37,6 +62,8 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CleaningPhotoItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputBeforeRef = useRef<HTMLInputElement>(null);
+  const fileInputAfterRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,7 +95,7 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
     [items]
   );
 
-  const handleFiles = async (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null, phase: CleaningPhotoPhase) => {
     const raw = Array.from(files ?? []).filter((f) => f.type.startsWith('image/'));
     if (raw.length === 0) return;
     const batch = raw.slice(0, 20);
@@ -81,8 +108,8 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
     try {
       const res =
         variant === 'team'
-          ? await uploadTeamCleaningPhotos(token, inquiryId, batch, uploadPhase)
-          : await uploadAdminCleaningPhotos(token, inquiryId, batch, uploadPhase);
+          ? await uploadTeamCleaningPhotos(token, inquiryId, batch, phase)
+          : await uploadAdminCleaningPhotos(token, inquiryId, batch, phase);
       setItems((prev) => [...res.items, ...prev]);
     } catch (e) {
       setError(e instanceof Error ? e.message : '업로드에 실패했습니다.');
@@ -121,45 +148,98 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
         <span className="text-gray-500 block text-fluid-xs mb-2">청소 전·후 사진</span>
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-3 min-w-0">
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <span className="text-fluid-xs text-gray-600 shrink-0">구분</span>
-          <select
-            value={uploadPhase}
-            onChange={(e) => setUploadPhase(e.target.value as CleaningPhotoPhase)}
-            className="border border-gray-300 rounded px-2 py-2 text-fluid-sm min-w-0 flex-1 sm:flex-initial"
-            disabled={uploading}
-          >
-            <option value="BEFORE">{PHASE_LABEL.BEFORE}</option>
-            <option value="AFTER">{PHASE_LABEL.AFTER}</option>
-          </select>
+      {variant === 'team' ? (
+        <div className="mb-3 min-w-0 space-y-3">
+          <p className="text-fluid-xs text-gray-600">구분별로 아이콘을 누르면 해당 청소 전·후로 사진이 올라갑니다.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-fluid-sm font-medium text-gray-800 shrink-0">{PHASE_LABEL.BEFORE}</span>
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputBeforeRef.current?.click()}
+              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-blue-200 bg-blue-50 text-blue-700 shadow-sm touch-manipulation hover:bg-blue-100 disabled:opacity-50 active:bg-blue-200"
+              aria-label={`${PHASE_LABEL.BEFORE} 사진 올리기`}
+            >
+              <CameraUploadIcon className="h-6 w-6" />
+            </button>
+            <input
+              ref={fileInputBeforeRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              className="sr-only"
+              disabled={uploading}
+              onChange={(e) => {
+                const list = e.target.files;
+                e.target.value = '';
+                void handleFiles(list, 'BEFORE');
+              }}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-fluid-sm font-medium text-gray-800 shrink-0">{PHASE_LABEL.AFTER}</span>
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputAfterRef.current?.click()}
+              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm touch-manipulation hover:bg-emerald-100 disabled:opacity-50 active:bg-emerald-200"
+              aria-label={`${PHASE_LABEL.AFTER} 사진 올리기`}
+            >
+              <SparklesUploadIcon className="h-6 w-6" />
+            </button>
+            <input
+              ref={fileInputAfterRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              className="sr-only"
+              disabled={uploading}
+              onChange={(e) => {
+                const list = e.target.files;
+                e.target.value = '';
+                void handleFiles(list, 'AFTER');
+              }}
+            />
+          </div>
+          {uploading && <p className="text-fluid-xs text-gray-500">업로드 중…</p>}
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          multiple
-          className="sr-only"
-          disabled={uploading}
-          onChange={(e) => {
-            const list = e.target.files;
-            e.target.value = '';
-            void handleFiles(list);
-          }}
-        />
-        <button
-          type="button"
-          disabled={uploading}
-          onClick={() => fileInputRef.current?.click()}
-          className={
-            variant === 'team'
-              ? 'w-full sm:w-auto min-h-[48px] touch-manipulation rounded-lg bg-blue-600 px-4 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 active:bg-blue-800'
-              : 'w-full sm:w-auto min-h-[44px] touch-manipulation rounded-lg border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50'
-          }
-        >
-          {uploading ? '업로드 중…' : '사진 올리기 (여러 장·카메라·갤러리)'}
-        </button>
-      </div>
+      ) : (
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-3 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className="text-fluid-xs text-gray-600 shrink-0">구분</span>
+            <select
+              value={uploadPhase}
+              onChange={(e) => setUploadPhase(e.target.value as CleaningPhotoPhase)}
+              className="border border-gray-300 rounded px-2 py-2 text-fluid-sm min-w-0 flex-1 sm:flex-initial"
+              disabled={uploading}
+            >
+              <option value="BEFORE">{PHASE_LABEL.BEFORE}</option>
+              <option value="AFTER">{PHASE_LABEL.AFTER}</option>
+            </select>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            className="sr-only"
+            disabled={uploading}
+            onChange={(e) => {
+              const list = e.target.files;
+              e.target.value = '';
+              void handleFiles(list, uploadPhase);
+            }}
+          />
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full sm:w-auto min-h-[44px] touch-manipulation rounded-lg border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {uploading ? '업로드 중…' : '사진 올리기 (여러 장·카메라·갤러리)'}
+          </button>
+        </div>
+      )}
 
       {error && <p className="text-fluid-sm text-red-600 mb-2">{error}</p>}
 
