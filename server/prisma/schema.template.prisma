@@ -28,6 +28,7 @@ model User {
   /// 팀장당 1팀 (비로그인 팀원·휴무)
   team                Team? @relation("TeamLeaderTeam")
   scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
+  inquiryCleaningPhotosUploaded InquiryCleaningPhoto[] @relation("CleaningPhotoUploader")
 
   @@map("users")
 }
@@ -154,8 +155,33 @@ model Inquiry {
   orderForm   OrderForm?          @relation(fields: [orderFormId], references: [id])
   createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   changeLogs  InquiryChangeLog[]
+  cleaningPhotos InquiryCleaningPhoto[]
 
   @@map("inquiries")
+}
+
+enum CleaningPhotoPhase {
+  BEFORE
+  AFTER
+}
+
+/// 현장 청소 전·후 사진 (Cloudinary)
+model InquiryCleaningPhoto {
+  id                 String   @id @default(uuid())
+  inquiryId          String   @map("inquiry_id")
+  phase              CleaningPhotoPhase @map("phase")
+  cloudinaryPublicId String   @map("cloudinary_public_id") @db.VarChar(512)
+  secureUrl          String   @map("secure_url") @db.VarChar(1024)
+  width              Int?
+  height             Int?
+  uploadedById       String   @map("uploaded_by_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  inquiry    Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation("CleaningPhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([inquiryId, phase, createdAt])
+  @@map("inquiry_cleaning_photos")
 }
 
 enum ScheduleClosureScope {
