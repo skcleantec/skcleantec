@@ -10,6 +10,7 @@ import {
   uploadTeamCleaningPhoto,
 } from '../../api/inquiryCleaningPhotos';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
+import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { parseJwtPayload } from '../../utils/jwtPayload';
 
 const PHASE_LABEL: Record<CleaningPhotoPhase, string> = {
@@ -158,35 +159,44 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
                 {list.length === 0 ? (
                   <p className="text-fluid-sm text-gray-400">등록된 사진이 없습니다.</p>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
                     {list.map((photo) => (
                       <div
                         key={photo.id}
-                        className="relative rounded-lg border border-gray-200 overflow-hidden bg-gray-50 min-w-0"
+                        className="relative min-w-0 rounded-lg border border-gray-200 overflow-hidden bg-gray-50"
                       >
-                        <img
+                        <ImageThumbLightbox
                           src={photo.secureUrl}
-                          alt=""
-                          className="w-full h-32 object-cover"
-                          loading="lazy"
+                          alt={`${PHASE_LABEL[phase]} 사진`}
+                          thumbClassName="h-8 w-full max-h-8 object-cover"
+                          buttonClassName="flex min-h-[44px] w-full items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
                         />
-                        <div className="p-1.5 text-fluid-xs text-gray-600 truncate" title={photo.uploadedBy.name}>
+                        <div
+                          className="px-1 py-0.5 text-[10px] leading-tight text-gray-600 truncate"
+                          title={photo.uploadedBy.name}
+                        >
                           {photo.uploadedBy.name}
                         </div>
                         {variant === 'team' &&
                         (teamUserId == null || teamUserId === photo.uploadedBy.id) ? (
                           <button
                             type="button"
-                            className="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-black/55 text-white text-fluid-xs hover:bg-black/70"
-                            onClick={() => void handleDeleteTeam(photo)}
+                            className="absolute top-0.5 right-0.5 z-10 px-1 py-0.5 rounded bg-black/55 text-white text-[10px] hover:bg-black/70 touch-manipulation"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDeleteTeam(photo);
+                            }}
                           >
                             삭제
                           </button>
                         ) : variant === 'admin' ? (
                           <button
                             type="button"
-                            className="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-black/55 text-white text-fluid-xs hover:bg-black/70"
-                            onClick={() => setDeleteTarget(photo)}
+                            className="absolute top-0.5 right-0.5 z-10 px-1 py-0.5 rounded bg-black/55 text-white text-[10px] hover:bg-black/70 touch-manipulation"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(photo);
+                            }}
                           >
                             삭제
                           </button>

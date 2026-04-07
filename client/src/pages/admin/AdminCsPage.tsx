@@ -3,6 +3,7 @@ import { getCsReports, updateCsReport, type CsReport } from '../../api/cs';
 import { getToken } from '../../stores/auth';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { ImageThumbLightbox } from '../../components/ui/ImageThumbLightbox';
 
 const STATUS_OPTIONS = [
   { value: 'RECEIVED', label: '접수' },
@@ -155,9 +156,13 @@ export function AdminCsPage() {
                   <span className="text-gray-500 text-sm block mb-2">첨부 사진</span>
                   <div className="flex flex-wrap gap-2">
                     {selected.imageUrls.map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                        <img src={url} alt={`첨부 ${i + 1}`} className="w-24 h-24 object-cover rounded border" />
-                      </a>
+                      <ImageThumbLightbox
+                        key={i}
+                        src={url}
+                        alt={`첨부 ${i + 1}`}
+                        thumbClassName="w-6 h-6 object-cover rounded border border-gray-200"
+                        buttonClassName="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
+                      />
                     ))}
                   </div>
                 </div>

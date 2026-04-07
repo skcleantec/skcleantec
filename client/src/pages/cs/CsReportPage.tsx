@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { submitCsReport, uploadCsImage } from '../../api/cs';
+import { ImageThumbLightbox } from '../../components/ui/ImageThumbLightbox';
 
 export function CsReportPage() {
   const [customerName, setCustomerName] = useState('');
@@ -106,9 +107,21 @@ export function CsReportPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">사진 (선택)</label>
             <div className="flex flex-wrap gap-2 mb-2">
               {imageUrls.map((url, i) => (
-                <div key={i} className="relative">
-                  <img src={url} alt={`첨부 ${i + 1}`} className="w-20 h-20 object-cover rounded border" />
-                  <button type="button" onClick={() => removeImage(i)} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs leading-none">×</button>
+                <div key={i} className="relative inline-block">
+                  <ImageThumbLightbox
+                    src={url}
+                    alt={`첨부 ${i + 1}`}
+                    thumbClassName="w-5 h-5 object-cover rounded border border-gray-200"
+                    buttonClassName="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute -top-1 -right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs leading-none touch-manipulation"
+                    aria-label="첨부 삭제"
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
             </div>
