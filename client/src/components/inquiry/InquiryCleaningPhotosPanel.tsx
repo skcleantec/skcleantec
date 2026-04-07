@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type CleaningPhotoItem,
   type CleaningPhotoPhase,
@@ -6,11 +6,11 @@ import {
   deleteTeamCleaningPhoto,
   listAdminCleaningPhotos,
   listTeamCleaningPhotos,
-  uploadAdminCleaningPhoto,
-  uploadTeamCleaningPhoto,
+  uploadAdminCleaningPhotos,
+  uploadTeamCleaningPhotos,
 } from '../../api/inquiryCleaningPhotos';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
-import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
+import { ImageThumbLightbox, type ImageGallerySlide } from '../ui/ImageThumbLightbox';
 import { parseJwtPayload } from '../../utils/jwtPayload';
 
 const PHASE_LABEL: Record<CleaningPhotoPhase, string> = {
@@ -59,16 +59,31 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
     void load();
   }, [load]);
 
-  const handleFile = async (file: File | null) => {
-    if (!file) return;
+  const gallerySlides: ImageGallerySlide[] = useMemo(
+    () =>
+      items.map((p) => ({
+        src: p.secureUrl,
+        alt: `${PHASE_LABEL[p.phase]} · ${p.uploadedBy.name}`,
+      })),
+    [items]
+  );
+
+  const handleFiles = async (files: FileList | null) => {
+    const raw = Array.from(files ?? []).filter((f) => f.type.startsWith('image/'));
+    if (raw.length === 0) return;
+    const batch = raw.slice(0, 20);
     setUploading(true);
-    setError(null);
+    if (raw.length > 20) {
+      setError('한 번에 최대 20장까지 올릴 수 있습니다. 처음 20장만 전송합니다.');
+    } else {
+      setError(null);
+    }
     try {
       const res =
         variant === 'team'
-          ? await uploadTeamCleaningPhoto(token, inquiryId, file, uploadPhase)
-          : await uploadAdminCleaningPhoto(token, inquiryId, file, uploadPhase);
-      setItems((prev) => [res.item, ...prev]);
+          ? await uploadTeamCleaningPhotos(token, inquiryId, batch, uploadPhase)
+          : await uploadAdminCleaningPhotos(token, inquiryId, batch, uploadPhase);
+      setItems((prev) => [...res.items, ...prev]);
     } catch (e) {
       setError(e instanceof Error ? e.message : '업로드에 실패했습니다.');
     } finally {
@@ -123,12 +138,13 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
           className="sr-only"
           disabled={uploading}
           onChange={(e) => {
-            const f = e.target.files?.[0] ?? null;
+            const list = e.target.files;
             e.target.value = '';
-            void handleFile(f);
+            void handleFiles(list);
           }}
         />
         <button
@@ -141,7 +157,7 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
               : 'w-full sm:w-auto min-h-[44px] touch-manipulation rounded-lg border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50'
           }
         >
-          {uploading ? '업로드 중…' : '사진 올리기 (카메라·갤러리)'}
+          {uploading ? '업로드 중…' : '사진 올리기 (여러 장·카메라·갤러리)'}
         </button>
       </div>
 
@@ -170,6 +186,8 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
                           alt={`${PHASE_LABEL[phase]} 사진`}
                           thumbClassName="h-8 w-full max-h-8 object-cover"
                           buttonClassName="flex min-h-[44px] w-full items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
+                          gallerySlides={gallerySlides.length > 1 ? gallerySlides : undefined}
+                          galleryIndex={items.findIndex((p) => p.id === photo.id)}
                         />
                         <div
                           className="px-1 py-0.5 text-[10px] leading-tight text-gray-600 truncate"

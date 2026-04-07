@@ -155,15 +155,23 @@ export function AdminCsPage() {
                 <div>
                   <span className="text-gray-500 text-sm block mb-2">첨부 사진</span>
                   <div className="flex flex-wrap gap-2">
-                    {selected.imageUrls.map((url, i) => (
-                      <ImageThumbLightbox
-                        key={i}
-                        src={url}
-                        alt={`첨부 ${i + 1}`}
-                        thumbClassName="w-6 h-6 object-cover rounded border border-gray-200"
-                        buttonClassName="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
-                      />
-                    ))}
+                    {selected.imageUrls.map((url, i) => {
+                      const slides = selected.imageUrls.map((u, j) => ({
+                        src: u,
+                        alt: `첨부 ${j + 1}`,
+                      }));
+                      return (
+                        <ImageThumbLightbox
+                          key={i}
+                          src={url}
+                          alt={`첨부 ${i + 1}`}
+                          thumbClassName="w-6 h-6 object-cover rounded border border-gray-200"
+                          buttonClassName="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
+                          gallerySlides={selected.imageUrls.length > 1 ? slides : undefined}
+                          galleryIndex={i}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}

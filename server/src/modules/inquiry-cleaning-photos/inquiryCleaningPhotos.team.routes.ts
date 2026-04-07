@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Request } from 'express';
 import multer from 'multer';
 import { CleaningPhotoPhase } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
@@ -14,6 +15,17 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },
 });
+
+/** 다중 `images` + 단일 `image` 호환 (최대 20장) */
+const uploadCleaningImages = upload.fields([
+  { name: 'images', maxCount: 20 },
+  { name: 'image', maxCount: 1 },
+]);
+
+function collectUploadedFiles(req: Request): Express.Multer.File[] {
+  const raw = req.files as Record<string, Express.Multer.File[]> | undefined;
+  return [...(raw?.images ?? []), ...(raw?.image ?? [])];
+}
 
 const router = Router({ mergeParams: true });
 
@@ -55,8 +67,8 @@ router.get('/', async (req, res) => {
   res.json({ items: items.map(serialize) });
 });
 
-/** 담당 팀장만 — 업로드 (multipart: image, phase=BEFORE|AFTER) */
-router.post('/', upload.single('image'), async (req, res) => {
+/** 담당 팀장만 — 업로드 (multipart: images[] 또는 image, phase=BEFORE|AFTER) */
+router.post('/', uploadCleaningImages, async (req, res) => {
   if (!isCloudinaryConfigured()) {
     res.status(503).json({
       error:
@@ -66,8 +78,8 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
   const { inquiryId } = req.params as { inquiryId: string };
   const { userId } = (req as unknown as { user: AuthPayload }).user;
-  const file = req.file;
-  if (!file?.buffer) {
+  const files = collectUploadedFiles(req);
+  if (files.length === 0) {
     res.status(400).json({ error: '이미지 파일을 선택해주세요.' });
     return;
   }
@@ -83,15 +95,25 @@ router.post('/', upload.single('image'), async (req, res) => {
     return;
   }
 
+  const createdRows: Awaited<ReturnType<typeof uploadImageBuffer>>[] = [];
   try {
-    const created = await uploadImageBuffer({
-      inquiryId,
-      phase,
-      uploadedById: userId,
-      buffer: file.buffer,
-      mimetype: file.mimetype,
-    });
-    res.status(201).json({ item: serialize(created) });
+    for (const file of files) {
+      if (!file.buffer?.length) continue;
+      const created = await uploadImageBuffer({
+        inquiryId,
+        phase,
+        uploadedById: userId,
+        buffer: file.buffer,
+        mimetype: file.mimetype,
+      });
+      createdRows.push(created);
+    }
+    if (createdRows.length === 0) {
+      res.status(400).json({ error: '유효한 이미지 파일이 없습니다.' });
+      return;
+    }
+    const items = createdRows.map(serialize);
+    res.status(201).json({ items, item: items[0] });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg === 'CLOUDINARY_NOT_CONFIGURED') {

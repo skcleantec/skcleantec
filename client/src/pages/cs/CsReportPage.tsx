@@ -106,13 +106,17 @@ export function CsReportPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">사진 (선택)</label>
             <div className="flex flex-wrap gap-2 mb-2">
-              {imageUrls.map((url, i) => (
+              {imageUrls.map((url, i) => {
+                const slides = imageUrls.map((u, j) => ({ src: u, alt: `첨부 ${j + 1}` }));
+                return (
                 <div key={i} className="relative inline-block">
                   <ImageThumbLightbox
                     src={url}
                     alt={`첨부 ${i + 1}`}
                     thumbClassName="w-5 h-5 object-cover rounded border border-gray-200"
                     buttonClassName="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
+                    gallerySlides={imageUrls.length > 1 ? slides : undefined}
+                    galleryIndex={i}
                   />
                   <button
                     type="button"
@@ -123,7 +127,8 @@ export function CsReportPage() {
                     ×
                   </button>
                 </div>
-              ))}
+              );
+              })}
             </div>
             <label className="inline-block">
               <input type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" disabled={uploading} />

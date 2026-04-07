@@ -35,15 +35,19 @@ export async function listTeamCleaningPhotos(
   return res.json();
 }
 
-export async function uploadTeamCleaningPhoto(
+/** 여러 장 동시 업로드 (필드 `images`) */
+export async function uploadTeamCleaningPhotos(
   token: string,
   inquiryId: string,
-  file: File,
+  files: File[],
   phase: CleaningPhotoPhase
-): Promise<{ item: CleaningPhotoItem }> {
+): Promise<{ items: CleaningPhotoItem[] }> {
+  if (files.length === 0) throw new Error('이미지 파일을 선택해주세요.');
   const body = new FormData();
-  body.append('image', file);
   body.append('phase', phase);
+  for (const f of files) {
+    body.append('images', f);
+  }
   const res = await fetch(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/cleaning-photos`, {
     method: 'POST',
     headers: authHeaders(token),
@@ -76,15 +80,18 @@ export async function listAdminCleaningPhotos(
   return res.json();
 }
 
-export async function uploadAdminCleaningPhoto(
+export async function uploadAdminCleaningPhotos(
   token: string,
   inquiryId: string,
-  file: File,
+  files: File[],
   phase: CleaningPhotoPhase
-): Promise<{ item: CleaningPhotoItem }> {
+): Promise<{ items: CleaningPhotoItem[] }> {
+  if (files.length === 0) throw new Error('이미지 파일을 선택해주세요.');
   const body = new FormData();
-  body.append('image', file);
   body.append('phase', phase);
+  for (const f of files) {
+    body.append('images', f);
+  }
   const res = await fetch(`${API}/inquiries/${encodeURIComponent(inquiryId)}/cleaning-photos`, {
     method: 'POST',
     headers: authHeaders(token),
