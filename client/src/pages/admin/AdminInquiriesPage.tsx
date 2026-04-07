@@ -520,7 +520,7 @@ export function AdminInquiriesPage() {
       try {
         const raw = await getInquiry(token, openInquiryId);
         if (cancelled) return;
-        openEdit(raw as InquiryItem);
+        openEdit(raw as unknown as InquiryItem);
         navigate('/admin/inquiries', { replace: true });
       } catch {
         if (!cancelled) navigate('/admin/inquiries', { replace: true });

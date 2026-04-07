@@ -4,12 +4,9 @@
  */
 export function isTeamPreviewAdminEmail(email: string | undefined | null): boolean {
   if (!email?.trim()) return false;
-  const raw = import.meta.env.VITE_TEAM_PREVIEW_ADMIN_EMAILS ?? 'admin2';
+  const raw = String(import.meta.env.VITE_TEAM_PREVIEW_ADMIN_EMAILS ?? 'admin2');
   const set = new Set(
-    raw
-      .split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean)
+    raw.split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean)
   );
   return set.has(email.trim().toLowerCase());
 }
