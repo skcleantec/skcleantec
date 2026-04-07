@@ -74,12 +74,30 @@ router.post('/submit', async (req, res) => {
   });
 });
 
-const csReportInquirySelect = {
+/** C/S 화면: 담당 팀장·연결 접수 요약(모달) */
+const csReportInquiryInclude = {
   select: {
     id: true,
     inquiryNumber: true,
     customerName: true,
     customerPhone: true,
+    customerPhone2: true,
+    address: true,
+    addressDetail: true,
+    status: true,
+    preferredDate: true,
+    preferredTime: true,
+    preferredTimeDetail: true,
+    memo: true,
+    claimMemo: true,
+    areaPyeong: true,
+    areaBasis: true,
+    assignments: {
+      orderBy: { sortOrder: 'asc' as const },
+      select: {
+        teamLeader: { select: { id: true, name: true } },
+      },
+    },
   },
 } as const;
 
@@ -87,7 +105,7 @@ const csReportInquirySelect = {
 router.get('/', authMiddleware, adminOnly, async (_req, res) => {
   const items = await prisma.csReport.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { inquiry: csReportInquirySelect },
+    include: { inquiry: csReportInquiryInclude },
   });
   res.json({ items });
 });
@@ -97,7 +115,7 @@ router.get('/:id', authMiddleware, adminOnly, async (req, res) => {
   const { id } = req.params;
   const item = await prisma.csReport.findUnique({
     where: { id },
-    include: { inquiry: csReportInquirySelect },
+    include: { inquiry: csReportInquiryInclude },
   });
   if (!item) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
@@ -121,7 +139,7 @@ router.patch('/:id', authMiddleware, adminOnly, async (req, res) => {
       ...(status != null && { status }),
       ...(memo != null && { memo }),
     },
-    include: { inquiry: csReportInquirySelect },
+    include: { inquiry: csReportInquiryInclude },
   });
   res.json(updated);
 });

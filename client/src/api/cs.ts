@@ -22,6 +22,18 @@ export interface CsReport {
     inquiryNumber?: string | null;
     customerName: string;
     customerPhone: string;
+    customerPhone2?: string | null;
+    address: string;
+    addressDetail?: string | null;
+    status: string;
+    preferredDate?: string | null;
+    preferredTime?: string | null;
+    preferredTimeDetail?: string | null;
+    memo?: string | null;
+    claimMemo?: string | null;
+    areaPyeong?: number | null;
+    areaBasis?: string | null;
+    assignments: Array<{ teamLeader: { id: string; name: string } }>;
   } | null;
 }
 

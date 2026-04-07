@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { getCsReports, updateCsReport, type CsReport } from '../../api/cs';
 import { getToken } from '../../stores/auth';
-import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
+import { formatDateTimeCompactWithWeekday, formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ImageThumbLightbox } from '../../components/ui/ImageThumbLightbox';
 
@@ -11,6 +10,27 @@ const STATUS_OPTIONS = [
   { value: 'PROCESSING', label: '처리중' },
   { value: 'DONE', label: '완료' },
 ];
+
+const INQUIRY_STATUS_LABELS: Record<string, string> = {
+  PENDING: '대기',
+  RECEIVED: '접수',
+  ASSIGNED: '분배완료',
+  IN_PROGRESS: '진행중',
+  COMPLETED: '완료',
+  CANCELLED: '취소',
+  CS_PROCESSING: 'C/S 처리중',
+};
+
+function formatTeamLeaderLabel(inquiry: NonNullable<CsReport['inquiry']>): string {
+  const names = inquiry.assignments.map((a) => a.teamLeader.name).filter(Boolean);
+  return names.length ? names.join(' · ') : '미배정';
+}
+
+function formatAreaLine(inquiry: NonNullable<CsReport['inquiry']>): string {
+  if (inquiry.areaPyeong == null) return '-';
+  const b = inquiry.areaBasis?.trim();
+  return b ? `${b} ${inquiry.areaPyeong}평` : `${inquiry.areaPyeong}평`;
+}
 
 function OpenInNewIcon({ className }: { className?: string }) {
   return (
@@ -21,7 +41,6 @@ function OpenInNewIcon({ className }: { className?: string }) {
 }
 
 export function AdminCsPage() {
-  const navigate = useNavigate();
   const token = getToken();
   const [items, setItems] = useState<CsReport[]>([]);
   const [loading, setLoading] = useState(false);
@@ -30,6 +49,9 @@ export function AdminCsPage() {
   const [editStatus, setEditStatus] = useState('');
   const [editMemo, setEditMemo] = useState('');
   const [saving, setSaving] = useState(false);
+  const [connectedInquiryModal, setConnectedInquiryModal] = useState<NonNullable<CsReport['inquiry']> | null>(
+    null
+  );
 
   const refresh = () => {
     if (!token) return;
@@ -63,6 +85,21 @@ export function AdminCsPage() {
       setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
     } catch (e) {
       setError(e instanceof Error ? e.message : '수정에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!token || !selected) return;
+    setSaving(true);
+    try {
+      const updated = await updateCsReport(token, selected.id, { status: 'DONE', memo: editMemo });
+      setEditStatus('DONE');
+      setSelected(updated);
+      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '처리 완료 저장에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -120,7 +157,6 @@ export function AdminCsPage() {
                 <th className="text-center p-3 font-medium text-gray-700">날짜</th>
                 <th className="text-center p-3 font-medium text-gray-700">성함</th>
                 <th className="text-center p-3 font-medium text-gray-700">연락처</th>
-                <th className="text-center p-3 font-medium text-gray-700">접수 연결</th>
                 <th className="text-center p-3 font-medium text-gray-700">상태</th>
               </tr>
             </thead>
@@ -136,26 +172,14 @@ export function AdminCsPage() {
                   </td>
                   <td className="p-3">{item.customerName}</td>
                   <td className="p-3">{item.customerPhone}</td>
-                  <td className="p-3 text-center">
-                    {item.inquiry?.id ? (
-                      <button
-                        type="button"
-                        className="text-blue-600 hover:text-blue-800 underline text-sm font-medium touch-manipulation min-h-[44px] px-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/admin/inquiries?openInquiry=${encodeURIComponent(item.inquiry!.id)}`);
-                        }}
-                      >
-                        {item.inquiry.inquiryNumber ? `접수 ${item.inquiry.inquiryNumber}` : '접수 상세'}
-                      </button>
-                    ) : (
-                      <span className="text-gray-400 text-sm">—</span>
-                    )}
-                  </td>
                   <td className="p-3">
                     <span
                       className={`px-2 py-0.5 rounded text-xs ${
-                        item.status === 'DONE' ? 'bg-green-100 text-green-800' : item.status === 'PROCESSING' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700'
+                        item.status === 'DONE'
+                          ? 'bg-green-100 text-green-800'
+                          : item.status === 'PROCESSING'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-gray-100 text-gray-700'
                       }`}
                     >
                       {STATUS_OPTIONS.find((s) => s.value === item.status)?.label ?? item.status}
@@ -179,6 +203,23 @@ export function AdminCsPage() {
               <h2 className="font-semibold">C/S 상세</h2>
             </div>
             <div className="p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                <div>
+                  <span className="text-gray-500 text-sm">처리 상태</span>
+                  <p className="font-medium">
+                    {STATUS_OPTIONS.find((s) => s.value === selected.status)?.label ?? selected.status}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleComplete}
+                  disabled={saving || selected.status === 'DONE'}
+                  className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-600 border border-green-700 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                >
+                  {selected.status === 'DONE' ? '처리 완료됨' : '처리완료'}
+                </button>
+              </div>
+
               <div>
                 <span className="text-gray-500 text-sm">성함</span>
                 <p className="font-medium">{selected.customerName}</p>
@@ -187,22 +228,33 @@ export function AdminCsPage() {
                 <span className="text-gray-500 text-sm">연락처</span>
                 <p className="font-medium">{selected.customerPhone}</p>
               </div>
-              {selected.inquiry?.id ? (
-                <div>
-                  <span className="text-gray-500 text-sm block mb-1">접수 목록 연결</span>
+
+              {selected.inquiry ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                  <div>
+                    <span className="text-gray-500 text-sm">담당 팀장</span>
+                    <p className="font-medium text-gray-900">{formatTeamLeaderLabel(selected.inquiry)}</p>
+                  </div>
+                  {selected.inquiry.inquiryNumber ? (
+                    <p className="text-sm text-gray-700">
+                      접수번호{' '}
+                      <span className="font-mono tabular-nums">{selected.inquiry.inquiryNumber}</span>
+                    </p>
+                  ) : null}
                   <button
                     type="button"
-                    className="text-blue-600 hover:text-blue-800 underline text-sm font-medium touch-manipulation min-h-[44px] text-left"
-                    onClick={() =>
-                      navigate(`/admin/inquiries?openInquiry=${encodeURIComponent(selected.inquiry!.id)}`)
-                    }
+                    onClick={() => setConnectedInquiryModal(selected.inquiry!)}
+                    className="w-full min-h-[44px] px-3 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 touch-manipulation"
                   >
-                    {selected.inquiry.inquiryNumber
-                      ? `접수번호 ${selected.inquiry.inquiryNumber} 상세보기`
-                      : '접수 상세보기'}
+                    연결 접수 상세 보기
                   </button>
                 </div>
-              ) : null}
+              ) : (
+                <p className="text-sm text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  접수 목록과 자동 연결된 건이 없습니다. (성함·연락처가 접수 DB와 일치할 때 연결됩니다.)
+                </p>
+              )}
+
               <div>
                 <span className="text-gray-500 text-sm">내용</span>
                 <p className="whitespace-pre-wrap text-sm">{selected.content}</p>
@@ -232,7 +284,7 @@ export function AdminCsPage() {
                 </div>
               ) : null}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">상태 (수동 변경)</label>
                 <select
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
@@ -259,10 +311,87 @@ export function AdminCsPage() {
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full py-2 bg-gray-800 text-white text-sm font-medium rounded disabled:opacity-50"
+                className="w-full py-2 bg-gray-800 text-white text-sm font-medium rounded disabled:opacity-50 min-h-[44px] touch-manipulation"
               >
                 {saving ? '저장 중...' : '저장'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {connectedInquiryModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+          onClick={() => setConnectedInquiryModal(null)}
+        >
+          <div
+            className="relative bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalCloseButton onClick={() => setConnectedInquiryModal(null)} />
+            <div className="p-4 border-b pr-12">
+              <h2 className="font-semibold">연결된 접수 상세</h2>
+              {connectedInquiryModal.inquiryNumber ? (
+                <p className="text-sm text-gray-600 mt-1">
+                  접수번호{' '}
+                  <span className="font-mono tabular-nums">{connectedInquiryModal.inquiryNumber}</span>
+                </p>
+              ) : null}
+            </div>
+            <div className="p-4 space-y-3 text-sm">
+              <div>
+                <span className="text-gray-500 text-xs block mb-0.5">담당 팀장</span>
+                <p className="font-medium">{formatTeamLeaderLabel(connectedInquiryModal)}</p>
+              </div>
+              <div>
+                <span className="text-gray-500 text-xs block mb-0.5">접수 상태</span>
+                <p>{INQUIRY_STATUS_LABELS[connectedInquiryModal.status] ?? connectedInquiryModal.status}</p>
+              </div>
+              <div>
+                <span className="text-gray-500 text-xs block mb-0.5">고객</span>
+                <p>
+                  {connectedInquiryModal.customerName} / {connectedInquiryModal.customerPhone}
+                  {connectedInquiryModal.customerPhone2 ? ` / ${connectedInquiryModal.customerPhone2}` : ''}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500 text-xs block mb-0.5">주소</span>
+                <p className="whitespace-pre-wrap">
+                  {connectedInquiryModal.address}
+                  {connectedInquiryModal.addressDetail ? ` ${connectedInquiryModal.addressDetail}` : ''}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500 text-xs block mb-0.5">평수</span>
+                <p>{formatAreaLine(connectedInquiryModal)}</p>
+              </div>
+              <div>
+                <span className="text-gray-500 text-xs block mb-0.5">희망일·시간</span>
+                <p>
+                  {connectedInquiryModal.preferredDate
+                    ? formatDateCompactWithWeekday(connectedInquiryModal.preferredDate)
+                    : '-'}
+                  {connectedInquiryModal.preferredTime
+                    ? ` · ${connectedInquiryModal.preferredTime}`
+                    : ''}
+                  {connectedInquiryModal.preferredTimeDetail
+                    ? ` (${connectedInquiryModal.preferredTimeDetail})`
+                    : ''}
+                </p>
+              </div>
+              {connectedInquiryModal.memo?.trim() ? (
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">접수 메모</span>
+                  <p className="whitespace-pre-wrap text-gray-800">{connectedInquiryModal.memo}</p>
+                </div>
+              ) : null}
+              {connectedInquiryModal.claimMemo?.trim() ? (
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">클레임 메모</span>
+                  <p className="whitespace-pre-wrap text-gray-800">{connectedInquiryModal.claimMemo}</p>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
