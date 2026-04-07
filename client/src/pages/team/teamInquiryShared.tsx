@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
+import { getTeamToken } from '../../stores/teamAuth';
+import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
   return (
@@ -161,6 +163,7 @@ export function TeamInquiryDetailModal({
   enableHappyCall?: boolean;
   onHappyCallComplete?: () => Promise<void>;
 }) {
+  const teamToken = getTeamToken();
   const [happySaving, setHappySaving] = useState(false);
   const canHappy = enableHappyCall && isHappyCallEligible(item.status, item.preferredDate);
   const showHappyBlock = enableHappyCall && item.preferredDate;
@@ -254,6 +257,9 @@ export function TeamInquiryDetailModal({
               <span className="text-gray-500 block text-fluid-xs">C/S 내용</span>
               <span className="text-gray-800 break-words">{item.claimMemo}</span>
             </div>
+          )}
+          {teamToken && (
+            <InquiryCleaningPhotosPanel inquiryId={item.id} variant="team" token={teamToken} />
           )}
           {showHappyBlock && (
             <div className="border-t border-gray-100 pt-3 mt-1">

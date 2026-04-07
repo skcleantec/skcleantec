@@ -3,10 +3,13 @@ import { prisma } from '../../lib/prisma.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCall.helpers.js';
+import inquiryCleaningPhotosTeamRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.team.routes.js';
 
 const router = Router();
 
 router.use(teamAuthMiddleware);
+
+router.use('/inquiries/:inquiryId/cleaning-photos', inquiryCleaningPhotosTeamRoutes);
 
 /** 해피콜 미완 건수 (마감 전 / 마감 후) — 팀장 본인 배정만 */
 router.get('/happy-call-stats', async (req, res) => {

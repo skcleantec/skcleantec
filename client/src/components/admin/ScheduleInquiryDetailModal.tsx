@@ -17,6 +17,7 @@ import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleT
 import { formatPreferredDateInputYmd } from '../../utils/dateFormat';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
+import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
@@ -947,6 +948,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-sm">
             <p className="text-xs font-medium text-orange-800 mb-1">클레임 내용 (참고)</p>
             <p className="text-gray-800 whitespace-pre-wrap">{item.claimMemo}</p>
+          </div>
+        )}
+
+        {!isCreate && item && (
+          <div className="mt-4 min-w-0">
+            <InquiryCleaningPhotosPanel inquiryId={item.id} variant="admin" token={token} />
           </div>
         )}
 

@@ -33,6 +33,7 @@ import {
   assertCrewCapacityForInquiry,
   preferredDateYmdKst,
 } from './crewMemberCapacity.helpers.js';
+import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -219,6 +220,9 @@ router.get('/', async (req, res) => {
   ]);
   res.json({ items, total });
 });
+
+/** 접수별 현장 청소 전·후 사진 (Cloudinary) — 목록·업로드·삭제 */
+router.use('/:inquiryId/cleaning-photos', inquiryCleaningPhotosAdminRoutes);
 
 /** 관리자만 — 비밀번호 확인 후 접수 영구 삭제 */
 router.delete('/:id', adminOnly, async (req, res) => {
