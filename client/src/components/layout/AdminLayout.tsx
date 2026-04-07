@@ -198,7 +198,7 @@ export function AdminLayout() {
     location.pathname === '/admin/teams' || location.pathname.startsWith('/admin/teams/');
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="max-w-6xl mx-auto flex flex-nowrap items-center justify-between gap-3 min-w-0">
           <div className="relative flex-1 min-w-0">
@@ -371,7 +371,7 @@ export function AdminLayout() {
           </div>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0">
+      <main className="max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
         <Outlet />
       </main>
     </div>

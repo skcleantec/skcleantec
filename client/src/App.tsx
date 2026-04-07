@@ -27,7 +27,8 @@ import { AdminTeamLeaderStatsPage } from './pages/admin/AdminTeamLeaderStatsPage
 
 function App() {
   return (
-    <BrowserRouter>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
@@ -78,6 +79,7 @@ function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
+    </div>
   );
 }
 

@@ -108,7 +108,7 @@ export function TeamMessagesPage() {
   }
 
   return (
-    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0">
+    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full overflow-hidden">
       <h1 className="text-xl font-semibold text-gray-800 shrink-0">메시지</h1>
 
       {loadError && (

@@ -139,7 +139,7 @@ export function AdminMessagesPage() {
   }
 
   return (
-    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full">
+    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full overflow-hidden">
       <h1 className="text-xl font-semibold text-gray-800 shrink-0">메시지</h1>
 
       <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shrink-0">
@@ -150,7 +150,7 @@ export function AdminMessagesPage() {
             onChange={(e) => setBroadcastText(e.target.value)}
             rows={3}
             placeholder="공지 내용을 입력하세요. 모든 팀장에게 동일하게 전달됩니다."
-            className="flex-1 max-w-full min-w-0 px-3 py-2 border border-gray-300 rounded text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 max-w-full min-w-0 max-h-40 px-3 py-2 border border-gray-300 rounded text-sm resize-y overflow-y-auto focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={broadcasting}
           />
           <button
@@ -168,7 +168,7 @@ export function AdminMessagesPage() {
         )}
       </div>
 
-      {/* 팀장 목록·채팅: 뷰포트(레이아웃 main) 높이 안에서만 스크롤 — 목록은 좌측 박스 내부 스크롤 */}
+      {/* 팀장 목록·채팅: main 영역 높이 안 — 메시지는 이 카드 안에서만 세로 스크롤 */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col sm:flex-row flex-1 min-h-0 min-w-0">
         <div className="flex w-full flex-col min-h-0 max-h-[min(42vh,20rem)] sm:max-h-none sm:h-full sm:w-64 sm:shrink-0 sm:self-stretch border-b sm:border-b-0 sm:border-r border-gray-200">
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
@@ -277,7 +277,7 @@ export function AdminMessagesPage() {
               </form>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm min-h-[12rem]">
+            <div className="flex-1 min-h-0 flex items-center justify-center text-gray-500 text-sm p-4">
               대화를 선택해주세요.
             </div>
           )}
