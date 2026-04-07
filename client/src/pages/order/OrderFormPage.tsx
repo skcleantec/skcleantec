@@ -14,6 +14,7 @@ import {
 } from '../../constants/orderFormConfigDefaults';
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { YmdSelect } from '../../components/ui/DateQuerySelects';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -421,12 +422,13 @@ export function OrderFormPage() {
                 <span className="text-gray-500">(관리자 지정·수정 불가)</span>
               </div>
             ) : (
-              <input
-                type="date"
+              <YmdSelect
                 className={inputCls}
                 value={form.preferredDate}
-                onChange={(e) => setForm((f) => ({ ...f, preferredDate: e.target.value }))}
-                required
+                onChange={(v) => setForm((f) => ({ ...f, preferredDate: v }))}
+                allowEmpty
+                emitOnCompleteOnly
+                idPrefix="orderform-pref"
               />
             )}
           </div>
@@ -563,11 +565,13 @@ export function OrderFormPage() {
 
           <div>
             <label className={labelCls}>10. 이사 날짜 (선택사항)</label>
-            <input
-              type="date"
+            <YmdSelect
               className={inputCls}
               value={form.moveInDate}
-              onChange={(e) => setForm((f) => ({ ...f, moveInDate: e.target.value }))}
+              onChange={(v) => setForm((f) => ({ ...f, moveInDate: v }))}
+              allowEmpty
+              emitOnCompleteOnly
+              idPrefix="orderform-move"
             />
             <p className="text-xs text-gray-500 mt-1">* 이사 들어오는 일정</p>
           </div>

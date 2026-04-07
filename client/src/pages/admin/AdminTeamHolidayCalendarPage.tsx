@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
-import { getMe } from '../../api/auth';
 import { getTeamHolidayCalendar, type TeamCalendarDayEntry } from '../../api/dayoffs';
 import { isPublicHoliday } from '../../utils/holidays';
 
@@ -60,7 +59,6 @@ function isTodayYmd(year: number, month: number, day: number): boolean {
 export function AdminTeamHolidayCalendarPage() {
   const token = getToken();
   const now = new Date();
-  const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other'>('loading');
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [byDate, setByDate] = useState<Record<string, TeamCalendarDayEntry>>({});
@@ -68,18 +66,8 @@ export function AdminTeamHolidayCalendarPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!token) {
-      setRoleGate('other');
-      return;
-    }
-    getMe(token)
-      .then((u: { role?: string }) => setRoleGate(u.role === 'ADMIN' ? 'admin' : 'other'))
-      .catch(() => setRoleGate('other'));
-  }, [token]);
-
   const load = useCallback(async () => {
-    if (!token || roleGate !== 'admin') return;
+    if (!token) return;
     const { start, end } = getMonthRange(year, month);
     setLoading(true);
     setError(null);
@@ -92,19 +80,13 @@ export function AdminTeamHolidayCalendarPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, roleGate, year, month]);
+  }, [token, year, month]);
 
   useEffect(() => {
-    if (roleGate === 'admin') load();
-  }, [roleGate, load]);
+    void load();
+  }, [load]);
 
   if (!token) return <Navigate to="/login" replace />;
-  if (roleGate === 'loading') {
-    return <div className="text-sm text-gray-500 py-8">권한 확인 중…</div>;
-  }
-  if (roleGate !== 'admin') {
-    return <Navigate to="/admin/dashboard" replace />;
-  }
 
   const days = getCalendarDays(year, month);
   const monthLabel = `${year}년 ${month}월`;

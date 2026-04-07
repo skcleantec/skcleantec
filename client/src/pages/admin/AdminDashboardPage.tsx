@@ -78,13 +78,13 @@ export function AdminDashboardPage() {
         <StatCard
           label="해피콜 미완(마감 초과)"
           value={loading ? '-' : stats?.happyCallOverdueCount ?? 0}
-          onClick={() => navigate('/admin/inquiries')}
+          onClick={() => navigate('/admin/inquiries?datePreset=all')}
           highlight
         />
         <StatCard
           label="해피콜 미완(마감 전)"
           value={loading ? '-' : stats?.happyCallPendingBeforeDeadlineCount ?? 0}
-          onClick={() => navigate('/admin/inquiries')}
+          onClick={() => navigate('/admin/inquiries?datePreset=all')}
         />
       </div>
 

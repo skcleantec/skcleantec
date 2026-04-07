@@ -284,3 +284,25 @@ export async function removeMemberDayOff(
     throw new Error((err as { error?: string }).error || '휴무 해제에 실패했습니다.');
   }
 }
+
+export interface TeamLeaderMonthlyStatRow {
+  teamLeaderId: string;
+  name: string;
+  assigned: number;
+  completed: number;
+  incomplete: number;
+  cancelled: number;
+}
+
+export async function getTeamLeaderMonthlyStats(
+  token: string,
+  month: string
+): Promise<{ month: string; items: TeamLeaderMonthlyStatRow[] }> {
+  const q = new URLSearchParams({ month });
+  const res = await fetch(`${API}/teams/leader-monthly-stats?${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '팀장 실적을 불러올 수 없습니다.');
+  }
+  return res.json();
+}

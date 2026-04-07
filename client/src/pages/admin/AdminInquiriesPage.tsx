@@ -14,6 +14,7 @@ import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInqui
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
+import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { getTeamLeaders, getUsers, type UserItem } from '../../api/users';
 import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
@@ -200,7 +201,11 @@ export function AdminInquiriesPage() {
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    const st = searchParams.get('status');
+    if (st && Object.keys(STATUS_LABELS).includes(st)) return st;
+    return '';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
@@ -237,9 +242,17 @@ export function AdminInquiriesPage() {
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  /** 접수일(createdAt) 기준 — 당일(KST)이 기본 */
-  const [datePreset, setDatePreset] = useState<'today' | 'all' | 'month' | 'day'>('today');
-  const [monthKey, setMonthKey] = useState(() => kstMonthKeyNow());
+  /** 접수일(createdAt) 기준 — URL `datePreset`이 있으면 최초 로드부터 반영(대시보드 등) */
+  const [datePreset, setDatePreset] = useState<'today' | 'all' | 'month' | 'day'>(() => {
+    const dp = searchParams.get('datePreset');
+    if (dp === 'today' || dp === 'all' || dp === 'month' || dp === 'day') return dp;
+    return 'today';
+  });
+  const [monthKey, setMonthKey] = useState(() => {
+    const m = searchParams.get('month');
+    if (m && /^\d{4}-\d{2}$/.test(m)) return m;
+    return kstMonthKeyNow();
+  });
   /** 날짜 지정(YYYY-MM-DD, KST 하루) */
   const [dayKey, setDayKey] = useState(() => kstTodayYmd());
   /** 스케줄과 동일한 신규 접수 모달 — 예약일(YYYY-MM-DD) */
@@ -751,21 +764,19 @@ export function AdminInquiriesPage() {
               </button>
             </div>
             {datePreset === 'month' && (
-              <input
-                type="month"
+              <YearMonthSelect
                 value={monthKey}
-                onChange={(e) => setMonthKey(e.target.value)}
-                className="px-2 py-1.5 border border-gray-300 rounded text-fluid-sm text-gray-900"
-                aria-label="조회할 연월"
+                onChange={setMonthKey}
+                idPrefix="inq-created-month"
+                className="px-2 py-1.5 border border-gray-300 rounded bg-white"
               />
             )}
             {datePreset === 'day' && (
-              <input
-                type="date"
+              <YmdSelect
                 value={dayKey}
-                onChange={(e) => setDayKey(e.target.value)}
-                className="px-2 py-1.5 border border-gray-300 rounded text-fluid-sm text-gray-900"
-                aria-label="조회할 날짜"
+                onChange={setDayKey}
+                idPrefix="inq-created-day"
+                className="px-2 py-1.5 border border-gray-300 rounded bg-white"
               />
             )}
           </div>
@@ -955,21 +966,19 @@ export function AdminInquiriesPage() {
                   </button>
                 </div>
                 {scheduleFilterMode === 'month' && (
-                  <input
-                    type="month"
+                  <YearMonthSelect
                     value={scheduleMonthKey}
-                    onChange={(e) => setScheduleMonthKey(e.target.value)}
-                    className="px-2 py-1.5 border border-gray-300 rounded text-fluid-sm text-gray-900"
-                    aria-label="예약일 연월"
+                    onChange={setScheduleMonthKey}
+                    idPrefix="inq-sched-month"
+                    className="px-2 py-1.5 border border-gray-300 rounded bg-white"
                   />
                 )}
                 {scheduleFilterMode === 'day' && (
-                  <input
-                    type="date"
+                  <YmdSelect
                     value={scheduleDayKey}
-                    onChange={(e) => setScheduleDayKey(e.target.value)}
-                    className="px-2 py-1.5 border border-gray-300 rounded text-fluid-sm text-gray-900"
-                    aria-label="예약일 날짜"
+                    onChange={setScheduleDayKey}
+                    idPrefix="inq-sched-day"
+                    className="px-2 py-1.5 border border-gray-300 rounded bg-white"
                   />
                 )}
               </div>
@@ -1471,11 +1480,13 @@ export function AdminInquiriesPage() {
               </div>
               <div>
                 <label className="block text-fluid-sm text-gray-600 mb-1">예약일 (청소 희망일)</label>
-                <input
-                  type="date"
+                <YmdSelect
                   value={editForm.preferredDate}
-                  onChange={(e) => setEditForm((p) => ({ ...p, preferredDate: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
+                  idPrefix="inq-edit-pref"
+                  allowEmpty
+                  emitOnCompleteOnly
+                  className="w-full px-2 py-2 border border-gray-300 rounded bg-white"
                 />
               </div>
               <div>
@@ -1519,11 +1530,13 @@ export function AdminInquiriesPage() {
               </div>
               <div>
                 <label className="block text-fluid-sm text-gray-600 mb-1">이사 날짜 (선택)</label>
-                <input
-                  type="date"
+                <YmdSelect
                   value={editForm.moveInDate}
-                  onChange={(e) => setEditForm((p) => ({ ...p, moveInDate: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  onChange={(v) => setEditForm((p) => ({ ...p, moveInDate: v }))}
+                  idPrefix="inq-edit-move"
+                  allowEmpty
+                  emitOnCompleteOnly
+                  className="w-full px-2 py-2 border border-gray-300 rounded bg-white"
                 />
               </div>
               <div className="sm:col-span-2">

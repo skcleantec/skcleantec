@@ -1,5 +1,5 @@
 /**
- * ISO 예약일 → `<input type="date">`용 YYYY-MM-DD (한국 달력 기준).
+ * ISO 예약일 → 날짜 필드용 YYYY-MM-DD (한국 달력 기준). `YmdSelect` 등과 호환.
  * `toISOString().slice(0,10)`은 UTC 날짜라 KST 자정 전후로 하루 밀릴 수 있음.
  */
 export function formatPreferredDateInputYmd(isoDate: string | null | undefined): string {

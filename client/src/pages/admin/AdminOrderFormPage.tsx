@@ -37,6 +37,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
 }
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
+import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
 import {
@@ -1013,11 +1014,13 @@ ${footer2}`;
             </div>
             <div>
               <label className="block text-sm text-gray-600 mb-1">청소 날짜</label>
-              <input
-                type="date"
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              <YmdSelect
+                className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-sm"
                 value={issueForm.preferredDate}
-                onChange={(e) => setIssueForm((f) => ({ ...f, preferredDate: e.target.value }))}
+                onChange={(v) => setIssueForm((f) => ({ ...f, preferredDate: v }))}
+                allowEmpty
+                emitOnCompleteOnly
+                idPrefix="order-issue-pref"
               />
               <p className="text-xs text-gray-500 mt-1">
                 비워 두면 고객이 발주서에서 날짜·오전/오후를 직접 선택합니다. 지정하면 고객은 수정할 수 없습니다.

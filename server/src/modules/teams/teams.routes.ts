@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 
 const router = Router();
 
@@ -11,6 +12,73 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_ACTIVE_TEAM_MEMBERS = 2;
 
 router.use(authMiddleware, adminOnly);
+
+/**
+ * 팀장별 월간 배정·상태 집계
+ * - 기준: 예약일(preferredDate)이 해당 달(KST)에 속하는 접수만
+ * - 배정: 해당 팀장에게 Assignment가 있는 건(행) 수
+ */
+router.get('/leader-monthly-stats', async (req, res) => {
+  const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    monthRaw || new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+  const range = kstMonthRangeYm(monthKey);
+  if (!range) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const leaders = await prisma.user.findMany({
+    where: { role: 'TEAM_LEADER', isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+
+  const assignments = await prisma.assignment.findMany({
+    where: {
+      inquiry: {
+        preferredDate: { gte: range.gte, lte: range.lte },
+      },
+    },
+    select: {
+      teamLeaderId: true,
+      inquiry: { select: { status: true } },
+    },
+  });
+
+  const statsMap = new Map<
+    string,
+    { assigned: number; completed: number; incomplete: number; cancelled: number }
+  >();
+  for (const l of leaders) {
+    statsMap.set(l.id, { assigned: 0, completed: 0, incomplete: 0, cancelled: 0 });
+  }
+
+  for (const a of assignments) {
+    const stats = statsMap.get(a.teamLeaderId);
+    if (!stats) continue;
+    stats.assigned++;
+    const st = a.inquiry.status;
+    if (st === 'COMPLETED') stats.completed++;
+    else if (st === 'CANCELLED') stats.cancelled++;
+    else stats.incomplete++;
+  }
+
+  res.json({
+    month: monthKey,
+    items: leaders.map((l) => {
+      const s = statsMap.get(l.id)!;
+      return {
+        teamLeaderId: l.id,
+        name: l.name,
+        assigned: s.assigned,
+        completed: s.completed,
+        incomplete: s.incomplete,
+        cancelled: s.cancelled,
+      };
+    }),
+  });
+});
 
 async function verifyAdminPassword(req: Request, password: unknown): Promise<boolean> {
   const p = password != null ? String(password) : '';

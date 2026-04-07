@@ -20,6 +20,7 @@ import {
   type DateRangePresetId,
 } from '../../utils/dateRangePresets';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
+import { YmdSelect } from '../../components/ui/DateQuerySelects';
 
 function won(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -183,26 +184,26 @@ export function AdminAdvertisingPage() {
         </div>
         <div>
           <label className="block text-fluid-xs text-gray-600 mb-1">시작일</label>
-          <input
-            type="date"
-            className="border border-gray-300 rounded px-2 py-1 text-fluid-sm"
+          <YmdSelect
             value={from}
-            onChange={(e) => {
+            onChange={(v) => {
               setPeriodPreset('custom');
-              setRange((r) => ({ ...r, from: e.target.value }));
+              setRange((r) => ({ ...r, from: v }));
             }}
+            idPrefix="ad-from"
+            className="border border-gray-300 rounded px-2 py-1 bg-white"
           />
         </div>
         <div>
           <label className="block text-fluid-xs text-gray-600 mb-1">종료일</label>
-          <input
-            type="date"
-            className="border border-gray-300 rounded px-2 py-1 text-fluid-sm"
+          <YmdSelect
             value={to}
-            onChange={(e) => {
+            onChange={(v) => {
               setPeriodPreset('custom');
-              setRange((r) => ({ ...r, to: e.target.value }));
+              setRange((r) => ({ ...r, to: v }));
             }}
+            idPrefix="ad-to"
+            className="border border-gray-300 rounded px-2 py-1 bg-white"
           />
         </div>
         {role === 'ADMIN' && (

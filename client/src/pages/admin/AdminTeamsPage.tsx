@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { Navigate } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { getToken } from '../../stores/auth';
-import { getMe } from '../../api/auth';
 import {
   getPoolTeamMembers,
   addPoolTeamMember,
@@ -43,7 +42,6 @@ const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 export function AdminTeamsPage() {
   const token = getToken();
-  const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other'>('loading');
   const [members, setMembers] = useState<TeamMemberItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -92,19 +90,9 @@ export function AdminTeamsPage() {
   };
 
   useEffect(() => {
-    if (!token) {
-      setRoleGate('other');
-      return;
-    }
-    getMe(token)
-      .then((u: { role?: string }) => setRoleGate(u.role === 'ADMIN' ? 'admin' : 'other'))
-      .catch(() => setRoleGate('other'));
-  }, [token]);
-
-  useEffect(() => {
-    if (!token || roleGate !== 'admin') return;
+    if (!token) return;
     refresh();
-  }, [token, roleGate]);
+  }, [token]);
 
   useEffect(() => {
     if (!token || !dayOffModal) return;
@@ -117,12 +105,6 @@ export function AdminTeamsPage() {
   }, [token, dayOffModal, calYear, calMonth]);
 
   if (!token) return <Navigate to="/login" replace />;
-  if (roleGate === 'loading') {
-    return <div className="text-sm text-gray-500 py-8">권한 확인 중…</div>;
-  }
-  if (roleGate !== 'admin') {
-    return <Navigate to="/admin/dashboard" replace />;
-  }
 
   const submitPasswordDelete = async () => {
     if (!token || !deleteTarget) return;

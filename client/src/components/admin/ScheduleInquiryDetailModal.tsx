@@ -15,6 +15,7 @@ import {
 import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { formatPreferredDateInputYmd } from '../../utils/dateFormat';
+import { YmdSelect } from '../ui/DateQuerySelects';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
@@ -580,13 +581,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 </button>
               )}
             </div>
-            <input
-              type="date"
+            <YmdSelect
               value={editForm.preferredDate}
-              onChange={(e) => setEditForm((p) => ({ ...p, preferredDate: e.target.value }))}
+              onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
               readOnly={isCreate && preferredDateLocked}
-              className={`w-full px-3 py-2 border border-gray-300 rounded ${
-                isCreate && preferredDateLocked ? 'bg-gray-50 text-gray-700 cursor-default' : ''
+              allowEmpty
+              emitOnCompleteOnly
+              idPrefix="sched-detail-pref"
+              className={`w-full px-3 py-2 border border-gray-300 rounded bg-white ${
+                isCreate && preferredDateLocked ? 'opacity-90' : ''
               }`}
             />
             {isCreate && preferredDateLocked && (
@@ -661,11 +664,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </div>
           <div>
             <label className="block text-gray-600 mb-1">이사 날짜 (선택)</label>
-            <input
-              type="date"
+            <YmdSelect
               value={editForm.moveInDate}
-              onChange={(e) => setEditForm((p) => ({ ...p, moveInDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+              onChange={(v) => setEditForm((p) => ({ ...p, moveInDate: v }))}
+              allowEmpty
+              emitOnCompleteOnly
+              idPrefix="sched-detail-move"
+              className="w-full px-3 py-2 border border-gray-300 rounded bg-white"
             />
           </div>
           <div className="sm:col-span-2">

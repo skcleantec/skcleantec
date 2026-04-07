@@ -22,6 +22,7 @@ import { AdminAdvertisingPage } from './pages/admin/AdminAdvertisingPage';
 import { AdminTeamsPage } from './pages/admin/AdminTeamsPage';
 import { AdminTeamsLayout } from './components/layout/AdminTeamsLayout';
 import { AdminTeamHolidayCalendarPage } from './pages/admin/AdminTeamHolidayCalendarPage';
+import { AdminTeamLeaderStatsPage } from './pages/admin/AdminTeamLeaderStatsPage';
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
           <Route path="teams" element={<AdminTeamsLayout />}>
             <Route index element={<AdminTeamsPage />} />
             <Route path="holidays" element={<AdminTeamHolidayCalendarPage />} />
+            <Route path="leader-stats" element={<AdminTeamLeaderStatsPage />} />
           </Route>
           <Route path="messages" element={<AdminMessagesPage />} />
           <Route path="orderforms" element={<AdminOrderFormPage />} />
