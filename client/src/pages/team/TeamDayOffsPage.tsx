@@ -28,6 +28,12 @@ function getCalendarDays(year: number, month: number) {
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
+function formatDateLabelYmd(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map((x) => parseInt(x, 10));
+  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd;
+  return `${y}년 ${m}월 ${d}일`;
+}
+
 export function TeamDayOffsPage() {
   const token = getTeamToken();
   const now = new Date();
@@ -56,6 +62,12 @@ export function TeamDayOffsPage() {
     if (!token) return;
     const key = getDateKey(d);
     const isOff = dayOffDates.has(key);
+    const label = formatDateLabelYmd(key);
+    if (isOff) {
+      if (!window.confirm(`${label} 휴무를 취소하시겠습니까?`)) return;
+    } else {
+      if (!window.confirm(`${label}을(를) 휴무일로 지정하시겠습니까?`)) return;
+    }
     try {
       if (isOff) {
         await removeDayOff(token, key);
@@ -81,7 +93,7 @@ export function TeamDayOffsPage() {
     <div className="flex flex-col gap-4 min-w-0">
       <h1 className="text-xl font-semibold text-gray-800">휴무일 설정</h1>
       <p className="text-sm text-gray-600">
-        휴무일을 클릭하여 설정/해제합니다. 관리자 캘린더에 반영됩니다.
+        날짜를 누르면 휴무 지정 또는 취소를 확인한 뒤 반영됩니다. 관리자 캘린더에 반영됩니다.
       </p>
 
       <div className="flex gap-2 items-center">
