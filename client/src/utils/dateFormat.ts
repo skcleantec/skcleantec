@@ -51,6 +51,16 @@ export function formatDateCompactWithWeekday(input: string | Date | null | undef
   return `${yy}.${String(m).padStart(2, '0')}.${String(day).padStart(2, '0')} ${wd}`;
 }
 
+/** C/S 목록·모바일용 짧은 날짜+시간 (예: 3/30 14:30) */
+export function formatDateTimeTinyKo(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '-';
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const hm = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${m}/${day} ${hm}`;
+}
+
 /** 날짜+시간(예: 25.03.30 화 14:30) */
 export function formatDateTimeCompactWithWeekday(iso: string): string {
   const d = new Date(iso);

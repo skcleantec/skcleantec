@@ -3,9 +3,14 @@ import { getCsReports, updateCsReport, type CsReport } from '../../api/cs';
 import { getTeamCsReports, patchTeamCsReport } from '../../api/team';
 import { getToken } from '../../stores/auth';
 import { getTeamToken } from '../../stores/teamAuth';
-import { formatDateTimeCompactWithWeekday, formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import {
+  formatDateTimeCompactWithWeekday,
+  formatDateCompactWithWeekday,
+  formatDateTimeTinyKo,
+} from '../../utils/dateFormat';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
+import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 
 const STATUS_OPTIONS = [
   { value: 'RECEIVED', label: '접수' },
@@ -33,6 +38,16 @@ function roleLabelKo(role: string): string {
 function formatTeamLeaderLabel(inquiry: NonNullable<CsReport['inquiry']>): string {
   const names = inquiry.assignments.map((a) => a.teamLeader.name).filter(Boolean);
   return names.length ? names.join(' · ') : '미배정';
+}
+
+function assigneeListLabel(item: CsReport): string {
+  if (!item.inquiry) return '—';
+  return formatTeamLeaderLabel(item.inquiry);
+}
+
+function processorNameLabel(item: CsReport): string {
+  const n = item.completedBy?.name?.trim();
+  return n || '—';
 }
 
 function formatAreaLine(inquiry: NonNullable<CsReport['inquiry']>): string {
@@ -175,10 +190,30 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       ? STATUS_OPTIONS.filter((o) => o.value !== 'RECEIVED' || selected?.status === 'RECEIVED')
       : STATUS_OPTIONS;
 
+  const isTeam = mode === 'team';
+  /** 팀장 모드: 목록을 더 조밀하게(모바일 한 화면에 많이) */
+  const tableText = isTeam
+    ? 'text-fluid-2xs md:text-fluid-xs lg:text-fluid-sm leading-tight'
+    : 'text-fluid-xs md:text-sm';
+  const thPad = isTeam ? 'p-0.5 md:p-2 max-md:py-0.5' : 'p-1.5 md:p-3';
+  const tdPad = isTeam
+    ? 'p-0.5 md:p-2 max-md:py-0.5 align-middle text-center'
+    : 'p-1.5 md:p-3 align-middle text-center';
+
   return (
-    <div className="min-w-0">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4 min-w-0">
-        <h1 className="text-xl font-semibold text-gray-900 shrink-0">{pageTitle}</h1>
+    <div className="min-w-0 w-full max-w-full">
+      <div
+        className={`flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between min-w-0 ${
+          isTeam ? 'mb-2 sm:mb-4' : 'mb-4'
+        }`}
+      >
+        <h1
+          className={`shrink-0 font-semibold text-gray-900 ${
+            isTeam ? 'text-fluid-base sm:text-xl' : 'text-xl'
+          }`}
+        >
+          {pageTitle}
+        </h1>
         {mode === 'admin' ? (
           <div className="flex flex-col gap-2 sm:items-end min-w-0 w-full sm:w-auto">
             <a
@@ -208,67 +243,135 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       </div>
 
       {mode === 'admin' ? (
-        <div className="text-sm text-gray-600 mb-4 bg-gray-50 px-3 py-2 rounded">
+        <div className="text-fluid-sm text-gray-600 mb-4 bg-gray-50 px-3 py-2 rounded">
           고객에게 아래와 같이 안내하실 수 있습니다. 링크를 복사해 메시지에 붙여 넣어 주세요.
           <br />
           <strong>예시:</strong> "칭찬·불편 사항은 아래 링크에서 접수해 주세요. 사진 첨부·만족도 별점이 가능합니다. [링크]"
         </div>
       ) : (
-        <p className="text-sm text-gray-600 mb-4">
-          본인에게 배정된 접수와 연결된 C/S만 표시됩니다. 처리 완료 시 처리 방법을 적어 주세요.
+        <p className="text-fluid-2xs sm:text-fluid-xs text-gray-600 mb-2 sm:mb-3 leading-snug">
+          배정 접수와 연결된 C/S만 표시됩니다. 완료 시 처리 방법을 입력해 주세요.
         </p>
       )}
 
-      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+      {error && (
+        <p className={`text-fluid-sm text-red-600 ${isTeam ? 'mb-2' : 'mb-4'}`}>{error}</p>
+      )}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto overscroll-x-contain max-w-full min-w-0">
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden min-w-0 max-w-full">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">불러오는 중...</div>
+          <div className={`text-center text-gray-500 ${isTeam ? 'p-4 text-fluid-xs' : 'p-8 text-sm'}`}>
+            불러오는 중...
+          </div>
         ) : items.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">표시할 C/S가 없습니다.</div>
+          <div className={`text-center text-gray-500 ${isTeam ? 'p-4 text-fluid-xs' : 'p-8 text-sm'}`}>
+            표시할 C/S가 없습니다.
+          </div>
         ) : (
-          <table className="w-full text-sm min-w-[520px] border-collapse">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-center p-3 font-medium text-gray-700">날짜</th>
-                <th className="text-center p-3 font-medium text-gray-700">성함</th>
-                <th className="text-center p-3 font-medium text-gray-700">연락처</th>
-                <th className="text-center p-3 font-medium text-gray-700">만족도</th>
-                <th className="text-center p-3 font-medium text-gray-700">상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                  onClick={() => openDetail(item)}
-                >
-                  <td className="p-3 text-[11px] text-gray-700 tabular-nums whitespace-nowrap">
-                    {formatDateTimeCompactWithWeekday(item.createdAt)}
-                  </td>
-                  <td className="p-3">{item.customerName}</td>
-                  <td className="p-3">{item.customerPhone}</td>
-                  <td className="p-3 text-center">
-                    <ServiceRatingStars value={item.serviceRating} />
-                  </td>
-                  <td className="p-3">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs ${
-                        item.status === 'DONE'
-                          ? 'bg-green-100 text-green-800'
-                          : item.status === 'PROCESSING'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      {STATUS_OPTIONS.find((s) => s.value === item.status)?.label ?? item.status}
-                    </span>
-                  </td>
+          <SyncHorizontalScroll
+            className="w-full min-w-0 max-w-full"
+            contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0 w-full min-w-0 max-w-full"
+          >
+            <table className={`w-full border-collapse min-w-[680px] md:min-w-[780px] ${tableText}`}>
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
+                    날짜
+                  </th>
+                  <th className={`text-center font-medium text-gray-700 ${thPad}`}>성함</th>
+                  <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
+                    연락처
+                  </th>
+                  <th className={`text-center font-medium text-gray-700 ${thPad}`}>담당</th>
+                  <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
+                    만족
+                  </th>
+                  <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
+                    상태
+                  </th>
+                  <th className={`text-center font-medium text-gray-700 ${thPad}`}>처리자</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item) => {
+                  const assignee = assigneeListLabel(item);
+                  const processor = processorNameLabel(item);
+                  return (
+                    <tr
+                      key={item.id}
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer group"
+                      onClick={() => openDetail(item)}
+                    >
+                      <td
+                        className={`${tdPad} text-gray-700 tabular-nums whitespace-nowrap ${
+                          isTeam ? 'max-w-[5.5rem] lg:max-w-none' : 'max-w-[7rem] md:max-w-none'
+                        }`}
+                      >
+                        <span className={isTeam ? 'lg:hidden' : 'md:hidden'}>
+                          {formatDateTimeTinyKo(item.createdAt)}
+                        </span>
+                        <span className={isTeam ? 'hidden lg:inline' : 'hidden md:inline'}>
+                          {formatDateTimeCompactWithWeekday(item.createdAt)}
+                        </span>
+                      </td>
+                      <td
+                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate`}
+                        title={item.customerName}
+                      >
+                        {item.customerName}
+                      </td>
+                      <td
+                        className={`${tdPad} tabular-nums whitespace-nowrap max-w-[6.5rem] sm:max-w-none`}
+                      >
+                        {item.customerPhone}
+                      </td>
+                      <td
+                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate`}
+                        title={assignee}
+                      >
+                        {assignee}
+                      </td>
+                      <td className={tdPad}>
+                        <span
+                          className={`tabular-nums text-gray-800 ${isTeam ? 'lg:hidden' : 'md:hidden'}`}
+                        >
+                          {item.serviceRating != null && item.serviceRating >= 1 && item.serviceRating <= 5
+                            ? `${item.serviceRating}점`
+                            : '—'}
+                        </span>
+                        <span
+                          className={`inline-flex w-full justify-center ${isTeam ? 'hidden lg:inline-flex' : 'hidden md:inline-flex'}`}
+                        >
+                          <ServiceRatingStars value={item.serviceRating} />
+                        </span>
+                      </td>
+                      <td className={tdPad}>
+                        <span
+                          className={`inline-block px-1 py-0.5 md:px-2 rounded leading-tight ${
+                            isTeam ? 'max-lg:text-[0.62rem] max-md:text-[0.6rem]' : 'max-md:text-[0.65rem]'
+                          } ${
+                            item.status === 'DONE'
+                              ? 'bg-green-100 text-green-800'
+                              : item.status === 'PROCESSING'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {STATUS_OPTIONS.find((s) => s.value === item.status)?.label ?? item.status}
+                        </span>
+                      </td>
+                      <td
+                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate`}
+                        title={processor}
+                      >
+                        {processor}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </SyncHorizontalScroll>
         )}
       </div>
 
