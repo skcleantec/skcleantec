@@ -191,7 +191,7 @@ export function TeamInquiryDetailModal({
         <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/80 p-3 min-w-0">
           <p className="text-fluid-sm font-medium text-blue-950 mb-2">현장 사진 (청소 전·후)</p>
           <p className="text-fluid-xs text-blue-900/80 mb-3">
-            아래에서 구분을 고른 뒤 <strong className="font-semibold">사진 올리기</strong>를 누르면 카메라·갤러리에서 선택할 수 있습니다.
+            <strong className="font-semibold">사진 올리기</strong>를 펼쳐 청소 전·후 아이콘으로 올리거나, 아래에서 등록된 사진을 확인할 수 있습니다.
           </p>
           {teamToken ? (
             <InquiryCleaningPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded />

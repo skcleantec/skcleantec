@@ -43,6 +43,14 @@ function SparklesUploadIcon({ className }: { className?: string }) {
   );
 }
 
+function ChevronDownMini({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
 type Props = {
   inquiryId: string;
   variant: 'team' | 'admin';
@@ -148,98 +156,106 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
         <span className="text-gray-500 block text-fluid-xs mb-2">청소 전·후 사진</span>
       )}
 
-      {variant === 'team' ? (
-        <div className="mb-3 min-w-0 space-y-3">
-          <p className="text-fluid-xs text-gray-600">구분별로 아이콘을 누르면 해당 청소 전·후로 사진이 올라갑니다.</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-fluid-sm font-medium text-gray-800 shrink-0">{PHASE_LABEL.BEFORE}</span>
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={() => fileInputBeforeRef.current?.click()}
-              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-blue-200 bg-blue-50 text-blue-700 shadow-sm touch-manipulation hover:bg-blue-100 disabled:opacity-50 active:bg-blue-200"
-              aria-label={`${PHASE_LABEL.BEFORE} 사진 올리기`}
-            >
-              <CameraUploadIcon className="h-6 w-6" />
-            </button>
-            <input
-              ref={fileInputBeforeRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              multiple
-              className="sr-only"
-              disabled={uploading}
-              onChange={(e) => {
-                const list = e.target.files;
-                e.target.value = '';
-                void handleFiles(list, 'BEFORE');
-              }}
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-fluid-sm font-medium text-gray-800 shrink-0">{PHASE_LABEL.AFTER}</span>
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={() => fileInputAfterRef.current?.click()}
-              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm touch-manipulation hover:bg-emerald-100 disabled:opacity-50 active:bg-emerald-200"
-              aria-label={`${PHASE_LABEL.AFTER} 사진 올리기`}
-            >
-              <SparklesUploadIcon className="h-6 w-6" />
-            </button>
-            <input
-              ref={fileInputAfterRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              multiple
-              className="sr-only"
-              disabled={uploading}
-              onChange={(e) => {
-                const list = e.target.files;
-                e.target.value = '';
-                void handleFiles(list, 'AFTER');
-              }}
-            />
-          </div>
-          {uploading && <p className="text-fluid-xs text-gray-500">업로드 중…</p>}
+      <details className="group mb-3 min-w-0 rounded-lg border border-gray-200 bg-white overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 min-h-[44px] touch-manipulation select-none">
+          <span>사진 올리기</span>
+          <ChevronDownMini className="h-5 w-5 shrink-0 text-gray-500 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-gray-100 bg-gray-50/80 px-3 pb-3 pt-2">
+          {variant === 'team' ? (
+            <div className="min-w-0 space-y-3">
+              <p className="text-fluid-xs text-gray-600">구분별 아이콘을 누르면 해당 청소 전·후로 올라갑니다.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-fluid-sm font-medium text-gray-800 shrink-0">{PHASE_LABEL.BEFORE}</span>
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputBeforeRef.current?.click()}
+                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-blue-200 bg-blue-50 text-blue-700 shadow-sm touch-manipulation hover:bg-blue-100 disabled:opacity-50 active:bg-blue-200"
+                  aria-label={`${PHASE_LABEL.BEFORE} 사진 올리기`}
+                >
+                  <CameraUploadIcon className="h-6 w-6" />
+                </button>
+                <input
+                  ref={fileInputBeforeRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  className="sr-only"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const list = e.target.files;
+                    e.target.value = '';
+                    void handleFiles(list, 'BEFORE');
+                  }}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-fluid-sm font-medium text-gray-800 shrink-0">{PHASE_LABEL.AFTER}</span>
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputAfterRef.current?.click()}
+                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm touch-manipulation hover:bg-emerald-100 disabled:opacity-50 active:bg-emerald-200"
+                  aria-label={`${PHASE_LABEL.AFTER} 사진 올리기`}
+                >
+                  <SparklesUploadIcon className="h-6 w-6" />
+                </button>
+                <input
+                  ref={fileInputAfterRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  className="sr-only"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const list = e.target.files;
+                    e.target.value = '';
+                    void handleFiles(list, 'AFTER');
+                  }}
+                />
+              </div>
+              {uploading && <p className="text-fluid-xs text-gray-500">업로드 중…</p>}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end min-w-0">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <span className="text-fluid-xs text-gray-600 shrink-0">구분</span>
+                <select
+                  value={uploadPhase}
+                  onChange={(e) => setUploadPhase(e.target.value as CleaningPhotoPhase)}
+                  className="border border-gray-300 rounded px-2 py-2 text-fluid-sm min-w-0 flex-1 sm:flex-initial bg-white"
+                  disabled={uploading}
+                >
+                  <option value="BEFORE">{PHASE_LABEL.BEFORE}</option>
+                  <option value="AFTER">{PHASE_LABEL.AFTER}</option>
+                </select>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                className="sr-only"
+                disabled={uploading}
+                onChange={(e) => {
+                  const list = e.target.files;
+                  e.target.value = '';
+                  void handleFiles(list, uploadPhase);
+                }}
+              />
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full sm:w-auto min-h-[44px] touch-manipulation rounded-lg border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {uploading ? '업로드 중…' : '사진 올리기 (여러 장·카메라·갤러리)'}
+              </button>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-3 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
-            <span className="text-fluid-xs text-gray-600 shrink-0">구분</span>
-            <select
-              value={uploadPhase}
-              onChange={(e) => setUploadPhase(e.target.value as CleaningPhotoPhase)}
-              className="border border-gray-300 rounded px-2 py-2 text-fluid-sm min-w-0 flex-1 sm:flex-initial"
-              disabled={uploading}
-            >
-              <option value="BEFORE">{PHASE_LABEL.BEFORE}</option>
-              <option value="AFTER">{PHASE_LABEL.AFTER}</option>
-            </select>
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            multiple
-            className="sr-only"
-            disabled={uploading}
-            onChange={(e) => {
-              const list = e.target.files;
-              e.target.value = '';
-              void handleFiles(list, uploadPhase);
-            }}
-          />
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full sm:w-auto min-h-[44px] touch-manipulation rounded-lg border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {uploading ? '업로드 중…' : '사진 올리기 (여러 장·카메라·갤러리)'}
-          </button>
-        </div>
-      )}
+      </details>
 
       {error && <p className="text-fluid-sm text-red-600 mb-2">{error}</p>}
 
