@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getCsReports, updateCsReport, type CsReport } from '../../api/cs';
 import { getTeamCsReports, patchTeamCsReport } from '../../api/team';
 import { getToken } from '../../stores/auth';
@@ -202,6 +202,19 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     ? 'p-0.5 md:p-2 max-md:py-0.5 align-middle text-center'
     : 'p-1.5 md:p-3 align-middle text-center';
 
+  const displayItems = useMemo(() => {
+    if (!isTeam) return items;
+    return [...items].sort((a, b) => {
+      const aDone = a.status === 'DONE' ? 1 : 0;
+      const bDone = b.status === 'DONE' ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [items, isTeam]);
+
+  const teamIncompleteCount = isTeam ? items.filter((i) => i.status !== 'DONE').length : 0;
+  const teamCompleteCount = isTeam ? items.filter((i) => i.status === 'DONE').length : 0;
+
   return (
     <div className="min-w-0 w-full max-w-full">
       <div
@@ -270,13 +283,40 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
             표시할 C/S가 없습니다.
           </div>
         ) : (
-          <SyncHorizontalScroll
-            className="w-full min-w-0 max-w-full"
-            contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0 w-full min-w-0 max-w-full"
-          >
-            <table className={`w-full border-collapse min-w-[680px] md:min-w-[780px] ${tableText}`}>
+          <>
+            {isTeam && (
+              <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/90 flex flex-wrap items-center gap-x-4 gap-y-1 text-fluid-2xs sm:text-fluid-xs text-gray-700">
+                <span className="tabular-nums">
+                  <span className="text-gray-500">미완료</span>{' '}
+                  <strong className="text-amber-800">{teamIncompleteCount}</strong>건
+                </span>
+                <span className="text-gray-300 hidden sm:inline" aria-hidden>
+                  |
+                </span>
+                <span className="tabular-nums">
+                  <span className="text-gray-500">완료</span>{' '}
+                  <strong className="text-green-800">{teamCompleteCount}</strong>건
+                </span>
+              </div>
+            )}
+            <SyncHorizontalScroll
+              className="w-full min-w-0 max-w-full"
+              contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0 w-full min-w-0 max-w-full"
+            >
+              <table
+                className={`w-full border-collapse ${
+                  isTeam ? 'min-w-[720px] md:min-w-[820px]' : 'min-w-[680px] md:min-w-[780px]'
+                } ${tableText}`}
+              >
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  {isTeam ? (
+                    <th
+                      className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap sticky left-0 z-10 bg-gray-100 border-r border-gray-200`}
+                    >
+                      구분
+                    </th>
+                  ) : null}
                   <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
                     날짜
                   </th>
@@ -295,7 +335,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => {
+                {displayItems.map((item) => {
                   const assignee = assigneeListLabel(item);
                   const processor = processorNameLabel(item);
                   return (
@@ -304,6 +344,21 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                       className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer group"
                       onClick={() => openDetail(item)}
                     >
+                      {isTeam ? (
+                        <td
+                          className={`${tdPad} sticky left-0 z-10 border-r border-gray-200 bg-white group-hover:bg-gray-50`}
+                        >
+                          {item.status === 'DONE' ? (
+                            <span className="inline-block px-1.5 py-0.5 rounded font-medium text-green-800 bg-green-100">
+                              완료
+                            </span>
+                          ) : (
+                            <span className="inline-block px-1.5 py-0.5 rounded font-medium text-amber-900 bg-amber-100">
+                              미완료
+                            </span>
+                          )}
+                        </td>
+                      ) : null}
                       <td
                         className={`${tdPad} text-gray-700 tabular-nums whitespace-nowrap ${
                           isTeam ? 'max-w-[5.5rem] lg:max-w-none' : 'max-w-[7rem] md:max-w-none'
@@ -374,6 +429,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               </tbody>
             </table>
           </SyncHorizontalScroll>
+          </>
         )}
       </div>
 

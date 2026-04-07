@@ -29,17 +29,22 @@ export function TeamMessagesPage() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = () => {
     if (!token) return;
+    setListError(null);
     getConversations(token)
       .then((list) => {
-        // 팀장은 관리자에게만 메시지 보낼 수 있음
-        const adminOnly = list.filter((c: { role: string }) => c.role === 'ADMIN');
-        setConversations(adminOnly);
+        // 서버가 관리자·마케터(재직)만 반환
+        setConversations(Array.isArray(list) ? list : []);
       })
-      .catch(() => setConversations([]))
+      .catch(() => {
+        setConversations([]);
+        setListError('대화 목록을 불러올 수 없습니다. 다시 로그인한 뒤 시도해 주세요.');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -68,13 +73,15 @@ export function TeamMessagesPage() {
     e.preventDefault();
     if (!token || !selectedId || !input.trim() || sending) return;
     setSending(true);
+    setSendError(null);
     try {
       const msg = await sendMessage(token, selectedId, input.trim());
       setMessages((prev) => [...prev, { ...msg, readAt: null }]);
       setInput('');
       loadConversations();
-    } catch {
-      // ignore
+      (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : '전송에 실패했습니다.');
     } finally {
       setSending(false);
     }
@@ -91,13 +98,21 @@ export function TeamMessagesPage() {
   return (
     <div className="flex flex-col gap-4 min-w-0">
       <h1 className="text-xl font-semibold text-gray-800">메시지</h1>
-      <p className="text-sm text-gray-500">관리자에게만 메시지를 보낼 수 있습니다.</p>
+      <p className="text-sm text-gray-500">
+        관리자·마케터(운영) 측 계정으로만 메시지를 보낼 수 있습니다.
+      </p>
+
+      {listError && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2">{listError}</p>
+      )}
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col sm:flex-row min-h-[400px]">
         {/* 대화 목록 */}
         <div className="w-full sm:w-64 border-b sm:border-b-0 sm:border-r border-gray-200 flex-shrink-0">
           {conversations.length === 0 ? (
-            <div className="p-4 text-sm text-gray-500">관리자와 대화할 수 있습니다. (관리자가 등록되지 않았을 수 있습니다)</div>
+            <div className="p-4 text-sm text-gray-500">
+              재직 중인 관리자·마케터 계정이 없으면 대화 상대가 없습니다. 관리자에게 계정을 요청해 주세요.
+            </div>
           ) : (
             <div className="divide-y divide-gray-100">
               {conversations.map((c) => (
@@ -138,7 +153,9 @@ export function TeamMessagesPage() {
             <>
               <div className="p-4 border-b border-gray-200 bg-gray-50">
                 <h2 className="font-medium text-gray-900">{selected.name}</h2>
-                <span className="text-xs text-gray-500">{selected.role === 'ADMIN' ? '관리자' : '팀장'}</span>
+                <span className="text-xs text-gray-500">
+                  {selected.role === 'ADMIN' ? '관리자' : selected.role === 'MARKETER' ? '마케터' : selected.role}
+                </span>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
                 {messages.map((m) => {
@@ -172,6 +189,11 @@ export function TeamMessagesPage() {
                 <div ref={messagesEndRef} />
               </div>
               <form onSubmit={handleSend} className="p-4 border-t border-gray-200">
+                {sendError && (
+                  <p className="text-sm text-red-600 mb-2" role="alert">
+                    {sendError}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <input
                     type="text"

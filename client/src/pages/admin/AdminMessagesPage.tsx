@@ -133,7 +133,9 @@ export function AdminMessagesPage() {
             <>
               <div className="p-4 border-b border-gray-200 bg-gray-50">
                 <h2 className="font-medium text-gray-900">{selected.name}</h2>
-                <span className="text-xs text-gray-500">{selected.role === 'ADMIN' ? '관리자' : '팀장'}</span>
+                <span className="text-xs text-gray-500">
+                  {selected.role === 'ADMIN' ? '관리자' : selected.role === 'MARKETER' ? '마케터' : '팀장'}
+                </span>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
                 {messages.map((m) => {
