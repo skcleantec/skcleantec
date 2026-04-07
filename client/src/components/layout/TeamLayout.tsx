@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { Outlet, useNavigate, NavLink } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
-import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
+import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { getMe } from '../../api/auth';
 import { getTeamNavBadges } from '../../api/team';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 
 export function TeamLayout() {
+  const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
   const [userName, setUserName] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -42,7 +44,8 @@ export function TeamLayout() {
     };
   }, [fetchTeamBadges]);
 
-  useVisibilityInterval(fetchTeamBadges, 15000);
+  const { connected: navWsConnected } = useInboxRealtime(teamToken, fetchTeamBadges, Boolean(teamToken));
+  useVisibilityInterval(fetchTeamBadges, navWsConnected ? 0 : 15000);
 
   const handleLogout = () => {
     const a = getToken();

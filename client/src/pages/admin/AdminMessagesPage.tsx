@@ -170,10 +170,10 @@ export function AdminMessagesPage() {
 
       {/* 팀장 목록·채팅: main 영역 높이 안 — 메시지는 이 카드 안에서만 세로 스크롤 */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col sm:flex-row flex-1 min-h-0 min-w-0">
-        <div className="flex w-full flex-col min-h-0 max-h-[min(42vh,20rem)] sm:max-h-none sm:h-full sm:w-64 sm:shrink-0 sm:self-stretch border-b sm:border-b-0 sm:border-r border-gray-200">
+        <div className="flex w-full flex-col min-h-0 max-h-[min(42vh,20rem)] sm:max-h-none sm:h-full sm:w-[3.75rem] sm:shrink-0 sm:self-stretch border-b sm:border-b-0 sm:border-r border-gray-200">
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
             {conversations.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500">대화 상대가 없습니다.</div>
+              <div className="p-4 text-sm text-gray-500 sm:p-2 sm:text-xs sm:text-center">대화 상대가 없습니다.</div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {conversations.map((c) => (
@@ -181,25 +181,34 @@ export function AdminMessagesPage() {
                     key={c.id}
                     type="button"
                     onClick={() => setSelectedId(c.id)}
-                    className={`w-full text-left p-4 hover:bg-gray-50 flex flex-col gap-1 ${
+                    title={
+                      c.unreadCount > 0
+                        ? `${c.name} · 새 메시지 ${c.unreadCount}건`
+                        : c.lastMessage
+                          ? `${c.name} — ${c.lastMessage.content}`
+                          : c.name
+                    }
+                    className={`w-full text-left py-3.5 px-3 hover:bg-gray-50 flex flex-col gap-1.5 sm:py-3 sm:px-1.5 sm:items-center sm:gap-1 sm:text-center ${
                       selectedId === c.id ? 'bg-blue-50' : ''
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2 min-w-0">
-                      <span className="font-medium text-gray-900 truncate flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-2 min-w-0 sm:flex-col sm:justify-center sm:gap-1 sm:w-full">
+                      <span className="font-medium text-gray-900 truncate sm:text-xs sm:leading-tight sm:w-full sm:text-center">
                         {c.name}
-                        {c.unreadCount > 0 && (
-                          <span className="shrink-0 text-red-600 text-xs font-medium">새 메시지</span>
-                        )}
                       </span>
                       {c.unreadCount > 0 && (
-                        <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-medium">
-                          {c.unreadCount}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-1 sm:flex-col sm:gap-1">
+                          <span className="text-red-600 text-xs font-medium sm:hidden">새 메시지</span>
+                          <span className="min-w-[1.125rem] rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums sm:scale-90">
+                            {c.unreadCount > 99 ? '99+' : c.unreadCount}
+                          </span>
+                        </div>
                       )}
                     </div>
                     {c.lastMessage && (
-                      <span className={`text-xs truncate ${c.unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>
+                      <span
+                        className={`text-xs truncate sm:hidden ${c.unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}`}
+                      >
                         {c.lastMessage.content}
                       </span>
                     )}

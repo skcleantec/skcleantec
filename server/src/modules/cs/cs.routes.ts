@@ -10,6 +10,7 @@ import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { csReportFullInclude } from './csReport.include.js';
 import { buildCsReportUpdateData } from './csReport.patch.js';
+import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 
 const router = Router();
 
@@ -83,6 +84,7 @@ router.post('/submit', async (req, res) => {
     id: report.id,
     ...(inquiryId ? { inquiryId } : {}),
   });
+  void notifyCsReportNavBadges(report.inquiryId);
 });
 
 /** 관리자·마케터: C/S 목록 */
@@ -135,6 +137,7 @@ router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
     include: csReportFullInclude,
   });
   res.json(updated);
+  void notifyCsReportNavBadges(updated.inquiryId);
 });
 
 export default router;

@@ -6,6 +6,7 @@ import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCal
 import inquiryCleaningPhotosTeamRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.team.routes.js';
 import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
+import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 
 const router = Router();
 
@@ -106,6 +107,7 @@ router.patch('/cs/:id', async (req, res) => {
     include: csReportFullInclude,
   });
   res.json(updated);
+  void notifyCsReportNavBadges(updated.inquiryId);
 });
 
 /** 해피콜 미완 건수 (마감 전 / 마감 후) — 팀장 본인 배정만 */

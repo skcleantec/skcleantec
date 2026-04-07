@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
-import { clearToken, getToken } from '../../stores/auth';
+import { clearToken, getToken, subscribeAdminAuth } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAuth';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { getMe } from '../../api/auth';
 import {
   ADMIN_NAV_DEF,
@@ -50,6 +51,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
 }
 
 export function AdminLayout() {
+  const adminToken = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -153,7 +155,9 @@ export function AdminLayout() {
     };
   }, [fetchNavBadges]);
 
-  useVisibilityInterval(fetchNavBadges, 15000);
+  const { connected: navWsConnected } = useInboxRealtime(adminToken, fetchNavBadges, Boolean(adminToken));
+  /** 웹소켓 연결 시 폴링 끔, 끊기면 15초 폴백 */
+  useVisibilityInterval(fetchNavBadges, navWsConnected ? 0 : 15000);
 
   useEffect(() => {
     queueMicrotask(() => updateNavScrollHint());
