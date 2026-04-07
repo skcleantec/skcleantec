@@ -28,6 +28,23 @@ function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: Scro
   requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior }));
 }
 
+function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  );
+}
+
 export function AdminMessagesPage() {
   const token = getToken();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -168,12 +185,14 @@ export function AdminMessagesPage() {
         )}
       </div>
 
-      {/* 팀장 목록·채팅: main 영역 높이 안 — 메시지는 이 카드 안에서만 세로 스크롤 */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col sm:flex-row flex-1 min-h-0 min-w-0">
-        <div className="flex w-full flex-col min-h-0 max-h-[min(42vh,20rem)] sm:max-h-none sm:h-full sm:w-[3.75rem] sm:shrink-0 sm:self-stretch border-b sm:border-b-0 sm:border-r border-gray-200">
+      {/* 팀장 목록·채팅: 모바일은 목록 전체 → 선택 시 카드 안에서 채팅만 슬라이드 / md+ 는 좁은 열+채팅 */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden relative flex flex-col md:flex-row flex-1 min-h-0 min-w-0">
+        <div
+          className="flex w-full flex-col min-h-0 border-b border-gray-200 max-md:relative max-md:z-0 max-md:flex-1 max-md:min-h-0 md:flex md:w-[3.75rem] md:shrink-0 md:self-stretch md:border-b-0 md:border-r"
+        >
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
             {conversations.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500 sm:p-2 sm:text-xs sm:text-center">대화 상대가 없습니다.</div>
+              <div className="p-4 text-sm text-gray-500 md:p-2 md:text-xs md:text-center">대화 상대가 없습니다.</div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {conversations.map((c) => (
@@ -188,18 +207,18 @@ export function AdminMessagesPage() {
                           ? `${c.name} — ${c.lastMessage.content}`
                           : c.name
                     }
-                    className={`w-full text-left py-3.5 px-3 hover:bg-gray-50 flex flex-col gap-1.5 sm:py-3 sm:px-1.5 sm:items-center sm:gap-1 sm:text-center ${
+                    className={`w-full text-left py-3.5 px-3 hover:bg-gray-50 flex flex-col gap-1.5 md:py-3 md:px-1.5 md:items-center md:gap-1 md:text-center ${
                       selectedId === c.id ? 'bg-blue-50' : ''
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2 min-w-0 sm:flex-col sm:justify-center sm:gap-1 sm:w-full">
-                      <span className="font-medium text-gray-900 truncate sm:text-xs sm:leading-tight sm:w-full sm:text-center">
+                    <div className="flex items-center justify-between gap-2 min-w-0 md:flex-col md:justify-center md:gap-1 md:w-full">
+                      <span className="font-medium text-gray-900 truncate md:text-xs md:leading-tight md:w-full md:text-center">
                         {c.name}
                       </span>
                       {c.unreadCount > 0 && (
-                        <div className="flex shrink-0 items-center gap-1 sm:flex-col sm:gap-1">
-                          <span className="text-red-600 text-xs font-medium sm:hidden">새 메시지</span>
-                          <span className="min-w-[1.125rem] rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums sm:scale-90">
+                        <div className="flex shrink-0 items-center gap-1 md:flex-col md:gap-1">
+                          <span className="text-red-600 text-xs font-medium md:hidden">새 메시지</span>
+                          <span className="min-w-[1.125rem] rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums md:scale-90">
                             {c.unreadCount > 99 ? '99+' : c.unreadCount}
                           </span>
                         </div>
@@ -207,7 +226,7 @@ export function AdminMessagesPage() {
                     </div>
                     {c.lastMessage && (
                       <span
-                        className={`text-xs truncate sm:hidden ${c.unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}`}
+                        className={`text-xs truncate md:hidden ${c.unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}`}
                       >
                         {c.lastMessage.content}
                       </span>
@@ -219,12 +238,32 @@ export function AdminMessagesPage() {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col min-w-0">
+        <div
+          className={`flex min-h-0 min-w-0 flex-col bg-white
+            md:relative md:flex-1 md:translate-x-0
+            max-md:absolute max-md:inset-0 max-md:z-20 max-md:flex
+            max-md:transition-transform max-md:duration-300 max-md:ease-out
+            ${
+              selectedId
+                ? 'max-md:translate-x-0 max-md:pointer-events-auto'
+                : 'max-md:translate-x-full max-md:pointer-events-none'
+            }`}
+        >
           {selected ? (
             <>
-              <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 shrink-0">
-                <h2 className="font-medium text-gray-900">{selected.name}</h2>
-                <span className="text-xs text-gray-500">팀장</span>
+              <div className="flex shrink-0 items-start gap-2 border-b border-gray-200 bg-gray-50 p-3 md:items-stretch md:gap-0 md:p-4">
+                <button
+                  type="button"
+                  aria-label="팀장 목록으로"
+                  className="md:hidden shrink-0 -ml-1 mt-0.5 flex h-10 w-10 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-200/80 active:bg-gray-200 touch-manipulation"
+                  onClick={() => setSelectedId(null)}
+                >
+                  <ChevronLeftIcon className="h-6 w-6" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-medium text-gray-900">{selected.name}</h2>
+                  <span className="text-xs text-gray-500">팀장</span>
+                </div>
               </div>
               <div
                 ref={chatScrollRef}
@@ -263,7 +302,7 @@ export function AdminMessagesPage() {
               </div>
               <form
                 onSubmit={handleSend}
-                className="shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                className="shrink-0 border-t border-gray-200 bg-white p-3 md:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
               >
                 <div className="flex gap-2">
                   <input
