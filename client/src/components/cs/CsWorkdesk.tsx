@@ -262,6 +262,11 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
             <ModalCloseButton onClick={closeDetail} />
             <div className="p-4 border-b pr-12">
               <h2 className="font-semibold">C/S 상세</h2>
+              {mode === 'team' ? (
+                <p className="text-fluid-xs text-gray-600 mt-1">
+                  아래에 <strong className="font-medium text-gray-800">처리 방법</strong>을 적은 뒤 「처리완료」를 누르세요.
+                </p>
+              ) : null}
             </div>
             <div className="p-4 space-y-3">
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
@@ -281,6 +286,25 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </button>
               </div>
 
+              {selected.status !== 'DONE' ? (
+                <div
+                  className="rounded-lg border border-amber-200 bg-amber-50/90 p-3 sm:p-4"
+                  id="cs-completion-method-input"
+                >
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    C/S 처리 방법 <span className="text-red-600">*</span>
+                    <span className="font-normal text-gray-600 text-fluid-xs"> (처리완료 버튼 전에 입력)</span>
+                  </label>
+                  <textarea
+                    value={completionMethodInput}
+                    onChange={(e) => setCompletionMethodInput(e.target.value)}
+                    rows={4}
+                    className="w-full border border-amber-300 rounded px-3 py-2 text-sm resize-none bg-white"
+                    placeholder="예: 고객에게 전화로 사과 및 재방문 일정 조율, 현장 확인 후 추가 청소 진행 등"
+                  />
+                </div>
+              ) : null}
+
               {selected.completedAt && selected.completedBy ? (
                 <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm space-y-1">
                   <div className="font-medium text-green-900">처리 완료 기록</div>
@@ -297,21 +321,9 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                     <p className="whitespace-pre-wrap text-gray-900 mt-0.5">{selected.completionMethod ?? '—'}</p>
                   </div>
                 </div>
-              ) : null}
-
-              {selected.status !== 'DONE' ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    처리 방법 <span className="text-red-600">*</span>
-                    <span className="font-normal text-gray-500"> (처리완료 시 필수)</span>
-                  </label>
-                  <textarea
-                    value={completionMethodInput}
-                    onChange={(e) => setCompletionMethodInput(e.target.value)}
-                    rows={3}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-none"
-                    placeholder="예: 고객에게 전화로 사과 및 재방문 일정 조율, 현장 확인 후 추가 청소 진행 등"
-                  />
+              ) : selected.status === 'DONE' ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                  처리 완료 상태입니다. (처리 기록이 없는 경우 관리자에게 문의하세요.)
                 </div>
               ) : null}
 
