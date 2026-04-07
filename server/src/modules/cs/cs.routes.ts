@@ -6,7 +6,10 @@ import { randomBytes } from 'crypto';
 import { prisma } from '../../lib/prisma.js';
 import { findInquiryIdForCsReport } from './matchInquiryForCs.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly } from '../auth/auth.middleware.js';
+import { adminOrMarketer } from '../auth/auth.middleware.js';
+import type { AuthPayload } from '../auth/auth.middleware.js';
+import { csReportFullInclude } from './csReport.include.js';
+import { buildCsReportUpdateData } from './csReport.patch.js';
 
 const router = Router();
 
@@ -74,48 +77,21 @@ router.post('/submit', async (req, res) => {
   });
 });
 
-/** C/S 화면: 담당 팀장·연결 접수 요약(모달) */
-const csReportInquiryInclude = {
-  select: {
-    id: true,
-    inquiryNumber: true,
-    customerName: true,
-    customerPhone: true,
-    customerPhone2: true,
-    address: true,
-    addressDetail: true,
-    status: true,
-    preferredDate: true,
-    preferredTime: true,
-    preferredTimeDetail: true,
-    memo: true,
-    claimMemo: true,
-    areaPyeong: true,
-    areaBasis: true,
-    assignments: {
-      orderBy: { sortOrder: 'asc' as const },
-      select: {
-        teamLeader: { select: { id: true, name: true } },
-      },
-    },
-  },
-} as const;
-
-/** 관리자: C/S 목록 */
-router.get('/', authMiddleware, adminOnly, async (_req, res) => {
+/** 관리자·마케터: C/S 목록 */
+router.get('/', authMiddleware, adminOrMarketer, async (_req, res) => {
   const items = await prisma.csReport.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { inquiry: csReportInquiryInclude },
+    include: csReportFullInclude,
   });
   res.json({ items });
 });
 
-/** 관리자: C/S 상세 */
-router.get('/:id', authMiddleware, adminOnly, async (req, res) => {
+/** 관리자·마케터: C/S 상세 */
+router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const { id } = req.params;
   const item = await prisma.csReport.findUnique({
     where: { id },
-    include: { inquiry: csReportInquiryInclude },
+    include: csReportFullInclude,
   });
   if (!item) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
@@ -124,22 +100,25 @@ router.get('/:id', authMiddleware, adminOnly, async (req, res) => {
   res.json(item);
 });
 
-/** 관리자: C/S 상태/메모 수정 */
-router.patch('/:id', authMiddleware, adminOnly, async (req, res) => {
+/** 관리자·마케터: C/S 상태/메모/처리완료 */
+router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const { id } = req.params;
-  const { status, memo } = req.body as { status?: string; memo?: string };
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const body = req.body as { status?: string; memo?: string | null; completionMethod?: string | null };
   const item = await prisma.csReport.findUnique({ where: { id } });
   if (!item) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
     return;
   }
+  const built = buildCsReportUpdateData({ status: item.status }, body, user);
+  if (!built.ok) {
+    res.status(400).json({ error: built.error });
+    return;
+  }
   const updated = await prisma.csReport.update({
     where: { id },
-    data: {
-      ...(status != null && { status }),
-      ...(memo != null && { memo }),
-    },
-    include: { inquiry: csReportInquiryInclude },
+    data: built.data,
+    include: csReportFullInclude,
   });
   res.json(updated);
 });

@@ -4,12 +4,74 @@ import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCall.helpers.js';
 import inquiryCleaningPhotosTeamRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.team.routes.js';
+import { csReportFullInclude } from '../cs/csReport.include.js';
+import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 
 const router = Router();
 
 router.use(teamAuthMiddleware);
 
 router.use('/inquiries/:inquiryId/cleaning-photos', inquiryCleaningPhotosTeamRoutes);
+
+/** 담당 접수와 연결된 C/S만 (배정 팀장 본인) */
+router.get('/cs', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const items = await prisma.csReport.findMany({
+    where: {
+      inquiryId: { not: null },
+      inquiry: {
+        assignments: { some: { teamLeaderId: userId } },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    include: csReportFullInclude,
+  });
+  res.json({ items });
+});
+
+/** 담당 C/S 수정 — 접수·처리중·완료만 (RECEIVED로는 변경 불가) */
+router.patch('/cs/:id', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { id } = req.params;
+  const body = req.body as { status?: string; memo?: string | null; completionMethod?: string | null };
+
+  const report = await prisma.csReport.findFirst({
+    where: {
+      id,
+      inquiryId: { not: null },
+      inquiry: {
+        assignments: { some: { teamLeaderId: userId } },
+      },
+    },
+  });
+  if (!report) {
+    res.status(404).json({ error: '담당 C/S를 찾을 수 없습니다.' });
+    return;
+  }
+
+  if (
+    body.status != null &&
+    body.status !== 'PROCESSING' &&
+    body.status !== 'DONE' &&
+    body.status !== report.status
+  ) {
+    res.status(400).json({ error: '팀장은 상태를 처리중·완료로만 바꿀 수 있습니다.' });
+    return;
+  }
+
+  const built = buildCsReportUpdateData({ status: report.status }, body, user);
+  if (!built.ok) {
+    res.status(400).json({ error: built.error });
+    return;
+  }
+  const updated = await prisma.csReport.update({
+    where: { id },
+    data: built.data,
+    include: csReportFullInclude,
+  });
+  res.json(updated);
+});
 
 /** 해피콜 미완 건수 (마감 전 / 마감 후) — 팀장 본인 배정만 */
 router.get('/happy-call-stats', async (req, res) => {

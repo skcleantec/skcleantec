@@ -17,6 +17,14 @@ export interface CsReport {
   memo: string | null;
   createdAt: string;
   inquiryId?: string | null;
+  completedAt?: string | null;
+  completedBy?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
+  completionMethod?: string | null;
   inquiry?: {
     id: string;
     inquiryNumber?: string | null;
@@ -90,11 +98,11 @@ export async function getCsReport(token: string, id: string): Promise<CsReport> 
   return { ...i, imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [] };
 }
 
-/** 관리자: C/S 상태/메모 수정 */
+/** 관리자·마케터: C/S 상태/메모/처리완료 */
 export async function updateCsReport(
   token: string,
   id: string,
-  data: { status?: string; memo?: string }
+  data: { status?: string; memo?: string | null; completionMethod?: string | null }
 ): Promise<CsReport> {
   const res = await fetch(`${API}/cs/${id}`, {
     method: 'PATCH',

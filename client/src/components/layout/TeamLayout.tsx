@@ -55,6 +55,7 @@ export function TeamLayout() {
               <NavLink to="/team/dashboard" className={navClass}>대시보드</NavLink>
               <NavLink to="/team/schedule" className={navClass}>스케줄</NavLink>
               <NavLink to="/team/dayoffs" className={navClass}>휴무일</NavLink>
+              <NavLink to="/team/cs" className={navClass}>C/S</NavLink>
               <NavLink to="/team/messages" className={navClass}>
                 메시지
                 {unreadCount > 0 && (
@@ -90,6 +91,9 @@ export function TeamLayout() {
           </NavLink>
           <NavLink to="/team/dayoffs" className={mobileTabClass}>
             휴무일
+          </NavLink>
+          <NavLink to="/team/cs" className={mobileTabClass}>
+            C/S
           </NavLink>
           <NavLink to="/team/messages" className={mobileTabClass}>
             <span>메시지</span>
