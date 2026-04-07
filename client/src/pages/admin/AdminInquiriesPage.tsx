@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
   getInquiries,
+  getInquiry,
   getMarketerOverview,
   updateInquiry,
   deleteInquiry,
@@ -509,6 +510,28 @@ export function AdminInquiriesPage() {
       amountBalance: a.balance != null ? String(a.balance) : '',
     });
   };
+
+  /** C/S 관리 등에서 `/admin/inquiries?openInquiry=` 로 접근 시 접수 상세 모달 */
+  const openInquiryId = searchParams.get('openInquiry');
+  useEffect(() => {
+    if (!openInquiryId || !token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await getInquiry(token, openInquiryId);
+        if (cancelled) return;
+        openEdit(raw as InquiryItem);
+        navigate('/admin/inquiries', { replace: true });
+      } catch {
+        if (!cancelled) navigate('/admin/inquiries', { replace: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // openEdit는 매 렌더마다 갱신되므로 의존성에서 제외(한 번만 딥링크 처리)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openInquiryId만 트리거
+  }, [openInquiryId, token]);
 
   const openClaim = (item: InquiryItem) => {
     setClaimItem(item);

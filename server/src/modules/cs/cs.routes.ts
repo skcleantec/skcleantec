@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { randomBytes } from 'crypto';
 import { prisma } from '../../lib/prisma.js';
+import { findInquiryIdForCsReport } from './matchInquiryForCs.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly } from '../auth/auth.middleware.js';
 
@@ -56,21 +57,37 @@ router.post('/submit', async (req, res) => {
     return;
   }
   const urls = Array.isArray(imageUrls) ? imageUrls : [];
+  const inquiryId = await findInquiryIdForCsReport(customerName.trim(), customerPhone.trim());
   const report = await prisma.csReport.create({
     data: {
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       content: content.trim(),
       imageUrls: urls,
+      ...(inquiryId ? { inquiryId } : {}),
     },
   });
-  res.json({ ok: true, id: report.id });
+  res.json({
+    ok: true,
+    id: report.id,
+    ...(inquiryId ? { inquiryId } : {}),
+  });
 });
+
+const csReportInquirySelect = {
+  select: {
+    id: true,
+    inquiryNumber: true,
+    customerName: true,
+    customerPhone: true,
+  },
+} as const;
 
 /** 관리자: C/S 목록 */
 router.get('/', authMiddleware, adminOnly, async (_req, res) => {
   const items = await prisma.csReport.findMany({
     orderBy: { createdAt: 'desc' },
+    include: { inquiry: csReportInquirySelect },
   });
   res.json({ items });
 });
@@ -78,7 +95,10 @@ router.get('/', authMiddleware, adminOnly, async (_req, res) => {
 /** 관리자: C/S 상세 */
 router.get('/:id', authMiddleware, adminOnly, async (req, res) => {
   const { id } = req.params;
-  const item = await prisma.csReport.findUnique({ where: { id } });
+  const item = await prisma.csReport.findUnique({
+    where: { id },
+    include: { inquiry: csReportInquirySelect },
+  });
   if (!item) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
     return;
@@ -101,6 +121,7 @@ router.patch('/:id', authMiddleware, adminOnly, async (req, res) => {
       ...(status != null && { status }),
       ...(memo != null && { memo }),
     },
+    include: { inquiry: csReportInquirySelect },
   });
   res.json(updated);
 });

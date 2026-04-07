@@ -73,6 +73,7 @@ const inquiryDetailInclude = {
   orderForm: {
     select: {
       id: true,
+      createdById: true,
       totalAmount: true,
       depositAmount: true,
       balanceAmount: true,
@@ -219,6 +220,30 @@ router.get('/', async (req, res) => {
     prisma.inquiry.count({ where }),
   ]);
   res.json({ items, total });
+});
+
+/** 단일 접수 상세 (목록 항목과 동일 include — 딥링크·C/S 연결 등) */
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const inquiry = await prisma.inquiry.findUnique({
+    where: { id },
+    include: inquiryDetailInclude,
+  });
+  if (!inquiry) {
+    res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+    return;
+  }
+  if (user.role === 'MARKETER') {
+    const mine =
+      inquiry.createdById === user.userId ||
+      (inquiry.createdById == null && inquiry.orderForm?.createdById === user.userId);
+    if (!mine) {
+      res.status(403).json({ error: '본인이 접수한 건만 조회할 수 있습니다.' });
+      return;
+    }
+  }
+  res.json(inquiry);
 });
 
 /** 접수별 현장 청소 전·후 사진 (Cloudinary) — 목록·업로드·삭제 */

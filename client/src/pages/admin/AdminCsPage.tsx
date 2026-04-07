@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getCsReports, updateCsReport, type CsReport } from '../../api/cs';
 import { getToken } from '../../stores/auth';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
@@ -20,6 +21,7 @@ function OpenInNewIcon({ className }: { className?: string }) {
 }
 
 export function AdminCsPage() {
+  const navigate = useNavigate();
   const token = getToken();
   const [items, setItems] = useState<CsReport[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,6 +120,7 @@ export function AdminCsPage() {
                 <th className="text-center p-3 font-medium text-gray-700">날짜</th>
                 <th className="text-center p-3 font-medium text-gray-700">성함</th>
                 <th className="text-center p-3 font-medium text-gray-700">연락처</th>
+                <th className="text-center p-3 font-medium text-gray-700">접수 연결</th>
                 <th className="text-center p-3 font-medium text-gray-700">상태</th>
               </tr>
             </thead>
@@ -133,6 +136,22 @@ export function AdminCsPage() {
                   </td>
                   <td className="p-3">{item.customerName}</td>
                   <td className="p-3">{item.customerPhone}</td>
+                  <td className="p-3 text-center">
+                    {item.inquiry?.id ? (
+                      <button
+                        type="button"
+                        className="text-blue-600 hover:text-blue-800 underline text-sm font-medium touch-manipulation min-h-[44px] px-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/admin/inquiries?openInquiry=${encodeURIComponent(item.inquiry!.id)}`);
+                        }}
+                      >
+                        {item.inquiry.inquiryNumber ? `접수 ${item.inquiry.inquiryNumber}` : '접수 상세'}
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 text-sm">—</span>
+                    )}
+                  </td>
                   <td className="p-3">
                     <span
                       className={`px-2 py-0.5 rounded text-xs ${
@@ -168,6 +187,22 @@ export function AdminCsPage() {
                 <span className="text-gray-500 text-sm">연락처</span>
                 <p className="font-medium">{selected.customerPhone}</p>
               </div>
+              {selected.inquiry?.id ? (
+                <div>
+                  <span className="text-gray-500 text-sm block mb-1">접수 목록 연결</span>
+                  <button
+                    type="button"
+                    className="text-blue-600 hover:text-blue-800 underline text-sm font-medium touch-manipulation min-h-[44px] text-left"
+                    onClick={() =>
+                      navigate(`/admin/inquiries?openInquiry=${encodeURIComponent(selected.inquiry!.id)}`)
+                    }
+                  >
+                    {selected.inquiry.inquiryNumber
+                      ? `접수번호 ${selected.inquiry.inquiryNumber} 상세보기`
+                      : '접수 상세보기'}
+                  </button>
+                </div>
+              ) : null}
               <div>
                 <span className="text-gray-500 text-sm">내용</span>
                 <p className="whitespace-pre-wrap text-sm">{selected.content}</p>

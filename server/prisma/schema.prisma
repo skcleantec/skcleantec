@@ -156,6 +156,7 @@ model Inquiry {
   createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   changeLogs  InquiryChangeLog[]
   cleaningPhotos InquiryCleaningPhoto[]
+  csReports      CsReport[]
 
   @@map("inquiries")
 }
@@ -302,7 +303,11 @@ model CsReport {
   status        String   @default("RECEIVED") @map("status")
   memo          String?  @map("memo")
   createdAt     DateTime @default(now()) @map("created_at")
+  /// 접수 목록(inquiries)과 이름·연락처 매칭 시 연결 (미매칭이면 null)
+  inquiryId     String?  @map("inquiry_id")
+  inquiry       Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
 
+  @@index([inquiryId])
   @@map("cs_reports")
 }
 

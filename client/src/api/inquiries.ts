@@ -69,6 +69,18 @@ export async function getInquiries(
   return res.json();
 }
 
+/** 단일 접수 (목록 항목과 동일 형태) — 딥링크 등 */
+export async function getInquiry(token: string, id: string): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API}/inquiries/${encodeURIComponent(id)}`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '문의를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export async function updateInquiry(
   token: string,
   id: string,

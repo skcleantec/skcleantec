@@ -16,6 +16,13 @@ export interface CsReport {
   status: string;
   memo: string | null;
   createdAt: string;
+  inquiryId?: string | null;
+  inquiry?: {
+    id: string;
+    inquiryNumber?: string | null;
+    customerName: string;
+    customerPhone: string;
+  } | null;
 }
 
 /** 공개: 이미지 업로드 */
@@ -39,7 +46,7 @@ export async function submitCsReport(data: {
   customerPhone: string;
   content: string;
   imageUrls?: string[];
-}): Promise<{ ok: boolean; id: string }> {
+}): Promise<{ ok: boolean; id: string; inquiryId?: string }> {
   const res = await fetch(`${API}/cs/submit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
