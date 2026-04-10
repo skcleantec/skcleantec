@@ -3,10 +3,12 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { randomBytes } from 'crypto';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { findInquiryIdForCsReport } from './matchInquiryForCs.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
+import { adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { csReportFullInclude } from './csReport.include.js';
 import { buildCsReportUpdateData } from './csReport.patch.js';
@@ -138,6 +140,41 @@ router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   });
   res.json(updated);
   void notifyCsReportNavBadges(updated.inquiryId);
+});
+
+/** 관리자만 — 비밀번호 확인 후 C/S 영구 삭제 */
+router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
+  const { id } = req.params;
+  const body = req.body as { password?: unknown };
+  const password = body.password != null ? String(body.password) : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const existing = await prisma.csReport.findUnique({
+    where: { id },
+    select: { id: true, inquiryId: true },
+  });
+  if (!existing) {
+    res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
+    return;
+  }
+
+  await prisma.csReport.delete({ where: { id } });
+  void notifyCsReportNavBadges(existing.inquiryId);
+  res.json({ ok: true });
 });
 
 export default router;

@@ -141,3 +141,16 @@ export async function updateCsReport(
     serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : i.serviceRating ?? null,
   };
 }
+
+/** 관리자 전용 — 비밀번호 확인 후 C/S 영구 삭제 */
+export async function deleteCsReport(token: string, id: string, password: string): Promise<void> {
+  const res = await fetch(`${API}/cs/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+}

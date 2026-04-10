@@ -18,7 +18,7 @@ export const ADMIN_NAV_DEF: Record<
   dashboard: { to: '/admin/dashboard', label: '대시보드' },
   inquiries: { to: '/admin/inquiries', label: '접수 목록' },
   schedule: { to: '/admin/schedule', label: '스케줄 표' },
-  'team-leaders': { to: '/admin/team-leaders', label: '사용자관리', adminOnly: true },
+  'team-leaders': { to: '/admin/team-leaders', label: '관리자설정', adminOnly: true },
   teams: { to: '/admin/teams', label: '팀 관리', adminOnly: true },
   orderforms: { to: '/admin/orderforms', label: '발주서' },
   cs: { to: '/admin/cs', label: 'C/S 관리' },

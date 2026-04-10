@@ -155,7 +155,7 @@ export function AdminTeamLeadersPage() {
   return (
     <div className="space-y-6 min-w-0 w-full max-w-full">
       <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold text-gray-800">사용자관리</h1>
+        <h1 className="text-xl font-semibold text-gray-800">관리자설정</h1>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowForm(showForm === 'team' ? null : 'team')}

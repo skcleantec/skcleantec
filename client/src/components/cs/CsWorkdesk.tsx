@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { getCsReports, updateCsReport, type CsReport } from '../../api/cs';
+import { getCsReports, updateCsReport, deleteCsReport, type CsReport } from '../../api/cs';
+import { getMe } from '../../api/auth';
 import { getTeamCsReports, patchTeamCsReport } from '../../api/team';
 import { getToken } from '../../stores/auth';
 import { getTeamToken } from '../../stores/teamAuth';
@@ -9,6 +10,7 @@ import {
   formatDateTimeTinyKo,
 } from '../../utils/dateFormat';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
+import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 
@@ -98,6 +100,9 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   const [connectedInquiryModal, setConnectedInquiryModal] = useState<NonNullable<CsReport['inquiry']> | null>(
     null
   );
+  /** 관리자(ADMIN)로 로그인한 경우에만 C/S 삭제 UI 표시 — 마케터는 동일 메뉴 사용하지만 삭제 불가 */
+  const [adminViewer, setAdminViewer] = useState(false);
+  const [csDeleteTarget, setCsDeleteTarget] = useState<CsReport | null>(null);
 
   const refresh = () => {
     if (!token) return;
@@ -112,6 +117,16 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   useEffect(() => {
     refresh();
   }, [token, mode]);
+
+  useEffect(() => {
+    if (mode !== 'admin' || !token) {
+      setAdminViewer(false);
+      return;
+    }
+    getMe(token)
+      .then((u: { role?: string }) => setAdminViewer(u.role === 'ADMIN'))
+      .catch(() => setAdminViewer(false));
+  }, [mode, token]);
 
   const patchCs = (
     id: string,
@@ -215,6 +230,8 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   const teamIncompleteCount = isTeam ? items.filter((i) => i.status !== 'DONE').length : 0;
   const teamCompleteCount = isTeam ? items.filter((i) => i.status === 'DONE').length : 0;
 
+  const showAdminDeleteCol = mode === 'admin' && adminViewer;
+
   return (
     <div className="min-w-0 w-full max-w-full">
       <div
@@ -305,7 +322,11 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
             >
               <table
                 className={`w-full border-collapse ${
-                  isTeam ? 'min-w-[720px] md:min-w-[820px]' : 'min-w-[680px] md:min-w-[780px]'
+                  isTeam
+                    ? 'min-w-[720px] md:min-w-[820px]'
+                    : showAdminDeleteCol
+                      ? 'min-w-[740px] md:min-w-[860px]'
+                      : 'min-w-[680px] md:min-w-[780px]'
                 } ${tableText}`}
               >
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -332,6 +353,9 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                     상태
                   </th>
                   <th className={`text-center font-medium text-gray-700 ${thPad}`}>처리자</th>
+                  {showAdminDeleteCol ? (
+                    <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>삭제</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -423,6 +447,17 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                       >
                         {processor}
                       </td>
+                      {showAdminDeleteCol ? (
+                        <td className={tdPad} onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="min-h-[36px] px-2 py-1 text-fluid-xs font-medium text-red-700 border border-red-200 rounded hover:bg-red-50 touch-manipulation"
+                            onClick={() => setCsDeleteTarget(item)}
+                          >
+                            삭제
+                          </button>
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}
@@ -620,10 +655,38 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               >
                 {saving ? '저장 중...' : '저장'}
               </button>
+              {mode === 'admin' && adminViewer ? (
+                <button
+                  type="button"
+                  onClick={() => setCsDeleteTarget(selected)}
+                  className="w-full py-2 mt-3 border border-red-300 text-red-700 text-sm font-medium rounded hover:bg-red-50 min-h-[44px] touch-manipulation"
+                >
+                  C/S 영구 삭제…
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmPasswordModal
+        open={!!csDeleteTarget}
+        title={
+          csDeleteTarget
+            ? `「${csDeleteTarget.customerName}」 C/S를 영구 삭제합니다. 복구할 수 없습니다.`
+            : ''
+        }
+        confirmLabel="삭제"
+        onClose={() => setCsDeleteTarget(null)}
+        onConfirm={async (password) => {
+          if (!token || !csDeleteTarget) return;
+          await deleteCsReport(token, csDeleteTarget.id, password);
+          const deletedId = csDeleteTarget.id;
+          setItems((prev) => prev.filter((i) => i.id !== deletedId));
+          setSelected((s) => (s?.id === deletedId ? null : s));
+          (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount?.();
+        }}
+      />
 
       {connectedInquiryModal && (
         <div
