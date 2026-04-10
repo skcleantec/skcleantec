@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import type { Prisma } from '@prisma/client';
 import type { InquiryStatus } from '@prisma/client';
@@ -61,6 +62,31 @@ function canMarketerAssignInquiry(
   if (inquiry.createdById === marketerId) return true;
   if (inquiry.createdById == null && inquiry.orderForm?.createdById === marketerId) return true;
   return false;
+}
+
+/** 관리자 본인 비밀번호 확인 — 실패 시 res 전송 후 false */
+async function verifyAdminPasswordForRequest(
+  req: Request,
+  res: Response,
+  passwordRaw: unknown
+): Promise<boolean> {
+  const password = passwordRaw != null ? String(passwordRaw) : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return false;
+  }
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return false;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return false;
+  }
+  return true;
 }
 
 const router = Router();
@@ -223,6 +249,38 @@ router.get('/', async (req, res) => {
   res.json({ items, total });
 });
 
+/** 관리자만 — 접수일(createdAt) KST 하루 단위 영구 삭제 (배정·이력·현장사진 연쇄 삭제) */
+router.post('/admin/bulk-delete-by-day', adminOnly, async (req, res) => {
+  const body = req.body as { day?: string; password?: unknown };
+  const day = typeof body.day === 'string' ? body.day.trim() : '';
+  const range = kstDayRangeYmd(day);
+  if (!range) {
+    res.status(400).json({ error: '날짜는 YYYY-MM-DD 형식이어야 합니다.' });
+    return;
+  }
+  if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
+  const del = await prisma.inquiry.deleteMany({
+    where: { createdAt: { gte: range.gte, lte: range.lte } },
+  });
+  res.json({ deleted: del.count });
+});
+
+/** 관리자만 — 접수일(createdAt) KST 해당 월 영구 삭제 */
+router.post('/admin/bulk-delete-by-month', adminOnly, async (req, res) => {
+  const body = req.body as { month?: string; password?: unknown };
+  const month = typeof body.month === 'string' ? body.month.trim() : '';
+  const range = kstMonthRangeYm(month);
+  if (!range) {
+    res.status(400).json({ error: '월은 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+  if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
+  const del = await prisma.inquiry.deleteMany({
+    where: { createdAt: { gte: range.gte, lte: range.lte } },
+  });
+  res.json({ deleted: del.count });
+});
+
 /** 단일 접수 상세 (목록 항목과 동일 include — 딥링크·C/S 연결 등) */
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
@@ -254,23 +312,7 @@ router.use('/:inquiryId/cleaning-photos', inquiryCleaningPhotosAdminRoutes);
 router.delete('/:id', adminOnly, async (req, res) => {
   const { id } = req.params;
   const body = req.body as { password?: string };
-  const password = body.password != null ? String(body.password) : '';
-  if (!password) {
-    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
-    return;
-  }
-
-  const user = (req as unknown as { user: AuthPayload }).user;
-  const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
-  if (!dbUser) {
-    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
-    return;
-  }
-  const valid = await bcrypt.compare(password, dbUser.passwordHash);
-  if (!valid) {
-    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
-    return;
-  }
+  if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
 
   const existing = await prisma.inquiry.findUnique({ where: { id } });
   if (!existing) {

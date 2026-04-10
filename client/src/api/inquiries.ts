@@ -49,6 +49,9 @@ export async function getInquiries(
     scheduleMonth?: string;
     /** 예약일(희망일) 하루 YYYY-MM-DD, KST (scheduleMonth보다 우선) */
     scheduleDay?: string;
+    /** 목록 건수 상한 (집계만 할 때 1 등) */
+    limit?: number;
+    offset?: number;
   }
 ) {
   const q = new URLSearchParams();
@@ -57,6 +60,8 @@ export async function getInquiries(
   if (params?.datePreset) q.set('datePreset', params.datePreset);
   if (params?.month) q.set('month', params.month);
   if (params?.day) q.set('day', params.day);
+  if (params?.limit != null) q.set('limit', String(params.limit));
+  if (params?.offset != null) q.set('offset', String(params.offset));
   if (params?.createdById) q.set('createdById', params.createdById);
   if (params?.teamLeaderId) q.set('teamLeaderId', params.teamLeaderId);
   if (params?.scheduleMonth) q.set('scheduleMonth', params.scheduleMonth);
@@ -109,6 +114,42 @@ export async function deleteInquiry(token: string, id: string, password: string)
     const data = await res.json().catch(() => ({}));
     throw new Error((data as { error?: string }).error || '삭제에 실패했습니다.');
   }
+}
+
+/** 관리자 전용 — 접수일(createdAt) KST 해당 일 전체 삭제 */
+export async function bulkDeleteInquiriesByDay(
+  token: string,
+  day: string,
+  password: string
+): Promise<{ deleted: number }> {
+  const res = await fetch(`${API}/inquiries/admin/bulk-delete-by-day`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ day, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((data as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+  return data as { deleted: number };
+}
+
+/** 관리자 전용 — 접수일(createdAt) KST 해당 월 전체 삭제 */
+export async function bulkDeleteInquiriesByMonth(
+  token: string,
+  month: string,
+  password: string
+): Promise<{ deleted: number }> {
+  const res = await fetch(`${API}/inquiries/admin/bulk-delete-by-month`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ month, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((data as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+  return data as { deleted: number };
 }
 
 export async function createInquiry(token: string, data: Record<string, unknown>) {

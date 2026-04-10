@@ -8,6 +8,8 @@ import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminInquiriesPage } from './pages/admin/AdminInquiriesPage';
 import { AdminSchedulePage } from './pages/admin/AdminSchedulePage';
 import { AdminTeamLeadersPage } from './pages/admin/AdminTeamLeadersPage';
+import { AdminTeamLeadersLayout } from './components/layout/AdminTeamLeadersLayout';
+import { AdminInquiryBulkDeletePage } from './pages/admin/AdminInquiryBulkDeletePage';
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
 import { AdminOrderFormPage } from './pages/admin/AdminOrderFormPage';
 import { TeamDashboardPage } from './pages/team/TeamDashboardPage';
@@ -44,7 +46,10 @@ function App() {
           <Route path="dashboard" element={<AdminDashboardPage />} />
           <Route path="inquiries" element={<AdminInquiriesPage />} />
           <Route path="schedule" element={<AdminSchedulePage />} />
-          <Route path="team-leaders" element={<AdminTeamLeadersPage />} />
+          <Route path="team-leaders" element={<AdminTeamLeadersLayout />}>
+            <Route index element={<AdminTeamLeadersPage />} />
+            <Route path="inquiry-delete" element={<AdminInquiryBulkDeletePage />} />
+          </Route>
           <Route path="teams" element={<AdminTeamsLayout />}>
             <Route index element={<AdminTeamsPage />} />
             <Route path="holidays" element={<AdminTeamHolidayCalendarPage />} />

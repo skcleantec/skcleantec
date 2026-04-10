@@ -201,6 +201,10 @@ export function AdminLayout() {
   const teamMgmtActive =
     location.pathname === '/admin/teams' || location.pathname.startsWith('/admin/teams/');
 
+  const teamLeadersActive =
+    location.pathname === '/admin/team-leaders' ||
+    location.pathname.startsWith('/admin/team-leaders/');
+
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white border-b border-gray-200 px-4 py-3">
@@ -253,6 +257,24 @@ export function AdminLayout() {
                         <NavLink
                           to={def.to}
                           className={() => navClass({ isActive: teamMgmtActive })}
+                        >
+                          {def.label}
+                        </NavLink>
+                      </div>
+                    );
+                  }
+                  if (id === 'team-leaders') {
+                    return (
+                      <div
+                        key={id}
+                        className={rowClass}
+                        onDragOver={handleNavDragOver}
+                        onDrop={(e) => handleNavDrop(e, id)}
+                      >
+                        {dragHandle}
+                        <NavLink
+                          to={def.to}
+                          className={() => navClass({ isActive: teamLeadersActive })}
                         >
                           {def.label}
                         </NavLink>

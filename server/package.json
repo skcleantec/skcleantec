@@ -20,7 +20,8 @@
     "db:purge:unassigned-month-test": "tsx prisma/seed-unassigned-month-test.ts --purge",
     "db:check-admin": "tsx scripts/check-admin.ts",
     "db:backfill-inquiry-numbers": "tsx scripts/backfill-inquiry-numbers.ts",
-    "db:backfill-seed-inquiries-created-by": "tsx scripts/backfill-seed-inquiries-created-by.ts"
+    "db:backfill-seed-inquiries-created-by": "tsx scripts/backfill-seed-inquiries-created-by.ts",
+    "db:purge:inquiries": "tsx scripts/purge-all-inquiries.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

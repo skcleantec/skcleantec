@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Navigate } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { getUsers, createUser, updateUser, deleteUser, type UserItem } from '../../api/users';
 import { getToken } from '../../stores/auth';
@@ -11,7 +10,6 @@ type UserRole = 'TEAM_LEADER' | 'MARKETER';
 
 export function AdminTeamLeadersPage() {
   const token = getToken();
-  const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other'>('loading');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
@@ -58,25 +56,20 @@ export function AdminTeamLeadersPage() {
   };
 
   useEffect(() => {
-    if (!token) {
-      setRoleGate('other');
-      return;
-    }
+    if (!token) return;
     getMe(token)
-      .then((u: { role?: string; isSuperAdmin?: boolean }) => {
-        setRoleGate(u.role === 'ADMIN' ? 'admin' : 'other');
+      .then((u: { isSuperAdmin?: boolean }) => {
         setIsSuperAdmin(Boolean(u.isSuperAdmin));
       })
       .catch(() => {
-        setRoleGate('other');
         setIsSuperAdmin(false);
       });
   }, [token]);
 
   useEffect(() => {
-    if (!token || roleGate !== 'admin') return;
+    if (!token) return;
     refresh();
-  }, [token, roleGate]);
+  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent, role: UserRole) => {
     e.preventDefault();
@@ -158,13 +151,6 @@ export function AdminTeamLeadersPage() {
       setDeletingId(null);
     }
   };
-
-  if (roleGate === 'loading') {
-    return <div className="flex justify-center py-16 text-gray-500 text-fluid-sm">불러오는 중...</div>;
-  }
-  if (roleGate !== 'admin') {
-    return <Navigate to="/admin/dashboard" replace />;
-  }
 
   return (
     <div className="space-y-6 min-w-0 w-full max-w-full">

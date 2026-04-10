@@ -16,7 +16,8 @@
     "db:purge:schedule:test-m3-m5": "cd server && npm run db:purge:schedule:test-m3-m5",
     "deploy:seed-from-config": "cd server && npm run deploy:seed-from-config",
     "db:backfill-seed-inquiries-created-by": "cd server && npm run db:backfill-seed-inquiries-created-by",
-    "db:seed:unassigned-month": "cd server && npm run db:seed:unassigned-month"
+    "db:seed:unassigned-month": "cd server && npm run db:seed:unassigned-month",
+    "db:purge:inquiries": "cd server && npx tsx scripts/purge-all-inquiries.ts"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
