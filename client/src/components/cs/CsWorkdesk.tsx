@@ -34,11 +34,20 @@ function roleLabelKo(role: string): string {
   if (role === 'ADMIN') return '관리자';
   if (role === 'MARKETER') return '마케터';
   if (role === 'TEAM_LEADER') return '팀장';
+  if (role === 'EXTERNAL_PARTNER') return '타업체';
   return role;
 }
 
 function formatTeamLeaderLabel(inquiry: NonNullable<CsReport['inquiry']>): string {
-  const names = inquiry.assignments.map((a) => a.teamLeader.name).filter(Boolean);
+  const names = inquiry.assignments
+    .map((a) => {
+      const u = a.teamLeader as { name: string; role?: string; externalCompany?: { name: string } | null };
+      if (u.role === 'EXTERNAL_PARTNER') {
+        return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
+      }
+      return u.name;
+    })
+    .filter(Boolean);
   return names.length ? names.join(' · ') : '미배정';
 }
 

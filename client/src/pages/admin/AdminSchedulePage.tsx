@@ -8,7 +8,7 @@ import {
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
-import { getTeamLeaders, type UserItem } from '../../api/users';
+import { getAssignableScheduleUsers, type UserItem } from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
@@ -107,6 +107,11 @@ function getCalendarDays(year: number, month: number) {
   return days;
 }
 
+/** 우측 일정 목록: 타업체 배정 건은 자사 오전·오후와 섞이지 않도록 별도 구역으로 묶음 */
+function inquiryHasExternalAssignment(item: ScheduleItem): boolean {
+  return item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
+}
+
 function ScheduleDayListItem({
   item,
   profCatalog,
@@ -142,7 +147,15 @@ function ScheduleDayListItem({
       : bucket === 'afternoon'
         ? '오후'
         : '기타';
-  const leaderNamesJoined = item.assignments.map((a) => a.teamLeader.name).join('·');
+  const leaderNamesJoined = item.assignments
+    .map((a) => {
+      const u = a.teamLeader;
+      if (u.role === 'EXTERNAL_PARTNER') {
+        return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
+      }
+      return u.name;
+    })
+    .join('·');
   const crewN = item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY;
   const crewNote = item.crewMemberNote?.trim() ?? '';
   const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';
@@ -401,7 +414,7 @@ export function AdminSchedulePage() {
   useEffect(() => {
     if (!token) return;
     const ymd = createInquiryModalDate ?? selectedDate ?? kstTodayYmd();
-    getTeamLeaders(token, ymd).then(setTeamLeaders).catch(() => setTeamLeaders([]));
+    getAssignableScheduleUsers(token, ymd).then(setTeamLeaders).catch(() => setTeamLeaders([]));
   }, [token, selectedDate, createInquiryModalDate]);
 
   useEffect(() => {
@@ -950,16 +963,27 @@ export function AdminSchedulePage() {
                 const morningList = dayList.filter((i) => getScheduleTimeBucket(i) === 'morning');
                 const afternoonList = dayList.filter((i) => getScheduleTimeBucket(i) === 'afternoon');
                 const otherList = dayList.filter((i) => getScheduleTimeBucket(i) === 'other');
+
+                const morningOwn = morningList.filter((i) => !inquiryHasExternalAssignment(i));
+                const afternoonOwn = afternoonList.filter((i) => !inquiryHasExternalAssignment(i));
+                const otherOwn = otherList.filter((i) => !inquiryHasExternalAssignment(i));
+
+                const morningExt = morningList.filter(inquiryHasExternalAssignment);
+                const afternoonExt = afternoonList.filter(inquiryHasExternalAssignment);
+                const otherExt = otherList.filter(inquiryHasExternalAssignment);
+
+                const extTotal = morningExt.length + afternoonExt.length + otherExt.length;
+
                 return (
                   <div className="flex flex-col gap-3">
-                    {morningList.length > 0 && (
+                    {morningOwn.length > 0 && (
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 border-b-2 border-amber-400 pb-1.5">
                           <span className="text-fluid-sm font-bold text-amber-900">오전 일정</span>
-                          <span className="text-fluid-xs text-amber-800/80 tabular-nums">{morningList.length}건</span>
+                          <span className="text-fluid-xs text-amber-800/80 tabular-nums">{morningOwn.length}건</span>
                         </div>
                         <div className="flex flex-col gap-1">
-                          {morningList.map((item) => (
+                          {morningOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
                               item={item}
@@ -977,14 +1001,14 @@ export function AdminSchedulePage() {
                         </div>
                       </div>
                     )}
-                    {afternoonList.length > 0 && (
+                    {afternoonOwn.length > 0 && (
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 border-b-2 border-sky-600 pb-1.5">
                           <span className="text-fluid-sm font-bold text-sky-900">오후 일정</span>
-                          <span className="text-fluid-xs text-sky-800/80 tabular-nums">{afternoonList.length}건</span>
+                          <span className="text-fluid-xs text-sky-800/80 tabular-nums">{afternoonOwn.length}건</span>
                         </div>
                         <div className="flex flex-col gap-1">
-                          {afternoonList.map((item) => (
+                          {afternoonOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
                               item={item}
@@ -1002,17 +1026,17 @@ export function AdminSchedulePage() {
                         </div>
                       </div>
                     )}
-                    {otherList.length > 0 && (
+                    {otherOwn.length > 0 && (
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 border-b-2 border-violet-400 pb-1.5">
                           <span className="text-fluid-sm font-bold text-violet-900">사이 · 일정 미확정</span>
-                          <span className="text-fluid-xs text-violet-800/80 tabular-nums">{otherList.length}건</span>
+                          <span className="text-fluid-xs text-violet-800/80 tabular-nums">{otherOwn.length}건</span>
                         </div>
                         <p className="text-fluid-xs text-gray-600 mb-2">
                           사이청소인데 오전/오후가 아직 정해지지 않았거나, 시간대가 비어 있는 접수입니다.
                         </p>
                         <div className="flex flex-col gap-1">
-                          {otherList.map((item) => (
+                          {otherOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
                               item={item}
@@ -1029,6 +1053,98 @@ export function AdminSchedulePage() {
                           ))}
                         </div>
                       </div>
+                    )}
+
+                    {extTotal > 0 && (
+                      <details
+                        key={selectedDate ?? 'day'}
+                        className="group min-w-0 rounded-lg border-2 border-indigo-300/90 bg-indigo-50/50 shadow-sm [&_summary::-webkit-details-marker]:hidden"
+                      >
+                        <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-indigo-100/50 rounded-lg">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-fluid-sm font-bold text-indigo-950">타업체 일정</span>
+                            <span className="text-fluid-xs text-indigo-900/85 tabular-nums">{extTotal}건</span>
+                          </div>
+                          <ChevronDownIcon className="h-4 w-4 shrink-0 text-indigo-700 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="flex flex-col gap-3 px-3 pb-3 pt-1 border-t border-indigo-400/50">
+                          {morningExt.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-amber-950">오전</span>
+                                <span className="text-fluid-2xs text-amber-900/80 tabular-nums">{morningExt.length}건</span>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {morningExt.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {afternoonExt.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-sky-600/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-sky-950">오후</span>
+                                <span className="text-fluid-2xs text-sky-900/80 tabular-nums">{afternoonExt.length}건</span>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {afternoonExt.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {otherExt.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-violet-500/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-violet-950">사이 · 일정 미확정</span>
+                                <span className="text-fluid-2xs text-violet-900/80 tabular-nums">{otherExt.length}건</span>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {otherExt.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </details>
                     )}
                   </div>
                 );

@@ -1,3 +1,5 @@
+import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
+
 /** C/S API 응답용 inquiry·처리자 include (관리자·팀장 공통) */
 export const csReportInquiryInclude = {
   select: {
@@ -19,7 +21,7 @@ export const csReportInquiryInclude = {
     assignments: {
       orderBy: { sortOrder: 'asc' as const },
       select: {
-        teamLeader: { select: { id: true, name: true } },
+        teamLeader: { select: assignmentTeamLeaderSelect },
       },
     },
   },

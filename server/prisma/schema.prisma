@@ -7,6 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// 자사가 고객 정보를 넘기는 외부 협력 업체 (타업체)
+model ExternalCompany {
+  id        String   @id @default(uuid())
+  name      String
+  bizNumber String?  @map("biz_number") @db.VarChar(64)
+  phone     String?  @db.VarChar(64)
+  memo      String?  @db.Text
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  partnerUsers User[]
+
+  @@map("external_companies")
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -15,6 +31,9 @@ model User {
   role         UserRole @default(TEAM_LEADER)
   phone        String?
   isActive     Boolean  @default(true) @map("is_active")
+  /// 타업체 로그인 계정(EXTERNAL_PARTNER)이 소속된 업체
+  externalCompanyId String? @map("external_company_id")
+  externalCompany   ExternalCompany? @relation(fields: [externalCompanyId], references: [id], onDelete: SetNull)
   /// 입사일(포함) — 해당일부터 스케줄·TO·배정 대상. null이면 제한 없음(기존 데이터 호환)
   hireDate     DateTime? @map("hire_date") @db.Date
   /// 퇴사일(미포함) — 해당일부터 근무·배정·드롭다운 제외. null이면 재직 중
@@ -34,6 +53,7 @@ model User {
   scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
   inquiryCleaningPhotosUploaded InquiryCleaningPhoto[] @relation("CleaningPhotoUploader")
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
+  inquiryChangeLogsAsActor      InquiryChangeLog[]     @relation("InquiryChangeLogActor")
 
   @@map("users")
 }
@@ -97,6 +117,8 @@ enum UserRole {
   ADMIN
   TEAM_LEADER
   MARKETER
+  /// 타업체 담당자 — 팀장과 동일하게 /team 로그인·담당 접수 조회
+  EXTERNAL_PARTNER
 }
 
 /// KST 일자별 접수 순번 (YYMMDD + 4자리 = 10자리 `inquiry_number` 발급용)
@@ -151,6 +173,8 @@ model Inquiry {
   crewMemberNote  String?    @map("crew_member_note")
   /// 스케줄 목록(이름·접수번호 옆)에만 쓰는 짧은 메모 — 특이사항·발주서 메모와 별개
   scheduleMemo    String?    @map("schedule_memo")
+  /// 타업체에 고객 정보를 넘기며 받은 금액(원). 미넘김·미입력 시 null
+  externalTransferFee Int?   @map("external_transfer_fee")
   orderFormId  String?       @map("order_form_id")
   /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
   createdById  String?       @map("created_by_id")
@@ -258,6 +282,7 @@ model InquiryChangeLog {
   lines     Json
 
   inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  actor   User?   @relation("InquiryChangeLogActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([inquiryId, createdAt(sort: Desc)])
   @@map("inquiry_change_logs")
@@ -420,7 +445,6 @@ model Message {
   content    String
   readAt     DateTime? @map("read_at")
   createdAt  DateTime @default(now()) @map("created_at")
-  /// 동일 공지·일괄 전송 묶음 (표시 시 1줄로 합침)
   batchId    String?   @map("batch_id")
 
   sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)

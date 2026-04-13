@@ -23,7 +23,7 @@ router.use(authMiddleware);
 router.get('/', adminOrMarketer, async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const role = (req.query.role as string) || 'TEAM_LEADER';
-  const validRoles = ['TEAM_LEADER', 'MARKETER'];
+  const validRoles = ['TEAM_LEADER', 'MARKETER', 'EXTERNAL_PARTNER'];
   if (!validRoles.includes(role)) {
     res.status(400).json({ error: '유효하지 않은 역할입니다.' });
     return;
@@ -38,7 +38,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
   const employedOn = YMD.test(employedOnRaw) ? employedOnRaw : kstTodayYmd();
 
   const users = await prisma.user.findMany({
-    where: { role: role as 'TEAM_LEADER' | 'MARKETER', isActive: true },
+    where: { role: role as 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER', isActive: true },
     select: {
       id: true,
       email: true,
@@ -47,6 +47,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
       role: true,
       hireDate: true,
       resignationDate: true,
+      externalCompany: { select: { id: true, name: true } },
     },
     orderBy: { name: 'asc' },
   });
@@ -63,6 +64,8 @@ router.get('/', adminOrMarketer, async (req, res) => {
       name: u.name,
       phone: u.phone,
       role: u.role,
+      externalCompanyId: u.externalCompany?.id ?? null,
+      externalCompanyName: u.externalCompany?.name ?? null,
       ...serializeUserDates(u),
     }))
   );
@@ -126,7 +129,12 @@ router.patch('/:id', adminOnly, async (req, res) => {
     where: { id },
     select: { id: true, role: true, email: true, hireDate: true, resignationDate: true },
   });
-  if (!existing || (existing.role !== 'TEAM_LEADER' && existing.role !== 'MARKETER')) {
+  if (
+    !existing ||
+    (existing.role !== 'TEAM_LEADER' &&
+      existing.role !== 'MARKETER' &&
+      existing.role !== 'EXTERNAL_PARTNER')
+  ) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
@@ -250,7 +258,10 @@ router.delete('/:id', adminOnly, async (req, res) => {
     where: { id },
     select: { role: true },
   });
-  if (!user || (user.role !== 'TEAM_LEADER' && user.role !== 'MARKETER')) {
+  if (
+    !user ||
+    (user.role !== 'TEAM_LEADER' && user.role !== 'MARKETER' && user.role !== 'EXTERNAL_PARTNER')
+  ) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }

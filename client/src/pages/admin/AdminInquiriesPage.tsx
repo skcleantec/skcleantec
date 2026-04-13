@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
@@ -12,11 +12,12 @@ import {
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
-import { getTeamLeaders, getUsers, type UserItem } from '../../api/users';
+import { formatAssignableUserLabel, getAssignableScheduleUsers, getUsers, type UserItem } from '../../api/users';
 import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
 import { AddressSearch } from '../../components/forms/AddressSearch';
@@ -120,9 +121,17 @@ interface InquiryItem {
   specialNotes: string | null;
   callAttempt?: number | null;
   createdAt: string;
-  assignments: Array<{ teamLeader: { id: string; name: string } }>;
+  assignments: Array<{
+    teamLeader: {
+      id: string;
+      name: string;
+      role?: string;
+      externalCompany?: { id: string; name: string } | null;
+    };
+  }>;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
+  externalTransferFee?: number | null;
   /** 접수를 등록한 마케터(개별 접수·POST 시 설정) */
   createdBy?: { id: string; name: string } | null;
   orderForm?: {
@@ -161,7 +170,15 @@ function happyCallAdminCell(item: InquiryItem): { label: string; className: stri
 }
 
 function formatInquiryTeamSummary(item: InquiryItem): string {
-  const names = item.assignments.map((a) => a.teamLeader.name).join('·');
+  const names = item.assignments
+    .map((a) => {
+      const u = a.teamLeader;
+      if (u.role === 'EXTERNAL_PARTNER') {
+        return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
+      }
+      return u.name;
+    })
+    .join('·');
   const parts: string[] = [];
   parts.push(names || '미배정');
   parts.push(`팀원${item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY}명`);
@@ -211,6 +228,7 @@ export function AdminInquiriesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
+  const [inquiryEditPreferredCalOpen, setInquiryEditPreferredCalOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     customerName: '',
     customerPhone: '',
@@ -238,13 +256,19 @@ export function AdminInquiriesPage() {
     amountTotal: '',
     amountDeposit: '',
     amountBalance: '',
+    externalTransferFee: '',
   });
   const [claimItem, setClaimItem] = useState<InquiryItem | null>(null);
   const [claimMemo, setClaimMemo] = useState('');
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  /** 접수일(createdAt) 기준 — URL `datePreset`이 있으면 최초 로드부터 반영(대시보드 등) */
+  /**
+   * 접수일(createdAt) 기준.
+   * - 메뉴로만 들어오면 URL에 없음 → 당일(today).
+   * - 대시보드 등 `?datePreset=` 딥링크는 그대로 반영.
+   * - 고객명·검색어가 있으면 아래 effect에서 전체(all)로 바꾸고, 지우면 직전 필터 복원.
+   */
   const [datePreset, setDatePreset] = useState<'today' | 'all' | 'month' | 'day'>(() => {
     const dp = searchParams.get('datePreset');
     if (dp === 'today' || dp === 'all' || dp === 'month' || dp === 'day') return dp;
@@ -275,6 +299,15 @@ export function AdminInquiriesPage() {
   const [scheduleMonthKey, setScheduleMonthKey] = useState(() => kstMonthKeyNow());
   const [scheduleDayKey, setScheduleDayKey] = useState(() => kstTodayYmd());
   const [deleteTarget, setDeleteTarget] = useState<InquiryItem | null>(null);
+
+  /** 검색 시작 직전의 접수일 필터(검색 지우면 복원). 대시보드 딥링크·당일·월별 등 유지 */
+  const accessDateFilterBeforeSearchRef = useRef<{
+    datePreset: 'today' | 'all' | 'month' | 'day';
+    monthKey: string;
+    dayKey: string;
+  } | null>(null);
+  const accessDateFilterLiveRef = useRef({ datePreset, monthKey, dayKey });
+  accessDateFilterLiveRef.current = { datePreset, monthKey, dayKey };
 
   const leaderOptionsForRow = useMemo(() => {
     return (rowIndex: number) => {
@@ -343,6 +376,29 @@ export function AdminInquiriesPage() {
     }
   }, [searchParams, me?.role]);
 
+  /** 검색 중에는 접수일을 전체(all)로 두어, 당일·이번 달 등에 가려지지 않게 함 */
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q) {
+      if (accessDateFilterBeforeSearchRef.current === null) {
+        accessDateFilterBeforeSearchRef.current = { ...accessDateFilterLiveRef.current };
+      }
+      setDatePreset((p) => (p === 'all' ? p : 'all'));
+    } else {
+      const snap = accessDateFilterBeforeSearchRef.current;
+      if (snap) {
+        accessDateFilterBeforeSearchRef.current = null;
+        setDatePreset(snap.datePreset);
+        setMonthKey(snap.monthKey);
+        setDayKey(snap.dayKey);
+      }
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!editItem) setInquiryEditPreferredCalOpen(false);
+  }, [editItem]);
+
   useEffect(() => {
     if (!token || me?.role !== 'ADMIN') {
       setMarketers([]);
@@ -392,6 +448,7 @@ export function AdminInquiriesPage() {
   const refresh = (showLoading = false) => {
     if (!token) return;
     if (showLoading) setLoading(true);
+    const effectiveDatePreset = searchQuery.trim() ? 'all' : datePreset;
     const params: {
       status?: string;
       search?: string;
@@ -402,9 +459,9 @@ export function AdminInquiriesPage() {
       teamLeaderId?: string;
       scheduleMonth?: string;
       scheduleDay?: string;
-    } = { datePreset };
-    if (datePreset === 'month') params.month = monthKey;
-    if (datePreset === 'day') params.day = dayKey;
+    } = { datePreset: effectiveDatePreset };
+    if (effectiveDatePreset === 'month') params.month = monthKey;
+    if (effectiveDatePreset === 'day') params.day = dayKey;
     if (statusFilter) params.status = statusFilter;
     if (searchQuery.trim()) params.search = searchQuery.trim();
     if (me?.role === 'ADMIN' && marketerFilterId.trim()) {
@@ -437,7 +494,7 @@ export function AdminInquiriesPage() {
 
   useEffect(() => {
     if (!token) return;
-    getTeamLeaders(token).then(setTeamLeaders).catch(() => setTeamLeaders([]));
+    getAssignableScheduleUsers(token).then(setTeamLeaders).catch(() => setTeamLeaders([]));
   }, [token]);
 
   useEffect(() => {
@@ -508,6 +565,8 @@ export function AdminInquiriesPage() {
       amountTotal: a.total != null ? String(a.total) : '',
       amountDeposit: a.deposit != null ? String(a.deposit) : '',
       amountBalance: a.balance != null ? String(a.balance) : '',
+      externalTransferFee:
+        item.externalTransferFee != null ? String(item.externalTransferFee) : '',
     });
   };
 
@@ -638,6 +697,7 @@ export function AdminInquiriesPage() {
         serviceTotalAmount: parseWon(editForm.amountTotal),
         serviceDepositAmount: parseWon(editForm.amountDeposit),
         serviceBalanceAmount: parseWon(editForm.amountBalance),
+        externalTransferFee: parseWon(editForm.externalTransferFee),
       };
       if (editForm.areaPyeong.trim() !== '') {
         patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
@@ -924,7 +984,7 @@ export function AdminInquiriesPage() {
                   htmlFor="inquiry-team-leader-filter"
                   className="text-fluid-sm text-gray-600 shrink-0"
                 >
-                  팀장
+                  팀장·타업체
                 </label>
                 <select
                   id="inquiry-team-leader-filter"
@@ -936,7 +996,7 @@ export function AdminInquiriesPage() {
                   <option value={TEAM_LEADER_FILTER_UNASSIGNED}>미배정</option>
                   {teamLeaders.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name}
+                      {formatAssignableUserLabel(t)}
                     </option>
                   ))}
                 </select>
@@ -946,7 +1006,7 @@ export function AdminInquiriesPage() {
                     onClick={() => setTeamLeaderFilterId('')}
                     className="text-fluid-xs text-gray-600 underline hover:text-gray-900 shrink-0"
                   >
-                    팀장 필터 해제
+                    배정 필터 해제
                   </button>
                 ) : null}
               </div>
@@ -1188,7 +1248,9 @@ export function AdminInquiriesPage() {
                       >
                         <option value="">빠른 배정(1명)</option>
                         {teamLeaders.map((tl) => (
-                          <option key={tl.id} value={tl.id}>{tl.name}</option>
+                          <option key={tl.id} value={tl.id}>
+                            {formatAssignableUserLabel(tl)}
+                          </option>
                         ))}
                       </select>
                     </td>
@@ -1283,6 +1345,14 @@ export function AdminInquiriesPage() {
           await deleteInquiry(token, deleteTarget.id, password);
           refresh(true);
         }}
+      />
+
+      <PreferredDateCalendarModal
+        open={inquiryEditPreferredCalOpen}
+        onClose={() => setInquiryEditPreferredCalOpen(false)}
+        token={token ?? ''}
+        initialYmd={editForm.preferredDate}
+        onSelect={(ymd) => setEditForm((p) => ({ ...p, preferredDate: ymd }))}
       />
 
       {/* 클레임·상세 모달은 body로 포털 (AdminLayout main overflow 등에 잘리지 않도록) */}
@@ -1504,14 +1574,24 @@ export function AdminInquiriesPage() {
               </div>
               <div>
                 <label className="block text-fluid-sm text-gray-600 mb-1">예약일 (청소 희망일)</label>
-                <YmdSelect
-                  value={editForm.preferredDate}
-                  onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
-                  idPrefix="inq-edit-pref"
-                  allowEmpty
-                  emitOnCompleteOnly
-                  className="w-full px-2 py-2 border border-gray-300 rounded bg-white"
-                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-2">
+                  <YmdSelect
+                    value={editForm.preferredDate}
+                    onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
+                    idPrefix="inq-edit-pref"
+                    allowEmpty
+                    emitOnCompleteOnly
+                    className="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded bg-white"
+                  />
+                  <button
+                    type="button"
+                    disabled={!token}
+                    onClick={() => setInquiryEditPreferredCalOpen(true)}
+                    className="shrink-0 px-3 py-2 rounded border border-gray-300 bg-gray-50 text-fluid-sm font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
+                  >
+                    달력·분배 가능일
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-fluid-sm text-gray-600 mb-1">희망 시간대</label>
@@ -1622,8 +1702,19 @@ export function AdminInquiriesPage() {
                   inputMode="numeric"
                 />
               </div>
+              <div>
+                <label className="block text-fluid-sm text-gray-600 mb-1">타업체 넘김 금액 (원)</label>
+                <input
+                  value={editForm.externalTransferFee}
+                  onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  placeholder="정보 넘길 때 받은 금액"
+                  inputMode="numeric"
+                />
+                <p className="text-fluid-xs text-gray-500 mt-1">타업체로 배정할 때 받은 수수료 등. 비우면 미입력.</p>
+              </div>
               <div className="sm:col-span-2 space-y-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
+                <label className="block text-fluid-sm text-gray-600 mb-1">담당 팀장·타업체 (여러 명 가능)</label>
                 {editForm.teamLeaderIds.map((lid, idx) => (
                   <div key={idx} className="flex gap-2 items-center">
                     <select
@@ -1642,7 +1733,7 @@ export function AdminInquiriesPage() {
                       <option value="">선택 안 함</option>
                       {leaderOptionsForRow(idx).map((tl) => (
                         <option key={tl.id} value={tl.id}>
-                          {tl.name}
+                          {formatAssignableUserLabel(tl)}
                         </option>
                       ))}
                     </select>
@@ -1670,7 +1761,7 @@ export function AdminInquiriesPage() {
                     setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
                   }
                 >
-                  + 추가 팀장
+                  + 담당 추가
                 </button>
               </div>
               <div className="sm:col-span-2">

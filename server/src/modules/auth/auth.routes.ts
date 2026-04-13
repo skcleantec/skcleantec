@@ -26,7 +26,9 @@ async function loginWithPassword(req: Request, res: Response) {
     return;
   }
   if (
-    (user.role === 'TEAM_LEADER' || user.role === 'MARKETER') &&
+    (user.role === 'TEAM_LEADER' ||
+      user.role === 'MARKETER' ||
+      user.role === 'EXTERNAL_PARTNER') &&
     !isUserEmployedOnYmd(user.hireDate, user.resignationDate, kstTodayYmd())
   ) {
     res.status(401).json({ error: '입사·퇴사 기간에 해당하지 않는 계정입니다.' });
@@ -35,7 +37,8 @@ async function loginWithPassword(req: Request, res: Response) {
   if (
     user.role !== 'ADMIN' &&
     user.role !== 'MARKETER' &&
-    user.role !== 'TEAM_LEADER'
+    user.role !== 'TEAM_LEADER' &&
+    user.role !== 'EXTERNAL_PARTNER'
   ) {
     res.status(401).json({ error: '로그인할 수 없는 계정입니다.' });
     return;

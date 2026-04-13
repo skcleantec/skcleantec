@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createInquiry, updateInquiry } from '../../api/inquiries';
-import type { UserItem } from '../../api/users';
+import { formatAssignableUserLabel, type UserItem } from '../../api/users';
 import type { ScheduleItem } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { ModalCloseButton } from './ModalCloseButton';
@@ -18,6 +18,7 @@ import { formatPreferredDateInputYmd } from '../../utils/dateFormat';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
+import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
@@ -62,6 +63,8 @@ type EditFormFields = {
   amountTotal: string;
   amountDeposit: string;
   amountBalance: string;
+  /** 타업체 넘김 수수료(원), 빈 문자열 = 미입력 */
+  externalTransferFee: string;
   professionalOptionIds: string[];
 };
 
@@ -92,6 +95,7 @@ function buildPatchFromEditForm(editForm: EditFormFields): Record<string, unknow
     serviceTotalAmount: parseWon(editForm.amountTotal),
     serviceDepositAmount: parseWon(editForm.amountDeposit),
     serviceBalanceAmount: parseWon(editForm.amountBalance),
+    externalTransferFee: parseWon(editForm.externalTransferFee),
     professionalOptionIds: editForm.professionalOptionIds,
   };
   patch.betweenScheduleSlot = isSideCleaningTime(editForm.preferredTime)
@@ -208,6 +212,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
   const [saving, setSaving] = useState(false);
   const [preferredDateLocked, setPreferredDateLocked] = useState(isCreate);
+  const [preferredDateCalOpen, setPreferredDateCalOpen] = useState(false);
 
   const [editForm, setEditForm] = useState(() => {
     if (isCreate) {
@@ -240,6 +245,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         amountTotal: '',
         amountDeposit: '',
         amountBalance: '',
+        externalTransferFee: '',
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
       };
     }
@@ -274,6 +280,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       amountTotal: amt.total != null ? String(amt.total) : '',
       amountDeposit: amt.deposit != null ? String(amt.deposit) : '',
       amountBalance: amt.balance != null ? String(amt.balance) : '',
+      externalTransferFee:
+        it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     };
   });
@@ -305,7 +313,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const otherSelected = new Set(
         editForm.teamLeaderIds.filter((lid, i) => i !== rowIndex && lid.trim() !== '')
       );
-      const base = ids == null ? teamLeaders : teamLeaders.filter((t) => ids.includes(t.id));
+      const base =
+        ids == null
+          ? teamLeaders
+          : teamLeaders.filter((t) => t.role === 'EXTERNAL_PARTNER' || ids.includes(t.id));
       const allowed = base.filter((t) => !otherSelected.has(t.id) || t.id === curId);
       const cur = teamLeaders.find((t) => t.id === curId);
       if (curId && cur && !allowed.some((t) => t.id === curId)) {
@@ -348,6 +359,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       amountTotal: a.total != null ? String(a.total) : '',
       amountDeposit: a.deposit != null ? String(a.deposit) : '',
       amountBalance: a.balance != null ? String(a.balance) : '',
+      externalTransferFee:
+        it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 저장 후 재조회 시 동일 id여도 필드 동기화
@@ -394,7 +407,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     }
   };
 
-  return createPortal(
+  return (
+    <>
+      {createPortal(
     <div
       className="fixed inset-0 z-[500] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
       role="dialog"
@@ -582,17 +597,27 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 </button>
               )}
             </div>
-            <YmdSelect
-              value={editForm.preferredDate}
-              onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
-              readOnly={isCreate && preferredDateLocked}
-              allowEmpty
-              emitOnCompleteOnly
-              idPrefix="sched-detail-pref"
-              className={`w-full px-3 py-2 border border-gray-300 rounded bg-white ${
-                isCreate && preferredDateLocked ? 'opacity-90' : ''
-              }`}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-2">
+              <YmdSelect
+                value={editForm.preferredDate}
+                onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
+                readOnly={isCreate && preferredDateLocked}
+                allowEmpty
+                emitOnCompleteOnly
+                idPrefix="sched-detail-pref"
+                className={`flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded bg-white ${
+                  isCreate && preferredDateLocked ? 'opacity-90' : ''
+                }`}
+              />
+              <button
+                type="button"
+                disabled={isCreate && preferredDateLocked}
+                onClick={() => setPreferredDateCalOpen(true)}
+                className="shrink-0 px-3 py-2 rounded border border-gray-300 bg-gray-50 text-fluid-sm font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
+              >
+                달력·분배 가능일
+              </button>
+            </div>
             {isCreate && preferredDateLocked && (
               <p className="text-xs text-gray-500 mt-1">
                 스케줄에서 선택한 날짜입니다. 바꾸려면 「날짜 변경」을 누르세요.
@@ -724,6 +749,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               inputMode="numeric"
             />
           </div>
+          <div>
+            <label className="block text-gray-600 mb-1">타업체 넘김 금액 (원)</label>
+            <input
+              value={editForm.externalTransferFee}
+              onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded"
+              inputMode="numeric"
+              placeholder="비우면 미입력"
+            />
+            <p className="text-[11px] text-gray-500 mt-1">고객 정보를 타업체에 넘기며 받은 금액</p>
+          </div>
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">전문 시공 옵션</label>
             <div className="space-y-1.5 max-h-44 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
@@ -806,7 +842,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </select>
           </div>
           <div className="sm:col-span-2 space-y-2">
-            <label className="block text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
+            <label className="block text-gray-600 mb-1">담당 팀장·타업체 (여러 명 가능)</label>
             {editForm.teamLeaderIds.map((lid, idx) => (
               <div key={idx} className="flex gap-2 items-center">
                 <select
@@ -824,7 +860,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   <option value="">선택 안 함</option>
                   {leaderOptionsForRow(idx).map((tl) => (
                     <option key={tl.id} value={tl.id}>
-                      {tl.name}
+                      {formatAssignableUserLabel(tl)}
                     </option>
                   ))}
                 </select>
@@ -851,12 +887,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
               }
             >
-              + 추가 팀장
+              + 담당 추가
             </button>
             {assignableLeaderIdsForSlot != null && (
               <p className="text-xs text-gray-500">
-                예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장을 우선 표시합니다. 현재 선택된
-                팀장은 항상 목록에 남습니다.
+                예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장을 우선 표시합니다. 타업체 담당은
+                항상 선택할 수 있습니다. 현재 선택된 담당은 항상 목록에 남습니다.
               </p>
             )}
           </div>
@@ -1002,5 +1038,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       </div>
     </div>,
     document.body
+      )}
+      <PreferredDateCalendarModal
+        open={preferredDateCalOpen}
+        onClose={() => setPreferredDateCalOpen(false)}
+        token={token}
+        initialYmd={editForm.preferredDate}
+        onSelect={(ymd) => setEditForm((p) => ({ ...p, preferredDate: ymd }))}
+      />
+    </>
   );
 }

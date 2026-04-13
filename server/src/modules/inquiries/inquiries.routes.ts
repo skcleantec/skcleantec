@@ -36,6 +36,7 @@ import {
 } from './crewMemberCapacity.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
+import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -95,7 +96,7 @@ const inquiryDetailInclude = {
   createdBy: { select: { id: true, name: true } },
   assignments: {
     orderBy: { sortOrder: 'asc' as const },
-    include: { teamLeader: { select: { id: true, name: true } } },
+    include: { teamLeader: { select: assignmentTeamLeaderSelect } },
   },
   orderForm: {
     select: {
@@ -110,7 +111,13 @@ const inquiryDetailInclude = {
   changeLogs: {
     orderBy: { createdAt: 'desc' as const },
     take: 30,
-    select: { id: true, createdAt: true, lines: true },
+    select: {
+      id: true,
+      createdAt: true,
+      lines: true,
+      actorId: true,
+      actor: { select: { id: true, name: true } },
+    },
   },
 };
 
@@ -218,7 +225,7 @@ router.get('/', async (req, res) => {
     createdBy: { select: { id: true, name: true } },
     assignments: {
       orderBy: { sortOrder: 'asc' as const },
-      include: { teamLeader: { select: { id: true, name: true } } },
+      include: { teamLeader: { select: assignmentTeamLeaderSelect } },
     },
     orderForm: {
       select: {
@@ -232,7 +239,13 @@ router.get('/', async (req, res) => {
     changeLogs: {
       orderBy: { createdAt: 'desc' as const },
       take: 25,
-      select: { id: true, createdAt: true, lines: true },
+      select: {
+        id: true,
+        createdAt: true,
+        lines: true,
+        actorId: true,
+        actor: { select: { id: true, name: true } },
+      },
     },
   } as const;
 
@@ -365,20 +378,37 @@ router.patch('/:id', async (req, res) => {
       return;
     }
     if (teamLeaderIds.length > 0) {
-      const leaders = await prisma.user.findMany({
-        where: { id: { in: teamLeaderIds }, role: 'TEAM_LEADER', isActive: true },
-        select: { id: true, hireDate: true, resignationDate: true },
+      const assignees = await prisma.user.findMany({
+        where: {
+          id: { in: teamLeaderIds },
+          isActive: true,
+          role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER'] },
+        },
+        select: {
+          id: true,
+          role: true,
+          hireDate: true,
+          resignationDate: true,
+          externalCompanyId: true,
+        },
       });
-      if (leaders.length !== teamLeaderIds.length) {
-        res.status(400).json({ error: '유효한 팀장 계정을 찾을 수 없습니다.' });
+      if (assignees.length !== teamLeaderIds.length) {
+        res.status(400).json({ error: '유효한 팀장 또는 타업체 계정을 찾을 수 없습니다.' });
         return;
+      }
+      for (const a of assignees) {
+        if (a.role === 'EXTERNAL_PARTNER' && !a.externalCompanyId) {
+          res.status(400).json({ error: '타업체 계정에 소속 업체가 없습니다. 관리자에게 문의하세요.' });
+          return;
+        }
       }
       const mergedPd =
         data.preferredDate !== undefined
           ? (data.preferredDate as Date | null)
           : inquiry.preferredDate;
       const assignYmd = mergedPd ? dateToYmdKst(new Date(mergedPd)) : kstTodayYmd();
-      for (const l of leaders) {
+      for (const l of assignees) {
+        if (l.role !== 'TEAM_LEADER') continue;
         if (!isUserEmployedOnYmd(l.hireDate, l.resignationDate, assignYmd)) {
           res.status(400).json({
             error: '선택한 팀장 중 해당 예약일에 배정할 수 없는 계정이 있습니다.',
@@ -430,6 +460,7 @@ router.patch('/:id', async (req, res) => {
         preferredDate: mergedPreferredDate,
         crewMemberCount: mergedCrew ?? null,
         excludeInquiryId: id,
+        assigneeUserIdsPreview: wantsTeamSync ? teamLeaderIds : undefined,
       });
       if (!cap.ok) {
         res.status(400).json({ error: cap.error });

@@ -30,6 +30,15 @@ async function getEmployedTeamLeaderIds(): Promise<string[]> {
   return usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd)).map((u) => u.id);
 }
 
+async function getEmployedExternalPartnerIds(): Promise<string[]> {
+  const todayYmd = kstTodayYmd();
+  const usersRaw = await prisma.user.findMany({
+    where: { role: 'EXTERNAL_PARTNER', isActive: true },
+    select: { id: true, hireDate: true, resignationDate: true },
+  });
+  return usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd)).map((u) => u.id);
+}
+
 async function buildConversationList(myUserId: string, partners: PartnerRow[]) {
   if (partners.length === 0) return [];
   const partnerIds = partners.map((p) => p.id);
@@ -80,17 +89,28 @@ router.get('/conversations', async (req, res) => {
 
   if (role === 'ADMIN' || role === 'MARKETER') {
     const usersRaw = await prisma.user.findMany({
-      where: { role: 'TEAM_LEADER', isActive: true },
-      select: { id: true, name: true, role: true, hireDate: true, resignationDate: true },
+      where: { role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER'] }, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        hireDate: true,
+        resignationDate: true,
+        externalCompany: { select: { name: true } },
+      },
     });
     const users = usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd));
-    const partners: PartnerRow[] = users.map((u) => ({ id: u.id, name: u.name, role: u.role }));
+    const partners: PartnerRow[] = users.map((u) => ({
+      id: u.id,
+      name: u.role === 'EXTERNAL_PARTNER' && u.externalCompany?.name ? `${u.name} (${u.externalCompany.name})` : u.name,
+      role: u.role,
+    }));
     const list = await buildConversationList(userId, partners);
     res.json(list);
     return;
   }
 
-  if (role === 'TEAM_LEADER') {
+  if (role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER') {
     const usersRaw = await prisma.user.findMany({
       where: {
         isActive: true,
@@ -119,8 +139,8 @@ router.get('/unread-count', async (req, res) => {
 /** 팀장: 운영(관리자·마케터)과의 통합 대화 (선택 없이 한 화면) */
 router.get('/team-office', async (req, res) => {
   const { userId: myId, role } = (req as unknown as { user: AuthPayload }).user;
-  if (role !== 'TEAM_LEADER') {
-    res.status(403).json({ error: '팀장만 사용할 수 있습니다.' });
+  if (role !== 'TEAM_LEADER' && role !== 'EXTERNAL_PARTNER') {
+    res.status(403).json({ error: '팀장·타업체만 사용할 수 있습니다.' });
     return;
   }
   const staffIds = await getEmployedStaffIds();
@@ -177,8 +197,8 @@ router.get('/team-office', async (req, res) => {
 /** 팀장: 운영 전체(재직 관리자·마케터)에게 동일 내용 전송 — batchId로 묶음 */
 router.post('/team-send', async (req, res) => {
   const { userId, role } = (req as unknown as { user: AuthPayload }).user;
-  if (role !== 'TEAM_LEADER') {
-    res.status(403).json({ error: '팀장만 전송할 수 있습니다.' });
+  if (role !== 'TEAM_LEADER' && role !== 'EXTERNAL_PARTNER') {
+    res.status(403).json({ error: '팀장·타업체만 전송할 수 있습니다.' });
     return;
   }
   const { content } = req.body as { content?: string };
@@ -247,14 +267,16 @@ router.post('/broadcast-to-leaders', async (req, res) => {
     return;
   }
   const leaderIds = await getEmployedTeamLeaderIds();
-  if (leaderIds.length === 0) {
-    res.status(400).json({ error: '수신 가능한 팀장 계정이 없습니다.' });
+  const partnerIds = await getEmployedExternalPartnerIds();
+  const receiverIds = [...new Set([...leaderIds, ...partnerIds])];
+  if (receiverIds.length === 0) {
+    res.status(400).json({ error: '수신 가능한 팀장·타업체 계정이 없습니다.' });
     return;
   }
   const batchId = randomUUID();
   const text = content.trim();
   const created = await prisma.$transaction(
-    leaderIds.map((receiverId) =>
+    receiverIds.map((receiverId) =>
       prisma.message.create({
         data: {
           senderId: userId,
@@ -270,7 +292,7 @@ router.post('/broadcast-to-leaders', async (req, res) => {
     )
   );
   res.status(201).json({ batchId, recipientCount: created.length });
-  notifyInboxRefresh([userId, ...leaderIds]);
+  notifyInboxRefresh([userId, ...receiverIds]);
 });
 
 async function findEmployedUser(otherId: string) {
@@ -287,8 +309,9 @@ async function findEmployedUser(otherId: string) {
 function canMessagePair(myRole: string, otherRole: string): boolean {
   const staff = myRole === 'ADMIN' || myRole === 'MARKETER';
   const otherStaff = otherRole === 'ADMIN' || otherRole === 'MARKETER';
-  if (staff && otherRole === 'TEAM_LEADER') return true;
-  if (myRole === 'TEAM_LEADER' && otherStaff) return true;
+  const fieldRole = (r: string) => r === 'TEAM_LEADER' || r === 'EXTERNAL_PARTNER';
+  if (staff && fieldRole(otherRole)) return true;
+  if (fieldRole(myRole) && otherStaff) return true;
   return false;
 }
 

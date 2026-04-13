@@ -13,7 +13,8 @@ export function teamAuthMiddleware(req: Request, res: Response, next: NextFuncti
   const token = authHeader.slice(7);
   try {
     const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
-    const allowedTeamLeader = payload.role === 'TEAM_LEADER';
+    const allowedTeamLeader =
+      payload.role === 'TEAM_LEADER' || payload.role === 'EXTERNAL_PARTNER';
     const allowedPreviewStaff =
       (payload.role === 'ADMIN' || payload.role === 'MARKETER') &&
       isTeamPreviewAdminEmail(payload.email);

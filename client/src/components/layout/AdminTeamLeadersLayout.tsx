@@ -51,6 +51,12 @@ export function AdminTeamLeadersLayout() {
         <NavLink to="/admin/team-leaders/inquiry-delete" className={tabClass}>
           접수건 삭제
         </NavLink>
+        <NavLink to="/admin/team-leaders/external-companies" className={tabClass}>
+          타업체 등록
+        </NavLink>
+        <NavLink to="/admin/team-leaders/external-settlement" className={tabClass}>
+          타업체 정산
+        </NavLink>
       </nav>
       <Outlet />
     </div>

@@ -19,6 +19,7 @@ import csRoutes from './modules/cs/cs.routes.js';
 import inquiryChangeLogsRoutes from './modules/inquiry-change-logs/inquiryChangeLogs.routes.js';
 import advertisingRoutes from './modules/advertising/advertising.routes.js';
 import teamsRoutes from './modules/teams/teams.routes.js';
+import externalCompaniesRoutes from './modules/external-companies/externalCompanies.routes.js';
 import adminNavBadgesRoutes from './modules/admin/adminNavBadges.routes.js';
 import { prisma } from './lib/prisma.js';
 
@@ -48,6 +49,7 @@ app.use('/api/cs', csRoutes);
 app.use('/api/admin', adminNavBadgesRoutes);
 app.use('/api/inquiry-change-logs', inquiryChangeLogsRoutes);
 app.use('/api/advertising', advertisingRoutes);
+app.use('/api/external-companies', externalCompaniesRoutes);
 app.use('/api/teams', teamsRoutes);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙

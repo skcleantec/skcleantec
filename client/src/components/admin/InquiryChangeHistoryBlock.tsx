@@ -33,8 +33,15 @@ export function InquiryChangeHistoryBlock({
       <ul className="space-y-3 text-sm">
         {entries.map((log) => (
           <li key={log.id} className="border-l-2 border-amber-300 pl-3">
-            <div className="text-[11px] text-amber-800/80 tabular-nums">
-              {formatDateTimeCompactWithWeekday(log.createdAt)}
+            <div className="text-[11px] text-amber-800/80 tabular-nums flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+              <span>{formatDateTimeCompactWithWeekday(log.createdAt)}</span>
+              {log.actor?.name ? (
+                <span className="font-medium text-amber-950">· {log.actor.name}</span>
+              ) : log.actorId ? (
+                <span className="text-amber-700">· (삭제된 계정)</span>
+              ) : (
+                <span className="text-amber-700">· 변경자 미기록</span>
+              )}
             </div>
             <ul className="mt-1 space-y-0.5 text-amber-950">
               {log.lines.map((line, i) => (

@@ -45,7 +45,7 @@ export function LoginPage() {
       const user = data.user as { role?: string; email?: string };
       const role = user?.role;
 
-      if (role === 'TEAM_LEADER') {
+      if (role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER') {
         clearToken();
         setTeamToken(token);
         navigate('/team/dashboard', { replace: true });
@@ -74,7 +74,7 @@ export function LoginPage() {
             SK클린텍 로그인
           </h1>
           <p className="text-sm text-gray-500 text-center mb-4">
-            관리자·마케터·팀장 모두 같은 화면에서 로그인합니다.
+            관리자·마케터·팀장·타업체 담당 모두 같은 화면에서 로그인합니다.
           </p>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

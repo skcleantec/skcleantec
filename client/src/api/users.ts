@@ -13,6 +13,8 @@ export interface UserItem {
   name: string;
   phone: string | null;
   role?: string;
+  externalCompanyId?: string | null;
+  externalCompanyName?: string | null;
   /** yyyy-mm-dd — 입사일(포함) */
   hireDate?: string | null;
   /** yyyy-mm-dd — 퇴사일(미포함) */
@@ -29,9 +31,31 @@ export type GetUsersOptions = {
   employedOn?: string;
 };
 
+export function formatAssignableUserLabel(u: UserItem): string {
+  if (u.role === 'EXTERNAL_PARTNER') {
+    return u.externalCompanyName
+      ? `[타업체] ${u.externalCompanyName} (${u.name})`
+      : `[타업체] ${u.name}`;
+  }
+  return u.name;
+}
+
+/** 스케줄·접수 분배 드롭다운: 팀장 + 타업체 담당 */
+export async function getAssignableScheduleUsers(
+  token: string,
+  employedOn?: string
+): Promise<UserItem[]> {
+  const [leaders, partners] = await Promise.all([
+    getUsers(token, 'TEAM_LEADER', employedOn ? { employedOn } : undefined),
+    getUsers(token, 'EXTERNAL_PARTNER', employedOn ? { employedOn } : undefined),
+  ]);
+  const byName = (a: UserItem, b: UserItem) => a.name.localeCompare(b.name, 'ko');
+  return [...leaders.sort(byName), ...partners.sort(byName)];
+}
+
 export async function getUsers(
   token: string,
-  role: 'TEAM_LEADER' | 'MARKETER' = 'TEAM_LEADER',
+  role: 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER' = 'TEAM_LEADER',
   opts?: GetUsersOptions
 ): Promise<UserItem[]> {
   const params = new URLSearchParams({ role });

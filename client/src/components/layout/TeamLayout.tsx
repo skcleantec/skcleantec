@@ -11,6 +11,7 @@ export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
   const [userName, setUserName] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
 
@@ -18,8 +19,14 @@ export function TeamLayout() {
     const token = getTeamToken();
     if (!token) return;
     getMe(token)
-      .then((u) => setUserName(u.name))
-      .catch(() => setUserName(null));
+      .then((u: { name?: string; role?: string }) => {
+        setUserName(u.name ?? null);
+        setUserRole(u.role ?? null);
+      })
+      .catch(() => {
+        setUserName(null);
+        setUserRole(null);
+      });
   }, []);
 
   const fetchTeamBadges = useCallback(() => {
@@ -66,6 +73,8 @@ export function TeamLayout() {
       isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
     }`;
 
+  const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER';
+
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
@@ -75,7 +84,9 @@ export function TeamLayout() {
             <nav className="hidden sm:flex flex-wrap gap-1">
               <NavLink to="/team/dashboard" className={navClass}>대시보드</NavLink>
               <NavLink to="/team/schedule" className={navClass}>스케줄</NavLink>
-              <NavLink to="/team/dayoffs" className={navClass}>휴무일</NavLink>
+              {!hideTeamDayoffs && (
+                <NavLink to="/team/dayoffs" className={navClass}>휴무일</NavLink>
+              )}
               <NavLink to="/team/cs" className={navClass}>
                 C/S
                 {csPendingCount > 0 && (
@@ -120,9 +131,11 @@ export function TeamLayout() {
           <NavLink to="/team/schedule" className={mobileTabClass}>
             스케줄
           </NavLink>
-          <NavLink to="/team/dayoffs" className={mobileTabClass}>
-            휴무일
-          </NavLink>
+          {!hideTeamDayoffs && (
+            <NavLink to="/team/dayoffs" className={mobileTabClass}>
+              휴무일
+            </NavLink>
+          )}
           <NavLink to="/team/cs" className={mobileTabClass}>
             <span>C/S</span>
             {csPendingCount > 0 && (

@@ -164,7 +164,8 @@ export function YmdSelect({
   let m: number | null = parsed?.m ?? null;
   let d: number | null = parsed?.d ?? null;
 
-  if (deferred && !parsed && draft) {
+  // deferred 모드에서 기존 value가 있어도 연·월 변경 시 draft가 보이도록 함
+  if (deferred && draft != null) {
     y = draft.y;
     m = draft.m;
     d = draft.d;

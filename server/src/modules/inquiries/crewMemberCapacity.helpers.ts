@@ -129,7 +129,23 @@ export async function countAvailableFieldStaffOnDate(prisma: PrismaClient, ymd: 
   return n;
 }
 
-/** 해당일 예약(취소 제외) 투입 인원 합 */
+/** 배정이 전부 타업체(EXTERNAL_PARTNER)면 자사 팀원 용량에서 제외 */
+async function inquiryUsesInternalCrew(
+  prisma: PrismaClient | { inquiry: PrismaClient['inquiry']; user: PrismaClient['user'] },
+  inquiryId: string
+): Promise<boolean> {
+  const asg = await prisma.inquiry.findUnique({
+    where: { id: inquiryId },
+    select: {
+      assignments: { select: { teamLeader: { select: { role: true } } } },
+    },
+  });
+  const assigns = asg?.assignments ?? [];
+  if (assigns.length === 0) return true;
+  return assigns.some((a) => a.teamLeader.role === 'TEAM_LEADER');
+}
+
+/** 해당일 예약(취소 제외) 투입 인원 합 — 타업체 전배 건은 제외 */
 export async function sumCrewDemandForPreferredDate(
   prisma: PrismaClient | { inquiry: PrismaClient['inquiry'] },
   ymd: string,
@@ -142,9 +158,14 @@ export async function sumCrewDemandForPreferredDate(
       status: { not: 'CANCELLED' },
       ...(excludeInquiryId ? { id: { not: excludeInquiryId } } : {}),
     },
-    select: { crewMemberCount: true },
+    select: { id: true, crewMemberCount: true },
   });
-  return rows.reduce((sum, r) => sum + crewUnitsForInquiry(r.crewMemberCount), 0);
+  let sum = 0;
+  for (const r of rows) {
+    if (!(await inquiryUsesInternalCrew(prisma as PrismaClient, r.id))) continue;
+    sum += crewUnitsForInquiry(r.crewMemberCount);
+  }
+  return sum;
 }
 
 export async function assertCrewCapacityForInquiry(params: {
@@ -152,8 +173,10 @@ export async function assertCrewCapacityForInquiry(params: {
   preferredDate: Date | null;
   crewMemberCount: number | null;
   excludeInquiryId?: string;
+  /** 분배 저장 직전: 이 배열로 타업체 전배 여부 판단(DB 미반영 시) */
+  assigneeUserIdsPreview?: string[];
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { prisma, preferredDate, crewMemberCount, excludeInquiryId } = params;
+  const { prisma, preferredDate, crewMemberCount, excludeInquiryId, assigneeUserIdsPreview } = params;
   if (!preferredDate) return { ok: true };
 
   const ymd = ymdKst(preferredDate);
@@ -162,7 +185,23 @@ export async function assertCrewCapacityForInquiry(params: {
 
   const available = await countAvailableFieldStaffOnDate(prisma, ymd);
   const demandExcluding = await sumCrewDemandForPreferredDate(prisma, ymd, excludeInquiryId);
-  const thisUnits = crewUnitsForInquiry(crewMemberCount);
+
+  let previewUsesInternalCrew = true;
+  if (assigneeUserIdsPreview !== undefined) {
+    if (assigneeUserIdsPreview.length === 0) {
+      previewUsesInternalCrew = true;
+    } else {
+      const users = await prisma.user.findMany({
+        where: { id: { in: assigneeUserIdsPreview } },
+        select: { role: true },
+      });
+      previewUsesInternalCrew = users.some((u) => u.role === 'TEAM_LEADER');
+    }
+  } else if (excludeInquiryId) {
+    previewUsesInternalCrew = await inquiryUsesInternalCrew(prisma, excludeInquiryId);
+  }
+
+  const thisUnits = previewUsesInternalCrew ? crewUnitsForInquiry(crewMemberCount) : 0;
   const totalAfter = demandExcluding + thisUnits;
 
   if (totalAfter > available) {

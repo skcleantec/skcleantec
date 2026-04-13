@@ -58,7 +58,7 @@ export function AdminDashboardPage() {
 
       <TelemarketingSessionBlock />
 
-      {/* 접수 통계 */}
+      {/* 접수 통계 — 접수 목록으로 이동 시 `datePreset`/`month`/`status` 전달. 검색어 입력 시 목록은 자동으로 접수일「전체」로 넓혀짐(AdminInquiriesPage). */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="오늘 접수"

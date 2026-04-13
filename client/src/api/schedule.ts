@@ -10,6 +10,9 @@ export interface InquiryChangeLogEntry {
   id: string;
   createdAt: string;
   lines: unknown;
+  actorId?: string | null;
+  /** PATCH 저장 시 로그인한 관리자·마케터 */
+  actor?: { id: string; name: string } | null;
 }
 
 export interface ScheduleItem {
@@ -52,6 +55,8 @@ export interface ScheduleItem {
   crewMemberCount?: number | null;
   /** 팀원 수기(예: 김,태) */
   crewMemberNote?: string | null;
+  /** 타업체 넘김 시 받은 금액(원) */
+  externalTransferFee?: number | null;
   orderForm?: {
     id: string;
     totalAmount: number;
@@ -59,7 +64,14 @@ export interface ScheduleItem {
     balanceAmount: number;
     createdBy?: { id: string; name: string };
   } | null;
-  assignments: Array<{ teamLeader: { id: string; name: string } }>;
+  assignments: Array<{
+    teamLeader: {
+      id: string;
+      name: string;
+      role?: string;
+      externalCompany?: { id: string; name: string } | null;
+    };
+  }>;
   changeLogs?: InquiryChangeLogEntry[];
 }
 

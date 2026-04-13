@@ -26,6 +26,8 @@ import { AdminTeamsPage } from './pages/admin/AdminTeamsPage';
 import { AdminTeamsLayout } from './components/layout/AdminTeamsLayout';
 import { AdminTeamHolidayCalendarPage } from './pages/admin/AdminTeamHolidayCalendarPage';
 import { AdminTeamLeaderStatsPage } from './pages/admin/AdminTeamLeaderStatsPage';
+import { AdminExternalCompaniesPage } from './pages/admin/AdminExternalCompaniesPage';
+import { AdminExternalSettlementPage } from './pages/admin/AdminExternalSettlementPage';
 
 function App() {
   return (
@@ -49,6 +51,8 @@ function App() {
           <Route path="team-leaders" element={<AdminTeamLeadersLayout />}>
             <Route index element={<AdminTeamLeadersPage />} />
             <Route path="inquiry-delete" element={<AdminInquiryBulkDeletePage />} />
+            <Route path="external-companies" element={<AdminExternalCompaniesPage />} />
+            <Route path="external-settlement" element={<AdminExternalSettlementPage />} />
           </Route>
           <Route path="teams" element={<AdminTeamsLayout />}>
             <Route index element={<AdminTeamsPage />} />

@@ -4,6 +4,7 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
+import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 
 function canMarketerActOnInquiry(
   inquiry: { createdById: string | null; orderForm: { createdById: string } | null },
@@ -38,8 +39,12 @@ router.post('/', async (req, res) => {
       include: { orderForm: { select: { createdById: true } } },
     }),
     prisma.user.findUnique({
-      where: { id: teamLeaderId, role: 'TEAM_LEADER', isActive: true },
-      select: { id: true, hireDate: true, resignationDate: true },
+      where: {
+        id: teamLeaderId,
+        isActive: true,
+        role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER'] },
+      },
+      select: { id: true, role: true, hireDate: true, resignationDate: true, externalCompanyId: true },
     }),
   ]);
 
@@ -52,15 +57,21 @@ router.post('/', async (req, res) => {
     return;
   }
   if (!teamLeader) {
-    res.status(404).json({ error: '팀장을 찾을 수 없습니다.' });
+    res.status(404).json({ error: '팀장·타업체 계정을 찾을 수 없습니다.' });
+    return;
+  }
+  if (teamLeader.role === 'EXTERNAL_PARTNER' && !teamLeader.externalCompanyId) {
+    res.status(400).json({ error: '타업체 계정에 소속 업체가 없습니다.' });
     return;
   }
   const assignYmd = inquiry.preferredDate
     ? dateToYmdKst(new Date(inquiry.preferredDate))
     : kstTodayYmd();
-  if (!isUserEmployedOnYmd(teamLeader.hireDate, teamLeader.resignationDate, assignYmd)) {
-    res.status(400).json({ error: '해당 예약일에 배정할 수 없는 팀장 계정입니다.' });
-    return;
+  if (teamLeader.role === 'TEAM_LEADER') {
+    if (!isUserEmployedOnYmd(teamLeader.hireDate, teamLeader.resignationDate, assignYmd)) {
+      res.status(400).json({ error: '해당 예약일에 배정할 수 없는 팀장 계정입니다.' });
+      return;
+    }
   }
 
   if (inquiry.status === 'PENDING') {
@@ -88,7 +99,7 @@ router.post('/', async (req, res) => {
     where: { inquiryId },
     orderBy: { sortOrder: 'asc' },
     include: {
-      teamLeader: { select: { id: true, name: true } },
+      teamLeader: { select: assignmentTeamLeaderSelect },
     },
   });
 

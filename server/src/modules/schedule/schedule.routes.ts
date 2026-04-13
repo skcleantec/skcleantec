@@ -5,6 +5,7 @@ import { adminOrMarketer } from '../auth/auth.middleware.js';
 import { resolveLeaderMorningAfternoon, resolveMemberAvailable } from './scheduleDayAvailability.helpers.js';
 import { countAvailableFieldStaffOnDate } from '../inquiries/crewMemberCapacity.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
+import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 
 const router = Router();
 
@@ -45,7 +46,7 @@ router.get('/', async (req, res) => {
     include: {
       assignments: {
         orderBy: { sortOrder: 'asc' },
-        include: { teamLeader: { select: { id: true, name: true } } },
+        include: { teamLeader: { select: assignmentTeamLeaderSelect } },
       },
       orderForm: {
         select: {
@@ -59,7 +60,13 @@ router.get('/', async (req, res) => {
       changeLogs: {
         orderBy: { createdAt: 'desc' as const },
         take: 30,
-        select: { id: true, createdAt: true, lines: true },
+        select: {
+          id: true,
+          createdAt: true,
+          lines: true,
+          actorId: true,
+          actor: { select: { id: true, name: true } },
+        },
       },
     },
   });
