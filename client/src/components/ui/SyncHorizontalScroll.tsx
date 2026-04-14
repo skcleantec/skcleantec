@@ -70,6 +70,18 @@ function dockVisibilityClasses(dockUntil: DockUntil): { dockHidden: string; scro
   }
 }
 
+function dockReserveSpaceClass(dockUntil: DockUntil): string {
+  switch (dockUntil) {
+    case 'lg':
+      return 'pb-14 lg:pb-0';
+    case 'xl':
+      return 'pb-14 xl:pb-0';
+    case 'md':
+    default:
+      return 'pb-14 md:pb-0';
+  }
+}
+
 type Props = {
   children: ReactNode;
   /** 바깥 래퍼 */
@@ -100,6 +112,7 @@ export function SyncHorizontalScroll({
   const [tableInView, setTableInView] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { dockHidden, scrollbar } = dockVisibilityClasses(dockUntil);
+  const dockReserveClass = dockReserveSpaceClass(dockUntil);
 
   useEffect(() => setMounted(true), []);
 
@@ -165,7 +178,7 @@ export function SyncHorizontalScroll({
   }, [showDock, spacerW]);
 
   return (
-    <div className={className}>
+    <div className={`${className ?? ''} ${showDock ? dockReserveClass : ''}`}>
       {showDock &&
         createPortal(
           <div
