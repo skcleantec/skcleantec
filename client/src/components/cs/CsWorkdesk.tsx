@@ -56,6 +56,18 @@ function assigneeListLabel(item: CsReport): string {
   return formatTeamLeaderLabel(item.inquiry);
 }
 
+function firstAssigneeLabel(item: CsReport): string {
+  if (!item.inquiry) return '—';
+  const first = item.inquiry.assignments[0]?.teamLeader as
+    | { name: string; role?: string; externalCompany?: { name: string } | null }
+    | undefined;
+  if (!first) return '미배정';
+  if (first.role === 'EXTERNAL_PARTNER') {
+    return first.externalCompany?.name ? `[타업체] ${first.externalCompany.name}` : `[타업체] ${first.name}`;
+  }
+  return first.name;
+}
+
 function processorNameLabel(item: CsReport): string {
   const n = item.completedBy?.name?.trim();
   return n || '—';
@@ -355,6 +367,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                     연락처
                   </th>
                   <th className={`text-center font-medium text-gray-700 ${thPad}`}>담당</th>
+                  <th className={`text-center font-medium text-gray-700 ${thPad}`}>최초 배정</th>
                   <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
                     만족
                   </th>
@@ -370,6 +383,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               <tbody>
                 {displayItems.map((item) => {
                   const assignee = assigneeListLabel(item);
+                  const firstAssignee = firstAssigneeLabel(item);
                   const processor = processorNameLabel(item);
                   return (
                     <tr
@@ -420,6 +434,12 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                         title={assignee}
                       >
                         {assignee}
+                      </td>
+                      <td
+                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate`}
+                        title={firstAssignee}
+                      >
+                        {firstAssignee}
                       </td>
                       <td className={tdPad}>
                         <span

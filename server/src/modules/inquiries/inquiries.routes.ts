@@ -321,7 +321,22 @@ router.patch('/:id', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const inquiry = await prisma.inquiry.findUnique({
     where: { id },
-    include: { orderForm: { select: { createdById: true } } },
+    include: {
+      orderForm: { select: { createdById: true } },
+      assignments: {
+        orderBy: { sortOrder: 'asc' },
+        include: {
+          teamLeader: {
+            select: {
+              id: true,
+              name: true,
+              role: true,
+              externalCompany: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
   });
   if (!inquiry) {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
@@ -334,6 +349,13 @@ router.patch('/:id', async (req, res) => {
 
   const data = buildInquiryPatchData(body);
 
+  let assigneesForLog: Array<{
+    id: string;
+    role: string;
+    name: string;
+    externalCompanyId: string | null;
+    externalCompany: { name: string } | null;
+  }> = [];
   if (wantsTeamSync) {
     if (teamLeaderIds.length > 0 && inquiry.status === 'PENDING') {
       res.status(400).json({
@@ -352,9 +374,11 @@ router.patch('/:id', async (req, res) => {
         select: {
           id: true,
           role: true,
+          name: true,
           hireDate: true,
           resignationDate: true,
           externalCompanyId: true,
+          externalCompany: { select: { name: true } },
         },
       });
       if (assignees.length !== teamLeaderIds.length) {
@@ -381,6 +405,7 @@ router.patch('/:id', async (req, res) => {
           return;
         }
       }
+      assigneesForLog = assignees;
     }
   }
 
@@ -478,6 +503,83 @@ router.patch('/:id', async (req, res) => {
   }
   if (fmtBetween(inquiry.betweenScheduleSlot) !== fmtBetween(mergedBetween)) {
     lines.push(`사이청소 일정 확정: ${fmtBetween(inquiry.betweenScheduleSlot)} → ${fmtBetween(mergedBetween)}`);
+  }
+  const fmtText = (v: unknown) => (v == null || v === '' ? '(없음)' : String(v));
+  const fmtNum = (v: unknown) => (v == null || v === '' ? '(없음)' : String(v));
+  const fmtStatus = (v: unknown) => {
+    const m: Record<string, string> = {
+      PENDING: '대기',
+      RECEIVED: '접수',
+      ASSIGNED: '분배완료',
+      IN_PROGRESS: '진행중',
+      COMPLETED: '완료',
+      CANCELLED: '취소',
+      CS_PROCESSING: 'C/S 처리중',
+    };
+    if (v == null || v === '') return '(없음)';
+    const s = String(v);
+    return m[s] ?? s;
+  };
+  const fmtDate = (v: unknown) => {
+    if (!v) return '(없음)';
+    const d = v instanceof Date ? v : new Date(String(v));
+    if (Number.isNaN(d.getTime())) return '(없음)';
+    return d.toISOString().slice(0, 10);
+  };
+  const pushIfChanged = (label: string, before: unknown, after: unknown, fmt = fmtText) => {
+    if (before === after) return;
+    if (String(before ?? '') === String(after ?? '')) return;
+    lines.push(`${label}: ${fmt(before)} → ${fmt(after)}`);
+  };
+
+  if (data.customerName !== undefined) pushIfChanged('고객명', inquiry.customerName, data.customerName);
+  if (data.customerPhone !== undefined) pushIfChanged('연락처', inquiry.customerPhone, data.customerPhone);
+  if (data.customerPhone2 !== undefined) pushIfChanged('보조 연락처', inquiry.customerPhone2, data.customerPhone2);
+  if (data.address !== undefined) pushIfChanged('주소', inquiry.address, data.address);
+  if (data.addressDetail !== undefined) pushIfChanged('상세주소', inquiry.addressDetail, data.addressDetail);
+  if (data.areaPyeong !== undefined) pushIfChanged('평수', inquiry.areaPyeong, data.areaPyeong, fmtNum);
+  if (data.areaBasis !== undefined) pushIfChanged('평수 기준', inquiry.areaBasis, data.areaBasis);
+  if (data.propertyType !== undefined) pushIfChanged('건물 유형', inquiry.propertyType, data.propertyType);
+  if (data.roomCount !== undefined) pushIfChanged('방', inquiry.roomCount, data.roomCount, fmtNum);
+  if (data.bathroomCount !== undefined) pushIfChanged('화장실', inquiry.bathroomCount, data.bathroomCount, fmtNum);
+  if (data.balconyCount !== undefined) pushIfChanged('베란다', inquiry.balconyCount, data.balconyCount, fmtNum);
+  if (data.kitchenCount !== undefined) pushIfChanged('주방', inquiry.kitchenCount, data.kitchenCount, fmtNum);
+  if (data.preferredTime !== undefined) pushIfChanged('희망 시간대', inquiry.preferredTime, data.preferredTime);
+  if (data.preferredTimeDetail !== undefined)
+    pushIfChanged('희망 시간 상세', inquiry.preferredTimeDetail, data.preferredTimeDetail);
+  if (data.buildingType !== undefined) pushIfChanged('건물 구분', inquiry.buildingType, data.buildingType);
+  if (data.moveInDate !== undefined) pushIfChanged('이사일', inquiry.moveInDate, data.moveInDate, fmtDate);
+  if (data.specialNotes !== undefined) pushIfChanged('특이사항', inquiry.specialNotes, data.specialNotes);
+  if (data.memo !== undefined) pushIfChanged('메모', inquiry.memo, data.memo);
+  if (data.scheduleMemo !== undefined) pushIfChanged('일정 메모', inquiry.scheduleMemo, data.scheduleMemo);
+  if (data.claimMemo !== undefined) pushIfChanged('클레임 메모', inquiry.claimMemo, data.claimMemo);
+  if (data.status !== undefined) pushIfChanged('상태', inquiry.status, data.status, fmtStatus);
+  if (data.crewMemberCount !== undefined)
+    pushIfChanged('팀원 인원', inquiry.crewMemberCount, data.crewMemberCount, fmtNum);
+  if (data.crewMemberNote !== undefined) pushIfChanged('팀원 메모', inquiry.crewMemberNote, data.crewMemberNote);
+  if (data.externalTransferFee !== undefined)
+    pushIfChanged('타업체 넘김 수수료', inquiry.externalTransferFee, data.externalTransferFee, fmtNum);
+  if (data.professionalOptionIds !== undefined) {
+    const before = Array.isArray(inquiry.professionalOptionIds) ? inquiry.professionalOptionIds : [];
+    const after = Array.isArray(data.professionalOptionIds) ? data.professionalOptionIds : [];
+    const beforeTxt = before.length > 0 ? before.join(', ') : '(없음)';
+    const afterTxt = after.length > 0 ? after.join(', ') : '(없음)';
+    if (beforeTxt !== afterTxt) lines.push(`전문 작업 옵션: ${beforeTxt} → ${afterTxt}`);
+  }
+  if (wantsTeamSync) {
+    const toLeaderLabel = (u: { name: string; role: string; externalCompany: { name: string } | null }) =>
+      u.role === 'EXTERNAL_PARTNER'
+        ? `[타업체] ${u.externalCompany?.name ?? u.name}`
+        : u.name;
+    const beforeTeam = inquiry.assignments.map((a) => toLeaderLabel(a.teamLeader));
+    const assigneeMap = new Map(assigneesForLog.map((u) => [u.id, u] as const));
+    const afterTeam = teamLeaderIds
+      .map((id) => assigneeMap.get(id))
+      .filter((u): u is NonNullable<typeof u> => Boolean(u))
+      .map((u) => toLeaderLabel(u));
+    const beforeTxt = beforeTeam.length > 0 ? beforeTeam.join(' · ') : '미배정';
+    const afterTxt = afterTeam.length > 0 ? afterTeam.join(' · ') : '미배정';
+    if (beforeTxt !== afterTxt) lines.push(`팀장 배정: ${beforeTxt} → ${afterTxt}`);
   }
 
   try {
