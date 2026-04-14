@@ -98,18 +98,19 @@ export function AdminLayout() {
   const fabStorageKey = 'admin_schedule_fab_pos_v1';
   const [celebration, setCelebration] = useState<InquiryCelebratePayload | null>(null);
   const [celebrationOpen, setCelebrationOpen] = useState(false);
-  const celebTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const celebAnimRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const closeCelebrateStrip = useCallback(() => {
+    setCelebrationOpen(false);
+    if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
+    celebAnimRef.current = setTimeout(() => setCelebration(null), 360);
+  }, []);
 
   const openCelebrateStrip = useCallback((p: InquiryCelebratePayload) => {
     setCelebration(p);
     setCelebrationOpen(true);
-    if (celebTimerRef.current) clearTimeout(celebTimerRef.current);
     if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
-    celebTimerRef.current = setTimeout(() => {
-      setCelebrationOpen(false);
-      celebAnimRef.current = setTimeout(() => setCelebration(null), 360);
-    }, 9000);
+    celebAnimRef.current = null;
   }, []);
 
   useInquiryCelebrateRealtime(
@@ -119,7 +120,7 @@ export function AdminLayout() {
   );
 
   useEffect(() => {
-    if (meRole !== 'ADMIN') return;
+    if (meRole !== 'ADMIN' && meRole !== 'MARKETER') return;
     const onTestCelebrate = () => {
       openCelebrateStrip({
         type: 'inquiry:celebrate',
@@ -371,25 +372,21 @@ export function AdminLayout() {
             <div
               role="status"
               aria-live="polite"
-              className="flex flex-col items-stretch gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-4 sm:py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white border-b border-amber-700/30"
+              className="relative flex items-center justify-center px-10 py-2.5 sm:px-12 sm:py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white border-b border-amber-700/30"
             >
-              <p className="flex-1 min-w-0 text-center text-sm sm:text-[0.9375rem] font-medium leading-snug sm:text-left [text-wrap:pretty]">
+              <p className="text-center text-sm sm:text-[0.9375rem] font-medium leading-snug max-w-4xl [text-wrap:pretty]">
                 {formatCelebrateBanner(celebration)}
               </p>
-              <div className="flex justify-center sm:justify-end sm:shrink-0">
-                <button
-                  type="button"
-                  className="rounded-md px-3 py-1.5 text-sm font-medium text-white/95 hover:bg-white/15 hover:text-white"
-                  onClick={() => {
-                    setCelebrationOpen(false);
-                    if (celebTimerRef.current) clearTimeout(celebTimerRef.current);
-                    if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
-                    celebAnimRef.current = setTimeout(() => setCelebration(null), 360);
-                  }}
-                >
-                  닫기
-                </button>
-              </div>
+              <button
+                type="button"
+                aria-label={'닫기'}
+                onClick={closeCelebrateStrip}
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                  <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
