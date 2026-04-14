@@ -109,7 +109,7 @@ export function AdminLayout() {
       if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
       celebTimerRef.current = setTimeout(() => {
         setCelebrationOpen(false);
-        celebAnimRef.current = setTimeout(() => setCelebration(null), 380);
+        celebAnimRef.current = setTimeout(() => setCelebration(null), 360);
       }, 9000);
     },
     Boolean(adminToken && (meRole === 'ADMIN' || meRole === 'MARKETER'))
@@ -343,32 +343,36 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
-      {celebration && (
+      {celebration != null && (
         <div
-          className={`fixed inset-x-0 top-0 z-[140] flex justify-center px-3 pt-2 pointer-events-none transition-transform duration-300 ease-out ${
-            celebrationOpen ? 'translate-y-0' : '-translate-y-[120%]'
-          }`}
+          className="grid shrink-0 transition-[grid-template-rows] duration-300 ease-out"
+          style={{ gridTemplateRows: celebrationOpen ? '1fr' : '0fr' }}
+          aria-hidden={!celebrationOpen}
         >
-          <div
-            className="pointer-events-auto max-w-lg w-full rounded-b-xl border border-amber-400/90 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 px-4 py-3 shadow-xl text-center"
-            role="status"
-            aria-live="polite"
-          >
-            <p className="text-sm sm:text-base font-semibold text-amber-950 leading-snug [text-wrap:pretty]">
-              {formatCelebrateBanner(celebration)}
-            </p>
-            <button
-              type="button"
-              className="mt-2 text-xs font-medium text-amber-900/85 hover:text-amber-950 underline-offset-2 hover:underline"
-              onClick={() => {
-                setCelebrationOpen(false);
-                if (celebTimerRef.current) clearTimeout(celebTimerRef.current);
-                if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
-                celebAnimRef.current = setTimeout(() => setCelebration(null), 320);
-              }}
+          <div className="min-h-0 overflow-hidden">
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex flex-col items-stretch gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-4 sm:py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white border-b border-amber-700/30"
             >
-              닫기
-            </button>
+              <p className="flex-1 min-w-0 text-center text-sm sm:text-[0.9375rem] font-medium leading-snug sm:text-left [text-wrap:pretty]">
+                {formatCelebrateBanner(celebration)}
+              </p>
+              <div className="flex justify-center sm:justify-end sm:shrink-0">
+                <button
+                  type="button"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-white/95 hover:bg-white/15 hover:text-white"
+                  onClick={() => {
+                    setCelebrationOpen(false);
+                    if (celebTimerRef.current) clearTimeout(celebTimerRef.current);
+                    if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
+                    celebAnimRef.current = setTimeout(() => setCelebration(null), 360);
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
