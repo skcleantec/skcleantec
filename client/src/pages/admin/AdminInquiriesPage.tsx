@@ -839,7 +839,7 @@ export function AdminInquiriesPage() {
             )}
           </div>
           <div className="border border-gray-200 rounded-lg bg-gray-50 px-3 py-2.5">
-            <p className="text-fluid-xs text-gray-500 mb-2 flex items-center gap-2">
+            <div className="text-fluid-xs text-gray-500 mb-2 flex items-center gap-2">
               마케터별 접수
               {marketerOverview && (
                 <>
@@ -851,7 +851,7 @@ export function AdminInquiriesPage() {
                 text="행을 누르면 해당 마케터로 접수자 필터가 적용됩니다."
                 className="shrink-0"
               />
-            </p>
+            </div>
             {marketerOverviewLoading ? (
               <p className="text-fluid-sm text-gray-500">집계를 불러오는 중...</p>
             ) : marketerOverviewError ? (
