@@ -148,6 +148,7 @@ export function AdminMessagesPage() {
   };
 
   const selected = conversations.find((c) => c.id === selectedId);
+  const mobileChatFocused = Boolean(selectedId);
 
   if (loading) {
     return (
@@ -157,9 +158,15 @@ export function AdminMessagesPage() {
 
   return (
     <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full overflow-hidden">
-      <h1 className="text-xl font-semibold text-gray-800 shrink-0">메시지</h1>
+      <h1 className={`text-xl font-semibold text-gray-800 shrink-0 ${mobileChatFocused ? 'max-md:hidden' : ''}`}>
+        메시지
+      </h1>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shrink-0">
+      <div
+        className={`bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shrink-0 ${
+          mobileChatFocused ? 'max-md:hidden' : ''
+        }`}
+      >
         <h2 className="text-sm font-semibold text-gray-900 mb-2">전체 팀장에게 공지</h2>
         <form onSubmit={handleBroadcast} className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <textarea
@@ -186,9 +193,15 @@ export function AdminMessagesPage() {
       </div>
 
       {/* 팀장 목록·채팅: 모바일은 목록 전체 → 선택 시 카드 안에서 채팅만 슬라이드 / md+ 는 좁은 열+채팅 */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden relative flex flex-col md:flex-row flex-1 min-h-0 min-w-0">
+      <div
+        className={`bg-white border border-gray-200 rounded-lg overflow-hidden relative flex flex-col md:flex-row flex-1 min-h-0 min-w-0 ${
+          mobileChatFocused ? 'max-md:rounded-none max-md:border-0 max-md:-mx-4 max-md:h-full' : ''
+        }`}
+      >
         <div
-          className="flex w-full flex-col min-h-0 border-b border-gray-200 max-md:relative max-md:z-0 max-md:flex-1 max-md:min-h-0 md:flex md:w-[3.75rem] md:shrink-0 md:self-stretch md:border-b-0 md:border-r"
+          className={`flex w-full flex-col min-h-0 border-b border-gray-200 max-md:relative max-md:z-0 max-md:flex-1 max-md:min-h-0 md:flex md:w-[3.75rem] md:shrink-0 md:self-stretch md:border-b-0 md:border-r ${
+            mobileChatFocused ? 'max-md:hidden' : ''
+          }`}
         >
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
             {conversations.length === 0 ? (

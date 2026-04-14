@@ -512,7 +512,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </p>
               ) : null}
             </div>
-            <div className="p-4 space-y-3">
+            <div className="p-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-4 space-y-3">
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                 <div>
                   <span className="text-gray-500 text-sm">처리 상태</span>
