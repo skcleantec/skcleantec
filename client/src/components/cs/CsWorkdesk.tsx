@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { getCsReports, updateCsReport, deleteCsReport, type CsReport } from '../../api/cs';
 import { getMe } from '../../api/auth';
 import { getTeamCsReports, patchTeamCsReport } from '../../api/team';
@@ -125,19 +127,52 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   const [adminViewer, setAdminViewer] = useState(false);
   const [csDeleteTarget, setCsDeleteTarget] = useState<CsReport | null>(null);
 
-  const refresh = () => {
-    if (!token) return;
-    setLoading(true);
-    const req = mode === 'admin' ? getCsReports(token) : getTeamCsReports(token);
-    req
-      .then((r) => setItems(r.items))
-      .catch((e) => setError(e instanceof Error ? e.message : '목록을 불러올 수 없습니다.'))
-      .finally(() => setLoading(false));
-  };
+  const fetchList = useCallback(
+    (opts?: { withLoading?: boolean }) => {
+      if (!token) return;
+      const withLoading = opts?.withLoading ?? false;
+      if (withLoading) setLoading(true);
+      const req = mode === 'admin' ? getCsReports(token) : getTeamCsReports(token);
+      req
+        .then((r) => {
+          setItems(r.items);
+          if (withLoading) {
+            setSelected((sel) => {
+              if (!sel) return null;
+              const next = r.items.find((i) => i.id === sel.id);
+              return next ?? null;
+            });
+            setError(null);
+          } else {
+            setSelected((sel) => {
+              if (!sel) return null;
+              if (!r.items.some((i) => i.id === sel.id)) return null;
+              return sel;
+            });
+          }
+        })
+        .catch((e) => {
+          if (withLoading) {
+            setError(e instanceof Error ? e.message : '목록을 불러올 수 없습니다.');
+          }
+        })
+        .finally(() => {
+          if (withLoading) setLoading(false);
+        });
+    },
+    [token, mode]
+  );
+
+  const { connected: csWsConnected } = useInboxRealtime(
+    token,
+    () => fetchList({ withLoading: false }),
+    Boolean(token)
+  );
+  useVisibilityInterval(() => fetchList({ withLoading: false }), csWsConnected ? 0 : 15000);
 
   useEffect(() => {
-    refresh();
-  }, [token, mode]);
+    fetchList({ withLoading: true });
+  }, [token, mode, fetchList]);
 
   useEffect(() => {
     if (mode !== 'admin' || !token) {

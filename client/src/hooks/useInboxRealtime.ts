@@ -290,5 +290,6 @@ export function useInquiryCelebrateRealtime(
     })();
   }, [enabled, token, wsConnected, emitCelebrate]);
 
-  useVisibilityInterval(pollCelebrations, enabled && token && !wsConnected ? 6000 : 0);
+  /** Same cadence as AdminLayout nav badge fallback (15s) when WebSocket is down. */
+  useVisibilityInterval(pollCelebrations, enabled && token && !wsConnected ? 15000 : 0);
 }
