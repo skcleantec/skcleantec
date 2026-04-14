@@ -83,6 +83,52 @@ function CirclePlusIcon({ className }: { className?: string }) {
   );
 }
 
+function HelpTooltip({ text, className }: { text: string; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (evt: MouseEvent | TouchEvent) => {
+      const target = evt.target as Node | null;
+      if (!target) return;
+      if (wrapRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onEsc = (evt: KeyboardEvent) => {
+      if (evt.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown, { passive: true });
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className={`relative group inline-flex ${className ?? ''}`}>
+      <button
+        type="button"
+        aria-label="도움말"
+        onClick={() => setOpen((p) => !p)}
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-[11px] font-semibold text-gray-600 hover:bg-gray-50"
+      >
+        ?
+      </button>
+      <div
+        className={`absolute left-0 top-7 z-20 w-72 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs leading-5 text-gray-600 shadow-lg ${
+          open ? 'block' : 'hidden group-hover:block'
+        }`}
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
+
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '대기',
   RECEIVED: '접수',
@@ -225,7 +271,8 @@ export function AdminInquiriesPage() {
     if (st && Object.keys(STATUS_LABELS).includes(st)) return st;
     return '';
   });
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
   const [inquiryEditPreferredCalOpen, setInquiryEditPreferredCalOpen] = useState(false);
@@ -281,6 +328,7 @@ export function AdminInquiriesPage() {
   });
   /** 날짜 지정(YYYY-MM-DD, KST 하루) */
   const [dayKey, setDayKey] = useState(() => kstTodayYmd());
+  const [dateBasis, setDateBasis] = useState<'createdAt' | 'preferredDate'>('createdAt');
   /** 스케줄과 동일한 신규 접수 모달 — 예약일(YYYY-MM-DD) */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
@@ -294,20 +342,7 @@ export function AdminInquiriesPage() {
   const [marketerFilterId, setMarketerFilterId] = useState('');
   /** 빈 값이면 전체, 미배정·특정 팀장 */
   const [teamLeaderFilterId, setTeamLeaderFilterId] = useState('');
-  /** 고객 희망일(preferredDate) KST — 접수일과 별개 */
-  const [scheduleFilterMode, setScheduleFilterMode] = useState<'none' | 'month' | 'day'>('none');
-  const [scheduleMonthKey, setScheduleMonthKey] = useState(() => kstMonthKeyNow());
-  const [scheduleDayKey, setScheduleDayKey] = useState(() => kstTodayYmd());
   const [deleteTarget, setDeleteTarget] = useState<InquiryItem | null>(null);
-
-  /** 검색 시작 직전의 접수일 필터(검색 지우면 복원). 대시보드 딥링크·당일·월별 등 유지 */
-  const accessDateFilterBeforeSearchRef = useRef<{
-    datePreset: 'today' | 'all' | 'month' | 'day';
-    monthKey: string;
-    dayKey: string;
-  } | null>(null);
-  const accessDateFilterLiveRef = useRef({ datePreset, monthKey, dayKey });
-  accessDateFilterLiveRef.current = { datePreset, monthKey, dayKey };
 
   const leaderOptionsForRow = useMemo(() => {
     return (rowIndex: number) => {
@@ -371,29 +406,11 @@ export function AdminInquiriesPage() {
       setStatusFilter(st);
     }
     if (searchParams.has('datePreset') || searchParams.has('month') || searchParams.has('status')) {
-      setSearchQuery('');
+      setSearchInput('');
+      setAppliedSearchQuery('');
       if (me?.role === 'ADMIN' || me?.role === 'MARKETER') setMarketerFilterId('');
     }
   }, [searchParams, me?.role]);
-
-  /** 검색 중에는 접수일을 전체(all)로 두어, 당일·이번 달 등에 가려지지 않게 함 */
-  useEffect(() => {
-    const q = searchQuery.trim();
-    if (q) {
-      if (accessDateFilterBeforeSearchRef.current === null) {
-        accessDateFilterBeforeSearchRef.current = { ...accessDateFilterLiveRef.current };
-      }
-      setDatePreset((p) => (p === 'all' ? p : 'all'));
-    } else {
-      const snap = accessDateFilterBeforeSearchRef.current;
-      if (snap) {
-        accessDateFilterBeforeSearchRef.current = null;
-        setDatePreset(snap.datePreset);
-        setMonthKey(snap.monthKey);
-        setDayKey(snap.dayKey);
-      }
-    }
-  }, [searchQuery]);
 
   useEffect(() => {
     if (!editItem) setInquiryEditPreferredCalOpen(false);
@@ -448,7 +465,6 @@ export function AdminInquiriesPage() {
   const refresh = (showLoading = false) => {
     if (!token) return;
     if (showLoading) setLoading(true);
-    const effectiveDatePreset = searchQuery.trim() ? 'all' : datePreset;
     const params: {
       status?: string;
       search?: string;
@@ -459,21 +475,22 @@ export function AdminInquiriesPage() {
       teamLeaderId?: string;
       scheduleMonth?: string;
       scheduleDay?: string;
-    } = { datePreset: effectiveDatePreset };
-    if (effectiveDatePreset === 'month') params.month = monthKey;
-    if (effectiveDatePreset === 'day') params.day = dayKey;
+    } = { datePreset };
+    if (dateBasis === 'createdAt') {
+      if (datePreset === 'month') params.month = monthKey;
+      if (datePreset === 'day') params.day = dayKey;
+    } else {
+      if (datePreset === 'today') params.scheduleDay = kstTodayYmd();
+      if (datePreset === 'month') params.scheduleMonth = monthKey;
+      if (datePreset === 'day') params.scheduleDay = dayKey;
+    }
     if (statusFilter) params.status = statusFilter;
-    if (searchQuery.trim()) params.search = searchQuery.trim();
+    if (appliedSearchQuery.trim()) params.search = appliedSearchQuery.trim();
     if ((me?.role === 'ADMIN' || me?.role === 'MARKETER') && marketerFilterId.trim()) {
       params.createdById = marketerFilterId.trim();
     }
     if (teamLeaderFilterId.trim()) {
       params.teamLeaderId = teamLeaderFilterId.trim();
-    }
-    if (scheduleFilterMode === 'month') {
-      params.scheduleMonth = scheduleMonthKey;
-    } else if (scheduleFilterMode === 'day') {
-      params.scheduleDay = scheduleDayKey;
     }
     getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
@@ -499,20 +516,17 @@ export function AdminInquiriesPage() {
 
   useEffect(() => {
     if (!token) return;
-    const t = setTimeout(() => refresh(true), searchQuery ? 400 : 0);
-    return () => clearTimeout(t);
+    refresh(true);
   }, [
     token,
     statusFilter,
-    searchQuery,
+    appliedSearchQuery,
+    dateBasis,
     datePreset,
     monthKey,
     dayKey,
     marketerFilterId,
     teamLeaderFilterId,
-    scheduleFilterMode,
-    scheduleMonthKey,
-    scheduleDayKey,
     me?.role,
   ]);
 
@@ -789,10 +803,6 @@ export function AdminInquiriesPage() {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold text-gray-800">접수 목록</h1>
-            <p className="text-fluid-xs text-gray-500">
-              기본은 <strong className="font-medium text-gray-700">오늘 접수된 건</strong>만 보입니다. 날짜·월별·전체로 바꿀 수 있습니다. (접수일 기준, 한국 시간) 아래 표는 목록 필터와 무관하게{' '}
-              <strong className="font-medium text-gray-700">마케터별 이번 달·오늘</strong> 접수 건수(KST, 접수 등록자 기준)입니다.
-            </p>
           </div>
           {token && (
             <button
@@ -808,7 +818,16 @@ export function AdminInquiriesPage() {
         </div>
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-fluid-sm text-gray-600 shrink-0">접수일</span>
+            <span className="text-fluid-sm text-gray-600 shrink-0">날짜 기준</span>
+            <select
+              value={dateBasis}
+              onChange={(e) => setDateBasis(e.target.value as 'createdAt' | 'preferredDate')}
+              className="px-3 py-1.5 border border-gray-300 rounded text-fluid-sm bg-white"
+            >
+              <option value="createdAt">접수일</option>
+              <option value="preferredDate">예약일</option>
+            </select>
+            <HelpTooltip text="접수일 기준 또는 예약일 기준으로 날짜 필터를 적용합니다." />
             <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm">
               <button
                 type="button"
@@ -864,13 +883,8 @@ export function AdminInquiriesPage() {
               />
             )}
           </div>
-          {me?.role === 'MARKETER' && (
-            <p className="text-fluid-xs text-gray-600">
-              접수 목록은 기본으로 <strong className="font-medium text-gray-800">전체</strong>가 보입니다. 위 「접수자」 필터로 특정 담당건만 볼 수 있습니다.
-            </p>
-          )}
           <div className="border border-gray-200 rounded-lg bg-gray-50 px-3 py-2.5">
-            <p className="text-fluid-xs text-gray-500 mb-2">
+            <p className="text-fluid-xs text-gray-500 mb-2 flex items-center gap-2">
               마케터별 접수
               {marketerOverview && (
                 <>
@@ -878,11 +892,10 @@ export function AdminInquiriesPage() {
                   · {formatMonthKeyLabel(marketerOverview.monthKey)} · 오늘 {marketerOverview.todayYmd}
                 </>
               )}
-              {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
-                <span className="block sm:inline sm:before:content-['·_'] sm:before:mx-1 text-gray-600">
-                  행을 누르면 해당 접수자로 필터됩니다.
-                </span>
-              )}
+              <HelpTooltip
+                text="행을 누르면 해당 마케터로 접수자 필터가 적용됩니다."
+                className="shrink-0"
+              />
             </p>
             {marketerOverviewLoading ? (
               <p className="text-fluid-sm text-gray-500">집계를 불러오는 중...</p>
@@ -1016,71 +1029,17 @@ export function AdminInquiriesPage() {
                 ) : null}
               </div>
             </div>
-            <div className="flex flex-col gap-2 border-t border-gray-100 pt-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-fluid-sm text-gray-600 shrink-0">예약일</span>
-                <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm">
-                  <button
-                    type="button"
-                    onClick={() => setScheduleFilterMode('none')}
-                    className={`px-3 py-1.5 font-medium ${
-                      scheduleFilterMode === 'none'
-                        ? 'bg-gray-800 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    전체
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScheduleFilterMode('month')}
-                    className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                      scheduleFilterMode === 'month'
-                        ? 'bg-gray-800 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    월별
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScheduleFilterMode('day')}
-                    className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                      scheduleFilterMode === 'day'
-                        ? 'bg-gray-800 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    일별
-                  </button>
-                </div>
-                {scheduleFilterMode === 'month' && (
-                  <YearMonthSelect
-                    value={scheduleMonthKey}
-                    onChange={setScheduleMonthKey}
-                    idPrefix="inq-sched-month"
-                    className="px-2 py-1.5 border border-gray-300 rounded bg-white"
-                  />
-                )}
-                {scheduleFilterMode === 'day' && (
-                  <YmdSelect
-                    value={scheduleDayKey}
-                    onChange={setScheduleDayKey}
-                    idPrefix="inq-sched-day"
-                    className="px-2 py-1.5 border border-gray-300 rounded bg-white"
-                  />
-                )}
-              </div>
-              <p className="text-fluid-2xs text-gray-500">
-                예약일은 고객 <strong className="font-medium text-gray-700">희망일</strong> 기준입니다. 위쪽「접수일」필터·「접수자」「팀장」과
-                함께 적용됩니다. 예약일 필터 사용 시 희망일이 비어 있는 건은 제외됩니다.
-              </p>
-            </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    setAppliedSearchQuery(searchInput.trim());
+                  }
+                }}
                 placeholder="고객명·연락처·접수번호 검색"
                 className="px-3 py-2 border border-gray-300 rounded text-fluid-sm flex-1 min-w-0"
               />
@@ -1094,12 +1053,18 @@ export function AdminInquiriesPage() {
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+              <button
+                type="button"
+                onClick={() => setAppliedSearchQuery(searchInput.trim())}
+                className="px-4 py-2 rounded bg-gray-800 text-white text-fluid-sm font-medium hover:bg-gray-900 shrink-0"
+              >
+                조회
+              </button>
             </div>
-            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
-              <p className="text-fluid-2xs text-gray-500">
-                접수자 필터는 표의 「접수자」와 같은 기준입니다. (개별 접수 등록자·발주서 작성자 포함, 미지정은 접수 등록 없음·발주서 미연결)
-              </p>
-            )}
+            <div className="flex items-center gap-2 text-fluid-2xs text-gray-500">
+              <span>필터 도움말</span>
+              <HelpTooltip text="검색어는 조회 버튼을 누를 때 적용됩니다. 접수자/팀장/상태/날짜 기준 필터와 함께 조회합니다." />
+            </div>
           </div>
         </div>
       </div>

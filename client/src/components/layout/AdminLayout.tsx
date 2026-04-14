@@ -50,6 +50,21 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
+function CalendarCuteIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <rect x="3.5" y="4.5" width="17" height="16" rx="3" />
+      <path d="M7 3.5v3M17 3.5v3M3.5 9h17" />
+      <circle cx="9" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="15.5" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="15.5" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="15.5" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function AdminLayout() {
   const adminToken = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const navigate = useNavigate();
@@ -64,6 +79,13 @@ export function AdminLayout() {
   const [teamPreviewLink, setTeamPreviewLink] = useState(false);
   const [navOrder, setNavOrder] = useState<AdminNavId[]>(() => loadAdminNavOrder(false));
   const [draggingNavId, setDraggingNavId] = useState<AdminNavId | null>(null);
+  const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
+  const [fabDragging, setFabDragging] = useState(false);
+  const fabPointerIdRef = useRef<number | null>(null);
+  const fabHoldTimerRef = useRef<number | null>(null);
+  const fabDragOffsetRef = useRef({ x: 0, y: 0 });
+  const fabPressMovedRef = useRef(false);
+  const fabStorageKey = 'admin_schedule_fab_pos_v1';
 
   useEffect(() => {
     const token = getToken();
@@ -209,10 +231,108 @@ export function AdminLayout() {
     location.pathname === '/admin/team-leaders' ||
     location.pathname.startsWith('/admin/team-leaders/');
 
+  const clampFabPos = useCallback((x: number, y: number) => {
+    if (typeof window === 'undefined') return { x, y };
+    const w = 56;
+    const h = 56;
+    const margin = 12;
+    const maxX = Math.max(margin, window.innerWidth - w - margin);
+    const maxY = Math.max(margin, window.innerHeight - h - margin - 16);
+    return {
+      x: Math.min(maxX, Math.max(margin, x)),
+      y: Math.min(maxY, Math.max(72, y)),
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const fallback = clampFabPos(window.innerWidth - 68, Math.round(window.innerHeight * 0.58));
+    try {
+      const raw = window.localStorage.getItem(fabStorageKey);
+      if (!raw) {
+        setFabPos(fallback);
+        return;
+      }
+      const parsed = JSON.parse(raw) as { x?: number; y?: number };
+      if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+        setFabPos(clampFabPos(parsed.x, parsed.y));
+      } else {
+        setFabPos(fallback);
+      }
+    } catch {
+      setFabPos(fallback);
+    }
+  }, [clampFabPos]);
+
+  useEffect(() => {
+    const onMove = (evt: PointerEvent) => {
+      if (fabPointerIdRef.current == null || evt.pointerId !== fabPointerIdRef.current) return;
+      if (fabDragging) {
+        evt.preventDefault();
+        const next = clampFabPos(
+          evt.clientX - fabDragOffsetRef.current.x,
+          evt.clientY - fabDragOffsetRef.current.y
+        );
+        setFabPos(next);
+        return;
+      }
+      const dx = Math.abs(evt.movementX);
+      const dy = Math.abs(evt.movementY);
+      if (dx + dy > 2) {
+        fabPressMovedRef.current = true;
+      }
+    };
+    const onUp = (evt: PointerEvent) => {
+      if (fabPointerIdRef.current == null || evt.pointerId !== fabPointerIdRef.current) return;
+      if (fabHoldTimerRef.current != null) {
+        window.clearTimeout(fabHoldTimerRef.current);
+        fabHoldTimerRef.current = null;
+      }
+      const wasDragging = fabDragging;
+      fabPointerIdRef.current = null;
+      setFabDragging(false);
+      if (wasDragging) {
+        if (fabPos) {
+          try {
+            window.localStorage.setItem(fabStorageKey, JSON.stringify(fabPos));
+          } catch {}
+        }
+        return;
+      }
+      if (!fabPressMovedRef.current) {
+        navigate('/admin/schedule');
+      }
+    };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [clampFabPos, fabDragging, fabPos, navigate]);
+
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="max-w-6xl mx-auto flex flex-nowrap items-center justify-between gap-3 min-w-0">
+        <div className="max-w-6xl mx-auto flex flex-col gap-2 min-w-0">
+          <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
+            <h1 className="text-base font-semibold text-gray-800 truncate">SK클린텍 솔루션</h1>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-sm text-gray-700 whitespace-nowrap">
+                {meRole === 'ADMIN' ? '관리자님' : `${meName ?? '사용자'}님`}
+              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-sm text-gray-600 hover:text-gray-900 whitespace-nowrap"
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-nowrap items-center justify-between gap-3 min-w-0">
           <div className="relative flex-1 min-w-0">
             <div
               ref={navScrollRef}
@@ -220,7 +340,7 @@ export function AdminLayout() {
               className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
-              <h1 className="text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-gray-800 whitespace-nowrap shrink-0">
+              <h1 className="hidden md:block text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-gray-800 whitespace-nowrap shrink-0">
                 SK클린텍 솔루션
               </h1>
               <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
@@ -382,7 +502,7 @@ export function AdminLayout() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="hidden md:flex items-center gap-2 sm:gap-3 shrink-0">
             {teamPreviewLink && (
               <NavLink
                 to="/team/dashboard"
@@ -403,10 +523,32 @@ export function AdminLayout() {
             </button>
           </div>
         </div>
+        </div>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
         <Outlet />
       </main>
+      {!location.pathname.startsWith('/admin/schedule') && fabPos && (
+        <button
+          type="button"
+          aria-label="스케줄 바로가기"
+          title={fabDragging ? '위치 이동 중' : '스케줄 바로가기 (길게 눌러 위치 이동)'}
+          onPointerDown={(evt) => {
+            fabPressMovedRef.current = false;
+            fabPointerIdRef.current = evt.pointerId;
+            const target = evt.currentTarget.getBoundingClientRect();
+            fabDragOffsetRef.current = { x: evt.clientX - target.left, y: evt.clientY - target.top };
+            if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
+            fabHoldTimerRef.current = window.setTimeout(() => setFabDragging(true), 420);
+          }}
+          className={`fixed z-[120] lg:hidden flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-[0_10px_28px_rgba(29,78,216,0.38),0_3px_10px_rgba(15,23,42,0.18)] ring-1 ring-inset ring-white/15 transition-[transform,box-shadow] active:scale-[0.94] active:shadow-[0_6px_18px_rgba(29,78,216,0.28),0_2px_6px_rgba(15,23,42,0.14)] ${
+            fabDragging ? 'cursor-grabbing touch-none' : 'cursor-pointer'
+          }`}
+          style={{ left: fabPos.x, top: fabPos.y }}
+        >
+          <CalendarCuteIcon className="h-7 w-7 drop-shadow-sm" />
+        </button>
+      )}
     </div>
   );
 }
