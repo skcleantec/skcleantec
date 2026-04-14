@@ -15,6 +15,7 @@ import {
   loadAdminNavOrder,
   saveAdminNavOrder,
 } from '../../constants/adminNav';
+import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
 
 function formatCelebrateBanner(p: InquiryCelebratePayload): string {
   const suffix = p.inquiryNumber ? ` (접수번호 ${p.inquiryNumber})` : '';
@@ -100,20 +101,37 @@ export function AdminLayout() {
   const celebTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const celebAnimRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const openCelebrateStrip = useCallback((p: InquiryCelebratePayload) => {
+    setCelebration(p);
+    setCelebrationOpen(true);
+    if (celebTimerRef.current) clearTimeout(celebTimerRef.current);
+    if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
+    celebTimerRef.current = setTimeout(() => {
+      setCelebrationOpen(false);
+      celebAnimRef.current = setTimeout(() => setCelebration(null), 360);
+    }, 9000);
+  }, []);
+
   useInquiryCelebrateRealtime(
     adminToken,
-    (p) => {
-      setCelebration(p);
-      setCelebrationOpen(true);
-      if (celebTimerRef.current) clearTimeout(celebTimerRef.current);
-      if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
-      celebTimerRef.current = setTimeout(() => {
-        setCelebrationOpen(false);
-        celebAnimRef.current = setTimeout(() => setCelebration(null), 360);
-      }, 9000);
-    },
+    openCelebrateStrip,
     Boolean(adminToken && (meRole === 'ADMIN' || meRole === 'MARKETER'))
   );
+
+  useEffect(() => {
+    if (meRole !== 'ADMIN') return;
+    const onTestCelebrate = () => {
+      openCelebrateStrip({
+        type: 'inquiry:celebrate',
+        registrarName: '\uD14C\uC2A4\uD2B8 \uB2F4\uB2F9',
+        customerName: '\uD64D\uAE38\uB3D9',
+        inquiryNumber: 'DEMO-001',
+        source: '\uBC1C\uC8FC\uC11C',
+      });
+    };
+    window.addEventListener(CELEBRATE_BAR_TEST_EVENT, onTestCelebrate);
+    return () => window.removeEventListener(CELEBRATE_BAR_TEST_EVENT, onTestCelebrate);
+  }, [meRole, openCelebrateStrip]);
 
   useEffect(() => {
     const token = getToken();
