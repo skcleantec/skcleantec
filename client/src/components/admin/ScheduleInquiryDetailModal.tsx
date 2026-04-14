@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { createInquiry, updateInquiry } from '../../api/inquiries';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
@@ -167,6 +167,26 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
   };
 }
 
+function buildCreatePostBodyForMode(
+  editForm: EditFormFields,
+  opts?: { externalIntake?: boolean }
+): Record<string, unknown> {
+  if (!opts?.externalIntake) return buildCreatePostBody(editForm);
+  const safeName = editForm.customerName.trim() || '외부업체 접수';
+  const safePhone = editForm.customerPhone.trim() || '-';
+  const safeAddress = editForm.address.trim() || '주소 미입력';
+  const body = buildCreatePostBody({
+    ...editForm,
+    customerName: safeName,
+    customerPhone: safePhone,
+    address: safeAddress,
+  });
+  return {
+    ...body,
+    source: '외부업체접수',
+  };
+}
+
 export type ScheduleInquiryDetailModalProps =
   | {
       mode?: 'edit';
@@ -211,6 +231,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   } = props;
 
   const [saving, setSaving] = useState(false);
+  const [externalIntake, setExternalIntake] = useState(false);
+  const [assigneeHelpOpen, setAssigneeHelpOpen] = useState(false);
+  const assigneeHelpRef = useRef<HTMLDivElement | null>(null);
+  const [crewHelpOpen, setCrewHelpOpen] = useState(false);
+  const crewHelpRef = useRef<HTMLDivElement | null>(null);
   const [preferredDateLocked, setPreferredDateLocked] = useState(isCreate);
   const [preferredDateCalOpen, setPreferredDateCalOpen] = useState(false);
 
@@ -366,20 +391,45 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 저장 후 재조회 시 동일 id여도 필드 동기화
   }, [item, professionalCatalog]);
 
+  useEffect(() => {
+    if (!assigneeHelpOpen) return;
+    const onDown = (evt: MouseEvent | TouchEvent) => {
+      const target = evt.target as Node | null;
+      if (!target) return;
+      if (assigneeHelpRef.current?.contains(target) || crewHelpRef.current?.contains(target)) return;
+      setAssigneeHelpOpen(false);
+      setCrewHelpOpen(false);
+    };
+    const onEsc = (evt: KeyboardEvent) => {
+      if (evt.key === 'Escape') {
+        setAssigneeHelpOpen(false);
+        setCrewHelpOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown, { passive: true });
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [assigneeHelpOpen, crewHelpOpen]);
+
   const handleSave = async () => {
     if (!token) {
       alert('로그인이 필요합니다.');
       return;
     }
-    if (!editForm.customerName.trim()) {
+    if (!externalIntake && !editForm.customerName.trim()) {
       alert('성함을 입력해주세요.');
       return;
     }
-    if (!editForm.customerPhone.trim()) {
+    if (!externalIntake && !editForm.customerPhone.trim()) {
       alert('연락처를 입력해주세요.');
       return;
     }
-    if (!editForm.address.trim()) {
+    if (!externalIntake && !editForm.address.trim()) {
       alert('주소를 입력해주세요.');
       return;
     }
@@ -393,7 +443,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const patch = buildPatchFromEditForm(editForm) as Record<string, unknown>;
       patch.teamLeaderIds = leaderIdsForSave;
       if (isCreate) {
-        const created = (await createInquiry(token, buildCreatePostBody(editForm))) as { id: string };
+        const created = (await createInquiry(
+          token,
+          buildCreatePostBodyForMode(editForm, { externalIntake })
+        )) as { id: string };
         await updateInquiry(token, created.id, patch);
       } else {
         await updateInquiry(token, item!.id, patch);
@@ -439,9 +492,22 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </>
             )}
           </h2>
+          {isCreate && (
+            <label className="mt-2 inline-flex items-center gap-2 text-sm text-gray-700 select-none">
+              <input
+                type="checkbox"
+                checked={externalIntake}
+                onChange={(e) => setExternalIntake(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              외부업체접수
+            </label>
+          )}
           <p className="text-sm text-gray-500 mb-0">
             {isCreate
-              ? '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'
+              ? externalIntake
+                ? '외부업체접수 체크 시 이름/연락처/주소가 비어 있어도 등록할 수 있습니다.'
+                : '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'
               : '스케줄에서 연 접수입니다. 수정 후 저장하세요.'}
           </p>
         </div>
@@ -451,7 +517,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         {!isCreate && item && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 border-b border-gray-100 pb-3 mb-4">
             {item.inquiryNumber ? (
-              <span className="font-medium text-gray-700 tabular-nums">접수번호 {item.inquiryNumber}</span>
+              <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 tabular-nums">
+                접수번호 {item.inquiryNumber}
+                {(item.source ?? '').includes('외부업체') && (
+                  <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1.5 py-px text-[10px] font-semibold text-fuchsia-800">
+                    외부업체 접수
+                  </span>
+                )}
+              </span>
             ) : null}
             <span>출처: {item.source ?? '-'}</span>
             {item.orderForm?.createdBy && <span>담당 마케터: {item.orderForm.createdBy.name}</span>}
@@ -587,17 +660,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
               <label className="block text-gray-600">예약일 (청소 희망일)</label>
-              {isCreate && preferredDateLocked && (
-                <button
-                  type="button"
-                  onClick={() => setPreferredDateLocked(false)}
-                  className="text-xs text-blue-600 hover:text-blue-800 underline shrink-0"
-                >
-                  날짜 변경
-                </button>
-              )}
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-2">
+            <div className="flex items-stretch gap-2">
               <YmdSelect
                 value={editForm.preferredDate}
                 onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
@@ -609,11 +673,22 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   isCreate && preferredDateLocked ? 'opacity-90' : ''
                 }`}
               />
+              {isCreate && preferredDateLocked && (
+                <button
+                  type="button"
+                  onClick={() => setPreferredDateLocked(false)}
+                  className="shrink-0 px-3 py-2 rounded border border-blue-200 bg-blue-50 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  날짜 변경
+                </button>
+              )}
+            </div>
+            <div className="mt-2">
               <button
                 type="button"
                 disabled={isCreate && preferredDateLocked}
                 onClick={() => setPreferredDateCalOpen(true)}
-                className="shrink-0 px-3 py-2 rounded border border-gray-300 bg-gray-50 text-fluid-sm font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
+                className="w-full px-3 py-2 rounded border border-gray-300 bg-gray-50 text-fluid-sm font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
               >
                 달력·분배 가능일
               </button>
@@ -880,29 +955,61 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 )}
               </div>
             ))}
-            <button
-              type="button"
-              className="text-sm text-blue-600 hover:underline"
-              onClick={() =>
-                setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
-              }
-            >
-              + 담당 추가
-            </button>
-            {assignableLeaderIdsForSlot != null && (
-              <p className="text-xs text-gray-500">
-                예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장을 우선 표시합니다. 타업체 담당은
-                항상 선택할 수 있습니다. 현재 선택된 담당은 항상 목록에 남습니다.
-              </p>
-            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="text-sm text-blue-600 hover:underline"
+                onClick={() =>
+                  setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
+                }
+              >
+                + 담당 추가
+              </button>
+              {assignableLeaderIdsForSlot != null && (
+                <div ref={assigneeHelpRef} className="relative group">
+                  <button
+                    type="button"
+                    aria-label="담당 배정 규칙 안내"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-[11px] font-semibold text-gray-600 hover:bg-gray-50"
+                    onClick={() => setAssigneeHelpOpen((prev) => !prev)}
+                  >
+                    ?
+                  </button>
+                  <div
+                    className={`absolute z-20 left-0 top-7 w-72 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs leading-5 text-gray-600 shadow-lg ${
+                      assigneeHelpOpen ? 'block' : 'hidden group-hover:block'
+                    }`}
+                  >
+                    예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장을 우선 표시합니다.
+                    타업체 담당은 항상 선택할 수 있습니다. 현재 선택된 담당은 항상 목록에 남습니다.
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">팀원 투입</label>
-            <p className="text-xs text-gray-500 mb-2">
-              표준은 팀장 1명·팀원 {DEFAULT_CREW_UNITS_PER_INQUIRY}명이 반일(오전 또는 오후) 1건입니다. 미입력 시
-              스케줄·용량 집계는 표준 {DEFAULT_CREW_UNITS_PER_INQUIRY}명으로 봅니다. 평수가 크거나 다팀 투입이면 인원을
-              늘려 주세요.
-            </p>
+            <div className="mb-2 flex items-center gap-2">
+              <label className="block text-gray-600">팀원 투입</label>
+              <div ref={crewHelpRef} className="relative group">
+                <button
+                  type="button"
+                  aria-label="팀원 투입 안내"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-[11px] font-semibold text-gray-600 hover:bg-gray-50"
+                  onClick={() => setCrewHelpOpen((prev) => !prev)}
+                >
+                  ?
+                </button>
+                <div
+                  className={`absolute z-20 left-0 top-7 w-80 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs leading-5 text-gray-600 shadow-lg ${
+                    crewHelpOpen ? 'block' : 'hidden group-hover:block'
+                  }`}
+                >
+                  표준은 팀장 1명·팀원 {DEFAULT_CREW_UNITS_PER_INQUIRY}명이 반일(오전 또는 오후) 1건입니다.
+                  미입력 시 스케줄·용량 집계는 표준 {DEFAULT_CREW_UNITS_PER_INQUIRY}명으로 봅니다. 평수가
+                  크거나 다팀 투입이면 인원을 늘려 주세요.
+                </div>
+              </div>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={editForm.crewMemberCount === null ? '' : String(editForm.crewMemberCount)}
@@ -970,12 +1077,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
+            <label className="block text-gray-600 mb-1">특이사항</label>
             <textarea
               value={editForm.memo}
               onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
-              rows={3}
+              rows={6}
               className="w-full px-3 py-2 border border-gray-300 rounded"
+              placeholder="현장 전달사항, 고객 요청사항, 관리자 메모 등을 자유롭게 입력하세요."
             />
           </div>
         </div>

@@ -123,6 +123,7 @@ function ScheduleDayListItem({
   onPick: () => void;
   onOpenMemo: () => void;
 }) {
+  const isExternalIntake = (item.source ?? '').includes('외부업체');
   const isPending = item.status === 'PENDING';
   const bucket = getScheduleTimeBucket(item);
   const isSide = isSideCleaningTime(item.preferredTime);
@@ -180,6 +181,11 @@ function ScheduleDayListItem({
             className="min-w-0 flex-1 text-left font-medium text-gray-900 inline-flex items-center gap-1.5 flex-wrap"
           >
             <span className="truncate min-w-0">{item.customerName}</span>
+            {isExternalIntake && (
+              <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[10px] font-semibold text-fuchsia-800">
+                외부
+              </span>
+            )}
             {(item.inquiryNumber || hasScheduleMemo) && (
               <span className="inline-flex items-center gap-0.5 flex-nowrap shrink-0 text-[10px] sm:text-fluid-2xs font-normal">
                 {item.inquiryNumber ? (

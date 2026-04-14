@@ -6,6 +6,8 @@ const prisma = new PrismaClient();
 
 async function main() {
   const hash = await bcrypt.hash('1234', 10);
+  const seedDemoData =
+    process.env.SEED_DEMO_DATA === 'true' || process.env.NODE_ENV !== 'production';
 
   // 관리자 (항상 생성/업데이트)
   const admin = await prisma.user.upsert({
@@ -32,78 +34,87 @@ async function main() {
   });
   console.log('Admin2 (팀장 화면 미리보기 테스트):', admin2.email);
 
-  // 샘플 팀장 8명 (upsert — 로컬 테스트용)
-  const teamLeaders = [
-    { email: 'team1@skcleanteck.com', name: '김팀장', phone: '010-1111-2222' },
-    { email: 'team2@skcleanteck.com', name: '이팀장', phone: '010-3333-4444' },
-    { email: 'team3@skcleanteck.com', name: '박팀장', phone: '010-5555-1111' },
-    { email: 'team4@skcleanteck.com', name: '최팀장', phone: '010-5555-2222' },
-    { email: 'team5@skcleanteck.com', name: '정팀장', phone: '010-5555-3333' },
-    { email: 'team6@skcleanteck.com', name: '강팀장', phone: '010-5555-4444' },
-    { email: 'team7@skcleanteck.com', name: '조팀장', phone: '010-5555-5555' },
-    { email: 'team8@skcleanteck.com', name: '윤팀장', phone: '010-5555-7777' },
-  ];
-  for (const t of teamLeaders) {
-    const created = await prisma.user.upsert({
-      where: { email: t.email },
-      update: { name: t.name, phone: t.phone, isActive: true, role: 'TEAM_LEADER' },
-      create: {
-        email: t.email,
-        passwordHash: hash,
-        name: t.name,
-        phone: t.phone,
-        role: 'TEAM_LEADER',
-      },
-    });
-    console.log('Team leader:', created.email);
+  if (seedDemoData) {
+    // 샘플 팀장 8명 (upsert — 로컬 테스트용)
+    const teamLeaders = [
+      { email: 'team1@skcleanteck.com', name: '김팀장', phone: '010-1111-2222' },
+      { email: 'team2@skcleanteck.com', name: '이팀장', phone: '010-3333-4444' },
+      { email: 'team3@skcleanteck.com', name: '박팀장', phone: '010-5555-1111' },
+      { email: 'team4@skcleanteck.com', name: '최팀장', phone: '010-5555-2222' },
+      { email: 'team5@skcleanteck.com', name: '정팀장', phone: '010-5555-3333' },
+      { email: 'team6@skcleanteck.com', name: '강팀장', phone: '010-5555-4444' },
+      { email: 'team7@skcleanteck.com', name: '조팀장', phone: '010-5555-5555' },
+      { email: 'team8@skcleanteck.com', name: '윤팀장', phone: '010-5555-7777' },
+    ];
+    for (const t of teamLeaders) {
+      const created = await prisma.user.upsert({
+        where: { email: t.email },
+        update: { name: t.name, phone: t.phone, isActive: true, role: 'TEAM_LEADER' },
+        create: {
+          email: t.email,
+          passwordHash: hash,
+          name: t.name,
+          phone: t.phone,
+          role: 'TEAM_LEADER',
+        },
+      });
+      console.log('Team leader:', created.email);
+    }
+  } else {
+    console.log('Team leader: skipped (SEED_DEMO_DATA disabled in production)');
   }
 
   // 팀 미배정 현장 팀원 14명 (teamId null — 팀원 관리 화면용)
-  try {
-    for (let i = 1; i <= 14; i++) {
-      const name = `현장팀원${String(i).padStart(2, '0')}`;
-      const existing = await prisma.teamMember.findFirst({
-        where: { teamId: null, name },
-      });
-      if (existing) continue;
-      await prisma.teamMember.create({
-        data: {
-          teamId: null,
-          name,
-          phone: `010-${String(8000 + i).padStart(4, '0')}-${String(7000 + i).padStart(4, '0')}`,
-          sortOrder: i - 1,
-          isActive: true,
-        },
-      });
+  if (seedDemoData) {
+    try {
+      for (let i = 1; i <= 14; i++) {
+        const name = `현장팀원${String(i).padStart(2, '0')}`;
+        const existing = await prisma.teamMember.findFirst({
+          where: { teamId: null, name },
+        });
+        if (existing) continue;
+        await prisma.teamMember.create({
+          data: {
+            teamId: null,
+            name,
+            phone: `010-${String(8000 + i).padStart(4, '0')}-${String(7000 + i).padStart(4, '0')}`,
+            sortOrder: i - 1,
+            isActive: true,
+          },
+        });
+      }
+      const poolCount = await prisma.teamMember.count({ where: { teamId: null, isActive: true } });
+      console.log(`TeamMember pool: ensured 14 names (active pool total: ${poolCount})`);
+    } catch (e) {
+      console.log('TeamMember pool: skip', e instanceof Error ? e.message : e);
     }
-    const poolCount = await prisma.teamMember.count({ where: { teamId: null, isActive: true } });
-    console.log(`TeamMember pool: ensured 14 names (active pool total: ${poolCount})`);
-  } catch (e) {
-    console.log('TeamMember pool: skip', e instanceof Error ? e.message : e);
   }
 
   // 샘플 마케터 (없을 때만 생성)
-  const marketers = [{ email: 'marketer@skcleanteck.com', name: '홍마케터', phone: '010-5555-6666' }];
-  for (const m of marketers) {
-    const created = await prisma.user.upsert({
-      where: { email: m.email },
-      update: {},
-      create: {
-        email: m.email,
-        passwordHash: hash,
-        name: m.name,
-        phone: m.phone,
-        role: 'MARKETER',
-      },
-    });
-    console.log('Marketer:', created.email);
+  if (seedDemoData) {
+    const marketers = [{ email: 'marketer@skcleanteck.com', name: '홍마케터', phone: '010-5555-6666' }];
+    for (const m of marketers) {
+      const created = await prisma.user.upsert({
+        where: { email: m.email },
+        update: {},
+        create: {
+          email: m.email,
+          passwordHash: hash,
+          name: m.name,
+          phone: m.phone,
+          role: 'MARKETER',
+        },
+      });
+      console.log('Marketer:', created.email);
+    }
   }
 
   // 대기(PENDING) 샘플 접수 4건 — 발주서 미제출 선접수 테스트용 (고정 ID로 시드 재실행 시 갱신만)
-  try {
-    const marketer = await prisma.user.findFirst({ where: { role: 'MARKETER' } });
-    const createdById = marketer?.id ?? admin.id;
-    const pendingSamples: Array<{
+  if (seedDemoData) {
+    try {
+      const marketer = await prisma.user.findFirst({ where: { role: 'MARKETER' } });
+      const createdById = marketer?.id ?? admin.id;
+      const pendingSamples: Array<{
       id: string;
       customerName: string;
       customerPhone: string;
@@ -164,8 +175,8 @@ async function main() {
         memo: '고객 발주서 링크 대기(시드)',
       },
     ];
-    for (const s of pendingSamples) {
-      await prisma.inquiry.upsert({
+      for (const s of pendingSamples) {
+        await prisma.inquiry.upsert({
         where: { id: s.id },
         update: {
           customerName: s.customerName,
@@ -196,11 +207,12 @@ async function main() {
           source: '전화',
           createdById,
         },
-      });
+        });
+      }
+      console.log('Inquiry: 4 PENDING sample rows ensured');
+    } catch {
+      console.log('Inquiry PENDING samples: skip (run db:push first or schema mismatch)');
     }
-    console.log('Inquiry: 4 PENDING sample rows ensured');
-  } catch {
-    console.log('Inquiry PENDING samples: skip (run db:push first or schema mismatch)');
   }
 
   // 폼 메시지 설정 (없으면 생성, 클린벨→SK클린텍 보정)
