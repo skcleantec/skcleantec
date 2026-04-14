@@ -7,6 +7,7 @@ import inquiryCleaningPhotosTeamRoutes from '../inquiry-cleaning-photos/inquiryC
 import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
+import { assertCrewCapacityForInquiry } from '../inquiries/crewMemberCapacity.helpers.js';
 
 const router = Router();
 
@@ -160,6 +161,93 @@ router.post('/inquiries/:id/happy-call-complete', async (req, res) => {
     data: { happyCallCompletedAt: new Date() },
   });
   res.json({ ok: true });
+});
+
+/** 팀장: 본인 배정 건 예약일 변경 */
+router.patch('/inquiries/:id/preferred-date', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const { id } = req.params;
+  const body = req.body as { preferredDate?: string };
+  const ymd = typeof body.preferredDate === 'string' ? body.preferredDate.trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    res.status(400).json({ error: '예약일은 YYYY-MM-DD 형식이어야 합니다.' });
+    return;
+  }
+  const preferredDate = new Date(`${ymd}T12:00:00+09:00`);
+  if (Number.isNaN(preferredDate.getTime())) {
+    res.status(400).json({ error: '유효한 예약일이 아닙니다.' });
+    return;
+  }
+  const inquiry = await prisma.inquiry.findFirst({
+    where: {
+      id,
+      assignments: { some: { teamLeaderId: userId } },
+    },
+    include: {
+      assignments: {
+        orderBy: { sortOrder: 'asc' },
+        include: { teamLeader: { select: { id: true, name: true } } },
+      },
+    },
+  });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  if (inquiry.status === 'CANCELLED') {
+    res.status(400).json({ error: '취소된 접수는 예약일을 변경할 수 없습니다.' });
+    return;
+  }
+  const beforeYmd = inquiry.preferredDate ? inquiry.preferredDate.toISOString().slice(0, 10) : null;
+  if (beforeYmd === ymd) {
+    const unchanged = await prisma.inquiry.findUnique({
+      where: { id },
+      include: {
+        assignments: {
+          orderBy: { sortOrder: 'asc' },
+          include: { teamLeader: { select: { id: true, name: true } } },
+        },
+      },
+    });
+    res.json(unchanged);
+    return;
+  }
+
+  const cap = await assertCrewCapacityForInquiry({
+    prisma,
+    preferredDate,
+    crewMemberCount: inquiry.crewMemberCount ?? null,
+    excludeInquiryId: id,
+    assigneeUserIdsPreview: inquiry.assignments.map((a) => a.teamLeader.id),
+  });
+  if (!cap.ok) {
+    res.status(400).json({ error: cap.error });
+    return;
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.inquiry.update({
+      where: { id },
+      data: { preferredDate },
+    });
+    await tx.inquiryChangeLog.create({
+      data: {
+        inquiryId: id,
+        actorId: userId,
+        lines: [`청소 희망일: ${beforeYmd ?? '(없음)'} → ${ymd}`],
+      },
+    });
+    return tx.inquiry.findUnique({
+      where: { id },
+      include: {
+        assignments: {
+          orderBy: { sortOrder: 'asc' },
+          include: { teamLeader: { select: { id: true, name: true } } },
+        },
+      },
+    });
+  });
+  res.json(updated);
 });
 
 router.get('/inquiries', async (req, res) => {

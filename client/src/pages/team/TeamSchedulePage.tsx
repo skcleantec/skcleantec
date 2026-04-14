@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { completeTeamHappyCall, getTeamHappyCallStats, getTeamInquiries } from '../../api/team';
+import {
+  completeTeamHappyCall,
+  getTeamHappyCallStats,
+  getTeamInquiries,
+  patchTeamInquiryPreferredDate,
+} from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { formatDateCompactWithWeekday, weekdayKoFromYmd } from '../../utils/dateFormat';
@@ -225,6 +230,11 @@ export function TeamSchedulePage() {
           item={detailItem}
           onClose={() => setDetailItem(null)}
           enableHappyCall
+          onPreferredDateChange={async (preferredDate) => {
+            if (!token) return;
+            await patchTeamInquiryPreferredDate(token, detailItem.id, preferredDate);
+            await loadSchedule();
+          }}
           onHappyCallComplete={async () => {
             if (!token) return;
             await completeTeamHappyCall(token, detailItem.id);

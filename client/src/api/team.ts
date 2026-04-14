@@ -42,6 +42,23 @@ export async function completeTeamHappyCall(token: string, inquiryId: string): P
   }
 }
 
+export async function patchTeamInquiryPreferredDate(
+  token: string,
+  inquiryId: string,
+  preferredDate: string
+) {
+  const res = await fetch(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/preferred-date`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify({ preferredDate }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(typeof err?.error === 'string' ? err.error : '예약일 변경에 실패했습니다.');
+  }
+  return res.json();
+}
+
 /** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S — 한 요청 */
 export async function getTeamNavBadges(token: string): Promise<{
   unreadCount: number;

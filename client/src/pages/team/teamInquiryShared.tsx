@@ -164,15 +164,19 @@ export function TeamInquiryDetailModal({
   onClose,
   enableHappyCall,
   onHappyCallComplete,
+  onPreferredDateChange,
 }: {
   item: InquiryItem;
   onClose: () => void;
   /** 팀장 화면에서만 해피콜 완료 버튼 */
   enableHappyCall?: boolean;
   onHappyCallComplete?: () => Promise<void>;
+  onPreferredDateChange?: (preferredDate: string) => Promise<void>;
 }) {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const [happySaving, setHappySaving] = useState(false);
+  const [preferredDateInput, setPreferredDateInput] = useState(item.preferredDate?.slice(0, 10) ?? '');
+  const [preferredDateSaving, setPreferredDateSaving] = useState(false);
   const canHappy = enableHappyCall && isHappyCallEligible(item.status, item.preferredDate);
   const showHappyBlock = enableHappyCall && item.preferredDate;
 
@@ -186,6 +190,23 @@ export function TeamInquiryDetailModal({
       alert(e instanceof Error ? e.message : '해피콜 완료 처리에 실패했습니다.');
     } finally {
       setHappySaving(false);
+    }
+  };
+
+  const handlePreferredDateSave = async () => {
+    if (!onPreferredDateChange) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDateInput)) {
+      alert('예약일은 YYYY-MM-DD 형식으로 입력해 주세요.');
+      return;
+    }
+    setPreferredDateSaving(true);
+    try {
+      await onPreferredDateChange(preferredDateInput);
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '예약일 변경에 실패했습니다.');
+    } finally {
+      setPreferredDateSaving(false);
     }
   };
 
@@ -272,6 +293,27 @@ export function TeamInquiryDetailModal({
               <span>{formatScheduleLine(item)}</span>
             </div>
           </div>
+          {onPreferredDateChange && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <span className="text-gray-600 block text-fluid-xs mb-1">예약일 변경 (팀장)</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={preferredDateInput}
+                  onChange={(e) => setPreferredDateInput(e.target.value)}
+                  className="flex-1 min-w-0 border border-blue-300 rounded px-2 py-1.5 text-fluid-sm bg-white"
+                />
+                <button
+                  type="button"
+                  disabled={preferredDateSaving}
+                  onClick={() => void handlePreferredDateSave()}
+                  className="px-3 py-1.5 rounded text-fluid-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {preferredDateSaving ? '저장 중...' : '변경'}
+                </button>
+              </div>
+            </div>
+          )}
           <div>
             <span className="text-gray-500 block text-fluid-xs">상태</span>
             <span className="px-2 py-0.5 rounded text-fluid-xs bg-gray-200">
