@@ -23,8 +23,19 @@ import {
 } from '../../utils/dateFormat';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
+import { HelpTooltip } from '../../components/ui/HelpTooltip';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+const SCHEDULE_PAGE_OVERVIEW_HELP =
+  '월별 배정·슬롯 현황을 한눈에 확인합니다.';
+
+function scheduleLegendSlotHelpText(crewUnits: number): string {
+  return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. 사이는 발주서 옵션 건수이며 확정 시 오전 또는 오후 한 칸을 씁니다.`;
+}
+
+const SCHEDULE_UNASSIGNED_SECTION_HELP =
+  '팀장이 아직 배정되지 않은 자사 접수입니다. 각 행의 오전·오후·사이 배지는 희망 시간대입니다. 배정되면 아래 해당 구역에서 표시됩니다.';
 
 function groupScheduleItemsByKstDate(items: ScheduleItem[]) {
   return items.reduce<Record<string, ScheduleItem[]>>((acc, item) => {
@@ -477,8 +488,10 @@ export function AdminSchedulePage() {
     <div className="flex flex-col gap-5 min-w-0">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-fluid-lg font-semibold text-gray-900 tracking-tight">스케줄 표</h1>
-          <p className="text-fluid-sm text-gray-500 mt-0.5">월별 배정·슬롯 현황을 한눈에 확인합니다.</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h1 className="text-fluid-lg font-semibold text-gray-900 tracking-tight">스케줄 표</h1>
+            <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-stretch rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -553,11 +566,12 @@ export function AdminSchedulePage() {
                 선택한 날
               </span>
             </div>
-            <p className="mt-2 text-fluid-2xs text-gray-500 border-t border-gray-200/80 pt-2">
-              오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다.
-              표준 접수는 팀원 {DEFAULT_CREW_UNITS_PER_INQUIRY}명 단위로 집계합니다. 사이는 발주서 옵션 건수이며 확정 시
-              오전 또는 오후 한 칸을 씁니다.
-            </p>
+            <div className="mt-2 flex items-center justify-end border-t border-gray-200/80 pt-2">
+              <HelpTooltip
+                className="shrink-0"
+                text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)}
+              />
+            </div>
           </div>
 
           {/* 달력 그리드 — gap-px로 격자선 정리 */}
@@ -1007,11 +1021,9 @@ export function AdminSchedulePage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 border-b-2 border-rose-400 pb-1.5">
                           <span className="text-fluid-sm font-bold text-rose-950">팀장 미배정</span>
+                          <HelpTooltip className="shrink-0" text={SCHEDULE_UNASSIGNED_SECTION_HELP} />
                           <span className="text-fluid-xs text-rose-900/80 tabular-nums">{unassignedOwn.length}건</span>
                         </div>
-                        <p className="text-fluid-xs text-gray-600 mb-2">
-                          팀장이 아직 배정되지 않은 자사 접수입니다. 각 행의 오전·오후·사이 배지는 희망 시간대입니다. 배정되면 아래 해당 구역에서 표시됩니다.
-                        </p>
                         <div className="flex flex-col gap-1">
                           {unassignedOwn.map((item) => (
                             <ScheduleDayListItem
