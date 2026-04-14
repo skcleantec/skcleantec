@@ -32,6 +32,7 @@ import {
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
+import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -430,6 +431,12 @@ router.patch('/:id', async (req, res) => {
       ? (data.crewMemberCount as number | null)
       : inquiry.crewMemberCount;
   const mergedStatus = data.status !== undefined ? (data.status as InquiryStatus) : inquiry.status;
+  const mergedCustomerName =
+    data.customerName !== undefined ? String(data.customerName ?? '').trim() : inquiry.customerName;
+  const mergedCustomerPhone =
+    data.customerPhone !== undefined ? String(data.customerPhone ?? '').trim() : inquiry.customerPhone;
+  const mergedClaimMemo =
+    data.claimMemo !== undefined ? String(data.claimMemo ?? '').trim() : String(inquiry.claimMemo ?? '').trim();
 
   /** 팀원 용량 검사: 예약일·팀원 수가 실제로 바뀔 때만 (같은 날 팀장만 수정하는 PATCH는 제외) */
   const preferredDateKstChanged =
@@ -583,6 +590,7 @@ router.patch('/:id', async (req, res) => {
   }
 
   try {
+    let createdCsReport = false;
     await prisma.$transaction(async (tx) => {
       if (Object.keys(data).length > 0) {
         await tx.inquiry.update({ where: { id }, data });
@@ -609,7 +617,36 @@ router.patch('/:id', async (req, res) => {
           },
         });
       }
+
+      /**
+       * 접수 상태가 C/S 처리중이면 C/S 관리에 반드시 노출되도록 보장한다.
+       * (직접 클레임 등록 시 상태만 바뀌고 C/S 목록 누락되는 케이스 방지)
+       */
+      if (mergedStatus === 'CS_PROCESSING') {
+        const openCsCount = await tx.csReport.count({
+          where: {
+            inquiryId: id,
+            status: { not: 'DONE' },
+          },
+        });
+        if (openCsCount === 0) {
+          await tx.csReport.create({
+            data: {
+              inquiryId: id,
+              customerName: mergedCustomerName || inquiry.customerName,
+              customerPhone: mergedCustomerPhone || inquiry.customerPhone,
+              content: mergedClaimMemo || '접수 목록에서 C/S 처리중으로 전환된 건입니다.',
+              imageUrls: [],
+              status: 'RECEIVED',
+            },
+          });
+          createdCsReport = true;
+        }
+      }
     });
+    if (createdCsReport) {
+      void notifyCsReportNavBadges(id);
+    }
   } catch (e) {
     console.error('PATCH inquiry transaction:', e);
     res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });

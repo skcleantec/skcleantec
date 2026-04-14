@@ -723,12 +723,12 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
           onClick={() => setConnectedInquiryModal(null)}
         >
           <div
-            className="relative bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <ModalCloseButton onClick={() => setConnectedInquiryModal(null)} />
             <div className="p-4 border-b pr-12">
-              <h2 className="font-semibold">연결된 접수 상세</h2>
+              <h2 className="font-semibold text-base">연결된 접수 상세</h2>
               {connectedInquiryModal.inquiryNumber ? (
                 <p className="text-sm text-gray-600 mt-1">
                   접수번호{' '}
@@ -736,14 +736,30 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </p>
               ) : null}
             </div>
-            <div className="p-4 space-y-3 text-sm">
-              <div>
+            <div className="p-4 space-y-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">접수일</span>
+                  <p>
+                    {connectedInquiryModal.createdAt
+                      ? formatDateTimeCompactWithWeekday(connectedInquiryModal.createdAt)
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">출처</span>
+                  <p>{connectedInquiryModal.source || '-'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
                 <span className="text-gray-500 text-xs block mb-0.5">담당 팀장</span>
                 <p className="font-medium">{formatTeamLeaderLabel(connectedInquiryModal)}</p>
-              </div>
-              <div>
+                </div>
+                <div>
                 <span className="text-gray-500 text-xs block mb-0.5">접수 상태</span>
                 <p>{INQUIRY_STATUS_LABELS[connectedInquiryModal.status] ?? connectedInquiryModal.status}</p>
+                </div>
               </div>
               <div>
                 <span className="text-gray-500 text-xs block mb-0.5">고객</span>
@@ -759,11 +775,25 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   {connectedInquiryModal.addressDetail ? ` ${connectedInquiryModal.addressDetail}` : ''}
                 </p>
               </div>
-              <div>
-                <span className="text-gray-500 text-xs block mb-0.5">평수</span>
-                <p>{formatAreaLine(connectedInquiryModal)}</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">건축물 유형</span>
+                  <p>{connectedInquiryModal.propertyType || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">평수</span>
+                  <p>{formatAreaLine(connectedInquiryModal)}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">방/화/베/주</span>
+                  <p>
+                    {connectedInquiryModal.roomCount ?? '-'} / {connectedInquiryModal.bathroomCount ?? '-'} /{' '}
+                    {connectedInquiryModal.balconyCount ?? '-'} / {connectedInquiryModal.kitchenCount ?? '-'}
+                  </p>
+                </div>
               </div>
-              <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
                 <span className="text-gray-500 text-xs block mb-0.5">희망일·시간</span>
                 <p>
                   {connectedInquiryModal.preferredDate
@@ -776,6 +806,34 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                     ? ` (${connectedInquiryModal.preferredTimeDetail})`
                     : ''}
                 </p>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">신축/구축/인테리어/거주</span>
+                  <p>{connectedInquiryModal.buildingType || '-'}</p>
+                </div>
+              </div>
+              {connectedInquiryModal.moveInDate ? (
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">이사 날짜</span>
+                  <p>{formatDateCompactWithWeekday(connectedInquiryModal.moveInDate)}</p>
+                </div>
+              ) : null}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">팀원 투입</span>
+                  <p>
+                    {connectedInquiryModal.crewMemberCount ?? '-'}명
+                    {connectedInquiryModal.crewMemberNote?.trim()
+                      ? ` · ${connectedInquiryModal.crewMemberNote.trim()}`
+                      : ''}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">일정 메모</span>
+                  <p className="whitespace-pre-wrap text-gray-800">
+                    {connectedInquiryModal.scheduleMemo?.trim() || '-'}
+                  </p>
+                </div>
               </div>
               {connectedInquiryModal.memo?.trim() ? (
                 <div>
@@ -787,6 +845,12 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 <div>
                   <span className="text-gray-500 text-xs block mb-0.5">클레임 메모</span>
                   <p className="whitespace-pre-wrap text-gray-800">{connectedInquiryModal.claimMemo}</p>
+                </div>
+              ) : null}
+              {connectedInquiryModal.specialNotes?.trim() ? (
+                <div>
+                  <span className="text-gray-500 text-xs block mb-0.5">특이사항 (고객 작성)</span>
+                  <p className="whitespace-pre-wrap text-gray-800">{connectedInquiryModal.specialNotes}</p>
                 </div>
               ) : null}
             </div>

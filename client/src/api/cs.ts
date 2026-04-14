@@ -43,6 +43,19 @@ export interface CsReport {
     claimMemo?: string | null;
     areaPyeong?: number | null;
     areaBasis?: string | null;
+    propertyType?: string | null;
+    roomCount?: number | null;
+    bathroomCount?: number | null;
+    balconyCount?: number | null;
+    kitchenCount?: number | null;
+    buildingType?: string | null;
+    moveInDate?: string | null;
+    specialNotes?: string | null;
+    scheduleMemo?: string | null;
+    crewMemberCount?: number | null;
+    crewMemberNote?: string | null;
+    source?: string | null;
+    createdAt?: string;
     assignments: Array<{ teamLeader: { id: string; name: string } }>;
   } | null;
 }

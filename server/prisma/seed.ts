@@ -6,8 +6,11 @@ const prisma = new PrismaClient();
 
 async function main() {
   const hash = await bcrypt.hash('1234', 10);
-  const seedDemoData =
-    process.env.SEED_DEMO_DATA === 'true' || process.env.NODE_ENV !== 'production';
+  /**
+   * 데모/테스트 데이터는 명시적으로 켠 환경에서만 주입한다.
+   * (배포 환경에서 NODE_ENV 미설정 시 재생성되는 문제 방지)
+   */
+  const seedDemoData = process.env.SEED_DEMO_DATA === 'true';
 
   // 관리자 (항상 생성/업데이트)
   const admin = await prisma.user.upsert({

@@ -60,6 +60,7 @@ export function AdminLayout() {
   const [showNavMoreRight, setShowNavMoreRight] = useState(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
+  const [meName, setMeName] = useState<string | null>(null);
   const [teamPreviewLink, setTeamPreviewLink] = useState(false);
   const [navOrder, setNavOrder] = useState<AdminNavId[]>(() => loadAdminNavOrder(false));
   const [draggingNavId, setDraggingNavId] = useState<AdminNavId | null>(null);
@@ -68,12 +69,14 @@ export function AdminLayout() {
     const token = getToken();
     if (!token) {
       setMeRole(null);
+      setMeName(null);
       setTeamPreviewLink(false);
       return;
     }
     getMe(token)
-      .then((u: { role?: string; email?: string }) => {
+      .then((u: { role?: string; email?: string; name?: string }) => {
         setMeRole(typeof u.role === 'string' ? u.role : null);
+        setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
         const preview = Boolean(u.email && isTeamPreviewAdminEmail(u.email));
         setTeamPreviewLink(preview);
         if (preview && !getTeamToken()) {
@@ -82,6 +85,7 @@ export function AdminLayout() {
       })
       .catch(() => {
         setMeRole(null);
+        setMeName(null);
         setTeamPreviewLink(false);
       });
   }, []);
@@ -217,7 +221,7 @@ export function AdminLayout() {
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               <h1 className="text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-gray-800 whitespace-nowrap shrink-0">
-                SK클린텍 관리자
+                SK클린텍 솔루션
               </h1>
               <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {
@@ -387,6 +391,9 @@ export function AdminLayout() {
                 팀장 화면
               </NavLink>
             )}
+            <span className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-gray-700 whitespace-nowrap py-2">
+              {meRole === 'ADMIN' ? '관리자님' : `${meName ?? '사용자'}님`}
+            </span>
             <button
               type="button"
               onClick={handleLogout}

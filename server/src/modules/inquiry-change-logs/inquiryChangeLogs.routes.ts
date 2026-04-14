@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly, superAdminOnly } from '../auth/auth.middleware.js';
+import { adminOrMarketer, superAdminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import {
   toChangeHistoryItemDto,
@@ -11,7 +11,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOnly);
+router.use(adminOrMarketer);
 
 const logInclude = {
   inquiry: { select: { customerName: true } },
