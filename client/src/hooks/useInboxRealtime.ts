@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { fetchCelebrationFeedHead, fetchCelebrationsSince } from '../api/celebrationFeed';
+import { useVisibilityInterval } from './useVisibilityInterval';
 
 function buildWsUrl(token: string): string {
   const base = import.meta.env.VITE_WS_URL as string | undefined;
@@ -12,6 +14,8 @@ function buildWsUrl(token: string): string {
 
 export type InquiryCelebratePayload = {
   type: 'inquiry:celebrate';
+  /** Dedup + poll cursor (server assigns). */
+  eventId?: number;
   registrarName: string;
   customerName: string;
   inquiryNumber: string | null;
@@ -192,7 +196,10 @@ export function useInboxRealtime(
   return { connected };
 }
 
-/** Staff-only inquiry:celebrate toast; shares /ws bucket. */
+/**
+ * Staff-only inquiry:celebrate toast; uses WebSocket when available, otherwise HTTP poll
+ * (proxies like Cloudflare may block /ws).
+ */
 export function useInquiryCelebrateRealtime(
   token: string | null,
   onCelebrate: (p: InquiryCelebratePayload) => void,
@@ -200,9 +207,32 @@ export function useInquiryCelebrateRealtime(
 ): void {
   const onCelebrateRef = useRef(onCelebrate);
   onCelebrateRef.current = onCelebrate;
+  const lastEventIdRef = useRef(0);
+  const bootstrappedRef = useRef(false);
+  const seenIdsRef = useRef(new Set<number>());
+  const [wsConnected, setWsConnected] = useState(false);
+
+  const emitCelebrate = useCallback((p: InquiryCelebratePayload) => {
+    if (typeof p.eventId === 'number') {
+      if (seenIdsRef.current.has(p.eventId)) return;
+      seenIdsRef.current.add(p.eventId);
+      while (seenIdsRef.current.size > 64) {
+        const first = seenIdsRef.current.values().next().value;
+        if (first !== undefined) seenIdsRef.current.delete(first);
+      }
+      lastEventIdRef.current = Math.max(lastEventIdRef.current, p.eventId);
+    }
+    onCelebrateRef.current(p);
+  }, []);
 
   useEffect(() => {
-    if (!enabled || !token) return;
+    if (!enabled || !token) {
+      setWsConnected(false);
+      return;
+    }
+    lastEventIdRef.current = 0;
+    bootstrappedRef.current = false;
+    seenIdsRef.current.clear();
 
     let b = buckets.get(token);
     if (!b) {
@@ -220,16 +250,45 @@ export function useInquiryCelebrateRealtime(
       b.tearDown = false;
     }
 
-    const listener = (p: InquiryCelebratePayload) => onCelebrateRef.current(p);
+    const listener = (p: InquiryCelebratePayload) => emitCelebrate(p);
     b.celebrationListeners.add(listener);
+    const onConn = (c: boolean) => setWsConnected(c);
+    b.connectionListeners.add(onConn);
     connectBucket(b);
+    if (b.ws?.readyState === WebSocket.OPEN) setWsConnected(true);
 
     return () => {
       const bucket = buckets.get(token);
       if (bucket) {
         bucket.celebrationListeners.delete(listener);
+        bucket.connectionListeners.delete(onConn);
       }
+      setWsConnected(false);
       destroyBucketIfIdle(token);
     };
-  }, [token, enabled]);
+  }, [token, enabled, emitCelebrate]);
+
+  const pollCelebrations = useCallback(() => {
+    if (!enabled || !token) return;
+    if (wsConnected) return;
+    void (async () => {
+      try {
+        if (!bootstrappedRef.current) {
+          const head = await fetchCelebrationFeedHead(token);
+          bootstrappedRef.current = true;
+          lastEventIdRef.current = Math.max(lastEventIdRef.current, head.lastId);
+          return;
+        }
+        const r = await fetchCelebrationsSince(token, lastEventIdRef.current);
+        lastEventIdRef.current = Math.max(lastEventIdRef.current, r.lastId);
+        for (const item of r.items) {
+          emitCelebrate(item as InquiryCelebratePayload);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [enabled, token, wsConnected, emitCelebrate]);
+
+  useVisibilityInterval(pollCelebrations, enabled && token && !wsConnected ? 6000 : 0);
 }

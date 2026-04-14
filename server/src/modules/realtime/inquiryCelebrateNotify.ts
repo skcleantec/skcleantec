@@ -1,8 +1,10 @@
 import { prisma } from '../../lib/prisma.js';
+import { appendCelebrationToFeed } from './celebrationFeedStore.js';
 import { broadcastJsonToStaff } from './realtimeHub.js';
 
 export type InquiryCelebrateWsPayload = {
   type: 'inquiry:celebrate';
+  eventId: number;
   registrarName: string;
   customerName: string;
   inquiryNumber: string | null;
@@ -27,12 +29,12 @@ export async function notifyInquiryCelebrate(params: {
     });
     if (u?.name?.trim()) registrarName = u.name.trim();
   }
-  const payload: InquiryCelebrateWsPayload = {
+  const payload = appendCelebrationToFeed({
     type: 'inquiry:celebrate',
     registrarName,
     customerName: (params.customerName ?? '').trim() || DEFAULT_CUSTOMER,
     inquiryNumber: params.inquiryNumber ?? null,
     source: params.source ?? null,
-  };
+  });
   broadcastJsonToStaff(payload);
 }

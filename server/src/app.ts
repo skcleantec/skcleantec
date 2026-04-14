@@ -21,6 +21,7 @@ import advertisingRoutes from './modules/advertising/advertising.routes.js';
 import teamsRoutes from './modules/teams/teams.routes.js';
 import externalCompaniesRoutes from './modules/external-companies/externalCompanies.routes.js';
 import adminNavBadgesRoutes from './modules/admin/adminNavBadges.routes.js';
+import celebrationFeedRoutes from './modules/realtime/celebrationFeed.routes.js';
 import { prisma } from './lib/prisma.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -47,6 +48,7 @@ app.use('/api/estimate', estimateRoutes);
 app.use('/api/orderforms', orderformRoutes);
 app.use('/api/cs', csRoutes);
 app.use('/api/admin', adminNavBadgesRoutes);
+app.use('/api/realtime', celebrationFeedRoutes);
 app.use('/api/inquiry-change-logs', inquiryChangeLogsRoutes);
 app.use('/api/advertising', advertisingRoutes);
 app.use('/api/external-companies', externalCompaniesRoutes);
