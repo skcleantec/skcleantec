@@ -372,7 +372,7 @@ export function AdminInquiriesPage() {
     }
     if (searchParams.has('datePreset') || searchParams.has('month') || searchParams.has('status')) {
       setSearchQuery('');
-      if (me?.role === 'ADMIN') setMarketerFilterId('');
+      if (me?.role === 'ADMIN' || me?.role === 'MARKETER') setMarketerFilterId('');
     }
   }, [searchParams, me?.role]);
 
@@ -400,7 +400,7 @@ export function AdminInquiriesPage() {
   }, [editItem]);
 
   useEffect(() => {
-    if (!token || me?.role !== 'ADMIN') {
+    if (!token || (me?.role !== 'ADMIN' && me?.role !== 'MARKETER')) {
       setMarketers([]);
       return;
     }
@@ -464,7 +464,7 @@ export function AdminInquiriesPage() {
     if (effectiveDatePreset === 'day') params.day = dayKey;
     if (statusFilter) params.status = statusFilter;
     if (searchQuery.trim()) params.search = searchQuery.trim();
-    if (me?.role === 'ADMIN' && marketerFilterId.trim()) {
+    if ((me?.role === 'ADMIN' || me?.role === 'MARKETER') && marketerFilterId.trim()) {
       params.createdById = marketerFilterId.trim();
     }
     if (teamLeaderFilterId.trim()) {
@@ -866,7 +866,7 @@ export function AdminInquiriesPage() {
           </div>
           {me?.role === 'MARKETER' && (
             <p className="text-fluid-xs text-gray-600">
-              접수 목록은 <strong className="font-medium text-gray-800">본인이 접수한 건</strong>만 표시됩니다. (대기 건의 「접수자」는 개별 접수 시 로그인한 마케터입니다.)
+              접수 목록은 기본으로 <strong className="font-medium text-gray-800">전체</strong>가 보입니다. 위 「접수자」 필터로 특정 담당건만 볼 수 있습니다.
             </p>
           )}
           <div className="border border-gray-200 rounded-lg bg-gray-50 px-3 py-2.5">
@@ -878,7 +878,7 @@ export function AdminInquiriesPage() {
                   · {formatMonthKeyLabel(marketerOverview.monthKey)} · 오늘 {marketerOverview.todayYmd}
                 </>
               )}
-              {me?.role === 'ADMIN' && (
+              {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
                 <span className="block sm:inline sm:before:content-['·_'] sm:before:mx-1 text-gray-600">
                   행을 누르면 해당 접수자로 필터됩니다.
                 </span>
@@ -911,24 +911,29 @@ export function AdminInquiriesPage() {
                     {marketerOverview.marketers.map((m) => (
                       <tr
                         key={m.marketerId}
-                        role={me?.role === 'ADMIN' ? 'button' : undefined}
-                        tabIndex={me?.role === 'ADMIN' ? 0 : undefined}
+                        role={me?.role === 'ADMIN' || me?.role === 'MARKETER' ? 'button' : undefined}
+                        tabIndex={me?.role === 'ADMIN' || me?.role === 'MARKETER' ? 0 : undefined}
                         onClick={() => {
-                          if (me?.role === 'ADMIN') setMarketerFilterId(m.marketerId);
+                          if (me?.role === 'ADMIN' || me?.role === 'MARKETER')
+                            setMarketerFilterId(m.marketerId);
                         }}
                         onKeyDown={(e) => {
-                          if (me?.role !== 'ADMIN') return;
+                          if (me?.role !== 'ADMIN' && me?.role !== 'MARKETER') return;
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             setMarketerFilterId(m.marketerId);
                           }
                         }}
                         className={`border-b border-gray-100 last:border-0 ${
-                          me?.role === 'ADMIN'
+                          me?.role === 'ADMIN' || me?.role === 'MARKETER'
                             ? 'cursor-pointer hover:bg-gray-100 focus-visible:outline focus-visible:ring-2 focus-visible:ring-gray-400'
                             : ''
                         } ${marketerFilterId === m.marketerId ? 'bg-blue-50/80' : ''}`}
-                        title={me?.role === 'ADMIN' ? '클릭하면 이 접수자로 목록 필터' : undefined}
+                        title={
+                          me?.role === 'ADMIN' || me?.role === 'MARKETER'
+                            ? '클릭하면 이 접수자로 목록 필터'
+                            : undefined
+                        }
                       >
                         <td className="py-1.5 pr-3">{m.name}</td>
                         <td className="py-1.5 px-2 text-right tabular-nums">{m.monthCount}건</td>
@@ -944,7 +949,7 @@ export function AdminInquiriesPage() {
           </div>
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              {me?.role === 'ADMIN' && (
+              {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <label htmlFor="inquiry-marketer-filter" className="text-fluid-sm text-gray-600 shrink-0">
                     접수자
@@ -1090,7 +1095,7 @@ export function AdminInquiriesPage() {
                 ))}
               </select>
             </div>
-            {me?.role === 'ADMIN' && (
+            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
               <p className="text-fluid-2xs text-gray-500">
                 접수자 필터는 표의 「접수자」와 같은 기준입니다. (개별 접수 등록자·발주서 작성자 포함, 미지정은 접수 등록 없음·발주서 미연결)
               </p>
@@ -1280,7 +1285,7 @@ export function AdminInquiriesPage() {
                             취소
                           </button>
                         )}
-                        {me?.role === 'ADMIN' && (
+                        {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
                           <button
                             type="button"
                             onClick={() => setDeleteTarget(item)}
@@ -1319,7 +1324,7 @@ export function AdminInquiriesPage() {
                 : datePreset === 'day'
                   ? ` · ${dayKey}`
                   : ' · 전체 기간'}
-            {me?.role === 'ADMIN' && marketerFilterId ? (
+            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && marketerFilterId ? (
               <>
                 {' · '}
                 접수자: {labelForMarketerFilter(marketerFilterId, me, marketers)}

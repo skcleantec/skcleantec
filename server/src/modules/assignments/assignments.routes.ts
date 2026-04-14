@@ -6,15 +6,6 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 
-function canMarketerActOnInquiry(
-  inquiry: { createdById: string | null; orderForm: { createdById: string } | null },
-  marketerId: string
-): boolean {
-  if (inquiry.createdById === marketerId) return true;
-  if (inquiry.createdById == null && inquiry.orderForm?.createdById === marketerId) return true;
-  return false;
-}
-
 const router = Router();
 
 router.use(authMiddleware);
@@ -50,10 +41,6 @@ router.post('/', async (req, res) => {
 
   if (!inquiry) {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
-    return;
-  }
-  if (user.role === 'MARKETER' && !canMarketerActOnInquiry(inquiry, user.userId)) {
-    res.status(403).json({ error: '본인이 접수한 건만 분배할 수 있습니다.' });
     return;
   }
   if (!teamLeader) {

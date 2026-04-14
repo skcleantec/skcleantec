@@ -4,12 +4,7 @@ import bcrypt from 'bcryptjs';
 import type { Prisma } from '@prisma/client';
 import type { InquiryStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import {
-  authMiddleware,
-  adminOrMarketer,
-  adminOnly,
-  type AuthPayload,
-} from '../auth/auth.middleware.js';
+import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import {
   createdAtRangeFromQuery,
   kstDayRangeYmd,
@@ -54,15 +49,6 @@ function normalizeTeamLeaderIds(raw: unknown): string[] {
     out.push(id);
   }
   return out;
-}
-
-function canMarketerAssignInquiry(
-  inquiry: { createdById: string | null; orderForm: { createdById: string } | null },
-  marketerId: string
-): boolean {
-  if (inquiry.createdById === marketerId) return true;
-  if (inquiry.createdById == null && inquiry.orderForm?.createdById === marketerId) return true;
-  return false;
 }
 
 /** 관리자 본인 비밀번호 확인 — 실패 시 res 전송 후 false */
@@ -180,9 +166,11 @@ router.get('/', async (req, res) => {
   }
   /** 마케터: 본인 접수(또는 구 데이터 발주서 작성자)만. 관리자: 선택 시 해당 사용자 기준 또는 미지정 */
   const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
-  if (user.role === 'MARKETER') {
-    andClauses.push(whereInquiryAttributedToMarketer(user.userId));
-  } else if (user.role === 'ADMIN' && typeof createdById === 'string' && createdById.trim()) {
+  if (
+    (user.role === 'ADMIN' || user.role === 'MARKETER') &&
+    typeof createdById === 'string' &&
+    createdById.trim()
+  ) {
     const cid = createdById.trim();
     if (cid === CREATED_BY_FILTER_UNASSIGNED) {
       /** 접수 등록자 없음·발주서 미연결(화면상 접수자 '-') */
@@ -263,7 +251,7 @@ router.get('/', async (req, res) => {
 });
 
 /** 관리자만 — 접수일(createdAt) KST 하루 단위 영구 삭제 (배정·이력·현장사진 연쇄 삭제) */
-router.post('/admin/bulk-delete-by-day', adminOnly, async (req, res) => {
+router.post('/admin/bulk-delete-by-day', adminOrMarketer, async (req, res) => {
   const body = req.body as { day?: string; password?: unknown };
   const day = typeof body.day === 'string' ? body.day.trim() : '';
   const range = kstDayRangeYmd(day);
@@ -279,7 +267,7 @@ router.post('/admin/bulk-delete-by-day', adminOnly, async (req, res) => {
 });
 
 /** 관리자만 — 접수일(createdAt) KST 해당 월 영구 삭제 */
-router.post('/admin/bulk-delete-by-month', adminOnly, async (req, res) => {
+router.post('/admin/bulk-delete-by-month', adminOrMarketer, async (req, res) => {
   const body = req.body as { month?: string; password?: unknown };
   const month = typeof body.month === 'string' ? body.month.trim() : '';
   const range = kstMonthRangeYm(month);
@@ -297,7 +285,6 @@ router.post('/admin/bulk-delete-by-month', adminOnly, async (req, res) => {
 /** 단일 접수 상세 (목록 항목과 동일 include — 딥링크·C/S 연결 등) */
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
-  const user = (req as unknown as { user: AuthPayload }).user;
   const inquiry = await prisma.inquiry.findUnique({
     where: { id },
     include: inquiryDetailInclude,
@@ -306,15 +293,6 @@ router.get('/:id', async (req, res) => {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
-  if (user.role === 'MARKETER') {
-    const mine =
-      inquiry.createdById === user.userId ||
-      (inquiry.createdById == null && inquiry.orderForm?.createdById === user.userId);
-    if (!mine) {
-      res.status(403).json({ error: '본인이 접수한 건만 조회할 수 있습니다.' });
-      return;
-    }
-  }
   res.json(inquiry);
 });
 
@@ -322,7 +300,7 @@ router.get('/:id', async (req, res) => {
 router.use('/:inquiryId/cleaning-photos', inquiryCleaningPhotosAdminRoutes);
 
 /** 관리자만 — 비밀번호 확인 후 접수 영구 삭제 */
-router.delete('/:id', adminOnly, async (req, res) => {
+router.delete('/:id', adminOrMarketer, async (req, res) => {
   const { id } = req.params;
   const body = req.body as { password?: string };
   if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
@@ -349,15 +327,6 @@ router.patch('/:id', async (req, res) => {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
-  if (user.role === 'MARKETER') {
-    const mine =
-      inquiry.createdById === user.userId ||
-      (inquiry.createdById == null && inquiry.orderForm?.createdById === user.userId);
-    if (!mine) {
-      res.status(403).json({ error: '본인이 접수한 건만 수정할 수 있습니다.' });
-      return;
-    }
-  }
 
   /** 클라이언트가 teamLeaderIds를 보낸 경우에만 분배(Assignment) 동기화 — 배열이 아닌 형태도 normalize에서 처리 */
   const wantsTeamSync = Object.prototype.hasOwnProperty.call(body, 'teamLeaderIds');
@@ -366,10 +335,6 @@ router.patch('/:id', async (req, res) => {
   const data = buildInquiryPatchData(body);
 
   if (wantsTeamSync) {
-    if (user.role === 'MARKETER' && !canMarketerAssignInquiry(inquiry, user.userId)) {
-      res.status(403).json({ error: '본인이 접수한 건만 분배할 수 있습니다.' });
-      return;
-    }
     if (teamLeaderIds.length > 0 && inquiry.status === 'PENDING') {
       res.status(400).json({
         error:
