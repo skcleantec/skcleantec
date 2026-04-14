@@ -112,6 +112,10 @@ function inquiryHasExternalAssignment(item: ScheduleItem): boolean {
   return item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
 }
 
+function inquiryHasTeamLeaderAssignment(item: ScheduleItem): boolean {
+  return (item.assignments?.length ?? 0) > 0;
+}
+
 function ScheduleDayListItem({
   item,
   profCatalog,
@@ -970,9 +974,26 @@ export function AdminSchedulePage() {
                 const afternoonList = dayList.filter((i) => getScheduleTimeBucket(i) === 'afternoon');
                 const otherList = dayList.filter((i) => getScheduleTimeBucket(i) === 'other');
 
-                const morningOwn = morningList.filter((i) => !inquiryHasExternalAssignment(i));
-                const afternoonOwn = afternoonList.filter((i) => !inquiryHasExternalAssignment(i));
-                const otherOwn = otherList.filter((i) => !inquiryHasExternalAssignment(i));
+                const morningOwn = morningList.filter(
+                  (i) => !inquiryHasExternalAssignment(i) && inquiryHasTeamLeaderAssignment(i)
+                );
+                const afternoonOwn = afternoonList.filter(
+                  (i) => !inquiryHasExternalAssignment(i) && inquiryHasTeamLeaderAssignment(i)
+                );
+                const otherOwn = otherList.filter(
+                  (i) => !inquiryHasExternalAssignment(i) && inquiryHasTeamLeaderAssignment(i)
+                );
+
+                const unassignedOwn = dayList
+                  .filter((i) => !inquiryHasExternalAssignment(i) && !inquiryHasTeamLeaderAssignment(i))
+                  .slice()
+                  .sort((a, b) => {
+                    const ord = (x: ScheduleItem) => {
+                      const bkt = getScheduleTimeBucket(x);
+                      return bkt === 'morning' ? 0 : bkt === 'afternoon' ? 1 : 2;
+                    };
+                    return ord(a) - ord(b);
+                  });
 
                 const morningExt = morningList.filter(inquiryHasExternalAssignment);
                 const afternoonExt = afternoonList.filter(inquiryHasExternalAssignment);
@@ -982,6 +1003,34 @@ export function AdminSchedulePage() {
 
                 return (
                   <div className="flex flex-col gap-3">
+                    {unassignedOwn.length > 0 && (
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-2 border-b-2 border-rose-400 pb-1.5">
+                          <span className="text-fluid-sm font-bold text-rose-950">팀장 미배정</span>
+                          <span className="text-fluid-xs text-rose-900/80 tabular-nums">{unassignedOwn.length}건</span>
+                        </div>
+                        <p className="text-fluid-xs text-gray-600 mb-2">
+                          팀장이 아직 배정되지 않은 자사 접수입니다. 각 행의 오전·오후·사이 배지는 희망 시간대입니다. 배정되면 아래 해당 구역에서 표시됩니다.
+                        </p>
+                        <div className="flex flex-col gap-1">
+                          {unassignedOwn.map((item) => (
+                            <ScheduleDayListItem
+                              key={item.id}
+                              item={item}
+                              profCatalog={profCatalog}
+                              onPick={() => {
+                                setMemoModalItem(null);
+                                setDetailItem(item);
+                              }}
+                              onOpenMemo={() => {
+                                setDetailItem(null);
+                                setMemoModalItem(item);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {morningOwn.length > 0 && (
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 border-b-2 border-amber-400 pb-1.5">
