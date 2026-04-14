@@ -18,12 +18,11 @@ import {
 import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
 
 function formatCelebrateBanner(p: InquiryCelebratePayload): string {
-  const suffix = p.inquiryNumber ? ` (접수번호 ${p.inquiryNumber})` : '';
   const src = (p.source ?? '').trim();
   if (src === '발주서' || src.includes('발주')) {
-    return `${p.registrarName}님이 ${p.customerName}님의 발주서가 접수되었습니다 👏👏👏${suffix}`;
+    return `${p.registrarName}님이 ${p.customerName}님의 발주서가 접수되었습니다 👏👏👏`;
   }
-  return `${p.registrarName}님이 ${p.customerName}님 건을 접수했습니다 👏👏👏${suffix}`;
+  return `${p.registrarName}님이 ${p.customerName}님 건을 접수했습니다 👏👏👏`;
 }
 
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -372,18 +371,18 @@ export function AdminLayout() {
             <div
               role="status"
               aria-live="polite"
-              className="relative flex items-center justify-center px-10 py-2.5 sm:px-12 sm:py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white border-b border-amber-700/30"
+              className="relative flex items-center justify-center px-8 py-2 sm:px-10 sm:py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white border-b border-amber-700/30"
             >
-              <p className="text-center text-sm sm:text-[0.9375rem] font-medium leading-snug max-w-4xl [text-wrap:pretty]">
+              <p className="text-center text-xs sm:text-sm font-medium leading-snug max-w-4xl [text-wrap:pretty]">
                 {formatCelebrateBanner(celebration)}
               </p>
               <button
                 type="button"
                 aria-label={'닫기'}
                 onClick={closeCelebrateStrip}
-                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
               >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
                   <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
                 </svg>
               </button>
