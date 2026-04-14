@@ -33,6 +33,7 @@ import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmp
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
+import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -731,6 +732,12 @@ router.post('/', async (req, res) => {
         crewMemberCount,
       },
     });
+  });
+  void notifyInquiryCelebrate({
+    createdById: inquiry.createdById,
+    customerName: inquiry.customerName,
+    inquiryNumber: inquiry.inquiryNumber,
+    source: inquiry.source,
   });
   res.status(201).json(inquiry);
 });

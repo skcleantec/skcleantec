@@ -16,6 +16,7 @@ import {
 } from './specialtyOptions.js';
 import { ensureMissingProfessionalDefaults } from './defaultProfessionalOptions.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
+import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 
 const router = Router();
 
@@ -698,6 +699,24 @@ router.post('/submit/:token', async (req, res) => {
         where: { id: form.id },
         data: { submittedAt: new Date() },
       });
+    });
+  }
+
+  const celebrateRow = await prisma.inquiry.findFirst({
+    where: { orderFormId: form.id },
+    select: {
+      createdById: true,
+      customerName: true,
+      inquiryNumber: true,
+      source: true,
+    },
+  });
+  if (celebrateRow) {
+    void notifyInquiryCelebrate({
+      createdById: celebrateRow.createdById,
+      customerName: celebrateRow.customerName,
+      inquiryNumber: celebrateRow.inquiryNumber,
+      source: celebrateRow.source,
     });
   }
 

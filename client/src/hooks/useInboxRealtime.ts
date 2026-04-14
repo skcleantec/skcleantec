@@ -10,6 +10,24 @@ function buildWsUrl(token: string): string {
   return `${proto}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
 }
 
+export type InquiryCelebratePayload = {
+  type: 'inquiry:celebrate';
+  registrarName: string;
+  customerName: string;
+  inquiryNumber: string | null;
+  source: string | null;
+};
+
+function isCelebratePayload(d: unknown): d is InquiryCelebratePayload {
+  if (!d || typeof d !== 'object') return false;
+  const o = d as Record<string, unknown>;
+  return (
+    o.type === 'inquiry:celebrate' &&
+    typeof o.registrarName === 'string' &&
+    typeof o.customerName === 'string'
+  );
+}
+
 type Bucket = {
   token: string;
   ws: WebSocket | null;
@@ -17,9 +35,14 @@ type Bucket = {
   tearDown: boolean;
   refreshListeners: Set<() => void>;
   connectionListeners: Set<(connected: boolean) => void>;
+  celebrationListeners: Set<(p: InquiryCelebratePayload) => void>;
 };
 
 const buckets = new Map<string, Bucket>();
+
+function bucketHasSubscribers(bucket: Bucket): boolean {
+  return bucket.refreshListeners.size > 0 || bucket.celebrationListeners.size > 0;
+}
 
 function notifyConnection(bucket: Bucket, connected: boolean) {
   for (const fn of bucket.connectionListeners) {
@@ -41,7 +64,7 @@ function connectBucket(bucket: Bucket) {
   } catch {
     bucket.reconnectTimer = setTimeout(() => {
       bucket.reconnectTimer = undefined;
-      if (!bucket.tearDown && bucket.refreshListeners.size > 0) connectBucket(bucket);
+      if (!bucket.tearDown && bucketHasSubscribers(bucket)) connectBucket(bucket);
     }, 3000);
     return;
   }
@@ -60,6 +83,15 @@ function connectBucket(bucket: Bucket) {
           }
         }
       }
+      if (isCelebratePayload(data)) {
+        for (const fn of bucket.celebrationListeners) {
+          try {
+            fn(data);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -67,10 +99,10 @@ function connectBucket(bucket: Bucket) {
   ws.onclose = () => {
     notifyConnection(bucket, false);
     bucket.ws = null;
-    if (bucket.tearDown || bucket.refreshListeners.size === 0) return;
+    if (bucket.tearDown || !bucketHasSubscribers(bucket)) return;
     bucket.reconnectTimer = setTimeout(() => {
       bucket.reconnectTimer = undefined;
-      if (!bucket.tearDown && bucket.refreshListeners.size > 0) connectBucket(bucket);
+      if (!bucket.tearDown && bucketHasSubscribers(bucket)) connectBucket(bucket);
     }, 3000);
   };
   ws.onerror = () => {
@@ -85,7 +117,8 @@ function connectBucket(bucket: Bucket) {
 function destroyBucketIfIdle(token: string) {
   const bucket = buckets.get(token);
   if (!bucket) return;
-  if (bucket.refreshListeners.size > 0 || bucket.connectionListeners.size > 0) return;
+  if (bucket.refreshListeners.size > 0 || bucket.connectionListeners.size > 0 || bucket.celebrationListeners.size > 0)
+    return;
   bucket.tearDown = true;
   if (bucket.reconnectTimer) {
     clearTimeout(bucket.reconnectTimer);
@@ -101,10 +134,7 @@ function destroyBucketIfIdle(token: string) {
 }
 
 /**
- * 서버 `inbox:refresh` 푸시 구독 — 새 메시지·C/S 배지 등에서 클라이언트가 GET으로 다시 불러오도록 신호만 보냄.
- * GNB 배지(미읽음·C/S)도 동일 이벤트로 갱신.
- * 동일 JWT로 여러 컴포넌트가 쓰면 WebSocket은 하나만 연결(탭당 병목 완화).
- * 토큰은 쿼리로 전달(브라우저 WebSocket 헤더에 Authorization 불가).
+ * Subscribe to inbox:refresh over /ws (refetch messages, nav badges). One socket per JWT.
  */
 export function useInboxRealtime(
   token: string | null,
@@ -130,6 +160,7 @@ export function useInboxRealtime(
         tearDown: false,
         refreshListeners: new Set(),
         connectionListeners: new Set(),
+        celebrationListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -159,4 +190,46 @@ export function useInboxRealtime(
   }, [token, enabled]);
 
   return { connected };
+}
+
+/** Staff-only inquiry:celebrate toast; shares /ws bucket. */
+export function useInquiryCelebrateRealtime(
+  token: string | null,
+  onCelebrate: (p: InquiryCelebratePayload) => void,
+  enabled: boolean
+): void {
+  const onCelebrateRef = useRef(onCelebrate);
+  onCelebrateRef.current = onCelebrate;
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: InquiryCelebratePayload) => onCelebrateRef.current(p);
+    b.celebrationListeners.add(listener);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.celebrationListeners.delete(listener);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
 }

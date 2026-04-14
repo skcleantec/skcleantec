@@ -22,7 +22,7 @@ export function attachInboxWebSocket(server: Server): void {
         return;
       }
       const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
-      registerUserSocket(payload.userId, ws);
+      registerUserSocket(payload.userId, payload.role ?? '', ws);
       try {
         ws.send(JSON.stringify({ type: 'connected', v: 1 }));
       } catch {

@@ -5,7 +5,7 @@ import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAut
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useInboxRealtime, useInquiryCelebrateRealtime, type InquiryCelebratePayload } from '../../hooks/useInboxRealtime';
 import { getMe } from '../../api/auth';
 import {
   ADMIN_NAV_DEF,
@@ -15,6 +15,15 @@ import {
   loadAdminNavOrder,
   saveAdminNavOrder,
 } from '../../constants/adminNav';
+
+function formatCelebrateBanner(p: InquiryCelebratePayload): string {
+  const suffix = p.inquiryNumber ? ` (접수번호 ${p.inquiryNumber})` : '';
+  const src = (p.source ?? '').trim();
+  if (src === '발주서' || src.includes('발주')) {
+    return `${p.registrarName}님이 ${p.customerName}님의 발주서가 접수되었습니다 👏👏👏${suffix}`;
+  }
+  return `${p.registrarName}님이 ${p.customerName}님 건을 접수했습니다 👏👏👏${suffix}`;
+}
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -86,6 +95,25 @@ export function AdminLayout() {
   const fabDragOffsetRef = useRef({ x: 0, y: 0 });
   const fabPressMovedRef = useRef(false);
   const fabStorageKey = 'admin_schedule_fab_pos_v1';
+  const [celebration, setCelebration] = useState<InquiryCelebratePayload | null>(null);
+  const [celebrationOpen, setCelebrationOpen] = useState(false);
+  const celebTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const celebAnimRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useInquiryCelebrateRealtime(
+    adminToken,
+    (p) => {
+      setCelebration(p);
+      setCelebrationOpen(true);
+      if (celebTimerRef.current) clearTimeout(celebTimerRef.current);
+      if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
+      celebTimerRef.current = setTimeout(() => {
+        setCelebrationOpen(false);
+        celebAnimRef.current = setTimeout(() => setCelebration(null), 380);
+      }, 9000);
+    },
+    Boolean(adminToken && (meRole === 'ADMIN' || meRole === 'MARKETER'))
+  );
 
   useEffect(() => {
     const token = getToken();
@@ -315,6 +343,35 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
+      {celebration && (
+        <div
+          className={`fixed inset-x-0 top-0 z-[140] flex justify-center px-3 pt-2 pointer-events-none transition-transform duration-300 ease-out ${
+            celebrationOpen ? 'translate-y-0' : '-translate-y-[120%]'
+          }`}
+        >
+          <div
+            className="pointer-events-auto max-w-lg w-full rounded-b-xl border border-amber-400/90 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 px-4 py-3 shadow-xl text-center"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="text-sm sm:text-base font-semibold text-amber-950 leading-snug [text-wrap:pretty]">
+              {formatCelebrateBanner(celebration)}
+            </p>
+            <button
+              type="button"
+              className="mt-2 text-xs font-medium text-amber-900/85 hover:text-amber-950 underline-offset-2 hover:underline"
+              onClick={() => {
+                setCelebrationOpen(false);
+                if (celebTimerRef.current) clearTimeout(celebTimerRef.current);
+                if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
+                celebAnimRef.current = setTimeout(() => setCelebration(null), 320);
+              }}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
       <header className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="max-w-6xl mx-auto flex flex-col gap-2 min-w-0">
           <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
