@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { createInquiry, updateInquiry } from '../../api/inquiries';
+import { createInquiry, getInquiry, updateInquiry } from '../../api/inquiries';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
-import type { ScheduleItem } from '../../api/schedule';
+import type { InquiryChangeLogEntry, ScheduleItem } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { ModalCloseButton } from './ModalCloseButton';
 import { AddressSearch } from '../forms/AddressSearch';
@@ -256,6 +256,34 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const crewHelpRef = useRef<HTMLDivElement | null>(null);
   const [preferredDateLocked, setPreferredDateLocked] = useState(isCreate);
   const [preferredDateCalOpen, setPreferredDateCalOpen] = useState(false);
+  const [historyLogs, setHistoryLogs] = useState<InquiryChangeLogEntry[]>([]);
+  const [historyLogsLoading, setHistoryLogsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!token || !item) {
+      setHistoryLogs([]);
+      setHistoryLogsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setHistoryLogsLoading(true);
+    setHistoryLogs([]);
+    void getInquiry(token, item.id)
+      .then((data) => {
+        if (cancelled) return;
+        const raw = (data as { changeLogs?: InquiryChangeLogEntry[] }).changeLogs;
+        setHistoryLogs(Array.isArray(raw) ? raw : []);
+      })
+      .catch(() => {
+        if (!cancelled) setHistoryLogs([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLogsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, item?.id]);
 
   const [editForm, setEditForm] = useState(() => {
     if (isCreate) {
@@ -1179,11 +1207,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 이력 펼치기 / 접기
               </summary>
               <div className="border-t border-gray-100 bg-white p-3">
-                <InquiryChangeHistoryBlock
-                  logs={item.changeLogs}
-                  className="mb-0 border-0 bg-transparent p-0"
-                  showEmptyHint
-                />
+                {historyLogsLoading ? (
+                  <p className="text-fluid-xs text-gray-500">이력을 불러오는 중…</p>
+                ) : (
+                  <InquiryChangeHistoryBlock
+                    logs={historyLogs}
+                    className="mb-0 border-0 bg-transparent p-0"
+                    showEmptyHint
+                  />
+                )}
               </div>
             </details>
           </AdminScheduleDetailSection>

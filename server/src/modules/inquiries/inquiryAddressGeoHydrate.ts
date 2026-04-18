@@ -23,6 +23,8 @@ export async function hydrateMissingGeoForInquiryListItems(
 ): Promise<string[]> {
   const kakaoKey = getKakaoRestApiKey();
   if (!kakaoKey) return [];
+  /** 0이면 목록·스케줄 등에서 카카오 호출·DB 갱신 생략(상세·별도 동기화에 맡김) */
+  if (opts?.maxUniqueQueries === 0) return [];
 
   const maxQ = Math.min(35, Math.max(1, opts?.maxUniqueQueries ?? 18));
   const queryToIds = new Map<string, string[]>();
