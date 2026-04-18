@@ -31,6 +31,13 @@ const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const SCHEDULE_PAGE_OVERVIEW_HELP =
   '월별 배정·슬롯 현황을 한눈에 확인합니다.';
 
+/** 기본: 프로젝트용 Cloudinary 공개 URL. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL로 덮어쓰기 가능 */
+const DEFAULT_ADMIN_SCHEDULE_MAP_ICON =
+  'https://res.cloudinary.com/dipdqqsfs/image/upload/v1776501501/external-Map-Pin-map-and-navigation-filled-outline-design-circle_ulju4s.jpg';
+
+const adminScheduleMapIconUrl =
+  (import.meta.env.VITE_ADMIN_SCHEDULE_MAP_ICON_URL ?? '').trim() || DEFAULT_ADMIN_SCHEDULE_MAP_ICON;
+
 function scheduleLegendSlotHelpText(crewUnits: number): string {
   return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. 사이는 발주서 옵션 건수이며 확정 시 오전 또는 오후 한 칸을 씁니다.`;
 }
@@ -810,15 +817,6 @@ export function AdminSchedulePage() {
                   <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  {token && (byDate[selectedDate]?.length ?? 0) > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setScheduleMapOpen(true)}
-                      className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50"
-                    >
-                      접수건 위치 검색
-                    </button>
-                  )}
                   {meRole === 'ADMIN' && token && (
                     <>
                       <button
@@ -858,6 +856,23 @@ export function AdminSchedulePage() {
                         </button>
                       )}
                     </>
+                  )}
+                  {token && (byDate[selectedDate]?.length ?? 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setScheduleMapOpen(true)}
+                      className="inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+                      title="접수건 위치 검색"
+                      aria-label="접수건 위치 검색"
+                    >
+                      <img
+                        src={adminScheduleMapIconUrl}
+                        alt=""
+                        className="h-7 w-7 object-contain pointer-events-none select-none"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </button>
                   )}
                   <button
                     type="button"
