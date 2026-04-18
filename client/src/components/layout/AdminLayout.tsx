@@ -6,7 +6,7 @@ import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime, useInquiryCelebrateRealtime, type InquiryCelebratePayload } from '../../hooks/useInboxRealtime';
-import { getMe } from '../../api/auth';
+import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import {
   ADMIN_NAV_DEF,
   type AdminNavId,
@@ -16,13 +16,24 @@ import {
   saveAdminNavOrder,
 } from '../../constants/adminNav';
 import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
+import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 
-function formatCelebrateBanner(p: InquiryCelebratePayload): string {
-  const src = (p.source ?? '').trim();
-  if (src === '발주서' || src.includes('발주')) {
-    return `${p.registrarName}님이 ${p.customerName}님의 발주서가 접수되었습니다 👏👏👏`;
+function adminHeaderGreeting(opts: {
+  token: string | null;
+  profileLoading: boolean;
+  meRole: string | null;
+  meName: string | null;
+}): string {
+  const { token, profileLoading, meRole, meName } = opts;
+  if (token && profileLoading) return '계정 확인 중…';
+  if (meRole === 'ADMIN') return '관리자님';
+  if (meRole === 'MARKETER') {
+    const n = meName?.trim();
+    return n ? `${n}님` : '마케터님';
   }
-  return `${p.registrarName}님이 ${p.customerName}님 건을 접수했습니다 👏👏👏`;
+  const n = meName?.trim();
+  if (n) return `${n}님`;
+  return '사용자님';
 }
 
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -77,6 +88,8 @@ function CalendarCuteIcon({ className }: { className?: string }) {
 export function AdminLayout() {
   const adminToken = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
@@ -85,6 +98,7 @@ export function AdminLayout() {
   const navScrollRef = useRef<HTMLDivElement>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
   const [meName, setMeName] = useState<string | null>(null);
+  const [meProfileLoading, setMeProfileLoading] = useState(() => Boolean(adminToken));
   const [teamPreviewLink, setTeamPreviewLink] = useState(false);
   const [navOrder, setNavOrder] = useState<AdminNavId[]>(() => loadAdminNavOrder(false));
   const [draggingNavId, setDraggingNavId] = useState<AdminNavId | null>(null);
@@ -139,10 +153,14 @@ export function AdminLayout() {
       setMeRole(null);
       setMeName(null);
       setTeamPreviewLink(false);
+      setMeProfileLoading(false);
       return;
     }
+    setMeProfileLoading(true);
+    let cancelled = false;
     getMe(token)
       .then((u: { role?: string; email?: string; name?: string }) => {
+        if (cancelled) return;
         setMeRole(typeof u.role === 'string' ? u.role : null);
         setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
         const preview = Boolean(u.email && isTeamPreviewAdminEmail(u.email));
@@ -151,12 +169,24 @@ export function AdminLayout() {
           setTeamToken(token);
         }
       })
-      .catch(() => {
-        setMeRole(null);
-        setMeName(null);
-        setTeamPreviewLink(false);
+      .catch((e) => {
+        if (cancelled) return;
+        if (isAuthSessionExpiredError(e)) {
+          setMeRole(null);
+          setMeName(null);
+          setTeamPreviewLink(false);
+          clearToken();
+          navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
+          return;
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setMeProfileLoading(false);
       });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [adminToken]);
 
   useEffect(() => {
     if (!meRole) return;
@@ -374,7 +404,7 @@ export function AdminLayout() {
               className="relative flex items-center justify-center px-8 py-2 sm:px-10 sm:py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white border-b border-amber-700/30"
             >
               <p className="text-center text-xs sm:text-sm font-medium leading-snug max-w-4xl [text-wrap:pretty]">
-                {formatCelebrateBanner(celebration)}
+                {formatCelebrateBannerFromConfig(celebration)}
               </p>
               <button
                 type="button"
@@ -396,7 +426,12 @@ export function AdminLayout() {
             <h1 className="text-base font-semibold text-gray-800 truncate">SK클린텍 솔루션</h1>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-sm text-gray-700 whitespace-nowrap">
-                {meRole === 'ADMIN' ? '관리자님' : `${meName ?? '사용자'}님`}
+                {adminHeaderGreeting({
+                  token: adminToken,
+                  profileLoading: meProfileLoading,
+                  meRole,
+                  meName,
+                })}
               </span>
               <button
                 type="button"
@@ -587,7 +622,12 @@ export function AdminLayout() {
               </NavLink>
             )}
             <span className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-gray-700 whitespace-nowrap py-2">
-              {meRole === 'ADMIN' ? '관리자님' : `${meName ?? '사용자'}님`}
+              {adminHeaderGreeting({
+                token: adminToken,
+                profileLoading: meProfileLoading,
+                meRole,
+                meName,
+              })}
             </span>
             <button
               type="button"

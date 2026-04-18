@@ -48,6 +48,9 @@ export function AdminTeamLeadersLayout() {
         <NavLink to="/admin/team-leaders" end className={tabClass}>
           사용자 목록
         </NavLink>
+        <NavLink to="/admin/team-leaders/page-settings" className={tabClass}>
+          페이지 설정
+        </NavLink>
         <NavLink to="/admin/team-leaders/inquiry-delete" className={tabClass}>
           접수건 삭제
         </NavLink>

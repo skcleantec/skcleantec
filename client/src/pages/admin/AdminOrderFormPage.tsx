@@ -66,8 +66,6 @@ import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
-import { dispatchCelebrateBarTest } from '../../utils/adminCelebrateBarTest';
-
 type Tab = 'config' | 'messages' | 'issue' | 'list' | 'specialty' | 'notice';
 
 const VALID_TABS: Tab[] = ['config', 'messages', 'issue', 'list', 'specialty', 'notice'];
@@ -922,16 +920,7 @@ ${footer2}`;
 
       {tab === 'issue' && (
         <div className="p-4 bg-white border border-gray-200 rounded max-w-md">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <h2 className="text-base font-medium text-gray-900">발주서 발급</h2>
-            <button
-              type="button"
-              onClick={() => dispatchCelebrateBarTest()}
-              className="shrink-0 px-3 py-1.5 border border-amber-500 bg-amber-50 text-amber-900 rounded text-xs font-medium hover:bg-amber-100 w-fit"
-            >
-              접수 축하 상단 바 미리보기
-            </button>
-          </div>
+          <h2 className="text-base font-medium text-gray-900 mb-4">발주서 발급</h2>
           <p className="text-xs text-gray-500 mb-4">
             「대기 접수 연결」에서 개별 접수로 등록한 대기 건을 선택하면, 같은 건에 링크가 붙고 고객이 제출 시 접수로 전환됩니다.
           </p>

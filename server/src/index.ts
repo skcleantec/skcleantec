@@ -12,7 +12,7 @@ async function bootstrap() {
     console.log('[db] PostgreSQL 연결됨');
   } catch (err) {
     console.error(
-      '[db] 연결 실패 — `npm run db:up` 후 `npm run db:setup`을 실행했는지, server/.env의 DATABASE_URL이 postgresql://…@localhost:5432/skcleanteck 인지 확인하세요.'
+      '[db] 연결 실패 — Docker 로컬이면 `npm run db:up` 후 `npm run db:setup`, 원격(Neon 등)이면 server/.env의 DATABASE_URL·SSL(sslmode=require)을 확인하세요.'
     );
     console.error(err);
     process.exit(1);
@@ -20,8 +20,9 @@ async function bootstrap() {
 
   const server = http.createServer(app);
   attachInboxWebSocket(server);
-  server.listen(config.port, () => {
-    console.log(`Server running on http://localhost:${config.port}`);
+  const listenHost = process.env.LISTEN_HOST || '0.0.0.0';
+  server.listen(config.port, listenHost, () => {
+    console.log(`Server running on http://${listenHost}:${config.port}`);
     void ensureMissingProfessionalDefaults(prisma).catch((e) =>
       console.error('[startup] 전문 시공 기본 옵션 확인 실패:', e)
     );

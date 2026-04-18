@@ -6,9 +6,11 @@
 
 **클라이언트와 서버를 동시에 실행해야 합니다.** DB 데이터가 안 보이면 서버가 꺼져 있을 가능성이 높습니다.
 
-### 1단계: Docker + PostgreSQL (먼저 설정)
+### 1단계: PostgreSQL (원격 공개 URL 또는 Docker)
 
-**데이터베이스 관리를 위해 PostgreSQL + Docker 사용을 권장합니다.**
+**팀 로컬 기본**: PC·노트북 모두 **`server/.env`의 `DATABASE_URL`** 에 **Railway Postgres 공개(Proxy) URL** 을 둔다(느리지만 DB를 맞추기 위함). 내부 전용 `postgres.railway.internal` 은 로컬에서 쓰지 않는다. 상세는 **`.cursor/rules/local-dev-remote-db.mdc`** 참고.
+
+**속도 우선으로 Docker 로컬 DB만 쓸 때**는 아래 순서를 따른다. **Neon 등 다른 원격**도 `postgresql://…` 한 줄이면 동일하다.
 
 1. **Docker Desktop 설치**
    - 다운로드: https://www.docker.com/products/docker-desktop/

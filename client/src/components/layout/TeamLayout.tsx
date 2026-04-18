@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { Outlet, useNavigate, NavLink } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
-import { getMe } from '../../api/auth';
+import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { getTeamNavBadges } from '../../api/team';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -17,17 +17,25 @@ export function TeamLayout() {
 
   useEffect(() => {
     const token = getTeamToken();
-    if (!token) return;
+    if (!token) {
+      setUserName(null);
+      setUserRole(null);
+      return;
+    }
     getMe(token)
       .then((u: { name?: string; role?: string }) => {
         setUserName(u.name ?? null);
         setUserRole(u.role ?? null);
       })
-      .catch(() => {
+      .catch((e) => {
         setUserName(null);
         setUserRole(null);
+        if (isAuthSessionExpiredError(e)) {
+          clearTeamToken();
+          navigate('/login', { replace: true, state: { sessionExpired: true } });
+        }
       });
-  }, []);
+  }, [teamToken, navigate]);
 
   const fetchTeamBadges = useCallback(() => {
     const token = getTeamToken();

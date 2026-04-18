@@ -1,33 +1,74 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { login } from '../api/auth';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { login, getMe, isAuthSessionExpiredError } from '../api/auth';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { isTeamPreviewAdminEmail } from '../utils/teamPreview';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const sessionExpired = Boolean((location.state as { sessionExpired?: boolean } | null)?.sessionExpired);
+  /** 로그인 제출 시 증가 — 진행 중인 자동 `getMe`가 새 토큰·저장소를 덮어쓰지 않도록 */
+  const sessionProbeGen = useRef(0);
 
   useEffect(() => {
+    let cancelled = false;
     const a = getToken();
     const t = getTeamToken();
-    if (a && !t) {
-      navigate('/admin/dashboard', { replace: true });
-      return;
-    }
-    if (t && !a) {
-      navigate('/team/dashboard', { replace: true });
-      return;
-    }
-    if (a && t) {
-      /** 동일 JWT로 관리자+팀 미리보기(예: admin2) — 둘 다 유지 */
-      if (a === t) {
-        navigate('/admin/dashboard', { replace: true });
-        return;
+    if (!a && !t) return;
+
+    void (async () => {
+      const myGen = sessionProbeGen.current;
+      try {
+        if (a && !t) {
+          await getMe(a);
+          if (cancelled || sessionProbeGen.current !== myGen) return;
+          if (getToken() !== a) return;
+          navigate('/admin/dashboard', { replace: true });
+          return;
+        }
+        if (t && !a) {
+          await getMe(t);
+          if (cancelled || sessionProbeGen.current !== myGen) return;
+          if (getTeamToken() !== t) return;
+          navigate('/team/dashboard', { replace: true });
+          return;
+        }
+        if (a && t) {
+          if (a === t) {
+            await getMe(a);
+            if (cancelled || sessionProbeGen.current !== myGen) return;
+            if (getToken() !== a || getTeamToken() !== t) return;
+            navigate('/admin/dashboard', { replace: true });
+            return;
+          }
+          clearToken();
+          clearTeamToken();
+        }
+      } catch (e) {
+        if (cancelled || sessionProbeGen.current !== myGen) return;
+        if (!isAuthSessionExpiredError(e)) return;
+        if (a && !t) {
+          if (getToken() === a) clearToken();
+          return;
+        }
+        if (t && !a) {
+          if (getTeamToken() === t) clearTeamToken();
+          return;
+        }
+        if (a && t && a === t) {
+          if (getToken() === a && getTeamToken() === t) {
+            clearToken();
+            clearTeamToken();
+          }
+        }
       }
-      clearToken();
-      clearTeamToken();
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
   const [email, setEmail] = useState('');
@@ -37,6 +78,7 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    sessionProbeGen.current += 1;
     setError('');
     setLoading(true);
     try {
@@ -76,6 +118,11 @@ export function LoginPage() {
           <p className="text-sm text-gray-500 text-center mb-4">
             관리자·마케터·팀장·타업체 담당 모두 같은 화면에서 로그인합니다.
           </p>
+          {sessionExpired && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
+              로그인이 만료되었거나 저장된 토큰이 유효하지 않습니다. 다시 로그인해 주세요.
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

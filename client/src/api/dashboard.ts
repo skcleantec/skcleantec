@@ -1,4 +1,12 @@
+import { apiErrorMessage } from './apiPrefix';
+
 const API = '/api';
+
+function apiUnreachableMessage(): Error {
+  return new Error(
+    'API 서버에 연결할 수 없습니다. 프로젝트 루트에서 npm run dev 로 서버(3000)와 클라이언트(5173)를 함께 켜 주세요.'
+  );
+}
 
 export interface DashboardStats {
   todayCount: number;
@@ -14,9 +22,16 @@ export interface DashboardStats {
 }
 
 export async function getDashboardStats(token: string): Promise<DashboardStats> {
-  const res = await fetch(`${API}/dashboard/stats`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error('통계를 불러올 수 없습니다.');
+  let res: Response;
+  try {
+    res = await fetch(`${API}/dashboard/stats`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    throw apiUnreachableMessage();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '통계를 불러올 수 없습니다.'));
+  }
   return res.json();
 }

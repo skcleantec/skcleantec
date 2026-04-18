@@ -5,8 +5,6 @@ import { getUsers, createUser, updateUser, deleteUser, type UserItem } from '../
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
-import { dispatchCelebrateBarTest } from '../../utils/adminCelebrateBarTest';
-
 type UserRole = 'TEAM_LEADER' | 'MARKETER';
 
 export function AdminTeamLeadersPage() {
@@ -158,13 +156,6 @@ export function AdminTeamLeadersPage() {
       <div className="flex flex-col gap-4">
         <h1 className="text-xl font-semibold text-gray-800">관리자설정</h1>
         <div className="flex flex-wrap gap-2 items-center">
-          <button
-            type="button"
-            onClick={() => dispatchCelebrateBarTest()}
-            className="px-4 py-2 border border-amber-500 bg-amber-50 text-amber-900 rounded text-sm font-medium hover:bg-amber-100"
-          >
-            {'\uC811\uC218 \uCD95\uD558 \uC0C1\uB2E8 \uBC14 \uBBF8\uB9AC\uBCF4\uAE30'}
-          </button>
           <button
             onClick={() => setShowForm(showForm === 'team' ? null : 'team')}
             className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
