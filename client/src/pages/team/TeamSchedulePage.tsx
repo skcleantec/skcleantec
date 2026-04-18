@@ -6,6 +6,8 @@ import {
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { isPublicHoliday } from '../../utils/holidays';
 import { formatDateCompactWithWeekday, weekdayKoFromYmd } from '../../utils/dateFormat';
 import {
@@ -39,9 +41,9 @@ export function TeamSchedulePage() {
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
   const [mapModalItems, setMapModalItems] = useState<ScheduleItem[]>([]);
 
-  const loadSchedule = useCallback(async () => {
+  const loadSchedule = useCallback(async (opts?: { silent?: boolean }) => {
     if (!token) return;
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     try {
       const [inv, hc] = await Promise.all([
         getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
@@ -52,13 +54,20 @@ export function TeamSchedulePage() {
     } catch {
       setItems([]);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [token]);
 
   useEffect(() => {
     void loadSchedule();
   }, [loadSchedule]);
+
+  const silentRefresh = useCallback(() => {
+    void loadSchedule({ silent: true });
+  }, [loadSchedule]);
+
+  const { connected: scheduleWsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
+  useVisibilityInterval(silentRefresh, token && !scheduleWsConnected ? 20000 : 0);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

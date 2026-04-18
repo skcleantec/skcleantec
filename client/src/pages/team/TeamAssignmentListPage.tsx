@@ -8,6 +8,8 @@ import {
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useNavigate } from 'react-router-dom';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { shortTimeSlotLabel } from '../../constants/orderFormSchedule';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
@@ -98,36 +100,49 @@ export function TeamAssignmentListPage() {
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
 
-  const loadList = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const [me, inv, hc] = await Promise.all([
-        getMe(token) as Promise<{ id: string }>,
-        getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
-        getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
-      ]);
-      setMyId(me.id);
-      setItems(inv.items);
-      setHappyStats(hc);
-    } catch (e) {
-      if (isAuthSessionExpiredError(e)) {
-        clearTeamToken();
-        navigate('/login', { replace: true, state: { sessionExpired: true } });
-        return;
+  const loadList = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!token) return;
+      if (!opts?.silent) {
+        setLoading(true);
+        setLoadError(null);
       }
-      setItems([]);
-      setMyId(null);
-      setLoadError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, navigate]);
+      try {
+        const [me, inv, hc] = await Promise.all([
+          getMe(token) as Promise<{ id: string }>,
+          getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
+          getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
+        ]);
+        setMyId(me.id);
+        setItems(inv.items);
+        setHappyStats(hc);
+        if (!opts?.silent) setLoadError(null);
+      } catch (e) {
+        if (isAuthSessionExpiredError(e)) {
+          clearTeamToken();
+          navigate('/login', { replace: true, state: { sessionExpired: true } });
+          return;
+        }
+        setItems([]);
+        setMyId(null);
+        setLoadError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
+      } finally {
+        if (!opts?.silent) setLoading(false);
+      }
+    },
+    [token, navigate]
+  );
 
   useEffect(() => {
     void loadList();
   }, [loadList]);
+
+  const silentRefresh = useCallback(() => {
+    void loadList({ silent: true });
+  }, [loadList]);
+
+  const { connected: assignmentWsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
+  useVisibilityInterval(silentRefresh, token && !assignmentWsConnected ? 20000 : 0);
 
   const applyPreset = (id: DateRangePresetId) => {
     setPreset(id);

@@ -41,6 +41,7 @@ import {
 } from './inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
 import { notifyAfterInquiryPatch } from '../push/inquiryTeamWebPush.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -670,6 +671,12 @@ router.patch('/:id', async (req, res) => {
     });
     if (createdCsReport) {
       void notifyCsReportNavBadges(id);
+    }
+    if (wantsTeamSync) {
+      const leaderIds = new Set<string>();
+      for (const a of inquiry.assignments) leaderIds.add(a.teamLeaderId);
+      for (const tid of teamLeaderIds) leaderIds.add(tid);
+      notifyInboxRefresh([...leaderIds]);
     }
   } catch (e) {
     console.error('PATCH inquiry transaction:', e);

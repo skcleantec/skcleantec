@@ -6,6 +6,8 @@ import {
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import {
   STATUS_LABELS,
@@ -24,9 +26,9 @@ export function TeamDashboardPage() {
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async (opts?: { silent?: boolean }) => {
     if (!token) return;
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     try {
       const [inv, hc] = await Promise.all([
         getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
@@ -37,13 +39,20 @@ export function TeamDashboardPage() {
     } catch {
       setItems([]);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [token]);
 
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+
+  const silentRefresh = useCallback(() => {
+    void loadDashboard({ silent: true });
+  }, [loadDashboard]);
+
+  const { connected: dashboardWsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
+  useVisibilityInterval(silentRefresh, token && !dashboardWsConnected ? 20000 : 0);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

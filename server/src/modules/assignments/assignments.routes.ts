@@ -97,11 +97,9 @@ router.post('/', async (req, res) => {
     },
   });
 
-  if (!prevLeaderSet.has(teamLeaderId)) {
-    void notifyNewAssignmentForInquiry(inquiryId, [teamLeaderId]).catch((e) =>
-      console.error('[assignment-notify] notifyNewAssignmentForInquiry', e)
-    );
-  }
+  void notifyNewAssignmentForInquiry(inquiryId, [teamLeaderId], [...prevLeaderSet]).catch((e) =>
+    console.error('[assignment-notify] notifyNewAssignmentForInquiry', e)
+  );
 
   res.status(201).json(assignment);
 });
