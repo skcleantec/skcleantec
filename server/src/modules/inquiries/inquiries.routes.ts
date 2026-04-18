@@ -236,7 +236,7 @@ router.get('/', async (req, res) => {
     },
     changeLogs: {
       orderBy: { createdAt: 'desc' as const },
-      take: 25,
+      take: 10,
       select: {
         id: true,
         createdAt: true,

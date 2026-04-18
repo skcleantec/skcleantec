@@ -209,6 +209,10 @@ model Inquiry {
   cleaningPhotos InquiryCleaningPhoto[]
   csReports      CsReport[]
 
+  @@index([createdAt])
+  @@index([preferredDate])
+  @@index([status, createdAt])
+  @@index([createdById])
   @@map("inquiries")
 }
 
@@ -459,6 +463,7 @@ model Assignment {
   assignedBy  User    @relation("AdminAssignments", fields: [assignedById], references: [id])
 
   @@index([inquiryId])
+  @@index([teamLeaderId])
   @@map("assignments")
 }
 

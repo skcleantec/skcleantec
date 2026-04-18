@@ -46,26 +46,35 @@ export async function hydrateMissingGeoForInquiryListItems(
 
   const hitMap = await kakaoGeocodeSequential(keys, kakaoKey);
   const touchedIds: string[] = [];
+  const writes: Array<ReturnType<typeof prisma.inquiry.updateMany>> = [];
 
   for (const q of keys) {
     const hit = hitMap.get(q) ?? null;
-    for (const id of queryToIds.get(q) ?? []) {
-      touchedIds.push(id);
-      if (hit) {
-        await prisma.inquiry.update({
-          where: { id },
+    const ids = queryToIds.get(q) ?? [];
+    if (ids.length === 0) continue;
+    for (const id of ids) touchedIds.push(id);
+    if (hit) {
+      writes.push(
+        prisma.inquiry.updateMany({
+          where: { id: { in: ids } },
           data: { addressGeoLat: hit.lat, addressGeoLng: hit.lon, addressGeoQuery: q },
-        });
-      } else {
-        await prisma.inquiry.update({
-          where: { id },
+        })
+      );
+    } else {
+      writes.push(
+        prisma.inquiry.updateMany({
+          where: { id: { in: ids } },
           data: { addressGeoLat: null, addressGeoLng: null, addressGeoQuery: q },
-        });
-      }
+        })
+      );
     }
   }
 
-  return touchedIds;
+  if (writes.length > 0) {
+    await prisma.$transaction(writes);
+  }
+
+  return [...new Set(touchedIds)];
 }
 
 /** hydrate 후 목록 행에 좌표 필드만 최신으로 합친다 */
