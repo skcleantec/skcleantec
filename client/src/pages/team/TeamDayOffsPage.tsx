@@ -1,13 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { getMyDayOffs, addDayOff, removeDayOff } from '../../api/dayoffs';
 import { getTeamToken } from '../../stores/teamAuth';
 
+function pad2(n: number) {
+  return String(n).padStart(2, '0');
+}
+
+/** 달력 연·월과 동일한 로컬 달력일(YYYY-MM-DD). toISOString()은 KST에서 월 경계가 하루 밀립니다. */
 function getMonthRange(year: number, month: number) {
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 0);
+  const lastDay = new Date(year, month, 0).getDate();
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+    start: `${year}-${pad2(month)}-01`,
+    end: `${year}-${pad2(month)}-${pad2(lastDay)}`,
   };
 }
 
@@ -34,6 +39,8 @@ function formatDateLabelYmd(ymd: string): string {
   return `${y}년 ${m}월 ${d}일`;
 }
 
+type DayOffConfirmModal = { mode: 'add' | 'remove'; ymd: string } | null;
+
 export function TeamDayOffsPage() {
   const token = getTeamToken();
   const now = new Date();
@@ -41,15 +48,30 @@ export function TeamDayOffsPage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [dayOffDates, setDayOffDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState<DayOffConfirmModal>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  /** 느린 초기 GET이 저장 직후 상태를 덮어쓰지 않도록 요청 세대 구분 */
+  const listFetchGenRef = useRef(0);
 
   useEffect(() => {
     if (!token) return;
+    listFetchGenRef.current += 1;
+    const gen = listFetchGenRef.current;
     queueMicrotask(() => setLoading(true));
     const { start, end } = getMonthRange(year, month);
     getMyDayOffs(token, start, end)
-      .then((res) => setDayOffDates(new Set(res.items)))
-      .catch(() => setDayOffDates(new Set()))
-      .finally(() => setLoading(false));
+      .then((res) => {
+        if (listFetchGenRef.current !== gen) return;
+        setDayOffDates(new Set(res.items));
+      })
+      .catch(() => {
+        if (listFetchGenRef.current !== gen) return;
+        setDayOffDates(new Set());
+      })
+      .finally(() => {
+        if (listFetchGenRef.current !== gen) return;
+        setLoading(false);
+      });
   }, [token, year, month]);
 
   const getDateKey = (d: number) => {
@@ -58,30 +80,32 @@ export function TeamDayOffsPage() {
     return `${year}-${m}-${day}`;
   };
 
-  const toggleDayOff = async (d: number) => {
-    if (!token) return;
-    const key = getDateKey(d);
-    const isOff = dayOffDates.has(key);
-    const label = formatDateLabelYmd(key);
-    if (isOff) {
-      if (!window.confirm(`${label} 휴무를 취소하시겠습니까?`)) return;
-    } else {
-      if (!window.confirm(`${label}을(를) 휴무일로 지정하시겠습니까?`)) return;
-    }
+  const openDayOffConfirm = (d: number) => {
+    const ymd = getDateKey(d);
+    setConfirmModal({ mode: dayOffDates.has(ymd) ? 'remove' : 'add', ymd });
+  };
+
+  const handleConfirmDayOff = async () => {
+    if (!token || !confirmModal) return;
+    const { mode, ymd } = confirmModal;
+    setConfirmBusy(true);
     try {
-      if (isOff) {
-        await removeDayOff(token, key);
-        setDayOffDates((prev) => {
-          const next = new Set(prev);
-          next.delete(key);
-          return next;
-        });
+      listFetchGenRef.current += 1;
+      const gen = listFetchGenRef.current;
+      if (mode === 'remove') {
+        await removeDayOff(token, ymd);
       } else {
-        await addDayOff(token, key);
-        setDayOffDates((prev) => new Set(prev).add(key));
+        await addDayOff(token, ymd);
       }
+      const { start, end } = getMonthRange(year, month);
+      const res = await getMyDayOffs(token, start, end);
+      if (listFetchGenRef.current !== gen) return;
+      setDayOffDates(new Set(res.items));
+      setConfirmModal(null);
     } catch (e) {
       alert((e as Error).message);
+    } finally {
+      setConfirmBusy(false);
     }
   };
 
@@ -93,7 +117,7 @@ export function TeamDayOffsPage() {
     <div className="flex flex-col gap-4 min-w-0">
       <h1 className="text-xl font-semibold text-gray-800">휴무일 설정</h1>
       <p className="text-sm text-gray-600">
-        날짜를 누르면 휴무 지정 또는 취소를 확인한 뒤 반영됩니다. 관리자 캘린더에 반영됩니다.
+        날짜를 누르면 확인 창에서 휴무를 지정하거나, 이미 휴무인 날은 취소할 수 있습니다. 관리자 캘린더에 반영됩니다.
       </p>
 
       <div className="flex gap-2 items-center">
@@ -139,8 +163,8 @@ export function TeamDayOffsPage() {
               return (
                 <div
                   key={key}
-                  onClick={() => toggleDayOff(d)}
-                  className={`min-h-[44px] py-2 cursor-pointer border-b border-r border-gray-100 ${
+                  onClick={() => openDayOffConfirm(d)}
+                  className={`min-h-[44px] py-2 cursor-pointer border-b border-r border-gray-100 touch-manipulation ${
                     isOff ? 'bg-red-100 text-red-700 font-medium' : 'hover:bg-gray-50'
                   }`}
                 >
@@ -157,6 +181,52 @@ export function TeamDayOffsPage() {
         <span className="inline-block w-4 h-4 bg-red-100 rounded mr-1 align-middle" />
         붉은색 = 휴무일
       </div>
+
+      {confirmModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+            onClick={() => !confirmBusy && setConfirmModal(null)}
+            role="presentation"
+          >
+            <div
+              className="w-full max-w-sm rounded-t-2xl border border-gray-200 bg-white p-6 shadow-xl sm:rounded-2xl"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="team-dayoff-confirm-title"
+            >
+              <h2 id="team-dayoff-confirm-title" className="text-lg font-semibold text-gray-900">
+                {confirmModal.mode === 'add' ? '해당 휴무를 지정할까요?' : '취소할까요?'}
+              </h2>
+              <p className="mt-2 text-fluid-sm text-gray-600">{formatDateLabelYmd(confirmModal.ymd)}</p>
+              <p className="mt-1 text-fluid-xs text-gray-500">
+                {confirmModal.mode === 'add'
+                  ? '지정하면 이 날짜는 관리자 스케줄에 휴무로 표시됩니다.'
+                  : '취소하면 이 날짜의 휴무가 해제됩니다.'}
+              </p>
+              <div className="mt-6 flex gap-2">
+                <button
+                  type="button"
+                  disabled={confirmBusy}
+                  onClick={() => setConfirmModal(null)}
+                  className="flex-1 min-h-[44px] rounded-xl border border-gray-300 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  아니오
+                </button>
+                <button
+                  type="button"
+                  disabled={confirmBusy}
+                  onClick={() => void handleConfirmDayOff()}
+                  className="flex-1 min-h-[44px] rounded-xl bg-gray-900 text-fluid-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {confirmBusy ? '처리 중…' : '예'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

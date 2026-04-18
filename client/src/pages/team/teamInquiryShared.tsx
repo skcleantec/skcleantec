@@ -1,4 +1,5 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
@@ -170,12 +171,68 @@ function ChevronDownMini({ className }: { className?: string }) {
   );
 }
 
+function CloseMiniIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function formatAssignedAtModal(iso?: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function leaderLabelForAssignment(u: InquiryItem['assignments'][0]['teamLeader']): string {
+  if (u.role === 'EXTERNAL_PARTNER') {
+    return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
+  }
+  return u.name;
+}
+
+function myAssignmentForViewer(item: InquiryItem, viewerId: string) {
+  return item.assignments.find((a) => a.teamLeader.id === viewerId);
+}
+
+function coLeadersSummaryForViewer(item: InquiryItem, viewerId: string): string {
+  const others = item.assignments
+    .filter((a) => a.teamLeader.id !== viewerId)
+    .map((a) => leaderLabelForAssignment(a.teamLeader));
+  return others.length ? others.join(' · ') : '—';
+}
+
+function TeamModalSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <h3 className="border-b border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs font-semibold text-gray-600 sm:px-4">
+        {title}
+      </h3>
+      <div className="divide-y divide-gray-100">{children}</div>
+    </section>
+  );
+}
+
+function TeamModalRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0 px-3 py-2.5 sm:grid sm:grid-cols-[7.5rem_1fr] sm:items-start sm:gap-3 sm:px-4 sm:py-3">
+      <div className="mb-0.5 text-fluid-xs font-medium text-gray-500 sm:mb-0 sm:pt-0.5">{label}</div>
+      <div className="min-w-0 break-words text-fluid-sm text-gray-900">{children}</div>
+    </div>
+  );
+}
+
 export function TeamInquiryDetailModal({
   item,
   onClose,
   enableHappyCall,
   onHappyCallComplete,
   onPreferredDateChange,
+  viewerTeamLeaderId,
 }: {
   item: InquiryItem;
   onClose: () => void;
@@ -183,6 +240,8 @@ export function TeamInquiryDetailModal({
   enableHappyCall?: boolean;
   onHappyCallComplete?: () => Promise<void>;
   onPreferredDateChange?: (preferredDate: string) => Promise<void>;
+  /** 설정 시 본인 배정일·배정자·공동 배정 행 표시 (배정목록 등) */
+  viewerTeamLeaderId?: string | null;
 }) {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const [happySaving, setHappySaving] = useState(false);
@@ -221,159 +280,234 @@ export function TeamInquiryDetailModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" onClick={onClose}>
+  const mine = viewerTeamLeaderId ? myAssignmentForViewer(item, viewerTeamLeaderId) : null;
+
+  const modal = (
+    <div
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+      onClick={onClose}
+      role="presentation"
+    >
       <div
-        className="bg-white rounded-t-2xl sm:rounded-lg p-6 w-full sm:max-w-md max-h-[85vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
+        className="flex max-h-[min(92dvh,100svh)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[88vh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="team-inquiry-detail-title"
       >
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">상세 내역</h2>
-        <details className="group mb-4 min-w-0 rounded-xl border border-blue-200 bg-blue-50/80 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-fluid-sm font-medium text-blue-950 hover:bg-blue-100/60 min-h-[44px] touch-manipulation select-none">
-            <span>현장 사진 (청소 전·후)</span>
-            <ChevronDownMini className="h-5 w-5 shrink-0 text-blue-800 transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="border-t border-blue-200/80 px-3 pb-3 pt-1">
-            <p className="text-fluid-xs text-blue-900/80 mb-3">
-              <strong className="font-semibold">사진 올리기</strong>를 펼쳐 청소 전·후 아이콘으로 올리거나, 아래에서 등록된 사진을 확인할 수 있습니다.
-            </p>
-            {teamToken ? (
-              <InquiryCleaningPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded />
-            ) : (
-              <p className="text-fluid-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                로그인 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
-              </p>
-            )}
-          </div>
-        </details>
-        <div className="flex flex-col gap-3 text-fluid-sm">
-          <div>
-            <span className="text-gray-500 block text-fluid-xs">고객명</span>
-            <span className="font-medium text-gray-900">{item.customerName}</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block text-fluid-xs">연락처</span>
-            <a href={`tel:${item.customerPhone}`} className="text-blue-600 underline break-all">
-              {item.customerPhone}
-            </a>
-            {item.customerPhone2?.trim() && (
-              <div className="mt-1">
-                <span className="text-gray-500 text-fluid-xs">보조 </span>
-                <a href={`tel:${item.customerPhone2}`} className="text-blue-600 underline break-all text-fluid-sm">
-                  {item.customerPhone2}
-                </a>
-              </div>
-            )}
-          </div>
-          <div>
-            <span className="text-gray-500 block text-fluid-xs">주소</span>
-            <span className="text-gray-800 break-words">
-              {item.address}
-              {item.addressDetail ? ` ${item.addressDetail}` : ''}
-            </span>
-          </div>
-          <div className="flex gap-4 flex-wrap">
-            <div>
-              <span className="text-gray-500 block text-fluid-xs">평수</span>
-              <span>
-                {item.areaPyeong != null
-                  ? `${item.areaBasis ? `${item.areaBasis} ` : ''}${item.areaPyeong}평`
-                  : '-'}
-              </span>
-            </div>
-            {item.propertyType && (
-              <div>
-                <span className="text-gray-500 block text-fluid-xs">건축물 유형</span>
-                <span>{item.propertyType}</span>
-              </div>
-            )}
-            <div>
-              <span className="text-gray-500 block text-fluid-xs">방·화·베</span>
-              <span>{formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}</span>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div>
-              <span className="text-gray-500 block text-fluid-xs">예약일</span>
-              <span className="text-fluid-xs tabular-nums">
-                {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '-'}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500 block text-fluid-xs">희망 시간</span>
-              <span>{formatScheduleLine(item)}</span>
-            </div>
-          </div>
-          {onPreferredDateChange && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-              <span className="text-gray-600 block text-fluid-xs mb-1">예약일 변경 (팀장)</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={preferredDateInput}
-                  onChange={(e) => setPreferredDateInput(e.target.value)}
-                  className="flex-1 min-w-0 border border-blue-300 rounded px-2 py-1.5 text-fluid-sm bg-white"
-                />
-                <button
-                  type="button"
-                  disabled={preferredDateSaving}
-                  onClick={() => void handlePreferredDateSave()}
-                  className="px-3 py-1.5 rounded text-fluid-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {preferredDateSaving ? '저장 중...' : '변경'}
-                </button>
-              </div>
-            </div>
-          )}
-          <div>
-            <span className="text-gray-500 block text-fluid-xs">상태</span>
-            <span className="px-2 py-0.5 rounded text-fluid-xs bg-gray-200">
-              {STATUS_LABELS[item.status] ?? item.status}
-            </span>
-          </div>
-          {item.claimMemo && (
-            <div>
-              <span className="text-gray-500 block text-fluid-xs">C/S 내용</span>
-              <span className="text-gray-800 break-words">{item.claimMemo}</span>
-            </div>
-          )}
-          {showHappyBlock && (
-            <div className="border-t border-gray-100 pt-3 mt-1">
-              <span className="text-gray-500 block text-fluid-xs mb-1">해피콜</span>
-              {item.happyCallCompletedAt ? (
-                <span className="text-fluid-sm text-green-700 font-medium">
-                  완료 (
-                  {new Date(item.happyCallCompletedAt).toLocaleString('ko-KR', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                  )
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 bg-white px-4 pb-3 pt-4 sm:rounded-t-2xl">
+          <div className="min-w-0 flex-1">
+            <p className="text-fluid-xs text-gray-500">접수 상세</p>
+            <h2 id="team-inquiry-detail-title" className="mt-0.5 truncate text-lg font-semibold text-gray-900">
+              {item.customerName}
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {item.inquiryNumber ? (
+                <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-fluid-2xs font-medium tabular-nums text-white">
+                  {item.inquiryNumber}
                 </span>
-              ) : canHappy ? (
-                <span className="text-fluid-sm text-amber-800">미완료 — 고객에게 일정 안내 전화를 걸어 주세요.</span>
-              ) : (
-                <span className="text-fluid-sm text-gray-400">해당 없음</span>
-              )}
+              ) : null}
+              <span className="rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
+                {STATUS_LABELS[item.status] ?? item.status}
+              </span>
+              {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
             </div>
-          )}
-        </div>
-        {enableHappyCall && canHappy && !item.happyCallCompletedAt && onHappyCallComplete && (
+          </div>
           <button
             type="button"
-            disabled={happySaving}
-            onClick={() => void handleHappyCallComplete()}
-            className="mt-4 w-full py-3 rounded-xl text-fluid-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            onClick={onClose}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-800 touch-manipulation"
+            aria-label="닫기"
           >
-            {happySaving ? '처리 중...' : '해피콜 완료'}
+            <CloseMiniIcon className="h-5 w-5" />
           </button>
-        )}
-        <button
-          onClick={onClose}
-          className="mt-4 w-full py-3 border border-gray-300 rounded-xl text-fluid-sm font-medium hover:bg-gray-50 active:bg-gray-100"
-        >
-          닫기
-        </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
+          <div className="flex flex-col gap-4">
+            <TeamModalSection title="접수 정보">
+              <TeamModalRow label="접수일">
+                <span className="tabular-nums text-gray-800">{formatDateCompactWithWeekday(item.createdAt)}</span>
+              </TeamModalRow>
+            </TeamModalSection>
+
+            {viewerTeamLeaderId && mine ? (
+              <TeamModalSection title="배정 정보 (본인)">
+                <TeamModalRow label="배정일시">
+                  <span className="tabular-nums text-gray-800">{formatAssignedAtModal(mine.assignedAt)}</span>
+                </TeamModalRow>
+                <TeamModalRow label="배정자">
+                  <span className="text-gray-800">{mine.assignedBy?.name ?? '—'}</span>
+                </TeamModalRow>
+                <TeamModalRow label="공동 배정">
+                  <span className="text-gray-800">{coLeadersSummaryForViewer(item, viewerTeamLeaderId)}</span>
+                </TeamModalRow>
+              </TeamModalSection>
+            ) : null}
+
+            <TeamModalSection title="고객 · 현장">
+              <TeamModalRow label="연락처">
+                <div className="space-y-1.5">
+                  <a href={`tel:${item.customerPhone}`} className="inline-block font-medium text-blue-700 underline underline-offset-2">
+                    {item.customerPhone}
+                  </a>
+                  {item.customerPhone2?.trim() ? (
+                    <div>
+                      <span className="mr-1 text-fluid-xs text-gray-500">보조</span>
+                      <a
+                        href={`tel:${item.customerPhone2}`}
+                        className="inline-block text-blue-700 underline underline-offset-2"
+                      >
+                        {item.customerPhone2}
+                      </a>
+                    </div>
+                  ) : null}
+                </div>
+              </TeamModalRow>
+              <TeamModalRow label="주소">
+                <p className="leading-relaxed text-gray-800">
+                  {item.address}
+                  {item.addressDetail ? <span className="text-gray-600"> {item.addressDetail}</span> : null}
+                </p>
+              </TeamModalRow>
+            </TeamModalSection>
+
+            <TeamModalSection title="물량 · 유형">
+              <TeamModalRow label="평수">
+                <span className="text-gray-800">
+                  {item.areaPyeong != null
+                    ? `${item.areaBasis ? `${item.areaBasis} ` : ''}${item.areaPyeong}평`
+                    : '—'}
+                </span>
+              </TeamModalRow>
+              <TeamModalRow label="방 · 화 · 베">
+                <span className="text-gray-800">{formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}</span>
+              </TeamModalRow>
+              {item.propertyType ? (
+                <TeamModalRow label="건축물 유형">
+                  <span className="text-gray-800">{item.propertyType}</span>
+                </TeamModalRow>
+              ) : null}
+            </TeamModalSection>
+
+            <TeamModalSection title="일정">
+              <TeamModalRow label="예약일">
+                <span className="tabular-nums text-gray-800">
+                  {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
+                </span>
+              </TeamModalRow>
+              <TeamModalRow label="희망 시간">
+                <span className="text-gray-800">{formatScheduleLine(item)}</span>
+              </TeamModalRow>
+            </TeamModalSection>
+
+            {onPreferredDateChange ? (
+              <div className="rounded-xl border border-blue-200 bg-blue-50/90 p-4 shadow-sm">
+                <p className="text-fluid-xs font-semibold text-blue-950">예약일 변경 (팀장)</p>
+                <p className="mt-1 text-fluid-2xs text-blue-900/80">변경 후 관리자 화면에 반영됩니다.</p>
+                <div className="mt-3 flex flex-wrap items-stretch gap-2">
+                  <input
+                    type="date"
+                    value={preferredDateInput}
+                    onChange={(e) => setPreferredDateInput(e.target.value)}
+                    className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-blue-300 bg-white px-3 py-2 text-fluid-sm"
+                  />
+                  <button
+                    type="button"
+                    disabled={preferredDateSaving}
+                    onClick={() => void handlePreferredDateSave()}
+                    className="min-h-[44px] rounded-lg bg-blue-600 px-4 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {preferredDateSaving ? '저장 중…' : '변경 저장'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {item.memo?.trim() ? (
+              <TeamModalSection title="관리자 메모">
+                <div className="px-3 py-3 text-fluid-sm leading-relaxed text-gray-800 sm:px-4 whitespace-pre-wrap break-words">
+                  {item.memo.trim()}
+                </div>
+              </TeamModalSection>
+            ) : null}
+
+            {item.claimMemo?.trim() ? (
+              <TeamModalSection title="C/S 표시">
+                <div className="border-l-4 border-amber-400 bg-amber-50/80 px-3 py-3 text-fluid-sm leading-relaxed text-amber-950 sm:px-4 whitespace-pre-wrap break-words">
+                  {item.claimMemo.trim()}
+                </div>
+              </TeamModalSection>
+            ) : null}
+
+            {showHappyBlock ? (
+              <TeamModalSection title="해피콜">
+                <div className="px-3 py-3 sm:px-4">
+                  {item.happyCallCompletedAt ? (
+                    <p className="text-fluid-sm font-medium text-green-800">
+                      완료 ·{' '}
+                      <span className="font-normal tabular-nums text-gray-700">
+                        {new Date(item.happyCallCompletedAt).toLocaleString('ko-KR', {
+                          timeZone: 'Asia/Seoul',
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </span>
+                    </p>
+                  ) : canHappy ? (
+                    <p className="text-fluid-sm leading-relaxed text-amber-900">
+                      미완료 — 작업 전 고객에게 일정 안내 전화를 걸어 주세요.
+                    </p>
+                  ) : (
+                    <p className="text-fluid-sm text-gray-500">해당 없음</p>
+                  )}
+                </div>
+              </TeamModalSection>
+            ) : null}
+
+            <details className="group min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/80 [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-fluid-sm font-medium text-blue-950 hover:bg-blue-100/60 touch-manipulation select-none">
+                <span>현장 사진 (청소 전·후)</span>
+                <ChevronDownMini className="h-5 w-5 shrink-0 text-blue-800 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="border-t border-blue-200/80 px-4 pb-4 pt-1">
+                <p className="mb-3 text-fluid-xs text-blue-900/85">
+                  <strong className="font-semibold">사진 올리기</strong>를 펼쳐 청소 전·후로 올리거나, 등록된 사진을 확인할 수 있습니다.
+                </p>
+                {teamToken ? (
+                  <InquiryCleaningPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded />
+                ) : (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                    로그인 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
+                  </p>
+                )}
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <footer className="shrink-0 space-y-2 border-t border-gray-200 bg-gray-50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:rounded-b-2xl">
+          {enableHappyCall && canHappy && !item.happyCallCompletedAt && onHappyCallComplete ? (
+            <button
+              type="button"
+              disabled={happySaving}
+              onClick={() => void handleHappyCallComplete()}
+              className="min-h-[48px] w-full rounded-xl bg-blue-600 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {happySaving ? '처리 중…' : '해피콜 완료'}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[48px] w-full rounded-xl border border-gray-300 bg-white text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100"
+          >
+            닫기
+          </button>
+        </footer>
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }

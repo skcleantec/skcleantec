@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { createInquiry, updateInquiry } from '../../api/inquiries';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
@@ -19,6 +19,17 @@ import { YmdSelect } from '../ui/DateQuerySelects';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
+
+function AdminScheduleDetailSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <h3 className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-fluid-xs font-semibold text-gray-600">
+        {title}
+      </h3>
+      <div className="p-4 sm:p-5">{children}</div>
+    </section>
+  );
+}
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
@@ -477,7 +488,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       aria-labelledby="schedule-detail-title"
     >
       <div
-        className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:rounded-lg"
+        className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative shrink-0 border-b border-gray-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
@@ -530,12 +541,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 : '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'
               : '스케줄에서 연 접수입니다. 수정 후 저장하세요.'}
           </p>
+          {!isCreate && item ? (
+            <p className="mt-2 truncate text-base font-semibold text-gray-900">{item.customerName}</p>
+          ) : null}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6">
+        <div className="space-y-4">
         {!isCreate && item && (
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 border-b border-gray-100 pb-3 mb-4">
+          <AdminScheduleDetailSection title="접수 개요">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
             {item.inquiryNumber ? (
               <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 tabular-nums">
                 접수번호 {item.inquiryNumber}
@@ -559,9 +575,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             {item.orderForm?.createdBy && <span>담당 마케터: {item.orderForm.createdBy.name}</span>}
             {item.callAttempt != null && <span>통화 시도: {item.callAttempt}</span>}
             {item.claimMemo?.trim() && <span className="text-orange-700 font-medium">클레임 등록됨</span>}
-          </div>
+            </div>
+          </AdminScheduleDetailSection>
         )}
 
+        <AdminScheduleDetailSection title="고객 · 주소">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
             <label className="block text-gray-600 mb-1">성함</label>
@@ -597,6 +615,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               placeholder="동·호수"
             />
           </div>
+        </div>
+        </AdminScheduleDetailSection>
+
+        <AdminScheduleDetailSection title="유형 · 면적 · 방·주방">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
             <label className="block text-gray-600 mb-1">보조 연락처</label>
             <input
@@ -686,6 +709,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               />
             </div>
           </div>
+        </div>
+        </AdminScheduleDetailSection>
+
+        <AdminScheduleDetailSection title="일정">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
               <label className="block text-gray-600">예약일 (청소 희망일)</label>
@@ -812,7 +840,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               className="w-full px-3 py-2 border border-gray-300 rounded"
             />
           </div>
+        </div>
+        </AdminScheduleDetailSection>
 
+        <AdminScheduleDetailSection title="정산 · 옵션">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div className="sm:col-span-2 p-3 bg-amber-50 border border-amber-100 rounded text-xs text-amber-900">
             정산·표시용 금액(원). 비우면 해당 항목은 비움 처리됩니다.
             {!isCreate &&
@@ -931,6 +963,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </div>
             )}
           </div>
+        </div>
+        </AdminScheduleDetailSection>
+
+        <AdminScheduleDetailSection title="상태 · 배정 · 팀원 · 메모">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
             <label className="block text-gray-600 mb-1">상태</label>
             <select
@@ -1116,35 +1153,43 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             />
           </div>
         </div>
+        </AdminScheduleDetailSection>
 
         {!isCreate && item?.claimMemo?.trim() && (
-          <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-sm">
-            <p className="text-xs font-medium text-orange-800 mb-1">클레임 내용 (참고)</p>
-            <p className="text-gray-800 whitespace-pre-wrap">{item.claimMemo}</p>
-          </div>
+          <AdminScheduleDetailSection title="클레임 (참고)">
+            <p className="text-xs font-medium text-orange-800 mb-2">등록된 클레임 내용</p>
+            <p className="whitespace-pre-wrap rounded-lg border border-orange-100 bg-orange-50/80 p-3 text-sm text-gray-900">
+              {item.claimMemo}
+            </p>
+          </AdminScheduleDetailSection>
         )}
 
         {!isCreate && item && (
-          <div className="mt-4 min-w-0">
-            <InquiryCleaningPhotosPanel inquiryId={item.id} variant="admin" token={token} />
-          </div>
-        )}
-
-        {!isCreate && item && (
-          <details className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
-            <summary className="px-3 py-2 text-sm text-gray-700 bg-gray-50 cursor-pointer select-none hover:bg-gray-100">
-              날짜·금액 변경 이력 보기
-            </summary>
-            <div className="p-3 bg-white border-t border-gray-100">
-              <InquiryChangeHistoryBlock
-                logs={item.changeLogs}
-                className="mb-0 p-0 border-0 bg-transparent"
-                showEmptyHint
-              />
+          <AdminScheduleDetailSection title="현장 사진 (청소 전·후)">
+            <div className="min-w-0">
+              <InquiryCleaningPhotosPanel inquiryId={item.id} variant="admin" token={token} />
             </div>
-          </details>
+          </AdminScheduleDetailSection>
         )}
 
+        {!isCreate && item && (
+          <AdminScheduleDetailSection title="날짜·금액 변경 이력">
+            <details className="overflow-hidden rounded-lg border border-gray-200">
+              <summary className="cursor-pointer select-none bg-gray-50 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-100">
+                이력 펼치기 / 접기
+              </summary>
+              <div className="border-t border-gray-100 bg-white p-3">
+                <InquiryChangeHistoryBlock
+                  logs={item.changeLogs}
+                  className="mb-0 border-0 bg-transparent p-0"
+                  showEmptyHint
+                />
+              </div>
+            </details>
+          </AdminScheduleDetailSection>
+        )}
+
+        </div>
         </div>
 
         <div className="relative z-20 flex shrink-0 gap-2 border-t border-gray-200 bg-white px-5 py-3 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">

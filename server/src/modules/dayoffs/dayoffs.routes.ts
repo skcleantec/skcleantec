@@ -18,15 +18,35 @@ import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 
 const router = Router();
 
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+function kstNowCalendar(): { y: number; m: number } {
+  const s = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' });
+  const [ymd] = s.split(' ');
+  const [y, m] = ymd.split('-').map((x) => parseInt(x, 10));
+  return { y, m };
+}
+
+function ymdFromDateKst(d: Date): string {
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
 /** 팀장: 내 휴무일 목록 */
 router.get('/me', teamAuthMiddleware, async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
   const { start, end } = req.query as { start?: string; end?: string };
-  const now = new Date();
-  const startDate = start ? new Date(start) : new Date(now.getFullYear(), now.getMonth(), 1);
-  const endDate = end
-    ? new Date(end + 'T23:59:59')
-    : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const k = kstNowCalendar();
+  const startDate =
+    start && YMD.test(start)
+      ? new Date(`${start}T00:00:00+09:00`)
+      : new Date(`${k.y}-${String(k.m).padStart(2, '0')}-01T00:00:00+09:00`);
+  const lastDayOfMonth = new Date(k.y, k.m, 0).getDate();
+  const endDate =
+    end && YMD.test(end)
+      ? new Date(`${end}T23:59:59.999+09:00`)
+      : new Date(
+          `${k.y}-${String(k.m).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999+09:00`
+        );
 
   const list = await prisma.userDayOff.findMany({
     where: {
@@ -35,7 +55,7 @@ router.get('/me', teamAuthMiddleware, async (req, res) => {
     },
     orderBy: { date: 'asc' },
   });
-  res.json({ items: list.map((d) => d.date.toISOString().slice(0, 10)) });
+  res.json({ items: list.map((d) => ymdFromDateKst(d.date)) });
 });
 
 /** 팀장: 휴무일 추가 */
@@ -46,7 +66,7 @@ router.post('/me', teamAuthMiddleware, async (req, res) => {
     res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
     return;
   }
-  const d = new Date(date + 'T12:00:00');
+  const d = new Date(`${date}T12:00:00+09:00`);
   await prisma.userDayOff.upsert({
     where: {
       teamLeaderId_date: { teamLeaderId: userId, date: d },
@@ -65,14 +85,12 @@ router.delete('/me', teamAuthMiddleware, async (req, res) => {
     res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
     return;
   }
-  const d = new Date(date + 'T12:00:00');
+  const d = new Date(`${date}T12:00:00+09:00`);
   await prisma.userDayOff.deleteMany({
     where: { teamLeaderId: userId, date: d },
   });
   res.json({ ok: true });
 });
-
-const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 function toDateKeyFromDb(d: Date): string {
   const y = d.getFullYear();

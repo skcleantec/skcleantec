@@ -177,8 +177,9 @@ export function TeamAssignmentListPage() {
       <div>
         <h1 className="text-xl font-semibold text-gray-800">배정목록</h1>
         <p className="mt-1 text-fluid-xs text-gray-500">
-          관리자가 본인에게 배정한 접수를 관리자 접수목록과 비슷한 표로 확인합니다. (다른 팀장으로 재배정되어 본인 배정이
-          해제된 건은 DB에 남지 않아 이 목록에 나오지 않을 수 있습니다.)
+          관리자가 본인에게 배정한 접수입니다. 넓은 화면에서는 표로, 모바일·태블릿(가로 1024px 미만)에서는 카드로 한 번에
+          요약해 봅니다. 카드를 누르면 전체 항목이 있는 상세로 열립니다. (재배정으로 본인 배정이 해제된 건은 목록에 안
+          나올 수 있습니다.)
         </p>
       </div>
 
@@ -301,10 +302,81 @@ export function TeamAssignmentListPage() {
           <div className="p-8 text-center text-fluid-sm text-gray-500">조건에 맞는 배정이 없습니다.</div>
         ) : (
           <>
-            <p className="text-fluid-xs text-gray-500 px-4 pt-3 sm:px-0 sm:pt-3 max-md:px-4">
-              좁은 화면에서는 표를 좌우로 밀거나, 하단 고정 막대·◀▶로 가로 스크롤할 수 있습니다.
+            <p className="px-4 pt-3 text-fluid-xs text-gray-500 lg:hidden">
+              카드를 누르면 상세(배정자·공동 배정·평수 등)가 열립니다. 오른쪽 전화는 바로 걸기입니다.
             </p>
-            <SyncHorizontalScroll dockUntil="lg" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+            <p className="hidden px-4 pt-3 text-fluid-xs text-gray-500 lg:block sm:px-0">
+              표가 넓을 때는 좌우로 밀거나 하단 고정 막대·◀▶로 가로 스크롤할 수 있습니다.
+            </p>
+
+            <div className="flex flex-col gap-3 p-3 lg:hidden">
+              {filteredSorted.map((item) => {
+                const mine = myAssignment(item, myId!);
+                const addr = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
+                return (
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${item.customerName} 접수 상세`}
+                    onClick={() => setDetailItem(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setDetailItem(item);
+                      }
+                    }}
+                    className="cursor-pointer rounded-xl border border-gray-200 bg-white p-3 shadow-sm outline-none ring-gray-300 transition hover:border-gray-300 hover:shadow active:bg-gray-50 focus-visible:ring-2 touch-manipulation"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-fluid-sm font-semibold text-gray-900">{item.customerName}</span>
+                          {item.claimMemo ? (
+                            <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="C/S 표시">
+                              ●
+                            </span>
+                          ) : null}
+                          {item.inquiryNumber ? (
+                            <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-gray-700">
+                              {item.inquiryNumber}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 text-fluid-xs tabular-nums text-gray-500">
+                          배정 {formatAssignedAt(mine?.assignedAt)}
+                        </p>
+                        <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={addr}>
+                          {addr}
+                        </p>
+                      </div>
+                      <a
+                        href={`tel:${item.customerPhone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 self-start rounded-lg bg-blue-600 px-3 py-2 text-center text-fluid-xs font-medium text-white hover:bg-blue-700"
+                      >
+                        전화
+                      </a>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 text-fluid-xs text-gray-700">
+                      <span className="tabular-nums">
+                        예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
+                      </span>
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
+                        {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '시간 미정'}
+                      </span>
+                      <span className="inline-flex rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
+                        {STATUS_LABELS[item.status] ?? item.status}
+                      </span>
+                      <TeamHappyCallBadge item={item} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden lg:block">
+            <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
               <table className="w-full text-fluid-sm border-collapse min-w-[920px]">
                 <thead>
                   <tr className="bg-gray-100 border-b border-gray-200">
@@ -412,6 +484,7 @@ export function TeamAssignmentListPage() {
                 </tbody>
               </table>
             </SyncHorizontalScroll>
+            </div>
             <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-fluid-xs text-gray-600 sm:px-4">
               표시 {filteredSorted.length}건 · 기간 {rangeLabelLo} ~ {rangeLabelHi} ·{' '}
               {dateBasis === 'assignedAt' ? '배정일' : dateBasis === 'createdAt' ? '접수일' : '예약일'} 기준
@@ -423,6 +496,7 @@ export function TeamAssignmentListPage() {
       {detailItem && myId && (
         <TeamInquiryDetailModal
           item={detailItem}
+          viewerTeamLeaderId={myId}
           onClose={() => setDetailItem(null)}
           enableHappyCall
           onPreferredDateChange={async (preferredDate) => {

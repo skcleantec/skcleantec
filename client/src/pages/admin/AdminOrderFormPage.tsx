@@ -100,6 +100,18 @@ function labelOrderFormIssuer(user: OrderFormCreatedBy | null | undefined): stri
   return user.name.trim();
 }
 
+/** 목록·카드용: 청소 희망 일시 한 줄 */
+function formatOrderFormPreferredLine(order: OrderForm): string | null {
+  if (!order.preferredDate?.trim()) return null;
+  const date = order.preferredDate.trim();
+  const slot =
+    order.preferredTime &&
+    (ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === order.preferredTime)?.label ?? order.preferredTime);
+  const detail = order.preferredTimeDetail?.trim();
+  const base = slot ? `${date} (${slot})` : date;
+  return detail ? `${base} · ${detail}` : base;
+}
+
 function normalizeSubTabOrder(parsed: unknown): Tab[] {
   if (!Array.isArray(parsed)) return [...DEFAULT_SUB_TAB_ORDER];
   const seen = new Set<Tab>();
@@ -1175,92 +1187,203 @@ ${footer2}`;
               <div className="p-8 text-center text-gray-500 text-fluid-sm">발급된 발주서가 없습니다.</div>
             ) : (
               <>
-                <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 md:hidden">
-                  하단 막대·◀▶ 또는 표를 좌우로 밀기
+                <p className="border-b border-gray-100 px-4 py-2 text-fluid-xs text-gray-600 lg:hidden">
+                  카드 하단에서 메시지·링크·새 창을 누르세요. PC(큰 화면)에서는 표가 보입니다.
                 </p>
-                <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-                <table className="w-full min-w-[640px] border-separate border-spacing-0 text-fluid-sm">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="sticky left-0 z-20 border-b border-r border-gray-200 bg-gray-100 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
-                        고객명
-                      </th>
-                      <th className="w-[4.25rem] max-w-[4.25rem] sm:w-[5rem] sm:max-w-[5rem] border-b border-gray-200 py-1.5 px-1 text-center text-[10px] leading-tight font-medium text-gray-700 whitespace-nowrap">
-                        담당
-                      </th>
-                      <th className="border-b border-gray-200 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
-                        총액
-                      </th>
-                      <th className="border-b border-gray-200 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
-                        상태
-                      </th>
-                      <th className="border-b border-gray-200 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
-                        발급일
-                      </th>
-                      <th className="min-w-[11rem] border-b border-gray-200 py-2 px-2 text-center text-fluid-2xs font-medium text-gray-700 sm:px-3 sm:text-fluid-sm whitespace-nowrap">
-                        링크
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orderForms.map((o) => (
-                      <tr
+                <div className="flex flex-col gap-3 p-3 lg:hidden">
+                  {orderForms.map((o) => {
+                    const pref = formatOrderFormPreferredLine(o);
+                    const issuer = labelOrderFormIssuer(o.createdBy ?? undefined);
+                    return (
+                      <div
                         key={o.id}
-                        className="group hover:bg-gray-50"
+                        className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
                       >
-                        <td className="sticky left-0 z-10 border-b border-r border-gray-100 bg-white py-2 px-2 text-left text-fluid-xs font-medium text-gray-900 sm:px-3 sm:text-fluid-sm whitespace-nowrap group-hover:bg-gray-50">
-                          {o.customerName}
-                        </td>
-                        <td
-                          className="border-b border-gray-100 py-1.5 px-1 text-left text-[10px] sm:text-[11px] leading-tight text-gray-700 max-w-[4.25rem] sm:max-w-[5rem] truncate"
-                          title={labelOrderFormIssuer(o.createdBy ?? undefined)}
-                        >
-                          {labelOrderFormIssuer(o.createdBy ?? undefined)}
-                        </td>
-                        <td className="border-b border-gray-100 py-2 px-2 text-right text-fluid-xs text-gray-700 tabular-nums sm:px-3 sm:text-fluid-sm whitespace-nowrap">
-                          {o.totalAmount.toLocaleString('ko-KR')}원
-                        </td>
-                        <td className="border-b border-gray-100 py-2 px-2 text-center text-fluid-xs sm:px-3 sm:text-fluid-sm whitespace-nowrap">
-                          {o.submittedAt ? (
-                            <span className="text-green-600">제출완료</span>
-                          ) : (
-                            <span className="text-gray-500">미제출</span>
-                          )}
-                        </td>
-                        <td className="border-b border-gray-100 py-2 px-2 text-center text-fluid-2xs text-gray-600 tabular-nums sm:px-3 sm:text-fluid-xs whitespace-nowrap">
-                          {formatDateCompactWithWeekday(o.createdAt)}
-                        </td>
-                        <td className="border-b border-gray-100 py-2 px-2 align-top sm:px-3">
-                          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-1.5 sm:gap-2 min-w-[9rem]">
-                            <button
-                              type="button"
-                              onClick={() => setPreviewModal({ kind: 'message', order: o })}
-                              className="text-left text-fluid-sm text-blue-600 font-medium hover:underline whitespace-nowrap shrink-0"
+                        <div className="min-w-0">
+                          <p className="truncate text-fluid-sm font-semibold text-gray-900">{o.customerName}</p>
+                          <p className="mt-1 text-fluid-xs text-gray-500">
+                            발급 {formatDateCompactWithWeekday(o.createdAt)} · 담당 {issuer}
+                          </p>
+                          {pref ? (
+                            <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={pref}>
+                              희망 {pref}
+                            </p>
+                          ) : null}
+                          {o.optionNote?.trim() ? (
+                            <p
+                              className="mt-1 line-clamp-2 text-fluid-2xs text-gray-600"
+                              title={o.optionNote.trim()}
                             >
-                              메시지
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPreviewModal({ kind: 'link', order: o })}
-                              className="text-left text-fluid-sm text-gray-800 font-medium hover:underline whitespace-nowrap shrink-0"
+                              {o.optionNote.trim()}
+                            </p>
+                          ) : null}
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-fluid-xs">
+                            <span className="tabular-nums font-medium text-gray-900">
+                              {o.totalAmount.toLocaleString('ko-KR')}원
+                            </span>
+                            <span
+                              className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
+                                o.submittedAt ? 'bg-green-50 text-green-800 ring-1 ring-green-200' : 'bg-gray-100 text-gray-700 ring-1 ring-gray-200'
+                              }`}
                             >
-                              링크
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openInNewTab(o.token)}
-                              className="text-left text-fluid-sm text-gray-600 hover:underline whitespace-nowrap shrink-0"
-                            >
-                              새 창
-                            </button>
+                              {o.submittedAt ? '제출완료' : '미제출'}
+                            </span>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </SyncHorizontalScroll>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-gray-100 pt-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewModal({ kind: 'message', order: o })}
+                            className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                          >
+                            메시지
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewModal({ kind: 'link', order: o })}
+                            className="text-fluid-xs font-medium text-gray-800 hover:underline"
+                          >
+                            링크
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openInNewTab(o.token)}
+                            className="text-fluid-xs text-gray-600 hover:underline"
+                          >
+                            새 창
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden lg:block">
+                  <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+                    <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm">
+                      <colgroup>
+                        <col className="w-[20%]" />
+                        <col className="w-[12%]" />
+                        <col className="w-[14%]" />
+                        <col className="w-[12%]" />
+                        <col className="w-[16%]" />
+                        <col className="w-[26%]" />
+                      </colgroup>
+                      <thead>
+                        <tr className="border-b border-gray-200 bg-gray-100">
+                          <th className="sticky left-0 z-10 border-r border-gray-200 bg-gray-100 px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                            고객명
+                          </th>
+                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                            담당
+                          </th>
+                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                            총액
+                          </th>
+                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                            상태
+                          </th>
+                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                            발급일
+                          </th>
+                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                            링크
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orderForms.map((o) => {
+                          const issuer = labelOrderFormIssuer(o.createdBy ?? undefined);
+                          const pref = formatOrderFormPreferredLine(o);
+                          return (
+                            <tr key={o.id} className="group hover:bg-gray-50">
+                              <td
+                                className="sticky left-0 z-10 min-w-0 border-b border-r border-gray-100 bg-white px-1 py-1 align-middle group-hover:bg-gray-50 xl:px-1.5 xl:py-1.5"
+                                title={o.customerName}
+                              >
+                                <span className="block truncate text-left font-medium text-gray-900 xl:text-fluid-xs">
+                                  {o.customerName}
+                                </span>
+                                {pref ? (
+                                  <span
+                                    className="mt-0.5 block truncate text-left text-fluid-2xs text-gray-500 xl:text-fluid-xs"
+                                    title={pref}
+                                  >
+                                    {pref}
+                                  </span>
+                                ) : null}
+                              </td>
+                              <td
+                                className="min-w-0 truncate border-b border-gray-100 px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5"
+                                title={issuer}
+                              >
+                                {issuer}
+                              </td>
+                              <td className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle text-right tabular-nums text-gray-700 xl:px-1.5 xl:py-1.5">
+                                {o.totalAmount.toLocaleString('ko-KR')}원
+                              </td>
+                              <td className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5">
+                                {o.submittedAt ? (
+                                  <span className="text-fluid-2xs font-medium text-green-600 xl:text-fluid-xs">
+                                    제출완료
+                                  </span>
+                                ) : (
+                                  <span className="text-fluid-2xs text-gray-500 xl:text-fluid-xs">미제출</span>
+                                )}
+                              </td>
+                              <td
+                                className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle text-center tabular-nums text-gray-600 xl:px-1.5 xl:py-1.5"
+                                title={formatDateCompactWithWeekday(o.createdAt)}
+                              >
+                                <span className="block truncate text-fluid-2xs leading-tight xl:text-fluid-xs">
+                                  {formatDateCompactWithWeekday(o.createdAt)}
+                                </span>
+                              </td>
+                              <td className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5">
+                                <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewModal({ kind: 'message', order: o })}
+                                    className="shrink-0 text-fluid-2xs font-medium text-blue-600 hover:underline xl:text-fluid-xs"
+                                  >
+                                    메시지
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewModal({ kind: 'link', order: o })}
+                                    className="shrink-0 text-fluid-2xs font-medium text-gray-800 hover:underline xl:text-fluid-xs"
+                                  >
+                                    링크
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openInNewTab(o.token)}
+                                    className="shrink-0 text-fluid-2xs text-gray-600 hover:underline xl:text-fluid-xs"
+                                  >
+                                    새 창
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </SyncHorizontalScroll>
+                </div>
               </>
+            )}
+            {orderForms.length > 0 && !loading && (
+              <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 text-fluid-xs text-gray-600">
+                <span className="lg:hidden">총 {orderForms.length}건 · 모바일은 카드 요약 · </span>
+                <span className="hidden lg:inline">총 {orderForms.length}건 · </span>
+                발주서 목록(최근 발급 순)
+                <span className="hidden lg:inline">
+                  {' '}
+                  · 표는 고정 폭·말줄임으로 한 화면에 맞춤(매우 좁을 때만 하단 막대)
+                </span>
+                <span className="lg:hidden"> · 카드에서 메시지·링크·새 창</span>
+              </div>
             )}
           </div>
         </div>

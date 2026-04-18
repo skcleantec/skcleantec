@@ -28,6 +28,7 @@ import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { addressListShortSiGu, phoneListTwoLines } from '../../utils/inquiryListDisplay';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 
@@ -170,6 +171,27 @@ function happyCallAdminCell(item: InquiryItem): { label: string; className: stri
   if (tone === 'overdue') return { label: '마감초과', className: 'text-red-800 font-medium' };
   if (tone === 'pending') return { label: '미완', className: 'text-amber-800' };
   return { label: '—', className: 'text-gray-400' };
+}
+
+/** 모바일 카드 목록 — 표와 동일한 강조(대기·해피콜 톤) */
+function inquiryMobileCardShellClass(item: InquiryItem): string {
+  const isPending = item.status === 'PENDING';
+  const hasAssignment = item.assignments.length > 0;
+  const hcTone = isPending
+    ? ('none' as const)
+    : happyCallRowTone(
+        new Date(),
+        item.status,
+        item.preferredDate,
+        item.happyCallCompletedAt,
+        hasAssignment
+      );
+  const base =
+    'rounded-xl border text-left outline-none transition focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation';
+  if (isPending) return `${base} border-red-500 bg-red-50/90 ring-1 ring-red-200/50 shadow-sm`;
+  if (hcTone === 'overdue') return `${base} border-red-200 bg-red-50/95 shadow-sm`;
+  if (hcTone === 'pending') return `${base} border-amber-200 bg-amber-50/80 shadow-sm`;
+  return `${base} border-gray-200 bg-white shadow-sm hover:border-gray-300`;
 }
 
 function formatDistanceFromJuan(item: InquiryItem): string {
@@ -1057,31 +1079,215 @@ export function AdminInquiriesPage() {
           <div className="p-8 text-center text-gray-500 text-fluid-sm">등록된 문의가 없습니다.</div>
         ) : (
           <>
-            <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 lg:hidden">
-              하단 막대·◀▶ 또는 표를 좌우로 밀기 (표가 보일 때 화면 아래에 고정)
+            <p className="border-b border-gray-100 px-4 py-2 text-fluid-xs text-gray-600 lg:hidden">
+              카드를 누르면 상세 수정 화면이 열립니다. 아래 한 줄에서 상태·빠른 배정을 바꾸고, 그 아래 작업 버튼을 쓸 수 있습니다.
             </p>
-            <SyncHorizontalScroll dockUntil="lg" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-            <table className="w-full text-fluid-sm border-collapse min-w-[600px]">
+            <div className="flex flex-col gap-3 p-3 lg:hidden">
+              {items.map((item) => {
+                const hcCell = happyCallAdminCell(item);
+                const addrFull = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
+                const addrShort = addressListShortSiGu(item.address);
+                return (
+                  <div key={item.id} className={inquiryMobileCardShellClass(item)}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${item.customerName} 상세`}
+                      onClick={() => openEdit(item)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openEdit(item);
+                        }
+                      }}
+                      className="cursor-pointer px-3 pt-3 pb-2"
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="truncate text-fluid-sm font-semibold text-gray-900">{item.customerName}</span>
+                            {item.claimMemo ? (
+                              <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="클레임">
+                                ●
+                              </span>
+                            ) : null}
+                            {item.inquiryNumber ? (
+                              <span className="shrink-0 rounded bg-gray-900 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-white">
+                                {item.inquiryNumber}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-fluid-xs text-gray-500">
+                            접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
+                          </p>
+                          <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={addrFull}>
+                            {addrShort}
+                          </p>
+                        </div>
+                        <a
+                          href={`tel:${item.customerPhone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0 self-start rounded-lg bg-blue-600 px-3 py-2 text-center text-fluid-xs font-medium text-white hover:bg-blue-700"
+                        >
+                          전화
+                        </a>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-fluid-xs text-gray-700">
+                        <span className="tabular-nums text-gray-800">
+                          예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
+                        </span>
+                        <span className="rounded-md bg-gray-100 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
+                          {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '시간 미정'} · 주안{' '}
+                          {formatDistanceFromJuan(item)}
+                        </span>
+                        <span className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${hcCell.className} bg-white/80 ring-1 ring-gray-200`}>
+                          해피콜 {hcCell.label}
+                        </span>
+                        <span className="rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
+                          {STATUS_LABELS[item.status] ?? item.status}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatInquiryTeamSummary(item)}>
+                        {formatAreaLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)} ·{' '}
+                        {formatInquiryTeamSummary(item)}
+                      </p>
+                    </div>
+                    <div
+                      className="border-t border-gray-200/80 bg-gray-50/80 px-3 py-2.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="grid w-full min-w-0 grid-cols-2 gap-2">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="w-7 shrink-0 text-center text-fluid-2xs font-medium leading-tight text-gray-500">
+                            상태
+                          </span>
+                          <select
+                            value={item.status}
+                            onChange={(e) => handleStatusChange(item.id, e.target.value)}
+                            disabled={saving}
+                            className="min-h-[40px] min-w-0 flex-1 rounded border border-gray-300 bg-white px-1.5 py-1.5 text-fluid-2xs sm:text-fluid-xs"
+                          >
+                            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="w-7 shrink-0 text-center text-fluid-2xs font-medium leading-tight text-gray-500">
+                            배정
+                          </span>
+                          <select
+                            value={item.assignments[0]?.teamLeader?.id ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v) void handleAssign(item.id, v);
+                            }}
+                            disabled={assigningId === item.id || item.status === 'PENDING'}
+                            title={item.status === 'PENDING' ? '대기 건은 발주서 제출 후 분배할 수 있습니다.' : undefined}
+                            className="min-h-[40px] min-w-0 flex-1 rounded border border-gray-300 bg-white px-1.5 py-1.5 text-fluid-2xs sm:text-fluid-xs"
+                          >
+                            <option value="">빠른 배정(1명)</option>
+                            {teamLeaders.map((tl) => (
+                              <option key={tl.id} value={tl.id}>
+                                {formatAssignableUserLabel(tl)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 border-t border-gray-200 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                          >
+                            상세보기
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openClaim(item)}
+                            className="text-fluid-xs font-medium text-orange-600 hover:underline"
+                          >
+                            클레임
+                          </button>
+                          {item.status !== 'CANCELLED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelInquiry(item)}
+                              disabled={saving}
+                              className="text-fluid-xs text-gray-700 hover:underline"
+                            >
+                              취소
+                            </button>
+                          )}
+                          {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget(item)}
+                              className="text-fluid-xs text-red-600 hover:underline"
+                            >
+                              삭제
+                            </button>
+                          )}
+                          {item.status === 'CS_PROCESSING' && (
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(item.id, 'COMPLETED')}
+                              disabled={saving}
+                              className="text-fluid-xs font-medium text-green-600 hover:underline"
+                            >
+                              완료
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden lg:block">
+            <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+            <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm">
+              <colgroup>
+                <col className="w-[9%]" />
+                <col className="w-[6%]" />
+                <col className="w-[7%]" />
+                <col className="w-[7%]" />
+                <col className="w-[12%]" />
+                <col className="w-[4%]" />
+                <col className="w-[5%]" />
+                <col className="w-[8%]" />
+                <col className="w-[7%]" />
+                <col className="w-[7%]" />
+                <col className="w-[4%]" />
+                <col className="w-[13%]" />
+                <col className="w-[11%]" />
+              </colgroup>
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">접수일</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">접수자</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">고객</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">연락처</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 min-w-[90px]">주소</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">평수</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">방화베</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
+                  <th className="sticky left-0 z-10 border-r border-gray-200 bg-gray-100 px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                    접수일
+                  </th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">접수자</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">고객</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">연락처</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">주소</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">평수</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">방화베</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">예약일</th>
                   <th
-                    className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap min-w-[5.5rem] max-w-[140px]"
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs"
                     title="희망 시간대 · 인천 주안 기준 직선거리"
                   >
-                    시간대·거리
+                    시간·거리
                   </th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">해피콜</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">팀장</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">작업</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">상태</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">해피콜</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">팀장</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -1120,6 +1326,7 @@ export function AdminInquiriesPage() {
                         ? 'hover:bg-amber-100/50'
                         : 'hover:bg-gray-50';
                   const hcCell = happyCallAdminCell(item);
+                  const phoneSplit = phoneListTwoLines(item.customerPhone);
                   return (
                   <tr
                     key={item.id}
@@ -1127,71 +1334,105 @@ export function AdminInquiriesPage() {
                     onClick={() => openEdit(item)}
                     title={isPending ? '대기(발주서 미제출) · 행을 누르면 상세보기' : '행을 누르면 상세보기'}
                   >
-                    <td className={`align-middle py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 z-10 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}>
-                      <span className="text-fluid-xs tabular-nums leading-tight block">
+                    <td
+                      className={`sticky left-0 z-10 min-w-0 align-middle px-1 py-1 text-gray-700 xl:px-1.5 xl:py-1.5 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}
+                    >
+                      <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
                         {formatDateCompactWithWeekday(item.createdAt)}
                       </span>
                       {item.inquiryNumber ? (
-                        <span className="text-fluid-xs text-gray-500 tabular-nums block mt-0.5">
+                        <span className="mt-0.5 block truncate text-fluid-2xs tabular-nums text-gray-500 xl:text-fluid-xs">
                           {item.inquiryNumber}
                         </span>
                       ) : null}
                     </td>
-                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
+                    <td
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      title={inquiryMarketerLabel(item)}
+                    >
                       {inquiryMarketerLabel(item)}
                     </td>
-                    <td className={`align-middle py-2 px-2 font-medium text-gray-900 whitespace-nowrap ${pBorder}`}>
+                    <td
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center font-medium text-gray-900 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      title={`${item.customerName}${item.claimMemo ? ' (클레임)' : ''}`}
+                    >
                       {item.customerName}
                       {item.claimMemo && (
-                        <span className="ml-1 text-orange-600" title={item.claimMemo}>●</span>
+                        <span className="ml-0.5 text-orange-600" title={item.claimMemo}>
+                          ●
+                        </span>
                       )}
                     </td>
-                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap break-all ${pBorder}`}>{item.customerPhone}</td>
-                    <td className={`align-middle py-2 px-2 text-gray-600 min-w-[90px] max-w-[130px] truncate ${pBorder}`} title={item.address}>
-                      {item.address}
-                      {item.addressDetail ? ` ${item.addressDetail}` : ''}
-                    </td>
-                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>{formatAreaLine(item)}</td>
-                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
-                      {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
-                    </td>
-                    <td className={`align-middle py-2 px-2 text-gray-600 whitespace-nowrap ${pBorder}`}>
-                      <span className="text-fluid-xs tabular-nums leading-tight">{formatDateCompactWithWeekday(item.preferredDate)}</span>
+                    <td
+                      className={`min-w-0 px-1 py-1 align-middle text-center text-fluid-2xs text-gray-600 xl:px-1.5 xl:py-1.5 xl:text-fluid-xs ${pBorder}`}
+                      title={item.customerPhone}
+                    >
+                      {phoneSplit ? (
+                        <div className="inline-flex flex-col items-center justify-center gap-0.5 leading-tight">
+                          <span className="font-medium tabular-nums text-gray-900">{phoneSplit.head}</span>
+                          <span className="tabular-nums text-gray-600">{phoneSplit.tail}</span>
+                        </div>
+                      ) : (
+                        <span className="break-all">{item.customerPhone}</span>
+                      )}
                     </td>
                     <td
-                      className={`align-middle py-2 px-2 text-center text-gray-600 whitespace-nowrap min-w-[5.5rem] max-w-[140px] ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      title={`${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim()}
+                    >
+                      {addressListShortSiGu(item.address)}
+                    </td>
+                    <td
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      title={formatAreaLine(item)}
+                    >
+                      {formatAreaLine(item)}
+                    </td>
+                    <td
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      title={formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
+                    >
+                      {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
+                    </td>
+                    <td className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}>
+                      <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
+                        {formatDateCompactWithWeekday(item.preferredDate)}
+                      </span>
+                    </td>
+                    <td
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
                       title={
                         [
                           item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '시간 미정',
-                          `주안 기준 ${formatDistanceFromJuan(item)}`,
+                          `주안 ${formatDistanceFromJuan(item)}`,
                         ].join(' · ')
                       }
                     >
-                      <span className="text-fluid-xs leading-tight block">
+                      <span className="block leading-tight text-fluid-2xs xl:text-fluid-xs">
                         {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '-'}
                       </span>
-                      <span className="text-fluid-2xs text-gray-500 tabular-nums mt-0.5 block">
+                      <span className="mt-0.5 block truncate text-fluid-2xs tabular-nums text-gray-500">
                         {formatDistanceFromJuan(item)}
                       </span>
                     </td>
-                    <td className={`align-middle py-2 px-2 whitespace-nowrap ${pBorder}`} onClick={(e) => e.stopPropagation()}>
+                    <td className={`min-w-0 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={item.status}
                         onChange={(e) => handleStatusChange(item.id, e.target.value)}
                         disabled={saving}
-                        className="px-2 py-1 border border-gray-300 rounded text-fluid-xs min-w-[72px]"
+                        className="w-full min-w-0 max-w-full rounded border border-gray-300 px-0.5 py-0.5 text-fluid-2xs xl:px-1 xl:py-1 xl:text-fluid-xs"
                       >
                         {Object.entries(STATUS_LABELS).map(([value, label]) => (
                           <option key={value} value={value}>{label}</option>
                         ))}
                       </select>
                     </td>
-                    <td className={`align-middle py-2 px-2 text-center whitespace-nowrap ${pBorder}`}>
-                      <span className={`text-fluid-xs ${hcCell.className}`}>{hcCell.label}</span>
+                    <td className={`min-w-0 truncate px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`}>
+                      <span className={`text-fluid-2xs xl:text-fluid-xs ${hcCell.className}`}>{hcCell.label}</span>
                     </td>
-                    <td className={`align-middle py-2 px-2 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
+                    <td className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <div
-                        className="text-[10px] text-gray-600 leading-snug mb-1 max-w-[140px] line-clamp-2"
+                        className="mb-0.5 line-clamp-2 text-left text-[10px] leading-snug text-gray-600 xl:text-fluid-2xs"
                         title={formatInquiryTeamSummary(item)}
                       >
                         {formatInquiryTeamSummary(item)}
@@ -1204,9 +1445,9 @@ export function AdminInquiriesPage() {
                         }}
                         disabled={assigningId === item.id || item.status === 'PENDING'}
                         title={item.status === 'PENDING' ? '대기 건은 발주서 제출 후 분배할 수 있습니다.' : undefined}
-                        className="px-2 py-1 border border-gray-300 rounded text-fluid-xs min-w-[70px]"
+                        className="w-full min-w-0 max-w-full rounded border border-gray-300 px-0.5 py-0.5 text-fluid-2xs xl:px-1 xl:py-1 xl:text-fluid-xs"
                       >
-                        <option value="">빠른 배정(1명)</option>
+                        <option value="">배정(1명)</option>
                         {teamLeaders.map((tl) => (
                           <option key={tl.id} value={tl.id}>
                             {formatAssignableUserLabel(tl)}
@@ -1214,19 +1455,22 @@ export function AdminInquiriesPage() {
                         ))}
                       </select>
                     </td>
-                    <td className={`align-middle py-2 px-2 whitespace-nowrap ${pBorder} ${isPending ? 'border-r-2 border-r-red-500' : ''}`} onClick={(e) => e.stopPropagation()}>
-                      <div className="flex flex-wrap gap-1">
+                    <td
+                      className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder} ${isPending ? 'border-r-2 border-r-red-500' : ''}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex flex-wrap justify-center gap-x-0.5 gap-y-0.5">
                         <button
                           type="button"
                           onClick={() => openEdit(item)}
-                          className="text-blue-600 hover:underline text-fluid-xs"
+                          className="text-fluid-2xs text-blue-600 hover:underline xl:text-fluid-xs"
                         >
-                          상세보기
+                          상세
                         </button>
                         <button
                           type="button"
                           onClick={() => openClaim(item)}
-                          className="text-orange-600 hover:underline text-fluid-xs"
+                          className="text-fluid-2xs text-orange-600 hover:underline xl:text-fluid-xs"
                         >
                           클레임
                         </button>
@@ -1235,7 +1479,7 @@ export function AdminInquiriesPage() {
                             type="button"
                             onClick={() => handleCancelInquiry(item)}
                             disabled={saving}
-                            className="text-gray-700 hover:underline text-fluid-xs"
+                            className="text-fluid-2xs text-gray-700 hover:underline xl:text-fluid-xs"
                           >
                             취소
                           </button>
@@ -1244,7 +1488,7 @@ export function AdminInquiriesPage() {
                           <button
                             type="button"
                             onClick={() => setDeleteTarget(item)}
-                            className="text-red-600 hover:underline text-fluid-xs"
+                            className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
                           >
                             삭제
                           </button>
@@ -1254,7 +1498,7 @@ export function AdminInquiriesPage() {
                             type="button"
                             onClick={() => handleStatusChange(item.id, 'COMPLETED')}
                             disabled={saving}
-                            className="text-green-600 hover:underline text-fluid-xs font-medium"
+                            className="text-fluid-2xs font-medium text-green-600 hover:underline xl:text-fluid-xs"
                           >
                             완료
                           </button>
@@ -1267,26 +1511,28 @@ export function AdminInquiriesPage() {
               </tbody>
             </table>
             </SyncHorizontalScroll>
+            </div>
           </>
         )}
         {total > 0 && (
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-fluid-xs text-gray-600">
-            총 {total}건
+            <span className="lg:hidden">총 {total}건 · 모바일은 카드 요약 · </span>
+            <span className="hidden lg:inline">총 {total}건 · </span>
             {datePreset === 'today'
-              ? ' · 오늘 접수'
+              ? '오늘 접수'
               : datePreset === 'month'
-                ? ` · ${monthKey}`
+                ? `${monthKey}`
                 : datePreset === 'day'
-                  ? ` · ${dayKey}`
-                  : ' · 전체 기간'}
+                  ? `${dayKey}`
+                  : '전체 기간'}
             {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && marketerFilterId ? (
               <>
                 {' · '}
                 접수자: {labelForMarketerFilter(marketerFilterId, me, marketers)}
               </>
             ) : null}
-            {' · '}
-            행을 누르면 상세보기 · 좁은 화면에서는 하단 고정 막대로 가로 이동
+            <span className="hidden lg:inline"> · 행을 누르면 상세 · 표는 고정 폭·말줄임으로 한 화면에 맞춤(매우 좁을 때만 하단 막대)</span>
+            <span className="lg:hidden"> · 카드 위쪽 탭 시 상세</span>
           </div>
         )}
       </div>

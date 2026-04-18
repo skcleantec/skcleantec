@@ -44,42 +44,13 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
-type DockUntil = 'md' | 'lg' | 'xl';
-
-function dockVisibilityClasses(dockUntil: DockUntil): { dockHidden: string; scrollbar: string } {
-  switch (dockUntil) {
-    case 'lg':
-      return {
-        dockHidden: 'lg:hidden',
-        scrollbar:
-          'max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden lg:[scrollbar-width:thin]',
-      };
-    case 'xl':
-      return {
-        dockHidden: 'xl:hidden',
-        scrollbar:
-          'max-xl:[scrollbar-width:none] max-xl:[&::-webkit-scrollbar]:hidden xl:[scrollbar-width:thin]',
-      };
-    case 'md':
-    default:
-      return {
-        dockHidden: 'md:hidden',
-        scrollbar:
-          'max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden md:[scrollbar-width:thin]',
-      };
+function mainScrollClassNames(hasOverflow: boolean, showDock: boolean, contentClassName: string): string {
+  const base = `w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-1 ${contentClassName}`;
+  if (!hasOverflow) return base;
+  if (showDock) {
+    return `${base} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`;
   }
-}
-
-function dockReserveSpaceClass(dockUntil: DockUntil): string {
-  switch (dockUntil) {
-    case 'lg':
-      return 'pb-14 lg:pb-0';
-    case 'xl':
-      return 'pb-14 xl:pb-0';
-    case 'md':
-    default:
-      return 'pb-14 md:pb-0';
-  }
+  return `${base} [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2`;
 }
 
 type Props = {
@@ -88,31 +59,20 @@ type Props = {
   className?: string;
   /** 가로 스크롤 영역에 추가할 클래스 (패딩·-mx 등) */
   contentClassName?: string;
-  /**
-   * 이 너비 **미만**에서만 하단 고정 스크롤 막대(◀▶) 표시. 그 이상은 표 안쪽 얇은 스크롤바.
-   * @default 'md'
-   */
-  dockUntil?: DockUntil;
 };
 
 /**
- * 좁은 뷰포트: 표에 가로 넘침이 있으면 **뷰포트 하단 고정** 스크롤 바(표와 scrollLeft 동기화) + ◀▶.
- * 표가 보이는 동안만 하단 바 표시(세로 스크롤 시 따라다님). 넓은 화면은 표 아래 일반 스크롤바.
+ * 표에 가로 넘침이 있으면 **뷰포트 하단 고정** 스크롤 막대(표와 scrollLeft 동기화) + ◀▶.
+ * 표가 뷰에 보이는 동안만 막대 표시(세로 스크롤해도 화면 아래에 고정).
+ * 막대가 켜진 동안에는 표 영역의 네이티브 가로 스크롤바를 숨겨 이중 UI를 막습니다.
  */
-export function SyncHorizontalScroll({
-  children,
-  className,
-  contentClassName = '',
-  dockUntil = 'md',
-}: Props) {
+export function SyncHorizontalScroll({ children, className, contentClassName = '' }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const [spacerW, setSpacerW] = useState(0);
   const [hasOverflow, setHasOverflow] = useState(false);
   const [tableInView, setTableInView] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { dockHidden, scrollbar } = dockVisibilityClasses(dockUntil);
-  const dockReserveClass = dockReserveSpaceClass(dockUntil);
 
   useEffect(() => setMounted(true), []);
 
@@ -178,11 +138,11 @@ export function SyncHorizontalScroll({
   }, [showDock, spacerW]);
 
   return (
-    <div className={`${className ?? ''} ${showDock ? dockReserveClass : ''}`}>
+    <div className={`${className ?? ''} ${showDock ? 'pb-14' : ''}`}>
       {showDock &&
         createPortal(
           <div
-            className={`pointer-events-none fixed inset-x-0 bottom-0 z-[105] ${dockHidden}`}
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-[120]"
             style={{ paddingBottom: 'max(0.2rem, env(safe-area-inset-bottom, 0px))' }}
           >
             <div className="pointer-events-auto border-t border-gray-200 bg-white/95 px-2 py-1.5 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm supports-[backdrop-filter]:bg-white/90">
@@ -221,7 +181,7 @@ export function SyncHorizontalScroll({
       <div
         ref={bottomRef}
         onScroll={onScrollBottom}
-        className={`w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-1 ${scrollbar} ${contentClassName}`}
+        className={mainScrollClassNames(hasOverflow, showDock, contentClassName)}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {children}

@@ -310,7 +310,7 @@ export function AdminTeamLeadersPage() {
               <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 lg:hidden">
                 표는 좌우로 스크롤할 수 있습니다.
               </p>
-              <SyncHorizontalScroll dockUntil="lg" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+              <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
                 <table className="w-full border-collapse text-fluid-sm min-w-[560px]">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
@@ -365,7 +365,7 @@ export function AdminTeamLeadersPage() {
               <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 lg:hidden">
                 표는 좌우로 스크롤할 수 있습니다.
               </p>
-              <SyncHorizontalScroll dockUntil="lg" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+              <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
                 <table className="w-full border-collapse text-fluid-sm min-w-[560px]">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
