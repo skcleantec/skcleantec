@@ -1,7 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getPublicOrderGuide } from '../../api/orderform';
 import type { GuideSection } from '../../constants/orderInfoDefaultSections';
 import { ORDER_GUIDE_DEFAULT_SECTIONS } from '../../constants/orderInfoDefaultSections';
+import { postOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
+
+function CircleXIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
 
 export function OrderInfoPage() {
   const [sections, setSections] = useState<GuideSection[]>(ORDER_GUIDE_DEFAULT_SECTIONS);
@@ -21,12 +38,36 @@ export function OrderInfoPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const tryLeavePage = useCallback(() => {
+    window.close();
+    window.setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        window.history.back();
+      }
+    }, 200);
+  }, []);
+
+  const handleAgreeAndClose = useCallback(() => {
+    postOrderGuideAgreeTerms();
+    tryLeavePage();
+  }, [tryLeavePage]);
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 py-8">
       <div className="max-w-lg mx-auto bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="bg-gray-800 text-white px-6 py-5">
-          <h1 className="text-lg font-semibold tracking-tight">서비스 안내사항</h1>
-          <p className="text-gray-300 text-sm mt-1">입주청소 이용 시 꼭 확인해 주세요</p>
+        <div className="flex min-w-0 items-start justify-between gap-3 bg-gray-800 px-6 py-5 text-white">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-semibold tracking-tight">서비스 안내사항</h1>
+            <p className="mt-1 text-sm text-gray-300">입주청소 이용 시 꼭 확인해 주세요</p>
+          </div>
+          <button
+            type="button"
+            onClick={tryLeavePage}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white hover:bg-white/20 focus-visible:outline focus-visible:ring-2 focus-visible:ring-white/80"
+            aria-label="닫기"
+          >
+            <CircleXIcon className="h-5 w-5" />
+          </button>
         </div>
         {loadError && (
           <p className="px-6 pt-4 text-xs text-amber-700 bg-amber-50 border-b border-amber-100">
@@ -54,8 +95,19 @@ export function OrderInfoPage() {
             ))}
           </div>
         )}
-        <div className="px-6 pb-6 text-center">
-          <p className="text-sm text-gray-500">문의사항은 예약 번호로 연락 부탁드립니다.</p>
+        <div className="space-y-4 border-t border-gray-100 px-6 py-5">
+          <p className="text-center text-sm text-gray-500">문의사항은 예약 번호로 연락 부탁드립니다.</p>
+          <button
+            type="button"
+            onClick={handleAgreeAndClose}
+            disabled={loading}
+            className="w-full rounded-md bg-gray-800 py-3 text-sm font-medium text-white hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            확인하고 동의합니다.
+          </button>
+          <p className="text-center text-fluid-2xs text-gray-400">
+            발주서를 작성 중이었다면 동의란이 체크됩니다. 창이 닫히지 않으면 탭을 직접 닫아 주세요.
+          </p>
         </div>
       </div>
     </div>

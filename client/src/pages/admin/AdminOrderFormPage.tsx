@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -36,6 +36,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
@@ -197,6 +198,8 @@ function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessagesStat
 
 export function AdminOrderFormPage() {
   const token = getToken();
+  const location = useLocation();
+  const receptionListOnly = location.pathname === '/admin/inquiries/order-forms';
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => parseTabParam(searchParams.get('tab')));
   const [subTabOrder, setSubTabOrder] = useState<Tab[]>(() => loadSubTabOrder());
@@ -280,8 +283,12 @@ export function AdminOrderFormPage() {
   };
 
   useEffect(() => {
+    if (receptionListOnly) {
+      setTab('list');
+      return;
+    }
     setTab(parseTabParam(searchParams.get('tab')));
-  }, [searchParams]);
+  }, [searchParams, receptionListOnly]);
 
   const goTab = (t: Tab) => {
     setTab(t);
@@ -609,64 +616,68 @@ ${footer2}`;
 
   return (
     <div className="min-w-0 w-full max-w-full">
-      <h1 className="text-xl font-semibold text-gray-900 mb-4">발주서</h1>
+      {!receptionListOnly && (
+        <>
+          <h1 className="text-xl font-semibold text-gray-900 mb-4">발주서</h1>
 
-      <div className="mb-6 w-full min-w-0">
-        <div className="relative min-w-0">
-          <div
-            ref={subNavScrollRef}
-            onScroll={updateSubNavScrollHint}
-            className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            style={{ WebkitOverflowScrolling: 'touch' }}
-            role="tablist"
-            aria-label="발주서 하위 메뉴"
-          >
-            {subTabOrder.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => goTab(t)}
-                className={tabClass(t)}
-                aria-label={t === 'notice' ? '안내사항설정' : undefined}
+          <div className="mb-6 w-full min-w-0">
+            <div className="relative min-w-0">
+              <div
+                ref={subNavScrollRef}
+                onScroll={updateSubNavScrollHint}
+                className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+                role="tablist"
+                aria-label="발주서 하위 메뉴"
               >
-                {TAB_LABELS[t]}
-              </button>
-            ))}
+                {subTabOrder.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => goTab(t)}
+                    className={tabClass(t)}
+                    aria-label={t === 'notice' ? '안내사항설정' : undefined}
+                  >
+                    {TAB_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+              {showSubNavMoreLeft && (
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center justify-start lg:hidden">
+                  <div
+                    className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-gray-50 via-gray-50/95 to-transparent"
+                    aria-hidden
+                  />
+                  <button
+                    type="button"
+                    onClick={scrollSubNavLeft}
+                    className="pointer-events-auto relative ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
+                    aria-label="하위 메뉴가 왼쪽으로 더 있습니다. 탭하면 스크롤됩니다."
+                  >
+                    <ChevronLeftIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+              {showSubNavMoreRight && (
+                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center justify-end lg:hidden">
+                  <div
+                    className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-gray-50 via-gray-50/95 to-transparent"
+                    aria-hidden
+                  />
+                  <button
+                    type="button"
+                    onClick={scrollSubNavRight}
+                    className="pointer-events-auto relative mr-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
+                    aria-label="하위 메뉴가 오른쪽으로 더 있습니다. 탭하면 스크롤됩니다."
+                  >
+                    <ChevronRightIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          {showSubNavMoreLeft && (
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center justify-start lg:hidden">
-              <div
-                className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-gray-50 via-gray-50/95 to-transparent"
-                aria-hidden
-              />
-              <button
-                type="button"
-                onClick={scrollSubNavLeft}
-                className="pointer-events-auto relative ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
-                aria-label="하위 메뉴가 왼쪽으로 더 있습니다. 탭하면 스크롤됩니다."
-              >
-                <ChevronLeftIcon className="h-5 w-5" />
-              </button>
-            </div>
-          )}
-          {showSubNavMoreRight && (
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center justify-end lg:hidden">
-              <div
-                className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-gray-50 via-gray-50/95 to-transparent"
-                aria-hidden
-              />
-              <button
-                type="button"
-                onClick={scrollSubNavRight}
-                className="pointer-events-auto relative mr-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
-                aria-label="하위 메뉴가 오른쪽으로 더 있습니다. 탭하면 스크롤됩니다."
-              >
-                <ChevronRightIcon className="h-5 w-5" />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+        </>
+      )}
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded">{error}</div>
@@ -919,201 +930,239 @@ ${footer2}`;
       )}
 
       {tab === 'issue' && (
-        <div className="p-4 bg-white border border-gray-200 rounded max-w-md">
-          <h2 className="text-base font-medium text-gray-900 mb-4">발주서 발급</h2>
-          <p className="text-xs text-gray-500 mb-4">
-            「대기 접수 연결」에서 개별 접수로 등록한 대기 건을 선택하면, 같은 건에 링크가 붙고 고객이 제출 시 접수로 전환됩니다.
-          </p>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">대기 접수 연결 (선택)</label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                value={pendingLinkId}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setPendingLinkId(v);
-                  const row = pendingLinkOptions.find((x) => x.id === v);
-                  if (row) {
-                    setIssueForm((f) => ({ ...f, customerName: row.customerName }));
-                  }
-                }}
-              >
-                <option value="">없음 (일반 발급)</option>
-                {pendingLinkOptions.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.customerName} · {o.id.slice(0, 8)}…
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">고객명 *</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="홍길동"
-                value={issueForm.customerName}
-                onChange={(e) => setIssueForm((f) => ({ ...f, customerName: e.target.value }))}
+        <div className="min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 bg-gray-50 px-4 py-4 sm:px-6 sm:py-5">
+            <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold text-gray-900 sm:text-xl">
+              <span>발주서 발급</span>
+              <HelpTooltip
+                className="shrink-0"
+                text="「대기 접수 연결」에서 개별 접수로 등록한 대기 건을 선택하면, 같은 건에 링크가 붙고 고객이 제출 시 접수로 전환됩니다."
               />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">총 금액 (원) *</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="150000"
-                value={issueForm.totalAmount}
-                onChange={(e) => setIssueForm((f) => ({ ...f, totalAmount: e.target.value }))}
-              />
-              <div className="flex flex-wrap gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => addToTotalAmount(1_000)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-800 hover:bg-gray-50"
-                >
-                  +천원
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addToTotalAmount(10_000)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-800 hover:bg-gray-50"
-                >
-                  +만원
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addToTotalAmount(100_000)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-800 hover:bg-gray-50"
-                >
-                  +십만원
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">예약금 (원)</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="20000"
-                value={issueForm.depositAmount}
-                onChange={(e) => setIssueForm((f) => ({ ...f, depositAmount: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">잔금 (원)</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="비어 있으면 자동 계산"
-                value={issueForm.balanceAmount}
-                onChange={(e) => setIssueForm((f) => ({ ...f, balanceAmount: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">청소 날짜</label>
-              <YmdSelect
-                className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-sm"
-                value={issueForm.preferredDate}
-                onChange={(v) => setIssueForm((f) => ({ ...f, preferredDate: v }))}
-                allowEmpty
-                emitOnCompleteOnly
-                idPrefix="order-issue-pref"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                비워 두면 고객이 발주서에서 날짜·오전/오후를 직접 선택합니다. 지정하면 고객은 수정할 수 없습니다.
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">시간대</label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                value={issueForm.preferredTime}
-                onChange={(e) => setIssueForm((f) => ({ ...f, preferredTime: e.target.value }))}
-                disabled={!issueForm.preferredDate.trim()}
-              >
-                {ORDER_TIME_SLOT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              {!issueForm.preferredDate.trim() && (
-                <p className="text-xs text-gray-500 mt-1">날짜를 먼저 선택하면 함께 저장됩니다. (날짜 미지정 시 고객이 선택)</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">구체적 시각 (선택)</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="예: 10:30, 오전 10시"
-                value={issueForm.preferredTimeDetail}
-                onChange={(e) => setIssueForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                입력 시 고객 발주서에서 수정할 수 없습니다. 비우면 고객이 직접 적을 수 있습니다.
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">추가 사항</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="견적 포함 추가, 현장 선택 추가 등"
-                value={issueForm.optionNote}
-                onChange={(e) => setIssueForm((f) => ({ ...f, optionNote: e.target.value }))}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleIssue}
-              disabled={issueLoading}
-              className="w-full py-2 bg-gray-800 text-white font-medium rounded disabled:opacity-50"
-            >
-              발급 및 링크 생성
-            </button>
+            </h2>
           </div>
-
-          {newOrder && (
-            <div className="mt-6 p-4 bg-gray-50 rounded border border-gray-200">
-              <p className="text-sm font-medium text-gray-900">발급 완료</p>
-              <p className="text-sm text-gray-600 mt-1">
-                {newOrder.customerName}님 · {newOrder.totalAmount.toLocaleString('ko-KR')}원
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPreviewModal({ kind: 'message', order: newOrder })}
-                  className="px-4 py-2 bg-gray-800 text-white text-sm rounded font-medium"
-                >
-                  메시지
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewModal({ kind: 'link', order: newOrder })}
-                  className="px-4 py-2 bg-gray-700 text-white text-sm rounded"
-                >
-                  링크
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openInNewTab(newOrder.token)}
-                  className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50"
-                >
-                  새 창에서 열기
-                </button>
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-none">
+              <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 md:gap-x-8 lg:grid-cols-12 lg:gap-x-8 lg:gap-y-5">
+                <div className="md:col-span-2 lg:col-span-12">
+                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
+                    대기 접수 연결 (선택)
+                  </label>
+                  <select
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    value={pendingLinkId}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setPendingLinkId(v);
+                      const row = pendingLinkOptions.find((x) => x.id === v);
+                      if (row) {
+                        setIssueForm((f) => ({ ...f, customerName: row.customerName }));
+                      }
+                    }}
+                  >
+                    <option value="">없음 (일반 발급)</option>
+                    {pendingLinkOptions.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.customerName} · {o.id.slice(0, 8)}…
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-2 lg:col-span-7">
+                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">고객명 *</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    placeholder="홍길동"
+                    value={issueForm.customerName}
+                    onChange={(e) => setIssueForm((f) => ({ ...f, customerName: e.target.value }))}
+                  />
+                </div>
+                <div className="md:col-span-2 lg:col-span-12">
+                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">총 금액 (원) *</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    placeholder="150000"
+                    value={issueForm.totalAmount}
+                    onChange={(e) => setIssueForm((f) => ({ ...f, totalAmount: e.target.value }))}
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => addToTotalAmount(1_000)}
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
+                    >
+                      +천원
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addToTotalAmount(10_000)}
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
+                    >
+                      +만원
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addToTotalAmount(100_000)}
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
+                    >
+                      +십만원
+                    </button>
+                  </div>
+                </div>
+                <div className="lg:col-span-6">
+                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">예약금 (원)</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    placeholder="20000"
+                    value={issueForm.depositAmount}
+                    onChange={(e) => setIssueForm((f) => ({ ...f, depositAmount: e.target.value }))}
+                  />
+                </div>
+                <div className="lg:col-span-6">
+                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">잔금 (원)</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    placeholder="비어 있으면 자동 계산"
+                    value={issueForm.balanceAmount}
+                    onChange={(e) => setIssueForm((f) => ({ ...f, balanceAmount: e.target.value }))}
+                  />
+                </div>
+                <div className="lg:col-span-6">
+                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+                    <span className="text-fluid-sm font-medium text-gray-700">청소 날짜</span>
+                    <HelpTooltip
+                      className="shrink-0"
+                      text="비워 두면 고객이 발주서에서 날짜·오전/오후를 직접 선택합니다. 지정하면 고객은 수정할 수 없습니다."
+                    />
+                  </div>
+                  <YmdSelect
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm shadow-sm focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-200/80 sm:py-2"
+                    value={issueForm.preferredDate}
+                    onChange={(v) => setIssueForm((f) => ({ ...f, preferredDate: v }))}
+                    allowEmpty
+                    emitOnCompleteOnly
+                    idPrefix="order-issue-pref"
+                  />
+                </div>
+                <div className="lg:col-span-6">
+                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+                    <label htmlFor="order-issue-preferred-time" className="text-fluid-sm font-medium text-gray-700">
+                      시간대
+                    </label>
+                    <HelpTooltip
+                      className="shrink-0"
+                      text="날짜를 먼저 선택하면 시간대가 함께 저장됩니다. 날짜를 비워 두면 고객이 발주서에서 날짜와 시간대를 선택합니다."
+                    />
+                  </div>
+                  <select
+                    id="order-issue-preferred-time"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 disabled:cursor-not-allowed disabled:bg-gray-50 sm:py-2"
+                    value={issueForm.preferredTime}
+                    onChange={(e) => setIssueForm((f) => ({ ...f, preferredTime: e.target.value }))}
+                    disabled={!issueForm.preferredDate.trim()}
+                  >
+                    {ORDER_TIME_SLOT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-2 lg:col-span-12">
+                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+                    <label htmlFor="order-issue-preferred-time-detail" className="text-fluid-sm font-medium text-gray-700">
+                      구체적 시각 (선택)
+                    </label>
+                    <HelpTooltip
+                      className="shrink-0"
+                      text="입력 시 고객 발주서에서 수정할 수 없습니다. 비우면 고객이 직접 적을 수 있습니다."
+                    />
+                  </div>
+                  <input
+                    id="order-issue-preferred-time-detail"
+                    type="text"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    placeholder="예: 10:30, 오전 10시"
+                    value={issueForm.preferredTimeDetail}
+                    onChange={(e) => setIssueForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))}
+                  />
+                </div>
+                <div className="md:col-span-2 lg:col-span-12">
+                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">추가 사항</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    placeholder="견적 포함 추가, 현장 선택 추가 등"
+                    value={issueForm.optionNote}
+                    onChange={(e) => setIssueForm((f) => ({ ...f, optionNote: e.target.value }))}
+                  />
+                </div>
+                <div className="md:col-span-2 lg:col-span-12 flex flex-col sm:flex-row sm:items-center sm:justify-end lg:justify-start">
+                  <button
+                    type="button"
+                    onClick={handleIssue}
+                    disabled={issueLoading}
+                    className="w-full rounded-md bg-gray-800 py-3 text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-900 disabled:opacity-50 sm:w-auto sm:min-w-[14rem] sm:px-8 sm:py-2.5"
+                  >
+                    발급 및 링크 생성
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">메시지 복사 후 카카오톡·문자로 고객에게 보내세요.</p>
-              <details className="mt-2">
-                <summary className="text-xs text-gray-600 cursor-pointer">미리보기</summary>
-                <pre className="mt-1 p-3 bg-gray-50 rounded text-xs text-gray-700 whitespace-pre-wrap overflow-x-auto">
-                  {getOrderMessage(newOrder)}
-                </pre>
-              </details>
             </div>
-          )}
+
+            {newOrder && (
+              <div className="mx-auto mt-8 w-full max-w-md border-t border-gray-100 pt-8 lg:mx-0 lg:max-w-none">
+                <div className="rounded-lg border border-emerald-200/90 bg-emerald-50/50 p-5 sm:p-6 lg:grid lg:grid-cols-2 lg:gap-10 lg:p-8">
+                  <div className="min-w-0">
+                    <p className="text-fluid-sm font-semibold text-gray-900">발급 완료</p>
+                    <p className="mt-1 text-fluid-sm text-gray-600 tabular-nums">
+                      {newOrder.customerName}님 · {newOrder.totalAmount.toLocaleString('ko-KR')}원
+                    </p>
+                  </div>
+                  <div className="mt-5 min-w-0 lg:mt-0">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewModal({ kind: 'message', order: newOrder })}
+                        className="rounded-md bg-gray-800 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-900"
+                      >
+                        메시지
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewModal({ kind: 'link', order: newOrder })}
+                        className="rounded-md bg-gray-700 px-4 py-2 text-fluid-sm text-white shadow-sm hover:bg-gray-800"
+                      >
+                        링크
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openInNewTab(newOrder.token)}
+                        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
+                      >
+                        새 창에서 열기
+                      </button>
+                    </div>
+                    <p className="mt-3 text-fluid-2xs text-gray-600">
+                      메시지 복사 후 카카오톡·문자로 고객에게 보내세요.
+                    </p>
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-fluid-xs text-gray-600 hover:text-gray-900">
+                        미리보기
+                      </summary>
+                      <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-gray-200 bg-white p-3 text-fluid-xs leading-relaxed text-gray-700 whitespace-pre-wrap">
+                        {getOrderMessage(newOrder)}
+                      </pre>
+                    </details>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

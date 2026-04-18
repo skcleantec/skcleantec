@@ -14,6 +14,7 @@ import {
 } from '../../constants/orderFormConfigDefaults';
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 
 const PROPERTY_TYPE_OPTIONS = [
@@ -155,6 +156,8 @@ export function OrderFormPage() {
       .catch((e) => setError(e instanceof Error ? e.message : '발주서를 불러올 수 없습니다.'))
       .finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => subscribeOrderGuideAgreeTerms(() => setAgreeToTerms(true)), []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

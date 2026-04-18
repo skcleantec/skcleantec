@@ -915,18 +915,24 @@ export function AdminInquiriesPage() {
               <p className="text-fluid-sm text-gray-500">집계 데이터가 없습니다.</p>
             )}
           </div>
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex flex-col gap-2 min-w-0">
+            <div
+              className="flex min-w-0 max-w-full flex-nowrap items-center gap-x-2 gap-y-1.5 overflow-x-auto overscroll-x-contain pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 sm:gap-x-3 sm:gap-y-2"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
-                <div className="flex flex-wrap items-center gap-2 min-w-0">
-                  <label htmlFor="inquiry-marketer-filter" className="text-fluid-sm text-gray-600 shrink-0">
+                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                  <label
+                    htmlFor="inquiry-marketer-filter"
+                    className="text-fluid-xs text-gray-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                  >
                     접수자
                   </label>
                   <select
                     id="inquiry-marketer-filter"
                     value={marketerFilterId}
                     onChange={(e) => setMarketerFilterId(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded text-fluid-sm text-gray-900 min-w-[10rem] max-w-[min(100%,18rem)]"
+                    className="min-w-[8.5rem] max-w-[11rem] rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-xs text-gray-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
                   >
                     <option value="">전체</option>
                     <option value={CREATED_BY_FILTER_UNASSIGNED}>미지정</option>
@@ -945,17 +951,23 @@ export function AdminInquiriesPage() {
                     <button
                       type="button"
                       onClick={() => setMarketerFilterId('')}
-                      className="text-fluid-xs text-gray-600 underline hover:text-gray-900 shrink-0"
+                      className="shrink-0 whitespace-nowrap text-[11px] text-gray-600 underline hover:text-gray-900 sm:text-fluid-xs"
                     >
                       접수자 필터 해제
                     </button>
                   ) : null}
                 </div>
               )}
-              <div className="flex flex-wrap items-center gap-2 min-w-0">
+              {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                <span
+                  className="hidden h-5 w-px shrink-0 bg-gray-200 sm:block"
+                  aria-hidden
+                />
+              )}
+              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <label
                   htmlFor="inquiry-team-leader-filter"
-                  className="text-fluid-sm text-gray-600 shrink-0"
+                  className="text-fluid-xs text-gray-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
                 >
                   팀장·타업체
                 </label>
@@ -963,7 +975,7 @@ export function AdminInquiriesPage() {
                   id="inquiry-team-leader-filter"
                   value={teamLeaderFilterId}
                   onChange={(e) => setTeamLeaderFilterId(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded text-fluid-sm text-gray-900 min-w-[10rem] max-w-[min(100%,18rem)]"
+                  className="min-w-[8.5rem] max-w-[11rem] rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-xs text-gray-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
                 >
                   <option value="">전체</option>
                   <option value={TEAM_LEADER_FILTER_UNASSIGNED}>미배정</option>
@@ -977,7 +989,7 @@ export function AdminInquiriesPage() {
                   <button
                     type="button"
                     onClick={() => setTeamLeaderFilterId('')}
-                    className="text-fluid-xs text-gray-600 underline hover:text-gray-900 shrink-0"
+                    className="shrink-0 whitespace-nowrap text-[11px] text-gray-600 underline hover:text-gray-900 sm:text-fluid-xs"
                   >
                     배정 필터 해제
                   </button>

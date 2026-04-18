@@ -6,6 +6,7 @@ import { TeamProtectedRoute } from './components/auth/TeamProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminInquiriesPage } from './pages/admin/AdminInquiriesPage';
+import { AdminInquiriesLayout } from './components/layout/AdminInquiriesLayout';
 import { AdminSchedulePage } from './pages/admin/AdminSchedulePage';
 import { AdminTeamLeadersPage } from './pages/admin/AdminTeamLeadersPage';
 import { AdminTeamLeadersLayout } from './components/layout/AdminTeamLeadersLayout';
@@ -47,7 +48,10 @@ function App() {
           }
         >
           <Route path="dashboard" element={<AdminDashboardPage />} />
-          <Route path="inquiries" element={<AdminInquiriesPage />} />
+          <Route path="inquiries" element={<AdminInquiriesLayout />}>
+            <Route index element={<AdminInquiriesPage />} />
+            <Route path="order-forms" element={<AdminOrderFormPage />} />
+          </Route>
           <Route path="schedule" element={<AdminSchedulePage />} />
           <Route path="team-leaders" element={<AdminTeamLeadersLayout />}>
             <Route index element={<AdminTeamLeadersPage />} />

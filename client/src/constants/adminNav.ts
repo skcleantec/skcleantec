@@ -3,10 +3,10 @@
 export type AdminNavId =
   | 'dashboard'
   | 'inquiries'
+  | 'orderforms'
   | 'schedule'
   | 'team-leaders'
   | 'teams'
-  | 'orderforms'
   | 'cs'
   | 'advertising'
   | 'messages';
@@ -16,11 +16,13 @@ export const ADMIN_NAV_DEF: Record<
   { to: string; label: string; adminOnly?: boolean }
 > = {
   dashboard: { to: '/admin/dashboard', label: '대시보드' },
+  /** 본문 탭으로 발주서 목록만 빠르게 (`AdminInquiriesLayout`) */
   inquiries: { to: '/admin/inquiries', label: '접수 목록' },
+  /** 발급·설정 등 발주서 전체 화면 */
+  orderforms: { to: '/admin/orderforms', label: '발주서' },
   schedule: { to: '/admin/schedule', label: '스케줄 표' },
   'team-leaders': { to: '/admin/team-leaders', label: '관리자설정', adminOnly: true },
   teams: { to: '/admin/teams', label: '팀 관리', adminOnly: true },
-  orderforms: { to: '/admin/orderforms', label: '발주서' },
   cs: { to: '/admin/cs', label: 'C/S 관리' },
   advertising: { to: '/admin/advertising', label: '광고비' },
   messages: { to: '/admin/messages', label: '메시지' },
@@ -32,10 +34,10 @@ const STORAGE_NON_ADMIN = 'sk_admin_nav_order_v1_marketer';
 export const DEFAULT_ADMIN_NAV_ORDER: AdminNavId[] = [
   'dashboard',
   'inquiries',
+  'orderforms',
   'schedule',
   'team-leaders',
   'teams',
-  'orderforms',
   'cs',
   'advertising',
   'messages',
@@ -45,8 +47,8 @@ export const DEFAULT_ADMIN_NAV_ORDER: AdminNavId[] = [
 export const DEFAULT_NON_ADMIN_NAV_ORDER: AdminNavId[] = [
   'dashboard',
   'inquiries',
-  'schedule',
   'orderforms',
+  'schedule',
   'cs',
   'advertising',
   'messages',
