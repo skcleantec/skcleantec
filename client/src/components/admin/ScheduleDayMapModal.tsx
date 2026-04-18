@@ -5,9 +5,12 @@ import 'leaflet/dist/leaflet.css';
 import type { ScheduleItem } from '../../api/schedule';
 import type { GeocodeBatchMeta, GeocodeBatchResultRow } from '../../api/geocode';
 import { geocodeAddressBatch } from '../../api/geocode';
+import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { ModalCloseButton } from './ModalCloseButton';
 
 const MAX_GEOCODE = 35;
+/** 서버 배치 한도(35) 이하로 잘게 나눠 진행률 표시 */
+const GEOCODE_CHUNK = 8;
 
 function fullAddressLine(item: ScheduleItem): string {
   const a = item.address?.trim() ?? '';
@@ -53,20 +56,99 @@ function stripParenNoiseForGeocode(s: string): string {
   return s.replace(/\([^)]{0,80}\)/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** 1차(도로명) 실패 시 전체주소·괄호 제거 등으로 최대 몇 차례 추가 배치 호출 */
+function primaryLeaderName(item: ScheduleItem): string | null {
+  const n = item.assignments?.[0]?.teamLeader?.name?.trim();
+  return n && n.length > 0 ? n : null;
+}
+
+function primaryLeaderId(item: ScheduleItem): string | null {
+  const id = item.assignments?.[0]?.teamLeader?.id;
+  return id && id.length > 0 ? id : null;
+}
+
+/** 오전·오후·사이(미확정 포함) — 목록·서버 `getScheduleTimeBucket` 과 동일 규칙으로 마커 색 구분 */
+function scheduleSlotKindForMap(item: ScheduleItem): 'morning' | 'afternoon' | 'between' | 'other' {
+  const bucket = getScheduleTimeBucket(item);
+  if (bucket === 'morning') return 'morning';
+  if (bucket === 'afternoon') return 'afternoon';
+  if (isSideCleaningTime(item.preferredTime)) return 'between';
+  return 'other';
+}
+
+function slotMarkerStyle(kind: 'morning' | 'afternoon' | 'between' | 'other'): {
+  color: string;
+  fillColor: string;
+} {
+  switch (kind) {
+    case 'morning':
+      return { color: '#1e40af', fillColor: '#2563eb' };
+    case 'afternoon':
+      return { color: '#047857', fillColor: '#10b981' };
+    case 'between':
+      return { color: '#b45309', fillColor: '#f59e0b' };
+    default:
+      return { color: '#4b5563', fillColor: '#9ca3af' };
+  }
+}
+
+/** 지도 circleMarker와 동일 스타일의 범례용 작은 원 */
+function ScheduleMapLegendCircle({ kind }: { kind: 'morning' | 'afternoon' | 'between' | 'other' }) {
+  const { color, fillColor } = slotMarkerStyle(kind);
+  return (
+    <span
+      className="box-border inline-block h-3 w-3 shrink-0 rounded-full border-2 align-middle"
+      style={{ borderColor: color, backgroundColor: fillColor }}
+      aria-hidden
+    />
+  );
+}
+
+/** 팀장별 라벨 박스 배경(동일 id → 동일 색) */
+function leaderLabelStyle(leaderId: string | null): { bg: string; border: string } {
+  if (!leaderId) {
+    return { bg: '#f3f4f6', border: '#d1d5db' };
+  }
+  let h = 0;
+  for (let i = 0; i < leaderId.length; i++) {
+    h = (h + leaderId.charCodeAt(i) * (i + 17)) % 360;
+  }
+  return { bg: `hsl(${h} 72% 92%)`, border: `hsl(${h} 50% 72%)` };
+}
+
+/** 1차(도로명) 실패 시 전체주소·괄호 제거 등으로 추가 배치. 청크마다 onProgress로 % 갱신 */
 async function geocodeRowsWithRetryPasses(
   token: string,
-  list: Array<{ item: ScheduleItem; query: string }>
+  list: Array<{ item: ScheduleItem; query: string }>,
+  onProgress: (pct: number, label: string) => void
 ): Promise<{ results: GeocodeBatchResultRow[]; meta?: GeocodeBatchMeta }> {
   const primaryQueries = list.map((r) => r.query);
-  const { results: r0, meta } = await geocodeAddressBatch(token, primaryQueries);
+  const n = primaryQueries.length;
+  const r0: GeocodeBatchResultRow[] = [];
+  let meta: GeocodeBatchMeta | undefined;
+
+  onProgress(1, '요청 준비…');
+  for (let i = 0; i < n; i += GEOCODE_CHUNK) {
+    const slice = primaryQueries.slice(i, i + GEOCODE_CHUNK);
+    const { results, meta: m } = await geocodeAddressBatch(token, slice);
+    meta ??= m;
+    r0.push(...results);
+    const done = r0.length;
+    const pct = Math.min(70, Math.round(2 + (done / Math.max(1, n)) * 68));
+    onProgress(pct, `좌표 조회 ${done}/${n}건`);
+  }
+
   const work: GeocodeBatchResultRow[] = r0.map((row, i) => ({
     ...row,
     query: list[i]!.query,
   }));
   const attempted = new Set<string>(primaryQueries);
 
-  for (let round = 0; round < 3; round++) {
+  onProgress(71, '1차 조회 완료');
+
+  const maxRetryRounds = meta?.kakaoApiConfigured ? 1 : 2;
+  const roundSpan = 26 / Math.max(1, maxRetryRounds);
+
+  for (let round = 0; round < maxRetryRounds; round++) {
     const altToIndices = new Map<string, number[]>();
     for (let i = 0; i < list.length; i++) {
       if (work[i]?.lat != null && work[i]?.lon != null) continue;
@@ -90,8 +172,9 @@ async function geocodeRowsWithRetryPasses(
     const keys = [...altToIndices.keys()];
     if (keys.length === 0) break;
     for (const t of keys) attempted.add(t);
-    for (let off = 0; off < keys.length; off += 35) {
-      const chunk = keys.slice(off, off + 35);
+    let doneAlt = 0;
+    for (let off = 0; off < keys.length; off += GEOCODE_CHUNK) {
+      const chunk = keys.slice(off, off + GEOCODE_CHUNK);
       const { results: r2 } = await geocodeAddressBatch(token, chunk);
       chunk.forEach((q, j) => {
         const hit = r2[j];
@@ -106,8 +189,17 @@ async function geocodeRowsWithRetryPasses(
           };
         }
       });
+      doneAlt += chunk.length;
+      const frac = doneAlt / keys.length;
+      const pct = Math.min(
+        98,
+        Math.round(72 + round * roundSpan + frac * roundSpan * 0.95)
+      );
+      onProgress(pct, `주소 재검색 ${Math.min(doneAlt, keys.length)}/${keys.length}건 (${round + 1}/${maxRetryRounds}차)`);
     }
   }
+
+  onProgress(100, '지도에 반영합니다…');
   return { results: work, meta };
 }
 
@@ -115,6 +207,9 @@ type Placed = {
   id: string;
   customerName: string;
   inquiryNumber?: string | null;
+  teamLeaderName: string | null;
+  teamLeaderId: string | null;
+  slotKind: 'morning' | 'afternoon' | 'between' | 'other';
   /** 목록·팝업에 보이는 전체 주소(상세 포함) */
   addressLine: string;
   /** 카카오·구글맵 링크용 — 지오코딩에 쓴 문자열과 동일(도로명·번지 위주) */
@@ -175,13 +270,13 @@ export function ScheduleDayMapModal({
   }, [open]);
   const [phase, setPhase] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string | null>(null);
+  const [loadPct, setLoadPct] = useState(0);
+  const [loadDetail, setLoadDetail] = useState('');
   const [placed, setPlaced] = useState<Placed[]>([]);
   const [skippedNoAddress, setSkippedNoAddress] = useState(0);
   const [skippedCap, setSkippedCap] = useState(0);
   const [geocodeMissCount, setGeocodeMissCount] = useState(0);
   const [kakaoApiConfigured, setKakaoApiConfigured] = useState(false);
-  const [googleGeocodingConfigured, setGoogleGeocodingConfigured] = useState(false);
 
   const rows = useMemo(() => {
     const list: Array<{ item: ScheduleItem; query: string }> = [];
@@ -205,19 +300,23 @@ export function ScheduleDayMapModal({
       setPlaced([]);
       setGeocodeMissCount(0);
       setKakaoApiConfigured(false);
-      setGoogleGeocodingConfigured(false);
+      setLoadPct(0);
+      setLoadDetail('');
       setPhase(rows.list.length === 0 ? 'ready' : 'idle');
       return;
     }
     setPhase('loading');
     setErrorMsg(null);
-    setProgress('주소를 지도 좌표로 변환하는 중입니다. 건수에 따라 1분 가까이 걸릴 수 있습니다.');
+    setLoadPct(0);
+    setLoadDetail('시작합니다…');
     setSkippedNoAddress(rows.skippedNoAddress);
     setSkippedCap(rows.skippedCap);
     try {
-      const { results, meta } = await geocodeRowsWithRetryPasses(token, rows.list);
+      const { results, meta } = await geocodeRowsWithRetryPasses(token, rows.list, (pct, label) => {
+        setLoadPct(pct);
+        setLoadDetail(label);
+      });
       setKakaoApiConfigured(meta?.kakaoApiConfigured ?? false);
-      setGoogleGeocodingConfigured(meta?.googleGeocodingConfigured ?? false);
       const next: Placed[] = [];
       for (let i = 0; i < rows.list.length; i++) {
         const { item, query } = rows.list[i]!;
@@ -229,6 +328,9 @@ export function ScheduleDayMapModal({
             id: item.id,
             customerName: item.customerName,
             inquiryNumber: item.inquiryNumber,
+            teamLeaderName: primaryLeaderName(item),
+            teamLeaderId: primaryLeaderId(item),
+            slotKind: scheduleSlotKindForMap(item),
             addressLine: fullAddressLine(item),
             mapSearchLine: query,
             lat,
@@ -239,11 +341,13 @@ export function ScheduleDayMapModal({
       setPlaced(jitterDuplicateCoords(next));
       setGeocodeMissCount(rows.list.length - next.length);
       setPhase('ready');
-      setProgress(null);
+      setLoadPct(0);
+      setLoadDetail('');
     } catch (e) {
       setPhase('error');
       setErrorMsg(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
-      setProgress(null);
+      setLoadPct(0);
+      setLoadDetail('');
     }
   }, [open, rows.list, rows.skippedCap, rows.skippedNoAddress, token]);
 
@@ -253,9 +357,9 @@ export function ScheduleDayMapModal({
       setPlaced([]);
       setGeocodeMissCount(0);
       setKakaoApiConfigured(false);
-      setGoogleGeocodingConfigured(false);
       setErrorMsg(null);
-      setProgress(null);
+      setLoadPct(0);
+      setLoadDetail('');
       return;
     }
     void loadGeocode();
@@ -285,19 +389,21 @@ export function ScheduleDayMapModal({
     const group = L.layerGroup().addTo(map);
 
     for (const p of placed) {
-      const title = p.inquiryNumber
-        ? `${p.customerName} (${p.inquiryNumber})`
-        : p.customerName;
+      const leaderLine = p.teamLeaderName ?? '미배정';
+      const slotStroke = slotMarkerStyle(p.slotKind);
+      const lb = leaderLabelStyle(p.teamLeaderId);
       const m = L.circleMarker([p.lat, p.lng], {
         radius: 8,
-        color: '#1e40af',
+        color: slotStroke.color,
         weight: 2,
-        fillColor: '#2563eb',
+        fillColor: slotStroke.fillColor,
         fillOpacity: 0.95,
       });
       m.bindPopup(
         `<div class="text-fluid-xs" style="min-width:12rem;max-width:18rem">
-          <div style="font-weight:600;margin-bottom:4px">${escHtml(title)}</div>
+          <div style="font-weight:700;margin-bottom:2px">${escHtml(p.customerName)}</div>
+          <div style="font-weight:600;color:#374151;margin-bottom:6px;font-size:12px">${escHtml(leaderLine)}</div>
+          ${p.inquiryNumber ? `<div style="font-size:11px;color:#6b7280;margin-bottom:4px">접수 ${escHtml(String(p.inquiryNumber))}</div>` : ''}
           <div style="color:#444;line-height:1.35;margin-bottom:8px">${escHtml(p.addressLine)}</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px 12px">
             <a href="${kakaoMapSearchUrl(p.mapSearchLine)}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8;text-decoration:underline">카카오맵</a>
@@ -305,9 +411,13 @@ export function ScheduleDayMapModal({
           </div>
         </div>`
       );
-      const shortName = truncateMapLabel(p.customerName, 12);
+      const shortCust = truncateMapLabel(p.customerName, 11);
+      const shortLeader = truncateMapLabel(leaderLine, 10);
       m.bindTooltip(
-        `<span class="schedule-map-name-inner" title="${escAttr(p.customerName)}">${escHtml(shortName)}</span>`,
+        `<div class="schedule-map-marker-label-box" style="background:${lb.bg};border:1px solid ${lb.border}">
+          <div title="${escAttr(p.customerName)}">${escHtml(shortCust)}</div>
+          <div class="schedule-map-marker-label-line2" title="${escAttr(leaderLine)}">${escHtml(shortLeader)}</div>
+        </div>`,
         {
           permanent: true,
           direction: 'top',
@@ -360,21 +470,28 @@ export function ScheduleDayMapModal({
     >
       <style>{`
         .leaflet-tooltip.schedule-map-marker-name {
-          margin-top: -2px;
-          padding: 2px 7px;
-          border: 1px solid #e5e7eb;
-          border-radius: 5px;
-          background: rgba(255,255,255,0.96);
-          color: #111827;
-          font-size: 11px;
-          font-weight: 600;
-          line-height: 1.25;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          margin-top: -4px;
+          padding: 0 !important;
+          border: none !important;
+          background: transparent !important;
+          box-shadow: none !important;
           pointer-events: none !important;
         }
-        .leaflet-tooltip.schedule-map-marker-name .schedule-map-name-inner {
-          display: block;
-          max-width: 7rem;
+        .leaflet-tooltip.schedule-map-marker-name .schedule-map-marker-label-box {
+          font-size: 11px;
+          line-height: 1.3;
+          font-weight: 600;
+          color: #111827;
+          border-radius: 6px;
+          padding: 4px 8px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+          max-width: 9rem;
+        }
+        .leaflet-tooltip.schedule-map-marker-name .schedule-map-marker-label-line2 {
+          font-size: 10px;
+          font-weight: 600;
+          margin-top: 2px;
+          opacity: 0.92;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -389,29 +506,43 @@ export function ScheduleDayMapModal({
           <h2 id="schedule-day-map-title" className="text-lg font-semibold text-gray-900 sm:text-xl">
             접수건 위치 ({dateLabel})
           </h2>
-          <p className="mt-1 text-fluid-xs text-gray-500">
-            지오코딩·지도 링크 검색어는 접수 시 카카오 주소로 넣은 도로명·번지(`address`)만 쓰고, 동·호 등 상세(`addressDetail`)는 붙이지 않습니다.
-            OpenStreetMap 타일 + Nominatim으로 좌표를 구한 뒤, 서버 설정 시 카카오 로컬 API → Google Geocoding 순으로
-            실패 건을 추가 변환합니다.
-            {kakaoApiConfigured || googleGeocodingConfigured
-              ? ` (현재: ${[kakaoApiConfigured ? '카카오' : '', googleGeocodingConfigured ? '구글' : '']
-                  .filter(Boolean)
-                  .join(', ')} 지오코딩 사용)`
-              : ' KAKAO_REST_API_KEY·GOOGLE_MAPS_API_KEY는 server/.env(또는 저장소 루트 .env)에 넣으면 같은 지도에 마커가 더 잘 붙습니다.'}
-            위치가 어긋날 수 있으면 카카오맵·구글맵 링크로 확인하세요.
-          </p>
-          {(skippedNoAddress > 0 || skippedCap > 0 || geocodeMissCount > 0) && (
-            <p className="mt-2 text-fluid-xs text-amber-800">
-              {skippedNoAddress > 0 ? `주소 없음 ${skippedNoAddress}건은 표에서만 보입니다. ` : ''}
-              {skippedCap > 0 ? `지도 변환은 최대 ${MAX_GEOCODE}건까지 처리했습니다. (${skippedCap}건 생략)` : ''}
-              {geocodeMissCount > 0
-                ? `좌표를 찾지 못한 접수 ${geocodeMissCount}건은 지도에 마커가 없습니다. 카카오맵·구글맵 링크로 확인해 주세요.${
-                    !kakaoApiConfigured && !googleGeocodingConfigured
-                      ? ' (server/.env 또는 루트 .env에 KAKAO_REST_API_KEY 또는 GOOGLE_MAPS_API_KEY를 넣고 서버를 재시작하면 이 지도에도 마커가 더 잘 붙습니다.)'
-                      : ''
-                  }`
-                : ''}
-            </p>
+          {(skippedNoAddress > 0 || skippedCap > 0 || geocodeMissCount > 0 || phase === 'ready') && (
+            <div className="mt-2 space-y-1.5">
+              {(skippedNoAddress > 0 || skippedCap > 0 || geocodeMissCount > 0) && (
+                <p className="text-fluid-xs text-amber-800">
+                  {skippedNoAddress > 0 ? `주소 없음 ${skippedNoAddress}건은 표에서만 보입니다. ` : ''}
+                  {skippedCap > 0 ? `지도 변환은 최대 ${MAX_GEOCODE}건까지 처리했습니다. (${skippedCap}건 생략)` : ''}
+                  {geocodeMissCount > 0
+                    ? `좌표를 찾지 못한 접수 ${geocodeMissCount}건은 지도에 마커가 없습니다.${
+                        !kakaoApiConfigured
+                          ? ' (server/.env 또는 루트 .env에 KAKAO_REST_API_KEY를 넣고 서버를 재시작하면 이 지도에도 마커가 더 잘 붙습니다.)'
+                          : ''
+                      }`
+                    : ''}
+                </p>
+              )}
+              {phase === 'ready' && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-fluid-2xs text-gray-600">
+                  <span className="font-medium text-gray-500">마커</span>
+                  <span className="inline-flex items-center gap-1">
+                    <ScheduleMapLegendCircle kind="morning" />
+                    오전
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <ScheduleMapLegendCircle kind="afternoon" />
+                    오후
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <ScheduleMapLegendCircle kind="between" />
+                    사이청소(미정)
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <ScheduleMapLegendCircle kind="other" />
+                    그 외
+                  </span>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -427,9 +558,17 @@ export function ScheduleDayMapModal({
                 const line = fullAddressLine(item);
                 const mapLine = geocodeQueryLine(item);
                 const hit = placed.find((p) => p.id === item.id);
+                const leaderDisp = primaryLeaderName(item) ?? '미배정';
+                const coordMiss = phase === 'ready' && Boolean(mapLine) && !hit;
                 return (
-                  <li key={item.id} className="px-3 py-2.5 sm:px-4">
-                    <div className="font-medium text-gray-900">{item.customerName}</div>
+                  <li
+                    key={item.id}
+                    className={`px-3 py-2.5 sm:px-4 ${coordMiss ? 'rounded-md border-2 border-red-400 bg-red-50/70' : ''}`}
+                  >
+                    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                      <span className="font-medium text-gray-900">{item.customerName}</span>
+                      <span className="text-fluid-xs font-medium text-gray-600">· {leaderDisp}</span>
+                    </div>
                     {item.inquiryNumber && (
                       <div className="text-fluid-2xs text-gray-500 tabular-nums">접수 {item.inquiryNumber}</div>
                     )}
@@ -469,8 +608,22 @@ export function ScheduleDayMapModal({
         </div>
 
         {phase === 'loading' && (
-          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 text-center text-fluid-sm text-gray-600">
-            {progress ?? '불러오는 중…'}
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-4 sm:px-5">
+            <div className="mx-auto max-w-md">
+              <div className="mb-2 h-2.5 w-full overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-[width] duration-200 ease-out"
+                  style={{ width: `${loadPct}%` }}
+                  role="progressbar"
+                  aria-valuenow={loadPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="지오코딩 진행률"
+                />
+              </div>
+              <p className="text-center text-fluid-sm font-semibold tabular-nums text-gray-900">{loadPct}%</p>
+              <p className="mt-1 text-center text-fluid-xs text-gray-600">{loadDetail || '불러오는 중…'}</p>
+            </div>
           </div>
         )}
         {phase === 'error' && errorMsg && (

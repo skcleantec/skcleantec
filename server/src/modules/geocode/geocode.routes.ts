@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authMiddleware, adminOrMarketer } from '../auth/auth.middleware.js';
 import { normalizeGeocodeQuery } from './geocodeNormalize.js';
 import { getKakaoRestApiKey, kakaoGeocodeSequential } from './kakaoGeocodeClient.js';
-import { getGoogleGeocodingApiKey, googleGeocodeSequential } from './googleGeocodeClient.js';
+import type { NominatimHit } from './nominatimClient.js';
 import { nominatimGeocodeSequential } from './nominatimClient.js';
 
 const router = Router();
@@ -45,29 +45,32 @@ router.post('/batch', async (req, res) => {
   }
 
   try {
-    const hitMap = await nominatimGeocodeSequential(uniqueOrdered);
+    const hitMap = new Map<string, NominatimHit | null>();
+    for (const q of uniqueOrdered) hitMap.set(q, null);
+
     const kakaoKey = getKakaoRestApiKey();
+
+    /**
+     * 카카오 키가 있으면 카카오만 사용(빠름). Nominatim은 초당 1건 제한으로 20건에 수십 초 걸려서 호출하지 않음.
+     * 키가 없을 때만 Nominatim(전량)으로 좌표를 구함.
+     */
     if (kakaoKey) {
-      const misses = uniqueOrdered.filter((q) => hitMap.get(q) == null);
-      if (misses.length > 0) {
-        const kakaoMap = await kakaoGeocodeSequential(misses, kakaoKey);
-        for (const q of misses) {
-          const h = kakaoMap.get(q);
-          if (h) hitMap.set(q, h);
-        }
+      const kakaoMap = await kakaoGeocodeSequential(uniqueOrdered, kakaoKey);
+      for (const q of uniqueOrdered) {
+        const h = kakaoMap.get(q);
+        if (h) hitMap.set(q, h);
+      }
+    } else {
+      const nomMap = await nominatimGeocodeSequential(uniqueOrdered, {
+        delayMs: 1100,
+        fastOne: false,
+      });
+      for (const q of uniqueOrdered) {
+        const h = nomMap.get(q);
+        if (h) hitMap.set(q, h);
       }
     }
-    const googleKey = getGoogleGeocodingApiKey();
-    if (googleKey) {
-      const missesG = uniqueOrdered.filter((q) => hitMap.get(q) == null);
-      if (missesG.length > 0) {
-        const googleMap = await googleGeocodeSequential(missesG, googleKey);
-        for (const q of missesG) {
-          const h = googleMap.get(q);
-          if (h) hitMap.set(q, h);
-        }
-      }
-    }
+
     const results = trimmed.map((query) => {
       const hit = hitMap.get(query) ?? null;
       if (!hit) return { query, lat: null as number | null, lon: null as number | null };
@@ -82,7 +85,8 @@ router.post('/batch', async (req, res) => {
       results,
       meta: {
         kakaoApiConfigured: Boolean(kakaoKey),
-        googleGeocodingConfigured: Boolean(googleKey),
+        /** 카카오 키가 있어 Nominatim을 건너뜀(빠른 모드) */
+        kakaoOnlyMode: Boolean(kakaoKey),
       },
     });
   } catch (e) {

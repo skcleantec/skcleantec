@@ -16,7 +16,8 @@ export type GeocodeBatchResultRow = {
 
 export type GeocodeBatchMeta = {
   kakaoApiConfigured: boolean;
-  googleGeocodingConfigured?: boolean;
+  /** 서버가 Nominatim 없이 카카오만 사용했는지 */
+  kakaoOnlyMode?: boolean;
 };
 
 export type GeocodeBatchResponse = {

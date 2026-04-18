@@ -105,7 +105,8 @@ export async function kakaoGeocodeSequential(
   apiKey: string,
   opts?: { delayMs?: number }
 ): Promise<Map<string, NominatimHit | null>> {
-  const delayMs = opts?.delayMs ?? 150;
+  /** 카카오 과호출 방지 — 너무 크면 20건 배치가 수 초 걸림 */
+  const delayMs = opts?.delayMs ?? 90;
   const out = new Map<string, NominatimHit | null>();
   let first = true;
   for (const query of queries) {

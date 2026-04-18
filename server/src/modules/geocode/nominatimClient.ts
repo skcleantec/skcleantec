@@ -60,7 +60,11 @@ function stripParentheticalForNominatim(s: string): string {
   return s.replace(/\([^)]{0,80}\)/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-export async function nominatimGeocodeOne(addressLine: string): Promise<NominatimHit | null> {
+export async function nominatimGeocodeOne(
+  addressLine: string,
+  opts?: { fast?: boolean }
+): Promise<NominatimHit | null> {
+  const fast = opts?.fast === true;
   const q = addressLine.trim();
   if (!q) return null;
   const withKr = await nominatimSearchOnce(q, { countryCodes: 'kr' });
@@ -69,6 +73,7 @@ export async function nominatimGeocodeOne(addressLine: string): Promise<Nominati
   await sleep(1100);
   const globalHit = await nominatimSearchOnce(q, {});
   if (globalHit) return globalHit;
+  if (fast) return null;
   const simplified = stripParentheticalForNominatim(q);
   if (!simplified || simplified === q) return null;
   await sleep(1100);
@@ -81,16 +86,17 @@ export async function nominatimGeocodeOne(addressLine: string): Promise<Nominati
 /** 순차 호출(초당 1건 준수). 첫 요청 전에는 대기 없음. */
 export async function nominatimGeocodeSequential(
   uniqueQueries: string[],
-  opts?: { delayMs?: number }
+  opts?: { delayMs?: number; fastOne?: boolean }
 ): Promise<Map<string, NominatimHit | null>> {
   const delayMs = opts?.delayMs ?? 1100;
+  const fastOne = opts?.fastOne === true;
   const out = new Map<string, NominatimHit | null>();
   let first = true;
   for (const query of uniqueQueries) {
     if (!first) await sleep(delayMs);
     first = false;
     try {
-      const hit = await nominatimGeocodeOne(query);
+      const hit = await nominatimGeocodeOne(query, { fast: fastOne });
       out.set(query, hit);
     } catch (e) {
       console.warn('[nominatim] 실패:', query.slice(0, 48), e);
