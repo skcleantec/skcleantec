@@ -19,7 +19,6 @@ import {
 import {
   STATUS_LABELS,
   type InquiryItem,
-  formatScheduleLine,
   formatRoomInfo,
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
