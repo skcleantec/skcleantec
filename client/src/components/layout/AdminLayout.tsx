@@ -102,11 +102,12 @@ export function AdminLayout() {
   const [teamPreviewLink, setTeamPreviewLink] = useState(false);
   const [navOrder, setNavOrder] = useState<AdminNavId[]>(() => loadAdminNavOrder(false));
   const [draggingNavId, setDraggingNavId] = useState<AdminNavId | null>(null);
-  const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
+  const [fabTop, setFabTop] = useState<number | null>(null);
+  const fabTopRef = useRef<number | null>(null);
   const [fabDragging, setFabDragging] = useState(false);
   const fabPointerIdRef = useRef<number | null>(null);
   const fabHoldTimerRef = useRef<number | null>(null);
-  const fabDragOffsetRef = useRef({ x: 0, y: 0 });
+  const fabDragOffsetRef = useRef({ y: 0 });
   const fabPressMovedRef = useRef(false);
   const fabStorageKey = 'admin_schedule_fab_pos_v1';
   const [celebration, setCelebration] = useState<InquiryCelebratePayload | null>(null);
@@ -307,49 +308,61 @@ export function AdminLayout() {
     location.pathname === '/admin/team-leaders' ||
     location.pathname.startsWith('/admin/team-leaders/');
 
-  const clampFabPos = useCallback((x: number, y: number) => {
-    if (typeof window === 'undefined') return { x, y };
-    const w = 56;
+  /** FAB는 항상 오른쪽 여백에 붙이고, 저장·드래그는 세로(top)만 사용 */
+  const clampFabTop = useCallback((top: number) => {
+    if (typeof window === 'undefined') return top;
     const h = 56;
     const margin = 12;
-    const maxX = Math.max(margin, window.innerWidth - w - margin);
     const maxY = Math.max(margin, window.innerHeight - h - margin - 16);
-    return {
-      x: Math.min(maxX, Math.max(margin, x)),
-      y: Math.min(maxY, Math.max(72, y)),
-    };
+    return Math.min(maxY, Math.max(72, top));
   }, []);
 
   useEffect(() => {
+    fabTopRef.current = fabTop;
+  }, [fabTop]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
-    const fallback = clampFabPos(window.innerWidth - 68, Math.round(window.innerHeight * 0.58));
+    const fallbackY = clampFabTop(Math.round(window.innerHeight * 0.58));
     try {
       const raw = window.localStorage.getItem(fabStorageKey);
       if (!raw) {
-        setFabPos(fallback);
+        setFabTop(fallbackY);
+        fabTopRef.current = fallbackY;
         return;
       }
       const parsed = JSON.parse(raw) as { x?: number; y?: number };
-      if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
-        setFabPos(clampFabPos(parsed.x, parsed.y));
-      } else {
-        setFabPos(fallback);
-      }
+      const y = typeof parsed?.y === 'number' ? parsed.y : undefined;
+      const clamped = y != null ? clampFabTop(y) : fallbackY;
+      setFabTop(clamped);
+      fabTopRef.current = clamped;
     } catch {
-      setFabPos(fallback);
+      setFabTop(fallbackY);
+      fabTopRef.current = fallbackY;
     }
-  }, [clampFabPos]);
+  }, [clampFabTop]);
+
+  useEffect(() => {
+    const onResize = () => {
+      setFabTop((prev) => {
+        if (prev == null) return prev;
+        const next = clampFabTop(prev);
+        fabTopRef.current = next;
+        return next;
+      });
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [clampFabTop]);
 
   useEffect(() => {
     const onMove = (evt: PointerEvent) => {
       if (fabPointerIdRef.current == null || evt.pointerId !== fabPointerIdRef.current) return;
       if (fabDragging) {
         evt.preventDefault();
-        const next = clampFabPos(
-          evt.clientX - fabDragOffsetRef.current.x,
-          evt.clientY - fabDragOffsetRef.current.y
-        );
-        setFabPos(next);
+        const next = clampFabTop(evt.clientY - fabDragOffsetRef.current.y);
+        fabTopRef.current = next;
+        setFabTop(next);
         return;
       }
       const dx = Math.abs(evt.movementX);
@@ -368,9 +381,10 @@ export function AdminLayout() {
       fabPointerIdRef.current = null;
       setFabDragging(false);
       if (wasDragging) {
-        if (fabPos) {
+        const y = fabTopRef.current;
+        if (y != null) {
           try {
-            window.localStorage.setItem(fabStorageKey, JSON.stringify(fabPos));
+            window.localStorage.setItem(fabStorageKey, JSON.stringify({ y }));
           } catch {}
         }
         return;
@@ -387,7 +401,7 @@ export function AdminLayout() {
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
     };
-  }, [clampFabPos, fabDragging, fabPos, navigate]);
+  }, [clampFabTop, fabDragging, navigate]);
 
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
@@ -447,7 +461,7 @@ export function AdminLayout() {
             <div
               ref={navScrollRef}
               onScroll={updateNavScrollHint}
-              className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               <h1 className="hidden md:block text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-gray-800 whitespace-nowrap shrink-0">
@@ -524,21 +538,25 @@ export function AdminLayout() {
                         onDrop={(e) => handleNavDrop(e, id)}
                       >
                         {dragHandle}
-                        <NavLink to={def.to} className={navClass}>
-                          <span className="inline-flex items-center">
+                        <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+                          <NavLink
+                            to={def.to}
+                            className={navClass}
+                            aria-label={
+                              unreadCount > 0 ? `${def.label}, 새 메시지 ${unreadCount}건` : def.label
+                            }
+                          >
                             {def.label}
-                            {unreadCount > 0 && (
-                              <>
-                                <span className="ml-0.5 sm:ml-1 text-red-600 font-medium text-[clamp(0.55rem,1.2vw,0.75rem)] whitespace-nowrap">
-                                  새 메시지
-                                </span>
-                                <span className="ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 rounded-full bg-red-500 text-white font-medium text-[clamp(0.55rem,1.2vw,0.75rem)]">
-                                  {unreadCount}
-                                </span>
-                              </>
-                            )}
-                          </span>
-                        </NavLink>
+                          </NavLink>
+                          {unreadCount > 0 ? (
+                            <span
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
+                              aria-hidden
+                            >
+                              {unreadCount}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     );
                   }
@@ -551,21 +569,25 @@ export function AdminLayout() {
                         onDrop={(e) => handleNavDrop(e, id)}
                       >
                         {dragHandle}
-                        <NavLink to={def.to} className={navClass}>
-                          <span className="inline-flex items-center">
+                        <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+                          <NavLink
+                            to={def.to}
+                            className={navClass}
+                            aria-label={
+                              csPendingCount > 0 ? `${def.label}, 미확인 ${csPendingCount}건` : def.label
+                            }
+                          >
                             {def.label}
-                            {csPendingCount > 0 && (
-                              <>
-                                <span className="ml-0.5 sm:ml-1 text-red-600 font-medium text-[clamp(0.55rem,1.2vw,0.75rem)] whitespace-nowrap">
-                                  미확인
-                                </span>
-                                <span className="ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 rounded-full bg-red-500 text-white font-medium text-[clamp(0.55rem,1.2vw,0.75rem)]">
-                                  {csPendingCount}
-                                </span>
-                              </>
-                            )}
-                          </span>
-                        </NavLink>
+                          </NavLink>
+                          {csPendingCount > 0 ? (
+                            <span
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
+                              aria-hidden
+                            >
+                              {csPendingCount}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     );
                   }
@@ -643,23 +665,26 @@ export function AdminLayout() {
       <main className="max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
         <Outlet />
       </main>
-      {!location.pathname.startsWith('/admin/schedule') && fabPos && (
+      {!location.pathname.startsWith('/admin/schedule') && fabTop != null && (
         <button
           type="button"
           aria-label="스케줄 바로가기"
-          title={fabDragging ? '위치 이동 중' : '스케줄 바로가기 (길게 눌러 위치 이동)'}
+          title={fabDragging ? '세로 위치 이동 중' : '스케줄 바로가기 (길게 눌러 세로 위치만 이동)'}
           onPointerDown={(evt) => {
             fabPressMovedRef.current = false;
             fabPointerIdRef.current = evt.pointerId;
             const target = evt.currentTarget.getBoundingClientRect();
-            fabDragOffsetRef.current = { x: evt.clientX - target.left, y: evt.clientY - target.top };
+            fabDragOffsetRef.current = { y: evt.clientY - target.top };
             if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
             fabHoldTimerRef.current = window.setTimeout(() => setFabDragging(true), 420);
           }}
           className={`fixed z-[120] lg:hidden flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-[0_10px_28px_rgba(29,78,216,0.38),0_3px_10px_rgba(15,23,42,0.18)] ring-1 ring-inset ring-white/15 transition-[transform,box-shadow] active:scale-[0.94] active:shadow-[0_6px_18px_rgba(29,78,216,0.28),0_2px_6px_rgba(15,23,42,0.14)] ${
             fabDragging ? 'cursor-grabbing touch-none' : 'cursor-pointer'
           }`}
-          style={{ left: fabPos.x, top: fabPos.y }}
+          style={{
+            top: fabTop,
+            right: 'max(12px, env(safe-area-inset-right, 0px))',
+          }}
         >
           <CalendarCuteIcon className="h-7 w-7 drop-shadow-sm" />
         </button>

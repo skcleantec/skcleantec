@@ -77,7 +77,7 @@ export function TeamLayout() {
     `px-3 py-2 text-sm font-medium rounded ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:text-gray-900'}`;
 
   const mobileTabClass = ({ isActive }: { isActive: boolean }) =>
-    `flex-1 min-h-[44px] min-w-0 py-2 px-0.5 text-center text-[11px] font-medium leading-tight touch-manipulation flex flex-col items-center justify-center gap-0.5 ${
+    `flex flex-1 min-h-[44px] min-w-0 flex-row flex-nowrap items-center justify-center gap-0 py-2 px-0.5 text-center text-[11px] font-medium leading-tight touch-manipulation ${
       isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
     }`;
 
@@ -89,34 +89,52 @@ export function TeamLayout() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <h1 className="text-lg font-semibold text-gray-800 shrink-0">SK클린텍</h1>
-            <nav className="hidden sm:flex flex-wrap gap-1">
-              <NavLink to="/team/dashboard" className={navClass}>대시보드</NavLink>
-              <NavLink to="/team/schedule" className={navClass}>스케줄</NavLink>
+            <nav className="hidden sm:flex flex-wrap items-center gap-1">
+              <NavLink to="/team/dashboard" className={navClass}>
+                대시보드
+              </NavLink>
+              <NavLink to="/team/schedule" className={navClass}>
+                스케줄
+              </NavLink>
               {!hideTeamDayoffs && (
-                <NavLink to="/team/dayoffs" className={navClass}>휴무일</NavLink>
+                <NavLink to="/team/dayoffs" className={navClass}>
+                  휴무일
+                </NavLink>
               )}
-              <NavLink to="/team/cs" className={navClass}>
-                C/S
-                {csPendingCount > 0 && (
-                  <>
-                    <span className="ml-1 text-red-600 text-xs font-medium">미확인</span>
-                    <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-medium">
-                      {csPendingCount}
-                    </span>
-                  </>
-                )}
-              </NavLink>
-              <NavLink to="/team/messages" className={navClass}>
-                메시지
-                {unreadCount > 0 && (
-                  <>
-                    <span className="ml-1 text-red-600 text-xs font-medium">새 메시지</span>
-                    <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-medium">
-                      {unreadCount}
-                    </span>
-                  </>
-                )}
-              </NavLink>
+              <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+                <NavLink
+                  to="/team/cs"
+                  className={navClass}
+                  aria-label={csPendingCount > 0 ? `C/S, 미확인 ${csPendingCount}건` : 'C/S'}
+                >
+                  C/S
+                </NavLink>
+                {csPendingCount > 0 ? (
+                  <span
+                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-xs font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
+                    aria-hidden
+                  >
+                    {csPendingCount}
+                  </span>
+                ) : null}
+              </div>
+              <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+                <NavLink
+                  to="/team/messages"
+                  className={navClass}
+                  aria-label={unreadCount > 0 ? `메시지, 새 메시지 ${unreadCount}건` : '메시지'}
+                >
+                  메시지
+                </NavLink>
+                {unreadCount > 0 ? (
+                  <span
+                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-xs font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
+                    aria-hidden
+                  >
+                    {unreadCount}
+                  </span>
+                ) : null}
+              </div>
             </nav>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
@@ -144,21 +162,35 @@ export function TeamLayout() {
               휴무일
             </NavLink>
           )}
-          <NavLink to="/team/cs" className={mobileTabClass}>
-            <span>C/S</span>
-            {csPendingCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-medium">
+          <NavLink
+            to="/team/cs"
+            className={mobileTabClass}
+            aria-label={csPendingCount > 0 ? `C/S, 미확인 ${csPendingCount}건` : 'C/S'}
+          >
+            <span className="shrink-0">C/S</span>
+            {csPendingCount > 0 ? (
+              <span
+                className="-ml-1 inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
+                aria-hidden
+              >
                 {csPendingCount}
               </span>
-            )}
+            ) : null}
           </NavLink>
-          <NavLink to="/team/messages" className={mobileTabClass}>
-            <span>메시지</span>
-            {unreadCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-medium">
+          <NavLink
+            to="/team/messages"
+            className={mobileTabClass}
+            aria-label={unreadCount > 0 ? `메시지, 새 메시지 ${unreadCount}건` : '메시지'}
+          >
+            <span className="shrink-0">메시지</span>
+            {unreadCount > 0 ? (
+              <span
+                className="-ml-1 inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
+                aria-hidden
+              >
                 {unreadCount}
               </span>
-            )}
+            ) : null}
           </NavLink>
         </nav>
       </header>
