@@ -700,7 +700,7 @@ router.patch('/:id', async (req, res) => {
       assignments: updated.assignments.map((a) => ({ teamLeaderId: a.teamLeaderId })),
     },
     lines,
-  }).catch((e) => console.error('[web-push] notifyAfterInquiryPatch', e));
+  }).catch((e) => console.error('[inquiry-notify] notifyAfterInquiryPatch', e));
   res.json(attachDistanceFromJuanForInquiry(updated));
 });
 

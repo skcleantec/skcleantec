@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authMiddleware, adminOrMarketer } from '../auth/auth.middleware.js';
+import { authMiddleware, adminOrMarketerOrTeamLeader } from '../auth/auth.middleware.js';
 import { normalizeGeocodeQuery } from './geocodeNormalize.js';
 import { getKakaoRestApiKey, kakaoGeocodeSequential } from './kakaoGeocodeClient.js';
 import type { NominatimHit } from './nominatimClient.js';
@@ -8,7 +8,7 @@ import { nominatimGeocodeSequential } from './nominatimClient.js';
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(adminOrMarketerOrTeamLeader);
 
 const MAX_QUERIES = 35;
 

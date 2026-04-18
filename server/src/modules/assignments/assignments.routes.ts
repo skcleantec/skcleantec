@@ -99,7 +99,7 @@ router.post('/', async (req, res) => {
 
   if (!prevLeaderSet.has(teamLeaderId)) {
     void notifyNewAssignmentForInquiry(inquiryId, [teamLeaderId]).catch((e) =>
-      console.error('[web-push] notifyNewAssignmentForInquiry', e)
+      console.error('[assignment-notify] notifyNewAssignmentForInquiry', e)
     );
   }
 

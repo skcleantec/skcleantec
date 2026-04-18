@@ -44,6 +44,25 @@ export function adminOrMarketer(req: Request, res: Response, next: NextFunction)
   next();
 }
 
+/** 스케줄 지도용 배치 지오코딩: 관리자·마케터·팀장·타업체 */
+export function adminOrMarketerOrTeamLeader(req: Request, res: Response, next: NextFunction) {
+  const user = (req as Request & { user?: AuthPayload }).user;
+  if (!user) {
+    res.status(403).json({ error: '권한이 필요합니다.' });
+    return;
+  }
+  if (
+    user.role === 'ADMIN' ||
+    user.role === 'MARKETER' ||
+    user.role === 'TEAM_LEADER' ||
+    user.role === 'EXTERNAL_PARTNER'
+  ) {
+    next();
+    return;
+  }
+  res.status(403).json({ error: '권한이 필요합니다.' });
+}
+
 /** 최고 관리자(기본: 이메일 admin) 전용 — 히스토리 삭제 등 */
 export function superAdminOnly(req: Request, res: Response, next: NextFunction) {
   const user = (req as Request & { user?: AuthPayload }).user;

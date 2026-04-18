@@ -18,6 +18,14 @@ import {
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
 } from './teamInquiryShared';
+import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
+import type { ScheduleItem } from '../../api/schedule';
+
+/** 관리자 스케줄과 동일 아이콘. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL 로 덮어쓰기 */
+const DEFAULT_SCHEDULE_MAP_ICON =
+  'https://res.cloudinary.com/dipdqqsfs/image/upload/v1776501501/external-Map-Pin-map-and-navigation-filled-outline-design-circle_ulju4s.jpg';
+const scheduleMapIconUrl =
+  (import.meta.env.VITE_ADMIN_SCHEDULE_MAP_ICON_URL ?? '').trim() || DEFAULT_SCHEDULE_MAP_ICON;
 
 export function TeamSchedulePage() {
   const token = getTeamToken();
@@ -29,6 +37,7 @@ export function TeamSchedulePage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
+  const [mapModalItems, setMapModalItems] = useState<ScheduleItem[]>([]);
 
   const loadSchedule = useCallback(async () => {
     if (!token) return;
@@ -198,13 +207,33 @@ export function TeamSchedulePage() {
                             {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} · {item.areaPyeong ?? '-'}평
                           </div>
                         </div>
-                        <a
-                          href={`tel:${item.customerPhone}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="shrink-0 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-fluid-xs font-medium"
-                        >
-                          전화
-                        </a>
+                        <div className="shrink-0 flex flex-col items-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMapModalItems([item as unknown as ScheduleItem]);
+                            }}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-300 bg-white text-gray-700 shadow-sm hover:border-gray-400 hover:bg-gray-50 touch-manipulation"
+                            title="이 접수 위치 지도"
+                            aria-label="이 접수 위치 지도"
+                          >
+                            <img
+                              src={scheduleMapIconUrl}
+                              alt=""
+                              className="pointer-events-none h-7 w-7 select-none object-contain"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </button>
+                          <a
+                            href={`tel:${item.customerPhone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-fluid-xs font-medium text-center"
+                          >
+                            전화
+                          </a>
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <span className="inline-block px-2 py-0.5 rounded text-fluid-xs bg-gray-200 text-gray-800">
@@ -240,6 +269,16 @@ export function TeamSchedulePage() {
             await completeTeamHappyCall(token, detailItem.id);
             await loadSchedule();
           }}
+        />
+      )}
+
+      {mapModalItems.length > 0 && token && selectedDate && (
+        <ScheduleDayMapModal
+          open
+          onClose={() => setMapModalItems([])}
+          dateLabel={formatDateCompactWithWeekday(selectedDate)}
+          items={mapModalItems}
+          token={token}
         />
       )}
     </div>
