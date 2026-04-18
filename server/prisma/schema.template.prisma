@@ -449,6 +449,8 @@ model Assignment {
   teamLeaderId  String   @map("team_leader_id")
   assignedById  String   @map("assigned_by_id")
   assignedAt    DateTime @default(now()) @map("assigned_at")
+  /// 팀장이 접수 상세 모달로 확인한 시각 — null이면 메뉴 미확인 배지에 포함
+  detailViewedAt DateTime? @map("detail_viewed_at")
   /// 같은 접수에 팀장 여러 명일 때 표시 순서
   sortOrder     Int      @default(0) @map("sort_order")
 
