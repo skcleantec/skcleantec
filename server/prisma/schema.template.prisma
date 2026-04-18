@@ -54,8 +54,26 @@ model User {
   inquiryCleaningPhotosUploaded InquiryCleaningPhoto[] @relation("CleaningPhotoUploader")
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
   inquiryChangeLogsAsActor      InquiryChangeLog[]     @relation("InquiryChangeLogActor")
+  teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
 
   @@map("users")
+}
+
+/// 팀장/타업체 계정 브라우저 Web Push 구독 (엔드포인트당 1행)
+model TeamLeaderWebPushSubscription {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique @db.Text
+  p256dh    String   @map("p256dh") @db.Text
+  auth      String   @db.Text
+  userAgent String?  @map("user_agent") @db.VarChar(512)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("team_leader_web_push_subscriptions")
 }
 
 /// 팀장당 1팀 (팀원은 로그인 없음, 마스터·휴무만 관리)
