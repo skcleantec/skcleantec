@@ -40,6 +40,7 @@ import {
   mergeRefreshedInquiryGeoFields,
 } from './inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
+import { notifyAfterInquiryPatch } from '../push/inquiryTeamWebPush.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -688,6 +689,18 @@ router.patch('/:id', async (req, res) => {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
+  void notifyAfterInquiryPatch({
+    inquiryBefore: {
+      assignments: inquiry.assignments.map((a) => ({ teamLeaderId: a.teamLeaderId })),
+    },
+    inquiryAfter: {
+      id: updated.id,
+      inquiryNumber: updated.inquiryNumber,
+      customerName: updated.customerName,
+      assignments: updated.assignments.map((a) => ({ teamLeaderId: a.teamLeaderId })),
+    },
+    lines,
+  }).catch((e) => console.error('[web-push] notifyAfterInquiryPatch', e));
   res.json(attachDistanceFromJuanForInquiry(updated));
 });
 

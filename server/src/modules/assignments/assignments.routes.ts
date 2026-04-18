@@ -5,6 +5,7 @@ import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
+import { notifyNewAssignmentForInquiry } from '../push/inquiryTeamWebPush.js';
 
 const router = Router();
 
@@ -66,6 +67,12 @@ router.post('/', async (req, res) => {
     return;
   }
 
+  const prevLeaderRows = await prisma.assignment.findMany({
+    where: { inquiryId },
+    select: { teamLeaderId: true },
+  });
+  const prevLeaderSet = new Set(prevLeaderRows.map((r) => r.teamLeaderId));
+
   await prisma.$transaction(async (tx) => {
     await tx.assignment.deleteMany({ where: { inquiryId } });
     await tx.assignment.create({
@@ -89,6 +96,12 @@ router.post('/', async (req, res) => {
       teamLeader: { select: assignmentTeamLeaderSelect },
     },
   });
+
+  if (!prevLeaderSet.has(teamLeaderId)) {
+    void notifyNewAssignmentForInquiry(inquiryId, [teamLeaderId]).catch((e) =>
+      console.error('[web-push] notifyNewAssignmentForInquiry', e)
+    );
+  }
 
   res.status(201).json(assignment);
 });

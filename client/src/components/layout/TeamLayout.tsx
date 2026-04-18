@@ -6,6 +6,7 @@ import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { getTeamNavBadges } from '../../api/team';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { fetchTeamWebPushPublicKey, subscribeTeamWebPush } from '../../api/teamWebPush';
 
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
@@ -14,6 +15,9 @@ export function TeamLayout() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
+  const [webPushServerOn, setWebPushServerOn] = useState<boolean | null>(null);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     const token = getTeamToken();
@@ -36,6 +40,37 @@ export function TeamLayout() {
         }
       });
   }, [teamToken, navigate]);
+
+  const pushSupported =
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'Notification' in window &&
+    'PushManager' in window;
+
+  useEffect(() => {
+    if (!teamToken || !pushSupported) {
+      setWebPushServerOn(null);
+      setPushSubscribed(false);
+      return;
+    }
+    let cancelled = false;
+    void fetchTeamWebPushPublicKey()
+      .then((r) => {
+        if (cancelled) return;
+        setWebPushServerOn(Boolean(r.configured && r.publicKey));
+      })
+      .catch(() => {
+        if (!cancelled) setWebPushServerOn(false);
+      });
+    void navigator.serviceWorker.getRegistration('/').then(async (reg) => {
+      if (cancelled) return;
+      const sub = await reg?.pushManager.getSubscription();
+      if (!cancelled) setPushSubscribed(Boolean(sub));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [teamToken, pushSupported]);
 
   const fetchTeamBadges = useCallback(() => {
     const token = getTeamToken();
@@ -141,6 +176,35 @@ export function TeamLayout() {
             {userName && (
               <span className="text-sm text-gray-600 truncate max-w-[5rem] sm:max-w-none">{userName}</span>
             )}
+            {teamToken && webPushServerOn && pushSupported && !pushSubscribed ? (
+              <button
+                type="button"
+                disabled={pushBusy}
+                onClick={async () => {
+                  setPushBusy(true);
+                  try {
+                    const r = await subscribeTeamWebPush();
+                    if (r.ok) {
+                      setPushSubscribed(true);
+                    } else if (r.skipped === 'permission_denied') {
+                      window.alert('브라우저에서 알림을 허용해 주세요.');
+                    } else if (r.skipped === 'server_unconfigured') {
+                      window.alert('서버에 Web Push 설정이 없습니다. 관리자에게 문의하세요.');
+                    }
+                  } catch (e) {
+                    window.alert(e instanceof Error ? e.message : '알림 구독에 실패했습니다.');
+                  } finally {
+                    setPushBusy(false);
+                  }
+                }}
+                className="text-fluid-xs text-blue-600 hover:text-blue-800 whitespace-nowrap py-2 px-1 shrink-0 disabled:opacity-50"
+              >
+                배정·변경 알림
+              </button>
+            ) : null}
+            {teamToken && pushSubscribed ? (
+              <span className="text-fluid-xs text-gray-500 whitespace-nowrap hidden sm:inline">알림 사용 중</span>
+            ) : null}
             <button
               onClick={handleLogout}
               className="text-sm text-gray-600 hover:text-gray-900 py-2 px-1 shrink-0"

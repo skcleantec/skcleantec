@@ -8,10 +8,12 @@ import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { assertCrewCapacityForInquiry } from '../inquiries/crewMemberCapacity.helpers.js';
+import teamPushRoutes from '../push/teamPush.routes.js';
 
 const router = Router();
 
 router.use(teamAuthMiddleware);
+router.use('/push', teamPushRoutes);
 
 /** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S — 한 요청으로 병렬 COUNT */
 router.get('/nav-badges', async (req, res) => {
