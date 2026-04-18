@@ -18,11 +18,24 @@ function fullAddressLine(item: ScheduleItem): string {
   return d ? `${a} ${d}` : a;
 }
 
+/** 서버 `geocodeNormalize` / `inquiryGeocodeQueryLine`과 동일 — `addressGeoQuery` 비교용 */
+function normalizeGeocodeQuery(s: string): string {
+  let q = s.trim().normalize('NFKC');
+  q = q.replace(/[\u200B-\u200D\uFEFF]/g, '');
+  q = q.replace(/\s+/g, ' ');
+  return q;
+}
+
 /** 접수 시 카카오 주소로 넣는 도로명·번지(`address`)만 지오코딩·지도 검색에 사용. `addressDetail`(동·호 등)을 붙이면 오히려 못 찾는 경우가 많음. */
 function geocodeQueryLine(item: ScheduleItem): string {
   const road = item.address?.trim() ?? '';
   if (road) return road;
   return fullAddressLine(item);
+}
+
+/** DB `addressGeoQuery`와 동일 규칙의 정규화된 지오코딩 키 */
+function geocodeKeyForItem(item: ScheduleItem): string {
+  return normalizeGeocodeQuery(geocodeQueryLine(item));
 }
 
 function kakaoMapSearchUrl(addressLine: string): string {
@@ -218,6 +231,33 @@ type Placed = {
   lng: number;
 };
 
+/** DB에 저장된 좌표·쿼리가 현재 주소 줄과 일치할 때만 API 없이 배치 */
+function placedFromStoredGeo(item: ScheduleItem): Placed | null {
+  const mapSearchLine = geocodeQueryLine(item);
+  const key = geocodeKeyForItem(item);
+  if (!key) return null;
+  const lat = item.addressGeoLat;
+  const lng = item.addressGeoLng;
+  if (lat == null || lng == null || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+    return null;
+  }
+  const storedKey = normalizeGeocodeQuery(item.addressGeoQuery ?? '');
+  if (!storedKey || storedKey !== key) return null;
+
+  return {
+    id: item.id,
+    customerName: item.customerName,
+    inquiryNumber: item.inquiryNumber,
+    teamLeaderName: primaryLeaderName(item),
+    teamLeaderId: primaryLeaderId(item),
+    slotKind: scheduleSlotKindForMap(item),
+    addressLine: fullAddressLine(item),
+    mapSearchLine,
+    lat: Number(lat),
+    lng: Number(lng),
+  };
+}
+
 function jitterDuplicateCoords(points: Placed[]): Placed[] {
   const buckets = new Map<string, Placed[]>();
   for (const p of points) {
@@ -312,15 +352,39 @@ export function ScheduleDayMapModal({
     setSkippedNoAddress(rows.skippedNoAddress);
     setSkippedCap(rows.skippedCap);
     try {
-      const { results, meta } = await geocodeRowsWithRetryPasses(token, rows.list, (pct, label) => {
-        setLoadPct(pct);
-        setLoadDetail(label);
-      });
+      const fromCache: Placed[] = [];
+      const needGeocode: Array<{ item: ScheduleItem; query: string }> = [];
+      for (const row of rows.list) {
+        const cached = placedFromStoredGeo(row.item);
+        if (cached) fromCache.push(cached);
+        else needGeocode.push(row);
+      }
+
+      let meta: GeocodeBatchMeta | undefined;
+      let batchResults: GeocodeBatchResultRow[] = [];
+      if (needGeocode.length > 0) {
+        setLoadPct(2);
+        setLoadDetail(
+          fromCache.length > 0
+            ? `저장 좌표 ${fromCache.length}건 · 외부 조회 ${needGeocode.length}건`
+            : '좌표 조회 준비…'
+        );
+        const batch = await geocodeRowsWithRetryPasses(token, needGeocode, (pct, label) => {
+          setLoadPct(pct);
+          setLoadDetail(label);
+        });
+        batchResults = batch.results;
+        meta = batch.meta;
+      } else {
+        setLoadPct(100);
+        setLoadDetail('저장된 좌표만 사용합니다…');
+      }
+
       setKakaoApiConfigured(meta?.kakaoApiConfigured ?? false);
-      const next: Placed[] = [];
-      for (let i = 0; i < rows.list.length; i++) {
-        const { item, query } = rows.list[i]!;
-        const r = results[i];
+      const next: Placed[] = [...fromCache];
+      for (let i = 0; i < needGeocode.length; i++) {
+        const { item, query } = needGeocode[i]!;
+        const r = batchResults[i];
         const lat = r?.lat ?? null;
         const lon = r?.lon ?? null;
         if (lat != null && lon != null) {

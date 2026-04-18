@@ -23,6 +23,10 @@ export interface ScheduleItem {
   customerPhone2?: string | null;
   address: string;
   addressDetail: string | null;
+  /** 서버·상세 동기화 시 저장된 지오코딩 캐시(스케줄 맵 등에서 재사용) */
+  addressGeoLat?: number | null;
+  addressGeoLng?: number | null;
+  addressGeoQuery?: string | null;
   areaPyeong: number | null;
   areaBasis?: string | null;
   propertyType?: string | null;
