@@ -14,6 +14,8 @@
     "db:check-admin": "cd server && npm run db:check-admin",
     "db:seed:schedule:test-m3-m5": "cd server && npm run db:seed:schedule:test-m3-m5",
     "db:purge:schedule:test-m3-m5": "cd server && npm run db:purge:schedule:test-m3-m5",
+    "db:seed:map:test-20260416": "cd server && npm run db:seed:map:test-20260416",
+    "db:purge:map:test-20260416": "cd server && npm run db:purge:map:test-20260416",
     "deploy:seed-from-config": "cd server && npm run deploy:seed-from-config",
     "db:backfill-seed-inquiries-created-by": "cd server && npm run db:backfill-seed-inquiries-created-by",
     "db:seed:unassigned-month": "cd server && npm run db:seed:unassigned-month",

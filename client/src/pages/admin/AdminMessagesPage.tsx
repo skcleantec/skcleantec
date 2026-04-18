@@ -45,6 +45,23 @@ function ChevronLeftIcon({ className }: { className?: string }) {
   );
 }
 
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
 export function AdminMessagesPage() {
   const token = getToken();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -56,6 +73,7 @@ export function AdminMessagesPage() {
   const [broadcastText, setBroadcastText] = useState('');
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastError, setBroadcastError] = useState<string | null>(null);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef<string | null>(null);
@@ -163,32 +181,53 @@ export function AdminMessagesPage() {
       </h1>
 
       <div
-        className={`bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shrink-0 ${
+        className={`shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white ${
           mobileChatFocused ? 'max-md:hidden' : ''
         }`}
       >
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">전체 팀장에게 공지</h2>
-        <form onSubmit={handleBroadcast} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <textarea
-            value={broadcastText}
-            onChange={(e) => setBroadcastText(e.target.value)}
-            rows={3}
-            placeholder="공지 내용을 입력하세요. 모든 팀장에게 동일하게 전달됩니다."
-            className="flex-1 max-w-full min-w-0 max-h-40 px-3 py-2 border border-gray-300 rounded text-sm resize-y overflow-y-auto focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={broadcasting}
+        <button
+          type="button"
+          id="admin-broadcast-toggle"
+          aria-expanded={broadcastOpen}
+          aria-controls="admin-broadcast-panel"
+          onClick={() => setBroadcastOpen((o) => !o)}
+          className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 sm:px-5 sm:py-3.5"
+        >
+          <span className="text-sm font-semibold text-gray-900">전체 팀장에게 공지</span>
+          <ChevronDownIcon
+            className={`h-5 w-5 shrink-0 text-gray-500 transition-transform ${broadcastOpen ? 'rotate-180' : ''}`}
           />
-          <button
-            type="submit"
-            disabled={broadcasting || !broadcastText.trim()}
-            className="shrink-0 px-4 py-2.5 bg-gray-800 text-white text-sm font-medium rounded hover:bg-gray-900 disabled:opacity-50 min-h-[44px] touch-manipulation"
+        </button>
+        {broadcastOpen && (
+          <div
+            id="admin-broadcast-panel"
+            role="region"
+            aria-labelledby="admin-broadcast-toggle"
+            className="border-t border-gray-100 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4"
           >
-            {broadcasting ? '전송 중…' : '전체 전송'}
-          </button>
-        </form>
-        {broadcastError && (
-          <p className="text-sm text-red-600 mt-2" role="alert">
-            {broadcastError}
-          </p>
+            <form onSubmit={handleBroadcast} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <textarea
+                value={broadcastText}
+                onChange={(e) => setBroadcastText(e.target.value)}
+                rows={3}
+                placeholder="공지 내용을 입력하세요. 모든 팀장에게 동일하게 전달됩니다."
+                className="max-h-40 min-w-0 max-w-full flex-1 resize-y overflow-y-auto rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={broadcasting}
+              />
+              <button
+                type="submit"
+                disabled={broadcasting || !broadcastText.trim()}
+                className="min-h-[44px] shrink-0 touch-manipulation rounded bg-gray-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
+              >
+                {broadcasting ? '전송 중…' : '전체 전송'}
+              </button>
+            </form>
+            {broadcastError && (
+              <p className="mt-2 text-sm text-red-600" role="alert">
+                {broadcastError}
+              </p>
+            )}
+          </div>
         )}
       </div>
 
@@ -199,13 +238,15 @@ export function AdminMessagesPage() {
         }`}
       >
         <div
-          className={`flex w-full flex-col min-h-0 border-b border-gray-200 max-md:relative max-md:z-0 max-md:flex-1 max-md:min-h-0 md:flex md:w-[3.75rem] md:shrink-0 md:self-stretch md:border-b-0 md:border-r ${
+          className={`flex w-full flex-col min-h-0 border-b border-gray-200 max-md:relative max-md:z-0 max-md:flex-1 max-md:min-h-0 md:flex md:w-44 md:shrink-0 md:self-stretch md:border-b-0 md:border-r lg:w-52 ${
             mobileChatFocused ? 'max-md:hidden' : ''
           }`}
         >
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
             {conversations.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500 md:p-2 md:text-xs md:text-center">대화 상대가 없습니다.</div>
+              <div className="p-4 text-sm text-gray-500 md:p-3 md:text-center md:text-fluid-sm">
+                대화 상대가 없습니다.
+              </div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {conversations.map((c) => (
@@ -220,12 +261,12 @@ export function AdminMessagesPage() {
                           ? `${c.name} — ${c.lastMessage.content}`
                           : c.name
                     }
-                    className={`w-full text-left py-3.5 px-3 hover:bg-gray-50 flex flex-col gap-1.5 md:py-3 md:px-1.5 md:items-center md:gap-1 md:text-center ${
+                    className={`flex w-full flex-col gap-1.5 py-3.5 pl-3 pr-3 text-left hover:bg-gray-50 md:items-stretch md:gap-1.5 md:px-2.5 md:py-2.5 md:text-center ${
                       selectedId === c.id ? 'bg-blue-50' : ''
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2 min-w-0 md:flex-col md:justify-center md:gap-1 md:w-full">
-                      <span className="font-medium text-gray-900 truncate md:text-xs md:leading-tight md:w-full md:text-center">
+                    <div className="flex min-w-0 items-center justify-between gap-2 md:flex-col md:items-stretch md:justify-center md:gap-1.5 md:px-0.5">
+                      <span className="min-w-0 max-w-full truncate font-medium text-gray-900 md:w-full md:text-center md:text-fluid-sm md:leading-snug md:line-clamp-2 md:break-words md:whitespace-normal md:overflow-hidden">
                         {c.name}
                       </span>
                       {c.unreadCount > 0 && (

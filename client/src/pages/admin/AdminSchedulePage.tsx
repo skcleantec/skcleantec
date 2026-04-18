@@ -15,6 +15,7 @@ import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
+import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
 import {
   formatDateCompactWithWeekday,
@@ -345,6 +346,7 @@ export function AdminSchedulePage() {
   const [closureBusy, setClosureBusy] = useState(false);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [closureModalOpen, setClosureModalOpen] = useState(false);
+  const [scheduleMapOpen, setScheduleMapOpen] = useState(false);
   const fetchGenRef = useRef(0);
 
   const fetchMonthData = useCallback(
@@ -790,7 +792,16 @@ export function AdminSchedulePage() {
                   {formatDateCompactWithWeekday(selectedDate)}{' '}
                   <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
                 </h3>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {token && (byDate[selectedDate]?.length ?? 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setScheduleMapOpen(true)}
+                      className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50"
+                    >
+                      접수건 위치 검색
+                    </button>
+                  )}
                   {meRole === 'ADMIN' && token && (
                     <>
                       <button
@@ -1331,6 +1342,16 @@ export function AdminSchedulePage() {
           token={token}
           onClose={() => setAvailabilityModalOpen(false)}
           onSaved={() => void fetchMonthData(false)}
+        />
+      )}
+
+      {scheduleMapOpen && selectedDate && token && (
+        <ScheduleDayMapModal
+          open={scheduleMapOpen}
+          onClose={() => setScheduleMapOpen(false)}
+          dateLabel={formatDateCompactWithWeekday(selectedDate)}
+          items={byDate[selectedDate] ?? []}
+          token={token}
         />
       )}
     </div>

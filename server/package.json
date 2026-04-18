@@ -15,6 +15,8 @@
     "db:seed:schedule": "tsx prisma/seed-schedule-random.ts",
     "db:seed:schedule:test-m3-m5": "tsx prisma/seed-schedule-mar-may-test.ts",
     "db:purge:schedule:test-m3-m5": "tsx prisma/seed-schedule-mar-may-test.ts --purge",
+    "db:seed:map:test-20260416": "tsx prisma/seed-schedule-map-test-20260416.ts",
+    "db:purge:map:test-20260416": "tsx prisma/seed-schedule-map-test-20260416.ts --purge",
     "deploy:seed-from-config": "tsx scripts/run-deploy-schedule-seed.ts",
     "db:seed:unassigned-month": "tsx prisma/seed-unassigned-month-test.ts",
     "db:purge:unassigned-month-test": "tsx prisma/seed-unassigned-month-test.ts --purge",
