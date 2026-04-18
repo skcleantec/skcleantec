@@ -44,9 +44,13 @@ export async function subscribeTeamWebPush(): Promise<{ ok: boolean; skipped?: s
   const reg = await navigator.serviceWorker.register('/sw-team-push.js', { scope: '/' });
   await reg.update();
 
+  const keyBytes = urlBase64ToUint8Array(publicKey);
   const sub = await reg.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey),
+    applicationServerKey: keyBytes.buffer.slice(
+      keyBytes.byteOffset,
+      keyBytes.byteOffset + keyBytes.byteLength
+    ) as ArrayBuffer,
   });
 
   const json = sub.toJSON();
