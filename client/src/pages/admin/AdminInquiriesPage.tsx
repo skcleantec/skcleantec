@@ -148,6 +148,8 @@ interface InquiryItem {
   changeLogs?: InquiryChangeLogEntry[];
   /** 팀장 해피콜 완료 시각 */
   happyCallCompletedAt?: string | null;
+  /** 인천 주안 기준 직선거리(km), 서버가 주소 지오코딩 캐시로 계산 */
+  distanceFromJuanKm?: number | null;
 }
 
 function happyCallAdminCell(item: InquiryItem): { label: string; className: string } {
@@ -168,6 +170,12 @@ function happyCallAdminCell(item: InquiryItem): { label: string; className: stri
   if (tone === 'overdue') return { label: '마감초과', className: 'text-red-800 font-medium' };
   if (tone === 'pending') return { label: '미완', className: 'text-amber-800' };
   return { label: '—', className: 'text-gray-400' };
+}
+
+function formatDistanceFromJuan(item: InquiryItem): string {
+  const km = item.distanceFromJuanKm;
+  if (km == null || !Number.isFinite(km)) return '—';
+  return `${km}km`;
 }
 
 function formatInquiryTeamSummary(item: InquiryItem): string {
@@ -1064,7 +1072,12 @@ export function AdminInquiriesPage() {
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">평수</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">방화베</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
-                  <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap min-w-[4.5rem] max-w-[120px]">시간대</th>
+                  <th
+                    className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap min-w-[5.5rem] max-w-[140px]"
+                    title="희망 시간대 · 인천 주안 기준 직선거리"
+                  >
+                    시간대·거리
+                  </th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">해피콜</th>
                   <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">팀장</th>
@@ -1146,10 +1159,20 @@ export function AdminInquiriesPage() {
                       <span className="text-fluid-xs tabular-nums leading-tight">{formatDateCompactWithWeekday(item.preferredDate)}</span>
                     </td>
                     <td
-                      className={`align-middle py-2 px-2 text-center text-gray-600 whitespace-nowrap min-w-[4.5rem] max-w-[120px] ${pBorder}`}
-                      title={item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : ''}
+                      className={`align-middle py-2 px-2 text-center text-gray-600 whitespace-nowrap min-w-[5.5rem] max-w-[140px] ${pBorder}`}
+                      title={
+                        [
+                          item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '시간 미정',
+                          `주안 기준 ${formatDistanceFromJuan(item)}`,
+                        ].join(' · ')
+                      }
                     >
-                      {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '-'}
+                      <span className="text-fluid-xs leading-tight block">
+                        {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '-'}
+                      </span>
+                      <span className="text-fluid-2xs text-gray-500 tabular-nums mt-0.5 block">
+                        {formatDistanceFromJuan(item)}
+                      </span>
                     </td>
                     <td className={`align-middle py-2 px-2 whitespace-nowrap ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <select

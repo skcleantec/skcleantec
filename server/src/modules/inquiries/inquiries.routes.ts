@@ -34,6 +34,12 @@ import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiry
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
+import { syncInquiryAddressGeo } from './inquiryAddressGeoSync.js';
+import {
+  hydrateMissingGeoForInquiryListItems,
+  mergeRefreshedInquiryGeoFields,
+} from './inquiryAddressGeoHydrate.js';
+import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -239,7 +245,7 @@ router.get('/', async (req, res) => {
     },
   } as const;
 
-  const [items, total] = await Promise.all([
+  const [itemsRaw, total] = await Promise.all([
     prisma.inquiry.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -249,7 +255,14 @@ router.get('/', async (req, res) => {
     }),
     prisma.inquiry.count({ where }),
   ]);
-  res.json({ items, total });
+  const touched = await hydrateMissingGeoForInquiryListItems(prisma, itemsRaw, {
+    maxUniqueQueries: 18,
+  });
+  const items = await mergeRefreshedInquiryGeoFields(prisma, itemsRaw, touched);
+  res.json({
+    items: items.map((row) => attachDistanceFromJuanForInquiry(row)),
+    total,
+  });
 });
 
 /** 관리자만 — 접수일(createdAt) KST 하루 단위 영구 삭제 (배정·이력·현장사진 연쇄 삭제) */
@@ -295,7 +308,16 @@ router.get('/:id', async (req, res) => {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
-  res.json(inquiry);
+  await syncInquiryAddressGeo(prisma, id);
+  const inquiryFresh = await prisma.inquiry.findUnique({
+    where: { id },
+    include: inquiryDetailInclude,
+  });
+  if (!inquiryFresh) {
+    res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+    return;
+  }
+  res.json(attachDistanceFromJuanForInquiry(inquiryFresh));
 });
 
 /** 접수별 현장 청소 전·후 사진 (Cloudinary) — 목록·업로드·삭제 */
@@ -488,7 +510,7 @@ router.patch('/:id', async (req, res) => {
       where: { id },
       include: inquiryDetailInclude,
     });
-    res.json(unchanged);
+    res.json(unchanged ? attachDistanceFromJuanForInquiry(unchanged) : unchanged);
     return;
   }
 
@@ -654,11 +676,19 @@ router.patch('/:id', async (req, res) => {
     return;
   }
 
+  if (data.address !== undefined || data.addressDetail !== undefined) {
+    await syncInquiryAddressGeo(prisma, id);
+  }
+
   const updated = await prisma.inquiry.findUnique({
     where: { id },
     include: inquiryDetailInclude,
   });
-  res.json(updated);
+  if (!updated) {
+    res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+    return;
+  }
+  res.json(attachDistanceFromJuanForInquiry(updated));
 });
 
 const CREATE_STATUSES: InquiryStatus[] = [
@@ -739,7 +769,16 @@ router.post('/', async (req, res) => {
     inquiryNumber: inquiry.inquiryNumber,
     source: inquiry.source,
   });
-  res.status(201).json(inquiry);
+  await syncInquiryAddressGeo(prisma, inquiry.id);
+  const createdOut = await prisma.inquiry.findUnique({
+    where: { id: inquiry.id },
+    include: inquiryDetailInclude,
+  });
+  if (!createdOut) {
+    res.status(500).json({ error: '접수 생성 후 조회에 실패했습니다.' });
+    return;
+  }
+  res.status(201).json(attachDistanceFromJuanForInquiry(createdOut));
 });
 
 export default router;

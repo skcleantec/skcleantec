@@ -6,6 +6,11 @@ import { resolveLeaderMorningAfternoon, resolveMemberAvailable } from './schedul
 import { countAvailableFieldStaffOnDate } from '../inquiries/crewMemberCapacity.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
+import {
+  hydrateMissingGeoForInquiryListItems,
+  mergeRefreshedInquiryGeoFields,
+} from '../inquiries/inquiryAddressGeoHydrate.js';
+import { attachDistanceFromJuanForInquiry } from '../inquiries/inquiryJuanDistance.js';
 
 const router = Router();
 
@@ -36,7 +41,7 @@ router.get('/', async (req, res) => {
     typeof end === 'string' ? end : undefined
   );
 
-  const items = await prisma.inquiry.findMany({
+  const itemsRaw = await prisma.inquiry.findMany({
     where: {
       preferredDate: { gte: startDate, lte: endDate },
       /** 대기(PENDING)도 예약일이 있으면 스케줄에 표시(접수 확정 전·발주서 대기 구분용) */
@@ -70,8 +75,14 @@ router.get('/', async (req, res) => {
       },
     },
   });
+  const touched = await hydrateMissingGeoForInquiryListItems(prisma, itemsRaw, {
+    maxUniqueQueries: 22,
+  });
+  const items = await mergeRefreshedInquiryGeoFields(prisma, itemsRaw, touched);
 
-  res.json({ items });
+  res.json({
+    items: items.map((row) => attachDistanceFromJuanForInquiry(row)),
+  });
 });
 
 /** 관리자: 해당일 일정 마감(범위별 잔여 슬롯·TO 조정) */

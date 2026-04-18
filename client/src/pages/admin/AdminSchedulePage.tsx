@@ -128,6 +128,13 @@ function inquiryHasTeamLeaderAssignment(item: ScheduleItem): boolean {
   return (item.assignments?.length ?? 0) > 0;
 }
 
+/** 서버가 접수 DB 좌표로 계산해 내려주는 주안 기준 직선거리(km) */
+function scheduleItemDistanceKmLabel(item: ScheduleItem): string | null {
+  const km = item.distanceFromJuanKm;
+  if (km == null || !Number.isFinite(km)) return null;
+  return `${km}km`;
+}
+
 function ScheduleDayListItem({
   item,
   profCatalog,
@@ -177,6 +184,7 @@ function ScheduleDayListItem({
   const crewNote = item.crewMemberNote?.trim() ?? '';
   const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';
   const hasScheduleMemo = Boolean(scheduleMemoLine);
+  const distanceLabel = scheduleItemDistanceKmLabel(item);
 
   return (
     <div
@@ -202,10 +210,19 @@ function ScheduleDayListItem({
                 외부
               </span>
             )}
-            {(item.inquiryNumber || hasScheduleMemo) && (
+            {(item.inquiryNumber || hasScheduleMemo || distanceLabel) && (
               <span className="inline-flex items-center gap-0.5 flex-nowrap shrink-0 text-[10px] sm:text-fluid-2xs font-normal">
                 {item.inquiryNumber ? (
                   <span className="text-gray-400 tabular-nums leading-none shrink-0">{item.inquiryNumber}</span>
+                ) : null}
+                {distanceLabel ? (
+                  <span
+                    className="text-gray-400 tabular-nums leading-none shrink-0"
+                    title="인천 주안 기준 직선거리"
+                  >
+                    {item.inquiryNumber ? ' · ' : ''}
+                    {distanceLabel}
+                  </span>
                 ) : null}
                 {hasScheduleMemo ? (
                   <span

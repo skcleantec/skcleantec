@@ -19,7 +19,8 @@
     "deploy:seed-from-config": "cd server && npm run deploy:seed-from-config",
     "db:backfill-seed-inquiries-created-by": "cd server && npm run db:backfill-seed-inquiries-created-by",
     "db:seed:unassigned-month": "cd server && npm run db:seed:unassigned-month",
-    "db:purge:inquiries": "cd server && npx tsx scripts/purge-all-inquiries.ts"
+    "db:purge:inquiries": "cd server && npx tsx scripts/purge-all-inquiries.ts",
+    "db:backfill-inquiry-address-geo": "cd server && npm run db:backfill-inquiry-address-geo"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

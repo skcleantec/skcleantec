@@ -33,6 +33,12 @@ const STATUS_LABELS: Record<string, string> = {
   CS_PROCESSING: 'C/S 처리중',
 };
 
+function distanceFromJuanLabel(item: ScheduleItem): string | null {
+  const km = item.distanceFromJuanKm;
+  if (km == null || !Number.isFinite(km)) return null;
+  return `${km}km`;
+}
+
 type EditFormFields = {
   customerName: string;
   customerPhone: string;
@@ -221,6 +227,7 @@ function effectiveAmounts(item: ScheduleItem) {
 export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProps) {
   const isCreate = props.mode === 'create';
   const item = !isCreate ? props.item : null;
+  const distanceJuanLabel = item ? distanceFromJuanLabel(item) : null;
   const {
     token,
     teamLeaders,
@@ -487,6 +494,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 {item?.inquiryNumber ? (
                   <span className="ml-2 text-base font-normal text-gray-500 tabular-nums">
                     · {item.inquiryNumber}
+                    {distanceJuanLabel ? (
+                      <span className="text-gray-500" title="인천 주안 기준 직선거리">
+                        {' '}
+                        · {distanceJuanLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : distanceJuanLabel ? (
+                  <span
+                    className="ml-2 text-base font-normal text-gray-500 tabular-nums"
+                    title="인천 주안 기준 직선거리"
+                  >
+                    · {distanceJuanLabel}
                   </span>
                 ) : null}
               </>
@@ -519,11 +539,20 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             {item.inquiryNumber ? (
               <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 tabular-nums">
                 접수번호 {item.inquiryNumber}
+                {distanceJuanLabel ? (
+                  <span className="font-normal text-gray-500" title="인천 주안 기준 직선거리">
+                    · {distanceJuanLabel}
+                  </span>
+                ) : null}
                 {(item.source ?? '').includes('외부업체') && (
                   <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1.5 py-px text-[10px] font-semibold text-fuchsia-800">
                     외부업체 접수
                   </span>
                 )}
+              </span>
+            ) : distanceJuanLabel ? (
+              <span className="font-medium text-gray-700 tabular-nums" title="인천 주안 기준 직선거리">
+                주안 기준 {distanceJuanLabel}
               </span>
             ) : null}
             <span>출처: {item.source ?? '-'}</span>

@@ -16,6 +16,7 @@ import {
 } from './specialtyOptions.js';
 import { ensureMissingProfessionalDefaults } from './defaultProfessionalOptions.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
+import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 
 const router = Router();
@@ -700,6 +701,14 @@ router.post('/submit/:token', async (req, res) => {
         data: { submittedAt: new Date() },
       });
     });
+  }
+
+  const geoTarget = await prisma.inquiry.findFirst({
+    where: { orderFormId: form.id },
+    select: { id: true },
+  });
+  if (geoTarget) {
+    await syncInquiryAddressGeo(prisma, geoTarget.id);
   }
 
   const celebrateRow = await prisma.inquiry.findFirst({

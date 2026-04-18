@@ -138,6 +138,10 @@ model Inquiry {
   customerPhone2  String?      @map("customer_phone_2")
   address         String
   addressDetail   String?      @map("address_detail")
+  /// 도로명 등 지오코딩 입력과 동일한 문자열(변경 시에만 카카오·Nominatim 재조회)
+  addressGeoQuery String?      @map("address_geo_query") @db.VarChar(512)
+  addressGeoLat   Float?       @map("address_geo_lat")
+  addressGeoLng   Float?       @map("address_geo_lng")
   areaPyeong      Float?       @map("area_pyeong")
   areaBasis       String?      @map("area_basis")
   propertyType    String?      @map("property_type")

@@ -73,6 +73,8 @@ export interface ScheduleItem {
     };
   }>;
   changeLogs?: InquiryChangeLogEntry[];
+  /** 인천 주안 기준 직선거리(km) */
+  distanceFromJuanKm?: number | null;
 }
 
 export async function getSchedule(
