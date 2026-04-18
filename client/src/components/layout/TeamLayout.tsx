@@ -6,7 +6,6 @@ import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { getTeamNavBadges } from '../../api/team';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
-import { fetchTeamWebPushPublicKey, subscribeTeamWebPush } from '../../api/teamWebPush';
 
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
@@ -15,9 +14,6 @@ export function TeamLayout() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
-  const [webPushServerOn, setWebPushServerOn] = useState<boolean | null>(null);
-  const [pushSubscribed, setPushSubscribed] = useState(false);
-  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     const token = getTeamToken();
@@ -40,37 +36,6 @@ export function TeamLayout() {
         }
       });
   }, [teamToken, navigate]);
-
-  const pushSupported =
-    typeof window !== 'undefined' &&
-    'serviceWorker' in navigator &&
-    'Notification' in window &&
-    'PushManager' in window;
-
-  useEffect(() => {
-    if (!teamToken || !pushSupported) {
-      setWebPushServerOn(null);
-      setPushSubscribed(false);
-      return;
-    }
-    let cancelled = false;
-    void fetchTeamWebPushPublicKey()
-      .then((r) => {
-        if (cancelled) return;
-        setWebPushServerOn(Boolean(r.configured && r.publicKey));
-      })
-      .catch(() => {
-        if (!cancelled) setWebPushServerOn(false);
-      });
-    void navigator.serviceWorker.getRegistration('/').then(async (reg) => {
-      if (cancelled) return;
-      const sub = await reg?.pushManager.getSubscription();
-      if (!cancelled) setPushSubscribed(Boolean(sub));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [teamToken, pushSupported]);
 
   const fetchTeamBadges = useCallback(() => {
     const token = getTeamToken();
@@ -117,24 +82,6 @@ export function TeamLayout() {
     }`;
 
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER';
-
-  const handleSubscribeTeamWebPush = async () => {
-    setPushBusy(true);
-    try {
-      const r = await subscribeTeamWebPush();
-      if (r.ok) {
-        setPushSubscribed(true);
-      } else if (r.skipped === 'permission_denied') {
-        window.alert('브라우저에서 알림을 허용해 주세요.');
-      } else if (r.skipped === 'server_unconfigured') {
-        window.alert('서버에 Web Push 설정이 없습니다. 관리자에게 문의하세요.');
-      }
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : '알림 구독에 실패했습니다.');
-    } finally {
-      setPushBusy(false);
-    }
-  };
 
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
@@ -197,22 +144,6 @@ export function TeamLayout() {
             {userName && (
               <span className="text-sm text-gray-600 truncate max-w-[5rem] sm:max-w-none">{userName}</span>
             )}
-            {/* 데스크톱만: 헤더 우측에 Web Push (모바일은 아래 전용 줄) */}
-            <div className="hidden sm:flex items-center gap-2 shrink-0">
-              {teamToken && webPushServerOn && pushSupported && !pushSubscribed ? (
-                <button
-                  type="button"
-                  disabled={pushBusy}
-                  onClick={() => void handleSubscribeTeamWebPush()}
-                  className="text-fluid-xs text-blue-600 hover:text-blue-800 whitespace-nowrap py-2 px-1 shrink-0 disabled:opacity-50"
-                >
-                  배정·변경 알림
-                </button>
-              ) : null}
-              {teamToken && pushSubscribed ? (
-                <span className="text-fluid-xs text-gray-500 whitespace-nowrap">알림 사용 중</span>
-              ) : null}
-            </div>
             <button
               onClick={handleLogout}
               className="text-sm text-gray-600 hover:text-gray-900 py-2 px-1 shrink-0"
@@ -221,26 +152,6 @@ export function TeamLayout() {
             </button>
           </div>
         </div>
-        {/* 모바일: 배정·변경 알림 (헤더 한 줄 + 터치 영역 확보, 상단 탭 위) */}
-        {teamToken && webPushServerOn && pushSupported ? (
-          <div className="sm:hidden border-t border-gray-100 bg-slate-50 px-4 py-2.5">
-            {!pushSubscribed ? (
-              <button
-                type="button"
-                disabled={pushBusy}
-                onClick={() => void handleSubscribeTeamWebPush()}
-                className="w-full min-h-[44px] rounded-lg border border-blue-200 bg-white px-3 text-center text-fluid-sm font-medium text-blue-700 active:bg-blue-50 disabled:opacity-50 touch-manipulation"
-              >
-                {pushBusy ? '처리 중…' : '배정·변경 알림 받기'}
-              </button>
-            ) : (
-              <p className="text-center text-fluid-xs text-gray-600 leading-snug">
-                <span className="font-medium text-gray-800">알림 사용 중</span>
-                <span className="block mt-0.5 text-gray-500">배정·일정 변경 시 이 기기로 푸시됩니다.</span>
-              </p>
-            )}
-          </div>
-        ) : null}
         {/* 모바일: 상단(헤더 바로 아래) 탭 메뉴 */}
         <nav className="flex sm:hidden border-t border-gray-100 bg-white">
           <NavLink to="/team/dashboard" className={mobileTabClass}>

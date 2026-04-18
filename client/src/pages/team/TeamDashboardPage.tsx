@@ -5,6 +5,7 @@ import {
   getTeamInquiries,
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
+import { fetchTeamWebPushPublicKey, subscribeTeamWebPush } from '../../api/teamWebPush';
 import { getTeamToken } from '../../stores/teamAuth';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import {
@@ -23,6 +24,15 @@ export function TeamDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
+  const [webPushServerOn, setWebPushServerOn] = useState<boolean | null>(null);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  const pushSupported =
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'Notification' in window &&
+    'PushManager' in window;
 
   const loadDashboard = useCallback(async () => {
     if (!token) return;
@@ -45,6 +55,49 @@ export function TeamDashboardPage() {
     void loadDashboard();
   }, [loadDashboard]);
 
+  useEffect(() => {
+    if (!token || !pushSupported) {
+      setWebPushServerOn(null);
+      setPushSubscribed(false);
+      return;
+    }
+    let cancelled = false;
+    void fetchTeamWebPushPublicKey()
+      .then((r) => {
+        if (cancelled) return;
+        setWebPushServerOn(Boolean(r.configured && r.publicKey));
+      })
+      .catch(() => {
+        if (!cancelled) setWebPushServerOn(false);
+      });
+    void navigator.serviceWorker.getRegistration('/').then(async (reg) => {
+      if (cancelled) return;
+      const sub = await reg?.pushManager.getSubscription();
+      if (!cancelled) setPushSubscribed(Boolean(sub));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, pushSupported]);
+
+  const handleSubscribeTeamWebPush = async () => {
+    setPushBusy(true);
+    try {
+      const r = await subscribeTeamWebPush();
+      if (r.ok) {
+        setPushSubscribed(true);
+      } else if (r.skipped === 'permission_denied') {
+        window.alert('브라우저에서 알림을 허용해 주세요.');
+      } else if (r.skipped === 'server_unconfigured') {
+        window.alert('서버에 Web Push 설정이 없습니다. 관리자에게 문의하세요.');
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '알림 구독에 실패했습니다.');
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().slice(0, 10);
@@ -66,15 +119,42 @@ export function TeamDashboardPage() {
     return acc;
   }, {});
 
-  if (loading) {
-    return (
-      <div className="py-12 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
-    );
-  }
+  const showWebPushCard = Boolean(token && pushSupported && webPushServerOn);
 
   return (
     <div className="flex flex-col gap-5 min-w-0 pb-4">
       <h1 className="text-xl font-semibold text-gray-800">대시보드</h1>
+
+      {showWebPushCard ? (
+        <section className="rounded-xl border border-blue-200 bg-blue-50/80 px-4 py-3 shadow-sm">
+          <h2 className="text-fluid-sm font-semibold text-blue-950">배정·일정 변경 알림</h2>
+          <p className="mt-1 text-fluid-xs text-blue-900/85">
+            관리자가 접수를 배정하거나 일정이 바뀔 때 이 기기로 푸시 알림을 받을 수 있습니다.
+          </p>
+          {!pushSubscribed ? (
+            <button
+              type="button"
+              disabled={pushBusy}
+              onClick={() => void handleSubscribeTeamWebPush()}
+              className="mt-3 w-full min-h-[48px] rounded-lg border border-blue-300 bg-white px-4 text-center text-fluid-sm font-semibold text-blue-800 shadow-sm active:bg-blue-50 disabled:opacity-50 touch-manipulation"
+            >
+              {pushBusy ? '처리 중…' : '배정·변경 알림 받기'}
+            </button>
+          ) : (
+            <p className="mt-3 rounded-lg border border-blue-200/80 bg-white/90 px-3 py-2.5 text-center text-fluid-sm text-blue-950">
+              <span className="font-semibold">알림 사용 중</span>
+              <span className="mt-1 block text-fluid-xs font-normal text-blue-900/80">
+                배정·일정 변경 시 푸시로 알려 드립니다.
+              </span>
+            </p>
+          )}
+        </section>
+      ) : null}
+
+      {loading ? (
+        <div className="py-12 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
+      ) : (
+        <>
       {(happyStats.overdueCount > 0 || happyStats.pendingBeforeDeadlineCount > 0) && (
         <div
           className={`rounded-xl border px-4 py-3 text-fluid-sm ${
@@ -232,6 +312,8 @@ export function TeamDashboardPage() {
       <p className="text-fluid-xs text-gray-500 px-1">
         월별 달력·날짜별 상세는 <strong className="text-gray-700">스케줄</strong> 메뉴에서 확인할 수 있습니다.
       </p>
+        </>
+      )}
 
       {detailItem && (
         <TeamInquiryDetailModal
