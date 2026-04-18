@@ -18,6 +18,7 @@ import { TeamSchedulePage } from './pages/team/TeamSchedulePage';
 import { TeamMessagesPage } from './pages/team/TeamMessagesPage';
 import { TeamDayOffsPage } from './pages/team/TeamDayOffsPage';
 import { TeamCsPage } from './pages/team/TeamCsPage';
+import { TeamAssignmentListPage } from './pages/team/TeamAssignmentListPage';
 import { OrderFormPage } from './pages/order/OrderFormPage';
 import { OrderInfoPage } from './pages/order/OrderInfoPage';
 import { CsReportPage } from './pages/cs/CsReportPage';
@@ -85,6 +86,7 @@ function App() {
           }
         >
           <Route path="dashboard" element={<TeamDashboardPage />} />
+          <Route path="assignments" element={<TeamAssignmentListPage />} />
           <Route path="schedule" element={<TeamSchedulePage />} />
           <Route path="dayoffs" element={<TeamDayOffsPage />} />
           <Route path="cs" element={<TeamCsPage />} />

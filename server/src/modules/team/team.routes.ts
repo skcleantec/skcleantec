@@ -8,6 +8,7 @@ import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { assertCrewCapacityForInquiry } from '../inquiries/crewMemberCapacity.helpers.js';
+import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import teamPushRoutes from '../push/teamPush.routes.js';
 
 const router = Router();
@@ -188,7 +189,10 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
     include: {
       assignments: {
         orderBy: { sortOrder: 'asc' },
-        include: { teamLeader: { select: { id: true, name: true } } },
+        include: {
+          teamLeader: { select: assignmentTeamLeaderSelect },
+          assignedBy: { select: { id: true, name: true } },
+        },
       },
     },
   });
@@ -207,7 +211,10 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       include: {
         assignments: {
           orderBy: { sortOrder: 'asc' },
-          include: { teamLeader: { select: { id: true, name: true } } },
+          include: {
+            teamLeader: { select: assignmentTeamLeaderSelect },
+            assignedBy: { select: { id: true, name: true } },
+          },
         },
       },
     });
@@ -244,7 +251,10 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       include: {
         assignments: {
           orderBy: { sortOrder: 'asc' },
-          include: { teamLeader: { select: { id: true, name: true } } },
+          include: {
+            teamLeader: { select: assignmentTeamLeaderSelect },
+            assignedBy: { select: { id: true, name: true } },
+          },
         },
       },
     });
@@ -264,7 +274,10 @@ router.get('/inquiries', async (req, res) => {
     include: {
       assignments: {
         orderBy: { sortOrder: 'asc' },
-        include: { teamLeader: { select: { id: true, name: true } } },
+        include: {
+          teamLeader: { select: assignmentTeamLeaderSelect },
+          assignedBy: { select: { id: true, name: true } },
+        },
       },
     },
   });
@@ -292,7 +305,10 @@ router.get('/schedule', async (req, res) => {
     include: {
       assignments: {
         orderBy: { sortOrder: 'asc' },
-        include: { teamLeader: { select: { id: true, name: true } } },
+        include: {
+          teamLeader: { select: assignmentTeamLeaderSelect },
+          assignedBy: { select: { id: true, name: true } },
+        },
       },
     },
   });

@@ -118,6 +118,24 @@ export function TeamLayout() {
 
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER';
 
+  const handleSubscribeTeamWebPush = async () => {
+    setPushBusy(true);
+    try {
+      const r = await subscribeTeamWebPush();
+      if (r.ok) {
+        setPushSubscribed(true);
+      } else if (r.skipped === 'permission_denied') {
+        window.alert('브라우저에서 알림을 허용해 주세요.');
+      } else if (r.skipped === 'server_unconfigured') {
+        window.alert('서버에 Web Push 설정이 없습니다. 관리자에게 문의하세요.');
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '알림 구독에 실패했습니다.');
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
@@ -127,6 +145,9 @@ export function TeamLayout() {
             <nav className="hidden sm:flex flex-wrap items-center gap-1">
               <NavLink to="/team/dashboard" className={navClass}>
                 대시보드
+              </NavLink>
+              <NavLink to="/team/assignments" className={navClass}>
+                배정목록
               </NavLink>
               <NavLink to="/team/schedule" className={navClass}>
                 스케줄
@@ -176,35 +197,22 @@ export function TeamLayout() {
             {userName && (
               <span className="text-sm text-gray-600 truncate max-w-[5rem] sm:max-w-none">{userName}</span>
             )}
-            {teamToken && webPushServerOn && pushSupported && !pushSubscribed ? (
-              <button
-                type="button"
-                disabled={pushBusy}
-                onClick={async () => {
-                  setPushBusy(true);
-                  try {
-                    const r = await subscribeTeamWebPush();
-                    if (r.ok) {
-                      setPushSubscribed(true);
-                    } else if (r.skipped === 'permission_denied') {
-                      window.alert('브라우저에서 알림을 허용해 주세요.');
-                    } else if (r.skipped === 'server_unconfigured') {
-                      window.alert('서버에 Web Push 설정이 없습니다. 관리자에게 문의하세요.');
-                    }
-                  } catch (e) {
-                    window.alert(e instanceof Error ? e.message : '알림 구독에 실패했습니다.');
-                  } finally {
-                    setPushBusy(false);
-                  }
-                }}
-                className="text-fluid-xs text-blue-600 hover:text-blue-800 whitespace-nowrap py-2 px-1 shrink-0 disabled:opacity-50"
-              >
-                배정·변경 알림
-              </button>
-            ) : null}
-            {teamToken && pushSubscribed ? (
-              <span className="text-fluid-xs text-gray-500 whitespace-nowrap hidden sm:inline">알림 사용 중</span>
-            ) : null}
+            {/* 데스크톱만: 헤더 우측에 Web Push (모바일은 아래 전용 줄) */}
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
+              {teamToken && webPushServerOn && pushSupported && !pushSubscribed ? (
+                <button
+                  type="button"
+                  disabled={pushBusy}
+                  onClick={() => void handleSubscribeTeamWebPush()}
+                  className="text-fluid-xs text-blue-600 hover:text-blue-800 whitespace-nowrap py-2 px-1 shrink-0 disabled:opacity-50"
+                >
+                  배정·변경 알림
+                </button>
+              ) : null}
+              {teamToken && pushSubscribed ? (
+                <span className="text-fluid-xs text-gray-500 whitespace-nowrap">알림 사용 중</span>
+              ) : null}
+            </div>
             <button
               onClick={handleLogout}
               className="text-sm text-gray-600 hover:text-gray-900 py-2 px-1 shrink-0"
@@ -213,10 +221,33 @@ export function TeamLayout() {
             </button>
           </div>
         </div>
+        {/* 모바일: 배정·변경 알림 (헤더 한 줄 + 터치 영역 확보, 상단 탭 위) */}
+        {teamToken && webPushServerOn && pushSupported ? (
+          <div className="sm:hidden border-t border-gray-100 bg-slate-50 px-4 py-2.5">
+            {!pushSubscribed ? (
+              <button
+                type="button"
+                disabled={pushBusy}
+                onClick={() => void handleSubscribeTeamWebPush()}
+                className="w-full min-h-[44px] rounded-lg border border-blue-200 bg-white px-3 text-center text-fluid-sm font-medium text-blue-700 active:bg-blue-50 disabled:opacity-50 touch-manipulation"
+              >
+                {pushBusy ? '처리 중…' : '배정·변경 알림 받기'}
+              </button>
+            ) : (
+              <p className="text-center text-fluid-xs text-gray-600 leading-snug">
+                <span className="font-medium text-gray-800">알림 사용 중</span>
+                <span className="block mt-0.5 text-gray-500">배정·일정 변경 시 이 기기로 푸시됩니다.</span>
+              </p>
+            )}
+          </div>
+        ) : null}
         {/* 모바일: 상단(헤더 바로 아래) 탭 메뉴 */}
         <nav className="flex sm:hidden border-t border-gray-100 bg-white">
           <NavLink to="/team/dashboard" className={mobileTabClass}>
             대시보드
+          </NavLink>
+          <NavLink to="/team/assignments" className={mobileTabClass}>
+            배정
           </NavLink>
           <NavLink to="/team/schedule" className={mobileTabClass}>
             스케줄

@@ -80,6 +80,8 @@ export const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 export interface InquiryItem {
   id: string;
+  /** KST 일자 기준 접수번호 (관리자 접수목록과 동일 필드, 구데이터는 null) */
+  inquiryNumber?: string | null;
   customerName: string;
   customerPhone: string;
   customerPhone2?: string | null;
@@ -100,7 +102,16 @@ export interface InquiryItem {
   createdAt: string;
   /** ISO — 팀장 해피콜 완료 시각 */
   happyCallCompletedAt?: string | null;
-  assignments: Array<{ teamLeader: { id: string; name: string } }>;
+  assignments: Array<{
+    assignedAt?: string;
+    assignedBy?: { id: string; name: string } | null;
+    teamLeader: {
+      id: string;
+      name: string;
+      role?: string;
+      externalCompany?: { id: string; name: string } | null;
+    };
+  }>;
 }
 
 export function formatScheduleLine(item: InquiryItem) {
