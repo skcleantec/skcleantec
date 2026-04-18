@@ -59,14 +59,32 @@ export async function patchTeamInquiryPreferredDate(
   return res.json();
 }
 
-/** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S — 한 요청 */
+/** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S + 미확인 배정 — 한 요청 */
 export async function getTeamNavBadges(token: string): Promise<{
   unreadCount: number;
   csPendingCount: number;
+  newAssignmentCount: number;
 }> {
   const res = await fetch(`${API}/team/nav-badges`, { headers: headers(token) });
   if (!res.ok) throw new Error('배지 정보를 불러올 수 없습니다.');
-  return res.json();
+  const j = await res.json();
+  return {
+    unreadCount: Number(j.unreadCount) || 0,
+    csPendingCount: Number(j.csPendingCount) || 0,
+    newAssignmentCount: Number(j.newAssignmentCount) || 0,
+  };
+}
+
+/** 팀장: 접수 상세 확인 처리 — 상단 배정 배지 감소 */
+export async function postTeamInquiryDetailViewed(token: string, inquiryId: string): Promise<void> {
+  const res = await fetch(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/detail-viewed`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(typeof err?.error === 'string' ? err.error : '확인 처리에 실패했습니다.');
+  }
 }
 
 /** 팀장: 담당 미처리(접수) C/S 건수 */

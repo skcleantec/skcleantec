@@ -9,15 +9,16 @@ import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { assertCrewCapacityForInquiry } from '../inquiries/crewMemberCapacity.helpers.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
 const router = Router();
 
 router.use(teamAuthMiddleware);
 
-/** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S — 한 요청으로 병렬 COUNT */
+/** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S + 미확인 배정(상세 미조회) — 한 요청으로 병렬 COUNT */
 router.get('/nav-badges', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
-  const [unreadCount, csPendingCount] = await Promise.all([
+  const [unreadCount, csPendingCount, newAssignmentCount] = await Promise.all([
     prisma.message.count({
       where: { receiverId: userId, readAt: null },
     }),
@@ -30,11 +31,39 @@ router.get('/nav-badges', async (req, res) => {
         },
       },
     }),
+    prisma.assignment.count({
+      where: {
+        teamLeaderId: userId,
+        detailViewedAt: null,
+        inquiry: {
+          status: { notIn: ['CANCELLED', 'COMPLETED'] },
+        },
+      },
+    }),
   ]);
-  res.json({ unreadCount, csPendingCount });
+  res.json({ unreadCount, csPendingCount, newAssignmentCount });
 });
 
 router.use('/inquiries/:inquiryId/cleaning-photos', inquiryCleaningPhotosTeamRoutes);
+
+/** 팀장: 접수 상세를 열어 확인한 것으로 표시 — 메뉴 미확인 배정 수 감소 */
+router.post('/inquiries/:id/detail-viewed', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const { id: inquiryId } = req.params;
+  const row = await prisma.assignment.findFirst({
+    where: { inquiryId, teamLeaderId: userId },
+  });
+  if (!row) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  await prisma.assignment.updateMany({
+    where: { inquiryId, teamLeaderId: userId, detailViewedAt: null },
+    data: { detailViewedAt: new Date() },
+  });
+  notifyInboxRefresh([userId]);
+  res.json({ ok: true });
+});
 
 /** 담당 미처리(접수) C/S 건수 — 상단 메뉴 배지용 */
 router.get('/cs/pending-count', async (req, res) => {

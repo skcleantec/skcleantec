@@ -14,6 +14,7 @@ export function TeamLayout() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
+  const [newAssignmentCount, setNewAssignmentCount] = useState(0);
 
   useEffect(() => {
     const token = getTeamToken();
@@ -44,6 +45,7 @@ export function TeamLayout() {
       .then((r) => {
         setUnreadCount(r.unreadCount);
         setCsPendingCount(r.csPendingCount);
+        setNewAssignmentCount(r.newAssignmentCount ?? 0);
       })
       .catch(() => {});
   }, []);
@@ -53,9 +55,11 @@ export function TeamLayout() {
     if (!token) return;
     (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount = fetchTeamBadges;
     (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount = fetchTeamBadges;
+    (window as { __refreshTeamNavBadges?: () => void }).__refreshTeamNavBadges = fetchTeamBadges;
     return () => {
       delete (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount;
       delete (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount;
+      delete (window as { __refreshTeamNavBadges?: () => void }).__refreshTeamNavBadges;
     };
   }, [fetchTeamBadges]);
 
@@ -93,9 +97,23 @@ export function TeamLayout() {
               <NavLink to="/team/dashboard" className={navClass}>
                 대시보드
               </NavLink>
-              <NavLink to="/team/assignments" className={navClass}>
-                배정목록
-              </NavLink>
+              <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+                <NavLink
+                  to="/team/assignments"
+                  className={navClass}
+                  aria-label={newAssignmentCount > 0 ? `배정목록, 미확인 ${newAssignmentCount}건` : '배정목록'}
+                >
+                  배정목록
+                </NavLink>
+                {newAssignmentCount > 0 ? (
+                  <span
+                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-xs font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
+                    aria-hidden
+                  >
+                    {newAssignmentCount > 99 ? '99+' : newAssignmentCount}
+                  </span>
+                ) : null}
+              </div>
               <NavLink to="/team/schedule" className={navClass}>
                 스케줄
               </NavLink>
@@ -157,8 +175,20 @@ export function TeamLayout() {
           <NavLink to="/team/dashboard" className={mobileTabClass}>
             대시보드
           </NavLink>
-          <NavLink to="/team/assignments" className={mobileTabClass}>
-            배정
+          <NavLink
+            to="/team/assignments"
+            className={mobileTabClass}
+            aria-label={newAssignmentCount > 0 ? `배정, 미확인 ${newAssignmentCount}건` : '배정'}
+          >
+            <span className="shrink-0">배정</span>
+            {newAssignmentCount > 0 ? (
+              <span
+                className="-ml-1 inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
+                aria-hidden
+              >
+                {newAssignmentCount > 99 ? '99+' : newAssignmentCount}
+              </span>
+            ) : null}
           </NavLink>
           <NavLink to="/team/schedule" className={mobileTabClass}>
             스케줄

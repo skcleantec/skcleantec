@@ -1,10 +1,11 @@
-import { useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
+import { postTeamInquiryDetailViewed } from '../../api/team';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
   return (
@@ -245,6 +246,21 @@ export function TeamInquiryDetailModal({
 }) {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const [happySaving, setHappySaving] = useState(false);
+
+  useEffect(() => {
+    if (!teamToken || !item?.id) return;
+    let cancelled = false;
+    void postTeamInquiryDetailViewed(teamToken, item.id)
+      .then(() => {
+        if (cancelled) return;
+        const w = window as { __refreshTeamNavBadges?: () => void };
+        w.__refreshTeamNavBadges?.();
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [teamToken, item.id]);
   const [preferredDateInput, setPreferredDateInput] = useState(item.preferredDate?.slice(0, 10) ?? '');
   const [preferredDateSaving, setPreferredDateSaving] = useState(false);
   const canHappy = enableHappyCall && isHappyCallEligible(item.status, item.preferredDate);
