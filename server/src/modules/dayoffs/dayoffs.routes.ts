@@ -129,7 +129,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
       ? new Date(`${end}T23:59:59.999+09:00`)
       : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-  const [userDayOffRows, memberDayOffRows] = await Promise.all([
+  const [userDayOffRows, memberDayOffRows, activeTeamLeaders] = await Promise.all([
     prisma.userDayOff.findMany({
       where: {
         date: { gte: startDate, lte: endDate },
@@ -137,6 +137,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
       },
       select: {
         date: true,
+        createdAt: true,
         teamLeader: { select: { id: true, name: true } },
       },
     }),
@@ -149,6 +150,11 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
         date: true,
         teamMember: { select: { id: true, name: true } },
       },
+    }),
+    prisma.user.findMany({
+      where: { isActive: true, role: 'TEAM_LEADER' },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
     }),
   ]);
 
@@ -197,7 +203,38 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
     byDate[k].teamMemberOffs = [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   }
 
-  res.json({ byDate });
+  const leaderMonthMap = new Map<
+    string,
+    { id: string; name: string; entries: Array<{ date: string; registeredAt: string }> }
+  >();
+  for (const row of userDayOffRows) {
+    const id = row.teamLeader.id;
+    if (!leaderMonthMap.has(id)) {
+      leaderMonthMap.set(id, { id, name: row.teamLeader.name, entries: [] });
+    }
+    leaderMonthMap.get(id)!.entries.push({
+      date: toDateKeyFromDb(row.date),
+      registeredAt: row.createdAt.toISOString(),
+    });
+  }
+  for (const v of leaderMonthMap.values()) {
+    v.entries.sort((a, b) => a.date.localeCompare(b.date));
+  }
+  const withOffs = [...leaderMonthMap.values()]
+    .map((x) => ({
+      id: x.id,
+      name: x.name,
+      totalDays: x.entries.length,
+      entries: x.entries,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  const withOffIds = new Set(withOffs.map((x) => x.id));
+  const noOffThisMonth = activeTeamLeaders.filter((l) => !withOffIds.has(l.id));
+
+  res.json({
+    byDate,
+    teamLeaderMonth: { withOffs, noOffThisMonth },
+  });
 });
 
 /** 관리자: 날짜별 휴무/근무 현황 */

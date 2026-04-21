@@ -107,11 +107,30 @@ export interface TeamCalendarDayEntry {
   teamMemberOffs: { id: string; name: string }[];
 }
 
+/** 팀장별: 해당 월 휴무일·등록 시각(ISO), 미등록 팀장 목록 */
+export interface TeamLeaderMonthOffEntry {
+  date: string;
+  registeredAt: string;
+}
+
+export interface TeamLeaderMonthWithOffs {
+  id: string;
+  name: string;
+  totalDays: number;
+  entries: TeamLeaderMonthOffEntry[];
+}
+
 export async function getTeamHolidayCalendar(
   token: string,
   start: string,
   end: string
-): Promise<{ byDate: Record<string, TeamCalendarDayEntry> }> {
+): Promise<{
+  byDate: Record<string, TeamCalendarDayEntry>;
+  teamLeaderMonth?: {
+    withOffs: TeamLeaderMonthWithOffs[];
+    noOffThisMonth: { id: string; name: string }[];
+  };
+}> {
   const q = new URLSearchParams({ start, end }).toString();
   const res = await fetch(`${API}/dayoffs/team-calendar?${q}`, {
     headers: headers(token),

@@ -1,8 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
-import { getTeamHolidayCalendar, type TeamCalendarDayEntry } from '../../api/dayoffs';
+import {
+  getTeamHolidayCalendar,
+  type TeamCalendarDayEntry,
+  type TeamLeaderMonthWithOffs,
+} from '../../api/dayoffs';
 import { isPublicHoliday } from '../../utils/holidays';
+
+function formatYmdToKoreanLabel(ymd: string): string {
+  const [ys, ms, ds] = ymd.split('-');
+  if (!ys || !ms || !ds) return ymd;
+  const y = parseInt(ys, 10);
+  const m = parseInt(ms, 10);
+  const d = parseInt(ds, 10);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return ymd;
+  const dt = new Date(y, m - 1, d);
+  const wk = ['일', '월', '화', '수', '목', '금', '토'][dt.getDay()] ?? '';
+  return `${m}/${d}(${wk})`;
+}
+
+function leaderRowDatesCsv(row: TeamLeaderMonthWithOffs): string {
+  return row.entries.map((e) => formatYmdToKoreanLabel(e.date)).join(', ');
+}
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -62,6 +82,10 @@ export function AdminTeamHolidayCalendarPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [byDate, setByDate] = useState<Record<string, TeamCalendarDayEntry>>({});
+  const [teamLeaderMonth, setTeamLeaderMonth] = useState<{
+    withOffs: TeamLeaderMonthWithOffs[];
+    noOffThisMonth: { id: string; name: string }[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -74,9 +98,18 @@ export function AdminTeamHolidayCalendarPage() {
     try {
       const res = await getTeamHolidayCalendar(token, start, end);
       setByDate(res.byDate);
+      setTeamLeaderMonth(
+        res.teamLeaderMonth
+          ? {
+              withOffs: res.teamLeaderMonth.withOffs,
+              noOffThisMonth: res.teamLeaderMonth.noOffThisMonth,
+            }
+          : null
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
       setByDate({});
+      setTeamLeaderMonth(null);
     } finally {
       setLoading(false);
     }
@@ -176,6 +209,70 @@ export function AdminTeamHolidayCalendarPage() {
           이번 달
         </button>
       </div>
+
+      {!loading && !error && teamLeaderMonth && (
+        <div className="border border-gray-200 rounded-lg bg-white p-4 space-y-4 min-w-0">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">
+              {year}년 {month}월 팀장 휴무 현황
+            </h2>
+            <p className="text-fluid-xs text-gray-600 mt-1">
+              팀장·휴무일·합계를 한 행에 모은 표입니다(엑셀처럼 가로로 붙여 넣기 좋게). 좁은 화면은 좌우로 스크롤합니다.
+            </p>
+          </div>
+
+          {teamLeaderMonth.withOffs.length === 0 ? (
+            <p className="text-sm text-gray-500">이번 달 등록된 팀장 휴무가 없습니다.</p>
+          ) : (
+            <div
+              className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              <table className="w-full min-w-[520px] border-collapse border border-gray-200 text-fluid-xs sm:text-fluid-sm">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-200 px-2 py-1.5 text-center font-medium text-gray-800 whitespace-nowrap">
+                      팀장
+                    </th>
+                    <th className="border border-gray-200 px-2 py-1.5 text-center font-medium text-gray-800">
+                      휴무일
+                    </th>
+                    <th className="border border-gray-200 px-2 py-1.5 text-center font-medium text-gray-800 whitespace-nowrap w-[4.5rem]">
+                      합계
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamLeaderMonth.withOffs.map((row) => (
+                    <tr key={row.id} className="hover:bg-gray-50/90">
+                      <td className="border border-gray-200 px-2 py-1.5 text-center text-gray-900 font-medium whitespace-nowrap align-top">
+                        {row.name}
+                      </td>
+                      <td className="border border-gray-200 px-2 py-1.5 text-center text-gray-800 align-top leading-snug">
+                        {leaderRowDatesCsv(row)}
+                      </td>
+                      <td className="border border-gray-200 px-2 py-1.5 text-right tabular-nums text-gray-900 font-semibold align-top whitespace-nowrap">
+                        {row.totalDays}일
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="border-t border-dashed border-gray-300 pt-3 text-fluid-xs sm:text-fluid-sm text-gray-800 leading-relaxed">
+            <span className="font-medium text-gray-800">이번 달 휴무 미등록</span>
+            <span className="text-gray-600 tabular-nums"> ({teamLeaderMonth.noOffThisMonth.length}명)</span>
+            <span className="text-gray-500"> — </span>
+            {teamLeaderMonth.noOffThisMonth.length === 0 ? (
+              <span className="text-gray-600">없음 (전원 등록)</span>
+            ) : (
+              <span className="break-words">{teamLeaderMonth.noOffThisMonth.map((p) => p.name).join(', ')}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded px-3 py-2">{error}</div>
