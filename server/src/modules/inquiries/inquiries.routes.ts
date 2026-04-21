@@ -390,7 +390,8 @@ router.patch('/:id', async (req, res) => {
       res.status(403).json({ error: '담당 마케터 변경은 관리자만 가능합니다.' });
       return;
     }
-    const nextCreatedById = data.createdById ?? null;
+    const rawCb = body.createdById;
+    const nextCreatedById = rawCb == null || rawCb === '' ? null : String(rawCb);
     if (nextCreatedById) {
       const owner = await prisma.user.findUnique({
         where: { id: String(nextCreatedById) },
@@ -617,8 +618,10 @@ router.patch('/:id', async (req, res) => {
   if (data.crewMemberCount !== undefined)
     pushIfChanged('팀원 인원', inquiry.crewMemberCount, data.crewMemberCount, fmtNum);
   if (data.crewMemberNote !== undefined) pushIfChanged('팀원 메모', inquiry.crewMemberNote, data.crewMemberNote);
-  if (data.createdById !== undefined) {
-    const ids = [inquiry.createdById, data.createdById]
+  if (Object.prototype.hasOwnProperty.call(body, 'createdById')) {
+    const rawCb = body.createdById;
+    const nextCreatedByIdForLog = rawCb == null || rawCb === '' ? null : String(rawCb);
+    const ids = [inquiry.createdById, nextCreatedByIdForLog]
       .map((x) => (x == null ? '' : String(x).trim()))
       .filter(Boolean);
     const byId = new Map<string, string>();
@@ -633,7 +636,7 @@ router.patch('/:id', async (req, res) => {
     }
     const beforeLabel =
       inquiry.createdById == null ? '(없음)' : byId.get(inquiry.createdById) ?? inquiry.createdById;
-    const nextId = data.createdById == null ? null : String(data.createdById);
+    const nextId = nextCreatedByIdForLog;
     const afterLabel = nextId == null ? '(없음)' : byId.get(nextId) ?? nextId;
     if (beforeLabel !== afterLabel) lines.push(`담당 마케터: ${beforeLabel} → ${afterLabel}`);
   }

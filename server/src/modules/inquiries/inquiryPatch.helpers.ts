@@ -122,7 +122,11 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   }
   if (Object.prototype.hasOwnProperty.call(body, 'createdById')) {
     const v = body.createdById;
-    data.createdById = v == null || v === '' ? null : String(v);
+    if (v == null || v === '') {
+      data.createdBy = { disconnect: true };
+    } else {
+      data.createdBy = { connect: { id: String(v) } };
+    }
   }
   return data;
 }
