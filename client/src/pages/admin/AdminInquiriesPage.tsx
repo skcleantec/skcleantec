@@ -28,7 +28,7 @@ import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
-import { addressListShortSiGu, phoneListTwoLines } from '../../utils/inquiryListDisplay';
+import { addressListShortSiGu, formatInquirySourceLabel, phoneListTwoLines } from '../../utils/inquiryListDisplay';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 
@@ -1719,7 +1719,7 @@ export function AdminInquiriesPage() {
               {editItem.inquiryNumber ? (
                 <span className="font-medium text-gray-700 tabular-nums">접수번호 {editItem.inquiryNumber}</span>
               ) : null}
-              <span>출처: {editItem.source ?? '-'}</span>
+              <span>출처: {formatInquirySourceLabel(editItem.source)}</span>
               {(editItem.createdBy?.name || editItem.orderForm?.createdBy?.name || me?.role === 'ADMIN') && (
                 me?.role === 'ADMIN' ? (
                   <button

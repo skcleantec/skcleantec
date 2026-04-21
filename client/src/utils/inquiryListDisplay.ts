@@ -1,3 +1,10 @@
+/** 접수 출처 표시 — 예전 테스트 시드가 넣은 값은 화면에서 숨김 */
+export function formatInquirySourceLabel(source: string | null | undefined): string {
+  const s = (source ?? '').trim();
+  if (!s || s === '시드') return '-';
+  return s;
+}
+
 /** 목록용: 시·구(또는 도·시·구)까지만 — 열 폭 절약, 전체는 title로 */
 export function addressListShortSiGu(address: string): string {
   const parts = address.trim().split(/\s+/).filter(Boolean);

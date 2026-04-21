@@ -85,7 +85,6 @@ export async function seedMapTest20260416(prisma: PrismaClient): Promise<void> {
           preferredTime: times[i % 3]!,
           status: 'RECEIVED',
           memo: `${MAP_TEST_20260416_TAG}\n지도·스케줄 UI 테스트(서울·경기·인천 도로명). 일괄삭제: 루트에서 npm run db:purge:map:test-20260416`,
-          source: '시드',
         },
       });
     });
