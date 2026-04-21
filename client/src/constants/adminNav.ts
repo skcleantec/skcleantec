@@ -21,7 +21,8 @@ export const ADMIN_NAV_DEF: Record<
   /** 발급·설정 등 발주서 전체 화면 */
   orderforms: { to: '/admin/orderforms', label: '발주서' },
   schedule: { to: '/admin/schedule', label: '스케줄 표' },
-  'team-leaders': { to: '/admin/team-leaders', label: '사용자 등록', adminOnly: true },
+  /** 팀장·마케터·타업체 등 — 관리자만 GNB에 노출 */
+  'team-leaders': { to: '/admin/team-leaders', label: '관리자 전용', adminOnly: true },
   teams: { to: '/admin/teams', label: '팀 관리', adminOnly: true },
   cs: { to: '/admin/cs', label: 'C/S 관리' },
   advertising: { to: '/admin/advertising', label: '광고비' },
