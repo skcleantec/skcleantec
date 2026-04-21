@@ -136,7 +136,7 @@ interface InquiryItem {
   status: string;
   source: string | null;
   memo: string | null;
-  /** 외부업체 간편 제목(리스트용) */
+  /** 수기(간편) 등록 제목(리스트용) */
   scheduleMemo?: string | null;
   claimMemo: string | null;
   buildingType: string | null;

@@ -26,6 +26,7 @@ import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleT
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
+import { isManualIntakeInquiry } from '../../utils/manualIntakeInquiry';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -154,7 +155,7 @@ function ScheduleDayListItem({
   onPick: () => void;
   onOpenMemo: () => void;
 }) {
-  const isExternalIntake = (item.source ?? '').includes('외부업체');
+  const isExternalIntake = isManualIntakeInquiry(item.source);
   const isPending = item.status === 'PENDING';
   const bucket = getScheduleTimeBucket(item);
   const isSide = isSideCleaningTime(item.preferredTime);
@@ -224,7 +225,7 @@ function ScheduleDayListItem({
             <span className="truncate min-w-0">{item.customerName}</span>
             {isExternalIntake && (
               <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[10px] font-semibold text-fuchsia-800">
-                외부
+                수기
               </span>
             )}
             {(item.inquiryNumber || hasScheduleMemo || distanceLabel) && (

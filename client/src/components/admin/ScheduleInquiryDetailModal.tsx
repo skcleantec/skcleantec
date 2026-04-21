@@ -17,6 +17,7 @@ import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { formatPreferredDateInputYmd } from '../../utils/dateFormat';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
@@ -111,7 +112,7 @@ type EditFormFields = {
   amountBalance: string;
   /** 타업체 넘김 수수료(원), 빈 문자열 = 미입력 */
   externalTransferFee: string;
-  /** 외부업체 간편 제목(접수 리스트 노출) */
+  /** 수기(간편) 등록 제목(접수 리스트 노출) */
   scheduleMemo: string;
   professionalOptionIds: string[];
 };
@@ -337,7 +338,7 @@ function buildCreatePostBodyForMode(
   opts?: { externalIntake?: boolean }
 ): Record<string, unknown> {
   if (!opts?.externalIntake) return buildCreatePostBody(editForm);
-  const safeName = editForm.customerName.trim() || '외부업체 접수';
+  const safeName = editForm.customerName.trim() || '수기 접수';
   const safePhone = editForm.customerPhone.trim() || '-';
   const safeAddress = editForm.address.trim() || '주소 미입력';
   const body = buildCreatePostBody({
@@ -348,7 +349,7 @@ function buildCreatePostBodyForMode(
   });
   return {
     ...body,
-    source: '외부업체접수',
+    source: MANUAL_INTAKE_SOURCE_VALUE,
   };
 }
 
@@ -423,7 +424,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
   const [marketerQuickValue, setMarketerQuickValue] = useState('');
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
-  const isExistingExternalIntake = !isCreate && Boolean((item?.source ?? '').includes('외부업체'));
+  const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
 
   useEffect(() => {
@@ -797,12 +798,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 onChange={(e) => setExternalIntake(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              외부업체접수
+              수기등록
             </label>
           )}
           {isExternalIntakeMode && (
             <div className="mt-2">
-              <label className="block text-sm text-gray-700 mb-1">외부업체 제목</label>
+              <label className="block text-sm text-gray-700 mb-1">수기 제목</label>
               <input
                 value={editForm.scheduleMemo}
                 onChange={(e) => setEditForm((p) => ({ ...p, scheduleMemo: e.target.value }))}
@@ -814,7 +815,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           <p className="text-sm text-gray-500 mb-0">
             {isCreate
               ? externalIntake
-                ? '외부업체접수 체크 시 이름/연락처/주소가 비어 있어도 등록할 수 있습니다.'
+                ? '수기등록을 선택하면 이름/연락처/주소가 비어 있어도 등록할 수 있습니다.'
                 : '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'
               : '스케줄에서 연 접수입니다. 수정 후 저장하세요.'}
           </p>
@@ -837,9 +838,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     · {distanceJuanLabel}
                   </span>
                 ) : null}
-                {(item.source ?? '').includes('외부업체') && (
+                {isManualIntakeInquiry(item.source) && (
                   <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1.5 py-px text-[10px] font-semibold text-fuchsia-800">
-                    외부업체 접수
+                    수기
                   </span>
                 )}
               </span>

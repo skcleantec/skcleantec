@@ -102,7 +102,7 @@ export interface InquiryItem {
   memo: string | null;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
-  /** 관리자 입력 외부업체 제목 */
+  /** 관리자 입력 수기(간편) 등록 제목 */
   scheduleMemo?: string | null;
   claimMemo: string | null;
   createdAt: string;
