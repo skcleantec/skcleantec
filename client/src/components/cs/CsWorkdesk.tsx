@@ -15,7 +15,7 @@ import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
-import { formatInquirySourceLabel } from '../../utils/inquiryListDisplay';
+import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 
 const STATUS_OPTIONS = [
   { value: 'RECEIVED', label: '접수' },
@@ -782,10 +782,12 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                       : '-'}
                   </p>
                 </div>
-                <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">출처</span>
-                  <p>{formatInquirySourceLabel(connectedInquiryModal.source)}</p>
-                </div>
+                {!isInquirySourceHiddenFromUi(connectedInquiryModal.source) ? (
+                  <div>
+                    <span className="text-gray-500 text-xs block mb-0.5">출처</span>
+                    <p>{formatInquirySourceLabel(connectedInquiryModal.source)}</p>
+                  </div>
+                ) : null}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>

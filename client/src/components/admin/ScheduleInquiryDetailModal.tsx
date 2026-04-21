@@ -16,7 +16,7 @@ import {
 import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { formatPreferredDateInputYmd } from '../../utils/dateFormat';
-import { formatInquirySourceLabel } from '../../utils/inquiryListDisplay';
+import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
@@ -848,7 +848,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 주안 기준 {distanceJuanLabel}
               </span>
             ) : null}
-            <span>출처: {formatInquirySourceLabel(item.source)}</span>
+            {!isInquirySourceHiddenFromUi(item.source) ? (
+              <span>출처: {formatInquirySourceLabel(item.source)}</span>
+            ) : null}
             {canEditMarketer ? (
               <button
                 type="button"

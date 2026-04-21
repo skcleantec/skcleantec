@@ -1,7 +1,12 @@
-/** 접수 출처 표시 — 예전 테스트 시드가 넣은 값은 화면에서 숨김 */
+/** 출처 한 줄 UI를 아예 숨길 값(예: 예전 테스트 시드 문자열) */
+export function isInquirySourceHiddenFromUi(source: string | null | undefined): boolean {
+  return (source ?? '').trim() === '시드';
+}
+
+/** 접수 출처 표시 — 빈 값은 대시 */
 export function formatInquirySourceLabel(source: string | null | undefined): string {
   const s = (source ?? '').trim();
-  if (!s || s === '시드') return '-';
+  if (!s) return '-';
   return s;
 }
 
