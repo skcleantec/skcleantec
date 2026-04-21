@@ -97,9 +97,33 @@ export interface OrderFormPublic {
   pendingInquiry?: PendingInquiryPrefill | null;
 }
 
-/** 관리자: 발주서 목록 */
-export async function getOrderForms(token: string): Promise<{ items: OrderForm[] }> {
-  const res = await fetch(`${API}/orderforms`, { headers: headers(token) });
+export type OrderFormListDatePreset = 'today' | 'all' | 'month' | 'day';
+
+export type OrderFormIssuerOption = { id: string; role: string; label: string };
+
+export type GetOrderFormsFilters = {
+  datePreset?: OrderFormListDatePreset;
+  month?: string;
+  day?: string;
+  createdById?: string;
+  submitStatus?: 'all' | 'pending' | 'submitted';
+};
+
+/** 관리자: 발주서 목록 (발급일·담당·제출 상태 필터) */
+export async function getOrderForms(
+  token: string,
+  filters?: GetOrderFormsFilters
+): Promise<{ items: OrderForm[]; issuers?: OrderFormIssuerOption[] }> {
+  const params = new URLSearchParams();
+  if (filters?.datePreset && filters.datePreset !== 'all') {
+    params.set('datePreset', filters.datePreset);
+    if (filters.datePreset === 'month' && filters.month?.trim()) params.set('month', filters.month.trim());
+    if (filters.datePreset === 'day' && filters.day?.trim()) params.set('day', filters.day.trim());
+  }
+  if (filters?.createdById?.trim()) params.set('createdById', filters.createdById.trim());
+  if (filters?.submitStatus && filters.submitStatus !== 'all') params.set('submitStatus', filters.submitStatus);
+  const qs = params.toString();
+  const res = await fetch(`${API}/orderforms${qs ? `?${qs}` : ''}`, { headers: headers(token) });
   if (!res.ok) throw new Error('발주서 목록을 불러올 수 없습니다.');
   return res.json();
 }

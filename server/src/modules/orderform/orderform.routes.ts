@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
@@ -18,6 +19,7 @@ import { ensureMissingProfessionalDefaults } from './defaultProfessionalOptions.
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
+import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 
 const router = Router();
 
@@ -199,16 +201,61 @@ const orderFormCreatedBySelect = {
   select: { id: true, name: true, role: true },
 } as const;
 
-/** 관리자/마케터: 발주서 목록 */
+/** 관리자/마케터: 발주서 목록 (발급일·담당·제출 상태 필터) */
 router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
-  const list = await prisma.orderForm.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      inquiries: { take: 1 },
-      createdBy: orderFormCreatedBySelect,
-    },
+  const q = req.query as Record<string, string | undefined>;
+  const dateRange = createdAtRangeFromQuery({
+    datePreset: q.datePreset,
+    month: q.month,
+    day: q.day,
   });
-  res.json({ items: list });
+  const createdById =
+    typeof q.createdById === 'string' && /^[0-9a-f-]{36}$/i.test(q.createdById.trim())
+      ? q.createdById.trim()
+      : undefined;
+  const submitStatusRaw = typeof q.submitStatus === 'string' ? q.submitStatus.trim().toLowerCase() : 'all';
+  const submitStatus =
+    submitStatusRaw === 'pending' || submitStatusRaw === 'submitted' ? submitStatusRaw : 'all';
+
+  const where: Prisma.OrderFormWhereInput = {};
+  if (dateRange) {
+    where.createdAt = { gte: dateRange.gte, lte: dateRange.lte };
+  }
+  if (createdById) {
+    where.createdById = createdById;
+  }
+  if (submitStatus === 'pending') {
+    where.submittedAt = null;
+  } else if (submitStatus === 'submitted') {
+    where.submittedAt = { not: null };
+  }
+
+  const [list, issuers] = await Promise.all([
+    prisma.orderForm.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        inquiries: { take: 1 },
+        createdBy: orderFormCreatedBySelect,
+      },
+    }),
+    prisma.user.findMany({
+      where: { isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: [{ role: 'asc' }, { name: 'asc' }],
+    }),
+  ]);
+
+  const issuerOptions = issuers.map((u) => ({
+    id: u.id,
+    role: u.role,
+    label:
+      u.role === 'ADMIN'
+        ? (u.name?.trim() ? `관리자 · ${u.name.trim()}` : `관리자 · ${u.email}`)
+        : (u.name?.trim() || u.email || u.id),
+  }));
+
+  res.json({ items: list, issuers: issuerOptions });
 });
 
 /** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성). `pendingInquiryId` 있으면 대기 접수에 발주서 연결 */

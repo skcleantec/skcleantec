@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 
@@ -38,7 +38,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
-import { YmdSelect } from '../../components/ui/DateQuerySelects';
+import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
 import { AdminOrderFormFollowupPanel } from '../../components/order-followup/AdminOrderFormFollowupPanel';
@@ -59,10 +59,12 @@ import {
   type OrderForm,
   type OrderFormConfigPublic,
   type OrderFormCreatedBy,
+  type OrderFormIssuerOption,
+  type OrderFormListDatePreset,
 } from '../../api/orderform';
 import { getInquiries } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
-import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 import {
   ORDER_FORM_CONFIG_DEFAULTS,
@@ -331,8 +333,30 @@ export function AdminOrderFormPage() {
   };
   const [options, setOptions] = useState<EstimateOption[]>([]);
   const [orderForms, setOrderForms] = useState<OrderForm[]>([]);
+  const [listIssuers, setListIssuers] = useState<OrderFormIssuerOption[]>([]);
+  const [listDatePreset, setListDatePreset] = useState<OrderFormListDatePreset>('all');
+  const [listMonthKey, setListMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
+  const [listDayKey, setListDayKey] = useState(() => kstTodayYmd());
+  const [listCreatedById, setListCreatedById] = useState('');
+  const [listSubmitStatus, setListSubmitStatus] = useState<'all' | 'pending' | 'submitted'>('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const listFilters = useMemo(
+    () => ({
+      datePreset: listDatePreset,
+      ...(listDatePreset === 'month' ? { month: listMonthKey } : {}),
+      ...(listDatePreset === 'day' ? { day: listDayKey } : {}),
+      ...(listCreatedById.trim() ? { createdById: listCreatedById.trim() } : {}),
+      submitStatus: listSubmitStatus,
+    }),
+    [listDatePreset, listMonthKey, listDayKey, listCreatedById, listSubmitStatus]
+  );
+
+  const hasActiveListFilters = useMemo(
+    () => listDatePreset !== 'all' || Boolean(listCreatedById.trim()) || listSubmitStatus !== 'all',
+    [listDatePreset, listCreatedById, listSubmitStatus]
+  );
 
   // 발급 폼
   const [issueForm, setIssueForm] = useState({
@@ -387,14 +411,17 @@ export function AdminOrderFormPage() {
     getEstimateOptions(token).then((r) => setOptions(r.items)).catch(() => {});
   };
 
-  const refreshOrderForms = () => {
+  const refreshOrderForms = useCallback(() => {
     if (!token) return;
     setLoading(true);
-    getOrderForms(token)
-      .then((r) => setOrderForms(r.items))
+    getOrderForms(token, listFilters)
+      .then((r) => {
+        setOrderForms(r.items);
+        if (Array.isArray(r.issuers)) setListIssuers(r.issuers);
+      })
       .catch(() => setError('발주서 목록을 불러올 수 없습니다.'))
       .finally(() => setLoading(false));
-  };
+  }, [token, listFilters]);
 
   const refreshMsgConfig = () => {
     if (!token) return;
@@ -432,7 +459,7 @@ export function AdminOrderFormPage() {
   useEffect(() => {
     if (!token || tab !== 'list') return;
     refreshOrderForms();
-  }, [token, tab]);
+  }, [token, tab, refreshOrderForms]);
 
   useEffect(() => {
     if (!token || tab !== 'issue') return;
@@ -1200,10 +1227,116 @@ ${footer2}`;
       {tab === 'list' && (
         <div className="min-w-0 w-full max-w-full">
           <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-3 py-3 sm:px-4">
+              <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
+                <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">발급일</span>
+                <div className="inline-flex flex-wrap items-center gap-2">
+                  <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setListDatePreset('today')}
+                      className={`px-3 py-1.5 font-medium ${
+                        listDatePreset === 'today' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      오늘
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setListDatePreset('all')}
+                      className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                        listDatePreset === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      전체
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setListDatePreset('month')}
+                      className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                        listDatePreset === 'month' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      월별
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setListDatePreset('day')}
+                      className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                        listDatePreset === 'day' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      일별
+                    </button>
+                  </div>
+                  {listDatePreset === 'month' && (
+                    <YearMonthSelect
+                      value={listMonthKey}
+                      onChange={setListMonthKey}
+                      idPrefix="orderform-list-month"
+                      className="items-center"
+                    />
+                  )}
+                  {listDatePreset === 'day' && (
+                    <YmdSelect
+                      value={listDayKey}
+                      onChange={setListDayKey}
+                      idPrefix="orderform-list-day"
+                      className="items-center"
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
+                <div className="min-w-0 w-full lg:max-w-md">
+                  <label htmlFor="orderform-list-issuer" className="mb-1 block text-fluid-2xs font-medium text-gray-600">
+                    담당(발급)
+                  </label>
+                  <select
+                    id="orderform-list-issuer"
+                    value={listCreatedById}
+                    onChange={(e) => setListCreatedById(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-fluid-sm text-gray-900"
+                  >
+                    <option value="">전체 담당</option>
+                    {listIssuers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">상태</span>
+                  {(
+                    [
+                      { v: 'all' as const, label: '전체' },
+                      { v: 'pending' as const, label: '미제출' },
+                      { v: 'submitted' as const, label: '제출완료' },
+                    ] as const
+                  ).map((c) => (
+                    <button
+                      key={c.v}
+                      type="button"
+                      onClick={() => setListSubmitStatus(c.v === listSubmitStatus && c.v !== 'all' ? 'all' : c.v)}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] sm:text-fluid-2xs font-medium touch-manipulation ${
+                        listSubmitStatus === c.v
+                          ? 'border-gray-800 bg-gray-900 text-white'
+                          : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
             {loading ? (
               <div className="p-8 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
             ) : orderForms.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 text-fluid-sm">발급된 발주서가 없습니다.</div>
+              <div className="p-8 text-center text-gray-500 text-fluid-sm">
+                {hasActiveListFilters ? '조건에 맞는 발주서가 없습니다.' : '발급된 발주서가 없습니다.'}
+              </div>
             ) : (
               <>
                 <p className="border-b border-gray-100 px-4 py-2 text-fluid-xs text-gray-600 lg:hidden">

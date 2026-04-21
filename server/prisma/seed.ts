@@ -25,17 +25,60 @@ async function main() {
   });
   console.log('Admin:', admin.email);
 
-  const admin2 = await prisma.user.upsert({
-    where: { email: 'admin2' },
-    update: { passwordHash: hash, isActive: true, role: 'ADMIN' },
+  /** 보조 관리자 계정 — 팀장 화면 미리보기 등 (TEAM_PREVIEW_ADMIN_EMAILS 기본값과 맞출 것) */
+  const adminPyo = await prisma.user.upsert({
+    where: { email: 'pyo' },
+    update: { passwordHash: hash, isActive: true, role: 'ADMIN', name: '표마왕' },
     create: {
-      email: 'admin2',
+      email: 'pyo',
       passwordHash: hash,
-      name: '관리자2',
+      name: '표마왕',
       role: 'ADMIN',
     },
   });
-  console.log('Admin2 (팀장 화면 미리보기 테스트):', admin2.email);
+  console.log('관리자(표마왕·팀장 미리보기):', adminPyo.email);
+
+  /** 레거시 admin2 계정 제거 — 발주서·로그 등 참조는 pyo 로 이전 */
+  try {
+    await prisma.$transaction(async (tx) => {
+      const legacy = await tx.user.findUnique({ where: { email: 'admin2' }, select: { id: true } });
+      if (!legacy) return;
+      const fromId = legacy.id;
+      const toId = adminPyo.id;
+
+      await tx.orderForm.updateMany({ where: { createdById: fromId }, data: { createdById: toId } });
+      await tx.inquiry.updateMany({ where: { createdById: fromId }, data: { createdById: toId } });
+      await tx.orderFollowup.updateMany({ where: { createdById: fromId }, data: { createdById: toId } });
+      await tx.orderFollowup.updateMany({ where: { handledById: fromId }, data: { handledById: toId } });
+      await tx.orderFollowupLog.updateMany({ where: { actorId: fromId }, data: { actorId: toId } });
+      await tx.assignment.updateMany({ where: { assignedById: fromId }, data: { assignedById: toId } });
+      await tx.inquiryCleaningPhoto.updateMany({ where: { uploadedById: fromId }, data: { uploadedById: toId } });
+      await tx.inquiryChangeLog.updateMany({ where: { actorId: fromId }, data: { actorId: toId } });
+      await tx.csReport.updateMany({ where: { completedById: fromId }, data: { completedById: toId } });
+      await tx.message.updateMany({ where: { senderId: fromId }, data: { senderId: toId } });
+      await tx.message.updateMany({ where: { receiverId: fromId }, data: { receiverId: toId } });
+
+      const tlCount = await tx.assignment.count({ where: { teamLeaderId: fromId } });
+      if (tlCount > 0) {
+        const fallbackTl = await tx.user.findFirst({
+          where: { role: 'TEAM_LEADER', isActive: true, id: { not: fromId } },
+          select: { id: true },
+          orderBy: { email: 'asc' },
+        });
+        if (fallbackTl) {
+          await tx.assignment.updateMany({ where: { teamLeaderId: fromId }, data: { teamLeaderId: fallbackTl.id } });
+        } else {
+          throw new Error('admin2가 팀장 배정에만 남아 있고 이관할 팀장 계정이 없습니다. 수동으로 정리한 뒤 시드를 다시 실행하세요.');
+        }
+      }
+
+      await tx.adWorkSession.deleteMany({ where: { userId: fromId } });
+      await tx.user.delete({ where: { id: fromId } });
+    });
+    console.log('Removed legacy user: admin2 (references reassigned to pyo where applicable).');
+  } catch (e) {
+    console.warn('[seed] admin2 제거 실패 — DB에서 수동 정리 후 재시도:', e);
+  }
 
   if (seedDemoData) {
     // 샘플 팀장 8명 (upsert — 로컬 테스트용)
