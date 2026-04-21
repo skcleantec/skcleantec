@@ -8,7 +8,7 @@ import {
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
-import { getAssignableScheduleUsers, type UserItem } from '../../api/users';
+import { getAssignableScheduleUsers, getUsers, type UserItem } from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
@@ -401,8 +401,10 @@ export function AdminSchedulePage() {
   /** 신규 접수 모달 — 선택한 캘린더 날짜로 예약일 고정 */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
+  const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   const [meRole, setMeRole] = useState<string | null>(null);
+  const [meUser, setMeUser] = useState<{ id: string; role: string; name: string } | null>(null);
   const [closureBusy, setClosureBusy] = useState(false);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [closureModalOpen, setClosureModalOpen] = useState(false);
@@ -506,9 +508,27 @@ export function AdminSchedulePage() {
       return;
     }
     getMe(token)
-      .then((u: { role?: string }) => setMeRole(typeof u.role === 'string' ? u.role : null))
-      .catch(() => setMeRole(null));
+      .then((u: { id?: string; role?: string; name?: string }) => {
+        const role = typeof u.role === 'string' ? u.role : null;
+        setMeRole(role);
+        if (u.id && u.name && role) setMeUser({ id: u.id, name: u.name, role });
+        else setMeUser(null);
+      })
+      .catch(() => {
+        setMeRole(null);
+        setMeUser(null);
+      });
   }, [token]);
+
+  useEffect(() => {
+    if (!token || meRole !== 'ADMIN') {
+      setMarketers([]);
+      return;
+    }
+    getUsers(token, 'MARKETER')
+      .then(setMarketers)
+      .catch(() => setMarketers([]));
+  }, [token, meRole]);
 
   useEffect(() => {
     if (!token) return;
@@ -1313,6 +1333,8 @@ export function AdminSchedulePage() {
           professionalCatalog={profCatalog}
           scheduleStatsByDate={stats}
           currentUserRole={meRole}
+          marketerOptions={marketers}
+          meUser={meUser}
           onClose={() => setDetailItem(null)}
           onSaved={() => fetchMonthData(false)}
         />
@@ -1336,6 +1358,8 @@ export function AdminSchedulePage() {
           professionalCatalog={profCatalog}
           scheduleStatsByDate={stats}
           currentUserRole={meRole}
+          marketerOptions={marketers}
+          meUser={meUser}
           onClose={() => setCreateInquiryModalDate(null)}
           onSaved={() => {
             setCreateInquiryModalDate(null);

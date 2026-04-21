@@ -49,6 +49,7 @@ router.get('/', async (req, res) => {
     },
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     include: {
+      createdBy: { select: { id: true, name: true } },
       assignments: {
         orderBy: { sortOrder: 'asc' },
         include: { teamLeader: { select: assignmentTeamLeaderSelect } },

@@ -138,7 +138,11 @@ export function formatRoomInfo(r: number | null, b: number | null, v: number | n
 
 export function formatCrewInfo(item: InquiryItem): string {
   const n = item.crewMemberCount ?? 2;
-  const note = item.crewMemberNote?.trim();
+  const note = item.crewMemberNote
+    ?.split(/[,·/]/g)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .join('/');
   return note ? `팀원${n}명 · ${note}` : `팀원${n}명`;
 }
 

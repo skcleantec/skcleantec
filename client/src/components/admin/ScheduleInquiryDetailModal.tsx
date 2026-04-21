@@ -96,6 +96,7 @@ type EditFormFields = {
   /** 팀원 선택 목록(인원수만큼 슬롯) */
   crewMemberNames: string[];
   status: string;
+  createdById: string;
   customerPhone2: string;
   propertyType: string;
   areaBasis: string;
@@ -132,6 +133,7 @@ function buildPatchFromEditForm(editForm: EditFormFields): Record<string, unknow
     preferredTimeDetail: editForm.preferredTimeDetail.trim(),
     memo: editForm.memo || null,
     status: editForm.status || undefined,
+    createdById: editForm.createdById || null,
     customerPhone2: editForm.customerPhone2.trim(),
     propertyType: editForm.propertyType.trim(),
     areaBasis: editForm.areaBasis.trim(),
@@ -358,6 +360,8 @@ export type ScheduleInquiryDetailModalProps =
       professionalCatalog: ProfessionalSpecialtyOption[];
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
+      marketerOptions?: UserItem[];
+      meUser?: { id: string; role: string; name: string } | null;
       onClose: () => void;
       onSaved: () => void;
     }
@@ -370,6 +374,8 @@ export type ScheduleInquiryDetailModalProps =
       professionalCatalog: ProfessionalSpecialtyOption[];
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
+      marketerOptions?: UserItem[];
+      meUser?: { id: string; role: string; name: string } | null;
       onClose: () => void;
       onSaved: () => void;
     };
@@ -392,9 +398,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     professionalCatalog,
     scheduleStatsByDate,
     currentUserRole,
+    marketerOptions,
+    meUser,
     onClose,
     onSaved,
   } = props;
+  const canEditMarketer = currentUserRole === 'ADMIN';
 
   const [saving, setSaving] = useState(false);
   const [externalIntake, setExternalIntake] = useState(false);
@@ -410,6 +419,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [historyLogsLoading, setHistoryLogsLoading] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePasswordOpen, setDeletePasswordOpen] = useState(false);
+  const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
+  const [marketerQuickValue, setMarketerQuickValue] = useState('');
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
   const isExistingExternalIntake = !isCreate && Boolean((item?.source ?? '').includes('외부업체'));
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
@@ -460,6 +471,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         crewMemberCount: null,
         crewMemberNames: [],
         status: 'RECEIVED',
+        createdById: '',
         customerPhone2: '',
         propertyType: '',
         areaBasis: '',
@@ -496,6 +508,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       crewMemberCount: it.crewMemberCount ?? null,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: it.status,
+      createdById: it.createdBy?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
       areaBasis: it.areaBasis || '',
@@ -576,6 +589,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       crewMemberCount: it.crewMemberCount ?? null,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: it.status,
+      createdById: it.createdBy?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
       areaBasis: it.areaBasis || '',
@@ -592,6 +606,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       scheduleMemo: it.scheduleMemo ?? '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     });
+    setMarketerQuickValue(it.createdBy?.id ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 저장 후 재조회 시 동일 id여도 필드 동기화
   }, [item, professionalCatalog]);
 
@@ -833,7 +848,21 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </span>
             ) : null}
             <span>출처: {item.source ?? '-'}</span>
-            {item.orderForm?.createdBy && <span>담당 마케터: {item.orderForm.createdBy.name}</span>}
+            {canEditMarketer ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMarketerQuickValue(item.createdBy?.id ?? '');
+                  setMarketerQuickOpen(true);
+                }}
+                className="underline underline-offset-2 text-blue-700 hover:text-blue-900"
+                title="클릭해서 담당 마케터 변경"
+              >
+                담당 마케터: {item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}
+              </button>
+            ) : (
+              <span>담당 마케터: {item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}</span>
+            )}
             {item.callAttempt != null && <span>통화 시도: {item.callAttempt}</span>}
             {item.claimMemo?.trim() && <span className="text-orange-700 font-medium">클레임 등록됨</span>}
             </div>
@@ -1243,6 +1272,24 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               ))}
             </select>
           </div>
+          {canEditMarketer && (
+            <div>
+              <label className="block text-gray-600 mb-1">담당 마케터</label>
+              <select
+                value={editForm.createdById}
+                onChange={(e) => setEditForm((p) => ({ ...p, createdById: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="">미지정</option>
+                {meUser ? <option value={meUser.id}>관리자 ({meUser.name})</option> : null}
+                {(marketerOptions ?? []).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="sm:col-span-2 space-y-2">
             <label className="block text-gray-600 mb-1">담당 팀장·타업체 (여러 명 가능)</label>
             {editForm.teamLeaderIds.map((lid, idx) => (
@@ -1589,6 +1636,73 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         onClose={() => setDeletePasswordOpen(false)}
         onConfirm={handleDeleteConfirmed}
       />
+      {marketerQuickOpen && canEditMarketer && (
+        <div
+          className="fixed inset-0 z-[560] flex items-center justify-center p-4 bg-black/40"
+          role="dialog"
+          aria-modal
+          aria-labelledby="quick-marketer-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="닫기"
+            onClick={() => setMarketerQuickOpen(false)}
+          />
+          <div
+            className="relative w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="quick-marketer-title" className="text-base font-semibold text-gray-900">
+              담당 마케터 변경
+            </h3>
+            <p className="mt-1 text-xs text-gray-500">변경 후 바로 저장됩니다.</p>
+            <select
+              value={marketerQuickValue}
+              onChange={(e) => setMarketerQuickValue(e.target.value)}
+              className="mt-3 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">미지정</option>
+              {meUser ? <option value={meUser.id}>관리자 ({meUser.name})</option> : null}
+              {(marketerOptions ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setMarketerQuickOpen(false)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                onClick={async () => {
+                  setEditForm((p) => ({ ...p, createdById: marketerQuickValue }));
+                  setMarketerQuickOpen(false);
+                  if (!item) return;
+                  setSaving(true);
+                  try {
+                    await updateInquiry(token, item.id, { createdById: marketerQuickValue || null });
+                    onSaved();
+                    onClose();
+                  } catch (e) {
+                    alert(e instanceof Error ? e.message : '담당 마케터 변경에 실패했습니다.');
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              >
+                변경 적용
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

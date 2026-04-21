@@ -385,6 +385,23 @@ router.patch('/:id', async (req, res) => {
   const teamLeaderIds = normalizeTeamLeaderIds(body.teamLeaderIds);
 
   const data = buildInquiryPatchData(body);
+  if (Object.prototype.hasOwnProperty.call(body, 'createdById')) {
+    if (user.role !== 'ADMIN') {
+      res.status(403).json({ error: '담당 마케터 변경은 관리자만 가능합니다.' });
+      return;
+    }
+    const nextCreatedById = data.createdById ?? null;
+    if (nextCreatedById) {
+      const owner = await prisma.user.findUnique({
+        where: { id: String(nextCreatedById) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!owner || !owner.isActive || (owner.role !== 'ADMIN' && owner.role !== 'MARKETER')) {
+        res.status(400).json({ error: '담당 마케터는 활성 관리자/마케터만 선택할 수 있습니다.' });
+        return;
+      }
+    }
+  }
 
   let assigneesForLog: Array<{
     id: string;
@@ -600,6 +617,26 @@ router.patch('/:id', async (req, res) => {
   if (data.crewMemberCount !== undefined)
     pushIfChanged('팀원 인원', inquiry.crewMemberCount, data.crewMemberCount, fmtNum);
   if (data.crewMemberNote !== undefined) pushIfChanged('팀원 메모', inquiry.crewMemberNote, data.crewMemberNote);
+  if (data.createdById !== undefined) {
+    const ids = [inquiry.createdById, data.createdById]
+      .map((x) => (x == null ? '' : String(x).trim()))
+      .filter(Boolean);
+    const byId = new Map<string, string>();
+    if (ids.length > 0) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true, role: true },
+      });
+      for (const u of users) {
+        byId.set(u.id, u.role === 'ADMIN' ? `관리자(${u.name})` : u.name);
+      }
+    }
+    const beforeLabel =
+      inquiry.createdById == null ? '(없음)' : byId.get(inquiry.createdById) ?? inquiry.createdById;
+    const nextId = data.createdById == null ? null : String(data.createdById);
+    const afterLabel = nextId == null ? '(없음)' : byId.get(nextId) ?? nextId;
+    if (beforeLabel !== afterLabel) lines.push(`담당 마케터: ${beforeLabel} → ${afterLabel}`);
+  }
   if (data.externalTransferFee !== undefined)
     pushIfChanged('타업체 넘김 수수료', inquiry.externalTransferFee, data.externalTransferFee, fmtNum);
   if (data.professionalOptionIds !== undefined) {

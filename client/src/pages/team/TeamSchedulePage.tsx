@@ -225,7 +225,7 @@ export function TeamSchedulePage() {
                                 onClick={(e) => e.stopPropagation()}
                                 className="inline-flex rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700"
                               >
-                                담당자 전화
+                                전화걸기
                               </a>
                             ) : null}
                           </div>

@@ -291,6 +291,7 @@ export function AdminInquiriesPage() {
     amountDeposit: '',
     amountBalance: '',
     externalTransferFee: '',
+    createdById: '',
   });
   const [claimItem, setClaimItem] = useState<InquiryItem | null>(null);
   const [claimMemo, setClaimMemo] = useState('');
@@ -568,6 +569,7 @@ export function AdminInquiriesPage() {
       amountBalance: a.balance != null ? String(a.balance) : '',
       externalTransferFee:
         item.externalTransferFee != null ? String(item.externalTransferFee) : '',
+      createdById: item.createdBy?.id ?? '',
     });
   };
 
@@ -699,6 +701,7 @@ export function AdminInquiriesPage() {
         serviceDepositAmount: parseWon(editForm.amountDeposit),
         serviceBalanceAmount: parseWon(editForm.amountBalance),
         externalTransferFee: parseWon(editForm.externalTransferFee),
+        createdById: editForm.createdById || null,
       };
       if (editForm.areaPyeong.trim() !== '') {
         patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
@@ -1130,6 +1133,31 @@ export function AdminInquiriesPage() {
                           <p className="mt-1 text-fluid-xs text-gray-500">
                             접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
                           </p>
+                          {me?.role === 'ADMIN' ? (
+                            <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+                              <select
+                                value={item.createdBy?.id ?? ''}
+                                onChange={async (e) => {
+                                  const next = e.target.value;
+                                  try {
+                                    await updateInquiry(token!, item.id, { createdById: next || null });
+                                    refresh(true);
+                                  } catch (err) {
+                                    alert(err instanceof Error ? err.message : '담당 마케터 변경에 실패했습니다.');
+                                  }
+                                }}
+                                className="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-2xs text-gray-700"
+                              >
+                                <option value="">담당 마케터: 미지정</option>
+                                {me ? <option value={me.id}>담당 마케터: 관리자 ({me.name})</option> : null}
+                                {marketers.map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    담당 마케터: {m.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : null}
                           <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={addrFull}>
                             {addrShort}
                           </p>
@@ -1359,8 +1387,33 @@ export function AdminInquiriesPage() {
                     <td
                       className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
                       title={inquiryMarketerLabel(item)}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {inquiryMarketerLabel(item)}
+                      {me?.role === 'ADMIN' ? (
+                        <select
+                          value={item.createdBy?.id ?? ''}
+                          onChange={async (e) => {
+                            const next = e.target.value;
+                            try {
+                              await updateInquiry(token!, item.id, { createdById: next || null });
+                              refresh(true);
+                            } catch (err) {
+                              alert(err instanceof Error ? err.message : '담당 마케터 변경에 실패했습니다.');
+                            }
+                          }}
+                          className="w-full min-w-0 rounded border border-gray-300 px-1 py-0.5 text-fluid-2xs xl:text-fluid-xs"
+                        >
+                          <option value="">미지정</option>
+                          {me ? <option value={me.id}>관리자({me.name})</option> : null}
+                          {marketers.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        inquiryMarketerLabel(item)
+                      )}
                     </td>
                     <td
                       className={`min-w-0 truncate px-1 py-1 align-middle text-center font-medium text-gray-900 xl:px-1.5 xl:py-1.5 ${pBorder}`}
@@ -1679,6 +1732,24 @@ export function AdminInquiriesPage() {
                   ))}
                 </select>
               </div>
+              {me?.role === 'ADMIN' && (
+                <div className="sm:col-span-2">
+                  <label className="block text-fluid-sm text-gray-600 mb-1">담당 마케터</label>
+                  <select
+                    value={editForm.createdById}
+                    onChange={(e) => setEditForm((p) => ({ ...p, createdById: e.target.value }))}
+                    className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  >
+                    <option value="">미지정</option>
+                    {me ? <option value={me.id}>관리자 ({me.name})</option> : null}
+                    {marketers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-fluid-sm text-gray-600 mb-1">성함</label>
                 <input
@@ -2132,6 +2203,9 @@ export function AdminInquiriesPage() {
           teamLeaders={teamLeaders}
           professionalCatalog={profCatalog}
           scheduleStatsByDate={scheduleStatsForModal}
+          currentUserRole={me?.role ?? null}
+          marketerOptions={marketers}
+          meUser={me}
           onClose={() => setCreateInquiryModalDate(null)}
           onSaved={() => {
             setCreateInquiryModalDate(null);
