@@ -607,8 +607,8 @@ export function AdminSchedulePage() {
     const start = calendarSwipeTouchRef.current;
     calendarSwipeTouchRef.current = null;
     if (!calendarSwipeEnabled() || !start) return;
-    const t =
-      [...e.changedTouches].find((c) => c.identifier === start.id) ?? e.changedTouches[0];
+    const changed = Array.from(e.changedTouches);
+    const t = changed.find((c) => c.identifier === start.id) ?? changed[0];
     if (!t) return;
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
