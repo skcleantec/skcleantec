@@ -151,13 +151,13 @@ interface InquiryItem {
   crewMemberNote?: string | null;
   externalTransferFee?: number | null;
   /** 접수를 등록한 마케터(개별 접수·POST 시 설정) */
-  createdBy?: { id: string; name: string } | null;
+  createdBy?: { id: string; name: string; phone?: string | null } | null;
   orderForm?: {
     id?: string;
     totalAmount?: number | null;
     depositAmount?: number | null;
     balanceAmount?: number | null;
-    createdBy: { id: string; name: string };
+    createdBy: { id: string; name: string; phone?: string | null };
   } | null;
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;
@@ -369,7 +369,7 @@ export function AdminInquiriesPage() {
   const [marketerOverview, setMarketerOverview] = useState<MarketerOverviewResponse | null>(null);
   const [marketerOverviewLoading, setMarketerOverviewLoading] = useState(() => Boolean(getToken()));
   const [marketerOverviewError, setMarketerOverviewError] = useState<string | null>(null);
-  const [me, setMe] = useState<{ id: string; role: string; name: string } | null>(null);
+  const [me, setMe] = useState<{ id: string; role: string; name: string; phone?: string | null } | null>(null);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
   const [marketerFilterId, setMarketerFilterId] = useState('');
@@ -418,8 +418,8 @@ export function AdminInquiriesPage() {
       return;
     }
     getMe(token)
-      .then((u: { id: string; role: string; name: string }) =>
-        setMe({ id: u.id, role: u.role, name: u.name })
+      .then((u: { id: string; role: string; name: string; phone?: string | null }) =>
+        setMe({ id: u.id, role: u.role, name: u.name, phone: u.phone ?? null })
       )
       .catch(() => setMe(null));
   }, [token]);
@@ -834,7 +834,11 @@ export function AdminInquiriesPage() {
                   ? null
                   : marketerQuickValue === me?.id
                     ? { id: me.id, name: me.name, phone: me.phone ?? null }
-                    : (marketers.find((m) => m.id === marketerQuickValue) ?? prev.createdBy),
+                    : (() => {
+                        const m = marketers.find((x) => x.id === marketerQuickValue);
+                        if (!m) return prev.createdBy ?? null;
+                        return { id: m.id, name: m.name, phone: m.phone };
+                      })(),
             }
           : prev
       );
