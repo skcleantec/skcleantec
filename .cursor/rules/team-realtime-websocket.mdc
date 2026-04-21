@@ -1,0 +1,46 @@
+---
+description: 팀장 화면과 서버(DB) 간 주고받는 데이터는 WebSocket으로 실시간 반영
+alwaysApply: true
+---
+
+# 팀장 화면 — WebSocket 실시간 반영 (필수)
+
+## 적용 범위
+
+- **팀장 전용 경로(`/team/*`)**에서 사용자가 보는 **DB에서 온 목록·요약·배지·상세에 반영되는 상태**는, 서버에서 그 데이터가 바뀔 때 **새로고침 없이** 화면에 반영되도록 설계한다.
+- “실시간”의 기본 구현은 **HTTP만으로 주기적 새로고침을 요구하지 않고**, 먼저 **WebSocket 신호 → 클라이언트가 필요한 GET을 다시 호출**하는 패턴을 쓴다.
+
+## 프로젝트 표준 채널
+
+- **연결**: 브라우저 `WebSocket`, 경로 **`/ws?token=JWT`** (Express와 같은 HTTP 서버에 `ws`로 부착).
+- **서버 → 클라이언트 신호**: JSON **`{ type: 'inbox:refresh' }`** — “지금 열려 있는 팀장·스태프 세션이 관련 API를 다시 불러라”는 뜻으로 통일한다.
+- **허브**: `server/src/modules/realtime/realtimeHub.ts` — 사용자별 소켓 등록, `sendJsonToUser(userId, payload)` 로 특정 사용자에게만 전송.
+- **일괄 알림 헬퍼**: `server/src/modules/realtime/inboxNotify.ts` 의 **`notifyInboxRefresh(userIds: string[])`** — 중복 제거 후 위 페이로드를 보냄.
+
+## 서버(쓰기) 쪽 의무
+
+- 팀장에게 보이는 데이터를 바꾸는 **API(트랜잭션 성공 직후)** 에서, 영향을 받는 **팀장 `user.id`(UUID)** 를 식별해 **`notifyInboxRefresh`** 를 호출한다.
+- **배정·재배정·배정 해제**처럼 담당자가 바뀌는 경우: **새로 배정된 팀장 + 이전에 배정되어 있던 팀장** 모두에게 보내, 한쪽 목록에서 빠지고 다른 쪽에 나타나게 한다.
+- 관리자·마케터 GNB 배지 등 **스태프 전용** 갱신이 같이 필요하면 동일 `inbox:refresh` 로 묶거나, 기존 `notifyCsReportNavBadges` 등과 조합해 일관되게 처리한다.
+- 스태프 전용 토스트 등 **팀장이 아닌 사용자만** 받아야 하는 타입은 기존처럼 `broadcastJsonToStaff` / `inquiry:celebrate` 등 **별 타입**을 유지하고, **팀장 DB 화면 갱신**과 혼동하지 않는다.
+
+## 클라이언트(팀장) 쪽 의무
+
+- **`useInboxRealtime(token, onRefresh, enabled)`** (`client/src/hooks/useInboxRealtime.ts`)로 `/ws`를 구독하고, `inbox:refresh` 수신 시 **해당 페이지가 보여 주는 DB 뷰를 다시 fetch**한다.
+- **레이아웃만** 구독하지 말고, **배정목록·대시보드·스케줄**처럼 `getTeamInquiries` 등으로 목록을 그리는 **각 페이지에서도** 동일 토큰으로 구독해 목록이 갱신되게 한다.
+- 재조회 시 전체 화면을 덮는 로딩 스피너로 깜빡이지 않도록 **`silent` 재조회**(기존 패턴)를 우선한다.
+- WS가 막히는 환경 대비: **`useVisibilityInterval`** 로 **연결 끊김 시에만** 짧은 폴링 폴백을 둘 수 있다. 폴링 주기·중복 호출은 최소화한다.
+
+## 새 기능 추가 시 체크리스트
+
+1. 이 변경이 **특정 팀장의 `/team` 화면 데이터**를 바꾸는가?
+2. 그렇다면 **어느 `userId`들에게** `notifyInboxRefresh`를 보낼지 명시했는가?
+3. 팀장 **어느 페이지**가 그 데이터를 보여 주는가? 해당 페이지에 **`useInboxRealtime` + 재조회**를 연결했는가?
+
+## 참고 구현
+
+- WS 서버 진입: `server/src/modules/realtime/inboxWebSocket.ts`
+- 배정 POST 후 알림: `server/src/modules/assignments/assignments.routes.ts` → `notifyNewAssignmentForInquiry` (`server/src/modules/push/inquiryTeamWebPush.ts`)
+- 접수 PATCH로 팀 동기화 시: `server/src/modules/inquiries/inquiries.routes.ts` (`notifyInboxRefresh`)
+- 팀 레이아웃 배지: `client/src/components/layout/TeamLayout.tsx`
+- 목록·요약 무음 갱신 예: `client/src/pages/team/TeamAssignmentListPage.tsx`, `TeamDashboardPage.tsx`, `TeamSchedulePage.tsx`

@@ -15,6 +15,11 @@ import {
   loadMarketerUsers,
   sumSpendFromSessions,
 } from './advertising.helpers.js';
+import {
+  isSoomgoChannelName,
+  SOOMGO_WON_PER_AUTO_ESTIMATE,
+  SOOMGO_WON_PER_RECEIVED_REQUEST,
+} from './soomgoAd.constants.js';
 
 const router = Router();
 
@@ -163,8 +168,14 @@ router.get('/sessions/active', authMiddleware, adminOrMarketer, async (req, res)
 
 router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
-  const body = req.body as { lines?: { channelId: string; amount: number }[] };
-  const lines = Array.isArray(body.lines) ? body.lines : [];
+  const body = req.body as {
+    lines?: Array<{
+      channelId?: string;
+      amount?: number;
+      soomgo?: { received?: number; autoEstimate?: number; confirmed?: number };
+    }>;
+  };
+  const rawLines = Array.isArray(body.lines) ? body.lines : [];
   const session = await prisma.adWorkSession.findFirst({
     where: { userId: user.userId, endedAt: null },
     orderBy: { startedAt: 'desc' },
@@ -174,43 +185,90 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
     return;
   }
 
-  const channelIds = new Set<string>();
-  const normalized: { channelId: string; amount: number }[] = [];
-  for (const row of lines) {
-    if (!row?.channelId || typeof row.amount !== 'number' || !Number.isFinite(row.amount)) continue;
-    const amt = Math.max(0, Math.round(row.amount));
-    if (channelIds.has(row.channelId)) continue;
-    channelIds.add(row.channelId);
-    normalized.push({ channelId: row.channelId, amount: amt });
-  }
-
   const activeChannels = await prisma.adChannel.findMany({
     where: { isActive: true },
-    select: { id: true },
+    select: { id: true, name: true },
   });
+  const channelById = new Map(activeChannels.map((c) => [c.id, c]));
   const allowed = new Set(activeChannels.map((c) => c.id));
-  for (const l of normalized) {
-    if (!allowed.has(l.channelId)) {
-      res.status(400).json({ error: '유효하지 않은 채널이 포함되어 있습니다.' });
+
+  const channelIds = new Set<string>();
+  const normalized: Array<{
+    channelId: string;
+    amount: number;
+    soomgoReceived?: number | null;
+    soomgoAuto?: number | null;
+    soomgoConfirmed?: number | null;
+  }> = [];
+
+  for (const row of rawLines) {
+    if (!row?.channelId || typeof row.channelId !== 'string') continue;
+    if (channelIds.has(row.channelId)) continue;
+    if (!allowed.has(row.channelId)) continue;
+
+    const ch = channelById.get(row.channelId);
+    if (!ch) continue;
+
+    if (isSoomgoChannelName(ch.name)) {
+      const sg = row.soomgo;
+      if (!sg || typeof sg !== 'object') {
+        res.status(400).json({ error: `${ch.name}: 숨고 채널은 받은요청·자동견적·예약확정 건수를 입력해 주세요.` });
+        return;
+      }
+      const received = Math.max(0, Math.floor(Number(sg.received)));
+      const autoEst = Math.max(0, Math.floor(Number(sg.autoEstimate)));
+      const confirmed = Math.max(0, Math.floor(Number(sg.confirmed)));
+      if (!Number.isFinite(received) || !Number.isFinite(autoEst) || !Number.isFinite(confirmed)) {
+        res.status(400).json({ error: `${ch.name}: 건수는 0 이상 정수로 입력해 주세요.` });
+        return;
+      }
+      const amt =
+        received * SOOMGO_WON_PER_RECEIVED_REQUEST + autoEst * SOOMGO_WON_PER_AUTO_ESTIMATE;
+      if (amt <= 0) {
+        res.status(400).json({
+          error: `${ch.name}: 받은요청·자동견적 건수로 산출된 당일 광고비가 0원입니다.`,
+        });
+        return;
+      }
+      channelIds.add(row.channelId);
+      normalized.push({
+        channelId: row.channelId,
+        amount: amt,
+        soomgoReceived: received,
+        soomgoAuto: autoEst,
+        soomgoConfirmed: confirmed,
+      });
+    } else {
+      if (typeof row.amount !== 'number' || !Number.isFinite(row.amount)) continue;
+      const amt = Math.max(0, Math.round(row.amount));
+      if (amt <= 0) continue;
+      channelIds.add(row.channelId);
+      normalized.push({ channelId: row.channelId, amount: amt, soomgoReceived: null, soomgoAuto: null, soomgoConfirmed: null });
+    }
+  }
+
+  if (normalized.length > 0) {
+    const total = normalized.reduce((s, l) => s + l.amount, 0);
+    if (total <= 0) {
+      res.status(400).json({ error: '채널별 금액 합계가 0보다 커야 합니다.' });
       return;
     }
   }
 
-  const total = normalized.reduce((s, l) => s + l.amount, 0);
-  if (total <= 0) {
-    res.status(400).json({ error: '채널별 금액 합계가 0보다 커야 합니다.' });
-    return;
-  }
-
   const endedAt = new Date();
   await prisma.$transaction(async (tx) => {
-    await tx.adSpendLine.createMany({
-      data: normalized.map((l) => ({
-        sessionId: session.id,
-        channelId: l.channelId,
-        amount: l.amount,
-      })),
-    });
+    if (normalized.length > 0) {
+      await tx.adSpendLine.createMany({
+        data: normalized.map((l) => ({
+          sessionId: session.id,
+          channelId: l.channelId,
+          amount: l.amount,
+          soomgoReceivedCount: l.soomgoReceived != null ? l.soomgoReceived : null,
+          soomgoAutoEstimateCount: l.soomgoAuto != null ? l.soomgoAuto : null,
+          soomgoConfirmedCount: l.soomgoConfirmed != null ? l.soomgoConfirmed : null,
+        })),
+      });
+    }
     await tx.adWorkSession.update({
       where: { id: session.id },
       data: { endedAt },
@@ -253,14 +311,6 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     sessionWhere.userId = { in: scope.marketerIds };
   }
 
-  const sessions = await prisma.adWorkSession.findMany({
-    where: sessionWhere,
-    include: {
-      spendLines: true,
-      user: { select: { id: true, name: true, email: true, role: true } },
-    },
-  });
-
   const inquiryWhere = {
     source: '발주서' as const,
     orderFormId: { not: null } as const,
@@ -268,21 +318,34 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     ...(scope.marketerIds !== 'ALL_MARKETERS' ? { createdById: { in: scope.marketerIds } } : {}),
   };
 
-  const inquiries = await prisma.inquiry.findMany({
-    where: inquiryWhere,
-    select: {
-      id: true,
-      createdById: true,
-      serviceTotalAmount: true,
-    },
-  });
+  /** 세션·지출: user 객체 없이 최소 필드만 (메모리 절약) */
+  const [sessions, inquiryTotals, inquiryByCreator] = await Promise.all([
+    prisma.adWorkSession.findMany({
+      where: sessionWhere,
+      select: {
+        userId: true,
+        spendLines: { select: { amount: true } },
+      },
+    }),
+    prisma.inquiry.aggregate({
+      where: inquiryWhere,
+      _count: { _all: true },
+      _sum: { serviceTotalAmount: true },
+    }),
+    prisma.inquiry.groupBy({
+      by: ['createdById'],
+      where: {
+        ...inquiryWhere,
+        createdById: { not: null },
+      },
+      _count: { _all: true },
+      _sum: { serviceTotalAmount: true },
+    }),
+  ]);
 
   const totalSpend = sumSpendFromSessions(sessions);
-  let totalRevenue = 0;
-  for (const q of inquiries) {
-    totalRevenue += q.serviceTotalAmount ?? 0;
-  }
-  const inquiryCount = inquiries.length;
+  const inquiryCount = inquiryTotals._count._all;
+  const totalRevenue = inquiryTotals._sum.serviceTotalAmount ?? 0;
   const roas = totalSpend > 0 ? totalRevenue / totalSpend : null;
   const costPerInquiry = inquiryCount > 0 ? totalSpend / inquiryCount : null;
   const avgDailySpend = totalSpend / days;
@@ -297,10 +360,11 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
 
   const revenueByUser = new Map<string, number>();
   const inquiryCountByUser = new Map<string, number>();
-  for (const q of inquiries) {
-    if (!q.createdById) continue;
-    revenueByUser.set(q.createdById, (revenueByUser.get(q.createdById) ?? 0) + (q.serviceTotalAmount ?? 0));
-    inquiryCountByUser.set(q.createdById, (inquiryCountByUser.get(q.createdById) ?? 0) + 1);
+  for (const row of inquiryByCreator) {
+    const uid = row.createdById;
+    if (!uid) continue;
+    revenueByUser.set(uid, row._sum.serviceTotalAmount ?? 0);
+    inquiryCountByUser.set(uid, row._count._all);
   }
 
   let rowUsers: { id: string; name: string; email: string; role: string }[] = [];

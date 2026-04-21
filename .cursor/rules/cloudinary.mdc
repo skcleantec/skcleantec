@@ -1,0 +1,42 @@
+---
+description: 웹하드(이미지·파일 저장)는 Cloudinary 사용 — 환경변수·보안
+alwaysApply: true
+---
+
+# Cloudinary (웹하드)
+
+## 정책
+
+- **웹하드(업로드 파일 저장)** 는 **Cloudinary** 를 사용한다. (로컬 `server/uploads/`·Railway Volume만으로 두지 않는 기능을 추가할 때 이 전제를 따른다.)
+- **API Key / API Secret 은 서버에서만** 사용한다. 클라이언트 번들·저장소·채팅에 **절대 커밋하지 않는다.**
+- 연결 정보는 **`server/.env`**(로컬, gitignore) 및 **Railway 환경변수**에만 둔다.
+
+## 환경변수 (서버)
+
+아래 **하나의 방식**이면 된다.
+
+1. **권장**: `CLOUDINARY_URL`  
+   - 형식: `cloudinary://<API_KEY>:<API_SECRET>@<CLOUD_NAME>`  
+   - 대시보드 **Dashboard** 상단에 표시되거나, **Settings → API Keys** 에서 확인.
+
+2. **또는 분리** (SDK·문서에 따라):
+   - `CLOUDINARY_CLOUD_NAME`
+   - `CLOUDINARY_API_KEY`
+   - `CLOUDINARY_API_SECRET`
+
+루트 **`.env.example`** 에는 **플레이스홀더만** 두고, 실제 값은 각자 `server/.env` / Railway에 입력한다.
+
+## 운영 (Railway)
+
+- Railway 프로젝트 → **Variables** 에 `CLOUDINARY_URL` (또는 위 분리 변수) 추가.
+- 배포 후 서버 코드에서 `process.env.CLOUDINARY_URL` 등으로 읽는다.
+
+## Cloudinary 콘솔
+
+- **Cloud name**: 대시보드에 표시.
+- **Upload / Security**: 업로드 제한·허용 포맷·CORS는 기능 붙일 때 맞춤 설정.
+
+## 코드 추가 시
+
+- 업로드 API는 **모듈**로 분리하고, 기존 `PUBLIC_URL`·로컬 디스크 업로드와 **공존**할지 한 번에 **마이그레이션**할지 팀 합의 후 진행.
+- `cloudinary` npm 패키지는 **서버** `package.json`에만 추가.

@@ -103,9 +103,16 @@ export async function startAdSession(token: string): Promise<ActiveSession> {
   return res.json();
 }
 
+export type EndAdSessionLine =
+  | { channelId: string; amount: number }
+  | {
+      channelId: string;
+      soomgo: { received: number; autoEstimate: number; confirmed: number };
+    };
+
 export async function endAdSession(
   token: string,
-  lines: { channelId: string; amount: number }[]
+  lines: EndAdSessionLine[]
 ): Promise<{ session: unknown }> {
   const res = await fetch(`${API}/advertising/sessions/end`, {
     method: 'POST',
@@ -164,7 +171,13 @@ export interface HistorySession {
   userId: string;
   startedAt: string;
   endedAt: string | null;
-  spendLines: { amount: number; channel: AdChannel }[];
+  spendLines: {
+    amount: number;
+    channel: AdChannel;
+    soomgoReceivedCount?: number | null;
+    soomgoAutoEstimateCount?: number | null;
+    soomgoConfirmedCount?: number | null;
+  }[];
   user: { id: string; name: string; email: string; role: string };
 }
 

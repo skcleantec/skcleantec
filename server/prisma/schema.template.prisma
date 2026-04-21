@@ -438,6 +438,9 @@ model AdSpendLine {
   sessionId String @map("session_id")
   channelId String @map("channel_id")
   amount    Int
+  soomgoReceivedCount Int? @map("soomgo_received_count")
+  soomgoAutoEstimateCount Int? @map("soomgo_auto_estimate_count")
+  soomgoConfirmedCount Int? @map("soomgo_confirmed_count")
 
   session AdWorkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   channel AdChannel     @relation(fields: [channelId], references: [id], onDelete: Restrict)

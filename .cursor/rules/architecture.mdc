@@ -1,0 +1,27 @@
+---
+description: SK클린텍 아키텍처 및 파일 구조 규칙
+globs: "**/*.{ts,tsx,js,jsx}"
+alwaysApply: false
+---
+
+# 아키텍처 규칙
+
+## 파일/폴더 구조
+
+```
+client/          # 프론트엔드 - 페이지/컴포넌트/API 분리
+server/          # 백엔드 - 모듈별 분리
+prisma/          # DB 스키마, 마이그레이션만
+```
+
+## 금지 사항
+
+- `server/src`에 모든 로직을 한 파일에 작성
+- `client/src`에 페이지·API·상태를 한 컴포넌트에 혼합
+- 하드코딩된 DB 연결 문자열
+
+## 권장
+
+- 기능별 모듈 폴더 (auth, inquiries, assignments 등)
+- API 클라이언트는 `api/` 폴더에 모듈별 분리
+- 공통 컴포넌트는 `components/common/`에만 배치

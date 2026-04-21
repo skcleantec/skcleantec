@@ -1,0 +1,60 @@
+---
+description: 관리자·클라이언트 반응형 UI — PC·모바일 동시 설계, 리스트·상세 서식, 가로 스크롤 테이블
+alwaysApply: true
+---
+
+# 반응형 UI (클라이언트)
+
+## PC·모바일 동시 설계 (필수)
+
+- **처음부터 두 뷰를 함께 설계**한다. 데스크톱만 만들고 모바일은 나중에 덧붙이지 않는다.
+- **데이터 밀집 화면**(관리자 목록·집계·설정 탭 등): 넓은 화면과 좁은 화면에 **서로 맞는 UI**를 둔다.
+  - **좁은 화면**: 카드·요약·핵심 액션 위주 — 예: `lg:hidden` 블록.
+  - **넓은 화면**: 표·열 정렬·한눈에 비교 — 예: `hidden lg:block` + 표.
+- 브레이크포인트는 프로젝트 기존 패턴을 따른다. **관리자 접수·발주서 목록**처럼 목록은 **`lg`** 기준으로 표/카드를 나누는 것을 기본 참고로 한다.
+- 가로 스크롤이 필요하면 **`SyncHorizontalScroll`** 과, 필요 시 **상단 안내(모바일)·하단 요약 바**까지 한 세트로 설계한다.
+
+## 리스트·상세의 서식·깔끔한 디자인 (필수)
+
+- **리스트(표)**: `table-fixed` + `colgroup`으로 열 비율을 고정하고, 긴 값은 **`truncate` + `title`**. 금액은 **`text-right tabular-nums`** + `toLocaleString('ko-KR')` 등. 주소·연락처처럼 반복 패턴은 **공통 유틸**(`client/src/utils/inquiryListDisplay.ts` 등)을 재사용하거나 동일 규칙으로 맞춘다.
+- **리스트(모바일 카드)**: 동일 데이터에 대해 표와 **정보 계층이 대응**하도록 한다(이름·날짜·상태·액션 위치가 들쭉날쭉하지 않게).
+- **상세·모달**: 섹션 단위 카드(제목·본문·여백)로 나누고, 필드 그룹마다 **간격·글자 단계(`text-fluid-*`)**를 통일해 **서식화**된 느낌을 낸다. 장식·애니메이션보다 **읽기 쉬운 정렬과 여백**을 우선한다.
+- **하단 요약**: 건수·필터 요약·PC/모바일별 한 줄 힌트 등은 접수·발주서 목록 하단 패턴을 참고해 **한 카드 안에서** 마무리한다.
+
+## Flex·레이아웃
+
+- 가로로 줄이 좁아질 때 내용이 밀려나가면 부모에 **`min-w-0`** 을 두어 flex/grid 자식이 축소·스크롤되도록 한다.
+- `AdminLayout` 의 `main` 은 `px-4` — **테이블만** 화면 가장자리까지 넓히려면 스크롤 래퍼에 **`-mx-4 px-4 sm:mx-0 sm:px-0`** 를 쓴다 (접수 목록·발주서 목록과 동일).
+
+## 테이블 헤더·본문·금액 표시 (필수)
+
+- **`th`**: 항상 **가운데 정렬** — Tailwind **`text-center`** (좌·우 정렬 `text-left` / `text-right` 를 `th` 에 쓰지 않는다).
+- **목록·데이터 테이블의 `td`**: 기본 **가운데 정렬** — **`text-center`** (`th` 와 맞춤). 긴 텍스트는 **`truncate`** + **`title`** 등으로 보조.
+- **금액·원화 숫자**: 표시 시 **`Number(n).toLocaleString('ko-KR')`** 로 천단위 콤마 후 **`원`** 등 단위를 붙인다. (프로젝트 헬퍼가 있으면 재사용 — 예: `formatCurrency`, 광고 `won()`)
+- **금액 열 `td`만** 읽기 쉽게 **`text-right tabular-nums`** 예외 — 일반 데이터 열은 가운데 정렬 유지.
+
+## 가로 스크롤 테이블
+
+1. **페이지 루트**(관리자 표 화면): **`min-w-0 w-full max-w-full`** 로 상위에서 폭이 잘리지 않게 한다.
+2. **바깥 카드**: **`bg-white border border-gray-200 rounded-lg`** — 테이블 가로 스크롤용 카드에는 **`overflow-hidden` 을 붙이지 않는다** (잘리는 현상·sticky 이슈 방지). 모서리는 필요 시 스크롤 안쪽 div에서 처리.
+3. **스크롤 래퍼**: **`w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain`** + **`-mx-4 px-4 sm:mx-0 sm:px-0`**
+4. **iOS 관성 스크롤**: 래퍼에 `style={{ WebkitOverflowScrolling: 'touch' }}` (필요 시)
+5. **`table`**: `w-full` + `border-collapse`(또는 기존 `border-separate border-spacing-0`). 열이 많고 **고정 폭 레이아웃**이면 **`table-fixed` + `colgroup`** + `text-fluid-2xs` → 큰 화면에서 `xl`/`2xl` 단계 확대. 좁은 뷰에서만 픽셀 **`min-w-[NNNpx]`** 로 가로 스크롤을 유도하는 방식과 병행할 수 있다.
+6. **열이 많을 때**: 첫 열(식별자)에 **`sticky left-0 z-10`** + 배경·**`border-r`** — 가로 스크롤 시에도 고객명 등이 보이게. 행 **`group hover:bg-gray-50`** 일 때 첫 **`td`** 에 **`group-hover:bg-gray-50`** (`thead` sticky 셀은 `bg-gray-100`).
+7. **빈·로딩**: 카드 안에서 `p-8 text-center text-fluid-sm` 등으로 정렬. 모바일에서는 **「표는 좌우로 스크롤」** 안내 한 줄을 둘 수 있다.
+8. **가로 스크롤**: **`SyncHorizontalScroll`** 로 표를 감싼다 — 가로 넘침이 있고 표가 뷰에 보일 때 **뷰포트 하단 고정** 동기 스크롤 막대 + ◀▶ (`fixed` + `createPortal`). 막대가 켜진 동안에는 표 래퍼의 네이티브 가로 스크롤바를 숨기고, 표가 화면 밖이면 얇은 네이티브 스크롤바로만 조작 가능.
+
+## 가로 스크롤 탭·하위 메뉴
+
+- 상단 GNB / 발주서 하위 탭: `flex-nowrap` + `overflow-x-auto` + 스크롤바 숨김 클래스, 좁은 화면에서 좌우 **쉐브론** 힌트(프로젝트 기존 패턴)를 재사용한다.
+
+## 타이포
+
+- 뷰포트에 맞춘 글자 크기는 **`text-fluid-sm` / `text-fluid-xs`** 등 `client/tailwind.config.js` 의 `fluid-*` 를 우선한다.
+
+## 참고 파일
+
+- 접수 목록 테이블: `client/src/pages/admin/AdminInquiriesPage.tsx`
+- 발주서 목록 테이블: `client/src/pages/admin/AdminOrderFormPage.tsx` (`tab === 'list'`)
+- C/S 목록 테이블: `client/src/components/cs/CsWorkdesk.tsx`
+- 상단 네비: `client/src/components/layout/AdminLayout.tsx`

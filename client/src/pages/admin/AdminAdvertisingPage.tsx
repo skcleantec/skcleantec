@@ -319,8 +319,14 @@ export function AdminAdvertisingPage() {
                         )}
                         <td className="py-2 px-3 text-gray-700">
                           {h.spendLines.map((l) => (
-                            <span key={l.channel.id} className="inline-block mr-2 mb-1">
+                            <span key={l.channel.id} className="inline-block mr-2 mb-1 align-top">
                               {l.channel.name} {won(l.amount)}
+                              {l.soomgoReceivedCount != null && (
+                                <span className="block text-fluid-xs text-gray-500 mt-0.5 max-w-[18rem]">
+                                  받은요청 {l.soomgoReceivedCount}건 · 자동견적 {l.soomgoAutoEstimateCount ?? 0}건 · 예약확정{' '}
+                                  {l.soomgoConfirmedCount ?? 0}건
+                                </span>
+                              )}
                             </span>
                           ))}
                         </td>

@@ -1,0 +1,56 @@
+---
+description: (선택) 로컬 Docker Postgres — 사용자가 명시할 때만. 기본은 공개 웹 DB
+alwaysApply: true
+---
+
+# 로컬 Docker Postgres (SK클린텍) — 참고용
+
+## 먼저 읽을 것
+
+**에이전트·팀 기본 DB는 공개 웹 DB만이다.** `server/.env`의 Railway(등) Proxy `DATABASE_URL`. **에이전트는 Docker로 DB를 붙이려 하지 않는다.** 상세·금지 사항은 **`.cursor/rules/local-dev-remote-db.mdc`**.
+
+이 파일(`local-db-setup.mdc`)은 **사용자가 “로컬에서 Docker로 Postgres 쓰겠다”고 명시했을 때** 절차 참고용이다. 일반 개발·트러블슈팅의 기본 경로가 아니다.
+
+## 현재 구성 (Docker 선택 시에만)
+
+Docker 로컬 Postgres(`npm run db:up`)를 쓸 때는 `DATABASE_URL`을 localhost로 바꾼 뒤 아래 표를 따른다. **Neon·기타 원격**도 `postgresql://` 한 줄이면 Prisma 동작은 동일하다.
+
+| 항목 | 값 |
+|------|-----|
+| **DB 엔진** | PostgreSQL 16 |
+| **실행 방식** | Docker Compose (`docker-compose.yml`) |
+| **컨테이너명** | skcleanteck-db |
+| **호스트** | localhost:5432 |
+| **DB명** | skcleanteck |
+| **유저** | skcleanteck |
+| **비밀번호** | skcleanteck |
+
+## server/.env (PostgreSQL 사용 시)
+
+```
+DATABASE_URL="postgresql://skcleanteck:skcleanteck@localhost:5432/skcleanteck"
+JWT_SECRET="dev-secret-change-in-production"
+JWT_EXPIRES_IN="7d"
+PORT=3000
+```
+
+## DB 관련 npm 명령
+
+| 명령 | 설명 |
+|------|------|
+| `npm run db:up` | PostgreSQL Docker 컨테이너 시작 |
+| `npm run db:down` | PostgreSQL Docker 컨테이너 중지 |
+| `npm run db:setup` | prisma db push + seed (테이블 생성, 초기 계정) |
+| `npm run db:studio` | Prisma Studio (DB GUI) |
+| `npm run db:seed` | seed만 실행 (관리자/팀장 계정) |
+
+## 초기 계정 (seed 후)
+
+- **관리자**: admin / 1234
+- **팀장**: team1@skcleanteck.com / 1234, team2@skcleanteck.com / 1234
+
+## 스키마 자동 선택
+
+- `scripts/prepare-schema.js`가 `DATABASE_URL` 형식에 따라 Prisma provider를 선택
+- `postgresql://` → PostgreSQL
+- `file:` → SQLite (Docker 없을 때 대안)
