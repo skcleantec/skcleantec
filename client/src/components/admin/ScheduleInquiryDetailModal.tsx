@@ -855,8 +855,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   setMarketerQuickValue(item.createdBy?.id ?? '');
                   setMarketerQuickOpen(true);
                 }}
-                className="underline underline-offset-2 text-blue-700 hover:text-blue-900"
-                title="클릭해서 담당 마케터 변경"
+                className="touch-manipulation inline-flex min-h-[44px] max-w-full flex-wrap items-center gap-x-1 rounded-md px-1.5 py-1.5 -mx-1 -my-0.5 text-left text-xs underline underline-offset-2 text-blue-700 hover:bg-blue-50 hover:text-blue-900 active:bg-blue-100"
+                title="터치해서 담당 마케터 변경"
               >
                 담당 마케터: {item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}
               </button>
@@ -1581,128 +1581,138 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         initialYmd={editForm.preferredDate}
         onSelect={(ymd) => setEditForm((p) => ({ ...p, preferredDate: ymd }))}
       />
-      {deleteConfirmOpen && item && (
-        <div
-          className="fixed inset-0 z-[550] flex items-center justify-center p-4 bg-black/40"
-          role="dialog"
-          aria-modal
-          aria-labelledby="schedule-delete-confirm-title"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 cursor-default"
-            aria-label="닫기"
-            onClick={() => setDeleteConfirmOpen(false)}
-          />
+      {deleteConfirmOpen &&
+        item &&
+        createPortal(
           <div
-            className="relative bg-white rounded-xl shadow-xl border border-gray-200 p-5 max-w-sm w-full"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[550] flex items-center justify-center p-4 bg-black/40"
+            role="dialog"
+            aria-modal
+            aria-labelledby="schedule-delete-confirm-title"
           >
-            <h3 id="schedule-delete-confirm-title" className="text-base font-semibold text-gray-900 mb-1">
-              접수 삭제 확인
-            </h3>
-            <p className="text-sm text-gray-700">
-              <span className="font-medium">{item.customerName}</span> 접수를 영구 삭제합니다.
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              삭제 후 복구할 수 없습니다. 계속하려면 비밀번호 확인 단계로 이동합니다.
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                onClick={() => setDeleteConfirmOpen(false)}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                className="flex-1 rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
-                onClick={() => {
-                  setDeleteConfirmOpen(false);
-                  setDeletePasswordOpen(true);
-                }}
-              >
-                계속
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <ConfirmPasswordModal
-        open={deletePasswordOpen}
-        title="접수 삭제 비밀번호 확인"
-        confirmLabel="삭제"
-        onClose={() => setDeletePasswordOpen(false)}
-        onConfirm={handleDeleteConfirmed}
-      />
-      {marketerQuickOpen && canEditMarketer && (
-        <div
-          className="fixed inset-0 z-[560] flex items-center justify-center p-4 bg-black/40"
-          role="dialog"
-          aria-modal
-          aria-labelledby="quick-marketer-title"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 cursor-default"
-            aria-label="닫기"
-            onClick={() => setMarketerQuickOpen(false)}
-          />
-          <div
-            className="relative w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="quick-marketer-title" className="text-base font-semibold text-gray-900">
-              담당 마케터 변경
-            </h3>
-            <p className="mt-1 text-xs text-gray-500">변경 후 바로 저장됩니다.</p>
-            <select
-              value={marketerQuickValue}
-              onChange={(e) => setMarketerQuickValue(e.target.value)}
-              className="mt-3 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            <button
+              type="button"
+              className="absolute inset-0 cursor-default"
+              aria-label="닫기"
+              onClick={() => setDeleteConfirmOpen(false)}
+            />
+            <div
+              className="relative bg-white rounded-xl shadow-xl border border-gray-200 p-5 max-w-sm w-full"
+              onClick={(e) => e.stopPropagation()}
             >
-              <option value="">미지정</option>
-              {meUser ? <option value={meUser.id}>관리자 ({meUser.name})</option> : null}
-              {(marketerOptions ?? []).map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                onClick={() => setMarketerQuickOpen(false)}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                className="flex-1 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                onClick={async () => {
-                  setEditForm((p) => ({ ...p, createdById: marketerQuickValue }));
-                  setMarketerQuickOpen(false);
-                  if (!item) return;
-                  setSaving(true);
-                  try {
-                    await updateInquiry(token, item.id, { createdById: marketerQuickValue || null });
-                    onSaved();
-                    onClose();
-                  } catch (e) {
-                    alert(e instanceof Error ? e.message : '담당 마케터 변경에 실패했습니다.');
-                  } finally {
-                    setSaving(false);
-                  }
-                }}
-              >
-                변경 적용
-              </button>
+              <h3 id="schedule-delete-confirm-title" className="text-base font-semibold text-gray-900 mb-1">
+                접수 삭제 확인
+              </h3>
+              <p className="text-sm text-gray-700">
+                <span className="font-medium">{item.customerName}</span> 접수를 영구 삭제합니다.
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                삭제 후 복구할 수 없습니다. 계속하려면 비밀번호 확인 단계로 이동합니다.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => setDeleteConfirmOpen(false)}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+                  onClick={() => {
+                    setDeleteConfirmOpen(false);
+                    setDeletePasswordOpen(true);
+                  }}
+                >
+                  계속
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
+      {deletePasswordOpen &&
+        createPortal(
+          <ConfirmPasswordModal
+            open={deletePasswordOpen}
+            title="접수 삭제 비밀번호 확인"
+            confirmLabel="삭제"
+            onClose={() => setDeletePasswordOpen(false)}
+            onConfirm={handleDeleteConfirmed}
+          />,
+          document.body
+        )}
+      {marketerQuickOpen &&
+        canEditMarketer &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[570] flex items-center justify-center p-4 bg-black/40"
+            role="dialog"
+            aria-modal
+            aria-labelledby="quick-marketer-title"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 cursor-default touch-manipulation"
+              aria-label="닫기"
+              onClick={() => setMarketerQuickOpen(false)}
+            />
+            <div
+              className="relative z-10 w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="quick-marketer-title" className="text-base font-semibold text-gray-900">
+                담당 마케터 변경
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">변경 후 바로 저장됩니다.</p>
+              <select
+                value={marketerQuickValue}
+                onChange={(e) => setMarketerQuickValue(e.target.value)}
+                className="mt-3 min-h-[44px] w-full touch-manipulation rounded border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">미지정</option>
+                {meUser ? <option value={meUser.id}>관리자 ({meUser.name})</option> : null}
+                {(marketerOptions ?? []).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  className="min-h-[44px] flex-1 touch-manipulation rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => setMarketerQuickOpen(false)}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="min-h-[44px] flex-1 touch-manipulation rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  onClick={async () => {
+                    setEditForm((p) => ({ ...p, createdById: marketerQuickValue }));
+                    setMarketerQuickOpen(false);
+                    if (!item) return;
+                    setSaving(true);
+                    try {
+                      await updateInquiry(token, item.id, { createdById: marketerQuickValue || null });
+                      onSaved();
+                      onClose();
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : '담당 마케터 변경에 실패했습니다.');
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                >
+                  변경 적용
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }
