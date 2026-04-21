@@ -15,6 +15,7 @@ import {
   WEEKDAYS,
   type InquiryItem,
   formatScheduleLine,
+  formatCrewInfo,
   formatRoomInfo,
   getCalendarDays,
   TeamHappyCallBadge,
@@ -219,6 +220,9 @@ export function TeamSchedulePage() {
                           </div>
                           <div className="text-fluid-xs text-gray-500 mt-0.5">
                             {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} · {item.areaPyeong ?? '-'}평
+                          </div>
+                          <div className="text-fluid-xs text-gray-500 mt-0.5" title={formatCrewInfo(item)}>
+                            {formatCrewInfo(item)}
                           </div>
                         </div>
                         <div className="shrink-0 flex flex-col items-end gap-1.5">

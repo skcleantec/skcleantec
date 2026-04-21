@@ -100,6 +100,8 @@ export interface InquiryItem {
   preferredTimeDetail?: string | null;
   status: string;
   memo: string | null;
+  crewMemberCount?: number | null;
+  crewMemberNote?: string | null;
   /** 관리자 입력 외부업체 제목 */
   scheduleMemo?: string | null;
   claimMemo: string | null;
@@ -130,6 +132,12 @@ export function formatRoomInfo(r: number | null, b: number | null, v: number | n
   if (b != null) parts.push(`${b}화`);
   if (v != null) parts.push(`${v}베`);
   return parts.length ? parts.join(' ') : '-';
+}
+
+export function formatCrewInfo(item: InquiryItem): string {
+  const n = item.crewMemberCount ?? 2;
+  const note = item.crewMemberNote?.trim();
+  return note ? `팀원${n}명 · ${note}` : `팀원${n}명`;
 }
 
 /** 오늘·내일·N일 후 등만 (없으면 null) */
@@ -405,6 +413,9 @@ export function TeamInquiryDetailModal({
               </TeamModalRow>
               <TeamModalRow label="방 · 화 · 베">
                 <span className="text-gray-800">{formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}</span>
+              </TeamModalRow>
+              <TeamModalRow label="투입 팀원">
+                <span className="text-gray-800">{formatCrewInfo(item)}</span>
               </TeamModalRow>
               {item.propertyType ? (
                 <TeamModalRow label="건축물 유형">

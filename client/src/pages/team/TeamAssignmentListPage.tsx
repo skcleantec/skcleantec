@@ -22,6 +22,7 @@ import {
   STATUS_LABELS,
   type InquiryItem,
   formatRoomInfo,
+  formatCrewInfo,
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
 } from './teamInquiryShared';
@@ -390,6 +391,9 @@ export function TeamAssignmentListPage() {
                       </span>
                       <TeamHappyCallBadge item={item} />
                     </div>
+                    <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatCrewInfo(item)}>
+                      {formatCrewInfo(item)}
+                    </p>
                   </div>
                 );
               })}
@@ -487,6 +491,9 @@ export function TeamAssignmentListPage() {
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
                           {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
+                          <span className="mt-0.5 block truncate text-fluid-2xs text-gray-500" title={formatCrewInfo(item)}>
+                            {formatCrewInfo(item)}
+                          </span>
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
                           <span className="text-fluid-xs tabular-nums">

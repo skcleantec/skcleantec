@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { createInquiry, deleteInquiry, getInquiry, updateInquiry } from '../../api/inquiries';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
-import type { InquiryChangeLogEntry, ScheduleItem } from '../../api/schedule';
+import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
+import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { ModalCloseButton } from './ModalCloseButton';
 import { AddressSearch } from '../forms/AddressSearch';
@@ -45,6 +46,30 @@ const STATUS_LABELS: Record<string, string> = {
   CS_PROCESSING: 'C/S 처리중',
 };
 
+function getHangulInitial(ch: string): string {
+  const code = ch.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return ch;
+  const initials = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+  const idx = Math.floor((code - 0xac00) / 588);
+  return initials[idx] ?? ch;
+}
+
+function normalizeForSearch(v: string): string {
+  return v.toLowerCase().replace(/\s+/g, '');
+}
+
+function toInitials(v: string): string {
+  return Array.from(v).map(getHangulInitial).join('');
+}
+
+function parseCrewMemberNoteToNames(v: string | null | undefined): string[] {
+  if (!v) return [];
+  return v
+    .split(/[,·]/g)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
 function distanceFromJuanLabel(item: ScheduleItem): string | null {
   const km = item.distanceFromJuanKm;
   if (km == null || !Number.isFinite(km)) return null;
@@ -68,7 +93,8 @@ type EditFormFields = {
   teamLeaderIds: string[];
   /** null = 미입력 */
   crewMemberCount: number | null;
-  crewMemberNote: string;
+  /** 팀원 선택 목록(인원수만큼 슬롯) */
+  crewMemberNames: string[];
   status: string;
   customerPhone2: string;
   propertyType: string;
@@ -158,8 +184,123 @@ function buildPatchFromEditForm(editForm: EditFormFields): Record<string, unknow
     }
     patch.crewMemberCount = Math.floor(c);
   }
-  patch.crewMemberNote = editForm.crewMemberNote.trim() ? editForm.crewMemberNote.trim() : null;
+  const pickedNames = editForm.crewMemberNames.map((n) => n.trim()).filter(Boolean);
+  patch.crewMemberNote = pickedNames.length > 0 ? pickedNames.join(', ') : null;
   return patch;
+}
+
+function TeamMemberSearchSelect({
+  options,
+  value,
+  onChange,
+  disabledNames,
+  placeholder,
+}: {
+  options: TeamMemberItem[];
+  value: string;
+  onChange: (v: string) => void;
+  disabledNames?: Set<string>;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const selectedName = value.trim();
+  const selected = options.find((o) => o.name === selectedName) ?? null;
+  const effectiveQuery = query.trim();
+  const qNorm = normalizeForSearch(effectiveQuery);
+  const qInitial = toInitials(effectiveQuery);
+  const filtered = options.filter((o) => {
+    if (!qNorm) return true;
+    const nameNorm = normalizeForSearch(o.name);
+    if (nameNorm.includes(qNorm)) return true;
+    const initialNorm = normalizeForSearch(toInitials(o.name));
+    return initialNorm.includes(normalizeForSearch(qInitial));
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (evt: MouseEvent | TouchEvent) => {
+      const t = evt.target as Node | null;
+      if (!t) return;
+      if (!boxRef.current?.contains(t)) setOpen(false);
+    };
+    const onEsc = (evt: KeyboardEvent) => {
+      if (evt.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown, { passive: true });
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  return (
+    <div ref={boxRef} className="relative">
+      <input
+        ref={inputRef}
+        value={open ? query : selectedName}
+        onFocus={() => {
+          setOpen(true);
+          setQuery(selectedName);
+        }}
+        onChange={(e) => {
+          setOpen(true);
+          setQuery(e.target.value);
+        }}
+        placeholder={placeholder ?? '팀원 검색 (초성 가능)'}
+        className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+      />
+      {open && (
+        <div className="absolute z-30 mt-1 max-h-44 w-full overflow-y-auto rounded border border-gray-200 bg-white shadow-lg">
+          <button
+            type="button"
+            className="block w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+            onClick={() => {
+              onChange('');
+              setQuery('');
+              setOpen(false);
+              inputRef.current?.blur();
+            }}
+          >
+            미선택
+          </button>
+          {filtered.map((m) => {
+            const isDisabled = Boolean(disabledNames?.has(m.name) && m.name !== selectedName);
+            return (
+            <button
+              key={m.id}
+              type="button"
+              disabled={isDisabled}
+              className={`block w-full px-3 py-2 text-left text-sm ${
+                isDisabled ? 'cursor-not-allowed opacity-45 bg-gray-50' : 'hover:bg-blue-50'
+              } ${
+                selected?.id === m.id ? 'bg-blue-50 text-blue-700' : 'text-gray-800'
+              }`}
+              onClick={() => {
+                if (isDisabled) return;
+                onChange(m.name);
+                setQuery(m.name);
+                setOpen(false);
+                inputRef.current?.blur();
+              }}
+            >
+              {m.name}
+            </button>
+            );
+          })}
+          {filtered.length === 0 && (
+            <p className="px-3 py-2 text-sm text-gray-500">일치하는 팀원이 없습니다.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** POST /api/inquiries 본문 — 서버 create 스키마에 맞춤 */
@@ -261,6 +402,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const assigneeHelpRef = useRef<HTMLDivElement | null>(null);
   const [crewHelpOpen, setCrewHelpOpen] = useState(false);
   const crewHelpRef = useRef<HTMLDivElement | null>(null);
+  const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
+  const [occupiedCrewNamesByDate, setOccupiedCrewNamesByDate] = useState<Set<string>>(new Set());
   const [preferredDateLocked, setPreferredDateLocked] = useState(isCreate);
   const [preferredDateCalOpen, setPreferredDateCalOpen] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<InquiryChangeLogEntry[]>([]);
@@ -315,7 +458,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         memo: '',
         teamLeaderIds: [''],
         crewMemberCount: null,
-        crewMemberNote: '',
+        crewMemberNames: [],
         status: 'RECEIVED',
         customerPhone2: '',
         propertyType: '',
@@ -351,7 +494,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       teamLeaderIds:
         it.assignments.length > 0 ? it.assignments.map((a) => a.teamLeader.id) : [''],
       crewMemberCount: it.crewMemberCount ?? null,
-      crewMemberNote: it.crewMemberNote ?? '',
+      crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: it.status,
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
@@ -431,7 +574,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       teamLeaderIds:
         it.assignments.length > 0 ? it.assignments.map((x) => x.teamLeader.id) : [''],
       crewMemberCount: it.crewMemberCount ?? null,
-      crewMemberNote: it.crewMemberNote ?? '',
+      crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: it.status,
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
@@ -451,6 +594,61 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 저장 후 재조회 시 동일 id여도 필드 동기화
   }, [item, professionalCatalog]);
+
+  useEffect(() => {
+    if (!token) {
+      setPoolTeamMembers([]);
+      return;
+    }
+    getPoolTeamMembers(token)
+      .then((r) => setPoolTeamMembers((r.items ?? []).filter((m) => m.isActive)))
+      .catch(() => setPoolTeamMembers([]));
+  }, [token]);
+
+  useEffect(() => {
+    const ymd = editForm.preferredDate?.trim().slice(0, 10);
+    if (!token || !ymd) {
+      setOccupiedCrewNamesByDate(new Set());
+      return;
+    }
+    let cancelled = false;
+    getSchedule(token, ymd, ymd)
+      .then((r) => {
+        if (cancelled) return;
+        const set = new Set<string>();
+        for (const it of r.items ?? []) {
+          if (!isCreate && item && it.id === item.id) continue;
+          const raw = (it.crewMemberNote ?? '').trim();
+          if (!raw) continue;
+          for (const n of parseCrewMemberNoteToNames(raw)) set.add(n);
+        }
+        setOccupiedCrewNamesByDate(set);
+      })
+      .catch(() => {
+        if (!cancelled) setOccupiedCrewNamesByDate(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, editForm.preferredDate, isCreate, item?.id]);
+
+  const effectiveCrewSlots = Math.max(
+    0,
+    editForm.crewMemberCount === null ? DEFAULT_CREW_UNITS_PER_INQUIRY : editForm.crewMemberCount
+  );
+
+  useEffect(() => {
+    setEditForm((prev) => {
+      const cur = prev.crewMemberNames;
+      if (effectiveCrewSlots === cur.length) return prev;
+      if (effectiveCrewSlots < cur.length) {
+        return { ...prev, crewMemberNames: cur.slice(0, effectiveCrewSlots) };
+      }
+      const next = [...cur];
+      while (next.length < effectiveCrewSlots) next.push('');
+      return { ...prev, crewMemberNames: next };
+    });
+  }, [effectiveCrewSlots]);
 
   useEffect(() => {
     if (!assigneeHelpOpen) return;
@@ -1133,9 +1331,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     crewHelpOpen ? 'block' : 'hidden group-hover:block'
                   }`}
                 >
-                  표준은 팀장 1명·팀원 {DEFAULT_CREW_UNITS_PER_INQUIRY}명이 반일(오전 또는 오후) 1건입니다.
-                  미입력 시 스케줄·용량 집계는 표준 {DEFAULT_CREW_UNITS_PER_INQUIRY}명으로 봅니다. 평수가
-                  크거나 다팀 투입이면 인원을 늘려 주세요.
+                  팀원 인원 수에 맞게 아래 드롭다운 선택칸이 늘어납니다. 검색창에 이름 일부나 초성(예:
+                  ㄱㅁ)을 입력하면 빠르게 필터링됩니다.
                 </div>
               </div>
             </div>
@@ -1196,15 +1393,43 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </div>
             </div>
           </div>
-          <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">팀원 수기 (선택)</label>
-            <input
-              value={editForm.crewMemberNote}
-              onChange={(e) => setEditForm((p) => ({ ...p, crewMemberNote: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-              placeholder="예: 김, 태"
-            />
-          </div>
+          {effectiveCrewSlots > 0 && (
+            <div className="sm:col-span-2">
+              <label className="block text-gray-600 mb-1">투입 팀원 선택</label>
+              <div className="flex flex-wrap gap-2">
+                {editForm.crewMemberNames.map((name, idx) => (
+                  <div key={`crew-pick-${idx}`} className="min-w-[11rem] flex-1">
+                    {(() => {
+                      const duplicateSet = new Set(
+                        editForm.crewMemberNames
+                          .map((x, i) => (i === idx ? '' : x.trim()))
+                          .filter(Boolean)
+                      );
+                      const disabled = new Set<string>([...occupiedCrewNamesByDate, ...duplicateSet]);
+                      return (
+                    <TeamMemberSearchSelect
+                      options={poolTeamMembers}
+                      value={name}
+                      disabledNames={disabled}
+                      onChange={(v) =>
+                        setEditForm((p) => {
+                          const next = [...p.crewMemberNames];
+                          next[idx] = v;
+                          return { ...p, crewMemberNames: next };
+                        })
+                      }
+                      placeholder={`${idx + 1}번 팀원 검색`}
+                    />
+                      );
+                    })()}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                같은 창에서 이미 선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다.
+              </p>
+            </div>
+          )}
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">특이사항</label>
             <textarea
