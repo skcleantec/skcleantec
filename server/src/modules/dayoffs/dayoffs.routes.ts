@@ -6,6 +6,7 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import {
   consumesAfternoonSlot,
   consumesMorningSlot,
+  inquiryUsesInternalTeamLeaderSlot,
   isSideCleaningPreferredTime,
 } from '../schedule/scheduleSlot.helpers.js';
 import {
@@ -236,7 +237,10 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       betweenScheduleSlot: true,
       crewMemberCount: true,
       assignments: {
-        select: { teamLeaderId: true },
+        select: {
+          teamLeaderId: true,
+          teamLeader: { select: { role: true } },
+        },
       },
     },
   });
@@ -368,8 +372,9 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
           sideCleaningUnconfirmedCount += 1;
         }
       }
-      const leaderCount = inv.assignments.length;
-      const slotWeight = leaderCount > 0 ? leaderCount : 1;
+      if (!inquiryUsesInternalTeamLeaderSlot(inv)) continue;
+      const internalLeaderCount = inv.assignments.filter((a) => a.teamLeader.role === 'TEAM_LEADER').length;
+      const slotWeight = internalLeaderCount > 0 ? internalLeaderCount : 1;
       if (consumesMorningSlot(inv)) morningOccupied += slotWeight;
       if (consumesAfternoonSlot(inv)) afternoonOccupied += slotWeight;
     }
@@ -377,14 +382,18 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     const morningAssignedIds = new Set<string>();
     for (const inv of dayInquiries) {
       if (!consumesMorningSlot(inv)) continue;
+      if (!inquiryUsesInternalTeamLeaderSlot(inv)) continue;
       for (const a of inv.assignments) {
+        if (a.teamLeader.role !== 'TEAM_LEADER') continue;
         morningAssignedIds.add(a.teamLeaderId);
       }
     }
     const afternoonAssignedIds = new Set<string>();
     for (const inv of dayInquiries) {
       if (!consumesAfternoonSlot(inv)) continue;
+      if (!inquiryUsesInternalTeamLeaderSlot(inv)) continue;
       for (const a of inv.assignments) {
+        if (a.teamLeader.role !== 'TEAM_LEADER') continue;
         afternoonAssignedIds.add(a.teamLeaderId);
       }
     }
@@ -410,7 +419,9 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     const unassignedTotal = assignableMorning + assignableAfternoonSlot;
 
     const crewAvailable = crewAvailableByDate.get(key) ?? 0;
-    const crewDemand = dayInquiries.reduce((sum, inv) => sum + crewUnitsForInquiry(inv.crewMemberCount), 0);
+    const crewDemand = dayInquiries
+      .filter((inv) => inquiryUsesInternalTeamLeaderSlot(inv))
+      .reduce((sum, inv) => sum + crewUnitsForInquiry(inv.crewMemberCount), 0);
     const crewRemaining = Math.max(0, crewAvailable - crewDemand);
     const additionalStandardJobsByCrew = Math.floor(crewRemaining / DEFAULT_CREW_UNITS_PER_INQUIRY);
     const crewDayOffCount = Math.max(0, activeMembersTotal - crewAvailable);

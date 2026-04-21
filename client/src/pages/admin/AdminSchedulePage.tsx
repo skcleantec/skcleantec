@@ -144,6 +144,15 @@ function scheduleItemDistanceKmLabel(item: ScheduleItem): string | null {
   return `${km}km`;
 }
 
+/** 접수 등록자(마케터 등). 없으면 발주서 작성자 이름 */
+function scheduleItemIntakeMarketerName(item: ScheduleItem): string | null {
+  const fromInquiry = item.createdBy?.name?.trim();
+  if (fromInquiry) return fromInquiry;
+  const fromOrderForm = item.orderForm?.createdBy?.name?.trim();
+  if (fromOrderForm) return fromOrderForm;
+  return null;
+}
+
 function ScheduleDayListItem({
   item,
   profCatalog,
@@ -194,6 +203,7 @@ function ScheduleDayListItem({
   const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';
   const hasScheduleMemo = Boolean(scheduleMemoLine);
   const distanceLabel = scheduleItemDistanceKmLabel(item);
+  const intakeMarketerName = scheduleItemIntakeMarketerName(item);
   const hasAssignment = (item.assignments?.length ?? 0) > 0;
   const canHappyCall = isHappyCallEligible(item.status, item.preferredDate);
   const happyTone = happyCallRowTone(
@@ -228,7 +238,10 @@ function ScheduleDayListItem({
                 수기
               </span>
             )}
-            {(item.inquiryNumber || hasScheduleMemo || distanceLabel) && (
+            {(item.inquiryNumber ||
+              hasScheduleMemo ||
+              distanceLabel ||
+              intakeMarketerName) && (
               <span className="inline-flex items-center gap-0.5 flex-nowrap shrink-0 text-[10px] sm:text-fluid-2xs font-normal">
                 {item.inquiryNumber ? (
                   <span className="text-gray-400 tabular-nums leading-none shrink-0">{item.inquiryNumber}</span>
@@ -240,6 +253,15 @@ function ScheduleDayListItem({
                   >
                     {item.inquiryNumber ? ' · ' : ''}
                     {distanceLabel}
+                  </span>
+                ) : null}
+                {intakeMarketerName ? (
+                  <span
+                    className="text-gray-500 leading-none shrink-0 max-w-[6rem] sm:max-w-[9rem] truncate"
+                    title="접수자(담당마케터)"
+                  >
+                    {item.inquiryNumber || distanceLabel ? ' · ' : ''}
+                    {intakeMarketerName}
                   </span>
                 ) : null}
                 {hasScheduleMemo ? (

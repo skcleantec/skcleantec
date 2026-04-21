@@ -47,3 +47,16 @@ export function consumesAfternoonSlot(inquiry: {
   }
   return !isPlainMorningSlot(inquiry.preferredTime);
 }
+
+/**
+ * 자사 팀장 슬롯·TO 집계에 포함할 접수인지.
+ * 타업체(EXTERNAL_PARTNER) 팀장만 배정된 건은 우리 팀장 가용과 무관하므로 제외.
+ * 미배정은 집계에 포함(true).
+ */
+export function inquiryUsesInternalTeamLeaderSlot(inv: {
+  assignments: ReadonlyArray<{ teamLeader: { role: string } }>;
+}): boolean {
+  const list = inv.assignments;
+  if (list.length === 0) return true;
+  return list.some((a) => a.teamLeader.role === 'TEAM_LEADER');
+}
