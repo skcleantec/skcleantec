@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
+import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
 
 const router = Router();
 
@@ -9,6 +9,10 @@ router.use(authMiddleware);
 router.use(adminOnly);
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+function kstYmd(d: Date): string {
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
 
 /** 타업체 목록 + 소속 로그인 계정 수 */
 router.get('/', async (_req, res) => {
@@ -181,7 +185,7 @@ router.post('/:id/deactivate', async (req, res) => {
 });
 
 /**
- * 타업체별 넘김 수수료 집계 (기간: 예약일 preferredDate KST)
+ * 타업체별 수수료 집계 (기간: 예약일 preferredDate KST)
  * query: from, to (yyyy-mm-dd)
  */
 router.get('/settlement/summary', async (req, res) => {
@@ -265,6 +269,123 @@ router.get('/settlement/summary', async (req, res) => {
     unassigned: unassignedCount > 0 ? { inquiryCount: unassignedCount, feeSum: unassignedFee } : null,
     grandTotal,
   });
+});
+
+/**
+ * 업체별 수수료 누계(마지막 「정산완료」 이후 구간 + 예약일 기준 일·월·년)
+ * 타업체(EXTERNAL_PARTNER) 배정 접수만, 수수료 입력 건만 합산
+ */
+router.get('/settlement/accruals', async (_req, res) => {
+  const now = new Date();
+  const todayYmd = kstYmd(now);
+  const monthKey = todayYmd.slice(0, 7);
+  const yearPrefix = todayYmd.slice(0, 4);
+
+  const companies = await prisma.externalCompany.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+
+  const resets = await prisma.externalCompanySettlementReset.findMany({
+    orderBy: { resetAt: 'desc' },
+    select: { externalCompanyId: true, resetAt: true },
+  });
+  const lastResetByCompany = new Map<string, Date>();
+  for (const r of resets) {
+    if (!lastResetByCompany.has(r.externalCompanyId)) {
+      lastResetByCompany.set(r.externalCompanyId, r.resetAt);
+    }
+  }
+
+  const inquiries = await prisma.inquiry.findMany({
+    where: {
+      externalTransferFee: { not: null },
+      status: { not: 'CANCELLED' },
+      assignments: {
+        some: {
+          teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } },
+        },
+      },
+    },
+    select: {
+      id: true,
+      preferredDate: true,
+      externalTransferFee: true,
+      createdAt: true,
+      updatedAt: true,
+      assignments: {
+        orderBy: { sortOrder: 'asc' },
+        select: {
+          teamLeader: { select: { role: true, externalCompanyId: true } },
+        },
+      },
+    },
+  });
+
+  type Acc = { sinceReset: number; today: number; month: number; year: number };
+  const accByCompany = new Map<string, Acc>();
+  for (const c of companies) {
+    accByCompany.set(c.id, { sinceReset: 0, today: 0, month: 0, year: 0 });
+  }
+
+  for (const inq of inquiries) {
+    const ext = inq.assignments.find(
+      (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId
+    );
+    const cid = ext?.teamLeader.externalCompanyId;
+    if (!cid || !accByCompany.has(cid)) continue;
+
+    const fee = inq.externalTransferFee ?? 0;
+    const lastReset = lastResetByCompany.get(cid) ?? new Date(0);
+    const activeSinceReset = inq.createdAt > lastReset || inq.updatedAt > lastReset;
+    if (!activeSinceReset) continue;
+
+    const a = accByCompany.get(cid)!;
+    a.sinceReset += fee;
+
+    if (inq.preferredDate) {
+      const pYmd = kstYmd(inq.preferredDate);
+      if (pYmd === todayYmd) a.today += fee;
+      if (pYmd.slice(0, 7) === monthKey) a.month += fee;
+      if (pYmd.slice(0, 4) === yearPrefix) a.year += fee;
+    }
+  }
+
+  const items = companies.map((c) => ({
+    externalCompanyId: c.id,
+    companyName: c.name,
+    lastResetAt: lastResetByCompany.get(c.id)?.toISOString() ?? null,
+    sinceResetTotal: accByCompany.get(c.id)!.sinceReset,
+    todayTotal: accByCompany.get(c.id)!.today,
+    monthTotal: accByCompany.get(c.id)!.month,
+    yearTotal: accByCompany.get(c.id)!.year,
+  }));
+
+  res.json({ todayYmd, monthKey, year: yearPrefix, items });
+});
+
+/** 정산 완료 후 누계 초기화(해당 업체만) */
+router.post('/settlement/reset-accrual', async (req, res) => {
+  const actorId = (req as unknown as { user: AuthPayload }).user.userId;
+  const body = req.body as { externalCompanyId?: string };
+  const id = typeof body.externalCompanyId === 'string' ? body.externalCompanyId.trim() : '';
+  if (!id) {
+    res.status(400).json({ error: 'externalCompanyId가 필요합니다.' });
+    return;
+  }
+  const co = await prisma.externalCompany.findFirst({ where: { id, isActive: true } });
+  if (!co) {
+    res.status(404).json({ error: '타업체를 찾을 수 없습니다.' });
+    return;
+  }
+  await prisma.externalCompanySettlementReset.create({
+    data: {
+      externalCompanyId: id,
+      actorId,
+    },
+  });
+  res.json({ ok: true });
 });
 
 export default router;

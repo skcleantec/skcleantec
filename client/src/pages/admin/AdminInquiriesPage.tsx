@@ -2092,7 +2092,7 @@ export function AdminInquiriesPage() {
                 />
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">타업체 넘김 금액 (원)</label>
+                <label className="block text-fluid-sm text-gray-600 mb-1">타업체 수수료 (원)</label>
                 <input
                   value={editForm.externalTransferFee}
                   onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
@@ -2100,7 +2100,7 @@ export function AdminInquiriesPage() {
                   placeholder="정보 넘길 때 받은 금액"
                   inputMode="numeric"
                 />
-                <p className="text-fluid-xs text-gray-500 mt-1">타업체로 배정할 때 받은 수수료 등. 비우면 미입력.</p>
+                <p className="text-fluid-xs text-gray-500 mt-1">타업체 담당으로 배정된 건의 수수료. 비우면 미입력.</p>
               </div>
               <div className="sm:col-span-2 space-y-2">
                 <label className="block text-fluid-sm text-gray-600 mb-1">담당 팀장·타업체 (여러 명 가능)</label>

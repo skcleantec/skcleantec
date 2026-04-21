@@ -103,3 +103,41 @@ export async function getExternalSettlementSummary(
   }
   return res.json();
 }
+
+export type ExternalFeeAccrualItem = {
+  externalCompanyId: string;
+  companyName: string;
+  lastResetAt: string | null;
+  sinceResetTotal: number;
+  todayTotal: number;
+  monthTotal: number;
+  yearTotal: number;
+};
+
+export type ExternalFeeAccrualsResponse = {
+  todayYmd: string;
+  monthKey: string;
+  year: string;
+  items: ExternalFeeAccrualItem[];
+};
+
+export async function getExternalFeeAccruals(token: string): Promise<ExternalFeeAccrualsResponse> {
+  const res = await fetch(`${API}/external-companies/settlement/accruals`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '누계를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function postExternalFeeAccrualReset(token: string, externalCompanyId: string): Promise<void> {
+  const res = await fetch(`${API}/external-companies/settlement/reset-accrual`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ externalCompanyId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '초기화에 실패했습니다.');
+  }
+}

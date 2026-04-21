@@ -641,7 +641,7 @@ router.patch('/:id', async (req, res) => {
     if (beforeLabel !== afterLabel) lines.push(`담당 마케터: ${beforeLabel} → ${afterLabel}`);
   }
   if (data.externalTransferFee !== undefined)
-    pushIfChanged('타업체 넘김 수수료', inquiry.externalTransferFee, data.externalTransferFee, fmtNum);
+    pushIfChanged('타업체 수수료', inquiry.externalTransferFee, data.externalTransferFee, fmtNum);
   if (data.professionalOptionIds !== undefined) {
     const before = Array.isArray(inquiry.professionalOptionIds) ? inquiry.professionalOptionIds : [];
     const after = Array.isArray(data.professionalOptionIds) ? data.professionalOptionIds : [];

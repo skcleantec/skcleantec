@@ -103,7 +103,7 @@ type EditFormFields = {
   amountTotal: string;
   amountDeposit: string;
   amountBalance: string;
-  /** 타업체 넘김 수수료(원), 빈 문자열 = 미입력 */
+  /** 타업체 수수료(원), 빈 문자열 = 미입력 */
   externalTransferFee: string;
   /** 수기(간편) 등록 제목(접수 리스트 노출) */
   scheduleMemo: string;
@@ -1173,7 +1173,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             />
           </div>
           <div>
-            <label className="block text-gray-600 mb-1">타업체 넘김 금액 (원)</label>
+            <label className="block text-gray-600 mb-1">타업체 수수료 (원)</label>
             <input
               value={editForm.externalTransferFee}
               onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
@@ -1181,7 +1181,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               inputMode="numeric"
               placeholder="비우면 미입력"
             />
-            <p className="text-[11px] text-gray-500 mt-1">고객 정보를 타업체에 넘기며 받은 금액</p>
+            <p className="text-[11px] text-gray-500 mt-1">타업체 담당으로 배정된 건에 대해 받는 수수료</p>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">전문 시공 옵션</label>
