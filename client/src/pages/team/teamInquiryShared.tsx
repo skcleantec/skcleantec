@@ -100,6 +100,8 @@ export interface InquiryItem {
   preferredTimeDetail?: string | null;
   status: string;
   memo: string | null;
+  /** 관리자 입력 외부업체 제목 */
+  scheduleMemo?: string | null;
   claimMemo: string | null;
   createdAt: string;
   /** ISO — 팀장 해피콜 완료 시각 */
@@ -345,6 +347,11 @@ export function TeamInquiryDetailModal({
               <TeamModalRow label="접수일">
                 <span className="tabular-nums text-gray-800">{formatDateCompactWithWeekday(item.createdAt)}</span>
               </TeamModalRow>
+              {item.scheduleMemo?.trim() ? (
+                <TeamModalRow label="제목">
+                  <span className="text-gray-900">{item.scheduleMemo}</span>
+                </TeamModalRow>
+              ) : null}
             </TeamModalSection>
 
             {viewerTeamLeaderId && mine ? (

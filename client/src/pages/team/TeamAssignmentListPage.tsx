@@ -358,6 +358,11 @@ export function TeamAssignmentListPage() {
                             </span>
                           ) : null}
                         </div>
+                        {item.scheduleMemo?.trim() ? (
+                          <p className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={item.scheduleMemo}>
+                            {item.scheduleMemo}
+                          </p>
+                        ) : null}
                         <p className="mt-1 text-fluid-xs tabular-nums text-gray-500">
                           배정 {formatAssignedAt(mine?.assignedAt)}
                         </p>
@@ -446,12 +451,24 @@ export function TeamAssignmentListPage() {
                         <td
                           className={`align-middle py-2 px-2 font-medium text-gray-900 text-center whitespace-nowrap ${pBorder}`}
                         >
-                          {item.customerName}
-                          {item.claimMemo ? (
-                            <span className="ml-1 text-orange-600" title={item.claimMemo}>
-                              ●
-                            </span>
-                          ) : null}
+                          <div className="flex min-w-0 flex-col items-center leading-tight">
+                            <div className="min-w-0 max-w-full truncate">
+                              {item.customerName}
+                              {item.claimMemo ? (
+                                <span className="ml-1 text-orange-600" title={item.claimMemo}>
+                                  ●
+                                </span>
+                              ) : null}
+                            </div>
+                            {item.scheduleMemo?.trim() ? (
+                              <div
+                                className="mt-0.5 max-w-full truncate text-fluid-2xs font-normal text-gray-600"
+                                title={item.scheduleMemo}
+                              >
+                                {item.scheduleMemo}
+                              </div>
+                            ) : null}
+                          </div>
                         </td>
                         <td
                           className={`align-middle py-2 px-2 text-gray-600 text-center break-all max-w-[7rem] ${pBorder}`}

@@ -205,6 +205,11 @@ export function TeamSchedulePage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-gray-900">{item.customerName}</div>
+                          {item.scheduleMemo?.trim() ? (
+                            <div className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={item.scheduleMemo}>
+                              {item.scheduleMemo}
+                            </div>
+                          ) : null}
                           <div className="text-fluid-sm text-gray-600 mt-0.5">
                             {item.customerPhone}
                           </div>
