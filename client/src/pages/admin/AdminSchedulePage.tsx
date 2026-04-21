@@ -14,6 +14,7 @@ import { kstTodayYmd } from '../../utils/dateFormat';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
+import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
@@ -723,6 +724,10 @@ export function AdminSchedulePage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-gray-900 shrink-0" />
                 선택한 날
               </span>
+              <span className="inline-flex items-center gap-2" title={SON_EOMNEUNG_NAL_HELP}>
+                <span className="text-calendar-xs font-bold text-teal-700 tabular-nums leading-none">12</span>
+                손없는날
+              </span>
             </div>
             <div className="mt-2 flex items-center justify-end border-t border-gray-200/80 pt-2">
               <HelpTooltip
@@ -781,6 +786,7 @@ export function AdminSchedulePage() {
                 const isSaturday = i % 7 === 6;
                 const isSunday = i % 7 === 0;
                 const isHoliday = isPublicHoliday(year, month, d);
+                const sonDay = isSonEomneungNal(year, month, d);
                 const today = isTodayYmd(year, month, d);
                 const hasEmptySlots =
                   workingCount > 0 &&
@@ -821,7 +827,7 @@ export function AdminSchedulePage() {
                         setSelectedDate(isSelected ? null : key);
                       }
                     }}
-                    className={`min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 px-1.5 py-1 sm:px-2 sm:py-1.5 pb-[clamp(1.35rem,3.8vmin,1.85rem)] cursor-pointer relative overflow-visible text-left transition-colors ${
+                    className={`min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 px-1.5 py-1 sm:px-2 sm:py-1.5 flex flex-col cursor-pointer relative overflow-hidden text-left transition-colors ${
                       cellBg
                     } ${pendingAccent ? 'ring-1 ring-rose-400/90 ring-inset' : ''} ${
                       onHoldAccent ? 'ring-1 ring-amber-500/95 ring-inset' : ''
@@ -831,47 +837,26 @@ export function AdminSchedulePage() {
                       onHoldDayCount > 0 && pendingDayCount === 0 ? 'bg-amber-50/35' : ''
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-0.5 sm:gap-1 min-w-0">
-                      <div className="flex items-center gap-1 min-w-0 sm:gap-1.5">
-                        <span
-                          className={
-                            today
-                              ? 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-gray-900 text-calendar-xs font-bold text-white shadow-sm tabular-nums sm:h-7 sm:min-w-[1.75rem]'
-                              : `text-calendar-xs font-semibold tabular-nums text-gray-900`
-                          }
-                        >
-                          {d}
-                        </span>
-                        <span className={`text-calendar-2xs font-medium leading-tight ${weekdayColor}`}>
-                          {weekdayKoFromYmd(year, month, d)}
-                        </span>
-                      </div>
-                      {pendingDayCount > 0 && (
-                        <span
-                          className="shrink-0 text-calendar-2xs font-semibold text-rose-800 bg-rose-100/90 px-1 sm:px-1.5 py-0.5 rounded-md leading-none max-w-[min(100%,3.8rem)] truncate"
-                          title="대기 접수(발주서 미제출)"
-                        >
-                          대기{pendingDayCount > 1 ? pendingDayCount : ''}
-                        </span>
-                      )}
-                      {onHoldDayCount > 0 && (
-                        <span
-                          className="shrink-0 text-calendar-2xs font-bold text-amber-950 bg-amber-200/95 px-1 sm:px-1.5 py-0.5 rounded-md leading-none max-w-[min(100%,5rem)] truncate"
-                          title="보류(일정 미확정) — 담당 배정 없음"
-                        >
-                          ! 보류{onHoldDayCount > 1 ? onHoldDayCount : ''}
-                        </span>
-                      )}
-                      {cancelledDayCount > 0 && (
-                        <span
-                          className="shrink-0 text-calendar-2xs font-semibold text-slate-700 bg-slate-200/90 px-1 sm:px-1.5 py-0.5 rounded-md leading-none max-w-[min(100%,4rem)] truncate"
-                          title="취소된 접수(일정에 유지)"
-                        >
-                          취소{cancelledDayCount > 1 ? cancelledDayCount : ''}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-1 min-w-0 sm:gap-1.5 shrink-0">
+                      <span
+                        title={sonDay ? SON_EOMNEUNG_NAL_HELP : undefined}
+                        className={
+                          today
+                            ? sonDay
+                              ? 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-teal-700 text-calendar-xs font-bold text-white shadow-sm tabular-nums ring-1 ring-teal-500/90 sm:h-7 sm:min-w-[1.75rem]'
+                              : 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-gray-900 text-calendar-xs font-bold text-white shadow-sm tabular-nums sm:h-7 sm:min-w-[1.75rem]'
+                            : sonDay
+                              ? 'text-calendar-xs font-bold tabular-nums text-teal-700'
+                              : 'text-calendar-xs font-semibold tabular-nums text-gray-900'
+                        }
+                      >
+                        {d}
+                      </span>
+                      <span className={`text-calendar-2xs font-medium leading-tight truncate ${weekdayColor}`}>
+                        {weekdayKoFromYmd(year, month, d)}
+                      </span>
                     </div>
-                    <div className="mt-1.5 sm:mt-2 flex flex-col gap-0.5 sm:gap-1 min-w-0">
+                    <div className="mt-1.5 sm:mt-2 flex flex-col gap-0.5 sm:gap-1 min-w-0 flex-1 min-h-0">
                       <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
                         <span className={isSlotFull ? 'text-slate-600 font-medium text-calendar-2xs' : 'text-amber-900/90 font-medium text-calendar-2xs'}>
                           오전
@@ -966,8 +951,36 @@ export function AdminSchedulePage() {
                         )}
                       </div>
                     </div>
+                    {(pendingDayCount > 0 || onHoldDayCount > 0 || cancelledDayCount > 0) && (
+                      <div className="mt-auto pt-1 border-t border-gray-200/70 flex flex-wrap gap-0.5 justify-center items-center content-center min-w-0 w-full">
+                        {pendingDayCount > 0 && (
+                          <span
+                            className="text-[0.65rem] sm:text-calendar-2xs font-semibold leading-tight text-rose-800 bg-rose-100/90 px-1 py-px rounded tabular-nums max-w-full text-center"
+                            title="대기 접수(발주서 미제출)"
+                          >
+                            대기{pendingDayCount > 1 ? pendingDayCount : ''}
+                          </span>
+                        )}
+                        {onHoldDayCount > 0 && (
+                          <span
+                            className="text-[0.65rem] sm:text-calendar-2xs font-bold leading-tight text-amber-950 bg-amber-200/95 px-1 py-px rounded tabular-nums max-w-full text-center"
+                            title="보류(일정 미확정) — 담당 배정 없음"
+                          >
+                            ! 보류{onHoldDayCount > 1 ? onHoldDayCount : ''}
+                          </span>
+                        )}
+                        {cancelledDayCount > 0 && (
+                          <span
+                            className="text-[0.65rem] sm:text-calendar-2xs font-semibold leading-tight text-slate-700 bg-slate-200/90 px-1 py-px rounded tabular-nums max-w-full text-center"
+                            title="취소된 접수(일정에 유지)"
+                          >
+                            취소{cancelledDayCount > 1 ? cancelledDayCount : ''}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {isSlotFull && (
-                      <span className="absolute bottom-0.5 left-1 right-1 text-center text-calendar-2xs font-semibold text-slate-600 tracking-wide whitespace-nowrap">
+                      <span className="mt-0.5 text-center text-[0.65rem] sm:text-calendar-2xs font-semibold text-slate-600 tracking-tight leading-none">
                         마감
                       </span>
                     )}

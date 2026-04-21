@@ -9,6 +9,7 @@ import { getTeamToken } from '../../stores/teamAuth';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { isPublicHoliday } from '../../utils/holidays';
+import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { formatDateCompactWithWeekday, weekdayKoFromYmd } from '../../utils/dateFormat';
 import {
   STATUS_LABELS,
@@ -122,9 +123,15 @@ export function TeamSchedulePage() {
         </div>
       )}
       <section>
-        <h2 className="text-base font-semibold text-gray-800 mb-3 px-1 flex items-center gap-2">
+        <h2 className="text-base font-semibold text-gray-800 mb-3 px-1 flex items-center gap-2 flex-wrap">
           <span className="w-1 h-4 bg-gray-400 rounded" />
           달력 · 날짜별 상세
+          <span
+            className="text-fluid-2xs font-normal text-gray-500 ml-auto sm:ml-1"
+            title={SON_EOMNEUNG_NAL_HELP}
+          >
+            <span className="font-bold text-teal-700 tabular-nums">숫자 청록</span>=손없는날
+          </span>
         </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
           <div className="flex gap-2 p-3 border-b border-gray-100">
@@ -172,7 +179,21 @@ export function TeamSchedulePage() {
               const isSelected = selectedDate === key;
               const isSaturday = i % 7 === 6;
               const isHoliday = isPublicHoliday(year, month, d);
-              const dateColor = isHoliday ? 'text-red-600' : isSaturday ? 'text-blue-600' : hasEvents ? 'text-blue-700' : 'text-gray-800';
+              const sonDay = isSonEomneungNal(year, month, d);
+              const dayNumClass = isHoliday
+                ? 'text-red-600'
+                : sonDay
+                  ? 'text-teal-700 font-bold'
+                  : hasEvents
+                    ? 'text-blue-700'
+                    : isSaturday
+                      ? 'text-blue-600'
+                      : 'text-gray-800';
+              const weekdayClass = isHoliday
+                ? 'text-red-600'
+                : isSaturday
+                  ? 'text-blue-600'
+                  : 'text-gray-600';
               return (
                 <div
                   key={key}
@@ -181,8 +202,12 @@ export function TeamSchedulePage() {
                     hasEvents ? 'bg-blue-50' : ''
                   } ${isToday ? 'ring-1 ring-blue-400 ring-inset' : ''} ${isSelected ? 'bg-blue-200' : 'active:bg-gray-100'}`}
                 >
-                  <span className={`absolute top-0.5 left-1 right-1 text-center text-calendar-2xs font-medium leading-tight tabular-nums ${dateColor}`}>
-                    {d} {weekdayKoFromYmd(year, month, d)}
+                  <span
+                    title={sonDay ? SON_EOMNEUNG_NAL_HELP : undefined}
+                    className="absolute top-0.5 left-1 right-1 text-center text-calendar-2xs font-medium leading-tight tabular-nums"
+                  >
+                    <span className={dayNumClass}>{d}</span>{' '}
+                    <span className={weekdayClass}>{weekdayKoFromYmd(year, month, d)}</span>
                   </span>
                   {hasEvents && (
                     <span className="text-calendar-2xs text-blue-600 font-medium">{dayItems.length}건</span>
