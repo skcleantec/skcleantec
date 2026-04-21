@@ -1,6 +1,6 @@
 const API = '/api';
 
-export type CleaningPhotoPhase = 'BEFORE' | 'AFTER';
+export type CleaningPhotoPhase = 'BEFORE' | 'AFTER' | 'CLAIM';
 
 export interface CleaningPhotoItem {
   id: string;

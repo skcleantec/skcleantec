@@ -16,6 +16,7 @@ import { parseJwtPayload } from '../../utils/jwtPayload';
 const PHASE_LABEL: Record<CleaningPhotoPhase, string> = {
   BEFORE: '청소 전',
   AFTER: '청소 후',
+  CLAIM: '클레임',
 };
 
 function CameraUploadIcon({ className }: { className?: string }) {
@@ -229,6 +230,7 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
                 >
                   <option value="BEFORE">{PHASE_LABEL.BEFORE}</option>
                   <option value="AFTER">{PHASE_LABEL.AFTER}</option>
+                  <option value="CLAIM">{PHASE_LABEL.CLAIM}</option>
                 </select>
               </div>
               <input
@@ -263,7 +265,7 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
         <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
       ) : (
         <div className="space-y-4">
-          {(['BEFORE', 'AFTER'] as const).map((phase) => {
+          {(['BEFORE', 'AFTER', 'CLAIM'] as const).map((phase) => {
             const list = byPhase(phase);
             return (
               <div key={phase} className="min-w-0">

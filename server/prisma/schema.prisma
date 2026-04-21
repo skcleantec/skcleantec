@@ -222,6 +222,8 @@ model Inquiry {
 enum CleaningPhotoPhase {
   BEFORE
   AFTER
+  /// 접수 목록 등에서 C/S(클레임) 등록 시 첨부 — 청소 전·후와 구분
+  CLAIM
 }
 
 /// 현장 청소 전·후 사진 (Cloudinary)

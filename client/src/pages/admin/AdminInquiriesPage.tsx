@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
@@ -27,6 +27,7 @@ import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
+import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import {
   addressListShortSiGu,
@@ -343,6 +344,8 @@ export function AdminInquiriesPage() {
   });
   const [claimItem, setClaimItem] = useState<InquiryItem | null>(null);
   const [claimMemo, setClaimMemo] = useState('');
+  const [claimPhotoFiles, setClaimPhotoFiles] = useState<File[]>([]);
+  const claimPhotoInputRef = useRef<HTMLInputElement>(null);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -648,17 +651,36 @@ export function AdminInquiriesPage() {
   const openClaim = (item: InquiryItem) => {
     setClaimItem(item);
     setClaimMemo(item.claimMemo || '');
+    setClaimPhotoFiles([]);
+  };
+
+  const closeClaimModal = () => {
+    setClaimItem(null);
+    setClaimPhotoFiles([]);
   };
 
   const handleSaveClaim = async () => {
     if (!token || !claimItem) return;
     setSaving(true);
+    const filesSnapshot = [...claimPhotoFiles];
     try {
       await updateInquiry(token, claimItem.id, {
         claimMemo: claimMemo || null,
         status: 'CS_PROCESSING',
       });
-      setClaimItem(null);
+      setClaimPhotoFiles([]);
+      if (filesSnapshot.length > 0) {
+        try {
+          await uploadAdminCleaningPhotos(token, claimItem.id, filesSnapshot, 'CLAIM');
+        } catch (e) {
+          alert(
+            e instanceof Error
+              ? `클레임은 저장되었으나 사진 업로드에 실패했습니다.\n${e.message}`
+              : '클레임은 저장되었으나 사진 업로드에 실패했습니다.'
+          );
+        }
+      }
+      closeClaimModal();
       refresh(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -1661,7 +1683,7 @@ export function AdminInquiriesPage() {
         createPortal(
           <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto overscroll-y-contain bg-black/40 px-4 py-6 sm:py-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
             <div className="relative my-auto w-full max-w-md shrink-0 rounded-lg bg-white p-6 shadow-xl">
-              <ModalCloseButton onClick={() => setClaimItem(null)} />
+              <ModalCloseButton onClick={closeClaimModal} />
               <h2 className="text-lg font-semibold text-gray-800 mb-4 pr-10">
                 C/S 등록 - {claimItem.customerName}
               </h2>
@@ -1673,6 +1695,57 @@ export function AdminInquiriesPage() {
                 placeholder="고객 클레임 내용을 입력하세요"
                 className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm mb-4"
               />
+              <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-3">
+                <p className="text-fluid-xs font-medium text-gray-800 mb-1">클레임 사진 (선택)</p>
+                <p className="text-fluid-2xs text-gray-500 mb-2">
+                  최대 20장 · JPG·PNG 등 (서버에 Cloudinary 설정이 있어야 업로드됩니다)
+                </p>
+                <input
+                  ref={claimPhotoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  className="sr-only"
+                  disabled={saving}
+                  onChange={(e) => {
+                    const list = e.target.files;
+                    e.target.value = '';
+                    const raw = Array.from(list ?? []).filter((f) => f.type.startsWith('image/'));
+                    if (raw.length === 0) return;
+                    setClaimPhotoFiles((prev) => [...prev, ...raw].slice(0, 20));
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={saving || claimPhotoFiles.length >= 20}
+                  onClick={() => claimPhotoInputRef.current?.click()}
+                  className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-white px-3 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 touch-manipulation"
+                >
+                  사진 추가 ({claimPhotoFiles.length}/20)
+                </button>
+                {claimPhotoFiles.length > 0 && (
+                  <ul className="mt-2 max-h-32 overflow-y-auto space-y-1 text-fluid-xs text-gray-700">
+                    {claimPhotoFiles.map((f, i) => (
+                      <li
+                        key={`${i}-${f.name}-${f.size}-${f.lastModified}`}
+                        className="flex items-center justify-between gap-2 min-w-0"
+                      >
+                        <span className="truncate" title={f.name}>
+                          {f.name}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={saving}
+                          className="shrink-0 text-red-600 hover:underline disabled:opacity-50"
+                          onClick={() => setClaimPhotoFiles((prev) => prev.filter((_, j) => j !== i))}
+                        >
+                          제거
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -1684,7 +1757,7 @@ export function AdminInquiriesPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setClaimItem(null)}
+                  onClick={closeClaimModal}
                   className="px-4 py-2 border border-gray-300 rounded text-fluid-sm font-medium hover:bg-gray-50"
                 >
                   취소

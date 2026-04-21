@@ -84,7 +84,8 @@ router.post('/', uploadCleaningImages, async (req, res) => {
     return;
   }
   const phaseRaw = typeof req.body?.phase === 'string' ? req.body.phase.toUpperCase() : 'BEFORE';
-  const phase: CleaningPhotoPhase = phaseRaw === 'AFTER' ? 'AFTER' : 'BEFORE';
+  const phase: CleaningPhotoPhase =
+    phaseRaw === 'AFTER' ? 'AFTER' : phaseRaw === 'CLAIM' ? 'CLAIM' : 'BEFORE';
 
   const createdRows: Awaited<ReturnType<typeof uploadImageBuffer>>[] = [];
   try {
