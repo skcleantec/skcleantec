@@ -36,7 +36,10 @@ export async function removeDayOff(token: string, date: string): Promise<void> {
     method: 'DELETE',
     headers: headers(token),
   });
-  if (!res.ok) throw new Error('휴무일 삭제에 실패했습니다.');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '휴무일 삭제에 실패했습니다.');
+  }
 }
 
 export interface ScheduleStatsByDate {

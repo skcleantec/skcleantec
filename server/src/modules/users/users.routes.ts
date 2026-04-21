@@ -47,6 +47,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
       role: true,
       hireDate: true,
       resignationDate: true,
+      allowSelfDayOffEdit: true,
       externalCompany: { select: { id: true, name: true } },
     },
     orderBy: { name: 'asc' },
@@ -66,9 +67,24 @@ router.get('/', adminOrMarketer, async (req, res) => {
       role: u.role,
       externalCompanyId: u.externalCompany?.id ?? null,
       externalCompanyName: u.externalCompany?.name ?? null,
+      allowSelfDayOffEdit: u.role === 'TEAM_LEADER' ? u.allowSelfDayOffEdit : true,
       ...serializeUserDates(u),
     }))
   );
+});
+
+/** 활성 팀장 전원의 본인 휴무일 등록 허용 일괄 변경 */
+router.post('/team-leaders/day-off-self-edit', adminOnly, async (req, res) => {
+  const body = req.body as { enabled?: unknown };
+  if (typeof body.enabled !== 'boolean') {
+    res.status(400).json({ error: 'enabled(boolean)가 필요합니다.' });
+    return;
+  }
+  const r = await prisma.user.updateMany({
+    where: { role: 'TEAM_LEADER', isActive: true },
+    data: { allowSelfDayOffEdit: body.enabled },
+  });
+  res.json({ ok: true, updated: r.count });
 });
 
 router.post('/', adminOnly, async (req, res) => {
@@ -98,10 +114,20 @@ router.post('/', adminOnly, async (req, res) => {
       phone: phone || null,
       role: userRole,
     },
-    select: { id: true, email: true, name: true, phone: true, role: true, hireDate: true, resignationDate: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      role: true,
+      hireDate: true,
+      resignationDate: true,
+      allowSelfDayOffEdit: true,
+    },
   });
   res.status(201).json({
     ...user,
+    allowSelfDayOffEdit: user.role === 'TEAM_LEADER' ? user.allowSelfDayOffEdit : true,
     ...serializeUserDates(user),
   });
 });
@@ -115,6 +141,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     password?: string;
     hireDate?: string | null;
     resignationDate?: string | null;
+    allowSelfDayOffEdit?: boolean;
   };
   const authUser = (req as unknown as { user: AuthPayload }).user;
 
@@ -146,6 +173,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     passwordHash?: string;
     hireDate?: Date | null;
     resignationDate?: Date | null;
+    allowSelfDayOffEdit?: boolean;
   } = {};
 
   if (body.name != null) {
@@ -219,6 +247,14 @@ router.patch('/:id', adminOnly, async (req, res) => {
     data.resignationDate = resign;
   }
 
+  if (body.allowSelfDayOffEdit !== undefined) {
+    if (existing.role !== 'TEAM_LEADER') {
+      res.status(400).json({ error: '본인 휴무 등록 허용은 팀장 계정만 변경할 수 있습니다.' });
+      return;
+    }
+    data.allowSelfDayOffEdit = Boolean(body.allowSelfDayOffEdit);
+  }
+
   if (Object.keys(data).length === 0) {
     const u = await prisma.user.findUnique({
       where: { id },
@@ -230,9 +266,14 @@ router.patch('/:id', adminOnly, async (req, res) => {
         role: true,
         hireDate: true,
         resignationDate: true,
+        allowSelfDayOffEdit: true,
       },
     });
-    res.json({ ...u!, ...serializeUserDates(u!) });
+    res.json({
+      ...u!,
+      allowSelfDayOffEdit: u!.role === 'TEAM_LEADER' ? u!.allowSelfDayOffEdit : true,
+      ...serializeUserDates(u!),
+    });
     return;
   }
 
@@ -247,9 +288,14 @@ router.patch('/:id', adminOnly, async (req, res) => {
       role: true,
       hireDate: true,
       resignationDate: true,
+      allowSelfDayOffEdit: true,
     },
   });
-  res.json({ ...updated, ...serializeUserDates(updated) });
+  res.json({
+    ...updated,
+    allowSelfDayOffEdit: updated.role === 'TEAM_LEADER' ? updated.allowSelfDayOffEdit : true,
+    ...serializeUserDates(updated),
+  });
 });
 
 router.delete('/:id', adminOnly, async (req, res) => {

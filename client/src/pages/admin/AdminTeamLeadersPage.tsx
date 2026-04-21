@@ -1,11 +1,23 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
-import { getUsers, createUser, updateUser, deleteUser, type UserItem } from '../../api/users';
+import {
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  bulkSetTeamLeaderAllowSelfDayOffEdit,
+  type UserItem,
+} from '../../api/users';
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
+
 type UserRole = 'TEAM_LEADER' | 'MARKETER';
+
+/** 접수목록과 동일 톤 — 모바일 카드 외곽 */
+const userMobileCardShell =
+  'rounded-xl border border-gray-200 bg-white text-left shadow-sm outline-none transition hover:border-gray-300 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation overflow-hidden';
 
 export function AdminTeamLeadersPage() {
   const token = getToken();
@@ -27,6 +39,8 @@ export function AdminTeamLeadersPage() {
     resignationDate: '',
   });
   const [editLoading, setEditLoading] = useState(false);
+  const [dayOffSwitchId, setDayOffSwitchId] = useState<string | null>(null);
+  const [bulkDayOffLoading, setBulkDayOffLoading] = useState(false);
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -133,6 +147,36 @@ export function AdminTeamLeadersPage() {
       alert(err instanceof Error ? err.message : '수정에 실패했습니다.');
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  const handleAllowSelfDayOffToggle = async (item: UserItem, next: boolean) => {
+    if (!token) return;
+    setDayOffSwitchId(item.id);
+    try {
+      await updateUser(token, item.id, { allowSelfDayOffEdit: next });
+      await refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '설정을 바꾸지 못했습니다.');
+    } finally {
+      setDayOffSwitchId(null);
+    }
+  };
+
+  const handleBulkDayOffSelfEdit = async (enabled: boolean) => {
+    if (!token || teamLeaders.length === 0) return;
+    const msg = enabled
+      ? '모든 팀장에게 본인 휴무일 등록을 허용할까요?'
+      : '모든 팀장의 본인 휴무일 등록을 금지할까요? (이미 등록된 휴무는 유지되며, 추가·삭제만 막힙니다.)';
+    if (!window.confirm(msg)) return;
+    setBulkDayOffLoading(true);
+    try {
+      await bulkSetTeamLeaderAllowSelfDayOffEdit(token, enabled);
+      await refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '일괄 설정에 실패했습니다.');
+    } finally {
+      setBulkDayOffLoading(false);
     }
   };
 
@@ -298,56 +342,180 @@ export function AdminTeamLeadersPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
         <div className="min-w-0 bg-white border border-gray-200 rounded-lg">
-          <h3 className="px-4 py-3 bg-gray-50 border-b border-gray-200 font-medium text-gray-800">
-            팀장 ({teamLeaders.length}명)
-          </h3>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <h3 className="font-medium text-gray-800">팀장 ({teamLeaders.length}명)</h3>
+            {!loading && teamLeaders.length > 0 && (
+              <div className="flex flex-wrap gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={bulkDayOffLoading}
+                  onClick={() => void handleBulkDayOffSelfEdit(true)}
+                  className="px-3 py-1.5 text-fluid-xs font-medium rounded border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
+                >
+                  휴무 일괄 허용
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkDayOffLoading}
+                  onClick={() => void handleBulkDayOffSelfEdit(false)}
+                  className="px-3 py-1.5 text-fluid-xs font-medium rounded border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                >
+                  일괄 금지
+                </button>
+              </div>
+            )}
+          </div>
           {loading ? (
             <div className="p-8 text-center text-gray-500">로딩 중...</div>
           ) : teamLeaders.length === 0 && !apiError ? (
             <div className="p-8 text-center text-gray-500">등록된 팀장이 없습니다.</div>
           ) : (
             <>
-              <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 lg:hidden">
-                표는 좌우로 스크롤할 수 있습니다.
-              </p>
-              <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-                <table className="w-full border-collapse text-fluid-sm min-w-[560px]">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
-                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
-                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
-                      <th className="px-4 py-3 text-center font-medium text-gray-700 w-28 whitespace-nowrap">관리</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teamLeaders.map((item) => (
-                      <tr key={item.id} className="border-b border-gray-100">
-                        <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.email}</td>
-                        <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.name}</td>
-                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap tabular-nums">{item.phone || '-'}</td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
+              <div className="flex flex-col gap-3 p-3 lg:hidden">
+                {teamLeaders.map((item) => {
+                  const on = item.allowSelfDayOffEdit !== false;
+                  return (
+                    <div key={item.id} className={userMobileCardShell}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${item.name} 수정`}
+                        onClick={() => openEdit(item)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openEdit(item);
+                          }
+                        }}
+                        className="cursor-pointer px-3 pt-3 pb-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="truncate text-fluid-sm font-semibold text-gray-900">{item.name}</span>
+                          </div>
+                          <p className="mt-1 line-clamp-1 text-fluid-xs text-gray-600" title={item.email}>
+                            {item.email}
+                          </p>
+                          <p className="mt-1 text-fluid-xs text-gray-500 tabular-nums">{item.phone || '연락처 없음'}</p>
+                        </div>
+                      </div>
+                      <div
+                        className="border-t border-gray-200/80 bg-gray-50/80 px-3 py-2.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="shrink-0 text-fluid-2xs font-medium text-gray-600">휴무 등록</span>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={on}
+                              aria-label="본인 휴무일 등록 허용"
+                              disabled={dayOffSwitchId === item.id}
+                              onClick={() => void handleAllowSelfDayOffToggle(item, !on)}
+                              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
+                                on ? 'bg-emerald-500' : 'bg-gray-300'
+                              }`}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                  on ? 'translate-x-[1.375rem]' : 'translate-x-0.5'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 border-t border-gray-200 pt-2">
                           <button
                             type="button"
                             onClick={() => openEdit(item)}
-                            className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
+                            className="text-fluid-xs font-medium text-blue-600 hover:underline"
                           >
-                            수정
+                            상세·수정
                           </button>
                           <button
                             type="button"
                             disabled={deletingId === item.id}
                             onClick={() => handleDelete(item, '팀장')}
-                            className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
+                            className="text-fluid-xs text-red-600 hover:underline disabled:opacity-50"
                           >
                             {deletingId === item.id ? '처리 중…' : '삭제'}
                           </button>
-                        </td>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden lg:block">
+                <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+                  <table className="w-full border-collapse text-fluid-sm min-w-[680px]">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
+                        <th className="px-2 py-3 text-center font-medium text-gray-700 w-[7.5rem] whitespace-nowrap">
+                          본인 휴무
+                          <br />
+                          <span className="font-normal text-fluid-2xs text-gray-500">등록 허용</span>
+                        </th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 w-28 whitespace-nowrap">관리</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </SyncHorizontalScroll>
+                    </thead>
+                    <tbody>
+                      {teamLeaders.map((item) => (
+                        <tr key={item.id} className="border-b border-gray-100">
+                          <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.email}</td>
+                          <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.name}</td>
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap tabular-nums">{item.phone || '-'}</td>
+                          <td className="px-2 py-3 text-center whitespace-nowrap">
+                            {(() => {
+                              const on = item.allowSelfDayOffEdit !== false;
+                              return (
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={on}
+                                  disabled={dayOffSwitchId === item.id}
+                                  onClick={() => void handleAllowSelfDayOffToggle(item, !on)}
+                                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
+                                    on ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                      on ? 'translate-x-[1.375rem]' : 'translate-x-0.5'
+                                    }`}
+                                  />
+                                </button>
+                              );
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
+                            >
+                              수정
+                            </button>
+                            <button
+                              type="button"
+                              disabled={deletingId === item.id}
+                              onClick={() => handleDelete(item, '팀장')}
+                              className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
+                            >
+                              {deletingId === item.id ? '처리 중…' : '삭제'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </SyncHorizontalScroll>
+              </div>
             </>
           )}
         </div>
@@ -362,47 +530,96 @@ export function AdminTeamLeadersPage() {
             <div className="p-8 text-center text-gray-500">등록된 마케터가 없습니다.</div>
           ) : (
             <>
-              <p className="border-b border-gray-100 px-4 pt-2 text-fluid-2xs text-gray-500 lg:hidden">
-                표는 좌우로 스크롤할 수 있습니다.
-              </p>
-              <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-                <table className="w-full border-collapse text-fluid-sm min-w-[560px]">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
-                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
-                      <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
-                      <th className="px-4 py-3 text-center font-medium text-gray-700 w-28 whitespace-nowrap">관리</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {marketers.map((item) => (
-                      <tr key={item.id} className="border-b border-gray-100">
-                        <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.email}</td>
-                        <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.name}</td>
-                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap tabular-nums">{item.phone || '-'}</td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(item)}
-                            className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
-                          >
-                            수정
-                          </button>
-                          <button
-                            type="button"
-                            disabled={deletingId === item.id}
-                            onClick={() => handleDelete(item, '마케터')}
-                            className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
-                          >
-                            {deletingId === item.id ? '처리 중…' : '삭제'}
-                          </button>
-                        </td>
+              <div className="flex flex-col gap-3 p-3 lg:hidden">
+                {marketers.map((item) => (
+                  <div key={item.id} className={userMobileCardShell}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${item.name} 수정`}
+                      onClick={() => openEdit(item)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openEdit(item);
+                        }
+                      }}
+                      className="cursor-pointer px-3 pt-3 pb-2"
+                    >
+                      <div className="min-w-0">
+                        <span className="truncate text-fluid-sm font-semibold text-gray-900">{item.name}</span>
+                        <p className="mt-1 line-clamp-1 text-fluid-xs text-gray-600" title={item.email}>
+                          {item.email}
+                        </p>
+                        <p className="mt-1 text-fluid-xs text-gray-500 tabular-nums">{item.phone || '연락처 없음'}</p>
+                      </div>
+                    </div>
+                    <div
+                      className="border-t border-gray-200/80 bg-gray-50/80 px-3 py-2.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex flex-wrap gap-x-2 gap-y-1">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(item)}
+                          className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                        >
+                          상세·수정
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deletingId === item.id}
+                          onClick={() => handleDelete(item, '마케터')}
+                          className="text-fluid-xs text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          {deletingId === item.id ? '처리 중…' : '삭제'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden lg:block">
+                <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+                  <table className="w-full border-collapse text-fluid-sm min-w-[560px]">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 w-28 whitespace-nowrap">관리</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </SyncHorizontalScroll>
+                    </thead>
+                    <tbody>
+                      {marketers.map((item) => (
+                        <tr key={item.id} className="border-b border-gray-100">
+                          <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.email}</td>
+                          <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.name}</td>
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap tabular-nums">{item.phone || '-'}</td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 mr-1"
+                            >
+                              수정
+                            </button>
+                            <button
+                              type="button"
+                              disabled={deletingId === item.id}
+                              onClick={() => handleDelete(item, '마케터')}
+                              className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
+                            >
+                              {deletingId === item.id ? '처리 중…' : '삭제'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </SyncHorizontalScroll>
+              </div>
             </>
           )}
         </div>

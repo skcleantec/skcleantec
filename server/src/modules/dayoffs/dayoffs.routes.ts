@@ -61,6 +61,14 @@ router.get('/me', teamAuthMiddleware, async (req, res) => {
 /** 팀장: 휴무일 추가 */
 router.post('/me', teamAuthMiddleware, async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const actor = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, allowSelfDayOffEdit: true },
+  });
+  if (actor?.role === 'TEAM_LEADER' && !actor.allowSelfDayOffEdit) {
+    res.status(403).json({ error: '관리자에 의해 본인 휴무일 등록이 비활성화되어 있습니다.' });
+    return;
+  }
   const { date } = req.body as { date?: string };
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
@@ -80,6 +88,14 @@ router.post('/me', teamAuthMiddleware, async (req, res) => {
 /** 팀장: 휴무일 삭제 */
 router.delete('/me', teamAuthMiddleware, async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const actor = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, allowSelfDayOffEdit: true },
+  });
+  if (actor?.role === 'TEAM_LEADER' && !actor.allowSelfDayOffEdit) {
+    res.status(403).json({ error: '관리자에 의해 본인 휴무일 등록이 비활성화되어 있습니다.' });
+    return;
+  }
   const { date } = req.query as { date?: string };
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });

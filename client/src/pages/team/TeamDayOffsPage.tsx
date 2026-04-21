@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { getMyDayOffs, addDayOff, removeDayOff } from '../../api/dayoffs';
+import { getMe } from '../../api/auth';
 import { getTeamToken } from '../../stores/teamAuth';
 
 function pad2(n: number) {
@@ -50,8 +51,27 @@ export function TeamDayOffsPage() {
   const [loading, setLoading] = useState(true);
   const [confirmModal, setConfirmModal] = useState<DayOffConfirmModal>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  const [selfEditAllowed, setSelfEditAllowed] = useState(true);
+  const [profileReady, setProfileReady] = useState(false);
   /** 느린 초기 GET이 저장 직후 상태를 덮어쓰지 않도록 요청 세대 구분 */
   const listFetchGenRef = useRef(0);
+
+  useEffect(() => {
+    if (!token) {
+      setProfileReady(false);
+      return;
+    }
+    setProfileReady(false);
+    getMe(token)
+      .then((me: { role?: string; allowSelfDayOffEdit?: boolean }) => {
+        if (me.role === 'TEAM_LEADER') setSelfEditAllowed(me.allowSelfDayOffEdit !== false);
+        else setSelfEditAllowed(true);
+      })
+      .catch(() => {
+        setSelfEditAllowed(false);
+      })
+      .finally(() => setProfileReady(true));
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -80,7 +100,10 @@ export function TeamDayOffsPage() {
     return `${year}-${m}-${day}`;
   };
 
+  const canInteract = profileReady && selfEditAllowed;
+
   const openDayOffConfirm = (d: number) => {
+    if (!canInteract) return;
     const ymd = getDateKey(d);
     setConfirmModal({ mode: dayOffDates.has(ymd) ? 'remove' : 'add', ymd });
   };
@@ -119,6 +142,16 @@ export function TeamDayOffsPage() {
       <p className="text-sm text-gray-600">
         날짜를 누르면 확인 창에서 휴무를 지정하거나, 이미 휴무인 날은 취소할 수 있습니다. 관리자 캘린더에 반영됩니다.
       </p>
+
+      {profileReady && !selfEditAllowed && (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-fluid-sm text-amber-950"
+          role="status"
+        >
+          관리자에 의해 본인 휴무일 등록이 비활성화되어 있습니다. 변경이 필요하면 관리자에게 요청해 주세요. (이미
+          등록된 휴무는 그대로 표시됩니다.)
+        </div>
+      )}
 
       <div className="flex gap-2 items-center">
         <select
@@ -164,9 +197,9 @@ export function TeamDayOffsPage() {
                 <div
                   key={key}
                   onClick={() => openDayOffConfirm(d)}
-                  className={`min-h-[44px] py-2 cursor-pointer border-b border-r border-gray-100 touch-manipulation ${
-                    isOff ? 'bg-red-100 text-red-700 font-medium' : 'hover:bg-gray-50'
-                  }`}
+                  className={`min-h-[44px] py-2 border-b border-r border-gray-100 touch-manipulation ${
+                    canInteract ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                  } ${isOff ? 'bg-red-100 text-red-700 font-medium' : canInteract ? 'hover:bg-gray-50' : ''}`}
                 >
                   {d}
                   {isOff && <span className="block text-[10px]">휴무</span>}

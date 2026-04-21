@@ -19,6 +19,8 @@ export interface UserItem {
   hireDate?: string | null;
   /** yyyy-mm-dd — 퇴사일(미포함) */
   resignationDate?: string | null;
+  /** 팀장만: 본인 휴무일 등록·삭제 허용(관리자 설정) */
+  allowSelfDayOffEdit?: boolean;
 }
 
 /** @deprecated UserItem 사용 */
@@ -113,6 +115,7 @@ export async function updateUser(
     /** 최고 관리자만 — yyyy-mm-dd 또는 빈 문자열로 비움 */
     hireDate?: string | null;
     resignationDate?: string | null;
+    allowSelfDayOffEdit?: boolean;
   }
 ): Promise<UserItem> {
   const res = await fetch(`${API}/users/${encodeURIComponent(id)}`, {
@@ -123,6 +126,23 @@ export async function updateUser(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '수정에 실패했습니다.');
+  }
+  return res.json();
+}
+
+/** 활성 팀장 전원의 본인 휴무일 등록 허용 일괄 설정 */
+export async function bulkSetTeamLeaderAllowSelfDayOffEdit(
+  token: string,
+  enabled: boolean
+): Promise<{ ok: boolean; updated: number }> {
+  const res = await fetch(`${API}/users/team-leaders/day-off-self-edit`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '일괄 설정에 실패했습니다.');
   }
   return res.json();
 }

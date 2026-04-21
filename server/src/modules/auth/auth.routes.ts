@@ -72,7 +72,15 @@ router.get('/me', authMiddleware, async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, name: true, phone: true, vehicleNumber: true, role: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      vehicleNumber: true,
+      role: true,
+      allowSelfDayOffEdit: true,
+    },
   });
   if (!user) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
@@ -80,6 +88,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
   res.json({
     ...user,
+    allowSelfDayOffEdit: user.role === 'TEAM_LEADER' ? user.allowSelfDayOffEdit : true,
     isSuperAdmin: isSuperAdminRoleAndEmail(user.role, user.email),
   });
 });
@@ -113,22 +122,44 @@ router.patch('/me', authMiddleware, async (req, res) => {
   if (Object.keys(data).length === 0) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, phone: true, vehicleNumber: true, role: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        vehicleNumber: true,
+        role: true,
+        allowSelfDayOffEdit: true,
+      },
     });
     if (!user) {
       res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
       return;
     }
-    res.json(user);
+    res.json({
+      ...user,
+      allowSelfDayOffEdit: user.role === 'TEAM_LEADER' ? user.allowSelfDayOffEdit : true,
+    });
     return;
   }
 
   const updated = await prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, email: true, name: true, phone: true, vehicleNumber: true, role: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      vehicleNumber: true,
+      role: true,
+      allowSelfDayOffEdit: true,
+    },
   });
-  res.json(updated);
+  res.json({
+    ...updated,
+    allowSelfDayOffEdit: updated.role === 'TEAM_LEADER' ? updated.allowSelfDayOffEdit : true,
+  });
 });
 
 export default router;

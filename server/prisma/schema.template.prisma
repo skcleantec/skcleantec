@@ -40,6 +40,8 @@ model User {
   /// 퇴사일(미포함) — 해당일부터 근무·배정·드롭다운 제외. null이면 재직 중
   resignationDate DateTime? @map("resignation_date") @db.Date
   createdAt    DateTime @default(now()) @map("created_at")
+  /// 팀장 본인 휴무일 등록·삭제 허용(관리자 사용자 목록에서 제어). 기본 true.
+  allowSelfDayOffEdit Boolean @default(true) @map("allow_self_day_off_edit")
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
   assignmentsGiven     Assignment[] @relation("AdminAssignments")
