@@ -434,7 +434,7 @@ export function AdminSchedulePage() {
   const [scheduleMapOpen, setScheduleMapOpen] = useState(false);
   const fetchGenRef = useRef(0);
   /** 모바일: 캘린더 가로 스와이프로 이전·다음 달 (터치 종료 후 클릭 오동작 방지) */
-  const calendarSwipeTouchRef = useRef<{ x: number; y: number } | null>(null);
+  const calendarSwipeTouchRef = useRef<{ x: number; y: number; id: number } | null>(null);
   const calendarSwipeSuppressClickRef = useRef(false);
 
   const fetchMonthData = useCallback(
@@ -595,9 +595,11 @@ export function AdminSchedulePage() {
       calendarSwipeTouchRef.current = null;
       return;
     }
+    const p = e.touches[0];
     calendarSwipeTouchRef.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
+      x: p.clientX,
+      y: p.clientY,
+      id: p.identifier,
     };
   };
 
@@ -605,7 +607,8 @@ export function AdminSchedulePage() {
     const start = calendarSwipeTouchRef.current;
     calendarSwipeTouchRef.current = null;
     if (!calendarSwipeEnabled() || !start) return;
-    const t = e.changedTouches[0];
+    const t =
+      [...e.changedTouches].find((c) => c.identifier === start.id) ?? e.changedTouches[0];
     if (!t) return;
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
@@ -613,6 +616,7 @@ export function AdminSchedulePage() {
     const ay = Math.abs(dy);
     const minPx = 52;
     if (ax < minPx || ax < ay * 1.15) return;
+    /* 손가락이 왼쪽으로 이동(dx<0) → 전달, 오른쪽(dx>0) → 다음달 */
     if (dx < 0) goPrevMonth();
     else goNextMonth();
     calendarSwipeSuppressClickRef.current = true;
