@@ -41,6 +41,7 @@ import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
+import { AdminOrderFormFollowupPanel } from '../../components/order-followup/AdminOrderFormFollowupPanel';
 import {
   getEstimateConfig,
   updateEstimateConfig,
@@ -67,15 +68,16 @@ import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
-type Tab = 'config' | 'messages' | 'issue' | 'list' | 'specialty' | 'notice';
+type Tab = 'config' | 'messages' | 'issue' | 'followup' | 'list' | 'specialty' | 'notice';
 
-const VALID_TABS: Tab[] = ['config', 'messages', 'issue', 'list', 'specialty', 'notice'];
+const VALID_TABS: Tab[] = ['config', 'messages', 'issue', 'followup', 'list', 'specialty', 'notice'];
 
 const SUB_TAB_ORDER_STORAGE_KEY = 'skcleanteck.adminOrderFormSubTabOrder';
 
 /** 저장 없을 때 상단 탭 기본 순서 */
 const DEFAULT_SUB_TAB_ORDER: Tab[] = [
   'issue',
+  'followup',
   'config',
   'messages',
   'list',
@@ -85,6 +87,7 @@ const DEFAULT_SUB_TAB_ORDER: Tab[] = [
 
 const TAB_LABELS: Record<Tab, string> = {
   issue: '발주서 발급',
+  followup: '부재현황',
   config: '설정',
   messages: '폼 메시지',
   list: '발주서 목록',
@@ -130,13 +133,29 @@ function normalizeSubTabOrder(parsed: unknown): Tab[] {
 }
 
 function loadSubTabOrder(): Tab[] {
+  let order: Tab[];
   try {
     const raw = localStorage.getItem(SUB_TAB_ORDER_STORAGE_KEY);
-    if (!raw) return [...DEFAULT_SUB_TAB_ORDER];
-    return normalizeSubTabOrder(JSON.parse(raw) as unknown);
+    if (!raw) order = [...DEFAULT_SUB_TAB_ORDER];
+    else order = normalizeSubTabOrder(JSON.parse(raw) as unknown);
   } catch {
-    return [...DEFAULT_SUB_TAB_ORDER];
+    order = [...DEFAULT_SUB_TAB_ORDER];
   }
+  if (!order.includes('followup')) {
+    const i = order.indexOf('issue');
+    if (i >= 0) {
+      order = [...order.slice(0, i + 1), 'followup', ...order.slice(i + 1)];
+    } else {
+      order = ['followup', ...order];
+    }
+    order = normalizeSubTabOrder(order);
+    try {
+      localStorage.setItem(SUB_TAB_ORDER_STORAGE_KEY, JSON.stringify(order));
+    } catch {
+      /* ignore quota */
+    }
+  }
+  return order;
 }
 
 function fallbackCopyTextToClipboard(text: string): boolean {
@@ -630,8 +649,6 @@ ${footer2}`;
     <div className="min-w-0 w-full max-w-full">
       {!receptionListOnly && (
         <>
-          <h1 className="text-xl font-semibold text-gray-900 mb-4">발주서</h1>
-
           <div className="mb-6 w-full min-w-0">
             <div className="relative min-w-0">
               <div
@@ -940,6 +957,8 @@ ${footer2}`;
           </section>
         </div>
       )}
+
+      {tab === 'followup' && token && <AdminOrderFormFollowupPanel token={token} />}
 
       {tab === 'issue' && (
         <div className="min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">

@@ -58,6 +58,9 @@ model User {
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
   inquiryChangeLogsAsActor      InquiryChangeLog[]     @relation("InquiryChangeLogActor")
   teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
+  orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
+  orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
+  orderFollowupLogsAsActor      OrderFollowupLog[]     @relation("OrderFollowupLogActor")
 
   @@map("users")
 }
@@ -441,6 +444,53 @@ model OrderForm {
   inquiries  Inquiry[]
 
   @@map("order_forms")
+}
+
+/// 발주서 메뉴 「부재현황」— 전화 부재·예약금 대기·보류 등 후속 관리
+enum OrderFollowupStatus {
+  ABSENT
+  DEPOSIT_PENDING
+  ON_HOLD
+  RESERVED
+  FULFILLED
+}
+
+model OrderFollowup {
+  id                 String               @id @default(uuid())
+  customerName       String               @map("customer_name")
+  customerPhone      String               @map("customer_phone")
+  status             OrderFollowupStatus  @map("status")
+  deferCount         Int                  @default(0) @map("defer_count")
+  memo               String?              @map("memo") @db.Text
+  nextContactAt      DateTime?            @map("next_contact_at")
+  depositReceivedAt  DateTime?            @map("deposit_received_at")
+  createdById        String               @map("created_by_id")
+  handledById        String?              @map("handled_by_id")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  createdBy       User       @relation("OrderFollowupCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  handledBy       User?      @relation("OrderFollowupHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  logs              OrderFollowupLog[]
+
+  @@index([status, updatedAt])
+  @@index([handledById])
+  @@map("order_followups")
+}
+
+model OrderFollowupLog {
+  id          String   @id @default(uuid())
+  followupId  String   @map("followup_id")
+  actorId     String   @map("actor_id")
+  action      String   @map("action") @db.VarChar(64)
+  detail      String?  @map("detail") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  followup OrderFollowup @relation(fields: [followupId], references: [id], onDelete: Cascade)
+  actor    User          @relation("OrderFollowupLogActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([followupId, createdAt])
+  @@map("order_followup_logs")
 }
 
 enum InquiryStatus {
