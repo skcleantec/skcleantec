@@ -15,6 +15,23 @@ const router = Router();
 
 router.use(teamAuthMiddleware);
 
+const teamInquiryInclude = {
+  createdBy: { select: { id: true, name: true, phone: true } },
+  orderForm: {
+    select: {
+      id: true,
+      createdBy: { select: { id: true, name: true, phone: true } },
+    },
+  },
+  assignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: {
+      teamLeader: { select: assignmentTeamLeaderSelect },
+      assignedBy: { select: { id: true, name: true } },
+    },
+  },
+} as const;
+
 /** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S + 미확인 배정(상세 미조회) — 한 요청으로 병렬 COUNT */
 router.get('/nav-badges', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
@@ -213,15 +230,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       id,
       assignments: { some: { teamLeaderId: userId } },
     },
-    include: {
-      assignments: {
-        orderBy: { sortOrder: 'asc' },
-        include: {
-          teamLeader: { select: assignmentTeamLeaderSelect },
-          assignedBy: { select: { id: true, name: true } },
-        },
-      },
-    },
+    include: teamInquiryInclude,
   });
   if (!inquiry) {
     res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
@@ -235,15 +244,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
   if (beforeYmd === ymd) {
     const unchanged = await prisma.inquiry.findUnique({
       where: { id },
-      include: {
-        assignments: {
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            teamLeader: { select: assignmentTeamLeaderSelect },
-            assignedBy: { select: { id: true, name: true } },
-          },
-        },
-      },
+      include: teamInquiryInclude,
     });
     res.json(unchanged);
     return;
@@ -276,15 +277,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
     });
     return tx.inquiry.findUnique({
       where: { id },
-      include: {
-        assignments: {
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            teamLeader: { select: assignmentTeamLeaderSelect },
-            assignedBy: { select: { id: true, name: true } },
-          },
-        },
-      },
+      include: teamInquiryInclude,
     });
   });
   res.json(updated);
@@ -299,15 +292,7 @@ router.get('/inquiries', async (req, res) => {
       },
     },
     orderBy: { preferredDate: 'asc' },
-    include: {
-      assignments: {
-        orderBy: { sortOrder: 'asc' },
-        include: {
-          teamLeader: { select: assignmentTeamLeaderSelect },
-          assignedBy: { select: { id: true, name: true } },
-        },
-      },
-    },
+    include: teamInquiryInclude,
   });
   res.json({ items });
 });
@@ -330,15 +315,7 @@ router.get('/schedule', async (req, res) => {
       },
     },
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
-    include: {
-      assignments: {
-        orderBy: { sortOrder: 'asc' },
-        include: {
-          teamLeader: { select: assignmentTeamLeaderSelect },
-          assignedBy: { select: { id: true, name: true } },
-        },
-      },
-    },
+    include: teamInquiryInclude,
   });
   res.json({ items });
 });

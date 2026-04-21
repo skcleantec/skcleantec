@@ -106,6 +106,8 @@ export interface InquiryItem {
   scheduleMemo?: string | null;
   claimMemo: string | null;
   createdAt: string;
+  createdBy?: { id: string; name: string; phone?: string | null } | null;
+  orderForm?: { id?: string; createdBy?: { id: string; name: string; phone?: string | null } | null } | null;
   /** ISO — 팀장 해피콜 완료 시각 */
   happyCallCompletedAt?: string | null;
   assignments: Array<{
@@ -138,6 +140,14 @@ export function formatCrewInfo(item: InquiryItem): string {
   const n = item.crewMemberCount ?? 2;
   const note = item.crewMemberNote?.trim();
   return note ? `팀원${n}명 · ${note}` : `팀원${n}명`;
+}
+
+export function marketerInfo(item: InquiryItem): { name: string; phone: string | null } {
+  const created = item.createdBy ?? null;
+  const fallback = item.orderForm?.createdBy ?? null;
+  const who = created ?? fallback;
+  if (!who) return { name: '-', phone: null };
+  return { name: who.name, phone: who.phone ?? null };
 }
 
 /** 오늘·내일·N일 후 등만 (없으면 null) */
@@ -354,6 +364,24 @@ export function TeamInquiryDetailModal({
             <TeamModalSection title="접수 정보">
               <TeamModalRow label="접수일">
                 <span className="tabular-nums text-gray-800">{formatDateCompactWithWeekday(item.createdAt)}</span>
+              </TeamModalRow>
+              <TeamModalRow label="담당 마케터">
+                {(() => {
+                  const m = marketerInfo(item);
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-900">{m.name}</span>
+                      {m.phone ? (
+                        <a
+                          href={`tel:${m.phone}`}
+                          className="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700"
+                        >
+                          전화걸기
+                        </a>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </TeamModalRow>
               {item.scheduleMemo?.trim() ? (
                 <TeamModalRow label="제목">

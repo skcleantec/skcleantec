@@ -16,6 +16,7 @@ import {
   type InquiryItem,
   formatScheduleLine,
   formatCrewInfo,
+  marketerInfo,
   formatRoomInfo,
   getCalendarDays,
   TeamHappyCallBadge,
@@ -197,7 +198,9 @@ export function TeamSchedulePage() {
               </h3>
               {(byDate[selectedDate]?.length ?? 0) > 0 ? (
                 <div className="flex flex-col gap-2">
-                  {byDate[selectedDate].map((item) => (
+                  {byDate[selectedDate].map((item) => {
+                    const mk = marketerInfo(item);
+                    return (
                     <div
                       key={item.id}
                       className="bg-white border border-gray-200 rounded-lg p-4"
@@ -213,6 +216,18 @@ export function TeamSchedulePage() {
                           ) : null}
                           <div className="text-fluid-sm text-gray-600 mt-0.5">
                             {item.customerPhone}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-fluid-xs text-gray-600">
+                            <span>담당 {mk.name}</span>
+                            {mk.phone ? (
+                              <a
+                                href={`tel:${mk.phone}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700"
+                              >
+                                담당자 전화
+                              </a>
+                            ) : null}
                           </div>
                           <div className="text-fluid-xs text-gray-500 mt-1 break-words">
                             {item.address}
@@ -260,7 +275,8 @@ export function TeamSchedulePage() {
                         <TeamHappyCallBadge item={item} />
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center text-gray-500 text-fluid-sm py-4">

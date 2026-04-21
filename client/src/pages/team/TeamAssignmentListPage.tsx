@@ -23,6 +23,7 @@ import {
   type InquiryItem,
   formatRoomInfo,
   formatCrewInfo,
+  marketerInfo,
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
 } from './teamInquiryShared';
@@ -329,6 +330,7 @@ export function TeamAssignmentListPage() {
               {filteredSorted.map((item) => {
                 const mine = myAssignment(item, myId!);
                 const addr = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
+                const mk = marketerInfo(item);
                 return (
                   <div
                     key={item.id}
@@ -367,6 +369,18 @@ export function TeamAssignmentListPage() {
                         <p className="mt-1 text-fluid-xs tabular-nums text-gray-500">
                           배정 {formatAssignedAt(mine?.assignedAt)}
                         </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-fluid-xs text-gray-600">
+                          <span>담당 {mk.name}</span>
+                          {mk.phone ? (
+                            <a
+                              href={`tel:${mk.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700"
+                            >
+                              담당자 전화
+                            </a>
+                          ) : null}
+                        </div>
                         <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={addr}>
                           {addr}
                         </p>
@@ -424,6 +438,7 @@ export function TeamAssignmentListPage() {
                 <tbody>
                   {filteredSorted.map((item) => {
                     const mine = myAssignment(item, myId!);
+                    const mk = marketerInfo(item);
                     const pBorder = 'border-b border-gray-100';
                     return (
                       <tr
@@ -451,6 +466,18 @@ export function TeamAssignmentListPage() {
                           title={mine?.assignedBy?.name ?? ''}
                         >
                           {mine?.assignedBy?.name ?? '—'}
+                          <span className="mt-0.5 block truncate text-fluid-2xs text-gray-500" title={`담당 ${mk.name}`}>
+                            담당 {mk.name}
+                          </span>
+                          {mk.phone ? (
+                            <a
+                              href={`tel:${mk.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-1 inline-flex rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-blue-700"
+                            >
+                              전화
+                            </a>
+                          ) : null}
                         </td>
                         <td
                           className={`align-middle py-2 px-2 font-medium text-gray-900 text-center whitespace-nowrap ${pBorder}`}
