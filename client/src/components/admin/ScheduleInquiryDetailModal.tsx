@@ -23,6 +23,7 @@ import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
+import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 
 function AdminScheduleDetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -62,14 +63,6 @@ function normalizeForSearch(v: string): string {
 
 function toInitials(v: string): string {
   return Array.from(v).map(getHangulInitial).join('');
-}
-
-function parseCrewMemberNoteToNames(v: string | null | undefined): string[] {
-  if (!v) return [];
-  return v
-    .split(/[,·/|]/g)
-    .map((x) => x.trim())
-    .filter(Boolean);
 }
 
 function distanceFromJuanLabel(item: ScheduleItem): string | null {

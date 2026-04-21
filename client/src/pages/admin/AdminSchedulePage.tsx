@@ -5,6 +5,7 @@ import {
   deleteScheduleDayClosure,
   type ScheduleItem,
 } from '../../api/schedule';
+import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/ScheduleDayAssignmentSummaryModal';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
@@ -429,6 +430,7 @@ export function AdminSchedulePage() {
   const [meRole, setMeRole] = useState<string | null>(null);
   const [meUser, setMeUser] = useState<{ id: string; role: string; name: string } | null>(null);
   const [closureBusy, setClosureBusy] = useState(false);
+  const [assignmentSummaryOpen, setAssignmentSummaryOpen] = useState(false);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [closureModalOpen, setClosureModalOpen] = useState(false);
   const [scheduleMapOpen, setScheduleMapOpen] = useState(false);
@@ -948,6 +950,15 @@ export function AdminSchedulePage() {
                   <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {token && selectedDate && (
+                    <button
+                      type="button"
+                      onClick={() => setAssignmentSummaryOpen(true)}
+                      className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50"
+                    >
+                      배정현황
+                    </button>
+                  )}
                   {meRole === 'ADMIN' && token && (
                     <>
                       <button
@@ -1502,6 +1513,15 @@ export function AdminSchedulePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {assignmentSummaryOpen && selectedDate && token && (
+        <ScheduleDayAssignmentSummaryModal
+          open={assignmentSummaryOpen}
+          onClose={() => setAssignmentSummaryOpen(false)}
+          dateYmd={selectedDate}
+          items={byDate[selectedDate] ?? []}
+        />
       )}
 
       {availabilityModalOpen && selectedDate && token && (
