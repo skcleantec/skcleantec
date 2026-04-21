@@ -2,7 +2,7 @@
   "name": "skcleanteck",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n \"API,Vite\" \"npm run dev:server\" \"npm run dev:client\"",
+    "dev": "concurrently -n \"API,Vite\" \"npm run dev:server\" \"node scripts/dev-wait-client.mjs\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "build": "cd server && npm run build && cd ../client && npm run build",
@@ -23,6 +23,7 @@
     "db:backfill-inquiry-address-geo": "cd server && npm run db:backfill-inquiry-address-geo"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "wait-on": "^8.0.5"
   }
 }

@@ -1,6 +1,5 @@
 import type { OrderFollowupStatus } from '../constants/orderFollowupStatus';
-
-const API = '/api';
+import { API } from './apiPrefix';
 
 function headers(token: string): HeadersInit {
   return {
@@ -28,12 +27,15 @@ export interface OrderFollowupUserBrief {
   role: string;
 }
 
+export type OrderFollowupDatePreset = 'today' | 'all' | 'month' | 'day';
+
 export interface OrderFollowupItem {
   id: string;
   customerName: string;
   customerPhone: string;
   status: OrderFollowupStatus;
   deferCount: number;
+  goldDb: boolean;
   memo: string | null;
   nextContactAt: string | null;
   depositReceivedAt: string | null;
@@ -54,11 +56,23 @@ export interface OrderFollowupLogItem {
 
 export async function listOrderFollowups(
   token: string,
-  opts?: { includeFulfilled?: boolean; status?: OrderFollowupStatus | '' }
+  opts?: {
+    includeFulfilled?: boolean;
+    status?: OrderFollowupStatus | '';
+    /** 등록일(createdAt) 기준 — 접수 목록과 동일 KST 구간 */
+    datePreset?: OrderFollowupDatePreset;
+    month?: string;
+    day?: string;
+  }
 ): Promise<{ items: OrderFollowupItem[] }> {
   const q = new URLSearchParams();
   if (opts?.includeFulfilled) q.set('includeFulfilled', '1');
   if (opts?.status) q.set('status', opts.status);
+  if (opts?.datePreset && opts.datePreset !== 'all') {
+    q.set('datePreset', opts.datePreset);
+    if (opts.datePreset === 'month' && opts.month?.trim()) q.set('month', opts.month.trim());
+    if (opts.datePreset === 'day' && opts.day?.trim()) q.set('day', opts.day.trim());
+  }
   const qs = q.toString();
   const res = await fetch(`${API}/order-followups${qs ? `?${qs}` : ''}`, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(await readError(res));
@@ -74,6 +88,7 @@ export async function createOrderFollowup(
     status?: OrderFollowupStatus;
     memo?: string | null;
     nextContactAt?: string | null;
+    goldDb?: boolean;
   }
 ): Promise<{ item: OrderFollowupItem }> {
   const res = await fetch(`${API}/order-followups`, {
@@ -92,6 +107,7 @@ export async function patchOrderFollowup(
     status?: OrderFollowupStatus;
     memo?: string | null;
     nextContactAt?: string | null;
+    goldDb?: boolean;
   }
 ): Promise<{ item: OrderFollowupItem }> {
   const res = await fetch(`${API}/order-followups/${encodeURIComponent(id)}`, {

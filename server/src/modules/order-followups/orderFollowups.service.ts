@@ -29,6 +29,7 @@ export function serializeFollowup(
     customerPhone: row.customerPhone,
     status: row.status,
     deferCount: row.deferCount,
+    goldDb: row.goldDb,
     memo: row.memo,
     nextContactAt: row.nextContactAt?.toISOString() ?? null,
     depositReceivedAt: row.depositReceivedAt?.toISOString() ?? null,

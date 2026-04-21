@@ -1,4 +1,4 @@
-const API = '/api';
+import { API } from './apiPrefix';
 
 export type CleaningPhotoPhase = 'BEFORE' | 'AFTER' | 'CLAIM';
 

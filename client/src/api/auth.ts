@@ -1,6 +1,4 @@
-import { apiErrorMessage } from './apiPrefix';
-
-const API = '/api';
+import { API, apiErrorMessage } from './apiPrefix';
 
 /** `/api/auth/me` 401 — 만료·JWT_SECRET 불일치·손상된 토큰 */
 export class AuthSessionExpiredError extends Error {

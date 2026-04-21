@@ -7,9 +7,11 @@ import {
   listOrderFollowupLogs,
   listOrderFollowups,
   patchOrderFollowup,
+  type OrderFollowupDatePreset,
   type OrderFollowupItem,
   type OrderFollowupLogItem,
 } from '../../api/orderFollowups';
+import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import {
@@ -17,7 +19,7 @@ import {
   ORDER_FOLLOWUP_STATUS_OPTIONS,
   type OrderFollowupStatus,
 } from '../../constants/orderFollowupStatus';
-import { formatDateCompactWithWeekday, formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, formatDateTimeCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 
 function toLocalDatetimeValue(iso: string | null): string {
   if (!iso) return '';
@@ -67,6 +69,7 @@ function actionLabelKo(action: string): string {
     MEMO: '메모',
     NEXT_CONTACT: '다음 연락',
     DEFER: '부재 누적',
+    GOLD_DB: '골드DB',
     LINK_ORDERFORM: '발주서 연결(구버전 기록)',
     UNLINK_ORDERFORM: '발주서 연결 해제(구버전 기록)',
   };
@@ -75,9 +78,11 @@ function actionLabelKo(action: string): string {
 
 const FOLLOWUP_PANEL_HELP =
   '전화 부재·예약금 미입금·보류 등 후속 관리입니다.\n' +
+  '등록일로 먼저 범위를 좁힌 뒤, 아래 칩으로 상태(부재 등)를 함께 걸 수 있습니다.\n' +
   '예약금이 들어오면 「예약 완료」로 바꾼 뒤, 발주서는 작업란의 「발주서」를 눌러 발주서 발급 화면에서 진행하세요.\n' +
   '마무리 시 상태를 「처리 완료」로 바꿀 수 있습니다.\n' +
-  '재연락 후에도 부재·보류가 이어지면 「부재+1」로 누적 횟수를 올릴 수 있습니다.';
+  '재연락 후에도 부재·보류가 이어지면 「부재+1」로 누적 횟수를 올릴 수 있습니다.\n' +
+  '편집에서 「골드DB」를 켜면 고급 DB로 올릴 때까지 집중이 필요한 건으로, 목록에서 노란 배경으로 표시됩니다.';
 
 /** 로그 `detail` 을 화면용 한글 설명으로 */
 function logDetailDescription(log: OrderFollowupLogItem): string {
@@ -123,6 +128,12 @@ function logDetailDescription(log: OrderFollowupLogItem): string {
       return note ? `${head} 메모: ${note}` : head;
     }
 
+    if (log.action === 'GOLD_DB' && typeof j.goldDb === 'boolean') {
+      return j.goldDb
+        ? '골드DB로 표시했습니다. (고급 DB 전까지 집중 관리)'
+        : '골드DB 표시를 해제했습니다.';
+    }
+
     if (log.action === 'LINK_ORDERFORM' && typeof j.orderFormId === 'string') {
       return '(과거 기능) 발주서와 연결해 처리 완료로 바꾼 기록입니다.';
     }
@@ -155,6 +166,9 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
   const [includeFulfilled, setIncludeFulfilled] = useState(false);
   const [filterStatus, setFilterStatus] = useState<OrderFollowupStatus | ''>('');
+  const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('all');
+  const [dateMonthKey, setDateMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
+  const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
 
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
@@ -171,6 +185,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
   const [editStatus, setEditStatus] = useState<OrderFollowupStatus>('ABSENT');
   const [editMemo, setEditMemo] = useState('');
   const [editNext, setEditNext] = useState('');
+  const [editGoldDb, setEditGoldDb] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
 
   const [deferTarget, setDeferTarget] = useState<OrderFollowupItem | null>(null);
@@ -193,6 +208,13 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
         const r = await listOrderFollowups(token, {
           includeFulfilled: useInc,
           status: useStatus,
+          ...(datePreset !== 'all'
+            ? {
+                datePreset,
+                ...(datePreset === 'month' ? { month: dateMonthKey } : {}),
+                ...(datePreset === 'day' ? { day: dateDayKey } : {}),
+              }
+            : {}),
         });
         setItems(r.items);
       } catch (e) {
@@ -202,7 +224,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
         setLoading(false);
       }
     },
-    [token, includeFulfilled, filterStatus]
+    [token, includeFulfilled, filterStatus, datePreset, dateMonthKey, dateDayKey]
   );
 
   useEffect(() => {
@@ -226,6 +248,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
     setEditStatus(edit.status);
     setEditMemo(edit.memo ?? '');
     setEditNext(toLocalDatetimeValue(edit.nextContactAt));
+    setEditGoldDb(edit.goldDb ?? false);
   }, [edit]);
 
   const resetCreateForm = () => {
@@ -272,6 +295,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
         status: editStatus,
         memo: editMemo.trim() || null,
         nextContactAt: fromLocalDatetimeValue(editNext),
+        goldDb: editGoldDb,
       });
       setEdit(null);
       await load();
@@ -327,40 +351,101 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
       )}
 
       <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
-            <button
-              type="button"
-              onClick={() => setCreateModalOpen(true)}
-              className="shrink-0 rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-2xs sm:text-fluid-xs font-semibold text-white shadow-sm hover:bg-gray-800 touch-manipulation"
-            >
-              신규등록
-            </button>
-            {filterChips.map((c) => (
-              <button
-                key={String(c.value)}
-                type="button"
-                onClick={() => setFilterStatus(c.value === filterStatus && c.value !== '' ? '' : c.value)}
-                className={`rounded-full border px-2.5 py-1 text-[11px] sm:text-fluid-2xs font-medium touch-manipulation ${
-                  (c.value === '' && filterStatus === '') || c.value === filterStatus
-                    ? 'border-gray-800 bg-gray-900 text-white'
-                    : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-            <HelpTooltip className="shrink-0" text={FOLLOWUP_PANEL_HELP} />
+        <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-4 py-3">
+          <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
+            <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">등록일</span>
+            <div className="inline-flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDatePreset('today')}
+                  className={`px-3 py-1.5 font-medium ${
+                    datePreset === 'today' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  오늘
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDatePreset('all')}
+                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                    datePreset === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  전체
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDatePreset('month')}
+                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                    datePreset === 'month' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  월별
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDatePreset('day')}
+                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                    datePreset === 'day' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  일별
+                </button>
+              </div>
+              {datePreset === 'month' && (
+                <YearMonthSelect
+                  value={dateMonthKey}
+                  onChange={setDateMonthKey}
+                  idPrefix="followup-reg-month"
+                  className="items-center"
+                />
+              )}
+              {datePreset === 'day' && (
+                <YmdSelect
+                  value={dateDayKey}
+                  onChange={setDateDayKey}
+                  idPrefix="followup-reg-day"
+                  className="items-center"
+                />
+              )}
+            </div>
           </div>
-          <label className="inline-flex items-center gap-2 text-fluid-2xs text-gray-700 shrink-0 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={includeFulfilled}
-              onChange={(e) => setIncludeFulfilled(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            처리 완료 포함
-          </label>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => setCreateModalOpen(true)}
+                className="shrink-0 rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-2xs sm:text-fluid-xs font-semibold text-white shadow-sm hover:bg-gray-800 touch-manipulation"
+              >
+                신규등록
+              </button>
+              {filterChips.map((c) => (
+                <button
+                  key={String(c.value)}
+                  type="button"
+                  onClick={() => setFilterStatus(c.value === filterStatus && c.value !== '' ? '' : c.value)}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] sm:text-fluid-2xs font-medium touch-manipulation ${
+                    (c.value === '' && filterStatus === '') || c.value === filterStatus
+                      ? 'border-gray-800 bg-gray-900 text-white'
+                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+              <HelpTooltip className="shrink-0" text={FOLLOWUP_PANEL_HELP} />
+            </div>
+            <label className="inline-flex items-center gap-2 text-fluid-2xs text-gray-700 shrink-0 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={includeFulfilled}
+                onChange={(e) => setIncludeFulfilled(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              처리 완료 포함
+            </label>
+          </div>
         </div>
 
         {loading ? (
@@ -385,7 +470,14 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                 </thead>
                 <tbody>
                   {items.map((row) => (
-                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/80">
+                    <tr
+                      key={row.id}
+                      className={`border-b border-gray-100 ${
+                        row.goldDb
+                          ? 'bg-yellow-100 hover:bg-yellow-200/50 border-l-[3px] border-l-amber-500'
+                          : 'hover:bg-gray-50/80'
+                      }`}
+                    >
                       <td className="py-2 px-2 font-medium text-gray-900 truncate max-w-[8rem]">{row.customerName}</td>
                       <td className="py-2 px-2 tabular-nums text-gray-800">{displayPhone(row.customerPhone)}</td>
                       <td className="py-2 px-2">
@@ -442,7 +534,12 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
 
             <div className="lg:hidden divide-y divide-gray-100 p-2 space-y-0">
               {items.map((row) => (
-                <div key={row.id} className="px-2 py-3">
+                <div
+                  key={row.id}
+                  className={`px-2 py-3 rounded-lg ${
+                    row.goldDb ? 'bg-yellow-100 border-l-[3px] border-l-amber-500' : ''
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-2 min-w-0">
                     <div className="min-w-0">
                       <p className="font-semibold text-gray-900 truncate">{row.customerName}</p>
@@ -695,6 +792,25 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                     value={editNext}
                     onChange={(e) => setEditNext(e.target.value)}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm"
+                  />
+                </div>
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5">
+                  <input
+                    id="followup-gold-db"
+                    type="checkbox"
+                    checked={editGoldDb}
+                    onChange={(e) => setEditGoldDb(e.target.checked)}
+                    disabled={edit.status === 'FULFILLED'}
+                    className="mt-0.5 rounded border-gray-300"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor="followup-gold-db" className="text-fluid-xs font-medium text-gray-900 cursor-pointer">
+                      골드DB
+                    </label>
+                  </div>
+                  <HelpTooltip
+                    className="shrink-0"
+                    text="고급 DB로 올릴 때까지 팀에서 더 촘촘히 챙길 고객으로 표시합니다. 켜면 목록에서 노란 배경으로 보입니다."
                   />
                 </div>
                 <div className="rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2 space-y-2">

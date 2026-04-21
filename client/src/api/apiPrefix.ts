@@ -9,6 +9,9 @@ export const API_PREFIX = (() => {
   return '/api';
 })();
 
+/** `fetch(\`${API}/...\`)` — `API_PREFIX`와 동일 */
+export const API = API_PREFIX;
+
 export async function apiErrorMessage(res: Response, fallback: string): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { error?: unknown };
   const e = data.error;

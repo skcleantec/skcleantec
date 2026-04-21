@@ -1,6 +1,5 @@
 import type { CsReport } from './cs';
-
-const API = '/api';
+import { API } from './apiPrefix';
 
 function headers(token: string) {
   return {

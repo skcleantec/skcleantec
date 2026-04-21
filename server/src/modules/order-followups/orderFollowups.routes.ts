@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import {
   appendFollowupLog,
   FOLLOWUP_INCLUDE,
@@ -31,6 +32,14 @@ router.get('/', async (req, res) => {
     where.status = statusFilter;
   } else if (!includeFulfilled) {
     where.status = { not: 'FULFILLED' };
+  }
+  const dateRange = createdAtRangeFromQuery({
+    datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : undefined,
+    month: typeof req.query.month === 'string' ? req.query.month : undefined,
+    day: typeof req.query.day === 'string' ? req.query.day : undefined,
+  });
+  if (dateRange) {
+    where.createdAt = { gte: dateRange.gte, lte: dateRange.lte };
   }
   const rows = await prisma.orderFollowup.findMany({
     where,
@@ -69,11 +78,13 @@ router.post('/', async (req, res) => {
   const status = parseStatus(body.status) ?? 'ABSENT';
   const memo = typeof body.memo === 'string' ? body.memo.trim() || null : null;
   const nextContactAt = parseNextContact(body.nextContactAt);
+  const goldDb = typeof body.goldDb === 'boolean' ? body.goldDb : false;
   const row = await prisma.orderFollowup.create({
     data: {
       customerName,
       customerPhone,
       status,
+      goldDb,
       memo,
       nextContactAt: nextContactAt === undefined ? null : nextContactAt,
       createdById: user.userId,
@@ -142,6 +153,16 @@ router.patch('/:id', async (req, res) => {
       actorId: user.userId,
       action: 'STATUS',
       detail: JSON.stringify({ from: prev.status, to: st }),
+    });
+  }
+
+  if (typeof body.goldDb === 'boolean' && body.goldDb !== prev.goldDb) {
+    data.goldDb = body.goldDb;
+    await appendFollowupLog(prisma, {
+      followupId: id,
+      actorId: user.userId,
+      action: 'GOLD_DB',
+      detail: JSON.stringify({ goldDb: body.goldDb }),
     });
   }
 

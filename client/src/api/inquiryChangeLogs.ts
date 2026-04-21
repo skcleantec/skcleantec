@@ -1,4 +1,4 @@
-const API = '/api';
+import { API } from './apiPrefix';
 
 export interface ChangeHistoryItem {
   id: string;

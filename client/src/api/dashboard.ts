@@ -1,6 +1,4 @@
-import { apiErrorMessage } from './apiPrefix';
-
-const API = '/api';
+import { API, apiErrorMessage } from './apiPrefix';
 
 function apiUnreachableMessage(): Error {
   return new Error(

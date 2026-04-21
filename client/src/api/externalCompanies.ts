@@ -1,4 +1,4 @@
-const API = '/api';
+import { API } from './apiPrefix';
 
 function headers(token: string) {
   return {
