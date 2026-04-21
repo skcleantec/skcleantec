@@ -117,6 +117,8 @@ interface InquiryItem {
   status: string;
   source: string | null;
   memo: string | null;
+  /** 외부업체 간편 제목(리스트용) */
+  scheduleMemo?: string | null;
   claimMemo: string | null;
   buildingType: string | null;
   moveInDate: string | null;
@@ -1117,6 +1119,14 @@ export function AdminInquiriesPage() {
                               </span>
                             ) : null}
                           </div>
+                          {item.scheduleMemo?.trim() ? (
+                            <p
+                              className="mt-1 line-clamp-1 text-fluid-xs text-gray-700"
+                              title={item.scheduleMemo}
+                            >
+                              {item.scheduleMemo}
+                            </p>
+                          ) : null}
                           <p className="mt-1 text-fluid-xs text-gray-500">
                             접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
                           </p>
@@ -1356,12 +1366,24 @@ export function AdminInquiriesPage() {
                       className={`min-w-0 truncate px-1 py-1 align-middle text-center font-medium text-gray-900 xl:px-1.5 xl:py-1.5 ${pBorder}`}
                       title={`${item.customerName}${item.claimMemo ? ' (클레임)' : ''}`}
                     >
-                      {item.customerName}
-                      {item.claimMemo && (
-                        <span className="ml-0.5 text-orange-600" title={item.claimMemo}>
-                          ●
-                        </span>
-                      )}
+                      <div className="flex min-w-0 flex-col items-center leading-tight">
+                        <div className="min-w-0 max-w-full truncate">
+                          {item.customerName}
+                          {item.claimMemo && (
+                            <span className="ml-0.5 text-orange-600" title={item.claimMemo}>
+                              ●
+                            </span>
+                          )}
+                        </div>
+                        {item.scheduleMemo?.trim() ? (
+                          <div
+                            className="mt-0.5 max-w-full truncate text-fluid-2xs font-normal text-gray-600"
+                            title={item.scheduleMemo}
+                          >
+                            {item.scheduleMemo}
+                          </div>
+                        ) : null}
+                      </div>
                     </td>
                     <td
                       className={`min-w-0 px-1 py-1 align-middle text-center text-fluid-2xs text-gray-600 xl:px-1.5 xl:py-1.5 xl:text-fluid-xs ${pBorder}`}

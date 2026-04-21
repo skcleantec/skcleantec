@@ -83,6 +83,8 @@ type EditFormFields = {
   amountBalance: string;
   /** 타업체 넘김 수수료(원), 빈 문자열 = 미입력 */
   externalTransferFee: string;
+  /** 외부업체 간편 제목(접수 리스트 노출) */
+  scheduleMemo: string;
   professionalOptionIds: string[];
 };
 
@@ -114,6 +116,7 @@ function buildPatchFromEditForm(editForm: EditFormFields): Record<string, unknow
     serviceDepositAmount: parseWon(editForm.amountDeposit),
     serviceBalanceAmount: parseWon(editForm.amountBalance),
     externalTransferFee: parseWon(editForm.externalTransferFee),
+    scheduleMemo: editForm.scheduleMemo.trim() || null,
     professionalOptionIds: editForm.professionalOptionIds,
   };
   patch.betweenScheduleSlot = isSideCleaningTime(editForm.preferredTime)
@@ -265,6 +268,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePasswordOpen, setDeletePasswordOpen] = useState(false);
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
+  const isExistingExternalIntake = !isCreate && Boolean((item?.source ?? '').includes('외부업체'));
+  const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
 
   useEffect(() => {
     if (!token || !item) {
@@ -324,6 +329,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         amountDeposit: '',
         amountBalance: '',
         externalTransferFee: '',
+        scheduleMemo: '',
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
       };
     }
@@ -360,6 +366,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       amountBalance: amt.balance != null ? String(amt.balance) : '',
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
+      scheduleMemo: it.scheduleMemo ?? '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     };
   });
@@ -439,6 +446,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       amountBalance: a.balance != null ? String(a.balance) : '',
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
+      scheduleMemo: it.scheduleMemo ?? '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 저장 후 재조회 시 동일 id여도 필드 동기화
@@ -474,15 +482,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       alert('로그인이 필요합니다.');
       return;
     }
-    if (!externalIntake && !editForm.customerName.trim()) {
+    if (!isExternalIntakeMode && !editForm.customerName.trim()) {
       alert('성함을 입력해주세요.');
       return;
     }
-    if (!externalIntake && !editForm.customerPhone.trim()) {
+    if (!isExternalIntakeMode && !editForm.customerPhone.trim()) {
       alert('연락처를 입력해주세요.');
       return;
     }
-    if (!externalIntake && !editForm.address.trim()) {
+    if (!isExternalIntakeMode && !editForm.address.trim()) {
       alert('주소를 입력해주세요.');
       return;
     }
@@ -577,6 +585,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               />
               외부업체접수
             </label>
+          )}
+          {isExternalIntakeMode && (
+            <div className="mt-2">
+              <label className="block text-sm text-gray-700 mb-1">외부업체 제목</label>
+              <input
+                value={editForm.scheduleMemo}
+                onChange={(e) => setEditForm((p) => ({ ...p, scheduleMemo: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                placeholder="예: 4/25 송도 34평 오전, 엘베 O"
+              />
+            </div>
           )}
           <p className="text-sm text-gray-500 mb-0">
             {isCreate
