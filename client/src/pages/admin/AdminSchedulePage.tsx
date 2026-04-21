@@ -25,6 +25,7 @@ import {
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -192,6 +193,15 @@ function ScheduleDayListItem({
   const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';
   const hasScheduleMemo = Boolean(scheduleMemoLine);
   const distanceLabel = scheduleItemDistanceKmLabel(item);
+  const hasAssignment = (item.assignments?.length ?? 0) > 0;
+  const canHappyCall = isHappyCallEligible(item.status, item.preferredDate);
+  const happyTone = happyCallRowTone(
+    new Date(),
+    item.status,
+    item.preferredDate,
+    item.happyCallCompletedAt,
+    hasAssignment
+  );
 
   return (
     <div
@@ -245,6 +255,32 @@ function ScheduleDayListItem({
               <ProfessionalOptionDots rawIds={item.professionalOptionIds} catalog={profCatalog} />
             </span>
           </button>
+          {item.happyCallCompletedAt ? (
+            <span
+              className="shrink-0 inline-flex items-center rounded border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] sm:text-fluid-2xs font-medium text-green-800"
+              title="해피콜 완료"
+            >
+              해피콜 완료
+            </span>
+          ) : canHappyCall && hasAssignment ? (
+            <span
+              className={`shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] sm:text-fluid-2xs font-medium border ${
+                happyTone === 'overdue'
+                  ? 'border-red-300 bg-red-50 text-red-700'
+                  : 'border-amber-200 bg-amber-50 text-amber-900'
+              }`}
+              title={happyTone === 'overdue' ? '해피콜 미완(마감 초과)' : '해피콜 미완'}
+            >
+              해피콜 미완
+            </span>
+          ) : (
+            <span
+              className="shrink-0 inline-flex items-center rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] sm:text-fluid-2xs font-medium text-gray-500"
+              title="해피콜 대상 아님"
+            >
+              해피콜 대상 아님
+            </span>
+          )}
           {isPending && (
             <span className="text-fluid-2xs font-semibold text-red-700 shrink-0">대기</span>
           )}
