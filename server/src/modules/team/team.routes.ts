@@ -269,6 +269,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
     await tx.inquiryChangeLog.create({
       data: {
         inquiryId: id,
+        customerName: inquiry.customerName,
         actorId: userId,
         lines: [`청소 희망일: ${beforeYmd ?? '(없음)'} → ${ymd}`],
       },

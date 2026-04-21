@@ -5,6 +5,7 @@ type Props = {
   open: boolean;
   title: string;
   confirmLabel?: string;
+  zIndexClassName?: string;
   onClose: () => void;
   onConfirm: (password: string) => Promise<void>;
 };
@@ -14,6 +15,7 @@ export function ConfirmPasswordModal({
   open,
   title,
   confirmLabel = '확인',
+  zIndexClassName = 'z-[600]',
   onClose,
   onConfirm,
 }: Props) {
@@ -50,7 +52,7 @@ export function ConfirmPasswordModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+    <div className={`fixed inset-0 ${zIndexClassName} flex items-center justify-center p-4 bg-black/40`}>
       <div
         role="dialog"
         aria-modal="true"

@@ -1276,6 +1276,7 @@ export function AdminSchedulePage() {
           teamLeaders={teamLeaders}
           professionalCatalog={profCatalog}
           scheduleStatsByDate={stats}
+          currentUserRole={meRole}
           onClose={() => setDetailItem(null)}
           onSaved={() => fetchMonthData(false)}
         />
@@ -1298,6 +1299,7 @@ export function AdminSchedulePage() {
           teamLeaders={teamLeaders}
           professionalCatalog={profCatalog}
           scheduleStatsByDate={stats}
+          currentUserRole={meRole}
           onClose={() => setCreateInquiryModalDate(null)}
           onSaved={() => {
             setCreateInquiryModalDate(null);

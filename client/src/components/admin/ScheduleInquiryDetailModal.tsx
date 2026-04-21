@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { createInquiry, getInquiry, updateInquiry } from '../../api/inquiries';
+import { createInquiry, deleteInquiry, getInquiry, updateInquiry } from '../../api/inquiries';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
 import type { InquiryChangeLogEntry, ScheduleItem } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
@@ -19,6 +19,7 @@ import { YmdSelect } from '../ui/DateQuerySelects';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
+import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 
 function AdminScheduleDetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -212,6 +213,7 @@ export type ScheduleInquiryDetailModalProps =
       teamLeaders: UserItem[];
       professionalCatalog: ProfessionalSpecialtyOption[];
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
+      currentUserRole?: string | null;
       onClose: () => void;
       onSaved: () => void;
     }
@@ -223,6 +225,7 @@ export type ScheduleInquiryDetailModalProps =
       teamLeaders: UserItem[];
       professionalCatalog: ProfessionalSpecialtyOption[];
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
+      currentUserRole?: string | null;
       onClose: () => void;
       onSaved: () => void;
     };
@@ -244,6 +247,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     teamLeaders,
     professionalCatalog,
     scheduleStatsByDate,
+    currentUserRole,
     onClose,
     onSaved,
   } = props;
@@ -258,6 +262,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [preferredDateCalOpen, setPreferredDateCalOpen] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<InquiryChangeLogEntry[]>([]);
   const [historyLogsLoading, setHistoryLogsLoading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletePasswordOpen, setDeletePasswordOpen] = useState(false);
+  const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
 
   useEffect(() => {
     if (!token || !item) {
@@ -504,6 +511,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
       setSaving(false);
     }
+  };
+
+  const handleDeleteConfirmed = async (password: string) => {
+    if (!item) throw new Error('삭제할 접수를 찾을 수 없습니다.');
+    await deleteInquiry(token, item.id, password);
+    setDeletePasswordOpen(false);
+    setDeleteConfirmOpen(false);
+    onClose();
+    onSaved();
   };
 
   return (
@@ -1225,6 +1241,20 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         </div>
 
         <div className="relative z-20 flex shrink-0 gap-2 border-t border-gray-200 bg-white px-5 py-3 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {canDeleteInquiry && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDeleteConfirmOpen(true);
+              }}
+              className="min-h-[44px] touch-manipulation px-4 py-2.5 border border-red-300 text-red-700 rounded text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+            >
+              삭제
+            </button>
+          )}
           <button
             type="button"
             disabled={saving}
@@ -1259,6 +1289,61 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         token={token}
         initialYmd={editForm.preferredDate}
         onSelect={(ymd) => setEditForm((p) => ({ ...p, preferredDate: ymd }))}
+      />
+      {deleteConfirmOpen && item && (
+        <div
+          className="fixed inset-0 z-[550] flex items-center justify-center p-4 bg-black/40"
+          role="dialog"
+          aria-modal
+          aria-labelledby="schedule-delete-confirm-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="닫기"
+            onClick={() => setDeleteConfirmOpen(false)}
+          />
+          <div
+            className="relative bg-white rounded-xl shadow-xl border border-gray-200 p-5 max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="schedule-delete-confirm-title" className="text-base font-semibold text-gray-900 mb-1">
+              접수 삭제 확인
+            </h3>
+            <p className="text-sm text-gray-700">
+              <span className="font-medium">{item.customerName}</span> 접수를 영구 삭제합니다.
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              삭제 후 복구할 수 없습니다. 계속하려면 비밀번호 확인 단계로 이동합니다.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setDeleteConfirmOpen(false)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  setDeletePasswordOpen(true);
+                }}
+              >
+                계속
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <ConfirmPasswordModal
+        open={deletePasswordOpen}
+        title="접수 삭제 비밀번호 확인"
+        confirmLabel="삭제"
+        onClose={() => setDeletePasswordOpen(false)}
+        onConfirm={handleDeleteConfirmed}
       />
     </>
   );

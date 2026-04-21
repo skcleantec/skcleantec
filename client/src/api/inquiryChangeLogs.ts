@@ -2,7 +2,7 @@ const API = '/api';
 
 export interface ChangeHistoryItem {
   id: string;
-  inquiryId: string;
+  inquiryId: string | null;
   customerName: string;
   createdAt: string;
   actorName: string | null;

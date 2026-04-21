@@ -337,7 +337,18 @@ router.delete('/:id', adminOrMarketer, async (req, res) => {
     return;
   }
 
-  await prisma.inquiry.delete({ where: { id } });
+  const actor = (req as unknown as { user: AuthPayload }).user;
+  await prisma.$transaction(async (tx) => {
+    await tx.inquiryChangeLog.create({
+      data: {
+        inquiryId: existing.id,
+        customerName: existing.customerName,
+        actorId: actor?.userId ?? null,
+        lines: [`접수 삭제: ${existing.customerName} (${existing.inquiryNumber ?? existing.id})`],
+      },
+    });
+    await tx.inquiry.delete({ where: { id } });
+  });
   res.json({ ok: true });
 });
 
@@ -637,6 +648,7 @@ router.patch('/:id', async (req, res) => {
         await tx.inquiryChangeLog.create({
           data: {
             inquiryId: id,
+            customerName: inquiry.customerName,
             actorId: user?.userId ?? null,
             lines,
           },

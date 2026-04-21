@@ -301,14 +301,15 @@ model ProfessionalSpecialtyOption {
 
 /// 관리자 수정 시 날짜·금액 등 변경 이력 (접수 목록·스케줄에서 조회)
 model InquiryChangeLog {
-  id        String   @id @default(uuid())
-  inquiryId String   @map("inquiry_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  actorId   String?  @map("actor_id")
-  lines     Json
+  id           String   @id @default(uuid())
+  inquiryId    String?  @map("inquiry_id")
+  customerName String   @default("") @map("customer_name")
+  createdAt    DateTime @default(now()) @map("created_at")
+  actorId      String?  @map("actor_id")
+  lines        Json
 
-  inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
-  actor   User?   @relation("InquiryChangeLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+  inquiry Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  actor   User?    @relation("InquiryChangeLogActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([inquiryId, createdAt(sort: Desc)])
   @@map("inquiry_change_logs")

@@ -2,7 +2,7 @@ import type { InquiryChangeLog, Inquiry } from '@prisma/client';
 
 export type ChangeHistoryItemDto = {
   id: string;
-  inquiryId: string;
+  inquiryId: string | null;
   customerName: string;
   createdAt: string;
   actorName: string | null;
@@ -18,7 +18,7 @@ export function parseLinesJson(lines: unknown): string[] {
 }
 
 export function toChangeHistoryItemDto(
-  log: InquiryChangeLog & { inquiry: Pick<Inquiry, 'customerName'> },
+  log: InquiryChangeLog & { inquiry: Pick<Inquiry, 'customerName'> | null },
   actorName: string | null
 ): ChangeHistoryItemDto {
   const lineArr = parseLinesJson(log.lines);
@@ -32,7 +32,7 @@ export function toChangeHistoryItemDto(
   return {
     id: log.id,
     inquiryId: log.inquiryId,
-    customerName: log.inquiry.customerName,
+    customerName: log.customerName || log.inquiry?.customerName || '(삭제된 접수)',
     createdAt: log.createdAt.toISOString(),
     actorName,
     summaryLine,
