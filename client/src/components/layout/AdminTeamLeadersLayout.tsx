@@ -10,7 +10,7 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
       : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
   }`;
 
-/** 관리자설정(/admin/team-leaders/*) — 관리자만 */
+/** 사용자 등록(/admin/team-leaders/*) — 관리자만 */
 export function AdminTeamLeadersLayout() {
   const token = getToken();
   const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other'>('loading');
@@ -43,10 +43,10 @@ export function AdminTeamLeadersLayout() {
     <div className="min-w-0">
       <nav
         className="flex flex-wrap gap-1 border-b border-gray-200 mb-6"
-        aria-label="관리자설정 하위 메뉴"
+        aria-label="사용자 등록 하위 메뉴"
       >
         <NavLink to="/admin/team-leaders" end className={tabClass}>
-          사용자 목록
+          사용자 등록
         </NavLink>
         <NavLink to="/admin/team-leaders/page-settings" className={tabClass}>
           페이지 설정

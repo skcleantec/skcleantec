@@ -10,7 +10,7 @@ import {
 } from '../../utils/adminCelebrateBarConfig';
 
 /**
- * 관리자설정 → 페이지 설정
+ * 사용자 등록 → 페이지 설정
  * 접수 축하 상단 바 문구는 브라우저(localStorage)에 저장된다.
  */
 export function AdminPageSettingsPage() {

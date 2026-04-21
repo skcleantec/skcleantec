@@ -196,182 +196,66 @@ export function AdminTeamLeadersPage() {
   };
 
   return (
-    <div className="space-y-6 min-w-0 w-full max-w-full">
-      <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold text-gray-800">관리자설정</h1>
-        <div className="flex flex-wrap gap-2 items-center">
-          <button
-            onClick={() => setShowForm(showForm === 'team' ? null : 'team')}
-            className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
-          >
-            {showForm === 'team' ? '취소' : '팀장 등록'}
-          </button>
-          <button
-            onClick={() => setShowForm(showForm === 'marketer' ? null : 'marketer')}
-            className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700"
-          >
-            {showForm === 'marketer' ? '취소' : '마케터 등록'}
-          </button>
-        </div>
+    <div className="mx-auto w-full max-w-4xl space-y-6 min-w-0 text-center">
+      <div className="w-full text-left">
+        <h1 className="text-xl font-semibold text-gray-800">사용자 등록</h1>
       </div>
 
-      {showForm === 'team' && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-base font-medium text-gray-800 mb-4">팀장 등록</h2>
-          <form
-            onSubmit={(e) => handleSubmit(e, 'TEAM_LEADER')}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl"
-          >
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">아이디 (로그인용)</label>
-              <input
-                value={form.email}
-                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="team1"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">비밀번호</label>
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">이름</label>
-              <input
-                value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="홍길동"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">연락처 (선택)</label>
-              <input
-                value={form.phone}
-                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="010-0000-0000"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                disabled={submitLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {submitLoading ? '등록 중...' : '등록'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {showForm === 'marketer' && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-base font-medium text-gray-800 mb-4">마케터 등록</h2>
-          <form
-            onSubmit={(e) => handleSubmit(e, 'MARKETER')}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl"
-          >
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">아이디 (로그인용)</label>
-              <input
-                value={form.email}
-                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="marketer1"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">비밀번호</label>
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">이름</label>
-              <input
-                value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="홍길동"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">연락처 (선택)</label>
-              <input
-                value={form.phone}
-                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="010-0000-0000"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                disabled={submitLoading}
-                className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-              >
-                {submitLoading ? '등록 중...' : '등록'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
       {apiError && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="mx-auto w-full max-w-4xl p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {apiError} (서버가 실행 중인지 확인하세요. 터미널에서{' '}
           <code className="bg-red-100 px-1 rounded">npm run dev</code> 실행)
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
-        <div className="min-w-0 bg-white border border-gray-200 rounded-lg">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-            <h3 className="font-medium text-gray-800">팀장 ({teamLeaders.length}명)</h3>
-            {!loading && teamLeaders.length > 0 && (
-              <div className="flex flex-wrap gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={bulkDayOffLoading}
-                  onClick={() => void handleBulkDayOffSelfEdit(true)}
-                  className="px-3 py-1.5 text-fluid-xs font-medium rounded border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
-                >
-                  휴무 일괄 허용
-                </button>
-                <button
-                  type="button"
-                  disabled={bulkDayOffLoading}
-                  onClick={() => void handleBulkDayOffSelfEdit(false)}
-                  className="px-3 py-1.5 text-fluid-xs font-medium rounded border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                >
-                  일괄 금지
-                </button>
-              </div>
-            )}
+      <div className="grid grid-cols-1 gap-6 min-w-0 w-full">
+        <div className="min-w-0 bg-white border border-gray-200 rounded-lg text-left">
+          <div className="flex flex-row flex-wrap items-center justify-between gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200 text-left">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <h3 className="shrink-0 font-medium text-gray-800">팀장 ({teamLeaders.length}명)</h3>
+              {!loading && teamLeaders.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={bulkDayOffLoading}
+                    onClick={() => void handleBulkDayOffSelfEdit(true)}
+                    className="px-3 py-1.5 text-fluid-xs font-medium rounded border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
+                  >
+                    휴무 일괄 허용
+                  </button>
+                  <button
+                    type="button"
+                    disabled={bulkDayOffLoading}
+                    onClick={() => void handleBulkDayOffSelfEdit(false)}
+                    className="px-3 py-1.5 text-fluid-xs font-medium rounded border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    일괄 금지
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (showForm === 'team') setShowForm(null);
+                else {
+                  setForm({ email: '', password: '', name: '', phone: '' });
+                  setShowForm('team');
+                }
+              }}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xl font-light leading-none text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+              aria-label={showForm === 'team' ? '팀장 등록 닫기' : '팀장 등록 열기'}
+            >
+              {showForm === 'team' ? '×' : '+'}
+            </button>
           </div>
           {loading ? (
-            <div className="p-8 text-center text-gray-500">로딩 중...</div>
+            <div className="p-8 text-left text-gray-500 lg:text-center">로딩 중...</div>
           ) : teamLeaders.length === 0 && !apiError ? (
-            <div className="p-8 text-center text-gray-500">등록된 팀장이 없습니다.</div>
+            <div className="p-8 text-left text-gray-500 lg:text-center">등록된 팀장이 없습니다.</div>
           ) : (
             <>
-              <div className="flex flex-col gap-3 p-3 lg:hidden">
+              <div className="flex flex-col gap-3 p-3 text-left lg:hidden">
                 {teamLeaders.map((item) => {
                   const on = item.allowSelfDayOffEdit !== false;
                   return (
@@ -387,49 +271,46 @@ export function AdminTeamLeadersPage() {
                             openEdit(item);
                           }
                         }}
-                        className="cursor-pointer px-3 pt-3 pb-2"
+                        className="cursor-pointer px-3 pt-3 pb-2 text-left"
                       >
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="truncate text-fluid-sm font-semibold text-gray-900">{item.name}</span>
-                          </div>
-                          <p className="mt-1 line-clamp-1 text-fluid-xs text-gray-600" title={item.email}>
-                            {item.email}
+                          <p className="truncate text-left text-fluid-xs text-gray-600" title={`${item.name} · ${item.email} · ${item.phone || '연락처 없음'}`}>
+                            <span className="font-semibold text-gray-900">{item.name}</span>
+                            <span className="mx-1 text-gray-400">·</span>
+                            <span>{item.email}</span>
+                            <span className="mx-1 text-gray-400">·</span>
+                            <span className="tabular-nums">{item.phone || '연락처 없음'}</span>
                           </p>
-                          <p className="mt-1 text-fluid-xs text-gray-500 tabular-nums">{item.phone || '연락처 없음'}</p>
                         </div>
                       </div>
                       <div
-                        className="border-t border-gray-200/80 bg-gray-50/80 px-3 py-2.5"
+                        className="border-t border-gray-200/80 bg-gray-50/80 px-3 py-2 text-left"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <span className="shrink-0 text-fluid-2xs font-medium text-gray-600">휴무 등록</span>
-                            <button
-                              type="button"
-                              role="switch"
-                              aria-checked={on}
-                              aria-label="본인 휴무일 등록 허용"
-                              disabled={dayOffSwitchId === item.id}
-                              onClick={() => void handleAllowSelfDayOffToggle(item, !on)}
-                              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
-                                on ? 'bg-emerald-500' : 'bg-gray-300'
+                        <div className="flex flex-nowrap items-center justify-start gap-2 overflow-x-auto whitespace-nowrap">
+                          <span className="shrink-0 text-fluid-2xs font-medium text-gray-600">휴무 등록</span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={on}
+                            aria-label="본인 휴무일 등록 허용"
+                            disabled={dayOffSwitchId === item.id}
+                            onClick={() => void handleAllowSelfDayOffToggle(item, !on)}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-wait disabled:opacity-60 ${
+                              on ? 'bg-emerald-500' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                on ? 'translate-x-[1.375rem]' : 'translate-x-0.5'
                               }`}
-                            >
-                              <span
-                                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                                  on ? 'translate-x-[1.375rem]' : 'translate-x-0.5'
-                                }`}
-                              />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 border-t border-gray-200 pt-2">
+                            />
+                          </button>
+                          <span className="text-gray-300">|</span>
                           <button
                             type="button"
                             onClick={() => openEdit(item)}
-                            className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                            className="shrink-0 text-fluid-xs font-medium text-blue-600 hover:underline"
                           >
                             상세·수정
                           </button>
@@ -437,7 +318,7 @@ export function AdminTeamLeadersPage() {
                             type="button"
                             disabled={deletingId === item.id}
                             onClick={() => handleDelete(item, '팀장')}
-                            className="text-fluid-xs text-red-600 hover:underline disabled:opacity-50"
+                            className="shrink-0 text-fluid-xs text-red-600 hover:underline disabled:opacity-50"
                           >
                             {deletingId === item.id ? '처리 중…' : '삭제'}
                           </button>
@@ -467,9 +348,11 @@ export function AdminTeamLeadersPage() {
                     <tbody>
                       {teamLeaders.map((item) => (
                         <tr key={item.id} className="border-b border-gray-100">
-                          <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.email}</td>
-                          <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.name}</td>
-                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap tabular-nums">{item.phone || '-'}</td>
+                          <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.email}</td>
+                          <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.name}</td>
+                          <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap tabular-nums">
+                            {item.phone || '-'}
+                          </td>
                           <td className="px-2 py-3 text-center whitespace-nowrap">
                             {(() => {
                               const on = item.allowSelfDayOffEdit !== false;
@@ -493,7 +376,7 @@ export function AdminTeamLeadersPage() {
                               );
                             })()}
                           </td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             <button
                               type="button"
                               onClick={() => openEdit(item)}
@@ -520,17 +403,31 @@ export function AdminTeamLeadersPage() {
           )}
         </div>
 
-        <div className="min-w-0 bg-white border border-gray-200 rounded-lg">
-          <h3 className="px-4 py-3 bg-gray-50 border-b border-gray-200 font-medium text-gray-800">
-            마케터 ({marketers.length}명)
-          </h3>
+        <div className="min-w-0 bg-white border border-gray-200 rounded-lg text-left">
+          <div className="flex flex-row items-center justify-between gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200 text-left">
+            <h3 className="font-medium text-gray-800">마케터 ({marketers.length}명)</h3>
+            <button
+              type="button"
+              onClick={() => {
+                if (showForm === 'marketer') setShowForm(null);
+                else {
+                  setForm({ email: '', password: '', name: '', phone: '' });
+                  setShowForm('marketer');
+                }
+              }}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-xl font-light leading-none text-white shadow-sm hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1"
+              aria-label={showForm === 'marketer' ? '마케터 등록 닫기' : '마케터 등록 열기'}
+            >
+              {showForm === 'marketer' ? '×' : '+'}
+            </button>
+          </div>
           {loading ? (
-            <div className="p-8 text-center text-gray-500">로딩 중...</div>
+            <div className="p-8 text-left text-gray-500 lg:text-center">로딩 중...</div>
           ) : marketers.length === 0 && !apiError ? (
-            <div className="p-8 text-center text-gray-500">등록된 마케터가 없습니다.</div>
+            <div className="p-8 text-left text-gray-500 lg:text-center">등록된 마케터가 없습니다.</div>
           ) : (
             <>
-              <div className="flex flex-col gap-3 p-3 lg:hidden">
+              <div className="flex flex-col gap-3 p-3 text-left lg:hidden">
                 {marketers.map((item) => (
                   <div key={item.id} className={userMobileCardShell}>
                     <div
@@ -544,21 +441,23 @@ export function AdminTeamLeadersPage() {
                           openEdit(item);
                         }
                       }}
-                      className="cursor-pointer px-3 pt-3 pb-2"
+                      className="cursor-pointer px-3 pt-3 pb-2 text-left"
                     >
                       <div className="min-w-0">
-                        <span className="truncate text-fluid-sm font-semibold text-gray-900">{item.name}</span>
-                        <p className="mt-1 line-clamp-1 text-fluid-xs text-gray-600" title={item.email}>
-                          {item.email}
+                        <p className="truncate text-left text-fluid-xs text-gray-600" title={`${item.name} · ${item.email} · ${item.phone || '연락처 없음'}`}>
+                          <span className="font-semibold text-gray-900">{item.name}</span>
+                          <span className="mx-1 text-gray-400">·</span>
+                          <span>{item.email}</span>
+                          <span className="mx-1 text-gray-400">·</span>
+                          <span className="tabular-nums">{item.phone || '연락처 없음'}</span>
                         </p>
-                        <p className="mt-1 text-fluid-xs text-gray-500 tabular-nums">{item.phone || '연락처 없음'}</p>
                       </div>
                     </div>
                     <div
-                      className="border-t border-gray-200/80 bg-gray-50/80 px-3 py-2.5"
+                      className="border-t border-gray-200/80 bg-gray-50/80 px-3 py-2.5 text-left"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex flex-wrap gap-x-2 gap-y-1">
+                      <div className="flex flex-wrap justify-start gap-x-2 gap-y-1">
                         <button
                           type="button"
                           onClick={() => openEdit(item)}
@@ -594,10 +493,12 @@ export function AdminTeamLeadersPage() {
                     <tbody>
                       {marketers.map((item) => (
                         <tr key={item.id} className="border-b border-gray-100">
-                          <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.email}</td>
-                          <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{item.name}</td>
-                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap tabular-nums">{item.phone || '-'}</td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.email}</td>
+                          <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.name}</td>
+                          <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap tabular-nums">
+                            {item.phone || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             <button
                               type="button"
                               onClick={() => openEdit(item)}
@@ -625,10 +526,109 @@ export function AdminTeamLeadersPage() {
         </div>
       </div>
 
-      {editingUser &&
+      {(showForm === 'team' || showForm === 'marketer') &&
         createPortal(
           <div
             className="fixed inset-0 z-[200] overflow-y-auto overscroll-y-contain bg-black/40 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={showForm === 'team' ? 'register-team-title' : 'register-marketer-title'}
+            onClick={() => {
+              if (!submitLoading) setShowForm(null);
+            }}
+          >
+            <div
+              className="relative mx-auto mt-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ModalCloseButton
+                onClick={() => !submitLoading && setShowForm(null)}
+                disabled={submitLoading}
+                aria-label="등록 창 닫기"
+              />
+              <h2
+                id={showForm === 'team' ? 'register-team-title' : 'register-marketer-title'}
+                className="text-lg font-semibold text-gray-800 mb-1 pr-10"
+              >
+                {showForm === 'team' ? '팀장 등록' : '마케터 등록'}
+              </h2>
+              <p className="text-xs text-gray-500 mb-4">아이디·비밀번호·이름을 입력한 뒤 등록하세요.</p>
+              <form
+                onSubmit={(e) => handleSubmit(e, showForm === 'team' ? 'TEAM_LEADER' : 'MARKETER')}
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left"
+              >
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">아이디 (로그인용)</label>
+                  <input
+                    value={form.email}
+                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    placeholder={showForm === 'team' ? 'team1' : 'marketer1'}
+                    required
+                    autoComplete="username"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">비밀번호</label>
+                  <input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">이름</label>
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    placeholder="홍길동"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">연락처 (선택)</label>
+                  <input
+                    value={form.phone}
+                    onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    placeholder="010-0000-0000"
+                  />
+                </div>
+                <div className="sm:col-span-2 flex flex-wrap justify-center gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={submitLoading}
+                    className={`px-4 py-2 rounded text-sm font-medium text-white disabled:opacity-50 ${
+                      showForm === 'team'
+                        ? 'bg-blue-600 hover:bg-blue-700'
+                        : 'bg-green-600 hover:bg-green-700'
+                    }`}
+                  >
+                    {submitLoading ? '등록 중…' : '등록'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={submitLoading}
+                    onClick={() => setShowForm(null)}
+                    className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {editingUser &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[201] overflow-y-auto overscroll-y-contain bg-black/40 px-4 py-8"
             role="dialog"
             aria-modal="true"
             aria-labelledby="user-edit-title"
