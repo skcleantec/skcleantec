@@ -433,7 +433,7 @@ export function AdminSchedulePage() {
   const [closureModalOpen, setClosureModalOpen] = useState(false);
   const [scheduleMapOpen, setScheduleMapOpen] = useState(false);
   const fetchGenRef = useRef(0);
-  /** 모바일: 캘린더 가로 스와이프로 이전·다음 달 (터치 종료 후 클릭 오동작 방지) */
+  /** 모바일: 캘린더 가로 스와이프 — 왼쪽 다음 달, 오른쪽 전 달 (터치 종료 후 클릭 오동작 방지) */
   const calendarSwipeTouchRef = useRef<{ x: number; y: number; id: number } | null>(null);
   const calendarSwipeSuppressClickRef = useRef(false);
 
@@ -616,9 +616,9 @@ export function AdminSchedulePage() {
     const ay = Math.abs(dy);
     const minPx = 52;
     if (ax < minPx || ax < ay * 1.15) return;
-    /* 손가락이 왼쪽으로 이동(dx<0) → 전달, 오른쪽(dx>0) → 다음달 */
-    if (dx < 0) goPrevMonth();
-    else goNextMonth();
+    /* 왼쪽으로 스와이프(dx<0) → 다음 달, 오른쪽(dx>0) → 전 달 */
+    if (dx < 0) goNextMonth();
+    else goPrevMonth();
     calendarSwipeSuppressClickRef.current = true;
   };
 
@@ -718,7 +718,7 @@ export function AdminSchedulePage() {
             </div>
           </div>
 
-          {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 좌·우 스와이프로 이전·다음 달) */}
+          {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
           <div
             className="rounded-xl border border-gray-200 bg-gray-200/90 p-px shadow-sm overflow-hidden max-lg:[touch-action:pan-y]"
             onTouchStart={onCalendarSwipeTouchStart}
