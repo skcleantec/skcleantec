@@ -6,12 +6,15 @@ import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { getTeamNavBadges } from '../../api/team';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { UserProfileMenu } from '../common/UserProfileMenu';
 
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [userVehicleNumber, setUserVehicleNumber] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [newAssignmentCount, setNewAssignmentCount] = useState(0);
@@ -21,16 +24,22 @@ export function TeamLayout() {
     if (!token) {
       setUserName(null);
       setUserRole(null);
+      setUserPhone(null);
+      setUserVehicleNumber(null);
       return;
     }
     getMe(token)
-      .then((u: { name?: string; role?: string }) => {
+      .then((u: { name?: string; role?: string; phone?: string | null; vehicleNumber?: string | null }) => {
         setUserName(u.name ?? null);
         setUserRole(u.role ?? null);
+        setUserPhone(u.phone ?? null);
+        setUserVehicleNumber(u.vehicleNumber ?? null);
       })
       .catch((e) => {
         setUserName(null);
         setUserRole(null);
+        setUserPhone(null);
+        setUserVehicleNumber(null);
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
@@ -159,15 +168,20 @@ export function TeamLayout() {
             </nav>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
-            {userName && (
-              <span className="text-sm text-gray-600 truncate max-w-[5rem] sm:max-w-none">{userName}</span>
-            )}
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-600 hover:text-gray-900 py-2 px-1 shrink-0"
-            >
-              로그아웃
-            </button>
+            <UserProfileMenu
+              token={teamToken}
+              me={{ name: userName, phone: userPhone, vehicleNumber: userVehicleNumber, role: userRole }}
+              onSaved={(next) => {
+                setUserName(next.name);
+                setUserPhone(next.phone);
+                setUserVehicleNumber(next.vehicleNumber);
+              }}
+              onLogout={handleLogout}
+              onSessionExpired={() => {
+                clearTeamToken();
+                navigate('/login', { replace: true, state: { sessionExpired: true } });
+              }}
+            />
           </div>
         </div>
         {/* 모바일: 상단(헤더 바로 아래) 탭 메뉴 */}

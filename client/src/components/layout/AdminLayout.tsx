@@ -17,24 +17,7 @@ import {
 } from '../../constants/adminNav';
 import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
-
-function adminHeaderGreeting(opts: {
-  token: string | null;
-  profileLoading: boolean;
-  meRole: string | null;
-  meName: string | null;
-}): string {
-  const { token, profileLoading, meRole, meName } = opts;
-  if (token && profileLoading) return '계정 확인 중…';
-  if (meRole === 'ADMIN') return '관리자님';
-  if (meRole === 'MARKETER') {
-    const n = meName?.trim();
-    return n ? `${n}님` : '마케터님';
-  }
-  const n = meName?.trim();
-  if (n) return `${n}님`;
-  return '사용자님';
-}
+import { UserProfileMenu } from '../common/UserProfileMenu';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -98,6 +81,8 @@ export function AdminLayout() {
   const navScrollRef = useRef<HTMLDivElement>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
   const [meName, setMeName] = useState<string | null>(null);
+  const [mePhone, setMePhone] = useState<string | null>(null);
+  const [meVehicleNumber, setMeVehicleNumber] = useState<string | null>(null);
   const [meProfileLoading, setMeProfileLoading] = useState(() => Boolean(adminToken));
   const [teamPreviewLink, setTeamPreviewLink] = useState(false);
   const [navOrder, setNavOrder] = useState<AdminNavId[]>(() => loadAdminNavOrder(false));
@@ -153,6 +138,8 @@ export function AdminLayout() {
     if (!token) {
       setMeRole(null);
       setMeName(null);
+      setMePhone(null);
+      setMeVehicleNumber(null);
       setTeamPreviewLink(false);
       setMeProfileLoading(false);
       return;
@@ -160,10 +147,12 @@ export function AdminLayout() {
     setMeProfileLoading(true);
     let cancelled = false;
     getMe(token)
-      .then((u: { role?: string; email?: string; name?: string }) => {
+      .then((u: { role?: string; email?: string; name?: string; phone?: string | null; vehicleNumber?: string | null }) => {
         if (cancelled) return;
         setMeRole(typeof u.role === 'string' ? u.role : null);
         setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
+        setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
+        setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
         const preview = Boolean(u.email && isTeamPreviewAdminEmail(u.email));
         setTeamPreviewLink(preview);
         if (preview && !getTeamToken()) {
@@ -175,6 +164,8 @@ export function AdminLayout() {
         if (isAuthSessionExpiredError(e)) {
           setMeRole(null);
           setMeName(null);
+          setMePhone(null);
+          setMeVehicleNumber(null);
           setTeamPreviewLink(false);
           clearToken();
           navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
@@ -439,21 +430,22 @@ export function AdminLayout() {
           <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
             <h1 className="text-base font-semibold text-gray-800 truncate">SK클린텍 솔루션</h1>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-sm text-gray-700 whitespace-nowrap">
-                {adminHeaderGreeting({
-                  token: adminToken,
-                  profileLoading: meProfileLoading,
-                  meRole,
-                  meName,
-                })}
-              </span>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="text-sm text-gray-600 hover:text-gray-900 whitespace-nowrap"
-              >
-                로그아웃
-              </button>
+              <UserProfileMenu
+                token={adminToken}
+                me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
+                loading={meProfileLoading}
+                onSaved={(next) => {
+                  setMeName(next.name);
+                  setMePhone(next.phone);
+                  setMeVehicleNumber(next.vehicleNumber);
+                }}
+                onLogout={handleLogout}
+                onSessionExpired={() => {
+                  clearToken();
+                  clearTeamToken();
+                  navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
+                }}
+              />
             </div>
           </div>
           <div className="flex flex-nowrap items-center justify-between gap-3 min-w-0">
@@ -643,21 +635,22 @@ export function AdminLayout() {
                 팀장 화면
               </NavLink>
             )}
-            <span className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-gray-700 whitespace-nowrap py-2">
-              {adminHeaderGreeting({
-                token: adminToken,
-                profileLoading: meProfileLoading,
-                meRole,
-                meName,
-              })}
-            </span>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-gray-600 hover:text-gray-900 whitespace-nowrap py-2"
-            >
-              로그아웃
-            </button>
+            <UserProfileMenu
+              token={adminToken}
+              me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
+              loading={meProfileLoading}
+              onSaved={(next) => {
+                setMeName(next.name);
+                setMePhone(next.phone);
+                setMeVehicleNumber(next.vehicleNumber);
+              }}
+              onLogout={handleLogout}
+              onSessionExpired={() => {
+                clearToken();
+                clearTeamToken();
+                navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
+              }}
+            />
           </div>
         </div>
         </div>

@@ -72,7 +72,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, name: true, role: true },
+    select: { id: true, email: true, name: true, phone: true, vehicleNumber: true, role: true },
   });
   if (!user) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
@@ -82,6 +82,53 @@ router.get('/me', authMiddleware, async (req, res) => {
     ...user,
     isSuperAdmin: isSuperAdminRoleAndEmail(user.role, user.email),
   });
+});
+
+router.patch('/me', authMiddleware, async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const body = req.body as { name?: string; phone?: string | null; vehicleNumber?: string | null; password?: string };
+  const data: { name?: string; phone?: string | null; vehicleNumber?: string | null; passwordHash?: string } = {};
+
+  if (body.name !== undefined) {
+    const name = String(body.name).trim();
+    if (!name) {
+      res.status(400).json({ error: '이름을 입력해주세요.' });
+      return;
+    }
+    data.name = name;
+  }
+  if (body.phone !== undefined) {
+    data.phone = body.phone ? String(body.phone).trim() : null;
+  }
+  if (body.vehicleNumber !== undefined) {
+    data.vehicleNumber = body.vehicleNumber ? String(body.vehicleNumber).trim() : null;
+  }
+  if (body.password !== undefined) {
+    const password = String(body.password).trim();
+    if (password.length > 0) {
+      data.passwordHash = await bcrypt.hash(password, 10);
+    }
+  }
+
+  if (Object.keys(data).length === 0) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, phone: true, vehicleNumber: true, role: true },
+    });
+    if (!user) {
+      res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+      return;
+    }
+    res.json(user);
+    return;
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data,
+    select: { id: true, email: true, name: true, phone: true, vehicleNumber: true, role: true },
+  });
+  res.json(updated);
 });
 
 export default router;

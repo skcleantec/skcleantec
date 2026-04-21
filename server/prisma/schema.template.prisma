@@ -30,6 +30,7 @@ model User {
   name         String
   role         UserRole @default(TEAM_LEADER)
   phone        String?
+  vehicleNumber String? @map("vehicle_number") @db.VarChar(64)
   isActive     Boolean  @default(true) @map("is_active")
   /// 타업체 로그인 계정(EXTERNAL_PARTNER)이 소속된 업체
   externalCompanyId String? @map("external_company_id")

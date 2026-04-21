@@ -56,3 +56,29 @@ export async function getMe(token: string) {
   }
   return res.json();
 }
+
+export async function updateMyProfile(
+  token: string,
+  body: { name?: string; phone?: string | null; vehicleNumber?: string | null; password?: string }
+) {
+  let res: Response;
+  try {
+    res = await fetch(`${API}/auth/me`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw apiUnreachableMessage();
+  }
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '개인정보를 수정하지 못했습니다.'));
+  }
+  return res.json();
+}
