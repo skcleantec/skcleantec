@@ -167,6 +167,8 @@ function ScheduleDayListItem({
 }) {
   const isExternalIntake = isManualIntakeInquiry(item.source);
   const isPending = item.status === 'PENDING';
+  const isOnHold = item.status === 'ON_HOLD';
+  const isCancelled = item.status === 'CANCELLED';
   const bucket = getScheduleTimeBucket(item);
   const isSide = isSideCleaningTime(item.preferredTime);
   const slotAccent =
@@ -219,7 +221,7 @@ function ScheduleDayListItem({
     <div
       className={`text-left w-full py-1.5 pl-2 pr-1 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm text-fluid-sm ${slotAccent} ${
         isPending ? 'ring-1 ring-red-500' : ''
-      }`}
+      } ${isOnHold ? 'ring-1 ring-amber-500 bg-amber-50/40' : ''} ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}`}
     >
       <span
         className={`shrink-0 self-center inline-flex items-center justify-center min-w-[2.25rem] px-1 py-0.5 text-fluid-2xs font-bold leading-none rounded ${slotBadgeClass}`}
@@ -237,6 +239,16 @@ function ScheduleDayListItem({
             {isExternalIntake && (
               <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[10px] font-semibold text-fuchsia-800">
                 수기
+              </span>
+            )}
+            {isCancelled && (
+              <span className="inline-flex items-center rounded border border-slate-400 bg-slate-100 px-1 py-px text-[10px] font-bold text-slate-800">
+                취소
+              </span>
+            )}
+            {isOnHold && (
+              <span className="inline-flex items-center rounded border border-amber-500 bg-amber-100 px-1 py-px text-[10px] font-bold text-amber-950">
+                ! 보류
               </span>
             )}
             {(item.inquiryNumber ||
@@ -751,14 +763,19 @@ export function AdminSchedulePage() {
                 }
                 const key = getDateKey(d);
                 const dayItems = byDate[key] || [];
+                const activeScheduleItems = dayItems.filter(
+                  (it) => it.status !== 'CANCELLED' && it.status !== 'ON_HOLD'
+                );
                 const pendingDayCount = dayItems.filter((it) => it.status === 'PENDING').length;
+                const onHoldDayCount = dayItems.filter((it) => it.status === 'ON_HOLD').length;
+                const cancelledDayCount = dayItems.filter((it) => it.status === 'CANCELLED').length;
                 const dayStats = stats[key];
                 const morningRem = dayStats?.assignableMorning ?? 0;
                 const afternoonRem = dayStats?.assignableAfternoonSlot ?? 0;
                 const sideOrderCount = dayStats?.sideCleaningOrderCount ?? 0;
                 const sideUnconfirmed = dayStats?.sideCleaningUnconfirmedCount ?? 0;
                 const workingCount = dayStats?.workingCount ?? 0;
-                const unassignedCount = dayItems.filter((it) => !it.assignments?.[0]).length;
+                const unassignedCount = activeScheduleItems.filter((it) => !it.assignments?.[0]).length;
                 const hasEvents = dayItems.length > 0;
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
@@ -777,7 +794,8 @@ export function AdminSchedulePage() {
                 const weekdayColor =
                   isHoliday || isSunday ? 'text-rose-600' : isSaturday ? 'text-slate-600' : 'text-gray-500';
                 const pendingAccent = pendingDayCount > 0 && !isSelected;
-                const emptyAccent = !isSelected && hasEmptySlots && pendingDayCount === 0;
+                const onHoldAccent = onHoldDayCount > 0 && !isSelected;
+                const emptyAccent = !isSelected && hasEmptySlots && pendingDayCount === 0 && onHoldDayCount === 0;
                 const cellBg = isSelected
                   ? 'bg-white ring-2 ring-gray-900 ring-inset z-[1]'
                   : isSlotFull
@@ -806,9 +824,11 @@ export function AdminSchedulePage() {
                     className={`min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 px-1.5 py-1 sm:px-2 sm:py-1.5 pb-[clamp(1.35rem,3.8vmin,1.85rem)] cursor-pointer relative overflow-visible text-left transition-colors ${
                       cellBg
                     } ${pendingAccent ? 'ring-1 ring-rose-400/90 ring-inset' : ''} ${
-                      emptyAccent ? 'ring-1 ring-rose-300/80 ring-inset' : ''
-                    } ${!isSelected && !isSlotFull && !pendingAccent ? 'hover:bg-gray-50/95' : ''} ${
-                      pendingDayCount > 0 ? 'bg-rose-50/50' : ''
+                      onHoldAccent ? 'ring-1 ring-amber-500/95 ring-inset' : ''
+                    } ${emptyAccent ? 'ring-1 ring-rose-300/80 ring-inset' : ''} ${
+                      !isSelected && !isSlotFull && !pendingAccent && !onHoldAccent ? 'hover:bg-gray-50/95' : ''
+                    } ${pendingDayCount > 0 ? 'bg-rose-50/50' : ''} ${
+                      onHoldDayCount > 0 && pendingDayCount === 0 ? 'bg-amber-50/35' : ''
                     }`}
                   >
                     <div className="flex items-start justify-between gap-0.5 sm:gap-1 min-w-0">
@@ -832,6 +852,22 @@ export function AdminSchedulePage() {
                           title="대기 접수(발주서 미제출)"
                         >
                           대기{pendingDayCount > 1 ? pendingDayCount : ''}
+                        </span>
+                      )}
+                      {onHoldDayCount > 0 && (
+                        <span
+                          className="shrink-0 text-calendar-2xs font-bold text-amber-950 bg-amber-200/95 px-1 sm:px-1.5 py-0.5 rounded-md leading-none max-w-[min(100%,5rem)] truncate"
+                          title="보류(일정 미확정) — 담당 배정 없음"
+                        >
+                          ! 보류{onHoldDayCount > 1 ? onHoldDayCount : ''}
+                        </span>
+                      )}
+                      {cancelledDayCount > 0 && (
+                        <span
+                          className="shrink-0 text-calendar-2xs font-semibold text-slate-700 bg-slate-200/90 px-1 sm:px-1.5 py-0.5 rounded-md leading-none max-w-[min(100%,4rem)] truncate"
+                          title="취소된 접수(일정에 유지)"
+                        >
+                          취소{cancelledDayCount > 1 ? cancelledDayCount : ''}
                         </span>
                       )}
                     </div>
@@ -1168,7 +1204,9 @@ export function AdminSchedulePage() {
               )}
 
               {(() => {
-                const dayList = byDate[selectedDate] ?? [];
+                const dayListAll = byDate[selectedDate] ?? [];
+                const dayList = dayListAll.filter((i) => i.status !== 'CANCELLED' && i.status !== 'ON_HOLD');
+                const shelfInactive = dayListAll.filter((i) => i.status === 'CANCELLED' || i.status === 'ON_HOLD');
                 const morningList = dayList.filter((i) => getScheduleTimeBucket(i) === 'morning');
                 const afternoonList = dayList.filter((i) => getScheduleTimeBucket(i) === 'afternoon');
                 const otherList = dayList.filter((i) => getScheduleTimeBucket(i) === 'other');
@@ -1397,6 +1435,31 @@ export function AdminSchedulePage() {
                           )}
                         </div>
                       </details>
+                    )}
+                    {shelfInactive.length > 0 && (
+                      <div className="min-w-0 border-t border-gray-200 pt-3 mt-1">
+                        <div className="flex items-center gap-2 mb-2 border-b border-gray-300 pb-1.5">
+                          <span className="text-fluid-sm font-bold text-gray-800">취소·보류</span>
+                          <span className="text-fluid-xs text-gray-600 tabular-nums">{shelfInactive.length}건</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {shelfInactive.map((item) => (
+                            <ScheduleDayListItem
+                              key={item.id}
+                              item={item}
+                              profCatalog={profCatalog}
+                              onPick={() => {
+                                setMemoModalItem(null);
+                                setDetailItem(item);
+                              }}
+                              onOpenMemo={() => {
+                                setDetailItem(null);
+                                setMemoModalItem(item);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 );

@@ -44,8 +44,7 @@ router.get('/', async (req, res) => {
   const itemsRaw = await prisma.inquiry.findMany({
     where: {
       preferredDate: { gte: startDate, lte: endDate },
-      /** 대기(PENDING)도 예약일이 있으면 스케줄에 표시(접수 확정 전·발주서 대기 구분용) */
-      status: { not: 'CANCELLED' },
+      /** 취소·보류·대기 포함 — 화면에서 배지로 구분(가용 집계는 schedule-stats에서 취소·보류 제외) */
     },
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     include: {

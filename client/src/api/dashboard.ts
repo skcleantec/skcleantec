@@ -1,8 +1,9 @@
 import { API, apiErrorMessage } from './apiPrefix';
+import { isLikelyNetworkFailure } from './fetchNetwork';
 
 function apiUnreachableMessage(): Error {
   return new Error(
-    'API 서버에 연결할 수 없습니다. 프로젝트 루트에서 npm run dev 로 서버(3000)와 클라이언트(5173)를 함께 켜 주세요.'
+    'API 서버에 연결할 수 없습니다. npm run dev 로 API와 Vite를 함께 켜 주세요. Cursor 내장 브라우저는 루프백에서 자동으로 API에 직접 붙습니다.'
   );
 }
 
@@ -25,10 +26,16 @@ export async function getDashboardStats(token: string): Promise<DashboardStats> 
     res = await fetch(`${API}/dashboard/stats`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-  } catch {
-    throw apiUnreachableMessage();
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
   }
   if (!res.ok) {
+    if (res.status === 502 || res.status === 503) {
+      throw apiUnreachableMessage();
+    }
     throw new Error(await apiErrorMessage(res, '통계를 불러올 수 없습니다.'));
   }
   return res.json();

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { devDirectWsOrigin } from '../api/apiPrefix';
 import { fetchCelebrationFeedHead, fetchCelebrationsSince } from '../api/celebrationFeed';
 import { useVisibilityInterval } from './useVisibilityInterval';
 
@@ -7,6 +8,10 @@ function buildWsUrl(token: string): string {
   if (base?.trim()) {
     const u = base.replace(/\/$/, '');
     return `${u}/ws?token=${encodeURIComponent(token)}`;
+  }
+  const direct = devDirectWsOrigin();
+  if (direct) {
+    return `${direct}/ws?token=${encodeURIComponent(token)}`;
   }
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;

@@ -111,6 +111,7 @@ const STATUS_LABELS: Record<string, string> = {
   ASSIGNED: '분배완료',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
+  ON_HOLD: '보류',
   CANCELLED: '취소',
   CS_PROCESSING: 'C/S 처리중',
 };
@@ -198,8 +199,9 @@ function happyCallAdminCell(item: InquiryItem): { label: string; className: stri
 /** 모바일 카드 목록 — 표와 동일한 강조(대기·해피콜 톤) */
 function inquiryMobileCardShellClass(item: InquiryItem): string {
   const isPending = item.status === 'PENDING';
+  const isOnHold = item.status === 'ON_HOLD';
   const hasAssignment = item.assignments.length > 0;
-  const hcTone = isPending
+  const hcTone = isPending || isOnHold
     ? ('none' as const)
     : happyCallRowTone(
         new Date(),
@@ -211,6 +213,7 @@ function inquiryMobileCardShellClass(item: InquiryItem): string {
   const base =
     'rounded-xl border text-left outline-none transition focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation';
   if (isPending) return `${base} border-red-500 bg-red-50/90 ring-1 ring-red-200/50 shadow-sm`;
+  if (isOnHold) return `${base} border-amber-500 bg-amber-50/90 ring-1 ring-amber-300/80 shadow-sm`;
   if (hcTone === 'overdue') return `${base} border-red-200 bg-red-50/95 shadow-sm`;
   if (hcTone === 'pending') return `${base} border-amber-200 bg-amber-50/80 shadow-sm`;
   return `${base} border-gray-200 bg-white shadow-sm hover:border-gray-300`;
@@ -814,8 +817,8 @@ export function AdminInquiriesPage() {
         return;
       }
       const ids = editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
-      if (ids.length > 0 && editForm.status === 'PENDING') {
-        alert('대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다.');
+      if (ids.length > 0 && (editForm.status === 'PENDING' || editForm.status === 'ON_HOLD')) {
+        alert('대기·보류 상태인 건에는 분배할 수 없습니다.');
         setSaving(false);
         return;
       }
@@ -1292,8 +1295,18 @@ export function AdminInquiriesPage() {
                               const v = e.target.value;
                               if (v) void handleAssign(item.id, v);
                             }}
-                            disabled={assigningId === item.id || item.status === 'PENDING'}
-                            title={item.status === 'PENDING' ? '대기 건은 발주서 제출 후 분배할 수 있습니다.' : undefined}
+                            disabled={
+                              assigningId === item.id ||
+                              item.status === 'PENDING' ||
+                              item.status === 'ON_HOLD'
+                            }
+                            title={
+                              item.status === 'PENDING'
+                                ? '대기 건은 발주서 제출 후 분배할 수 있습니다.'
+                                : item.status === 'ON_HOLD'
+                                  ? '보류 건에는 분배할 수 없습니다.'
+                                  : undefined
+                            }
                             className="min-h-[40px] min-w-0 flex-1 rounded border border-gray-300 bg-white px-1.5 py-1.5 text-fluid-2xs sm:text-fluid-xs"
                           >
                             <option value="">빠른 배정(1명)</option>
@@ -1563,8 +1576,18 @@ export function AdminInquiriesPage() {
                           const v = e.target.value;
                           if (v) handleAssign(item.id, v);
                         }}
-                        disabled={assigningId === item.id || item.status === 'PENDING'}
-                        title={item.status === 'PENDING' ? '대기 건은 발주서 제출 후 분배할 수 있습니다.' : undefined}
+                        disabled={
+                          assigningId === item.id ||
+                          item.status === 'PENDING' ||
+                          item.status === 'ON_HOLD'
+                        }
+                        title={
+                          item.status === 'PENDING'
+                            ? '대기 건은 발주서 제출 후 분배할 수 있습니다.'
+                            : item.status === 'ON_HOLD'
+                              ? '보류 건에는 분배할 수 없습니다.'
+                              : undefined
+                        }
                         className="w-full min-w-0 max-w-full rounded border border-gray-300 px-0.5 py-0.5 text-fluid-2xs xl:px-1 xl:py-1 xl:text-fluid-xs"
                       >
                         <option value="">배정(1명)</option>
@@ -2111,7 +2134,7 @@ export function AdminInquiriesPage() {
                   <div key={idx} className="flex gap-2 items-center">
                     <select
                       value={lid}
-                      disabled={editForm.status === 'PENDING'}
+                      disabled={editForm.status === 'PENDING' || editForm.status === 'ON_HOLD'}
                       onChange={(e) => {
                         const v = e.target.value;
                         setEditForm((p) => {
@@ -2148,7 +2171,7 @@ export function AdminInquiriesPage() {
                 <button
                   type="button"
                   className="text-sm text-blue-600 hover:underline"
-                  disabled={editForm.status === 'PENDING'}
+                  disabled={editForm.status === 'PENDING' || editForm.status === 'ON_HOLD'}
                   onClick={() =>
                     setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
                   }

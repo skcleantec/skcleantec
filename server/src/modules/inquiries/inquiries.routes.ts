@@ -362,16 +362,7 @@ router.patch('/:id', async (req, res) => {
       orderForm: { select: { createdById: true } },
       assignments: {
         orderBy: { sortOrder: 'asc' },
-        include: {
-          teamLeader: {
-            select: {
-              id: true,
-              name: true,
-              role: true,
-              externalCompany: { select: { name: true } },
-            },
-          },
-        },
+        include: { teamLeader: { select: assignmentTeamLeaderSelect } },
       },
     },
   });
@@ -381,10 +372,30 @@ router.patch('/:id', async (req, res) => {
   }
 
   /** 클라이언트가 teamLeaderIds를 보낸 경우에만 분배(Assignment) 동기화 — 배열이 아닌 형태도 normalize에서 처리 */
-  const wantsTeamSync = Object.prototype.hasOwnProperty.call(body, 'teamLeaderIds');
-  const teamLeaderIds = normalizeTeamLeaderIds(body.teamLeaderIds);
+  let wantsTeamSync = Object.prototype.hasOwnProperty.call(body, 'teamLeaderIds');
+  let teamLeaderIds = normalizeTeamLeaderIds(body.teamLeaderIds);
 
   const data = buildInquiryPatchData(body);
+  const tentativeMergedStatus: InquiryStatus =
+    data.status !== undefined ? (data.status as InquiryStatus) : inquiry.status;
+
+  /** 취소·보류: 담당 팀장·팀원 없이 유지(배정 행 삭제, 팀원 필드 비움). teamLeaderIds 없이 PATCH만 와도 동기화되도록 wantsTeamSync 강제 */
+  if (tentativeMergedStatus === 'CANCELLED' || tentativeMergedStatus === 'ON_HOLD') {
+    wantsTeamSync = true;
+    teamLeaderIds = [];
+    data.crewMemberCount = null;
+    data.crewMemberNote = null;
+  }
+
+  if (tentativeMergedStatus !== 'CANCELLED' && inquiry.status === 'CANCELLED') {
+    data.cancelFeeExternalCompany = { disconnect: true };
+  } else if (tentativeMergedStatus === 'CANCELLED' && inquiry.status !== 'CANCELLED') {
+    const ext = inquiry.assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
+    const snapCid = ext?.teamLeader.externalCompanyId;
+    if (typeof snapCid === 'string' && snapCid.length > 0) {
+      data.cancelFeeExternalCompany = { connect: { id: snapCid } };
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(body, 'createdById')) {
     if (user.role !== 'ADMIN') {
       res.status(403).json({ error: '담당 마케터 변경은 관리자만 가능합니다.' });
@@ -500,11 +511,12 @@ router.patch('/:id', async (req, res) => {
     data.crewMemberCount !== undefined &&
     (mergedCrew ?? null) !== (inquiry.crewMemberCount ?? null);
 
-  if (mergedStatus !== 'CANCELLED' && mergedPreferredDate) {
+  if (mergedStatus !== 'CANCELLED' && mergedStatus !== 'ON_HOLD' && mergedPreferredDate) {
     const capacityRelevant =
       preferredDateKstChanged ||
       crewMemberCountChanged ||
-      (data.status !== undefined && inquiry.status === 'CANCELLED');
+      (data.status !== undefined &&
+        (inquiry.status === 'CANCELLED' || inquiry.status === 'ON_HOLD'));
     if (capacityRelevant) {
       const cap = await assertCrewCapacityForInquiry({
         prisma,
@@ -574,6 +586,7 @@ router.patch('/:id', async (req, res) => {
       ASSIGNED: '분배완료',
       IN_PROGRESS: '진행중',
       COMPLETED: '완료',
+      ON_HOLD: '보류',
       CANCELLED: '취소',
       CS_PROCESSING: 'C/S 처리중',
     };
@@ -769,6 +782,7 @@ const CREATE_STATUSES: InquiryStatus[] = [
   'ASSIGNED',
   'IN_PROGRESS',
   'COMPLETED',
+  'ON_HOLD',
   'CANCELLED',
   'CS_PROCESSING',
 ];
@@ -794,7 +808,7 @@ router.post('/', async (req, res) => {
 
   const preferredDate = body.preferredDate ? new Date(body.preferredDate as string) : null;
 
-  if (status !== 'CANCELLED' && preferredDate) {
+  if (status !== 'CANCELLED' && status !== 'ON_HOLD' && preferredDate) {
     const cap = await assertCrewCapacityForInquiry({
       prisma,
       preferredDate,

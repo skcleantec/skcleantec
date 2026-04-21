@@ -1,4 +1,5 @@
 import { API, apiErrorMessage } from './apiPrefix';
+import { isLikelyNetworkFailure } from './fetchNetwork';
 
 /** `/api/auth/me` 401 — 만료·JWT_SECRET 불일치·손상된 토큰 */
 export class AuthSessionExpiredError extends Error {
@@ -14,7 +15,7 @@ export function isAuthSessionExpiredError(e: unknown): e is AuthSessionExpiredEr
 
 function apiUnreachableMessage(): Error {
   return new Error(
-    'API 서버에 연결할 수 없습니다. 프로젝트 루트에서 npm run dev 로 서버(3000)와 클라이언트(5173)를 함께 켜 주세요. (client만 단독 실행 시 로그인 불가)'
+    'API 서버에 연결할 수 없습니다. 저장소 루트 또는 client 에서 npm run dev 로 API(기본 3000)와 Vite를 함께 켜 주세요. 개발 모드는 Cursor 포함 대부분 주소에서 API에 직접 붙습니다 — server/.env 의 PORT 와 API 기동 여부를 확인하세요.'
   );
 }
 
@@ -26,10 +27,16 @@ export async function login(email: string, password: string) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-  } catch {
-    throw apiUnreachableMessage();
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
   }
   if (!res.ok) {
+    if (res.status === 502 || res.status === 503) {
+      throw apiUnreachableMessage();
+    }
     const data = (await res.json().catch(() => ({}))) as { error?: unknown };
     const msg = typeof data.error === 'string' && data.error.trim() ? data.error.trim() : null;
     throw new Error(msg ?? `로그인에 실패했습니다. (HTTP ${res.status})`);
@@ -43,13 +50,19 @@ export async function getMe(token: string) {
     res = await fetch(`${API}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-  } catch {
-    throw apiUnreachableMessage();
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
   }
   if (res.status === 401) {
     throw new AuthSessionExpiredError();
   }
   if (!res.ok) {
+    if (res.status === 502 || res.status === 503) {
+      throw apiUnreachableMessage();
+    }
     throw new Error(await apiErrorMessage(res, '인증 정보를 불러올 수 없습니다.'));
   }
   return res.json();
@@ -69,13 +82,19 @@ export async function updateMyProfile(
       },
       body: JSON.stringify(body),
     });
-  } catch {
-    throw apiUnreachableMessage();
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
   }
   if (res.status === 401) {
     throw new AuthSessionExpiredError();
   }
   if (!res.ok) {
+    if (res.status === 502 || res.status === 503) {
+      throw apiUnreachableMessage();
+    }
     throw new Error(await apiErrorMessage(res, '개인정보를 수정하지 못했습니다.'));
   }
   return res.json();

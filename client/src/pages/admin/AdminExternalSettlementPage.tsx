@@ -86,7 +86,9 @@ export function AdminExternalSettlementPage() {
         <h1 className="text-xl font-semibold text-gray-800">타업체 정산</h1>
         <p className="text-sm text-gray-500 mt-1">
           예약일(희망일)이 기간 안에 있고, <strong className="font-medium text-gray-700">타업체 수수료</strong>가 입력된
-          접수만 집계합니다. 업체별 합계는 해당 건에 타업체 담당이 배정된 경우에만 행으로 잡힙니다.
+          접수를 집계합니다. <strong className="font-medium text-gray-700">보류</strong>는 제외하고,{' '}
+          <strong className="font-medium text-gray-700">취소</strong> 건은 같은 기간·업체 기준으로 수수료를
+          차감(마이너스)합니다. 업체별 행은 타업체 담당(또는 취소 시 스냅샷 업체)이 있는 건만 포함됩니다.
         </p>
       </div>
 
@@ -205,8 +207,9 @@ export function AdminExternalSettlementPage() {
                 <thead>
                   <tr className="bg-gray-50 text-left text-gray-600">
                     <th className="px-4 py-2 font-medium">타업체</th>
-                    <th className="px-4 py-2 font-medium">건수</th>
-                    <th className="px-4 py-2 font-medium">수수료 합계</th>
+                    <th className="px-4 py-2 font-medium">진행 건수</th>
+                    <th className="px-4 py-2 font-medium">취소 차감</th>
+                    <th className="px-4 py-2 font-medium">수수료 순액</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -221,6 +224,11 @@ export function AdminExternalSettlementPage() {
                     <tr className="border-t border-gray-100 bg-amber-50/50">
                       <td className="px-4 py-2 text-amber-900">업체 미매칭 (수수료만 있고 타업체 배정 없음)</td>
                       <td className="px-4 py-2 tabular-nums">{data.unassigned.inquiryCount}</td>
+                      <td className="px-4 py-2 tabular-nums text-rose-800">
+                        {(data.unassigned.cancelledInquiryCount ?? 0) > 0
+                          ? `${data.unassigned.cancelledInquiryCount}건`
+                          : '—'}
+                      </td>
                       <td className="px-4 py-2 tabular-nums">
                         {data.unassigned.feeSum.toLocaleString('ko-KR')}원
                       </td>

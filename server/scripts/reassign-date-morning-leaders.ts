@@ -29,7 +29,7 @@ async function main() {
   const items = await prisma.inquiry.findMany({
     where: {
       preferredDate: { gte: dayStart, lte: dayEnd },
-      status: { not: 'CANCELLED' },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
     },
     include: {
       assignments: { include: { teamLeader: { select: { name: true } } } },

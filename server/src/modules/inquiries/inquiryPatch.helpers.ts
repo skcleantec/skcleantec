@@ -106,6 +106,7 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
       | 'ASSIGNED'
       | 'IN_PROGRESS'
       | 'COMPLETED'
+      | 'ON_HOLD'
       | 'CANCELLED'
       | 'CS_PROCESSING';
   }

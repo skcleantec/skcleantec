@@ -155,7 +155,7 @@ export async function sumCrewDemandForPreferredDate(
   const rows = await prisma.inquiry.findMany({
     where: {
       preferredDate: { gte, lte },
-      status: { not: 'CANCELLED' },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       ...(excludeInquiryId ? { id: { not: excludeInquiryId } } : {}),
     },
     select: { id: true, crewMemberCount: true },

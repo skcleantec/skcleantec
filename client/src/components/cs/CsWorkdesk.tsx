@@ -29,6 +29,7 @@ const INQUIRY_STATUS_LABELS: Record<string, string> = {
   ASSIGNED: '분배완료',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
+  ON_HOLD: '보류',
   CANCELLED: '취소',
   CS_PROCESSING: 'C/S 처리중',
 };

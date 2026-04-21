@@ -41,7 +41,7 @@ if (wait.status !== 0) {
   process.exit(wait.status ?? 1);
 }
 
-const child = spawn('npm', ['run', 'dev', '--prefix', path.join(root, 'client')], {
+const child = spawn('npm', ['run', 'dev:vite', '--prefix', path.join(root, 'client')], {
   stdio: 'inherit',
   shell: true,
   cwd: root,

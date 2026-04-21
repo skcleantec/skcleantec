@@ -74,6 +74,7 @@ export const STATUS_LABELS: Record<string, string> = {
   ASSIGNED: '분배',
   IN_PROGRESS: '진행',
   COMPLETED: '완료',
+  ON_HOLD: '보류',
   CANCELLED: '취소',
   CS_PROCESSING: 'C/S',
 };

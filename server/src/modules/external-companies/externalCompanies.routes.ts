@@ -201,8 +201,9 @@ router.get('/settlement/summary', async (req, res) => {
   const inquiries = await prisma.inquiry.findMany({
     where: {
       preferredDate: { gte: startDate, lte: endDate },
-      status: { not: 'CANCELLED' },
       externalTransferFee: { not: null },
+      /** 보류는 수수료 집계 제외(취소는 마이너스 반영) */
+      status: { not: 'ON_HOLD' },
     },
     select: {
       id: true,
@@ -210,6 +211,9 @@ router.get('/settlement/summary', async (req, res) => {
       customerName: true,
       externalTransferFee: true,
       preferredDate: true,
+      status: true,
+      cancelFeeExternalCompanyId: true,
+      cancelFeeExternalCompany: { select: { id: true, name: true } },
       assignments: {
         orderBy: { sortOrder: 'asc' },
         select: {
@@ -228,45 +232,66 @@ router.get('/settlement/summary', async (req, res) => {
   type Row = {
     externalCompanyId: string;
     companyName: string;
+    /** 취소 제외 건수 */
     inquiryCount: number;
+    /** 기간 내 취소 건수(수수료 차감 대상) */
+    cancelledInquiryCount: number;
+    /** 활성(+), 취소(-) 합산 순액 */
     feeSum: number;
   };
   const byCompany = new Map<string, Row>();
   let unassignedFee = 0;
-  let unassignedCount = 0;
+  let unassignedActive = 0;
+  let unassignedCancelled = 0;
 
   for (const inq of inquiries) {
     const fee = inq.externalTransferFee ?? 0;
     const extAssign = inq.assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
-    const cid = extAssign?.teamLeader.externalCompanyId;
-    const cname = extAssign?.teamLeader.externalCompany?.name;
+    const isCancelled = inq.status === 'CANCELLED';
+    const cid = isCancelled
+      ? (inq.cancelFeeExternalCompanyId ?? extAssign?.teamLeader.externalCompanyId ?? null)
+      : (extAssign?.teamLeader.externalCompanyId ?? null);
+    const cname =
+      inq.cancelFeeExternalCompany?.name ?? extAssign?.teamLeader.externalCompany?.name ?? null;
+    const sign = isCancelled ? -1 : 1;
     if (cid && cname) {
       const prev = byCompany.get(cid);
       if (prev) {
-        prev.inquiryCount += 1;
-        prev.feeSum += fee;
+        if (isCancelled) prev.cancelledInquiryCount += 1;
+        else prev.inquiryCount += 1;
+        prev.feeSum += sign * fee;
       } else {
         byCompany.set(cid, {
           externalCompanyId: cid,
           companyName: cname,
-          inquiryCount: 1,
-          feeSum: fee,
+          inquiryCount: isCancelled ? 0 : 1,
+          cancelledInquiryCount: isCancelled ? 1 : 0,
+          feeSum: sign * fee,
         });
       }
     } else {
-      unassignedCount += 1;
-      unassignedFee += fee;
+      unassignedFee += sign * fee;
+      if (isCancelled) unassignedCancelled += 1;
+      else unassignedActive += 1;
     }
   }
 
   const rows = [...byCompany.values()].sort((a, b) => b.feeSum - a.feeSum);
   const grandTotal = rows.reduce((s, r) => s + r.feeSum, 0) + unassignedFee;
+  const unassignedTotalCount = unassignedActive + unassignedCancelled;
 
   res.json({
     from,
     to,
     rows,
-    unassigned: unassignedCount > 0 ? { inquiryCount: unassignedCount, feeSum: unassignedFee } : null,
+    unassigned:
+      unassignedTotalCount > 0
+        ? {
+            inquiryCount: unassignedActive,
+            cancelledInquiryCount: unassignedCancelled,
+            feeSum: unassignedFee,
+          }
+        : null,
     grandTotal,
   });
 });
@@ -298,29 +323,51 @@ router.get('/settlement/accruals', async (_req, res) => {
     }
   }
 
-  const inquiries = await prisma.inquiry.findMany({
+  const accrualSelect = {
+    id: true,
+    preferredDate: true,
+    externalTransferFee: true,
+    createdAt: true,
+    updatedAt: true,
+    status: true,
+    cancelFeeExternalCompanyId: true,
+    assignments: {
+      orderBy: { sortOrder: 'asc' as const },
+      select: {
+        teamLeader: { select: { role: true, externalCompanyId: true } },
+      },
+    },
+  };
+
+  const activeInquiries = await prisma.inquiry.findMany({
     where: {
       externalTransferFee: { not: null },
-      status: { not: 'CANCELLED' },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       assignments: {
         some: {
           teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } },
         },
       },
     },
-    select: {
-      id: true,
-      preferredDate: true,
-      externalTransferFee: true,
-      createdAt: true,
-      updatedAt: true,
-      assignments: {
-        orderBy: { sortOrder: 'asc' },
-        select: {
-          teamLeader: { select: { role: true, externalCompanyId: true } },
+    select: accrualSelect,
+  });
+
+  const cancelledInquiries = await prisma.inquiry.findMany({
+    where: {
+      status: 'CANCELLED',
+      externalTransferFee: { not: null },
+      OR: [
+        { cancelFeeExternalCompanyId: { not: null } },
+        {
+          assignments: {
+            some: {
+              teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } },
+            },
+          },
         },
-      },
+      ],
     },
+    select: accrualSelect,
   });
 
   type Acc = { sinceReset: number; today: number; month: number; year: number };
@@ -329,7 +376,20 @@ router.get('/settlement/accruals', async (_req, res) => {
     accByCompany.set(c.id, { sinceReset: 0, today: 0, month: 0, year: 0 });
   }
 
-  for (const inq of inquiries) {
+  const addSignedByPreferred = (cid: string, fee: number, sign: 1 | -1, inq: { preferredDate: Date | null }) => {
+    const a = accByCompany.get(cid);
+    if (!a) return;
+    const v = sign * fee;
+    a.sinceReset += v;
+    if (inq.preferredDate) {
+      const pYmd = kstYmd(inq.preferredDate);
+      if (pYmd === todayYmd) a.today += v;
+      if (pYmd.slice(0, 7) === monthKey) a.month += v;
+      if (pYmd.slice(0, 4) === yearPrefix) a.year += v;
+    }
+  };
+
+  for (const inq of activeInquiries) {
     const ext = inq.assignments.find(
       (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId
     );
@@ -341,15 +401,24 @@ router.get('/settlement/accruals', async (_req, res) => {
     const activeSinceReset = inq.createdAt > lastReset || inq.updatedAt > lastReset;
     if (!activeSinceReset) continue;
 
-    const a = accByCompany.get(cid)!;
-    a.sinceReset += fee;
+    addSignedByPreferred(cid, fee, 1, inq);
+  }
 
-    if (inq.preferredDate) {
-      const pYmd = kstYmd(inq.preferredDate);
-      if (pYmd === todayYmd) a.today += fee;
-      if (pYmd.slice(0, 7) === monthKey) a.month += fee;
-      if (pYmd.slice(0, 4) === yearPrefix) a.year += fee;
-    }
+  for (const inq of cancelledInquiries) {
+    const ext = inq.assignments.find(
+      (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId
+    );
+    const cid =
+      inq.cancelFeeExternalCompanyId ?? ext?.teamLeader.externalCompanyId ?? null;
+    if (!cid || !accByCompany.has(cid)) continue;
+
+    const fee = inq.externalTransferFee ?? 0;
+    const lastReset = lastResetByCompany.get(cid) ?? new Date(0);
+    if (inq.updatedAt <= lastReset) continue;
+    const createdAfterReset = inq.createdAt > lastReset;
+    if (createdAfterReset && inq.updatedAt.getTime() - inq.createdAt.getTime() < 120_000) continue;
+
+    addSignedByPreferred(cid, fee, -1, inq);
   }
 
   const items = companies.map((c) => ({

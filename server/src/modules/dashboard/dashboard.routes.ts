@@ -14,6 +14,15 @@ router.use(adminOrMarketer);
 /** 매출 집계 대상: 청소 완료·진행중 건 */
 const SALES_STATUS = ['COMPLETED', 'IN_PROGRESS'] as const;
 
+/** 해피콜 통계 집계 대상(DB에 `ON_HOLD` enum 미적용 시에도 `notIn`에 `ON_HOLD`를 넣지 않기 위해 허용 목록 사용) */
+const HAPPY_CALL_STATS_STATUSES = [
+  'RECEIVED',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CS_PROCESSING',
+] as const;
+
 function getInquiryAmount(inq: { orderForm?: { totalAmount: number } | null; areaPyeong: number | null }, pricePerPyeong: number): number {
   if (inq.orderForm?.totalAmount != null) return inq.orderForm.totalAmount;
   if (inq.areaPyeong != null && inq.areaPyeong > 0) return Math.round(inq.areaPyeong * pricePerPyeong);
@@ -21,6 +30,7 @@ function getInquiryAmount(inq: { orderForm?: { totalAmount: number } | null; are
 }
 
 router.get('/stats', async (_req, res) => {
+  try {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -125,7 +135,7 @@ router.get('/stats', async (_req, res) => {
     where: {
       preferredDate: { not: null },
       happyCallCompletedAt: null,
-      status: { notIn: ['CANCELLED', 'PENDING'] },
+      status: { in: [...HAPPY_CALL_STATS_STATUSES] },
       assignments: { some: {} },
     },
     select: { preferredDate: true },
@@ -149,6 +159,17 @@ router.get('/stats', async (_req, res) => {
     happyCallOverdueCount,
     happyCallPendingBeforeDeadlineCount,
   });
+  } catch (err) {
+    console.error('[dashboard/stats]', err);
+    const msg =
+      err instanceof Error ? err.message : '대시보드 통계를 불러오지 못했습니다.';
+    res.status(500).json({
+      error:
+        msg.includes('ON_HOLD') || msg.includes('inquiry_status') || msg.includes('InquiryStatus')
+          ? 'DB 스키마가 코드보다 낮을 수 있습니다. server 에서 `npx prisma migrate deploy`(또는 로컬 `migrate dev`) 후 다시 시도해 주세요.'
+          : msg,
+    });
+  }
 });
 
 export default router;

@@ -82,9 +82,10 @@ export type ExternalSettlementSummary = {
     externalCompanyId: string;
     companyName: string;
     inquiryCount: number;
+    cancelledInquiryCount: number;
     feeSum: number;
   }>;
-  unassigned: { inquiryCount: number; feeSum: number } | null;
+  unassigned: { inquiryCount: number; cancelledInquiryCount?: number; feeSum: number } | null;
   grandTotal: number;
 };
 

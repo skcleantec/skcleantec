@@ -45,6 +45,7 @@ const STATUS_LABELS: Record<string, string> = {
   ASSIGNED: '분배완료',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
+  ON_HOLD: '보류',
   CANCELLED: '취소',
   CS_PROCESSING: 'C/S 처리중',
 };
@@ -708,8 +709,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       return;
     }
     const leaderIdsForSave = editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
-    if (leaderIdsForSave.length > 0 && editForm.status === 'PENDING') {
-      alert('대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다.');
+    if (
+      leaderIdsForSave.length > 0 &&
+      (editForm.status === 'PENDING' || editForm.status === 'ON_HOLD')
+    ) {
+      alert('대기·보류 상태인 건에는 분배할 수 없습니다.');
       return;
     }
     setSaving(true);

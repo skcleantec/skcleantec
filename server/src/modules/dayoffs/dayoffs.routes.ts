@@ -228,7 +228,8 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
   const inquiries = await prisma.inquiry.findMany({
     where: {
       preferredDate: { gte: startDate, lte: endDate },
-      status: { not: 'CANCELLED' },
+      /** 취소·보류는 슬롯·팀원 수요 집계에서 제외(스케줄 목록에는 포함) */
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
     },
     select: {
       id: true,

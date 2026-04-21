@@ -20,7 +20,7 @@ export function happyCallDeadlineEnd(preferredDate: Date): Date {
   return r.lte;
 }
 
-const HAPPY_CALL_BLOCK = new Set(['CANCELLED', 'PENDING']);
+const HAPPY_CALL_BLOCK = new Set(['CANCELLED', 'ON_HOLD', 'PENDING']);
 
 export function isHappyCallEligible(status: string, preferredDate: Date | null): boolean {
   if (!preferredDate) return false;

@@ -53,7 +53,7 @@ router.get('/nav-badges', async (req, res) => {
         teamLeaderId: userId,
         detailViewedAt: null,
         inquiry: {
-          status: { notIn: ['CANCELLED', 'COMPLETED'] },
+          status: { notIn: ['CANCELLED', 'COMPLETED', 'ON_HOLD'] },
         },
       },
     }),
@@ -165,7 +165,7 @@ router.get('/happy-call-stats', async (req, res) => {
     where: {
       preferredDate: { not: null },
       happyCallCompletedAt: null,
-      status: { notIn: ['CANCELLED', 'PENDING'] },
+      status: { notIn: ['CANCELLED', 'ON_HOLD', 'PENDING'] },
       assignments: { some: { teamLeaderId: userId } },
     },
     select: { preferredDate: true },
@@ -309,7 +309,7 @@ router.get('/schedule', async (req, res) => {
   const items = await prisma.inquiry.findMany({
     where: {
       preferredDate: { gte: startDate, lte: endDate },
-      status: { not: 'CANCELLED' },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       assignments: {
         some: { teamLeaderId: userId },
       },

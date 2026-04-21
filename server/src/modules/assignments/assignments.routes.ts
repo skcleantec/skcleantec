@@ -62,6 +62,11 @@ router.post('/', async (req, res) => {
     }
   }
 
+  if (inquiry.status === 'CANCELLED' || inquiry.status === 'ON_HOLD') {
+    res.status(400).json({ error: '취소·보류 상태인 건에는 분배할 수 없습니다.' });
+    return;
+  }
+
   if (inquiry.status === 'PENDING') {
     res.status(400).json({ error: '대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다. 발주서 제출 후 접수로 바뀌면 분배할 수 있습니다.' });
     return;

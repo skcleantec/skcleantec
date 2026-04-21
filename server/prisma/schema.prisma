@@ -20,6 +20,7 @@ model ExternalCompany {
 
   partnerUsers User[]
   settlementResets ExternalCompanySettlementReset[]
+  inquiriesCancelFeeFor Inquiry[] @relation("InquiryCancelFeeExternalCompany")
 
   @@map("external_companies")
 }
@@ -220,6 +221,9 @@ model Inquiry {
   scheduleMemo    String?    @map("schedule_memo")
   /// 타업체 담당 시 받는 수수료(원). 미입력 시 null
   externalTransferFee Int?   @map("external_transfer_fee")
+  /// 취소 후에도 타업체 수수료 역분개를 위해 취소 시점 업체 id 보관
+  cancelFeeExternalCompanyId String?          @map("cancel_fee_external_company_id")
+  cancelFeeExternalCompany   ExternalCompany? @relation("InquiryCancelFeeExternalCompany", fields: [cancelFeeExternalCompanyId], references: [id], onDelete: SetNull)
   orderFormId  String?       @map("order_form_id")
   /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
   createdById  String?       @map("created_by_id")
@@ -519,6 +523,7 @@ enum InquiryStatus {
   COMPLETED     // 완료
   CANCELLED     // 취소
   CS_PROCESSING // C/S 처리중
+  ON_HOLD       // 보류 (일정 미확정 등)
 }
 
 model Assignment {
