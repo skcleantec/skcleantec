@@ -110,7 +110,10 @@ type EditFormFields = {
   professionalOptionIds: string[];
 };
 
-function buildPatchFromEditForm(editForm: EditFormFields): Record<string, unknown> {
+function buildPatchFromEditForm(
+  editForm: EditFormFields,
+  opts?: { includeCreatedById?: boolean }
+): Record<string, unknown> {
   const parseWon = (s: string) => {
     const t = s.replace(/,/g, '').trim();
     if (t === '') return null;
@@ -128,7 +131,6 @@ function buildPatchFromEditForm(editForm: EditFormFields): Record<string, unknow
     preferredTimeDetail: editForm.preferredTimeDetail.trim(),
     memo: editForm.memo || null,
     status: editForm.status || undefined,
-    createdById: editForm.createdById || null,
     customerPhone2: editForm.customerPhone2.trim(),
     propertyType: editForm.propertyType.trim(),
     areaBasis: editForm.areaBasis.trim(),
@@ -142,6 +144,9 @@ function buildPatchFromEditForm(editForm: EditFormFields): Record<string, unknow
     scheduleMemo: editForm.scheduleMemo.trim() || null,
     professionalOptionIds: editForm.professionalOptionIds,
   };
+  if (opts?.includeCreatedById === true) {
+    patch.createdById = editForm.createdById || null;
+  }
   patch.betweenScheduleSlot = isSideCleaningTime(editForm.preferredTime)
     ? editForm.betweenScheduleSlot === ''
       ? null
@@ -709,7 +714,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     }
     setSaving(true);
     try {
-      const patch = buildPatchFromEditForm(editForm) as Record<string, unknown>;
+      const patch = buildPatchFromEditForm(editForm, {
+        includeCreatedById: currentUserRole === 'ADMIN',
+      }) as Record<string, unknown>;
       patch.teamLeaderIds = leaderIdsForSave;
       if (isCreate) {
         const created = (await createInquiry(

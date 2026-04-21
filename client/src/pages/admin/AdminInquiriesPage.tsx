@@ -773,8 +773,11 @@ export function AdminInquiriesPage() {
         serviceDepositAmount: parseWon(editForm.amountDeposit),
         serviceBalanceAmount: parseWon(editForm.amountBalance),
         externalTransferFee: parseWon(editForm.externalTransferFee),
-        createdById: editForm.createdById || null,
       };
+      // 서버는 body에 createdById 키가 있으면 비관리자에게 403 — 마케터는 팀장 등만 바꿔도 저장되도록 관리자일 때만 전송
+      if (me?.role === 'ADMIN') {
+        patch.createdById = editForm.createdById || null;
+      }
       if (editForm.areaPyeong.trim() !== '') {
         patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
       }
