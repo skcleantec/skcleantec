@@ -187,7 +187,7 @@ function ScheduleDayListItem({
       }
       return u.name;
     })
-    .join('·');
+    .join('/');
   const crewN = item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY;
   const crewNote = item.crewMemberNote?.trim() ?? '';
   const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';

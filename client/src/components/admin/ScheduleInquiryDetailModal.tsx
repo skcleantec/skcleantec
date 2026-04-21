@@ -65,7 +65,7 @@ function toInitials(v: string): string {
 function parseCrewMemberNoteToNames(v: string | null | undefined): string[] {
   if (!v) return [];
   return v
-    .split(/[,·]/g)
+    .split(/[,·/|]/g)
     .map((x) => x.trim())
     .filter(Boolean);
 }
@@ -187,7 +187,7 @@ function buildPatchFromEditForm(editForm: EditFormFields): Record<string, unknow
     patch.crewMemberCount = Math.floor(c);
   }
   const pickedNames = editForm.crewMemberNames.map((n) => n.trim()).filter(Boolean);
-  patch.crewMemberNote = pickedNames.length > 0 ? pickedNames.join(', ') : null;
+  patch.crewMemberNote = pickedNames.length > 0 ? pickedNames.join('/') : null;
   return patch;
 }
 

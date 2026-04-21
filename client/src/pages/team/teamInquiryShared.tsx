@@ -138,11 +138,18 @@ export function formatRoomInfo(r: number | null, b: number | null, v: number | n
 
 export function formatCrewInfo(item: InquiryItem): string {
   const n = item.crewMemberCount ?? 2;
-  const note = item.crewMemberNote
-    ?.split(/[,·/]/g)
+  const tokens = item.crewMemberNote
+    ?.split(/[,·/|]/g)
     .map((x) => x.trim())
-    .filter(Boolean)
-    .join('/');
+    .filter(Boolean);
+  let note = tokens?.join('/') ?? '';
+  if (tokens && tokens.length === 1 && n === 2) {
+    const raw = tokens[0];
+    if (/^[가-힣A-Za-z]+$/.test(raw) && raw.length >= 4 && raw.length % 2 === 0) {
+      const mid = raw.length / 2;
+      note = `${raw.slice(0, mid)}/${raw.slice(mid)}`;
+    }
+  }
   return note ? `팀원${n}명 · ${note}` : `팀원${n}명`;
 }
 

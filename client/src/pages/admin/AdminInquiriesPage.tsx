@@ -41,6 +41,20 @@ function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number |
   return b ? `${b} ${item.areaPyeong}평` : `${item.areaPyeong}평`;
 }
 
+function formatRoomInfo(
+  r: number | null,
+  b: number | null,
+  v: number | null,
+  k?: number | null
+) {
+  const parts: string[] = [];
+  if (r != null) parts.push(`${r}방`);
+  if (b != null) parts.push(`${b}화`);
+  if (v != null) parts.push(`${v}베`);
+  if (k != null) parts.push(`${k}주`);
+  return parts.length ? parts.join(' ') : '-';
+}
+
 /** 접수일 필터용 — 서버와 동일하게 한국 날짜 */
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -202,7 +216,25 @@ function formatDistanceFromJuan(item: InquiryItem): string {
   return `${km}km`;
 }
 
+function formatCrewNoteDisplay(note: string, crewCount?: number | null): string {
+  const tokens = note
+    .split(/[,·/|]/g)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (tokens.length > 1) return tokens.join('/');
+  // Legacy fallback: occasionally two picked names were persisted without separators (e.g. "쁘이토니").
+  if ((crewCount ?? 0) === 2 && tokens.length === 1) {
+    const raw = tokens[0];
+    if (/^[가-힣A-Za-z]+$/.test(raw) && raw.length >= 4 && raw.length % 2 === 0) {
+      const mid = raw.length / 2;
+      return `${raw.slice(0, mid)}/${raw.slice(mid)}`;
+    }
+  }
+  return tokens[0] ?? '';
+}
+
 function formatInquiryTeamSummary(item: InquiryItem): string {
+  const crewN = item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY;
   const names = item.assignments
     .map((a) => {
       const u = a.teamLeader;
@@ -211,12 +243,23 @@ function formatInquiryTeamSummary(item: InquiryItem): string {
       }
       return u.name;
     })
-    .join('·');
+    .join('/');
   const parts: string[] = [];
   parts.push(names || '미배정');
-  parts.push(`팀원${item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY}명`);
-  if (item.crewMemberNote?.trim()) parts.push(item.crewMemberNote.trim());
-  return parts.join(' · ');
+  parts.push(`팀원${crewN}명`);
+  if (item.crewMemberNote?.trim()) parts.push(formatCrewNoteDisplay(item.crewMemberNote.trim(), crewN));
+  return parts.join('/');
+}
+
+/** 모바일 카드: 면적·방(값 있을 때만) + 팀 요약, `- · -` 방지 */
+function formatInquiryMobileSpecsTail(item: InquiryItem): string {
+  const segs: string[] = [];
+  const area = formatAreaLine(item);
+  if (area !== '-') segs.push(area);
+  const rooms = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount);
+  if (rooms !== '-') segs.push(rooms);
+  segs.push(formatInquiryTeamSummary(item));
+  return segs.join('/');
 }
 
 /** 목록·상세: 접수자 표시 — Inquiry.createdBy 우선, 구데이터는 발주서 작성자 */
@@ -298,6 +341,8 @@ export function AdminInquiriesPage() {
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
+  const [marketerQuickValue, setMarketerQuickValue] = useState('');
   /**
    * 접수일(createdAt) 기준.
    * - 메뉴로만 들어오면 URL에 없음 → 당일(today).
@@ -773,18 +818,33 @@ export function AdminInquiriesPage() {
     }
   };
 
-  const formatRoomInfo = (
-    r: number | null,
-    b: number | null,
-    v: number | null,
-    k?: number | null
-  ) => {
-    const parts = [];
-    if (r != null) parts.push(`${r}방`);
-    if (b != null) parts.push(`${b}화`);
-    if (v != null) parts.push(`${v}베`);
-    if (k != null) parts.push(`${k}주`);
-    return parts.length ? parts.join(' ') : '-';
+  const handleQuickMarketerSave = async () => {
+    if (!editItem || !token) return;
+    setSaving(true);
+    try {
+      await updateInquiry(token, editItem.id, { createdById: marketerQuickValue || null });
+      setEditForm((p) => ({ ...p, createdById: marketerQuickValue || '' }));
+      setEditItem((prev) =>
+        prev
+          ? {
+              ...prev,
+              createdById: marketerQuickValue || null,
+              createdBy:
+                marketerQuickValue === ''
+                  ? null
+                  : marketerQuickValue === me?.id
+                    ? { id: me.id, name: me.name, phone: me.phone ?? null }
+                    : (marketers.find((m) => m.id === marketerQuickValue) ?? prev.createdBy),
+            }
+          : prev
+      );
+      setMarketerQuickOpen(false);
+      refresh(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '담당 마케터 변경에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1092,6 +1152,7 @@ export function AdminInquiriesPage() {
                 const hcCell = happyCallAdminCell(item);
                 const addrFull = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
                 const addrShort = addressListShortSiGu(item.address);
+                const mobileSpecsTail = formatInquiryMobileSpecsTail(item);
                 return (
                   <div key={item.id} className={inquiryMobileCardShellClass(item)}>
                     <div
@@ -1130,34 +1191,13 @@ export function AdminInquiriesPage() {
                               {item.scheduleMemo}
                             </p>
                           ) : null}
-                          <p className="mt-1 text-fluid-xs text-gray-500">
+                          <p
+                            className="mt-1 line-clamp-2 text-fluid-xs text-gray-500 leading-snug"
+                            title={`접수 ${formatDateCompactWithWeekday(item.createdAt)} · ${inquiryMarketerLabel(item)} · ${mobileSpecsTail}`}
+                          >
                             접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
+                            <span className="text-gray-600"> · {mobileSpecsTail}</span>
                           </p>
-                          {me?.role === 'ADMIN' ? (
-                            <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
-                              <select
-                                value={item.createdBy?.id ?? ''}
-                                onChange={async (e) => {
-                                  const next = e.target.value;
-                                  try {
-                                    await updateInquiry(token!, item.id, { createdById: next || null });
-                                    refresh(true);
-                                  } catch (err) {
-                                    alert(err instanceof Error ? err.message : '담당 마케터 변경에 실패했습니다.');
-                                  }
-                                }}
-                                className="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-2xs text-gray-700"
-                              >
-                                <option value="">담당 마케터: 미지정</option>
-                                {me ? <option value={me.id}>담당 마케터: 관리자 ({me.name})</option> : null}
-                                {marketers.map((m) => (
-                                  <option key={m.id} value={m.id}>
-                                    담당 마케터: {m.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          ) : null}
                           <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={addrFull}>
                             {addrShort}
                           </p>
@@ -1185,10 +1225,6 @@ export function AdminInquiriesPage() {
                           {STATUS_LABELS[item.status] ?? item.status}
                         </span>
                       </div>
-                      <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatInquiryTeamSummary(item)}>
-                        {formatAreaLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)} ·{' '}
-                        {formatInquiryTeamSummary(item)}
-                      </p>
                     </div>
                     <div
                       className="border-t border-gray-200/80 bg-gray-50/80 px-3 py-2.5"
@@ -1387,33 +1423,8 @@ export function AdminInquiriesPage() {
                     <td
                       className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
                       title={inquiryMarketerLabel(item)}
-                      onClick={(e) => e.stopPropagation()}
                     >
-                      {me?.role === 'ADMIN' ? (
-                        <select
-                          value={item.createdBy?.id ?? ''}
-                          onChange={async (e) => {
-                            const next = e.target.value;
-                            try {
-                              await updateInquiry(token!, item.id, { createdById: next || null });
-                              refresh(true);
-                            } catch (err) {
-                              alert(err instanceof Error ? err.message : '담당 마케터 변경에 실패했습니다.');
-                            }
-                          }}
-                          className="w-full min-w-0 rounded border border-gray-300 px-1 py-0.5 text-fluid-2xs xl:text-fluid-xs"
-                        >
-                          <option value="">미지정</option>
-                          {me ? <option value={me.id}>관리자({me.name})</option> : null}
-                          {marketers.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.name}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        inquiryMarketerLabel(item)
-                      )}
+                      {inquiryMarketerLabel(item)}
                     </td>
                     <td
                       className={`min-w-0 truncate px-1 py-1 align-middle text-center font-medium text-gray-900 xl:px-1.5 xl:py-1.5 ${pBorder}`}
@@ -1705,8 +1716,21 @@ export function AdminInquiriesPage() {
                 <span className="font-medium text-gray-700 tabular-nums">접수번호 {editItem.inquiryNumber}</span>
               ) : null}
               <span>출처: {editItem.source ?? '-'}</span>
-              {(editItem.createdBy?.name || editItem.orderForm?.createdBy?.name) && (
-                <span>접수자(마케터): {inquiryMarketerLabel(editItem)}</span>
+              {(editItem.createdBy?.name || editItem.orderForm?.createdBy?.name || me?.role === 'ADMIN') && (
+                me?.role === 'ADMIN' ? (
+                  <button
+                    type="button"
+                    className="underline underline-offset-2 text-blue-700 hover:text-blue-900"
+                    onClick={() => {
+                      setMarketerQuickValue(editItem.createdBy?.id ?? '');
+                      setMarketerQuickOpen(true);
+                    }}
+                  >
+                    접수자(마케터): {inquiryMarketerLabel(editItem)}
+                  </button>
+                ) : (
+                  <span>접수자(마케터): {inquiryMarketerLabel(editItem)}</span>
+                )
               )}
               {editItem.callAttempt != null && <span>통화 시도: {editItem.callAttempt}</span>}
               {editItem.claimMemo?.trim() && (
@@ -1732,24 +1756,6 @@ export function AdminInquiriesPage() {
                   ))}
                 </select>
               </div>
-              {me?.role === 'ADMIN' && (
-                <div className="sm:col-span-2">
-                  <label className="block text-fluid-sm text-gray-600 mb-1">담당 마케터</label>
-                  <select
-                    value={editForm.createdById}
-                    onChange={(e) => setEditForm((p) => ({ ...p, createdById: e.target.value }))}
-                    className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-                  >
-                    <option value="">미지정</option>
-                    {me ? <option value={me.id}>관리자 ({me.name})</option> : null}
-                    {marketers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
               <div>
                 <label className="block text-fluid-sm text-gray-600 mb-1">성함</label>
                 <input
@@ -2213,6 +2219,52 @@ export function AdminInquiriesPage() {
           }}
         />
       )}
+
+      {marketerQuickOpen &&
+        editItem &&
+        createPortal(
+          <div className="fixed inset-0 z-[560] flex items-center justify-center bg-black/35 p-4">
+            <div className="w-full max-w-sm rounded-xl bg-white shadow-xl">
+              <div className="border-b border-gray-100 px-4 py-3 text-fluid-sm font-semibold text-gray-900">
+                담당 마케터 변경
+              </div>
+              <div className="space-y-3 px-4 py-4">
+                <p className="text-fluid-xs text-gray-600">{editItem.customerName} 접수</p>
+                <select
+                  value={marketerQuickValue}
+                  onChange={(e) => setMarketerQuickValue(e.target.value)}
+                  className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-fluid-sm"
+                >
+                  <option value="">미지정</option>
+                  {me ? <option value={me.id}>관리자 ({me.name})</option> : null}
+                  {marketers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2 border-t border-gray-100 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={handleQuickMarketerSave}
+                  disabled={saving}
+                  className="min-h-[40px] flex-1 rounded bg-blue-600 px-3 py-2 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  저장
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMarketerQuickOpen(false)}
+                  className="min-h-[40px] rounded border border-gray-300 px-3 py-2 text-fluid-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
