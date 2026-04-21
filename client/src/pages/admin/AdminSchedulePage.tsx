@@ -433,6 +433,9 @@ export function AdminSchedulePage() {
   const [closureModalOpen, setClosureModalOpen] = useState(false);
   const [scheduleMapOpen, setScheduleMapOpen] = useState(false);
   const fetchGenRef = useRef(0);
+  /** 모바일: 캘린더 가로 스와이프로 이전·다음 달 (터치 종료 후 클릭 오동작 방지) */
+  const calendarSwipeTouchRef = useRef<{ x: number; y: number } | null>(null);
+  const calendarSwipeSuppressClickRef = useRef(false);
 
   const fetchMonthData = useCallback(
     async (showLoading: boolean) => {
@@ -583,6 +586,38 @@ export function AdminSchedulePage() {
     }
   };
 
+  const calendarSwipeEnabled = () =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+
+  const onCalendarSwipeTouchStart = (e: React.TouchEvent) => {
+    calendarSwipeSuppressClickRef.current = false;
+    if (!calendarSwipeEnabled() || e.touches.length !== 1) {
+      calendarSwipeTouchRef.current = null;
+      return;
+    }
+    calendarSwipeTouchRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  const onCalendarSwipeTouchEnd = (e: React.TouchEvent) => {
+    const start = calendarSwipeTouchRef.current;
+    calendarSwipeTouchRef.current = null;
+    if (!calendarSwipeEnabled() || !start) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    const minPx = 52;
+    if (ax < minPx || ax < ay * 1.15) return;
+    if (dx < 0) goPrevMonth();
+    else goNextMonth();
+    calendarSwipeSuppressClickRef.current = true;
+  };
+
   const getDateKey = (d: number) => {
     const m = month < 10 ? `0${month}` : `${month}`;
     const day = d < 10 ? `0${d}` : `${d}`;
@@ -679,8 +714,15 @@ export function AdminSchedulePage() {
             </div>
           </div>
 
-          {/* 달력 그리드 — gap-px로 격자선 정리 */}
-          <div className="rounded-xl border border-gray-200 bg-gray-200/90 p-px shadow-sm overflow-hidden">
+          {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 좌·우 스와이프로 이전·다음 달) */}
+          <div
+            className="rounded-xl border border-gray-200 bg-gray-200/90 p-px shadow-sm overflow-hidden max-lg:[touch-action:pan-y]"
+            onTouchStart={onCalendarSwipeTouchStart}
+            onTouchEnd={onCalendarSwipeTouchEnd}
+            onTouchCancel={() => {
+              calendarSwipeTouchRef.current = null;
+            }}
+          >
             <div className="grid grid-cols-7 gap-px bg-gray-200/90 text-left [word-break:keep-all]">
               {WEEKDAYS.map((w, wi) => (
                 <div
@@ -742,7 +784,13 @@ export function AdminSchedulePage() {
                     key={key}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSelectedDate(isSelected ? null : key)}
+                    onClick={() => {
+                      if (calendarSwipeSuppressClickRef.current) {
+                        calendarSwipeSuppressClickRef.current = false;
+                        return;
+                      }
+                      setSelectedDate(isSelected ? null : key);
+                    }}
                     onKeyDown={(ev) => {
                       if (ev.key === 'Enter' || ev.key === ' ') {
                         ev.preventDefault();
