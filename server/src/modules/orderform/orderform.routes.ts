@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
 import type { Prisma } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
@@ -213,6 +214,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
     typeof q.createdById === 'string' && /^[0-9a-f-]{36}$/i.test(q.createdById.trim())
       ? q.createdById.trim()
       : undefined;
+  const customerName = typeof q.customerName === 'string' ? q.customerName.trim() : '';
   const submitStatusRaw = typeof q.submitStatus === 'string' ? q.submitStatus.trim().toLowerCase() : 'all';
   const submitStatus =
     submitStatusRaw === 'pending' || submitStatusRaw === 'submitted' ? submitStatusRaw : 'all';
@@ -223,6 +225,9 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   }
   if (createdById) {
     where.createdById = createdById;
+  }
+  if (customerName) {
+    where.customerName = { contains: customerName, mode: 'insensitive' };
   }
   if (submitStatus === 'pending') {
     where.submittedAt = null;
@@ -256,6 +261,74 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   }));
 
   res.json({ items: list, issuers: issuerOptions });
+});
+
+/** 관리자/마케터: 미제출 발주서 삭제 (본인 비밀번호 확인 필수) */
+router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => {
+  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  const { id } = req.params;
+  const body = req.body as { password?: string };
+  const password = body.password != null ? String(body.password).trim() : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, passwordHash: true },
+  });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const form = await prisma.orderForm.findUnique({
+    where: { id },
+    select: { id: true, createdById: true, submittedAt: true },
+  });
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  if (role === 'MARKETER' && form.createdById !== userId) {
+    res.status(403).json({ error: '본인이 발급한 발주서만 삭제할 수 있습니다.' });
+    return;
+  }
+  if (form.submittedAt) {
+    res.status(400).json({ error: '이미 제출된 발주서는 삭제할 수 없습니다.' });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const fullForm = await tx.orderForm.findUnique({
+      where: { id },
+      select: { id: true, customerName: true, totalAmount: true },
+    });
+    if (!fullForm) {
+      throw new Error('order_form_not_found');
+    }
+    await tx.orderFormDeleteLog.create({
+      data: {
+        orderFormId: fullForm.id,
+        actorId: userId,
+        actorRole: role,
+        customerName: fullForm.customerName,
+        totalAmount: fullForm.totalAmount,
+      },
+    });
+    await tx.inquiry.updateMany({
+      where: { orderFormId: id, status: 'PENDING' },
+      data: { orderFormId: null },
+    });
+    await tx.orderForm.delete({ where: { id } });
+  });
+  res.json({ ok: true });
 });
 
 /** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성). `pendingInquiryId` 있으면 대기 접수에 발주서 연결 */

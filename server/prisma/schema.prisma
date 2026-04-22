@@ -77,6 +77,7 @@ model User {
   orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
   orderFollowupLogsAsActor      OrderFollowupLog[]     @relation("OrderFollowupLogActor")
+  orderFormDeleteLogsAsActor    OrderFormDeleteLog[]   @relation("OrderFormDeleteLogActor")
   externalCompanySettlementResetsAsActor ExternalCompanySettlementReset[] @relation("ExternalCompanySettlementResetActor")
 
   @@map("users")
@@ -468,6 +469,23 @@ model OrderForm {
   inquiries  Inquiry[]
 
   @@map("order_forms")
+}
+
+/// 발주서 삭제 로그 (관리자/마케터, 비밀번호 검증 후 삭제 시 기록)
+model OrderFormDeleteLog {
+  id           String   @id @default(uuid())
+  orderFormId  String   @map("order_form_id")
+  actorId      String   @map("actor_id")
+  actorRole    String   @map("actor_role") @db.VarChar(32)
+  customerName String   @map("customer_name")
+  totalAmount  Int      @map("total_amount")
+  deletedAt    DateTime @default(now()) @map("deleted_at")
+
+  actor User @relation("OrderFormDeleteLogActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([orderFormId, deletedAt])
+  @@index([actorId, deletedAt])
+  @@map("order_form_delete_logs")
 }
 
 /// 발주서 메뉴 「부재현황」— 전화 부재·예약금 대기·보류 등 후속 관리

@@ -36,6 +36,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
@@ -54,6 +55,7 @@ import {
 import {
   getOrderForms,
   createOrderForm,
+  deleteOrderForm,
   getFormConfig,
   updateFormConfig,
   type OrderForm,
@@ -239,6 +241,7 @@ export function AdminOrderFormPage() {
   const [previewModal, setPreviewModal] = useState<null | { kind: 'message' | 'link'; order: OrderForm }>(
     null
   );
+  const [deleteTarget, setDeleteTarget] = useState<OrderForm | null>(null);
   const subNavScrollRef = useRef<HTMLDivElement>(null);
   const [showSubNavMoreLeft, setShowSubNavMoreLeft] = useState(false);
   const [showSubNavMoreRight, setShowSubNavMoreRight] = useState(false);
@@ -337,6 +340,7 @@ export function AdminOrderFormPage() {
   const [listDatePreset, setListDatePreset] = useState<OrderFormListDatePreset>('all');
   const [listMonthKey, setListMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [listDayKey, setListDayKey] = useState(() => kstTodayYmd());
+  const [listCustomerName, setListCustomerName] = useState('');
   const [listCreatedById, setListCreatedById] = useState('');
   const [listSubmitStatus, setListSubmitStatus] = useState<'all' | 'pending' | 'submitted'>('all');
   const [loading, setLoading] = useState(false);
@@ -347,15 +351,20 @@ export function AdminOrderFormPage() {
       datePreset: listDatePreset,
       ...(listDatePreset === 'month' ? { month: listMonthKey } : {}),
       ...(listDatePreset === 'day' ? { day: listDayKey } : {}),
+      ...(listCustomerName.trim() ? { customerName: listCustomerName.trim() } : {}),
       ...(listCreatedById.trim() ? { createdById: listCreatedById.trim() } : {}),
       submitStatus: listSubmitStatus,
     }),
-    [listDatePreset, listMonthKey, listDayKey, listCreatedById, listSubmitStatus]
+    [listDatePreset, listMonthKey, listDayKey, listCustomerName, listCreatedById, listSubmitStatus]
   );
 
   const hasActiveListFilters = useMemo(
-    () => listDatePreset !== 'all' || Boolean(listCreatedById.trim()) || listSubmitStatus !== 'all',
-    [listDatePreset, listCreatedById, listSubmitStatus]
+    () =>
+      listDatePreset !== 'all' ||
+      Boolean(listCustomerName.trim()) ||
+      Boolean(listCreatedById.trim()) ||
+      listSubmitStatus !== 'all',
+    [listDatePreset, listCustomerName, listCreatedById, listSubmitStatus]
   );
 
   // 발급 폼
@@ -667,6 +676,20 @@ ${footer2}`;
 
   const openInNewTab = (orderToken: string) => {
     window.open(getOrderLink(orderToken), '_blank', 'noopener');
+  };
+
+  const openDeleteModal = (order: OrderForm) => {
+    setDeleteTarget(order);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteTarget(null);
+  };
+
+  const handleConfirmDelete = async (password: string) => {
+    if (!token || !deleteTarget) return;
+    await deleteOrderForm(token, deleteTarget.id, password);
+    await refreshOrderForms();
   };
 
   const tabClass = (t: Tab) =>
@@ -1288,7 +1311,31 @@ ${footer2}`;
                 </div>
               </div>
               <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
-                <div className="min-w-0 w-full lg:max-w-md">
+                <div className="min-w-0 w-full lg:max-w-sm">
+                  <label htmlFor="orderform-list-customer" className="mb-1 block text-fluid-2xs font-medium text-gray-600">
+                    고객명
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="orderform-list-customer"
+                      type="text"
+                      value={listCustomerName}
+                      onChange={(e) => setListCustomerName(e.target.value)}
+                      placeholder="고객명 검색"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-fluid-sm text-gray-900"
+                    />
+                    {listCustomerName.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => setListCustomerName('')}
+                        className="shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-fluid-2xs text-gray-600 hover:bg-gray-50"
+                      >
+                        초기화
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="min-w-0 w-full lg:max-w-sm">
                   <label htmlFor="orderform-list-issuer" className="mb-1 block text-fluid-2xs font-medium text-gray-600">
                     담당(발급)
                   </label>
@@ -1404,6 +1451,15 @@ ${footer2}`;
                           >
                             새 창
                           </button>
+                          {!o.submittedAt ? (
+                            <button
+                              type="button"
+                              onClick={() => openDeleteModal(o)}
+                              className="text-fluid-xs font-medium text-red-600 hover:underline"
+                            >
+                              삭제
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -1514,6 +1570,15 @@ ${footer2}`;
                                   >
                                     새 창
                                   </button>
+                                  {!o.submittedAt ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openDeleteModal(o)}
+                                      className="shrink-0 text-fluid-2xs font-medium text-red-600 hover:underline xl:text-fluid-xs"
+                                    >
+                                      삭제
+                                    </button>
+                                  ) : null}
                                 </div>
                               </td>
                             </tr>
@@ -1604,6 +1669,17 @@ ${footer2}`;
           </div>,
           document.body
         )}
+      <ConfirmPasswordModal
+        open={Boolean(deleteTarget)}
+        title={
+          deleteTarget
+            ? `발주서 삭제: ${deleteTarget.customerName}`
+            : '발주서 삭제'
+        }
+        confirmLabel="삭제 확정"
+        onClose={closeDeleteModal}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

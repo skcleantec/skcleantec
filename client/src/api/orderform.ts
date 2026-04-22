@@ -105,6 +105,7 @@ export type GetOrderFormsFilters = {
   datePreset?: OrderFormListDatePreset;
   month?: string;
   day?: string;
+  customerName?: string;
   createdById?: string;
   submitStatus?: 'all' | 'pending' | 'submitted';
 };
@@ -120,6 +121,7 @@ export async function getOrderForms(
     if (filters.datePreset === 'month' && filters.month?.trim()) params.set('month', filters.month.trim());
     if (filters.datePreset === 'day' && filters.day?.trim()) params.set('day', filters.day.trim());
   }
+  if (filters?.customerName?.trim()) params.set('customerName', filters.customerName.trim());
   if (filters?.createdById?.trim()) params.set('createdById', filters.createdById.trim());
   if (filters?.submitStatus && filters.submitStatus !== 'all') params.set('submitStatus', filters.submitStatus);
   const qs = params.toString();
@@ -154,6 +156,19 @@ export async function createOrderForm(
     throw new Error(err.error || '발주서 발급에 실패했습니다.');
   }
   return res.json();
+}
+
+/** 관리자/마케터: 미제출 발주서 삭제(비밀번호 확인 필수) */
+export async function deleteOrderForm(token: string, id: string, password: string): Promise<void> {
+  const res = await fetch(`${API}/orderforms/${id}/delete`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '발주서 삭제에 실패했습니다.');
+  }
 }
 
 export interface PublicOrderGuideResponse {

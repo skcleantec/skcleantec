@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
@@ -27,6 +28,8 @@ function parseNextContact(raw: unknown): Date | null | undefined {
 router.get('/', async (req, res) => {
   const includeFulfilled = req.query.includeFulfilled === '1' || req.query.includeFulfilled === 'true';
   const statusFilter = parseStatus(req.query.status);
+  const customerName =
+    typeof req.query.customerName === 'string' ? req.query.customerName.trim() : '';
   const where: import('@prisma/client').Prisma.OrderFollowupWhereInput = {};
   if (statusFilter) {
     where.status = statusFilter;
@@ -40,6 +43,9 @@ router.get('/', async (req, res) => {
   });
   if (dateRange) {
     where.createdAt = { gte: dateRange.gte, lte: dateRange.lte };
+  }
+  if (customerName) {
+    where.customerName = { contains: customerName, mode: 'insensitive' };
   }
   const rows = await prisma.orderFollowup.findMany({
     where,
@@ -210,6 +216,44 @@ router.post('/:id/defer', async (req, res) => {
     include: FOLLOWUP_INCLUDE,
   });
   res.json({ item: serializeFollowup(full) });
+});
+
+/** 부재현황 삭제 — 관리자/마케터 + 본인 비밀번호 확인 필수 */
+router.delete('/:id', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { id } = req.params;
+  const body = req.body as { password?: string };
+  const password = body.password != null ? String(body.password).trim() : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.userId },
+    select: { id: true, passwordHash: true },
+  });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const exists = await prisma.orderFollowup.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  if (!exists) {
+    res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+    return;
+  }
+
+  await prisma.orderFollowup.delete({ where: { id } });
+  res.json({ ok: true as const });
 });
 
 export default router;

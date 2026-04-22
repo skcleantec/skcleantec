@@ -59,6 +59,7 @@ export async function listOrderFollowups(
   opts?: {
     includeFulfilled?: boolean;
     status?: OrderFollowupStatus | '';
+    customerName?: string;
     /** 등록일(createdAt) 기준 — 접수 목록과 동일 KST 구간 */
     datePreset?: OrderFollowupDatePreset;
     month?: string;
@@ -68,6 +69,7 @@ export async function listOrderFollowups(
   const q = new URLSearchParams();
   if (opts?.includeFulfilled) q.set('includeFulfilled', '1');
   if (opts?.status) q.set('status', opts.status);
+  if (opts?.customerName?.trim()) q.set('customerName', opts.customerName.trim());
   if (opts?.datePreset && opts.datePreset !== 'all') {
     q.set('datePreset', opts.datePreset);
     if (opts.datePreset === 'month' && opts.month?.trim()) q.set('month', opts.month.trim());
@@ -128,6 +130,20 @@ export async function deferOrderFollowup(
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({ note: note ?? '' }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function deleteOrderFollowup(
+  token: string,
+  id: string,
+  password: string
+): Promise<{ ok: true }> {
+  const res = await fetch(`${API}/order-followups/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: headers(token),
+    body: JSON.stringify({ password }),
   });
   if (!res.ok) throw new Error(await readError(res));
   return res.json();

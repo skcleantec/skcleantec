@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   createOrderFollowup,
+  deleteOrderFollowup,
   deferOrderFollowup,
   listOrderFollowupLogs,
   listOrderFollowups,
@@ -12,6 +13,7 @@ import {
   type OrderFollowupLogItem,
 } from '../../api/orderFollowups';
 import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
+import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import {
@@ -166,6 +168,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
   const [includeFulfilled, setIncludeFulfilled] = useState(false);
   const [filterStatus, setFilterStatus] = useState<OrderFollowupStatus | ''>('');
+  const [filterCustomerName, setFilterCustomerName] = useState('');
   const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('all');
   const [dateMonthKey, setDateMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
@@ -191,6 +194,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
   const [deferTarget, setDeferTarget] = useState<OrderFollowupItem | null>(null);
   const [deferNote, setDeferNote] = useState('');
   const [deferSaving, setDeferSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<OrderFollowupItem | null>(null);
 
   /** `status: ''` 를 넘기면 서버 상태 필터 없이 조회(상단 칩은 별도로 맞춤) */
   const load = useCallback(
@@ -208,6 +212,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
         const r = await listOrderFollowups(token, {
           includeFulfilled: useInc,
           status: useStatus,
+          customerName: filterCustomerName.trim() || undefined,
           ...(datePreset !== 'all'
             ? {
                 datePreset,
@@ -224,7 +229,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
         setLoading(false);
       }
     },
-    [token, includeFulfilled, filterStatus, datePreset, dateMonthKey, dateDayKey]
+    [token, includeFulfilled, filterStatus, filterCustomerName, datePreset, dateMonthKey, dateDayKey]
   );
 
   useEffect(() => {
@@ -335,6 +340,17 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
     }
   };
 
+  const closeDeleteModal = () => setDeleteTarget(null);
+
+  const confirmDelete = async (password: string) => {
+    if (!deleteTarget) return;
+    await deleteOrderFollowup(token, deleteTarget.id, password);
+    if (edit?.id === deleteTarget.id) setEdit(null);
+    setLogFor((prev) => (prev?.id === deleteTarget.id ? null : prev));
+    setDeleteTarget(null);
+    await load();
+  };
+
   const filterChips = useMemo(
     () =>
       [
@@ -413,6 +429,24 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:min-w-[220px]">
+                <input
+                  type="text"
+                  value={filterCustomerName}
+                  onChange={(e) => setFilterCustomerName(e.target.value)}
+                  placeholder="고객명 검색"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-fluid-2xs sm:text-fluid-xs text-gray-900"
+                />
+                {filterCustomerName.trim() ? (
+                  <button
+                    type="button"
+                    onClick={() => setFilterCustomerName('')}
+                    className="shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-fluid-2xs text-gray-600 hover:bg-gray-50"
+                  >
+                    초기화
+                  </button>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={() => setCreateModalOpen(true)}
@@ -824,14 +858,24 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                     예약 완료로 표시
                   </button>
                 </div>
-                <button
-                  type="button"
-                  disabled={savingEdit}
-                  onClick={() => void saveEdit()}
-                  className="w-full rounded-lg bg-gray-900 py-2.5 text-fluid-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-                >
-                  저장
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={savingEdit}
+                    onClick={() => void saveEdit()}
+                    className="flex-1 rounded-lg bg-gray-900 py-2.5 text-fluid-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    저장
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingEdit}
+                    onClick={() => setDeleteTarget(edit)}
+                    className="w-24 rounded-lg border border-red-300 bg-red-50 py-2.5 text-fluid-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                  >
+                    삭제
+                  </button>
+                </div>
               </div>
             </div>
           </div>,
@@ -879,6 +923,17 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
           </div>,
           document.body
         )}
+      <ConfirmPasswordModal
+        open={Boolean(deleteTarget)}
+        title={
+          deleteTarget
+            ? `부재현황 삭제: ${deleteTarget.customerName}`
+            : '부재현황 삭제'
+        }
+        confirmLabel="삭제 확정"
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
