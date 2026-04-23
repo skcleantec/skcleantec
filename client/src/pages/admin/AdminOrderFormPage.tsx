@@ -255,6 +255,7 @@ export function AdminOrderFormPage() {
   const [previewModal, setPreviewModal] = useState<null | { kind: 'message' | 'link'; order: OrderForm }>(
     null
   );
+  const [issuePreviewOpen, setIssuePreviewOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OrderForm | null>(null);
   const subNavScrollRef = useRef<HTMLDivElement>(null);
   const [showSubNavMoreLeft, setShowSubNavMoreLeft] = useState(false);
@@ -1203,7 +1204,14 @@ ${footer2}`;
                     onChange={(e) => setIssueForm((f) => ({ ...f, optionNote: e.target.value }))}
                   />
                 </div>
-                <div className="md:col-span-2 lg:col-span-12 flex flex-col sm:flex-row sm:items-center sm:justify-end lg:justify-start">
+                <div className="md:col-span-2 lg:col-span-12 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3 lg:justify-start">
+                  <button
+                    type="button"
+                    onClick={() => setIssuePreviewOpen(true)}
+                    className="w-full rounded-md border border-gray-300 bg-white py-3 text-fluid-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 sm:w-auto sm:min-w-[10rem] sm:px-6 sm:py-2.5"
+                  >
+                    발주서 미리보기
+                  </button>
                   <button
                     type="button"
                     onClick={handleIssue}
@@ -1649,6 +1657,128 @@ ${footer2}`;
       {tab === 'specialty' && <AdminOrderFormSpecialtySettingsPage />}
 
       {tab === 'notice' && <AdminOrderFormNoticePage embedded />}
+
+      {issuePreviewOpen &&
+        createPortal(
+          (() => {
+            const parsedTotal = parseInt(issueForm.totalAmount.replace(/,/g, ''), 10);
+            const total = Number.isFinite(parsedTotal) && parsedTotal >= 0 ? parsedTotal : 0;
+            const parsedDeposit = parseInt(issueForm.depositAmount.replace(/,/g, ''), 10);
+            const deposit = Number.isFinite(parsedDeposit) && parsedDeposit >= 0 ? parsedDeposit : 20000;
+            const parsedBalance = parseInt(issueForm.balanceAmount.replace(/,/g, ''), 10);
+            const balance =
+              Number.isFinite(parsedBalance) && parsedBalance >= 0
+                ? parsedBalance
+                : Math.max(0, total - deposit);
+            const customerName = issueForm.customerName.trim();
+            const dateLocked = Boolean(issueForm.preferredDate.trim());
+            const detailLocked = Boolean(issueForm.preferredTimeDetail.trim());
+            const slotLabel =
+              ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === issueForm.preferredTime)?.label ??
+              issueForm.preferredTime;
+            const footer1 = withDefaultText(msgConfig.footerNotice1, 'footerNotice1');
+            const footer2 = withDefaultText(msgConfig.footerNotice2, 'footerNotice2');
+            const formTitleText = withDefaultText(msgConfig.formTitle, 'formTitle');
+            const priceLabelText = withDefaultText(msgConfig.priceLabel, 'priceLabel');
+            const reviewText = withDefaultText(msgConfig.reviewEventText, 'reviewEventText');
+            return (
+              <div
+                className="fixed inset-0 z-[210] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+                role="presentation"
+                onClick={() => setIssuePreviewOpen(false)}
+              >
+                <div
+                  className="relative flex max-h-[min(92dvh,720px)] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="issue-preview-title"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ModalCloseButton onClick={() => setIssuePreviewOpen(false)} />
+                  <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12">
+                    <h2 id="issue-preview-title" className="text-fluid-base font-semibold text-gray-900">
+                      발주서 미리보기
+                    </h2>
+                    <p className="mt-0.5 text-fluid-2xs text-gray-500">
+                      고객이 받는 발주서 상단에 이렇게 보입니다. 아직 발급 전이며, 저장되지 않았습니다.
+                    </p>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gray-50 p-4 space-y-4">
+                    <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm">
+                      <h3 className="mb-2 text-base font-semibold text-gray-900">{formTitleText}</h3>
+                      <p className="font-medium text-gray-900 tabular-nums">
+                        총 금액 {total.toLocaleString('ko-KR')}원 {priceLabelText}
+                      </p>
+                      <p className="mt-1 text-gray-600 tabular-nums">
+                        잔금 {balance.toLocaleString('ko-KR')}원, 예약금 {deposit.toLocaleString('ko-KR')}원
+                      </p>
+                      <p className="mt-1 text-xs text-gray-600">{reviewText}</p>
+                      {issueForm.optionNote.trim() ? (
+                        <p className="mt-2 text-gray-700">추가: {issueForm.optionNote.trim()}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm space-y-3">
+                      <div>
+                        <p className="mb-1 text-xs font-medium text-gray-500">고객명</p>
+                        <p className="text-gray-900">{customerName || <span className="text-gray-400">(미입력)</span>}</p>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs font-medium text-gray-500">청소 날짜</p>
+                        {dateLocked ? (
+                          <div className="rounded bg-gray-100 px-3 py-2 text-xs tabular-nums text-gray-700">
+                            {formatDateCompactWithWeekday(issueForm.preferredDate)}{' '}
+                            <span className="text-gray-500">(관리자 지정·수정 불가)</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500">고객이 발주서에서 직접 선택합니다.</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs font-medium text-gray-500">시간대</p>
+                        {dateLocked ? (
+                          <div className="rounded bg-gray-100 px-3 py-2 text-xs text-gray-700">
+                            {slotLabel} <span className="text-gray-500">(관리자 지정·수정 불가)</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500">
+                            고객이 날짜와 함께 시간대를 선택합니다.
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs font-medium text-gray-500">구체적 시각</p>
+                        {detailLocked ? (
+                          <div className="rounded bg-gray-100 px-3 py-2 text-xs text-gray-700">
+                            {issueForm.preferredTimeDetail.trim()}{' '}
+                            <span className="text-gray-500">(관리자 지정·수정 불가)</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500">고객이 직접 입력할 수 있습니다.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-white p-4 text-xs text-gray-600 space-y-1 whitespace-pre-wrap break-words">
+                      <p>{footer1}</p>
+                      <p>{footer2}</p>
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex justify-end gap-2 border-t border-gray-200 bg-white px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => setIssuePreviewOpen(false)}
+                      className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })(),
+          document.body
+        )}
 
       {previewModal &&
         createPortal(
