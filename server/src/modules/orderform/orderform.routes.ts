@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
+import { adminOnly, adminOrMarketer, adminOrMarketerOrTeamLeader } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import {
@@ -982,7 +982,7 @@ router.delete('/by-token/:token/photos/:photoId', async (req, res) => {
 });
 
 /** 관리자·마케터: 발주서에 첨부된 사진 목록 조회 (orderFormId 기준). */
-router.get('/:id/photos', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/:id/photos', authMiddleware, adminOrMarketerOrTeamLeader, async (req, res) => {
   const { id } = req.params;
   const form = await prisma.orderForm.findUnique({ where: { id }, select: { id: true } });
   if (!form) {

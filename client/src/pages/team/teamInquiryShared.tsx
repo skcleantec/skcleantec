@@ -5,6 +5,7 @@ import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
+import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { postTeamInquiryDetailViewed } from '../../api/team';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
@@ -537,6 +538,28 @@ export function TeamInquiryDetailModal({
                   )}
                 </div>
               </TeamModalSection>
+            ) : null}
+
+            {item.orderForm?.id ? (
+              <details className="group min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/80 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-fluid-sm font-medium text-emerald-950 hover:bg-emerald-100/60 touch-manipulation select-none">
+                  <span>발주서 첨부 사진 (고객 업로드)</span>
+                  <ChevronDownMini className="h-5 w-5 shrink-0 text-emerald-800 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-emerald-200/80 px-4 pb-4 pt-1">
+                  <p className="mb-3 text-fluid-xs text-emerald-900/85">
+                    고객이 발주서 작성 시 올린 <strong className="font-semibold">현장 컨디션·특이 부위 사진</strong>입니다.
+                    도착 전 참고용으로 확인하세요.
+                  </p>
+                  {teamToken ? (
+                    <AdminOrderFormPhotosPanel orderFormId={item.orderForm.id} token={teamToken} />
+                  ) : (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                      로그인 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
+                    </p>
+                  )}
+                </div>
+              </details>
             ) : null}
 
             <details className="group min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/80 [&_summary::-webkit-details-marker]:hidden">
