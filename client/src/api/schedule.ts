@@ -82,6 +82,16 @@ export interface ScheduleItem {
   changeLogs?: InquiryChangeLogEntry[];
   /** 인천 주안 기준 직선거리(km) */
   distanceFromJuanKm?: number | null;
+  /** 팀장/관리자 입력 추가·할인 정산 항목 */
+  extraCharges?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    sortOrder?: number;
+    createdBy?: { id: string; name: string } | null;
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
 }
 
 export async function getSchedule(

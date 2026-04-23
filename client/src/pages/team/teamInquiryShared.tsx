@@ -6,6 +6,7 @@ import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
+import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { postTeamInquiryDetailViewed } from '../../api/team';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
@@ -125,6 +126,20 @@ export interface InquiryItem {
       role?: string;
       externalCompany?: { id: string; name: string } | null;
     };
+  }>;
+  /** 정산·스케줄용 금액 스냅샷(발주서 자동 입력·관리자 수기 입력 등) */
+  serviceTotalAmount?: number | null;
+  serviceDepositAmount?: number | null;
+  serviceBalanceAmount?: number | null;
+  /** 팀장이 현장에서 추가·할인 항목을 기록한 정산 내역. 음수면 할인. */
+  extraCharges?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    sortOrder?: number;
+    createdBy?: { id: string; name: string } | null;
+    createdAt?: string;
+    updatedAt?: string;
   }>;
 }
 
@@ -575,6 +590,15 @@ export function TeamInquiryDetailModal({
                 </div>
               </TeamModalSection>
             ) : null}
+
+            <InquirySettlementPanel
+              inquiryId={item.id}
+              token={teamToken}
+              serviceTotalAmount={item.serviceTotalAmount}
+              serviceDepositAmount={item.serviceDepositAmount}
+              serviceBalanceAmount={item.serviceBalanceAmount}
+              initialExtraCharges={item.extraCharges}
+            />
 
             {item.memo?.trim() ? (() => {
               const entries = parseInquiryMemoEntries(item.memo);

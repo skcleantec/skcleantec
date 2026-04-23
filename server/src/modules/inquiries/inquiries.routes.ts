@@ -32,6 +32,7 @@ import {
 } from './crewMemberCapacity.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
+import inquiryExtraChargesAdminRoutes from '../inquiry-extra-charges/inquiryExtraCharges.admin.routes.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
@@ -115,6 +116,10 @@ const inquiryDetailInclude = {
       actorId: true,
       actor: { select: { id: true, name: true } },
     },
+  },
+  extraCharges: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: { createdBy: { select: { id: true, name: true } } },
   },
 };
 
@@ -325,6 +330,7 @@ router.get('/:id', async (req, res) => {
 
 /** 접수별 현장 청소 전·후 사진 (Cloudinary) — 목록·업로드·삭제 */
 router.use('/:inquiryId/cleaning-photos', inquiryCleaningPhotosAdminRoutes);
+router.use('/:inquiryId/extra-charges', inquiryExtraChargesAdminRoutes);
 
 /** 관리자만 — 비밀번호 확인 후 접수 영구 삭제 */
 router.delete('/:id', adminOrMarketer, async (req, res) => {

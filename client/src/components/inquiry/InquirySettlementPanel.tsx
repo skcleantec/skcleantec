@@ -1,0 +1,458 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  createAdminInquiryExtraCharge,
+  createTeamInquiryExtraCharge,
+  deleteAdminInquiryExtraCharge,
+  deleteTeamInquiryExtraCharge,
+  listAdminInquiryExtraCharges,
+  listTeamInquiryExtraCharges,
+  patchAdminInquiryExtraCharge,
+  patchTeamInquiryExtraCharge,
+  type InquiryExtraCharge,
+} from '../../api/inquiryExtraCharges';
+
+interface Props {
+  inquiryId: string;
+  token: string | null;
+  /** 사용할 API 경로 — 기본 'team'. 관리자/마케터 UI에서는 'admin'. */
+  mode?: 'team' | 'admin';
+  /** 발주서 스냅샷 금액 — 없으면 '—'로 표시 */
+  serviceTotalAmount: number | null | undefined;
+  serviceDepositAmount: number | null | undefined;
+  serviceBalanceAmount: number | null | undefined;
+  /** 부모가 이미 알고 있는 초기 extraCharges (첫 렌더 시 로딩 스킵) */
+  initialExtraCharges?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    sortOrder?: number;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: { id: string; name: string } | null;
+  }>;
+  /** 읽기 전용 모드 — 관리자 등이 수정 권한 없이 보는 경우 */
+  readOnly?: boolean;
+  /** 변경 발생 시 부모가 캐시를 갱신하도록 */
+  onChanged?: () => void;
+}
+
+function formatWon(n: number): string {
+  return `${n.toLocaleString('ko-KR')}원`;
+}
+
+function formatWonSigned(n: number): string {
+  if (n > 0) return `+${n.toLocaleString('ko-KR')}원`;
+  if (n < 0) return `-${Math.abs(n).toLocaleString('ko-KR')}원`;
+  return '0원';
+}
+
+function normalizeAmount(raw: string): number | null {
+  const s = raw.trim().replace(/[,\s]/g, '');
+  if (!s || s === '-' || s === '+') return null;
+  if (!/^-?\d+$/.test(s)) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+export function InquirySettlementPanel({
+  inquiryId,
+  token,
+  mode = 'team',
+  serviceTotalAmount,
+  serviceDepositAmount,
+  serviceBalanceAmount,
+  initialExtraCharges,
+  readOnly = false,
+  onChanged,
+}: Props) {
+  const api = {
+    list: mode === 'admin' ? listAdminInquiryExtraCharges : listTeamInquiryExtraCharges,
+    create: mode === 'admin' ? createAdminInquiryExtraCharge : createTeamInquiryExtraCharge,
+    patch: mode === 'admin' ? patchAdminInquiryExtraCharge : patchTeamInquiryExtraCharge,
+    remove: mode === 'admin' ? deleteAdminInquiryExtraCharge : deleteTeamInquiryExtraCharge,
+  };
+  const [items, setItems] = useState<InquiryExtraCharge[]>(() =>
+    (initialExtraCharges ?? []).map((x) => ({
+      id: x.id,
+      inquiryId,
+      description: x.description,
+      amount: x.amount,
+      sortOrder: x.sortOrder ?? 0,
+      createdAt: x.createdAt ?? new Date().toISOString(),
+      updatedAt: x.updatedAt ?? new Date().toISOString(),
+      createdBy: x.createdBy ?? null,
+    })),
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [draftDesc, setDraftDesc] = useState('');
+  const [draftAmt, setDraftAmt] = useState('');
+
+  useEffect(() => {
+    if (readOnly) return;
+    if (!token) return;
+    // 초기값이 있으면 건너뛰고, 없으면 조회
+    if (initialExtraCharges && initialExtraCharges.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await api.list(token, inquiryId);
+        if (!cancelled) setItems(rows);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : '목록을 불러올 수 없습니다.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inquiryId, token]);
+
+  const totals = useMemo(() => {
+    const extraSum = items.reduce((s, x) => s + x.amount, 0);
+    const balance = serviceBalanceAmount ?? 0;
+    const total = serviceTotalAmount ?? 0;
+    const receive = balance + extraSum;
+    const grand = total + extraSum;
+    return { extraSum, receive, grand };
+  }, [items, serviceBalanceAmount, serviceTotalAmount]);
+
+  async function handleAdd() {
+    if (!token) return;
+    setError(null);
+    const desc = draftDesc.trim();
+    const amt = normalizeAmount(draftAmt);
+    if (!desc) {
+      setError('항목명을 입력해주세요.');
+      return;
+    }
+    if (amt == null) {
+      setError('금액은 숫자로 입력해주세요 (할인은 -값).');
+      return;
+    }
+    setBusy(true);
+    try {
+      const created = await api.create(token, inquiryId, {
+        description: desc,
+        amount: amt,
+      });
+      setItems((prev) => [...prev, created]);
+      setDraftDesc('');
+      setDraftAmt('');
+      onChanged?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '추가에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePatch(
+    id: string,
+    next: { description?: string; amount?: number },
+    prev: InquiryExtraCharge,
+  ) {
+    if (!token) return;
+    setItems((rows) =>
+      rows.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              description: next.description ?? r.description,
+              amount: next.amount ?? r.amount,
+            }
+          : r,
+      ),
+    );
+    setError(null);
+    try {
+      const updated = await api.patch(token, inquiryId, id, next);
+      setItems((rows) => rows.map((r) => (r.id === id ? updated : r)));
+      onChanged?.();
+    } catch (e) {
+      setItems((rows) => rows.map((r) => (r.id === id ? prev : r)));
+      setError(e instanceof Error ? e.message : '수정에 실패했습니다.');
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!token) return;
+    if (!window.confirm('이 항목을 삭제하시겠습니까?')) return;
+    const snapshot = items;
+    setItems((rows) => rows.filter((r) => r.id !== id));
+    setError(null);
+    try {
+      await api.remove(token, inquiryId, id);
+      onChanged?.();
+    } catch (e) {
+      setItems(snapshot);
+      setError(e instanceof Error ? e.message : '삭제에 실패했습니다.');
+    }
+  }
+
+  const row = (label: string, value: string, tone?: 'muted' | 'accent' | 'plus' | 'minus') => (
+    <div className="flex items-center justify-between px-3 py-2 sm:px-4">
+      <span
+        className={
+          tone === 'accent'
+            ? 'text-fluid-xs font-semibold text-gray-700'
+            : 'text-fluid-xs font-medium text-gray-500'
+        }
+      >
+        {label}
+      </span>
+      <span
+        className={`tabular-nums ${
+          tone === 'plus'
+            ? 'font-semibold text-emerald-700'
+            : tone === 'minus'
+              ? 'font-semibold text-rose-700'
+              : tone === 'accent'
+                ? 'font-semibold text-gray-900'
+                : 'text-gray-900'
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+
+  const totalDisplay =
+    serviceTotalAmount != null ? formatWon(serviceTotalAmount) : '—';
+  const depositDisplay =
+    serviceDepositAmount != null ? formatWon(serviceDepositAmount) : '—';
+  const balanceDisplay =
+    serviceBalanceAmount != null ? formatWon(serviceBalanceAmount) : '—';
+
+  return (
+    <section className="min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
+      <header className="flex items-center justify-between border-b border-blue-200 bg-blue-50 px-3 py-2 sm:px-4">
+        <h3 className="text-fluid-xs font-semibold text-blue-900">결제 금액 내역</h3>
+        <span className="text-fluid-2xs text-blue-800">할인은 금액에 -를 붙여 입력</span>
+      </header>
+
+      <div className="divide-y divide-gray-100 bg-white">
+        {row('총 결제금액', totalDisplay)}
+        {row('예약금(선결제)', depositDisplay, 'minus')}
+        {row('잔금', balanceDisplay, 'accent')}
+      </div>
+
+      <div className="border-t border-gray-200 bg-gray-50/60 px-3 py-2 sm:px-4">
+        <div className="text-fluid-2xs font-medium text-gray-500">
+          추가 · 할인 항목 {items.length > 0 ? `(${items.length}건)` : ''}
+        </div>
+      </div>
+
+      <ul className="divide-y divide-gray-100">
+        {items.length === 0 ? (
+          <li className="px-3 py-3 text-fluid-xs text-gray-400 sm:px-4">
+            아직 추가된 항목이 없습니다.
+          </li>
+        ) : (
+          items.map((it) => (
+            <ExtraChargeRow
+              key={it.id}
+              item={it}
+              readOnly={readOnly}
+              onPatch={(next) => handlePatch(it.id, next, it)}
+              onDelete={() => handleDelete(it.id)}
+            />
+          ))
+        )}
+      </ul>
+
+      {!readOnly ? (
+        <div className="border-t border-gray-100 bg-gray-50 px-3 py-3 sm:px-4">
+          <div className="flex flex-wrap items-stretch gap-2">
+            <input
+              type="text"
+              value={draftDesc}
+              onChange={(e) => setDraftDesc(e.target.value)}
+              placeholder="항목명 (예: 곰팡이 제거)"
+              maxLength={120}
+              disabled={busy}
+              className="min-w-0 flex-1 rounded-md border border-gray-300 px-2.5 py-2 text-fluid-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+            <input
+              type="text"
+              inputMode="numeric"
+              value={draftAmt}
+              onChange={(e) => setDraftAmt(e.target.value)}
+              placeholder="금액 (예: 40000, 할인은 -20000)"
+              disabled={busy}
+              className="w-40 min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleAdd();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void handleAdd()}
+              disabled={busy}
+              className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-blue-600 px-3.5 text-fluid-xs font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300"
+            >
+              + 항목 추가
+            </button>
+          </div>
+          {error ? (
+            <p className="mt-1.5 text-fluid-2xs text-rose-700">{error}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="divide-y divide-gray-100 border-t-2 border-blue-200 bg-blue-50/60">
+        {row(
+          '추가·할인 합계',
+          totals.extraSum === 0 ? '0원' : formatWonSigned(totals.extraSum),
+          totals.extraSum > 0 ? 'plus' : totals.extraSum < 0 ? 'minus' : undefined,
+        )}
+        {row(
+          '총 결제받을 금액 (잔금 + 추가·할인)',
+          serviceBalanceAmount != null ? formatWon(totals.receive) : '—',
+          'accent',
+        )}
+        {serviceTotalAmount != null
+          ? row('총 결제금액(추가 반영)', formatWon(totals.grand))
+          : null}
+      </div>
+    </section>
+  );
+}
+
+function ExtraChargeRow({
+  item,
+  readOnly,
+  onPatch,
+  onDelete,
+}: {
+  item: InquiryExtraCharge;
+  readOnly: boolean;
+  onPatch: (next: { description?: string; amount?: number }) => Promise<void> | void;
+  onDelete: () => Promise<void> | void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [desc, setDesc] = useState(item.description);
+  const [amt, setAmt] = useState(String(item.amount));
+  const [busy, setBusy] = useState(false);
+  const [localErr, setLocalErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editing) {
+      setDesc(item.description);
+      setAmt(String(item.amount));
+    }
+  }, [item.amount, item.description, editing]);
+
+  async function save() {
+    setLocalErr(null);
+    const d = desc.trim();
+    const n = normalizeAmount(amt);
+    if (!d) {
+      setLocalErr('항목명을 입력해주세요.');
+      return;
+    }
+    if (n == null) {
+      setLocalErr('금액을 숫자로 입력해주세요.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await onPatch({ description: d, amount: n });
+      setEditing(false);
+    } catch (e) {
+      setLocalErr(e instanceof Error ? e.message : '수정에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (readOnly || !editing) {
+    return (
+      <li className="px-3 py-2 sm:px-4">
+        <div className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-fluid-sm text-gray-900" title={item.description}>
+            {item.description}
+          </span>
+          <span
+            className={`shrink-0 tabular-nums text-fluid-sm font-semibold ${
+              item.amount >= 0 ? 'text-emerald-700' : 'text-rose-700'
+            }`}
+          >
+            {formatWonSigned(item.amount)}
+          </span>
+          {!readOnly ? (
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="rounded border border-gray-200 bg-white px-2 py-1 text-fluid-2xs text-gray-700 hover:bg-gray-50"
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                onClick={() => void onDelete()}
+                className="rounded border border-rose-200 bg-white px-2 py-1 text-fluid-2xs text-rose-700 hover:bg-rose-50"
+              >
+                − 삭제
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {item.createdBy?.name ? (
+          <div className="mt-0.5 text-fluid-2xs text-gray-400">{item.createdBy.name}</div>
+        ) : null}
+      </li>
+    );
+  }
+
+  return (
+    <li className="bg-blue-50/40 px-3 py-2 sm:px-4">
+      <div className="flex flex-wrap items-stretch gap-2">
+        <input
+          type="text"
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          maxLength={120}
+          disabled={busy}
+          className="min-w-0 flex-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        />
+        <input
+          type="text"
+          inputMode="numeric"
+          value={amt}
+          onChange={(e) => setAmt(e.target.value)}
+          disabled={busy}
+          className="w-32 rounded-md border border-gray-300 px-2.5 py-1.5 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        />
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={busy}
+          className="rounded-md bg-blue-600 px-3 text-fluid-xs font-semibold text-white hover:bg-blue-700 disabled:bg-gray-300"
+        >
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(false);
+            setLocalErr(null);
+          }}
+          disabled={busy}
+          className="rounded-md border border-gray-300 bg-white px-3 text-fluid-xs text-gray-700 hover:bg-gray-50"
+        >
+          취소
+        </button>
+      </div>
+      {localErr ? (
+        <p className="mt-1 text-fluid-2xs text-rose-700">{localErr}</p>
+      ) : null}
+    </li>
+  );
+}

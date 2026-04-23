@@ -4,6 +4,7 @@ import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCall.helpers.js';
 import inquiryCleaningPhotosTeamRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.team.routes.js';
+import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtraCharges.team.routes.js';
 import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
@@ -29,6 +30,10 @@ const teamInquiryInclude = {
       teamLeader: { select: assignmentTeamLeaderSelect },
       assignedBy: { select: { id: true, name: true } },
     },
+  },
+  extraCharges: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: { createdBy: { select: { id: true, name: true } } },
   },
 } as const;
 
@@ -119,6 +124,7 @@ router.get('/nav-badges', async (req, res) => {
 });
 
 router.use('/inquiries/:inquiryId/cleaning-photos', inquiryCleaningPhotosTeamRoutes);
+router.use('/inquiries/:inquiryId/extra-charges', inquiryExtraChargesTeamRoutes);
 
 /** 팀장: 접수 상세를 열어 확인한 것으로 표시 — 메뉴 미확인 배정 수 감소 */
 router.post('/inquiries/:id/detail-viewed', async (req, res) => {

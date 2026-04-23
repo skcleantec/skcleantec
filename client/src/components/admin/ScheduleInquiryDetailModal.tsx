@@ -21,6 +21,7 @@ import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/m
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../inquiry/AdminOrderFormPhotosPanel';
+import { InquirySettlementPanel } from '../inquiry/InquirySettlementPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
@@ -1253,6 +1254,20 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </div>
         </div>
         </AdminScheduleDetailSection>
+
+        {!isCreate && item ? (
+          <AdminScheduleDetailSection title="결제 금액 내역 (팀장·관리자 추가 항목)">
+            <InquirySettlementPanel
+              inquiryId={item.id}
+              token={token}
+              mode="admin"
+              serviceTotalAmount={item.serviceTotalAmount ?? item.orderForm?.totalAmount ?? null}
+              serviceDepositAmount={item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null}
+              serviceBalanceAmount={item.serviceBalanceAmount ?? item.orderForm?.balanceAmount ?? null}
+              initialExtraCharges={item.extraCharges}
+            />
+          </AdminScheduleDetailSection>
+        ) : null}
 
         <AdminScheduleDetailSection title="상태 · 배정 · 팀원 · 메모">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
