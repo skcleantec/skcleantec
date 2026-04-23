@@ -2,10 +2,18 @@ import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
 import type { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import {
+  deleteOrderFormPhoto,
+  listOrderFormPhotos,
+  serializeOrderFormPhoto,
+  uploadOrderFormPhotoBuffer,
+} from './orderformPhotos.service.js';
 import {
   DEFAULT_GUIDE_SECTIONS,
   type GuideSection,
@@ -850,6 +858,133 @@ router.post('/submit/:token', async (req, res) => {
   }
 
   res.json({ ok: true });
+});
+
+/* ========================= 발주서 현장 사진 (고객 첨부) ========================= */
+
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 },
+});
+const photoUploadFields = photoUpload.fields([
+  { name: 'images', maxCount: 20 },
+  { name: 'image', maxCount: 1 },
+]);
+
+/** 공개(토큰): 발주서에 첨부된 사진 목록. 제출 전·후 모두 조회 가능. */
+router.get('/by-token/:token/photos', async (req, res) => {
+  const { token } = req.params;
+  const form = await prisma.orderForm.findUnique({
+    where: { token },
+    select: { id: true },
+  });
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  const rows = await listOrderFormPhotos(form.id);
+  res.json({ items: rows.map(serializeOrderFormPhoto) });
+});
+
+/** 공개(토큰): 고객이 발주서 제출 전에 현장 사진 업로드. 제출 이후에는 수정 불가. */
+router.post('/by-token/:token/photos', photoUploadFields, async (req, res) => {
+  if (!isCloudinaryConfigured()) {
+    res.status(503).json({
+      error:
+        '사진 업로드가 아직 준비되지 않았습니다. 관리자에게 문의해주세요. (CLOUDINARY 설정 필요)',
+    });
+    return;
+  }
+  const { token } = req.params;
+  const form = await prisma.orderForm.findUnique({
+    where: { token },
+    select: { id: true, submittedAt: true },
+  });
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  if (form.submittedAt) {
+    res.status(410).json({ error: '이미 제출된 발주서는 사진을 변경할 수 없습니다.' });
+    return;
+  }
+
+  const raw = req.files as Record<string, Express.Multer.File[]> | undefined;
+  const files = [...(raw?.images ?? []), ...(raw?.image ?? [])];
+  if (files.length === 0) {
+    res.status(400).json({ error: '이미지 파일을 선택해주세요.' });
+    return;
+  }
+
+  const MAX_PER_FORM = 20;
+  const existingCount = await prisma.orderFormPhoto.count({ where: { orderFormId: form.id } });
+  if (existingCount + files.length > MAX_PER_FORM) {
+    res.status(400).json({
+      error: `사진은 발주서 당 최대 ${MAX_PER_FORM}장까지 첨부할 수 있습니다. (현재 ${existingCount}장)`,
+    });
+    return;
+  }
+
+  const created: Awaited<ReturnType<typeof uploadOrderFormPhotoBuffer>>[] = [];
+  try {
+    for (const file of files) {
+      if (!file.buffer?.length) continue;
+      const row = await uploadOrderFormPhotoBuffer({
+        orderFormId: form.id,
+        buffer: file.buffer,
+        mimetype: file.mimetype,
+      });
+      created.push(row);
+    }
+    if (created.length === 0) {
+      res.status(400).json({ error: '유효한 이미지 파일이 없습니다.' });
+      return;
+    }
+    const items = created.map(serializeOrderFormPhoto);
+    res.status(201).json({ items, item: items[0] });
+  } catch (e) {
+    console.error('[orderform-photo upload]', e);
+    res.status(500).json({ error: '사진 업로드에 실패했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+});
+
+/** 공개(토큰): 고객이 잘못 올린 사진을 제출 전에 삭제. 제출 이후에는 불가. */
+router.delete('/by-token/:token/photos/:photoId', async (req, res) => {
+  const { token, photoId } = req.params;
+  const form = await prisma.orderForm.findUnique({
+    where: { token },
+    select: { id: true, submittedAt: true },
+  });
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  if (form.submittedAt) {
+    res.status(410).json({ error: '이미 제출된 발주서는 사진을 변경할 수 없습니다.' });
+    return;
+  }
+  const photo = await prisma.orderFormPhoto.findFirst({
+    where: { id: photoId, orderFormId: form.id },
+    select: { id: true },
+  });
+  if (!photo) {
+    res.status(404).json({ error: '사진을 찾을 수 없습니다.' });
+    return;
+  }
+  await deleteOrderFormPhoto(photoId);
+  res.json({ ok: true });
+});
+
+/** 관리자·마케터: 발주서에 첨부된 사진 목록 조회 (orderFormId 기준). */
+router.get('/:id/photos', authMiddleware, adminOrMarketer, async (req, res) => {
+  const { id } = req.params;
+  const form = await prisma.orderForm.findUnique({ where: { id }, select: { id: true } });
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  const rows = await listOrderFormPhotos(form.id);
+  res.json({ items: rows.map(serializeOrderFormPhoto) });
 });
 
 export default router;

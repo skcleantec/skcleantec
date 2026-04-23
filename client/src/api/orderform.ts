@@ -324,3 +324,74 @@ export async function deleteProfessionalOption(authToken: string, id: string): P
     throw new Error(err.error || '삭제에 실패했습니다.');
   }
 }
+
+/* ========================= 발주서 현장 사진 (Cloudinary) ========================= */
+
+export interface OrderFormPhotoItem {
+  id: string;
+  orderFormId: string;
+  secureUrl: string;
+  width: number | null;
+  height: number | null;
+  createdAt: string;
+}
+
+/** 공개(토큰): 발주서 현장 사진 목록 */
+export async function listOrderFormPhotosByToken(
+  token: string
+): Promise<{ items: OrderFormPhotoItem[] }> {
+  const res = await fetch(`${API}/orderforms/by-token/${token}/photos`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '사진을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+/** 공개(토큰): 발주서 현장 사진 업로드 (다중). 제출 전에만 가능. */
+export async function uploadOrderFormPhotosByToken(
+  token: string,
+  files: File[]
+): Promise<{ items: OrderFormPhotoItem[] }> {
+  const fd = new FormData();
+  for (const f of files) fd.append('images', f);
+  const res = await fetch(`${API}/orderforms/by-token/${token}/photos`, {
+    method: 'POST',
+    body: fd,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '사진 업로드에 실패했습니다.');
+  }
+  return res.json();
+}
+
+/** 공개(토큰): 발주서 현장 사진 개별 삭제. 제출 전에만 가능. */
+export async function deleteOrderFormPhotoByToken(
+  token: string,
+  photoId: string
+): Promise<void> {
+  const res = await fetch(
+    `${API}/orderforms/by-token/${token}/photos/${photoId}`,
+    { method: 'DELETE' }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '사진 삭제에 실패했습니다.');
+  }
+}
+
+/** 관리자·마케터: 발주서 현장 사진 목록 (orderFormId 기준) */
+export async function getAdminOrderFormPhotos(
+  authToken: string,
+  orderFormId: string
+): Promise<{ items: OrderFormPhotoItem[] }> {
+  const res = await fetch(`${API}/orderforms/${orderFormId}/photos`, {
+    headers: headers(authToken),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '사진을 불러올 수 없습니다.');
+  }
+  return res.json();
+}

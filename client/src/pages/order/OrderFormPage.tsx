@@ -16,6 +16,7 @@ import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
+import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -592,7 +593,14 @@ export function OrderFormPage() {
           </div>
 
           <div>
-            <p className={`${labelCls} mb-2`}>12. 전문 시공 옵션 (선택)</p>
+            <p className={`${labelCls} mb-2`}>12. 현장 사진 첨부 (선택)</p>
+            {token ? (
+              <OrderFormPhotoSection token={token} disabled={submitting} />
+            ) : null}
+          </div>
+
+          <div>
+            <p className={`${labelCls} mb-2`}>13. 전문 시공 옵션 (선택)</p>
             <div className="space-y-2.5 pl-0.5">
               {professionalOptions.length === 0 ? (
                 <p className="text-sm text-gray-500">등록된 전문 시공 옵션이 없습니다.</p>

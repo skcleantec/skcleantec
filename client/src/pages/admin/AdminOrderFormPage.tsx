@@ -61,11 +61,13 @@ import {
   deleteOrderForm,
   getFormConfig,
   updateFormConfig,
+  getAdminOrderFormPhotos,
   type OrderForm,
   type OrderFormConfigPublic,
   type OrderFormCreatedBy,
   type OrderFormIssuerOption,
   type OrderFormListDatePreset,
+  type OrderFormPhotoItem,
 } from '../../api/orderform';
 import { getInquiries } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
@@ -255,6 +257,13 @@ export function AdminOrderFormPage() {
   const [previewModal, setPreviewModal] = useState<null | { kind: 'message' | 'link'; order: OrderForm }>(
     null
   );
+  const [photosModal, setPhotosModal] = useState<null | {
+    order: OrderForm;
+    loading: boolean;
+    error: string | null;
+    items: OrderFormPhotoItem[];
+    lightbox: OrderFormPhotoItem | null;
+  }>(null);
   const [issuePreviewOpen, setIssuePreviewOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OrderForm | null>(null);
   const subNavScrollRef = useRef<HTMLDivElement>(null);
@@ -692,6 +701,30 @@ ${footer2}`;
   const openInNewTab = (orderToken: string) => {
     window.open(getOrderLink(orderToken), '_blank', 'noopener');
   };
+
+  const openPhotosModal = useCallback(async (order: OrderForm) => {
+    const tk = getToken();
+    if (!tk) return;
+    setPhotosModal({ order, loading: true, error: null, items: [], lightbox: null });
+    try {
+      const r = await getAdminOrderFormPhotos(tk, order.id);
+      setPhotosModal((prev) =>
+        prev && prev.order.id === order.id
+          ? { ...prev, loading: false, items: r.items, error: null }
+          : prev
+      );
+    } catch (e) {
+      setPhotosModal((prev) =>
+        prev && prev.order.id === order.id
+          ? {
+              ...prev,
+              loading: false,
+              error: e instanceof Error ? e.message : '사진을 불러올 수 없습니다.',
+            }
+          : prev
+      );
+    }
+  }, []);
 
   const openDeleteModal = (order: OrderForm) => {
     setDeleteTarget(order);
@@ -1491,6 +1524,13 @@ ${footer2}`;
                           >
                             새 창
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => void openPhotosModal(o)}
+                            className="text-fluid-xs font-medium text-emerald-700 hover:underline"
+                          >
+                            사진
+                          </button>
                           {!o.submittedAt ? (
                             <button
                               type="button"
@@ -1618,6 +1658,13 @@ ${footer2}`;
                                     className="shrink-0 text-fluid-2xs text-gray-600 hover:underline xl:text-fluid-xs"
                                   >
                                     새 창
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void openPhotosModal(o)}
+                                    className="shrink-0 text-fluid-2xs font-medium text-emerald-700 hover:underline xl:text-fluid-xs"
+                                  >
+                                    사진
                                   </button>
                                   {!o.submittedAt ? (
                                     <button
@@ -1851,6 +1898,120 @@ ${footer2}`;
         onClose={closeDeleteModal}
         onConfirm={handleConfirmDelete}
       />
+
+      {photosModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/40"
+            role="presentation"
+            onClick={() => setPhotosModal(null)}
+          >
+            <div
+              className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="order-photos-modal-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ModalCloseButton onClick={() => setPhotosModal(null)} />
+              <div className="shrink-0 border-b border-gray-200 px-4 pb-3 pt-4 pr-14">
+                <h2 id="order-photos-modal-title" className="text-lg font-semibold text-gray-900">
+                  현장 사진 · {photosModal.order.customerName}
+                </h2>
+                <p className="mt-1 text-xs text-gray-500">
+                  고객이 발주서에 직접 첨부한 사진입니다. 오염·특이 구역 확인 후
+                  추가 견적 판단에 활용하세요.
+                </p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                {photosModal.loading ? (
+                  <p className="py-8 text-center text-sm text-gray-500">사진을 불러오는 중…</p>
+                ) : photosModal.error ? (
+                  <p className="py-8 text-center text-sm text-red-600">{photosModal.error}</p>
+                ) : photosModal.items.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-gray-500">
+                    첨부된 현장 사진이 없습니다.
+                  </p>
+                ) : (
+                  <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                    {photosModal.items.map((p) => (
+                      <li
+                        key={p.id}
+                        className="aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-100"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPhotosModal((prev) => (prev ? { ...prev, lightbox: p } : prev))
+                          }
+                          className="block h-full w-full"
+                          aria-label="사진 크게 보기"
+                        >
+                          <img
+                            src={p.secureUrl}
+                            alt="현장 사진"
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="flex shrink-0 justify-end gap-2 border-t border-gray-200 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setPhotosModal(null)}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+
+            {photosModal.lightbox
+              ? (() => {
+                  const shot = photosModal.lightbox;
+                  if (!shot) return null;
+                  return (
+                    <div
+                      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 p-4"
+                      role="presentation"
+                      onClick={() =>
+                        setPhotosModal((prev) => (prev ? { ...prev, lightbox: null } : prev))
+                      }
+                    >
+                      <div
+                        className="relative max-h-full max-w-full"
+                        onClick={(e) => e.stopPropagation()}
+                        role="presentation"
+                      >
+                        <img
+                          src={shot.secureUrl}
+                          alt="현장 사진 확대"
+                          className="max-h-[92vh] max-w-[92vw] rounded-md object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPhotosModal((prev) =>
+                              prev ? { ...prev, lightbox: null } : prev
+                            )
+                          }
+                          className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white"
+                          aria-label="닫기"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
+              : null}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

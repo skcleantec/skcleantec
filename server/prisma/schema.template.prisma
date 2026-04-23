@@ -467,8 +467,26 @@ model OrderForm {
 
   createdBy  User      @relation("OrderFormCreatedBy", fields: [createdById], references: [id])
   inquiries  Inquiry[]
+  photos     OrderFormPhoto[]
 
   @@map("order_forms")
+}
+
+/// 고객이 발주서 제출 전·후 첨부한 현장 사진 (Cloudinary).
+/// 추가 견적 산정 근거 — 관리자/팀장은 접수 상세에서 열람해 오염 정도·특이 구역을 확인한다.
+model OrderFormPhoto {
+  id                 String   @id @default(uuid())
+  orderFormId        String   @map("order_form_id")
+  cloudinaryPublicId String   @map("cloudinary_public_id") @db.VarChar(512)
+  secureUrl          String   @map("secure_url") @db.VarChar(1024)
+  width              Int?
+  height             Int?
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  orderForm OrderForm @relation(fields: [orderFormId], references: [id], onDelete: Cascade)
+
+  @@index([orderFormId, createdAt])
+  @@map("order_form_photos")
 }
 
 /// 발주서 삭제 로그 (관리자/마케터, 비밀번호 검증 후 삭제 시 기록)
