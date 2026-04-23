@@ -13,7 +13,7 @@ import {
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
-import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 
@@ -62,7 +62,7 @@ export function OrderFormPage() {
     propertyType: '',
     areaBasis: '',
     areaPyeong: '',
-    preferredDate: '',
+    preferredDate: kstTodayYmd(),
     preferredTime: '오전',
     preferredTimeDetail: '',
     roomCount: '',
@@ -132,7 +132,7 @@ export function OrderFormPage() {
           propertyType: p?.propertyType ?? '',
           areaBasis: p?.areaBasis ?? '',
           areaPyeong: p?.areaPyeong != null ? String(p.areaPyeong) : '',
-          preferredDate: p?.preferredDate ?? data.preferredDate ?? '',
+          preferredDate: p?.preferredDate ?? data.preferredDate ?? kstTodayYmd(),
           preferredTime: p?.preferredTime ?? data.preferredTime ?? '오전',
           preferredTimeDetail: p?.preferredTimeDetail ?? data.preferredTimeDetail ?? '',
           roomCount: p?.roomCount != null ? String(p.roomCount) : '',
@@ -429,8 +429,7 @@ export function OrderFormPage() {
                 className={inputCls}
                 value={form.preferredDate}
                 onChange={(v) => setForm((f) => ({ ...f, preferredDate: v }))}
-                allowEmpty
-                emitOnCompleteOnly
+                minYmd={kstTodayYmd()}
                 idPrefix="orderform-pref"
               />
             )}

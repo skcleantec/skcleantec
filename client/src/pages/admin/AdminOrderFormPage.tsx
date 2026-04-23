@@ -383,16 +383,16 @@ export function AdminOrderFormPage() {
   );
 
   // 발급 폼
-  const [issueForm, setIssueForm] = useState({
+  const [issueForm, setIssueForm] = useState(() => ({
     customerName: '',
     totalAmount: '',
     depositAmount: '20000',
     balanceAmount: '',
     optionNote: '',
-    preferredDate: '',
+    preferredDate: kstTodayYmd(),
     preferredTime: '오전',
     preferredTimeDetail: '',
-  });
+  }));
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   const [issueLoading, setIssueLoading] = useState(false);
   const [pendingLinkOptions, setPendingLinkOptions] = useState<Array<{ id: string; customerName: string }>>([]);
@@ -617,7 +617,7 @@ export function AdminOrderFormPage() {
         totalAmount: '',
         balanceAmount: '',
         optionNote: '',
-        preferredDate: '',
+        preferredDate: kstTodayYmd(),
         preferredTime: '오전',
         preferredTimeDetail: '',
       });
@@ -1148,6 +1148,7 @@ ${footer2}`;
                     onChange={(v) => setIssueForm((f) => ({ ...f, preferredDate: v }))}
                     allowEmpty
                     emitOnCompleteOnly
+                    minYmd={kstTodayYmd()}
                     idPrefix="order-issue-pref"
                   />
                 </div>

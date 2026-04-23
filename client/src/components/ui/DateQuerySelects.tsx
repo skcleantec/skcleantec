@@ -122,6 +122,12 @@ export type YmdSelectProps = {
    * (발주서 등에서 날짜 선택 전에 임의로 1일이 들어가지 않게 함)
    */
   emitOnCompleteOnly?: boolean;
+  /**
+   * 최소 선택 가능 날짜 (YYYY-MM-DD). 지정 시 이 날짜 미만은 선택 불가.
+   * 연/월/일 옵션 목록에서 과거 값이 제거되고, 조합 결과가 최소값보다 작으면 최소값으로 보정된다.
+   * 발주서의 「청소 날짜」처럼 과거 지정이 의미 없는 필드에 사용.
+   */
+  minYmd?: string;
 };
 
 type DraftYmd = { y: number | null; m: number | null; d: number | null };
@@ -138,10 +144,13 @@ export function YmdSelect({
   readOnly = false,
   allowEmpty = false,
   emitOnCompleteOnly = false,
+  minYmd,
 }: YmdSelectProps) {
   const dis = disabled || readOnly;
   const deferred = Boolean(allowEmpty && emitOnCompleteOnly);
   const [draft, setDraft] = useState<DraftYmd | null>(null);
+
+  const minParsed = minYmd ? parseYmd(minYmd) : null;
 
   const rawParsed = parseYmd(value);
   const parsed =
@@ -190,11 +199,33 @@ export function YmdSelect({
   }
 
   const maxDay = y && m ? new Date(y, m, 0).getDate() : 31;
-  const days = Array.from({ length: maxDay }, (_, i) => i + 1);
-  const years = yearRange(minYear, maxYear);
+  const allDays = Array.from({ length: maxDay }, (_, i) => i + 1);
+  // 선택된 연·월이 최소 기준의 연·월과 같을 때만 일(day)을 하한으로 필터
+  const days =
+    minParsed && y === minParsed.y && m === minParsed.m
+      ? allDays.filter((dd) => dd >= minParsed.d)
+      : allDays;
+  const effectiveMinY = minParsed ? Math.max(minYear, minParsed.y) : minYear;
+  const years = yearRange(effectiveMinY, maxYear);
+  // 월 선택지: 연도가 최소 기준의 연도와 같을 때만 하한 적용
+  const monthList = Array.from({ length: 12 }, (_, i) => i + 1);
+  const months =
+    minParsed && y === minParsed.y
+      ? monthList.filter((mm) => mm >= minParsed.m)
+      : monthList;
+
+  /** 결과가 minYmd보다 과거이면 minYmd로 보정 */
+  const applyMin = (ny: number, nm: number, nd: number): { y: number; m: number; d: number } => {
+    if (!minParsed) return { y: ny, m: nm, d: nd };
+    const cur = ny * 10000 + nm * 100 + nd;
+    const min = minParsed.y * 10000 + minParsed.m * 100 + minParsed.d;
+    if (cur < min) return { y: minParsed.y, m: minParsed.m, d: minParsed.d };
+    return { y: ny, m: nm, d: nd };
+  };
 
   const emit = (ny: number, nm: number, nd: number) => {
-    onChange(`${ny}-${pad2(nm)}-${pad2(clampDay(ny, nm, nd))}`);
+    const safe = applyMin(ny, nm, clampDay(ny, nm, nd));
+    onChange(`${safe.y}-${pad2(safe.m)}-${pad2(clampDay(safe.y, safe.m, safe.d))}`);
   };
 
   return (
@@ -253,7 +284,7 @@ export function YmdSelect({
         aria-label="월"
       >
         {(y == null || (deferred && m == null)) && allowEmpty && <option value="">—</option>}
-        {Array.from({ length: 12 }, (_, i) => i + 1).map((mo) => (
+        {months.map((mo) => (
           <option key={mo} value={mo}>
             {mo}월
           </option>
