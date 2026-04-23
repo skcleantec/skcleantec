@@ -554,7 +554,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         preferredTimeDetail: '',
         memo: '',
         teamLeaderIds: [''],
-        crewMemberCount: null,
+        crewMemberCount: 0,
         crewMemberNames: [],
         status: 'RECEIVED',
         createdById: '',
