@@ -26,6 +26,7 @@ export function serializeFollowup(
   return {
     id: row.id,
     customerName: row.customerName,
+    nickname: row.nickname,
     customerPhone: row.customerPhone,
     status: row.status,
     deferCount: row.deferCount,

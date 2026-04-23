@@ -82,6 +82,7 @@ router.post('/', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const body = req.body as Record<string, unknown>;
   const customerName = typeof body.customerName === 'string' ? body.customerName.trim() : '';
+  const nickname = typeof body.nickname === 'string' ? body.nickname.trim() || null : null;
   const customerPhone = typeof body.customerPhone === 'string' ? body.customerPhone.trim() : '';
   if (!customerName) {
     res.status(400).json({ error: '고객명은 필수입니다.' });
@@ -94,6 +95,7 @@ router.post('/', async (req, res) => {
   const row = await prisma.orderFollowup.create({
     data: {
       customerName,
+      nickname,
       customerPhone,
       status,
       goldDb,
@@ -109,7 +111,7 @@ router.post('/', async (req, res) => {
     followupId: row.id,
     actorId: user.userId,
     action: 'CREATE',
-    detail: JSON.stringify({ status, customerName, customerPhone }),
+    detail: JSON.stringify({ status, customerName, nickname, customerPhone }),
   });
   const full = await prisma.orderFollowup.findUniqueOrThrow({
     where: { id: row.id },
@@ -131,6 +133,38 @@ router.patch('/:id', async (req, res) => {
   const data: import('@prisma/client').Prisma.OrderFollowupUpdateInput = {
     handledBy: { connect: { id: user.userId } },
   };
+
+  if (typeof body.customerName === 'string') {
+    const next = body.customerName.trim();
+    if (!next) {
+      res.status(400).json({ error: '고객명은 비워둘 수 없습니다.' });
+      return;
+    }
+    if (next !== prev.customerName) {
+      data.customerName = next;
+      await appendFollowupLog(prisma, {
+        followupId: id,
+        actorId: user.userId,
+        action: 'CUSTOMER_NAME',
+        detail: JSON.stringify({ from: prev.customerName, to: next }),
+      });
+    }
+  }
+
+  if (body.nickname === null || typeof body.nickname === 'string') {
+    const nextNickname =
+      typeof body.nickname === 'string' ? body.nickname.trim() || null : null;
+    const prevNickname = prev.nickname ?? null;
+    if (nextNickname !== prevNickname) {
+      data.nickname = nextNickname;
+      await appendFollowupLog(prisma, {
+        followupId: id,
+        actorId: user.userId,
+        action: 'NICKNAME',
+        detail: JSON.stringify({ from: prevNickname, to: nextNickname }),
+      });
+    }
+  }
 
   if (typeof body.memo === 'string') {
     const m = body.memo.trim();

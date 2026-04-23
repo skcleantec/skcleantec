@@ -500,6 +500,7 @@ enum OrderFollowupStatus {
 model OrderFollowup {
   id                 String               @id @default(uuid())
   customerName       String               @map("customer_name")
+  nickname           String?              @map("nickname")
   customerPhone      String               @map("customer_phone")
   status             OrderFollowupStatus  @map("status")
   deferCount         Int                  @default(0) @map("defer_count")

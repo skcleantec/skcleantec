@@ -72,6 +72,8 @@ function actionLabelKo(action: string): string {
     NEXT_CONTACT: '다음 연락',
     DEFER: '부재 누적',
     GOLD_DB: '골드DB',
+    CUSTOMER_NAME: '고객명 변경',
+    NICKNAME: '닉네임 변경',
     LINK_ORDERFORM: '발주서 연결(구버전 기록)',
     UNLINK_ORDERFORM: '발주서 연결 해제(구버전 기록)',
   };
@@ -112,9 +114,12 @@ function logDetailDescription(log: OrderFollowupLogItem): string {
 
     if (log.action === 'CREATE') {
       const name = typeof j.customerName === 'string' ? j.customerName.trim() : '';
+      const nick = typeof j.nickname === 'string' ? j.nickname.trim() : '';
       const phone = typeof j.customerPhone === 'string' ? j.customerPhone.trim() : '';
       const st = typeof j.status === 'string' ? statusLabelKo(j.status) : '';
-      const head = name ? `「${name}」고객을 새로 등록했습니다.` : '신규 건을 등록했습니다.';
+      const head = name
+        ? `「${name}${nick ? `(${nick})` : ''}」고객을 새로 등록했습니다.`
+        : '신규 건을 등록했습니다.';
       const stPart = st ? ` 초기 상태는 「${st}」입니다.` : '';
       const phPart = phone ? ` 연락처: ${phone}.` : ' 연락처는 비어 있습니다.';
       return `${head}${stPart}${phPart}`;
@@ -122,6 +127,19 @@ function logDetailDescription(log: OrderFollowupLogItem): string {
 
     if (log.action === 'STATUS' && typeof j.from === 'string' && typeof j.to === 'string') {
       return `상태를 「${statusLabelKo(j.from)}」에서 「${statusLabelKo(j.to)}」(으)로 바꿨습니다.`;
+    }
+
+    if (log.action === 'CUSTOMER_NAME' && typeof j.from === 'string' && typeof j.to === 'string') {
+      return `고객명을 「${j.from}」에서 「${j.to}」(으)로 바꿨습니다.`;
+    }
+
+    if (log.action === 'NICKNAME') {
+      const from = typeof j.from === 'string' && j.from.trim() ? j.from.trim() : null;
+      const to = typeof j.to === 'string' && j.to.trim() ? j.to.trim() : null;
+      if (from && to) return `닉네임을 「${from}」에서 「${to}」(으)로 바꿨습니다.`;
+      if (!from && to) return `닉네임을 「${to}」(으)로 설정했습니다.`;
+      if (from && !to) return '닉네임을 비웠습니다.';
+      return '닉네임을 업데이트했습니다.';
     }
 
     if (log.action === 'DEFER') {
@@ -175,6 +193,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
   const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
 
   const [newName, setNewName] = useState('');
+  const [newNickname, setNewNickname] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newStatus, setNewStatus] = useState<OrderFollowupStatus>('ABSENT');
   const [newMemo, setNewMemo] = useState('');
@@ -186,6 +205,8 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
   const [logsLoading, setLogsLoading] = useState(false);
 
   const [edit, setEdit] = useState<OrderFollowupItem | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editNickname, setEditNickname] = useState('');
   const [editStatus, setEditStatus] = useState<OrderFollowupStatus>('ABSENT');
   const [editMemo, setEditMemo] = useState('');
   const [editNext, setEditNext] = useState('');
@@ -250,6 +271,8 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
 
   useEffect(() => {
     if (!edit) return;
+    setEditName(edit.customerName);
+    setEditNickname(edit.nickname ?? '');
     setEditStatus(edit.status);
     setEditMemo(edit.memo ?? '');
     setEditNext(toLocalDatetimeValue(edit.nextContactAt));
@@ -258,6 +281,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
 
   const resetCreateForm = () => {
     setNewName('');
+    setNewNickname('');
     setNewPhone('');
     setNewStatus('ABSENT');
     setNewMemo('');
@@ -277,6 +301,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
     try {
       await createOrderFollowup(token, {
         customerName: newName.trim(),
+        nickname: newNickname.trim() || null,
         customerPhone: newPhone.trim() || undefined,
         status: newStatus,
         memo: newMemo.trim() || null,
@@ -294,9 +319,16 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
 
   const saveEdit = async () => {
     if (!edit) return;
+    const nextName = editName.trim();
+    if (!nextName) {
+      alert('고객명은 비워둘 수 없습니다.');
+      return;
+    }
     setSavingEdit(true);
     try {
       await patchOrderFollowup(token, edit.id, {
+        customerName: nextName,
+        nickname: editNickname.trim() || null,
         status: editStatus,
         memo: editMemo.trim() || null,
         nextContactAt: fromLocalDatetimeValue(editNext),
@@ -522,7 +554,14 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                           : 'hover:bg-gray-50/80'
                       }`}
                     >
-                      <td className="py-2 px-2 font-medium text-gray-900 truncate max-w-[8rem]">{row.customerName}</td>
+                      <td className="py-2 px-2 font-medium text-gray-900 truncate max-w-[10rem]">
+                        <span>{row.customerName}</span>
+                        {row.nickname?.trim() ? (
+                          <span className="ml-1 text-[11px] font-normal text-gray-500">
+                            ({row.nickname})
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="py-2 px-2 tabular-nums text-gray-800">{displayPhone(row.customerPhone)}</td>
                       <td className="py-2 px-2">
                         <StatusBadge status={row.status} />
@@ -586,7 +625,14 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                 >
                   <div className="flex items-start justify-between gap-2 min-w-0">
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">{row.customerName}</p>
+                      <p className="font-semibold text-gray-900 truncate">
+                        <span>{row.customerName}</span>
+                        {row.nickname?.trim() ? (
+                          <span className="ml-1 text-fluid-xs font-normal text-gray-500">
+                            ({row.nickname})
+                          </span>
+                        ) : null}
+                      </p>
                       <p className="text-fluid-xs text-gray-600 tabular-nums">{displayPhone(row.customerPhone)}</p>
                     </div>
                     <StatusBadge status={row.status} />
@@ -655,7 +701,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="min-w-0 sm:col-span-2">
+                  <div className="min-w-0">
                     <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">고객명</label>
                     <input
                       value={newName}
@@ -666,6 +712,15 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                     />
                   </div>
                   <div className="min-w-0">
+                    <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">닉네임 (선택)</label>
+                    <input
+                      value={newNickname}
+                      onChange={(e) => setNewNickname(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm text-gray-900 shadow-sm"
+                      placeholder="동명이인 구분용 별명"
+                    />
+                  </div>
+                  <div className="min-w-0 sm:col-span-2">
                     <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">연락처 (선택)</label>
                     <input
                       value={newPhone}
@@ -796,6 +851,11 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                   className="text-fluid-base font-semibold text-gray-900 truncate tracking-tight"
                 >
                   {edit.customerName.trim() || '고객명 없음'}
+                  {edit.nickname?.trim() ? (
+                    <span className="ml-1 text-fluid-sm font-normal text-gray-500">
+                      ({edit.nickname})
+                    </span>
+                  ) : null}
                 </h2>
                 <p className="text-fluid-2xs text-gray-500 mt-0.5 truncate">
                   부재현황 편집
@@ -805,6 +865,26 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                 </p>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">고객명</label>
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm text-gray-900 shadow-sm"
+                      placeholder="홍길동"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">닉네임 (선택)</label>
+                    <input
+                      value={editNickname}
+                      onChange={(e) => setEditNickname(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm text-gray-900 shadow-sm"
+                      placeholder="동명이인 구분용 별명"
+                    />
+                  </div>
+                </div>
                 <div>
                   <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">상태</label>
                   <select

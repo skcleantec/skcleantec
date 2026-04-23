@@ -32,6 +32,7 @@ export type OrderFollowupDatePreset = 'today' | 'all' | 'month' | 'day';
 export interface OrderFollowupItem {
   id: string;
   customerName: string;
+  nickname: string | null;
   customerPhone: string;
   status: OrderFollowupStatus;
   deferCount: number;
@@ -88,6 +89,8 @@ export async function createOrderFollowup(
   token: string,
   body: {
     customerName: string;
+    /** 선택: 고객을 구분하기 쉬운 닉네임·별명 */
+    nickname?: string | null;
     /** 비우면 저장 시 빈 문자열(미입력) */
     customerPhone?: string;
     status?: OrderFollowupStatus;
@@ -109,6 +112,10 @@ export async function patchOrderFollowup(
   token: string,
   id: string,
   body: {
+    /** 편집 시 고객명 수정 */
+    customerName?: string;
+    /** 편집 시 닉네임 수정 (`null`·빈 문자열로 제거 가능) */
+    nickname?: string | null;
     status?: OrderFollowupStatus;
     memo?: string | null;
     nextContactAt?: string | null;
