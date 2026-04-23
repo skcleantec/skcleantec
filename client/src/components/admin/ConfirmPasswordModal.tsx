@@ -4,6 +4,8 @@ import { ModalCloseButton } from './ModalCloseButton';
 type Props = {
   open: boolean;
   title: string;
+  /** 비밀번호 안내문 위에 추가로 보여줄 경고·설명 문구 (선택) */
+  description?: React.ReactNode;
   confirmLabel?: string;
   zIndexClassName?: string;
   onClose: () => void;
@@ -14,6 +16,7 @@ type Props = {
 export function ConfirmPasswordModal({
   open,
   title,
+  description,
   confirmLabel = '확인',
   zIndexClassName = 'z-[600]',
   onClose,
@@ -60,6 +63,11 @@ export function ConfirmPasswordModal({
       >
         <ModalCloseButton onClick={onClose} disabled={loading} />
         <h2 className="text-base font-semibold text-gray-900 mb-1 pr-10">{title}</h2>
+        {description ? (
+          <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-800">
+            {description}
+          </div>
+        ) : null}
         <p className="text-sm text-gray-600 mb-4">계정 비밀번호를 입력해 주세요.</p>
         <form onSubmit={handleSubmit}>
           <input

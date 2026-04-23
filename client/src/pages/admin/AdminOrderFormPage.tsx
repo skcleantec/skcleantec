@@ -1531,15 +1531,13 @@ ${footer2}`;
                           >
                             사진
                           </button>
-                          {!o.submittedAt ? (
-                            <button
-                              type="button"
-                              onClick={() => openDeleteModal(o)}
-                              className="text-fluid-xs font-medium text-red-600 hover:underline"
-                            >
-                              삭제
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => openDeleteModal(o)}
+                            className="text-fluid-xs font-medium text-red-600 hover:underline"
+                          >
+                            삭제
+                          </button>
                         </div>
                       </div>
                     );
@@ -1666,15 +1664,13 @@ ${footer2}`;
                                   >
                                     사진
                                   </button>
-                                  {!o.submittedAt ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => openDeleteModal(o)}
-                                      className="shrink-0 text-fluid-2xs font-medium text-red-600 hover:underline xl:text-fluid-xs"
-                                    >
-                                      삭제
-                                    </button>
-                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() => openDeleteModal(o)}
+                                    className="shrink-0 text-fluid-2xs font-medium text-red-600 hover:underline xl:text-fluid-xs"
+                                  >
+                                    삭제
+                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -1893,6 +1889,17 @@ ${footer2}`;
           deleteTarget
             ? `발주서 삭제: ${deleteTarget.customerName}`
             : '발주서 삭제'
+        }
+        description={
+          deleteTarget?.submittedAt ? (
+            <>
+              <p className="font-semibold">이미 제출된 발주서입니다.</p>
+              <p className="mt-1">
+                삭제하면 이 발주서로 생성된 <b>접수(Inquiry)도 함께 영구 삭제</b>되며,
+                배정·청소 사진 등 관련 기록이 제거됩니다. <b>복구할 수 없습니다.</b>
+              </p>
+            </>
+          ) : undefined
         }
         confirmLabel="삭제 확정"
         onClose={closeDeleteModal}

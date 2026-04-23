@@ -271,7 +271,12 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   res.json({ items: list, issuers: issuerOptions });
 });
 
-/** 관리자/마케터: 미제출 발주서 삭제 (본인 비밀번호 확인 필수) */
+/**
+ * 관리자/마케터: 발주서 삭제 (본인 비밀번호 확인 필수).
+ * - 미제출: 발주서만 삭제 (연결된 대기 접수는 orderFormId 만 해제).
+ * - 제출 완료: 발주서로 생성된 접수(Inquiry)도 함께 삭제된다. 복구 불가.
+ *   (InquiryCleaningPhoto·Assignment 는 FK Cascade, InquiryChangeLog·CsReport 는 inquiryId SetNull)
+ */
 router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => {
   const { userId, role } = (req as unknown as { user: AuthPayload }).user;
   const { id } = req.params;
@@ -308,10 +313,7 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
     res.status(403).json({ error: '본인이 발급한 발주서만 삭제할 수 있습니다.' });
     return;
   }
-  if (form.submittedAt) {
-    res.status(400).json({ error: '이미 제출된 발주서는 삭제할 수 없습니다.' });
-    return;
-  }
+  const isSubmitted = Boolean(form.submittedAt);
 
   await prisma.$transaction(async (tx) => {
     const fullForm = await tx.orderForm.findUnique({
@@ -330,10 +332,14 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
         totalAmount: fullForm.totalAmount,
       },
     });
-    await tx.inquiry.updateMany({
-      where: { orderFormId: id, status: 'PENDING' },
-      data: { orderFormId: null },
-    });
+    if (isSubmitted) {
+      await tx.inquiry.deleteMany({ where: { orderFormId: id } });
+    } else {
+      await tx.inquiry.updateMany({
+        where: { orderFormId: id, status: 'PENDING' },
+        data: { orderFormId: null },
+      });
+    }
     await tx.orderForm.delete({ where: { id } });
   });
   res.json({ ok: true });
