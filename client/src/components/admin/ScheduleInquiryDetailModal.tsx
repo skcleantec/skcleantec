@@ -20,6 +20,7 @@ import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../uti
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
+import { AdminOrderFormPhotosPanel } from '../inquiry/AdminOrderFormPhotosPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
@@ -1585,6 +1586,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             <p className="whitespace-pre-wrap rounded-lg border border-orange-100 bg-orange-50/80 p-3 text-sm text-gray-900">
               {item.claimMemo}
             </p>
+          </AdminScheduleDetailSection>
+        )}
+
+        {!isCreate && item?.orderForm?.id && (
+          <AdminScheduleDetailSection title="발주서 첨부 사진 (고객 업로드)">
+            <AdminOrderFormPhotosPanel orderFormId={item.orderForm.id} token={token} />
           </AdminScheduleDetailSection>
         )}
 
