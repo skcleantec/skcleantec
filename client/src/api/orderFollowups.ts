@@ -60,6 +60,8 @@ export async function listOrderFollowups(
     includeFulfilled?: boolean;
     status?: OrderFollowupStatus | '';
     customerName?: string;
+    /** 골드DB 표시된 행만 */
+    goldDbOnly?: boolean;
     /** 등록일(createdAt) 기준 — 접수 목록과 동일 KST 구간 */
     datePreset?: OrderFollowupDatePreset;
     month?: string;
@@ -70,6 +72,7 @@ export async function listOrderFollowups(
   if (opts?.includeFulfilled) q.set('includeFulfilled', '1');
   if (opts?.status) q.set('status', opts.status);
   if (opts?.customerName?.trim()) q.set('customerName', opts.customerName.trim());
+  if (opts?.goldDbOnly) q.set('goldDbOnly', '1');
   if (opts?.datePreset && opts.datePreset !== 'all') {
     q.set('datePreset', opts.datePreset);
     if (opts.datePreset === 'month' && opts.month?.trim()) q.set('month', opts.month.trim());

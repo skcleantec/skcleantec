@@ -5,6 +5,11 @@ alwaysApply: true
 
 # SK클린텍 프로젝트 규칙
 
+## 0. URL·화면 유지 (**최우선**)
+
+- 브라우저 **새로고침**·**재로그인** 뒤에도 사용자는 **현재 URL(메뉴·쿼리)에 그대로** 있어야 한다. 메인/대시보드로 임의 이동시키지 않는다.
+- 상세·구현·금지 사항: **`.cursor/rules/routing-url-persistence.mdc`** — 다른 작업과 겹치면 **이 규칙을 먼저** 만족시킨다.
+
 ## 1. 코딩 전 필수
 
 - **PROJECT_GUIDE.md**와 **ARCHITECTURE.md**를 반드시 확인한 후 코딩

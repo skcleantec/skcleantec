@@ -42,7 +42,10 @@ import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
-import { AdminOrderFormFollowupPanel } from '../../components/order-followup/AdminOrderFormFollowupPanel';
+import {
+  AdminOrderFormFollowupPanel,
+  FOLLOWUP_PANEL_HELP,
+} from '../../components/order-followup/AdminOrderFormFollowupPanel';
 import {
   getEstimateConfig,
   updateEstimateConfig,
@@ -107,16 +110,27 @@ function labelOrderFormIssuer(user: OrderFormCreatedBy | null | undefined): stri
   return user.name.trim();
 }
 
-/** 목록·카드용: 청소 희망 일시 한 줄 */
-function formatOrderFormPreferredLine(order: OrderForm): string | null {
-  if (!order.preferredDate?.trim()) return null;
-  const date = order.preferredDate.trim();
+/** 발주서 목록 「예약일」열·모바일 카드: 날짜(요일) + 시간대·상세 */
+function formatOrderFormReservationCell(order: OrderForm): {
+  dateText: string;
+  detailText: string | null;
+  title: string;
+} {
+  const raw = order.preferredDate?.trim();
+  if (!raw) {
+    return { dateText: '—', detailText: null, title: '' };
+  }
+  const dateText = formatDateCompactWithWeekday(raw);
   const slot =
     order.preferredTime &&
     (ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === order.preferredTime)?.label ?? order.preferredTime);
   const detail = order.preferredTimeDetail?.trim();
-  const base = slot ? `${date} (${slot})` : date;
-  return detail ? `${base} · ${detail}` : base;
+  const parts: string[] = [];
+  if (slot) parts.push(slot);
+  if (detail) parts.push(detail);
+  const detailText = parts.length ? parts.join(' · ') : null;
+  const title = detailText ? `${dateText} · ${detailText}` : dateText;
+  return { dateText, detailText, title };
 }
 
 function normalizeSubTabOrder(parsed: unknown): Tab[] {
@@ -1008,7 +1022,14 @@ ${footer2}`;
         </div>
       )}
 
-      {tab === 'followup' && token && <AdminOrderFormFollowupPanel token={token} />}
+      {tab === 'followup' && token && (
+        <>
+          <div className="mb-2 flex w-full justify-end sm:mb-3">
+            <HelpTooltip className="shrink-0" text={FOLLOWUP_PANEL_HELP} />
+          </div>
+          <AdminOrderFormFollowupPanel token={token} />
+        </>
+      )}
 
       {tab === 'issue' && (
         <div className="min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -1391,7 +1412,7 @@ ${footer2}`;
                 </p>
                 <div className="flex flex-col gap-3 p-3 lg:hidden">
                   {orderForms.map((o) => {
-                    const pref = formatOrderFormPreferredLine(o);
+                    const resv = formatOrderFormReservationCell(o);
                     const issuer = labelOrderFormIssuer(o.createdBy ?? undefined);
                     return (
                       <div
@@ -1403,9 +1424,19 @@ ${footer2}`;
                           <p className="mt-1 text-fluid-xs text-gray-500">
                             발급 {formatDateCompactWithWeekday(o.createdAt)} · 담당 {issuer}
                           </p>
-                          {pref ? (
-                            <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={pref}>
-                              희망 {pref}
+                          <p
+                            className="mt-1.5 text-fluid-xs leading-snug text-gray-700"
+                            title={resv.title || undefined}
+                          >
+                            <span className="font-medium text-gray-600">예약일</span>{' '}
+                            <span className="tabular-nums text-gray-900">{resv.dateText}</span>
+                          </p>
+                          {resv.detailText ? (
+                            <p
+                              className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-gray-600"
+                              title={resv.detailText}
+                            >
+                              {resv.detailText}
                             </p>
                           ) : null}
                           {o.optionNote?.trim() ? (
@@ -1470,17 +1501,21 @@ ${footer2}`;
                   <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
                     <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm">
                       <colgroup>
-                        <col className="w-[20%]" />
+                        <col className="w-[17%]" />
+                        <col className="w-[15%]" />
+                        <col className="w-[11%]" />
                         <col className="w-[12%]" />
+                        <col className="w-[10%]" />
                         <col className="w-[14%]" />
-                        <col className="w-[12%]" />
-                        <col className="w-[16%]" />
-                        <col className="w-[26%]" />
+                        <col className="w-[21%]" />
                       </colgroup>
                       <thead>
                         <tr className="border-b border-gray-200 bg-gray-100">
                           <th className="sticky left-0 z-10 border-r border-gray-200 bg-gray-100 px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
                             고객명
+                          </th>
+                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                            예약일
                           </th>
                           <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
                             담당
@@ -1502,7 +1537,7 @@ ${footer2}`;
                       <tbody>
                         {orderForms.map((o) => {
                           const issuer = labelOrderFormIssuer(o.createdBy ?? undefined);
-                          const pref = formatOrderFormPreferredLine(o);
+                          const resv = formatOrderFormReservationCell(o);
                           return (
                             <tr key={o.id} className="group hover:bg-gray-50">
                               <td
@@ -1512,12 +1547,17 @@ ${footer2}`;
                                 <span className="block truncate text-left font-medium text-gray-900 xl:text-fluid-xs">
                                   {o.customerName}
                                 </span>
-                                {pref ? (
-                                  <span
-                                    className="mt-0.5 block truncate text-left text-fluid-2xs text-gray-500 xl:text-fluid-xs"
-                                    title={pref}
-                                  >
-                                    {pref}
+                              </td>
+                              <td
+                                className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle text-center text-gray-700 xl:px-1.5 xl:py-1.5"
+                                title={resv.title || undefined}
+                              >
+                                <span className="block truncate text-fluid-2xs tabular-nums leading-tight text-gray-900 xl:text-fluid-xs">
+                                  {resv.dateText}
+                                </span>
+                                {resv.detailText ? (
+                                  <span className="mt-0.5 block truncate text-fluid-2xs leading-tight text-gray-500 xl:text-fluid-xs">
+                                    {resv.detailText}
                                   </span>
                                 ) : null}
                               </td>

@@ -1,0 +1,32 @@
+---
+description: 새로고침·재로그인 후에도 URL 기준으로 같은 화면 유지 — 코딩 시 최우선
+alwaysApply: true
+---
+
+# URL·라우트·화면 유지 (최우선)
+
+에이전트·개발자는 **다른 규칙과 충돌할 때도 이 문서의 사용자 동선을 우선**한다.
+
+## 원칙
+
+1. **새로고침(F5·하드 리로드)** 후에도 사용자는 **주소창 URL이 가리키는 메뉴·탭·쿼리**에 그대로 있어야 한다. 임의로 **메인/대시보드 기본 진입**으로 덮어쓰지 않는다.
+2. **인증 만료·미로그인**으로 로그인 화면으로 보낸 뒤, 사용자가 다시 로그인하면 **직전에 보던 경로**로 돌아가야 한다. `state.from` 등으로 넘긴 **pathname + search + hash**를 복원하는 패턴을 따른다.
+3. 화면 상태를 **URL에 반영**할 수 있으면 반영한다(탭·필터·하위 경로). 새로고침 시 state만으로 유지하려다 끊기기 쉬운 구조는 피한다.
+
+## 구현 시 (클라이언트)
+
+- `ProtectedRoute` / `TeamProtectedRoute`는 비로그인 시 `Navigate`에 **`state: { from: location }`** 을 넘긴다. 로그인 성공·세션 프로브 후 `navigate`는 **가능하면 `from` 기준 복귀**, 없거나 안전하지 않을 때만 기본 대시보드로 간다.
+- 참고 구현: `client/src/pages/LoginPage.tsx` — `readResumeLocation`, `resolveAdminResumePath`, `resolveTeamResumePath` 등.
+- 새로 `navigate('/admin/dashboard')` / `navigate('/team/dashboard')` 를 추가할 때는 **위 원칙을 깨는지** 반드시 확인한다.
+
+## 금지·주의
+
+- 로그인 직후·세션 확인 직후 **무조건 대시보드**로만 보내기 (`from` 무시).
+- `replace` 내비게이션으로 **쿼리스트링·하위 경로를 잃는** 리다이렉트.
+- 동일 도메인 내 업무 화면에서 **의도 없이** `/admin` 인덱스(대시보드 강제)로 튕기게 하는 이펙트.
+
+## 관련 파일 (참고)
+
+- `client/src/App.tsx` — 라우트 정의
+- `client/src/components/auth/ProtectedRoute.tsx`, `TeamProtectedRoute.tsx`
+- `client/src/pages/LoginPage.tsx`

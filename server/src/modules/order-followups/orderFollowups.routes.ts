@@ -47,6 +47,12 @@ router.get('/', async (req, res) => {
   if (customerName) {
     where.customerName = { contains: customerName, mode: 'insensitive' };
   }
+  const goldDbOnlyRaw = req.query.goldDbOnly;
+  const goldDbOnly =
+    goldDbOnlyRaw === '1' || goldDbOnlyRaw === 'true' || goldDbOnlyRaw === 'yes';
+  if (goldDbOnly) {
+    where.goldDb = true;
+  }
   const rows = await prisma.orderFollowup.findMany({
     where,
     include: FOLLOWUP_INCLUDE,

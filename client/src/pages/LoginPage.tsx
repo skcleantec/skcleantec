@@ -1,9 +1,49 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, type Location as RouterLocation } from 'react-router-dom';
 import { login, getMe, isAuthSessionExpiredError } from '../api/auth';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { isTeamPreviewAdminEmail } from '../utils/teamPreview';
+
+/** ProtectedRoute / TeamProtectedRoute 가 넘긴 `state.from` 만 안전하게 읽기 */
+function readResumeLocation(state: unknown): RouterLocation | undefined {
+  if (!state || typeof state !== 'object') return undefined;
+  const rec = state as { from?: unknown };
+  if (!rec.from || typeof rec.from !== 'object') return undefined;
+  const from = rec.from as { pathname?: unknown };
+  if (typeof from.pathname !== 'string') return undefined;
+  return rec.from as RouterLocation;
+}
+
+function resolveAdminResumePath(from: RouterLocation | undefined): string {
+  const fallback = '/admin/dashboard';
+  if (!from?.pathname) return fallback;
+  const p = from.pathname;
+  if (p === '/login' || p === '/admin/login') return fallback;
+  if (p === '/team' || p.startsWith('/team/')) return fallback;
+  if (p === '/admin' || p.startsWith('/admin/')) {
+    return `${p}${from.search ?? ''}${from.hash ?? ''}`;
+  }
+  return fallback;
+}
+
+function resolveTeamResumePath(from: RouterLocation | undefined): string {
+  const fallback = '/team/dashboard';
+  if (!from?.pathname) return fallback;
+  const p = from.pathname;
+  if (p === '/login' || p === '/admin/login') return fallback;
+  if (p === '/admin' || p.startsWith('/admin/')) return fallback;
+  if (p === '/team' || p.startsWith('/team/')) {
+    return `${p}${from.search ?? ''}${from.hash ?? ''}`;
+  }
+  return fallback;
+}
+
+function resolveDualTokenResumePath(from: RouterLocation | undefined): string {
+  if (from?.pathname?.startsWith('/team')) return resolveTeamResumePath(from);
+  if (from?.pathname?.startsWith('/admin')) return resolveAdminResumePath(from);
+  return '/admin/dashboard';
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -20,19 +60,20 @@ export function LoginPage() {
 
     void (async () => {
       const myGen = sessionProbeGen.current;
+      const resumeFrom = readResumeLocation(location.state);
       try {
         if (a && !t) {
           await getMe(a);
           if (cancelled || sessionProbeGen.current !== myGen) return;
           if (getToken() !== a) return;
-          navigate('/admin/dashboard', { replace: true });
+          navigate(resolveAdminResumePath(resumeFrom), { replace: true });
           return;
         }
         if (t && !a) {
           await getMe(t);
           if (cancelled || sessionProbeGen.current !== myGen) return;
           if (getTeamToken() !== t) return;
-          navigate('/team/dashboard', { replace: true });
+          navigate(resolveTeamResumePath(resumeFrom), { replace: true });
           return;
         }
         if (a && t) {
@@ -40,7 +81,7 @@ export function LoginPage() {
             await getMe(a);
             if (cancelled || sessionProbeGen.current !== myGen) return;
             if (getToken() !== a || getTeamToken() !== t) return;
-            navigate('/admin/dashboard', { replace: true });
+            navigate(resolveDualTokenResumePath(resumeFrom), { replace: true });
             return;
           }
           clearToken();
@@ -69,7 +110,7 @@ export function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -86,18 +127,19 @@ export function LoginPage() {
       const token = data.token as string;
       const user = data.user as { role?: string; email?: string };
       const role = user?.role;
+      const resumeFrom = readResumeLocation(location.state);
 
       if (role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER') {
         clearToken();
         setTeamToken(token);
-        navigate('/team/dashboard', { replace: true });
+        navigate(resolveTeamResumePath(resumeFrom), { replace: true });
       } else if (role === 'ADMIN' || role === 'MARKETER') {
         clearTeamToken();
         setToken(token);
         if (user?.email && isTeamPreviewAdminEmail(user.email)) {
           setTeamToken(token);
         }
-        navigate('/admin/dashboard', { replace: true });
+        navigate(resolveAdminResumePath(resumeFrom), { replace: true });
       } else {
         setError('지원하지 않는 계정 유형입니다.');
       }

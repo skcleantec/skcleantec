@@ -78,13 +78,14 @@ function actionLabelKo(action: string): string {
   return map[action] ?? action;
 }
 
-const FOLLOWUP_PANEL_HELP =
+export const FOLLOWUP_PANEL_HELP =
   '전화 부재·예약금 미입금·보류 등 후속 관리입니다.\n' +
   '등록일로 먼저 범위를 좁힌 뒤, 아래 칩으로 상태(부재 등)를 함께 걸 수 있습니다.\n' +
   '예약금이 들어오면 「예약 완료」로 바꾼 뒤, 발주서는 작업란의 「발주서」를 눌러 발주서 발급 화면에서 진행하세요.\n' +
   '마무리 시 상태를 「처리 완료」로 바꿀 수 있습니다.\n' +
   '재연락 후에도 부재·보류가 이어지면 「부재+1」로 누적 횟수를 올릴 수 있습니다.\n' +
-  '편집에서 「골드DB」를 켜면 고급 DB로 올릴 때까지 집중이 필요한 건으로, 목록에서 노란 배경으로 표시됩니다.';
+  '편집에서 「골드DB」를 켜면 고급 DB로 올릴 때까지 집중이 필요한 건으로, 목록에서 노란 배경으로 표시됩니다.\n' +
+  '고객명 줄에서 「골드DB만」을 켜면 골드DB 건만 목록에 남깁니다. 안내는 화면 상단 ? 아이콘에서 볼 수 있습니다.';
 
 /** 로그 `detail` 을 화면용 한글 설명으로 */
 function logDetailDescription(log: OrderFollowupLogItem): string {
@@ -166,7 +167,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
   const [items, setItems] = useState<OrderFollowupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [includeFulfilled, setIncludeFulfilled] = useState(false);
+  const [filterGoldDbOnly, setFilterGoldDbOnly] = useState(false);
   const [filterStatus, setFilterStatus] = useState<OrderFollowupStatus | ''>('');
   const [filterCustomerName, setFilterCustomerName] = useState('');
   const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('all');
@@ -198,7 +199,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
 
   /** `status: ''` 를 넘기면 서버 상태 필터 없이 조회(상단 칩은 별도로 맞춤) */
   const load = useCallback(
-    async (opts?: { status?: OrderFollowupStatus | ''; includeFulfilled?: boolean }) => {
+    async (opts?: { status?: OrderFollowupStatus | '' }) => {
       setLoading(true);
       setError(null);
       const useStatus =
@@ -207,12 +208,11 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
             ? undefined
             : opts.status
           : filterStatus || undefined;
-      const useInc = opts?.includeFulfilled ?? includeFulfilled;
       try {
         const r = await listOrderFollowups(token, {
-          includeFulfilled: useInc,
           status: useStatus,
           customerName: filterCustomerName.trim() || undefined,
+          goldDbOnly: filterGoldDbOnly || undefined,
           ...(datePreset !== 'all'
             ? {
                 datePreset,
@@ -229,7 +229,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
         setLoading(false);
       }
     },
-    [token, includeFulfilled, filterStatus, filterCustomerName, datePreset, dateMonthKey, dateDayKey]
+    [token, filterGoldDbOnly, filterStatus, filterCustomerName, datePreset, dateMonthKey, dateDayKey]
   );
 
   useEffect(() => {
@@ -368,10 +368,10 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
 
       <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-4 py-3">
-          <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-2">
             <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">등록일</span>
-            <div className="inline-flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm shrink-0">
+            <div className="inline-flex min-w-0 flex-wrap items-center gap-2">
+              <div className="inline-flex shrink-0 rounded border border-gray-300 overflow-hidden text-fluid-sm">
                 <button
                   type="button"
                   onClick={() => setDatePreset('today')}
@@ -383,7 +383,10 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setDatePreset('all')}
+                  onClick={() => {
+                    setDatePreset('all');
+                    setFilterGoldDbOnly(false);
+                  }}
                   className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
                     datePreset === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
@@ -454,11 +457,26 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
               >
                 신규등록
               </button>
+              <button
+                type="button"
+                onClick={() => setFilterGoldDbOnly((v) => !v)}
+                className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] sm:text-fluid-2xs font-medium touch-manipulation sm:ml-auto ${
+                  filterGoldDbOnly
+                    ? 'border-amber-600 bg-amber-100 text-amber-950 ring-1 ring-amber-300/80'
+                    : 'border-amber-200 bg-white text-amber-900 hover:bg-amber-50'
+                }`}
+              >
+                골드DB만
+              </button>
               {filterChips.map((c) => (
                 <button
                   key={String(c.value)}
                   type="button"
-                  onClick={() => setFilterStatus(c.value === filterStatus && c.value !== '' ? '' : c.value)}
+                  onClick={() => {
+                    const next = c.value === filterStatus && c.value !== '' ? '' : c.value;
+                    setFilterStatus(next);
+                    if (next === '') setFilterGoldDbOnly(false);
+                  }}
                   className={`rounded-full border px-2.5 py-1 text-[11px] sm:text-fluid-2xs font-medium touch-manipulation ${
                     (c.value === '' && filterStatus === '') || c.value === filterStatus
                       ? 'border-gray-800 bg-gray-900 text-white'
@@ -468,24 +486,16 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                   {c.label}
                 </button>
               ))}
-              <HelpTooltip className="shrink-0" text={FOLLOWUP_PANEL_HELP} />
             </div>
-            <label className="inline-flex items-center gap-2 text-fluid-2xs text-gray-700 shrink-0 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={includeFulfilled}
-                onChange={(e) => setIncludeFulfilled(e.target.checked)}
-                className="rounded border-gray-300"
-              />
-              처리 완료 포함
-            </label>
           </div>
         </div>
 
         {loading ? (
           <div className="p-10 text-center text-fluid-sm text-gray-500">불러오는 중…</div>
         ) : items.length === 0 ? (
-          <div className="p-10 text-center text-fluid-sm text-gray-500">등록된 건이 없습니다.</div>
+          <div className="p-10 text-center text-fluid-sm text-gray-500">
+            {filterGoldDbOnly ? '골드DB 건이 없습니다.' : '등록된 건이 없습니다.'}
+          </div>
         ) : (
           <>
             <div className="hidden lg:block overflow-x-auto">
