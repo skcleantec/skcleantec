@@ -106,6 +106,8 @@ export interface InquiryItem {
   specialNotes?: string | null;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
+  /** 서버에서 `crewMemberNote`의 이름을 `TeamMember`와 매칭해 첨부한 전화번호 */
+  crewMembers?: Array<{ name: string; phone: string | null }>;
   /** 관리자 입력 수기(간편) 등록 제목 */
   scheduleMemo?: string | null;
   claimMemo: string | null;
@@ -458,7 +460,44 @@ export function TeamInquiryDetailModal({
                 <span className="text-gray-800">{formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}</span>
               </TeamModalRow>
               <TeamModalRow label="투입 팀원">
-                <span className="text-gray-800">{formatCrewInfo(item)}</span>
+                {(() => {
+                  const fallback = (item.crewMemberNote ?? '')
+                    .split(/[,·/|]/g)
+                    .map((x) => x.trim())
+                    .filter(Boolean);
+                  const list =
+                    item.crewMembers && item.crewMembers.length > 0
+                      ? item.crewMembers
+                      : fallback.map((name) => ({ name, phone: null as string | null }));
+                  const count = item.crewMemberCount ?? 2;
+                  if (list.length === 0) {
+                    return <span className="text-gray-800">팀원{count}명</span>;
+                  }
+                  return (
+                    <div className="space-y-1.5">
+                      <span className="text-fluid-2xs text-gray-500">팀원{count}명</span>
+                      <ul className="flex flex-wrap items-center gap-1.5">
+                        {list.map((m, idx) => (
+                          <li
+                            key={`${m.name}-${idx}`}
+                            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5"
+                          >
+                            <span className="font-medium text-gray-900">{m.name}</span>
+                            {m.phone ? (
+                              <a
+                                href={`tel:${m.phone}`}
+                                className="inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-blue-700"
+                              >
+                                <PhoneMiniIcon className="h-3 w-3" />
+                                {m.phone}
+                              </a>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
               </TeamModalRow>
               {item.propertyType ? (
                 <TeamModalRow label="건축물 유형">

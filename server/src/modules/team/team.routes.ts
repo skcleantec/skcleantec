@@ -32,6 +32,63 @@ const teamInquiryInclude = {
   },
 } as const;
 
+/**
+ * `crew_member_note`(이름을 `/ , · |` 중 하나로 구분한 문자열)을 파싱해
+ * 등록된 `TeamMember` 레코드의 이름과 매칭, 각 접수에 `crewMembers: [{name, phone}]`
+ * 을 덧붙인다. 팀장이 현장 팀원에게 직접 연락할 수 있도록 이름·전화를 노출한다.
+ */
+function parseCrewNames(note: string | null | undefined): string[] {
+  if (!note) return [];
+  return note
+    .split(/[,·/|]/g)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+async function attachCrewMembers<T extends { crewMemberNote: string | null }>(
+  items: T[],
+): Promise<Array<T & { crewMembers: Array<{ name: string; phone: string | null }> }>> {
+  const allNames = new Set<string>();
+  for (const it of items) {
+    for (const n of parseCrewNames(it.crewMemberNote)) allNames.add(n);
+  }
+  if (allNames.size === 0) {
+    return items.map((it) => ({ ...it, crewMembers: [] }));
+  }
+  const members = await prisma.teamMember.findMany({
+    where: { name: { in: Array.from(allNames) }, isActive: true },
+    select: { name: true, phone: true, sortOrder: true, createdAt: true },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+  const phoneByName = new Map<string, string | null>();
+  for (const m of members) {
+    // 동명이인이 있을 수 있어 **첫 매칭**만 사용(최선노력). 번호가 있는 행을 우선.
+    const cur = phoneByName.get(m.name);
+    if (cur == null) phoneByName.set(m.name, m.phone ?? null);
+    else if (!cur && m.phone) phoneByName.set(m.name, m.phone);
+  }
+  return items.map((it) => ({
+    ...it,
+    crewMembers: parseCrewNames(it.crewMemberNote).map((name) => ({
+      name,
+      phone: phoneByName.get(name) ?? null,
+    })),
+  }));
+}
+
+async function attachCrewMembersOne<T extends { crewMemberNote: string | null } | null>(
+  item: T,
+): Promise<
+  | (Exclude<T, null> & { crewMembers: Array<{ name: string; phone: string | null }> })
+  | null
+> {
+  if (!item) return null;
+  const [enriched] = await attachCrewMembers([item]);
+  return enriched as Exclude<T, null> & {
+    crewMembers: Array<{ name: string; phone: string | null }>;
+  };
+}
+
 /** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S + 미확인 배정(상세 미조회) — 한 요청으로 병렬 COUNT */
 router.get('/nav-badges', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
@@ -246,7 +303,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       where: { id },
       include: teamInquiryInclude,
     });
-    res.json(unchanged);
+    res.json(await attachCrewMembersOne(unchanged));
     return;
   }
 
@@ -280,12 +337,12 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       include: teamInquiryInclude,
     });
   });
-  res.json(updated);
+  res.json(await attachCrewMembersOne(updated));
 });
 
 router.get('/inquiries', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
-  const items = await prisma.inquiry.findMany({
+  const rows = await prisma.inquiry.findMany({
     where: {
       assignments: {
         some: { teamLeaderId: userId },
@@ -294,6 +351,7 @@ router.get('/inquiries', async (req, res) => {
     orderBy: { preferredDate: 'asc' },
     include: teamInquiryInclude,
   });
+  const items = await attachCrewMembers(rows);
   res.json({ items });
 });
 
@@ -306,7 +364,7 @@ router.get('/schedule', async (req, res) => {
     ? new Date(end)
     : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-  const items = await prisma.inquiry.findMany({
+  const rows = await prisma.inquiry.findMany({
     where: {
       preferredDate: { gte: startDate, lte: endDate },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
@@ -317,6 +375,7 @@ router.get('/schedule', async (req, res) => {
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     include: teamInquiryInclude,
   });
+  const items = await attachCrewMembers(rows);
   res.json({ items });
 });
 
