@@ -35,6 +35,23 @@ async function bootstrap() {
     }
     throw err;
   });
+
+  /**
+   * DB 풀 keepalive — 60초마다 가벼운 SELECT 1.
+   * Railway Proxy/TCP keepalive 만료 후 첫 쿼리에서 풀이 재협상되며 생기는
+   * 체감 지연(수 초)을 완화한다. 외부 HTTP 핑(UptimeRobot 등)과 별개로
+   * 프로세스가 살아 있는 한 풀을 항상 따뜻하게 유지.
+   * 환경변수 DB_KEEPALIVE_DISABLED=true 이면 비활성.
+   */
+  if (process.env.DB_KEEPALIVE_DISABLED !== 'true') {
+    const intervalMs = Number.parseInt(process.env.DB_KEEPALIVE_MS ?? '60000', 10) || 60000;
+    const keepAlive = setInterval(() => {
+      prisma.$queryRaw`SELECT 1`.catch((e) => {
+        console.warn('[keepalive] DB ping 실패:', e instanceof Error ? e.message : e);
+      });
+    }, intervalMs);
+    keepAlive.unref();
+  }
 }
 
 void bootstrap();

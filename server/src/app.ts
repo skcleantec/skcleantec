@@ -65,16 +65,31 @@ try {
 } catch {}
 app.use('/uploads', express.static(uploadDir));
 
+/**
+ * 헬스체크 + 워밍 엔드포인트.
+ * UptimeRobot 등 외부 핑에서 5분 주기로 호출하면 콜드스타트·풀 유휴를 막을 수 있다.
+ * 응답에는 DB 왕복 지연(ms)·uptime(s)·pid 등 진단 정보를 함께 내려준다.
+ */
 app.get('/api/health', async (_req, res) => {
+  const t0 = performance.now();
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ ok: true, db: true });
+    const dbMs = Math.round(performance.now() - t0);
+    res.json({
+      ok: true,
+      db: true,
+      dbMs,
+      uptimeSec: Math.round(process.uptime()),
+      pid: process.pid,
+    });
   } catch (err) {
     console.error('[health] DB 확인 실패:', err);
     res.status(503).json({
       ok: false,
       db: false,
       error: 'database_unavailable',
+      uptimeSec: Math.round(process.uptime()),
+      pid: process.pid,
     });
   }
 });
