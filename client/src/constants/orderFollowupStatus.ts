@@ -10,7 +10,7 @@ export const ORDER_FOLLOWUP_STATUS_LABEL: Record<OrderFollowupStatus, string> = 
   ABSENT: '부재',
   DEPOSIT_PENDING: '예약금 대기',
   ON_HOLD: '보류·고민',
-  RESERVED: '예약 완료',
+  RESERVED: '입금 완료',
   FULFILLED: '처리 완료',
 };
 
