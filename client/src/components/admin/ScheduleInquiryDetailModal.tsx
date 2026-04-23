@@ -957,7 +957,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         <div className="space-y-4">
         {!isCreate && item && (
           <AdminScheduleDetailSection title="접수 개요">
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
             {item.inquiryNumber ? (
               <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 tabular-nums">
                 접수번호 {item.inquiryNumber}
