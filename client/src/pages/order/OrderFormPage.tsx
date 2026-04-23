@@ -97,6 +97,7 @@ export function OrderFormPage() {
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [professionalOptionIds, setProfessionalOptionIds] = useState<string[]>([]);
   const [professionalOptions, setProfessionalOptions] = useState<ProfessionalSpecialtyOptionDto[]>([]);
@@ -213,7 +214,7 @@ export function OrderFormPage() {
       });
       setSubmitted(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '제출에 실패했습니다.');
+      setSubmitErrorModal(e instanceof Error ? e.message : '제출에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -308,10 +309,6 @@ export function OrderFormPage() {
           </div>
         )}
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded">{error}</div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-4 pb-20">
           <div>
             <label className={labelCls}>1. 성함 *</label>
@@ -321,7 +318,6 @@ export function OrderFormPage() {
               value={form.customerName}
               onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
               placeholder="이름"
-              required
             />
           </div>
 
@@ -354,7 +350,6 @@ export function OrderFormPage() {
               value={form.customerPhone}
               onChange={(e) => setForm((f) => ({ ...f, customerPhone: e.target.value }))}
               placeholder="010-0000-0000"
-              required
             />
             <label className="block text-xs text-gray-600 mb-1">보조 연락처 (필수) *</label>
             <input
@@ -363,7 +358,6 @@ export function OrderFormPage() {
               value={form.customerPhoneSecondary}
               onChange={(e) => setForm((f) => ({ ...f, customerPhoneSecondary: e.target.value }))}
               placeholder="예: 배우자, 가족 연락처"
-              required
             />
           </div>
 
@@ -554,7 +548,6 @@ export function OrderFormPage() {
               className={inputCls}
               value={form.buildingType}
               onChange={(e) => setForm((f) => ({ ...f, buildingType: e.target.value }))}
-              required
             >
               <option value="">선택</option>
               {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
@@ -671,6 +664,63 @@ export function OrderFormPage() {
             </button>
           </div>
         </form>
+
+        {submitErrorModal ? (
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-submit-error-title"
+            onClick={() => setSubmitErrorModal(null)}
+          >
+            <div
+              className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+              role="presentation"
+            >
+              <div className="flex flex-col items-center px-6 pb-5 pt-7 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 ring-8 ring-amber-50/60">
+                  <svg
+                    className="h-7 w-7 text-amber-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                  </svg>
+                </div>
+                <h2
+                  id="order-submit-error-title"
+                  className="mt-4 text-base font-semibold tracking-tight text-gray-900"
+                >
+                  한 가지 확인이 필요해요
+                </h2>
+                <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-gray-700">
+                  {submitErrorModal}
+                </p>
+                <p className="mt-3 text-xs text-gray-500">
+                  해당 항목을 채우신 뒤 다시 제출해 주세요.
+                </p>
+              </div>
+              <div className="flex justify-center border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setSubmitErrorModal(null)}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
+                  autoFocus
+                >
+                  확인했어요
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="text-xs text-gray-500 mt-8 text-center">
           <p>

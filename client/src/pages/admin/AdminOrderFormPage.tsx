@@ -398,7 +398,7 @@ export function AdminOrderFormPage() {
     depositAmount: '20000',
     balanceAmount: '',
     optionNote: '',
-    preferredDate: kstTodayYmd(),
+    preferredDate: '',
     preferredTime: '오전',
     preferredTimeDetail: '',
   }));
@@ -626,7 +626,7 @@ export function AdminOrderFormPage() {
         totalAmount: '',
         balanceAmount: '',
         optionNote: '',
-        preferredDate: kstTodayYmd(),
+        preferredDate: '',
         preferredTime: '오전',
         preferredTimeDetail: '',
       });
@@ -1168,22 +1168,55 @@ ${footer2}`;
                   />
                 </div>
                 <div className="lg:col-span-6">
-                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="text-fluid-sm font-medium text-gray-700">청소 날짜</span>
+                    <div className="flex items-center gap-2 text-fluid-sm text-gray-700">
+                      <label className="inline-flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="order-issue-date-mode"
+                          checked={!issueForm.preferredDate.trim()}
+                          onChange={() =>
+                            setIssueForm((f) => ({ ...f, preferredDate: '' }))
+                          }
+                        />
+                        <span>미지정</span>
+                      </label>
+                      <label className="inline-flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="order-issue-date-mode"
+                          checked={Boolean(issueForm.preferredDate.trim())}
+                          onChange={() =>
+                            setIssueForm((f) => ({
+                              ...f,
+                              preferredDate: f.preferredDate.trim() || kstTodayYmd(),
+                            }))
+                          }
+                        />
+                        <span>지정</span>
+                      </label>
+                    </div>
                     <HelpTooltip
                       className="shrink-0"
-                      text="비워 두면 고객이 발주서에서 날짜·오전/오후를 직접 선택합니다. 지정하면 고객은 수정할 수 없습니다."
+                      text="「미지정」이면 고객이 발주서에서 날짜·오전/오후를 직접 선택합니다. 「지정」으로 바꾸면 관리자가 정한 날짜로 고정되고 고객은 수정할 수 없습니다."
                     />
                   </div>
-                  <YmdSelect
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm shadow-sm focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-200/80 sm:py-2"
-                    value={issueForm.preferredDate}
-                    onChange={(v) => setIssueForm((f) => ({ ...f, preferredDate: v }))}
-                    allowEmpty
-                    emitOnCompleteOnly
-                    minYmd={kstTodayYmd()}
-                    idPrefix="order-issue-pref"
-                  />
+                  {issueForm.preferredDate.trim() ? (
+                    <YmdSelect
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm shadow-sm focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-200/80 sm:py-2"
+                      value={issueForm.preferredDate}
+                      onChange={(v) => setIssueForm((f) => ({ ...f, preferredDate: v }))}
+                      allowEmpty
+                      emitOnCompleteOnly
+                      minYmd={kstTodayYmd()}
+                      idPrefix="order-issue-pref"
+                    />
+                  ) : (
+                    <div className="w-full rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2.5 text-fluid-sm text-gray-500 sm:py-2">
+                      고객이 발주서에서 직접 선택합니다.
+                    </div>
+                  )}
                 </div>
                 <div className="lg:col-span-6">
                   <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
