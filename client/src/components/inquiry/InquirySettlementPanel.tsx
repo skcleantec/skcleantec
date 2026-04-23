@@ -46,13 +46,84 @@ function formatWonSigned(n: number): string {
   return '0원';
 }
 
+/** "40,000" / "40000" / "4만" / "4만5천" / "4.5만" / "-2만" 등 한글 약어도 허용 */
 function normalizeAmount(raw: string): number | null {
-  const s = raw.trim().replace(/[,\s]/g, '');
-  if (!s || s === '-' || s === '+') return null;
-  if (!/^-?\d+$/.test(s)) return null;
-  const n = Number(s);
-  if (!Number.isFinite(n)) return null;
-  return n;
+  let s = raw.trim().replace(/[,\s원]/g, '');
+  if (!s) return null;
+  let sign = 1;
+  if (s.startsWith('-')) {
+    sign = -1;
+    s = s.slice(1);
+  } else if (s.startsWith('+')) {
+    s = s.slice(1);
+  }
+  if (!s) return null;
+  if (/^\d+$/.test(s)) {
+    const n = Number(s);
+    return Number.isFinite(n) ? sign * n : null;
+  }
+  // 한글 단위 조합: "4만", "4만5천", "3천", "1억2천만" 등
+  const unitMap: Record<string, number> = { 억: 1e8, 만: 1e4, 천: 1e3, 백: 1e2 };
+  let total = 0;
+  let i = 0;
+  let consumed = false;
+  while (i < s.length) {
+    const m = s.slice(i).match(/^(\d+(?:\.\d+)?)/);
+    if (!m) return null;
+    const num = Number(m[1]);
+    i += m[1].length;
+    if (i < s.length && unitMap[s[i]] != null) {
+      total += num * unitMap[s[i]];
+      i += 1;
+      consumed = true;
+    } else if (i === s.length) {
+      total += num;
+      consumed = true;
+    } else {
+      return null;
+    }
+  }
+  if (!consumed) return null;
+  return Math.round(sign * total);
+}
+
+/** 입력창에 콤마 자동 삽입 — 한글 단위가 포함되면 그대로 두고, 숫자만 있으면 콤마 포맷 */
+function formatAmountInputDisplay(raw: string): string {
+  const cleaned = raw.replace(/[,\s]/g, '');
+  if (!cleaned) return '';
+  let sign = '';
+  let rest = cleaned;
+  if (rest.startsWith('-')) {
+    sign = '-';
+    rest = rest.slice(1);
+  } else if (rest.startsWith('+')) {
+    rest = rest.slice(1);
+  }
+  if (!rest) return sign;
+  // 한글 단위가 섞여 있으면 변환하지 않고 원본 유지
+  if (/[억만천백원]/.test(rest)) return sign + rest;
+  if (!/^\d+$/.test(rest)) return raw;
+  const n = Number(rest);
+  if (!Number.isFinite(n)) return raw;
+  return sign + n.toLocaleString('ko-KR');
+}
+
+/** 현재 draft 값에 delta 를 더한 금액을 콤마 포맷으로 돌려줌 */
+function addToDraftAmount(draft: string, delta: number): string {
+  const current = normalizeAmount(draft) ?? 0;
+  const next = current + delta;
+  return formatAmountInputDisplay(String(next));
+}
+
+/** 현재 draft 값의 부호를 바꿈 (빈값이면 그대로) */
+function toggleDraftSign(draft: string): string {
+  const n = normalizeAmount(draft);
+  if (n == null || n === 0) {
+    // 빈값/0이면 '-' 를 토글로 넣기만
+    if (draft.trim().startsWith('-')) return draft.replace(/^\s*-/, '');
+    return '-' + draft.replace(/^\+/, '');
+  }
+  return formatAmountInputDisplay(String(-n));
 }
 
 export function InquirySettlementPanel({
@@ -279,8 +350,8 @@ export function InquirySettlementPanel({
               type="text"
               inputMode="numeric"
               value={draftAmt}
-              onChange={(e) => setDraftAmt(e.target.value)}
-              placeholder="금액 (예: 40000, 할인은 -20000)"
+              onChange={(e) => setDraftAmt(formatAmountInputDisplay(e.target.value))}
+              placeholder="금액 (예: 40000 · 4만)"
               disabled={busy}
               className="w-40 min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               onKeyDown={(e) => {
@@ -299,6 +370,19 @@ export function InquirySettlementPanel({
               + 항목 추가
             </button>
           </div>
+          <AmountQuickChips
+            disabled={busy}
+            draft={draftAmt}
+            onChange={setDraftAmt}
+          />
+          {draftAmt.trim() && normalizeAmount(draftAmt) != null ? (
+            <p className="mt-1 text-fluid-2xs text-gray-500">
+              입력 금액:{' '}
+              <span className="tabular-nums font-medium text-gray-700">
+                {formatWonSigned(normalizeAmount(draftAmt) ?? 0)}
+              </span>
+            </p>
+          ) : null}
           {error ? (
             <p className="mt-1.5 text-fluid-2xs text-rose-700">{error}</p>
           ) : null}
@@ -344,7 +428,7 @@ function ExtraChargeRow({
   useEffect(() => {
     if (!editing) {
       setDesc(item.description);
-      setAmt(String(item.amount));
+      setAmt(formatAmountInputDisplay(String(item.amount)));
     }
   }, [item.amount, item.description, editing]);
 
@@ -426,7 +510,7 @@ function ExtraChargeRow({
           type="text"
           inputMode="numeric"
           value={amt}
-          onChange={(e) => setAmt(e.target.value)}
+          onChange={(e) => setAmt(formatAmountInputDisplay(e.target.value))}
           disabled={busy}
           className="w-32 rounded-md border border-gray-300 px-2.5 py-1.5 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
         />
@@ -450,9 +534,80 @@ function ExtraChargeRow({
           취소
         </button>
       </div>
+      <AmountQuickChips
+        disabled={busy}
+        draft={amt}
+        onChange={setAmt}
+        compact
+      />
+      {amt.trim() && normalizeAmount(amt) != null ? (
+        <p className="mt-1 text-fluid-2xs text-gray-500">
+          입력 금액:{' '}
+          <span className="tabular-nums font-medium text-gray-700">
+            {formatWonSigned(normalizeAmount(amt) ?? 0)}
+          </span>
+        </p>
+      ) : null}
       {localErr ? (
         <p className="mt-1 text-fluid-2xs text-rose-700">{localErr}</p>
       ) : null}
     </li>
+  );
+}
+
+/** 모바일에서 0 을 여러 번 치지 않도록 1만·5만·10만을 한 번에 더하는 버튼.
+ * `compact` 는 편집 인라인 행처럼 공간이 좁을 때 사용. */
+function AmountQuickChips({
+  disabled,
+  draft,
+  onChange,
+  compact,
+}: {
+  disabled?: boolean;
+  draft: string;
+  onChange: (next: string) => void;
+  compact?: boolean;
+}) {
+  const presets: Array<{ label: string; delta: number }> = [
+    { label: '+1만', delta: 10000 },
+    { label: '+5만', delta: 50000 },
+    { label: '+10만', delta: 100000 },
+    { label: '+50만', delta: 500000 },
+  ];
+  const baseBtn =
+    'rounded-full border border-gray-200 bg-white px-2.5 text-gray-700 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 tabular-nums';
+  const size = compact ? 'h-7 text-fluid-2xs' : 'h-8 text-fluid-2xs sm:text-fluid-xs';
+  return (
+    <div className={`${compact ? 'mt-1.5' : 'mt-2'} flex flex-wrap items-center gap-1.5`}>
+      {presets.map((p) => (
+        <button
+          key={p.label}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(addToDraftAmount(draft, p.delta))}
+          className={`${baseBtn} ${size}`}
+        >
+          {p.label}
+        </button>
+      ))}
+      <span className="mx-0.5 inline-block h-4 w-px bg-gray-200" aria-hidden />
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onChange(toggleDraftSign(draft))}
+        className={`${baseBtn} ${size} ${draft.trim().startsWith('-') ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100' : ''}`}
+        title="할인(-)로 바꾸기"
+      >
+        ± 부호
+      </button>
+      <button
+        type="button"
+        disabled={disabled || !draft}
+        onClick={() => onChange('')}
+        className={`${baseBtn} ${size} text-gray-500`}
+      >
+        지우기
+      </button>
+    </div>
   );
 }
