@@ -264,6 +264,34 @@ function TeamModalRow({ label, children }: { label: string; children: ReactNode 
   );
 }
 
+/**
+ * 서버(`orderform.routes.ts`)가 `[발주서] … / 키: 값 / 키: 값 …` 여러 줄로 만들어 놓은
+ * `Inquiry.memo`를 「헤더 한 줄 + 키/값 행들」 구조로 파싱한다.
+ */
+type MemoEntry =
+  | { kind: 'header'; text: string }
+  | { kind: 'kv'; label: string; value: string }
+  | { kind: 'text'; text: string };
+
+function parseInquiryMemoEntries(memo: string): MemoEntry[] {
+  const lines = memo
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return lines.map<MemoEntry>((line) => {
+    if (line.startsWith('[') && line.includes(']')) {
+      return { kind: 'header', text: line };
+    }
+    const idx = line.indexOf(':');
+    if (idx > 0 && idx < 24) {
+      const label = line.slice(0, idx).trim();
+      const value = line.slice(idx + 1).trim();
+      if (label && value) return { kind: 'kv', label, value };
+    }
+    return { kind: 'text', text: line };
+  });
+}
+
 export function TeamInquiryDetailModal({
   item,
   onClose,
@@ -548,13 +576,38 @@ export function TeamInquiryDetailModal({
               </TeamModalSection>
             ) : null}
 
-            {item.memo?.trim() ? (
-              <TeamModalSection title="접수 메모 (발주서 요약)">
-                <div className="px-3 py-3 text-fluid-sm leading-relaxed text-gray-800 sm:px-4 whitespace-pre-wrap break-words">
-                  {item.memo.trim()}
-                </div>
-              </TeamModalSection>
-            ) : null}
+            {item.memo?.trim() ? (() => {
+              const entries = parseInquiryMemoEntries(item.memo);
+              const header = entries.find((e) => e.kind === 'header') as
+                | { kind: 'header'; text: string }
+                | undefined;
+              const rest = entries.filter((e) => e !== header);
+              return (
+                <TeamModalSection title="관리자 메모">
+                  {header ? (
+                    <div className="border-l-4 border-blue-400 bg-blue-50/70 px-3 py-2.5 text-fluid-sm font-medium text-blue-950 sm:px-4">
+                      {header.text}
+                    </div>
+                  ) : null}
+                  {rest.map((e, i) =>
+                    e.kind === 'kv' ? (
+                      <TeamModalRow key={`m-${i}`} label={e.label}>
+                        <span className="whitespace-pre-wrap break-words text-gray-900">
+                          {e.value}
+                        </span>
+                      </TeamModalRow>
+                    ) : (
+                      <div
+                        key={`m-${i}`}
+                        className="whitespace-pre-wrap break-words px-3 py-2.5 text-fluid-sm text-gray-800 sm:px-4 sm:py-3"
+                      >
+                        {e.kind === 'header' ? e.text : e.text}
+                      </div>
+                    ),
+                  )}
+                </TeamModalSection>
+              );
+            })() : null}
 
             {item.claimMemo?.trim() ? (
               <TeamModalSection title="C/S 표시">
