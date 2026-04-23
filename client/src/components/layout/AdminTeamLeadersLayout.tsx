@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { NavLink, Outlet, Navigate } from 'react-router-dom';
-import { getToken } from '../../stores/auth';
-import { getMe } from '../../api/auth';
+import { getToken, clearToken } from '../../stores/auth';
+import { getMe, isAuthSessionExpiredError } from '../../api/auth';
+import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
   `inline-flex items-center px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px whitespace-nowrap ${
@@ -13,17 +14,36 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 /** 사용자 등록(/admin/team-leaders/*) — 관리자만 */
 export function AdminTeamLeadersLayout() {
   const token = getToken();
-  const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other'>('loading');
+  const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other' | 'network_error'>('loading');
 
-  useEffect(() => {
-    if (!token) {
+  const probeAdmin = useCallback(() => {
+    const t = getToken();
+    if (!t) {
       setRoleGate('other');
       return;
     }
-    getMe(token)
+    setRoleGate('loading');
+    void getMe(t)
       .then((u: { role?: string }) => setRoleGate(u.role === 'ADMIN' ? 'admin' : 'other'))
-      .catch(() => setRoleGate('other'));
-  }, [token]);
+      .catch((e: unknown) => {
+        if (isAuthSessionExpiredError(e)) {
+          clearToken();
+          return;
+        }
+        if (
+          isLikelyNetworkFailure(e) ||
+          (e instanceof Error && e.message.includes('API 서버에 연결할 수 없습니다'))
+        ) {
+          setRoleGate('network_error');
+          return;
+        }
+        setRoleGate('other');
+      });
+  }, []);
+
+  useEffect(() => {
+    probeAdmin();
+  }, [token, probeAdmin]);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -32,6 +52,20 @@ export function AdminTeamLeadersLayout() {
     return (
       <div className="min-w-0 w-full max-w-full p-8 text-center text-gray-500 text-fluid-sm">
         권한 확인 중…
+      </div>
+    );
+  }
+  if (roleGate === 'network_error') {
+    return (
+      <div className="min-w-0 w-full max-w-full p-8 text-center text-fluid-sm text-gray-600">
+        <p className="mb-4">일시적으로 서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.</p>
+        <button
+          type="button"
+          onClick={() => probeAdmin()}
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50"
+        >
+          다시 시도
+        </button>
       </div>
     );
   }
