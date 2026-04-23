@@ -71,6 +71,7 @@ model User {
   team                Team? @relation("TeamLeaderTeam")
   scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
   inquiryCleaningPhotosUploaded InquiryCleaningPhoto[] @relation("CleaningPhotoUploader")
+  inquiryExtraChargesCreated    InquiryExtraCharge[]   @relation("InquiryExtraChargeCreatedBy")
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
   inquiryChangeLogsAsActor      InquiryChangeLog[]     @relation("InquiryChangeLogActor")
   teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
@@ -206,6 +207,7 @@ model Inquiry {
   happyCallCompletedAt DateTime? @map("happy_call_completed_at")
 
   assignments   Assignment[]
+  extraCharges  InquiryExtraCharge[]
   buildingType String?       @map("building_type")
   moveInDate   DateTime?     @map("move_in_date")
   specialNotes String?       @map("special_notes")
@@ -249,6 +251,25 @@ enum CleaningPhotoPhase {
   AFTER
   /// 접수 목록 등에서 C/S(클레임) 등록 시 첨부 — 청소 전·후와 구분
   CLAIM
+}
+
+/// 팀장·관리자가 현장에서 발생한 추가 청소/할인 항목과 금액을 기록.
+/// `amount`는 원화 정수, 음수면 할인. 총 결제받을 금액 = balance + sum(amount).
+model InquiryExtraCharge {
+  id          String   @id @default(uuid())
+  inquiryId   String   @map("inquiry_id")
+  description String   @db.VarChar(120)
+  amount      Int
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  inquiry   Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("InquiryExtraChargeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([inquiryId, sortOrder])
+  @@map("inquiry_extra_charges")
 }
 
 /// 현장 청소 전·후 사진 (Cloudinary)
