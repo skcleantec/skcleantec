@@ -336,7 +336,7 @@ export function InquirySettlementPanel({
 
       {!readOnly ? (
         <div className="border-t border-gray-100 bg-gray-50 px-3 py-3 sm:px-4">
-          <div className="flex flex-wrap items-stretch gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
             <input
               type="text"
               value={draftDesc}
@@ -344,7 +344,7 @@ export function InquirySettlementPanel({
               placeholder="항목명 (예: 곰팡이 제거)"
               maxLength={120}
               disabled={busy}
-              className="min-w-0 flex-1 rounded-md border border-gray-300 px-2.5 py-2 text-fluid-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              className="min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-fluid-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:flex-1"
             />
             <input
               type="text"
@@ -353,7 +353,7 @@ export function InquirySettlementPanel({
               onChange={(e) => setDraftAmt(formatAmountInputDisplay(e.target.value))}
               placeholder="금액 (예: 40000 · 4만)"
               disabled={busy}
-              className="w-40 min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              className="min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:w-40"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -365,7 +365,7 @@ export function InquirySettlementPanel({
               type="button"
               onClick={() => void handleAdd()}
               disabled={busy}
-              className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-blue-600 px-3.5 text-fluid-xs font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300"
+              className="hidden min-h-[40px] items-center justify-center rounded-md bg-blue-600 px-3.5 text-fluid-xs font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 sm:inline-flex"
             >
               + 항목 추가
             </button>
@@ -386,6 +386,14 @@ export function InquirySettlementPanel({
           {error ? (
             <p className="mt-1.5 text-fluid-2xs text-rose-700">{error}</p>
           ) : null}
+          <button
+            type="button"
+            onClick={() => void handleAdd()}
+            disabled={busy}
+            className="mt-2.5 inline-flex min-h-[48px] w-full items-center justify-center rounded-md bg-blue-600 px-4 text-fluid-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 sm:hidden"
+          >
+            + 항목 추가
+          </button>
         </div>
       ) : null}
 
@@ -497,14 +505,14 @@ function ExtraChargeRow({
 
   return (
     <li className="bg-blue-50/40 px-3 py-2 sm:px-4">
-      <div className="flex flex-wrap items-stretch gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
         <input
           type="text"
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           maxLength={120}
           disabled={busy}
-          className="min-w-0 flex-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="min-w-0 rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:flex-1"
         />
         <input
           type="text"
@@ -512,13 +520,13 @@ function ExtraChargeRow({
           value={amt}
           onChange={(e) => setAmt(formatAmountInputDisplay(e.target.value))}
           disabled={busy}
-          className="w-32 rounded-md border border-gray-300 px-2.5 py-1.5 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="min-w-0 rounded-md border border-gray-300 px-2.5 py-1.5 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:w-32"
         />
         <button
           type="button"
           onClick={() => void save()}
           disabled={busy}
-          className="rounded-md bg-blue-600 px-3 text-fluid-xs font-semibold text-white hover:bg-blue-700 disabled:bg-gray-300"
+          className="hidden rounded-md bg-blue-600 px-3 text-fluid-xs font-semibold text-white hover:bg-blue-700 disabled:bg-gray-300 sm:inline-flex sm:items-center"
         >
           저장
         </button>
@@ -529,7 +537,7 @@ function ExtraChargeRow({
             setLocalErr(null);
           }}
           disabled={busy}
-          className="rounded-md border border-gray-300 bg-white px-3 text-fluid-xs text-gray-700 hover:bg-gray-50"
+          className="hidden rounded-md border border-gray-300 bg-white px-3 text-fluid-xs text-gray-700 hover:bg-gray-50 sm:inline-flex sm:items-center"
         >
           취소
         </button>
@@ -551,6 +559,27 @@ function ExtraChargeRow({
       {localErr ? (
         <p className="mt-1 text-fluid-2xs text-rose-700">{localErr}</p>
       ) : null}
+      <div className="mt-2 flex gap-2 sm:hidden">
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={busy}
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-md bg-blue-600 px-3 text-fluid-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300"
+        >
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(false);
+            setLocalErr(null);
+          }}
+          disabled={busy}
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-300 bg-white px-4 text-fluid-sm text-gray-700 hover:bg-gray-50"
+        >
+          취소
+        </button>
+      </div>
     </li>
   );
 }
