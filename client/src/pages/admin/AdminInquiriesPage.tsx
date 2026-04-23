@@ -25,9 +25,13 @@ import { AddressSearch } from '../../components/forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS, shortTimeSlotLabel } from '../../constants/orderFormSchedule';
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
+import { getSchedule } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
+import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
+import { TeamMemberSearchSelect } from '../../components/admin/TeamMemberSearchSelect';
+import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import {
   addressListShortSiGu,
@@ -328,8 +332,9 @@ export function AdminInquiriesPage() {
     preferredTimeDetail: '',
     memo: '',
     teamLeaderIds: [''] as string[],
-    crewMemberCount: null as number | null,
-    crewMemberNote: '',
+    crewMemberCount: 0 as number,
+    /** 등록 팀원 목록에서 선택한 이름들(슬롯 순서 유지). 저장 시 `/`로 합쳐 crewMemberNote로 전송. */
+    crewMemberNames: [] as string[],
     status: '',
     customerPhone2: '',
     propertyType: '',
@@ -387,6 +392,10 @@ export function AdminInquiriesPage() {
   /** 빈 값이면 전체, 미배정·특정 팀장 */
   const [teamLeaderFilterId, setTeamLeaderFilterId] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<InquiryItem | null>(null);
+  /** 편집 모달의 "투입 팀원 선택" 드롭다운에 쓰일 등록된 팀원 목록 */
+  const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
+  /** 편집 중 예약일 기준, 다른 접수에 이미 배정된 팀원 이름 집합 (음영 처리용) */
+  const [occupiedCrewNamesByDate, setOccupiedCrewNamesByDate] = useState<Set<string>>(new Set());
 
   const leaderOptionsForRow = useMemo(() => {
     return (rowIndex: number) => {
@@ -459,6 +468,60 @@ export function AdminInquiriesPage() {
   useEffect(() => {
     if (!editItem) setInquiryEditPreferredCalOpen(false);
   }, [editItem]);
+
+  // 편집 모달이 열릴 때 등록된 팀원 목록을 로드한다 (active만).
+  useEffect(() => {
+    if (!editItem || !token) {
+      return;
+    }
+    getPoolTeamMembers(token)
+      .then((r) => setPoolTeamMembers((r.items ?? []).filter((m) => m.isActive)))
+      .catch(() => setPoolTeamMembers([]));
+  }, [editItem, token]);
+
+  // 편집 중인 예약일 기준으로, 다른 접수에 이미 배정된 팀원 이름을 모아 음영 처리에 쓴다.
+  useEffect(() => {
+    const ymd = editForm.preferredDate?.trim().slice(0, 10);
+    if (!editItem || !token || !ymd) {
+      setOccupiedCrewNamesByDate(new Set());
+      return;
+    }
+    let cancelled = false;
+    getSchedule(token, ymd, ymd)
+      .then((r) => {
+        if (cancelled) return;
+        const set = new Set<string>();
+        for (const it of r.items ?? []) {
+          if (editItem && it.id === editItem.id) continue;
+          const raw = (it.crewMemberNote ?? '').trim();
+          if (!raw) continue;
+          for (const n of parseCrewMemberNoteToNames(raw)) set.add(n);
+        }
+        setOccupiedCrewNamesByDate(set);
+      })
+      .catch(() => {
+        if (!cancelled) setOccupiedCrewNamesByDate(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editItem, token, editForm.preferredDate]);
+
+  // 슬롯(crewMemberCount)에 맞게 crewMemberNames 배열 길이를 동기화한다.
+  useEffect(() => {
+    if (!editItem) return;
+    const slots = Math.max(0, editForm.crewMemberCount);
+    setEditForm((prev) => {
+      const cur = prev.crewMemberNames;
+      if (slots === cur.length) return prev;
+      if (slots < cur.length) {
+        return { ...prev, crewMemberNames: cur.slice(0, slots) };
+      }
+      const next = [...cur];
+      while (next.length < slots) next.push('');
+      return { ...prev, crewMemberNames: next };
+    });
+  }, [editItem, editForm.crewMemberCount]);
 
   useEffect(() => {
     if (!token || (me?.role !== 'ADMIN' && me?.role !== 'MARKETER')) {
@@ -609,8 +672,8 @@ export function AdminInquiriesPage() {
       memo: item.memo || '',
       teamLeaderIds:
         item.assignments.length > 0 ? item.assignments.map((a) => a.teamLeader.id) : [''],
-      crewMemberCount: item.crewMemberCount ?? null,
-      crewMemberNote: item.crewMemberNote ?? '',
+      crewMemberCount: item.crewMemberCount ?? 0,
+      crewMemberNames: parseCrewMemberNoteToNames(item.crewMemberNote),
       status: item.status,
       customerPhone2: item.customerPhone2 || '',
       propertyType: item.propertyType || '',
@@ -828,18 +891,19 @@ export function AdminInquiriesPage() {
           return;
         }
       }
-      if (editForm.crewMemberCount !== null) {
+      {
         const c = editForm.crewMemberCount;
         if (!Number.isFinite(c) || c < 0 || c > 100) {
-          alert('팀원 인원은 0~100 사이로 입력해주세요.');
+          alert('팀원 인원은 0~100 사이로 설정해주세요.');
           setSaving(false);
           return;
         }
         patch.crewMemberCount = Math.floor(c);
-      } else {
-        patch.crewMemberCount = null;
       }
-      patch.crewMemberNote = editForm.crewMemberNote.trim() || null;
+      {
+        const pickedNames = editForm.crewMemberNames.map((n) => n.trim()).filter(Boolean);
+        patch.crewMemberNote = pickedNames.length > 0 ? pickedNames.join('/') : null;
+      }
       patch.teamLeaderIds = ids;
       await updateInquiry(token, editItem.id, patch);
       setEditItem(null);
@@ -2182,73 +2246,66 @@ export function AdminInquiriesPage() {
               <div className="sm:col-span-2">
                 <label className="block text-fluid-sm text-gray-600 mb-1">팀원 투입</label>
                 <p className="text-fluid-xs text-gray-500 mb-2">
-                  표준: 팀장 1·팀원 {DEFAULT_CREW_UNITS_PER_INQUIRY}명이 반일 1건. 미입력 시 집계는 표준{' '}
-                  {DEFAULT_CREW_UNITS_PER_INQUIRY}명. 평수·다팀은 인원을 조정하세요.
+                  인원 수를 선택하면 아래 "투입 팀원 선택" 슬롯이 그만큼 늘어납니다. 이름 일부나 초성(예: ㄱㅁ)으로 빠르게 검색할 수 있습니다.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <select
-                    value={editForm.crewMemberCount === null ? '' : String(editForm.crewMemberCount)}
+                    value={String(editForm.crewMemberCount)}
                     onChange={(e) => {
-                      const v = e.target.value;
+                      const v = Number(e.target.value);
                       setEditForm((p) => ({
                         ...p,
-                        crewMemberCount: v === '' ? null : Number(v),
+                        crewMemberCount: Number.isFinite(v) ? v : 0,
                       }));
                     }}
                     className="px-3 py-2 border border-gray-300 rounded text-fluid-sm min-w-[8rem]"
                   >
-                    <option value="">표준({DEFAULT_CREW_UNITS_PER_INQUIRY}명) — 미입력</option>
                     {Array.from({ length: 21 }, (_, i) => (
                       <option key={i} value={String(i)}>
-                        {i}명(명시)
+                        {i}명
                       </option>
                     ))}
                   </select>
-                  <div className="flex items-center gap-1 border border-gray-200 rounded px-1">
-                    <button
-                      type="button"
-                      className="px-2 py-1 text-lg leading-none text-gray-700 hover:bg-gray-100 rounded"
-                      onClick={() =>
-                        setEditForm((p) => {
-                          const c = p.crewMemberCount;
-                          if (c === null) return p;
-                          if (c <= DEFAULT_CREW_UNITS_PER_INQUIRY) return { ...p, crewMemberCount: null };
-                          return { ...p, crewMemberCount: c - 1 };
-                        })
-                      }
-                    >
-                      −
-                    </button>
-                    <span className="text-sm text-gray-600 tabular-nums min-w-[3rem] text-center">
-                      {editForm.crewMemberCount === null
-                        ? `표준(${DEFAULT_CREW_UNITS_PER_INQUIRY})`
-                        : `${editForm.crewMemberCount}명`}
-                    </span>
-                    <button
-                      type="button"
-                      className="px-2 py-1 text-lg leading-none text-gray-700 hover:bg-gray-100 rounded"
-                      onClick={() =>
-                        setEditForm((p) => {
-                          const c = p.crewMemberCount;
-                          if (c === null) return { ...p, crewMemberCount: DEFAULT_CREW_UNITS_PER_INQUIRY + 1 };
-                          return { ...p, crewMemberCount: Math.min(100, c + 1) };
-                        })
-                      }
-                    >
-                      +
-                    </button>
-                  </div>
                 </div>
               </div>
-              <div className="sm:col-span-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">팀원 수기 (선택)</label>
-                <input
-                  value={editForm.crewMemberNote}
-                  onChange={(e) => setEditForm((p) => ({ ...p, crewMemberNote: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-                  placeholder="예: 김, 태"
-                />
-              </div>
+              {editForm.crewMemberCount > 0 && (
+                <div className="sm:col-span-2">
+                  <label className="block text-fluid-sm text-gray-600 mb-1">투입 팀원 선택</label>
+                  <div className="flex flex-wrap gap-2">
+                    {editForm.crewMemberNames.map((name, idx) => {
+                      const duplicateSet = new Set(
+                        editForm.crewMemberNames
+                          .map((x, i) => (i === idx ? '' : x.trim()))
+                          .filter(Boolean)
+                      );
+                      const disabled = new Set<string>([
+                        ...occupiedCrewNamesByDate,
+                        ...duplicateSet,
+                      ]);
+                      return (
+                        <div key={`crew-pick-${idx}`} className="min-w-[11rem] flex-1">
+                          <TeamMemberSearchSelect
+                            options={poolTeamMembers}
+                            value={name}
+                            disabledNames={disabled}
+                            onChange={(v) =>
+                              setEditForm((p) => {
+                                const next = [...p.crewMemberNames];
+                                next[idx] = v;
+                                return { ...p, crewMemberNames: next };
+                              })
+                            }
+                            placeholder={`${idx + 1}번 팀원 검색`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-fluid-xs text-gray-500">
+                    같은 창에서 이미 선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다.
+                  </p>
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <label className="block text-fluid-sm text-gray-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
                 <textarea
