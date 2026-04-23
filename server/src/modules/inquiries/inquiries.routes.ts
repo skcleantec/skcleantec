@@ -251,6 +251,10 @@ router.get('/', async (req, res) => {
         actor: { select: { id: true, name: true } },
       },
     },
+    extraCharges: {
+      orderBy: { sortOrder: 'asc' as const },
+      include: { createdBy: { select: { id: true, name: true } } },
+    },
   } as const;
 
   const [itemsRaw, total] = await Promise.all([

@@ -29,6 +29,7 @@ import { getSchedule } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
+import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
 import { TeamMemberSearchSelect } from '../../components/admin/TeamMemberSearchSelect';
@@ -174,6 +175,15 @@ interface InquiryItem {
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;
   serviceBalanceAmount?: number | null;
+  extraCharges?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    sortOrder?: number;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: { id: string; name: string } | null;
+  }>;
   changeLogs?: InquiryChangeLogEntry[];
   /** 팀장 해피콜 완료 시각 */
   happyCallCompletedAt?: string | null;
@@ -2192,6 +2202,26 @@ export function AdminInquiriesPage() {
                   inputMode="numeric"
                 />
                 <p className="text-fluid-xs text-gray-500 mt-1">타업체 담당으로 배정된 건의 수수료. 비우면 미입력.</p>
+              </div>
+              <div className="sm:col-span-2">
+                <InquirySettlementPanel
+                  inquiryId={editItem.id}
+                  token={token}
+                  mode="admin"
+                  serviceTotalAmount={
+                    editItem.serviceTotalAmount ?? editItem.orderForm?.totalAmount ?? null
+                  }
+                  serviceDepositAmount={
+                    editItem.serviceDepositAmount ?? editItem.orderForm?.depositAmount ?? null
+                  }
+                  serviceBalanceAmount={
+                    editItem.serviceBalanceAmount ?? editItem.orderForm?.balanceAmount ?? null
+                  }
+                  initialExtraCharges={editItem.extraCharges}
+                  onChanged={() => {
+                    refresh(false);
+                  }}
+                />
               </div>
               <div className="sm:col-span-2 space-y-2">
                 <label className="block text-fluid-sm text-gray-600 mb-1">담당 팀장·타업체 (여러 명 가능)</label>
