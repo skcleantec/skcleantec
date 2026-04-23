@@ -630,9 +630,14 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                       <td className="py-2 px-2 font-medium text-gray-900 truncate max-w-[10rem]">
                         <span>{row.customerName}</span>
                         {row.nickname?.trim() ? (
-                          <span className="ml-1 text-[11px] font-normal text-gray-500">
-                            ({row.nickname})
-                          </span>
+                          <>
+                            <span className="mx-1 text-[11px] font-normal text-gray-400" aria-hidden>
+                              ·
+                            </span>
+                            <span className="text-[11px] font-normal text-gray-500">
+                              {row.nickname}
+                            </span>
+                          </>
                         ) : null}
                       </td>
                       <td className="py-2 px-2 tabular-nums text-gray-800">{displayPhone(row.customerPhone)}</td>
@@ -701,9 +706,14 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                       <p className="font-semibold text-gray-900 truncate">
                         <span>{row.customerName}</span>
                         {row.nickname?.trim() ? (
-                          <span className="ml-1 text-fluid-xs font-normal text-gray-500">
-                            ({row.nickname})
-                          </span>
+                          <>
+                            <span className="mx-1 text-fluid-xs font-normal text-gray-400" aria-hidden>
+                              ·
+                            </span>
+                            <span className="text-fluid-xs font-normal text-gray-500">
+                              {row.nickname}
+                            </span>
+                          </>
                         ) : null}
                       </p>
                       <p className="text-fluid-xs text-gray-600 tabular-nums">{displayPhone(row.customerPhone)}</p>
