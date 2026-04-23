@@ -102,6 +102,8 @@ export interface InquiryItem {
   preferredTimeDetail?: string | null;
   status: string;
   memo: string | null;
+  /** 고객이 발주서 "특이사항"에 직접 작성한 메모 — 팀장에게 그대로 노출 */
+  specialNotes?: string | null;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
   /** 관리자 입력 수기(간편) 등록 제목 */
@@ -499,8 +501,16 @@ export function TeamInquiryDetailModal({
               </div>
             ) : null}
 
+            {item.specialNotes?.trim() ? (
+              <TeamModalSection title="발주서 고객 메모">
+                <div className="border-l-4 border-emerald-400 bg-emerald-50/70 px-3 py-3 text-fluid-sm leading-relaxed text-emerald-950 sm:px-4 whitespace-pre-wrap break-words">
+                  {item.specialNotes.trim()}
+                </div>
+              </TeamModalSection>
+            ) : null}
+
             {item.memo?.trim() ? (
-              <TeamModalSection title="관리자 메모">
+              <TeamModalSection title="접수 메모 (발주서 요약)">
                 <div className="px-3 py-3 text-fluid-sm leading-relaxed text-gray-800 sm:px-4 whitespace-pre-wrap break-words">
                   {item.memo.trim()}
                 </div>
@@ -541,11 +551,10 @@ export function TeamInquiryDetailModal({
             ) : null}
 
             {item.orderForm?.id ? (
-              <details className="group min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/80 [&_summary::-webkit-details-marker]:hidden">
-                <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-fluid-sm font-medium text-emerald-950 hover:bg-emerald-100/60 touch-manipulation select-none">
+              <section className="min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/80">
+                <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-emerald-950">
                   <span>발주서 첨부 사진 (고객 업로드)</span>
-                  <ChevronDownMini className="h-5 w-5 shrink-0 text-emerald-800 transition-transform group-open:rotate-180" />
-                </summary>
+                </header>
                 <div className="border-t border-emerald-200/80 px-4 pb-4 pt-1">
                   <p className="mb-3 text-fluid-xs text-emerald-900/85">
                     고객이 발주서 작성 시 올린 <strong className="font-semibold">현장 컨디션·특이 부위 사진</strong>입니다.
@@ -559,7 +568,7 @@ export function TeamInquiryDetailModal({
                     </p>
                   )}
                 </div>
-              </details>
+              </section>
             ) : null}
 
             <details className="group min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/80 [&_summary::-webkit-details-marker]:hidden">
@@ -572,7 +581,13 @@ export function TeamInquiryDetailModal({
                   <strong className="font-semibold">사진 올리기</strong>를 펼쳐 청소 전·후로 올리거나, 등록된 사진을 확인할 수 있습니다.
                 </p>
                 {teamToken ? (
-                  <InquiryCleaningPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded />
+                  <InquiryCleaningPhotosPanel
+                    inquiryId={item.id}
+                    variant="team"
+                    token={teamToken}
+                    embedded
+                    phasesToShow={['BEFORE', 'AFTER']}
+                  />
                 ) : (
                   <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
                     로그인 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
@@ -580,6 +595,31 @@ export function TeamInquiryDetailModal({
                 )}
               </div>
             </details>
+
+            <section className="min-w-0 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/70">
+              <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-amber-950">
+                <span>클레임 사진</span>
+              </header>
+              <div className="border-t border-amber-200/80 px-4 pb-4 pt-1">
+                <p className="mb-3 text-fluid-xs text-amber-900/85">
+                  고객 <strong className="font-semibold">클레임(C/S) 접수 시 관리자가 첨부한 참고 사진</strong>입니다. 필요 시 확인하세요.
+                </p>
+                {teamToken ? (
+                  <InquiryCleaningPhotosPanel
+                    key={`claim-${item.id}`}
+                    inquiryId={item.id}
+                    variant="team"
+                    token={teamToken}
+                    embedded
+                    phasesToShow={['CLAIM']}
+                  />
+                ) : (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                    로그인 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
+                  </p>
+                )}
+              </div>
+            </section>
           </div>
         </div>
 

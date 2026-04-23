@@ -58,9 +58,23 @@ type Props = {
   token: string;
   /** 팀장 상세 상단 카드 안에 넣을 때: 바깥 제목과 겹치지 않게 구분선·소제목 정리 */
   embedded?: boolean;
+  /**
+   * 표시할 phase 필터. 미지정 시 BEFORE/AFTER/CLAIM 모두 표시.
+   * 업로드 UI는 팀장 variant에서 BEFORE/AFTER만 가능 — CLAIM만 지정된 경우(읽기 전용) 업로드 영역을 숨긴다.
+   */
+  phasesToShow?: CleaningPhotoPhase[];
+  /** 지정된 phase에 등록 사진이 0장이고 업로드가 없을 때(단독 읽기 박스) 아예 렌더링하지 않음. */
+  hideWhenEmpty?: boolean;
 };
 
-export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded = false }: Props) {
+export function InquiryCleaningPhotosPanel({
+  inquiryId,
+  variant,
+  token,
+  embedded = false,
+  phasesToShow,
+  hideWhenEmpty = false,
+}: Props) {
   const teamUserId =
     variant === 'team' ? parseJwtPayload<{ userId?: string }>(token)?.userId ?? null : null;
 
@@ -95,13 +109,25 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
     void load();
   }, [load]);
 
+  /**
+   * 라이트박스 슬라이드는 현재 표시 중인 phase의 사진만 포함해야
+   * 필터링된 박스(예: 클레임만 별도 박스)에서 다른 phase의 사진이 함께 넘어가지 않는다.
+   * phasesToShow 미지정 시에는 기존 동작대로 모든 phase 포함.
+   */
+  const visibleItems = useMemo(
+    () =>
+      phasesToShow && phasesToShow.length > 0
+        ? items.filter((p) => phasesToShow.includes(p.phase))
+        : items,
+    [items, phasesToShow]
+  );
   const gallerySlides: ImageGallerySlide[] = useMemo(
     () =>
-      items.map((p) => ({
+      visibleItems.map((p) => ({
         src: p.secureUrl,
         alt: `${PHASE_LABEL[p.phase]} · ${p.uploadedBy.name}`,
       })),
-    [items]
+    [visibleItems]
   );
 
   const handleFiles = async (files: FileList | null, phase: CleaningPhotoPhase) => {
@@ -147,16 +173,34 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
 
   const byPhase = (phase: CleaningPhotoPhase) => items.filter((p) => p.phase === phase);
 
+  const defaultPhases: CleaningPhotoPhase[] = ['BEFORE', 'AFTER', 'CLAIM'];
+  const activePhases: CleaningPhotoPhase[] =
+    phasesToShow && phasesToShow.length > 0 ? phasesToShow : defaultPhases;
+  const phasesKey = activePhases.join(',');
+  /**
+   * 팀장 variant에서 CLAIM 단독 표시(읽기 전용) 케이스는 업로드 UI를 숨긴다.
+   * 관리자(admin)는 어떤 phase 조합이라도 업로드 가능.
+   */
+  const isReadonlyClaimOnly =
+    variant === 'team' && activePhases.length === 1 && activePhases[0] === 'CLAIM';
+  const showUploadArea = !isReadonlyClaimOnly;
+
+  const filteredCount = activePhases.reduce((acc, p) => acc + byPhase(p).length, 0);
+  if (!loading && hideWhenEmpty && filteredCount === 0 && !showUploadArea) {
+    return null;
+  }
+
   const wrapClass = embedded
     ? 'min-w-0'
     : 'border-t border-gray-100 pt-3 mt-1 min-w-0';
 
   return (
-    <div className={wrapClass}>
+    <div className={wrapClass} data-phases={phasesKey}>
       {!embedded && (
         <span className="text-gray-500 block text-fluid-xs mb-2">청소 전·후 사진</span>
       )}
 
+      {showUploadArea ? (
       <details className="group mb-3 min-w-0 rounded-lg border border-gray-200 bg-white overflow-hidden [&_summary::-webkit-details-marker]:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 min-h-[44px] touch-manipulation select-none">
           <span>사진 올리기</span>
@@ -258,6 +302,7 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
           )}
         </div>
       </details>
+      ) : null}
 
       {error && <p className="text-fluid-sm text-red-600 mb-2">{error}</p>}
 
@@ -265,11 +310,14 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
         <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
       ) : (
         <div className="space-y-4">
-          {(['BEFORE', 'AFTER', 'CLAIM'] as const).map((phase) => {
+          {activePhases.map((phase) => {
             const list = byPhase(phase);
+            const showPhaseLabel = activePhases.length > 1;
             return (
               <div key={phase} className="min-w-0">
-                <p className="text-fluid-xs font-medium text-gray-700 mb-2">{PHASE_LABEL[phase]}</p>
+                {showPhaseLabel ? (
+                  <p className="text-fluid-xs font-medium text-gray-700 mb-2">{PHASE_LABEL[phase]}</p>
+                ) : null}
                 {list.length === 0 ? (
                   <p className="text-fluid-sm text-gray-400">등록된 사진이 없습니다.</p>
                 ) : (
@@ -285,7 +333,7 @@ export function InquiryCleaningPhotosPanel({ inquiryId, variant, token, embedded
                           thumbClassName="h-8 w-full max-h-8 object-cover"
                           buttonClassName="flex min-h-[44px] w-full items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
                           gallerySlides={gallerySlides.length > 1 ? gallerySlides : undefined}
-                          galleryIndex={items.findIndex((p) => p.id === photo.id)}
+                          galleryIndex={visibleItems.findIndex((p) => p.id === photo.id)}
                         />
                         <div
                           className="px-1 py-0.5 text-[10px] leading-tight text-gray-600 truncate"
