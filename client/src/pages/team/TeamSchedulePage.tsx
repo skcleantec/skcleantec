@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
-  getTeamInquiries,
+  getTeamSchedule,
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
@@ -32,6 +32,19 @@ const DEFAULT_SCHEDULE_MAP_ICON =
 const scheduleMapIconUrl =
   (import.meta.env.VITE_ADMIN_SCHEDULE_MAP_ICON_URL ?? '').trim() || DEFAULT_SCHEDULE_MAP_ICON;
 
+/** 달력 표시 월의 start/end(yyyy-mm-dd) 구함 — 월 단위 팀장 스케줄 조회용 */
+function toDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function getMonthRange(year: number, month: number) {
+  const start = new Date(year, month - 1, 1);
+  const end = new Date(year, month, 0);
+  return { start: toDateKey(start), end: toDateKey(end) };
+}
+
 export function TeamSchedulePage() {
   const token = getTeamToken();
   const now = new Date();
@@ -44,12 +57,14 @@ export function TeamSchedulePage() {
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
   const [mapModalItems, setMapModalItems] = useState<ScheduleItem[]>([]);
 
+  /** 성능: 전체 담당 접수가 아닌 「현재 달력에 보이는 한 달」만 가져온다. */
   const loadSchedule = useCallback(async (opts?: { silent?: boolean }) => {
     if (!token) return;
     if (!opts?.silent) setLoading(true);
     try {
+      const { start, end } = getMonthRange(year, month);
       const [inv, hc] = await Promise.all([
-        getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
+        getTeamSchedule(token, start, end) as Promise<{ items: InquiryItem[] }>,
         getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
       ]);
       setItems(inv.items);
@@ -59,7 +74,7 @@ export function TeamSchedulePage() {
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [token]);
+  }, [token, year, month]);
 
   useEffect(() => {
     void loadSchedule();

@@ -249,39 +249,62 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     ? new Date(`${end}T23:59:59.999+09:00`)
     : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-  const teamLeaders = await prisma.user.findMany({
-    where: { role: 'TEAM_LEADER', isActive: true },
-    select: { id: true, name: true, hireDate: true, resignationDate: true },
-  });
+  /** 성능: 서로 독립인 조회들은 한 번에 병렬로 묶어 네트워크 왕복을 줄인다. */
+  const rangeStart = new Date(startDate);
+  rangeStart.setHours(0, 0, 0, 0);
+  const rangeEnd = new Date(endDate);
+  rangeEnd.setHours(23, 59, 59, 999);
 
-  const dayOffs = await prisma.userDayOff.findMany({
-    where: {
-      date: { gte: startDate, lte: endDate },
-      teamLeader: { isActive: true, role: 'TEAM_LEADER' },
-    },
-    include: { teamLeader: { select: { id: true, name: true } } },
-  });
-
-  const inquiries = await prisma.inquiry.findMany({
-    where: {
-      preferredDate: { gte: startDate, lte: endDate },
-      /** 취소·보류는 슬롯·팀원 수요 집계에서 제외(스케줄 목록에는 포함) */
-      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-    },
-    select: {
-      id: true,
-      preferredDate: true,
-      preferredTime: true,
-      betweenScheduleSlot: true,
-      crewMemberCount: true,
-      assignments: {
-        select: {
-          teamLeaderId: true,
-          teamLeader: { select: { role: true } },
+  const [
+    teamLeaders,
+    dayOffs,
+    inquiries,
+    activeMembersTotal,
+    leaderSlots,
+    crewAvailableByDate,
+    closureRows,
+  ] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: 'TEAM_LEADER', isActive: true },
+      select: { id: true, name: true, hireDate: true, resignationDate: true },
+    }),
+    prisma.userDayOff.findMany({
+      where: {
+        date: { gte: startDate, lte: endDate },
+        teamLeader: { isActive: true, role: 'TEAM_LEADER' },
+      },
+      include: { teamLeader: { select: { id: true, name: true } } },
+    }),
+    prisma.inquiry.findMany({
+      where: {
+        preferredDate: { gte: startDate, lte: endDate },
+        /** 취소·보류는 슬롯·팀원 수요 집계에서 제외(스케줄 목록에는 포함) */
+        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+      },
+      select: {
+        id: true,
+        preferredDate: true,
+        preferredTime: true,
+        betweenScheduleSlot: true,
+        crewMemberCount: true,
+        assignments: {
+          select: {
+            teamLeaderId: true,
+            teamLeader: { select: { role: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.teamMember.count({ where: { isActive: true } }),
+    prisma.scheduleDayLeaderSlot.findMany({
+      where: { date: { gte: startDate, lte: endDate } },
+    }),
+    countAvailableFieldStaffByDateRange(prisma, rangeStart, rangeEnd),
+    prisma.scheduleDayClosure.findMany({
+      where: { date: { gte: rangeStart, lte: rangeEnd } },
+      select: { date: true, scope: true },
+    }),
+  ]);
 
   function toDateKey(d: Date): string {
     const y = d.getFullYear();
@@ -336,11 +359,6 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     }
   > = {};
 
-  const activeMembersTotal = await prisma.teamMember.count({ where: { isActive: true } });
-
-  const leaderSlots = await prisma.scheduleDayLeaderSlot.findMany({
-    where: { date: { gte: startDate, lte: endDate } },
-  });
   const leaderSlotByKey = new Map<string, Map<string, { morning: boolean; afternoon: boolean }>>();
   for (const row of leaderSlots) {
     const k = toDateKey(row.date);
@@ -350,14 +368,6 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       afternoon: row.afternoonAvailable,
     });
   }
-
-  const rangeStart = new Date(startDate);
-  rangeStart.setHours(0, 0, 0, 0);
-  const rangeEnd = new Date(endDate);
-  rangeEnd.setHours(23, 59, 59, 999);
-
-  /** 날짜별 가용 팀원 — 기존에는 루프 안에서 일마다 DB 2회(await) → 병목 */
-  const crewAvailableByDate = await countAvailableFieldStaffByDateRange(prisma, rangeStart, rangeEnd);
 
   for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
     const key = toDateKey(d);
@@ -494,12 +504,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     };
   }
 
-  const closureRows = await prisma.scheduleDayClosure.findMany({
-    where: {
-      date: { gte: rangeStart, lte: rangeEnd },
-    },
-    select: { date: true, scope: true },
-  });
+  /** closureRows는 위 Promise.all에서 함께 조회 완료 */
   const closureByKey = new Map<string, 'FULL' | 'MORNING' | 'AFTERNOON'>();
   for (const row of closureRows) {
     closureByKey.set(toDateKey(row.date), row.scope);
