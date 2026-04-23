@@ -231,7 +231,7 @@ function StatusBadgeWithMemo({
       </button>
       <span
         role="tooltip"
-        className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden w-64 max-w-[min(18rem,90vw)] whitespace-pre-wrap break-words rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-[11px] leading-5 text-gray-700 shadow-lg group-hover:block"
+        className="pointer-events-none absolute right-0 left-auto top-full z-30 mt-1 hidden w-64 max-w-[min(18rem,80vw)] whitespace-pre-wrap break-all rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-[11px] leading-5 text-gray-700 shadow-lg lg:group-hover:block"
       >
         <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-400">
           메모
@@ -1095,7 +1095,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
             aria-labelledby="followup-memo-title"
           >
             <div className="absolute inset-0" aria-hidden onClick={() => setMemoView(null)} />
-            <div className="relative flex max-h-[min(88dvh,560px)] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200">
+            <div className="relative flex max-h-[min(88dvh,560px)] w-full max-w-lg min-w-0 flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200">
               <ModalCloseButton onClick={() => setMemoView(null)} />
               <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12 min-w-0">
                 <h2
@@ -1119,9 +1119,9 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                   ) : null}
                 </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3">
+              <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 py-3">
                 {memoView.memo?.trim() ? (
-                  <p className="whitespace-pre-wrap break-words text-fluid-sm leading-relaxed text-gray-800">
+                  <p className="whitespace-pre-wrap break-all text-fluid-sm leading-relaxed text-gray-800">
                     {memoView.memo}
                   </p>
                 ) : (
