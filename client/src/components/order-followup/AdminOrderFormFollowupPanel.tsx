@@ -165,20 +165,81 @@ function logDetailDescription(log: OrderFollowupLogItem): string {
   return d.length > 200 ? `${d.slice(0, 200)}…` : d;
 }
 
+function statusToneClass(status: OrderFollowupStatus): string {
+  return status === 'FULFILLED'
+    ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+    : status === 'RESERVED'
+      ? 'bg-blue-50 text-blue-900 border border-blue-200'
+      : status === 'ON_HOLD'
+        ? 'bg-amber-50 text-amber-950 border border-amber-200'
+        : status === 'DEPOSIT_PENDING'
+          ? 'bg-orange-50 text-orange-900 border border-orange-200'
+          : 'bg-gray-100 text-gray-800 border border-gray-200';
+}
+
+const STATUS_BADGE_BASE =
+  'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] sm:text-fluid-2xs font-semibold tabular-nums';
+
 function StatusBadge({ status }: { status: OrderFollowupStatus }) {
-  const base =
-    'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] sm:text-fluid-2xs font-semibold tabular-nums';
-  const tone =
-    status === 'FULFILLED'
-      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
-      : status === 'RESERVED'
-        ? 'bg-blue-50 text-blue-900 border border-blue-200'
-        : status === 'ON_HOLD'
-          ? 'bg-amber-50 text-amber-950 border border-amber-200'
-          : status === 'DEPOSIT_PENDING'
-            ? 'bg-orange-50 text-orange-900 border border-orange-200'
-            : 'bg-gray-100 text-gray-800 border border-gray-200';
-  return <span className={`${base} ${tone}`}>{ORDER_FOLLOWUP_STATUS_LABEL[status]}</span>;
+  return (
+    <span className={`${STATUS_BADGE_BASE} ${statusToneClass(status)}`}>
+      {ORDER_FOLLOWUP_STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+/**
+ * 메모가 있을 때만 상호작용 — PC hover 로 짧은 팝오버 미리보기, 클릭(또는 모바일 탭) 시 전체 모달을 연다.
+ * 메모가 없으면 기존 `StatusBadge` 그대로 렌더한다.
+ */
+function StatusBadgeWithMemo({
+  row,
+  onOpenMemo,
+}: {
+  row: OrderFollowupItem;
+  onOpenMemo: (row: OrderFollowupItem) => void;
+}) {
+  const memo = row.memo?.trim();
+  if (!memo) {
+    return <StatusBadge status={row.status} />;
+  }
+  const preview = memo.length > 140 ? `${memo.slice(0, 140)}…` : memo;
+  return (
+    <span className="relative group inline-flex">
+      <button
+        type="button"
+        onClick={() => onOpenMemo(row)}
+        aria-label={`${ORDER_FOLLOWUP_STATUS_LABEL[row.status]} · 메모 보기`}
+        title="메모 보기"
+        className={`${STATUS_BADGE_BASE} ${statusToneClass(
+          row.status
+        )} cursor-pointer pr-1.5 ring-offset-1 hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400`}
+      >
+        <span>{ORDER_FOLLOWUP_STATUS_LABEL[row.status]}</span>
+        <svg
+          className="ml-0.5 h-3 w-3 opacity-70"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M4 5h16v11H7l-3 3V5z" />
+        </svg>
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden w-64 max-w-[min(18rem,90vw)] whitespace-pre-wrap break-words rounded-md border border-gray-200 bg-white px-3 py-2 text-left text-[11px] leading-5 text-gray-700 shadow-lg group-hover:block"
+      >
+        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+          메모
+        </span>
+        {preview}
+      </span>
+    </span>
+  );
 }
 
 export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
@@ -217,6 +278,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
   const [deferNote, setDeferNote] = useState('');
   const [deferSaving, setDeferSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OrderFollowupItem | null>(null);
+  const [memoView, setMemoView] = useState<OrderFollowupItem | null>(null);
 
   /** `status: ''` 를 넘기면 서버 상태 필터 없이 조회(상단 칩은 별도로 맞춤) */
   const load = useCallback(
@@ -268,6 +330,17 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
       .catch(() => setLogs([]))
       .finally(() => setLogsLoading(false));
   }, [token, logFor]);
+
+  /* 편집·삭제로 items가 바뀌면 모달의 메모도 최신 행으로 맞춘다 */
+  useEffect(() => {
+    if (!memoView) return;
+    const fresh = items.find((it) => it.id === memoView.id);
+    if (!fresh) {
+      setMemoView(null);
+      return;
+    }
+    if (fresh !== memoView) setMemoView(fresh);
+  }, [items, memoView]);
 
   useEffect(() => {
     if (!edit) return;
@@ -564,7 +637,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                       </td>
                       <td className="py-2 px-2 tabular-nums text-gray-800">{displayPhone(row.customerPhone)}</td>
                       <td className="py-2 px-2">
-                        <StatusBadge status={row.status} />
+                        <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
                       </td>
                       <td className="py-2 px-2 tabular-nums text-gray-800">{row.deferCount}</td>
                       <td className="py-2 px-2 text-gray-700 truncate max-w-[6rem]">
@@ -635,7 +708,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                       </p>
                       <p className="text-fluid-xs text-gray-600 tabular-nums">{displayPhone(row.customerPhone)}</p>
                     </div>
-                    <StatusBadge status={row.status} />
+                    <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
                   </div>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-fluid-2xs text-gray-600">
                     <span>부재 {row.deferCount}회</span>
@@ -1007,6 +1080,71 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                   className="rounded-lg bg-amber-600 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
                 >
                   {deferSaving ? '처리 중…' : '확인'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      {memoView &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[230] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal
+            aria-labelledby="followup-memo-title"
+          >
+            <div className="absolute inset-0" aria-hidden onClick={() => setMemoView(null)} />
+            <div className="relative flex max-h-[min(88dvh,560px)] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200">
+              <ModalCloseButton onClick={() => setMemoView(null)} />
+              <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12 min-w-0">
+                <h2
+                  id="followup-memo-title"
+                  className="text-fluid-base font-semibold text-gray-900 truncate"
+                >
+                  메모 · {memoView.customerName || '고객명 없음'}
+                  {memoView.nickname?.trim() ? (
+                    <span className="ml-1 text-fluid-sm font-normal text-gray-500">
+                      ({memoView.nickname})
+                    </span>
+                  ) : null}
+                </h2>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-fluid-2xs text-gray-500">
+                  <StatusBadge status={memoView.status} />
+                  <span className="tabular-nums">
+                    등록일 {formatDateCompactWithWeekday(memoView.createdAt)}
+                  </span>
+                  {memoView.customerPhone.trim() ? (
+                    <span className="tabular-nums">· {memoView.customerPhone}</span>
+                  ) : null}
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3">
+                {memoView.memo?.trim() ? (
+                  <p className="whitespace-pre-wrap break-words text-fluid-sm leading-relaxed text-gray-800">
+                    {memoView.memo}
+                  </p>
+                ) : (
+                  <p className="text-fluid-sm text-gray-500">메모가 비어 있습니다.</p>
+                )}
+              </div>
+              <div className="shrink-0 flex justify-end gap-2 border-t border-gray-100 bg-white px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEdit(memoView);
+                    setMemoView(null);
+                  }}
+                  className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50"
+                >
+                  편집
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMemoView(null)}
+                  className="rounded-lg bg-gray-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-gray-800"
+                >
+                  닫기
                 </button>
               </div>
             </div>
