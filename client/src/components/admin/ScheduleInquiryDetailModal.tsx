@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { createInquiry, deleteInquiry, getInquiry, updateInquiry } from '../../api/inquiries';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
@@ -15,7 +15,7 @@ import {
 } from '../../constants/professionalSpecialtyOptions';
 import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
-import { formatPreferredDateInputYmd } from '../../utils/dateFormat';
+import { formatPreferredDateInputYmd, formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
@@ -389,6 +389,90 @@ function effectiveAmounts(item: ScheduleItem) {
   };
 }
 
+/**
+ * 타업체 공유용 접수 정보 텍스트 생성.
+ * 접수번호 + 고객·현장·일정·메모만 포함(내부 배정·금액·마케터 등은 제외).
+ * 빈 값은 건너뛰며, 섹션 간 공백 줄로 구분해 카톡·문자·메일에서도 깔끔히 보이게 한다.
+ */
+function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): string {
+  const sections: string[][] = [];
+  const currentSection = (): string[] => {
+    if (sections.length === 0) sections.push([]);
+    return sections[sections.length - 1];
+  };
+  const addRow = (label: string, value: string | null | undefined) => {
+    const v = typeof value === 'string' ? value.trim() : '';
+    if (!v) return;
+    currentSection().push(`· ${label}: ${v}`);
+  };
+  const endSection = () => {
+    if (currentSection().length > 0) sections.push([]);
+  };
+
+  // 고객
+  addRow('고객명', editForm.customerName);
+  addRow('연락처', editForm.customerPhone);
+  addRow('보조 연락처', editForm.customerPhone2);
+  endSection();
+
+  // 주소
+  addRow('주소', editForm.address);
+  addRow('상세주소', editForm.addressDetail);
+  endSection();
+
+  // 현장 정보
+  addRow('건축물', editForm.propertyType);
+  const areaValue = editForm.areaPyeong.trim();
+  if (areaValue) {
+    const basisLabel =
+      editForm.areaBasis === '공급'
+        ? '공급면적'
+        : editForm.areaBasis === '전용'
+          ? '전용면적'
+          : '';
+    addRow('평수', basisLabel ? `${areaValue}평 (${basisLabel})` : `${areaValue}평`);
+  }
+  const structureParts: string[] = [];
+  if (editForm.roomCount.trim()) structureParts.push(`방 ${editForm.roomCount}`);
+  if (editForm.bathroomCount.trim()) structureParts.push(`화 ${editForm.bathroomCount}`);
+  if (editForm.balconyCount.trim()) structureParts.push(`베 ${editForm.balconyCount}`);
+  if (editForm.kitchenCount.trim()) structureParts.push(`주방 ${editForm.kitchenCount}`);
+  if (structureParts.length > 0) addRow('구조', structureParts.join(' · '));
+  addRow('입주 예정일', editForm.moveInDate);
+  endSection();
+
+  // 일정
+  if (editForm.preferredDate.trim()) {
+    addRow('예약일', formatDateCompactWithWeekday(editForm.preferredDate));
+  }
+  if (editForm.preferredTime.trim()) {
+    const slotSuffix = editForm.betweenScheduleSlot?.trim()
+      ? ` (${editForm.betweenScheduleSlot})`
+      : '';
+    addRow('희망 시간', `${editForm.preferredTime}${slotSuffix}`);
+  }
+  addRow('구체 시각', editForm.preferredTimeDetail);
+  endSection();
+
+  // 비고
+  addRow('특이사항', editForm.specialNotes);
+  addRow('메모', editForm.memo);
+
+  // 헤더와 합치기
+  const body = sections
+    .filter((s) => s.length > 0)
+    .map((s) => s.join('\n'))
+    .join('\n\n');
+
+  const headerLines: string[] = ['━━━━━ 접수 정보 ━━━━━'];
+  if (item.inquiryNumber && item.inquiryNumber.trim()) {
+    headerLines.push(`접수번호: ${item.inquiryNumber.trim()}`);
+  }
+  const header = headerLines.join('\n');
+  const footer = '━━━━━━━━━━━━━━━━━━━';
+  return body ? `${header}\n\n${body}\n${footer}` : `${header}\n${footer}`;
+}
+
 export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProps) {
   const isCreate = props.mode === 'create';
   const item = !isCreate ? props.item : null;
@@ -422,6 +506,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [deletePasswordOpen, setDeletePasswordOpen] = useState(false);
   const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
   const [marketerQuickValue, setMarketerQuickValue] = useState('');
+  const [copyHint, setCopyHint] = useState<string | null>(null);
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
@@ -749,6 +834,32 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     onSaved();
   };
 
+  /** 타업체 공유용: 현재 폼(=사용자가 본 값)을 텍스트로 만들어 클립보드에 복사 */
+  const copyInquiryInfo = useCallback(async () => {
+    if (!item) return;
+    setCopyHint(null);
+    const text = buildInquiryCopyText(item, editForm);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopyHint('복사됨');
+      window.setTimeout(() => setCopyHint(null), 1800);
+    } catch {
+      setCopyHint('복사 실패');
+      window.setTimeout(() => setCopyHint(null), 1800);
+    }
+  }, [item, editForm]);
+
   return (
     <>
       {createPortal(
@@ -824,7 +935,20 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               : '스케줄에서 연 접수입니다. 수정 후 저장하세요.'}
           </p>
           {!isCreate && item ? (
-            <p className="mt-2 truncate text-base font-semibold text-gray-900">{item.customerName}</p>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="min-w-0 truncate text-base font-semibold text-gray-900">
+                {item.customerName}
+              </p>
+              <button
+                type="button"
+                onClick={() => void copyInquiryInfo()}
+                className="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
+                aria-live="polite"
+              >
+                {copyHint ?? '정보 복사'}
+              </button>
+            </div>
           ) : null}
         </div>
 
