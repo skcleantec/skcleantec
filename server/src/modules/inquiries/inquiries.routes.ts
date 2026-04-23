@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 import type { InquiryStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import {
   createdAtRangeFromQuery,
   kstDayRangeYmd,
@@ -435,12 +436,13 @@ router.patch('/:id', async (req, res) => {
         where: {
           id: { in: teamLeaderIds },
           isActive: true,
-          role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER'] },
+          role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER', 'ADMIN'] },
         },
         select: {
           id: true,
           role: true,
           name: true,
+          email: true,
           hireDate: true,
           resignationDate: true,
           externalCompanyId: true,
@@ -450,6 +452,13 @@ router.patch('/:id', async (req, res) => {
       if (assignees.length !== teamLeaderIds.length) {
         res.status(400).json({ error: '유효한 팀장 또는 타업체 계정을 찾을 수 없습니다.' });
         return;
+      }
+      // ADMIN이 배정 대상으로 왔다면 team-preview-admin(개발자)인 경우에만 허용한다.
+      for (const a of assignees) {
+        if (a.role === 'ADMIN' && !isTeamPreviewAdminEmail(a.email)) {
+          res.status(400).json({ error: '관리자는 팀장으로 배정할 수 없습니다.' });
+          return;
+        }
       }
       for (const a of assignees) {
         if (a.role === 'EXTERNAL_PARTNER' && !a.externalCompanyId) {

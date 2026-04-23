@@ -7,12 +7,14 @@ import { getTeamNavBadges } from '../../api/team';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { UserProfileMenu } from '../common/UserProfileMenu';
+import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
   const [userVehicleNumber, setUserVehicleNumber] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -24,20 +26,23 @@ export function TeamLayout() {
     if (!token) {
       setUserName(null);
       setUserRole(null);
+      setUserEmail(null);
       setUserPhone(null);
       setUserVehicleNumber(null);
       return;
     }
     getMe(token)
-      .then((u: { name?: string; role?: string; phone?: string | null; vehicleNumber?: string | null }) => {
+      .then((u: { name?: string; role?: string; email?: string | null; phone?: string | null; vehicleNumber?: string | null }) => {
         setUserName(u.name ?? null);
         setUserRole(u.role ?? null);
+        setUserEmail(u.email ?? null);
         setUserPhone(u.phone ?? null);
         setUserVehicleNumber(u.vehicleNumber ?? null);
       })
       .catch((e) => {
         setUserName(null);
         setUserRole(null);
+        setUserEmail(null);
         setUserPhone(null);
         setUserVehicleNumber(null);
         if (isAuthSessionExpiredError(e)) {
@@ -168,6 +173,15 @@ export function TeamLayout() {
             </nav>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+            {isTeamPreviewAdminEmail(userEmail) && getToken() ? (
+              <NavLink
+                to="/admin/dashboard"
+                className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] font-medium text-blue-700 hover:bg-blue-100 hover:text-blue-900 whitespace-nowrap"
+                title="관리자 화면으로 전환"
+              >
+                관리자 화면
+              </NavLink>
+            ) : null}
             <UserProfileMenu
               token={teamToken}
               me={{ name: userName, phone: userPhone, vehicleNumber: userVehicleNumber, role: userRole }}

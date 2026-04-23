@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { notifyNewAssignmentForInquiry } from '../push/inquiryTeamWebPush.js';
@@ -34,9 +35,9 @@ router.post('/', async (req, res) => {
       where: {
         id: teamLeaderId,
         isActive: true,
-        role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER'] },
+        role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER', 'ADMIN'] },
       },
-      select: { id: true, role: true, hireDate: true, resignationDate: true, externalCompanyId: true },
+      select: { id: true, role: true, email: true, hireDate: true, resignationDate: true, externalCompanyId: true },
     }),
   ]);
 
@@ -46,6 +47,11 @@ router.post('/', async (req, res) => {
   }
   if (!teamLeader) {
     res.status(404).json({ error: '팀장·타업체 계정을 찾을 수 없습니다.' });
+    return;
+  }
+  // 개발자(team-preview-admin) 본인만 ADMIN 역할인 채로 팀장 배정이 가능하다.
+  if (teamLeader.role === 'ADMIN' && !isTeamPreviewAdminEmail(teamLeader.email)) {
+    res.status(400).json({ error: '관리자는 팀장으로 배정할 수 없습니다.' });
     return;
   }
   if (teamLeader.role === 'EXTERNAL_PARTNER' && !teamLeader.externalCompanyId) {

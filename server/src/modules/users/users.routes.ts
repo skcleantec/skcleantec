@@ -5,6 +5,7 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isSuperAdminRoleAndEmail } from '../auth/superAdmin.js';
+import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import {
   dateToYmdKst,
   isUserEmployedOnYmd,
@@ -56,6 +57,37 @@ router.get('/', adminOrMarketer, async (req, res) => {
   let out = users;
   if (!management) {
     out = users.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, employedOn));
+  }
+
+  /**
+   * 개발자(team-preview-admin)는 본인 ADMIN 계정을 팀장 드롭다운에도 노출한다.
+   * - 대상: role=TEAM_LEADER 조회일 때만 (마케터·타업체 목록과는 무관)
+   * - 요청자 본인이 team-preview-admin 이메일일 때만 추가 — 다른 관리자/마케터에는 노출되지 않는다.
+   * - 같은 id가 외부 조회(management 전체)에서도 중복되지 않도록 주의.
+   */
+  if (role === 'TEAM_LEADER' && !management && isTeamPreviewAdminEmail(authUser.email)) {
+    const selfAdmin = await prisma.user.findUnique({
+      where: { id: authUser.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        hireDate: true,
+        resignationDate: true,
+        allowSelfDayOffEdit: true,
+        externalCompany: { select: { id: true, name: true } },
+      },
+    });
+    if (
+      selfAdmin &&
+      selfAdmin.role === 'ADMIN' &&
+      isTeamPreviewAdminEmail(selfAdmin.email) &&
+      !out.some((u) => u.id === selfAdmin.id)
+    ) {
+      out = [...out, selfAdmin].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    }
   }
 
   res.json(
