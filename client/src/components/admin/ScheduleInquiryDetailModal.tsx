@@ -19,7 +19,6 @@ import { formatPreferredDateInputYmd, formatDateCompactWithWeekday } from '../..
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
-import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
@@ -87,8 +86,8 @@ type EditFormFields = {
   memo: string;
   /** 배정 팀장(순서 유지). 빈 문자열은 미선택 슬롯 */
   teamLeaderIds: string[];
-  /** null = 미입력 */
-  crewMemberCount: number | null;
+  /** 투입 팀원 인원 (0~100). 드롭다운에서 명시적으로 선택 */
+  crewMemberCount: number;
   /** 팀원 선택 목록(인원수만큼 슬롯) */
   crewMemberNames: string[];
   status: string;
@@ -178,9 +177,7 @@ function buildPatchFromEditForm(
   if (patch.balconyCount !== null && Number.isNaN(patch.balconyCount as number)) {
     throw new Error('베란다 개수는 숫자로 입력해주세요.');
   }
-  if (editForm.crewMemberCount === null) {
-    patch.crewMemberCount = null;
-  } else {
+  {
     const c = editForm.crewMemberCount;
     if (!Number.isFinite(c) || c < 0 || c > 100) {
       throw new Error('팀원 인원은 0~100 사이로 설정해주세요.');
@@ -328,7 +325,7 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
     memo: p.memo,
     source: '전화',
     status: p.status ?? 'RECEIVED',
-    crewMemberCount: p.crewMemberCount === undefined ? null : p.crewMemberCount,
+    crewMemberCount: p.crewMemberCount,
   };
 }
 
@@ -591,7 +588,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       memo: it.memo || '',
       teamLeaderIds:
         it.assignments.length > 0 ? it.assignments.map((a) => a.teamLeader.id) : [''],
-      crewMemberCount: it.crewMemberCount ?? null,
+      crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: it.status,
       createdById: it.createdBy?.id ?? '',
@@ -672,7 +669,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       memo: it.memo || '',
       teamLeaderIds:
         it.assignments.length > 0 ? it.assignments.map((x) => x.teamLeader.id) : [''],
-      crewMemberCount: it.crewMemberCount ?? null,
+      crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: it.status,
       createdById: it.createdBy?.id ?? '',
@@ -733,10 +730,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     };
   }, [token, editForm.preferredDate, isCreate, item?.id]);
 
-  const effectiveCrewSlots = Math.max(
-    0,
-    editForm.crewMemberCount === null ? DEFAULT_CREW_UNITS_PER_INQUIRY : editForm.crewMemberCount
-  );
+  const effectiveCrewSlots = Math.max(0, editForm.crewMemberCount);
 
   useEffect(() => {
     setEditForm((prev) => {
@@ -1517,59 +1511,22 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
-                value={editForm.crewMemberCount === null ? '' : String(editForm.crewMemberCount)}
+                value={String(editForm.crewMemberCount)}
                 onChange={(e) => {
-                  const v = e.target.value;
+                  const v = Number(e.target.value);
                   setEditForm((prev) => ({
                     ...prev,
-                    crewMemberCount: v === '' ? null : Number(v),
+                    crewMemberCount: Number.isFinite(v) ? v : 0,
                   }));
                 }}
                 className="px-3 py-2 border border-gray-300 rounded text-sm min-w-[8rem]"
               >
-                <option value="">표준({DEFAULT_CREW_UNITS_PER_INQUIRY}명) — 미입력</option>
                 {Array.from({ length: 21 }, (_, i) => (
                   <option key={i} value={String(i)}>
-                    {i}명(명시)
+                    {i}명
                   </option>
                 ))}
               </select>
-              <div className="flex items-center gap-1 border border-gray-200 rounded px-1">
-                <button
-                  type="button"
-                  className="px-2 py-1 text-lg leading-none text-gray-700 hover:bg-gray-100 rounded"
-                  aria-label="한 명 줄이기"
-                  onClick={() =>
-                    setEditForm((p) => {
-                      const c = p.crewMemberCount;
-                      if (c === null) return p;
-                      if (c <= DEFAULT_CREW_UNITS_PER_INQUIRY) return { ...p, crewMemberCount: null };
-                      return { ...p, crewMemberCount: c - 1 };
-                    })
-                  }
-                >
-                  −
-                </button>
-                <span className="text-sm text-gray-600 tabular-nums min-w-[3rem] text-center">
-                  {editForm.crewMemberCount === null
-                    ? `표준(${DEFAULT_CREW_UNITS_PER_INQUIRY})`
-                    : `${editForm.crewMemberCount}명`}
-                </span>
-                <button
-                  type="button"
-                  className="px-2 py-1 text-lg leading-none text-gray-700 hover:bg-gray-100 rounded"
-                  aria-label="한 명 늘리기"
-                  onClick={() =>
-                    setEditForm((p) => {
-                      const c = p.crewMemberCount;
-                      if (c === null) return { ...p, crewMemberCount: DEFAULT_CREW_UNITS_PER_INQUIRY + 1 };
-                      return { ...p, crewMemberCount: Math.min(100, c + 1) };
-                    })
-                  }
-                >
-                  +
-                </button>
-              </div>
             </div>
           </div>
           {effectiveCrewSlots > 0 && (
