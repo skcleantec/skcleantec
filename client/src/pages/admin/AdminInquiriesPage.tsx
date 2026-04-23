@@ -28,6 +28,7 @@ import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { getSchedule } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
+import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
 import { TeamMemberSearchSelect } from '../../components/admin/TeamMemberSearchSelect';
@@ -2322,6 +2323,15 @@ export function AdminInquiriesPage() {
               <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-fluid-sm">
                 <p className="text-fluid-xs font-medium text-orange-800 mb-1">클레임 내용 (참고)</p>
                 <p className="text-gray-800 whitespace-pre-wrap">{editItem.claimMemo}</p>
+              </div>
+            )}
+
+            {token && editItem.orderForm?.id && (
+              <div className="mt-4 min-w-0 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+                <p className="mb-2 text-fluid-xs font-semibold text-emerald-900">
+                  발주서 첨부 사진 (고객 업로드)
+                </p>
+                <AdminOrderFormPhotosPanel orderFormId={editItem.orderForm.id} token={token} />
               </div>
             )}
 
