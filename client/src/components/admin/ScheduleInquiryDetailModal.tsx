@@ -15,7 +15,7 @@ import {
 } from '../../constants/professionalSpecialtyOptions';
 import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
-import { formatPreferredDateInputYmd, formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { formatPreferredDateInputYmd, formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
@@ -1014,6 +1014,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 readOnly={isCreate && preferredDateLocked}
                 allowEmpty
                 emitOnCompleteOnly
+                minYmd={kstTodayYmd()}
                 idPrefix="sched-detail-pref"
                 className={`flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded bg-white ${
                   isCreate && preferredDateLocked ? 'opacity-90' : ''

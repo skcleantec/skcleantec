@@ -2071,6 +2071,7 @@ export function AdminInquiriesPage() {
                     idPrefix="inq-edit-pref"
                     allowEmpty
                     emitOnCompleteOnly
+                    minYmd={kstTodayYmd()}
                     className="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded bg-white"
                   />
                   <button
