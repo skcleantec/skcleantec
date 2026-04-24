@@ -1,10 +1,23 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   getSchedule,
   postScheduleDayClosure,
   deleteScheduleDayClosure,
   type ScheduleItem,
 } from '../../api/schedule';
+import {
+  getUserCustomCalendars,
+  createUserCustomCalendar,
+  updateUserCustomCalendar,
+  deleteUserCustomCalendar,
+  type UserCustomCalendarItem,
+} from '../../api/userCustomCalendars';
+import { addressMatchesRegions } from '../../utils/regionMatch';
+import { customCalendarColorTokens } from '../../constants/customCalendarColors';
+import { CustomCalendarCreateModal } from '../../components/admin/CustomCalendarCreateModal';
+import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabsBar';
+import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/ScheduleDayAssignmentSummaryModal';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
@@ -425,6 +438,8 @@ function hasScheduleClosure(s: ScheduleStatsByDate | undefined): boolean {
 
 export function AdminSchedulePage() {
   const token = getToken();
+  const navigate = useNavigate();
+  const location = useLocation();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -447,6 +462,11 @@ export function AdminSchedulePage() {
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [closureModalOpen, setClosureModalOpen] = useState(false);
   const [scheduleMapOpen, setScheduleMapOpen] = useState(false);
+  /** 사용자 맞춤 지역 캘린더 */
+  const [customCalendars, setCustomCalendars] = useState<UserCustomCalendarItem[]>([]);
+  const [customCalendarModalOpen, setCustomCalendarModalOpen] = useState(false);
+  const [customCalendarEditing, setCustomCalendarEditing] = useState<UserCustomCalendarItem | null>(null);
+  const [customCalendarDeleting, setCustomCalendarDeleting] = useState<UserCustomCalendarItem | null>(null);
   const fetchGenRef = useRef(0);
   /** 모바일: 캘린더 가로 스와이프 — 왼쪽 다음 달, 오른쪽 전 달 (터치 종료 후 클릭 오동작 방지) */
   const calendarSwipeTouchRef = useRef<{ x: number; y: number; id: number } | null>(null);
@@ -578,7 +598,156 @@ export function AdminSchedulePage() {
       .catch(() => setProfCatalog([]));
   }, [token]);
 
-  const byDate = groupScheduleItemsByKstDate(items);
+  /** 내가 만든 지역 캘린더 목록 로드 */
+  const fetchCustomCalendars = useCallback(async () => {
+    if (!token) {
+      setCustomCalendars([]);
+      return;
+    }
+    try {
+      const list = await getUserCustomCalendars(token);
+      setCustomCalendars(list);
+    } catch {
+      // 조용히 무시 — 탭이 안 보일 뿐 다른 기능에 영향 없음
+      setCustomCalendars([]);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void fetchCustomCalendars();
+  }, [fetchCustomCalendars]);
+
+  /**
+   * 활성 지역 캘린더 id — URL 쿼리(`?customCalendarId=...`)에 동기화.
+   * 새로고침·재로그인 후에도 같은 캘린더를 유지한다 (routing-url-persistence 규칙).
+   */
+  const activeCustomCalendarId = useMemo(() => {
+    const qs = new URLSearchParams(location.search);
+    const raw = qs.get('customCalendarId');
+    if (!raw) return null;
+    return customCalendars.some((c) => c.id === raw) ? raw : null;
+  }, [location.search, customCalendars]);
+
+  const activeCustomCalendar = useMemo(
+    () => customCalendars.find((c) => c.id === activeCustomCalendarId) ?? null,
+    [customCalendars, activeCustomCalendarId]
+  );
+
+  /** 없어진 id는 URL에서 자동 정리 (규칙: 원래 경로 유지하며 덮어쓰기) */
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search);
+    const raw = qs.get('customCalendarId');
+    if (!raw) return;
+    if (customCalendars.length > 0 && !customCalendars.some((c) => c.id === raw)) {
+      qs.delete('customCalendarId');
+      const nextSearch = qs.toString();
+      navigate(
+        { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '', hash: location.hash },
+        { replace: true }
+      );
+    }
+  }, [customCalendars, location.search, location.pathname, location.hash, navigate]);
+
+  const setActiveCustomCalendarId = useCallback(
+    (id: string | null) => {
+      const qs = new URLSearchParams(location.search);
+      if (id) qs.set('customCalendarId', id);
+      else qs.delete('customCalendarId');
+      const nextSearch = qs.toString();
+      navigate(
+        { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '', hash: location.hash },
+        { replace: true }
+      );
+    },
+    [location.pathname, location.search, location.hash, navigate]
+  );
+
+  /**
+   * 활성 지역 필터에 따른 items.
+   * - 활성 캘린더가 없으면 전체.
+   * - 있으면 address 기준 단어 경계 매칭.
+   */
+  const filteredItems = useMemo(() => {
+    if (!activeCustomCalendar) return items;
+    const regs = activeCustomCalendar.regions;
+    if (!regs || regs.length === 0) return items;
+    return items.filter((it) => addressMatchesRegions(it.address, regs));
+  }, [items, activeCustomCalendar]);
+
+  const byDate = groupScheduleItemsByKstDate(filteredItems);
+
+  /**
+   * 전체 보기일 때, 각 날짜 칸 하단에 보여줄 "내가 만든 지역 캘린더별 건수" 집계.
+   * - 활성 필터가 걸려 있으면 이미 필터링된 상태이므로 표시하지 않는다.
+   * - 키: YMD(preferredDate 기준) → [{ calendarId, count, colorKey, name }]
+   */
+  const regionCountsByDate = useMemo(() => {
+    const map = new Map<string, Array<{ id: string; name: string; colorKey: string; count: number }>>();
+    if (activeCustomCalendar) return map;
+    if (customCalendars.length === 0) return map;
+
+    for (const it of items) {
+      if (!it.preferredDate) continue;
+      const key = formatPreferredDateInputYmd(it.preferredDate);
+      if (!key) continue;
+      const addr = it.address ?? '';
+      for (const cal of customCalendars) {
+        if (!addressMatchesRegions(addr, cal.regions)) continue;
+        const arr = map.get(key) ?? [];
+        const idx = arr.findIndex((x) => x.id === cal.id);
+        if (idx >= 0) {
+          arr[idx] = { ...arr[idx], count: arr[idx].count + 1 };
+        } else {
+          arr.push({ id: cal.id, name: cal.name, colorKey: cal.colorKey, count: 1 });
+        }
+        map.set(key, arr);
+      }
+    }
+    // customCalendars의 표시 순서 유지
+    for (const [k, arr] of map) {
+      arr.sort(
+        (a, b) =>
+          customCalendars.findIndex((c) => c.id === a.id) -
+          customCalendars.findIndex((c) => c.id === b.id)
+      );
+      map.set(k, arr);
+    }
+    return map;
+  }, [items, customCalendars, activeCustomCalendar]);
+
+  const usedCustomCalendarColors = useMemo(
+    () => customCalendars.map((c) => c.colorKey),
+    [customCalendars]
+  );
+
+  async function handleSubmitCustomCalendar(values: {
+    name: string;
+    regions: string[];
+    colorKey: string;
+  }) {
+    if (!token) return;
+    if (customCalendarEditing) {
+      await updateUserCustomCalendar(token, customCalendarEditing.id, values);
+    } else {
+      const created = await createUserCustomCalendar(token, values);
+      // 생성 직후 해당 캘린더로 이동 (URL 기반 — 규칙 준수)
+      await fetchCustomCalendars();
+      setActiveCustomCalendarId(created.id);
+      return;
+    }
+    await fetchCustomCalendars();
+  }
+
+  async function handleConfirmDeleteCustomCalendar(password: string) {
+    if (!token || !customCalendarDeleting) return;
+    await deleteUserCustomCalendar(token, customCalendarDeleting.id, password);
+    // 삭제한 캘린더가 현재 활성이면 전체로 복귀
+    if (activeCustomCalendarId === customCalendarDeleting.id) {
+      setActiveCustomCalendarId(null);
+    }
+    setCustomCalendarDeleting(null);
+    await fetchCustomCalendars();
+  }
 
   const calendarDays = getCalendarDays(year, month);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -729,12 +898,56 @@ export function AdminSchedulePage() {
                 손없는날
               </span>
             </div>
-            <div className="mt-2 flex items-center justify-end border-t border-gray-200/80 pt-2">
+            <div className="mt-2 flex items-center justify-between gap-2 border-t border-gray-200/80 pt-2 min-w-0">
+              <CustomCalendarTabsBar
+                className="flex-1 min-w-0"
+                calendars={customCalendars}
+                activeId={activeCustomCalendarId}
+                onSelect={(id) => setActiveCustomCalendarId(id)}
+                onClickAdd={() => {
+                  setCustomCalendarEditing(null);
+                  setCustomCalendarModalOpen(true);
+                }}
+                onEdit={(item) => {
+                  setCustomCalendarEditing(item);
+                  setCustomCalendarModalOpen(true);
+                }}
+                onRequestDelete={(item) => setCustomCalendarDeleting(item)}
+              />
               <HelpTooltip
                 className="shrink-0"
                 text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)}
               />
             </div>
+            {activeCustomCalendar && (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white/80 px-3 py-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-fluid-xs font-semibold ${
+                      customCalendarColorTokens(activeCustomCalendar.colorKey).badge
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        customCalendarColorTokens(activeCustomCalendar.colorKey).dot
+                      }`}
+                    />
+                    {activeCustomCalendar.name}
+                  </span>
+                  <span className="text-fluid-xs text-gray-600 truncate" title={activeCustomCalendar.regions.join(', ')}>
+                    {activeCustomCalendar.regions.join(' · ')}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveCustomCalendarId(null)}
+                  className="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-xs text-gray-700 hover:bg-gray-50"
+                  title="전체 캘린더로 돌아가기"
+                >
+                  ← 전체 캘린더
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
@@ -979,6 +1192,40 @@ export function AdminSchedulePage() {
                         )}
                       </div>
                     )}
+                    {!activeCustomCalendar && (() => {
+                      const regionBadges = regionCountsByDate.get(key);
+                      if (!regionBadges || regionBadges.length === 0) return null;
+                      return (
+                        <div className="mt-auto pt-1 border-t border-gray-200/70 flex flex-wrap gap-0.5 justify-center items-center content-center min-w-0 w-full">
+                          {regionBadges.map((b) => {
+                            const t = customCalendarColorTokens(b.colorKey);
+                            return (
+                              <span
+                                key={b.id}
+                                className={`hidden sm:inline-flex items-center gap-1 rounded px-1 py-px text-[0.65rem] sm:text-calendar-2xs font-semibold leading-tight tabular-nums max-w-full text-center ${t.badge}`}
+                                title={`${b.name} — ${b.count}건`}
+                              >
+                                <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
+                                {b.name.length > 4 ? `${b.name.slice(0, 4)}…` : b.name}
+                                <span className="font-bold">{b.count}</span>
+                              </span>
+                            );
+                          })}
+                          <span className="inline-flex sm:hidden items-center gap-0.5" aria-label="지역 캘린더 매칭">
+                            {regionBadges.map((b) => {
+                              const t = customCalendarColorTokens(b.colorKey);
+                              return (
+                                <span
+                                  key={b.id}
+                                  className={`h-1.5 w-1.5 rounded-full ${t.dot}`}
+                                  title={`${b.name} — ${b.count}건`}
+                                />
+                              );
+                            })}
+                          </span>
+                        </div>
+                      );
+                    })()}
                     {isSlotFull && (
                       <span className="mt-0.5 text-center text-[0.65rem] sm:text-calendar-2xs font-semibold text-slate-600 tracking-tight leading-none">
                         마감
@@ -1619,6 +1866,42 @@ export function AdminSchedulePage() {
           token={token}
         />
       )}
+
+      <CustomCalendarCreateModal
+        open={customCalendarModalOpen}
+        mode={customCalendarEditing ? 'edit' : 'create'}
+        initial={
+          customCalendarEditing
+            ? {
+                name: customCalendarEditing.name,
+                regions: customCalendarEditing.regions,
+                colorKey: customCalendarEditing.colorKey as never,
+              }
+            : null
+        }
+        usedColors={usedCustomCalendarColors}
+        onClose={() => {
+          setCustomCalendarModalOpen(false);
+          setCustomCalendarEditing(null);
+        }}
+        onSubmit={handleSubmitCustomCalendar}
+      />
+
+      <ConfirmPasswordModal
+        open={!!customCalendarDeleting}
+        title="지역 캘린더 삭제"
+        description={
+          customCalendarDeleting ? (
+            <span>
+              <span className="font-medium text-gray-900">"{customCalendarDeleting.name}"</span> 캘린더를 삭제하려면
+              본인 비밀번호를 입력해 주세요. 삭제 후에는 복구할 수 없습니다.
+            </span>
+          ) : undefined
+        }
+        confirmLabel="삭제"
+        onClose={() => setCustomCalendarDeleting(null)}
+        onConfirm={handleConfirmDeleteCustomCalendar}
+      />
     </div>
   );
 }

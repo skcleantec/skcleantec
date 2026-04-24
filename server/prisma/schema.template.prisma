@@ -80,6 +80,7 @@ model User {
   orderFollowupLogsAsActor      OrderFollowupLog[]     @relation("OrderFollowupLogActor")
   orderFormDeleteLogsAsActor    OrderFormDeleteLog[]   @relation("OrderFormDeleteLogActor")
   externalCompanySettlementResetsAsActor ExternalCompanySettlementReset[] @relation("ExternalCompanySettlementResetActor")
+  customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
 
   @@map("users")
 }
@@ -621,4 +622,25 @@ model Message {
 
   @@index([batchId])
   @@map("messages")
+}
+
+/// 사용자별 맞춤 '지역 필터 캘린더'
+/// 관리자·마케터가 자주 보는 지역 묶음을 저장해 스케줄 화면에서 빠르게 전환한다.
+/// `regions` 는 시 단위 문자열 배열(JSON). 예: ["천안시","아산시","대전광역시"]
+/// 접수 address 문자열에 시 단위 이름이 단어 경계로 포함되면 일치로 간주(클라이언트 필터).
+model UserCustomCalendar {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String   @db.VarChar(64)
+  regions   Json
+  /// 탭 색상 키 (teal/amber/rose/violet/sky/emerald/slate 중 하나)
+  colorKey  String   @default("teal") @map("color_key") @db.VarChar(16)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation("UserCustomCalendars", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+  @@map("user_custom_calendars")
 }
