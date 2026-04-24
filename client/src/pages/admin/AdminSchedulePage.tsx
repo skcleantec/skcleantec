@@ -682,7 +682,10 @@ export function AdminSchedulePage() {
    * - 키: YMD(preferredDate 기준) → [{ calendarId, count, colorKey, name }]
    */
   const regionCountsByDate = useMemo(() => {
-    const map = new Map<string, Array<{ id: string; name: string; colorKey: string; count: number }>>();
+    const map = new Map<
+      string,
+      Array<{ id: string; name: string; colorKey: string; regions: string[]; count: number }>
+    >();
     if (activeCustomCalendar) return map;
     if (customCalendars.length === 0) return map;
 
@@ -698,7 +701,13 @@ export function AdminSchedulePage() {
         if (idx >= 0) {
           arr[idx] = { ...arr[idx], count: arr[idx].count + 1 };
         } else {
-          arr.push({ id: cal.id, name: cal.name, colorKey: cal.colorKey, count: 1 });
+          arr.push({
+            id: cal.id,
+            name: cal.name,
+            colorKey: cal.colorKey,
+            regions: cal.regions,
+            count: 1,
+          });
         }
         map.set(key, arr);
       }
@@ -912,7 +921,6 @@ export function AdminSchedulePage() {
                   setCustomCalendarEditing(item);
                   setCustomCalendarModalOpen(true);
                 }}
-                onRequestDelete={(item) => setCustomCalendarDeleting(item)}
               />
               <HelpTooltip
                 className="shrink-0"
@@ -1050,7 +1058,7 @@ export function AdminSchedulePage() {
                       onHoldDayCount > 0 && pendingDayCount === 0 ? 'bg-amber-50/35' : ''
                     }`}
                   >
-                    <div className="flex items-center gap-1 min-w-0 sm:gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 min-w-0 sm:gap-1.5">
                       <span
                         title={sonDay ? SON_EOMNEUNG_NAL_HELP : undefined}
                         className={
@@ -1065,9 +1073,58 @@ export function AdminSchedulePage() {
                       >
                         {d}
                       </span>
-                      <span className={`text-calendar-2xs font-medium leading-tight truncate ${weekdayColor}`}>
+                      <span className={`text-calendar-2xs font-medium leading-tight truncate shrink-0 ${weekdayColor}`}>
                         {weekdayKoFromYmd(year, month, d)}
                       </span>
+                      {(() => {
+                        /**
+                         * 지역 캘린더 칩(상단 우측)
+                         *  - 활성 필터가 있을 때: 그 필터의 색상 칩 하나만 표시 (해당 날 필터와
+                         *    일치하는 접수건 수 = dayItems.length). 미배정/대기/취소 상관없이 총건수.
+                         *  - 필터 없을 때: 모든 커스텀 캘린더 중 해당 날 매칭이 있는 것들을 표시.
+                         */
+                        if (activeCustomCalendar) {
+                          const total = dayItems.length;
+                          if (total <= 0) return null;
+                          const t = customCalendarColorTokens(activeCustomCalendar.colorKey);
+                          return (
+                            <div className="ml-auto flex items-center gap-0.5 min-w-0">
+                              <span
+                                className={`inline-flex items-center gap-0.5 rounded px-1 py-0 text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums ${t.badge}`}
+                                title={`${activeCustomCalendar.name} — ${total}건`}
+                              >
+                                <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
+                                <span className="hidden sm:inline max-w-[3.5rem] truncate">
+                                  {activeCustomCalendar.name}
+                                </span>
+                                <span className="font-bold">{total}</span>
+                              </span>
+                            </div>
+                          );
+                        }
+                        const regionBadges = regionCountsByDate.get(key);
+                        if (!regionBadges || regionBadges.length === 0) return null;
+                        return (
+                          <div className="ml-auto flex flex-wrap justify-end items-center gap-0.5 min-w-0">
+                            {regionBadges.map((b) => {
+                              const t = customCalendarColorTokens(b.colorKey);
+                              return (
+                                <span
+                                  key={b.id}
+                                  className={`inline-flex items-center gap-0.5 rounded px-1 py-0 text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums ${t.badge}`}
+                                  title={`${b.name} · ${b.regions?.join(', ') ?? ''} — ${b.count}건`}
+                                >
+                                  <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
+                                  <span className="hidden sm:inline max-w-[3.5rem] truncate">
+                                    {b.name}
+                                  </span>
+                                  <span className="font-bold">{b.count}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="mt-1.5 sm:mt-2 flex flex-col gap-0.5 sm:gap-1 min-w-0 flex-1 min-h-0">
                       <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
@@ -1192,40 +1249,6 @@ export function AdminSchedulePage() {
                         )}
                       </div>
                     )}
-                    {!activeCustomCalendar && (() => {
-                      const regionBadges = regionCountsByDate.get(key);
-                      if (!regionBadges || regionBadges.length === 0) return null;
-                      return (
-                        <div className="mt-auto pt-1 border-t border-gray-200/70 flex flex-wrap gap-0.5 justify-center items-center content-center min-w-0 w-full">
-                          {regionBadges.map((b) => {
-                            const t = customCalendarColorTokens(b.colorKey);
-                            return (
-                              <span
-                                key={b.id}
-                                className={`hidden sm:inline-flex items-center gap-1 rounded px-1 py-px text-[0.65rem] sm:text-calendar-2xs font-semibold leading-tight tabular-nums max-w-full text-center ${t.badge}`}
-                                title={`${b.name} — ${b.count}건`}
-                              >
-                                <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
-                                {b.name.length > 4 ? `${b.name.slice(0, 4)}…` : b.name}
-                                <span className="font-bold">{b.count}</span>
-                              </span>
-                            );
-                          })}
-                          <span className="inline-flex sm:hidden items-center gap-0.5" aria-label="지역 캘린더 매칭">
-                            {regionBadges.map((b) => {
-                              const t = customCalendarColorTokens(b.colorKey);
-                              return (
-                                <span
-                                  key={b.id}
-                                  className={`h-1.5 w-1.5 rounded-full ${t.dot}`}
-                                  title={`${b.name} — ${b.count}건`}
-                                />
-                              );
-                            })}
-                          </span>
-                        </div>
-                      );
-                    })()}
                     {isSlotFull && (
                       <span className="mt-0.5 text-center text-[0.65rem] sm:text-calendar-2xs font-semibold text-slate-600 tracking-tight leading-none">
                         마감
@@ -1885,6 +1908,17 @@ export function AdminSchedulePage() {
           setCustomCalendarEditing(null);
         }}
         onSubmit={handleSubmitCustomCalendar}
+        onRequestDelete={
+          customCalendarEditing
+            ? () => {
+                /** 편집 모달에서 삭제 선택 → 모달 닫고 비번 확인 모달로 이어간다 */
+                const target = customCalendarEditing;
+                setCustomCalendarModalOpen(false);
+                setCustomCalendarEditing(null);
+                setCustomCalendarDeleting(target);
+              }
+            : undefined
+        }
       />
 
       <ConfirmPasswordModal

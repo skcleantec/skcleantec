@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from './ModalCloseButton';
 import { KOREAN_REGION_GROUPS } from '../../constants/koreanCities';
@@ -26,6 +26,11 @@ export type CustomCalendarCreateModalProps = {
   usedColors?: readonly string[];
   onClose: () => void;
   onSubmit: (values: CustomCalendarCreateValues) => Promise<void>;
+  /**
+   * 편집 모달에서 '삭제' 버튼을 누르면 호출. 부모는 이 모달을 닫고 비밀번호 확인 모달을
+   * 띄우는 식으로 실제 삭제 플로우를 이어가면 된다.
+   */
+  onRequestDelete?: () => void;
 };
 
 export function CustomCalendarCreateModal({
@@ -35,6 +40,7 @@ export function CustomCalendarCreateModal({
   usedColors = [],
   onClose,
   onSubmit,
+  onRequestDelete,
 }: CustomCalendarCreateModalProps) {
   const [name, setName] = useState('');
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
@@ -43,8 +49,19 @@ export function CustomCalendarCreateModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * 모달이 "닫힘 → 열림" 순간에만 initial 값을 입력 필드로 주입한다.
+   * 열려 있는 동안 부모 리렌더(실시간 refresh 등)로 props.initial 참조가 바뀌어도
+   * 사용자가 편집 중인 내용을 리셋하지 않도록 한다.
+   */
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      wasOpenRef.current = false;
+      return;
+    }
+    if (wasOpenRef.current) return;
+    wasOpenRef.current = true;
     setName(initial?.name ?? '');
     setSelectedRegions(initial?.regions ? Array.from(initial.regions) : []);
     setColorKey(
@@ -114,7 +131,9 @@ export function CustomCalendarCreateModal({
             {mode === 'edit' ? '지역 캘린더 수정' : '지역 캘린더 추가'}
           </h2>
           <p className="text-fluid-xs text-gray-500 mt-1 leading-relaxed">
-            자주 보는 지역 묶음을 저장해 두면, 스케줄 화면에서 한 번의 클릭으로 해당 지역의 접수만 모아볼 수 있어요.
+            {mode === 'edit'
+              ? '이름·지역·색상을 자유롭게 바꿀 수 있어요. 지역 추가는 아래 드롭다운, 제거는 칩 × 버튼. 이 캘린더를 아예 지우려면 왼쪽 아래 삭제 버튼을 누르세요.'
+              : '자주 보는 지역 묶음을 저장해 두면, 스케줄 화면에서 한 번의 클릭으로 해당 지역의 접수만 모아볼 수 있어요. 만든 뒤에는 탭 오른쪽 ⋯ 버튼으로 언제든 이 화면을 다시 열어 수정·삭제할 수 있어요.'}
           </p>
         </div>
 
@@ -229,22 +248,35 @@ export function CustomCalendarCreateModal({
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 pt-1 sticky bottom-0 bg-white">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-2 rounded border border-gray-300 bg-white text-fluid-sm text-gray-700 hover:bg-gray-50"
-              disabled={saving}
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="px-3 py-2 rounded bg-gray-900 text-fluid-sm font-medium text-white hover:bg-black disabled:opacity-50"
-            >
-              {mode === 'edit' ? '저장' : '생성'}
-            </button>
+          <div className="flex items-center gap-2 pt-1 sticky bottom-0 bg-white">
+            {mode === 'edit' && onRequestDelete && (
+              <button
+                type="button"
+                onClick={onRequestDelete}
+                disabled={saving}
+                className="px-3 py-2 rounded border border-rose-300 bg-white text-fluid-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                title="이 캘린더 삭제"
+              >
+                삭제
+              </button>
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-2 rounded border border-gray-300 bg-white text-fluid-sm text-gray-700 hover:bg-gray-50"
+                disabled={saving}
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className="px-3 py-2 rounded bg-gray-900 text-fluid-sm font-medium text-white hover:bg-black disabled:opacity-50"
+              >
+                {mode === 'edit' ? '저장' : '생성'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
