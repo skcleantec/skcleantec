@@ -107,6 +107,8 @@ type EditFormFields = {
   amountBalance: string;
   /** 타업체 수수료(원), 빈 문자열 = 미입력 */
   externalTransferFee: string;
+  /** 타업체 정산 항목(4/5/6/7) */
+  externalSettlementCategory: string;
   /** 수기(간편) 등록 제목(접수 리스트 노출) */
   scheduleMemo: string;
   professionalOptionIds: string[];
@@ -144,6 +146,9 @@ function buildPatchFromEditForm(
     serviceDepositAmount: parseWon(editForm.amountDeposit),
     serviceBalanceAmount: parseWon(editForm.amountBalance),
     externalTransferFee: parseWon(editForm.externalTransferFee),
+    externalSettlementCategory: [4, 5, 6, 7].includes(Number(editForm.externalSettlementCategory))
+      ? Number(editForm.externalSettlementCategory)
+      : null,
     scheduleMemo: editForm.scheduleMemo.trim() || null,
     professionalOptionIds: editForm.professionalOptionIds,
   };
@@ -513,6 +518,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         amountDeposit: '',
         amountBalance: '',
         externalTransferFee: '',
+        externalSettlementCategory: '4',
         scheduleMemo: '',
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
       };
@@ -552,6 +558,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       amountBalance: amt.balance != null ? String(amt.balance) : '',
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
+      externalSettlementCategory:
+        it.externalSettlementCategory != null ? String(it.externalSettlementCategory) : '4',
       scheduleMemo: it.scheduleMemo ?? '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     };
@@ -646,6 +654,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       amountBalance: a.balance != null ? String(a.balance) : '',
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
+      externalSettlementCategory:
+        it.externalSettlementCategory != null ? String(it.externalSettlementCategory) : '4',
       scheduleMemo: it.scheduleMemo ?? '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     });
@@ -1351,6 +1361,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               placeholder="비우면 미입력"
             />
             <p className="text-[11px] text-gray-500 mt-1">타업체 담당으로 배정된 건에 대해 받는 수수료</p>
+          </div>
+          <div>
+            <label className="block text-gray-600 mb-1">타업체 정산 항목(4/5/6/7)</label>
+            <select
+              value={editForm.externalSettlementCategory}
+              onChange={(e) => setEditForm((p) => ({ ...p, externalSettlementCategory: e.target.value || '4' }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded bg-white"
+            >
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+            </select>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">전문 시공 옵션</label>

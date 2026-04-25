@@ -245,6 +245,8 @@ model Inquiry {
   scheduleMemo    String?    @map("schedule_memo")
   /// 타업체 담당 시 받는 수수료(원). 미입력 시 null
   externalTransferFee Int?   @map("external_transfer_fee")
+  /// 타업체 정산 항목 분류(4/5/6/7). 미입력 시 null
+  externalSettlementCategory Int? @map("external_settlement_category")
   /// 취소 후에도 타업체 수수료 역분개를 위해 취소 시점 업체 id 보관
   cancelFeeExternalCompanyId String?          @map("cancel_fee_external_company_id")
   cancelFeeExternalCompany   ExternalCompany? @relation("InquiryCancelFeeExternalCompany", fields: [cancelFeeExternalCompanyId], references: [id], onDelete: SetNull)

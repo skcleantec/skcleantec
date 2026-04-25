@@ -90,6 +90,12 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
     data.externalTransferFee =
       v === null || v === '' || v === undefined ? null : Number(v);
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'externalSettlementCategory')) {
+    const v = body.externalSettlementCategory;
+    const n = v === null || v === '' || v === undefined ? null : Number(v);
+    data.externalSettlementCategory =
+      n == null || Number.isNaN(n) || ![4, 5, 6, 7].includes(n) ? null : n;
+  }
   /** null·'' 모두 비우기 — `!= null`만 쓰면 JSON `scheduleMemo: null` 단독 PATCH가 data={}로 빠져 저장 안 됨 */
   if (Object.prototype.hasOwnProperty.call(body, 'memo')) {
     const v = body.memo;

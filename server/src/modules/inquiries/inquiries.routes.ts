@@ -718,6 +718,14 @@ router.patch('/:id', async (req, res) => {
   }
   if (data.externalTransferFee !== undefined)
     pushIfChanged('타업체 수수료', inquiry.externalTransferFee, data.externalTransferFee, fmtNum);
+  if (data.externalSettlementCategory !== undefined) {
+    pushIfChanged(
+      '타업체 정산 항목',
+      inquiry.externalSettlementCategory,
+      data.externalSettlementCategory,
+      (v) => (v == null ? '(없음)' : String(v))
+    );
+  }
   if (data.professionalOptionIds !== undefined) {
     const before = Array.isArray(inquiry.professionalOptionIds) ? inquiry.professionalOptionIds : [];
     const after = Array.isArray(data.professionalOptionIds) ? data.professionalOptionIds : [];
