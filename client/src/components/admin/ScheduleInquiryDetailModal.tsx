@@ -732,7 +732,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         } catch (fe) {
           alert(
             fe instanceof Error
-              ? `${fe.message}\n\n접수는 등록되었습니다. 발주서 메뉴의 부재현황에서 같은 접수에 행을 수동으로 연결해 주세요.`
+              ? `${fe.message}\n\n접수는 등록되었습니다. 접수 메뉴의 부재현황에서 같은 접수에 행을 수동으로 연결해 주세요.`
               : '부재현황 연동에 실패했습니다. 접수는 등록되었습니다.'
           );
         }

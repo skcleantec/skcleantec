@@ -17,7 +17,11 @@ import {
   type OrderFollowupItem,
 } from '../../api/orderFollowups';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
-import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
+import {
+  getAllProfessionalOptions,
+  getFormConfig,
+  type ProfessionalSpecialtyOptionDto,
+} from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
@@ -59,6 +63,14 @@ import {
   type OrderFollowupStatus,
 } from '../../constants/orderFollowupStatus';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
+import { copyTextToClipboard } from '../../utils/clipboard';
+import {
+  buildOrderFormCustomerMessage,
+  getOrderFormPublicUrl,
+  labelOrderFormIssuer,
+  normalizeMsgConfigForEditor,
+} from '../../utils/orderFormCustomerCopy';
+import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
@@ -266,12 +278,13 @@ interface InquiryItem {
   createdBy?: { id: string; name: string; phone?: string | null } | null;
   orderForm?: {
     id?: string;
+    token?: string;
     totalAmount?: number | null;
     depositAmount?: number | null;
     balanceAmount?: number | null;
     /** 고객 제출 시각 — null이면 발주서 목록과 같이 미제출 */
     submittedAt?: string | null;
-    createdBy: { id: string; name: string; phone?: string | null };
+    createdBy: { id: string; name: string; phone?: string | null; role: string };
   } | null;
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;
@@ -560,6 +573,28 @@ export function AdminInquiriesPage() {
   /** 빈 값이면 전체, 미배정·특정 팀장 */
   const [teamLeaderFilterId, setTeamLeaderFilterId] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<InquiryItem | null>(null);
+  /** 미제출 행 — 고객 메시지·링크 미리보기(접수 목록에 모달, 발주서 목록으로 이동하지 않음) */
+  const [orderCustomerPreview, setOrderCustomerPreview] = useState<null | {
+    kind: 'message' | 'link';
+    inquiry: InquiryItem;
+    order: {
+      token: string;
+      customerName: string;
+      totalAmount: number;
+      depositAmount: number;
+      balanceAmount: number;
+      preferredDate: string | null;
+      preferredTime: string | null;
+      preferredTimeDetail: string | null;
+      optionNote: string | null;
+      createdBy?: { id: string; name: string; role: string } | null;
+    };
+  }>(null);
+  const [orderCustomerPreviewMsgConfig, setOrderCustomerPreviewMsgConfig] = useState<FormMessagesState | null>(
+    null
+  );
+  const [orderCustomerPreviewLoading, setOrderCustomerPreviewLoading] = useState(false);
+  const [orderCustomerPreviewError, setOrderCustomerPreviewError] = useState<string | null>(null);
   /** 편집 모달의 "투입 팀원 선택" 드롭다운에 쓰일 등록된 팀원 목록 */
   const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
   /** 편집 중 예약일 기준, 다른 접수에 이미 배정된 팀원 이름 집합 (음영 처리용) */
@@ -835,7 +870,7 @@ export function AdminInquiriesPage() {
           memo: listIntakeMemo.trim() || null,
         });
         setListIntakeOpen(false);
-        navigate('/admin/orderforms?tab=followup');
+        navigate('/admin/inquiries/followup');
         return;
       }
       if (listIntakeEditInquiryId) {
@@ -1161,6 +1196,109 @@ export function AdminInquiriesPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const closeOrderCustomerPreviewModal = () => {
+    setOrderCustomerPreview(null);
+    setOrderCustomerPreviewMsgConfig(null);
+    setOrderCustomerPreviewLoading(false);
+    setOrderCustomerPreviewError(null);
+  };
+
+  const openOrderCustomerPreviewModal = (item: InquiryItem, kind: 'message' | 'link') => {
+    const tk = item.orderForm?.token?.trim();
+    if (!tk) {
+      alert('발주서 토큰이 없습니다. 발주서를 먼저 발급해 주세요.');
+      return;
+    }
+    const { total, deposit, balance } = effectiveInquiryAmounts(item);
+    if (total == null || deposit == null || balance == null) {
+      alert('금액 정보가 없어 메시지를 만들 수 없습니다. 접수 상세에서 금액을 확인해 주세요.');
+      return;
+    }
+    setOrderCustomerPreviewError(null);
+    setOrderCustomerPreviewMsgConfig(null);
+    setOrderCustomerPreviewLoading(true);
+    setOrderCustomerPreview({
+      kind,
+      inquiry: item,
+      order: {
+        token: tk,
+        customerName: item.customerName,
+        totalAmount: total,
+        depositAmount: deposit,
+        balanceAmount: balance,
+        preferredDate: item.preferredDate,
+        preferredTime: item.preferredTime,
+        preferredTimeDetail: item.preferredTimeDetail ?? null,
+        optionNote: null,
+        createdBy: item.orderForm?.createdBy
+          ? {
+              id: item.orderForm.createdBy.id,
+              name: item.orderForm.createdBy.name,
+              role: item.orderForm.createdBy.role,
+            }
+          : null,
+      },
+    });
+  };
+
+  useEffect(() => {
+    if (!orderCustomerPreview || !token) return;
+    let cancelled = false;
+    (async () => {
+      setOrderCustomerPreviewLoading(true);
+      setOrderCustomerPreviewError(null);
+      try {
+        const cfg = normalizeMsgConfigForEditor(await getFormConfig(token));
+        if (cancelled) return;
+        setOrderCustomerPreviewMsgConfig(cfg);
+      } catch (e) {
+        if (cancelled) return;
+        setOrderCustomerPreviewError(e instanceof Error ? e.message : '폼 설정을 불러오지 못했습니다.');
+      } finally {
+        if (!cancelled) setOrderCustomerPreviewLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orderCustomerPreview, token]);
+
+  const openOrderFormNewTab = (item: InquiryItem) => {
+    const tk = item.orderForm?.token?.trim();
+    if (!tk) {
+      alert('발주서 토큰이 없어 새 창을 열 수 없습니다. 접수 상세에서 발주서 연결을 확인해 주세요.');
+      return;
+    }
+    window.open(getOrderFormPublicUrl(tk), '_blank', 'noopener');
+  };
+
+  const handleCopyOrderCustomerPreview = async () => {
+    if (!orderCustomerPreview) return;
+    if (orderCustomerPreview.kind === 'message') {
+      if (!orderCustomerPreviewMsgConfig) {
+        alert('폼 설정을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      const text = buildOrderFormCustomerMessage(
+        orderCustomerPreviewMsgConfig,
+        orderCustomerPreview.order
+      );
+      const ok = await copyTextToClipboard(text);
+      alert(
+        ok
+          ? '클립보드에 복사했습니다.'
+          : '복사에 실패했습니다. 화면의 텍스트를 직접 선택해 복사해 주세요.'
+      );
+      return;
+    }
+    const ok = await copyTextToClipboard(getOrderFormPublicUrl(orderCustomerPreview.order.token));
+    alert(
+      ok
+        ? '클립보드에 복사했습니다.'
+        : '복사에 실패했습니다. 화면의 텍스트를 직접 선택해 복사해 주세요.'
+    );
   };
 
   const handleSaveEdit = async () => {
@@ -1876,7 +2014,49 @@ export function AdminInquiriesPage() {
                               </button>
                             )}
                           </>
-                        ) : item.status === 'DEPOSIT_COMPLETED' || item.status === 'ORDER_FORM_PENDING' ? (
+                        ) : item.status === 'ORDER_FORM_PENDING' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openOrderCustomerPreviewModal(item, 'message');
+                              }}
+                              className="text-fluid-xs font-medium text-blue-700 hover:underline"
+                            >
+                              메시지
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openOrderCustomerPreviewModal(item, 'link');
+                              }}
+                              className="text-fluid-xs font-medium text-blue-700 hover:underline"
+                            >
+                              링크
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openOrderFormNewTab(item);
+                              }}
+                              className="text-fluid-xs text-gray-700 hover:underline"
+                            >
+                              새창
+                            </button>
+                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className="text-fluid-xs text-red-600 hover:underline"
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : item.status === 'DEPOSIT_COMPLETED' ? (
                           <>
                             <button
                               type="button"
@@ -1888,7 +2068,7 @@ export function AdminInquiriesPage() {
                               }}
                               className="text-fluid-xs font-medium text-blue-700 hover:underline"
                             >
-                              {item.status === 'ORDER_FORM_PENDING' ? '발주서 링크' : '발주서'}
+                              발주서
                             </button>
                             <button
                               type="button"
@@ -2264,7 +2444,49 @@ export function AdminInquiriesPage() {
                               </button>
                             )}
                           </>
-                        ) : item.status === 'DEPOSIT_COMPLETED' || item.status === 'ORDER_FORM_PENDING' ? (
+                        ) : item.status === 'ORDER_FORM_PENDING' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openOrderCustomerPreviewModal(item, 'message');
+                              }}
+                              className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
+                            >
+                              메시지
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openOrderCustomerPreviewModal(item, 'link');
+                              }}
+                              className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
+                            >
+                              링크
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openOrderFormNewTab(item);
+                              }}
+                              className="text-fluid-2xs text-gray-700 hover:underline xl:text-fluid-xs"
+                            >
+                              새창
+                            </button>
+                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : item.status === 'DEPOSIT_COMPLETED' ? (
                           <>
                             <button
                               type="button"
@@ -2276,7 +2498,7 @@ export function AdminInquiriesPage() {
                               }}
                               className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
                             >
-                              {item.status === 'ORDER_FORM_PENDING' ? '발주서 링크' : '발주서'}
+                              발주서
                             </button>
                             <button
                               type="button"
@@ -2398,21 +2620,99 @@ export function AdminInquiriesPage() {
         )}
       </div>
 
-      <ConfirmPasswordModal
-        open={!!deleteTarget}
-        title={
-          deleteTarget
-            ? `「${deleteTarget.customerName}」 접수를 영구 삭제합니다. 복구할 수 없습니다.`
-            : ''
-        }
-        confirmLabel="삭제"
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={async (password) => {
-          if (!token || !deleteTarget) return;
-          await deleteInquiry(token, deleteTarget.id, password);
-          refresh(true);
-        }}
-      />
+      {createPortal(
+        <ConfirmPasswordModal
+          open={!!deleteTarget}
+          title={
+            deleteTarget
+              ? `「${deleteTarget.customerName}」 접수를 영구 삭제합니다. 복구할 수 없습니다.`
+              : ''
+          }
+          confirmLabel="삭제"
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={async (password) => {
+            if (!token || !deleteTarget) return;
+            await deleteInquiry(token, deleteTarget.id, password);
+            refresh(true);
+          }}
+        />,
+        document.body
+      )}
+
+      {orderCustomerPreview &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40"
+            role="presentation"
+            onClick={() => closeOrderCustomerPreviewModal()}
+          >
+            <div
+              className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white shadow-xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="inquiry-order-preview-modal-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ModalCloseButton onClick={() => closeOrderCustomerPreviewModal()} />
+              <div className="shrink-0 border-b border-gray-200 px-4 pb-3 pt-4 pr-14">
+                <h2 id="inquiry-order-preview-modal-title" className="text-lg font-semibold text-gray-900">
+                  {orderCustomerPreview.kind === 'message' ? '고객 발송용 메시지' : '발주서 링크'}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {orderCustomerPreview.order.customerName} · 총액{' '}
+                  {orderCustomerPreview.order.totalAmount.toLocaleString('ko-KR')}원
+                  {orderCustomerPreview.order.createdBy ? (
+                    <span className="mt-0.5 block text-[11px] text-gray-500">
+                      담당: {labelOrderFormIssuer(orderCustomerPreview.order.createdBy)}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                {orderCustomerPreviewError ? (
+                  <p className="text-sm text-red-600">{orderCustomerPreviewError}</p>
+                ) : orderCustomerPreview.kind === 'message' ? (
+                  orderCustomerPreviewLoading || !orderCustomerPreviewMsgConfig ? (
+                    <p className="text-sm text-gray-600">불러오는 중…</p>
+                  ) : (
+                    <pre className="whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-3 font-sans text-sm text-gray-800">
+                      {buildOrderFormCustomerMessage(
+                        orderCustomerPreviewMsgConfig,
+                        orderCustomerPreview.order
+                      )}
+                    </pre>
+                  )
+                ) : (
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-gray-500">고객에게 보낼 URL</span>
+                    <textarea
+                      readOnly
+                      rows={4}
+                      className="w-full resize-none rounded border border-gray-300 bg-white px-3 py-2 font-mono text-sm text-gray-900"
+                      value={getOrderFormPublicUrl(orderCustomerPreview.order.token)}
+                      onFocus={(e) => e.target.select()}
+                    />
+                  </label>
+                )}
+              </div>
+              <div className="flex shrink-0 justify-end gap-2 border-t border-gray-200 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => void handleCopyOrderCustomerPreview()}
+                  disabled={
+                    orderCustomerPreviewLoading ||
+                    Boolean(orderCustomerPreviewError) ||
+                    (orderCustomerPreview.kind === 'message' && !orderCustomerPreviewMsgConfig)
+                  }
+                  className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                >
+                  클립보드에 복사
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       <PreferredDateCalendarModal
         open={inquiryEditPreferredCalOpen}
@@ -3029,12 +3329,12 @@ export function AdminInquiriesPage() {
                     type="button"
                     onClick={() =>
                       navigate(
-                        `/admin/orderforms?tab=followup&inquiryId=${encodeURIComponent(editItem.id)}`
+                        `/admin/inquiries/followup?inquiryId=${encodeURIComponent(editItem.id)}`
                       )
                     }
                     className="shrink-0 self-start text-fluid-xs text-blue-700 underline underline-offset-2 hover:text-blue-900"
                   >
-                    발주서 메뉴에서 보기
+                    부재현황에서 보기
                   </button>
                 </div>
                 <p className="mt-1 text-fluid-2xs text-gray-600">
@@ -3044,7 +3344,7 @@ export function AdminInquiriesPage() {
                   <p className="mt-2 text-fluid-xs text-gray-500">불러오는 중…</p>
                 ) : inquiryFollowups.length === 0 ? (
                   <p className="mt-2 text-fluid-xs text-gray-600">
-                    연결된 부재현황이 없습니다. 아래 「기존 부재현황 연결」로 검색하거나 발주서 메뉴에서 신규 등록하세요.
+                    연결된 부재현황이 없습니다. 아래 「기존 부재현황 연결」로 검색하거나 접수 메뉴의 부재현황에서 신규 등록하세요.
                   </p>
                 ) : (
                   <ul className="mt-2 divide-y divide-indigo-100 rounded-md border border-indigo-100 bg-white">

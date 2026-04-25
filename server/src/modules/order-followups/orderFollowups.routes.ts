@@ -33,6 +33,34 @@ async function syncInquiryWhenFollowupDepositComplete(inquiryId: string): Promis
     notifyInboxRefresh([...new Set(assigns.map((a) => a.teamLeaderId))]);
   }
 }
+
+/** 부재현황이 예약금 대기(DEPOSIT_PENDING)일 때, 연결 접수를 접수 목록 입금대기로 맞춤(접수번호 없으면 발급) */
+async function syncInquiryWhenFollowupDepositPending(inquiryId: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const inv = await tx.inquiry.findUnique({
+      where: { id: inquiryId },
+      select: { status: true, inquiryNumber: true },
+    });
+    if (!inv || inv.status === 'CANCELLED') return;
+    if (
+      inv.status === 'DEPOSIT_COMPLETED' ||
+      inv.status === 'ORDER_FORM_PENDING' ||
+      inv.status === 'ASSIGNED' ||
+      inv.status === 'IN_PROGRESS' ||
+      inv.status === 'COMPLETED' ||
+      inv.status === 'CS_PROCESSING'
+    ) {
+      return;
+    }
+    const data: import('@prisma/client').Prisma.InquiryUpdateInput = {
+      status: 'DEPOSIT_PENDING',
+    };
+    if (inv.inquiryNumber == null) {
+      data.inquiryNumber = await allocateNextInquiryNumber(tx);
+    }
+    await tx.inquiry.update({ where: { id: inquiryId }, data });
+  });
+}
 router.use(authMiddleware);
 router.use(adminOrMarketer);
 
@@ -117,8 +145,24 @@ router.get('/', async (req, res) => {
   }
   if (statusFilter) {
     where.status = statusFilter;
-  } else if (!includeFulfilled) {
-    where.status = { not: 'FULFILLED' };
+  } else {
+    /** 부재현황 UI: 예약금 대기·입금 완료(RESERVED)는 연결 접수가 있으면 접수 목록에서만 본다 */
+    const listExtraAnd: import('@prisma/client').Prisma.OrderFollowupWhereInput[] = [];
+    if (!includeFulfilled) {
+      listExtraAnd.push({ NOT: { status: 'FULFILLED' } });
+    }
+    listExtraAnd.push({
+      OR: [
+        { status: { notIn: ['DEPOSIT_PENDING', 'RESERVED'] } },
+        { inquiryId: null },
+      ],
+    });
+    const prevAnd = where.AND
+      ? Array.isArray(where.AND)
+        ? where.AND
+        : [where.AND]
+      : [];
+    where.AND = [...prevAnd, ...listExtraAnd];
   }
   const dateRange = missingInquiryLink
     ? null
@@ -236,8 +280,12 @@ router.post('/', async (req, res) => {
     where: { id: row.id },
     include: FOLLOWUP_INCLUDE,
   });
-  if (status === 'RESERVED' && connectInquiryId) {
-    await syncInquiryWhenFollowupDepositComplete(connectInquiryId);
+  if (connectInquiryId) {
+    if (status === 'DEPOSIT_PENDING') {
+      await syncInquiryWhenFollowupDepositPending(connectInquiryId);
+    } else if (status === 'RESERVED') {
+      await syncInquiryWhenFollowupDepositComplete(connectInquiryId);
+    }
   }
   res.status(201).json({ item: serializeFollowup(full) });
 });
@@ -421,8 +469,12 @@ router.patch('/:id', async (req, res) => {
     where: { id },
     include: FOLLOWUP_INCLUDE,
   });
-  if (full.status === 'RESERVED' && full.inquiryId) {
-    await syncInquiryWhenFollowupDepositComplete(full.inquiryId);
+  if (full.inquiryId) {
+    if (full.status === 'DEPOSIT_PENDING') {
+      await syncInquiryWhenFollowupDepositPending(full.inquiryId);
+    } else if (full.status === 'RESERVED') {
+      await syncInquiryWhenFollowupDepositComplete(full.inquiryId);
+    }
   }
   res.json({ item: serializeFollowup(full) });
 });

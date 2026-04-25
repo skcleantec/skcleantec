@@ -51,6 +51,7 @@ function App() {
           <Route path="dashboard" element={<AdminDashboardPage />} />
           <Route path="inquiries" element={<AdminInquiriesLayout />}>
             <Route index element={<AdminInquiriesPage />} />
+            <Route path="followup" element={<AdminOrderFormPage />} />
             <Route path="order-forms" element={<AdminOrderFormPage />} />
           </Route>
           <Route path="schedule" element={<AdminSchedulePage />} />
@@ -69,7 +70,7 @@ function App() {
           <Route path="messages" element={<AdminMessagesPage />} />
           <Route path="orderforms" element={<AdminOrderFormPage />} />
           <Route path="orderforms/notice" element={<Navigate to="/admin/orderforms?tab=notice" replace />} />
-          <Route path="orderforms/followup" element={<Navigate to="/admin/orderforms?tab=followup" replace />} />
+          <Route path="orderforms/followup" element={<Navigate to="/admin/inquiries/followup" replace />} />
           <Route path="cs" element={<AdminCsPage />} />
           <Route path="advertising" element={<AdminAdvertisingPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
