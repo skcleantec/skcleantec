@@ -12,6 +12,10 @@ export function UserProfileMenu({
   token,
   me,
   loading,
+  /** 팀장(/team) 영역: 역할 로드 전에도 차량번호 입력 표시·픽업 안내 */
+  teamProfileVehicleField,
+  /** 팀 화면 미리보기(개발자) — JWT 역할이 ADMIN이어도 차량번호 입력 표시 */
+  showVehicleForPreviewAdmin,
   onSaved,
   onLogout,
   onSessionExpired,
@@ -19,6 +23,8 @@ export function UserProfileMenu({
   token: string | null;
   me: MeUser | null;
   loading?: boolean;
+  teamProfileVehicleField?: boolean;
+  showVehicleForPreviewAdmin?: boolean;
   onSaved?: (next: { name: string; phone: string | null; vehicleNumber: string | null }) => void;
   onLogout: () => void;
   onSessionExpired?: () => void;
@@ -84,7 +90,11 @@ export function UserProfileMenu({
   };
 
   const displayName = (me?.name ?? '').trim() || '사용자';
-  const canEditVehicleNumber = me?.role === 'TEAM_LEADER' || me?.role === 'EXTERNAL_PARTNER';
+  const showVehicleNumber =
+    me?.role === 'TEAM_LEADER' ||
+    me?.role === 'EXTERNAL_PARTNER' ||
+    Boolean(teamProfileVehicleField && (me?.role == null || me?.role === '')) ||
+    Boolean(showVehicleForPreviewAdmin);
 
   return (
     <>
@@ -150,15 +160,27 @@ export function UserProfileMenu({
                   placeholder="010-0000-0000"
                 />
               </label>
-              {canEditVehicleNumber ? (
+              {showVehicleNumber ? (
                 <label className="block">
-                  <span className="mb-1 block text-xs text-gray-600">차량번호</span>
+                  <span className="mb-1 block text-xs text-gray-600">개인 차량번호</span>
                   <input
                     value={vehicleNumber}
                     onChange={(e) => setVehicleNumber(e.target.value)}
+                    maxLength={64}
                     className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
                     placeholder="예: 123가4567"
+                    autoComplete="off"
                   />
+                  {teamProfileVehicleField && showVehicleNumber ? (
+                    <p className="mt-1.5 text-fluid-2xs text-gray-500 leading-snug">
+                      팀원 픽업 등 안내 메시지에 자동으로 넣을 수 있도록 저장됩니다. (선택)
+                      {showVehicleForPreviewAdmin ? (
+                        <span className="mt-1 block text-gray-500">
+                          팀 화면 미리보기(개발자) 계정에서도 동일하게 저장·확인할 수 있습니다.
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
                 </label>
               ) : null}
               <label className="block">

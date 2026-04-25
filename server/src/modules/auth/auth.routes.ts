@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import { config } from '../../config/index.js';
 import { authMiddleware, type AuthPayload } from './auth.middleware.js';
 import { isSuperAdminRoleAndEmail } from './superAdmin.js';
+import { isTeamPreviewAdminEmail } from './teamPreview.helpers.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
 const router = Router();
@@ -98,6 +99,26 @@ router.patch('/me', authMiddleware, async (req, res) => {
   const body = req.body as { name?: string; phone?: string | null; vehicleNumber?: string | null; password?: string };
   const data: { name?: string; phone?: string | null; vehicleNumber?: string | null; passwordHash?: string } = {};
 
+  if (body.vehicleNumber !== undefined) {
+    const existingForVehicle = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, email: true },
+    });
+    const canSetVehicle =
+      existingForVehicle?.role === 'TEAM_LEADER' ||
+      existingForVehicle?.role === 'EXTERNAL_PARTNER' ||
+      (existingForVehicle?.role === 'ADMIN' && isTeamPreviewAdminEmail(existingForVehicle.email));
+    if (canSetVehicle) {
+      const v = body.vehicleNumber ? String(body.vehicleNumber).trim() : '';
+      if (v.length > 64) {
+        res.status(400).json({ error: '차량번호는 64자 이내로 입력해 주세요.' });
+        return;
+      }
+      data.vehicleNumber = v || null;
+    }
+    /** 그 외 관리자·마케터는 vehicleNumber 키가 와도 무시 */
+  }
+
   if (body.name !== undefined) {
     const name = String(body.name).trim();
     if (!name) {
@@ -108,9 +129,6 @@ router.patch('/me', authMiddleware, async (req, res) => {
   }
   if (body.phone !== undefined) {
     data.phone = body.phone ? String(body.phone).trim() : null;
-  }
-  if (body.vehicleNumber !== undefined) {
-    data.vehicleNumber = body.vehicleNumber ? String(body.vehicleNumber).trim() : null;
   }
   if (body.password !== undefined) {
     const password = String(body.password).trim();

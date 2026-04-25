@@ -184,6 +184,10 @@ export function TeamLayout() {
             ) : null}
             <UserProfileMenu
               token={teamToken}
+              teamProfileVehicleField
+              showVehicleForPreviewAdmin={Boolean(
+                isTeamPreviewAdminEmail(userEmail) && userRole === 'ADMIN'
+              )}
               me={{ name: userName, phone: userPhone, vehicleNumber: userVehicleNumber, role: userRole }}
               onSaved={(next) => {
                 setUserName(next.name);
