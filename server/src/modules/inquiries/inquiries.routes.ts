@@ -248,11 +248,12 @@ router.get('/', async (req, res) => {
     orderForm: {
       select: {
         id: true,
+        token: true,
         totalAmount: true,
         depositAmount: true,
         balanceAmount: true,
         submittedAt: true,
-        createdBy: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, role: true } },
       },
     },
     changeLogs: {

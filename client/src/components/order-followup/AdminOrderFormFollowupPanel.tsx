@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
-  createOrderFollowup,
   deleteOrderFollowup,
   deferOrderFollowup,
   listOrderFollowupLogs,
@@ -98,13 +97,12 @@ function actionLabelKo(action: string): string {
 }
 
 export const FOLLOWUP_PANEL_HELP =
-  '전화 부재·예약금 미입금·보류 등 후속 관리입니다.\n' +
-  '등록일로 먼저 범위를 좁힌 뒤, 아래 칩으로 상태(부재 등)를 함께 걸 수 있습니다.\n' +
-  '예약금이 들어오면 「입금 완료」로 바꾼 뒤, 발주서는 작업란의 「발주서」를 눌러 발주서 발급 화면에서 진행하세요.\n' +
-  '마무리 시 상태를 「처리 완료」로 바꿀 수 있습니다.\n' +
+  '전화 부재·보류 등 후속 관리입니다.\n' +
+  '이 화면에서는 부재·보류 건만 목록·필터합니다. 예약금 대기·입금 완료 등은 접수 목록에서 이어갑니다.\n' +
+  '등록일로 범위를 좁힌 뒤, 상단 칩으로 「부재」「보류」를 골라 볼 수 있습니다.\n' +
   '재연락 후에도 부재·보류가 이어지면 「부재+1」로 누적 횟수를 올릴 수 있습니다.\n' +
   '편집에서 「골드DB」를 켜면 고급 DB로 올릴 때까지 집중이 필요한 건으로, 목록에서 노란 배경으로 표시됩니다.\n' +
-  '고객명 줄에서 「골드DB만」을 켜면 골드DB 건만 목록에 남깁니다. 안내는 화면 상단 ? 아이콘에서 볼 수 있습니다.';
+  '「골드DB만」을 켜면 골드DB 건만 목록에 남깁니다. 안내는 화면 상단 ? 아이콘에서 볼 수 있습니다.';
 
 /** 로그 `detail` 을 화면용 한글 설명으로 */
 function logDetailDescription(log: OrderFollowupLogItem): string {
@@ -277,7 +275,7 @@ export function AdminOrderFormFollowupPanel({
   onClearLinkedInquiry,
 }: {
   token: string;
-  /** URL `inquiryId` — 목록·신규 등록 시 해당 접수에만 연결 */
+  /** URL `inquiryId` — 목록을 해당 접수에 연결된 부재현황만으로 제한 */
   linkedInquiryId?: string | null;
   onClearLinkedInquiry?: () => void;
 }) {
@@ -290,14 +288,6 @@ export function AdminOrderFormFollowupPanel({
   const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('all');
   const [dateMonthKey, setDateMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
-
-  const [newName, setNewName] = useState('');
-  const [newNickname, setNewNickname] = useState('');
-  const [newPhone, setNewPhone] = useState('');
-  const [newStatus, setNewStatus] = useState<OrderFollowupStatus>('ABSENT');
-  const [newMemo, setNewMemo] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const [logFor, setLogFor] = useState<OrderFollowupItem | null>(null);
   const [logs, setLogs] = useState<OrderFollowupLogItem[]>([]);
@@ -369,6 +359,13 @@ export function AdminOrderFormFollowupPanel({
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** 예전에 다른 상태로 필터를 둔 경우 — 이 화면에서는 부재·보류만 */
+  useEffect(() => {
+    if (filterStatus !== '' && filterStatus !== 'ABSENT' && filterStatus !== 'ON_HOLD') {
+      setFilterStatus('');
+    }
+  }, [filterStatus]);
 
   useEffect(() => {
     if (!logFor) {
@@ -455,45 +452,6 @@ export function AdminOrderFormFollowupPanel({
     };
   }, [edit, connectInqQ, token]);
 
-  const resetCreateForm = () => {
-    setNewName('');
-    setNewNickname('');
-    setNewPhone('');
-    setNewStatus('ABSENT');
-    setNewMemo('');
-  };
-
-  const closeCreateModal = () => {
-    setCreateModalOpen(false);
-    resetCreateForm();
-  };
-
-  const handleCreate = async () => {
-    if (!newName.trim()) {
-      alert('고객명을 입력해 주세요.');
-      return;
-    }
-    setCreating(true);
-    try {
-      await createOrderFollowup(token, {
-        customerName: newName.trim(),
-        nickname: newNickname.trim() || null,
-        customerPhone: newPhone.trim() || undefined,
-        status: newStatus,
-        memo: newMemo.trim() || null,
-        ...(linkedInquiryId?.trim() ? { inquiryId: linkedInquiryId.trim() } : {}),
-      });
-      closeCreateModal();
-      /* 등록 직후 이전 상태 필터로 새 행이 안 보이는 문제 방지 */
-      setFilterStatus('');
-      await load({ status: '' });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '등록에 실패했습니다.');
-    } finally {
-      setCreating(false);
-    }
-  };
-
   const saveEdit = async () => {
     if (!edit) return;
     const nextName = editName.trim();
@@ -511,20 +469,6 @@ export function AdminOrderFormFollowupPanel({
         nextContactAt: fromLocalDatetimeValue(editNext),
         goldDb: editGoldDb,
       });
-      setEdit(null);
-      await load();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
-    } finally {
-      setSavingEdit(false);
-    }
-  };
-
-  const markReserved = async () => {
-    if (!edit) return;
-    setSavingEdit(true);
-    try {
-      await patchOrderFollowup(token, edit.id, { status: 'RESERVED' });
       setEdit(null);
       await load();
     } catch (e) {
@@ -564,10 +508,24 @@ export function AdminOrderFormFollowupPanel({
     () =>
       [
         { value: '' as const, label: '전체' },
-        ...ORDER_FOLLOWUP_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+        { value: 'ABSENT' as const, label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT },
+        { value: 'ON_HOLD' as const, label: ORDER_FOLLOWUP_STATUS_LABEL.ON_HOLD },
       ] as const,
     []
   );
+
+  /** 부재현황 화면에서만 편집 가능한 상태(그 외 상태 행은 목록에 거의 안 나오지만, 열렸을 때 현재값 옵션으로 유지) */
+  const editStatusOptions = useMemo(() => {
+    const allowed = ORDER_FOLLOWUP_STATUS_OPTIONS.filter(
+      (o) => o.value === 'ABSENT' || o.value === 'ON_HOLD'
+    );
+    if (!edit) return allowed;
+    if (edit.status !== 'ABSENT' && edit.status !== 'ON_HOLD') {
+      const cur = ORDER_FOLLOWUP_STATUS_OPTIONS.find((o) => o.value === edit.status);
+      return cur ? [cur, ...allowed] : allowed;
+    }
+    return allowed;
+  }, [edit]);
 
   const unlinkInquiryFromEdit = async () => {
     if (!edit) return;
@@ -609,7 +567,7 @@ export function AdminOrderFormFollowupPanel({
             <span className="font-medium">접수 연결 모드</span>
             <span className="text-blue-900/90">
               {' '}
-              — 목록은 이 접수에 연결된 부재현황만 보이며, 신규 등록 시에도 같은 접수에 연결됩니다.
+              — 목록은 이 접수에 연결된 부재·보류 부재현황만 보입니다.
             </span>
           </p>
           {onClearLinkedInquiry ? (
@@ -708,13 +666,6 @@ export function AdminOrderFormFollowupPanel({
                   </button>
                 ) : null}
               </div>
-              <button
-                type="button"
-                onClick={() => setCreateModalOpen(true)}
-                className="shrink-0 rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-2xs sm:text-fluid-xs font-semibold text-white shadow-sm hover:bg-gray-800 touch-manipulation"
-              >
-                신규등록
-              </button>
               <button
                 type="button"
                 onClick={() => setFilterGoldDbOnly((v) => !v)}
@@ -950,104 +901,6 @@ export function AdminOrderFormFollowupPanel({
         )}
       </section>
 
-      {createModalOpen &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[220] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
-            role="dialog"
-            aria-modal
-            aria-labelledby="followup-create-title"
-          >
-            <div className="absolute inset-0" aria-hidden onClick={() => !creating && closeCreateModal()} />
-            <div className="relative flex max-h-[min(92dvh,640px)] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200">
-              <ModalCloseButton onClick={() => !creating && closeCreateModal()} />
-              <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12">
-                <h2 id="followup-create-title" className="text-fluid-base font-semibold text-gray-900">
-                  신규 등록
-                </h2>
-                <p className="text-fluid-2xs text-gray-500 mt-0.5">
-                  고객명은 필수이며, 연락처는 선택입니다. 등록일(최초 등록일)은 저장하는 순간 자동으로 기록됩니다.
-                </p>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="min-w-0">
-                    <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">고객명</label>
-                    <input
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm text-gray-900 shadow-sm"
-                      placeholder="홍길동"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">닉네임 (선택)</label>
-                    <input
-                      value={newNickname}
-                      onChange={(e) => setNewNickname(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm text-gray-900 shadow-sm"
-                      placeholder="동명이인 구분용 별명"
-                    />
-                  </div>
-                  <div className="min-w-0 sm:col-span-2">
-                    <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">연락처 (선택)</label>
-                    <input
-                      value={newPhone}
-                      onChange={(e) => setNewPhone(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm text-gray-900 shadow-sm tabular-nums"
-                      placeholder="나중에 입력 가능"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">상태</label>
-                    <select
-                      value={newStatus}
-                      onChange={(e) => setNewStatus(e.target.value as OrderFollowupStatus)}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm bg-white text-gray-900 shadow-sm"
-                    >
-                      {ORDER_FOLLOWUP_STATUS_OPTIONS.filter((o) => o.value !== 'FULFILLED').map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="min-w-0 sm:col-span-2">
-                    <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">메모</label>
-                    <textarea
-                      value={newMemo}
-                      onChange={(e) => setNewMemo(e.target.value)}
-                      rows={3}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm text-gray-900 shadow-sm resize-y min-h-[2.75rem]"
-                      placeholder="통화 요약·고객 요청 등"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    disabled={creating}
-                    onClick={() => !creating && closeCreateModal()}
-                    className="flex-1 rounded-lg border border-gray-200 py-2.5 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    disabled={creating}
-                    onClick={() => void handleCreate()}
-                    className="flex-1 rounded-lg bg-gray-900 py-2.5 text-fluid-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-                  >
-                    {creating ? '등록 중…' : '등록'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
       {logFor &&
         createPortal(
           <div
@@ -1163,7 +1016,7 @@ export function AdminOrderFormFollowupPanel({
                     disabled={edit.status === 'FULFILLED'}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm bg-white disabled:bg-gray-50"
                   >
-                    {ORDER_FOLLOWUP_STATUS_OPTIONS.map((o) => (
+                    {editStatusOptions.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>
@@ -1277,17 +1130,6 @@ export function AdminOrderFormFollowupPanel({
                     className="shrink-0"
                     text="고급 DB로 올릴 때까지 팀에서 더 촘촘히 챙길 고객으로 표시합니다. 켜면 목록에서 노란 배경으로 보입니다."
                   />
-                </div>
-                <div className="rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2 space-y-2">
-                  <p className="text-fluid-2xs font-medium text-blue-900">예약금 입금 후</p>
-                  <button
-                    type="button"
-                    disabled={savingEdit || edit.status === 'RESERVED' || edit.status === 'FULFILLED'}
-                    onClick={() => void markReserved()}
-                    className="w-full rounded-lg bg-blue-700 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-blue-800 disabled:opacity-40"
-                  >
-                    입금 완료로 표시
-                  </button>
                 </div>
                 <div className="flex items-center gap-2">
                   <button

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -63,8 +63,6 @@ import {
   updateFormConfig,
   getAdminOrderFormPhotos,
   type OrderForm,
-  type OrderFormConfigPublic,
-  type OrderFormCreatedBy,
   type OrderFormIssuerOption,
   type OrderFormListDatePreset,
   type OrderFormPhotoItem,
@@ -73,20 +71,27 @@ import { getInquiries, getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import {
-  ORDER_FORM_CONFIG_DEFAULTS,
-  orderFormConfigLine,
-} from '../../constants/orderFormConfigDefaults';
+  buildOrderFormCustomerMessage,
+  getOrderFormPublicUrl,
+  labelOrderFormIssuer,
+  normalizeMsgConfigForEditor,
+  withDefaultText,
+} from '../../utils/orderFormCustomerCopy';
+import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
 type Tab = 'config' | 'messages' | 'issue' | 'followup' | 'list' | 'specialty' | 'notice';
 
 const VALID_TABS: Tab[] = ['config', 'messages', 'issue', 'followup', 'list', 'specialty', 'notice'];
+
+/** 발주서 GNB 화면 상단 탭 순서(부재현황은 접수 메뉴 하위로 이동 — 여기서는 제외) */
+const ORDER_FORM_PAGE_SUB_TABS: Tab[] = ['issue', 'config', 'messages', 'list', 'specialty', 'notice'];
 
 const SUB_TAB_ORDER_STORAGE_KEY = 'skcleanteck.adminOrderFormSubTabOrder';
 
 /** 저장 없을 때 상단 탭 기본 순서 */
 const DEFAULT_SUB_TAB_ORDER: Tab[] = [
   'issue',
-  'followup',
   'config',
   'messages',
   'list',
@@ -103,14 +108,6 @@ const TAB_LABELS: Record<Tab, string> = {
   specialty: '발주서 설정',
   notice: '안내사항설정',
 };
-
-/** 발주서 목록 — 발급자(마케터 이름 / 관리자는 문구만) */
-function labelOrderFormIssuer(user: OrderFormCreatedBy | null | undefined): string {
-  if (!user) return '—';
-  if (user.role === 'ADMIN') return '관리자';
-  if (!user.name?.trim()) return '—';
-  return user.name.trim();
-}
 
 /** 발주서 목록 「예약일」열·모바일 카드: 날짜(요일) + 시간대·상세 */
 function formatOrderFormReservationCell(order: OrderForm): {
@@ -141,12 +138,12 @@ function normalizeSubTabOrder(parsed: unknown): Tab[] {
   const out: Tab[] = [];
   for (const x of parsed) {
     const t = x as Tab;
-    if (VALID_TABS.includes(t) && !seen.has(t)) {
+    if (ORDER_FORM_PAGE_SUB_TABS.includes(t) && !seen.has(t)) {
       seen.add(t);
       out.push(t);
     }
   }
-  for (const t of VALID_TABS) {
+  for (const t of ORDER_FORM_PAGE_SUB_TABS) {
     if (!seen.has(t)) out.push(t);
   }
   return out;
@@ -161,54 +158,7 @@ function loadSubTabOrder(): Tab[] {
   } catch {
     order = [...DEFAULT_SUB_TAB_ORDER];
   }
-  if (!order.includes('followup')) {
-    const i = order.indexOf('issue');
-    if (i >= 0) {
-      order = [...order.slice(0, i + 1), 'followup', ...order.slice(i + 1)];
-    } else {
-      order = ['followup', ...order];
-    }
-    order = normalizeSubTabOrder(order);
-    try {
-      localStorage.setItem(SUB_TAB_ORDER_STORAGE_KEY, JSON.stringify(order));
-    } catch {
-      /* ignore quota */
-    }
-  }
   return order;
-}
-
-function fallbackCopyTextToClipboard(text: string): boolean {
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    ta.style.top = '0';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    ta.setSelectionRange(0, text.length);
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok;
-  } catch {
-    return false;
-  }
-}
-
-/** Clipboard API 실패·비보안 컨텍스트 등에서 폴백 */
-async function copyTextToClipboard(text: string): Promise<boolean> {
-  try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    /* fall through */
-  }
-  return fallbackCopyTextToClipboard(text);
 }
 
 function parseTabParam(raw: string | null): Tab {
@@ -216,41 +166,16 @@ function parseTabParam(raw: string | null): Tab {
   return 'issue';
 }
 
-type FormMsgDefaultKey = keyof typeof ORDER_FORM_CONFIG_DEFAULTS;
-
-function withDefaultText(raw: string | null | undefined, key: FormMsgDefaultKey): string {
-  return orderFormConfigLine(raw, ORDER_FORM_CONFIG_DEFAULTS[key]);
-}
-
-/** 폼 메시지 탭에서 다루는 필드 (고객 안내 본문은 발주서 화면의 안내사항설정 탭에서 편집) */
-type FormMessagesState = Pick<
-  OrderFormConfigPublic,
-  | 'formTitle'
-  | 'priceLabel'
-  | 'reviewEventText'
-  | 'footerNotice1'
-  | 'footerNotice2'
-  | 'submitSuccessTitle'
-  | 'submitSuccessBody'
->;
-
-/** API 응답을 편집용 상태로: 비어 있는 항목은 기본 문구로 채워 placeholder 없이 바로 수정 가능 */
-function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessagesState {
-  return {
-    formTitle: withDefaultText(c.formTitle, 'formTitle'),
-    priceLabel: withDefaultText(c.priceLabel, 'priceLabel'),
-    reviewEventText: withDefaultText(c.reviewEventText, 'reviewEventText'),
-    footerNotice1: withDefaultText(c.footerNotice1, 'footerNotice1'),
-    footerNotice2: withDefaultText(c.footerNotice2, 'footerNotice2'),
-    submitSuccessTitle: withDefaultText(c.submitSuccessTitle, 'submitSuccessTitle'),
-    submitSuccessBody: withDefaultText(c.submitSuccessBody, 'submitSuccessBody'),
-  };
-}
-
 export function AdminOrderFormPage() {
   const token = getToken();
   const location = useLocation();
-  const receptionListOnly = location.pathname === '/admin/inquiries/order-forms';
+  const navigate = useNavigate();
+  /** 접수 메뉴에 끼워 넣은 발주서 화면: 목록만 / 부재현황만 */
+  const inquiriesEmbed = useMemo((): 'list' | 'followup' | null => {
+    if (location.pathname === '/admin/inquiries/order-forms') return 'list';
+    if (location.pathname === '/admin/inquiries/followup') return 'followup';
+    return null;
+  }, [location.pathname]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => parseTabParam(searchParams.get('tab')));
   const [subTabOrder, setSubTabOrder] = useState<Tab[]>(() => loadSubTabOrder());
@@ -343,18 +268,31 @@ export function AdminOrderFormPage() {
   };
 
   useEffect(() => {
-    if (receptionListOnly) {
+    if (inquiriesEmbed === 'list') {
       setTab('list');
       return;
     }
+    if (inquiriesEmbed === 'followup') {
+      setTab('followup');
+      return;
+    }
     setTab(parseTabParam(searchParams.get('tab')));
-  }, [searchParams, receptionListOnly]);
+  }, [searchParams, inquiriesEmbed]);
+
+  /** 부재현황은 `/admin/inquiries/followup` — 구 주소 `?tab=followup` 는 접수 쪽으로 넘김 */
+  useEffect(() => {
+    if (location.pathname !== '/admin/orderforms') return;
+    const raw = searchParams.get('tab')?.trim().toLowerCase();
+    if (raw !== 'followup') return;
+    const inquiryId = searchParams.get('inquiryId')?.trim();
+    const qs = inquiryId ? `?inquiryId=${encodeURIComponent(inquiryId)}` : '';
+    navigate(`/admin/inquiries/followup${qs}`, { replace: true });
+  }, [location.pathname, navigate, searchParams]);
 
   const linkedFollowupInquiryId = useMemo(
     () => searchParams.get('inquiryId')?.trim() || null,
     [searchParams]
   );
-
   const goTab = useCallback(
     (t: Tab) => {
       setTab(t);
@@ -579,7 +517,7 @@ export function AdminOrderFormPage() {
   }, [token, tab, pendingLinkId]);
 
   useEffect(() => {
-    if (!token || receptionListOnly) return;
+    if (!token || inquiriesEmbed !== null) return;
     const raw = searchParams.get('pendingInquiryId')?.trim();
     if (!raw) {
       pendingInquiryFromUrlConsumed.current = null;
@@ -598,7 +536,7 @@ export function AdminOrderFormPage() {
       },
       { replace: true }
     );
-  }, [token, receptionListOnly, searchParams, setSearchParams]);
+  }, [token, inquiriesEmbed, searchParams, setSearchParams]);
 
   const handleSaveConfig = async () => {
     if (!token) return;
@@ -736,52 +674,9 @@ export function AdminOrderFormPage() {
     }
   };
 
-  const getOrderLink = (orderToken: string) =>
-    `${window.location.origin}/order/${orderToken}`;
+  const getOrderLink = (orderToken: string) => getOrderFormPublicUrl(orderToken);
 
-  const getCsLink = () => `${window.location.origin}/cs`;
-
-  const getOrderMessage = (order: OrderForm) => {
-    const link = getOrderLink(order.token);
-    const csLink = getCsLink();
-    const title = withDefaultText(msgConfig.formTitle, 'formTitle');
-    const priceLabel = withDefaultText(msgConfig.priceLabel, 'priceLabel');
-    const reviewText = withDefaultText(msgConfig.reviewEventText, 'reviewEventText');
-    const footer1 = withDefaultText(msgConfig.footerNotice1, 'footerNotice1');
-    const footer2 = withDefaultText(msgConfig.footerNotice2, 'footerNotice2');
-
-    let msg = `${title}
-
-총 금액 ${order.totalAmount.toLocaleString('ko-KR')}원 ${priceLabel}
-잔금 ${order.balanceAmount.toLocaleString('ko-KR')}원, 예약금 ${order.depositAmount.toLocaleString('ko-KR')}원
-${reviewText}`;
-
-    if (order.preferredDate && order.preferredTime) {
-      const slotLabel =
-        ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === order.preferredTime)?.label ??
-        order.preferredTime;
-      msg += `\n청소일시: ${order.preferredDate} (${slotLabel})`;
-    }
-    if (order.preferredTimeDetail?.trim()) {
-      msg += `\n희망 시각: ${order.preferredTimeDetail.trim()}`;
-    }
-    if (order.optionNote) {
-      msg += `\n${order.optionNote}`;
-    }
-
-    msg += `
-
-아래 링크에서 예약확정서를 작성해 주세요.
-${link}
-
-청소 후 청소팀 태도, 고객 불편 관련 신고는 본사에 직접 요청해주시면 바로 시정처리 해드리겠습니다.
-신고 URL: ${csLink}
-
-${footer1}
-${footer2}`;
-
-    return msg;
-  };
+  const getOrderMessage = (order: OrderForm) => buildOrderFormCustomerMessage(msgConfig, order);
 
   const handleCopyPreviewModal = async () => {
     if (!previewModal) return;
@@ -844,7 +739,7 @@ ${footer2}`;
 
   return (
     <div className="min-w-0 w-full max-w-full">
-      {!receptionListOnly && (
+      {inquiriesEmbed === null && (
         <>
           <div className="mb-6 w-full min-w-0">
             <div className="relative min-w-0">
