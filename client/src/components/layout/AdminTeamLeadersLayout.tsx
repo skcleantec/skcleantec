@@ -94,6 +94,15 @@ export function AdminTeamLeadersLayout() {
         <NavLink to="/admin/team-leaders/external-settlement" className={tabClass}>
           타업체 정산
         </NavLink>
+        <NavLink to="/admin/team-leaders/leader-stats" className={tabClass}>
+          팀장
+        </NavLink>
+        <NavLink to="/admin/team-leaders/team-members" className={tabClass}>
+          팀원
+        </NavLink>
+        <NavLink to="/admin/team-leaders/holiday-calendar" className={tabClass}>
+          휴일 캘린더
+        </NavLink>
       </nav>
       <Outlet />
     </div>

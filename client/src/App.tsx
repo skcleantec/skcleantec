@@ -57,6 +57,9 @@ function App() {
           <Route path="schedule" element={<AdminSchedulePage />} />
           <Route path="team-leaders" element={<AdminTeamLeadersLayout />}>
             <Route index element={<AdminTeamLeadersPage />} />
+            <Route path="team-members" element={<AdminTeamsPage />} />
+            <Route path="holiday-calendar" element={<AdminTeamHolidayCalendarPage />} />
+            <Route path="leader-stats" element={<AdminTeamLeaderStatsPage />} />
             <Route path="page-settings" element={<AdminPageSettingsPage />} />
             <Route path="inquiry-delete" element={<AdminInquiryBulkDeletePage />} />
             <Route path="external-companies" element={<AdminExternalCompaniesPage />} />
