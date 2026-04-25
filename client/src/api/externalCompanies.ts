@@ -271,7 +271,7 @@ export async function postExternalFeeAccrualReset(token: string, externalCompany
 
 export async function postExternalSettlementPayment(
   token: string,
-  params: { externalCompanyId: string; amount: number; memo?: string }
+  params: { externalCompanyId: string; amount: number; memo?: string; paidDate?: string }
 ): Promise<{ ok: boolean; payment: { id: string; amount: number; paidAt: string } }> {
   const res = await fetch(`${API}/external-companies/settlement/payments`, {
     method: 'POST',

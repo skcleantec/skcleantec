@@ -187,6 +187,7 @@ export function TeamExternalSettlementPage() {
 
       {data ? (
         <>
+          <h2 className="text-fluid-sm font-medium text-gray-800">조회 기간 기준 (위 달력)</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div className="rounded-lg border border-gray-200 bg-white p-3">
               <p className="text-fluid-2xs text-gray-500">업체</p>
@@ -195,7 +196,7 @@ export function TeamExternalSettlementPage() {
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">총 수수료</p>
+              <p className="text-fluid-2xs text-gray-500">기간 총 수수료</p>
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">{won(data.totalFee)}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
@@ -209,13 +210,13 @@ export function TeamExternalSettlementPage() {
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">{data.totalCount}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">전월 이월금액</p>
+              <p className="text-fluid-2xs text-gray-500">기간 이전 이월</p>
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
                 {won(data.carryOverAmount)}
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">결제대상 금액</p>
+              <p className="text-fluid-2xs text-gray-500">기간 결제대상</p>
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
                 {won(data.payableAmount)}
               </p>
@@ -227,9 +228,46 @@ export function TeamExternalSettlementPage() {
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">남은 결제금액</p>
+              <p className="text-fluid-2xs text-gray-500">기간 남은 결제</p>
               <p className={`mt-1 text-fluid-sm font-semibold tabular-nums ${remainingAmount > 0 ? 'text-rose-700' : 'text-gray-900'}`}>
                 {won(remainingAmount > 0 ? remainingAmount : 0)}
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-4 text-fluid-sm font-medium text-gray-800">올해({data.summaryYear}) 기준</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border-2 border-rose-200 bg-rose-50/60 p-4 shadow-sm">
+              <p className="text-fluid-2xs font-medium uppercase tracking-wide text-rose-900/80">남은 결제(미수)</p>
+              <p
+                className={`mt-2 text-2xl font-bold tabular-nums sm:text-3xl ${
+                  (data.yearRemainingAmount ?? 0) > 0 ? 'text-rose-800' : 'text-gray-800'
+                }`}
+              >
+                {won((data.yearRemainingAmount ?? 0) > 0 ? data.yearRemainingAmount ?? 0 : 0)}
+              </p>
+              <p className="mt-2 text-fluid-xs text-gray-600">
+                올해 총 수수료(예약일 기준){' '}
+                <span className="font-semibold tabular-nums text-gray-900">{won(data.yearTotalFee ?? 0)}</span>
+              </p>
+            </div>
+            <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/60 p-4 shadow-sm">
+              <p className="text-fluid-2xs font-medium uppercase tracking-wide text-emerald-900/80">최근 정산완료</p>
+              {data.lastSettlementPayment ? (
+                <>
+                  <p className="mt-2 text-2xl font-bold text-emerald-800 tabular-nums sm:text-3xl">
+                    {won(data.lastSettlementPayment.amount)}
+                  </p>
+                  <p className="mt-1 text-fluid-xs text-gray-600">
+                    {formatDateCompactWithWeekday(data.lastSettlementPayment.paidAt)}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-3 text-fluid-sm text-gray-500">정산완료 내역이 아직 없습니다.</p>
+              )}
+              <p className="mt-2 text-fluid-xs text-gray-600">
+                올해 정산완료 누적{' '}
+                <span className="font-semibold tabular-nums text-emerald-900">{won(data.yearPeriodPaidAmount ?? 0)}</span>
               </p>
             </div>
           </div>

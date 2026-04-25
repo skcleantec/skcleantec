@@ -16,6 +16,11 @@ function kstTodayYmd(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
+/** 정산 `paidAt` — 내역에 날짜(한국)만 읽기 쉽게 */
+function formatKstDateLabel(iso: string): string {
+  return new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'medium' });
+}
+
 function monthStartEnd(month: string): { from: string; to: string } {
   const [yy, mm] = month.split('-').map(Number);
   const last = new Date(yy, mm, 0).getDate();
@@ -58,6 +63,8 @@ export function AdminExternalSettlementPage() {
 
   const [payAmountInput, setPayAmountInput] = useState('');
   const [payMemoInput, setPayMemoInput] = useState('');
+  /** 정산일(한국) — `paidAt`에 반영, 정산완료 내역에 표시 */
+  const [payDateInput, setPayDateInput] = useState(() => kstTodayYmd());
   const [payConfirm, setPayConfirm] = useState<PayConfirmState | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -109,6 +116,7 @@ export function AdminExternalSettlementPage() {
     setSelected(row);
     setPayAmountInput('');
     setPayMemoInput('');
+    setPayDateInput(kstTodayYmd());
     setPayConfirm(null);
     setPayModalOpen(true);
   };
@@ -195,6 +203,14 @@ export function AdminExternalSettlementPage() {
 
   const preparePaymentConfirm = () => {
     if (!selected) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(payDateInput)) {
+      window.alert('정산일을 선택해 주세요.');
+      return;
+    }
+    if (payDateInput > kstTodayYmd()) {
+      window.alert('정산일은 오늘(한국) 이후로 설정할 수 없습니다.');
+      return;
+    }
     const amount = Number(payAmountInput.replace(/[^\d]/g, ''));
     if (!Number.isFinite(amount) || amount <= 0) {
       window.alert('정산 금액은 0원보다 커야 합니다.');
@@ -220,6 +236,7 @@ export function AdminExternalSettlementPage() {
         externalCompanyId: selected.externalCompanyId,
         amount: payConfirm.inputAmount,
         memo: payMemoInput.trim(),
+        paidDate: payDateInput.trim(),
       });
       const optimisticHistoryRow: HistoryRow = {
         id: result.payment.id,
@@ -406,6 +423,18 @@ export function AdminExternalSettlementPage() {
                 현재 누적 미수금:{' '}
                 <strong className="text-rose-700 tabular-nums">{won(Math.max(0, selected.remainingAmount))}</strong>
               </p>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">정산일 (한국 기준)</label>
+                <input
+                  type="date"
+                  value={payDateInput}
+                  min="2000-01-01"
+                  max={kstTodayYmd()}
+                  onChange={(e) => setPayDateInput(e.target.value)}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                />
+                <p className="mt-0.5 text-[11px] text-gray-400">기본은 오늘 날짜이며, 변경 시 해당일로 정산·내역에 저장됩니다.</p>
+              </div>
               <input
                 value={payAmountInput}
                 onChange={(e) => setPayAmountInput(e.target.value.replace(/[^\d,]/g, ''))}
@@ -455,6 +484,14 @@ export function AdminExternalSettlementPage() {
               <span>처리 후 남은 금액</span>
               <strong>{won(payConfirm.afterRemaining)}</strong>
             </p>
+            <p className="mt-2 text-sm flex justify-between text-gray-600">
+              <span>정산일</span>
+              <span className="tabular-nums">
+                {payDateInput
+                  ? new Date(`${payDateInput}T12:00:00+09:00`).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
+                  : '—'}
+              </span>
+            </p>
             <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
@@ -495,9 +532,7 @@ export function AdminExternalSettlementPage() {
                   <div className="lg:hidden space-y-2">
                     {historyRows.map((p) => (
                       <div key={p.id} className="rounded border border-gray-200 p-3 text-xs">
-                        <p className="text-gray-500">
-                          {new Date(p.paidAt).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })}
-                        </p>
+                        <p className="text-gray-500">{formatKstDateLabel(p.paidAt)}</p>
                         <p className="mt-1 flex items-center justify-between">
                           <span className="text-gray-500">금액</span>
                           <strong className="tabular-nums text-emerald-700">{won(p.amount)}</strong>
@@ -520,9 +555,7 @@ export function AdminExternalSettlementPage() {
                       <tbody>
                         {historyRows.map((p) => (
                           <tr key={p.id} className="border-t border-gray-100">
-                            <td className="px-3 py-2 text-center tabular-nums">
-                              {new Date(p.paidAt).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })}
-                            </td>
+                            <td className="px-3 py-2 text-center tabular-nums">{formatKstDateLabel(p.paidAt)}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{won(p.amount)}</td>
                             <td className="px-3 py-2 text-center">{p.actorName ?? '-'}</td>
                             <td className="px-3 py-2 text-center">{p.memo ?? '-'}</td>

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 
 const router = Router();
 
@@ -909,10 +910,15 @@ router.post('/settlement/reset-accrual', async (req, res) => {
 /** 관리자: 타업체 정산완료(부분/전체) 금액 기록 */
 router.post('/settlement/payments', async (req, res) => {
   const actorId = (req as unknown as { user: AuthPayload }).user.userId;
-  const body = req.body as { externalCompanyId?: string; amount?: number; memo?: string };
+  const body = req.body as { externalCompanyId?: string; amount?: number; memo?: string; paidDate?: string };
   const externalCompanyId = typeof body.externalCompanyId === 'string' ? body.externalCompanyId.trim() : '';
   const amount = Number(body.amount);
   const memo = typeof body.memo === 'string' ? body.memo.trim() : '';
+  const paidResolved = resolveExternalSettlementPaidAt(body.paidDate);
+  if (!paidResolved.ok) {
+    res.status(400).json({ error: paidResolved.error });
+    return;
+  }
   if (!externalCompanyId) {
     res.status(400).json({ error: 'externalCompanyId가 필요합니다.' });
     return;
@@ -935,6 +941,7 @@ router.post('/settlement/payments', async (req, res) => {
       amount: Math.floor(amount),
       memo: memo || null,
       actorId,
+      paidAt: paidResolved.paidAt,
     },
     select: { id: true, amount: true, paidAt: true },
   });

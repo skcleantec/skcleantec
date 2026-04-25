@@ -82,6 +82,16 @@ export interface TeamExternalSettlementResponse {
   payableAmount: number;
   periodPaidAmount: number;
   remainingAmount: number;
+  /** 올해(한국 달력) 기준 요약 */
+  summaryYear: string;
+  yFromYmd: string;
+  yToYmd: string;
+  yearTotalFee: number;
+  yearCarryOverAmount: number;
+  yearPayableAmount: number;
+  yearPeriodPaidAmount: number;
+  yearRemainingAmount: number;
+  lastSettlementPayment: { amount: number; paidAt: string } | null;
   payments: Array<{
     id: string;
     amount: number;

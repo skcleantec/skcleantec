@@ -13,6 +13,7 @@ import { assertCrewCapacityForInquiry } from '../inquiries/crewMemberCapacity.he
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
+import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 
 const router = Router();
 
@@ -784,6 +785,110 @@ router.get('/external-settlement', async (req, res) => {
   const payableAmount = carryOverAmount + totalFee;
   const remainingAmount = payableAmount - periodPaidAmount;
 
+  /** 이후 UI: 올해(KST) 기준 요약 / 최근 1회 정산 */
+  const kstYmd = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+  const summaryYear = kstYmd(new Date()).slice(0, 4);
+  const yFromYmd = `${summaryYear}-01-01`;
+  const yToYmd = `${summaryYear}-12-31`;
+  const yearFromDt = new Date(`${yFromYmd}T00:00:00+09:00`);
+  const yearToDt = new Date(`${yToYmd}T23:59:59.999+09:00`);
+
+  const extSomeActive = {
+    assignments: {
+      some: { teamLeader: { role: 'EXTERNAL_PARTNER' as const, externalCompanyId: companyId } },
+    },
+  };
+  const [
+    activeYearAgg,
+    cancelledYearAgg,
+    activeBeforeYearAgg,
+    cancelledBeforeYearAgg,
+    paidBeforeYearAgg,
+    yearPaidInYearAgg,
+    lastPaymentRow,
+  ] = await Promise.all([
+    prisma.inquiry.aggregate({
+      where: {
+        externalTransferFee: { not: null },
+        preferredDate: { gte: yearFromDt, lte: yearToDt },
+        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+        ...extSomeActive,
+      },
+      _sum: { externalTransferFee: true },
+    }),
+    prisma.inquiry.aggregate({
+      where: {
+        status: 'CANCELLED',
+        externalTransferFee: { not: null },
+        preferredDate: { gte: yearFromDt, lte: yearToDt },
+        OR: [
+          { cancelFeeExternalCompanyId: companyId },
+          {
+            assignments: {
+              some: {
+                teamLeader: { role: 'EXTERNAL_PARTNER' as const, externalCompanyId: companyId },
+              },
+            },
+          },
+        ],
+      },
+      _sum: { externalTransferFee: true },
+    }),
+    prisma.inquiry.aggregate({
+      where: {
+        externalTransferFee: { not: null },
+        preferredDate: { lt: yearFromDt },
+        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+        ...extSomeActive,
+      },
+      _sum: { externalTransferFee: true },
+    }),
+    prisma.inquiry.aggregate({
+      where: {
+        status: 'CANCELLED',
+        externalTransferFee: { not: null },
+        preferredDate: { lt: yearFromDt },
+        OR: [
+          { cancelFeeExternalCompanyId: companyId },
+          {
+            assignments: {
+              some: {
+                teamLeader: { role: 'EXTERNAL_PARTNER' as const, externalCompanyId: companyId },
+              },
+            },
+          },
+        ],
+      },
+      _sum: { externalTransferFee: true },
+    }),
+    prisma.externalCompanySettlementPayment.aggregate({
+      where: { externalCompanyId: companyId, paidAt: { lt: yearFromDt } },
+      _sum: { amount: true },
+    }),
+    prisma.externalCompanySettlementPayment.aggregate({
+      where: { externalCompanyId: companyId, paidAt: { gte: yearFromDt, lte: yearToDt } },
+      _sum: { amount: true },
+    }),
+    prisma.externalCompanySettlementPayment.findFirst({
+      where: { externalCompanyId: companyId },
+      orderBy: { paidAt: 'desc' },
+      select: { amount: true, paidAt: true },
+    }),
+  ]);
+
+  const yearTotalFee =
+    (activeYearAgg._sum.externalTransferFee ?? 0) - (cancelledYearAgg._sum.externalTransferFee ?? 0);
+  const signedBeforeYear =
+    (activeBeforeYearAgg._sum.externalTransferFee ?? 0) - (cancelledBeforeYearAgg._sum.externalTransferFee ?? 0);
+  const paidBeforeYear = paidBeforeYearAgg._sum.amount ?? 0;
+  const yearCarryOverAmount = signedBeforeYear - paidBeforeYear;
+  const yearPeriodPaidAmount = yearPaidInYearAgg._sum.amount ?? 0;
+  const yearPayableAmount = yearCarryOverAmount + yearTotalFee;
+  const yearRemainingAmount = yearPayableAmount - yearPeriodPaidAmount;
+  const lastSettlementPayment = lastPaymentRow
+    ? { amount: lastPaymentRow.amount, paidAt: lastPaymentRow.paidAt.toISOString() }
+    : null;
+
   res.json({
     month: loYmd.slice(0, 7),
     from: loYmd,
@@ -798,6 +903,15 @@ router.get('/external-settlement', async (req, res) => {
     payableAmount,
     periodPaidAmount,
     remainingAmount,
+    summaryYear,
+    yFromYmd,
+    yToYmd,
+    yearTotalFee,
+    yearCarryOverAmount,
+    yearPayableAmount,
+    yearPeriodPaidAmount,
+    yearRemainingAmount,
+    lastSettlementPayment,
     payments: paymentRows.map((r) => ({
       id: r.id,
       amount: r.amount,
@@ -822,10 +936,15 @@ router.post('/external-settlement/payments', async (req, res) => {
     res.status(403).json({ error: '정산완료 기록은 관리자/마케터만 처리할 수 있습니다.' });
     return;
   }
-  const body = req.body as { externalCompanyId?: string; amount?: number; memo?: string };
+  const body = req.body as { externalCompanyId?: string; amount?: number; memo?: string; paidDate?: string };
   const externalCompanyId = typeof body.externalCompanyId === 'string' ? body.externalCompanyId.trim() : '';
   const amount = Number(body.amount);
   const memo = typeof body.memo === 'string' ? body.memo.trim() : '';
+  const paidResolved = resolveExternalSettlementPaidAt(body.paidDate);
+  if (!paidResolved.ok) {
+    res.status(400).json({ error: paidResolved.error });
+    return;
+  }
   if (!externalCompanyId) {
     res.status(400).json({ error: 'externalCompanyId가 필요합니다.' });
     return;
@@ -848,6 +967,7 @@ router.post('/external-settlement/payments', async (req, res) => {
       amount: Math.floor(amount),
       memo: memo || null,
       actorId,
+      paidAt: paidResolved.paidAt,
     },
     select: { id: true, amount: true, paidAt: true },
   });
