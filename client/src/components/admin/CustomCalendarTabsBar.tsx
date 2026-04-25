@@ -67,7 +67,10 @@ export function CustomCalendarTabsBar({
               className={`inline-flex items-center gap-1.5 rounded-l-full border px-2.5 py-1 text-fluid-xs font-medium transition-colors ${
                 active ? t.tabActive : t.tabIdle
               }`}
-              title={`${c.name} (${c.regions.join(', ')})`}
+              title={`${c.name} (${[
+                ...c.regions,
+                ...(c.externalCompanyIds ?? []).map((id) => `타업체:${id}`),
+              ].join(', ')})`}
             >
               <span className={`h-2 w-2 rounded-full ${active ? 'bg-white' : t.dot}`} />
               <span className="truncate max-w-[12rem]">{c.name}</span>

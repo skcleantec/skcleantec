@@ -1478,14 +1478,6 @@ export function AdminInquiriesPage() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/admin/inquiries/order-issue')}
-                className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-indigo-600 bg-indigo-50 px-3 py-2 text-fluid-sm font-medium text-indigo-900 hover:bg-indigo-100"
-                title="발주서 발급부터 바로 진행"
-              >
-                발주서부터 진행
-              </button>
-              <button
-                type="button"
                 onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
                 className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
                 title="수동접수 버튼 (스케줄 상세 폼)"

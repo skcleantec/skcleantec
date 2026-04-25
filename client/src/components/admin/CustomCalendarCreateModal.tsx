@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from './ModalCloseButton';
+import { HelpTooltip } from '../ui/HelpTooltip';
 import { KOREAN_REGION_GROUPS } from '../../constants/koreanCities';
 import {
   CUSTOM_CALENDAR_COLOR_KEYS,
@@ -12,6 +13,9 @@ import {
 export type CustomCalendarCreateValues = {
   name: string;
   regions: string[];
+  externalCompanyIds: string[];
+  isolateFromGlobal: boolean;
+  hideAssignedInRegionBadge: boolean;
   colorKey: CustomCalendarColorKey;
 };
 
@@ -24,6 +28,7 @@ export type CustomCalendarCreateModalProps = {
   initial?: Partial<CustomCalendarCreateValues> | null;
   /** 기존에 이미 사용된 색상(새 항목 자동 배정용) */
   usedColors?: readonly string[];
+  externalCompanies?: ReadonlyArray<{ id: string; name: string }>;
   onClose: () => void;
   onSubmit: (values: CustomCalendarCreateValues) => Promise<void>;
   /**
@@ -38,12 +43,16 @@ export function CustomCalendarCreateModal({
   mode = 'create',
   initial,
   usedColors = [],
+  externalCompanies = [],
   onClose,
   onSubmit,
   onRequestDelete,
 }: CustomCalendarCreateModalProps) {
   const [name, setName] = useState('');
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [selectedExternalCompanyIds, setSelectedExternalCompanyIds] = useState<string[]>([]);
+  const [isolateFromGlobal, setIsolateFromGlobal] = useState(false);
+  const [hideAssignedInRegionBadge, setHideAssignedInRegionBadge] = useState(false);
   const [colorKey, setColorKey] = useState<CustomCalendarColorKey>('teal');
   const [cityDraft, setCityDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -64,6 +73,11 @@ export function CustomCalendarCreateModal({
     wasOpenRef.current = true;
     setName(initial?.name ?? '');
     setSelectedRegions(initial?.regions ? Array.from(initial.regions) : []);
+    setSelectedExternalCompanyIds(
+      initial?.externalCompanyIds ? Array.from(initial.externalCompanyIds) : []
+    );
+    setIsolateFromGlobal(Boolean(initial?.isolateFromGlobal));
+    setHideAssignedInRegionBadge(Boolean(initial?.hideAssignedInRegionBadge));
     setColorKey(
       (initial?.colorKey as CustomCalendarColorKey) ?? pickAutoColorKey(usedColors)
     );
@@ -88,8 +102,20 @@ export function CustomCalendarCreateModal({
     setSelectedRegions((prev) => prev.filter((x) => x !== r));
   };
 
+  const addExternalCompany = (id: string) => {
+    const v = id.trim();
+    if (!v) return;
+    setSelectedExternalCompanyIds((prev) => (prev.includes(v) ? prev : [...prev, v]));
+  };
+
+  const removeExternalCompany = (id: string) => {
+    setSelectedExternalCompanyIds((prev) => prev.filter((x) => x !== id));
+  };
+
   const canSubmit =
-    !saving && name.trim().length > 0 && selectedRegions.length > 0;
+    !saving &&
+    name.trim().length > 0 &&
+    (selectedRegions.length > 0 || selectedExternalCompanyIds.length > 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,7 +123,14 @@ export function CustomCalendarCreateModal({
     setError(null);
     setSaving(true);
     try {
-      await onSubmit({ name: name.trim(), regions: selectedRegions, colorKey });
+      await onSubmit({
+        name: name.trim(),
+        regions: selectedRegions,
+        externalCompanyIds: selectedExternalCompanyIds,
+        isolateFromGlobal,
+        hideAssignedInRegionBadge,
+        colorKey,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
       setSaving(false);
@@ -128,35 +161,39 @@ export function CustomCalendarCreateModal({
         <ModalCloseButton onClick={onClose} />
         <div className="p-4 sm:p-5 pr-12 border-b border-gray-100">
           <h2 id="custom-cal-modal-title" className="text-base font-semibold text-gray-900">
-            {mode === 'edit' ? '지역 캘린더 수정' : '지역 캘린더 추가'}
+            {mode === 'edit' ? '캘린더 수정' : '캘린더 추가'}
           </h2>
-          <p className="text-fluid-xs text-gray-500 mt-1 leading-relaxed">
-            {mode === 'edit'
-              ? '이름·지역·색상을 자유롭게 바꿀 수 있어요. 지역 추가는 아래 드롭다운, 제거는 칩 × 버튼. 이 캘린더를 아예 지우려면 왼쪽 아래 삭제 버튼을 누르세요.'
-              : '자주 보는 지역 묶음을 저장해 두면, 스케줄 화면에서 한 번의 클릭으로 해당 지역의 접수만 모아볼 수 있어요. 만든 뒤에는 탭 오른쪽 ⋯ 버튼으로 언제든 이 화면을 다시 열어 수정·삭제할 수 있어요.'}
+          <p className="text-fluid-xs text-gray-500 mt-1">
+            지역/타업체 기준으로 커스텀 캘린더를 저장합니다.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col gap-4">
-          <div>
-            <label className="block text-fluid-sm text-gray-700 mb-1" htmlFor="custom-cal-name">
-              제목
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col gap-3">
+          <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3 sm:p-4">
+            <label className="block text-fluid-sm font-medium text-gray-800 mb-1.5" htmlFor="custom-cal-name">
+              캘린더 이름
             </label>
             <input
               id="custom-cal-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="예: 충청 내 건"
+              placeholder="예: 충청권 · 타업체A"
               maxLength={64}
               className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
             />
           </div>
 
-          <div>
-            <label className="block text-fluid-sm text-gray-700 mb-1" htmlFor="custom-cal-city">
-              필터 지역 (시 단위)
-            </label>
+          <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <label className="text-fluid-sm font-medium text-gray-800" htmlFor="custom-cal-city">
+                지역별 캘린더
+              </label>
+              <HelpTooltip
+                text="시/군 단위 또는 시·도 전체를 선택하세요. 여러 지역을 함께 저장할 수 있습니다."
+                className="shrink-0"
+              />
+            </div>
             <div className="flex gap-2">
               <select
                 id="custom-cal-city"
@@ -188,11 +225,7 @@ export function CustomCalendarCreateModal({
                 })}
               </select>
             </div>
-            <p className="text-[11px] text-gray-500 mt-1">
-              도 단위(경기도·충청남도 등)를 고르면 그 아래 모든 시·군이 포함돼요. 시/군만 골라 조합할 수도 있고, 오른쪽 × 로 빼기.
-            </p>
-
-            <div className="mt-2 flex flex-wrap gap-1.5 min-h-[2.25rem]">
+            <div className="flex flex-wrap gap-1.5 min-h-[2.25rem]">
               {selectedRegions.length === 0 ? (
                 <span className="text-fluid-xs text-gray-400 italic py-1">선택된 지역이 없습니다.</span>
               ) : (
@@ -215,10 +248,98 @@ export function CustomCalendarCreateModal({
                 ))
               )}
             </div>
+            <label className="mt-1 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={hideAssignedInRegionBadge}
+                onChange={(e) => setHideAssignedInRegionBadge(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+              />
+              배정된 건은 지역 배지(건수)에서 제외
+            </label>
           </div>
 
-          <div>
-            <div className="block text-fluid-sm text-gray-700 mb-1">탭 색상</div>
+          <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <label className="text-fluid-sm font-medium text-gray-800" htmlFor="custom-cal-external">
+                업체별 캘린더
+              </label>
+              <HelpTooltip
+                text="타업체를 여러 개 추가할 수 있습니다. 선택한 업체로 배정된 접수만 따로 모아 볼 때 사용합니다."
+                className="shrink-0"
+              />
+            </div>
+            <div className="flex gap-2">
+              <select
+                id="custom-cal-external"
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v) addExternalCompany(v);
+                }}
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-fluid-sm bg-white"
+              >
+                <option value="">타업체 선택</option>
+                {externalCompanies.map((c) => (
+                  <option
+                    key={c.id}
+                    value={c.id}
+                    disabled={selectedExternalCompanyIds.includes(c.id)}
+                  >
+                    {c.name}
+                    {selectedExternalCompanyIds.includes(c.id) ? ' (선택됨)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-1.5 min-h-[2.25rem]">
+              {selectedExternalCompanyIds.length === 0 ? (
+                <span className="text-fluid-xs text-gray-400 italic py-1">선택된 타업체가 없습니다.</span>
+              ) : (
+                selectedExternalCompanyIds.map((id) => {
+                  const name = externalCompanies.find((c) => c.id === id)?.name ?? id;
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-fluid-xs text-blue-900"
+                    >
+                      <span>{name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeExternalCompany(id)}
+                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-200 text-blue-800 hover:bg-blue-300"
+                        aria-label={`${name} 제거`}
+                        title={`${name} 제거`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })
+              )}
+            </div>
+            <div className="mt-1 flex items-start gap-1.5">
+              <label className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isolateFromGlobal}
+                  onChange={(e) => setIsolateFromGlobal(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+                />
+                전체 캘린더에서 숨기고 이 캘린더에서만 보기
+              </label>
+              <HelpTooltip
+                text="업체별 캘린더에 해당하는 배정 건을 전체 캘린더에서 숨기고, 이 캘린더에서만 보이게 합니다."
+                className="shrink-0"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="block text-fluid-sm font-medium text-gray-800">탭 색상</div>
+              <HelpTooltip text="상단 캘린더 탭에 표시될 색상입니다." className="shrink-0" />
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {CUSTOM_CALENDAR_COLOR_KEYS.map((k) => {
                 const t = customCalendarColorTokens(k);
