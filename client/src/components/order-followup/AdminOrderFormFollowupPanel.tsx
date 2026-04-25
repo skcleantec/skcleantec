@@ -302,6 +302,7 @@ export function AdminOrderFormFollowupPanel({
   const [editGoldDb, setEditGoldDb] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [connectInqQ, setConnectInqQ] = useState('');
+  const [connectInqQuery, setConnectInqQuery] = useState('');
   const [connectInqRows, setConnectInqRows] = useState<
     Array<{
       id: string;
@@ -400,6 +401,7 @@ export function AdminOrderFormFollowupPanel({
     setEditGoldDb(edit.goldDb ?? false);
     /** 편집 열자마자 자동 검색 요청을 보내면 입력·드롭다운 체감이 끊겨 보여 수동 검색으로 변경 */
     setConnectInqQ('');
+    setConnectInqQuery('');
     setConnectInqRows([]);
   }, [edit]);
 
@@ -409,7 +411,7 @@ export function AdminOrderFormFollowupPanel({
       setConnectInqLoading(false);
       return;
     }
-    const q = connectInqQ.trim();
+    const q = connectInqQuery.trim();
     if (q.length < 2) {
       setConnectInqRows([]);
       setConnectInqLoading(false);
@@ -447,7 +449,7 @@ export function AdminOrderFormFollowupPanel({
         connectInqDebounceRef.current = null;
       }
     };
-  }, [edit, connectInqQ, token]);
+  }, [edit, connectInqQuery, token]);
 
   const saveEdit = async () => {
     if (!edit) return;
@@ -511,15 +513,19 @@ export function AdminOrderFormFollowupPanel({
     []
   );
 
-  /** 부재 보류 화면 편집 상태: 부재/보류 + 접수 전환용 입금대기/입금완료 */
+  /** 부재점보류 화면 편집 상태: 드롭다운 순서 고정(부재 → 보류 → 예약금대기 → 입금완료) */
   const editStatusOptions = useMemo(() => {
-    const allowed = ORDER_FOLLOWUP_STATUS_OPTIONS.filter(
-      (o) =>
-        o.value === 'ABSENT' ||
-        o.value === 'ON_HOLD' ||
-        o.value === 'DEPOSIT_PENDING' ||
-        o.value === 'RESERVED'
-    );
+    const allowed = (
+      [
+        { value: 'ABSENT', label: '부재' },
+        { value: 'ON_HOLD', label: '보류' },
+        { value: 'DEPOSIT_PENDING', label: '예약금대기' },
+        { value: 'RESERVED', label: '입금완료' },
+      ] as const
+    ).map((row) => ({
+      value: row.value as OrderFollowupStatus,
+      label: row.label,
+    }));
     if (!edit) return allowed;
     if (edit.status !== 'ABSENT' && edit.status !== 'ON_HOLD') {
       const cur = ORDER_FOLLOWUP_STATUS_OPTIONS.find((o) => o.value === edit.status);
@@ -1044,10 +1050,24 @@ export function AdminOrderFormFollowupPanel({
                       type="text"
                       value={connectInqQ}
                       onChange={(e) => setConnectInqQ(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        setConnectInqQuery(connectInqQ.trim());
+                      }}
                       className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-fluid-sm text-gray-900 shadow-sm"
                       placeholder="고객명 검색"
                     />
-                    {connectInqQ.trim().length < 2 ? (
+                    <div className="flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setConnectInqQuery(connectInqQ.trim())}
+                        className="rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-indigo-900 hover:bg-indigo-50"
+                      >
+                        검색
+                      </button>
+                    </div>
+                    {connectInqQuery.trim().length < 2 ? (
                       <p className="text-fluid-2xs text-gray-500">이름 두 글자 이상으로 검색합니다.</p>
                     ) : connectInqLoading ? (
                       <p className="text-fluid-2xs text-gray-500">검색 중…</p>

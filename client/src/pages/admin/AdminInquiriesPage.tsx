@@ -61,7 +61,7 @@ import {
   ORDER_FOLLOWUP_STATUS_LABEL,
   type OrderFollowupStatus,
 } from '../../constants/orderFollowupStatus';
-import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
+import { happyCallRowTone } from '../../utils/happyCall';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import {
   buildOrderFormCustomerMessage,
@@ -140,7 +140,7 @@ function CirclePlusIcon({ className }: { className?: string }) {
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '대기',
-  RECEIVED: '접수',
+  RECEIVED: '예약완료',
   DEPOSIT_PENDING: '입금대기',
   DEPOSIT_COMPLETED: '입금완료',
   ORDER_FORM_PENDING: '미제출',
@@ -151,6 +151,17 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: '취소',
   CS_PROCESSING: 'C/S 처리중',
 };
+
+const STATUS_QUICK_PICKER_ORDER = [
+  'PENDING',
+  'DEPOSIT_PENDING',
+  'DEPOSIT_COMPLETED',
+  'ORDER_FORM_PENDING',
+  'RECEIVED',
+  'CANCELLED',
+  'ON_HOLD',
+  'CS_PROCESSING',
+] as const;
 
 const STATUS_ICON_MAP: Record<string, string> = {
   PENDING: '🕒',
@@ -186,9 +197,9 @@ function StatusQuickPicker({
           compact ? 'px-1 py-1 text-fluid-2xs xl:text-fluid-xs' : 'px-2 py-2 text-fluid-xs'
         }`}
       >
-        <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 whitespace-nowrap">
           <span aria-hidden>{icon}</span>
-          <span className="truncate">{label}</span>
+          <span className="whitespace-nowrap">{label}</span>
         </span>
       </div>
     );
@@ -200,16 +211,16 @@ function StatusQuickPicker({
           compact ? 'px-1 py-1 text-fluid-2xs xl:text-fluid-xs' : 'px-2 py-2 text-fluid-xs'
         }`}
       >
-        <span className="flex min-w-0 items-center gap-1">
+        <span className="flex min-w-0 items-center gap-1 whitespace-nowrap">
           <span aria-hidden>{icon}</span>
-          <span className="truncate">{label}</span>
+          <span className="whitespace-nowrap">{label}</span>
         </span>
         <span aria-hidden className="text-gray-500">
           ▾
         </span>
       </summary>
       <div className="absolute left-0 top-[calc(100%+4px)] z-30 max-h-64 w-44 overflow-y-auto rounded-lg border border-gray-200 bg-white p-1.5 shadow-xl">
-        {Object.entries(STATUS_LABELS).map(([nextValue, nextLabel]) => (
+        {STATUS_QUICK_PICKER_ORDER.map((nextValue) => (
           <button
             key={nextValue}
             type="button"
@@ -220,10 +231,10 @@ function StatusQuickPicker({
             className={`flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs ${
               value === nextValue ? 'bg-gray-800 text-white' : 'text-gray-700 hover:bg-gray-100'
             }`}
-            title={nextLabel}
+            title={STATUS_LABELS[nextValue] ?? nextValue}
           >
             <span aria-hidden>{STATUS_ICON_MAP[nextValue] ?? '🏷️'}</span>
-            <span className="truncate">{nextLabel}</span>
+            <span className="whitespace-nowrap">{STATUS_LABELS[nextValue] ?? nextValue}</span>
           </button>
         ))}
       </div>
@@ -331,26 +342,6 @@ function isInquiryLinkedOrderFormPendingSubmit(item: InquiryItem): boolean {
 
 function inquiryListStatusBadgeText(item: InquiryItem): string {
   return STATUS_LABELS[item.status] ?? item.status;
-}
-
-function happyCallAdminCell(item: InquiryItem): { label: string; className: string } {
-  const hasAssignment = item.assignments.length > 0;
-  if (!hasAssignment || !isHappyCallEligible(item.status, item.preferredDate)) {
-    return { label: '—', className: 'text-gray-400' };
-  }
-  if (item.happyCallCompletedAt) {
-    return { label: '완료', className: 'text-green-700 font-medium' };
-  }
-  const tone = happyCallRowTone(
-    new Date(),
-    item.status,
-    item.preferredDate,
-    item.happyCallCompletedAt,
-    hasAssignment
-  );
-  if (tone === 'overdue') return { label: '마감초과', className: 'text-red-800 font-medium' };
-  if (tone === 'pending') return { label: '미완', className: 'text-amber-800' };
-  return { label: '—', className: 'text-gray-400' };
 }
 
 /** 모바일 카드 목록 — 표와 동일한 강조(대기·해피콜 톤) */
@@ -1839,7 +1830,6 @@ export function AdminInquiriesPage() {
             </p>
             <div className="flex flex-col gap-3 p-3 lg:hidden">
               {items.map((item) => {
-                const hcCell = happyCallAdminCell(item);
                 const addrFull = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
                 const addrShort = addressListShortSiGu(item.address);
                 const mobileSpecsTail = formatInquiryMobileSpecsTail(item);
@@ -1908,9 +1898,6 @@ export function AdminInquiriesPage() {
                           {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '시간 미정'} · 주안{' '}
                           {formatDistanceFromJuan(item)}
                         </span>
-                        <span className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${hcCell.className} bg-white/80 ring-1 ring-gray-200`}>
-                          해피콜 {hcCell.label}
-                        </span>
                         <span
                           className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
                             isInquiryLinkedOrderFormPendingSubmit(item)
@@ -1973,7 +1960,7 @@ export function AdminInquiriesPage() {
                             }
                             className="min-h-[40px] min-w-0 flex-1 rounded border border-gray-300 bg-white px-1.5 py-1.5 text-fluid-2xs sm:text-fluid-xs"
                           >
-                            <option value="">빠른 배정(1명)</option>
+                            <option value="">미배정</option>
                             {teamLeaders.map((tl) => (
                               <option key={tl.id} value={tl.id}>
                                 {formatAssignableUserLabel(tl)}
@@ -1982,7 +1969,7 @@ export function AdminInquiriesPage() {
                           </select>
                         </div>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 border-t border-gray-200 pt-2">
+                      <div className="mt-2 flex items-center gap-1 overflow-x-auto whitespace-nowrap border-t border-gray-200 pt-2 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-gray-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-medium [&>button]:leading-tight [&>button]:shadow-sm [&>button]:hover:bg-gray-50 [&>button]:active:bg-gray-100 sm:[&>button]:px-2.5 sm:[&>button]:py-1 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
                         {item.status === 'DEPOSIT_PENDING' ? (
                           <>
                             <button
@@ -2166,19 +2153,17 @@ export function AdminInquiriesPage() {
             <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
             <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm">
               <colgroup>
-                <col className="w-[9%]" />
+                <col className="w-[10%]" />
                 <col className="w-[6%]" />
-                <col className="w-[7%]" />
+                <col className="w-[8%]" />
                 <col className="w-[7%]" />
                 <col className="w-[12%]" />
                 <col className="w-[4%]" />
-                <col className="w-[5%]" />
                 <col className="w-[8%]" />
-                <col className="w-[7%]" />
-                <col className="w-[7%]" />
-                <col className="w-[4%]" />
-                <col className="w-[13%]" />
-                <col className="w-[11%]" />
+                <col className="w-[8%]" />
+                <col className="w-[10%]" />
+                <col className="w-[9%]" />
+                <col className="w-[18%]" />
               </colgroup>
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
@@ -2190,7 +2175,6 @@ export function AdminInquiriesPage() {
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">연락처</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">주소</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">평수</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">방화베</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">예약일</th>
                   <th
                     className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs"
@@ -2199,7 +2183,6 @@ export function AdminInquiriesPage() {
                     시간·거리
                   </th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">상태</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">해피콜</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">팀장</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">작업</th>
                 </tr>
@@ -2239,7 +2222,6 @@ export function AdminInquiriesPage() {
                       : hcTone === 'pending'
                         ? 'hover:bg-amber-100/50'
                         : 'hover:bg-gray-50';
-                  const hcCell = happyCallAdminCell(item);
                   const phoneSplit = phoneListTwoLines(item.customerPhone);
                   return (
                   <tr
@@ -2320,12 +2302,6 @@ export function AdminInquiriesPage() {
                     >
                       {formatAreaLine(item)}
                     </td>
-                    <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
-                      title={formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
-                    >
-                      {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount)}
-                    </td>
                     <td className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}>
                       <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
                         {formatDateCompactWithWeekday(item.preferredDate)}
@@ -2363,9 +2339,6 @@ export function AdminInquiriesPage() {
                         </span>
                       ) : null}
                     </td>
-                    <td className={`min-w-0 truncate px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`}>
-                      <span className={`text-fluid-2xs xl:text-fluid-xs ${hcCell.className}`}>{hcCell.label}</span>
-                    </td>
                     <td className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <div
                         className="mb-0.5 line-clamp-2 text-left text-[10px] leading-snug text-gray-600 xl:text-fluid-2xs"
@@ -2400,7 +2373,7 @@ export function AdminInquiriesPage() {
                         }
                         className="w-full min-w-0 max-w-full rounded border border-gray-300 px-0.5 py-0.5 text-fluid-2xs xl:px-1 xl:py-1 xl:text-fluid-xs"
                       >
-                        <option value="">배정(1명)</option>
+                        <option value="">미배정</option>
                         {teamLeaders.map((tl) => (
                           <option key={tl.id} value={tl.id}>
                             {formatAssignableUserLabel(tl)}
@@ -2412,7 +2385,7 @@ export function AdminInquiriesPage() {
                       className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder} ${isPreOrder ? 'border-r-2 border-r-red-500' : ''}`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex flex-wrap justify-center gap-x-0.5 gap-y-0.5">
+                      <div className="flex items-center justify-start gap-1 overflow-x-auto whitespace-nowrap pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-gray-200 [&>button]:bg-white [&>button]:px-1.5 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-medium [&>button]:leading-tight [&>button]:shadow-sm [&>button]:hover:bg-gray-50 [&>button]:active:bg-gray-100 sm:[&>button]:px-2 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
                         {item.status === 'DEPOSIT_PENDING' ? (
                           <>
                             <button
