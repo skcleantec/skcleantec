@@ -99,6 +99,8 @@ export interface TeamExternalSettlementResponse {
     memo: string | null;
     actorName: string | null;
     actorRole: string | null;
+    /** 누적(전체) 인정 수수료에서 시점순 정산완료를 모두 반영한 뒤 남은 금액(관리자 정산·미수와 동일 기준) */
+    outstandingAfterCumulative: number;
   }>;
   items: TeamExternalSettlementItem[];
 }

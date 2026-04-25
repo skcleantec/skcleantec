@@ -66,6 +66,10 @@ export function AdminExternalSettlementPage() {
   /** 정산일(한국) — `paidAt`에 반영, 정산완료 내역에 표시 */
   const [payDateInput, setPayDateInput] = useState(() => kstTodayYmd());
   const [payConfirm, setPayConfirm] = useState<PayConfirmState | null>(null);
+  /** 첫 정산 모달: 검증(alert 대신·임베딩 환경에서도 보임) */
+  const [payFormError, setPayFormError] = useState<string | null>(null);
+  /** 확정 모달: API 실패 메시지 */
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -118,6 +122,8 @@ export function AdminExternalSettlementPage() {
     setPayMemoInput('');
     setPayDateInput(kstTodayYmd());
     setPayConfirm(null);
+    setPayFormError(null);
+    setSaveError(null);
     setPayModalOpen(true);
   };
 
@@ -203,40 +209,51 @@ export function AdminExternalSettlementPage() {
 
   const preparePaymentConfirm = () => {
     if (!selected) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(payDateInput)) {
-      window.alert('정산일을 선택해 주세요.');
+    setPayFormError(null);
+    const todayK = kstTodayYmd();
+    let ymd: string;
+    if (!payDateInput?.trim()) {
+      ymd = todayK;
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(payDateInput)) {
+      setPayFormError('정산일을 올바르게 선택해 주세요.');
       return;
+    } else {
+      ymd = payDateInput;
     }
-    if (payDateInput > kstTodayYmd()) {
-      window.alert('정산일은 오늘(한국) 이후로 설정할 수 없습니다.');
+    if (ymd > todayK) {
+      setPayFormError('정산일은 오늘(한국) 이후로 설정할 수 없습니다.');
       return;
     }
     const amount = Number(payAmountInput.replace(/[^\d]/g, ''));
     if (!Number.isFinite(amount) || amount <= 0) {
-      window.alert('정산 금액은 0원보다 커야 합니다.');
+      setPayFormError('정산 금액을 0원보다 크게 입력해 주세요.');
       return;
     }
-    if (!payMemoInput.trim()) {
-      window.alert('메모를 입력해주세요.');
+    if (!token) {
+      setPayFormError('로그인이 만료되었습니다. 다시 로그인해 주세요.');
       return;
     }
     const currentRemaining = Math.max(0, selected.remainingAmount);
+    if (ymd !== payDateInput) setPayDateInput(ymd);
     setPayConfirm({
       currentRemaining,
       inputAmount: Math.floor(amount),
       afterRemaining: Math.max(0, currentRemaining - Math.floor(amount)),
     });
+    setPayModalOpen(false);
   };
 
   const submitPayment = async () => {
     if (!token || !selected || !payConfirm) return;
     setSaving(true);
+    setSaveError(null);
     try {
+      const payYmd = /^\d{4}-\d{2}-\d{2}$/.test(payDateInput) ? payDateInput.trim() : kstTodayYmd();
       const result = await postExternalSettlementPayment(token, {
         externalCompanyId: selected.externalCompanyId,
         amount: payConfirm.inputAmount,
-        memo: payMemoInput.trim(),
-        paidDate: payDateInput.trim(),
+        memo: payMemoInput.trim() || undefined,
+        paidDate: payYmd,
       });
       const optimisticHistoryRow: HistoryRow = {
         id: result.payment.id,
@@ -254,9 +271,10 @@ export function AdminExternalSettlementPage() {
       }
       setPayModalOpen(false);
       setPayConfirm(null);
+      setPayFormError(null);
       await loadList();
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : '정산완료 처리에 실패했습니다.');
+      setSaveError(e instanceof Error ? e.message : '정산완료 처리에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -412,13 +430,18 @@ export function AdminExternalSettlementPage() {
       </div>
 
       {payModalOpen && selected ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
           <div className="flex w-full max-w-md max-h-[85vh] flex-col overflow-hidden rounded-lg bg-white border border-gray-200 shadow-xl">
             <div className="px-4 py-3 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-900">정산 처리</h3>
               <p className="mt-1 text-xs text-gray-600">{selected.companyName}</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {payFormError ? (
+                <p className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800" role="alert">
+                  {payFormError}
+                </p>
+              ) : null}
               <p className="text-xs text-gray-600">
                 현재 누적 미수금:{' '}
                 <strong className="text-rose-700 tabular-nums">{won(Math.max(0, selected.remainingAmount))}</strong>
@@ -444,14 +467,17 @@ export function AdminExternalSettlementPage() {
               <input
                 value={payMemoInput}
                 onChange={(e) => setPayMemoInput(e.target.value)}
-                placeholder="메모"
+                placeholder="메모 (선택)"
                 className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
             <div className="px-4 pb-3 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setPayModalOpen(false)}
+                onClick={() => {
+                  setPayModalOpen(false);
+                  setPayFormError(null);
+                }}
                 className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs"
               >
                 닫기
@@ -461,7 +487,7 @@ export function AdminExternalSettlementPage() {
                 onClick={preparePaymentConfirm}
                 className="rounded bg-gray-900 px-3 py-1.5 text-xs text-white"
               >
-                정산완료
+                다음
               </button>
             </div>
           </div>
@@ -469,7 +495,7 @@ export function AdminExternalSettlementPage() {
       ) : null}
 
       {payConfirm && selected ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-lg bg-white border border-gray-200 p-4">
             <h4 className="text-sm font-semibold text-gray-900">정산완료 확인 - {selected.companyName}</h4>
             <p className="mt-2 text-sm flex justify-between">
@@ -492,10 +518,19 @@ export function AdminExternalSettlementPage() {
                   : '—'}
               </span>
             </p>
+            {saveError ? (
+              <p className="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800" role="alert">
+                {saveError}
+              </p>
+            ) : null}
             <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setPayConfirm(null)}
+                onClick={() => {
+                  setPayConfirm(null);
+                  setSaveError(null);
+                  setPayModalOpen(true);
+                }}
                 className="rounded border border-gray-300 px-3 py-1.5 text-xs"
               >
                 취소
@@ -506,7 +541,7 @@ export function AdminExternalSettlementPage() {
                 disabled={saving}
                 className="rounded bg-gray-900 px-3 py-1.5 text-xs text-white disabled:opacity-50"
               >
-                확정
+                {saving ? '처리 중…' : '확정'}
               </button>
             </div>
           </div>

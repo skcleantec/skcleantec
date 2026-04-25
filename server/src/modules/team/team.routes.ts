@@ -889,6 +889,76 @@ router.get('/external-settlement', async (req, res) => {
     ? { amount: lastPaymentRow.amount, paidAt: lastPaymentRow.paidAt.toISOString() }
     : null;
 
+  /** 정산완료내역 "처리 후" — 관리자 집계(첫 외부담당 귀속)와 동일한 누적 인정액을 기준으로, 전체 정산을 시점순 누적 */
+  const [activeRowsCumulative, cancelledRowsCumulative, allPaymentsChrono] = await Promise.all([
+    prisma.inquiry.findMany({
+      where: {
+        externalTransferFee: { not: null },
+        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+        assignments: {
+          some: { teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } } },
+        },
+      },
+      select: {
+        externalTransferFee: true,
+        assignments: {
+          orderBy: { sortOrder: 'asc' as const },
+          select: { teamLeader: { select: { role: true, externalCompanyId: true } } },
+        },
+      },
+    }),
+    prisma.inquiry.findMany({
+      where: {
+        status: 'CANCELLED',
+        externalTransferFee: { not: null },
+        OR: [
+          { cancelFeeExternalCompanyId: { not: null } },
+          {
+            assignments: {
+              some: { teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } } },
+            },
+          },
+        ],
+      },
+      select: {
+        externalTransferFee: true,
+        cancelFeeExternalCompanyId: true,
+        assignments: {
+          orderBy: { sortOrder: 'asc' as const },
+          select: { teamLeader: { select: { role: true, externalCompanyId: true } } },
+        },
+      },
+    }),
+    prisma.externalCompanySettlementPayment.findMany({
+      where: { externalCompanyId: companyId },
+      orderBy: [{ paidAt: 'asc' as const }, { id: 'asc' as const }],
+      select: { id: true, amount: true },
+    }),
+  ]);
+
+  let cumulativeNetSigned = 0;
+  for (const r of activeRowsCumulative) {
+    const ext = r.assignments.find(
+      (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId
+    );
+    const cid = ext?.teamLeader.externalCompanyId ?? null;
+    if (cid === companyId) cumulativeNetSigned += r.externalTransferFee ?? 0;
+  }
+  for (const r of cancelledRowsCumulative) {
+    const ext = r.assignments.find(
+      (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId
+    );
+    const cid = r.cancelFeeExternalCompanyId ?? ext?.teamLeader.externalCompanyId ?? null;
+    if (cid === companyId) cumulativeNetSigned -= r.externalTransferFee ?? 0;
+  }
+
+  const outstandingAfterByPaymentId = new Map<string, number>();
+  let paidRunning = 0;
+  for (const p of allPaymentsChrono) {
+    paidRunning += p.amount;
+    outstandingAfterByPaymentId.set(p.id, cumulativeNetSigned - paidRunning);
+  }
+
   res.json({
     month: loYmd.slice(0, 7),
     from: loYmd,
@@ -919,6 +989,7 @@ router.get('/external-settlement', async (req, res) => {
       memo: r.memo ?? null,
       actorName: r.actor?.name ?? null,
       actorRole: r.actor?.role ?? null,
+      outstandingAfterCumulative: outstandingAfterByPaymentId.get(r.id) ?? 0,
     })),
     items,
   });

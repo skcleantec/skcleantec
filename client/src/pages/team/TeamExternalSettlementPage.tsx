@@ -114,14 +114,9 @@ export function TeamExternalSettlementPage() {
   };
   const payableAmount = data?.payableAmount ?? 0;
   const remainingAmount = data?.remainingAmount ?? 0;
-  const historyRows = useMemo(() => {
+  const historyDisplay = useMemo(() => {
     if (!data) return [];
-    const sorted = [...data.payments].sort((a, b) => a.paidAt.localeCompare(b.paidAt));
-    let remain = data.payableAmount;
-    return sorted.map((row) => {
-      remain -= row.amount;
-      return { ...row, remainingAfter: remain };
-    }).reverse();
+    return [...data.payments].sort((a, b) => b.paidAt.localeCompare(a.paidAt));
   }, [data]);
 
   if (loading) {
@@ -314,8 +309,12 @@ export function TeamExternalSettlementPage() {
                     <strong className={remainingAmount > 0 ? 'text-rose-700' : 'text-gray-900'}>
                       {won(remainingAmount > 0 ? remainingAmount : 0)}
                     </strong>
+                    <p className="mt-1.5 text-fluid-2xs text-gray-500">
+                      아래 &quot;처리 후(누적)&quot;는 조회 기간이 아닌 <strong>전체 누적</strong> 수수료·정산(관리자 정산·미수와 동일한 귀속) 기준입니다. 위 &quot;남은
+                      금액&quot;은 <strong>이번 조회 기간</strong> 기준입니다.
+                    </p>
                   </div>
-                  {historyRows.length === 0 ? (
+                  {historyDisplay.length === 0 ? (
                     <div className="px-3 py-8 text-center text-fluid-sm text-gray-500">
                       해당 기간 정산완료 내역이 없습니다.
                     </div>
@@ -328,11 +327,13 @@ export function TeamExternalSettlementPage() {
                             <th className="px-3 py-2 text-center font-medium text-gray-700">정산완료 금액</th>
                             <th className="px-3 py-2 text-center font-medium text-gray-700">처리자</th>
                             <th className="px-3 py-2 text-center font-medium text-gray-700">메모</th>
-                            <th className="px-3 py-2 text-center font-medium text-gray-700">처리 후 남은 금액</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700">처리 후(누적) 잔액</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {historyRows.map((row) => (
+                          {historyDisplay.map((row) => {
+                            const after = row.outstandingAfterCumulative ?? 0;
+                            return (
                             <tr key={row.id} className="border-b border-gray-100">
                               <td className="px-3 py-2 text-center tabular-nums text-gray-700">
                                 {formatDateCompactWithWeekday(row.paidAt)}
@@ -343,10 +344,11 @@ export function TeamExternalSettlementPage() {
                               <td className="px-3 py-2 text-center text-gray-700">{row.actorName ?? '-'}</td>
                               <td className="px-3 py-2 text-center text-gray-700">{row.memo ?? '-'}</td>
                               <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">
-                                {won(row.remainingAfter > 0 ? row.remainingAfter : 0)}
+                                {won(after > 0 ? after : 0)}
                               </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
