@@ -3,7 +3,6 @@ import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
   getTeamInquiries,
-  postTeamInquiryCancel,
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
@@ -256,11 +255,6 @@ export function TeamDashboardPage() {
           onHappyCallComplete={async () => {
             if (!token) return;
             await completeTeamHappyCall(token, detailItem.id);
-            await loadDashboard();
-          }}
-          onCancelInquiry={async (password) => {
-            if (!token) return;
-            await postTeamInquiryCancel(token, detailItem.id, password);
             await loadDashboard();
           }}
         />

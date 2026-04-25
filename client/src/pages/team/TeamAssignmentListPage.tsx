@@ -4,7 +4,6 @@ import {
   getTeamHappyCallStats,
   getTeamInquiries,
   getTeamMe,
-  postTeamInquiryCancel,
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { isAuthSessionExpiredError } from '../../api/auth';
@@ -575,11 +574,6 @@ export function TeamAssignmentListPage() {
           onHappyCallComplete={async () => {
             if (!token) return;
             await completeTeamHappyCall(token, detailItem.id);
-            await loadList();
-          }}
-          onCancelInquiry={async (password) => {
-            if (!token) return;
-            await postTeamInquiryCancel(token, detailItem.id, password);
             await loadList();
           }}
         />

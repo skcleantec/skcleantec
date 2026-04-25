@@ -37,6 +37,8 @@ export interface TeamViewerMe {
   allowSelfDayOffEdit?: boolean;
   externalCompanyId?: string | null;
   externalCompany?: { id: string; name: string } | null;
+  viewerRole?: string;
+  previewExternal?: boolean;
 }
 
 export async function getTeamMe(token: string): Promise<TeamViewerMe> {
@@ -76,6 +78,18 @@ export interface TeamExternalSettlementResponse {
   cancelledInquiryCount: number;
   totalCount: number;
   totalFee: number;
+  carryOverAmount: number;
+  payableAmount: number;
+  periodPaidAmount: number;
+  remainingAmount: number;
+  payments: Array<{
+    id: string;
+    amount: number;
+    paidAt: string;
+    memo: string | null;
+    actorName: string | null;
+    actorRole: string | null;
+  }>;
   items: TeamExternalSettlementItem[];
 }
 
@@ -94,6 +108,21 @@ export async function getTeamExternalSettlement(
     throw new Error((err as { error?: string }).error || '타업체 정산 정보를 불러올 수 없습니다.');
   }
   return res.json();
+}
+
+export async function postTeamExternalSettlementPayment(
+  token: string,
+  params: { externalCompanyId: string; amount: number; memo?: string }
+): Promise<void> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/external-settlement/payments`), {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '정산완료 처리에 실패했습니다.');
+  }
 }
 
 export async function getTeamHappyCallStats(token: string): Promise<{
@@ -131,22 +160,6 @@ export async function patchTeamInquiryPreferredDate(
     throw new Error(typeof err?.error === 'string' ? err.error : '예약일 변경에 실패했습니다.');
   }
   return res.json();
-}
-
-export async function postTeamInquiryCancel(
-  token: string,
-  inquiryId: string,
-  password: string
-): Promise<void> {
-  const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/cancel`), {
-    method: 'POST',
-    headers: headers(token),
-    body: JSON.stringify({ password }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(typeof err?.error === 'string' ? err.error : '취소 처리에 실패했습니다.');
-  }
 }
 
 /** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S + 미확인 배정 — 한 요청 */

@@ -56,7 +56,19 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
         role: 'EXTERNAL_PARTNER',
       };
     }
-    (req as Request & { user: AuthPayload }).user = effective;
+    (req as Request & {
+      user: AuthPayload;
+      teamViewer?: { userId: string; role: string; email?: string; previewExternal: boolean };
+    }).user = effective;
+    (req as Request & {
+      user: AuthPayload;
+      teamViewer?: { userId: string; role: string; email?: string; previewExternal: boolean };
+    }).teamViewer = {
+      userId: payload.userId,
+      role: payload.role,
+      email: payload.email,
+      previewExternal,
+    };
     next();
   } catch (e) {
     console.error('[teamAuthMiddleware]', e);

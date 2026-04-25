@@ -8,7 +8,6 @@ import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryClea
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { postTeamInquiryDetailViewed } from '../../api/team';
-import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
   return (
@@ -292,7 +291,6 @@ export function TeamInquiryDetailModal({
   enableHappyCall,
   onHappyCallComplete,
   onPreferredDateChange,
-  onCancelInquiry,
   viewerTeamLeaderId,
 }: {
   item: InquiryItem;
@@ -301,7 +299,6 @@ export function TeamInquiryDetailModal({
   enableHappyCall?: boolean;
   onHappyCallComplete?: () => Promise<void>;
   onPreferredDateChange?: (preferredDate: string) => Promise<void>;
-  onCancelInquiry?: (password: string) => Promise<void>;
   /** 설정 시 본인 배정일·배정자·공동 배정 행 표시 (배정목록 등) */
   viewerTeamLeaderId?: string | null;
 }) {
@@ -324,8 +321,6 @@ export function TeamInquiryDetailModal({
   }, [teamToken, item.id]);
   const [preferredDateInput, setPreferredDateInput] = useState(item.preferredDate?.slice(0, 10) ?? '');
   const [preferredDateSaving, setPreferredDateSaving] = useState(false);
-  const [cancelPasswordOpen, setCancelPasswordOpen] = useState(false);
-  const [cancelSaving, setCancelSaving] = useState(false);
   const canHappy = enableHappyCall && isHappyCallEligible(item.status, item.preferredDate);
   const showHappyBlock = enableHappyCall && item.preferredDate;
 
@@ -360,10 +355,6 @@ export function TeamInquiryDetailModal({
   };
 
   const mine = viewerTeamLeaderId ? myAssignmentForViewer(item, viewerTeamLeaderId) : null;
-  const canCancelByExternal =
-    item.status !== 'CANCELLED' &&
-    Boolean(onCancelInquiry) &&
-    item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
 
   const modal = (
     <div
@@ -719,18 +710,7 @@ export function TeamInquiryDetailModal({
               {happySaving ? '처리 중…' : '해피콜 완료'}
             </button>
           ) : null}
-          <div className={`grid gap-2 ${canCancelByExternal ? 'grid-cols-[0.7fr_1.3fr]' : 'grid-cols-1'}`}>
-            {canCancelByExternal ? (
-              <button
-                type="button"
-                disabled={cancelSaving}
-                onClick={() => setCancelPasswordOpen(true)}
-                className="min-h-[44px] w-full whitespace-nowrap rounded-xl border border-rose-300 bg-white px-3 text-fluid-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
-                title="접수 취소"
-              >
-                취소
-              </button>
-            ) : null}
+          <div className="grid gap-2 grid-cols-1">
             <button
               type="button"
               onClick={onClose}
@@ -741,25 +721,6 @@ export function TeamInquiryDetailModal({
           </div>
         </footer>
       </div>
-      <ConfirmPasswordModal
-        open={cancelPasswordOpen}
-        title="이 접수를 취소하시겠습니까?"
-        confirmLabel={cancelSaving ? '처리 중…' : '취소 처리'}
-        onClose={() => {
-          if (!cancelSaving) setCancelPasswordOpen(false);
-        }}
-        onConfirm={async (password) => {
-          if (!onCancelInquiry) return;
-          setCancelSaving(true);
-          try {
-            await onCancelInquiry(password);
-            setCancelPasswordOpen(false);
-            onClose();
-          } finally {
-            setCancelSaving(false);
-          }
-        }}
-      />
     </div>
   );
 

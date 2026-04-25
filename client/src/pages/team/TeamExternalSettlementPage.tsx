@@ -5,7 +5,12 @@ import {
   type DateRangePresetId,
 } from '../../utils/dateRangePresets';
 import { isAuthSessionExpiredError } from '../../api/auth';
-import { getTeamExternalSettlement, getTeamMe, type TeamExternalSettlementResponse } from '../../api/team';
+import {
+  getTeamExternalSettlement,
+  getTeamMe,
+  postTeamExternalSettlementPayment,
+  type TeamExternalSettlementResponse,
+} from '../../api/team';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -15,6 +20,8 @@ import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
 }
+
+type SettlementTab = 'summary' | 'history';
 
 export function TeamExternalSettlementPage() {
   const token = getTeamToken();
@@ -30,6 +37,11 @@ export function TeamExternalSettlementPage() {
   const [previewMode, setPreviewMode] = useState(false);
   const [previewCompanyId, setPreviewCompanyId] = useState('');
   const [previewCompanyName, setPreviewCompanyName] = useState('');
+  const [activeTab, setActiveTab] = useState<SettlementTab>('summary');
+  const [canRecordPayment, setCanRecordPayment] = useState(false);
+  const [paymentAmountInput, setPaymentAmountInput] = useState('');
+  const [paymentMemoInput, setPaymentMemoInput] = useState('');
+  const [paymentSaving, setPaymentSaving] = useState(false);
 
   useEffect(() => {
     const q = new URLSearchParams(location.search);
@@ -47,8 +59,10 @@ export function TeamExternalSettlementPage() {
       }
       try {
         const me = await getTeamMe(token);
+        const viewerRole = me.viewerRole ?? me.role;
         const isPreviewStaff =
-          (me.role === 'ADMIN' || me.role === 'MARKETER') && previewMode;
+          (viewerRole === 'ADMIN' || viewerRole === 'MARKETER') && previewMode;
+        setCanRecordPayment(viewerRole === 'ADMIN' || viewerRole === 'MARKETER');
         if (me.role !== 'EXTERNAL_PARTNER' && !isPreviewStaff) {
           setData(null);
           setError('타업체 계정 전용 메뉴입니다.');
@@ -104,6 +118,41 @@ export function TeamExternalSettlementPage() {
     setFrom(r.from);
     setTo(r.to);
   };
+  const payableAmount = data?.payableAmount ?? 0;
+  const remainingAmount = data?.remainingAmount ?? 0;
+  const historyRows = useMemo(() => {
+    if (!data) return [];
+    const sorted = [...data.payments].sort((a, b) => a.paidAt.localeCompare(b.paidAt));
+    let remain = data.payableAmount;
+    return sorted.map((row) => {
+      remain -= row.amount;
+      return { ...row, remainingAfter: remain };
+    }).reverse();
+  }, [data]);
+  const handleRecordPayment = async () => {
+    if (!token || !data || !canRecordPayment) return;
+    const n = Number(paymentAmountInput.replace(/,/g, '').trim());
+    if (!Number.isFinite(n) || n <= 0) {
+      window.alert('정산완료 금액은 0원보다 커야 합니다.');
+      return;
+    }
+    setPaymentSaving(true);
+    try {
+      await postTeamExternalSettlementPayment(token, {
+        externalCompanyId: data.externalCompanyId,
+        amount: Math.floor(n),
+        memo: paymentMemoInput.trim() || undefined,
+      });
+      setPaymentAmountInput('');
+      setPaymentMemoInput('');
+      await load();
+      setActiveTab('history');
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '정산완료 처리에 실패했습니다.');
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
 
   if (loading) {
     return <div className="py-12 text-center text-gray-500 text-fluid-sm">로딩 중...</div>;
@@ -115,7 +164,7 @@ export function TeamExternalSettlementPage() {
         <div>
           <h1 className="text-xl font-semibold text-gray-800">정산</h1>
           <p className="mt-1 text-fluid-xs text-gray-500">
-            타업체 수수료 기간 합계입니다. 취소 건은 음수로 반영됩니다.
+            취소는 관리자/마케터만 처리합니다. 취소 건 수수료는 자동 차감 반영됩니다.
           </p>
         </div>
         <div className="flex flex-wrap gap-1">
@@ -189,6 +238,30 @@ export function TeamExternalSettlementPage() {
               <p className="text-fluid-2xs text-gray-500">총 건수</p>
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">{data.totalCount}</p>
             </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <p className="text-fluid-2xs text-gray-500">전월 이월금액</p>
+              <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
+                {won(data.carryOverAmount)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <p className="text-fluid-2xs text-gray-500">결제대상 금액</p>
+              <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
+                {won(data.payableAmount)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <p className="text-fluid-2xs text-gray-500">기간 정산완료</p>
+              <p className="mt-1 text-fluid-sm font-semibold text-emerald-700 tabular-nums">
+                {won(data.periodPaidAmount)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <p className="text-fluid-2xs text-gray-500">남은 결제금액</p>
+              <p className={`mt-1 text-fluid-sm font-semibold tabular-nums ${remainingAmount > 0 ? 'text-rose-700' : 'text-gray-900'}`}>
+                {won(remainingAmount > 0 ? remainingAmount : 0)}
+              </p>
+            </div>
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-white p-3 text-fluid-xs text-gray-600">
@@ -197,7 +270,122 @@ export function TeamExternalSettlementPage() {
             취소 차감 <strong className="text-rose-700 tabular-nums">-{won(totalNegative)}</strong>
           </div>
 
-          <div className="space-y-3 lg:hidden">
+          <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('summary')}
+                  className={`rounded px-2.5 py-1 text-fluid-xs font-medium border ${
+                    activeTab === 'summary'
+                      ? 'bg-gray-800 text-white border-gray-800'
+                      : 'bg-white text-gray-700 border-gray-300'
+                  }`}
+                >
+                  정산 내역
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('history')}
+                  className={`rounded px-2.5 py-1 text-fluid-xs font-medium border ${
+                    activeTab === 'history'
+                      ? 'bg-gray-800 text-white border-gray-800'
+                      : 'bg-white text-gray-700 border-gray-300'
+                  }`}
+                >
+                  정산완료내역
+                </button>
+              </div>
+            </div>
+
+            {activeTab === 'history' ? (
+              <div className="p-3">
+                {canRecordPayment ? (
+                  <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-fluid-xs font-semibold text-gray-700">관리자 정산완료 처리</p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                      <label className="text-fluid-2xs text-gray-600">
+                        정산완료 금액
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={paymentAmountInput}
+                          onChange={(e) => setPaymentAmountInput(e.target.value.replace(/[^\d,]/g, ''))}
+                          placeholder="예: 150000"
+                          className="mt-1 block w-full rounded border border-gray-300 bg-white px-2 py-2 text-fluid-sm"
+                        />
+                      </label>
+                      <label className="text-fluid-2xs text-gray-600">
+                        메모(선택)
+                        <input
+                          type="text"
+                          value={paymentMemoInput}
+                          onChange={(e) => setPaymentMemoInput(e.target.value)}
+                          placeholder="부분 지급 / 계좌이체"
+                          className="mt-1 block w-full rounded border border-gray-300 bg-white px-2 py-2 text-fluid-sm"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        disabled={paymentSaving}
+                        onClick={() => void handleRecordPayment()}
+                        className="min-h-[40px] rounded bg-gray-900 px-3 text-fluid-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                      >
+                        {paymentSaving ? '처리 중…' : '정산완료 기록'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="rounded border border-gray-200 bg-white">
+                  <div className="border-b border-gray-100 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
+                    {data.month} 기준 · 결제대상 {won(payableAmount)} / 정산완료 {won(data.periodPaidAmount)} / 남은 금액{' '}
+                    <strong className={remainingAmount > 0 ? 'text-rose-700' : 'text-gray-900'}>
+                      {won(remainingAmount > 0 ? remainingAmount : 0)}
+                    </strong>
+                  </div>
+                  {historyRows.length === 0 ? (
+                    <div className="px-3 py-8 text-center text-fluid-sm text-gray-500">
+                      해당 기간 정산완료 내역이 없습니다.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[640px] border-collapse text-fluid-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 bg-gray-100">
+                            <th className="px-3 py-2 text-center font-medium text-gray-700">정산일</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700">정산완료 금액</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700">처리자</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700">메모</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700">처리 후 남은 금액</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {historyRows.map((row) => (
+                            <tr key={row.id} className="border-b border-gray-100">
+                              <td className="px-3 py-2 text-center tabular-nums text-gray-700">
+                                {formatDateCompactWithWeekday(row.paidAt)}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums font-semibold text-emerald-700">
+                                {won(row.amount)}
+                              </td>
+                              <td className="px-3 py-2 text-center text-gray-700">{row.actorName ?? '-'}</td>
+                              <td className="px-3 py-2 text-center text-gray-700">{row.memo ?? '-'}</td>
+                              <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">
+                                {won(row.remainingAfter > 0 ? row.remainingAfter : 0)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {activeTab === 'summary' ? <div className="space-y-3 lg:hidden">
             {data.items.length === 0 ? (
               <div className="rounded-lg border border-gray-200 bg-white px-3 py-10 text-center text-gray-500">
                 해당 기간 정산 내역이 없습니다.
@@ -237,9 +425,9 @@ export function TeamExternalSettlementPage() {
                 </article>
               ))
             )}
-          </div>
+          </div> : null}
 
-          <div className="hidden overflow-x-auto rounded-lg border border-gray-200 bg-white lg:block">
+          {activeTab === 'summary' ? <div className="hidden overflow-x-auto rounded-lg border border-gray-200 bg-white lg:block">
             <table className="w-full min-w-[640px] border-collapse text-fluid-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-100">
@@ -287,7 +475,7 @@ export function TeamExternalSettlementPage() {
                 )}
               </tbody>
             </table>
-          </div>
+          </div> : null}
         </>
       ) : null}
     </div>

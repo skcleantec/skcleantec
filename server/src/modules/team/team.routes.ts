@@ -21,6 +21,7 @@ router.use(teamAuthMiddleware);
 /** 팀 화면 기준 현재 사용자(프리뷰 매핑 반영) */
 router.get('/me', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const viewer = (req as unknown as { teamViewer?: { role?: string; previewExternal?: boolean } }).teamViewer;
   const me = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -39,7 +40,11 @@ router.get('/me', async (req, res) => {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  res.json(me);
+  res.json({
+    ...me,
+    viewerRole: viewer?.role ?? me.role,
+    previewExternal: Boolean(viewer?.previewExternal),
+  });
 });
 
 const teamInquiryInclude = {
@@ -374,11 +379,16 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
   res.json(await attachCrewMembersOne(updated));
 });
 
-/** 타업체: 접수 취소(비밀번호 확인 필수) */
+/** 접수 취소(관리자/마케터만, 비밀번호 확인 필수) */
 router.post('/inquiries/:id/cancel', async (req, res) => {
-  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
-  if (role !== 'EXTERNAL_PARTNER') {
-    res.status(403).json({ error: '타업체 계정만 취소할 수 있습니다.' });
+  const viewer = (req as unknown as {
+    teamViewer?: { userId: string; role: string };
+    user: AuthPayload;
+  }).teamViewer;
+  const actorId = viewer?.userId ?? (req as unknown as { user: AuthPayload }).user.userId;
+  const actorRole = viewer?.role ?? (req as unknown as { user: AuthPayload }).user.role;
+  if (actorRole !== 'ADMIN' && actorRole !== 'MARKETER') {
+    res.status(403).json({ error: '취소는 관리자/마케터만 처리할 수 있습니다.' });
     return;
   }
   const { id } = req.params;
@@ -389,7 +399,7 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
     return;
   }
   const me = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { id: actorId },
     select: { passwordHash: true },
   });
   if (!me || !(await bcrypt.compare(password, me.passwordHash))) {
@@ -397,7 +407,7 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
     return;
   }
   const inquiry = await prisma.inquiry.findFirst({
-    where: { id, assignments: { some: { teamLeaderId: userId } } },
+    where: { id },
     include: {
       assignments: {
         include: { teamLeader: { select: assignmentTeamLeaderSelect } },
@@ -426,8 +436,8 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
     data: {
       inquiryId: inquiry.id,
       customerName: inquiry.customerName,
-      actorId: userId,
-      lines: ['타업체 취소 처리'],
+      actorId,
+      lines: ['관리자/마케터 취소 처리'],
     },
   });
   const staff = await prisma.user.findMany({
@@ -714,6 +724,66 @@ router.get('/external-settlement', async (req, res) => {
     return db.localeCompare(da);
   });
 
+  const activeBeforeAgg = await prisma.inquiry.aggregate({
+    where: {
+      externalTransferFee: { not: null },
+      preferredDate: { lt: from },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+      assignments: {
+        some: {
+          teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: companyId },
+        },
+      },
+    },
+    _sum: { externalTransferFee: true },
+  });
+  const cancelledBeforeAgg = await prisma.inquiry.aggregate({
+    where: {
+      status: 'CANCELLED',
+      externalTransferFee: { not: null },
+      preferredDate: { lt: from },
+      OR: [
+        { cancelFeeExternalCompanyId: companyId },
+        {
+          assignments: {
+            some: {
+              teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: companyId },
+            },
+          },
+        },
+      ],
+    },
+    _sum: { externalTransferFee: true },
+  });
+  const signedBeforeRange =
+    (activeBeforeAgg._sum.externalTransferFee ?? 0) - (cancelledBeforeAgg._sum.externalTransferFee ?? 0);
+
+  const paidBeforeAgg = await prisma.externalCompanySettlementPayment.aggregate({
+    where: { externalCompanyId: companyId, paidAt: { lt: from } },
+    _sum: { amount: true },
+  });
+  const paidBeforeRange = paidBeforeAgg._sum.amount ?? 0;
+
+  const paymentRows = await prisma.externalCompanySettlementPayment.findMany({
+    where: { externalCompanyId: companyId, paidAt: { gte: from, lte: to } },
+    orderBy: [{ paidAt: 'desc' }],
+    select: {
+      id: true,
+      amount: true,
+      paidAt: true,
+      memo: true,
+      actor: { select: { id: true, name: true, role: true } },
+    },
+  });
+  const periodPaidAgg = await prisma.externalCompanySettlementPayment.aggregate({
+    where: { externalCompanyId: companyId, paidAt: { gte: from, lte: to } },
+    _sum: { amount: true },
+  });
+  const periodPaidAmount = periodPaidAgg._sum.amount ?? 0;
+  const carryOverAmount = signedBeforeRange - paidBeforeRange;
+  const payableAmount = carryOverAmount + totalFee;
+  const remainingAmount = payableAmount - periodPaidAmount;
+
   res.json({
     month: loYmd.slice(0, 7),
     from: loYmd,
@@ -724,8 +794,64 @@ router.get('/external-settlement', async (req, res) => {
     cancelledInquiryCount,
     totalCount: inquiryCount + cancelledInquiryCount,
     totalFee,
+    carryOverAmount,
+    payableAmount,
+    periodPaidAmount,
+    remainingAmount,
+    payments: paymentRows.map((r) => ({
+      id: r.id,
+      amount: r.amount,
+      paidAt: r.paidAt.toISOString(),
+      memo: r.memo ?? null,
+      actorName: r.actor?.name ?? null,
+      actorRole: r.actor?.role ?? null,
+    })),
     items,
   });
+});
+
+/** 관리자/마케터: 타업체 정산완료(부분 지급) 기록 */
+router.post('/external-settlement/payments', async (req, res) => {
+  const viewer = (req as unknown as {
+    teamViewer?: { userId: string; role: string };
+    user: AuthPayload;
+  }).teamViewer;
+  const actorId = viewer?.userId ?? (req as unknown as { user: AuthPayload }).user.userId;
+  const actorRole = viewer?.role ?? (req as unknown as { user: AuthPayload }).user.role;
+  if (actorRole !== 'ADMIN' && actorRole !== 'MARKETER') {
+    res.status(403).json({ error: '정산완료 기록은 관리자/마케터만 처리할 수 있습니다.' });
+    return;
+  }
+  const body = req.body as { externalCompanyId?: string; amount?: number; memo?: string };
+  const externalCompanyId = typeof body.externalCompanyId === 'string' ? body.externalCompanyId.trim() : '';
+  const amount = Number(body.amount);
+  const memo = typeof body.memo === 'string' ? body.memo.trim() : '';
+  if (!externalCompanyId) {
+    res.status(400).json({ error: 'externalCompanyId가 필요합니다.' });
+    return;
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    res.status(400).json({ error: '정산완료 금액은 0원보다 커야 합니다.' });
+    return;
+  }
+  const co = await prisma.externalCompany.findFirst({
+    where: { id: externalCompanyId, isActive: true },
+    select: { id: true },
+  });
+  if (!co) {
+    res.status(404).json({ error: '타업체를 찾을 수 없습니다.' });
+    return;
+  }
+  const row = await prisma.externalCompanySettlementPayment.create({
+    data: {
+      externalCompanyId,
+      amount: Math.floor(amount),
+      memo: memo || null,
+      actorId,
+    },
+    select: { id: true, amount: true, paidAt: true },
+  });
+  res.json({ ok: true, payment: { id: row.id, amount: row.amount, paidAt: row.paidAt.toISOString() } });
 });
 
 export default router;
