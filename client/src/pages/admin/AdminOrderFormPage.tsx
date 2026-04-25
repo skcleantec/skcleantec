@@ -42,10 +42,7 @@ import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
-import {
-  AdminOrderFormFollowupPanel,
-  FOLLOWUP_PANEL_HELP,
-} from '../../components/order-followup/AdminOrderFormFollowupPanel';
+import { AdminOrderFormFollowupPanel } from '../../components/order-followup/AdminOrderFormFollowupPanel';
 import {
   getEstimateConfig,
   updateEstimateConfig,
