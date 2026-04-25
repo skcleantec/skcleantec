@@ -57,7 +57,7 @@ export async function getAssignableScheduleUsers(
 
 export async function getUsers(
   token: string,
-  role: 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER' = 'TEAM_LEADER',
+  role: 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER' | 'ADMIN' = 'TEAM_LEADER',
   opts?: GetUsersOptions
 ): Promise<UserItem[]> {
   const params = new URLSearchParams({ role });
@@ -66,6 +66,16 @@ export async function getUsers(
   const res = await fetch(`${API}/users?${params}`, { headers: headers(token) });
   if (!res.ok) throw new Error('목록을 불러올 수 없습니다.');
   return res.json();
+}
+
+/** 접수 등록자 선택용 — 활성 마케터 + 업무 관리자(ADMIN). 개발용 team-preview 계정은 서버에서 제외 */
+export async function getInquiryCreatorOptions(token: string): Promise<UserItem[]> {
+  const [marketers, admins] = await Promise.all([
+    getUsers(token, 'MARKETER'),
+    getUsers(token, 'ADMIN'),
+  ]);
+  const byName = (a: UserItem, b: UserItem) => a.name.localeCompare(b.name, 'ko');
+  return [...marketers, ...admins].sort(byName);
 }
 
 /** @deprecated getUsers 사용 — 팀장 목록은 예약일 기준 재직자만 쓰려면 employedOn 전달 */

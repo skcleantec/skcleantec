@@ -24,7 +24,7 @@ router.use(authMiddleware);
 router.get('/', adminOrMarketer, async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const role = (req.query.role as string) || 'TEAM_LEADER';
-  const validRoles = ['TEAM_LEADER', 'MARKETER', 'EXTERNAL_PARTNER'];
+  const validRoles = ['TEAM_LEADER', 'MARKETER', 'EXTERNAL_PARTNER', 'ADMIN'];
   if (!validRoles.includes(role)) {
     res.status(400).json({ error: '유효하지 않은 역할입니다.' });
     return;
@@ -39,7 +39,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
   const employedOn = YMD.test(employedOnRaw) ? employedOnRaw : kstTodayYmd();
 
   const users = await prisma.user.findMany({
-    where: { role: role as 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER', isActive: true },
+    where: { role: role as 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER' | 'ADMIN', isActive: true },
     select: {
       id: true,
       email: true,
@@ -57,6 +57,11 @@ router.get('/', adminOrMarketer, async (req, res) => {
   let out = users;
   if (!management) {
     out = users.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, employedOn));
+  }
+
+  /** 접수자(마케터·관리자) 목록에서 team-preview 개발 계정 제외 */
+  if (role === 'MARKETER' || role === 'ADMIN') {
+    out = out.filter((u) => !isTeamPreviewAdminEmail(u.email));
   }
 
   /**

@@ -80,18 +80,23 @@ export function AdminMessagesPage() {
   selectedIdRef.current = selectedId;
 
   const loadConversations = useCallback(() => {
-    if (!token) return;
-    getConversations(token).then(setConversations).catch(() => setConversations([]));
+    if (!token) return Promise.resolve();
+    return getConversations(token)
+      .then((list) => {
+        setConversations(list);
+        (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+      })
+      .catch(() => {
+        setConversations([]);
+        (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+      });
   }, [token]);
 
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    getConversations(token)
-      .then(setConversations)
-      .catch(() => setConversations([]))
-      .finally(() => setLoading(false));
-  }, [token]);
+    void loadConversations().finally(() => setLoading(false));
+  }, [token, loadConversations]);
 
   useEffect(() => {
     if (!token || !selectedId) {
@@ -109,18 +114,19 @@ export function AdminMessagesPage() {
 
   const pollInbox = useCallback(() => {
     if (!token) return;
-    loadConversations();
-    const sid = selectedIdRef.current;
-    if (!sid) return;
-    const el = chatScrollRef.current;
-    const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-    getMessages(token, sid)
-      .then((msgs) => {
-        setMessages(msgs);
-        (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
-        if (nearBottom) scrollToEnd(messagesEndRef, 'smooth');
-      })
-      .catch(() => {});
+    void loadConversations().then(() => {
+      const sid = selectedIdRef.current;
+      if (!sid) return;
+      const el = chatScrollRef.current;
+      const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      getMessages(token, sid)
+        .then((msgs) => {
+          setMessages(msgs);
+          (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+          if (nearBottom) scrollToEnd(messagesEndRef, 'smooth');
+        })
+        .catch(() => {});
+    });
   }, [token, loadConversations]);
 
   const { connected: wsConnected } = useInboxRealtime(token, pollInbox, Boolean(token));

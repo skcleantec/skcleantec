@@ -18,7 +18,12 @@ import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModa
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
-import { formatAssignableUserLabel, getAssignableScheduleUsers, getUsers, type UserItem } from '../../api/users';
+import {
+  formatAssignableUserLabel,
+  getAssignableScheduleUsers,
+  getInquiryCreatorOptions,
+  type UserItem,
+} from '../../api/users';
 import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
 import { AddressSearch } from '../../components/forms/AddressSearch';
@@ -539,7 +544,7 @@ export function AdminInquiriesPage() {
       setMarketers([]);
       return;
     }
-    getUsers(token, 'MARKETER')
+    getInquiryCreatorOptions(token)
       .then(setMarketers)
       .catch(() => setMarketers([]));
   }, [token, me?.role]);

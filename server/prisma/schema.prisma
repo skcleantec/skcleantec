@@ -621,6 +621,9 @@ model Message {
   receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@index([batchId])
+  /// 수신자별 미읽음 COUNT(receiver_id, read_at) · 스레드 조회 범위 축소
+  @@index([receiverId, readAt])
+  @@index([senderId, receiverId, createdAt])
   @@map("messages")
 }
 

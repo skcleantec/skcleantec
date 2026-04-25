@@ -177,9 +177,10 @@ router.get('/team-office', async (req, res) => {
       sender: { select: { id: true, name: true } },
     },
   } as any)) as TeamOfficeRow[];
+  const readNow = new Date();
   await prisma.message.updateMany({
     where: { senderId: { in: staffIds }, receiverId: myId, readAt: null },
-    data: { readAt: new Date() },
+    data: { readAt: readNow },
   });
 
   const seenBatch = new Set<string>();
@@ -191,7 +192,13 @@ router.get('/team-office', async (req, res) => {
     }
     collapsed.push(m);
   }
-  res.json(collapsed);
+  /** 응답 readAt을 DB와 동일하게(방금 읽음 처리된 행 반영) — 클라이언트가 즉시 미읽음 표시를 끌 수 있음 */
+  const out = collapsed.map((m) =>
+    staffIds.includes(m.senderId) && m.receiverId === myId && m.readAt == null
+      ? { ...m, readAt: readNow }
+      : m
+  );
+  res.json(out);
 });
 
 /** 팀장: 운영 전체(재직 관리자·마케터)에게 동일 내용 전송 — batchId로 묶음 */
@@ -355,11 +362,15 @@ router.get('/:userId', async (req, res) => {
     batchId: string | null;
     sender: { id: string; name: string };
   }>;
+  const readNow = new Date();
   await prisma.message.updateMany({
     where: { senderId: otherId, receiverId: myId, readAt: null },
-    data: { readAt: new Date() },
+    data: { readAt: readNow },
   });
-  res.json(messages);
+  const messagesOut = messages.map((m) =>
+    m.senderId === otherId && m.receiverId === myId && m.readAt == null ? { ...m, readAt: readNow } : m
+  );
+  res.json(messagesOut);
 });
 
 router.post('/', async (req, res) => {

@@ -621,6 +621,8 @@ model Message {
   receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@index([batchId])
+  @@index([receiverId, readAt])
+  @@index([senderId, receiverId, createdAt])
   @@map("messages")
 }
 

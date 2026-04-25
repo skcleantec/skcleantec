@@ -22,7 +22,7 @@ import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/Schedu
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
-import { getAssignableScheduleUsers, getUsers, type UserItem } from '../../api/users';
+import { getAssignableScheduleUsers, getInquiryCreatorOptions, type UserItem } from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
@@ -586,7 +586,7 @@ export function AdminSchedulePage() {
       setMarketers([]);
       return;
     }
-    getUsers(token, 'MARKETER')
+    getInquiryCreatorOptions(token)
       .then(setMarketers)
       .catch(() => setMarketers([]));
   }, [token, meRole]);

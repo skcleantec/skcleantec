@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from './inquiryListDateRange.js';
 
 export type MarketerOverviewRow = {
@@ -44,11 +45,13 @@ export async function buildMarketerOverview(): Promise<MarketerOverviewResult> {
     };
   }
 
-  const marketers = await prisma.user.findMany({
-    where: { role: 'MARKETER', isActive: true },
-    select: { id: true, name: true },
+  const staff = await prisma.user.findMany({
+    where: { role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
+    select: { id: true, name: true, email: true },
     orderBy: { name: 'asc' },
   });
+  /** 개발용 team-preview 관리자 계정은 집계·필터 대상에서 제외 */
+  const marketers = staff.filter((u) => !isTeamPreviewAdminEmail(u.email));
 
   const rows: MarketerOverviewRow[] = await Promise.all(
     marketers.map(async (m) => {
