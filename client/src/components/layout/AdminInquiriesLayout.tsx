@@ -7,7 +7,7 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
       : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
   }`;
 
-/** 접수 목록(/admin/inquiries/*) — 접수·부재현황·발주서 목록 전환 (발주서 발급·설정은 GNB 「발주서」) */
+/** 접수 목록(/admin/inquiries/*) — 접수·부재현황·발주서 발급/목록·설정 전환 */
 export function AdminInquiriesLayout() {
   return (
     <div className="min-w-0 w-full max-w-full">
@@ -24,6 +24,12 @@ export function AdminInquiriesLayout() {
         </NavLink>
         <NavLink to="/admin/inquiries/order-forms" className={tabClass}>
           발주서 목록
+        </NavLink>
+        <NavLink to="/admin/inquiries/order-issue" className={tabClass}>
+          발주서 발급
+        </NavLink>
+        <NavLink to="/admin/inquiries/order-settings" className={({ isActive }) => `${tabClass({ isActive })} sm:ml-auto`}>
+          설정
         </NavLink>
       </nav>
       <Outlet />

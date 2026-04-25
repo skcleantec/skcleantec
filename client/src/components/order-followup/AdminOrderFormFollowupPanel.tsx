@@ -653,6 +653,7 @@ export function AdminOrderFormFollowupPanel({
                 />
               )}
             </div>
+            <HelpTooltip className="shrink-0 sm:ml-auto" text={FOLLOWUP_PANEL_HELP} />
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -793,7 +794,7 @@ export function AdminOrderFormFollowupPanel({
                       <td className="py-2 px-2">
                         <div className="flex flex-wrap justify-center gap-1">
                           <Link
-                            to="/admin/orderforms"
+                            to="/admin/inquiries/order-issue"
                             className="inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100"
                           >
                             발주서
@@ -884,7 +885,7 @@ export function AdminOrderFormFollowupPanel({
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Link
-                      to="/admin/orderforms"
+                      to="/admin/inquiries/order-issue"
                       className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-fluid-2xs font-medium text-emerald-900 hover:bg-emerald-100"
                     >
                       발주서

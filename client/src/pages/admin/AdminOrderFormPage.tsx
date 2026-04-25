@@ -84,8 +84,9 @@ type Tab = 'config' | 'messages' | 'issue' | 'followup' | 'list' | 'specialty' |
 
 const VALID_TABS: Tab[] = ['config', 'messages', 'issue', 'followup', 'list', 'specialty', 'notice'];
 
-/** 발주서 GNB 화면 상단 탭 순서(부재현황은 접수 메뉴 하위로 이동 — 여기서는 제외) */
-const ORDER_FORM_PAGE_SUB_TABS: Tab[] = ['issue', 'config', 'messages', 'list', 'specialty', 'notice'];
+/** 발주서 GNB 화면 상단 탭 순서(발주서 목록·부재현황은 접수 메뉴 하위에서만 사용) */
+const ORDER_FORM_PAGE_SUB_TABS: Tab[] = ['issue', 'config', 'messages', 'specialty', 'notice'];
+const INQUIRIES_SETTINGS_SUB_TABS: Tab[] = ['config', 'messages', 'specialty', 'notice'];
 
 const SUB_TAB_ORDER_STORAGE_KEY = 'skcleanteck.adminOrderFormSubTabOrder';
 
@@ -94,7 +95,6 @@ const DEFAULT_SUB_TAB_ORDER: Tab[] = [
   'issue',
   'config',
   'messages',
-  'list',
   'specialty',
   'notice',
 ];
@@ -170,10 +170,12 @@ export function AdminOrderFormPage() {
   const token = getToken();
   const location = useLocation();
   const navigate = useNavigate();
-  /** 접수 메뉴에 끼워 넣은 발주서 화면: 목록만 / 부재현황만 */
-  const inquiriesEmbed = useMemo((): 'list' | 'followup' | null => {
+  /** 접수 메뉴 하위로 끼워 넣은 발주서 화면 */
+  const inquiriesEmbed = useMemo((): 'list' | 'followup' | 'issue' | 'settings' | null => {
     if (location.pathname === '/admin/inquiries/order-forms') return 'list';
     if (location.pathname === '/admin/inquiries/followup') return 'followup';
+    if (location.pathname === '/admin/inquiries/order-issue') return 'issue';
+    if (location.pathname === '/admin/inquiries/order-settings') return 'settings';
     return null;
   }, [location.pathname]);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -274,6 +276,15 @@ export function AdminOrderFormPage() {
     }
     if (inquiriesEmbed === 'followup') {
       setTab('followup');
+      return;
+    }
+    if (inquiriesEmbed === 'issue') {
+      setTab('issue');
+      return;
+    }
+    if (inquiriesEmbed === 'settings') {
+      const raw = parseTabParam(searchParams.get('tab'));
+      setTab(INQUIRIES_SETTINGS_SUB_TABS.includes(raw) ? raw : 'config');
       return;
     }
     setTab(parseTabParam(searchParams.get('tab')));
@@ -751,7 +762,10 @@ export function AdminOrderFormPage() {
                 role="tablist"
                 aria-label="발주서 하위 메뉴"
               >
-                {subTabOrder.map((t) => (
+                {(inquiriesEmbed === 'settings'
+                  ? subTabOrder.filter((t) => INQUIRIES_SETTINGS_SUB_TABS.includes(t))
+                  : subTabOrder
+                ).map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -798,6 +812,30 @@ export function AdminOrderFormPage() {
             </div>
           </div>
         </>
+      )}
+
+      {inquiriesEmbed === 'settings' && (
+        <div className="mb-6 w-full min-w-0">
+          <div className="flex flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {(
+              [
+                { id: 'config' as const, label: '설정' },
+                { id: 'messages' as const, label: '폼메세지' },
+                { id: 'notice' as const, label: '안내사항 설정' },
+                { id: 'specialty' as const, label: '발주서 설정' },
+              ] as const
+            ).map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                onClick={() => goTab(row.id)}
+                className={tabClass(row.id)}
+              >
+                {row.label}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {error && (
@@ -948,7 +986,7 @@ export function AdminOrderFormPage() {
             </p>
             <p className="text-sm text-gray-600 mb-4 p-3 bg-gray-50 border border-gray-200 rounded">
               <span className="font-medium text-gray-800">고객 안내사항</span> 본문과 동의란 링크 문구는{' '}
-              <Link to="/admin/orderforms?tab=notice" className="text-blue-600 underline hover:text-blue-800">
+              <Link to="/admin/inquiries/order-settings?tab=notice" className="text-blue-600 underline hover:text-blue-800">
                 안내사항설정
               </Link>{' '}
               메뉴에서 편집합니다.
@@ -1051,16 +1089,11 @@ export function AdminOrderFormPage() {
       )}
 
       {tab === 'followup' && token && (
-        <>
-          <div className="mb-2 flex w-full justify-end sm:mb-3">
-            <HelpTooltip className="shrink-0" text={FOLLOWUP_PANEL_HELP} />
-          </div>
-          <AdminOrderFormFollowupPanel
-            token={token}
-            linkedInquiryId={linkedFollowupInquiryId}
-            onClearLinkedInquiry={linkedFollowupInquiryId ? clearFollowupInquiryLink : undefined}
-          />
-        </>
+        <AdminOrderFormFollowupPanel
+          token={token}
+          linkedInquiryId={linkedFollowupInquiryId}
+          onClearLinkedInquiry={linkedFollowupInquiryId ? clearFollowupInquiryLink : undefined}
+        />
       )}
 
       {tab === 'issue' && (

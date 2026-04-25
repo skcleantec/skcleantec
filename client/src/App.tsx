@@ -53,6 +53,8 @@ function App() {
             <Route index element={<AdminInquiriesPage />} />
             <Route path="followup" element={<AdminOrderFormPage />} />
             <Route path="order-forms" element={<AdminOrderFormPage />} />
+            <Route path="order-issue" element={<AdminOrderFormPage />} />
+            <Route path="order-settings" element={<AdminOrderFormPage />} />
           </Route>
           <Route path="schedule" element={<AdminSchedulePage />} />
           <Route path="team-leaders" element={<AdminTeamLeadersLayout />}>
@@ -71,8 +73,8 @@ function App() {
             <Route path="leader-stats" element={<AdminTeamLeaderStatsPage />} />
           </Route>
           <Route path="messages" element={<AdminMessagesPage />} />
-          <Route path="orderforms" element={<AdminOrderFormPage />} />
-          <Route path="orderforms/notice" element={<Navigate to="/admin/orderforms?tab=notice" replace />} />
+          <Route path="orderforms" element={<Navigate to="/admin/inquiries/order-issue" replace />} />
+          <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-settings?tab=notice" replace />} />
           <Route path="orderforms/followup" element={<Navigate to="/admin/inquiries/followup" replace />} />
           <Route path="cs" element={<AdminCsPage />} />
           <Route path="advertising" element={<AdminAdvertisingPage />} />

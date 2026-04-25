@@ -1479,7 +1479,7 @@ export function AdminInquiriesPage() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/admin/orderforms?tab=issue')}
+                onClick={() => navigate('/admin/inquiries/order-issue')}
                 className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-indigo-600 bg-indigo-50 px-3 py-2 text-fluid-sm font-medium text-indigo-900 hover:bg-indigo-100"
                 title="발주서 발급부터 바로 진행"
               >
@@ -2049,7 +2049,7 @@ export function AdminInquiriesPage() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigate(
-                                  `/admin/orderforms?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                  `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
                                 );
                               }}
                               className="text-fluid-xs font-medium text-blue-700 hover:underline"
@@ -2089,7 +2089,7 @@ export function AdminInquiriesPage() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigate(
-                                    `/admin/orderforms?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                    `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
                                   );
                                 }}
                                 className="text-fluid-xs font-medium text-blue-700 hover:underline"
@@ -2465,7 +2465,7 @@ export function AdminInquiriesPage() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigate(
-                                  `/admin/orderforms?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                  `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
                                 );
                               }}
                               className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
@@ -2505,7 +2505,7 @@ export function AdminInquiriesPage() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigate(
-                                    `/admin/orderforms?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                    `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
                                   );
                                 }}
                                 className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
