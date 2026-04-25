@@ -57,7 +57,6 @@ import {
   isInquirySourceHiddenFromUi,
   phoneListTwoLines,
 } from '../../utils/inquiryListDisplay';
-import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import {
   ORDER_FOLLOWUP_STATUS_LABEL,
   type OrderFollowupStatus,
@@ -403,7 +402,7 @@ function formatCrewNoteDisplay(note: string, crewCount?: number | null): string 
 }
 
 function formatInquiryTeamSummary(item: InquiryItem): string {
-  const crewN = item.crewMemberCount ?? DEFAULT_CREW_UNITS_PER_INQUIRY;
+  const crewN = item.crewMemberCount ?? 0;
   const names = item.assignments
     .map((a) => {
       const u = a.teamLeader;

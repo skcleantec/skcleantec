@@ -345,7 +345,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       crewAvailable?: number;
       /** 당일 휴무인 활성 팀원 수 */
       crewDayOffCount?: number;
-      /** 해당일 접수 팀원 투입 단위 합(취소 제외, 미입력 접수는 표준 2단위) */
+      /** 해당일 접수 팀원 투입 단위 합(취소 제외, 미입력 접수는 0단위) */
       crewDemand?: number;
       /** 팀원 투입 잔여(명) */
       crewRemaining?: number;
