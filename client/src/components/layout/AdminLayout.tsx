@@ -428,7 +428,15 @@ export function AdminLayout() {
       <header className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="max-w-6xl mx-auto flex flex-col gap-2 min-w-0">
           <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
-            <h1 className="text-base font-semibold text-gray-800 truncate">SK클린텍 솔루션</h1>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/dashboard')}
+              className="min-w-0 truncate text-left text-base font-semibold text-gray-800 hover:text-gray-900"
+              aria-label="대시보드로 이동"
+              title="대시보드로 이동"
+            >
+              SK클린텍 솔루션
+            </button>
             <div className="flex items-center gap-2 shrink-0">
               <UserProfileMenu
                 token={adminToken}
@@ -456,12 +464,19 @@ export function AdminLayout() {
               className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
-              <h1 className="hidden md:block text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-gray-800 whitespace-nowrap shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate('/admin/dashboard')}
+                className="hidden md:block text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-gray-800 whitespace-nowrap shrink-0 hover:text-gray-900"
+                aria-label="대시보드로 이동"
+                title="대시보드로 이동"
+              >
                 SK클린텍 솔루션
-              </h1>
+              </button>
               <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {
                   const isAdmin = meRole === 'ADMIN';
+                  if (id === 'dashboard' || id === 'teams') return null;
                   if (!canShowAdminNavItem(id, isAdmin)) return null;
                   const def = ADMIN_NAV_DEF[id];
                   const dragging = draggingNavId === id;

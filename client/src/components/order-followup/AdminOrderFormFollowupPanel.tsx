@@ -821,6 +821,13 @@ export function AdminOrderFormFollowupPanel({
                               부재+1
                             </button>
                           ) : null}
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(row)}
+                            className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-100"
+                          >
+                            삭제
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -905,6 +912,13 @@ export function AdminOrderFormFollowupPanel({
                         부재+1
                       </button>
                     ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(row)}
+                      className="ml-auto rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-fluid-2xs font-medium text-red-700 hover:bg-red-100"
+                    >
+                      삭제
+                    </button>
                   </div>
                 </div>
               ))}
