@@ -19,6 +19,9 @@ server/uploads/
 *.db
 *.db-journal
 
+# 로컬 DB 덤프 (pg_dump 결과 — 절대 커밋 금지)
+*.dump
+
 # IDE — 팀 공유 룰만 추적 (.cursor/rules)
 .cursor/*
 !.cursor/rules/

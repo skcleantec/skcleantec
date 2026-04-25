@@ -141,6 +141,85 @@ const STATUS_LABELS: Record<string, string> = {
   CS_PROCESSING: 'C/S 처리중',
 };
 
+const STATUS_ICON_MAP: Record<string, string> = {
+  PENDING: '🕒',
+  RECEIVED: '📝',
+  DEPOSIT_PENDING: '💰',
+  DEPOSIT_COMPLETED: '✅',
+  ORDER_FORM_PENDING: '🔗',
+  ASSIGNED: '📌',
+  IN_PROGRESS: '🚚',
+  COMPLETED: '🏁',
+  ON_HOLD: '⏸️',
+  CANCELLED: '🛑',
+  CS_PROCESSING: '🛠️',
+};
+
+function StatusQuickPicker({
+  value,
+  onChange,
+  disabled,
+  compact = false,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  disabled?: boolean;
+  compact?: boolean;
+}) {
+  const label = STATUS_LABELS[value] ?? value;
+  const icon = STATUS_ICON_MAP[value] ?? '🏷️';
+  if (disabled) {
+    return (
+      <div
+        className={`flex w-full items-center justify-between rounded border border-gray-300 bg-gray-100 text-gray-500 ${
+          compact ? 'px-1 py-1 text-fluid-2xs xl:text-fluid-xs' : 'px-2 py-2 text-fluid-xs'
+        }`}
+      >
+        <span className="flex items-center gap-1">
+          <span aria-hidden>{icon}</span>
+          <span className="truncate">{label}</span>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <details className="relative w-full">
+      <summary
+        className={`flex list-none cursor-pointer items-center justify-between rounded border border-gray-300 bg-white text-gray-800 [&::-webkit-details-marker]:hidden ${
+          compact ? 'px-1 py-1 text-fluid-2xs xl:text-fluid-xs' : 'px-2 py-2 text-fluid-xs'
+        }`}
+      >
+        <span className="flex min-w-0 items-center gap-1">
+          <span aria-hidden>{icon}</span>
+          <span className="truncate">{label}</span>
+        </span>
+        <span aria-hidden className="text-gray-500">
+          ▾
+        </span>
+      </summary>
+      <div className="absolute left-0 top-[calc(100%+4px)] z-30 max-h-64 w-44 overflow-y-auto rounded-lg border border-gray-200 bg-white p-1.5 shadow-xl">
+        {Object.entries(STATUS_LABELS).map(([nextValue, nextLabel]) => (
+          <button
+            key={nextValue}
+            type="button"
+            onClick={(e) => {
+              onChange(nextValue);
+              e.currentTarget.closest('details')?.removeAttribute('open');
+            }}
+            className={`flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs ${
+              value === nextValue ? 'bg-gray-800 text-white' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+            title={nextLabel}
+          >
+            <span aria-hidden>{STATUS_ICON_MAP[nextValue] ?? '🏷️'}</span>
+            <span className="truncate">{nextLabel}</span>
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 interface InquiryItem {
   id: string;
   /** KST 일자 기준 10자리 숫자 접수번호 (구 데이터는 null 가능) */
@@ -378,6 +457,7 @@ export function AdminInquiriesPage() {
     if (st && Object.keys(STATUS_LABELS).includes(st)) return st;
     return '';
   });
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
@@ -419,6 +499,7 @@ export function AdminInquiriesPage() {
   const [claimMemo, setClaimMemo] = useState('');
   const [claimPhotoFiles, setClaimPhotoFiles] = useState<File[]>([]);
   const claimPhotoInputRef = useRef<HTMLInputElement>(null);
+  const statusFilterPanelRef = useRef<HTMLDivElement | null>(null);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -493,6 +574,19 @@ export function AdminInquiriesPage() {
       return teamLeaders.filter((t) => !otherSelected.has(t.id) || t.id === curId);
     };
   }, [teamLeaders, editForm.teamLeaderIds]);
+
+  useEffect(() => {
+    if (!statusFilterOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (!statusFilterPanelRef.current?.contains(target)) {
+        setStatusFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [statusFilterOpen]);
 
   useEffect(() => {
     const pd = searchParams.get('preferredDate');
@@ -1515,16 +1609,63 @@ export function AdminInquiriesPage() {
                 placeholder="고객명·연락처·접수번호 검색"
                 className="px-3 py-2 border border-gray-300 rounded text-fluid-sm flex-1 min-w-0"
               />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded text-fluid-sm shrink-0"
-              >
-                <option value="">전체 상태</option>
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
+              <div className="relative shrink-0" ref={statusFilterPanelRef}>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilterOpen((prev) => !prev)}
+                  className="flex min-w-[8.75rem] items-center justify-between gap-2 rounded border border-gray-300 bg-white px-3 py-2 text-fluid-sm text-gray-900"
+                  aria-haspopup="dialog"
+                  aria-expanded={statusFilterOpen}
+                  aria-label="상태 필터 선택"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden>{statusFilter ? STATUS_ICON_MAP[statusFilter] ?? '📋' : '📋'}</span>
+                    <span>{statusFilter ? STATUS_LABELS[statusFilter] ?? statusFilter : '전체 상태'}</span>
+                  </span>
+                  <span aria-hidden className="text-gray-500">
+                    ▾
+                  </span>
+                </button>
+                {statusFilterOpen ? (
+                  <div className="absolute right-0 z-30 mt-1.5 w-[15rem] rounded-lg border border-gray-200 bg-white p-2 shadow-xl">
+                    <p className="px-1 pb-2 text-fluid-2xs text-gray-500">상태를 선택하면 바로 필터에 적용됩니다.</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter('');
+                          setStatusFilterOpen(false);
+                        }}
+                        className={`flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs transition ${
+                          statusFilter === '' ? 'bg-gray-800 text-white' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <span aria-hidden>📋</span>
+                        <span>전체 상태</span>
+                      </button>
+                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => {
+                            setStatusFilter(value);
+                            setStatusFilterOpen(false);
+                          }}
+                          className={`flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs transition ${
+                            statusFilter === value
+                              ? 'bg-gray-800 text-white'
+                              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                          }`}
+                          title={label}
+                        >
+                          <span aria-hidden>{STATUS_ICON_MAP[value] ?? '🏷️'}</span>
+                          <span className="truncate">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={() => setAppliedSearchQuery(searchInput.trim())}
@@ -1658,18 +1799,11 @@ export function AdminInquiriesPage() {
                           <span className="w-7 shrink-0 text-center text-fluid-2xs font-medium leading-tight text-gray-500">
                             상태
                           </span>
-                          <select
+                          <StatusQuickPicker
                             value={item.status}
-                            onChange={(e) => handleStatusChange(item.id, e.target.value)}
+                            onChange={(next) => handleStatusChange(item.id, next)}
                             disabled={saving}
-                            className="min-h-[40px] min-w-0 flex-1 rounded border border-gray-300 bg-white px-1.5 py-1.5 text-fluid-2xs sm:text-fluid-xs"
-                          >
-                            {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                         <div className="flex min-w-0 items-center gap-1.5">
                           <span className="w-7 shrink-0 text-center text-fluid-2xs font-medium leading-tight text-gray-500">
@@ -2035,16 +2169,12 @@ export function AdminInquiriesPage() {
                       </span>
                     </td>
                     <td className={`min-w-0 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
-                      <select
+                      <StatusQuickPicker
                         value={item.status}
-                        onChange={(e) => handleStatusChange(item.id, e.target.value)}
+                        onChange={(next) => handleStatusChange(item.id, next)}
                         disabled={saving}
-                        className="w-full min-w-0 max-w-full rounded border border-gray-300 px-0.5 py-0.5 text-fluid-2xs xl:px-1 xl:py-1 xl:text-fluid-xs"
-                      >
-                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
+                        compact
+                      />
                       {isInquiryLinkedOrderFormPendingSubmit(item) && item.status !== 'ORDER_FORM_PENDING' ? (
                         <span
                           className="mt-0.5 block text-center text-fluid-2xs text-gray-500 xl:text-fluid-xs"
