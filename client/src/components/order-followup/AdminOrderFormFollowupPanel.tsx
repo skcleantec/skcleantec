@@ -398,12 +398,9 @@ export function AdminOrderFormFollowupPanel({
     setEditMemo(edit.memo ?? '');
     setEditNext(toLocalDatetimeValue(edit.nextContactAt));
     setEditGoldDb(edit.goldDb ?? false);
-    if (!edit.inquiry) {
-      setConnectInqQ(edit.customerName.trim());
-    } else {
-      setConnectInqQ('');
-      setConnectInqRows([]);
-    }
+    /** 편집 열자마자 자동 검색 요청을 보내면 입력·드롭다운 체감이 끊겨 보여 수동 검색으로 변경 */
+    setConnectInqQ('');
+    setConnectInqRows([]);
   }, [edit]);
 
   useEffect(() => {
@@ -514,10 +511,14 @@ export function AdminOrderFormFollowupPanel({
     []
   );
 
-  /** 부재현황 화면에서만 편집 가능한 상태(그 외 상태 행은 목록에 거의 안 나오지만, 열렸을 때 현재값 옵션으로 유지) */
+  /** 부재 보류 화면 편집 상태: 부재/보류 + 접수 전환용 입금대기/입금완료 */
   const editStatusOptions = useMemo(() => {
     const allowed = ORDER_FOLLOWUP_STATUS_OPTIONS.filter(
-      (o) => o.value === 'ABSENT' || o.value === 'ON_HOLD'
+      (o) =>
+        o.value === 'ABSENT' ||
+        o.value === 'ON_HOLD' ||
+        o.value === 'DEPOSIT_PENDING' ||
+        o.value === 'RESERVED'
     );
     if (!edit) return allowed;
     if (edit.status !== 'ABSENT' && edit.status !== 'ON_HOLD') {
