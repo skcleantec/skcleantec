@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { createInquiry, deleteInquiry, getInquiry, updateInquiry } from '../../api/inquiries';
+import { createOrderFollowup } from '../../api/orderFollowups';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
 import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
 import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../../api/schedule';
@@ -44,6 +45,8 @@ const AREA_BASIS_EDIT = ['공급', '전용'] as const;
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '대기',
   RECEIVED: '접수',
+  DEPOSIT_PENDING: '입금대기',
+  DEPOSIT_COMPLETED: '입금완료',
   ASSIGNED: '분배완료',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
@@ -60,6 +63,7 @@ function distanceFromJuanLabel(item: ScheduleItem): string | null {
 
 type EditFormFields = {
   customerName: string;
+  nickname: string;
   customerPhone: string;
   address: string;
   addressDetail: string;
@@ -110,6 +114,7 @@ function buildPatchFromEditForm(
   };
   const patch: Record<string, unknown> = {
     customerName: editForm.customerName.trim(),
+    nickname: editForm.nickname.trim() || null,
     customerPhone: editForm.customerPhone.trim(),
     address: editForm.address.trim(),
     addressDetail: editForm.addressDetail.trim() || null,
@@ -176,11 +181,15 @@ function buildPatchFromEditForm(
   return patch;
 }
 
+/** 신규 접수 첫 단계 — 예약금 대기는 접수 목록, 부재·보류는 부재현황과 병행 */
+type CreateIntakeLane = 'normal' | 'deposit' | 'absent' | 'hold';
+
 /** POST /api/inquiries 본문 — 서버 create 스키마에 맞춤 */
 function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> {
   const p = buildPatchFromEditForm(editForm);
   return {
     customerName: p.customerName,
+    nickname: p.nickname,
     customerPhone: p.customerPhone,
     customerPhone2: (p.customerPhone2 as string)?.trim() ? String(p.customerPhone2) : null,
     address: p.address,
@@ -281,6 +290,7 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
 
   // 고객
   addRow('고객명', editForm.customerName);
+  addRow('닉네임', editForm.nickname);
   addRow('연락처', editForm.customerPhone);
   addRow('보조 연락처', editForm.customerPhone2);
   endSection();
@@ -362,6 +372,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
   const [saving, setSaving] = useState(false);
   const [externalIntake, setExternalIntake] = useState(false);
+  const [createIntakeLane, setCreateIntakeLane] = useState<CreateIntakeLane>('normal');
   const [assigneeHelpOpen, setAssigneeHelpOpen] = useState(false);
   const assigneeHelpRef = useRef<HTMLDivElement | null>(null);
   const [crewHelpOpen, setCrewHelpOpen] = useState(false);
@@ -412,6 +423,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const ymd = props.initialPreferredDate.trim().slice(0, 10);
       return {
         customerName: '',
+        nickname: '',
         customerPhone: '',
         address: '',
         addressDetail: '',
@@ -448,6 +460,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     const amt = effectiveAmounts(it);
     return {
       customerName: it.customerName,
+      nickname: it.nickname || '',
       customerPhone: it.customerPhone,
       address: it.address,
       addressDetail: it.addressDetail || '',
@@ -482,6 +495,18 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     };
   });
+
+  useEffect(() => {
+    if (!isCreate) return;
+    const nextStatus: Record<CreateIntakeLane, string> = {
+      normal: 'RECEIVED',
+      deposit: 'DEPOSIT_PENDING',
+      absent: 'RECEIVED',
+      hold: 'ON_HOLD',
+    };
+    const ns = nextStatus[createIntakeLane];
+    setEditForm((p) => (p.status === ns ? p : { ...p, status: ns }));
+  }, [isCreate, createIntakeLane]);
 
   const dateKeyForStats = editForm.preferredDate?.trim().slice(0, 10) ?? '';
   const dayStat =
@@ -529,6 +554,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     const a = effectiveAmounts(it);
     setEditForm({
       customerName: it.customerName,
+      nickname: it.nickname || '',
       customerPhone: it.customerPhone,
       address: it.address,
       addressDetail: it.addressDetail || '',
@@ -663,9 +689,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     const leaderIdsForSave = editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
     if (
       leaderIdsForSave.length > 0 &&
-      (editForm.status === 'PENDING' || editForm.status === 'ON_HOLD')
+      (editForm.status === 'PENDING' ||
+        editForm.status === 'DEPOSIT_PENDING' ||
+        editForm.status === 'DEPOSIT_COMPLETED' ||
+        editForm.status === 'ON_HOLD')
     ) {
-      alert('대기·보류 상태인 건에는 분배할 수 없습니다.');
+      alert('대기·입금대기·입금완료·보류 상태인 건에는 분배할 수 없습니다.');
       return;
     }
     setSaving(true);
@@ -680,6 +709,31 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           buildCreatePostBodyForMode(editForm, { externalIntake })
         )) as { id: string };
         await updateInquiry(token, created.id, patch);
+        const nameForFollowup = editForm.customerName.trim() || '미입력';
+        const phoneForFollowup = editForm.customerPhone.trim() || '';
+        try {
+          if (createIntakeLane === 'absent') {
+            await createOrderFollowup(token, {
+              customerName: nameForFollowup,
+              customerPhone: phoneForFollowup,
+              status: 'ABSENT',
+              inquiryId: created.id,
+            });
+          } else if (createIntakeLane === 'hold') {
+            await createOrderFollowup(token, {
+              customerName: nameForFollowup,
+              customerPhone: phoneForFollowup,
+              status: 'ON_HOLD',
+              inquiryId: created.id,
+            });
+          }
+        } catch (fe) {
+          alert(
+            fe instanceof Error
+              ? `${fe.message}\n\n접수는 등록되었습니다. 발주서 메뉴의 부재현황에서 같은 접수에 행을 수동으로 연결해 주세요.`
+              : '부재현황 연동에 실패했습니다. 접수는 등록되었습니다.'
+          );
+        }
       } else {
         await updateInquiry(token, item!.id, patch);
       }
@@ -801,6 +855,39 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 : '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'
               : '스케줄에서 연 접수입니다. 수정 후 저장하세요.'}
           </p>
+          {isCreate && (
+            <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+              <p className="font-medium text-gray-900">이 접수의 첫 단계</p>
+              <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                예약금·입금 대기는 접수 목록에만 두고 진행합니다. 부재·보류 후속은 같은 접수에 맞춰{' '}
+                <strong className="font-medium text-gray-800">부재현황</strong> 행을 함께 만듭니다.
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(
+                  [
+                    { id: 'normal' as const, label: '일반 접수', hint: '접수 목록 · 번호는 입금대기 전환 시' },
+                    { id: 'deposit' as const, label: '예약금 대기', hint: '접수 목록 입금대기·번호 발급' },
+                    { id: 'absent' as const, label: '부재 후속', hint: '목록 접수 + 부재현황 부재' },
+                    { id: 'hold' as const, label: '보류 후속', hint: '목록 보류 + 부재현황 보류' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setCreateIntakeLane(opt.id)}
+                    className={`rounded-lg border px-2 py-2 text-left text-xs transition sm:px-3 ${
+                      createIntakeLane === opt.id
+                        ? 'border-blue-500 bg-blue-50 text-blue-950 ring-1 ring-blue-200'
+                        : 'border-gray-200 bg-white text-gray-800 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="block font-medium">{opt.label}</span>
+                    <span className="mt-0.5 block text-[11px] font-normal text-gray-600">{opt.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {!isCreate && item ? (
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className="min-w-0 truncate text-base font-semibold text-gray-900">
@@ -876,6 +963,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               value={editForm.customerName}
               onChange={(e) => setEditForm((p) => ({ ...p, customerName: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-600 mb-1">닉네임 (선택)</label>
+            <input
+              value={editForm.nickname}
+              onChange={(e) => setEditForm((p) => ({ ...p, nickname: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded"
+              placeholder="예: 어머님, 관리실"
             />
           </div>
           <div>
@@ -1272,19 +1368,28 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
         <AdminScheduleDetailSection title="상태 · 배정 · 팀원 · 메모">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <div>
+          <div className={isCreate ? 'sm:col-span-2' : ''}>
             <label className="block text-gray-600 mb-1">상태</label>
-            <select
-              value={editForm.status}
-              onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-            >
-              {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            {isCreate ? (
+              <p className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-gray-800">
+                {STATUS_LABELS[editForm.status] ?? editForm.status}
+                <span className="mt-1 block text-xs font-normal text-gray-500">
+                  신규 등록 시에는 상단 「이 접수의 첫 단계」에서만 바꿀 수 있습니다.
+                </span>
+              </p>
+            ) : (
+              <select
+                value={editForm.status}
+                onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           {canEditMarketer && (
             <div>

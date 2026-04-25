@@ -1,0 +1,6 @@
+DO $$
+BEGIN
+  ALTER TYPE "InquiryStatus" ADD VALUE 'DEPOSIT_COMPLETED';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;

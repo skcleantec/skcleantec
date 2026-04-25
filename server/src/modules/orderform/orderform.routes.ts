@@ -336,7 +336,7 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
       await tx.inquiry.deleteMany({ where: { orderFormId: id } });
     } else {
       await tx.inquiry.updateMany({
-        where: { orderFormId: id, status: 'PENDING' },
+        where: { orderFormId: id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED'] } },
         data: { orderFormId: null },
       });
     }
@@ -391,8 +391,10 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
       res.status(404).json({ error: '연결할 접수를 찾을 수 없습니다.' });
       return;
     }
-    if (pending.status !== 'PENDING') {
-      res.status(400).json({ error: '대기 상태(고객 발주서 미제출) 접수만 연결할 수 있습니다.' });
+    if (pending.status !== 'PENDING' && pending.status !== 'DEPOSIT_COMPLETED') {
+      res.status(400).json({
+        error: '대기·입금완료(발주서 미제출) 접수만 연결할 수 있습니다.',
+      });
       return;
     }
     if (pending.orderFormId) {
@@ -564,7 +566,7 @@ router.get('/by-token/:token', async (req, res) => {
     where: { token },
     include: {
       inquiries: {
-        where: { status: 'PENDING' },
+        where: { status: { in: ['PENDING', 'DEPOSIT_COMPLETED'] } },
         take: 1,
       },
     },
@@ -751,7 +753,7 @@ router.post('/submit/:token', async (req, res) => {
     .join('\n');
 
   const existingPending = await prisma.inquiry.findFirst({
-    where: { orderFormId: form.id, status: 'PENDING' },
+    where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED'] } },
     select: { id: true, inquiryNumber: true },
   });
 

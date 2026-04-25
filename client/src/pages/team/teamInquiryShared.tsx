@@ -73,6 +73,8 @@ export function TeamHappyCallBadge({ item, className = '' }: { item: InquiryItem
 export const STATUS_LABELS: Record<string, string> = {
   PENDING: '대기',
   RECEIVED: '접수',
+  DEPOSIT_PENDING: '입금대기',
+  DEPOSIT_COMPLETED: '입금완료',
   ASSIGNED: '분배',
   IN_PROGRESS: '진행',
   COMPLETED: '완료',

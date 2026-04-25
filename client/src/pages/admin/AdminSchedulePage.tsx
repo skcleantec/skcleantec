@@ -180,7 +180,7 @@ function ScheduleDayListItem({
   onOpenMemo: () => void;
 }) {
   const isExternalIntake = isManualIntakeInquiry(item.source);
-  const isPending = item.status === 'PENDING';
+  const isPreOrder = item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED';
   const isOnHold = item.status === 'ON_HOLD';
   const isCancelled = item.status === 'CANCELLED';
   const bucket = getScheduleTimeBucket(item);
@@ -234,7 +234,7 @@ function ScheduleDayListItem({
   return (
     <div
       className={`text-left w-full py-1.5 pl-2 pr-1 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm text-fluid-sm ${slotAccent} ${
-        isPending ? 'ring-1 ring-red-500' : ''
+        isPreOrder ? 'ring-1 ring-red-500' : ''
       } ${isOnHold ? 'ring-1 ring-amber-500 bg-amber-50/40' : ''} ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}`}
     >
       <span
@@ -331,8 +331,10 @@ function ScheduleDayListItem({
               해피콜 대상 아님
             </span>
           )}
-          {isPending && (
-            <span className="text-fluid-2xs font-semibold text-red-700 shrink-0">대기</span>
+          {isPreOrder && (
+            <span className="text-fluid-2xs font-semibold text-red-700 shrink-0">
+              {item.status === 'DEPOSIT_COMPLETED' ? '입금완료' : '대기'}
+            </span>
           )}
           <button
             type="button"
@@ -992,7 +994,9 @@ export function AdminSchedulePage() {
                 const activeScheduleItems = dayItems.filter(
                   (it) => it.status !== 'CANCELLED' && it.status !== 'ON_HOLD'
                 );
-                const pendingDayCount = dayItems.filter((it) => it.status === 'PENDING').length;
+                const pendingDayCount = dayItems.filter(
+                  (it) => it.status === 'PENDING' || it.status === 'DEPOSIT_COMPLETED'
+                ).length;
                 const onHoldDayCount = dayItems.filter((it) => it.status === 'ON_HOLD').length;
                 const cancelledDayCount = dayItems.filter((it) => it.status === 'CANCELLED').length;
                 const dayStats = stats[key];

@@ -228,7 +228,7 @@ router.get('/happy-call-stats', async (req, res) => {
     where: {
       preferredDate: { not: null },
       happyCallCompletedAt: null,
-      status: { notIn: ['CANCELLED', 'ON_HOLD', 'PENDING'] },
+      status: { notIn: ['CANCELLED', 'ON_HOLD', 'PENDING', 'DEPOSIT_COMPLETED'] },
       assignments: { some: { teamLeaderId: userId } },
     },
     select: { preferredDate: true },

@@ -5,6 +5,10 @@ import type { Prisma } from '@prisma/client';
 export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.InquiryUpdateInput {
   const data: Prisma.InquiryUpdateInput = {};
   if (body.customerName != null) data.customerName = String(body.customerName);
+  if (Object.prototype.hasOwnProperty.call(body, 'nickname')) {
+    const v = body.nickname;
+    data.nickname = v == null || v === '' ? null : String(v);
+  }
   if (body.customerPhone != null) data.customerPhone = String(body.customerPhone);
   if (body.customerPhone2 != null) {
     data.customerPhone2 = body.customerPhone2 ? String(body.customerPhone2) : null;
@@ -103,6 +107,8 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
     data.status = body.status as
       | 'PENDING'
       | 'RECEIVED'
+      | 'DEPOSIT_PENDING'
+      | 'DEPOSIT_COMPLETED'
       | 'ASSIGNED'
       | 'IN_PROGRESS'
       | 'COMPLETED'

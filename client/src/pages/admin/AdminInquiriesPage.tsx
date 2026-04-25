@@ -1,14 +1,21 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import {
   getInquiries,
   getInquiry,
   getMarketerOverview,
+  createInquiry,
   updateInquiry,
   deleteInquiry,
   type MarketerOverviewResponse,
 } from '../../api/inquiries';
+import {
+  listOrderFollowups,
+  createOrderFollowup,
+  patchOrderFollowup,
+  type OrderFollowupItem,
+} from '../../api/orderFollowups';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
@@ -47,6 +54,10 @@ import {
   phoneListTwoLines,
 } from '../../utils/inquiryListDisplay';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
+import {
+  ORDER_FOLLOWUP_STATUS_LABEL,
+  type OrderFollowupStatus,
+} from '../../constants/orderFollowupStatus';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
@@ -119,6 +130,8 @@ function CirclePlusIcon({ className }: { className?: string }) {
 const STATUS_LABELS: Record<string, string> = {
   PENDING: '대기',
   RECEIVED: '접수',
+  DEPOSIT_PENDING: '입금대기',
+  DEPOSIT_COMPLETED: '입금완료',
   ASSIGNED: '분배완료',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
@@ -132,6 +145,7 @@ interface InquiryItem {
   /** KST 일자 기준 10자리 숫자 접수번호 (구 데이터는 null 가능) */
   inquiryNumber?: string | null;
   customerName: string;
+  nickname?: string | null;
   customerPhone: string;
   customerPhone2?: string | null;
   address: string;
@@ -218,10 +232,11 @@ function happyCallAdminCell(item: InquiryItem): { label: string; className: stri
 
 /** 모바일 카드 목록 — 표와 동일한 강조(대기·해피콜 톤) */
 function inquiryMobileCardShellClass(item: InquiryItem): string {
-  const isPending = item.status === 'PENDING';
+  const isPreOrder = item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED';
   const isOnHold = item.status === 'ON_HOLD';
+  const isDepositPending = item.status === 'DEPOSIT_PENDING';
   const hasAssignment = item.assignments.length > 0;
-  const hcTone = isPending || isOnHold
+  const hcTone = isPreOrder || isOnHold || isDepositPending
     ? ('none' as const)
     : happyCallRowTone(
         new Date(),
@@ -232,8 +247,9 @@ function inquiryMobileCardShellClass(item: InquiryItem): string {
       );
   const base =
     'rounded-xl border text-left outline-none transition focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation';
-  if (isPending) return `${base} border-red-500 bg-red-50/90 ring-1 ring-red-200/50 shadow-sm`;
+  if (isPreOrder) return `${base} border-red-500 bg-red-50/90 ring-1 ring-red-200/50 shadow-sm`;
   if (isOnHold) return `${base} border-amber-500 bg-amber-50/90 ring-1 ring-amber-300/80 shadow-sm`;
+  if (isDepositPending) return `${base} border-sky-500 bg-sky-50/90 ring-1 ring-sky-200/60 shadow-sm`;
   if (hcTone === 'overdue') return `${base} border-red-200 bg-red-50/95 shadow-sm`;
   if (hcTone === 'pending') return `${base} border-amber-200 bg-amber-50/80 shadow-sm`;
   return `${base} border-gray-200 bg-white shadow-sm hover:border-gray-300`;
@@ -337,6 +353,7 @@ export function AdminInquiriesPage() {
   const [inquiryEditPreferredCalOpen, setInquiryEditPreferredCalOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     customerName: '',
+    nickname: '',
     customerPhone: '',
     address: '',
     addressDetail: '',
@@ -373,6 +390,28 @@ export function AdminInquiriesPage() {
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [inquiryFollowups, setInquiryFollowups] = useState<OrderFollowupItem[]>([]);
+  const [inquiryFollowupsLoading, setInquiryFollowupsLoading] = useState(false);
+  const [followupLinkOpen, setFollowupLinkOpen] = useState(false);
+  const [followupLinkQuery, setFollowupLinkQuery] = useState('');
+  const [followupLinkCandidates, setFollowupLinkCandidates] = useState<OrderFollowupItem[]>([]);
+  const [followupLinkLoading, setFollowupLinkLoading] = useState(false);
+  const [followupLinkError, setFollowupLinkError] = useState<string | null>(null);
+  const [followupLinkingId, setFollowupLinkingId] = useState<string | null>(null);
+  const followupLinkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 접수 목록 — 부재현황과 동일 취지의 전화·상태별 신규 (부재/보류 → 부재현황, 입금대기/완료 → 이 목록) */
+  const [listIntakeOpen, setListIntakeOpen] = useState(false);
+  const [listIntakeKind, setListIntakeKind] = useState<'absent' | 'hold' | 'deposit' | 'reserved'>(
+    'deposit'
+  );
+  const [listIntakeName, setListIntakeName] = useState('');
+  const [listIntakeNickname, setListIntakeNickname] = useState('');
+  const [listIntakePhone, setListIntakePhone] = useState('');
+  const [listIntakeMemo, setListIntakeMemo] = useState('');
+  const [listIntakeSaving, setListIntakeSaving] = useState(false);
+  const [listIntakeEditInquiryId, setListIntakeEditInquiryId] = useState<string | null>(null);
+  /** 전화·상태별 신규 직후 목록 재조회(필터가 동일해도 한 번 더) */
+  const [inquiryListBump, setInquiryListBump] = useState(0);
   const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
   const [marketerQuickValue, setMarketerQuickValue] = useState('');
   /**
@@ -632,6 +671,100 @@ export function AdminInquiriesPage() {
       });
   };
 
+  const openListIntakeModal = () => {
+    setListIntakeName('');
+    setListIntakeNickname('');
+    setListIntakePhone('');
+    setListIntakeMemo('');
+    setListIntakeKind('deposit');
+    setListIntakeEditInquiryId(null);
+    setListIntakeOpen(true);
+  };
+
+  const openListIntakeEditModal = (item: InquiryItem) => {
+    setListIntakeName(item.customerName ?? '');
+    setListIntakeNickname(item.nickname ?? '');
+    setListIntakePhone(item.customerPhone ?? '');
+    setListIntakeMemo(item.memo ?? '');
+    setListIntakeKind(item.status === 'DEPOSIT_PENDING' ? 'deposit' : 'reserved');
+    setListIntakeEditInquiryId(item.id);
+    setListIntakeOpen(true);
+  };
+
+  const submitListIntake = async () => {
+    if (!token) return;
+    const name = listIntakeName.trim();
+    if (!name) {
+      alert('고객명을 입력해 주세요.');
+      return;
+    }
+    setListIntakeSaving(true);
+    try {
+      if (listIntakeKind === 'absent' || listIntakeKind === 'hold') {
+        await createOrderFollowup(token, {
+          customerName: name,
+          nickname: listIntakeNickname.trim() || null,
+          customerPhone: listIntakePhone.trim(),
+          status: listIntakeKind === 'absent' ? 'ABSENT' : 'ON_HOLD',
+          memo: listIntakeMemo.trim() || null,
+        });
+        setListIntakeOpen(false);
+        navigate('/admin/orderforms?tab=followup');
+        return;
+      }
+      if (listIntakeEditInquiryId) {
+        await updateInquiry(token, listIntakeEditInquiryId, {
+          customerName: name,
+          nickname: listIntakeNickname.trim() || null,
+          customerPhone: listIntakePhone.trim() || '',
+          memo: listIntakeMemo.trim() || null,
+        });
+        setListIntakeOpen(false);
+        refresh(true);
+        return;
+      }
+      const inqSt = listIntakeKind === 'deposit' ? 'DEPOSIT_PENDING' : 'DEPOSIT_COMPLETED';
+      const created = (await createInquiry(token, {
+        customerName: name,
+        nickname: listIntakeNickname.trim() || null,
+        customerPhone: listIntakePhone.trim() || '',
+        address: '',
+        addressDetail: null,
+        memo: listIntakeMemo.trim() || null,
+        source: '전화',
+        status: inqSt,
+      })) as { id: string };
+      const fuSt: OrderFollowupStatus = listIntakeKind === 'deposit' ? 'DEPOSIT_PENDING' : 'RESERVED';
+      await createOrderFollowup(token, {
+        customerName: name,
+        nickname: listIntakeNickname.trim() || null,
+        customerPhone: listIntakePhone.trim(),
+        status: fuSt,
+        memo: listIntakeMemo.trim() || null,
+        inquiryId: created.id,
+      });
+      const todayYmd = kstTodayYmd();
+      const month = kstMonthKeyNow();
+      flushSync(() => {
+        setDateBasis('createdAt');
+        setDatePreset('today');
+        setMonthKey(month);
+        setDayKey(todayYmd);
+        setStatusFilter(inqSt);
+        setMarketerFilterId('');
+        setTeamLeaderFilterId('');
+        setSearchInput('');
+        setAppliedSearchQuery('');
+        setListIntakeOpen(false);
+        setInquiryListBump((n) => n + 1);
+      });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '등록에 실패했습니다.');
+    } finally {
+      setListIntakeSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (!token) return;
     getAssignableScheduleUsers(token).then(setTeamLeaders).catch(() => setTeamLeaders([]));
@@ -651,13 +784,18 @@ export function AdminInquiriesPage() {
     marketerFilterId,
     teamLeaderFilterId,
     me?.role,
+    inquiryListBump,
   ]);
 
   const handleAssign = async (inquiryId: string, teamLeaderId: string) => {
     if (!token || !teamLeaderId) return;
     const row = items.find((i) => i.id === inquiryId);
-    if (row?.status === 'PENDING') {
-      alert('대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다.');
+    if (row?.status === 'PENDING' || row?.status === 'DEPOSIT_COMPLETED') {
+      alert('대기·입금완료(발주서 미제출)인 건은 분배할 수 없습니다.');
+      return;
+    }
+    if (row?.status === 'DEPOSIT_PENDING') {
+      alert('입금대기인 건은 분배할 수 없습니다. 입금 완료 후 발주서 생성·대기 전환 뒤 진행하세요.');
       return;
     }
     setAssigningId(inquiryId);
@@ -676,6 +814,7 @@ export function AdminInquiriesPage() {
     const a = effectiveInquiryAmounts(item);
     setEditForm({
       customerName: item.customerName,
+      nickname: item.nickname || '',
       customerPhone: item.customerPhone,
       address: item.address,
       addressDetail: item.addressDetail || '',
@@ -706,6 +845,97 @@ export function AdminInquiriesPage() {
         item.externalTransferFee != null ? String(item.externalTransferFee) : '',
       createdById: item.createdBy?.id ?? '',
     });
+  };
+
+  useEffect(() => {
+    if (!editItem) {
+      setInquiryFollowups([]);
+      setInquiryFollowupsLoading(false);
+      setFollowupLinkOpen(false);
+      setFollowupLinkQuery('');
+      setFollowupLinkCandidates([]);
+      setFollowupLinkError(null);
+      setFollowupLinkingId(null);
+      return;
+    }
+    if (!token) return;
+    let cancelled = false;
+    setInquiryFollowupsLoading(true);
+    void listOrderFollowups(token, { inquiryId: editItem.id, includeFulfilled: true })
+      .then((r) => {
+        if (!cancelled) setInquiryFollowups(r.items);
+      })
+      .catch(() => {
+        if (!cancelled) setInquiryFollowups([]);
+      })
+      .finally(() => {
+        if (!cancelled) setInquiryFollowupsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editItem, token]);
+
+  useEffect(() => {
+    if (!followupLinkOpen || !token) return;
+    const q = followupLinkQuery.trim();
+    if (q.length < 2) {
+      setFollowupLinkCandidates([]);
+      setFollowupLinkError(null);
+      setFollowupLinkLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setFollowupLinkLoading(true);
+    if (followupLinkDebounceRef.current) clearTimeout(followupLinkDebounceRef.current);
+    followupLinkDebounceRef.current = setTimeout(() => {
+      followupLinkDebounceRef.current = null;
+      void listOrderFollowups(token, {
+        missingInquiryLink: true,
+        customerName: q,
+        includeFulfilled: false,
+      })
+        .then((r) => {
+          if (!cancelled) {
+            setFollowupLinkCandidates(r.items);
+            setFollowupLinkError(null);
+          }
+        })
+        .catch((e) => {
+          if (!cancelled) {
+            setFollowupLinkCandidates([]);
+            setFollowupLinkError(e instanceof Error ? e.message : '검색에 실패했습니다.');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setFollowupLinkLoading(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      if (followupLinkDebounceRef.current) {
+        clearTimeout(followupLinkDebounceRef.current);
+        followupLinkDebounceRef.current = null;
+      }
+    };
+  }, [followupLinkOpen, followupLinkQuery, token]);
+
+  const linkFollowupToCurrentInquiry = async (followupId: string) => {
+    if (!token || !editItem) return;
+    setFollowupLinkingId(followupId);
+    try {
+      await patchOrderFollowup(token, followupId, { inquiryId: editItem.id });
+      setFollowupLinkOpen(false);
+      setFollowupLinkCandidates([]);
+      setFollowupLinkQuery('');
+      const r = await listOrderFollowups(token, { inquiryId: editItem.id, includeFulfilled: true });
+      setInquiryFollowups(r.items);
+      refresh(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '연결에 실패했습니다.');
+    } finally {
+      setFollowupLinkingId(null);
+    }
   };
 
   /** C/S 관리 등에서 `/admin/inquiries?openInquiry=` 로 접근 시 접수 상세 모달 */
@@ -837,6 +1067,7 @@ export function AdminInquiriesPage() {
       }
       const patch: Record<string, unknown> = {
         customerName: editForm.customerName.trim(),
+        nickname: editForm.nickname.trim() || null,
         customerPhone: editForm.customerPhone.trim(),
         address: editForm.address.trim(),
         addressDetail: editForm.addressDetail.trim() || null,
@@ -896,8 +1127,14 @@ export function AdminInquiriesPage() {
         return;
       }
       const ids = editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
-      if (ids.length > 0 && (editForm.status === 'PENDING' || editForm.status === 'ON_HOLD')) {
-        alert('대기·보류 상태인 건에는 분배할 수 없습니다.');
+      if (
+        ids.length > 0 &&
+        (editForm.status === 'PENDING' ||
+          editForm.status === 'DEPOSIT_PENDING' ||
+          editForm.status === 'DEPOSIT_COMPLETED' ||
+          editForm.status === 'ON_HOLD')
+      ) {
+        alert('대기·입금대기·입금완료·보류 상태인 건에는 분배할 수 없습니다.');
         setSaving(false);
         return;
       }
@@ -972,15 +1209,25 @@ export function AdminInquiriesPage() {
             <h1 className="text-xl font-semibold text-gray-800">접수 목록</h1>
           </div>
           {token && (
-            <button
-              type="button"
-              onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
-              className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
-              title="신규 접수 (스케줄과 동일한 폼)"
-              aria-label="신규 접수"
-            >
-              <CirclePlusIcon className="w-5 h-5" />
-            </button>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={openListIntakeModal}
+                className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-3 py-2 text-fluid-sm font-medium text-sky-900 hover:bg-sky-100"
+                title="전화 상담 후 부재·보류·예약금 단계별 등록"
+              >
+                신규 등록
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+                title="신규 접수 (스케줄과 동일한 폼)"
+                aria-label="신규 접수 (상세 폼)"
+              >
+                <CirclePlusIcon className="w-5 h-5" />
+              </button>
+            </div>
           )}
         </div>
         <div className="flex flex-col gap-3">
@@ -1242,7 +1489,7 @@ export function AdminInquiriesPage() {
             </div>
             <div className="flex items-center gap-2 text-fluid-2xs text-gray-500">
               <span>필터 도움말</span>
-              <HelpTooltip text="검색어는 조회 버튼을 누를 때 적용됩니다. 접수자/팀장/상태/날짜 기준 필터와 함께 조회합니다." />
+              <HelpTooltip text="검색어는 조회 버튼을 누를 때 적용됩니다. 접수자·팀장·상태·날짜 필터와 함께 조회합니다." />
             </div>
           </div>
         </div>
@@ -1258,7 +1505,9 @@ export function AdminInquiriesPage() {
         {loading ? (
           <div className="p-8 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
         ) : items.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 text-fluid-sm">등록된 문의가 없습니다.</div>
+          <div className="p-8 text-center text-gray-500 text-fluid-sm">
+            등록된 문의가 없습니다.
+          </div>
         ) : (
           <>
             <p className="border-b border-gray-100 px-4 py-2 text-fluid-xs text-gray-600 lg:hidden">
@@ -1378,14 +1627,18 @@ export function AdminInquiriesPage() {
                             disabled={
                               assigningId === item.id ||
                               item.status === 'PENDING' ||
+                              item.status === 'DEPOSIT_PENDING' ||
+                              item.status === 'DEPOSIT_COMPLETED' ||
                               item.status === 'ON_HOLD'
                             }
                             title={
-                              item.status === 'PENDING'
-                                ? '대기 건은 발주서 제출 후 분배할 수 있습니다.'
-                                : item.status === 'ON_HOLD'
-                                  ? '보류 건에는 분배할 수 없습니다.'
-                                  : undefined
+                              item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED'
+                                ? '대기·입금완료(발주서 미제출) 건은 발주서 제출 후 분배할 수 있습니다.'
+                                : item.status === 'DEPOSIT_PENDING'
+                                  ? '입금대기 건은 입금 완료·발주서 생성 후 분배할 수 있습니다.'
+                                  : item.status === 'ON_HOLD'
+                                    ? '보류 건에는 분배할 수 없습니다.'
+                                    : undefined
                             }
                             className="min-h-[40px] min-w-0 flex-1 rounded border border-gray-300 bg-white px-1.5 py-1.5 text-fluid-2xs sm:text-fluid-xs"
                           >
@@ -1399,21 +1652,57 @@ export function AdminInquiriesPage() {
                         </div>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 border-t border-gray-200 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(item)}
-                            className="text-fluid-xs font-medium text-blue-600 hover:underline"
-                          >
-                            상세보기
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openClaim(item)}
-                            className="text-fluid-xs font-medium text-orange-600 hover:underline"
-                          >
-                            클레임
-                          </button>
-                          {item.status !== 'CANCELLED' && (
+                        {item.status === 'DEPOSIT_PENDING' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleStatusChange(item.id, 'DEPOSIT_COMPLETED');
+                              }}
+                              disabled={saving}
+                              className="text-fluid-xs font-medium text-sky-700 hover:underline"
+                            >
+                              입금완료
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                            >
+                              메모
+                            </button>
+                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className="text-fluid-xs text-red-600 hover:underline"
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : item.status === 'DEPOSIT_COMPLETED' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(
+                                  `/admin/orderforms?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                );
+                              }}
+                              className="text-fluid-xs font-medium text-blue-700 hover:underline"
+                            >
+                              발주서
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openListIntakeEditModal(item)}
+                              className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                            >
+                              수정
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleCancelInquiry(item)}
@@ -1422,27 +1711,78 @@ export function AdminInquiriesPage() {
                             >
                               취소
                             </button>
-                          )}
-                          {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className="text-fluid-xs text-red-600 hover:underline"
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {(item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED') && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(
+                                    `/admin/orderforms?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                  );
+                                }}
+                                className="text-fluid-xs font-medium text-blue-700 hover:underline"
+                              >
+                                발주서 생성
+                              </button>
+                            )}
                             <button
                               type="button"
-                              onClick={() => setDeleteTarget(item)}
-                              className="text-fluid-xs text-red-600 hover:underline"
+                              onClick={() => openEdit(item)}
+                              className="text-fluid-xs font-medium text-blue-600 hover:underline"
                             >
-                              삭제
+                              상세보기
                             </button>
-                          )}
-                          {item.status === 'CS_PROCESSING' && (
                             <button
                               type="button"
-                              onClick={() => handleStatusChange(item.id, 'COMPLETED')}
-                              disabled={saving}
-                              className="text-fluid-xs font-medium text-green-600 hover:underline"
+                              onClick={() => openClaim(item)}
+                              className="text-fluid-xs font-medium text-orange-600 hover:underline"
                             >
-                              완료
+                              클레임
                             </button>
-                          )}
-                        </div>
+                            {item.status !== 'CANCELLED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelInquiry(item)}
+                                disabled={saving}
+                                className="text-fluid-xs text-gray-700 hover:underline"
+                              >
+                                취소
+                              </button>
+                            )}
+                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className="text-fluid-xs text-red-600 hover:underline"
+                              >
+                                삭제
+                              </button>
+                            )}
+                            {item.status === 'CS_PROCESSING' && (
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(item.id, 'COMPLETED')}
+                                disabled={saving}
+                                className="text-fluid-xs font-medium text-green-600 hover:underline"
+                              >
+                                완료
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                       </div>
                     </div>
                 );
@@ -1493,9 +1833,9 @@ export function AdminInquiriesPage() {
               </thead>
               <tbody>
                 {items.map((item) => {
-                  const isPending = item.status === 'PENDING';
-                  const pBorder = isPending ? 'border-t-2 border-b-2 border-red-500' : 'border-b border-gray-100';
-                  const hcTone = isPending
+                  const isPreOrder = item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED';
+                  const pBorder = isPreOrder ? 'border-t-2 border-b-2 border-red-500' : 'border-b border-gray-100';
+                  const hcTone = isPreOrder
                     ? ('none' as const)
                     : happyCallRowTone(
                         new Date(),
@@ -1504,22 +1844,22 @@ export function AdminInquiriesPage() {
                         item.happyCallCompletedAt,
                         item.assignments.length > 0
                       );
-                  const stickyBg = isPending
+                  const stickyBg = isPreOrder
                     ? 'bg-red-50/70'
                     : hcTone === 'overdue'
                       ? 'bg-red-50/95'
                       : hcTone === 'pending'
                         ? 'bg-amber-50/70'
                         : 'bg-white';
-                  const stickyHover = isPending
+                  const stickyHover = isPreOrder
                     ? 'group-hover:bg-red-50/80'
                     : hcTone === 'overdue'
                       ? 'group-hover:bg-red-100/90'
                       : hcTone === 'pending'
                         ? 'group-hover:bg-amber-100/70'
                         : 'group-hover:bg-gray-50';
-                  const stickyR = isPending ? 'border-r border-red-200' : 'border-r border-gray-100';
-                  const rowHover = isPending
+                  const stickyR = isPreOrder ? 'border-r border-red-200' : 'border-r border-gray-100';
+                  const rowHover = isPreOrder
                     ? 'hover:bg-red-50/80'
                     : hcTone === 'overdue'
                       ? 'hover:bg-red-100/80'
@@ -1533,10 +1873,12 @@ export function AdminInquiriesPage() {
                     key={item.id}
                     className={`cursor-pointer group active:bg-gray-100 ${rowHover}`}
                     onClick={() => openEdit(item)}
-                    title={isPending ? '대기(발주서 미제출) · 행을 누르면 상세보기' : '행을 누르면 상세보기'}
+                    title={
+                      isPreOrder ? '대기·입금완료(발주서 미제출) · 행을 누르면 상세보기' : '행을 누르면 상세보기'
+                    }
                   >
                     <td
-                      className={`sticky left-0 z-10 min-w-0 align-middle px-1 py-1 text-gray-700 xl:px-1.5 xl:py-1.5 ${stickyBg} ${stickyR} ${pBorder} ${isPending ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}
+                      className={`sticky left-0 z-10 min-w-0 align-middle px-1 py-1 text-gray-700 xl:px-1.5 xl:py-1.5 ${stickyBg} ${stickyR} ${pBorder} ${isPreOrder ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}
                     >
                       <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
                         {formatDateCompactWithWeekday(item.createdAt)}
@@ -1659,14 +2001,18 @@ export function AdminInquiriesPage() {
                         disabled={
                           assigningId === item.id ||
                           item.status === 'PENDING' ||
+                          item.status === 'DEPOSIT_PENDING' ||
+                          item.status === 'DEPOSIT_COMPLETED' ||
                           item.status === 'ON_HOLD'
                         }
                         title={
-                          item.status === 'PENDING'
-                            ? '대기 건은 발주서 제출 후 분배할 수 있습니다.'
-                            : item.status === 'ON_HOLD'
-                              ? '보류 건에는 분배할 수 없습니다.'
-                              : undefined
+                          item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED'
+                            ? '대기·입금완료(발주서 미제출) 건은 발주서 제출 후 분배할 수 있습니다.'
+                            : item.status === 'DEPOSIT_PENDING'
+                              ? '입금대기 건은 입금 완료·발주서 생성 후 분배할 수 있습니다.'
+                              : item.status === 'ON_HOLD'
+                                ? '보류 건에는 분배할 수 없습니다.'
+                                : undefined
                         }
                         className="w-full min-w-0 max-w-full rounded border border-gray-300 px-0.5 py-0.5 text-fluid-2xs xl:px-1 xl:py-1 xl:text-fluid-xs"
                       >
@@ -1679,52 +2025,139 @@ export function AdminInquiriesPage() {
                       </select>
                     </td>
                     <td
-                      className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder} ${isPending ? 'border-r-2 border-r-red-500' : ''}`}
+                      className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder} ${isPreOrder ? 'border-r-2 border-r-red-500' : ''}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex flex-wrap justify-center gap-x-0.5 gap-y-0.5">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(item)}
-                          className="text-fluid-2xs text-blue-600 hover:underline xl:text-fluid-xs"
-                        >
-                          상세
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openClaim(item)}
-                          className="text-fluid-2xs text-orange-600 hover:underline xl:text-fluid-xs"
-                        >
-                          클레임
-                        </button>
-                        {item.status !== 'CANCELLED' && (
-                          <button
-                            type="button"
-                            onClick={() => handleCancelInquiry(item)}
-                            disabled={saving}
-                            className="text-fluid-2xs text-gray-700 hover:underline xl:text-fluid-xs"
-                          >
-                            취소
-                          </button>
-                        )}
-                        {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(item)}
-                            className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
-                          >
-                            삭제
-                          </button>
-                        )}
-                        {item.status === 'CS_PROCESSING' && (
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(item.id, 'COMPLETED')}
-                            disabled={saving}
-                            className="text-fluid-2xs font-medium text-green-600 hover:underline xl:text-fluid-xs"
-                          >
-                            완료
-                          </button>
+                        {item.status === 'DEPOSIT_PENDING' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleStatusChange(item.id, 'DEPOSIT_COMPLETED');
+                              }}
+                              disabled={saving}
+                              className="text-fluid-2xs text-sky-700 hover:underline xl:text-fluid-xs"
+                            >
+                              입금완료
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="text-fluid-2xs text-blue-600 hover:underline xl:text-fluid-xs"
+                            >
+                              메모
+                            </button>
+                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : item.status === 'DEPOSIT_COMPLETED' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(
+                                  `/admin/orderforms?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                );
+                              }}
+                              className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
+                            >
+                              발주서
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openListIntakeEditModal(item)}
+                              className="text-fluid-2xs text-blue-600 hover:underline xl:text-fluid-xs"
+                            >
+                              수정
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelInquiry(item)}
+                              disabled={saving}
+                              className="text-fluid-2xs text-gray-700 hover:underline xl:text-fluid-xs"
+                            >
+                              취소
+                            </button>
+                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {(item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED') && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(
+                                    `/admin/orderforms?pendingInquiryId=${encodeURIComponent(item.id)}`
+                                  );
+                                }}
+                                className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
+                              >
+                                발주서
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="text-fluid-2xs text-blue-600 hover:underline xl:text-fluid-xs"
+                            >
+                              상세
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openClaim(item)}
+                              className="text-fluid-2xs text-orange-600 hover:underline xl:text-fluid-xs"
+                            >
+                              클레임
+                            </button>
+                            {item.status !== 'CANCELLED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelInquiry(item)}
+                                disabled={saving}
+                                className="text-fluid-2xs text-gray-700 hover:underline xl:text-fluid-xs"
+                              >
+                                취소
+                              </button>
+                            )}
+                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(item)}
+                                className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
+                              >
+                                삭제
+                              </button>
+                            )}
+                            {item.status === 'CS_PROCESSING' && (
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(item.id, 'COMPLETED')}
+                                disabled={saving}
+                                className="text-fluid-2xs font-medium text-green-600 hover:underline xl:text-fluid-xs"
+                              >
+                                완료
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -1952,6 +2385,15 @@ export function AdminInquiriesPage() {
                   value={editForm.customerName}
                   onChange={(e) => setEditForm((p) => ({ ...p, customerName: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-fluid-sm text-gray-600 mb-1">닉네임 (선택)</label>
+                <input
+                  value={editForm.nickname}
+                  onChange={(e) => setEditForm((p) => ({ ...p, nickname: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  placeholder="예: 어머님, 관리실"
                 />
               </div>
               <div>
@@ -2235,7 +2677,12 @@ export function AdminInquiriesPage() {
                   <div key={idx} className="flex gap-2 items-center">
                     <select
                       value={lid}
-                      disabled={editForm.status === 'PENDING' || editForm.status === 'ON_HOLD'}
+                      disabled={
+                        editForm.status === 'PENDING' ||
+                        editForm.status === 'DEPOSIT_PENDING' ||
+                        editForm.status === 'DEPOSIT_COMPLETED' ||
+                        editForm.status === 'ON_HOLD'
+                      }
                       onChange={(e) => {
                         const v = e.target.value;
                         setEditForm((p) => {
@@ -2272,7 +2719,12 @@ export function AdminInquiriesPage() {
                 <button
                   type="button"
                   className="text-sm text-blue-600 hover:underline"
-                  disabled={editForm.status === 'PENDING' || editForm.status === 'ON_HOLD'}
+                  disabled={
+                    editForm.status === 'PENDING' ||
+                    editForm.status === 'DEPOSIT_PENDING' ||
+                    editForm.status === 'DEPOSIT_COMPLETED' ||
+                    editForm.status === 'ON_HOLD'
+                  }
                   onClick={() =>
                     setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
                   }
@@ -2355,6 +2807,67 @@ export function AdminInquiriesPage() {
               </div>
             </div>
 
+            {token && (
+              <div className="mt-4 min-w-0 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 sm:p-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                  <h3 className="text-fluid-sm font-semibold text-gray-900">부재현황 (이 접수)</h3>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        `/admin/orderforms?tab=followup&inquiryId=${encodeURIComponent(editItem.id)}`
+                      )
+                    }
+                    className="shrink-0 self-start text-fluid-xs text-blue-700 underline underline-offset-2 hover:text-blue-900"
+                  >
+                    발주서 메뉴에서 보기
+                  </button>
+                </div>
+                <p className="mt-1 text-fluid-2xs text-gray-600">
+                  접수 목록에서 연결된 부재현황을 확인하고, 이름이 맞는 기존 행을 이 접수에 붙일 수 있습니다.
+                </p>
+                {inquiryFollowupsLoading ? (
+                  <p className="mt-2 text-fluid-xs text-gray-500">불러오는 중…</p>
+                ) : inquiryFollowups.length === 0 ? (
+                  <p className="mt-2 text-fluid-xs text-gray-600">
+                    연결된 부재현황이 없습니다. 아래 「기존 부재현황 연결」로 검색하거나 발주서 메뉴에서 신규 등록하세요.
+                  </p>
+                ) : (
+                  <ul className="mt-2 divide-y divide-indigo-100 rounded-md border border-indigo-100 bg-white">
+                    {inquiryFollowups.map((f) => (
+                      <li
+                        key={f.id}
+                        className="flex flex-col gap-1 px-3 py-2 text-fluid-xs text-center sm:flex-row sm:items-center sm:justify-between sm:text-left"
+                      >
+                        <span className="font-medium text-gray-900">
+                          {ORDER_FOLLOWUP_STATUS_LABEL[f.status as OrderFollowupStatus]} ·{' '}
+                          {f.customerName}
+                          {f.nickname?.trim() ? ` (${f.nickname})` : ''}
+                        </span>
+                        <span className="tabular-nums text-gray-600 sm:text-right">
+                          부재 {f.deferCount}회 · 등록 {formatDateCompactWithWeekday(f.createdAt)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setFollowupLinkOpen(true);
+                    setFollowupLinkQuery(editItem.customerName.trim());
+                    setFollowupLinkCandidates([]);
+                    setFollowupLinkError(null);
+                  }}
+                  className="relative z-[1] mt-3 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-fluid-xs font-medium text-indigo-900 hover:bg-indigo-50 sm:w-auto"
+                >
+                  기존 부재현황 연결…
+                </button>
+              </div>
+            )}
+
             {editItem.claimMemo?.trim() && (
               <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-fluid-sm">
                 <p className="text-fluid-xs font-medium text-orange-800 mb-1">클레임 내용 (참고)</p>
@@ -2409,6 +2922,276 @@ export function AdminInquiriesPage() {
                 취소
               </button>
             </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {listIntakeOpen &&
+        token &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[580] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="list-intake-title"
+          >
+            <div className="absolute inset-0" aria-hidden onClick={() => !listIntakeSaving && setListIntakeOpen(false)} />
+            <div className="relative z-10 flex max-h-[min(92dvh,640px)] w-full max-w-lg flex-col rounded-t-2xl border border-gray-200 bg-white shadow-xl sm:rounded-xl">
+              <ModalCloseButton onClick={() => !listIntakeSaving && setListIntakeOpen(false)} />
+              <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12">
+                <h2 id="list-intake-title" className="text-fluid-base font-semibold text-gray-900">
+                  {listIntakeEditInquiryId ? '전화·상태 수정' : '전화·상태별 신규'}
+                </h2>
+                <p className="mt-1 text-fluid-2xs text-gray-500">
+                  {listIntakeEditInquiryId
+                    ? '고객명·닉네임·연락처·메모를 수정합니다. 처리 구분은 변경하지 않습니다.'
+                    : '부재·보류는 부재현황에서만 이어갑니다. 입금대기·입금완료는 접수 목록에 바로 나타납니다.'}
+                </p>
+              </div>
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-4 py-3">
+                <div>
+                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">고객명 *</label>
+                  <input
+                    type="text"
+                    value={listIntakeName}
+                    onChange={(e) => setListIntakeName(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm"
+                    autoComplete="name"
+                    disabled={listIntakeSaving}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">닉네임 (선택)</label>
+                  <input
+                    type="text"
+                    value={listIntakeNickname}
+                    onChange={(e) => setListIntakeNickname(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm"
+                    disabled={listIntakeSaving}
+                    placeholder="예: 어머님, 관리실"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">연락처</label>
+                  <input
+                    type="tel"
+                    value={listIntakePhone}
+                    onChange={(e) => setListIntakePhone(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm tabular-nums"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    disabled={listIntakeSaving}
+                  />
+                </div>
+                <fieldset>
+                  <legend className="mb-2 text-fluid-xs font-medium text-gray-700">처리 구분 *</legend>
+                  <div className={`space-y-2 text-fluid-2xs sm:text-fluid-xs ${listIntakeEditInquiryId ? 'pointer-events-none opacity-60' : ''}`}>
+                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-100 p-2 hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="listIntakeKind"
+                        checked={listIntakeKind === 'absent'}
+                        onChange={() => setListIntakeKind('absent')}
+                        className="mt-0.5"
+                        disabled={listIntakeSaving}
+                      />
+                      <span>
+                        <span className="font-medium text-gray-900">
+                          {ORDER_FOLLOWUP_STATUS_LABEL.ABSENT}
+                        </span>
+                        <span className="mt-0.5 block text-gray-500">부재현황으로 이동 · 접수 목록에는 없음</span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-100 p-2 hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="listIntakeKind"
+                        checked={listIntakeKind === 'hold'}
+                        onChange={() => setListIntakeKind('hold')}
+                        className="mt-0.5"
+                        disabled={listIntakeSaving}
+                      />
+                      <span>
+                        <span className="font-medium text-gray-900">
+                          {ORDER_FOLLOWUP_STATUS_LABEL.ON_HOLD}
+                        </span>
+                        <span className="mt-0.5 block text-gray-500">부재현황으로 이동 · 접수 목록에는 없음</span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-sky-200 bg-sky-50/50 p-2 hover:bg-sky-50">
+                      <input
+                        type="radio"
+                        name="listIntakeKind"
+                        checked={listIntakeKind === 'deposit'}
+                        onChange={() => setListIntakeKind('deposit')}
+                        className="mt-0.5"
+                        disabled={listIntakeSaving}
+                      />
+                      <span>
+                        <span className="font-medium text-gray-900">
+                          {ORDER_FOLLOWUP_STATUS_LABEL.DEPOSIT_PENDING}
+                        </span>
+                        <span className="mt-0.5 block text-sky-900/80">
+                          접수 목록(입금대기) + 부재현황(예약금 대기) 연동
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-sky-200 bg-sky-50/50 p-2 hover:bg-sky-50">
+                      <input
+                        type="radio"
+                        name="listIntakeKind"
+                        checked={listIntakeKind === 'reserved'}
+                        onChange={() => setListIntakeKind('reserved')}
+                        className="mt-0.5"
+                        disabled={listIntakeSaving}
+                      />
+                      <span>
+                        <span className="font-medium text-gray-900">
+                          {ORDER_FOLLOWUP_STATUS_LABEL.RESERVED}
+                        </span>
+                        <span className="mt-0.5 block text-sky-900/80">
+                          접수 목록(입금완료) + 부재현황(입금 완료) 연동
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </fieldset>
+                <div>
+                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">메모</label>
+                  <textarea
+                    value={listIntakeMemo}
+                    onChange={(e) => setListIntakeMemo(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm"
+                    disabled={listIntakeSaving}
+                  />
+                </div>
+              </div>
+              <div className="shrink-0 border-t border-gray-100 px-4 py-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setListIntakeOpen(false)}
+                    disabled={listIntakeSaving}
+                    className="order-2 w-full rounded-lg border border-gray-300 py-2.5 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 sm:order-1 sm:w-auto sm:px-4"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void submitListIntake()}
+                    disabled={listIntakeSaving}
+                    className="order-1 w-full min-h-[44px] touch-manipulation rounded-lg bg-sky-700 py-2.5 text-fluid-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50 sm:order-2 sm:w-auto sm:px-5"
+                  >
+                    {listIntakeSaving
+                      ? '등록 중…'
+                      : listIntakeEditInquiryId
+                        ? '수정 저장'
+                        : listIntakeKind === 'absent' || listIntakeKind === 'hold'
+                        ? '등록 후 부재현황으로'
+                        : '등록'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {followupLinkOpen &&
+        editItem &&
+        token &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[570] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="followup-link-title"
+          >
+            <div className="absolute inset-0" aria-hidden onClick={() => setFollowupLinkOpen(false)} />
+            <div className="relative z-10 flex max-h-[min(88dvh,560px)] w-full max-w-lg flex-col rounded-t-2xl border border-gray-200 bg-white shadow-xl sm:rounded-xl">
+              <ModalCloseButton onClick={() => setFollowupLinkOpen(false)} />
+              <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12">
+                <h2 id="followup-link-title" className="text-fluid-base font-semibold text-gray-900">
+                  기존 부재현황 연결
+                </h2>
+                <p className="mt-1 text-fluid-2xs text-gray-500">
+                  접수{' '}
+                  <span className="font-medium text-gray-700">
+                    {editItem.inquiryNumber ?? '번호 없음'} — {editItem.customerName}
+                  </span>
+                  <span className="mt-0.5 block tabular-nums text-fluid-2xs text-gray-500">
+                    연락처 {editItem.customerPhone}
+                  </span>
+                </p>
+              </div>
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-4 py-3">
+                <div>
+                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">
+                    고객명 검색 (접수 미연결 행만)
+                  </label>
+                  <input
+                    type="text"
+                    value={followupLinkQuery}
+                    onChange={(e) => setFollowupLinkQuery(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm text-gray-900"
+                    placeholder="두 글자 이상"
+                  />
+                </div>
+                {followupLinkError ? (
+                  <p className="text-fluid-xs text-red-600">{followupLinkError}</p>
+                ) : null}
+                {followupLinkQuery.trim().length < 2 ? (
+                  <p className="text-fluid-xs text-gray-500">
+                    이름을 두 글자 이상 입력하면, 아직 접수와 연결되지 않은 부재현황만 검색합니다.
+                  </p>
+                ) : followupLinkLoading ? (
+                  <p className="text-fluid-xs text-gray-500">검색 중…</p>
+                ) : followupLinkCandidates.length === 0 ? (
+                  <p className="text-fluid-xs text-gray-500">검색 결과가 없습니다.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {followupLinkCandidates.map((c) => (
+                      <li
+                        key={c.id}
+                        className="rounded-lg border border-gray-100 bg-gray-50/90 px-3 py-2 text-fluid-xs"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0 text-center sm:text-left">
+                            <p className="truncate font-medium text-gray-900">
+                              {ORDER_FOLLOWUP_STATUS_LABEL[c.status as OrderFollowupStatus]} ·{' '}
+                              {c.customerName}
+                              {c.nickname?.trim() ? ` (${c.nickname})` : ''}
+                            </p>
+                            <p className="tabular-nums text-gray-600">{c.customerPhone?.trim() || '—'}</p>
+                            <p className="tabular-nums text-gray-500">
+                              부재 {c.deferCount}회 · {formatDateCompactWithWeekday(c.createdAt)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={followupLinkingId === c.id}
+                            onClick={() => void linkFollowupToCurrentInquiry(c.id)}
+                            className="shrink-0 rounded-md bg-indigo-700 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-indigo-800 disabled:opacity-40"
+                          >
+                            {followupLinkingId === c.id ? '연결 중…' : '이 접수에 연결'}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="shrink-0 border-t border-gray-100 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setFollowupLinkOpen(false)}
+                  className="w-full rounded-lg border border-gray-300 py-2 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           </div>,
           document.body

@@ -19,6 +19,7 @@ export interface ScheduleItem {
   id: string;
   inquiryNumber?: string | null;
   customerName: string;
+  nickname?: string | null;
   customerPhone: string;
   customerPhone2?: string | null;
   address: string;

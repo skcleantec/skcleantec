@@ -77,6 +77,18 @@ router.post('/', async (req, res) => {
     res.status(400).json({ error: '대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다. 발주서 제출 후 접수로 바뀌면 분배할 수 있습니다.' });
     return;
   }
+  if (inquiry.status === 'DEPOSIT_PENDING') {
+    res.status(400).json({
+      error: '입금대기인 건은 분배할 수 없습니다. 입금 완료 후 발주서 생성·대기 전환 뒤 진행하세요.',
+    });
+    return;
+  }
+  if (inquiry.status === 'DEPOSIT_COMPLETED') {
+    res.status(400).json({
+      error: '입금완료(발주서 미제출)인 건은 분배할 수 없습니다. 발주서가 제출되어 접수로 전환된 뒤 진행하세요.',
+    });
+    return;
+  }
 
   const prevLeaderRows = await prisma.assignment.findMany({
     where: { inquiryId },

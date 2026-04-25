@@ -168,7 +168,20 @@ router.get('/', async (req, res) => {
     andClauses.push({ createdAt: { gte: range.gte, lte: range.lte } });
   }
   if (status && typeof status === 'string') {
-    andClauses.push({ status: status as InquiryStatus });
+    const raw = status.trim();
+    if (raw.includes(',')) {
+      const parts = raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean) as InquiryStatus[];
+      if (parts.length === 1) {
+        andClauses.push({ status: parts[0] });
+      } else if (parts.length > 1) {
+        andClauses.push({ status: { in: parts } });
+      }
+    } else {
+      andClauses.push({ status: raw as InquiryStatus });
+    }
   }
   if (search && typeof search === 'string' && search.trim()) {
     const s = search.trim();
@@ -434,10 +447,19 @@ router.patch('/:id', async (req, res) => {
     externalCompany: { name: string } | null;
   }> = [];
   if (wantsTeamSync) {
-    if (teamLeaderIds.length > 0 && inquiry.status === 'PENDING') {
+    if (
+      teamLeaderIds.length > 0 &&
+      (tentativeMergedStatus === 'PENDING' || tentativeMergedStatus === 'DEPOSIT_COMPLETED')
+    ) {
       res.status(400).json({
         error:
-          '대기 상태(고객 발주서 미제출)인 건은 분배할 수 없습니다. 발주서 제출 후 접수로 바뀌면 분배할 수 있습니다.',
+          '대기·입금완료(발주서 미제출)인 건은 분배할 수 없습니다. 발주서 제출 후 접수로 바뀌면 분배할 수 있습니다.',
+      });
+      return;
+    }
+    if (teamLeaderIds.length > 0 && tentativeMergedStatus === 'DEPOSIT_PENDING') {
+      res.status(400).json({
+        error: '입금대기인 건에는 분배할 수 없습니다. 입금 완료 후 발주서 생성·대기 전환 뒤 진행하세요.',
       });
       return;
     }
@@ -602,6 +624,8 @@ router.patch('/:id', async (req, res) => {
     const m: Record<string, string> = {
       PENDING: '대기',
       RECEIVED: '접수',
+      DEPOSIT_PENDING: '입금대기',
+      DEPOSIT_COMPLETED: '입금완료',
       ASSIGNED: '분배완료',
       IN_PROGRESS: '진행중',
       COMPLETED: '완료',
@@ -626,6 +650,7 @@ router.patch('/:id', async (req, res) => {
   };
 
   if (data.customerName !== undefined) pushIfChanged('고객명', inquiry.customerName, data.customerName);
+  if (data.nickname !== undefined) pushIfChanged('닉네임', inquiry.nickname, data.nickname);
   if (data.customerPhone !== undefined) pushIfChanged('연락처', inquiry.customerPhone, data.customerPhone);
   if (data.customerPhone2 !== undefined) pushIfChanged('보조 연락처', inquiry.customerPhone2, data.customerPhone2);
   if (data.address !== undefined) pushIfChanged('주소', inquiry.address, data.address);
@@ -700,8 +725,14 @@ router.patch('/:id', async (req, res) => {
   try {
     let createdCsReport = false;
     await prisma.$transaction(async (tx) => {
-      if (Object.keys(data).length > 0) {
-        await tx.inquiry.update({ where: { id }, data });
+      const updateData: Prisma.InquiryUpdateInput = { ...data };
+      const statusAfterPatch =
+        updateData.status !== undefined ? (updateData.status as InquiryStatus) : inquiry.status;
+      if (statusAfterPatch === 'DEPOSIT_PENDING' && inquiry.inquiryNumber == null) {
+        updateData.inquiryNumber = await allocateNextInquiryNumber(tx);
+      }
+      if (Object.keys(updateData).length > 0) {
+        await tx.inquiry.update({ where: { id }, data: updateData });
       }
       if (wantsTeamSync) {
         await tx.assignment.deleteMany({ where: { inquiryId: id } });
@@ -798,6 +829,8 @@ router.patch('/:id', async (req, res) => {
 const CREATE_STATUSES: InquiryStatus[] = [
   'PENDING',
   'RECEIVED',
+  'DEPOSIT_PENDING',
+  'DEPOSIT_COMPLETED',
   'ASSIGNED',
   'IN_PROGRESS',
   'COMPLETED',
@@ -841,12 +874,14 @@ router.post('/', async (req, res) => {
   }
 
   const inquiry = await prisma.$transaction(async (tx) => {
-    const inquiryNumber = await allocateNextInquiryNumber(tx);
+    const inquiryNumber =
+      status === 'DEPOSIT_PENDING' ? await allocateNextInquiryNumber(tx) : null;
     return tx.inquiry.create({
       data: {
         inquiryNumber,
         createdById: user?.userId ?? null,
         customerName: String(body.customerName ?? ''),
+        nickname: body.nickname ? String(body.nickname) : null,
         customerPhone: String(body.customerPhone ?? ''),
         customerPhone2: body.customerPhone2 ? String(body.customerPhone2) : null,
         address: String(body.address ?? ''),

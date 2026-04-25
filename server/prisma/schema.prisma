@@ -178,6 +178,8 @@ model Inquiry {
   /// 고객·검색용 짧은 접수번호 (KST 기준 YYMMDD + 일 4자리 순번, 10자리 숫자, 전역 유일)
   inquiryNumber   String?      @unique @map("inquiry_number") @db.VarChar(12)
   customerName    String       @map("customer_name")
+  /// 선택 입력: 고객 호칭·별칭(예: 어머님, 관리실)
+  nickname        String?      @map("nickname")
   customerPhone   String       @map("customer_phone")
   customerPhone2  String?      @map("customer_phone_2")
   address         String
@@ -239,6 +241,7 @@ model Inquiry {
   changeLogs  InquiryChangeLog[]
   cleaningPhotos InquiryCleaningPhoto[]
   csReports      CsReport[]
+  orderFollowups OrderFollowup[]
 
   @@index([createdAt])
   @@index([preferredDate])
@@ -539,6 +542,7 @@ enum OrderFollowupStatus {
 
 model OrderFollowup {
   id                 String               @id @default(uuid())
+  inquiryId          String?              @map("inquiry_id")
   customerName       String               @map("customer_name")
   nickname           String?              @map("nickname")
   customerPhone      String               @map("customer_phone")
@@ -553,12 +557,14 @@ model OrderFollowup {
   createdAt          DateTime             @default(now()) @map("created_at")
   updatedAt          DateTime             @updatedAt @map("updated_at")
 
+  inquiry   Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
   createdBy       User       @relation("OrderFollowupCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   handledBy       User?      @relation("OrderFollowupHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
   logs              OrderFollowupLog[]
 
   @@index([status, updatedAt])
   @@index([handledById])
+  @@index([inquiryId])
   @@map("order_followups")
 }
 
@@ -580,6 +586,10 @@ model OrderFollowupLog {
 enum InquiryStatus {
   PENDING       // 대기 (마케터 선접수, 고객 발주서 미제출)
   RECEIVED      // 접수
+  /// 입금 확인 전(이 상태로 전환 시 접수번호 발급)
+  DEPOSIT_PENDING
+  /// 입금 완료·발주서 미제출 전(접수 목록에 표시)
+  DEPOSIT_COMPLETED
   ASSIGNED      // 분배완료
   IN_PROGRESS   // 진행중
   COMPLETED     // 완료
@@ -621,7 +631,6 @@ model Message {
   receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@index([batchId])
-  /// 수신자별 미읽음 COUNT(receiver_id, read_at) · 스레드 조회 범위 축소
   @@index([receiverId, readAt])
   @@index([senderId, receiverId, createdAt])
   @@map("messages")

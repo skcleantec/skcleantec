@@ -12,8 +12,26 @@ import {
   serializeFollowup,
   serializeLog,
 } from './orderFollowups.service.js';
+import { canAdminOrMarketerViewInquiry } from '../inquiry-cleaning-photos/inquiryCleaningPhotos.access.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
 const router = Router();
+
+/** 부재현황이 입금 완료(RESERVED)일 때, 연결 접수가 입금대기면 접수 목록용 입금완료(DEPOSIT_COMPLETED)로 맞춤 */
+async function syncInquiryWhenFollowupDepositComplete(inquiryId: string): Promise<void> {
+  const updated = await prisma.inquiry.updateMany({
+    where: { id: inquiryId, status: 'DEPOSIT_PENDING' },
+    data: { status: 'DEPOSIT_COMPLETED' },
+  });
+  if (updated.count === 0) return;
+  const assigns = await prisma.assignment.findMany({
+    where: { inquiryId },
+    select: { teamLeaderId: true },
+  });
+  if (assigns.length > 0) {
+    notifyInboxRefresh([...new Set(assigns.map((a) => a.teamLeaderId))]);
+  }
+}
 router.use(authMiddleware);
 router.use(adminOrMarketer);
 
@@ -26,21 +44,49 @@ function parseNextContact(raw: unknown): Date | null | undefined {
 }
 
 router.get('/', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
   const includeFulfilled = req.query.includeFulfilled === '1' || req.query.includeFulfilled === 'true';
   const statusFilter = parseStatus(req.query.status);
   const customerName =
     typeof req.query.customerName === 'string' ? req.query.customerName.trim() : '';
+  const inquiryIdFilter =
+    typeof req.query.inquiryId === 'string' ? req.query.inquiryId.trim() : '';
+  const missingInquiryLink =
+    req.query.missingInquiryLink === '1' || req.query.missingInquiryLink === 'true';
+  if (inquiryIdFilter && missingInquiryLink) {
+    res.status(400).json({ error: 'inquiryId와 missingInquiryLink는 함께 사용할 수 없습니다.' });
+    return;
+  }
+  if (missingInquiryLink && customerName.length < 2) {
+    res.status(400).json({ error: '고객명을 두 글자 이상 입력해 주세요.' });
+    return;
+  }
+  if (inquiryIdFilter) {
+    const ok = await canAdminOrMarketerViewInquiry(user, inquiryIdFilter);
+    if (!ok) {
+      res.status(403).json({ error: '해당 접수의 부재현황을 조회할 권한이 없습니다.' });
+      return;
+    }
+  }
   const where: import('@prisma/client').Prisma.OrderFollowupWhereInput = {};
+  if (inquiryIdFilter) {
+    where.inquiryId = inquiryIdFilter;
+  }
+  if (missingInquiryLink) {
+    where.inquiryId = null;
+  }
   if (statusFilter) {
     where.status = statusFilter;
   } else if (!includeFulfilled) {
     where.status = { not: 'FULFILLED' };
   }
-  const dateRange = createdAtRangeFromQuery({
-    datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : undefined,
-    month: typeof req.query.month === 'string' ? req.query.month : undefined,
-    day: typeof req.query.day === 'string' ? req.query.day : undefined,
-  });
+  const dateRange = missingInquiryLink
+    ? null
+    : createdAtRangeFromQuery({
+        datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : undefined,
+        month: typeof req.query.month === 'string' ? req.query.month : undefined,
+        day: typeof req.query.day === 'string' ? req.query.day : undefined,
+      });
   if (dateRange) {
     where.createdAt = { gte: dateRange.gte, lte: dateRange.lte };
   }
@@ -53,11 +99,12 @@ router.get('/', async (req, res) => {
   if (goldDbOnly) {
     where.goldDb = true;
   }
+  const take = missingInquiryLink ? 40 : 500;
   const rows = await prisma.orderFollowup.findMany({
     where,
     include: FOLLOWUP_INCLUDE,
     orderBy: [{ createdAt: 'desc' }],
-    take: 500,
+    take,
   });
   res.json({ items: rows.map((r) => serializeFollowup(r)) });
 });
@@ -92,6 +139,21 @@ router.post('/', async (req, res) => {
   const memo = typeof body.memo === 'string' ? body.memo.trim() || null : null;
   const nextContactAt = parseNextContact(body.nextContactAt);
   const goldDb = typeof body.goldDb === 'boolean' ? body.goldDb : false;
+  let connectInquiryId: string | undefined;
+  if (typeof body.inquiryId === 'string' && body.inquiryId.trim()) {
+    const iid = body.inquiryId.trim();
+    const exists = await prisma.inquiry.findUnique({ where: { id: iid }, select: { id: true } });
+    if (!exists) {
+      res.status(400).json({ error: '접수를 찾을 수 없습니다.' });
+      return;
+    }
+    const ok = await canAdminOrMarketerViewInquiry(user, iid);
+    if (!ok) {
+      res.status(403).json({ error: '해당 접수에 부재현황을 연결할 권한이 없습니다.' });
+      return;
+    }
+    connectInquiryId = iid;
+  }
   const row = await prisma.orderFollowup.create({
     data: {
       customerName,
@@ -104,6 +166,7 @@ router.post('/', async (req, res) => {
       createdById: user.userId,
       handledById: user.userId,
       depositReceivedAt: status === 'RESERVED' ? new Date() : null,
+      ...(connectInquiryId ? { inquiryId: connectInquiryId } : {}),
     },
     include: FOLLOWUP_INCLUDE,
   });
@@ -111,12 +174,21 @@ router.post('/', async (req, res) => {
     followupId: row.id,
     actorId: user.userId,
     action: 'CREATE',
-    detail: JSON.stringify({ status, customerName, nickname, customerPhone }),
+    detail: JSON.stringify({
+      status,
+      customerName,
+      nickname,
+      customerPhone,
+      ...(connectInquiryId ? { inquiryId: connectInquiryId } : {}),
+    }),
   });
   const full = await prisma.orderFollowup.findUniqueOrThrow({
     where: { id: row.id },
     include: FOLLOWUP_INCLUDE,
   });
+  if (status === 'RESERVED' && connectInquiryId) {
+    await syncInquiryWhenFollowupDepositComplete(connectInquiryId);
+  }
   res.status(201).json({ item: serializeFollowup(full) });
 });
 
@@ -133,6 +205,52 @@ router.patch('/:id', async (req, res) => {
   const data: import('@prisma/client').Prisma.OrderFollowupUpdateInput = {
     handledBy: { connect: { id: user.userId } },
   };
+
+  if ('inquiryId' in body) {
+    const raw = body.inquiryId;
+    if (raw === null || raw === '') {
+      if (prev.inquiryId != null) {
+        data.inquiry = { disconnect: true };
+        await appendFollowupLog(prisma, {
+          followupId: id,
+          actorId: user.userId,
+          action: 'INQUIRY_LINK',
+          detail: JSON.stringify({ from: prev.inquiryId, to: null }),
+        });
+      }
+    } else if (typeof raw === 'string') {
+      const iid = raw.trim();
+      if (!iid) {
+        if (prev.inquiryId != null) {
+          data.inquiry = { disconnect: true };
+          await appendFollowupLog(prisma, {
+            followupId: id,
+            actorId: user.userId,
+            action: 'INQUIRY_LINK',
+            detail: JSON.stringify({ from: prev.inquiryId, to: null }),
+          });
+        }
+      } else if (iid !== prev.inquiryId) {
+        const exists = await prisma.inquiry.findUnique({ where: { id: iid }, select: { id: true } });
+        if (!exists) {
+          res.status(400).json({ error: '접수를 찾을 수 없습니다.' });
+          return;
+        }
+        const ok = await canAdminOrMarketerViewInquiry(user, iid);
+        if (!ok) {
+          res.status(403).json({ error: '해당 접수에 부재현황을 연결할 권한이 없습니다.' });
+          return;
+        }
+        data.inquiry = { connect: { id: iid } };
+        await appendFollowupLog(prisma, {
+          followupId: id,
+          actorId: user.userId,
+          action: 'INQUIRY_LINK',
+          detail: JSON.stringify({ from: prev.inquiryId ?? null, to: iid }),
+        });
+      }
+    }
+  }
 
   if (typeof body.customerName === 'string') {
     const next = body.customerName.trim();
@@ -220,6 +338,9 @@ router.patch('/:id', async (req, res) => {
     where: { id },
     include: FOLLOWUP_INCLUDE,
   });
+  if (full.status === 'RESERVED' && full.inquiryId) {
+    await syncInquiryWhenFollowupDepositComplete(full.inquiryId);
+  }
   res.json({ item: serializeFollowup(full) });
 });
 

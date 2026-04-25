@@ -61,7 +61,7 @@ router.get('/stats', async (_req, res) => {
     }),
     prisma.inquiry.count({
       where: {
-        status: 'RECEIVED',
+        status: { in: ['RECEIVED', 'DEPOSIT_PENDING', 'DEPOSIT_COMPLETED'] },
         createdAt: { gte: kstThisMonth.gte, lte: kstThisMonth.lte },
       },
     }),

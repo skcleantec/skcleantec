@@ -29,8 +29,16 @@ export interface OrderFollowupUserBrief {
 
 export type OrderFollowupDatePreset = 'today' | 'all' | 'month' | 'day';
 
+export interface OrderFollowupInquiryBrief {
+  id: string;
+  inquiryNumber: string | null;
+  customerName: string;
+}
+
 export interface OrderFollowupItem {
   id: string;
+  inquiryId: string | null;
+  inquiry: OrderFollowupInquiryBrief | null;
   customerName: string;
   nickname: string | null;
   customerPhone: string;
@@ -67,6 +75,10 @@ export async function listOrderFollowups(
     datePreset?: OrderFollowupDatePreset;
     month?: string;
     day?: string;
+    /** 해당 접수에 연결된 부재현황만 */
+    inquiryId?: string;
+    /** 접수 미연결 행만 + 고객명(2자 이상) — 기존 행을 접수에 붙일 때 검색 */
+    missingInquiryLink?: boolean;
   }
 ): Promise<{ items: OrderFollowupItem[] }> {
   const q = new URLSearchParams();
@@ -74,6 +86,8 @@ export async function listOrderFollowups(
   if (opts?.status) q.set('status', opts.status);
   if (opts?.customerName?.trim()) q.set('customerName', opts.customerName.trim());
   if (opts?.goldDbOnly) q.set('goldDbOnly', '1');
+  if (opts?.inquiryId?.trim()) q.set('inquiryId', opts.inquiryId.trim());
+  if (opts?.missingInquiryLink) q.set('missingInquiryLink', '1');
   if (opts?.datePreset && opts.datePreset !== 'all') {
     q.set('datePreset', opts.datePreset);
     if (opts.datePreset === 'month' && opts.month?.trim()) q.set('month', opts.month.trim());
@@ -97,6 +111,7 @@ export async function createOrderFollowup(
     memo?: string | null;
     nextContactAt?: string | null;
     goldDb?: boolean;
+    inquiryId?: string;
   }
 ): Promise<{ item: OrderFollowupItem }> {
   const res = await fetch(`${API}/order-followups`, {
@@ -120,6 +135,8 @@ export async function patchOrderFollowup(
     memo?: string | null;
     nextContactAt?: string | null;
     goldDb?: boolean;
+    /** `null` 이면 접수 연결 해제 */
+    inquiryId?: string | null;
   }
 ): Promise<{ item: OrderFollowupItem }> {
   const res = await fetch(`${API}/order-followups/${encodeURIComponent(id)}`, {

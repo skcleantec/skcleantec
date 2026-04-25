@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
@@ -12,6 +12,7 @@ import {
   type OrderFollowupItem,
   type OrderFollowupLogItem,
 } from '../../api/orderFollowups';
+import { getInquiries } from '../../api/inquiries';
 import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
@@ -47,6 +48,20 @@ function displayPhone(phone: string | null | undefined): string {
   return t ? t : '—';
 }
 
+/** 부재현황 편집 모달의 접수 검색 결과용 — 접수 목록 STATUS_LABELS와 동일 뜻 */
+const INQUIRY_STATUS_LABEL: Record<string, string> = {
+  PENDING: '대기',
+  RECEIVED: '접수',
+  DEPOSIT_PENDING: '입금대기',
+  DEPOSIT_COMPLETED: '입금완료',
+  ASSIGNED: '분배완료',
+  IN_PROGRESS: '진행중',
+  COMPLETED: '완료',
+  ON_HOLD: '보류',
+  CANCELLED: '취소',
+  CS_PROCESSING: 'C/S 처리중',
+};
+
 function statusLabelKo(code: string): string {
   if (code in ORDER_FOLLOWUP_STATUS_LABEL) {
     return ORDER_FOLLOWUP_STATUS_LABEL[code as OrderFollowupStatus];
@@ -76,6 +91,7 @@ function actionLabelKo(action: string): string {
     NICKNAME: '닉네임 변경',
     LINK_ORDERFORM: '발주서 연결(구버전 기록)',
     UNLINK_ORDERFORM: '발주서 연결 해제(구버전 기록)',
+    INQUIRY_LINK: '접수 연결',
   };
   return map[action] ?? action;
 }
@@ -122,7 +138,19 @@ function logDetailDescription(log: OrderFollowupLogItem): string {
         : '신규 건을 등록했습니다.';
       const stPart = st ? ` 초기 상태는 「${st}」입니다.` : '';
       const phPart = phone ? ` 연락처: ${phone}.` : ' 연락처는 비어 있습니다.';
-      return `${head}${stPart}${phPart}`;
+      const inqPart =
+        typeof j.inquiryId === 'string' && j.inquiryId.trim() ? ' 특정 접수에 연결해 등록했습니다.' : '';
+      return `${head}${stPart}${phPart}${inqPart}`;
+    }
+
+    if (log.action === 'INQUIRY_LINK' && typeof j.from !== 'undefined') {
+      const to = j.to === null || j.to === undefined || j.to === '' ? null : String(j.to);
+      const from =
+        j.from === null || j.from === undefined || j.from === '' ? null : String(j.from);
+      if (!from && to) return `접수와 연결했습니다.`;
+      if (from && !to) return '접수 연결을 해제했습니다.';
+      if (from && to) return '연결된 접수를 다른 접수로 바꿨습니다.';
+      return '접수 연결을 변경했습니다.';
     }
 
     if (log.action === 'STATUS' && typeof j.from === 'string' && typeof j.to === 'string') {
@@ -242,7 +270,16 @@ function StatusBadgeWithMemo({
   );
 }
 
-export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
+export function AdminOrderFormFollowupPanel({
+  token,
+  linkedInquiryId = null,
+  onClearLinkedInquiry,
+}: {
+  token: string;
+  /** URL `inquiryId` — 목록·신규 등록 시 해당 접수에만 연결 */
+  linkedInquiryId?: string | null;
+  onClearLinkedInquiry?: () => void;
+}) {
   const [items, setItems] = useState<OrderFollowupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -273,6 +310,18 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
   const [editNext, setEditNext] = useState('');
   const [editGoldDb, setEditGoldDb] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [connectInqQ, setConnectInqQ] = useState('');
+  const [connectInqRows, setConnectInqRows] = useState<
+    Array<{
+      id: string;
+      inquiryNumber: string | null;
+      customerName: string;
+      customerPhone: string;
+      status: string;
+    }>
+  >([]);
+  const [connectInqLoading, setConnectInqLoading] = useState(false);
+  const connectInqDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [deferTarget, setDeferTarget] = useState<OrderFollowupItem | null>(null);
   const [deferNote, setDeferNote] = useState('');
@@ -296,6 +345,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
           status: useStatus,
           customerName: filterCustomerName.trim() || undefined,
           goldDbOnly: filterGoldDbOnly || undefined,
+          ...(linkedInquiryId?.trim() ? { inquiryId: linkedInquiryId.trim() } : {}),
           ...(datePreset !== 'all'
             ? {
                 datePreset,
@@ -312,7 +362,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
         setLoading(false);
       }
     },
-    [token, filterGoldDbOnly, filterStatus, filterCustomerName, datePreset, dateMonthKey, dateDayKey]
+    [token, filterGoldDbOnly, filterStatus, filterCustomerName, datePreset, dateMonthKey, dateDayKey, linkedInquiryId]
   );
 
   useEffect(() => {
@@ -350,7 +400,59 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
     setEditMemo(edit.memo ?? '');
     setEditNext(toLocalDatetimeValue(edit.nextContactAt));
     setEditGoldDb(edit.goldDb ?? false);
+    if (!edit.inquiry) {
+      setConnectInqQ(edit.customerName.trim());
+    } else {
+      setConnectInqQ('');
+      setConnectInqRows([]);
+    }
   }, [edit]);
+
+  useEffect(() => {
+    if (!edit || edit.inquiry || edit.status === 'FULFILLED') {
+      setConnectInqRows([]);
+      setConnectInqLoading(false);
+      return;
+    }
+    const q = connectInqQ.trim();
+    if (q.length < 2) {
+      setConnectInqRows([]);
+      setConnectInqLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setConnectInqLoading(true);
+    if (connectInqDebounceRef.current) clearTimeout(connectInqDebounceRef.current);
+    connectInqDebounceRef.current = setTimeout(() => {
+      connectInqDebounceRef.current = null;
+      void getInquiries(token, { search: q, datePreset: 'all', limit: 15 })
+        .then((res: { items: Array<Record<string, unknown>> }) => {
+          if (cancelled) return;
+          setConnectInqRows(
+            res.items.map((it) => ({
+              id: String(it.id),
+              inquiryNumber: (it.inquiryNumber as string | null | undefined) ?? null,
+              customerName: String(it.customerName ?? ''),
+              customerPhone: String(it.customerPhone ?? ''),
+              status: String(it.status ?? ''),
+            }))
+          );
+        })
+        .catch(() => {
+          if (!cancelled) setConnectInqRows([]);
+        })
+        .finally(() => {
+          if (!cancelled) setConnectInqLoading(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      if (connectInqDebounceRef.current) {
+        clearTimeout(connectInqDebounceRef.current);
+        connectInqDebounceRef.current = null;
+      }
+    };
+  }, [edit, connectInqQ, token]);
 
   const resetCreateForm = () => {
     setNewName('');
@@ -378,6 +480,7 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
         customerPhone: newPhone.trim() || undefined,
         status: newStatus,
         memo: newMemo.trim() || null,
+        ...(linkedInquiryId?.trim() ? { inquiryId: linkedInquiryId.trim() } : {}),
       });
       closeCreateModal();
       /* 등록 직후 이전 상태 필터로 새 행이 안 보이는 문제 방지 */
@@ -465,11 +568,60 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
     []
   );
 
+  const unlinkInquiryFromEdit = async () => {
+    if (!edit) return;
+    setSavingEdit(true);
+    try {
+      const r = await patchOrderFollowup(token, edit.id, { inquiryId: null });
+      setEdit(r.item);
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '연결 해제에 실패했습니다.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const connectInquiryToFollowup = async (inquiryId: string) => {
+    if (!edit) return;
+    setSavingEdit(true);
+    try {
+      const r = await patchOrderFollowup(token, edit.id, { inquiryId });
+      setEdit(r.item);
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '접수 연결에 실패했습니다.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   return (
     <div className="min-w-0 space-y-5">
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-700">{error}</div>
       )}
+
+      {linkedInquiryId?.trim() ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50/90 px-3 py-2.5 text-fluid-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
+          <p className="min-w-0">
+            <span className="font-medium">접수 연결 모드</span>
+            <span className="text-blue-900/90">
+              {' '}
+              — 목록은 이 접수에 연결된 부재현황만 보이며, 신규 등록 시에도 같은 접수에 연결됩니다.
+            </span>
+          </p>
+          {onClearLinkedInquiry ? (
+            <button
+              type="button"
+              onClick={onClearLinkedInquiry}
+              className="shrink-0 self-start rounded-md border border-blue-300 bg-white px-2.5 py-1.5 text-fluid-2xs font-medium text-blue-900 hover:bg-blue-50 sm:self-auto"
+            >
+              필터 해제
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-4 py-3">
@@ -599,15 +751,20 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
           <div className="p-10 text-center text-fluid-sm text-gray-500">불러오는 중…</div>
         ) : items.length === 0 ? (
           <div className="p-10 text-center text-fluid-sm text-gray-500">
-            {filterGoldDbOnly ? '골드DB 건이 없습니다.' : '등록된 건이 없습니다.'}
+            {filterGoldDbOnly
+              ? '골드DB 건이 없습니다.'
+              : linkedInquiryId?.trim()
+                ? '이 접수에 연결된 부재현황이 없습니다.'
+                : '등록된 건이 없습니다.'}
           </div>
         ) : (
           <>
             <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full min-w-[720px] border-collapse text-fluid-xs text-center">
+              <table className="w-full min-w-[800px] border-collapse text-fluid-xs text-center">
                 <thead>
                   <tr className="border-b border-gray-200 bg-white">
                     <th className="py-2.5 px-2 font-semibold text-gray-600">고객</th>
+                    <th className="py-2.5 px-2 font-semibold text-gray-600">접수</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">연락처</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">상태</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">부재</th>
@@ -639,6 +796,21 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                             </span>
                           </>
                         ) : null}
+                      </td>
+                      <td className="py-2 px-2 text-gray-700">
+                        {row.inquiry ? (
+                          <Link
+                            to={`/admin/inquiries?openInquiry=${encodeURIComponent(row.inquiry.id)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="tabular-nums text-blue-700 underline underline-offset-2 hover:text-blue-900"
+                            title={`${row.inquiry.customerName} 접수 열기`}
+                          >
+                            {row.inquiry.inquiryNumber ?? '—'}
+                          </Link>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="py-2 px-2 tabular-nums text-gray-800">{displayPhone(row.customerPhone)}</td>
                       <td className="py-2 px-2">
@@ -720,6 +892,20 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                     </div>
                     <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
                   </div>
+                  {row.inquiry ? (
+                    <p className="mt-1 text-fluid-2xs text-gray-600">
+                      접수{' '}
+                      <Link
+                        to={`/admin/inquiries?openInquiry=${encodeURIComponent(row.inquiry.id)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-blue-700 underline underline-offset-2"
+                      >
+                        {row.inquiry.inquiryNumber ?? '번호 없음'}
+                      </Link>
+                      <span className="text-gray-500"> · {row.inquiry.customerName}</span>
+                    </p>
+                  ) : null}
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-fluid-2xs text-gray-600">
                     <span>부재 {row.deferCount}회</span>
                     <span>담당 {row.handledBy?.name ?? '—'}</span>
@@ -992,6 +1178,77 @@ export function AdminOrderFormFollowupPanel({ token }: { token: string }) {
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm resize-y"
                   />
                 </div>
+                {!edit.inquiry && edit.status !== 'FULFILLED' ? (
+                  <div className="rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2.5 space-y-2">
+                    <p className="text-fluid-2xs font-medium text-indigo-950">접수 연결</p>
+                    <p className="text-fluid-2xs text-gray-600">
+                      접수 목록과 동일한 검색입니다. 두 글자 이상 입력 후 행에서 연결하세요. (권한 없는 접수는
+                      서버에서 거절됩니다.)
+                    </p>
+                    <input
+                      type="text"
+                      value={connectInqQ}
+                      onChange={(e) => setConnectInqQ(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-fluid-sm text-gray-900 shadow-sm"
+                      placeholder="고객명 검색"
+                    />
+                    {connectInqQ.trim().length < 2 ? (
+                      <p className="text-fluid-2xs text-gray-500">이름 두 글자 이상으로 검색합니다.</p>
+                    ) : connectInqLoading ? (
+                      <p className="text-fluid-2xs text-gray-500">검색 중…</p>
+                    ) : connectInqRows.length === 0 ? (
+                      <p className="text-fluid-2xs text-gray-500">검색 결과가 없습니다.</p>
+                    ) : (
+                      <ul className="max-h-40 space-y-1.5 overflow-y-auto overscroll-y-contain rounded-md border border-indigo-100 bg-white p-1.5">
+                        {connectInqRows.map((row) => (
+                          <li
+                            key={row.id}
+                            className="flex flex-col gap-1 rounded border border-gray-100 px-2 py-1.5 text-fluid-2xs sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="min-w-0 text-center sm:text-left">
+                              <span className="font-medium text-gray-900">
+                                {INQUIRY_STATUS_LABEL[row.status] ?? row.status} ·{' '}
+                                {row.inquiryNumber ?? '번호 없음'} — {row.customerName}
+                              </span>
+                              <span className="mt-0.5 block tabular-nums text-gray-600">{row.customerPhone || '—'}</span>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={savingEdit}
+                              onClick={() => void connectInquiryToFollowup(row.id)}
+                              className="shrink-0 rounded-md bg-indigo-700 px-2 py-1 text-[11px] font-medium text-white hover:bg-indigo-800 disabled:opacity-40"
+                            >
+                              연결
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ) : null}
+                {edit.inquiry ? (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50/90 px-3 py-2.5 space-y-2">
+                    <p className="text-fluid-2xs font-medium text-gray-700">연결된 접수</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        to={`/admin/inquiries?openInquiry=${encodeURIComponent(edit.inquiry.id)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-fluid-sm font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900"
+                      >
+                        {edit.inquiry.inquiryNumber ?? '(번호 없음)'} · {edit.inquiry.customerName}
+                      </Link>
+                      <button
+                        type="button"
+                        disabled={savingEdit || edit.status === 'FULFILLED'}
+                        onClick={() => void unlinkInquiryFromEdit()}
+                        className="rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-40"
+                      >
+                        연결 해제
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 <div>
                   <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">다음 연락</label>
                   <input

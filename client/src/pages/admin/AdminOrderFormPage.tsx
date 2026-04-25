@@ -69,7 +69,7 @@ import {
   type OrderFormListDatePreset,
   type OrderFormPhotoItem,
 } from '../../api/orderform';
-import { getInquiries } from '../../api/inquiries';
+import { getInquiries, getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
@@ -350,14 +350,40 @@ export function AdminOrderFormPage() {
     setTab(parseTabParam(searchParams.get('tab')));
   }, [searchParams, receptionListOnly]);
 
-  const goTab = (t: Tab) => {
-    setTab(t);
-    if (t === 'issue') {
-      setSearchParams({}, { replace: true });
-    } else {
-      setSearchParams({ tab: t }, { replace: true });
-    }
-  };
+  const linkedFollowupInquiryId = useMemo(
+    () => searchParams.get('inquiryId')?.trim() || null,
+    [searchParams]
+  );
+
+  const goTab = useCallback(
+    (t: Tab) => {
+      setTab(t);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (t === 'issue') {
+            next.delete('tab');
+          } else {
+            next.set('tab', t);
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const clearFollowupInquiryLink = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('inquiryId');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
   const [options, setOptions] = useState<EstimateOption[]>([]);
   const [orderForms, setOrderForms] = useState<OrderForm[]>([]);
   const [listIssuers, setListIssuers] = useState<OrderFormIssuerOption[]>([]);
@@ -406,6 +432,7 @@ export function AdminOrderFormPage() {
   const [issueLoading, setIssueLoading] = useState(false);
   const [pendingLinkOptions, setPendingLinkOptions] = useState<Array<{ id: string; customerName: string }>>([]);
   const [pendingLinkId, setPendingLinkId] = useState('');
+  const pendingInquiryFromUrlConsumed = useRef<string | null>(null);
 
   // 설정 폼
   const [configForm, setConfigForm] = useState({ pricePerPyeong: '', depositAmount: '' });
@@ -496,12 +523,73 @@ export function AdminOrderFormPage() {
 
   useEffect(() => {
     if (!token || tab !== 'issue') return;
-    getInquiries(token, { status: 'PENDING', datePreset: 'all' })
+    getInquiries(token, { status: 'PENDING,DEPOSIT_COMPLETED', datePreset: 'all' })
       .then((r: { items: Array<{ id: string; customerName: string }> }) => {
         setPendingLinkOptions(r.items.map((i) => ({ id: i.id, customerName: i.customerName })));
       })
       .catch(() => setPendingLinkOptions([]));
   }, [token, tab]);
+
+  useEffect(() => {
+    if (!token || tab !== 'issue' || !pendingLinkId) return;
+    let cancelled = false;
+    void getInquiry(token, pendingLinkId)
+      .then((raw) => {
+        if (cancelled) return;
+        const row = raw as {
+          customerName?: string | null;
+          customerPhone?: string | null;
+          preferredDate?: string | null;
+          preferredTime?: string | null;
+          preferredTimeDetail?: string | null;
+        };
+        const nm = row.customerName?.trim() ?? '';
+        const ph = row.customerPhone?.trim() ?? '';
+        const prefillName = nm || ph;
+        const prefillDate = (row.preferredDate ?? '').trim().slice(0, 10);
+        const prefillTime = (row.preferredTime ?? '').trim();
+        const prefillTimeDetail = (row.preferredTimeDetail ?? '').trim();
+        setIssueForm((f) => ({
+          ...f,
+          customerName: prefillName || f.customerName,
+          preferredDate: f.preferredDate.trim() ? f.preferredDate : prefillDate,
+          preferredTime: f.preferredDate.trim()
+            ? f.preferredTime
+            : prefillTime || f.preferredTime,
+          preferredTimeDetail: f.preferredTimeDetail.trim()
+            ? f.preferredTimeDetail
+            : prefillTimeDetail,
+        }));
+      })
+      .catch(() => {
+        /* ignore prefill failure */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, tab, pendingLinkId]);
+
+  useEffect(() => {
+    if (!token || receptionListOnly) return;
+    const raw = searchParams.get('pendingInquiryId')?.trim();
+    if (!raw) {
+      pendingInquiryFromUrlConsumed.current = null;
+      return;
+    }
+    if (pendingInquiryFromUrlConsumed.current === raw) return;
+    pendingInquiryFromUrlConsumed.current = raw;
+    setPendingLinkId(raw);
+    setTab('issue');
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('pendingInquiryId');
+        next.delete('tab');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [token, receptionListOnly, searchParams, setSearchParams]);
 
   const handleSaveConfig = async () => {
     if (!token) return;
@@ -1061,7 +1149,11 @@ ${footer2}`;
           <div className="mb-2 flex w-full justify-end sm:mb-3">
             <HelpTooltip className="shrink-0" text={FOLLOWUP_PANEL_HELP} />
           </div>
-          <AdminOrderFormFollowupPanel token={token} />
+          <AdminOrderFormFollowupPanel
+            token={token}
+            linkedInquiryId={linkedFollowupInquiryId}
+            onClearLinkedInquiry={linkedFollowupInquiryId ? clearFollowupInquiryLink : undefined}
+          />
         </>
       )}
 
