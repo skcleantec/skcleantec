@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
+import bcrypt from 'bcryptjs';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCall.helpers.js';
@@ -11,10 +12,35 @@ import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { assertCrewCapacityForInquiry } from '../inquiries/crewMemberCapacity.helpers.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 
 const router = Router();
 
 router.use(teamAuthMiddleware);
+
+/** 팀 화면 기준 현재 사용자(프리뷰 매핑 반영) */
+router.get('/me', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      name: true,
+      phone: true,
+      vehicleNumber: true,
+      allowSelfDayOffEdit: true,
+      externalCompanyId: true,
+      externalCompany: { select: { id: true, name: true } },
+    },
+  });
+  if (!me) {
+    res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  res.json(me);
+});
 
 const teamInquiryInclude = {
   createdBy: { select: { id: true, name: true, phone: true } },
@@ -348,6 +374,71 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
   res.json(await attachCrewMembersOne(updated));
 });
 
+/** 타업체: 접수 취소(비밀번호 확인 필수) */
+router.post('/inquiries/:id/cancel', async (req, res) => {
+  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  if (role !== 'EXTERNAL_PARTNER') {
+    res.status(403).json({ error: '타업체 계정만 취소할 수 있습니다.' });
+    return;
+  }
+  const { id } = req.params;
+  const body = req.body as { password?: string };
+  const password = typeof body.password === 'string' ? body.password : '';
+  if (!password.trim()) {
+    res.status(400).json({ error: '비밀번호를 입력해 주세요.' });
+    return;
+  }
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+  if (!me || !(await bcrypt.compare(password, me.passwordHash))) {
+    res.status(403).json({ error: '비밀번호가 올바르지 않습니다.' });
+    return;
+  }
+  const inquiry = await prisma.inquiry.findFirst({
+    where: { id, assignments: { some: { teamLeaderId: userId } } },
+    include: {
+      assignments: {
+        include: { teamLeader: { select: assignmentTeamLeaderSelect } },
+      },
+    },
+  });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  if (inquiry.status === 'CANCELLED') {
+    res.json({ ok: true, alreadyCancelled: true });
+    return;
+  }
+  const ext = inquiry.assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
+  const snapCid = ext?.teamLeader.externalCompanyId;
+  await prisma.inquiry.update({
+    where: { id },
+    data: {
+      status: 'CANCELLED',
+      happyCallCompletedAt: null,
+      ...(snapCid ? { cancelFeeExternalCompany: { connect: { id: snapCid } } } : {}),
+    },
+  });
+  await prisma.inquiryChangeLog.create({
+    data: {
+      inquiryId: inquiry.id,
+      customerName: inquiry.customerName,
+      actorId: userId,
+      lines: ['타업체 취소 처리'],
+    },
+  });
+  const staff = await prisma.user.findMany({
+    where: { isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
+    select: { id: true },
+  });
+  const assignees = inquiry.assignments.map((a) => a.teamLeaderId);
+  notifyInboxRefresh([...new Set([...staff.map((s) => s.id), ...assignees])]);
+  res.json({ ok: true });
+});
+
 router.get('/inquiries', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
   const rows = await prisma.inquiry.findMany({
@@ -385,6 +476,256 @@ router.get('/schedule', async (req, res) => {
   });
   const items = await attachCrewMembers(rows);
   res.json({ items });
+});
+
+/**
+ * 타업체(EXTERNAL_PARTNER) 본인 정산 조회
+ * - 월별 합계(예약일 기준)
+ * - 건수(정상/취소)
+ * - 접수 상세 목록(수수료 포함, 취소는 음수 반영)
+ */
+router.get('/external-settlement', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const previewStaff =
+    (user.role === 'ADMIN' || user.role === 'MARKETER') && isTeamPreviewAdminEmail(user.email);
+  if (user.role !== 'EXTERNAL_PARTNER' && !previewStaff) {
+    res.status(403).json({ error: '타업체 계정(또는 개발자 프리뷰)만 접근할 수 있습니다.' });
+    return;
+  }
+  const queryCompanyId = typeof req.query.externalCompanyId === 'string'
+    ? req.query.externalCompanyId.trim()
+    : '';
+  const queryCompanyName = typeof req.query.externalCompanyName === 'string'
+    ? req.query.externalCompanyName.trim()
+    : '';
+  let companyId: string | null = null;
+  let companyName: string | null = null;
+  if (user.role === 'EXTERNAL_PARTNER') {
+    const me = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: {
+        externalCompanyId: true,
+        externalCompany: { select: { id: true, name: true } },
+      },
+    });
+    companyId = me?.externalCompanyId ?? null;
+    companyName = me?.externalCompany?.name ?? null;
+  } else if (previewStaff) {
+    let company = queryCompanyId
+      ? await prisma.externalCompany.findFirst({
+          where: { id: queryCompanyId, isActive: true },
+          select: { id: true, name: true },
+        })
+      : null;
+    if (!company && queryCompanyName) {
+      company = await prisma.externalCompany.findFirst({
+        where: { isActive: true, name: queryCompanyName },
+        select: { id: true, name: true },
+      });
+    }
+    if (!company && !queryCompanyName) {
+      company = await prisma.externalCompany.findFirst({
+        where: { isActive: true, name: '클린느' },
+        select: { id: true, name: true },
+      });
+    }
+    if (!company) {
+      company = await prisma.externalCompany.findFirst({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true },
+      });
+    }
+    companyId = company?.id ?? null;
+    companyName = company?.name ?? null;
+  }
+  if (!companyId) {
+    res.status(400).json({ error: '타업체 정보가 연결되지 않은 계정입니다.' });
+    return;
+  }
+
+  const fromRaw = typeof req.query.from === 'string' ? req.query.from.trim() : '';
+  const toRaw = typeof req.query.to === 'string' ? req.query.to.trim() : '';
+  const now = new Date();
+  const fallbackMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const fallbackFromYmd = `${fallbackMonth}-01`;
+  const fromYmd = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : fallbackFromYmd;
+  const toYmd = /^\d{4}-\d{2}-\d{2}$/.test(toRaw)
+    ? toRaw
+    : (() => {
+        const tmp = new Date(`${fallbackFromYmd}T00:00:00+09:00`);
+        const last = new Date(tmp.getFullYear(), tmp.getMonth() + 1, 0);
+        return `${fallbackMonth}-${String(last.getDate()).padStart(2, '0')}`;
+      })();
+  const loYmd = fromYmd <= toYmd ? fromYmd : toYmd;
+  const hiYmd = fromYmd <= toYmd ? toYmd : fromYmd;
+  const from = new Date(`${loYmd}T00:00:00+09:00`);
+  const to = new Date(`${hiYmd}T23:59:59.999+09:00`);
+
+  const activeRows = await prisma.inquiry.findMany({
+    where: {
+      externalTransferFee: { not: null },
+      preferredDate: { gte: from, lte: to },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+      assignments: {
+        some: {
+          teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: companyId },
+        },
+      },
+    },
+    orderBy: [{ preferredDate: 'desc' }, { createdAt: 'desc' }],
+    select: {
+      id: true,
+      inquiryNumber: true,
+      customerName: true,
+      address: true,
+      addressDetail: true,
+      preferredDate: true,
+      status: true,
+      externalTransferFee: true,
+      assignments: {
+        orderBy: { sortOrder: 'asc' as const },
+        select: {
+          teamLeader: {
+            select: {
+              id: true,
+              name: true,
+              role: true,
+              externalCompanyId: true,
+              externalCompany: { select: { id: true, name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const cancelledRows = await prisma.inquiry.findMany({
+    where: {
+      status: 'CANCELLED',
+      externalTransferFee: { not: null },
+      preferredDate: { gte: from, lte: to },
+      OR: [
+        { cancelFeeExternalCompanyId: companyId },
+        {
+          assignments: {
+            some: {
+              teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: companyId },
+            },
+          },
+        },
+      ],
+    },
+    orderBy: [{ preferredDate: 'desc' }, { createdAt: 'desc' }],
+    select: {
+      id: true,
+      inquiryNumber: true,
+      customerName: true,
+      address: true,
+      addressDetail: true,
+      preferredDate: true,
+      status: true,
+      externalTransferFee: true,
+      cancelFeeExternalCompanyId: true,
+      assignments: {
+        orderBy: { sortOrder: 'asc' as const },
+        select: {
+          teamLeader: {
+            select: {
+              id: true,
+              name: true,
+              role: true,
+              externalCompanyId: true,
+              externalCompany: { select: { id: true, name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  type Item = {
+    inquiryId: string;
+    inquiryNumber: string | null;
+    customerName: string;
+    address: string;
+    addressDetail: string | null;
+    preferredDate: string | null;
+    status: string;
+    isCancelled: boolean;
+    feeAmount: number;
+    signedFeeAmount: number;
+    assignedExternalLabel: string | null;
+  };
+
+  const items: Item[] = [];
+  let inquiryCount = 0;
+  let cancelledInquiryCount = 0;
+  let totalFee = 0;
+
+  for (const row of activeRows) {
+    const fee = row.externalTransferFee ?? 0;
+    const ext = row.assignments.find(
+      (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId === companyId
+    );
+    items.push({
+      inquiryId: row.id,
+      inquiryNumber: row.inquiryNumber ?? null,
+      customerName: row.customerName,
+      address: row.address,
+      addressDetail: row.addressDetail ?? null,
+      preferredDate: row.preferredDate ? row.preferredDate.toISOString() : null,
+      status: row.status,
+      isCancelled: false,
+      feeAmount: fee,
+      signedFeeAmount: fee,
+      assignedExternalLabel: ext?.teamLeader.externalCompany?.name ?? ext?.teamLeader.name ?? null,
+    });
+    inquiryCount += 1;
+    totalFee += fee;
+  }
+
+  for (const row of cancelledRows) {
+    const fee = row.externalTransferFee ?? 0;
+    const sign = -1;
+    const ext = row.assignments.find(
+      (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId === companyId
+    );
+    items.push({
+      inquiryId: row.id,
+      inquiryNumber: row.inquiryNumber ?? null,
+      customerName: row.customerName,
+      address: row.address,
+      addressDetail: row.addressDetail ?? null,
+      preferredDate: row.preferredDate ? row.preferredDate.toISOString() : null,
+      status: row.status,
+      isCancelled: true,
+      feeAmount: fee,
+      signedFeeAmount: sign * fee,
+      assignedExternalLabel: ext?.teamLeader.externalCompany?.name ?? ext?.teamLeader.name ?? null,
+    });
+    cancelledInquiryCount += 1;
+    totalFee += sign * fee;
+  }
+
+  items.sort((a, b) => {
+    const da = a.preferredDate ?? '';
+    const db = b.preferredDate ?? '';
+    return db.localeCompare(da);
+  });
+
+  res.json({
+    month: loYmd.slice(0, 7),
+    from: loYmd,
+    to: hiYmd,
+    externalCompanyId: companyId,
+    externalCompanyName: companyName,
+    inquiryCount,
+    cancelledInquiryCount,
+    totalCount: inquiryCount + cancelledInquiryCount,
+    totalFee,
+    items,
+  });
 });
 
 export default router;

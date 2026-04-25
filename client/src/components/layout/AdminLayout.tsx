@@ -622,12 +622,20 @@ export function AdminLayout() {
           </div>
           <div className="hidden md:flex items-center gap-2 sm:gap-3 shrink-0">
             {teamPreviewLink && (
-              <NavLink
-                to="/team/dashboard"
-                className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-blue-600 hover:text-blue-800 whitespace-nowrap py-2"
-              >
-                팀장 화면
-              </NavLink>
+              <>
+                <NavLink
+                  to="/team/dashboard"
+                  className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-blue-600 hover:text-blue-800 whitespace-nowrap py-2"
+                >
+                  팀장 화면
+                </NavLink>
+                <NavLink
+                  to="/team/dashboard?previewRole=external&previewExternalName=%ED%81%B4%EB%A6%B0%EB%8A%90"
+                  className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-indigo-600 hover:text-indigo-800 whitespace-nowrap py-2"
+                >
+                  타업체 화면
+                </NavLink>
+              </>
             )}
             <UserProfileMenu
               token={adminToken}

@@ -103,6 +103,10 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
     const v = body.claimMemo;
     data.claimMemo = v == null || v === '' ? null : String(v);
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'happyCallCompletedAt')) {
+    const v = body.happyCallCompletedAt;
+    data.happyCallCompletedAt = v == null || v === '' ? null : new Date(String(v));
+  }
   if (body.status != null) {
     data.status = body.status as
       | 'PENDING'

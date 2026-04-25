@@ -678,6 +678,19 @@ router.patch('/:id', async (req, res) => {
   if (data.scheduleMemo !== undefined) pushIfChanged('일정 메모', inquiry.scheduleMemo, data.scheduleMemo);
   if (data.claimMemo !== undefined) pushIfChanged('클레임 메모', inquiry.claimMemo, data.claimMemo);
   if (data.status !== undefined) pushIfChanged('상태', inquiry.status, data.status, fmtStatus);
+  /**
+   * 취소확인(가상 상태) 처리 로그:
+   * - 클라이언트는 status=CANCELLED + happyCallCompletedAt=now 로 보냄
+   * - 이를 명시 문구로 남겨 변경이력을 쉽게 식별
+   */
+  if (
+    data.status === 'CANCELLED' &&
+    inquiry.status === 'CANCELLED' &&
+    inquiry.happyCallCompletedAt == null &&
+    data.happyCallCompletedAt != null
+  ) {
+    lines.push('관리자 취소확인 처리');
+  }
   if (data.crewMemberCount !== undefined)
     pushIfChanged('팀원 인원', inquiry.crewMemberCount, data.crewMemberCount, fmtNum);
   if (data.crewMemberNote !== undefined) pushIfChanged('팀원 메모', inquiry.crewMemberNote, data.crewMemberNote);

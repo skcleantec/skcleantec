@@ -54,8 +54,17 @@ const STATUS_LABELS: Record<string, string> = {
   COMPLETED: '완료',
   ON_HOLD: '보류',
   CANCELLED: '취소',
+  CANCEL_CONFIRMED: '취소확인',
   CS_PROCESSING: 'C/S 처리중',
 };
+
+function isCancelConfirmedStatus(it: { status: string; happyCallCompletedAt?: string | null }): boolean {
+  return it.status === 'CANCELLED' && Boolean(it.happyCallCompletedAt);
+}
+
+function statusValueForEdit(it: { status: string; happyCallCompletedAt?: string | null }): string {
+  return isCancelConfirmedStatus(it) ? 'CANCEL_CONFIRMED' : it.status;
+}
 
 function distanceFromJuanLabel(item: ScheduleItem): string | null {
   const km = item.distanceFromJuanKm;
@@ -528,7 +537,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         it.assignments.length > 0 ? it.assignments.map((a) => a.teamLeader.id) : [''],
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
-      status: it.status,
+      status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
@@ -622,7 +631,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         it.assignments.length > 0 ? it.assignments.map((x) => x.teamLeader.id) : [''],
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
-      status: it.status,
+      status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
@@ -755,6 +764,27 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const patch = buildPatchFromEditForm(editForm, {
         includeCreatedById: currentUserRole === 'ADMIN',
       }) as Record<string, unknown>;
+      const requestedStatus = String(patch.status ?? '');
+      const isCancelConfirm = requestedStatus === 'CANCEL_CONFIRMED';
+      const resolvedStatus = isCancelConfirm ? 'CANCELLED' : requestedStatus;
+      if (resolvedStatus === 'CANCELLED' && !isCancelConfirm && item?.status !== 'CANCELLED') {
+        if (!window.confirm('이 접수를 취소하시겠습니까?')) {
+          setSaving(false);
+          return;
+        }
+      }
+      if (isCancelConfirm) {
+        if (!window.confirm('취소확인 처리하시겠습니까? (목록 상단 고정이 해제됩니다)')) {
+          setSaving(false);
+          return;
+        }
+      }
+      patch.status = resolvedStatus || undefined;
+      patch.happyCallCompletedAt = isCancelConfirm
+        ? new Date().toISOString()
+        : resolvedStatus === 'CANCELLED'
+          ? null
+          : undefined;
       patch.teamLeaderIds = leaderIdsForSave;
       if (isCreate) {
         const created = (await createInquiry(
@@ -1398,7 +1428,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               inquiryId={item.id}
               token={token}
               mode="admin"
-              readOnly
               serviceTotalAmount={item.serviceTotalAmount ?? item.orderForm?.totalAmount ?? null}
               serviceDepositAmount={item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null}
               serviceBalanceAmount={item.serviceBalanceAmount ?? item.orderForm?.balanceAmount ?? null}

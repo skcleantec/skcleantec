@@ -149,6 +149,7 @@ const STATUS_LABELS: Record<string, string> = {
   COMPLETED: '완료',
   ON_HOLD: '보류',
   CANCELLED: '취소',
+  CANCEL_CONFIRMED: '취소확인',
   CS_PROCESSING: 'C/S 처리중',
 };
 
@@ -159,6 +160,7 @@ const STATUS_QUICK_PICKER_ORDER = [
   'ORDER_FORM_PENDING',
   'RECEIVED',
   'CANCELLED',
+  'CANCEL_CONFIRMED',
   'ON_HOLD',
   'CS_PROCESSING',
 ] as const;
@@ -174,8 +176,31 @@ const STATUS_ICON_MAP: Record<string, string> = {
   COMPLETED: '🏁',
   ON_HOLD: '⏸️',
   CANCELLED: '🛑',
+  CANCEL_CONFIRMED: '✅',
   CS_PROCESSING: '🛠️',
 };
+const STATUS_FILTER_VALUES = [
+  'PENDING',
+  'RECEIVED',
+  'DEPOSIT_PENDING',
+  'DEPOSIT_COMPLETED',
+  'ORDER_FORM_PENDING',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'ON_HOLD',
+  'CANCELLED',
+  'CS_PROCESSING',
+] as const;
+
+function isCancelConfirmed(item: Pick<InquiryItem, 'status' | 'happyCallCompletedAt'>): boolean {
+  return item.status === 'CANCELLED' && Boolean(item.happyCallCompletedAt);
+}
+
+function statusValueForPicker(item: Pick<InquiryItem, 'status' | 'happyCallCompletedAt'>): string {
+  if (isCancelConfirmed(item)) return 'CANCEL_CONFIRMED';
+  return item.status;
+}
 
 function StatusQuickPicker({
   value,
@@ -341,7 +366,7 @@ function isInquiryLinkedOrderFormPendingSubmit(item: InquiryItem): boolean {
 }
 
 function inquiryListStatusBadgeText(item: InquiryItem): string {
-  return STATUS_LABELS[item.status] ?? item.status;
+  return STATUS_LABELS[statusValueForPicker(item)] ?? item.status;
 }
 
 /** 모바일 카드 목록 — 표와 동일한 강조(대기·해피콜 톤) */
@@ -453,6 +478,9 @@ function sortInquiryItemsForList(rows: InquiryItem[]): InquiryItem[] {
   return rows
     .map((row, idx) => ({ row, idx }))
     .sort((a, b) => {
+      const aUnconfirmedCancelled = a.row.status === 'CANCELLED' && !isCancelConfirmed(a.row);
+      const bUnconfirmedCancelled = b.row.status === 'CANCELLED' && !isCancelConfirmed(b.row);
+      if (aUnconfirmedCancelled !== bUnconfirmedCancelled) return aUnconfirmedCancelled ? -1 : 1;
       const aReceived = a.row.status === 'RECEIVED';
       const bReceived = b.row.status === 'RECEIVED';
       if (aReceived !== bReceived) return aReceived ? 1 : -1;
@@ -475,7 +503,7 @@ export function AdminInquiriesPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>(() => {
     const st = searchParams.get('status');
-    if (st && Object.keys(STATUS_LABELS).includes(st)) return st;
+    if (st && (STATUS_FILTER_VALUES as readonly string[]).includes(st)) return st;
     return '';
   });
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
@@ -679,7 +707,7 @@ export function AdminInquiriesPage() {
     if (m && /^\d{4}-\d{2}$/.test(m)) {
       setMonthKey(m);
     }
-    if (st && Object.keys(STATUS_LABELS).includes(st)) {
+    if (st && (STATUS_FILTER_VALUES as readonly string[]).includes(st)) {
       setStatusFilter(st);
     }
     if (searchParams.has('datePreset') || searchParams.has('month') || searchParams.has('status')) {
@@ -1157,14 +1185,22 @@ export function AdminInquiriesPage() {
 
   const handleStatusChange = async (inquiryId: string, newStatus: string) => {
     if (!token) return;
-    if (newStatus === 'CANCELLED') {
+    const isCancelConfirm = newStatus === 'CANCEL_CONFIRMED';
+    const requestStatus = isCancelConfirm ? 'CANCELLED' : newStatus;
+    if (requestStatus === 'CANCELLED' && !isCancelConfirm) {
       if (!window.confirm('이 접수를 취소하시겠습니까?')) {
         return;
       }
     }
+    if (isCancelConfirm && !window.confirm('취소확인 처리하시겠습니까? (목록 상단 고정이 해제됩니다)')) {
+      return;
+    }
     setSaving(true);
     try {
-      await updateInquiry(token, inquiryId, { status: newStatus });
+      await updateInquiry(token, inquiryId, {
+        status: requestStatus,
+        happyCallCompletedAt: isCancelConfirm ? new Date().toISOString() : requestStatus === 'CANCELLED' ? null : undefined,
+      });
       refresh(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : '상태 변경에 실패했습니다.');
@@ -1178,7 +1214,7 @@ export function AdminInquiriesPage() {
     if (!window.confirm('이 접수를 취소하시겠습니까?')) return;
     setSaving(true);
     try {
-      await updateInquiry(token, item.id, { status: 'CANCELLED' });
+      await updateInquiry(token, item.id, { status: 'CANCELLED', happyCallCompletedAt: null });
       refresh(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : '취소 처리에 실패했습니다.');
@@ -1762,7 +1798,7 @@ export function AdminInquiriesPage() {
                         <span aria-hidden>📋</span>
                         <span>전체 상태</span>
                       </button>
-                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                      {STATUS_FILTER_VALUES.map((value) => (
                         <button
                           key={value}
                           type="button"
@@ -1775,10 +1811,10 @@ export function AdminInquiriesPage() {
                               ? 'bg-gray-800 text-white'
                               : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                           }`}
-                          title={label}
+                          title={STATUS_LABELS[value] ?? value}
                         >
                           <span aria-hidden>{STATUS_ICON_MAP[value] ?? '🏷️'}</span>
-                          <span className="truncate">{label}</span>
+                          <span className="truncate">{STATUS_LABELS[value] ?? value}</span>
                         </button>
                       ))}
                     </div>
@@ -1915,7 +1951,7 @@ export function AdminInquiriesPage() {
                             상태
                           </span>
                           <StatusQuickPicker
-                            value={item.status}
+                            value={statusValueForPicker(item)}
                             onChange={(next) => handleStatusChange(item.id, next)}
                             disabled={saving}
                           />

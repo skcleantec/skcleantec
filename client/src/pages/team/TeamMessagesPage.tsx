@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getTeamOfficeMessages, sendTeamToManagement } from '../../api/messages';
-import { getMe } from '../../api/auth';
+import { getTeamMe } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
@@ -35,7 +35,7 @@ export function TeamMessagesPage() {
 
   useEffect(() => {
     if (!token) return;
-    getMe(token)
+    getTeamMe(token)
       .then((u: { id?: string }) => setMyId(typeof u.id === 'string' ? u.id : null))
       .catch(() => setMyId(null));
   }, [token]);

@@ -3,9 +3,11 @@ import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
   getTeamInquiries,
+  getTeamMe,
+  postTeamInquiryCancel,
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
-import { getMe, isAuthSessionExpiredError } from '../../api/auth';
+import { isAuthSessionExpiredError } from '../../api/auth';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useNavigate } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -111,7 +113,7 @@ export function TeamAssignmentListPage() {
       }
       try {
         const [me, inv, hc] = await Promise.all([
-          getMe(token) as Promise<{ id: string }>,
+          getTeamMe(token) as Promise<{ id: string }>,
           getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
           getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
         ]);
@@ -573,6 +575,11 @@ export function TeamAssignmentListPage() {
           onHappyCallComplete={async () => {
             if (!token) return;
             await completeTeamHappyCall(token, detailItem.id);
+            await loadList();
+          }}
+          onCancelInquiry={async (password) => {
+            if (!token) return;
+            await postTeamInquiryCancel(token, detailItem.id, password);
             await loadList();
           }}
         />

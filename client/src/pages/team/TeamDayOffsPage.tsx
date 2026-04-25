@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { getMyDayOffs, addDayOff, removeDayOff } from '../../api/dayoffs';
-import { getMe } from '../../api/auth';
+import { getTeamMe } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
 
 function pad2(n: number) {
@@ -62,7 +62,7 @@ export function TeamDayOffsPage() {
       return;
     }
     setProfileReady(false);
-    getMe(token)
+    getTeamMe(token)
       .then((me: { role?: string; allowSelfDayOffEdit?: boolean }) => {
         if (me.role === 'TEAM_LEADER') setSelfEditAllowed(me.allowSelfDayOffEdit !== false);
         else setSelfEditAllowed(true);
