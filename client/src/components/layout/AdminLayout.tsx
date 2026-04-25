@@ -292,9 +292,6 @@ export function AdminLayout() {
     navScrollRef.current?.scrollBy({ left: scrollStep(), behavior: 'smooth' });
   };
 
-  const teamMgmtActive =
-    location.pathname === '/admin/teams' || location.pathname.startsWith('/admin/teams/');
-
   const teamLeadersActive =
     location.pathname === '/admin/team-leaders' ||
     location.pathname.startsWith('/admin/team-leaders/');
@@ -476,7 +473,7 @@ export function AdminLayout() {
               <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {
                   const isAdmin = meRole === 'ADMIN';
-                  if (id === 'dashboard' || id === 'teams') return null;
+                  if (id === 'dashboard') return null;
                   if (!canShowAdminNavItem(id, isAdmin)) return null;
                   const def = ADMIN_NAV_DEF[id];
                   const dragging = draggingNavId === id;
@@ -500,24 +497,6 @@ export function AdminLayout() {
                   const rowClass = `inline-flex flex-nowrap items-center gap-0.5 rounded shrink-0 ${
                     dragging ? 'opacity-50' : ''
                   }`;
-                  if (id === 'teams') {
-                    return (
-                      <div
-                        key={id}
-                        className={rowClass}
-                        onDragOver={handleNavDragOver}
-                        onDrop={(e) => handleNavDrop(e, id)}
-                      >
-                        {dragHandle}
-                        <NavLink
-                          to={def.to}
-                          className={() => navClass({ isActive: teamMgmtActive })}
-                        >
-                          {def.label}
-                        </NavLink>
-                      </div>
-                    );
-                  }
                   if (id === 'team-leaders') {
                     return (
                       <div
