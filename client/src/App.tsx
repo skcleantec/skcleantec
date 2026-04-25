@@ -25,7 +25,6 @@ import { CsReportPage } from './pages/cs/CsReportPage';
 import { AdminCsPage } from './pages/admin/AdminCsPage';
 import { AdminAdvertisingPage } from './pages/admin/AdminAdvertisingPage';
 import { AdminTeamsPage } from './pages/admin/AdminTeamsPage';
-import { AdminTeamsLayout } from './components/layout/AdminTeamsLayout';
 import { AdminTeamHolidayCalendarPage } from './pages/admin/AdminTeamHolidayCalendarPage';
 import { AdminTeamLeaderStatsPage } from './pages/admin/AdminTeamLeaderStatsPage';
 import { AdminExternalCompaniesPage } from './pages/admin/AdminExternalCompaniesPage';
@@ -67,11 +66,9 @@ function App() {
             <Route path="external-companies" element={<AdminExternalCompaniesPage />} />
             <Route path="external-settlement" element={<AdminExternalSettlementPage />} />
           </Route>
-          <Route path="teams" element={<AdminTeamsLayout />}>
-            <Route index element={<AdminTeamsPage />} />
-            <Route path="holidays" element={<AdminTeamHolidayCalendarPage />} />
-            <Route path="leader-stats" element={<AdminTeamLeaderStatsPage />} />
-          </Route>
+          <Route path="teams" element={<Navigate to="/admin/team-leaders/team-members" replace />} />
+          <Route path="teams/holidays" element={<Navigate to="/admin/team-leaders/holiday-calendar" replace />} />
+          <Route path="teams/leader-stats" element={<Navigate to="/admin/team-leaders/leader-stats" replace />} />
           <Route path="messages" element={<AdminMessagesPage />} />
           <Route path="orderforms" element={<Navigate to="/admin/inquiries/order-issue" replace />} />
           <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-settings?tab=notice" replace />} />

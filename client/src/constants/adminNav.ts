@@ -5,7 +5,6 @@ export type AdminNavId =
   | 'inquiries'
   | 'schedule'
   | 'team-leaders'
-  | 'teams'
   | 'cs'
   | 'advertising'
   | 'messages';
@@ -20,7 +19,6 @@ export const ADMIN_NAV_DEF: Record<
   schedule: { to: '/admin/schedule', label: '스케줄 표' },
   /** 팀장·마케터·타업체 등 — 관리자만 GNB에 노출 */
   'team-leaders': { to: '/admin/team-leaders', label: '관리자 전용', adminOnly: true },
-  teams: { to: '/admin/teams', label: '팀 관리', adminOnly: true },
   cs: { to: '/admin/cs', label: 'C/S 관리' },
   advertising: { to: '/admin/advertising', label: '광고비' },
   messages: { to: '/admin/messages', label: '메시지' },
@@ -34,7 +32,6 @@ export const DEFAULT_ADMIN_NAV_ORDER: AdminNavId[] = [
   'inquiries',
   'schedule',
   'team-leaders',
-  'teams',
   'cs',
   'advertising',
   'messages',
