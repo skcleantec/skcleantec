@@ -20,7 +20,7 @@ export function AdminInquiriesLayout() {
           접수 목록
         </NavLink>
         <NavLink to="/admin/inquiries/followup" className={tabClass}>
-          부재현황
+          부재 보류
         </NavLink>
         <NavLink to="/admin/inquiries/order-forms" className={tabClass}>
           발주서 목록
