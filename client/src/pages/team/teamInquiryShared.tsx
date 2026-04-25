@@ -565,6 +565,14 @@ export function TeamInquiryDetailModal({
               </div>
             ) : null}
 
+            {item.memo?.trim() ? (
+              <TeamModalSection title="관리자 특이사항">
+                <div className="border-l-4 border-indigo-400 bg-indigo-50/85 px-3 py-3 text-fluid-sm leading-relaxed text-indigo-950 sm:px-4 whitespace-pre-wrap break-words">
+                  {item.memo.trim()}
+                </div>
+              </TeamModalSection>
+            ) : null}
+
             {item.specialNotes?.trim() ? (
               <TeamModalSection title="발주서 고객 메모">
                 <div className="border-l-4 border-emerald-400 bg-emerald-50/70 px-3 py-3 text-fluid-sm leading-relaxed text-emerald-950 sm:px-4 whitespace-pre-wrap break-words">

@@ -369,6 +369,14 @@ export function TeamAssignmentListPage() {
                             {item.scheduleMemo}
                           </p>
                         ) : null}
+                        {item.memo?.trim() ? (
+                          <p
+                            className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-indigo-900/90"
+                            title={`관리자 특이사항: ${item.memo.trim()}`}
+                          >
+                            관리자: {item.memo.trim()}
+                          </p>
+                        ) : null}
                         <p className="mt-1 text-fluid-xs tabular-nums text-gray-500">
                           배정 {formatAssignedAt(mine?.assignedAt)}
                         </p>
@@ -500,6 +508,14 @@ export function TeamAssignmentListPage() {
                                 title={item.scheduleMemo}
                               >
                                 {item.scheduleMemo}
+                              </div>
+                            ) : null}
+                            {item.memo?.trim() ? (
+                              <div
+                                className="mt-0.5 max-w-full truncate text-fluid-2xs font-normal text-indigo-900/85"
+                                title={`관리자 특이사항: ${item.memo.trim()}`}
+                              >
+                                관리자: {item.memo.trim()}
                               </div>
                             ) : null}
                           </div>

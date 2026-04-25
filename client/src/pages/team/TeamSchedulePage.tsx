@@ -10,7 +10,7 @@ import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
-import { formatDateCompactWithWeekday, weekdayKoFromYmd } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, kstTodayYmd, weekdayKoFromYmd } from '../../utils/dateFormat';
 import {
   STATUS_LABELS,
   WEEKDAYS,
@@ -87,9 +87,8 @@ export function TeamSchedulePage() {
   const { connected: scheduleWsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !scheduleWsConnected ? 20000 : 0);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().slice(0, 10);
+  /** UTC `toISOString` 날짜는 KST 자정 전후로 하루 밀려 어제 칸에 링이 감 — 한국 달력 오늘과 맞춤 */
+  const todayStr = kstTodayYmd();
 
   const withDate = items.filter((i) => i.preferredDate && i.status !== 'CANCELLED');
   const byDate = withDate.reduce<Record<string, InquiryItem[]>>((acc, item) => {
@@ -252,6 +251,14 @@ export function TeamSchedulePage() {
                           {item.scheduleMemo?.trim() ? (
                             <div className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={item.scheduleMemo}>
                               {item.scheduleMemo}
+                            </div>
+                          ) : null}
+                          {item.memo?.trim() ? (
+                            <div
+                              className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-indigo-900/90"
+                              title={`관리자 특이사항: ${item.memo.trim()}`}
+                            >
+                              관리자: {item.memo.trim()}
                             </div>
                           ) : null}
                           <div className="text-fluid-sm text-gray-600 mt-0.5">

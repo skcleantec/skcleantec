@@ -8,7 +8,7 @@ import {
 import { getTeamToken } from '../../stores/teamAuth';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import {
   STATUS_LABELS,
   type InquiryItem,
@@ -54,9 +54,7 @@ export function TeamDashboardPage() {
   const { connected: dashboardWsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !dashboardWsConnected ? 20000 : 0);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = kstTodayYmd();
 
   const withDate = items.filter((i) => i.preferredDate && i.status !== 'CANCELLED');
   const byDate = withDate.reduce<Record<string, InquiryItem[]>>((acc, item) => {
@@ -145,6 +143,14 @@ export function TeamDashboardPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold text-gray-900">{item.customerName}</div>
+                    {item.memo?.trim() ? (
+                      <p
+                        className="mt-1 line-clamp-2 text-fluid-2xs leading-snug text-indigo-900/90"
+                        title={`관리자 특이사항: ${item.memo.trim()}`}
+                      >
+                        관리자: {item.memo.trim()}
+                      </p>
+                    ) : null}
                     <div className="text-fluid-sm text-gray-700 mt-0.5">
                       {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} · {item.areaPyeong ?? '-'}평
                     </div>
@@ -210,6 +216,14 @@ export function TeamDashboardPage() {
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-gray-900 truncate">{item.customerName}</div>
+                          {item.memo?.trim() ? (
+                            <div
+                              className="mt-0.5 line-clamp-1 text-fluid-2xs text-indigo-900/85 truncate"
+                              title={`관리자 특이사항: ${item.memo.trim()}`}
+                            >
+                              관리자: {item.memo.trim()}
+                            </div>
+                          ) : null}
                           <div className="text-fluid-xs text-gray-500 truncate">
                             {formatScheduleLine(item)} · {item.address}
                             {item.addressDetail ? ` ${item.addressDetail}` : ''}
