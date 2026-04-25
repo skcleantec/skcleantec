@@ -272,7 +272,8 @@ function effectiveAmounts(item: ScheduleItem) {
 
 /**
  * 타업체 공유용 접수 정보 텍스트 생성.
- * 접수번호 + 고객·현장·일정·메모만 포함(내부 배정·금액·마케터 등은 제외).
+ * 접수번호 + 고객·현장·일정·금액·메모를 포함한다.
+ * 타업체 배정 건이면 수수료를 함께 포함한다.
  * 빈 값은 건너뛰며, 섹션 간 공백 줄로 구분해 카톡·문자·메일에서도 깔끔히 보이게 한다.
  */
 function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): string {
@@ -285,6 +286,16 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
     const v = typeof value === 'string' ? value.trim() : '';
     if (!v) return;
     currentSection().push(`· ${label}: ${v}`);
+  };
+  const parseWonText = (v: string): number | null => {
+    const stripped = v.replace(/,/g, '').trim();
+    if (!stripped) return null;
+    const n = Number.parseInt(stripped, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  const formatWonText = (n: number | null | undefined): string => {
+    if (n == null || !Number.isFinite(n)) return '';
+    return `${n.toLocaleString('ko-KR')}원`;
   };
   const endSection = () => {
     if (currentSection().length > 0) sections.push([]);
@@ -336,6 +347,22 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
   addRow('구체 시각', editForm.preferredTimeDetail);
   endSection();
 
+  // 금액
+  const fallbackAmounts = effectiveAmounts(item);
+  const totalAmount = parseWonText(editForm.amountTotal) ?? fallbackAmounts.total;
+  const depositAmount = parseWonText(editForm.amountDeposit) ?? fallbackAmounts.deposit;
+  const balanceAmount = parseWonText(editForm.amountBalance) ?? fallbackAmounts.balance;
+  addRow('총액', formatWonText(totalAmount));
+  addRow('예약금', formatWonText(depositAmount));
+  addRow('잔금', formatWonText(balanceAmount));
+
+  const hasExternalAssignment = item.assignments.some((a) => !!a.teamLeader.externalCompany);
+  if (hasExternalAssignment) {
+    const externalFee = parseWonText(editForm.externalTransferFee) ?? item.externalTransferFee ?? null;
+    addRow('타업체 수수료', externalFee != null ? formatWonText(externalFee) : '미입력');
+  }
+  endSection();
+
   // 비고
   addRow('특이사항', editForm.specialNotes);
   addRow('메모', editForm.memo);
@@ -385,6 +412,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [preferredDateCalOpen, setPreferredDateCalOpen] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<InquiryChangeLogEntry[]>([]);
   const [historyLogsLoading, setHistoryLogsLoading] = useState(false);
+  const [orderFormPhotoId, setOrderFormPhotoId] = useState<string | null>(
+    !isCreate ? props.item.orderForm?.id ?? null : null
+  );
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePasswordOpen, setDeletePasswordOpen] = useState(false);
   const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
@@ -411,6 +441,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     if (!token || !item) {
       setHistoryLogs([]);
       setHistoryLogsLoading(false);
+      setOrderFormPhotoId(item?.orderForm?.id ?? null);
       return;
     }
     let cancelled = false;
@@ -421,9 +452,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         if (cancelled) return;
         const raw = (data as { changeLogs?: InquiryChangeLogEntry[] }).changeLogs;
         setHistoryLogs(Array.isArray(raw) ? raw : []);
+        const freshOrderFormId =
+          (data as { orderForm?: { id?: string | null } | null }).orderForm?.id ?? null;
+        setOrderFormPhotoId(freshOrderFormId);
       })
       .catch(() => {
-        if (!cancelled) setHistoryLogs([]);
+        if (!cancelled) {
+          setHistoryLogs([]);
+          setOrderFormPhotoId(item.orderForm?.id ?? null);
+        }
       })
       .finally(() => {
         if (!cancelled) setHistoryLogsLoading(false);
@@ -431,7 +468,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return () => {
       cancelled = true;
     };
-  }, [token, item?.id]);
+  }, [token, item?.id, item?.orderForm?.id]);
 
   const [editForm, setEditForm] = useState(() => {
     if (isCreate) {
@@ -864,37 +901,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               />
             </div>
           )}
-          <p className="text-sm text-gray-500 mb-0">
-            {isCreate
-              ? externalIntake
+          {isCreate ? (
+            <p className="text-sm text-gray-500 mb-0">
+              {externalIntake
                 ? '수기등록을 선택하면 이름/연락처/주소가 비어 있어도 등록할 수 있습니다.'
-                : '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'
-              : '스케줄에서 연 접수입니다. 수정 후 저장하세요.'}
-          </p>
-          {!isCreate && item && (
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-fluid-2xs font-medium text-gray-500">해피콜</span>
-              {item.happyCallCompletedAt ? (
-                <span className="inline-flex items-center rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-fluid-2xs font-semibold text-green-800">
-                  완료
-                </span>
-              ) : detailHappyCallEligible ? (
-                <span
-                  className={`inline-flex items-center rounded-md border px-2 py-0.5 text-fluid-2xs font-semibold ${
-                    detailHappyTone === 'overdue'
-                      ? 'border-red-300 bg-red-50 text-red-700'
-                      : 'border-amber-200 bg-amber-50 text-amber-900'
-                  }`}
-                >
-                  {detailHappyTone === 'overdue' ? '미완(마감초과)' : '미완'}
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-fluid-2xs font-medium text-gray-500">
-                  대상 아님
-                </span>
-              )}
-            </div>
-          )}
+                : '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'}
+            </p>
+          ) : null}
           {isCreate && (
             <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
               <p className="font-medium text-gray-900">이 접수의 첫 단계</p>
@@ -929,19 +942,52 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           )}
           {!isCreate && item ? (
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <p className="min-w-0 truncate text-base font-semibold text-gray-900">
-                {item.customerName}
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex items-center gap-2">
+                <p className="min-w-0 truncate text-base font-semibold text-gray-900">{item.customerName}</p>
+                <span className="shrink-0 text-fluid-2xs font-medium text-gray-500">해피콜</span>
+                {item.happyCallCompletedAt ? (
+                  <span className="shrink-0 inline-flex items-center rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-fluid-2xs font-semibold text-green-800">
+                    완료
+                  </span>
+                ) : detailHappyCallEligible ? (
+                  <span
+                    className={`shrink-0 inline-flex items-center rounded-md border px-2 py-0.5 text-fluid-2xs font-semibold ${
+                      detailHappyTone === 'overdue'
+                        ? 'border-red-300 bg-red-50 text-red-700'
+                        : 'border-amber-200 bg-amber-50 text-amber-900'
+                    }`}
+                  >
+                    {detailHappyTone === 'overdue' ? '미완(마감초과)' : '미완'}
+                  </span>
+                ) : (
+                  <span className="shrink-0 inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-fluid-2xs font-medium text-gray-500">
+                    대상 아님
+                  </span>
+                )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void copyInquiryInfo()}
+                  className="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                  title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
+                  aria-live="polite"
+                >
+                  {copyHint ?? '정보 복사'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                {item.inquiryNumber ? `접수번호 ${item.inquiryNumber}` : null}
+                {distanceJuanLabel ? `${item.inquiryNumber ? ' · ' : ''}주안 기준 ${distanceJuanLabel}` : null}
+                {isManualIntakeInquiry(item.source) ? ' · 수기' : null}
+                {!isInquirySourceHiddenFromUi(item.source)
+                  ? ` · 출처: ${formatInquirySourceLabel(item.source)}`
+                  : null}
+                {` · 담당 마케터: ${item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}`}
+                {item.callAttempt != null ? ` · 통화 시도: ${item.callAttempt}` : null}
+                {item.claimMemo?.trim() ? ' · 클레임 등록됨' : null}
               </p>
-              <button
-                type="button"
-                onClick={() => void copyInquiryInfo()}
-                className="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
-                title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
-                aria-live="polite"
-              >
-                {copyHint ?? '정보 복사'}
-              </button>
             </div>
           ) : null}
         </div>
@@ -949,52 +995,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         <div className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6">
         <div className="space-y-4">
-        {!isCreate && item && (
-          <AdminScheduleDetailSection title="접수 개요">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
-            {item.inquiryNumber ? (
-              <span className="inline-flex items-center gap-1.5 font-medium text-gray-700 tabular-nums">
-                접수번호 {item.inquiryNumber}
-                {distanceJuanLabel ? (
-                  <span className="font-normal text-gray-500" title="인천 주안 기준 직선거리">
-                    · {distanceJuanLabel}
-                  </span>
-                ) : null}
-                {isManualIntakeInquiry(item.source) && (
-                  <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1.5 py-px text-[10px] font-semibold text-fuchsia-800">
-                    수기
-                  </span>
-                )}
-              </span>
-            ) : distanceJuanLabel ? (
-              <span className="font-medium text-gray-700 tabular-nums" title="인천 주안 기준 직선거리">
-                주안 기준 {distanceJuanLabel}
-              </span>
-            ) : null}
-            {!isInquirySourceHiddenFromUi(item.source) ? (
-              <span>출처: {formatInquirySourceLabel(item.source)}</span>
-            ) : null}
-            {canEditMarketer ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setMarketerQuickValue(item.createdBy?.id ?? '');
-                  setMarketerQuickOpen(true);
-                }}
-                className="touch-manipulation inline-flex min-h-[44px] max-w-full flex-wrap items-center gap-x-1 rounded-md px-1.5 py-1.5 -mx-1 -my-0.5 text-left text-xs underline underline-offset-2 text-blue-700 hover:bg-blue-50 hover:text-blue-900 active:bg-blue-100"
-                title="터치해서 담당 마케터 변경"
-              >
-                담당 마케터: {item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}
-              </button>
-            ) : (
-              <span>담당 마케터: {item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}</span>
-            )}
-            {item.callAttempt != null && <span>통화 시도: {item.callAttempt}</span>}
-            {item.claimMemo?.trim() && <span className="text-orange-700 font-medium">클레임 등록됨</span>}
-            </div>
-          </AdminScheduleDetailSection>
-        )}
-
         <AdminScheduleDetailSection title="고객 · 주소">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
@@ -1398,6 +1398,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               inquiryId={item.id}
               token={token}
               mode="admin"
+              readOnly
               serviceTotalAmount={item.serviceTotalAmount ?? item.orderForm?.totalAmount ?? null}
               serviceDepositAmount={item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null}
               serviceBalanceAmount={item.serviceBalanceAmount ?? item.orderForm?.balanceAmount ?? null}
@@ -1621,9 +1622,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </AdminScheduleDetailSection>
         )}
 
-        {!isCreate && item?.orderForm?.id && (
+        {!isCreate && orderFormPhotoId && (
           <AdminScheduleDetailSection title="발주서 첨부 사진 (고객 업로드)">
-            <AdminOrderFormPhotosPanel orderFormId={item.orderForm.id} token={token} />
+            <AdminOrderFormPhotosPanel orderFormId={orderFormPhotoId} token={token} />
           </AdminScheduleDetailSection>
         )}
 

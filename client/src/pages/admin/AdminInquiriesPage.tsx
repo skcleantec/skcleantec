@@ -2776,6 +2776,7 @@ export function AdminInquiriesPage() {
         )}
 
       {editItem &&
+        !token &&
         createPortal(
           <div
             className="fixed inset-0 z-[500] flex items-end justify-center p-0 sm:items-center sm:p-4"
@@ -3414,6 +3415,24 @@ export function AdminInquiriesPage() {
           </div>,
           document.body
         )}
+
+      {editItem && token && (
+        <ScheduleInquiryDetailModal
+          mode="edit"
+          token={token}
+          item={editItem as unknown as import('../../api/schedule').ScheduleItem}
+          teamLeaders={teamLeaders}
+          professionalCatalog={profCatalog}
+          currentUserRole={me?.role ?? null}
+          marketerOptions={marketers}
+          meUser={me ? { id: me.id, role: me.role, name: me.name } : null}
+          onClose={() => setEditItem(null)}
+          onSaved={() => {
+            refresh(true);
+            setEditItem(null);
+          }}
+        />
+      )}
 
       {listIntakeOpen &&
         token &&
