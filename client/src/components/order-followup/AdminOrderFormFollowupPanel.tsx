@@ -320,6 +320,7 @@ export function AdminOrderFormFollowupPanel({
   const [deferSaving, setDeferSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OrderFollowupItem | null>(null);
   const [memoView, setMemoView] = useState<OrderFollowupItem | null>(null);
+  const suspendListRenderWhileEdit = Boolean(edit);
 
   /** `status: ''` 를 넘기면 서버 상태 필터 없이 조회(상단 칩은 별도로 맞춤) */
   const load = useCallback(
@@ -513,7 +514,7 @@ export function AdminOrderFormFollowupPanel({
     []
   );
 
-  /** 부재점보류 화면 편집 상태: 드롭다운 순서 고정(부재 → 보류 → 예약금대기 → 입금완료) */
+  /** 부재·보류 화면 편집 상태: 드롭다운 순서 고정(부재 → 보류 → 예약금대기 → 입금완료) */
   const editStatusOptions = useMemo(() => {
     const allowed = (
       [
@@ -708,6 +709,10 @@ export function AdminOrderFormFollowupPanel({
 
         {loading ? (
           <div className="p-10 text-center text-fluid-sm text-gray-500">불러오는 중…</div>
+        ) : suspendListRenderWhileEdit ? (
+          <div className="p-10 text-center text-fluid-sm text-gray-500">
+            편집 중…
+          </div>
         ) : items.length === 0 ? (
           <div className="p-10 text-center text-fluid-sm text-gray-500">
             {filterGoldDbOnly

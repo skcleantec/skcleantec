@@ -101,7 +101,7 @@ const DEFAULT_SUB_TAB_ORDER: Tab[] = [
 
 const TAB_LABELS: Record<Tab, string> = {
   issue: '발주서 발급',
-  followup: '부재점보류',
+  followup: '부재·보류',
   config: '설정',
   messages: '폼 메시지',
   list: '발주서 목록',
