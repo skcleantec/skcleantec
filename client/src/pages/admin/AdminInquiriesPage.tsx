@@ -132,6 +132,7 @@ const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
   DEPOSIT_PENDING: '입금대기',
   DEPOSIT_COMPLETED: '입금완료',
+  ORDER_FORM_PENDING: '미제출',
   ASSIGNED: '분배완료',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
@@ -212,8 +213,24 @@ interface InquiryItem {
   distanceFromJuanKm?: number | null;
 }
 
-/** 발주서가 접수에 연결됐고 고객이 아직 제출하지 않음 — 발주서 목록의「미제출」과 동일 */
+/** 대기·입금완료·미제출(발주서 고객 미제출) — 분배 불가·행 강조 등 */
+function isPreReceiveInquiryRow(item: InquiryItem): boolean {
+  return (
+    item.status === 'PENDING' ||
+    item.status === 'DEPOSIT_COMPLETED' ||
+    item.status === 'ORDER_FORM_PENDING' ||
+    /** 마이그레이션 전 데이터: DB상 입금완료/대기 + 발주서만 연결 */
+    Boolean(
+      item.orderForm?.id &&
+        !item.orderForm.submittedAt &&
+        (item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED')
+    )
+  );
+}
+
+/** 발주서 링크 발급됨·고객 미제출 — 툴팁·배정 안내 */
 function isInquiryLinkedOrderFormPendingSubmit(item: InquiryItem): boolean {
+  if (item.status === 'ORDER_FORM_PENDING') return true;
   return Boolean(
     item.orderForm?.id &&
       !item.orderForm.submittedAt &&
@@ -221,9 +238,7 @@ function isInquiryLinkedOrderFormPendingSubmit(item: InquiryItem): boolean {
   );
 }
 
-/** 목록·카드 배지용: 연결 발주서가 있으면 제출 여부를 우선 표시 */
 function inquiryListStatusBadgeText(item: InquiryItem): string {
-  if (isInquiryLinkedOrderFormPendingSubmit(item)) return '미제출';
   return STATUS_LABELS[item.status] ?? item.status;
 }
 
@@ -249,7 +264,7 @@ function happyCallAdminCell(item: InquiryItem): { label: string; className: stri
 
 /** 모바일 카드 목록 — 표와 동일한 강조(대기·해피콜 톤) */
 function inquiryMobileCardShellClass(item: InquiryItem): string {
-  const isPreOrder = item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED';
+  const isPreOrder = isPreReceiveInquiryRow(item);
   const isOnHold = item.status === 'ON_HOLD';
   const isDepositPending = item.status === 'DEPOSIT_PENDING';
   const hasAssignment = item.assignments.length > 0;
@@ -807,8 +822,12 @@ export function AdminInquiriesPage() {
   const handleAssign = async (inquiryId: string, teamLeaderId: string) => {
     if (!token || !teamLeaderId) return;
     const row = items.find((i) => i.id === inquiryId);
-    if (row?.status === 'PENDING' || row?.status === 'DEPOSIT_COMPLETED') {
-      alert('대기·입금완료(발주서 미제출)인 건은 분배할 수 없습니다.');
+    if (
+      row?.status === 'PENDING' ||
+      row?.status === 'DEPOSIT_COMPLETED' ||
+      row?.status === 'ORDER_FORM_PENDING'
+    ) {
+      alert('대기·입금완료·미제출(발주서 고객 작성 대기)인 건은 분배할 수 없습니다.');
       return;
     }
     if (row?.status === 'DEPOSIT_PENDING') {
@@ -1149,9 +1168,10 @@ export function AdminInquiriesPage() {
         (editForm.status === 'PENDING' ||
           editForm.status === 'DEPOSIT_PENDING' ||
           editForm.status === 'DEPOSIT_COMPLETED' ||
+          editForm.status === 'ORDER_FORM_PENDING' ||
           editForm.status === 'ON_HOLD')
       ) {
-        alert('대기·입금대기·입금완료·보류 상태인 건에는 분배할 수 없습니다.');
+        alert('대기·입금대기·입금완료·미제출·보류 상태인 건에는 분배할 수 없습니다.');
         setSaving(false);
         return;
       }
@@ -1666,6 +1686,7 @@ export function AdminInquiriesPage() {
                               item.status === 'PENDING' ||
                               item.status === 'DEPOSIT_PENDING' ||
                               item.status === 'DEPOSIT_COMPLETED' ||
+                              item.status === 'ORDER_FORM_PENDING' ||
                               item.status === 'ON_HOLD'
                             }
                             title={
@@ -1721,7 +1742,7 @@ export function AdminInquiriesPage() {
                               </button>
                             )}
                           </>
-                        ) : item.status === 'DEPOSIT_COMPLETED' ? (
+                        ) : item.status === 'DEPOSIT_COMPLETED' || item.status === 'ORDER_FORM_PENDING' ? (
                           <>
                             <button
                               type="button"
@@ -1733,7 +1754,7 @@ export function AdminInquiriesPage() {
                               }}
                               className="text-fluid-xs font-medium text-blue-700 hover:underline"
                             >
-                              발주서
+                              {item.status === 'ORDER_FORM_PENDING' ? '발주서 링크' : '발주서'}
                             </button>
                             <button
                               type="button"
@@ -1872,7 +1893,7 @@ export function AdminInquiriesPage() {
               </thead>
               <tbody>
                 {items.map((item) => {
-                  const isPreOrder = item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED';
+                  const isPreOrder = isPreReceiveInquiryRow(item);
                   const pBorder = isPreOrder ? 'border-t-2 border-b-2 border-red-500' : 'border-b border-gray-100';
                   const hcTone = isPreOrder
                     ? ('none' as const)
@@ -2024,7 +2045,7 @@ export function AdminInquiriesPage() {
                           <option key={value} value={value}>{label}</option>
                         ))}
                       </select>
-                      {isInquiryLinkedOrderFormPendingSubmit(item) ? (
+                      {isInquiryLinkedOrderFormPendingSubmit(item) && item.status !== 'ORDER_FORM_PENDING' ? (
                         <span
                           className="mt-0.5 block text-center text-fluid-2xs text-gray-500 xl:text-fluid-xs"
                           title="발주서 목록과 동일: 고객 제출 전"
@@ -2054,6 +2075,7 @@ export function AdminInquiriesPage() {
                           item.status === 'PENDING' ||
                           item.status === 'DEPOSIT_PENDING' ||
                           item.status === 'DEPOSIT_COMPLETED' ||
+                          item.status === 'ORDER_FORM_PENDING' ||
                           item.status === 'ON_HOLD'
                         }
                         title={
@@ -2112,7 +2134,7 @@ export function AdminInquiriesPage() {
                               </button>
                             )}
                           </>
-                        ) : item.status === 'DEPOSIT_COMPLETED' ? (
+                        ) : item.status === 'DEPOSIT_COMPLETED' || item.status === 'ORDER_FORM_PENDING' ? (
                           <>
                             <button
                               type="button"
@@ -2124,7 +2146,7 @@ export function AdminInquiriesPage() {
                               }}
                               className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
                             >
-                              발주서
+                              {item.status === 'ORDER_FORM_PENDING' ? '발주서 링크' : '발주서'}
                             </button>
                             <button
                               type="button"
@@ -2741,6 +2763,7 @@ export function AdminInquiriesPage() {
                         editForm.status === 'PENDING' ||
                         editForm.status === 'DEPOSIT_PENDING' ||
                         editForm.status === 'DEPOSIT_COMPLETED' ||
+                        editForm.status === 'ORDER_FORM_PENDING' ||
                         editForm.status === 'ON_HOLD'
                       }
                       onChange={(e) => {
@@ -2783,6 +2806,7 @@ export function AdminInquiriesPage() {
                     editForm.status === 'PENDING' ||
                     editForm.status === 'DEPOSIT_PENDING' ||
                     editForm.status === 'DEPOSIT_COMPLETED' ||
+                    editForm.status === 'ORDER_FORM_PENDING' ||
                     editForm.status === 'ON_HOLD'
                   }
                   onClick={() =>

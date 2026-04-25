@@ -83,9 +83,12 @@ router.post('/', async (req, res) => {
     });
     return;
   }
-  if (inquiry.status === 'DEPOSIT_COMPLETED') {
+  if (inquiry.status === 'DEPOSIT_COMPLETED' || inquiry.status === 'ORDER_FORM_PENDING') {
     res.status(400).json({
-      error: '입금완료(발주서 미제출)인 건은 분배할 수 없습니다. 발주서가 제출되어 접수로 전환된 뒤 진행하세요.',
+      error:
+        inquiry.status === 'ORDER_FORM_PENDING'
+          ? '미제출(발주서 고객 작성 대기)인 건은 분배할 수 없습니다. 고객이 제출해 접수로 바뀐 뒤 진행하세요.'
+          : '입금완료(발주서 미연결 또는 미제출)인 건은 분배할 수 없습니다. 발주서가 제출되어 접수로 전환된 뒤 진행하세요.',
     });
     return;
   }

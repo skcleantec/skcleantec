@@ -180,7 +180,10 @@ function ScheduleDayListItem({
   onOpenMemo: () => void;
 }) {
   const isExternalIntake = isManualIntakeInquiry(item.source);
-  const isPreOrder = item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED';
+  const isPreOrder =
+    item.status === 'PENDING' ||
+    item.status === 'DEPOSIT_COMPLETED' ||
+    item.status === 'ORDER_FORM_PENDING';
   const isOnHold = item.status === 'ON_HOLD';
   const isCancelled = item.status === 'CANCELLED';
   const bucket = getScheduleTimeBucket(item);
@@ -333,7 +336,11 @@ function ScheduleDayListItem({
           )}
           {isPreOrder && (
             <span className="text-fluid-2xs font-semibold text-red-700 shrink-0">
-              {item.status === 'DEPOSIT_COMPLETED' ? '입금완료' : '대기'}
+              {item.status === 'ORDER_FORM_PENDING'
+                ? '미제출'
+                : item.status === 'DEPOSIT_COMPLETED'
+                  ? '입금완료'
+                  : '대기'}
             </span>
           )}
           <button
@@ -995,7 +1002,10 @@ export function AdminSchedulePage() {
                   (it) => it.status !== 'CANCELLED' && it.status !== 'ON_HOLD'
                 );
                 const pendingDayCount = dayItems.filter(
-                  (it) => it.status === 'PENDING' || it.status === 'DEPOSIT_COMPLETED'
+                  (it) =>
+                    it.status === 'PENDING' ||
+                    it.status === 'DEPOSIT_COMPLETED' ||
+                    it.status === 'ORDER_FORM_PENDING'
                 ).length;
                 const onHoldDayCount = dayItems.filter((it) => it.status === 'ON_HOLD').length;
                 const cancelledDayCount = dayItems.filter((it) => it.status === 'CANCELLED').length;

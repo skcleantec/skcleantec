@@ -54,6 +54,7 @@ const INQUIRY_STATUS_LABEL: Record<string, string> = {
   RECEIVED: '접수',
   DEPOSIT_PENDING: '입금대기',
   DEPOSIT_COMPLETED: '입금완료',
+  ORDER_FORM_PENDING: '미제출',
   ASSIGNED: '분배완료',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',

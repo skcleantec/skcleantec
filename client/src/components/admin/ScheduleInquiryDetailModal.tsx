@@ -47,6 +47,7 @@ const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
   DEPOSIT_PENDING: '입금대기',
   DEPOSIT_COMPLETED: '입금완료',
+  ORDER_FORM_PENDING: '미제출',
   ASSIGNED: '분배완료',
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
@@ -692,9 +693,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       (editForm.status === 'PENDING' ||
         editForm.status === 'DEPOSIT_PENDING' ||
         editForm.status === 'DEPOSIT_COMPLETED' ||
+        editForm.status === 'ORDER_FORM_PENDING' ||
         editForm.status === 'ON_HOLD')
     ) {
-      alert('대기·입금대기·입금완료·보류 상태인 건에는 분배할 수 없습니다.');
+      alert('대기·입금대기·입금완료·미제출·보류 상태인 건에는 분배할 수 없습니다.');
       return;
     }
     setSaving(true);

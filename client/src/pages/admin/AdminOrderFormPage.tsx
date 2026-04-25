@@ -526,7 +526,7 @@ export function AdminOrderFormPage() {
 
   useEffect(() => {
     if (!token || tab !== 'issue') return;
-    getInquiries(token, { status: 'PENDING,DEPOSIT_COMPLETED', datePreset: 'all' })
+    getInquiries(token, { status: 'PENDING,DEPOSIT_COMPLETED,ORDER_FORM_PENDING', datePreset: 'all' })
       .then((r: { items: Array<{ id: string; customerName: string; customerPhone?: string | null }> }) => {
         setPendingLinkOptions(
           r.items.map((i) => ({

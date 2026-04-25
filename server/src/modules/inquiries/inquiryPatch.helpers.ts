@@ -109,6 +109,7 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
       | 'RECEIVED'
       | 'DEPOSIT_PENDING'
       | 'DEPOSIT_COMPLETED'
+      | 'ORDER_FORM_PENDING'
       | 'ASSIGNED'
       | 'IN_PROGRESS'
       | 'COMPLETED'

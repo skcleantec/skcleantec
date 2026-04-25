@@ -26,6 +26,7 @@ const HAPPY_CALL_BLOCK = new Set([
   'PENDING',
   'DEPOSIT_PENDING',
   'DEPOSIT_COMPLETED',
+  'ORDER_FORM_PENDING',
 ]);
 
 export function isHappyCallEligible(status: string, preferredDate: Date | null): boolean {

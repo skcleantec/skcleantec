@@ -3,6 +3,7 @@ import './env.js';
 import { config } from './config/index.js';
 import app from './app.js';
 import { prisma } from './lib/prisma.js';
+import { ensureInquiryStatusEnumForDeploy } from './lib/ensureInquiryStatusEnumForDeploy.js';
 import { ensureMissingProfessionalDefaults } from './modules/orderform/defaultProfessionalOptions.js';
 import { attachInboxWebSocket } from './modules/realtime/index.js';
 
@@ -13,6 +14,16 @@ async function bootstrap() {
   } catch (err) {
     console.error(
       '[db] 연결 실패 — Docker 로컬이면 `npm run db:up` 후 `npm run db:setup`, 원격(Neon 등)이면 server/.env의 DATABASE_URL·SSL(sslmode=require)을 확인하세요.'
+    );
+    console.error(err);
+    process.exit(1);
+  }
+
+  try {
+    await ensureInquiryStatusEnumForDeploy(prisma);
+  } catch (err) {
+    console.error(
+      '[db] InquiryStatus enum 보정 실패 — Postgres에 `ORDER_FORM_PENDING`을 추가할 수 없습니다. DB 권한·버전을 확인하거나 마이그레이션 SQL을 수동 실행하세요.'
     );
     console.error(err);
     process.exit(1);

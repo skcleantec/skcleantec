@@ -451,11 +451,13 @@ router.patch('/:id', async (req, res) => {
   if (wantsTeamSync) {
     if (
       teamLeaderIds.length > 0 &&
-      (tentativeMergedStatus === 'PENDING' || tentativeMergedStatus === 'DEPOSIT_COMPLETED')
+      (tentativeMergedStatus === 'PENDING' ||
+        tentativeMergedStatus === 'DEPOSIT_COMPLETED' ||
+        tentativeMergedStatus === 'ORDER_FORM_PENDING')
     ) {
       res.status(400).json({
         error:
-          '대기·입금완료(발주서 미제출)인 건은 분배할 수 없습니다. 발주서 제출 후 접수로 바뀌면 분배할 수 있습니다.',
+          '대기·입금완료·미제출(발주서 고객 작성 대기)인 건은 분배할 수 없습니다. 발주서 제출 후 접수로 바뀌면 분배할 수 있습니다.',
       });
       return;
     }
@@ -628,6 +630,7 @@ router.patch('/:id', async (req, res) => {
       RECEIVED: '접수',
       DEPOSIT_PENDING: '입금대기',
       DEPOSIT_COMPLETED: '입금완료',
+      ORDER_FORM_PENDING: '미제출',
       ASSIGNED: '분배완료',
       IN_PROGRESS: '진행중',
       COMPLETED: '완료',
@@ -833,6 +836,7 @@ const CREATE_STATUSES: InquiryStatus[] = [
   'RECEIVED',
   'DEPOSIT_PENDING',
   'DEPOSIT_COMPLETED',
+  'ORDER_FORM_PENDING',
   'ASSIGNED',
   'IN_PROGRESS',
   'COMPLETED',

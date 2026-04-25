@@ -592,6 +592,8 @@ enum InquiryStatus {
   DEPOSIT_PENDING
   /// 입금 완료·발주서 미제출 전(접수 목록에 표시)
   DEPOSIT_COMPLETED
+  /// 발주서 링크 발급 후 고객 제출 대기(접수 목록에서「미제출」)
+  ORDER_FORM_PENDING
   ASSIGNED      // 분배완료
   IN_PROGRESS   // 진행중
   COMPLETED     // 완료

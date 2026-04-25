@@ -371,7 +371,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
         });
         await tx.inquiry.update({
           where: { id: pid },
-          data: { orderFormId: created.id },
+          data: { orderFormId: created.id, status: 'ORDER_FORM_PENDING' },
         });
         return tx.orderForm.findUniqueOrThrow({
           where: { id: created.id },
@@ -513,10 +513,26 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
     if (isSubmitted) {
       await tx.inquiry.deleteMany({ where: { orderFormId: id } });
     } else {
-      await tx.inquiry.updateMany({
-        where: { orderFormId: id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED'] } },
-        data: { orderFormId: null },
+      const linked = await tx.inquiry.findMany({
+        where: { orderFormId: id },
+        select: { id: true, status: true, inquiryNumber: true },
       });
+      for (const row of linked) {
+        if (row.status === 'ORDER_FORM_PENDING') {
+          await tx.inquiry.update({
+            where: { id: row.id },
+            data: {
+              orderFormId: null,
+              status: row.inquiryNumber != null ? 'DEPOSIT_COMPLETED' : 'PENDING',
+            },
+          });
+        } else {
+          await tx.inquiry.update({
+            where: { id: row.id },
+            data: { orderFormId: null },
+          });
+        }
+      }
     }
     await tx.orderForm.delete({ where: { id } });
   });
@@ -635,7 +651,7 @@ router.get('/by-token/:token', async (req, res) => {
     where: { token },
     include: {
       inquiries: {
-        where: { status: { in: ['PENDING', 'DEPOSIT_COMPLETED'] } },
+        where: { status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
         take: 1,
       },
     },
@@ -823,7 +839,7 @@ router.post('/submit/:token', async (req, res) => {
     .join('\n');
 
   const existingPending = await prisma.inquiry.findFirst({
-    where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED'] } },
+    where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
     select: { id: true, inquiryNumber: true },
   });
 

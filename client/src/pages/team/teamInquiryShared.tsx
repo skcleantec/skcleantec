@@ -75,6 +75,7 @@ export const STATUS_LABELS: Record<string, string> = {
   RECEIVED: '접수',
   DEPOSIT_PENDING: '입금대기',
   DEPOSIT_COMPLETED: '입금완료',
+  ORDER_FORM_PENDING: '미제출',
   ASSIGNED: '분배',
   IN_PROGRESS: '진행',
   COMPLETED: '완료',
