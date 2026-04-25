@@ -525,7 +525,7 @@ export function AdminOrderFormPage() {
   }, [token, tab, pendingLinkId]);
 
   useEffect(() => {
-    if (!token || inquiriesEmbed !== null) return;
+    if (!token) return;
     const raw = searchParams.get('pendingInquiryId')?.trim();
     if (!raw) {
       pendingInquiryFromUrlConsumed.current = null;
