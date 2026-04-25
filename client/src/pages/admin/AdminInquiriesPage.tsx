@@ -826,6 +826,9 @@ export function AdminInquiriesPage() {
   const refresh = (showLoading = false) => {
     if (!token) return;
     if (showLoading) setLoading(true);
+    /** 예약일 기준일 때는 접수일(datePreset)과 AND 되면 목록이 비거나 줄어들어 고객이 "사라진 것처럼" 보이므로 API에는 접수일 구간을 넣지 않는다. */
+    const apiDatePreset: 'today' | 'all' | 'month' | 'day' =
+      dateBasis === 'preferredDate' ? 'all' : datePreset;
     const params: {
       status?: string;
       search?: string;
@@ -836,7 +839,7 @@ export function AdminInquiriesPage() {
       teamLeaderId?: string;
       scheduleMonth?: string;
       scheduleDay?: string;
-    } = { datePreset };
+    } = { datePreset: apiDatePreset };
     if (dateBasis === 'createdAt') {
       if (datePreset === 'month') params.month = monthKey;
       if (datePreset === 'day') params.day = dayKey;

@@ -17,6 +17,9 @@ import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPai
 
 const router = Router();
 
+/** 팀 스케줄 범위 — 관리자 스케줄 API와 동일하게 KST 하루 경계 */
+const SCHEDULE_QUERY_YMD = /^\d{4}-\d{2}-\d{2}$/;
+
 router.use(teamAuthMiddleware);
 
 /** 팀 화면 기준 현재 사용자(프리뷰 매핑 반영) */
@@ -58,7 +61,13 @@ const teamInquiryInclude = {
   },
   assignments: {
     orderBy: { sortOrder: 'asc' as const },
-    include: {
+    select: {
+      id: true,
+      inquiryId: true,
+      teamLeaderId: true,
+      assignedAt: true,
+      detailViewedAt: true,
+      sortOrder: true,
       teamLeader: { select: assignmentTeamLeaderSelect },
       assignedBy: { select: { id: true, name: true } },
     },
@@ -469,10 +478,20 @@ router.get('/schedule', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
   const { start, end } = req.query as { start?: string; end?: string };
   const now = new Date();
-  const startDate = start ? new Date(start) : new Date(now.getFullYear(), now.getMonth(), 1);
-  const endDate = end
-    ? new Date(end)
-    : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  let startDate: Date;
+  let endDate: Date;
+  if (
+    typeof start === 'string' &&
+    SCHEDULE_QUERY_YMD.test(start) &&
+    typeof end === 'string' &&
+    SCHEDULE_QUERY_YMD.test(end)
+  ) {
+    startDate = new Date(`${start}T00:00:00+09:00`);
+    endDate = new Date(`${end}T23:59:59.999+09:00`);
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  }
 
   const rows = await prisma.inquiry.findMany({
     where: {

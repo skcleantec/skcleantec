@@ -19,11 +19,19 @@ router.use(adminOrMarketer);
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
-/** 스케줄 월/주 목록: 표·지도·배정요약·상세(열 때 `getInquiry`로 풀 로드)에 필요한 최소 필드만 */
+/**
+ * 스케줄 월/주 목록용 select.
+ * `ScheduleInquiryDetailModal`이 목록에서 받은 `item`으로 폼을 채운 뒤 저장할 때
+ * 누락 필드가 빈 값으로 PATCH 되어 메모·특이사항·평수 등이 DB에서 지워지지 않도록
+ * 상세 저장에 쓰는 필드는 non-lite include와 동일하게 맞춘다.
+ */
 const scheduleListSelectLite = {
   id: true,
   inquiryNumber: true,
   customerName: true,
+  nickname: true,
+  customerPhone: true,
+  customerPhone2: true,
   source: true,
   address: true,
   addressDetail: true,
@@ -31,17 +39,41 @@ const scheduleListSelectLite = {
   addressGeoLat: true,
   addressGeoLng: true,
   areaPyeong: true,
+  areaBasis: true,
+  propertyType: true,
+  roomCount: true,
+  bathroomCount: true,
+  balconyCount: true,
+  kitchenCount: true,
+  buildingType: true,
+  moveInDate: true,
   preferredDate: true,
   preferredTime: true,
+  preferredTimeDetail: true,
   betweenScheduleSlot: true,
   status: true,
   happyCallCompletedAt: true,
+  memo: true,
+  specialNotes: true,
   scheduleMemo: true,
   crewMemberCount: true,
   crewMemberNote: true,
   professionalOptionIds: true,
+  serviceTotalAmount: true,
+  serviceDepositAmount: true,
+  serviceBalanceAmount: true,
+  externalTransferFee: true,
+  externalSettlementCategory: true,
   createdBy: { select: { id: true, name: true } },
-  orderForm: { select: { createdBy: { select: { id: true, name: true } } } },
+  orderForm: {
+    select: {
+      id: true,
+      totalAmount: true,
+      depositAmount: true,
+      balanceAmount: true,
+      createdBy: { select: { id: true, name: true } },
+    },
+  },
   assignments: {
     orderBy: { sortOrder: 'asc' },
     select: {

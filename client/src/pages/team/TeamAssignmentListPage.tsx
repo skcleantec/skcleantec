@@ -77,7 +77,9 @@ function rowDateYmdForBasis(item: InquiryItem, myId: string, basis: DateBasis): 
   if (basis === 'createdAt') return toKstYmd(item.createdAt);
   if (basis === 'preferredDate') return preferredYmd(item);
   const mine = myAssignment(item, myId);
-  return mine?.assignedAt ? toKstYmd(mine.assignedAt) : null;
+  if (mine?.assignedAt) return toKstYmd(mine.assignedAt);
+  /** 배정일이 응답에 없을 때 접수일로 간주 — 이번 달 필터에서 신규 배정이 통째로 빠지는 것 방지 */
+  return toKstYmd(item.createdAt);
 }
 
 function inYmdRange(ymd: string | null, from: string, to: string): boolean {

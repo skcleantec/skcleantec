@@ -206,6 +206,18 @@ function scheduleItemIntakeMarketerName(item: ScheduleItem): string | null {
   return null;
 }
 
+/** 스케줄 카드: 접수 목록과 동일하게 이름·닉네임·전화로 식별 가능하게 */
+function scheduleItemPrimaryCustomerLabel(item: ScheduleItem): string {
+  const name = item.customerName?.trim() ?? '';
+  const nick = item.nickname?.trim() ?? '';
+  const phone = item.customerPhone?.trim() ?? '';
+  if (name && nick && name !== nick) return `${name} (${nick})`;
+  if (name) return name;
+  if (nick) return nick;
+  if (phone) return phone;
+  return '이름·연락처 미입력';
+}
+
 function ScheduleDayListItem({
   item,
   profCatalog,
@@ -262,6 +274,12 @@ function ScheduleDayListItem({
   const hasScheduleMemo = Boolean(scheduleMemoLine);
   const distanceLabel = scheduleItemDistanceKmLabel(item);
   const intakeMarketerName = scheduleItemIntakeMarketerName(item);
+  const primaryCustomerLabel = scheduleItemPrimaryCustomerLabel(item);
+  const phoneForExtra =
+    item.customerPhone?.trim() &&
+    primaryCustomerLabel !== item.customerPhone.trim()
+      ? item.customerPhone.trim()
+      : '';
   const hasAssignment = (item.assignments?.length ?? 0) > 0;
   const canHappyCall = isHappyCallEligible(item.status, item.preferredDate);
   const happyTone = happyCallRowTone(
@@ -290,7 +308,16 @@ function ScheduleDayListItem({
             onClick={onPick}
             className="min-w-0 flex-1 text-left font-medium text-gray-900 inline-flex items-center gap-1.5 flex-wrap"
           >
-            <span className="truncate min-w-0">{item.customerName}</span>
+            <span className="min-w-0 inline-flex flex-col items-start gap-0 leading-tight">
+              <span className="truncate max-w-full font-medium" title={primaryCustomerLabel}>
+                {primaryCustomerLabel}
+              </span>
+              {phoneForExtra ? (
+                <span className="text-fluid-2xs text-gray-600 tabular-nums truncate max-w-[min(100%,14rem)]">
+                  {phoneForExtra}
+                </span>
+              ) : null}
+            </span>
             {isExternalIntake && (
               <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[10px] font-semibold text-fuchsia-800">
                 수기
