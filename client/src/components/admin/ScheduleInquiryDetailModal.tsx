@@ -27,6 +27,7 @@ import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
+import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 
 function AdminScheduleDetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -392,6 +393,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
+  const detailHasAssignment = (item?.assignments?.length ?? 0) > 0;
+  const detailHappyCallEligible = Boolean(
+    item && detailHasAssignment && isHappyCallEligible(item.status, item.preferredDate)
+  );
+  const detailHappyTone = item
+    ? happyCallRowTone(
+        new Date(),
+        item.status,
+        item.preferredDate,
+        item.happyCallCompletedAt ?? null,
+        detailHasAssignment
+      )
+    : 'none';
 
   useEffect(() => {
     if (!token || !item) {
@@ -857,6 +871,30 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 : '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'
               : '스케줄에서 연 접수입니다. 수정 후 저장하세요.'}
           </p>
+          {!isCreate && item && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-fluid-2xs font-medium text-gray-500">해피콜</span>
+              {item.happyCallCompletedAt ? (
+                <span className="inline-flex items-center rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-fluid-2xs font-semibold text-green-800">
+                  완료
+                </span>
+              ) : detailHappyCallEligible ? (
+                <span
+                  className={`inline-flex items-center rounded-md border px-2 py-0.5 text-fluid-2xs font-semibold ${
+                    detailHappyTone === 'overdue'
+                      ? 'border-red-300 bg-red-50 text-red-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-900'
+                  }`}
+                >
+                  {detailHappyTone === 'overdue' ? '미완(마감초과)' : '미완'}
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-fluid-2xs font-medium text-gray-500">
+                  대상 아님
+                </span>
+              )}
+            </div>
+          )}
           {isCreate && (
             <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
               <p className="font-medium text-gray-900">이 접수의 첫 단계</p>
