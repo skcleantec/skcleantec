@@ -29,30 +29,31 @@ export function CustomCalendarTabsBar({
 }: CustomCalendarTabsBarProps) {
   return (
     <div
-      className={`flex items-center gap-1.5 min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}
+      className={`flex w-full min-w-0 max-w-full flex-wrap items-center gap-1.5 pr-1 sm:flex-nowrap sm:overflow-x-auto sm:overscroll-x-contain sm:whitespace-nowrap sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden ${className}`}
     >
       <button
         type="button"
         onClick={onClickAdd}
-        className="shrink-0 inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2.5 py-1 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 shadow-sm"
+        className="shrink-0 inline-flex h-7 items-center gap-1 rounded-full border border-gray-300 bg-white px-2 py-0 text-[10px] font-medium text-gray-800 hover:bg-gray-50 shadow-sm min-[440px]:text-[11px] sm:h-8 sm:px-2.5 sm:text-fluid-xs"
         title="지역 필터 캘린더 추가"
       >
-        <span aria-hidden className="text-sm leading-none">+</span>
-        <span>캘린더 추가</span>
+        <span aria-hidden className="text-xs leading-none min-[440px]:text-sm">+</span>
+        <span className="inline max-[360px]:hidden">캘린더 추가</span>
       </button>
 
       {showAllChip && calendars.length > 0 && (
         <button
           type="button"
           onClick={() => onSelect(null)}
-          className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-fluid-xs font-medium transition-colors ${
+          className={`shrink-0 inline-flex h-7 items-center gap-1 rounded-full border px-2 py-0 text-[10px] font-medium transition-colors min-[440px]:text-[11px] sm:h-8 sm:px-2.5 sm:text-fluid-xs ${
             activeId == null
               ? 'bg-gray-900 text-white border-gray-900'
               : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
           }`}
           title="전체 캘린더"
         >
-          전체
+          <span className="inline max-[360px]:hidden">전체</span>
+          <span className="hidden max-[360px]:inline">●</span>
         </button>
       )}
 
@@ -64,7 +65,7 @@ export function CustomCalendarTabsBar({
             <button
               type="button"
               onClick={() => onSelect(active ? null : c.id)}
-              className={`inline-flex items-center gap-1.5 rounded-l-full border px-2.5 py-1 text-fluid-xs font-medium transition-colors ${
+              className={`inline-flex h-7 max-w-[11.5rem] min-w-0 items-center gap-1 rounded-l-full border px-2 py-0 text-[10px] font-medium transition-colors min-[440px]:text-[11px] sm:h-8 sm:gap-1.5 sm:px-2.5 sm:text-fluid-xs ${
                 active ? t.tabActive : t.tabIdle
               }`}
               title={`${c.name} (${[
@@ -73,12 +74,12 @@ export function CustomCalendarTabsBar({
               ].join(', ')})`}
             >
               <span className={`h-2 w-2 rounded-full ${active ? 'bg-white' : t.dot}`} />
-              <span className="truncate max-w-[12rem]">{c.name}</span>
+              <span className="inline truncate max-w-[12rem] max-[360px]:hidden">{c.name}</span>
             </button>
             <button
               type="button"
               onClick={() => onEdit(c)}
-              className={`inline-flex items-center justify-center rounded-r-full border border-l-0 px-2 py-1 text-fluid-xs ${
+              className={`inline-flex h-7 items-center justify-center rounded-r-full border border-l-0 px-1.5 py-0 text-[10px] min-[440px]:text-[11px] sm:h-8 sm:px-2 sm:text-fluid-xs ${
                 active ? t.tabActive : t.tabIdle
               }`}
               aria-label={`${c.name} 설정`}

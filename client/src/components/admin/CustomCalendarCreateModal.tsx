@@ -369,34 +369,38 @@ export function CustomCalendarCreateModal({
             </div>
           )}
 
-          <div className="flex items-center gap-2 pt-1 sticky bottom-0 bg-white">
-            {mode === 'edit' && onRequestDelete && (
-              <button
-                type="button"
-                onClick={onRequestDelete}
-                disabled={saving}
-                className="px-3 py-2 rounded border border-rose-300 bg-white text-fluid-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
-                title="이 캘린더 삭제"
-              >
-                삭제
-              </button>
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-3 py-2 rounded border border-gray-300 bg-white text-fluid-sm text-gray-700 hover:bg-gray-50"
-                disabled={saving}
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                className="px-3 py-2 rounded bg-gray-900 text-fluid-sm font-medium text-white hover:bg-black disabled:opacity-50"
-              >
-                {mode === 'edit' ? '저장' : '생성'}
-              </button>
+          <div className="sticky bottom-0 bg-white pt-1">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              {mode === 'edit' && onRequestDelete ? (
+                <button
+                  type="button"
+                  onClick={onRequestDelete}
+                  disabled={saving}
+                  className="inline-flex min-h-[42px] w-full items-center justify-center rounded border border-rose-300 bg-white px-3 py-2 text-fluid-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50 sm:w-auto"
+                  title="이 캘린더 삭제"
+                >
+                  삭제
+                </button>
+              ) : (
+                <div className="hidden sm:block" />
+              )}
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex min-h-[42px] items-center justify-center rounded border border-gray-300 bg-white px-3 py-2 text-fluid-sm text-gray-700 hover:bg-gray-50"
+                  disabled={saving}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="inline-flex min-h-[42px] items-center justify-center rounded bg-gray-900 px-3 py-2 text-fluid-sm font-medium text-white hover:bg-black disabled:opacity-50"
+                >
+                  {mode === 'edit' ? '저장' : '생성'}
+                </button>
+              </div>
             </div>
           </div>
         </form>

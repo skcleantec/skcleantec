@@ -989,7 +989,7 @@ export function AdminSchedulePage() {
                 손없는날
               </span>
             </div>
-            <div className="mt-2 flex items-center justify-between gap-2 border-t border-gray-200/80 pt-2 min-w-0">
+            <div className="mt-2 flex min-w-0 flex-col gap-2 border-t border-gray-200/80 pt-2 sm:flex-row sm:items-center sm:justify-between">
               <CustomCalendarTabsBar
                 className="flex-1 min-w-0"
                 calendars={customCalendars}
@@ -1005,7 +1005,7 @@ export function AdminSchedulePage() {
                 }}
               />
               <HelpTooltip
-                className="shrink-0"
+                className="shrink-0 self-end sm:self-auto"
                 text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)}
               />
             </div>
