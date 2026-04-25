@@ -19,6 +19,39 @@ router.use(adminOrMarketer);
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
+/** 스케줄 월/주 목록: 표·지도·배정요약·상세(열 때 `getInquiry`로 풀 로드)에 필요한 최소 필드만 */
+const scheduleListSelectLite = {
+  id: true,
+  inquiryNumber: true,
+  customerName: true,
+  source: true,
+  address: true,
+  addressDetail: true,
+  addressGeoQuery: true,
+  addressGeoLat: true,
+  addressGeoLng: true,
+  areaPyeong: true,
+  preferredDate: true,
+  preferredTime: true,
+  betweenScheduleSlot: true,
+  status: true,
+  happyCallCompletedAt: true,
+  scheduleMemo: true,
+  crewMemberCount: true,
+  crewMemberNote: true,
+  professionalOptionIds: true,
+  createdBy: { select: { id: true, name: true } },
+  orderForm: { select: { createdBy: { select: { id: true, name: true } } } },
+  assignments: {
+    orderBy: { sortOrder: 'asc' },
+    select: {
+      id: true,
+      sortOrder: true,
+      teamLeader: { select: assignmentTeamLeaderSelect },
+    },
+  },
+} as const;
+
 /** preferredDate 조회 — 하루 단위는 KST(Asia/Seoul)와 동일하게 맞춤 (말일 일정 누락 방지) */
 function rangeFromQuery(start?: string, end?: string) {
   const now = new Date();
@@ -35,39 +68,49 @@ function rangeFromQuery(start?: string, end?: string) {
 }
 
 router.get('/', async (req, res) => {
-  const { start, end } = req.query as { start?: string; end?: string };
+  const { start, end, lite } = req.query as { start?: string; end?: string; lite?: string };
+  const useLite = lite === '1' || lite === 'true';
   const { startDate, endDate } = rangeFromQuery(
     typeof start === 'string' ? start : undefined,
     typeof end === 'string' ? end : undefined
   );
 
-  const itemsRaw = await prisma.inquiry.findMany({
+  const baseArgs = {
     where: {
       preferredDate: { gte: startDate, lte: endDate },
       /** 취소·보류·대기 포함 — 화면에서 배지로 구분(가용 집계는 schedule-stats에서 취소·보류 제외) */
     },
-    orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
-    include: {
-      createdBy: { select: { id: true, name: true } },
-      assignments: {
-        orderBy: { sortOrder: 'asc' },
-        include: { teamLeader: { select: assignmentTeamLeaderSelect } },
-      },
-      orderForm: {
-        select: {
-          id: true,
-          totalAmount: true,
-          depositAmount: true,
-          balanceAmount: true,
+    orderBy: [{ preferredDate: 'asc' as const }, { preferredTime: 'asc' as const }],
+  };
+
+  const itemsRaw = useLite
+    ? await prisma.inquiry.findMany({
+        ...baseArgs,
+        select: scheduleListSelectLite,
+      })
+    : await prisma.inquiry.findMany({
+        ...baseArgs,
+        include: {
           createdBy: { select: { id: true, name: true } },
+          assignments: {
+            orderBy: { sortOrder: 'asc' },
+            include: { teamLeader: { select: assignmentTeamLeaderSelect } },
+          },
+          orderForm: {
+            select: {
+              id: true,
+              totalAmount: true,
+              depositAmount: true,
+              balanceAmount: true,
+              createdBy: { select: { id: true, name: true } },
+            },
+          },
+          extraCharges: {
+            orderBy: { sortOrder: 'asc' },
+            include: { createdBy: { select: { id: true, name: true } } },
+          },
         },
-      },
-      extraCharges: {
-        orderBy: { sortOrder: 'asc' },
-        include: { createdBy: { select: { id: true, name: true } } },
-      },
-    },
-  });
+      });
   /** 스케줄 월 단위: changeLogs·카카오 지오는 상세/접수 API에 맡겨 첫 페인트 지연 방지 */
   const touched = await hydrateMissingGeoForInquiryListItems(prisma, itemsRaw, {
     maxUniqueQueries: 0,

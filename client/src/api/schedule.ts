@@ -97,13 +97,19 @@ export interface ScheduleItem {
   }>;
 }
 
+/**
+ * @param options.lite `false`이면 이전과 동일한 풀 include(발주서 금액·추가정산·긴 본문 필드 포함). 기본 `true`는 목록 전용으로 응답·DB 조인을 줄임.
+ */
 export async function getSchedule(
   token: string,
   start: string,
-  end: string
+  end: string,
+  options?: { lite?: boolean }
 ): Promise<{ items: ScheduleItem[] }> {
-  const q = new URLSearchParams({ start, end }).toString();
-  const res = await fetch(`${API}/schedule?${q}`, { headers: headers(token) });
+  const useLite = options?.lite !== false;
+  const q = new URLSearchParams({ start, end });
+  if (useLite) q.set('lite', '1');
+  const res = await fetch(`${API}/schedule?${q.toString()}`, { headers: headers(token) });
   if (!res.ok) throw new Error('스케줄을 불러올 수 없습니다.');
   return res.json();
 }
