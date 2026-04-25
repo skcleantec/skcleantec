@@ -114,6 +114,26 @@ export type GetOrderFormsFilters = {
   submitStatus?: 'all' | 'pending' | 'submitted';
 };
 
+export interface ForceMatchOrderFormCandidate {
+  id: string;
+  token: string;
+  customerName: string;
+  customerPhone?: string | null;
+  totalAmount: number;
+  depositAmount: number;
+  balanceAmount: number;
+  submittedAt: string | null;
+  createdAt: string;
+  createdBy?: OrderFormCreatedBy | null;
+  linkedInquiry?: {
+    id: string;
+    status: string;
+    inquiryNumber: string | null;
+    customerName: string;
+    customerPhone: string;
+  } | null;
+}
+
 /** 관리자: 발주서 목록 (발급일·담당·제출 상태 필터) */
 export async function getOrderForms(
   token: string,
@@ -131,6 +151,48 @@ export async function getOrderForms(
   const qs = params.toString();
   const res = await fetch(`${API}/orderforms${qs ? `?${qs}` : ''}`, { headers: headers(token) });
   if (!res.ok) throw new Error('발주서 목록을 불러올 수 없습니다.');
+  return res.json();
+}
+
+/** 관리자/마케터: 고객 제출 완료 발주서 중 강제 매칭 후보 조회 */
+export async function getForceMatchOrderFormCandidates(
+  token: string,
+  params?: { query?: string; limit?: number }
+): Promise<{ items: ForceMatchOrderFormCandidate[] }> {
+  const qs = new URLSearchParams();
+  if (params?.query?.trim()) qs.set('query', params.query.trim());
+  if (params?.limit != null) qs.set('limit', String(params.limit));
+  const q = qs.toString();
+  const res = await fetch(`${API}/orderforms/force-match-candidates${q ? `?${q}` : ''}`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '강제 매칭 후보를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+/** 관리자/마케터: 제출 완료 발주서를 기존 접수에 강제 매칭 */
+export async function forceMatchOrderFormToInquiry(
+  token: string,
+  orderFormId: string,
+  inquiryId: string
+): Promise<{
+  ok: boolean;
+  inquiry: { id: string; status: string; orderFormId: string | null };
+  sourceInquiryId: string | null;
+  sourceInquiryStatus: string | null;
+}> {
+  const res = await fetch(`${API}/orderforms/${encodeURIComponent(orderFormId)}/force-match-inquiry`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ inquiryId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '강제 매칭에 실패했습니다.');
+  }
   return res.json();
 }
 
