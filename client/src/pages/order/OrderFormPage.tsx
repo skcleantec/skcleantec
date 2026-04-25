@@ -124,10 +124,11 @@ export function OrderFormPage() {
           formConfig: data.formConfig,
         });
         const p = data.pendingInquiry;
+        const issuedPhone = (data.customerPhone ?? '').trim();
         setForm((f) => ({
           ...f,
           customerName: p?.customerName || data.customerName,
-          customerPhone: p?.customerPhone ?? '',
+          customerPhone: issuedPhone || (p?.customerPhone ?? '').trim() || '',
           customerPhoneSecondary: p?.customerPhone2 ?? '',
           address: p?.address ?? '',
           addressDetail: p?.addressDetail ?? '',

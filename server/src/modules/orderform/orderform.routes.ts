@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
@@ -32,6 +32,14 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 
 const router = Router();
+
+/** JSON 본문에서 정수(원) 파싱 — 문자열·콤마 허용 */
+function parseBodyInt(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  const n = parseInt(String(value).replace(/,/g, '').trim(), 10);
+  return Number.isFinite(n) ? n : null;
+}
 
 function parseGuideSectionsFromDb(raw: string | null | undefined): GuideSection[] {
   if (!raw?.trim()) return DEFAULT_GUIDE_SECTIONS;
@@ -272,6 +280,161 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   res.json({ items: list, issuers: issuerOptions });
 });
 
+/** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성). `pendingInquiryId` 있으면 대기 접수에 발주서 연결  
+ * `POST /` 는 `POST /:id/delete` 보다 **먼저** 등록해야 루트 경로가 잘못 매칭되지 않습니다. */
+router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
+  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  const {
+    customerName,
+    customerPhone: customerPhoneRaw,
+    totalAmount: totalRaw,
+    depositAmount: depositRaw,
+    balanceAmount: balanceRaw,
+    optionNote,
+    preferredDate,
+    preferredTime,
+    preferredTimeDetail,
+    pendingInquiryId,
+  } = req.body as {
+    customerName: string;
+    customerPhone?: string | null;
+    totalAmount?: unknown;
+    depositAmount?: unknown;
+    balanceAmount?: unknown;
+    optionNote?: string;
+    preferredDate?: string;
+    preferredTime?: string;
+    preferredTimeDetail?: string;
+    pendingInquiryId?: string;
+  };
+  const customerPhoneOpt =
+    customerPhoneRaw != null && String(customerPhoneRaw).trim()
+      ? String(customerPhoneRaw).trim()
+      : null;
+  if (!customerName?.trim()) {
+    res.status(400).json({ error: '고객명을 입력해주세요.' });
+    return;
+  }
+  const totalAmount = parseBodyInt(totalRaw);
+  if (totalAmount == null || totalAmount < 0) {
+    res.status(400).json({ error: '총 금액을 입력해주세요.' });
+    return;
+  }
+  const depositParsed = parseBodyInt(depositRaw);
+  const deposit = depositParsed != null && depositParsed >= 0 ? depositParsed : 20000;
+  const balanceParsed = parseBodyInt(balanceRaw);
+  const balance =
+    balanceParsed != null && balanceParsed >= 0 ? balanceParsed : Math.max(0, totalAmount - deposit);
+  const token = randomBytes(12).toString('hex');
+
+  const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
+  try {
+    if (pid) {
+      const pending = await prisma.inquiry.findUnique({
+        where: { id: pid },
+        select: { id: true, status: true, orderFormId: true, createdById: true },
+      });
+      if (!pending) {
+        res.status(404).json({ error: '연결할 접수를 찾을 수 없습니다.' });
+        return;
+      }
+      if (pending.status !== 'PENDING' && pending.status !== 'DEPOSIT_COMPLETED') {
+        res.status(400).json({
+          error: '대기·입금완료(발주서 미제출) 접수만 연결할 수 있습니다.',
+        });
+        return;
+      }
+      if (pending.orderFormId) {
+        res.status(400).json({ error: '이미 발주서가 연결된 접수입니다.' });
+        return;
+      }
+      if (role === 'MARKETER' && pending.createdById !== userId) {
+        res.status(403).json({ error: '본인이 등록한 대기 접수만 연결할 수 있습니다.' });
+        return;
+      }
+
+      const orderForm = await prisma.$transaction(async (tx) => {
+        const created = await tx.orderForm.create({
+          data: {
+            token,
+            customerName: customerName.trim(),
+            customerPhone: customerPhoneOpt,
+            totalAmount,
+            depositAmount: deposit,
+            balanceAmount: balance,
+            optionNote: optionNote?.trim() || null,
+            preferredDate: preferredDate?.trim() || null,
+            preferredTime: preferredTime?.trim() || null,
+            preferredTimeDetail: preferredTimeDetail?.trim() || null,
+            createdById: userId,
+          },
+        });
+        await tx.inquiry.update({
+          where: { id: pid },
+          data: { orderFormId: created.id },
+        });
+        return tx.orderForm.findUniqueOrThrow({
+          where: { id: created.id },
+          include: {
+            inquiries: { take: 1 },
+            createdBy: orderFormCreatedBySelect,
+          },
+        });
+      });
+      const assigns = await prisma.assignment.findMany({
+        where: { inquiryId: pid },
+        select: { teamLeaderId: true },
+      });
+      const leaderIds = [...new Set(assigns.map((a) => a.teamLeaderId))];
+      if (leaderIds.length > 0) {
+        notifyInboxRefresh(leaderIds);
+      }
+      res.json(orderForm);
+      return;
+    }
+
+    const orderForm = await prisma.orderForm.create({
+      data: {
+        token,
+        customerName: customerName.trim(),
+        customerPhone: customerPhoneOpt,
+        totalAmount,
+        depositAmount: deposit,
+        balanceAmount: balance,
+        optionNote: optionNote?.trim() || null,
+        preferredDate: preferredDate?.trim() || null,
+        preferredTime: preferredTime?.trim() || null,
+        preferredTimeDetail: preferredTimeDetail?.trim() || null,
+        createdById: userId,
+      },
+      include: {
+        createdBy: orderFormCreatedBySelect,
+      },
+    });
+    res.json(orderForm);
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2022') {
+      res.status(503).json({
+        error:
+          'DB에 최신 컬럼이 반영되지 않았습니다. 배포 서버에서 `npx prisma migrate deploy` 실행 후 재시작해 주세요. (order_forms.customer_phone)',
+      });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/customer_phone|column .* does not exist/i.test(msg)) {
+      res.status(503).json({
+        error:
+          'DB에 최신 컬럼이 반영되지 않았습니다. 배포 서버에서 `npx prisma migrate deploy` 실행 후 재시작해 주세요. (order_forms.customer_phone)',
+      });
+      return;
+    }
+    console.error('[orderforms POST /]', e);
+    res.status(500).json({
+      error: process.env.NODE_ENV !== 'production' ? msg : '발주서 발급에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+    });
+  }
+});
+
 /**
  * 관리자/마케터: 발주서 삭제 (본인 비밀번호 확인 필수).
  * - 미제출: 발주서만 삭제 (연결된 대기 접수는 orderFormId 만 해제).
@@ -361,126 +524,6 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
     notifyInboxRefresh(teamLeaderIdsToRefresh);
   }
   res.json({ ok: true });
-});
-
-/** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성). `pendingInquiryId` 있으면 대기 접수에 발주서 연결 */
-router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
-  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
-  const {
-    customerName,
-    totalAmount,
-    depositAmount,
-    balanceAmount,
-    optionNote,
-    preferredDate,
-    preferredTime,
-    preferredTimeDetail,
-    pendingInquiryId,
-  } = req.body as {
-    customerName: string;
-    totalAmount: number;
-    depositAmount?: number;
-    balanceAmount?: number;
-    optionNote?: string;
-    preferredDate?: string;
-    preferredTime?: string;
-    preferredTimeDetail?: string;
-    pendingInquiryId?: string;
-  };
-  if (!customerName?.trim()) {
-    res.status(400).json({ error: '고객명을 입력해주세요.' });
-    return;
-  }
-  if (totalAmount == null || totalAmount < 0) {
-    res.status(400).json({ error: '총 금액을 입력해주세요.' });
-    return;
-  }
-  const deposit = depositAmount ?? 20000;
-  const balance = balanceAmount ?? Math.max(0, totalAmount - deposit);
-  const token = randomBytes(12).toString('hex');
-
-  const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
-  if (pid) {
-    const pending = await prisma.inquiry.findUnique({
-      where: { id: pid },
-      select: { id: true, status: true, orderFormId: true, createdById: true },
-    });
-    if (!pending) {
-      res.status(404).json({ error: '연결할 접수를 찾을 수 없습니다.' });
-      return;
-    }
-    if (pending.status !== 'PENDING' && pending.status !== 'DEPOSIT_COMPLETED') {
-      res.status(400).json({
-        error: '대기·입금완료(발주서 미제출) 접수만 연결할 수 있습니다.',
-      });
-      return;
-    }
-    if (pending.orderFormId) {
-      res.status(400).json({ error: '이미 발주서가 연결된 접수입니다.' });
-      return;
-    }
-    if (role === 'MARKETER' && pending.createdById !== userId) {
-      res.status(403).json({ error: '본인이 등록한 대기 접수만 연결할 수 있습니다.' });
-      return;
-    }
-
-    const orderForm = await prisma.$transaction(async (tx) => {
-      const created = await tx.orderForm.create({
-        data: {
-          token,
-          customerName: customerName.trim(),
-          totalAmount,
-          depositAmount: deposit,
-          balanceAmount: balance,
-          optionNote: optionNote?.trim() || null,
-          preferredDate: preferredDate?.trim() || null,
-          preferredTime: preferredTime?.trim() || null,
-          preferredTimeDetail: preferredTimeDetail?.trim() || null,
-          createdById: userId,
-        },
-      });
-      await tx.inquiry.update({
-        where: { id: pid },
-        data: { orderFormId: created.id },
-      });
-      return tx.orderForm.findUniqueOrThrow({
-        where: { id: created.id },
-        include: {
-          inquiries: { take: 1 },
-          createdBy: orderFormCreatedBySelect,
-        },
-      });
-    });
-    const assigns = await prisma.assignment.findMany({
-      where: { inquiryId: pid },
-      select: { teamLeaderId: true },
-    });
-    const leaderIds = [...new Set(assigns.map((a) => a.teamLeaderId))];
-    if (leaderIds.length > 0) {
-      notifyInboxRefresh(leaderIds);
-    }
-    res.json(orderForm);
-    return;
-  }
-
-  const orderForm = await prisma.orderForm.create({
-    data: {
-      token,
-      customerName: customerName.trim(),
-      totalAmount,
-      depositAmount: deposit,
-      balanceAmount: balance,
-      optionNote: optionNote?.trim() || null,
-      preferredDate: preferredDate?.trim() || null,
-      preferredTime: preferredTime?.trim() || null,
-      preferredTimeDetail: preferredTimeDetail?.trim() || null,
-      createdById: userId,
-    },
-    include: {
-      createdBy: orderFormCreatedBySelect,
-    },
-  });
-  res.json(orderForm);
 });
 
 const DEFAULT_FORM_CONFIG = {
@@ -659,6 +702,7 @@ router.get('/by-token/:token', async (req, res) => {
     id: form.id,
     token: form.token,
     customerName: form.customerName,
+    customerPhone: form.customerPhone,
     totalAmount: form.totalAmount,
     depositAmount: form.depositAmount,
     balanceAmount: form.balanceAmount,

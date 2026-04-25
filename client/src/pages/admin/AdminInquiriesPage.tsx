@@ -189,6 +189,8 @@ interface InquiryItem {
     totalAmount?: number | null;
     depositAmount?: number | null;
     balanceAmount?: number | null;
+    /** 고객 제출 시각 — null이면 발주서 목록과 같이 미제출 */
+    submittedAt?: string | null;
     createdBy: { id: string; name: string; phone?: string | null };
   } | null;
   serviceTotalAmount?: number | null;
@@ -208,6 +210,21 @@ interface InquiryItem {
   happyCallCompletedAt?: string | null;
   /** 인천 주안 기준 직선거리(km), 서버가 주소 지오코딩 캐시로 계산 */
   distanceFromJuanKm?: number | null;
+}
+
+/** 발주서가 접수에 연결됐고 고객이 아직 제출하지 않음 — 발주서 목록의「미제출」과 동일 */
+function isInquiryLinkedOrderFormPendingSubmit(item: InquiryItem): boolean {
+  return Boolean(
+    item.orderForm?.id &&
+      !item.orderForm.submittedAt &&
+      (item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED')
+  );
+}
+
+/** 목록·카드 배지용: 연결 발주서가 있으면 제출 여부를 우선 표시 */
+function inquiryListStatusBadgeText(item: InquiryItem): string {
+  if (isInquiryLinkedOrderFormPendingSubmit(item)) return '미제출';
+  return STATUS_LABELS[item.status] ?? item.status;
 }
 
 function happyCallAdminCell(item: InquiryItem): { label: string; className: string } {
@@ -1596,8 +1613,19 @@ export function AdminInquiriesPage() {
                         <span className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${hcCell.className} bg-white/80 ring-1 ring-gray-200`}>
                           해피콜 {hcCell.label}
                         </span>
-                        <span className="rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
-                          {STATUS_LABELS[item.status] ?? item.status}
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
+                            isInquiryLinkedOrderFormPendingSubmit(item)
+                              ? 'bg-gray-100 text-gray-500 ring-1 ring-gray-200'
+                              : 'bg-gray-200 text-gray-800'
+                          }`}
+                          title={
+                            isInquiryLinkedOrderFormPendingSubmit(item)
+                              ? `접수 상태: ${STATUS_LABELS[item.status] ?? item.status} · 발주서 고객 미제출`
+                              : undefined
+                          }
+                        >
+                          {inquiryListStatusBadgeText(item)}
                         </span>
                       </div>
                     </div>
@@ -1641,13 +1669,15 @@ export function AdminInquiriesPage() {
                               item.status === 'ON_HOLD'
                             }
                             title={
-                              item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED'
-                                ? '대기·입금완료(발주서 미제출) 건은 발주서 제출 후 분배할 수 있습니다.'
-                                : item.status === 'DEPOSIT_PENDING'
-                                  ? '입금대기 건은 입금 완료·발주서 생성 후 분배할 수 있습니다.'
-                                  : item.status === 'ON_HOLD'
-                                    ? '보류 건에는 분배할 수 없습니다.'
-                                    : undefined
+                              isInquiryLinkedOrderFormPendingSubmit(item)
+                                ? '발주서 링크는 발급됐으나 고객 미제출입니다. 고객이 제출하면 분배할 수 있습니다.'
+                                : item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED'
+                                  ? '대기·입금완료 건은 발주서 연결·고객 제출 후 분배할 수 있습니다.'
+                                  : item.status === 'DEPOSIT_PENDING'
+                                    ? '입금대기 건은 입금 완료·발주서 생성 후 분배할 수 있습니다.'
+                                    : item.status === 'ON_HOLD'
+                                      ? '보류 건에는 분배할 수 없습니다.'
+                                      : undefined
                             }
                             className="min-h-[40px] min-w-0 flex-1 rounded border border-gray-300 bg-white px-1.5 py-1.5 text-fluid-2xs sm:text-fluid-xs"
                           >
@@ -1883,7 +1913,11 @@ export function AdminInquiriesPage() {
                     className={`cursor-pointer group active:bg-gray-100 ${rowHover}`}
                     onClick={() => openEdit(item)}
                     title={
-                      isPreOrder ? '대기·입금완료(발주서 미제출) · 행을 누르면 상세보기' : '행을 누르면 상세보기'
+                      isInquiryLinkedOrderFormPendingSubmit(item)
+                        ? '발주서 링크 발급됨 · 고객 미제출(제출 시 접수) · 행을 누르면 상세보기'
+                        : isPreOrder
+                          ? '대기·입금완료(발주서 미연결 또는 고객 미제출) · 행을 누르면 상세보기'
+                          : '행을 누르면 상세보기'
                     }
                   >
                     <td
@@ -1990,6 +2024,14 @@ export function AdminInquiriesPage() {
                           <option key={value} value={value}>{label}</option>
                         ))}
                       </select>
+                      {isInquiryLinkedOrderFormPendingSubmit(item) ? (
+                        <span
+                          className="mt-0.5 block text-center text-fluid-2xs text-gray-500 xl:text-fluid-xs"
+                          title="발주서 목록과 동일: 고객 제출 전"
+                        >
+                          발주서 · 미제출
+                        </span>
+                      ) : null}
                     </td>
                     <td className={`min-w-0 truncate px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`}>
                       <span className={`text-fluid-2xs xl:text-fluid-xs ${hcCell.className}`}>{hcCell.label}</span>
@@ -2015,13 +2057,15 @@ export function AdminInquiriesPage() {
                           item.status === 'ON_HOLD'
                         }
                         title={
-                          item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED'
-                            ? '대기·입금완료(발주서 미제출) 건은 발주서 제출 후 분배할 수 있습니다.'
-                            : item.status === 'DEPOSIT_PENDING'
-                              ? '입금대기 건은 입금 완료·발주서 생성 후 분배할 수 있습니다.'
-                              : item.status === 'ON_HOLD'
-                                ? '보류 건에는 분배할 수 없습니다.'
-                                : undefined
+                          isInquiryLinkedOrderFormPendingSubmit(item)
+                            ? '발주서 링크는 발급됐으나 고객 미제출입니다. 고객이 제출하면 분배할 수 있습니다.'
+                            : item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED'
+                              ? '대기·입금완료 건은 발주서 연결·고객 제출 후 분배할 수 있습니다.'
+                              : item.status === 'DEPOSIT_PENDING'
+                                ? '입금대기 건은 입금 완료·발주서 생성 후 분배할 수 있습니다.'
+                                : item.status === 'ON_HOLD'
+                                  ? '보류 건에는 분배할 수 없습니다.'
+                                  : undefined
                         }
                         className="w-full min-w-0 max-w-full rounded border border-gray-300 px-0.5 py-0.5 text-fluid-2xs xl:px-1 xl:py-1 xl:text-fluid-xs"
                       >
@@ -2387,6 +2431,13 @@ export function AdminInquiriesPage() {
                     </option>
                   ))}
                 </select>
+                {isInquiryLinkedOrderFormPendingSubmit(editItem) ? (
+                  <p className="mt-1.5 text-fluid-xs text-gray-500">
+                    발주서 <span className="font-medium text-gray-600">미제출</span>
+                    {' — '}
+                    고객이 제출하면 접수 상태로 바뀝니다.
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="block text-fluid-sm text-gray-600 mb-1">성함</label>

@@ -407,6 +407,7 @@ async function main() {
         data: {
           token: row.token,
           customerName: row.customerName,
+          customerPhone: row.customerPhone || null,
           totalAmount: row.totalAmount,
           depositAmount: row.depositAmount,
           balanceAmount: row.balanceAmount,

@@ -479,6 +479,8 @@ model OrderForm {
   id              String   @id @default(uuid())
   token           String   @unique
   customerName    String   @map("customer_name")
+  /// 발급 시 관리자가 넣는 대표 연락처(선택) — 고객 발주서 전화란에 자동 반영
+  customerPhone   String?  @map("customer_phone")
   totalAmount     Int      @map("total_amount")
   depositAmount   Int      @default(20000) @map("deposit_amount")
   balanceAmount   Int      @map("balance_amount")

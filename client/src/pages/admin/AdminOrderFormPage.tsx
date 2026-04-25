@@ -420,6 +420,7 @@ export function AdminOrderFormPage() {
   // 발급 폼
   const [issueForm, setIssueForm] = useState(() => ({
     customerName: '',
+    customerPhone: '',
     totalAmount: '',
     depositAmount: '20000',
     balanceAmount: '',
@@ -430,7 +431,9 @@ export function AdminOrderFormPage() {
   }));
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   const [issueLoading, setIssueLoading] = useState(false);
-  const [pendingLinkOptions, setPendingLinkOptions] = useState<Array<{ id: string; customerName: string }>>([]);
+  const [pendingLinkOptions, setPendingLinkOptions] = useState<
+    Array<{ id: string; customerName: string; customerPhone: string }>
+  >([]);
   const [pendingLinkId, setPendingLinkId] = useState('');
   const pendingInquiryFromUrlConsumed = useRef<string | null>(null);
 
@@ -524,8 +527,14 @@ export function AdminOrderFormPage() {
   useEffect(() => {
     if (!token || tab !== 'issue') return;
     getInquiries(token, { status: 'PENDING,DEPOSIT_COMPLETED', datePreset: 'all' })
-      .then((r: { items: Array<{ id: string; customerName: string }> }) => {
-        setPendingLinkOptions(r.items.map((i) => ({ id: i.id, customerName: i.customerName })));
+      .then((r: { items: Array<{ id: string; customerName: string; customerPhone?: string | null }> }) => {
+        setPendingLinkOptions(
+          r.items.map((i) => ({
+            id: i.id,
+            customerName: i.customerName,
+            customerPhone: (i.customerPhone ?? '').trim(),
+          }))
+        );
       })
       .catch(() => setPendingLinkOptions([]));
   }, [token, tab]);
@@ -545,13 +554,13 @@ export function AdminOrderFormPage() {
         };
         const nm = row.customerName?.trim() ?? '';
         const ph = row.customerPhone?.trim() ?? '';
-        const prefillName = nm || ph;
         const prefillDate = (row.preferredDate ?? '').trim().slice(0, 10);
         const prefillTime = (row.preferredTime ?? '').trim();
         const prefillTimeDetail = (row.preferredTimeDetail ?? '').trim();
         setIssueForm((f) => ({
           ...f,
-          customerName: prefillName || f.customerName,
+          customerName: nm || f.customerName,
+          customerPhone: ph || f.customerPhone,
           preferredDate: f.preferredDate.trim() ? f.preferredDate : prefillDate,
           preferredTime: f.preferredDate.trim()
             ? f.preferredTime
@@ -697,6 +706,7 @@ export function AdminOrderFormPage() {
         : Math.max(0, total - deposit);
       const order = await createOrderForm(token, {
         customerName: issueForm.customerName.trim(),
+        customerPhone: issueForm.customerPhone.trim() || undefined,
         totalAmount: total,
         depositAmount: deposit,
         balanceAmount: balance,
@@ -711,6 +721,7 @@ export function AdminOrderFormPage() {
       setIssueForm({
         ...issueForm,
         customerName: '',
+        customerPhone: '',
         totalAmount: '',
         balanceAmount: '',
         optionNote: '',
@@ -1183,7 +1194,11 @@ ${footer2}`;
                       setPendingLinkId(v);
                       const row = pendingLinkOptions.find((x) => x.id === v);
                       if (row) {
-                        setIssueForm((f) => ({ ...f, customerName: row.customerName }));
+                        setIssueForm((f) => ({
+                          ...f,
+                          customerName: row.customerName,
+                          customerPhone: row.customerPhone || f.customerPhone,
+                        }));
                       }
                     }}
                   >
@@ -1204,6 +1219,22 @@ ${footer2}`;
                     value={issueForm.customerName}
                     onChange={(e) => setIssueForm((f) => ({ ...f, customerName: e.target.value }))}
                   />
+                </div>
+                <div className="md:col-span-2 lg:col-span-5">
+                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
+                    고객 전화번호 <span className="font-normal text-gray-500">(선택)</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="tel"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm tabular-nums focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                    placeholder="비워도 발급 가능 · 입력 시 고객 발주서에 자동 반영"
+                    value={issueForm.customerPhone}
+                    onChange={(e) => setIssueForm((f) => ({ ...f, customerPhone: e.target.value }))}
+                  />
+                  <p className="mt-1 text-fluid-2xs text-gray-500">
+                    대기 접수 연결 시 접수 연락처로 채워지며, 필요하면 수정할 수 있습니다.
+                  </p>
                 </div>
                 <div className="md:col-span-2 lg:col-span-12">
                   <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">총 금액 (원) *</label>
@@ -1891,6 +1922,16 @@ ${footer2}`;
                       <div>
                         <p className="mb-1 text-xs font-medium text-gray-500">고객명</p>
                         <p className="text-gray-900">{customerName || <span className="text-gray-400">(미입력)</span>}</p>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs font-medium text-gray-500">고객 전화번호 (선택)</p>
+                        <p className="tabular-nums text-gray-900">
+                          {issueForm.customerPhone.trim() ? (
+                            issueForm.customerPhone.trim()
+                          ) : (
+                            <span className="text-gray-400">미입력 — 고객이 발주서에서 직접 입력</span>
+                          )}
+                        </p>
                       </div>
                       <div>
                         <p className="mb-1 text-xs font-medium text-gray-500">청소 날짜</p>

@@ -18,6 +18,8 @@ export interface OrderForm {
   id: string;
   token: string;
   customerName: string;
+  /** 발급 시 입력(선택) — 고객 발주서 전화란 프리필 */
+  customerPhone?: string | null;
   totalAmount: number;
   depositAmount: number;
   balanceAmount: number;
@@ -82,6 +84,8 @@ export interface OrderFormPublic {
   id: string;
   token: string;
   customerName: string;
+  /** 발급 시 관리자 입력(선택) — 대표 전화란 자동 입력 */
+  customerPhone?: string | null;
   totalAmount: number;
   depositAmount: number;
   balanceAmount: number;
@@ -135,6 +139,7 @@ export async function createOrderForm(
   token: string,
   data: {
     customerName: string;
+    customerPhone?: string | null;
     totalAmount: number;
     depositAmount?: number;
     balanceAmount?: number;
