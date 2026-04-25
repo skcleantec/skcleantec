@@ -19,6 +19,7 @@ import { TeamMessagesPage } from './pages/team/TeamMessagesPage';
 import { TeamDayOffsPage } from './pages/team/TeamDayOffsPage';
 import { TeamCsPage } from './pages/team/TeamCsPage';
 import { TeamAssignmentListPage } from './pages/team/TeamAssignmentListPage';
+import { TeamExternalSettlementPage } from './pages/team/TeamExternalSettlementPage';
 import { OrderFormPage } from './pages/order/OrderFormPage';
 import { OrderInfoPage } from './pages/order/OrderInfoPage';
 import { CsReportPage } from './pages/cs/CsReportPage';
@@ -93,6 +94,7 @@ function App() {
           <Route path="assignments" element={<TeamAssignmentListPage />} />
           <Route path="schedule" element={<TeamSchedulePage />} />
           <Route path="dayoffs" element={<TeamDayOffsPage />} />
+          <Route path="settlement" element={<TeamExternalSettlementPage />} />
           <Route path="cs" element={<TeamCsPage />} />
           <Route path="messages" element={<TeamMessagesPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />

@@ -160,6 +160,9 @@ export function LoginPage() {
           <p className="text-sm text-gray-500 text-center mb-4">
             관리자·마케터·팀장·타업체 담당 모두 같은 화면에서 로그인합니다.
           </p>
+          <p className="text-xs text-gray-500 text-center mb-4 -mt-2">
+            팀장/타업체는 로그인 후 역할에 맞는 전용 메뉴로 자동 분기됩니다.
+          </p>
           {sessionExpired && (
             <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
               로그인이 만료되었거나 저장된 토큰이 유효하지 않습니다. 다시 로그인해 주세요.

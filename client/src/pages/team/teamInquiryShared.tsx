@@ -82,6 +82,7 @@ export const STATUS_LABELS: Record<string, string> = {
   ON_HOLD: '보류',
   CANCELLED: '취소',
   CS_PROCESSING: 'C/S',
+  CANCEL_CONFIRMED: '취소확인',
 };
 
 export const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -134,6 +135,8 @@ export interface InquiryItem {
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;
   serviceBalanceAmount?: number | null;
+  /** 타업체 담당 시 청구할 수수료(원) */
+  externalTransferFee?: number | null;
   /** 팀장이 현장에서 추가·할인 항목을 기록한 정산 내역. 음수면 할인. */
   extraCharges?: Array<{
     id: string;
@@ -282,34 +285,6 @@ function TeamModalRow({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-/**
- * 서버(`orderform.routes.ts`)가 `[발주서] … / 키: 값 / 키: 값 …` 여러 줄로 만들어 놓은
- * `Inquiry.memo`를 「헤더 한 줄 + 키/값 행들」 구조로 파싱한다.
- */
-type MemoEntry =
-  | { kind: 'header'; text: string }
-  | { kind: 'kv'; label: string; value: string }
-  | { kind: 'text'; text: string };
-
-function parseInquiryMemoEntries(memo: string): MemoEntry[] {
-  const lines = memo
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  return lines.map<MemoEntry>((line) => {
-    if (line.startsWith('[') && line.includes(']')) {
-      return { kind: 'header', text: line };
-    }
-    const idx = line.indexOf(':');
-    if (idx > 0 && idx < 24) {
-      const label = line.slice(0, idx).trim();
-      const value = line.slice(idx + 1).trim();
-      if (label && value) return { kind: 'kv', label, value };
-    }
-    return { kind: 'text', text: line };
-  });
-}
-
 export function TeamInquiryDetailModal({
   item,
   onClose,
@@ -397,29 +372,33 @@ export function TeamInquiryDetailModal({
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 bg-white px-4 pb-3 pt-4 sm:rounded-t-2xl">
           <div className="min-w-0 flex-1">
             <p className="text-fluid-xs text-gray-500">접수 상세</p>
-            <h2 id="team-inquiry-detail-title" className="mt-0.5 truncate text-lg font-semibold text-gray-900">
-              {item.customerName}
-            </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {item.inquiryNumber ? (
-                <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-fluid-2xs font-medium tabular-nums text-white">
-                  {item.inquiryNumber}
+            <div className="mt-0.5 flex items-center gap-2">
+              <h2 id="team-inquiry-detail-title" className="min-w-0 flex-1 truncate text-lg font-semibold text-gray-900">
+                {item.customerName}
+              </h2>
+              <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+                {item.inquiryNumber ? (
+                  <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-fluid-2xs font-medium tabular-nums text-white">
+                    {item.inquiryNumber}
+                  </span>
+                ) : null}
+                <span className="rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
+                  {STATUS_LABELS[item.status] ?? item.status}
                 </span>
-              ) : null}
-              <span className="rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
-                {STATUS_LABELS[item.status] ?? item.status}
-              </span>
-              {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
+                {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
+              </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-800 touch-manipulation"
-            aria-label="닫기"
-          >
-            <CloseMiniIcon className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-800 touch-manipulation"
+              aria-label="닫기"
+            >
+              <CloseMiniIcon className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
@@ -602,39 +581,17 @@ export function TeamInquiryDetailModal({
               serviceBalanceAmount={item.serviceBalanceAmount}
               initialExtraCharges={item.extraCharges}
             />
-
-            {item.memo?.trim() ? (() => {
-              const entries = parseInquiryMemoEntries(item.memo);
-              const header = entries.find((e) => e.kind === 'header') as
-                | { kind: 'header'; text: string }
-                | undefined;
-              const rest = entries.filter((e) => e !== header);
-              return (
-                <TeamModalSection title="관리자 메모">
-                  {header ? (
-                    <div className="border-l-4 border-blue-400 bg-blue-50/70 px-3 py-2.5 text-fluid-sm font-medium text-blue-950 sm:px-4">
-                      {header.text}
-                    </div>
-                  ) : null}
-                  {rest.map((e, i) =>
-                    e.kind === 'kv' ? (
-                      <TeamModalRow key={`m-${i}`} label={e.label}>
-                        <span className="whitespace-pre-wrap break-words text-gray-900">
-                          {e.value}
-                        </span>
-                      </TeamModalRow>
-                    ) : (
-                      <div
-                        key={`m-${i}`}
-                        className="whitespace-pre-wrap break-words px-3 py-2.5 text-fluid-sm text-gray-800 sm:px-4 sm:py-3"
-                      >
-                        {e.kind === 'header' ? e.text : e.text}
-                      </div>
-                    ),
-                  )}
-                </TeamModalSection>
-              );
-            })() : null}
+            {item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER') && (
+              <TeamModalSection title="타업체 수수료">
+                <TeamModalRow label="청구 수수료">
+                  <span className="tabular-nums text-gray-900">
+                    {item.externalTransferFee != null
+                      ? `${item.externalTransferFee.toLocaleString('ko-KR')}원`
+                      : '미입력'}
+                  </span>
+                </TeamModalRow>
+              </TeamModalSection>
+            )}
 
             {item.claimMemo?.trim() ? (
               <TeamModalSection title="C/S 표시">
@@ -753,13 +710,15 @@ export function TeamInquiryDetailModal({
               {happySaving ? '처리 중…' : '해피콜 완료'}
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[48px] w-full rounded-xl border border-gray-300 bg-white text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100"
-          >
-            닫기
-          </button>
+          <div className="grid gap-2 grid-cols-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-[44px] w-full rounded-xl border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100"
+            >
+              닫기
+            </button>
+          </div>
         </footer>
       </div>
     </div>

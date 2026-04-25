@@ -7,6 +7,19 @@ function headers(token: string) {
   };
 }
 
+function withTeamPreviewQuery(url: string): string {
+  if (typeof window === 'undefined') return url;
+  const cur = new URLSearchParams(window.location.search);
+  if (cur.get('previewRole') !== 'external') return url;
+  const next = new URL(url, window.location.origin);
+  next.searchParams.set('previewRole', 'external');
+  const n = cur.get('previewExternalName');
+  if (n) next.searchParams.set('previewExternalName', n);
+  const cid = cur.get('externalCompanyId');
+  if (cid) next.searchParams.set('externalCompanyId', cid);
+  return `${next.pathname}${next.search}`;
+}
+
 export async function getConversations(token: string) {
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), 15000);
@@ -47,14 +60,14 @@ export async function getMessages(token: string, userId: string) {
 
 /** 팀장: 운영 측과 통합 대화 (한 화면) */
 export async function getTeamOfficeMessages(token: string) {
-  const res = await fetch(`${API}/messages/team-office`, { headers: headers(token) });
+  const res = await fetch(withTeamPreviewQuery(`${API}/messages/team-office`), { headers: headers(token) });
   if (!res.ok) throw new Error('메시지를 불러올 수 없습니다.');
   return res.json();
 }
 
 /** 팀장: 재직 관리자·마케터 전원에게 동일 내용 전송 */
 export async function sendTeamToManagement(token: string, content: string) {
-  const res = await fetch(`${API}/messages/team-send`, {
+  const res = await fetch(withTeamPreviewQuery(`${API}/messages/team-send`), {
     method: 'POST',
     headers: { ...headers(token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),

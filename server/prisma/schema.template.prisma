@@ -20,9 +20,26 @@ model ExternalCompany {
 
   partnerUsers User[]
   settlementResets ExternalCompanySettlementReset[]
+  settlementPayments ExternalCompanySettlementPayment[]
   inquiriesCancelFeeFor Inquiry[] @relation("InquiryCancelFeeExternalCompany")
 
   @@map("external_companies")
+}
+
+/// 타업체 정산 지급(부분/전체) 이력 1행
+model ExternalCompanySettlementPayment {
+  id                String   @id @default(uuid())
+  externalCompanyId String   @map("external_company_id")
+  amount            Int
+  paidAt            DateTime @default(now()) @map("paid_at")
+  memo              String?  @db.Text
+  actorId           String?  @map("actor_id")
+
+  externalCompany ExternalCompany @relation(fields: [externalCompanyId], references: [id], onDelete: Cascade)
+  actor           User?           @relation("ExternalCompanySettlementPaymentActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([externalCompanyId, paidAt])
+  @@map("external_company_settlement_payments")
 }
 
 /// 타업체 정산 완료 후 관리자가 수수료 누적을 초기화할 때마다 1행
@@ -80,6 +97,7 @@ model User {
   orderFollowupLogsAsActor      OrderFollowupLog[]     @relation("OrderFollowupLogActor")
   orderFormDeleteLogsAsActor    OrderFormDeleteLog[]   @relation("OrderFormDeleteLogActor")
   externalCompanySettlementResetsAsActor ExternalCompanySettlementReset[] @relation("ExternalCompanySettlementResetActor")
+  externalCompanySettlementPaymentsAsActor ExternalCompanySettlementPayment[] @relation("ExternalCompanySettlementPaymentActor")
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
 
   @@map("users")
@@ -227,6 +245,8 @@ model Inquiry {
   scheduleMemo    String?    @map("schedule_memo")
   /// 타업체 담당 시 받는 수수료(원). 미입력 시 null
   externalTransferFee Int?   @map("external_transfer_fee")
+  /// 타업체 정산 항목 분류(4/5/6/7). 미입력 시 null
+  externalSettlementCategory Int? @map("external_settlement_category")
   /// 취소 후에도 타업체 수수료 역분개를 위해 취소 시점 업체 id 보관
   cancelFeeExternalCompanyId String?          @map("cancel_fee_external_company_id")
   cancelFeeExternalCompany   ExternalCompany? @relation("InquiryCancelFeeExternalCompany", fields: [cancelFeeExternalCompanyId], references: [id], onDelete: SetNull)

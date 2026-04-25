@@ -54,8 +54,17 @@ const STATUS_LABELS: Record<string, string> = {
   COMPLETED: '완료',
   ON_HOLD: '보류',
   CANCELLED: '취소',
+  CANCEL_CONFIRMED: '취소확인',
   CS_PROCESSING: 'C/S 처리중',
 };
+
+function isCancelConfirmedStatus(it: { status: string; happyCallCompletedAt?: string | null }): boolean {
+  return it.status === 'CANCELLED' && Boolean(it.happyCallCompletedAt);
+}
+
+function statusValueForEdit(it: { status: string; happyCallCompletedAt?: string | null }): string {
+  return isCancelConfirmedStatus(it) ? 'CANCEL_CONFIRMED' : it.status;
+}
 
 function distanceFromJuanLabel(item: ScheduleItem): string | null {
   const km = item.distanceFromJuanKm;
@@ -98,6 +107,8 @@ type EditFormFields = {
   amountBalance: string;
   /** 타업체 수수료(원), 빈 문자열 = 미입력 */
   externalTransferFee: string;
+  /** 타업체 정산 항목(4/5/6/7) */
+  externalSettlementCategory: string;
   /** 수기(간편) 등록 제목(접수 리스트 노출) */
   scheduleMemo: string;
   professionalOptionIds: string[];
@@ -135,6 +146,9 @@ function buildPatchFromEditForm(
     serviceDepositAmount: parseWon(editForm.amountDeposit),
     serviceBalanceAmount: parseWon(editForm.amountBalance),
     externalTransferFee: parseWon(editForm.externalTransferFee),
+    externalSettlementCategory: [4, 5, 6, 7].includes(Number(editForm.externalSettlementCategory))
+      ? Number(editForm.externalSettlementCategory)
+      : null,
     scheduleMemo: editForm.scheduleMemo.trim() || null,
     professionalOptionIds: editForm.professionalOptionIds,
   };
@@ -504,6 +518,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         amountDeposit: '',
         amountBalance: '',
         externalTransferFee: '',
+        externalSettlementCategory: '4',
         scheduleMemo: '',
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
       };
@@ -528,7 +543,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         it.assignments.length > 0 ? it.assignments.map((a) => a.teamLeader.id) : [''],
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
-      status: it.status,
+      status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
@@ -543,6 +558,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       amountBalance: amt.balance != null ? String(amt.balance) : '',
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
+      externalSettlementCategory:
+        it.externalSettlementCategory != null ? String(it.externalSettlementCategory) : '4',
       scheduleMemo: it.scheduleMemo ?? '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     };
@@ -622,7 +639,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         it.assignments.length > 0 ? it.assignments.map((x) => x.teamLeader.id) : [''],
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
-      status: it.status,
+      status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
@@ -637,6 +654,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       amountBalance: a.balance != null ? String(a.balance) : '',
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
+      externalSettlementCategory:
+        it.externalSettlementCategory != null ? String(it.externalSettlementCategory) : '4',
       scheduleMemo: it.scheduleMemo ?? '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     });
@@ -755,6 +774,27 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const patch = buildPatchFromEditForm(editForm, {
         includeCreatedById: currentUserRole === 'ADMIN',
       }) as Record<string, unknown>;
+      const requestedStatus = String(patch.status ?? '');
+      const isCancelConfirm = requestedStatus === 'CANCEL_CONFIRMED';
+      const resolvedStatus = isCancelConfirm ? 'CANCELLED' : requestedStatus;
+      if (resolvedStatus === 'CANCELLED' && !isCancelConfirm && item?.status !== 'CANCELLED') {
+        if (!window.confirm('이 접수를 취소하시겠습니까?')) {
+          setSaving(false);
+          return;
+        }
+      }
+      if (isCancelConfirm) {
+        if (!window.confirm('취소확인 처리하시겠습니까? (목록 상단 고정이 해제됩니다)')) {
+          setSaving(false);
+          return;
+        }
+      }
+      patch.status = resolvedStatus || undefined;
+      patch.happyCallCompletedAt = isCancelConfirm
+        ? new Date().toISOString()
+        : resolvedStatus === 'CANCELLED'
+          ? null
+          : undefined;
       patch.teamLeaderIds = leaderIdsForSave;
       if (isCreate) {
         const created = (await createInquiry(
@@ -1321,6 +1361,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               placeholder="비우면 미입력"
             />
             <p className="text-[11px] text-gray-500 mt-1">타업체 담당으로 배정된 건에 대해 받는 수수료</p>
+          </div>
+          <div>
+            <label className="block text-gray-600 mb-1">타업체 정산 항목(4/5/6/7)</label>
+            <select
+              value={editForm.externalSettlementCategory}
+              onChange={(e) => setEditForm((p) => ({ ...p, externalSettlementCategory: e.target.value || '4' }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded bg-white"
+            >
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+            </select>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">전문 시공 옵션</label>

@@ -62,6 +62,8 @@ export interface ScheduleItem {
   crewMemberNote?: string | null;
   /** 타업체 담당 시 받는 수수료(원) */
   externalTransferFee?: number | null;
+  /** 타업체 정산 항목(4/5/6/7) */
+  externalSettlementCategory?: 4 | 5 | 6 | 7 | null;
   /** 팀장 해피콜 완료 시각 (ISO) */
   happyCallCompletedAt?: string | null;
   createdBy?: { id: string; name: string } | null;

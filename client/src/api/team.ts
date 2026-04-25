@@ -8,30 +8,134 @@ function headers(token: string) {
   };
 }
 
+function withTeamPreviewQuery(url: string): string {
+  if (typeof window === 'undefined') return url;
+  const cur = new URLSearchParams(window.location.search);
+  if (cur.get('previewRole') !== 'external') return url;
+  const next = new URL(url, window.location.origin);
+  next.searchParams.set('previewRole', 'external');
+  const n = cur.get('previewExternalName');
+  if (n) next.searchParams.set('previewExternalName', n);
+  const cid = cur.get('externalCompanyId');
+  if (cid) next.searchParams.set('externalCompanyId', cid);
+  return `${next.pathname}${next.search}`;
+}
+
 export async function getTeamInquiries(token: string) {
-  const res = await fetch(`${API}/team/inquiries`, { headers: headers(token) });
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries`), { headers: headers(token) });
   if (!res.ok) throw new Error('담당 건을 불러올 수 없습니다.');
+  return res.json();
+}
+
+export interface TeamViewerMe {
+  id: string;
+  email?: string | null;
+  role: string;
+  name?: string | null;
+  phone?: string | null;
+  vehicleNumber?: string | null;
+  allowSelfDayOffEdit?: boolean;
+  externalCompanyId?: string | null;
+  externalCompany?: { id: string; name: string } | null;
+  viewerRole?: string;
+  previewExternal?: boolean;
+}
+
+export async function getTeamMe(token: string): Promise<TeamViewerMe> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/me`), { headers: headers(token) });
+  if (!res.ok) throw new Error('팀 사용자 정보를 불러올 수 없습니다.');
   return res.json();
 }
 
 export async function getTeamSchedule(token: string, start: string, end: string) {
   const q = new URLSearchParams({ start, end }).toString();
-  const res = await fetch(`${API}/team/schedule?${q}`, { headers: headers(token) });
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/schedule?${q}`), { headers: headers(token) });
   if (!res.ok) throw new Error('스케줄을 불러올 수 없습니다.');
   return res.json();
+}
+
+export interface TeamExternalSettlementItem {
+  inquiryId: string;
+  inquiryNumber: string | null;
+  customerName: string;
+  address: string;
+  addressDetail: string | null;
+  preferredDate: string | null;
+  status: string;
+  isCancelled: boolean;
+  feeAmount: number;
+  signedFeeAmount: number;
+  assignedExternalLabel: string | null;
+}
+
+export interface TeamExternalSettlementResponse {
+  month: string;
+  from: string;
+  to: string;
+  externalCompanyId: string;
+  externalCompanyName: string | null;
+  inquiryCount: number;
+  cancelledInquiryCount: number;
+  totalCount: number;
+  totalFee: number;
+  carryOverAmount: number;
+  payableAmount: number;
+  periodPaidAmount: number;
+  remainingAmount: number;
+  payments: Array<{
+    id: string;
+    amount: number;
+    paidAt: string;
+    memo: string | null;
+    actorName: string | null;
+    actorRole: string | null;
+  }>;
+  items: TeamExternalSettlementItem[];
+}
+
+export async function getTeamExternalSettlement(
+  token: string,
+  params: { from: string; to: string; externalCompanyId?: string; externalCompanyName?: string }
+): Promise<TeamExternalSettlementResponse> {
+  const q = new URLSearchParams({ from: params.from, to: params.to });
+  if (params.externalCompanyId) q.set('externalCompanyId', params.externalCompanyId);
+  if (params.externalCompanyName) q.set('externalCompanyName', params.externalCompanyName);
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/external-settlement?${q}`), {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '타업체 정산 정보를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function postTeamExternalSettlementPayment(
+  token: string,
+  params: { externalCompanyId: string; amount: number; memo?: string }
+): Promise<void> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/external-settlement/payments`), {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '정산완료 처리에 실패했습니다.');
+  }
 }
 
 export async function getTeamHappyCallStats(token: string): Promise<{
   overdueCount: number;
   pendingBeforeDeadlineCount: number;
 }> {
-  const res = await fetch(`${API}/team/happy-call-stats`, { headers: headers(token) });
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/happy-call-stats`), { headers: headers(token) });
   if (!res.ok) throw new Error('해피콜 통계를 불러올 수 없습니다.');
   return res.json();
 }
 
 export async function completeTeamHappyCall(token: string, inquiryId: string): Promise<void> {
-  const res = await fetch(`${API}/team/inquiries/${inquiryId}/happy-call-complete`, {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries/${inquiryId}/happy-call-complete`), {
     method: 'POST',
     headers: headers(token),
   });
@@ -46,7 +150,7 @@ export async function patchTeamInquiryPreferredDate(
   inquiryId: string,
   preferredDate: string
 ) {
-  const res = await fetch(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/preferred-date`, {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/preferred-date`), {
     method: 'PATCH',
     headers: headers(token),
     body: JSON.stringify({ preferredDate }),
@@ -64,7 +168,7 @@ export async function getTeamNavBadges(token: string): Promise<{
   csPendingCount: number;
   newAssignmentCount: number;
 }> {
-  const res = await fetch(`${API}/team/nav-badges`, { headers: headers(token) });
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/nav-badges`), { headers: headers(token) });
   if (!res.ok) throw new Error('배지 정보를 불러올 수 없습니다.');
   const j = await res.json();
   return {
@@ -76,7 +180,7 @@ export async function getTeamNavBadges(token: string): Promise<{
 
 /** 팀장: 접수 상세 확인 처리 — 상단 배정 배지 감소 */
 export async function postTeamInquiryDetailViewed(token: string, inquiryId: string): Promise<void> {
-  const res = await fetch(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/detail-viewed`, {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/detail-viewed`), {
     method: 'POST',
     headers: headers(token),
   });
@@ -88,14 +192,14 @@ export async function postTeamInquiryDetailViewed(token: string, inquiryId: stri
 
 /** 팀장: 담당 미처리(접수) C/S 건수 */
 export async function getTeamCsPendingCount(token: string): Promise<{ count: number }> {
-  const res = await fetch(`${API}/team/cs/pending-count`, { headers: headers(token) });
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/cs/pending-count`), { headers: headers(token) });
   if (!res.ok) throw new Error('C/S 건수를 불러올 수 없습니다.');
   return res.json();
 }
 
 /** 팀장: 담당 접수와 연결된 C/S 목록 */
 export async function getTeamCsReports(token: string): Promise<{ items: CsReport[] }> {
-  const res = await fetch(`${API}/team/cs`, { headers: headers(token) });
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/cs`), { headers: headers(token) });
   if (!res.ok) throw new Error('C/S 목록을 불러올 수 없습니다.');
   const json = await res.json();
   return {
@@ -113,7 +217,7 @@ export async function patchTeamCsReport(
   id: string,
   data: { status?: string; memo?: string | null; completionMethod?: string | null }
 ): Promise<CsReport> {
-  const res = await fetch(`${API}/team/cs/${encodeURIComponent(id)}`, {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/cs/${encodeURIComponent(id)}`), {
     method: 'PATCH',
     headers: headers(token),
     body: JSON.stringify(data),

@@ -5,12 +5,45 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 
 const router = Router();
 
 router.use(authMiddleware);
 
 type PartnerRow = { id: string; name: string; role: string };
+
+async function resolveTeamPreviewExternalActor(
+  req: { query: Record<string, unknown> },
+  user: AuthPayload
+): Promise<AuthPayload> {
+  const previewExternal =
+    req.query.previewRole === 'external' &&
+    (user.role === 'ADMIN' || user.role === 'MARKETER') &&
+    isTeamPreviewAdminEmail(user.email);
+  if (!previewExternal) return user;
+
+  const externalCompanyId =
+    typeof req.query.externalCompanyId === 'string' ? req.query.externalCompanyId.trim() : '';
+  const externalNameRaw =
+    typeof req.query.previewExternalName === 'string' ? req.query.previewExternalName.trim() : '';
+  const externalName = externalNameRaw || '클린느';
+  const extUser = await prisma.user.findFirst({
+    where: {
+      role: 'EXTERNAL_PARTNER',
+      isActive: true,
+      ...(externalCompanyId
+        ? { externalCompanyId }
+        : { externalCompany: { is: { name: externalName } } }),
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, email: true },
+  });
+  if (!extUser) {
+    return user;
+  }
+  return { userId: extUser.id, email: extUser.email, role: 'EXTERNAL_PARTNER' };
+}
 
 async function getEmployedStaffIds(): Promise<string[]> {
   const todayYmd = kstTodayYmd();
@@ -138,7 +171,8 @@ router.get('/unread-count', async (req, res) => {
 
 /** 팀장: 운영(관리자·마케터)과의 통합 대화 (선택 없이 한 화면) */
 router.get('/team-office', async (req, res) => {
-  const { userId: myId, role } = (req as unknown as { user: AuthPayload }).user;
+  const rawUser = (req as unknown as { user: AuthPayload }).user;
+  const { userId: myId, role } = await resolveTeamPreviewExternalActor(req as any, rawUser);
   if (role !== 'TEAM_LEADER' && role !== 'EXTERNAL_PARTNER') {
     res.status(403).json({ error: '팀장·타업체만 사용할 수 있습니다.' });
     return;
@@ -203,7 +237,8 @@ router.get('/team-office', async (req, res) => {
 
 /** 팀장: 운영 전체(재직 관리자·마케터)에게 동일 내용 전송 — batchId로 묶음 */
 router.post('/team-send', async (req, res) => {
-  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  const rawUser = (req as unknown as { user: AuthPayload }).user;
+  const { userId, role } = await resolveTeamPreviewExternalActor(req as any, rawUser);
   if (role !== 'TEAM_LEADER' && role !== 'EXTERNAL_PARTNER') {
     res.status(403).json({ error: '팀장·타업체만 전송할 수 있습니다.' });
     return;

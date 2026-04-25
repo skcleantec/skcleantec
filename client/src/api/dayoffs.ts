@@ -7,19 +7,32 @@ function headers(token: string) {
   };
 }
 
+function withTeamPreviewQuery(url: string): string {
+  if (typeof window === 'undefined') return url;
+  const cur = new URLSearchParams(window.location.search);
+  if (cur.get('previewRole') !== 'external') return url;
+  const next = new URL(url, window.location.origin);
+  next.searchParams.set('previewRole', 'external');
+  const n = cur.get('previewExternalName');
+  if (n) next.searchParams.set('previewExternalName', n);
+  const cid = cur.get('externalCompanyId');
+  if (cid) next.searchParams.set('externalCompanyId', cid);
+  return `${next.pathname}${next.search}`;
+}
+
 export async function getMyDayOffs(
   token: string,
   start: string,
   end: string
 ): Promise<{ items: string[] }> {
   const q = new URLSearchParams({ start, end }).toString();
-  const res = await fetch(`${API}/dayoffs/me?${q}`, { headers: headers(token) });
+  const res = await fetch(withTeamPreviewQuery(`${API}/dayoffs/me?${q}`), { headers: headers(token) });
   if (!res.ok) throw new Error('휴무일을 불러올 수 없습니다.');
   return res.json();
 }
 
 export async function addDayOff(token: string, date: string): Promise<void> {
-  const res = await fetch(`${API}/dayoffs/me`, {
+  const res = await fetch(withTeamPreviewQuery(`${API}/dayoffs/me`), {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({ date }),
@@ -32,7 +45,7 @@ export async function addDayOff(token: string, date: string): Promise<void> {
 
 export async function removeDayOff(token: string, date: string): Promise<void> {
   const q = new URLSearchParams({ date }).toString();
-  const res = await fetch(`${API}/dayoffs/me?${q}`, {
+  const res = await fetch(withTeamPreviewQuery(`${API}/dayoffs/me?${q}`), {
     method: 'DELETE',
     headers: headers(token),
   });
@@ -95,7 +108,7 @@ export async function getScheduleStats(
   end: string
 ): Promise<{ byDate: Record<string, ScheduleStatsByDate> }> {
   const q = new URLSearchParams({ start, end }).toString();
-  const res = await fetch(`${API}/dayoffs/schedule-stats?${q}`, {
+  const res = await fetch(withTeamPreviewQuery(`${API}/dayoffs/schedule-stats?${q}`), {
     headers: headers(token),
   });
   if (!res.ok) throw new Error('스케줄 현황을 불러올 수 없습니다.');
@@ -132,7 +145,7 @@ export async function getTeamHolidayCalendar(
   };
 }> {
   const q = new URLSearchParams({ start, end }).toString();
-  const res = await fetch(`${API}/dayoffs/team-calendar?${q}`, {
+  const res = await fetch(withTeamPreviewQuery(`${API}/dayoffs/team-calendar?${q}`), {
     headers: headers(token),
   });
   if (!res.ok) throw new Error('휴일 캘린더를 불러올 수 없습니다.');

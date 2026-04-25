@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
-import { Outlet, useNavigate, NavLink } from 'react-router-dom';
+import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
@@ -12,6 +12,7 @@ import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
+  const location = useLocation();
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -99,21 +100,31 @@ export function TeamLayout() {
       isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
     }`;
 
-  const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER';
+  const searchParams = new URLSearchParams(location.search);
+  const previewExternal = searchParams.get('previewRole') === 'external';
+  const previewExternalName = (searchParams.get('previewExternalName') || '클린느').trim();
+  const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
+  const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
+  const previewQuery = previewExternal
+    ? `?previewRole=external&previewExternalName=${encodeURIComponent(previewExternalName)}`
+    : '';
+  const teamTo = (path: string) => `${path}${previewQuery}`;
 
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <h1 className="text-lg font-semibold text-gray-800 shrink-0">SK클린텍</h1>
+            <h1 className="text-lg font-semibold text-gray-800 shrink-0">
+              {isExternalPartner ? `${previewExternalName} 협력사` : 'SK클린텍'}
+            </h1>
             <nav className="hidden sm:flex flex-wrap items-center gap-1">
-              <NavLink to="/team/dashboard" className={navClass}>
+              <NavLink to={teamTo('/team/dashboard')} className={navClass}>
                 대시보드
               </NavLink>
               <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
                 <NavLink
-                  to="/team/assignments"
+                  to={teamTo('/team/assignments')}
                   className={navClass}
                   aria-label={newAssignmentCount > 0 ? `배정목록, 미확인 ${newAssignmentCount}건` : '배정목록'}
                 >
@@ -128,17 +139,22 @@ export function TeamLayout() {
                   </span>
                 ) : null}
               </div>
-              <NavLink to="/team/schedule" className={navClass}>
+              <NavLink to={teamTo('/team/schedule')} className={navClass}>
                 스케줄
               </NavLink>
+              {isExternalPartner && (
+                <NavLink to={teamTo('/team/settlement')} className={navClass}>
+                  정산
+                </NavLink>
+              )}
               {!hideTeamDayoffs && (
-                <NavLink to="/team/dayoffs" className={navClass}>
+                <NavLink to={teamTo('/team/dayoffs')} className={navClass}>
                   휴무일
                 </NavLink>
               )}
               <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
                 <NavLink
-                  to="/team/cs"
+                  to={teamTo('/team/cs')}
                   className={navClass}
                   aria-label={csPendingCount > 0 ? `C/S, 미확인 ${csPendingCount}건` : 'C/S'}
                 >
@@ -155,7 +171,7 @@ export function TeamLayout() {
               </div>
               <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
                 <NavLink
-                  to="/team/messages"
+                  to={teamTo('/team/messages')}
                   className={navClass}
                   aria-label={unreadCount > 0 ? `메시지, 새 메시지 ${unreadCount}건` : '메시지'}
                 >
@@ -182,33 +198,40 @@ export function TeamLayout() {
                 관리자 화면
               </NavLink>
             ) : null}
-            <UserProfileMenu
-              token={teamToken}
-              teamProfileVehicleField
-              showVehicleForPreviewAdmin={Boolean(
-                isTeamPreviewAdminEmail(userEmail) && userRole === 'ADMIN'
-              )}
-              me={{ name: userName, phone: userPhone, vehicleNumber: userVehicleNumber, role: userRole }}
-              onSaved={(next) => {
-                setUserName(next.name);
-                setUserPhone(next.phone);
-                setUserVehicleNumber(next.vehicleNumber);
-              }}
-              onLogout={handleLogout}
-              onSessionExpired={() => {
-                clearTeamToken();
-                navigate('/login', { replace: true, state: { sessionExpired: true } });
-              }}
-            />
+            {previewExternal ? (
+              <div className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] text-indigo-800 whitespace-nowrap">
+                <span className="font-medium">{previewExternalName}</span>
+                <span className="text-indigo-600">타업체 프리뷰</span>
+              </div>
+            ) : (
+              <UserProfileMenu
+                token={teamToken}
+                teamProfileVehicleField
+                showVehicleForPreviewAdmin={Boolean(
+                  isTeamPreviewAdminEmail(userEmail) && userRole === 'ADMIN'
+                )}
+                me={{ name: userName, phone: userPhone, vehicleNumber: userVehicleNumber, role: userRole }}
+                onSaved={(next) => {
+                  setUserName(next.name);
+                  setUserPhone(next.phone);
+                  setUserVehicleNumber(next.vehicleNumber);
+                }}
+                onLogout={handleLogout}
+                onSessionExpired={() => {
+                  clearTeamToken();
+                  navigate('/login', { replace: true, state: { sessionExpired: true } });
+                }}
+              />
+            )}
           </div>
         </div>
         {/* 모바일: 상단(헤더 바로 아래) 탭 메뉴 */}
         <nav className="flex sm:hidden border-t border-gray-100 bg-white">
-          <NavLink to="/team/dashboard" className={mobileTabClass}>
+          <NavLink to={teamTo('/team/dashboard')} className={mobileTabClass}>
             대시보드
           </NavLink>
           <NavLink
-            to="/team/assignments"
+            to={teamTo('/team/assignments')}
             className={mobileTabClass}
             aria-label={newAssignmentCount > 0 ? `배정, 미확인 ${newAssignmentCount}건` : '배정'}
           >
@@ -222,16 +245,21 @@ export function TeamLayout() {
               </span>
             ) : null}
           </NavLink>
-          <NavLink to="/team/schedule" className={mobileTabClass}>
+          <NavLink to={teamTo('/team/schedule')} className={mobileTabClass}>
             스케줄
           </NavLink>
+          {isExternalPartner && (
+            <NavLink to={teamTo('/team/settlement')} className={mobileTabClass}>
+              정산
+            </NavLink>
+          )}
           {!hideTeamDayoffs && (
-            <NavLink to="/team/dayoffs" className={mobileTabClass}>
+            <NavLink to={teamTo('/team/dayoffs')} className={mobileTabClass}>
               휴무일
             </NavLink>
           )}
           <NavLink
-            to="/team/cs"
+            to={teamTo('/team/cs')}
             className={mobileTabClass}
             aria-label={csPendingCount > 0 ? `C/S, 미확인 ${csPendingCount}건` : 'C/S'}
           >
@@ -246,7 +274,7 @@ export function TeamLayout() {
             ) : null}
           </NavLink>
           <NavLink
-            to="/team/messages"
+            to={teamTo('/team/messages')}
             className={mobileTabClass}
             aria-label={unreadCount > 0 ? `메시지, 새 메시지 ${unreadCount}건` : '메시지'}
           >
