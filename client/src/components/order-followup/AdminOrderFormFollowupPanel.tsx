@@ -18,7 +18,6 @@ import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import {
   ORDER_FOLLOWUP_STATUS_LABEL,
-  ORDER_FOLLOWUP_STATUS_OPTIONS,
   type OrderFollowupStatus,
 } from '../../constants/orderFollowupStatus';
 import { formatDateCompactWithWeekday, formatDateTimeCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
@@ -514,26 +513,19 @@ export function AdminOrderFormFollowupPanel({
     []
   );
 
-  /** 부재·보류 화면 편집 상태: 드롭다운 순서 고정(부재 → 보류 → 예약금대기 → 입금완료) */
+  /** 부재·보류 화면 편집 상태: 부재/보류만 허용 */
   const editStatusOptions = useMemo(() => {
     const allowed = (
       [
         { value: 'ABSENT', label: '부재' },
         { value: 'ON_HOLD', label: '보류' },
-        { value: 'DEPOSIT_PENDING', label: '예약금대기' },
-        { value: 'RESERVED', label: '입금완료' },
       ] as const
     ).map((row) => ({
       value: row.value as OrderFollowupStatus,
       label: row.label,
     }));
-    if (!edit) return allowed;
-    if (edit.status !== 'ABSENT' && edit.status !== 'ON_HOLD') {
-      const cur = ORDER_FOLLOWUP_STATUS_OPTIONS.find((o) => o.value === edit.status);
-      return cur ? [cur, ...allowed] : allowed;
-    }
     return allowed;
-  }, [edit]);
+  }, []);
 
   const unlinkInquiryFromEdit = async () => {
     if (!edit) return;

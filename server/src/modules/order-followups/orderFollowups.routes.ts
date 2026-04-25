@@ -137,6 +137,11 @@ router.get('/', async (req, res) => {
     }
   }
   const where: import('@prisma/client').Prisma.OrderFollowupWhereInput = {};
+  /** 부재·보류 화면은 항상 부재/보류 상태만 조회한다. */
+  const absHoldOnly: import('@prisma/client').Prisma.OrderFollowupWhereInput = {
+    status: { in: ['ABSENT', 'ON_HOLD'] },
+  };
+  where.AND = [absHoldOnly];
   if (inquiryIdFilter) {
     where.inquiryId = inquiryIdFilter;
   }
@@ -146,17 +151,11 @@ router.get('/', async (req, res) => {
   if (statusFilter) {
     where.status = statusFilter;
   } else {
-    /** 부재현황 UI: 예약금 대기·입금 완료(RESERVED)는 연결 접수가 있으면 접수 목록에서만 본다 */
+    /** 부재·보류 화면 기본: 완료만 제외(부재/보류 안에서) */
     const listExtraAnd: import('@prisma/client').Prisma.OrderFollowupWhereInput[] = [];
     if (!includeFulfilled) {
       listExtraAnd.push({ NOT: { status: 'FULFILLED' } });
     }
-    listExtraAnd.push({
-      OR: [
-        { status: { notIn: ['DEPOSIT_PENDING', 'RESERVED'] } },
-        { inquiryId: null },
-      ],
-    });
     const prevAnd = where.AND
       ? Array.isArray(where.AND)
         ? where.AND

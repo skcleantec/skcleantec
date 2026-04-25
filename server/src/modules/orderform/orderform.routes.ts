@@ -20,7 +20,6 @@ import {
 } from './guideDefaults.js';
 import {
   filterActiveProfessionalOptionIds,
-  formatProfessionalOptionsMemoLine,
   normalizeHexColor,
   parseProfessionalOptionIdsRaw,
 } from './specialtyOptions.js';
@@ -32,6 +31,36 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 
 const router = Router();
+
+type ForceMatchInquirySnapshot = {
+  id: string;
+  status: string;
+  inquiryNumber: string | null;
+  customerName: string;
+  nickname: string | null;
+  customerPhone: string;
+  customerPhone2: string | null;
+  address: string;
+  addressDetail: string | null;
+  areaPyeong: number | null;
+  areaBasis: string | null;
+  propertyType: string | null;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
+  kitchenCount: number | null;
+  preferredDate: Date | null;
+  preferredTime: string | null;
+  preferredTimeDetail: string | null;
+  memo: string | null;
+  buildingType: string | null;
+  moveInDate: Date | null;
+  specialNotes: string | null;
+  serviceTotalAmount: number | null;
+  serviceDepositAmount: number | null;
+  serviceBalanceAmount: number | null;
+  professionalOptionIds: Prisma.JsonValue | null;
+};
 
 /** JSON 본문에서 정수(원) 파싱 — 문자열·콤마 허용 */
 function parseBodyInt(value: unknown): number | null {
@@ -280,6 +309,66 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   res.json({ items: list, issuers: issuerOptions });
 });
 
+/** 관리자/마케터: 접수 강제 매칭 후보(고객 제출 완료 발주서) */
+router.get('/force-match-candidates', authMiddleware, adminOrMarketer, async (req, res) => {
+  const q = req.query as Record<string, string | undefined>;
+  const query = typeof q.query === 'string' ? q.query.trim() : '';
+  const limitRaw = Number.parseInt(String(q.limit ?? '20'), 10);
+  const limit = Number.isFinite(limitRaw) ? Math.min(60, Math.max(1, limitRaw)) : 20;
+
+  const where: Prisma.OrderFormWhereInput = {
+    submittedAt: { not: null },
+  };
+  if (query) {
+    where.OR = [
+      { customerName: { contains: query, mode: 'insensitive' } },
+      { customerPhone: { contains: query } },
+      { token: { contains: query } },
+    ];
+  }
+
+  const forms = await prisma.orderForm.findMany({
+    where,
+    orderBy: [{ submittedAt: 'desc' }, { createdAt: 'desc' }],
+    take: limit,
+    include: {
+      inquiries: {
+        orderBy: { updatedAt: 'desc' },
+        take: 1,
+        select: { id: true, status: true, inquiryNumber: true, customerName: true, customerPhone: true },
+      },
+      createdBy: orderFormCreatedBySelect,
+    },
+  });
+
+  const items = forms.map((form) => {
+    const linked = form.inquiries[0] ?? null;
+    return {
+      id: form.id,
+      token: form.token,
+      customerName: form.customerName,
+      customerPhone: form.customerPhone,
+      totalAmount: form.totalAmount,
+      depositAmount: form.depositAmount,
+      balanceAmount: form.balanceAmount,
+      submittedAt: form.submittedAt,
+      createdAt: form.createdAt,
+      createdBy: form.createdBy,
+      linkedInquiry: linked
+        ? {
+            id: linked.id,
+            status: linked.status,
+            inquiryNumber: linked.inquiryNumber,
+            customerName: linked.customerName,
+            customerPhone: linked.customerPhone,
+          }
+        : null,
+    };
+  });
+
+  res.json({ items });
+});
+
 /** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성). `pendingInquiryId` 있으면 대기 접수에 발주서 연결  
  * `POST /` 는 `POST /:id/delete` 보다 **먼저** 등록해야 루트 경로가 잘못 매칭되지 않습니다. */
 router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
@@ -433,6 +522,158 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
       error: process.env.NODE_ENV !== 'production' ? msg : '발주서 발급에 실패했습니다. 잠시 후 다시 시도해 주세요.',
     });
   }
+});
+
+/** 관리자/마케터: 제출 완료 발주서를 기존 접수에 강제 매칭하고 접수 정보를 덮어쓴다. */
+router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (req, res) => {
+  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  const { id: orderFormId } = req.params;
+  const body = req.body as { inquiryId?: string };
+  const inquiryId = typeof body.inquiryId === 'string' ? body.inquiryId.trim() : '';
+  if (!inquiryId) {
+    res.status(400).json({ error: '연결할 접수 ID가 필요합니다.' });
+    return;
+  }
+
+  const [form, targetInquiry] = await Promise.all([
+    prisma.orderForm.findUnique({
+      where: { id: orderFormId },
+      select: {
+        id: true,
+        token: true,
+        customerName: true,
+        customerPhone: true,
+        totalAmount: true,
+        depositAmount: true,
+        balanceAmount: true,
+        submittedAt: true,
+        createdById: true,
+      },
+    }),
+    prisma.inquiry.findUnique({
+      where: { id: inquiryId },
+      select: {
+        id: true,
+        customerPhone: true,
+        orderFormId: true,
+        status: true,
+        createdById: true,
+        assignments: { select: { teamLeaderId: true } },
+      },
+    }),
+  ]);
+
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  if (!form.submittedAt) {
+    res.status(400).json({ error: '고객이 제출한 발주서만 강제 매칭할 수 있습니다.' });
+    return;
+  }
+  if (!targetInquiry) {
+    res.status(404).json({ error: '연결할 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  if (role === 'MARKETER' && targetInquiry.createdById !== userId) {
+    res.status(403).json({ error: '본인이 등록한 접수에만 강제 매칭할 수 있습니다.' });
+    return;
+  }
+  if (targetInquiry.orderFormId && targetInquiry.orderFormId !== form.id) {
+    res.status(400).json({ error: '이미 다른 발주서가 연결된 접수입니다.' });
+    return;
+  }
+
+  const sourceInquiry = await prisma.inquiry.findFirst({
+    where: { orderFormId: form.id },
+    orderBy: [{ updatedAt: 'desc' }],
+    select: {
+      id: true,
+      status: true,
+      inquiryNumber: true,
+      customerName: true,
+      nickname: true,
+      customerPhone: true,
+      customerPhone2: true,
+      address: true,
+      addressDetail: true,
+      areaPyeong: true,
+      areaBasis: true,
+      propertyType: true,
+      roomCount: true,
+      bathroomCount: true,
+      balconyCount: true,
+      kitchenCount: true,
+      preferredDate: true,
+      preferredTime: true,
+      preferredTimeDetail: true,
+      memo: true,
+      buildingType: true,
+      moveInDate: true,
+      specialNotes: true,
+      serviceTotalAmount: true,
+      serviceDepositAmount: true,
+      serviceBalanceAmount: true,
+      professionalOptionIds: true,
+    },
+  });
+
+  const source = sourceInquiry as ForceMatchInquirySnapshot | null;
+  const targetPatched = await prisma.$transaction(async (tx) => {
+    const data: Prisma.InquiryUpdateInput = {
+      orderForm: { connect: { id: form.id } },
+      status: 'RECEIVED',
+      ...(form.createdById ? { createdBy: { connect: { id: form.createdById } } } : {}),
+      serviceTotalAmount: source?.serviceTotalAmount ?? form.totalAmount,
+      serviceDepositAmount: source?.serviceDepositAmount ?? form.depositAmount,
+      serviceBalanceAmount: source?.serviceBalanceAmount ?? form.balanceAmount,
+    };
+    if (source) {
+      data.customerName = source.customerName || form.customerName;
+      data.nickname = source.nickname;
+      data.customerPhone = source.customerPhone || form.customerPhone || targetInquiry.customerPhone;
+      data.customerPhone2 = source.customerPhone2;
+      data.address = source.address;
+      data.addressDetail = source.addressDetail;
+      data.areaPyeong = source.areaPyeong;
+      data.areaBasis = source.areaBasis;
+      data.propertyType = source.propertyType;
+      data.roomCount = source.roomCount;
+      data.bathroomCount = source.bathroomCount;
+      data.balconyCount = source.balconyCount;
+      data.kitchenCount = source.kitchenCount;
+      data.preferredDate = source.preferredDate;
+      data.preferredTime = source.preferredTime;
+      data.preferredTimeDetail = source.preferredTimeDetail;
+      data.buildingType = source.buildingType;
+      data.moveInDate = source.moveInDate;
+      data.specialNotes = source.specialNotes;
+      data.professionalOptionIds =
+        source.professionalOptionIds == null ? Prisma.JsonNull : source.professionalOptionIds;
+    } else {
+      data.customerName = form.customerName;
+      if (form.customerPhone) data.customerPhone = form.customerPhone;
+    }
+
+    const updated = await tx.inquiry.update({
+      where: { id: inquiryId },
+      data,
+      select: { id: true, status: true, orderFormId: true },
+    });
+    return updated;
+  });
+
+  const teamLeaderIds = [...new Set(targetInquiry.assignments.map((a) => a.teamLeaderId))];
+  if (teamLeaderIds.length > 0) {
+    notifyInboxRefresh(teamLeaderIds);
+  }
+
+  res.json({
+    ok: true,
+    inquiry: targetPatched,
+    sourceInquiryId: sourceInquiry?.id ?? null,
+    sourceInquiryStatus: sourceInquiry?.status ?? null,
+  });
 });
 
 /**
@@ -760,7 +1001,6 @@ router.post('/submit/:token', async (req, res) => {
 
   const rawIds = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
   const professionalIds = await filterActiveProfessionalOptionIds(prisma, rawIds);
-  const professionalMemoLine = await formatProfessionalOptionsMemoLine(prisma, professionalIds);
 
   const form = await prisma.orderForm.findUnique({ where: { token } });
   if (!form) {
@@ -823,21 +1063,6 @@ router.post('/submit/:token', async (req, res) => {
     ? new Date(body.moveInDate + 'T12:00:00')
     : null;
 
-  const memo = [
-    `[발주서] 총 ${form.totalAmount.toLocaleString()}원 (예약금 ${form.depositAmount.toLocaleString()}원, 잔금 ${form.balanceAmount.toLocaleString()}원)`,
-    `보조 연락처: ${String(body.customerPhone2).trim()}`,
-    `건축물 유형: ${propertyTypeNorm}`,
-    `평수: ${areaBasisNorm} ${body.areaPyeong}평`,
-    form.optionNote ? `추가: ${form.optionNote}` : null,
-    `신축/구축/인테리어/거주: ${body.buildingType || '-'}`,
-    body.moveInDate ? `이사 날짜: ${body.moveInDate}` : null,
-    body.specialNotes ? `특이사항: ${body.specialNotes}` : null,
-    useDetailStr ? `희망 시각: ${useDetailStr}` : null,
-    professionalMemoLine,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
   const existingPending = await prisma.inquiry.findFirst({
     where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
     select: { id: true, inquiryNumber: true },
@@ -867,7 +1092,6 @@ router.post('/submit/:token', async (req, res) => {
           preferredDate,
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
-          memo,
           buildingType: body.buildingType || null,
           moveInDate,
           specialNotes: body.specialNotes || null,
@@ -907,7 +1131,6 @@ router.post('/submit/:token', async (req, res) => {
           preferredDate,
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
-          memo,
           buildingType: body.buildingType || null,
           moveInDate,
           specialNotes: body.specialNotes || null,

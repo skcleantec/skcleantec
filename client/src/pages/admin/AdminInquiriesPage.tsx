@@ -11,15 +11,15 @@ import {
   type MarketerOverviewResponse,
 } from '../../api/inquiries';
 import {
-  listOrderFollowups,
   createOrderFollowup,
-  patchOrderFollowup,
-  type OrderFollowupItem,
 } from '../../api/orderFollowups';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import {
+  forceMatchOrderFormToInquiry,
+  getForceMatchOrderFormCandidates,
   getAllProfessionalOptions,
   getFormConfig,
+  type ForceMatchOrderFormCandidate,
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
@@ -448,6 +448,24 @@ function effectiveInquiryAmounts(it: InquiryItem) {
   };
 }
 
+/** 목록 정렬: 예약완료(RECEIVED)가 아닌 상태를 먼저, 그 다음 예약완료를 날짜순(최신 우선) */
+function sortInquiryItemsForList(rows: InquiryItem[]): InquiryItem[] {
+  return rows
+    .map((row, idx) => ({ row, idx }))
+    .sort((a, b) => {
+      const aReceived = a.row.status === 'RECEIVED';
+      const bReceived = b.row.status === 'RECEIVED';
+      if (aReceived !== bReceived) return aReceived ? 1 : -1;
+      const aTime = Date.parse(a.row.createdAt || '');
+      const bTime = Date.parse(b.row.createdAt || '');
+      const aStamp = Number.isFinite(aTime) ? aTime : 0;
+      const bStamp = Number.isFinite(bTime) ? bTime : 0;
+      if (aStamp !== bStamp) return bStamp - aStamp;
+      return a.idx - b.idx;
+    })
+    .map((x) => x.row);
+}
+
 export function AdminInquiriesPage() {
   const token = getToken();
   const [searchParams] = useSearchParams();
@@ -506,15 +524,15 @@ export function AdminInquiriesPage() {
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [inquiryFollowups, setInquiryFollowups] = useState<OrderFollowupItem[]>([]);
-  const [inquiryFollowupsLoading, setInquiryFollowupsLoading] = useState(false);
-  const [followupLinkOpen, setFollowupLinkOpen] = useState(false);
-  const [followupLinkQuery, setFollowupLinkQuery] = useState('');
-  const [followupLinkCandidates, setFollowupLinkCandidates] = useState<OrderFollowupItem[]>([]);
-  const [followupLinkLoading, setFollowupLinkLoading] = useState(false);
-  const [followupLinkError, setFollowupLinkError] = useState<string | null>(null);
-  const [followupLinkingId, setFollowupLinkingId] = useState<string | null>(null);
-  const followupLinkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [orderForceMatchOpen, setOrderForceMatchOpen] = useState(false);
+  const [orderForceMatchQuery, setOrderForceMatchQuery] = useState('');
+  const [orderForceMatchLoading, setOrderForceMatchLoading] = useState(false);
+  const [orderForceMatchError, setOrderForceMatchError] = useState<string | null>(null);
+  const [orderForceMatchApplyingId, setOrderForceMatchApplyingId] = useState<string | null>(null);
+  const [orderForceMatchBump, setOrderForceMatchBump] = useState(0);
+  const [orderForceMatchCandidates, setOrderForceMatchCandidates] = useState<
+    ForceMatchOrderFormCandidate[]
+  >([]);
   /** 접수 목록 — 부재현황과 동일 취지의 전화·상태별 신규 (부재/보류 → 부재현황, 입금대기/완료 → 이 목록) */
   const [listIntakeOpen, setListIntakeOpen] = useState(false);
   const [listIntakeKind, setListIntakeKind] = useState<'absent' | 'hold' | 'deposit' | 'reserved'>(
@@ -807,7 +825,7 @@ export function AdminInquiriesPage() {
     }
     getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
-        setItems(res.items);
+        setItems(sortInquiryItemsForList(res.items));
         setTotal(res.total);
         setApiError(null);
       })
@@ -1004,92 +1022,73 @@ export function AdminInquiriesPage() {
 
   useEffect(() => {
     if (!editItem) {
-      setInquiryFollowups([]);
-      setInquiryFollowupsLoading(false);
-      setFollowupLinkOpen(false);
-      setFollowupLinkQuery('');
-      setFollowupLinkCandidates([]);
-      setFollowupLinkError(null);
-      setFollowupLinkingId(null);
+      setOrderForceMatchOpen(false);
+      setOrderForceMatchQuery('');
+      setOrderForceMatchLoading(false);
+      setOrderForceMatchError(null);
+      setOrderForceMatchApplyingId(null);
+      setOrderForceMatchCandidates([]);
+      setOrderForceMatchBump(0);
       return;
     }
-    if (!token) return;
+  }, [editItem]);
+
+  useEffect(() => {
+    if (!orderForceMatchOpen || !token || !editItem) return;
     let cancelled = false;
-    setInquiryFollowupsLoading(true);
-    void listOrderFollowups(token, { inquiryId: editItem.id, includeFulfilled: true })
+    const q = orderForceMatchQuery.trim();
+    setOrderForceMatchLoading(true);
+    setOrderForceMatchError(null);
+    void getForceMatchOrderFormCandidates(token, {
+      query: q || editItem.customerName || editItem.customerPhone,
+      limit: 30,
+    })
       .then((r) => {
-        if (!cancelled) setInquiryFollowups(r.items);
+        if (cancelled) return;
+        setOrderForceMatchCandidates(r.items);
       })
-      .catch(() => {
-        if (!cancelled) setInquiryFollowups([]);
+      .catch((e) => {
+        if (cancelled) return;
+        setOrderForceMatchCandidates([]);
+        setOrderForceMatchError(
+          e instanceof Error ? e.message : '강제 매칭 후보를 불러오지 못했습니다.'
+        );
       })
       .finally(() => {
-        if (!cancelled) setInquiryFollowupsLoading(false);
+        if (!cancelled) setOrderForceMatchLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [editItem, token]);
+  }, [orderForceMatchOpen, orderForceMatchQuery, token, editItem, orderForceMatchBump]);
 
-  useEffect(() => {
-    if (!followupLinkOpen || !token) return;
-    const q = followupLinkQuery.trim();
-    if (q.length < 2) {
-      setFollowupLinkCandidates([]);
-      setFollowupLinkError(null);
-      setFollowupLinkLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setFollowupLinkLoading(true);
-    if (followupLinkDebounceRef.current) clearTimeout(followupLinkDebounceRef.current);
-    followupLinkDebounceRef.current = setTimeout(() => {
-      followupLinkDebounceRef.current = null;
-      void listOrderFollowups(token, {
-        missingInquiryLink: true,
-        customerName: q,
-        includeFulfilled: false,
-      })
-        .then((r) => {
-          if (!cancelled) {
-            setFollowupLinkCandidates(r.items);
-            setFollowupLinkError(null);
-          }
-        })
-        .catch((e) => {
-          if (!cancelled) {
-            setFollowupLinkCandidates([]);
-            setFollowupLinkError(e instanceof Error ? e.message : '검색에 실패했습니다.');
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setFollowupLinkLoading(false);
-        });
-    }, 350);
-    return () => {
-      cancelled = true;
-      if (followupLinkDebounceRef.current) {
-        clearTimeout(followupLinkDebounceRef.current);
-        followupLinkDebounceRef.current = null;
-      }
-    };
-  }, [followupLinkOpen, followupLinkQuery, token]);
-
-  const linkFollowupToCurrentInquiry = async (followupId: string) => {
+  const handleForceMatchOrderForm = async (orderFormId: string) => {
     if (!token || !editItem) return;
-    setFollowupLinkingId(followupId);
+    const ok = window.confirm(
+      '선택한 제출 완료 발주서를 이 접수에 강제 매칭하고, 발주서 고객 작성 정보를 현재 접수에 반영할까요?'
+    );
+    if (!ok) return;
+    setOrderForceMatchApplyingId(orderFormId);
+    setSaving(true);
     try {
-      await patchOrderFollowup(token, followupId, { inquiryId: editItem.id });
-      setFollowupLinkOpen(false);
-      setFollowupLinkCandidates([]);
-      setFollowupLinkQuery('');
-      const r = await listOrderFollowups(token, { inquiryId: editItem.id, includeFulfilled: true });
-      setInquiryFollowups(r.items);
-      refresh(false);
+      const out = await forceMatchOrderFormToInquiry(token, orderFormId, editItem.id);
+      if (out.sourceInquiryId && out.sourceInquiryId !== editItem.id) {
+        alert(
+          `강제 매칭이 완료되었습니다.\n기존 발주서 연결 접수(${out.sourceInquiryId})가 별도로 남아 있으니 중복 여부를 확인해 정리해 주세요.`
+        );
+      } else {
+        alert('강제 매칭이 완료되었습니다. 접수 정보와 상태를 새로고침합니다.');
+      }
+      await refresh(true);
+      const raw = await getInquiry(token, editItem.id);
+      const updated = raw as unknown as InquiryItem;
+      openEdit(updated);
+      setOrderForceMatchOpen(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '연결에 실패했습니다.');
+      alert(e instanceof Error ? e.message : '강제 매칭에 실패했습니다.');
     } finally {
-      setFollowupLinkingId(null);
+      setSaving(false);
+      setOrderForceMatchApplyingId(null);
     }
   };
 
@@ -2863,6 +2862,77 @@ export function AdminInquiriesPage() {
                   </p>
                 ) : null}
               </div>
+              <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-fluid-sm font-semibold text-blue-900">제출 완료 발주서 강제 매칭</p>
+                  <button
+                    type="button"
+                    onClick={() => setOrderForceMatchOpen((p) => !p)}
+                    className="rounded border border-blue-300 bg-white px-2.5 py-1 text-fluid-xs font-medium text-blue-800 hover:bg-blue-50"
+                  >
+                    {orderForceMatchOpen ? '닫기' : '열기'}
+                  </button>
+                </div>
+                <p className="mt-1 text-fluid-xs text-blue-900/80">
+                  고객이 이미 발주서를 제출했는데 접수와 연결이 누락된 경우, 제출 완료 발주서를 선택해 정보를 이 접수에 강제로 반영합니다.
+                </p>
+                {orderForceMatchOpen ? (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        value={orderForceMatchQuery}
+                        onChange={(e) => setOrderForceMatchQuery(e.target.value)}
+                        placeholder="고객명/연락처/토큰 검색"
+                        className="min-w-0 flex-1 rounded border border-blue-200 bg-white px-3 py-2 text-fluid-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setOrderForceMatchBump((v) => v + 1)}
+                        className="rounded border border-blue-300 bg-white px-3 py-2 text-fluid-sm font-medium text-blue-800 hover:bg-blue-50"
+                      >
+                        새로고침
+                      </button>
+                    </div>
+                    {orderForceMatchError ? (
+                      <p className="text-fluid-xs text-red-600">{orderForceMatchError}</p>
+                    ) : null}
+                    {orderForceMatchLoading ? (
+                      <p className="text-fluid-xs text-gray-600">후보를 불러오는 중…</p>
+                    ) : orderForceMatchCandidates.length === 0 ? (
+                      <p className="text-fluid-xs text-gray-600">제출 완료 발주서 후보가 없습니다.</p>
+                    ) : (
+                      <div className="max-h-44 overflow-y-auto rounded border border-blue-100 bg-white">
+                        {orderForceMatchCandidates.map((cand) => (
+                          <div
+                            key={cand.id}
+                            className="flex flex-col gap-2 border-b border-blue-50 px-3 py-2 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-fluid-sm font-medium text-gray-900">
+                                {cand.customerName} {cand.customerPhone ? `· ${cand.customerPhone}` : ''}
+                              </p>
+                              <p className="text-fluid-2xs text-gray-600">
+                                제출: {cand.submittedAt ? cand.submittedAt.slice(0, 16).replace('T', ' ') : '-'}
+                                {cand.linkedInquiry
+                                  ? ` · 현재연결: ${STATUS_LABELS[cand.linkedInquiry.status] ?? cand.linkedInquiry.status}${cand.linkedInquiry.inquiryNumber ? ` (#${cand.linkedInquiry.inquiryNumber})` : ''}`
+                                  : ' · 현재연결: 없음'}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={Boolean(orderForceMatchApplyingId) || saving}
+                              onClick={() => void handleForceMatchOrderForm(cand.id)}
+                              className="shrink-0 rounded border border-blue-500 bg-blue-600 px-2.5 py-1 text-fluid-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {orderForceMatchApplyingId === cand.id ? '매칭 중…' : '이 접수에 강제 매칭'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
               <div>
                 <label className="block text-fluid-sm text-gray-600 mb-1">성함</label>
                 <input
@@ -2877,7 +2947,7 @@ export function AdminInquiriesPage() {
                   value={editForm.nickname}
                   onChange={(e) => setEditForm((p) => ({ ...p, nickname: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-                  placeholder="예: 어머님, 관리실"
+                  placeholder="예: 숨고 닉네임"
                 />
               </div>
               <div>
@@ -3140,6 +3210,7 @@ export function AdminInquiriesPage() {
                   inquiryId={editItem.id}
                   token={token}
                   mode="admin"
+                  readOnly
                   serviceTotalAmount={
                     editItem.serviceTotalAmount ?? editItem.orderForm?.totalAmount ?? null
                   }
@@ -3292,67 +3363,6 @@ export function AdminInquiriesPage() {
                 />
               </div>
             </div>
-
-            {token && (
-              <div className="mt-4 min-w-0 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 sm:p-4">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                  <h3 className="text-fluid-sm font-semibold text-gray-900">부재현황 (이 접수)</h3>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(
-                        `/admin/inquiries/followup?inquiryId=${encodeURIComponent(editItem.id)}`
-                      )
-                    }
-                    className="shrink-0 self-start text-fluid-xs text-blue-700 underline underline-offset-2 hover:text-blue-900"
-                  >
-                    부재현황에서 보기
-                  </button>
-                </div>
-                <p className="mt-1 text-fluid-2xs text-gray-600">
-                  접수 목록에서 연결된 부재현황을 확인하고, 이름이 맞는 기존 행을 이 접수에 붙일 수 있습니다.
-                </p>
-                {inquiryFollowupsLoading ? (
-                  <p className="mt-2 text-fluid-xs text-gray-500">불러오는 중…</p>
-                ) : inquiryFollowups.length === 0 ? (
-                  <p className="mt-2 text-fluid-xs text-gray-600">
-                    연결된 부재현황이 없습니다. 아래 「기존 부재현황 연결」로 검색하거나 접수 메뉴의 부재현황에서 신규 등록하세요.
-                  </p>
-                ) : (
-                  <ul className="mt-2 divide-y divide-indigo-100 rounded-md border border-indigo-100 bg-white">
-                    {inquiryFollowups.map((f) => (
-                      <li
-                        key={f.id}
-                        className="flex flex-col gap-1 px-3 py-2 text-fluid-xs text-center sm:flex-row sm:items-center sm:justify-between sm:text-left"
-                      >
-                        <span className="font-medium text-gray-900">
-                          {ORDER_FOLLOWUP_STATUS_LABEL[f.status as OrderFollowupStatus]} ·{' '}
-                          {f.customerName}
-                          {f.nickname?.trim() ? ` (${f.nickname})` : ''}
-                        </span>
-                        <span className="tabular-nums text-gray-600 sm:text-right">
-                          부재 {f.deferCount}회 · 등록 {formatDateCompactWithWeekday(f.createdAt)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setFollowupLinkOpen(true);
-                    setFollowupLinkQuery(editItem.customerName.trim());
-                    setFollowupLinkCandidates([]);
-                    setFollowupLinkError(null);
-                  }}
-                  className="relative z-[1] mt-3 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-fluid-xs font-medium text-indigo-900 hover:bg-indigo-50 sm:w-auto"
-                >
-                  기존 부재현황 연결…
-                </button>
-              </div>
-            )}
 
             {editItem.claimMemo?.trim() && (
               <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-fluid-sm">
@@ -3579,104 +3589,6 @@ export function AdminInquiriesPage() {
                         : '등록'}
                   </button>
                 </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {followupLinkOpen &&
-        editItem &&
-        token &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[570] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="followup-link-title"
-          >
-            <div className="absolute inset-0" aria-hidden onClick={() => setFollowupLinkOpen(false)} />
-            <div className="relative z-10 flex max-h-[min(88dvh,560px)] w-full max-w-lg flex-col rounded-t-2xl border border-gray-200 bg-white shadow-xl sm:rounded-xl">
-              <ModalCloseButton onClick={() => setFollowupLinkOpen(false)} />
-              <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12">
-                <h2 id="followup-link-title" className="text-fluid-base font-semibold text-gray-900">
-                  기존 부재현황 연결
-                </h2>
-                <p className="mt-1 text-fluid-2xs text-gray-500">
-                  접수{' '}
-                  <span className="font-medium text-gray-700">
-                    {editItem.inquiryNumber ?? '번호 없음'} — {editItem.customerName}
-                  </span>
-                  <span className="mt-0.5 block tabular-nums text-fluid-2xs text-gray-500">
-                    연락처 {editItem.customerPhone}
-                  </span>
-                </p>
-              </div>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-4 py-3">
-                <div>
-                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">
-                    고객명 검색 (접수 미연결 행만)
-                  </label>
-                  <input
-                    type="text"
-                    value={followupLinkQuery}
-                    onChange={(e) => setFollowupLinkQuery(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm text-gray-900"
-                    placeholder="두 글자 이상"
-                  />
-                </div>
-                {followupLinkError ? (
-                  <p className="text-fluid-xs text-red-600">{followupLinkError}</p>
-                ) : null}
-                {followupLinkQuery.trim().length < 2 ? (
-                  <p className="text-fluid-xs text-gray-500">
-                    이름을 두 글자 이상 입력하면, 아직 접수와 연결되지 않은 부재현황만 검색합니다.
-                  </p>
-                ) : followupLinkLoading ? (
-                  <p className="text-fluid-xs text-gray-500">검색 중…</p>
-                ) : followupLinkCandidates.length === 0 ? (
-                  <p className="text-fluid-xs text-gray-500">검색 결과가 없습니다.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {followupLinkCandidates.map((c) => (
-                      <li
-                        key={c.id}
-                        className="rounded-lg border border-gray-100 bg-gray-50/90 px-3 py-2 text-fluid-xs"
-                      >
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="min-w-0 text-center sm:text-left">
-                            <p className="truncate font-medium text-gray-900">
-                              {ORDER_FOLLOWUP_STATUS_LABEL[c.status as OrderFollowupStatus]} ·{' '}
-                              {c.customerName}
-                              {c.nickname?.trim() ? ` (${c.nickname})` : ''}
-                            </p>
-                            <p className="tabular-nums text-gray-600">{c.customerPhone?.trim() || '—'}</p>
-                            <p className="tabular-nums text-gray-500">
-                              부재 {c.deferCount}회 · {formatDateCompactWithWeekday(c.createdAt)}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            disabled={followupLinkingId === c.id}
-                            onClick={() => void linkFollowupToCurrentInquiry(c.id)}
-                            className="shrink-0 rounded-md bg-indigo-700 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-indigo-800 disabled:opacity-40"
-                          >
-                            {followupLinkingId === c.id ? '연결 중…' : '이 접수에 연결'}
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="shrink-0 border-t border-gray-100 px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => setFollowupLinkOpen(false)}
-                  className="w-full rounded-lg border border-gray-300 py-2 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50"
-                >
-                  닫기
-                </button>
               </div>
             </div>
           </div>,
