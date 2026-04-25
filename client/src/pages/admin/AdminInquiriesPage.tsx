@@ -1214,18 +1214,27 @@ export function AdminInquiriesPage() {
                 type="button"
                 onClick={openListIntakeModal}
                 className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-3 py-2 text-fluid-sm font-medium text-sky-900 hover:bg-sky-100"
-                title="전화 상담 후 부재·보류·예약금 단계별 등록"
+                title="일반 워크플로우(부재/보류/입금)로 신규 등록"
               >
-                신규 등록
+                일반 등록
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/orderforms?tab=issue')}
+                className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-indigo-600 bg-indigo-50 px-3 py-2 text-fluid-sm font-medium text-indigo-900 hover:bg-indigo-100"
+                title="발주서 발급부터 바로 진행"
+              >
+                발주서부터 진행
               </button>
               <button
                 type="button"
                 onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
-                title="신규 접수 (스케줄과 동일한 폼)"
-                aria-label="신규 접수 (상세 폼)"
+                className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+                title="수동접수 버튼 (스케줄 상세 폼)"
+                aria-label="수동접수 버튼"
               >
-                <CirclePlusIcon className="w-5 h-5" />
+                <CirclePlusIcon className="h-4 w-4" />
+                수동접수
               </button>
             </div>
           )}

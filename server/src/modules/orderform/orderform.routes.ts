@@ -28,6 +28,7 @@ import { ensureMissingProfessionalDefaults } from './defaultProfessionalOptions.
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 
 const router = Router();
@@ -314,6 +315,20 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
     return;
   }
   const isSubmitted = Boolean(form.submittedAt);
+  const linkedInquiriesBeforeDelete = await prisma.inquiry.findMany({
+    where: { orderFormId: id },
+    select: {
+      id: true,
+      assignments: { select: { teamLeaderId: true } },
+    },
+  });
+  const teamLeaderIdsToRefresh = [
+    ...new Set(
+      linkedInquiriesBeforeDelete
+        .flatMap((i) => i.assignments.map((a) => a.teamLeaderId))
+        .filter(Boolean)
+    ),
+  ];
 
   await prisma.$transaction(async (tx) => {
     const fullForm = await tx.orderForm.findUnique({
@@ -342,6 +357,9 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
     }
     await tx.orderForm.delete({ where: { id } });
   });
+  if (teamLeaderIdsToRefresh.length > 0) {
+    notifyInboxRefresh(teamLeaderIdsToRefresh);
+  }
   res.json({ ok: true });
 });
 
@@ -433,6 +451,14 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
         },
       });
     });
+    const assigns = await prisma.assignment.findMany({
+      where: { inquiryId: pid },
+      select: { teamLeaderId: true },
+    });
+    const leaderIds = [...new Set(assigns.map((a) => a.teamLeaderId))];
+    if (leaderIds.length > 0) {
+      notifyInboxRefresh(leaderIds);
+    }
     res.json(orderForm);
     return;
   }
@@ -757,6 +783,7 @@ router.post('/submit/:token', async (req, res) => {
     select: { id: true, inquiryNumber: true },
   });
 
+  let changedInquiryId: string | null = null;
   if (existingPending) {
     await prisma.$transaction(async (tx) => {
       const inquiryNumber =
@@ -797,10 +824,11 @@ router.post('/submit/:token', async (req, res) => {
         data: { submittedAt: new Date() },
       });
     });
+    changedInquiryId = existingPending.id;
   } else {
     await prisma.$transaction(async (tx) => {
       const inquiryNumber = await allocateNextInquiryNumber(tx);
-      await tx.inquiry.create({
+      const createdInquiry = await tx.inquiry.create({
         data: {
           inquiryNumber,
           createdById: form.createdById,
@@ -831,11 +859,13 @@ router.post('/submit/:token', async (req, res) => {
           orderFormId: form.id,
           professionalOptionIds: professionalIds,
         },
+        select: { id: true },
       });
       await tx.orderForm.update({
         where: { id: form.id },
         data: { submittedAt: new Date() },
       });
+      changedInquiryId = createdInquiry.id;
     });
   }
 
@@ -863,6 +893,16 @@ router.post('/submit/:token', async (req, res) => {
       inquiryNumber: celebrateRow.inquiryNumber,
       source: celebrateRow.source,
     });
+  }
+  if (changedInquiryId) {
+    const assigns = await prisma.assignment.findMany({
+      where: { inquiryId: changedInquiryId },
+      select: { teamLeaderId: true },
+    });
+    const leaderIds = [...new Set(assigns.map((a) => a.teamLeaderId))];
+    if (leaderIds.length > 0) {
+      notifyInboxRefresh(leaderIds);
+    }
   }
 
   res.json({ ok: true });
