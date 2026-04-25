@@ -22,7 +22,12 @@ import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/Schedu
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
-import { getAssignableScheduleUsers, getInquiryCreatorOptions, type UserItem } from '../../api/users';
+import {
+  getAssignableScheduleUsers,
+  getInquiryCreatorOptions,
+  getUsers,
+  type UserItem,
+} from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
@@ -150,6 +155,39 @@ function inquiryHasExternalAssignment(item: ScheduleItem): boolean {
 
 function inquiryHasTeamLeaderAssignment(item: ScheduleItem): boolean {
   return (item.assignments?.length ?? 0) > 0;
+}
+
+function scheduleItemExternalCompanyIds(item: ScheduleItem): string[] {
+  const out = new Set<string>();
+  for (const a of item.assignments ?? []) {
+    const id = a.teamLeader.externalCompany?.id?.trim();
+    if (id) out.add(id);
+  }
+  return Array.from(out);
+}
+
+function matchesCustomCalendarRegion(item: ScheduleItem, cal: Pick<UserCustomCalendarItem, 'regions'>): boolean {
+  return Array.isArray(cal.regions) && cal.regions.length > 0
+    ? addressMatchesRegions(item.address, cal.regions)
+    : false;
+}
+
+function matchesCustomCalendarExternalCompany(
+  item: ScheduleItem,
+  cal: Pick<UserCustomCalendarItem, 'externalCompanyIds'>
+): boolean {
+  return Array.isArray(cal.externalCompanyIds) && cal.externalCompanyIds.length > 0
+    ? scheduleItemExternalCompanyIds(item).some((id) => cal.externalCompanyIds.includes(id))
+    : false;
+}
+
+function matchesCustomCalendarFilter(
+  item: ScheduleItem,
+  cal: Pick<UserCustomCalendarItem, 'regions' | 'externalCompanyIds'>
+): boolean {
+  const byRegion = matchesCustomCalendarRegion(item, cal);
+  const byExternalCompany = matchesCustomCalendarExternalCompany(item, cal);
+  return byRegion || byExternalCompany;
 }
 
 /** 서버가 접수 DB 좌표로 계산해 내려주는 주안 기준 직선거리(km) */
@@ -462,6 +500,7 @@ export function AdminSchedulePage() {
   /** 신규 접수 모달 — 선택한 캘린더 날짜로 예약일 고정 */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
+  const [externalCompanies, setExternalCompanies] = useState<Array<{ id: string; name: string }>>([]);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   const [meRole, setMeRole] = useState<string | null>(null);
@@ -601,6 +640,25 @@ export function AdminSchedulePage() {
   }, [token, meRole]);
 
   useEffect(() => {
+    if (!token) {
+      setExternalCompanies([]);
+      return;
+    }
+    getUsers(token, 'EXTERNAL_PARTNER', { scope: 'management' })
+      .then((rows) => {
+        const map = new Map<string, string>();
+        for (const u of rows) {
+          const id = u.externalCompanyId?.trim();
+          const name = u.externalCompanyName?.trim();
+          if (!id || !name) continue;
+          if (!map.has(id)) map.set(id, name);
+        }
+        setExternalCompanies(Array.from(map.entries()).map(([id, name]) => ({ id, name })));
+      })
+      .catch(() => setExternalCompanies([]));
+  }, [token]);
+
+  useEffect(() => {
     if (!token) return;
     getAllProfessionalOptions(token)
       .then(setProfCatalog)
@@ -677,11 +735,20 @@ export function AdminSchedulePage() {
    * - 있으면 address 기준 단어 경계 매칭.
    */
   const filteredItems = useMemo(() => {
-    if (!activeCustomCalendar) return items;
-    const regs = activeCustomCalendar.regions;
-    if (!regs || regs.length === 0) return items;
-    return items.filter((it) => addressMatchesRegions(it.address, regs));
-  }, [items, activeCustomCalendar]);
+    if (activeCustomCalendar) {
+      return items.filter((it) => matchesCustomCalendarFilter(it, activeCustomCalendar));
+    }
+    if (customCalendars.length === 0) return items;
+    const hiddenByIsolated = new Set<string>();
+    for (const cal of customCalendars) {
+      if (!cal.isolateFromGlobal) continue;
+      for (const it of items) {
+        if (matchesCustomCalendarExternalCompany(it, cal)) hiddenByIsolated.add(it.id);
+      }
+    }
+    if (hiddenByIsolated.size === 0) return items;
+    return items.filter((it) => !hiddenByIsolated.has(it.id));
+  }, [items, activeCustomCalendar, customCalendars]);
 
   const byDate = groupScheduleItemsByKstDate(filteredItems);
 
@@ -698,13 +765,16 @@ export function AdminSchedulePage() {
     if (activeCustomCalendar) return map;
     if (customCalendars.length === 0) return map;
 
-    for (const it of items) {
+    for (const it of filteredItems) {
       if (!it.preferredDate) continue;
       const key = formatPreferredDateInputYmd(it.preferredDate);
       if (!key) continue;
-      const addr = it.address ?? '';
       for (const cal of customCalendars) {
-        if (!addressMatchesRegions(addr, cal.regions)) continue;
+        if (cal.isolateFromGlobal) continue;
+        if (!matchesCustomCalendarFilter(it, cal)) continue;
+        if (cal.hideAssignedInRegionBadge && inquiryHasTeamLeaderAssignment(it)) {
+          continue;
+        }
         const arr = map.get(key) ?? [];
         const idx = arr.findIndex((x) => x.id === cal.id);
         if (idx >= 0) {
@@ -731,7 +801,7 @@ export function AdminSchedulePage() {
       map.set(k, arr);
     }
     return map;
-  }, [items, customCalendars, activeCustomCalendar]);
+  }, [filteredItems, customCalendars, activeCustomCalendar]);
 
   const usedCustomCalendarColors = useMemo(
     () => customCalendars.map((c) => c.colorKey),
@@ -741,6 +811,9 @@ export function AdminSchedulePage() {
   async function handleSubmitCustomCalendar(values: {
     name: string;
     regions: string[];
+    externalCompanyIds: string[];
+    isolateFromGlobal: boolean;
+    hideAssignedInRegionBadge: boolean;
     colorKey: string;
   }) {
     if (!token) return;
@@ -952,7 +1025,14 @@ export function AdminSchedulePage() {
                     {activeCustomCalendar.name}
                   </span>
                   <span className="text-fluid-xs text-gray-600 truncate" title={activeCustomCalendar.regions.join(', ')}>
-                    {activeCustomCalendar.regions.join(' · ')}
+                    {[
+                      ...activeCustomCalendar.regions,
+                      ...activeCustomCalendar.externalCompanyIds
+                        .map((id) => externalCompanies.find((c) => c.id === id)?.name || id)
+                        .map((name) => `[타업체] ${name}`),
+                    ].join(' · ') || '필터 없음'}
+                    {activeCustomCalendar.isolateFromGlobal ? ' · 전체숨김' : ''}
+                    {activeCustomCalendar.hideAssignedInRegionBadge ? ' · 배정건배지제외' : ''}
                   </span>
                 </div>
                 <button
@@ -1912,11 +1992,15 @@ export function AdminSchedulePage() {
             ? {
                 name: customCalendarEditing.name,
                 regions: customCalendarEditing.regions,
+                externalCompanyIds: customCalendarEditing.externalCompanyIds,
+                isolateFromGlobal: customCalendarEditing.isolateFromGlobal,
+                hideAssignedInRegionBadge: customCalendarEditing.hideAssignedInRegionBadge,
                 colorKey: customCalendarEditing.colorKey as never,
               }
             : null
         }
         usedColors={usedCustomCalendarColors}
+        externalCompanies={externalCompanies}
         onClose={() => {
           setCustomCalendarModalOpen(false);
           setCustomCalendarEditing(null);
