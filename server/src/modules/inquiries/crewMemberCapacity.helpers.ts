@@ -3,9 +3,9 @@ import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constan
 
 export { DEFAULT_CREW_UNITS_PER_INQUIRY };
 
-/** 접수 1건이 소모하는 팀원 투입 단위 (null이면 표준 2명) */
+/** 접수 1건이 소모하는 팀원 투입 단위 (미설정/null 기본 0명) */
 export function crewUnitsForInquiry(crewMemberCount: number | null): number {
-  if (crewMemberCount == null) return DEFAULT_CREW_UNITS_PER_INQUIRY;
+  if (crewMemberCount == null) return 0;
   if (crewMemberCount <= 0) return 0;
   return Math.min(100, crewMemberCount);
 }

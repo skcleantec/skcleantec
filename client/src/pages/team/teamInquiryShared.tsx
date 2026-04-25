@@ -161,7 +161,7 @@ export function formatRoomInfo(r: number | null, b: number | null, v: number | n
 }
 
 export function formatCrewInfo(item: InquiryItem): string {
-  const n = item.crewMemberCount ?? 2;
+  const n = item.crewMemberCount ?? 0;
   const tokens = item.crewMemberNote
     ?.split(/[,·/|]/g)
     .map((x) => x.trim())
@@ -515,7 +515,7 @@ export function TeamInquiryDetailModal({
                     item.crewMembers && item.crewMembers.length > 0
                       ? item.crewMembers
                       : fallback.map((name) => ({ name, phone: null as string | null }));
-                  const count = item.crewMemberCount ?? 2;
+                  const count = item.crewMemberCount ?? 0;
                   if (list.length === 0) {
                     return <span className="text-gray-800">팀원{count}명</span>;
                   }
