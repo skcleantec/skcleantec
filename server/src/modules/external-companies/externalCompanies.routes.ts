@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOnly);
+/** 관리자·마케터(타업체·정산) — `adminOnly`이면 비관리자 계정(마케터)이 정산 POST/목록 403 */
+router.use(adminOrMarketer);
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const YM = /^\d{4}-\d{2}$/;

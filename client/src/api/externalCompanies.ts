@@ -1,5 +1,7 @@
 import { API } from './apiPrefix';
 
+const NO_STORE: RequestInit = { cache: 'no-store' };
+
 function headers(token: string) {
   return {
     'Content-Type': 'application/json',
@@ -104,6 +106,7 @@ export async function getExternalSettlementSummary(
 ): Promise<ExternalSettlementSummary> {
   const q = new URLSearchParams({ from, to }).toString();
   const res = await fetch(`${API}/external-companies/settlement/summary?${q}`, {
+    ...NO_STORE,
     headers: headers(token),
   });
   if (!res.ok) {
@@ -117,6 +120,7 @@ export async function getExternalSettlementCompanyOverviewList(
   token: string
 ): Promise<{ items: ExternalSettlementCompanyOverviewRow[] }> {
   const res = await fetch(`${API}/external-companies/settlement/company-overview-list`, {
+    ...NO_STORE,
     headers: headers(token),
   });
   if (!res.ok) {
@@ -212,7 +216,7 @@ export type ExternalSettlementMonthlyOverview = {
 };
 
 export async function getExternalFeeAccruals(token: string): Promise<ExternalFeeAccrualsResponse> {
-  const res = await fetch(`${API}/external-companies/settlement/accruals`, { headers: headers(token) });
+  const res = await fetch(`${API}/external-companies/settlement/accruals`, { ...NO_STORE, headers: headers(token) });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '누계를 불러올 수 없습니다.');
@@ -229,6 +233,7 @@ export async function getExternalSettlementMonthlyOverview(
     toMonth: params.toMonth,
   }).toString();
   const res = await fetch(`${API}/external-companies/settlement/monthly-overview?${q}`, {
+    ...NO_STORE,
     headers: headers(token),
   });
   if (!res.ok) {
@@ -248,6 +253,7 @@ export async function getExternalSettlementCompanyDetail(
     to: params.to,
   }).toString();
   const res = await fetch(`${API}/external-companies/settlement/company-detail?${q}`, {
+    ...NO_STORE,
     headers: headers(token),
   });
   if (!res.ok) {
@@ -275,12 +281,19 @@ export async function postExternalSettlementPayment(
 ): Promise<{ ok: boolean; payment: { id: string; amount: number; paidAt: string } }> {
   const res = await fetch(`${API}/external-companies/settlement/payments`, {
     method: 'POST',
+    ...NO_STORE,
     headers: headers(token),
     body: JSON.stringify(params),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error || '정산완료 처리에 실패했습니다.');
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error || `정산완료 처리에 실패했습니다. (HTTP ${res.status})`);
   }
-  return res.json();
+  const data = (await res.json().catch(() => null)) as
+    | { ok?: boolean; payment?: { id: string; amount: number; paidAt: string } }
+    | null;
+  if (!data?.payment?.id) {
+    throw new Error('정산 응답이 올바르지 않습니다. 다시 시도하거나 담당자에게 문의하세요.');
+  }
+  return { ok: true, payment: data.payment };
 }
