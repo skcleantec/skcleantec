@@ -272,7 +272,7 @@ export async function postExternalFeeAccrualReset(token: string, externalCompany
 export async function postExternalSettlementPayment(
   token: string,
   params: { externalCompanyId: string; amount: number; memo?: string }
-): Promise<void> {
+): Promise<{ ok: boolean; payment: { id: string; amount: number; paidAt: string } }> {
   const res = await fetch(`${API}/external-companies/settlement/payments`, {
     method: 'POST',
     headers: headers(token),
@@ -282,4 +282,5 @@ export async function postExternalSettlementPayment(
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '정산완료 처리에 실패했습니다.');
   }
+  return res.json();
 }

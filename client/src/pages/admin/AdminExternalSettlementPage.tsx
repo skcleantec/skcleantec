@@ -16,11 +16,32 @@ function kstTodayYmd(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
+function monthStartEnd(month: string): { from: string; to: string } {
+  const [yy, mm] = month.split('-').map(Number);
+  const last = new Date(yy, mm, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, '0')}` };
+}
+
 type PayConfirmState = {
   currentRemaining: number;
   inputAmount: number;
   afterRemaining: number;
 };
+
+type HistoryRow = {
+  id: string;
+  amount: number;
+  paidAt: string;
+  memo: string | null;
+  actorName: string | null;
+};
+
+function mergeHistoryRows(prev: HistoryRow[], next: HistoryRow[]): HistoryRow[] {
+  const map = new Map<string, HistoryRow>();
+  for (const row of prev) map.set(row.id, row);
+  for (const row of next) map.set(row.id, { ...map.get(row.id), ...row });
+  return Array.from(map.values()).sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+}
 
 export function AdminExternalSettlementPage() {
   const token = getToken();
@@ -33,6 +54,7 @@ export function AdminExternalSettlementPage() {
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [periodModalOpen, setPeriodModalOpen] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
 
   const [payAmountInput, setPayAmountInput] = useState('');
   const [payMemoInput, setPayMemoInput] = useState('');
@@ -40,15 +62,23 @@ export function AdminExternalSettlementPage() {
   const [saving, setSaving] = useState(false);
 
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyRows, setHistoryRows] = useState<
-    Array<{ id: string; amount: number; paidAt: string; memo: string | null; actorName: string | null }>
-  >([]);
+  const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
+  const [historyCacheByCompany, setHistoryCacheByCompany] = useState<Record<string, HistoryRow[]>>({});
 
   const [periodLoading, setPeriodLoading] = useState(false);
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [periodRows, setPeriodRows] = useState<
     Array<{ month: string; payableAmount: number; paidAmount: number; remainingAmount: number }>
   >([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailMonth, setDetailMonth] = useState(kstTodayYmd().slice(0, 7));
+  const [detailItems, setDetailItems] = useState<
+    Array<{ inquiryId: string; inquiryNumber: string | null; customerName: string; signedFeeAmount: number }>
+  >([]);
+  const detailTotalFee = useMemo(
+    () => detailItems.reduce((sum, it) => sum + (it.signedFeeAmount ?? 0), 0),
+    [detailItems]
+  );
 
   const loadList = useCallback(async () => {
     if (!token) return;
@@ -87,16 +117,25 @@ export function AdminExternalSettlementPage() {
     if (!token) return;
     setSelected(row);
     setHistoryModalOpen(true);
-    setHistoryLoading(true);
+    const cached = historyCacheByCompany[row.externalCompanyId];
+    if (cached) {
+      setHistoryRows(cached);
+      setHistoryLoading(false);
+    } else {
+      setHistoryRows([]);
+      setHistoryLoading(true);
+    }
     try {
       const detail = await getExternalSettlementCompanyDetail(token, {
         externalCompanyId: row.externalCompanyId,
         from: '2000-01-01',
         to: kstTodayYmd(),
       });
-      setHistoryRows(detail.payments);
+      const merged = mergeHistoryRows(cached ?? [], detail.payments);
+      setHistoryRows(merged);
+      setHistoryCacheByCompany((prev) => ({ ...prev, [row.externalCompanyId]: merged }));
     } catch {
-      setHistoryRows([]);
+      if (!cached) setHistoryRows([]);
     } finally {
       setHistoryLoading(false);
     }
@@ -127,6 +166,33 @@ export function AdminExternalSettlementPage() {
     }
   };
 
+  const openDetailModal = async (row: ExternalSettlementCompanyOverviewRow, targetMonth = detailMonth) => {
+    if (!token) return;
+    setSelected(row);
+    setDetailModalOpen(true);
+    setDetailLoading(true);
+    try {
+      const range = monthStartEnd(targetMonth);
+      const detail = await getExternalSettlementCompanyDetail(token, {
+        externalCompanyId: row.externalCompanyId,
+        from: range.from,
+        to: range.to,
+      });
+      setDetailItems(
+        detail.items.map((it) => ({
+          inquiryId: it.inquiryId,
+          inquiryNumber: it.inquiryNumber,
+          customerName: it.customerName,
+          signedFeeAmount: it.signedFeeAmount,
+        }))
+      );
+    } catch {
+      setDetailItems([]);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const preparePaymentConfirm = () => {
     if (!selected) return;
     const amount = Number(payAmountInput.replace(/[^\d]/g, ''));
@@ -150,11 +216,25 @@ export function AdminExternalSettlementPage() {
     if (!token || !selected || !payConfirm) return;
     setSaving(true);
     try {
-      await postExternalSettlementPayment(token, {
+      const result = await postExternalSettlementPayment(token, {
         externalCompanyId: selected.externalCompanyId,
         amount: payConfirm.inputAmount,
         memo: payMemoInput.trim(),
       });
+      const optimisticHistoryRow: HistoryRow = {
+        id: result.payment.id,
+        amount: result.payment.amount,
+        paidAt: result.payment.paidAt,
+        memo: payMemoInput.trim(),
+        actorName: null,
+      };
+      setHistoryCacheByCompany((prev) => ({
+        ...prev,
+        [selected.externalCompanyId]: mergeHistoryRows(prev[selected.externalCompanyId] ?? [], [optimisticHistoryRow]),
+      }));
+      if (historyModalOpen && historyRows.some((row) => row.id === optimisticHistoryRow.id) === false) {
+        setHistoryRows((prev) => mergeHistoryRows(prev, [optimisticHistoryRow]));
+      }
       setPayModalOpen(false);
       setPayConfirm(null);
       await loadList();
@@ -221,7 +301,7 @@ export function AdminExternalSettlementPage() {
                       <strong className="tabular-nums text-rose-700">{won(r.remainingAmount)}</strong>
                     </p>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-1.5">
+                  <div className="mt-3 grid grid-cols-2 gap-1.5">
                     <button
                       type="button"
                       onClick={() => openPayModal(r)}
@@ -242,6 +322,13 @@ export function AdminExternalSettlementPage() {
                       className="rounded border border-blue-300 bg-blue-50 px-2 py-1.5 text-[11px] font-medium text-blue-700"
                     >
                       기간별정산
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void openDetailModal(r)}
+                      className="rounded border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-[11px] font-medium text-indigo-700"
+                    >
+                      정산상세내역
                     </button>
                   </div>
                 </div>
@@ -289,6 +376,13 @@ export function AdminExternalSettlementPage() {
                           >
                             기간별정산보기
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => void openDetailModal(r)}
+                            className="rounded border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                          >
+                            정산상세내역
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -302,12 +396,12 @@ export function AdminExternalSettlementPage() {
 
       {payModalOpen && selected ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white border border-gray-200 shadow-xl">
+          <div className="flex w-full max-w-md max-h-[85vh] flex-col overflow-hidden rounded-lg bg-white border border-gray-200 shadow-xl">
             <div className="px-4 py-3 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-900">정산 처리</h3>
               <p className="mt-1 text-xs text-gray-600">{selected.companyName}</p>
             </div>
-            <div className="px-4 py-3 space-y-2">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2">
               <p className="text-xs text-gray-600">
                 현재 누적 미수금:{' '}
                 <strong className="text-rose-700 tabular-nums">{won(Math.max(0, selected.remainingAmount))}</strong>
@@ -384,14 +478,14 @@ export function AdminExternalSettlementPage() {
 
       {historyModalOpen && selected ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-lg bg-white border border-gray-200 shadow-xl">
+          <div className="flex w-full max-w-3xl max-h-[85vh] flex-col overflow-hidden rounded-lg bg-white border border-gray-200 shadow-xl">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900">정산내역 - {selected.companyName}</h3>
               <button type="button" onClick={() => setHistoryModalOpen(false)} className="text-xs text-gray-500">
                 닫기
               </button>
             </div>
-            <div className="p-4 max-h-[70vh] overflow-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {historyLoading ? (
                 <div className="py-10 text-center text-sm text-gray-500">불러오는 중...</div>
               ) : historyRows.length === 0 ? (
@@ -446,14 +540,14 @@ export function AdminExternalSettlementPage() {
 
       {periodModalOpen && selected ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-lg bg-white border border-gray-200 shadow-xl">
+          <div className="flex w-full max-w-3xl max-h-[85vh] flex-col overflow-hidden rounded-lg bg-white border border-gray-200 shadow-xl">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900">기간별정산보기 - {selected.companyName}</h3>
               <button type="button" onClick={() => setPeriodModalOpen(false)} className="text-xs text-gray-500">
                 닫기
               </button>
             </div>
-            <div className="p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <div className="mb-3 flex items-end gap-2">
                 <label className="text-xs text-gray-600">
                   연도
@@ -511,6 +605,97 @@ export function AdminExternalSettlementPage() {
                             <td className="px-3 py-2 text-right tabular-nums">{won(m.payableAmount)}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{won(m.paidAmount)}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-rose-700">{won(m.remainingAmount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {detailModalOpen && selected ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-3xl max-h-[85vh] flex-col overflow-hidden rounded-lg bg-white border border-gray-200 shadow-xl">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">정산 상세내역 - {selected.companyName}</h3>
+              <button type="button" onClick={() => setDetailModalOpen(false)} className="text-xs text-gray-500">
+                닫기
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="mb-3 flex items-end gap-2">
+                <label className="text-xs text-gray-600">
+                  월
+                  <input
+                    type="month"
+                    value={detailMonth}
+                    onChange={(e) => setDetailMonth(e.target.value)}
+                    className="mt-1 block rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void openDetailModal(selected, detailMonth)}
+                  className="rounded bg-gray-900 px-3 py-1.5 text-xs text-white"
+                >
+                  조회
+                </button>
+              </div>
+              <div className="mb-3 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs">
+                <p className="flex items-center justify-between">
+                  <span className="text-gray-600">해당 월 합계 수수료</span>
+                  <strong className={`tabular-nums ${detailTotalFee < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    {detailTotalFee < 0 ? '-' : '+'}
+                    {won(Math.abs(detailTotalFee))}
+                  </strong>
+                </p>
+              </div>
+
+              {detailLoading ? (
+                <div className="py-10 text-center text-sm text-gray-500">조회 중...</div>
+              ) : detailItems.length === 0 ? (
+                <div className="py-10 text-center text-sm text-gray-500">해당 월 정산 상세내역이 없습니다.</div>
+              ) : (
+                <>
+                  <div className="lg:hidden space-y-2">
+                    {detailItems.map((it, idx) => (
+                      <div key={it.inquiryId} className="rounded border border-gray-200 p-3 text-xs">
+                        <p className="font-semibold text-gray-900">{idx + 1}. {it.customerName}</p>
+                        <p className="mt-1 text-gray-600">접수번호: {it.inquiryNumber ?? '-'}</p>
+                        <p className="mt-1 flex items-center justify-between">
+                          <span className="text-gray-500">수수료</span>
+                          <strong className={`tabular-nums ${it.signedFeeAmount < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            {it.signedFeeAmount < 0 ? '-' : '+'}
+                            {won(Math.abs(it.signedFeeAmount))}
+                          </strong>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden lg:block overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-600">
+                          <th className="px-3 py-2 text-center">순번</th>
+                          <th className="px-3 py-2 text-center">접수번호</th>
+                          <th className="px-3 py-2 text-center">이름</th>
+                          <th className="px-3 py-2 text-center">수수료</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detailItems.map((it, idx) => (
+                          <tr key={it.inquiryId} className="border-t border-gray-100">
+                            <td className="px-3 py-2 text-center tabular-nums">{idx + 1}</td>
+                            <td className="px-3 py-2 text-center tabular-nums">{it.inquiryNumber ?? '-'}</td>
+                            <td className="px-3 py-2 text-center">{it.customerName}</td>
+                            <td className={`px-3 py-2 text-right tabular-nums font-semibold ${it.signedFeeAmount < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                              {it.signedFeeAmount < 0 ? '-' : '+'}
+                              {won(Math.abs(it.signedFeeAmount))}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
