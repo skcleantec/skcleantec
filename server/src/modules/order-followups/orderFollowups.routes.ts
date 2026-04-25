@@ -14,6 +14,7 @@ import {
 } from './orderFollowups.service.js';
 import { canAdminOrMarketerViewInquiry } from '../inquiry-cleaning-photos/inquiryCleaningPhotos.access.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 
 const router = Router();
 
@@ -41,6 +42,45 @@ function parseNextContact(raw: unknown): Date | null | undefined {
   if (typeof raw !== 'string') return undefined;
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+type DepositFlowStatus = 'DEPOSIT_PENDING' | 'RESERVED';
+
+/** 부재현황 입금 흐름 상태일 때 접수를 자동 생성해 연결용 inquiryId를 돌려준다. */
+async function createInquiryForDepositFlow(params: {
+  actorId: string;
+  customerName: string;
+  nickname: string | null;
+  customerPhone: string;
+  memo: string | null;
+  followupStatus: DepositFlowStatus;
+}): Promise<string> {
+  return prisma.$transaction(async (tx) => {
+    const inquiryStatus =
+      params.followupStatus === 'DEPOSIT_PENDING' ? 'DEPOSIT_PENDING' : 'DEPOSIT_COMPLETED';
+    const inquiryNumber =
+      inquiryStatus === 'DEPOSIT_PENDING' ? await allocateNextInquiryNumber(tx) : null;
+    const created = await tx.inquiry.create({
+      data: {
+        inquiryNumber,
+        createdById: params.actorId,
+        customerName: params.customerName,
+        nickname: params.nickname,
+        customerPhone: params.customerPhone,
+        customerPhone2: null,
+        address: '',
+        addressDetail: null,
+        preferredDate: null,
+        preferredTime: null,
+        preferredTimeDetail: null,
+        memo: params.memo,
+        source: '전화',
+        status: inquiryStatus,
+      },
+      select: { id: true },
+    });
+    return created.id;
+  });
 }
 
 router.get('/', async (req, res) => {
@@ -153,6 +193,16 @@ router.post('/', async (req, res) => {
       return;
     }
     connectInquiryId = iid;
+  }
+  if (!connectInquiryId && (status === 'DEPOSIT_PENDING' || status === 'RESERVED')) {
+    connectInquiryId = await createInquiryForDepositFlow({
+      actorId: user.userId,
+      customerName,
+      nickname,
+      customerPhone,
+      memo,
+      followupStatus: status,
+    });
   }
   const row = await prisma.orderFollowup.create({
     data: {
@@ -318,6 +368,39 @@ router.patch('/:id', async (req, res) => {
       action: 'STATUS',
       detail: JSON.stringify({ from: prev.status, to: st }),
     });
+    if (
+      prev.inquiryId == null &&
+      !Object.prototype.hasOwnProperty.call(body, 'inquiryId') &&
+      (st === 'DEPOSIT_PENDING' || st === 'RESERVED')
+    ) {
+      const autoInquiryId = await createInquiryForDepositFlow({
+        actorId: user.userId,
+        customerName:
+          typeof body.customerName === 'string' && body.customerName.trim()
+            ? body.customerName.trim()
+            : prev.customerName,
+        nickname:
+          body.nickname === null || typeof body.nickname === 'string'
+            ? typeof body.nickname === 'string'
+              ? body.nickname.trim() || null
+              : null
+            : prev.nickname ?? null,
+        customerPhone:
+          typeof body.customerPhone === 'string' ? body.customerPhone.trim() : prev.customerPhone,
+        memo:
+          typeof body.memo === 'string'
+            ? body.memo.trim() || null
+            : (data.memo as string | null | undefined) ?? prev.memo ?? null,
+        followupStatus: st,
+      });
+      data.inquiry = { connect: { id: autoInquiryId } };
+      await appendFollowupLog(prisma, {
+        followupId: id,
+        actorId: user.userId,
+        action: 'INQUIRY_LINK',
+        detail: JSON.stringify({ from: prev.inquiryId ?? null, to: autoInquiryId }),
+      });
+    }
   }
 
   if (typeof body.goldDb === 'boolean' && body.goldDb !== prev.goldDb) {
