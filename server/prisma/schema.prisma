@@ -147,8 +147,63 @@ model TeamMember {
   team    Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
   dayOffs TeamMemberDayOff[]
   scheduleDaySlots ScheduleDayTeamMemberSlot[]
+  crewGroupMembers  TeamCrewGroupMember[]
+  crewGroupDayRoster TeamCrewGroupDayRoster[]
 
   @@map("team_members")
+}
+
+/// 태국인 팀원 등 공유 로그인으로 같은 화면을 보는 크루 그룹(팀원 관리에서 생성·설정)
+model TeamCrewGroup {
+  id     String @id @default(uuid())
+  name   String
+  /// 공유 로그인 아이디(고유)
+  loginId String @unique @map("login_id") @db.VarChar(64)
+  passwordHash String @map("password_hash")
+  phone   String? @db.VarChar(32)
+  /// true: 스케줄 집계·접수 팀원 선택 시 그룹장이 해당일 지정한 명단만 사용. false: 그룹 소속 활성 팀원 전원
+  useDailyRosterOnly Boolean @default(false) @map("use_daily_roster_only")
+  /// 민감 설정 시 별도 확인용 비밀번호(공유 로그인 비번과 별개). null이면 미설정
+  settingsPasswordHash String? @map("settings_password_hash")
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members   TeamCrewGroupMember[]
+  dayRoster TeamCrewGroupDayRoster[]
+
+  @@map("team_crew_groups")
+}
+
+model TeamCrewGroupMember {
+  id            String   @id @default(uuid())
+  groupId       String   @map("group_id")
+  teamMemberId  String   @map("team_member_id")
+  isGroupLeader Boolean  @default(false) @map("is_group_leader")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  group      TeamCrewGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  teamMember TeamMember    @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, teamMemberId])
+  @@index([teamMemberId])
+  @@map("team_crew_group_members")
+}
+
+/// 그룹장이 날짜별로 「이날 일할 수 있는」 팀원 명단
+model TeamCrewGroupDayRoster {
+  id           String   @id @default(uuid())
+  groupId      String   @map("group_id")
+  date         DateTime @db.Date
+  teamMemberId String   @map("team_member_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  group      TeamCrewGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  teamMember TeamMember    @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, date, teamMemberId])
+  @@index([groupId, date])
+  @@map("team_crew_group_day_roster")
 }
 
 model TeamMemberDayOff {

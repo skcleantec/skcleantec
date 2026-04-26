@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import { parseYmdToDate } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 
 export { DEFAULT_CREW_UNITS_PER_INQUIRY };
@@ -35,6 +36,46 @@ function toDateKeyLocal(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** 집계 모드(useDailyRosterOnly) 크루 그룹 소속 팀원 — 해당일 명단에 있어야 가용으로 친다 */
+async function loadDailyRosterOnlyRestriction(
+  prisma: PrismaClient,
+  params: { rosterYmd?: string; date?: Date; rangeStart?: Date; rangeEnd?: Date }
+): Promise<{ restrictedIds: Set<string>; rosterByDay: Map<string, Set<string>> }> {
+  const restrictedRows = await prisma.teamCrewGroupMember.findMany({
+    where: {
+      group: { isActive: true, useDailyRosterOnly: true },
+    },
+    select: { teamMemberId: true },
+  });
+  const restrictedIds = new Set(restrictedRows.map((r) => r.teamMemberId));
+  const rosterByDay = new Map<string, Set<string>>();
+  if (restrictedIds.size === 0) {
+    return { restrictedIds, rosterByDay };
+  }
+
+  /** 명단 저장(putDayRoster)과 동일한 일자 앵커 — 단일 YMD가 있으면 그걸 우선 */
+  const dateFilter =
+    params.rosterYmd != null
+      ? parseYmdToDate(params.rosterYmd)
+      : params.date != null
+        ? params.date
+        : { gte: params.rangeStart!, lte: params.rangeEnd! };
+
+  const rosterRows = await prisma.teamCrewGroupDayRoster.findMany({
+    where: {
+      date: dateFilter,
+      group: { isActive: true, useDailyRosterOnly: true },
+    },
+    select: { teamMemberId: true, date: true },
+  });
+  for (const row of rosterRows) {
+    const key = toDateKeyLocal(row.date);
+    if (!rosterByDay.has(key)) rosterByDay.set(key, new Set());
+    rosterByDay.get(key)!.add(row.teamMemberId);
+  }
+  return { restrictedIds, rosterByDay };
+}
+
 /**
  * 스케줄 통계 등: 기간 내 날짜별 가용 팀원 수.
  * `countAvailableFieldStaffOnDate`를 날마다 호출하면 N일 × 2회 DB — 일괄 조회로 치환.
@@ -57,7 +98,8 @@ export async function countAvailableFieldStaffByDateRange(
     return result;
   }
 
-  const [dayOffRows, slotRows] = await Promise.all([
+  const [{ restrictedIds, rosterByDay }, dayOffRows, slotRows] = await Promise.all([
+    loadDailyRosterOnlyRestriction(prisma, { rangeStart, rangeEnd }),
     prisma.teamMemberDayOff.findMany({
       where: {
         date: { gte: rangeStart, lte: rangeEnd },
@@ -89,8 +131,12 @@ export async function countAvailableFieldStaffByDateRange(
     const key = toDateKeyLocal(d);
     const offSet = offByDay.get(key) ?? new Set<string>();
     const slotMap = slotByDay.get(key) ?? new Map<string, boolean>();
+    const rosterForDay = rosterByDay.get(key) ?? new Set<string>();
     let n = 0;
     for (const m of members) {
+      if (restrictedIds.has(m.id) && !rosterForDay.has(m.id)) {
+        continue;
+      }
       if (slotMap.has(m.id)) {
         if (slotMap.get(m.id)) n++;
       } else if (!offSet.has(m.id)) {
@@ -102,10 +148,16 @@ export async function countAvailableFieldStaffByDateRange(
   return result;
 }
 
-/** 팀원 휴무 + 일자별 관리자 수동 가용(ScheduleDayTeamMemberSlot) 병합 후 당일 투입 가능 인원 */
-export async function countAvailableFieldStaffOnDate(prisma: PrismaClient, ymd: string): Promise<number> {
+/**
+ * 휴무·슬롯·일자 명단(집계 모드)까지 반영한 당일 「가용」 활성 팀원 id 집합.
+ * 접수 팀원 드롭다운·용량 집계와 동일 기준.
+ */
+export async function getAvailableFieldStaffMemberIdsOnDate(
+  prisma: PrismaClient,
+  ymd: string
+): Promise<Set<string>> {
   const dateOnly = new Date(`${ymd}T12:00:00+09:00`);
-  const [members, overrides] = await Promise.all([
+  const [members, overrides, { restrictedIds, rosterByDay }] = await Promise.all([
     prisma.teamMember.findMany({
       where: { isActive: true },
       select: {
@@ -116,17 +168,31 @@ export async function countAvailableFieldStaffOnDate(prisma: PrismaClient, ymd: 
     prisma.scheduleDayTeamMemberSlot.findMany({
       where: { date: dateOnly },
     }),
+    loadDailyRosterOnlyRestriction(prisma, { rosterYmd: ymd }),
   ]);
+  const rosterForDay = new Set<string>();
+  for (const ids of rosterByDay.values()) {
+    for (const id of ids) rosterForDay.add(id);
+  }
   const oMap = new Map(overrides.map((o) => [o.teamMemberId, o.available]));
-  let n = 0;
+  const out = new Set<string>();
   for (const m of members) {
+    if (restrictedIds.has(m.id) && !rosterForDay.has(m.id)) {
+      continue;
+    }
     if (oMap.has(m.id)) {
-      if (oMap.get(m.id)) n++;
+      if (oMap.get(m.id)) out.add(m.id);
     } else if (m.dayOffs.length === 0) {
-      n++;
+      out.add(m.id);
     }
   }
-  return n;
+  return out;
+}
+
+/** 팀원 휴무 + 일자별 관리자 수동 가용(ScheduleDayTeamMemberSlot) 병합 후 당일 투입 가능 인원 */
+export async function countAvailableFieldStaffOnDate(prisma: PrismaClient, ymd: string): Promise<number> {
+  const ids = await getAvailableFieldStaffMemberIdsOnDate(prisma, ymd);
+  return ids.size;
 }
 
 /** 배정이 전부 타업체(EXTERNAL_PARTNER)면 자사 팀원 용량에서 제외 */

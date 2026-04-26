@@ -6,6 +6,7 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
+import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { notifyNewAssignmentForInquiry } from '../push/inquiryTeamWebPush.js';
 
 const router = Router();
@@ -125,6 +126,9 @@ router.post('/', async (req, res) => {
 
   void notifyNewAssignmentForInquiry(inquiryId, [teamLeaderId], [...prevLeaderSet]).catch((e) =>
     console.error('[assignment-notify] notifyNewAssignmentForInquiry', e)
+  );
+  void notifyAllActiveCrewGroupsRefresh().catch((e) =>
+    console.error('[assignment-notify] notifyAllActiveCrewGroupsRefresh', e)
   );
 
   res.status(201).json(assignment);

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { getAvailableFieldStaffMemberIdsOnDate } from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
@@ -175,23 +176,37 @@ router.post('/', async (req, res) => {
 /** 전사 팀원 풀 (teamId 없음). `/:teamId`보다 먼저 등록해야 `/members`가 teamId로 오인되지 않음 */
 const MAX_POOL_MEMBERS = 100;
 
-router.get('/members', async (_req, res) => {
+router.get('/members', async (req, res) => {
+  const dateRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
+  const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
+
   const members = await prisma.teamMember.findMany({
     where: { teamId: null },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: { _count: { select: { dayOffs: true } } },
   });
-  res.json({
-    items: members.map((m) => ({
-      id: m.id,
-      name: m.name,
-      phone: m.phone,
-      sortOrder: m.sortOrder,
-      isActive: m.isActive,
-      createdAt: m.createdAt.toISOString(),
-      dayOffCount: m._count.dayOffs,
-    })),
-  });
+  let items = members.map((m) => ({
+    id: m.id,
+    name: m.name,
+    phone: m.phone,
+    sortOrder: m.sortOrder,
+    isActive: m.isActive,
+    createdAt: m.createdAt.toISOString(),
+    dayOffCount: m._count.dayOffs,
+  }));
+
+  if (preferredDate) {
+    const hasDailyRosterAgg =
+      (await prisma.teamCrewGroupMember.count({
+        where: { group: { isActive: true, useDailyRosterOnly: true } },
+      })) > 0;
+    if (hasDailyRosterAgg) {
+      const pickable = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate);
+      items = items.filter((row) => pickable.has(row.id));
+    }
+  }
+
+  res.json({ items });
 });
 
 router.post('/members', async (req, res) => {

@@ -43,6 +43,7 @@ import {
 } from './inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
 import { notifyAfterInquiryPatch } from '../push/inquiryTeamWebPush.js';
+import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
@@ -860,6 +861,17 @@ router.patch('/:id', async (req, res) => {
     },
     lines,
   }).catch((e) => console.error('[inquiry-notify] notifyAfterInquiryPatch', e));
+
+  const crewFieldNotify =
+    data.preferredDate !== undefined ||
+    data.crewMemberNote !== undefined ||
+    data.crewMemberCount !== undefined ||
+    data.status !== undefined ||
+    wantsTeamSync;
+  if (crewFieldNotify) {
+    void notifyAllActiveCrewGroupsRefresh().catch((e) => console.error('[crew-field-notify]', e));
+  }
+
   res.json(attachDistanceFromJuanForInquiry(updated));
 });
 

@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, type Location as RouterLocation } from 'react-router-dom';
 import { login, getMe, isAuthSessionExpiredError } from '../api/auth';
+import { loginCrew, getCrewMe } from '../api/crew';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
+import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
 import { isTeamPreviewAdminEmail } from '../utils/teamPreview';
 
 /** ProtectedRoute / TeamProtectedRoute 가 넘긴 `state.from` 만 안전하게 읽기 */
@@ -21,6 +23,7 @@ function resolveAdminResumePath(from: RouterLocation | undefined): string {
   const p = from.pathname;
   if (p === '/login' || p === '/admin/login') return fallback;
   if (p === '/team' || p.startsWith('/team/')) return fallback;
+  if (p === '/crew' || p.startsWith('/crew/')) return fallback;
   if (p === '/admin' || p.startsWith('/admin/')) {
     return `${p}${from.search ?? ''}${from.hash ?? ''}`;
   }
@@ -33,7 +36,21 @@ function resolveTeamResumePath(from: RouterLocation | undefined): string {
   const p = from.pathname;
   if (p === '/login' || p === '/admin/login') return fallback;
   if (p === '/admin' || p.startsWith('/admin/')) return fallback;
+  if (p === '/crew' || p.startsWith('/crew/')) return fallback;
   if (p === '/team' || p.startsWith('/team/')) {
+    return `${p}${from.search ?? ''}${from.hash ?? ''}`;
+  }
+  return fallback;
+}
+
+function resolveCrewResumePath(from: RouterLocation | undefined): string {
+  const fallback = '/crew';
+  if (!from?.pathname) return fallback;
+  const p = from.pathname;
+  if (p === '/login' || p === '/admin/login') return fallback;
+  if (p === '/admin' || p.startsWith('/admin/')) return fallback;
+  if (p === '/team' || p.startsWith('/team/')) return fallback;
+  if (p === '/crew' || p.startsWith('/crew/')) {
     return `${p}${from.search ?? ''}${from.hash ?? ''}`;
   }
   return fallback;
@@ -54,26 +71,38 @@ export function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const a = getToken();
-    const t = getTeamToken();
-    if (!a && !t) return;
+    let a = getToken();
+    let t = getTeamToken();
+    let c = getCrewToken();
+    if (c && (a || t)) {
+      clearCrewToken();
+      c = getCrewToken();
+    }
+    if (!a && !t && !c) return;
 
     void (async () => {
       const myGen = sessionProbeGen.current;
       const resumeFrom = readResumeLocation(location.state);
       try {
-        if (a && !t) {
+        if (a && !t && !c) {
           await getMe(a);
           if (cancelled || sessionProbeGen.current !== myGen) return;
           if (getToken() !== a) return;
           navigate(resolveAdminResumePath(resumeFrom), { replace: true });
           return;
         }
-        if (t && !a) {
+        if (t && !a && !c) {
           await getMe(t);
           if (cancelled || sessionProbeGen.current !== myGen) return;
           if (getTeamToken() !== t) return;
           navigate(resolveTeamResumePath(resumeFrom), { replace: true });
+          return;
+        }
+        if (c && !a && !t) {
+          await getCrewMe(c);
+          if (cancelled || sessionProbeGen.current !== myGen) return;
+          if (getCrewToken() !== c) return;
+          navigate(resolveCrewResumePath(resumeFrom), { replace: true });
           return;
         }
         if (a && t) {
@@ -90,12 +119,16 @@ export function LoginPage() {
       } catch (e) {
         if (cancelled || sessionProbeGen.current !== myGen) return;
         if (!isAuthSessionExpiredError(e)) return;
-        if (a && !t) {
+        if (a && !t && !c) {
           if (getToken() === a) clearToken();
           return;
         }
-        if (t && !a) {
+        if (t && !a && !c) {
           if (getTeamToken() === t) clearTeamToken();
+          return;
+        }
+        if (c && !a && !t) {
+          if (getCrewToken() === c) clearCrewToken();
           return;
         }
         if (a && t && a === t) {
@@ -114,6 +147,7 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [crewLoginMode, setCrewLoginMode] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -123,18 +157,35 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
+      const resumeFrom = readResumeLocation(location.state);
+
+      if (crewLoginMode) {
+        const lid = email.trim();
+        if (!lid) {
+          setError('크루 로그인 아이디를 입력해주세요.');
+          return;
+        }
+        const data = await loginCrew(lid, password);
+        clearToken();
+        clearTeamToken();
+        setCrewToken(data.token);
+        navigate(resolveCrewResumePath(resumeFrom), { replace: true });
+        return;
+      }
+
       const data = await login(email, password);
       const token = data.token as string;
       const user = data.user as { role?: string; email?: string };
       const role = user?.role;
-      const resumeFrom = readResumeLocation(location.state);
 
       if (role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER') {
         clearToken();
+        clearCrewToken();
         setTeamToken(token);
         navigate(resolveTeamResumePath(resumeFrom), { replace: true });
       } else if (role === 'ADMIN' || role === 'MARKETER') {
         clearTeamToken();
+        clearCrewToken();
         setToken(token);
         if (user?.email && isTeamPreviewAdminEmail(user.email)) {
           setTeamToken(token);
@@ -161,7 +212,8 @@ export function LoginPage() {
             관리자·마케터·팀장·타업체 담당 모두 같은 화면에서 로그인합니다.
           </p>
           <p className="text-xs text-gray-500 text-center mb-4 -mt-2">
-            팀장/타업체는 로그인 후 역할에 맞는 전용 메뉴로 자동 분기됩니다.
+            팀장/타업체는 로그인 후 역할에 맞는 전용 메뉴로 자동 분기됩니다. 현장 크루 공유 계정은 아래에서 선택해
+            로그인합니다.
           </p>
           {sessionExpired && (
             <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
@@ -169,16 +221,24 @@ export function LoginPage() {
             </p>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={crewLoginMode}
+                onChange={(e) => setCrewLoginMode(e.target.checked)}
+              />
+              크루 공유 계정으로 로그인 (팀원 관리에서 만든 그룹 ID)
+            </label>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                아이디
+                {crewLoginMode ? '크루 로그인 ID' : '아이디'}
               </label>
               <input
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="admin 또는 이메일"
+                placeholder={crewLoginMode ? '그룹 로그인 ID' : 'admin 또는 이메일'}
                 autoComplete="username"
                 required
               />

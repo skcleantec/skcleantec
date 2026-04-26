@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { TeamLayout } from './components/layout/TeamLayout';
+import { CrewLayout } from './components/layout/CrewLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { TeamProtectedRoute } from './components/auth/TeamProtectedRoute';
+import { CrewProtectedRoute } from './components/auth/CrewProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminInquiriesPage } from './pages/admin/AdminInquiriesPage';
@@ -31,6 +33,11 @@ import { AdminTeamLeaderStatsPage } from './pages/admin/AdminTeamLeaderStatsPage
 import { AdminExternalCompaniesPage } from './pages/admin/AdminExternalCompaniesPage';
 import { AdminExternalSettlementPage } from './pages/admin/AdminExternalSettlementPage';
 import { AdminPageSettingsPage } from './pages/admin/AdminPageSettingsPage';
+import { CrewHomePage } from './pages/crew/CrewHomePage';
+import { CrewRosterLayout } from './pages/crew/CrewRosterLayout';
+import { CrewRosterCalendarPage } from './pages/crew/CrewRosterCalendarPage';
+import { CrewRosterDayPage } from './pages/crew/CrewRosterDayPage';
+import { CrewFieldSchedulePage } from './pages/crew/CrewFieldSchedulePage';
 
 function App() {
   return (
@@ -82,6 +89,21 @@ function App() {
         <Route path="/info" element={<OrderInfoPage />} />
         <Route path="/cs" element={<CsReportPage />} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/crew"
+          element={
+            <CrewProtectedRoute>
+              <CrewLayout />
+            </CrewProtectedRoute>
+          }
+        >
+          <Route index element={<CrewHomePage />} />
+          <Route path="roster" element={<CrewRosterLayout />}>
+            <Route index element={<CrewRosterCalendarPage />} />
+            <Route path=":ymd" element={<CrewRosterDayPage />} />
+          </Route>
+          <Route path="schedule" element={<CrewFieldSchedulePage />} />
+        </Route>
         <Route
           path="/team"
           element={

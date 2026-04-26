@@ -49,6 +49,7 @@ import { InquirySettlementPanel } from '../../components/inquiry/InquirySettleme
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
 import { TeamMemberSearchSelect } from '../../components/admin/TeamMemberSearchSelect';
+import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import {
@@ -660,6 +661,11 @@ export function AdminInquiriesPage() {
     };
   }, [teamLeaders, editForm.teamLeaderIds]);
 
+  const crewPickOptions = useMemo(
+    () => mergeCrewPickPoolWithSelections(poolTeamMembers, editForm.crewMemberNames),
+    [poolTeamMembers, editForm.crewMemberNames]
+  );
+
   useEffect(() => {
     if (!statusFilterOpen) return;
     const onPointerDown = (event: MouseEvent) => {
@@ -741,15 +747,17 @@ export function AdminInquiriesPage() {
     if (!editItem) setInquiryEditPreferredCalOpen(false);
   }, [editItem]);
 
-  // 편집 모달이 열릴 때 등록된 팀원 목록을 로드한다 (active만).
+  // 편집 모달: 예약일·집계 모드에 맞춰 가용 팀원 풀을 로드한다(active만).
   useEffect(() => {
     if (!editItem || !token) {
       return;
     }
-    getPoolTeamMembers(token)
+    const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';
+    const q = /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : undefined;
+    getPoolTeamMembers(token, q)
       .then((r) => setPoolTeamMembers((r.items ?? []).filter((m) => m.isActive)))
       .catch(() => setPoolTeamMembers([]));
-  }, [editItem, token]);
+  }, [editItem, token, editForm.preferredDate]);
 
   // 편집 중인 예약일 기준으로, 다른 접수에 이미 배정된 팀원 이름을 모아 음영 처리에 쓴다.
   useEffect(() => {
@@ -3414,7 +3422,7 @@ export function AdminInquiriesPage() {
                       return (
                         <div key={`crew-pick-${idx}`} className="min-w-[11rem] flex-1">
                           <TeamMemberSearchSelect
-                            options={poolTeamMembers}
+                            options={crewPickOptions}
                             value={name}
                             disabledNames={disabled}
                             onChange={(v) =>
@@ -3431,7 +3439,8 @@ export function AdminInquiriesPage() {
                     })}
                   </div>
                   <p className="mt-1 text-fluid-xs text-gray-500">
-                    같은 창에서 이미 선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다.
+                    크루 그룹에서 「집계·일자 명단」모드를 쓰는 경우, 해당 예약일에 가용한 팀원만 목록에 나옵니다. 같은 창에서 이미
+                    선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다.
                   </p>
                 </div>
               )}

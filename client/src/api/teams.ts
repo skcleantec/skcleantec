@@ -44,8 +44,15 @@ export async function getTeams(token: string): Promise<{ items: TeamItem[] }> {
 }
 
 /** 팀장 소속 없이 등록한 전사 팀원 풀 (teamId 없음) */
-export async function getPoolTeamMembers(token: string): Promise<{ items: TeamMemberItem[] }> {
-  const res = await fetch(`${API}/teams/members`, { headers: headers(token) });
+export async function getPoolTeamMembers(
+  token: string,
+  preferredDate?: string | null
+): Promise<{ items: TeamMemberItem[] }> {
+  const q =
+    preferredDate && /^\d{4}-\d{2}-\d{2}$/.test(preferredDate.trim())
+      ? `?preferredDate=${encodeURIComponent(preferredDate.trim())}`
+      : '';
+  const res = await fetch(`${API}/teams/members${q}`, { headers: headers(token) });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '팀 미배정 팀원 목록을 불러올 수 없습니다.');

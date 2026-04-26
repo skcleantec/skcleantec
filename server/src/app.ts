@@ -25,6 +25,8 @@ import adminNavBadgesRoutes from './modules/admin/adminNavBadges.routes.js';
 import celebrationFeedRoutes from './modules/realtime/celebrationFeed.routes.js';
 import geocodeRoutes from './modules/geocode/geocode.routes.js';
 import userCustomCalendarsRoutes from './modules/user-custom-calendars/userCustomCalendars.routes.js';
+import teamCrewGroupsRoutes from './modules/team-crew-groups/teamCrewGroups.routes.js';
+import crewRoutes from './modules/crew/crew.routes.js';
 import { prisma } from './lib/prisma.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -59,6 +61,8 @@ app.use('/api/external-companies', externalCompaniesRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/geocode', geocodeRoutes);
 app.use('/api/user-custom-calendars', userCustomCalendarsRoutes);
+app.use('/api/team-crew-groups', teamCrewGroupsRoutes);
+app.use('/api/crew', crewRoutes);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙
 const uploadDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(process.cwd(), 'uploads');

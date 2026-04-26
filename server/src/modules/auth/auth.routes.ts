@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../lib/prisma.js';
 import { config } from '../../config/index.js';
-import { authMiddleware, type AuthPayload } from './auth.middleware.js';
+import { authMiddleware, type AuthPayload, type CrewViewerRole } from './auth.middleware.js';
 import { isSuperAdminRoleAndEmail } from './superAdmin.js';
 import { isTeamPreviewAdminEmail } from './teamPreview.helpers.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
@@ -177,6 +177,100 @@ router.patch('/me', authMiddleware, async (req, res) => {
   res.json({
     ...updated,
     allowSelfDayOffEdit: updated.role === 'TEAM_LEADER' ? updated.allowSelfDayOffEdit : true,
+  });
+});
+
+/** 크루 공유 계정 (TeamCrewGroup.loginId / passwordHash) */
+router.post('/crew-login', async (req, res) => {
+  const { loginId, password } = req.body as { loginId?: string; password?: string };
+  const lid = loginId != null ? String(loginId).trim() : '';
+  const pw = password != null ? String(password) : '';
+  if (!lid || !pw) {
+    res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요.' });
+    return;
+  }
+  const group = await prisma.teamCrewGroup.findFirst({
+    where: { loginId: lid, isActive: true },
+    include: {
+      members: { select: { isGroupLeader: true } },
+    },
+  });
+  if (!group) {
+    res.status(401).json({ error: '계정을 찾을 수 없거나 비활성입니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(pw, group.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+  const hasLeaderSlot = group.members.some((m) => m.isGroupLeader);
+  const crewViewerRole: CrewViewerRole = hasLeaderSlot ? 'LEADER' : 'MEMBER';
+
+  const payload: AuthPayload = {
+    userId: `crew:${group.id}`,
+    email: group.loginId,
+    role: 'TEAM_CREW_GROUP',
+    crewGroupId: group.id,
+    crewViewerRole,
+  };
+  const token = jwt.sign(payload, config.jwtSecret, {
+    expiresIn: config.jwtExpiresIn,
+  } as jwt.SignOptions);
+  res.json({
+    token,
+    crewGroup: {
+      id: group.id,
+      name: group.name,
+      crewViewerRole,
+    },
+  });
+});
+
+/** 크루 세션 프로필 — `/auth/me`와 분리 (User 테이블 없음) */
+router.get('/crew-me', authMiddleware, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (user.role !== 'TEAM_CREW_GROUP' || !user.crewGroupId) {
+    res.status(403).json({ error: '크루 그룹 세션이 아닙니다.' });
+    return;
+  }
+  const group = await prisma.teamCrewGroup.findUnique({
+    where: { id: user.crewGroupId },
+    include: {
+      members: {
+        include: {
+          teamMember: { select: { id: true, name: true, phone: true, isActive: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+  if (!group || !group.isActive) {
+    res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
+    return;
+  }
+  const hasLeaderSlot = group.members.some((m) => m.isGroupLeader);
+  const crewViewerRole: CrewViewerRole = hasLeaderSlot ? 'LEADER' : 'MEMBER';
+
+  res.json({
+    role: 'TEAM_CREW_GROUP',
+    crewGroupId: group.id,
+    crewViewerRole,
+    group: {
+      id: group.id,
+      name: group.name,
+      loginId: group.loginId,
+      phone: group.phone,
+      useDailyRosterOnly: group.useDailyRosterOnly,
+      hasSettingsPassword: group.settingsPasswordHash != null,
+      members: group.members.map((m) => ({
+        teamMemberId: m.teamMemberId,
+        name: m.teamMember.name,
+        phone: m.teamMember.phone,
+        isActive: m.teamMember.isActive,
+        isGroupLeader: m.isGroupLeader,
+      })),
+    },
   });
 });
 

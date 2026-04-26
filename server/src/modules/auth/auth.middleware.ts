@@ -3,10 +3,15 @@ import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
 import { isSuperAdminRoleAndEmail } from './superAdmin.js';
 
+export type CrewViewerRole = 'LEADER' | 'MEMBER';
+
 export interface AuthPayload {
   userId: string;
   email: string;
   role: string;
+  /** TEAM_CREW_GROUP 전용 — JWT에 포함 */
+  crewGroupId?: string;
+  crewViewerRole?: CrewViewerRole;
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -72,3 +77,13 @@ export function superAdminOnly(req: Request, res: Response, next: NextFunction) 
   }
   next();
 }
+
+export function crewGroupOnly(req: Request, res: Response, next: NextFunction) {
+  const user = (req as Request & { user?: AuthPayload }).user;
+  if (!user || user.role !== 'TEAM_CREW_GROUP' || !user.crewGroupId) {
+    res.status(403).json({ error: '크루 그룹 로그인이 필요합니다.' });
+    return;
+  }
+  next();
+}
+
