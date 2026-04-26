@@ -532,7 +532,12 @@ export function AdminSchedulePage() {
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   const [meRole, setMeRole] = useState<string | null>(null);
-  const [meUser, setMeUser] = useState<{ id: string; role: string; name: string } | null>(null);
+  const [meUser, setMeUser] = useState<{
+    id: string;
+    role: string;
+    name: string;
+    email?: string;
+  } | null>(null);
   const [closureBusy, setClosureBusy] = useState(false);
   const [assignmentSummaryOpen, setAssignmentSummaryOpen] = useState(false);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
@@ -645,10 +650,16 @@ export function AdminSchedulePage() {
       return;
     }
     getMe(token)
-      .then((u: { id?: string; role?: string; name?: string }) => {
+      .then((u: { id?: string; role?: string; name?: string; email?: string }) => {
         const role = typeof u.role === 'string' ? u.role : null;
         setMeRole(role);
-        if (u.id && u.name && role) setMeUser({ id: u.id, name: u.name, role });
+        if (u.id && u.name && role)
+          setMeUser({
+            id: u.id,
+            name: u.name,
+            role,
+            email: typeof u.email === 'string' ? u.email : undefined,
+          });
         else setMeUser(null);
       })
       .catch(() => {

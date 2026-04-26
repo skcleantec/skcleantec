@@ -610,7 +610,13 @@ export function AdminInquiriesPage() {
   const [marketerOverview, setMarketerOverview] = useState<MarketerOverviewResponse | null>(null);
   const [marketerOverviewLoading, setMarketerOverviewLoading] = useState(() => Boolean(getToken()));
   const [marketerOverviewError, setMarketerOverviewError] = useState<string | null>(null);
-  const [me, setMe] = useState<{ id: string; role: string; name: string; phone?: string | null } | null>(null);
+  const [me, setMe] = useState<{
+    id: string;
+    role: string;
+    name: string;
+    phone?: string | null;
+    email?: string;
+  } | null>(null);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
   const [marketerFilterId, setMarketerFilterId] = useState('');
@@ -698,8 +704,14 @@ export function AdminInquiriesPage() {
       return;
     }
     getMe(token)
-      .then((u: { id: string; role: string; name: string; phone?: string | null }) =>
-        setMe({ id: u.id, role: u.role, name: u.name, phone: u.phone ?? null })
+      .then((u: { id: string; role: string; name: string; phone?: string | null; email?: string }) =>
+        setMe({
+          id: u.id,
+          role: u.role,
+          name: u.name,
+          phone: u.phone ?? null,
+          email: typeof u.email === 'string' ? u.email : undefined,
+        })
       )
       .catch(() => setMe(null));
   }, [token]);
@@ -3503,7 +3515,11 @@ export function AdminInquiriesPage() {
           professionalCatalog={profCatalog}
           currentUserRole={me?.role ?? null}
           marketerOptions={marketers}
-          meUser={me ? { id: me.id, role: me.role, name: me.name } : null}
+          meUser={
+            me
+              ? { id: me.id, role: me.role, name: me.name, email: me.email }
+              : null
+          }
           onClose={() => setEditItem(null)}
           onSaved={() => {
             refresh(true);

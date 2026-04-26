@@ -254,7 +254,7 @@ export type ScheduleInquiryDetailModalProps =
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
       marketerOptions?: UserItem[];
-      meUser?: { id: string; role: string; name: string } | null;
+      meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
       onSaved: () => void;
     }
@@ -268,7 +268,7 @@ export type ScheduleInquiryDetailModalProps =
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
       marketerOptions?: UserItem[];
-      meUser?: { id: string; role: string; name: string } | null;
+      meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
       onSaved: () => void;
     };
@@ -606,10 +606,16 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const otherSelected = new Set(
         editForm.teamLeaderIds.filter((lid, i) => i !== rowIndex && lid.trim() !== '')
       );
+      /** 서버가 team-preview일 때만 `teamLeaders`에 넣는 본인 ADMIN 행 — 슬롯 가용 목록과 무관하게 선택 가능 */
       const base =
         ids == null
           ? teamLeaders
-          : teamLeaders.filter((t) => t.role === 'EXTERNAL_PARTNER' || ids.includes(t.id));
+          : teamLeaders.filter(
+              (t) =>
+                t.role === 'EXTERNAL_PARTNER' ||
+                ids.includes(t.id) ||
+                (t.role === 'ADMIN' && meUser != null && t.id === meUser.id)
+            );
       const allowed = base.filter((t) => !otherSelected.has(t.id) || t.id === curId);
       const cur = teamLeaders.find((t) => t.id === curId);
       if (curId && cur && !allowed.some((t) => t.id === curId)) {
@@ -617,7 +623,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       }
       return allowed;
     };
-  }, [teamLeaders, assignableLeaderIdsForSlot, editForm.teamLeaderIds]);
+  }, [teamLeaders, assignableLeaderIdsForSlot, editForm.teamLeaderIds, meUser]);
 
   useEffect(() => {
     if (!item) return;
@@ -1565,6 +1571,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   >
                     예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장을 우선 표시합니다.
                     타업체 담당은 항상 선택할 수 있습니다. 현재 선택된 담당은 항상 목록에 남습니다.
+                    서버에서 허용된 개발용(team-preview) 관리자만 목록에 본인 ADMIN이 포함되며, 그
+                    경우 슬롯 필터와 관계없이 본인을 선택할 수 있습니다. 다른 로그인에는 해당 항목이
+                    없습니다.
                   </div>
                 </div>
               )}
