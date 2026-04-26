@@ -32,3 +32,21 @@ export function effectiveAdminTeamSpecialNotes(params: {
   if (legacy) return '';
   return (params.specialNotes ?? '').trim();
 }
+
+/** 접수 메모 + 관리자·팀 공유 `specialNotes` — 팀장·타업체에 함께 노출할 관리자 측 문구(중복 시 한 번만) */
+export function effectiveTeamSharedAdminNotes(params: {
+  memo?: string | null;
+  specialNotes?: string | null;
+  orderForm?: InquiryNotesOrderFormSlice;
+}): string {
+  const memo = (params.memo ?? '').trim();
+  const sn = effectiveAdminTeamSpecialNotes({
+    specialNotes: params.specialNotes,
+    orderForm: params.orderForm,
+  });
+  if (!memo && !sn) return '';
+  if (!memo) return sn;
+  if (!sn) return memo;
+  if (memo === sn) return memo;
+  return `${memo}\n\n──\n\n${sn}`;
+}

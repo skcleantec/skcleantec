@@ -29,8 +29,8 @@ import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
-  effectiveAdminTeamSpecialNotes,
   effectiveCustomerOrderNotes,
+  effectiveTeamSharedAdminNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
 
 function AdminScheduleDetailSection({ title, children }: { title: string; children: ReactNode }) {
@@ -104,7 +104,6 @@ type EditFormFields = {
   areaPyeong: string;
   buildingType: string;
   moveInDate: string;
-  specialNotes: string;
   kitchenCount: string;
   amountTotal: string;
   amountDeposit: string;
@@ -143,7 +142,6 @@ function buildPatchFromEditForm(
     areaBasis: editForm.areaBasis.trim(),
     buildingType: editForm.buildingType.trim(),
     moveInDate: editForm.moveInDate.trim(),
-    specialNotes: editForm.specialNotes.trim(),
     serviceTotalAmount: parseWon(editForm.amountTotal),
     serviceDepositAmount: parseWon(editForm.amountDeposit),
     serviceBalanceAmount: parseWon(editForm.amountBalance),
@@ -381,8 +379,14 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
     '고객 발주서 특이사항',
     effectiveCustomerOrderNotes({ specialNotes: item.specialNotes, orderForm: item.orderForm })
   );
-  addRow('관리자·팀장 특이사항', editForm.specialNotes);
-  addRow('메모', editForm.memo);
+  addRow(
+    '특이사항 (팀장·타업체 공유)',
+    effectiveTeamSharedAdminNotes({
+      memo: editForm.memo,
+      specialNotes: item.specialNotes,
+      orderForm: item.orderForm,
+    })
+  );
 
   // 헤더와 합치기
   const body = sections
@@ -423,7 +427,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const assigneeHelpRef = useRef<HTMLDivElement | null>(null);
   const [crewHelpOpen, setCrewHelpOpen] = useState(false);
   const crewHelpRef = useRef<HTMLDivElement | null>(null);
-  const legacySpecialNotesOmitRef = useRef(false);
   const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
   const [occupiedCrewNamesByDate, setOccupiedCrewNamesByDate] = useState<Set<string>>(new Set());
   const [preferredDateLocked, setPreferredDateLocked] = useState(isCreate);
@@ -516,7 +519,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         areaPyeong: '',
         buildingType: '',
         moveInDate: '',
-        specialNotes: '',
         kitchenCount: '',
         amountTotal: '',
         amountDeposit: '',
@@ -554,10 +556,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       areaPyeong: it.areaPyeong != null ? String(it.areaPyeong) : '',
       buildingType: it.buildingType || '',
       moveInDate: formatPreferredDateInputYmd(it.moveInDate),
-      specialNotes: effectiveAdminTeamSpecialNotes({
-        specialNotes: it.specialNotes,
-        orderForm: it.orderForm,
-      }),
       kitchenCount: it.kitchenCount != null ? String(it.kitchenCount) : '',
       amountTotal: amt.total != null ? String(amt.total) : '',
       amountDeposit: amt.deposit != null ? String(amt.deposit) : '',
@@ -568,12 +566,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     };
   });
-
-  useEffect(() => {
-    if (isCreate) {
-      legacySpecialNotesOmitRef.current = false;
-    }
-  }, [isCreate]);
 
   useEffect(() => {
     if (!isCreate) return;
@@ -630,10 +622,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   useEffect(() => {
     if (!item) return;
     const it = item;
-    const notesCtx = { specialNotes: it.specialNotes, orderForm: it.orderForm };
-    legacySpecialNotesOmitRef.current =
-      effectiveCustomerOrderNotes(notesCtx).trim() !== '' &&
-      effectiveAdminTeamSpecialNotes(notesCtx) === '';
     const a = effectiveAmounts(it);
     setEditForm({
       customerName: it.customerName,
@@ -661,7 +649,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       areaPyeong: it.areaPyeong != null ? String(it.areaPyeong) : '',
       buildingType: it.buildingType || '',
       moveInDate: formatPreferredDateInputYmd(it.moveInDate),
-      specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
       kitchenCount: it.kitchenCount != null ? String(it.kitchenCount) : '',
       amountTotal: a.total != null ? String(a.total) : '',
       amountDeposit: a.deposit != null ? String(a.deposit) : '',
@@ -808,13 +795,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           ? null
           : undefined;
       patch.teamLeaderIds = leaderIdsForSave;
-      if (
-        !isCreate &&
-        legacySpecialNotesOmitRef.current &&
-        editForm.specialNotes.trim() === ''
-      ) {
-        delete patch.specialNotes;
-      }
       if (isCreate) {
         const created = (await createInquiry(
           token,
@@ -1316,37 +1296,25 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               className="w-full px-3 py-2 border border-gray-300 rounded bg-white"
             />
           </div>
-          <div className="sm:col-span-2 space-y-2">
-            {!isCreate &&
-            item &&
-            effectiveCustomerOrderNotes({
-              specialNotes: item.specialNotes,
-              orderForm: item.orderForm,
-            }).trim() !== '' ? (
-              <div>
-                <label className="block text-gray-600 mb-1">고객 발주서 특이사항 (읽기 전용)</label>
-                <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
-                  {effectiveCustomerOrderNotes({
-                    specialNotes: item.specialNotes,
-                    orderForm: item.orderForm,
-                  })}
-                </div>
-                <p className="mt-1 text-[11px] text-gray-500">
-                  고객이 발주서 11항에 작성한 내용입니다.
-                </p>
+          {!isCreate &&
+          item &&
+          effectiveCustomerOrderNotes({
+            specialNotes: item.specialNotes,
+            orderForm: item.orderForm,
+          }).trim() !== '' ? (
+            <div className="sm:col-span-2 space-y-1">
+              <label className="block text-gray-600 mb-1">고객 발주서 특이사항 (읽기 전용)</label>
+              <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+                {effectiveCustomerOrderNotes({
+                  specialNotes: item.specialNotes,
+                  orderForm: item.orderForm,
+                })}
               </div>
-            ) : null}
-            <div>
-              <label className="block text-gray-600 mb-1">특이사항 (관리자·팀장 공유)</label>
-              <textarea
-                value={editForm.specialNotes}
-                onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-                placeholder="현장·일정 전달, 내부 공유 메모 등"
-              />
+              <p className="text-[11px] text-gray-500">
+                고객이 발주서 11항에 작성한 내용입니다. 팀장·타업체와 공유할 메모는 아래 「상태 · 배정 · 팀원 · 메모」의 특이사항란에 입력하세요.
+              </p>
             </div>
-          </div>
+          ) : null}
         </div>
         </AdminScheduleDetailSection>
 
@@ -1682,13 +1650,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           )}
           <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">특이사항</label>
+            <label className="block text-gray-600 mb-1">특이사항 (팀장·타업체 공유)</label>
             <textarea
               value={editForm.memo}
               onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
               rows={6}
               className="w-full px-3 py-2 border border-gray-300 rounded"
-              placeholder="현장 전달사항, 고객 요청사항, 관리자 메모 등을 자유롭게 입력하세요."
+              placeholder="현장·일정 전달, 팀장·타업체와 공유할 내용을 입력하세요. (접수 목록의 관리자 특이사항과 함께 팀 화면에 표시됩니다.)"
             />
           </div>
         </div>

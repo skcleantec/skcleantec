@@ -4,8 +4,8 @@ import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
-  effectiveAdminTeamSpecialNotes,
   effectiveCustomerOrderNotes,
+  effectiveTeamSharedAdminNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
@@ -574,14 +574,6 @@ export function TeamInquiryDetailModal({
               </div>
             ) : null}
 
-            {item.memo?.trim() ? (
-              <TeamModalSection title="접수 메모">
-                <div className="border-l-4 border-indigo-400 bg-indigo-50/85 px-3 py-3 text-fluid-sm leading-relaxed text-indigo-950 sm:px-4 whitespace-pre-wrap break-words">
-                  {item.memo.trim()}
-                </div>
-              </TeamModalSection>
-            ) : null}
-
             {effectiveCustomerOrderNotes({
               specialNotes: item.specialNotes,
               orderForm: item.orderForm,
@@ -596,13 +588,15 @@ export function TeamInquiryDetailModal({
               </TeamModalSection>
             ) : null}
 
-            {effectiveAdminTeamSpecialNotes({
+            {effectiveTeamSharedAdminNotes({
+              memo: item.memo,
               specialNotes: item.specialNotes,
               orderForm: item.orderForm,
             }).trim() ? (
-              <TeamModalSection title="특이사항 (관리자·팀장 공유)">
+              <TeamModalSection title="특이사항 (관리자·팀장·타업체 공유)">
                 <div className="border-l-4 border-violet-400 bg-violet-50/75 px-3 py-3 text-fluid-sm leading-relaxed text-violet-950 sm:px-4 whitespace-pre-wrap break-words">
-                  {effectiveAdminTeamSpecialNotes({
+                  {effectiveTeamSharedAdminNotes({
+                    memo: item.memo,
                     specialNotes: item.specialNotes,
                     orderForm: item.orderForm,
                   })}
