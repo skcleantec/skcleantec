@@ -1,5 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { preferredDateYmdKst } from '../inquiries/crewMemberCapacity.helpers.js';
+import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
+import { dateToYmdKst } from '../users/userEmployment.js';
 import { getDayRosterInRange } from '../team-crew-groups/crewGroupDayRoster.service.js';
 
 const NOTE_SPLIT = /[,·/|]/g;
@@ -43,6 +45,7 @@ export type CrewFieldInquiryOut = {
 export type CrewFieldMemberDayOut = {
   teamMemberId: string;
   name: string;
+  nameTh: string | null;
   onRoster: boolean;
   inquiries: CrewFieldInquiryOut[];
 };
@@ -63,7 +66,7 @@ export async function buildCrewFieldSchedule(
       useDailyRosterOnly: true,
       members: {
         include: {
-          teamMember: { select: { id: true, name: true, isActive: true } },
+          teamMember: { select: { id: true, name: true, nameTh: true, isActive: true } },
         },
         orderBy: { createdAt: 'asc' },
       },
@@ -123,7 +126,13 @@ export async function buildCrewFieldSchedule(
 
   const nameToMemberIdsInGroup = (name: string): string[] => {
     const t = name.trim();
-    return group.members.filter((m) => m.teamMember.name.trim() === t).map((m) => m.teamMemberId);
+    return group.members
+      .filter((m) => {
+        const ko = m.teamMember.name.trim();
+        const th = (m.teamMember.nameTh ?? '').trim();
+        return ko === t || (th.length > 0 && th === t);
+      })
+      .map((m) => m.teamMemberId);
   };
 
   const days: CrewFieldDayOut[] = [];
@@ -179,6 +188,7 @@ export async function buildCrewFieldSchedule(
       members.push({
         teamMemberId: mid,
         name: gm.teamMember.name,
+        nameTh: gm.teamMember.nameTh,
         onRoster: group.useDailyRosterOnly ? onRoster : true,
         inquiries: matched,
       });
@@ -192,4 +202,66 @@ export async function buildCrewFieldSchedule(
   }
 
   return { useDailyRosterOnly: group.useDailyRosterOnly, days };
+}
+
+/** 홈 월별 막대그래프 — 현장 일정과 동일: 취소·보류 제외 접수 + `crewMemberNote` 이름 매칭 건만 집계 */
+export async function getCrewMonthlyInquiryStats(
+  groupId: string,
+  monthKey: string
+): Promise<{
+  month: string;
+  useDailyRosterOnly: boolean;
+  items: Array<{
+    teamMemberId: string;
+    name: string;
+    nameTh: string | null;
+    isActive: boolean;
+    inquiryCount: number;
+  }>;
+} | null> {
+  const range = kstMonthRangeYm(monthKey);
+  if (!range) return null;
+
+  const startYmd = dateToYmdKst(range.gte);
+  const endYmd = dateToYmdKst(range.lte);
+
+  let built: { useDailyRosterOnly: boolean; days: CrewFieldDayOut[] };
+  try {
+    built = await buildCrewFieldSchedule(groupId, startYmd, endYmd);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'CREW_GROUP_NOT_FOUND') return null;
+    throw e;
+  }
+
+  const group = await prisma.teamCrewGroup.findUnique({
+    where: { id: groupId },
+    select: {
+      members: {
+        include: {
+          teamMember: { select: { id: true, name: true, nameTh: true, isActive: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+  if (!group) return null;
+
+  const counts = new Map<string, number>();
+  for (const day of built.days) {
+    for (const m of day.members) {
+      const n = m.inquiries.length;
+      if (n > 0) counts.set(m.teamMemberId, (counts.get(m.teamMemberId) ?? 0) + n);
+    }
+  }
+
+  const items = group.members.map((gm) => ({
+    teamMemberId: gm.teamMemberId,
+    name: gm.teamMember.name,
+    nameTh: gm.teamMember.nameTh,
+    isActive: gm.teamMember.isActive,
+    inquiryCount: counts.get(gm.teamMemberId) ?? 0,
+  }));
+
+  return { month: monthKey, useDailyRosterOnly: built.useDailyRosterOnly, items };
 }

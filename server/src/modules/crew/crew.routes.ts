@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, crewGroupOnly, type AuthPayload } from '../auth/auth.middleware.js';
 import { crewGroupLeaderFromDb } from './crewGroupLeader.middleware.js';
 import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries } from '../team-crew-groups/crewGroupDayRoster.service.js';
-import { buildCrewFieldSchedule } from './crewFieldSchedule.service.js';
+import { buildCrewFieldSchedule, getCrewMonthlyInquiryStats } from './crewFieldSchedule.service.js';
 import { notifyCrewGroupsInboxRefresh } from './crewFieldRealtime.js';
 
 const router = Router();
@@ -31,6 +31,29 @@ router.get('/day-roster', async (req, res) => {
   res.json({ crewGroupId: gid, start, end, items });
 });
 
+/** 이번 달(KST) 멤버별 접수 건수(취소·보류 제외) — 현장 메모(인원) 이름 일치 기준 */
+router.get('/monthly-job-stats', async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    monthRaw || new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+  try {
+    const data = await getCrewMonthlyInquiryStats(gid, monthKey);
+    if (!data) {
+      res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
+      return;
+    }
+    res.json(data);
+  } catch (e: unknown) {
+    console.error('GET /crew/monthly-job-stats', e);
+    res.status(500).json({ error: '조회 중 오류가 발생했습니다.' });
+  }
+});
+
 /** 배정일·짝 팀장·차량번호 — 그룹원 일정 표시용 */
 router.get('/field-schedule', async (req, res) => {
   const gid = crewGroupId(req as unknown as { user: AuthPayload });
@@ -50,6 +73,95 @@ router.get('/field-schedule', async (req, res) => {
     }
     console.error('GET /crew/field-schedule', e);
     res.status(500).json({ error: '조회 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
+ * 그룹장(그룹에 그룹장 슬롯이 있는 공유 계정): 소속 멤버의 표시용 보조 이름(nameTh)만 수정.
+ * 한글 이름·연락처 등은 관리자만 변경.
+ */
+router.patch('/members/display-names', crewGroupLeaderFromDb, async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const body = req.body as { updates?: { teamMemberId?: string; nameTh?: string | null }[] };
+  if (!Array.isArray(body.updates) || body.updates.length === 0) {
+    res.status(400).json({ error: 'updates 배열이 필요합니다.' });
+    return;
+  }
+  const groupRows = await prisma.teamCrewGroupMember.findMany({
+    where: { groupId: gid },
+    select: { teamMemberId: true },
+  });
+  const allowed = new Set(groupRows.map((r) => r.teamMemberId));
+  const seen = new Set<string>();
+  for (const u of body.updates) {
+    if (!u || typeof u.teamMemberId !== 'string' || !u.teamMemberId.trim()) {
+      res.status(400).json({ error: '각 항목에 teamMemberId가 필요합니다.' });
+      return;
+    }
+    if (!allowed.has(u.teamMemberId)) {
+      res.status(400).json({ error: '이 그룹 멤버만 표시명을 수정할 수 있습니다.' });
+      return;
+    }
+    if (seen.has(u.teamMemberId)) {
+      res.status(400).json({ error: '중복된 teamMemberId가 있습니다.' });
+      return;
+    }
+    seen.add(u.teamMemberId);
+  }
+  try {
+    await prisma.$transaction(
+      body.updates.map((u) => {
+        const raw = u.nameTh != null ? String(u.nameTh).trim() : '';
+        return prisma.teamMember.update({
+          where: { id: u.teamMemberId! },
+          data: { nameTh: raw ? raw.slice(0, 128) : null },
+        });
+      }),
+    );
+    notifyCrewGroupsInboxRefresh([gid]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('PATCH /crew/members/display-names', e);
+    res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
+  }
+});
+
+/** 그룹장: 소속 멤버 연락처만 수정 (이름·표시명은 별도 API) */
+router.patch('/members/:teamMemberId/phone', crewGroupLeaderFromDb, async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const { teamMemberId } = req.params;
+  if (!teamMemberId || typeof teamMemberId !== 'string') {
+    res.status(400).json({ error: 'teamMemberId가 필요합니다.' });
+    return;
+  }
+  const body = req.body as { phone?: string | null };
+  if (!('phone' in body)) {
+    res.status(400).json({ error: 'phone 필드가 필요합니다. (비우려면 null)' });
+    return;
+  }
+  const inGroup = await prisma.teamCrewGroupMember.findFirst({
+    where: { groupId: gid, teamMemberId },
+  });
+  if (!inGroup) {
+    res.status(404).json({ error: '그룹 멤버가 아닙니다.' });
+    return;
+  }
+  const phone =
+    body.phone === null || body.phone === undefined
+      ? null
+      : String(body.phone).trim() === ''
+        ? null
+        : String(body.phone).trim().slice(0, 64);
+  try {
+    await prisma.teamMember.update({
+      where: { id: teamMemberId },
+      data: { phone },
+    });
+    notifyCrewGroupsInboxRefresh([gid]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('PATCH /crew/members/:teamMemberId/phone', e);
+    res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
   }
 });
 

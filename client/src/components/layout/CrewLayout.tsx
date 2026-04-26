@@ -29,8 +29,6 @@ export function CrewLayout() {
       });
   }, [crewToken, navigate]);
 
-  const viewerRole = me?.crewViewerRole;
-
   const reloadMe = useCallback(async () => {
     const token = getCrewToken();
     if (!token) return;
@@ -46,22 +44,27 @@ export function CrewLayout() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0">
-            <div className="text-fluid-sm font-semibold text-gray-900 truncate">
-              <span className="text-gray-900">{crewT('crew.layout.titlePrefix').ko}</span>{' '}
-              <span>{me?.group.name ?? '…'}</span>
+        <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col gap-2 min-w-0">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="text-fluid-sm font-semibold text-gray-900 truncate">
+                <span className="text-gray-900">{crewT('crew.layout.titlePrefix').ko}</span>{' '}
+                <span>{me?.group.name ?? '…'}</span>
+              </div>
+              <div className="text-fluid-2xs text-gray-600 truncate mt-px">
+                {crewT('crew.layout.titlePrefix').th} {me?.group.name ?? '…'}
+              </div>
             </div>
-            <div className="text-fluid-2xs text-gray-600 truncate">
-              {crewT('crew.layout.titlePrefix').th} {me?.group.name ?? '…'}
-            </div>
-            <div className="text-fluid-2xs text-gray-500 mt-0.5">
-              {viewerRole === 'LEADER' ? (
-                <CrewBiLine id="crew.layout.roleLeader" />
-              ) : (
-                <CrewBiLine id="crew.layout.roleMember" />
-              )}
-            </div>
+            <button
+              type="button"
+              className="shrink-0 self-center px-2 py-1 rounded text-fluid-xs text-red-700 hover:bg-red-50 border border-transparent hover:border-red-100"
+              onClick={() => {
+                clearCrewToken();
+                navigate('/login', { replace: true });
+              }}
+            >
+              <CrewBiLine id="crew.layout.logout" />
+            </button>
           </div>
           <nav className="flex flex-wrap items-center gap-2 text-fluid-xs">
             <NavLink
@@ -93,16 +96,16 @@ export function CrewLayout() {
             >
               <CrewBiLine id="crew.layout.navRoster" />
             </NavLink>
-            <button
-              type="button"
-              className="px-2 py-1 rounded text-red-700 hover:bg-red-50"
-              onClick={() => {
-                clearCrewToken();
-                navigate('/login', { replace: true });
-              }}
-            >
-              <CrewBiLine id="crew.layout.logout" />
-            </button>
+            {me?.crewViewerRole === 'LEADER' ? (
+              <NavLink
+                to="/crew/settings"
+                className={({ isActive }) =>
+                  `px-2 py-1 rounded ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`
+                }
+              >
+                <CrewBiLine id="crew.layout.navSettings" />
+              </NavLink>
+            ) : null}
           </nav>
         </div>
       </header>

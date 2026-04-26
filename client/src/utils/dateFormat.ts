@@ -17,6 +17,9 @@ export function kstTodayYmd(): string {
 /** JS Date#getDay() → 한 글자 요일 (일~토) */
 export const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
+/** JS Date#getDay() → 영어 약어 (일~토, Sun~Sat) — 크루 등 다국어 사용자용 */
+export const WEEKDAY_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
 /** 년·월·일(로컬) → 요일 한 글자 */
 export function weekdayKoFromYmd(year: number, month1to12: number, day: number): string {
   return WEEKDAY_KO[new Date(year, month1to12 - 1, day).getDay()];

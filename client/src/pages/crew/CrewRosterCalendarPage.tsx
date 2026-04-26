@@ -3,7 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import type { CrewLayoutContext } from '../../components/layout/CrewLayout';
 import { getCrewToken } from '../../stores/crewAuth';
 import { getCrewDayRoster, type CrewMeResponse } from '../../api/crew';
-import { kstTodayYmd, WEEKDAY_KO } from '../../utils/dateFormat';
+import { kstTodayYmd, WEEKDAY_EN } from '../../utils/dateFormat';
 import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
 
 function pad2(n: number) {
@@ -52,6 +52,7 @@ export function CrewRosterCalendarPage() {
   const [m, setM] = useState(now.getMonth() + 1);
   const [byDay, setByDay] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const canEdit = me?.crewViewerRole === 'LEADER';
   const { start, end } = monthRange(y, m);
@@ -84,9 +85,32 @@ export function CrewRosterCalendarPage() {
 
   const calendarDays = useMemo(() => getCalendarDays(y, m), [y, m]);
   const kstToday = kstTodayYmd();
-  const yearOpts = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
+  const yearOpts = useMemo(() => {
+    const base = new Date().getFullYear();
+    const lo = Math.min(base - 2, y - 1);
+    const hi = Math.max(base + 2, y + 1);
+    return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+  }, [y]);
 
   const ymd = (day: number) => `${y}-${pad2(m)}-${pad2(day)}`;
+
+  const goPrevMonth = () => {
+    if (m <= 1) {
+      setM(12);
+      setY((yy) => yy - 1);
+    } else {
+      setM(m - 1);
+    }
+  };
+
+  const goNextMonth = () => {
+    if (m >= 12) {
+      setM(1);
+      setY((yy) => yy + 1);
+    } else {
+      setM(m + 1);
+    }
+  };
 
   const openDay = (day: number) => {
     const key = ymd(day);
@@ -109,34 +133,58 @@ export function CrewRosterCalendarPage() {
     );
   }
 
+  const navBtn =
+    'shrink-0 flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-800 text-sm font-semibold shadow-sm active:bg-gray-100 disabled:opacity-40';
+
   return (
-    <div className="space-y-3 min-w-0">
-      <div className="bg-white border border-gray-200 rounded-lg px-2.5 py-2">
-        <h1 className="text-sm font-semibold text-gray-900">
-          <CrewBiLine id="crew.roster.title" koClassName="font-semibold" />
-        </h1>
-        <p className="text-[0.65rem] text-gray-500 mt-1 leading-snug">
-          {canEdit ? <CrewBiLine id="crew.roster.hintEdit" /> : <CrewBiLine id="crew.roster.hintView" />}
-        </p>
-        <p className="text-[0.6rem] text-gray-500 mt-1">
-          <CrewBiLine id="crew.roster.calendarNavHint" />
-        </p>
-        <div className="flex flex-wrap gap-2 items-center mt-2">
+    <div className="space-y-1.5 min-w-0">
+      <div className="bg-white border border-gray-200 rounded-lg px-2 py-1.5">
+        <div className="flex items-start gap-1.5 min-w-0">
+          <h1 className="text-xs font-semibold text-gray-900 leading-tight min-w-0 flex-1">
+            <CrewBiLine id="crew.roster.title" koClassName="font-semibold" />
+          </h1>
+          <button
+            type="button"
+            aria-expanded={helpOpen}
+            aria-label={`${crewT('crew.roster.helpToggleAria').ko} / ${crewT('crew.roster.helpToggleAria').th}`}
+            onClick={() => setHelpOpen((v) => !v)}
+            className="shrink-0 w-6 h-6 rounded-full border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 flex items-center justify-center"
+          >
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor" aria-hidden>
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" />
+            </svg>
+          </button>
+        </div>
+        {helpOpen ? (
+          <div className="mt-1 p-2 rounded-md border border-gray-200 bg-gray-50 text-[0.58rem] text-gray-600 leading-snug space-y-1.5">
+            {canEdit ? <CrewBiLine id="crew.roster.hintEdit" /> : <CrewBiLine id="crew.roster.hintView" />}
+            <CrewBiLine id="crew.roster.calendarNavHint" />
+          </div>
+        ) : null}
+        <div className="flex items-center gap-1 mt-1 min-w-0">
+          <button
+            type="button"
+            className={navBtn}
+            onClick={goPrevMonth}
+            aria-label={`${crewT('crew.roster.prevMonthAria').ko} / ${crewT('crew.roster.prevMonthAria').th}`}
+          >
+            ‹
+          </button>
           <select
             value={y}
             onChange={(e) => setY(Number(e.target.value))}
-            className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+            className="min-w-0 flex-1 max-w-[5.5rem] px-1.5 py-1 border border-gray-300 rounded text-[0.7rem] tabular-nums"
           >
             {yearOpts.map((yy) => (
               <option key={yy} value={yy}>
-                {yy}년
+                {yy}
               </option>
             ))}
           </select>
           <select
             value={m}
             onChange={(e) => setM(Number(e.target.value))}
-            className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+            className="min-w-0 flex-1 max-w-[4.5rem] px-1.5 py-1 border border-gray-300 rounded text-[0.7rem] tabular-nums"
           >
             {Array.from({ length: 12 }, (_, i) => i + 1).map((mm) => (
               <option key={mm} value={mm}>
@@ -144,93 +192,91 @@ export function CrewRosterCalendarPage() {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            className={navBtn}
+            onClick={goNextMonth}
+            aria-label={`${crewT('crew.roster.nextMonthAria').ko} / ${crewT('crew.roster.nextMonthAria').th}`}
+          >
+            ›
+          </button>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500 px-1">
+        <p className="text-xs text-gray-500 px-0.5">
           <CrewBiLine id="crew.common.loading" />
         </p>
       ) : (
-        <div className="rounded-2xl border border-gray-200/90 bg-gradient-to-b from-gray-50/80 to-white shadow-sm overflow-hidden">
-          <div className="p-2 sm:p-3">
-            <div className="grid grid-cols-7 gap-1 sm:gap-1.5 mb-1.5">
-              {WEEKDAY_KO.map((w, i) => (
+        <div className="rounded-lg border border-gray-200 bg-gray-200/90 p-px shadow-sm overflow-hidden">
+          <div className="bg-white p-1 sm:p-1.5">
+            <div className="grid grid-cols-7 gap-px bg-gray-200/90 mb-px">
+              {WEEKDAY_EN.map((w, i) => (
                 <div
                   key={w}
-                  className={`text-center text-[0.65rem] sm:text-[0.7rem] font-semibold py-2 rounded-xl tabular-nums ${
-                    i === 0
-                      ? 'text-red-600 bg-red-50/70'
-                      : i === 6
-                        ? 'text-blue-600 bg-blue-50/70'
-                        : 'text-gray-600 bg-gray-100/90'
+                  className={`text-center text-[0.58rem] font-semibold py-1 tabular-nums bg-gray-100 ${
+                    i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-600'
                   }`}
                 >
                   {w}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+            <div className="grid grid-cols-7 gap-px bg-gray-200/90">
               {calendarDays.map((d, idx) => {
                 if (d == null) {
                   return (
                     <div
                       key={`e-${idx}`}
-                      className="min-h-[4rem] sm:min-h-[4.5rem] rounded-xl bg-gray-100/40 border border-transparent"
+                      className="min-h-[2.85rem] sm:min-h-[3.1rem] bg-gray-50/90 min-w-0"
                     />
                   );
                 }
                 const key = ymd(d);
                 const cnt = (byDay[key] ?? []).length;
-                const isToday = key === kstToday;
+                const isTodayCell = key === kstToday;
                 const { ko: cntKo, th: cntTh } = rosterCountLabel(cnt);
                 const wk = new Date(y, m - 1, d).getDay();
                 const isSun = wk === 0;
                 const isSat = wk === 6;
-                const dayNumClass = isSun
-                  ? 'text-red-500'
-                  : isSat
-                    ? 'text-blue-600'
-                    : isToday
-                      ? 'text-indigo-700'
-                      : 'text-gray-700';
+                const dayNumMuted = isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-gray-800';
                 return (
                   <button
                     key={key}
                     type="button"
                     onClick={() => openDay(d)}
                     title={`${key}`}
-                    className={`relative w-full min-h-[4rem] sm:min-h-[4.5rem] rounded-xl border text-left transition-all duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 ${
-                      isToday
-                        ? 'border-indigo-300 bg-gradient-to-br from-indigo-50 via-white to-violet-50/50 shadow-md ring-2 ring-indigo-200/80'
-                        : 'border-gray-100 bg-white shadow-sm hover:border-gray-200 hover:shadow-md hover:bg-gray-50/90'
-                    }`}
+                    className="relative w-full min-h-[2.85rem] sm:min-h-[3.1rem] min-w-0 px-0.5 py-0.5 bg-white text-left transition-colors hover:bg-gray-50/95 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-900"
                   >
                     <span
-                      className={`absolute top-1.5 left-2 text-[0.65rem] sm:text-[0.7rem] font-bold tabular-nums leading-none ${dayNumClass}`}
+                      className={`absolute top-0.5 left-0.5 inline-flex h-[1.125rem] min-w-[1.125rem] px-0.5 items-center justify-center text-[0.58rem] font-bold tabular-nums leading-none sm:h-5 sm:min-w-[1.25rem] sm:text-[0.62rem] ${
+                        isTodayCell
+                          ? 'rounded-full bg-gray-900 text-white shadow-sm ring-1 ring-gray-700/90'
+                          : dayNumMuted
+                      }`}
                     >
                       {d}
                     </span>
-                    <div className="absolute bottom-1.5 left-0 right-0 px-1 flex flex-col items-center justify-end gap-0 pointer-events-none">
+                    <div className="absolute bottom-0.5 left-0 right-0 px-0.5 flex flex-col items-center justify-end gap-0 pointer-events-none">
                       {cnt > 0 ? (
                         <>
-                          <span className="inline-flex items-center justify-center rounded-full bg-emerald-100/95 text-emerald-900 px-1.5 py-0.5 text-[0.6rem] sm:text-[0.65rem] font-semibold tabular-nums shadow-sm border border-emerald-200/60">
+                          <span className="inline-flex items-center justify-center rounded-full bg-emerald-100 text-emerald-900 px-1 py-px text-[0.55rem] font-semibold tabular-nums leading-none border border-emerald-200/70">
                             {cntKo}
                           </span>
-                          <span className="text-[0.5rem] sm:text-[0.55rem] text-emerald-800/90 font-medium tabular-nums leading-none mt-0.5">
+                          <span className="text-[0.48rem] text-emerald-800/85 font-medium tabular-nums leading-none">
                             {cntTh}
                           </span>
                         </>
                       ) : (
-                        <span className="text-[0.55rem] text-gray-300 tabular-nums">·</span>
+                        <span className="text-[0.5rem] text-gray-300 tabular-nums">·</span>
                       )}
                     </div>
                   </button>
                 );
               })}
             </div>
-            <p className="text-[0.6rem] text-gray-400 mt-3 text-center leading-snug">
-              {crewT('crew.roster.memberPoolHint').ko} · {crewT('crew.roster.memberPoolHint').th}{' '}
+            <p className="text-[0.55rem] text-gray-400 mt-1 text-center leading-none">
+              {crewT('crew.roster.memberPoolHint').ko}/{crewT('crew.roster.memberPoolHint').th}{' '}
               <span className="tabular-nums">({members.length})</span>
             </p>
           </div>

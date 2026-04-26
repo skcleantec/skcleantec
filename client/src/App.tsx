@@ -38,6 +38,7 @@ import { CrewRosterLayout } from './pages/crew/CrewRosterLayout';
 import { CrewRosterCalendarPage } from './pages/crew/CrewRosterCalendarPage';
 import { CrewRosterDayPage } from './pages/crew/CrewRosterDayPage';
 import { CrewFieldSchedulePage } from './pages/crew/CrewFieldSchedulePage';
+import { CrewSettingsPage } from './pages/crew/CrewSettingsPage';
 
 function App() {
   return (
@@ -103,6 +104,7 @@ function App() {
             <Route path=":ymd" element={<CrewRosterDayPage />} />
           </Route>
           <Route path="schedule" element={<CrewFieldSchedulePage />} />
+          <Route path="settings" element={<CrewSettingsPage />} />
         </Route>
         <Route
           path="/team"

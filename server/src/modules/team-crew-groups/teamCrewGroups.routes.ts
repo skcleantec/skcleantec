@@ -34,7 +34,7 @@ router.get('/', async (_req, res) => {
     include: {
       members: {
         include: {
-          teamMember: { select: { id: true, name: true, phone: true, isActive: true } },
+          teamMember: { select: { id: true, name: true, nameTh: true, phone: true, isActive: true } },
         },
         orderBy: { createdAt: 'asc' },
       },
@@ -55,6 +55,7 @@ router.get('/', async (_req, res) => {
         id: m.id,
         teamMemberId: m.teamMemberId,
         name: m.teamMember.name,
+        nameTh: m.teamMember.nameTh,
         phone: m.teamMember.phone,
         isActive: m.teamMember.isActive,
         isGroupLeader: m.isGroupLeader,
@@ -313,7 +314,7 @@ router.patch('/:groupId', async (req, res) => {
       include: {
         members: {
           include: {
-            teamMember: { select: { id: true, name: true, phone: true, isActive: true } },
+            teamMember: { select: { id: true, name: true, nameTh: true, phone: true, isActive: true } },
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -333,6 +334,7 @@ router.patch('/:groupId', async (req, res) => {
         id: m.id,
         teamMemberId: m.teamMemberId,
         name: m.teamMember.name,
+        nameTh: m.teamMember.nameTh,
         phone: m.teamMember.phone,
         isActive: m.teamMember.isActive,
         isGroupLeader: m.isGroupLeader,
@@ -388,13 +390,14 @@ router.post('/:groupId/members', async (req, res) => {
     const row = await prisma.teamCrewGroupMember.create({
       data: { groupId, teamMemberId },
       include: {
-        teamMember: { select: { id: true, name: true, phone: true, isActive: true } },
+        teamMember: { select: { id: true, name: true, nameTh: true, phone: true, isActive: true } },
       },
     });
     res.status(201).json({
       id: row.id,
       teamMemberId: row.teamMemberId,
       name: row.teamMember.name,
+      nameTh: row.teamMember.nameTh,
       phone: row.teamMember.phone,
       isActive: row.teamMember.isActive,
       isGroupLeader: row.isGroupLeader,
@@ -461,7 +464,7 @@ router.patch('/:groupId/members/:teamMemberId', async (req, res) => {
   const updated = await prisma.teamCrewGroupMember.findUnique({
     where: { id: row.id },
     include: {
-      teamMember: { select: { id: true, name: true, phone: true, isActive: true } },
+      teamMember: { select: { id: true, name: true, nameTh: true, phone: true, isActive: true } },
     },
   });
   if (!updated) {
@@ -472,6 +475,7 @@ router.patch('/:groupId/members/:teamMemberId', async (req, res) => {
     id: updated.id,
     teamMemberId: updated.teamMemberId,
     name: updated.teamMember.name,
+    nameTh: updated.teamMember.nameTh,
     phone: updated.teamMember.phone,
     isActive: updated.teamMember.isActive,
     isGroupLeader: updated.isGroupLeader,

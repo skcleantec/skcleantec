@@ -12,6 +12,7 @@ import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { CrewBiLine, CrewBiInline, crewT } from '../../i18n/crew/crewI18n';
+import { CrewMemberNameLines } from '../../components/crew/CrewMemberNameLines';
 
 function leaderDisplayLabel(l: CrewFieldLeader): string {
   if (l.role === 'EXTERNAL_PARTNER') {
@@ -33,6 +34,7 @@ function formatVehicles(leaders: CrewFieldLeader[]): string {
 type TodayRow = {
   key: string;
   memberName: string;
+  memberNameTh?: string | null;
   leaderText: string;
   timeText: string;
   vehicleText: string;
@@ -56,6 +58,7 @@ function buildDayList(
       rows.push({
         key: `${gm.teamMemberId}-none`,
         memberName: gm.name,
+        memberNameTh: gm.nameTh,
         leaderText: '—',
         timeText: '—',
         vehicleText: '—',
@@ -69,6 +72,7 @@ function buildDayList(
       rows.push({
         key: `${gm.teamMemberId}-${inq.inquiryId}-${i}`,
         memberName: gm.name,
+        memberNameTh: gm.nameTh,
         leaderText: formatLeaderNames(inq.leaders),
         timeText: (inq.preferredTime ?? '').trim() || '—',
         vehicleText: formatVehicles(inq.leaders),
@@ -245,10 +249,12 @@ export function CrewFieldSchedulePage() {
                   {rows.map((row) => (
                     <tr key={row.key} className="hover:bg-gray-50/80">
                       <td className="border-b border-gray-100 px-1 py-1.5 text-center align-middle">
-                        <div
-                          className={`tabular-nums leading-tight ${row.inactive ? 'text-gray-400 line-through' : 'text-gray-900'}`}
-                        >
-                          <span className="break-words">{row.memberName}</span>
+                        <div className="tabular-nums leading-tight break-words">
+                          <CrewMemberNameLines
+                            name={row.memberName}
+                            nameTh={row.memberNameTh}
+                            inactive={row.inactive}
+                          />
                           {row.rosterOff ? (
                             <span className="block mt-0.5 text-amber-900 leading-tight">
                               <CrewBiInline id="crew.schedule.rosterOffBadge" className="text-[0.6rem]" />

@@ -54,6 +54,7 @@ export interface CrewMeResponse {
     members: Array<{
       teamMemberId: string;
       name: string;
+      nameTh?: string | null;
       phone: string | null;
       isActive: boolean;
       isGroupLeader: boolean;
@@ -80,6 +81,41 @@ export async function getCrewMe(token: string): Promise<CrewMeResponse> {
     throw new Error(await apiErrorMessage(res, '세션을 확인할 수 없습니다.'));
   }
   return res.json();
+}
+
+export async function patchCrewMemberDisplayNames(
+  token: string,
+  updates: { teamMemberId: string; nameTh: string | null }[],
+): Promise<void> {
+  const res = await fetch(`${API}/crew/members/display-names`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify({ updates }),
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '표시 이름을 저장할 수 없습니다.'));
+  }
+}
+
+export async function patchCrewMemberPhone(
+  token: string,
+  teamMemberId: string,
+  phone: string | null,
+): Promise<void> {
+  const res = await fetch(`${API}/crew/members/${encodeURIComponent(teamMemberId)}/phone`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify({ phone }),
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '연락처를 저장할 수 없습니다.'));
+  }
 }
 
 export interface DayRosterItem {
@@ -145,6 +181,7 @@ export interface CrewFieldInquiry {
 export interface CrewFieldMemberDay {
   teamMemberId: string;
   name: string;
+  nameTh?: string | null;
   onRoster: boolean;
   inquiries: CrewFieldInquiry[];
 }
@@ -152,6 +189,33 @@ export interface CrewFieldMemberDay {
 export interface CrewFieldDay {
   date: string;
   members: CrewFieldMemberDay[];
+}
+
+export interface CrewMonthlyJobStatItem {
+  teamMemberId: string;
+  name: string;
+  nameTh: string | null;
+  isActive: boolean;
+  inquiryCount: number;
+}
+
+export async function getCrewMonthlyJobStats(token: string, month?: string) {
+  const q = new URLSearchParams();
+  if (month && /^\d{4}-\d{2}$/.test(month)) q.set('month', month);
+  const res = await fetch(`${API}/crew/monthly-job-stats?${q}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '월별 실적을 불러올 수 없습니다.'));
+  }
+  return res.json() as Promise<{
+    month: string;
+    useDailyRosterOnly: boolean;
+    items: CrewMonthlyJobStatItem[];
+  }>;
 }
 
 export async function getCrewFieldSchedule(token: string, start: string, end: string) {

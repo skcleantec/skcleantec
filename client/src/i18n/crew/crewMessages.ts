@@ -34,6 +34,10 @@ export const crewMessages = {
     ko: '일자 명단',
     th: 'รายชื่อรายวัน',
   },
+  'crew.layout.navSettings': {
+    ko: '설정',
+    th: 'ตั้งค่า',
+  },
   'crew.layout.logout': {
     ko: '로그아웃',
     th: 'ออกจากระบบ',
@@ -68,6 +72,113 @@ export const crewMessages = {
     ko: '멤버',
     th: 'สมาชิก',
   },
+  'crew.home.statsTitle': {
+    ko: '이달 접수 건수',
+    th: 'งานที่เข้ามาในเดือนนี้',
+  },
+  'crew.home.statsFootnote': {
+    ko: '취소·보류 접수는 빼고, 현장 인원 메모에 이름이 적힌 건만 세며 현장 일정 화면과 같은 기준입니다.',
+    th: 'ไม่นับงานที่ยกเลิก/พัก และนับเฉพาะที่ระบุชื่อในโน้ตพนักงาน ตามหน้าตารางภาคสนาม',
+  },
+  'crew.home.statsLoading': {
+    ko: '불러오는 중…',
+    th: 'กำลังโหลด…',
+  },
+  'crew.home.statsError': {
+    ko: '실적을 불러오지 못했습니다.',
+    th: 'โหลดสถิติไม่สำเร็จ',
+  },
+  'crew.home.prevMonthAria': {
+    ko: '이전 달',
+    th: 'เดือนก่อน',
+  },
+  'crew.home.nextMonthAria': {
+    ko: '다음 달',
+    th: 'เดือนถัดไป',
+  },
+  'crew.home.callAria': {
+    ko: '전화 걸기',
+    th: 'โทรออก',
+  },
+  'crew.home.statsUnit': {
+    ko: '건',
+    th: 'งาน',
+  },
+
+  /** CrewSettingsPage — 그룹장만 표시명(태국어 등) */
+  'crew.settings.title': {
+    ko: '멤버 표시 이름',
+    th: 'ชื่อแสดงสมาชิก',
+  },
+  'crew.settings.intro': {
+    ko: '한글 이름 아래에 보조 이름(태국어 등)을 넣으면 홈·일정·명단에서 팀원이 본인을 찾기 쉽습니다. 각 팀원 행의 「저장」만 해당 사람 표시명을 반영합니다.',
+    th: 'ใส่ชื่อรองใต้ชื่อเกาหลีเพื่อให้หาตัวเองง่าย กด「บันทึก」ในแถวนั้นเพื่อบันทึกเฉพาะคนนั้น',
+  },
+  'crew.settings.helpToggleAria': {
+    ko: '설명 보기',
+    th: 'ดูคำอธิบาย',
+  },
+  'crew.settings.colName': {
+    ko: '이름',
+    th: 'ชื่อ',
+  },
+  'crew.settings.colDisplayTh': {
+    ko: '보조 표시명',
+    th: 'ชื่อแสดงเสริม',
+  },
+  'crew.settings.placeholderTh': {
+    ko: '태국어 이름을 넣으세요',
+    th: 'กรุณาใส่ชื่อภาษาไทย',
+  },
+  'crew.settings.save': {
+    ko: '저장',
+    th: 'บันทึก',
+  },
+  'crew.settings.saving': {
+    ko: '저장 중…',
+    th: 'กำลังบันทึก…',
+  },
+  'crew.settings.saved': {
+    ko: '저장되었습니다.',
+    th: 'บันทึกแล้ว',
+  },
+  'crew.settings.saveFail': {
+    ko: '저장에 실패했습니다.',
+    th: 'บันทึกไม่สำเร็จ',
+  },
+  'crew.settings.leaderOnly': {
+    ko: '그룹장만 멤버 표시 이름을 바꿀 수 있습니다. (관리자가 그룹에서 그룹장을 지정해야 합니다.)',
+    th: 'เฉพาะหัวหน้ากลุ่มแก้ชื่อแสดงได้ (ผู้ดูแลต้องกำหนดหัวหน้ากลุ่ม)',
+  },
+  'crew.settings.backHome': {
+    ko: '홈으로',
+    th: 'กลับหน้าแรก',
+  },
+  'crew.settings.editPhone': {
+    ko: '수정',
+    th: 'แก้',
+  },
+  'crew.settings.phoneModalTitle': {
+    ko: '연락처',
+    th: 'เบอร์โทร',
+  },
+  'crew.settings.phoneModalHint': {
+    ko: '비우고 저장하면 연락처를 지웁니다.',
+    th: 'เว้นว่างแล้วบันทึก = ลบเบอร์',
+  },
+  'crew.settings.phoneLabel': {
+    ko: '전화번호',
+    th: 'โทรศัพท์',
+  },
+  'crew.settings.phoneModalCancel': {
+    ko: '닫기',
+    th: 'ปิด',
+  },
+  'crew.settings.phoneModalSave': {
+    ko: '저장',
+    th: 'บันทึก',
+  },
+
   'crew.home.badgeGroupLeader': {
     ko: '(그룹장)',
     th: '(หัวหน้ากลุ่ม)',
@@ -216,6 +327,14 @@ export const crewMessages = {
   'crew.roster.calendarNavHint': {
     ko: '날짜를 누르면 그날 일할 사람을 고를 수 있습니다.',
     th: 'แตะวันที่เพื่อเลือกคนทำงานในวันนั้น',
+  },
+  'crew.roster.prevMonthAria': {
+    ko: '이전 달',
+    th: 'เดือนก่อน',
+  },
+  'crew.roster.nextMonthAria': {
+    ko: '다음 달',
+    th: 'เดือนถัดไป',
   },
   'crew.roster.memberPoolHint': {
     ko: '그룹 멤버',

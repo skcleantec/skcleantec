@@ -6,6 +6,7 @@ import { getCrewDayRoster, putCrewDayRoster, type CrewMeResponse } from '../../a
 import { AuthSessionExpiredError } from '../../api/auth';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { CrewBiLine, CrewBiInline, crewT } from '../../i18n/crew/crewI18n';
+import { CrewMemberNameLines } from '../../components/crew/CrewMemberNameLines';
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -276,11 +277,21 @@ export function CrewRosterDayPage() {
                             onClick={() => togglePoolHighlight(mem.teamMemberId)}
                             className={`w-full text-left px-2 py-2 text-sm border-l-2 transition-colors ${listBtn(hi)}`}
                           >
-                            <span className={mem.isActive ? '' : 'text-gray-400 line-through'}>{mem.name}</span>
+                            <CrewMemberNameLines
+                              className="text-sm"
+                              name={mem.name}
+                              nameTh={mem.nameTh}
+                              inactive={!mem.isActive}
+                            />
                           </button>
                         ) : (
                           <div className="px-2 py-2 text-sm text-gray-600">
-                            <span className={mem.isActive ? '' : 'text-gray-400 line-through'}>{mem.name}</span>
+                            <CrewMemberNameLines
+                              className="text-sm"
+                              name={mem.name}
+                              nameTh={mem.nameTh}
+                              inactive={!mem.isActive}
+                            />
                           </div>
                         )}
                       </li>
@@ -333,11 +344,23 @@ export function CrewRosterDayPage() {
                             onClick={() => toggleWorkingHighlight(mem.teamMemberId)}
                             className={`w-full text-left px-2 py-2 text-sm border-l-2 transition-colors ${listBtn(hi)}`}
                           >
-                            <span className={mem.isActive ? '' : 'text-gray-400 line-through'}>{mem.name}</span>
+                            <CrewMemberNameLines
+                              className="text-sm"
+                              name={mem.name}
+                              nameTh={mem.nameTh}
+                              inactive={!mem.isActive}
+                              variant="emerald"
+                            />
                           </button>
                         ) : (
                           <div className="px-2 py-2 text-sm text-emerald-900">
-                            <span className={mem.isActive ? '' : 'text-gray-400 line-through'}>{mem.name}</span>
+                            <CrewMemberNameLines
+                              className="text-sm"
+                              name={mem.name}
+                              nameTh={mem.nameTh}
+                              inactive={!mem.isActive}
+                              variant="emerald"
+                            />
                           </div>
                         )}
                       </li>

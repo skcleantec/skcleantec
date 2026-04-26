@@ -139,6 +139,7 @@ model TeamMember {
   /// null이면 팀장 소속 없이 전사 풀 팀원
   teamId    String?  @map("team_id")
   name      String
+  nameTh    String?  @map("name_th") @db.VarChar(128)
   phone     String?
   sortOrder Int      @default(0) @map("sort_order")
   isActive  Boolean  @default(true) @map("is_active")

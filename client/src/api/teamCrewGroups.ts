@@ -23,6 +23,7 @@ export interface TeamCrewGroupMemberRow {
   id: string;
   teamMemberId: string;
   name: string;
+  nameTh?: string | null;
   phone: string | null;
   isActive: boolean;
   isGroupLeader: boolean;

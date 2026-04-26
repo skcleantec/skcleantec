@@ -121,6 +121,7 @@ router.get('/', async (_req, res) => {
       members: t.members.map((m) => ({
         id: m.id,
         name: m.name,
+        nameTh: m.nameTh,
         phone: m.phone,
         sortOrder: m.sortOrder,
         isActive: m.isActive,
@@ -188,6 +189,7 @@ router.get('/members', async (req, res) => {
   let items = members.map((m) => ({
     id: m.id,
     name: m.name,
+    nameTh: m.nameTh,
     phone: m.phone,
     sortOrder: m.sortOrder,
     isActive: m.isActive,
@@ -210,7 +212,7 @@ router.get('/members', async (req, res) => {
 });
 
 router.post('/members', async (req, res) => {
-  const body = req.body as { name?: string; phone?: string | null; sortOrder?: number };
+  const body = req.body as { name?: string; nameTh?: string | null; phone?: string | null; sortOrder?: number };
   if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
     res.status(400).json({ error: '이름을 입력해주세요.' });
     return;
@@ -257,6 +259,7 @@ router.patch('/members/:memberId', async (req, res) => {
   const { memberId } = req.params;
   const body = req.body as {
     name?: string;
+    nameTh?: string | null;
     phone?: string | null;
     sortOrder?: number;
     isActive?: boolean;
@@ -283,6 +286,12 @@ router.patch('/members/:memberId', async (req, res) => {
     where: { id: memberId },
     data: {
       name: body.name === undefined ? undefined : String(body.name).trim() || member.name,
+      nameTh:
+        body.nameTh === undefined
+          ? undefined
+          : body.nameTh === null || String(body.nameTh).trim() === ''
+            ? null
+            : String(body.nameTh).trim().slice(0, 128),
       phone: body.phone === undefined ? undefined : body.phone === null || body.phone === '' ? null : String(body.phone),
       sortOrder:
         body.sortOrder === undefined
@@ -296,6 +305,7 @@ router.patch('/members/:memberId', async (req, res) => {
   res.json({
     id: updated.id,
     name: updated.name,
+    nameTh: updated.nameTh,
     phone: updated.phone,
     sortOrder: updated.sortOrder,
     isActive: updated.isActive,
@@ -429,7 +439,7 @@ router.delete('/:teamId', async (req, res) => {
 
 router.post('/:teamId/members', async (req, res) => {
   const { teamId } = req.params;
-  const body = req.body as { name?: string; phone?: string | null; sortOrder?: number };
+  const body = req.body as { name?: string; nameTh?: string | null; phone?: string | null; sortOrder?: number };
   if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
     res.status(400).json({ error: '이름을 입력해주세요.' });
     return;
@@ -446,10 +456,12 @@ router.post('/:teamId/members', async (req, res) => {
     res.status(400).json({ error: `활성 팀원은 최대 ${MAX_ACTIVE_TEAM_MEMBERS}명까지 등록할 수 있습니다.` });
     return;
   }
+  const nameThTeamRaw = body.nameTh != null ? String(body.nameTh).trim() : '';
   const member = await prisma.teamMember.create({
     data: {
       teamId,
       name: body.name.trim(),
+      nameTh: nameThTeamRaw ? nameThTeamRaw.slice(0, 128) : null,
       phone: body.phone != null && String(body.phone).trim() ? String(body.phone).trim() : null,
       sortOrder: typeof body.sortOrder === 'number' && Number.isFinite(body.sortOrder) ? body.sortOrder : activeCount,
     },
@@ -457,6 +469,7 @@ router.post('/:teamId/members', async (req, res) => {
   res.status(201).json({
     id: member.id,
     name: member.name,
+    nameTh: member.nameTh,
     phone: member.phone,
     sortOrder: member.sortOrder,
     isActive: member.isActive,
@@ -468,6 +481,7 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
   const { teamId, memberId } = req.params;
   const body = req.body as {
     name?: string;
+    nameTh?: string | null;
     phone?: string | null;
     sortOrder?: number;
     isActive?: boolean;
@@ -492,6 +506,12 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
     where: { id: memberId },
     data: {
       name: body.name === undefined ? undefined : String(body.name).trim() || member.name,
+      nameTh:
+        body.nameTh === undefined
+          ? undefined
+          : body.nameTh === null || String(body.nameTh).trim() === ''
+            ? null
+            : String(body.nameTh).trim().slice(0, 128),
       phone: body.phone === undefined ? undefined : body.phone === null || body.phone === '' ? null : String(body.phone),
       sortOrder:
         body.sortOrder === undefined
@@ -505,6 +525,7 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
   res.json({
     id: updated.id,
     name: updated.name,
+    nameTh: updated.nameTh,
     phone: updated.phone,
     sortOrder: updated.sortOrder,
     isActive: updated.isActive,

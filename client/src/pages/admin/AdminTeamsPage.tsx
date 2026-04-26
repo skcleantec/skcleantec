@@ -59,7 +59,7 @@ export function AdminTeamsPage() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const [memberForm, setMemberForm] = useState({ name: '', phone: '' });
+  const [memberForm, setMemberForm] = useState({ name: '', nameTh: '', phone: '' });
   const [registerBusy, setRegisterBusy] = useState(false);
   const [registerOk, setRegisterOk] = useState<string | null>(null);
 
@@ -77,6 +77,7 @@ export function AdminTeamsPage() {
   const [editMemberModal, setEditMemberModal] = useState<{
     memberId: string;
     name: string;
+    nameTh: string;
     phone: string;
   } | null>(null);
   const [editMemberSaving, setEditMemberSaving] = useState(false);
@@ -114,6 +115,9 @@ export function AdminTeamsPage() {
   });
   const [crewEditBusy, setCrewEditBusy] = useState(false);
   const [crewAddMemberId, setCrewAddMemberId] = useState('');
+  /** 크루 그룹 편집 모달 — 멤버별 태국어 표시명 초안 */
+  const [crewNameThDraft, setCrewNameThDraft] = useState<Record<string, string>>({});
+  const [crewDisplayNameSaving, setCrewDisplayNameSaving] = useState(false);
 
   const memberRowBtn =
     'px-2.5 py-1.5 text-xs border border-gray-200 rounded bg-white text-gray-800 hover:bg-gray-50 whitespace-nowrap';
@@ -167,6 +171,16 @@ export function AdminTeamsPage() {
     if (!token) return;
     refreshCrew();
   }, [token]);
+
+  useEffect(() => {
+    if (!crewEdit) {
+      setCrewNameThDraft({});
+      return;
+    }
+    const d: Record<string, string> = {};
+    for (const m of crewEdit.members) d[m.teamMemberId] = (m.nameTh ?? '').trim();
+    setCrewNameThDraft(d);
+  }, [crewEdit]);
 
   useEffect(() => {
     if (!token || !dayOffModal) return;
@@ -228,7 +242,8 @@ export function AdminTeamsPage() {
     setEditMemberSaving(true);
     try {
       const phone = editMemberModal.phone.trim() || null;
-      await updatePoolTeamMember(token, editMemberModal.memberId, { name, phone });
+      const nameTh = editMemberModal.nameTh.trim() || null;
+      await updatePoolTeamMember(token, editMemberModal.memberId, { name, phone, nameTh });
       setEditMemberModal(null);
       await refresh();
     } catch (e) {
@@ -321,6 +336,26 @@ export function AdminTeamsPage() {
       syncCrewEditFromList(items, gid);
     } catch (e) {
       alert(e instanceof Error ? e.message : '처리 실패');
+    }
+  };
+
+  const saveCrewMemberDisplayNames = async () => {
+    if (!token || !crewEdit) return;
+    setCrewDisplayNameSaving(true);
+    try {
+      for (const m of crewEdit.members) {
+        const next = (crewNameThDraft[m.teamMemberId] ?? '').trim();
+        const prev = (m.nameTh ?? '').trim();
+        if (next === prev) continue;
+        await updatePoolTeamMember(token, m.teamMemberId, { nameTh: next || null });
+      }
+      const items = await refreshCrew();
+      syncCrewEditFromList(items, crewEdit.id);
+      await refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '표시명 저장에 실패했습니다.');
+    } finally {
+      setCrewDisplayNameSaving(false);
     }
   };
 
@@ -598,6 +633,9 @@ export function AdminTeamsPage() {
                         <span className={m.isActive ? 'font-medium text-gray-900' : 'text-gray-400 line-through'}>
                           {m.name}
                         </span>
+                        {(m.nameTh ?? '').trim() ? (
+                          <span className="text-xs text-gray-500 w-full sm:w-auto">({(m.nameTh ?? '').trim()})</span>
+                        ) : null}
                         {m.phone ? (
                           <span className="text-gray-500 text-xs">{m.phone}</span>
                         ) : (
@@ -624,6 +662,7 @@ export function AdminTeamsPage() {
                           setEditMemberModal({
                             memberId: m.id,
                             name: m.name,
+                            nameTh: (m.nameTh ?? '').trim(),
                             phone: m.phone ?? '',
                           })
                         }
@@ -678,6 +717,16 @@ export function AdminTeamsPage() {
               />
               <input
                 type="text"
+                placeholder="태국어 표시명 (선택)"
+                value={memberForm.nameTh}
+                onChange={(e) => {
+                  setRegisterOk(null);
+                  setMemberForm((p) => ({ ...p, nameTh: e.target.value }));
+                }}
+                className="px-3 py-2 border border-gray-300 rounded text-sm w-36"
+              />
+              <input
+                type="text"
                 placeholder="연락처 (선택)"
                 value={memberForm.phone}
                 onChange={(e) => {
@@ -699,9 +748,10 @@ export function AdminTeamsPage() {
                   try {
                     await addPoolTeamMember(token, {
                       name: memberForm.name.trim(),
+                      nameTh: memberForm.nameTh.trim() || undefined,
                       phone: memberForm.phone.trim() || undefined,
                     });
-                    setMemberForm({ name: '', phone: '' });
+                    setMemberForm({ name: '', nameTh: '', phone: '' });
                     setRegisterOk('등록되었습니다. 목록을 갱신합니다.');
                     await refresh();
                     setRegisterOk('등록되었습니다.');
@@ -753,6 +803,18 @@ export function AdminTeamsPage() {
                       setEditMemberModal((prev) => (prev ? { ...prev, name: e.target.value } : null))
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">크루 앱용 태국어 표시명 (선택)</label>
+                  <input
+                    type="text"
+                    value={editMemberModal.nameTh}
+                    onChange={(e) =>
+                      setEditMemberModal((prev) => (prev ? { ...prev, nameTh: e.target.value } : null))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    placeholder="한글 이름 아래에 보조로 표시"
                   />
                 </div>
                 <div>
@@ -1202,6 +1264,7 @@ export function AdminTeamsPage() {
                       .map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.name}
+                          {(m.nameTh ?? '').trim() ? ` · ${(m.nameTh ?? '').trim()}` : ''}
                           {!m.isActive ? ' (사용 중지)' : ''}
                         </option>
                       ))}
@@ -1231,10 +1294,17 @@ export function AdminTeamsPage() {
                     crewEdit.members.map((m) => (
                       <li key={m.id} className="px-3 py-2 text-xs flex flex-wrap items-center justify-between gap-2">
                         <span className={m.isActive ? 'text-gray-900' : 'text-gray-400 line-through'}>
-                          {m.name}
-                          {m.phone ? ` · ${m.phone}` : ''}
+                          <span className="font-medium">{m.name}</span>
                           {m.isGroupLeader ? (
                             <span className="ml-1 text-indigo-700 font-medium">(그룹장)</span>
+                          ) : null}
+                          {(m.nameTh ?? '').trim() ? (
+                            <span className="block text-[0.65rem] text-gray-500 font-normal mt-0.5 not-italic">
+                              {(m.nameTh ?? '').trim()}
+                            </span>
+                          ) : null}
+                          {m.phone ? (
+                            <span className="block text-[0.65rem] text-gray-500 mt-0.5">{m.phone}</span>
                           ) : null}
                         </span>
                         <span className="flex flex-wrap gap-1">
@@ -1282,6 +1352,52 @@ export function AdminTeamsPage() {
                     ))
                   )}
                 </ul>
+
+                <details className="mt-4 rounded-md border border-gray-200 bg-gray-50/80 px-3 py-2">
+                  <summary className="text-xs font-medium text-gray-800 cursor-pointer select-none">
+                    크루 앱 표시명 설정 (태국어)
+                  </summary>
+                  <p className="text-fluid-2xs text-gray-600 mt-2 mb-2 leading-snug">
+                    멤버의 한글 이름 아래에 보조 이름을 넣으면 크루 화면(홈·일정·일자 명단)에서 태국인 팀원이 본인을 찾기 쉽습니다.
+                    전사 팀원 풀의 「정보 수정」에서도 동일 항목을 편집할 수 있습니다.
+                  </p>
+                  {crewEdit.members.length === 0 ? (
+                    <p className="text-xs text-gray-500">멤버를 먼저 추가하세요.</p>
+                  ) : (
+                    <ul className="space-y-2 max-h-56 overflow-y-auto border border-gray-100 rounded bg-white p-2">
+                      {crewEdit.members.map((m) => (
+                        <li key={m.teamMemberId} className="flex flex-col sm:flex-row sm:items-center gap-1.5 text-xs">
+                          <span className={`shrink-0 sm:w-28 font-medium ${m.isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+                            {m.name}
+                          </span>
+                          <input
+                            type="text"
+                            className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded text-xs"
+                            placeholder="태국어 표시명"
+                            value={crewNameThDraft[m.teamMemberId] ?? ''}
+                            onChange={(e) =>
+                              setCrewNameThDraft((prev) => ({
+                                ...prev,
+                                [m.teamMemberId]: e.target.value,
+                              }))
+                            }
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={crewDisplayNameSaving || crewEdit.members.length === 0}
+                      className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40"
+                      onClick={() => void saveCrewMemberDisplayNames()}
+                    >
+                      {crewDisplayNameSaving ? '저장 중…' : '표시명 저장'}
+                    </button>
+                  </div>
+                </details>
+
                 <p className="text-fluid-2xs text-gray-500 mt-2">
                   날짜별 투입 가능 인원은 크루 계정으로 로그인한 뒤 「일자 명단」 메뉴에서만 편집합니다.
                 </p>
