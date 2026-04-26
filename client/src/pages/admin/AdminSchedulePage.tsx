@@ -48,6 +48,7 @@ import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import { isManualIntakeInquiry } from '../../utils/manualIntakeInquiry';
+import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -207,18 +208,6 @@ function scheduleItemIntakeMarketerName(item: ScheduleItem): string | null {
   return null;
 }
 
-/** 스케줄 카드: 접수 목록과 동일하게 이름·닉네임·전화로 식별 가능하게 */
-function scheduleItemPrimaryCustomerLabel(item: ScheduleItem): string {
-  const name = item.customerName?.trim() ?? '';
-  const nick = item.nickname?.trim() ?? '';
-  const phone = item.customerPhone?.trim() ?? '';
-  if (name && nick && name !== nick) return `${name} (${nick})`;
-  if (name) return name;
-  if (nick) return nick;
-  if (phone) return phone;
-  return '이름·연락처 미입력';
-}
-
 function ScheduleDayListItem({
   item,
   profCatalog,
@@ -275,7 +264,9 @@ function ScheduleDayListItem({
   const hasScheduleMemo = Boolean(scheduleMemoLine);
   const distanceLabel = scheduleItemDistanceKmLabel(item);
   const intakeMarketerName = scheduleItemIntakeMarketerName(item);
-  const primaryCustomerLabel = scheduleItemPrimaryCustomerLabel(item);
+  const primaryCustomerLabel = inquiryPrimaryCustomerLabel(item);
+  const showScheduleMemoBadge =
+    Boolean(scheduleMemoLine) && scheduleMemoLine !== primaryCustomerLabel;
   const phoneForExtra =
     item.customerPhone?.trim() &&
     primaryCustomerLabel !== item.customerPhone.trim()
@@ -335,7 +326,7 @@ function ScheduleDayListItem({
               </span>
             )}
             {(item.inquiryNumber ||
-              hasScheduleMemo ||
+              showScheduleMemoBadge ||
               distanceLabel ||
               intakeMarketerName) && (
               <span className="inline-flex items-center gap-0.5 flex-nowrap shrink-0 text-[10px] sm:text-fluid-2xs font-normal">
@@ -360,7 +351,7 @@ function ScheduleDayListItem({
                     {intakeMarketerName}
                   </span>
                 ) : null}
-                {hasScheduleMemo ? (
+                {showScheduleMemoBadge ? (
                   <span
                     className="text-[9px] sm:text-[10px] leading-none font-medium text-gray-800 bg-white/80 border border-gray-200/90 rounded px-1 py-px max-w-[min(10rem,38vw)] truncate shadow-sm"
                     title={scheduleMemoLine}

@@ -25,6 +25,7 @@ import {
 } from './teamInquiryShared';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import type { ScheduleItem } from '../../api/schedule';
+import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 
 /** 관리자 스케줄과 동일 아이콘. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL 로 덮어쓰기 */
 const DEFAULT_SCHEDULE_MAP_ICON =
@@ -239,6 +240,9 @@ export function TeamSchedulePage() {
                 <div className="flex flex-col gap-2">
                   {byDate[selectedDate].map((item) => {
                     const mk = marketerInfo(item);
+                    const primaryLabel = inquiryPrimaryCustomerLabel(item);
+                    const memoTrim = item.scheduleMemo?.trim() ?? '';
+                    const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
                     return (
                     <div
                       key={item.id}
@@ -247,10 +251,10 @@ export function TeamSchedulePage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-gray-900">{item.customerName}</div>
-                          {item.scheduleMemo?.trim() ? (
-                            <div className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={item.scheduleMemo}>
-                              {item.scheduleMemo}
+                          <div className="font-medium text-gray-900">{primaryLabel}</div>
+                          {memoSubtitle ? (
+                            <div className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
+                              {memoTrim}
                             </div>
                           ) : null}
                           {item.memo?.trim() ? (

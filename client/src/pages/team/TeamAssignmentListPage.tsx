@@ -28,6 +28,7 @@ import {
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
 } from './teamInquiryShared';
+import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 
 function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number | null }) {
   if (item.areaPyeong == null) return '-';
@@ -170,9 +171,11 @@ export function TeamAssignmentListPage() {
       if (!inYmdRange(rowYmd, lo, hi)) return false;
       if (!q) return true;
       const num = item.inquiryNumber?.toLowerCase() ?? '';
+      const memo = (item.scheduleMemo ?? '').toLowerCase();
       return (
         item.customerName.toLowerCase().includes(q) ||
         item.customerPhone.toLowerCase().includes(q) ||
+        memo.includes(q) ||
         `${item.address} ${item.addressDetail ?? ''}`.toLowerCase().includes(q) ||
         (num && num.includes(q))
       );
@@ -334,12 +337,15 @@ export function TeamAssignmentListPage() {
                 const mine = myAssignment(item, myId!);
                 const addr = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
                 const mk = marketerInfo(item);
+                const primaryLabel = inquiryPrimaryCustomerLabel(item);
+                const memoTrim = item.scheduleMemo?.trim() ?? '';
+                const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
                 return (
                   <div
                     key={item.id}
                     role="button"
                     tabIndex={0}
-                    aria-label={`${item.customerName} 접수 상세`}
+                    aria-label={`${primaryLabel} 접수 상세`}
                     onClick={() => setDetailItem(item)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -352,7 +358,7 @@ export function TeamAssignmentListPage() {
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-fluid-sm font-semibold text-gray-900">{item.customerName}</span>
+                          <span className="truncate text-fluid-sm font-semibold text-gray-900">{primaryLabel}</span>
                           {item.claimMemo ? (
                             <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="C/S 표시">
                               ●
@@ -364,9 +370,9 @@ export function TeamAssignmentListPage() {
                             </span>
                           ) : null}
                         </div>
-                        {item.scheduleMemo?.trim() ? (
-                          <p className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={item.scheduleMemo}>
-                            {item.scheduleMemo}
+                        {memoSubtitle ? (
+                          <p className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
+                            {memoTrim}
                           </p>
                         ) : null}
                         {item.memo?.trim() ? (
@@ -450,6 +456,9 @@ export function TeamAssignmentListPage() {
                   {filteredSorted.map((item) => {
                     const mine = myAssignment(item, myId!);
                     const mk = marketerInfo(item);
+                    const primaryLabel = inquiryPrimaryCustomerLabel(item);
+                    const memoTrim = item.scheduleMemo?.trim() ?? '';
+                    const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
                     const pBorder = 'border-b border-gray-100';
                     return (
                       <tr
@@ -495,19 +504,19 @@ export function TeamAssignmentListPage() {
                         >
                           <div className="flex min-w-0 flex-col items-center leading-tight">
                             <div className="min-w-0 max-w-full truncate">
-                              {item.customerName}
+                              {primaryLabel}
                               {item.claimMemo ? (
                                 <span className="ml-1 text-orange-600" title={item.claimMemo}>
                                   ●
                                 </span>
                               ) : null}
                             </div>
-                            {item.scheduleMemo?.trim() ? (
+                            {memoSubtitle ? (
                               <div
                                 className="mt-0.5 max-w-full truncate text-fluid-2xs font-normal text-gray-600"
-                                title={item.scheduleMemo}
+                                title={memoTrim}
                               >
-                                {item.scheduleMemo}
+                                {memoTrim}
                               </div>
                             ) : null}
                             {item.memo?.trim() ? (

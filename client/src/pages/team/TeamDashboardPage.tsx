@@ -18,6 +18,7 @@ import {
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
 } from './teamInquiryShared';
+import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 
 export function TeamDashboardPage() {
   const token = getTeamToken();
@@ -134,7 +135,11 @@ export function TeamDashboardPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {todayItems.map((item) => (
+            {todayItems.map((item) => {
+              const primaryLabel = inquiryPrimaryCustomerLabel(item);
+              const memoTrim = item.scheduleMemo?.trim() ?? '';
+              const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
+              return (
               <div
                 key={item.id}
                 className="bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-sm"
@@ -142,7 +147,12 @@ export function TeamDashboardPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-gray-900">{item.customerName}</div>
+                    <div className="font-semibold text-gray-900">{primaryLabel}</div>
+                    {memoSubtitle ? (
+                      <p className="mt-0.5 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
+                        {memoTrim}
+                      </p>
+                    ) : null}
                     {item.memo?.trim() ? (
                       <p
                         className="mt-1 line-clamp-2 text-fluid-2xs leading-snug text-indigo-900/90"
@@ -174,7 +184,8 @@ export function TeamDashboardPage() {
                   <TeamHappyCallBadge item={item} />
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </section>
@@ -208,14 +219,26 @@ export function TeamDashboardPage() {
                     <span className="text-fluid-sm font-semibold text-gray-600">{dayItems.length}건</span>
                   </div>
                   <div className="divide-y divide-gray-100">
-                    {dayItems.map((item) => (
+                    {dayItems.map((item) => {
+                      const primaryLabel = inquiryPrimaryCustomerLabel(item);
+                      const memoTrim = item.scheduleMemo?.trim() ?? '';
+                      const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
+                      return (
                       <div
                         key={item.id}
                         onClick={() => setDetailItem(item)}
                         className="flex items-center justify-between px-4 py-3 active:bg-gray-50 min-h-[48px]"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-gray-900 truncate">{item.customerName}</div>
+                          <div className="font-medium text-gray-900 truncate">{primaryLabel}</div>
+                          {memoSubtitle ? (
+                            <div
+                              className="mt-0.5 line-clamp-1 text-fluid-2xs text-gray-600 truncate"
+                              title={memoTrim}
+                            >
+                              {memoTrim}
+                            </div>
+                          ) : null}
                           {item.memo?.trim() ? (
                             <div
                               className="mt-0.5 line-clamp-1 text-fluid-2xs text-indigo-900/85 truncate"
@@ -243,7 +266,8 @@ export function TeamDashboardPage() {
                           전화
                         </a>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 </div>
               );

@@ -12,6 +12,7 @@ import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryClea
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { postTeamInquiryDetailViewed } from '../../api/team';
+import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
   return (
@@ -364,6 +365,10 @@ export function TeamInquiryDetailModal({
   };
 
   const mine = viewerTeamLeaderId ? myAssignmentForViewer(item, viewerTeamLeaderId) : null;
+  const primaryCustomerTitle = inquiryPrimaryCustomerLabel(item);
+  const scheduleMemoTrim = item.scheduleMemo?.trim() ?? '';
+  const showScheduleMemoRow =
+    scheduleMemoTrim.length > 0 && scheduleMemoTrim !== primaryCustomerTitle;
 
   const modal = (
     <div
@@ -383,7 +388,7 @@ export function TeamInquiryDetailModal({
             <p className="text-fluid-xs text-gray-500">접수 상세</p>
             <div className="mt-0.5 flex items-center gap-2">
               <h2 id="team-inquiry-detail-title" className="min-w-0 flex-1 truncate text-lg font-semibold text-gray-900">
-                {item.customerName}
+                {primaryCustomerTitle}
               </h2>
               <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                 {item.inquiryNumber ? (
@@ -434,9 +439,9 @@ export function TeamInquiryDetailModal({
                   );
                 })()}
               </TeamModalRow>
-              {item.scheduleMemo?.trim() ? (
+              {showScheduleMemoRow ? (
                 <TeamModalRow label="제목">
-                  <span className="text-gray-900">{item.scheduleMemo}</span>
+                  <span className="text-gray-900">{scheduleMemoTrim}</span>
                 </TeamModalRow>
               ) : null}
             </TeamModalSection>

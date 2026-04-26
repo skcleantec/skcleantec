@@ -30,3 +30,25 @@ export function phoneListTwoLines(phone: string): { head: string; tail: string }
   if (d.length !== 11) return null;
   return { head: d.slice(0, 3), tail: `${d.slice(3, 7)}-${d.slice(7, 11)}` };
 }
+
+/**
+ * 목록·스케줄 카드용 고객 식별 한 줄.
+ * 이름·닉·전화가 없을 때 수기(간편) 등록 제목(`scheduleMemo`)을 표시 — 관리자 스케줄과 동일 규칙.
+ */
+export function inquiryPrimaryCustomerLabel(item: {
+  customerName?: string | null;
+  nickname?: string | null;
+  customerPhone?: string | null;
+  scheduleMemo?: string | null;
+}): string {
+  const name = item.customerName?.trim() ?? '';
+  const nick = item.nickname?.trim() ?? '';
+  const phone = item.customerPhone?.trim() ?? '';
+  if (name && nick && name !== nick) return `${name} (${nick})`;
+  if (name) return name;
+  if (nick) return nick;
+  if (phone) return phone;
+  const memo = item.scheduleMemo?.trim() ?? '';
+  if (memo) return memo;
+  return '이름·연락처 미입력';
+}
