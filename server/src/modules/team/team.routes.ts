@@ -56,6 +56,8 @@ const teamInquiryInclude = {
   orderForm: {
     select: {
       id: true,
+      submittedAt: true,
+      customerSpecialNotes: true,
       createdBy: { select: { id: true, name: true, phone: true } },
     },
   },

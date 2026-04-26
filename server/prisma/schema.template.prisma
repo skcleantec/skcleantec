@@ -509,6 +509,8 @@ model OrderForm {
   createdById     String   @map("created_by_id")
   createdAt       DateTime @default(now()) @map("created_at")
   submittedAt     DateTime? @map("submitted_at")
+  /// 고객 발주서 「특이사항」 자유 입력 — 접수 `specialNotes`(관리자·팀 공유)와 분리
+  customerSpecialNotes String? @map("customer_special_notes") @db.Text
 
   createdBy  User      @relation("OrderFormCreatedBy", fields: [createdById], references: [id])
   inquiries  Inquiry[]

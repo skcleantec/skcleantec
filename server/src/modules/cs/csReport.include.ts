@@ -37,6 +37,9 @@ export const csReportInquiryInclude = {
         teamLeader: { select: assignmentTeamLeaderSelect },
       },
     },
+    orderForm: {
+      select: { id: true, submittedAt: true, customerSpecialNotes: true },
+    },
   },
 } as const;
 

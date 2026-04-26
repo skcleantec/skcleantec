@@ -70,6 +70,8 @@ export interface ScheduleItem {
     totalAmount: number;
     depositAmount: number;
     balanceAmount: number;
+    submittedAt?: string | null;
+    customerSpecialNotes?: string | null;
     createdBy?: { id: string; name: string };
   } | null;
   assignments: Array<{

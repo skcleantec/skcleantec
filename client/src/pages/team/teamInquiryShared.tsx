@@ -3,6 +3,10 @@ import { createPortal } from 'react-dom';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
+import {
+  effectiveAdminTeamSpecialNotes,
+  effectiveCustomerOrderNotes,
+} from '../../utils/inquirySpecialNotesDisplay';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
@@ -107,7 +111,7 @@ export interface InquiryItem {
   preferredTimeDetail?: string | null;
   status: string;
   memo: string | null;
-  /** 고객이 발주서 "특이사항"에 직접 작성한 메모 — 팀장에게 그대로 노출 */
+  /** 접수 `specialNotes` 원문 — 표시는 effective* 유틸로 고객/관리자 구분 */
   specialNotes?: string | null;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
@@ -118,7 +122,12 @@ export interface InquiryItem {
   claimMemo: string | null;
   createdAt: string;
   createdBy?: { id: string; name: string; phone?: string | null } | null;
-  orderForm?: { id?: string; createdBy?: { id: string; name: string; phone?: string | null } | null } | null;
+  orderForm?: {
+    id?: string;
+    submittedAt?: string | null;
+    customerSpecialNotes?: string | null;
+    createdBy?: { id: string; name: string; phone?: string | null } | null;
+  } | null;
   /** ISO — 팀장 해피콜 완료 시각 */
   happyCallCompletedAt?: string | null;
   assignments: Array<{
@@ -566,17 +575,37 @@ export function TeamInquiryDetailModal({
             ) : null}
 
             {item.memo?.trim() ? (
-              <TeamModalSection title="관리자 특이사항">
+              <TeamModalSection title="접수 메모">
                 <div className="border-l-4 border-indigo-400 bg-indigo-50/85 px-3 py-3 text-fluid-sm leading-relaxed text-indigo-950 sm:px-4 whitespace-pre-wrap break-words">
                   {item.memo.trim()}
                 </div>
               </TeamModalSection>
             ) : null}
 
-            {item.specialNotes?.trim() ? (
-              <TeamModalSection title="발주서 고객 메모">
+            {effectiveCustomerOrderNotes({
+              specialNotes: item.specialNotes,
+              orderForm: item.orderForm,
+            }).trim() ? (
+              <TeamModalSection title="고객 발주서 특이사항">
                 <div className="border-l-4 border-emerald-400 bg-emerald-50/70 px-3 py-3 text-fluid-sm leading-relaxed text-emerald-950 sm:px-4 whitespace-pre-wrap break-words">
-                  {item.specialNotes.trim()}
+                  {effectiveCustomerOrderNotes({
+                    specialNotes: item.specialNotes,
+                    orderForm: item.orderForm,
+                  })}
+                </div>
+              </TeamModalSection>
+            ) : null}
+
+            {effectiveAdminTeamSpecialNotes({
+              specialNotes: item.specialNotes,
+              orderForm: item.orderForm,
+            }).trim() ? (
+              <TeamModalSection title="특이사항 (관리자·팀장 공유)">
+                <div className="border-l-4 border-violet-400 bg-violet-50/75 px-3 py-3 text-fluid-sm leading-relaxed text-violet-950 sm:px-4 whitespace-pre-wrap break-words">
+                  {effectiveAdminTeamSpecialNotes({
+                    specialNotes: item.specialNotes,
+                    orderForm: item.orderForm,
+                  })}
                 </div>
               </TeamModalSection>
             ) : null}

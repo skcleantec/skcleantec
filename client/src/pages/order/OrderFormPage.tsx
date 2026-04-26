@@ -144,7 +144,7 @@ export function OrderFormPage() {
           kitchenCount: p?.kitchenCount != null ? String(p.kitchenCount) : '',
           buildingType: p?.buildingType ?? '',
           moveInDate: p?.moveInDate ?? '',
-          specialNotes: p?.specialNotes ?? '',
+          specialNotes: data.draftCustomerSpecialNotes ?? '',
         }));
         const fromForm = data.professionalOptions;
         if (fromForm && fromForm.length > 0) {

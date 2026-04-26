@@ -76,7 +76,6 @@ export interface PendingInquiryPrefill {
   preferredTimeDetail: string | null;
   buildingType: string | null;
   moveInDate: string | null;
-  specialNotes: string | null;
   memo: string | null;
 }
 
@@ -97,6 +96,8 @@ export interface OrderFormPublic {
   /** 전문 시공 옵션 — 발주서와 동일 응답에 포함(별도 API 없이 표시) */
   professionalOptions?: ProfessionalSpecialtyOptionDto[];
   formConfig?: OrderFormConfigPublic;
+  /** 미제출 상태에서 고객 특이사항 임시 저장(발주서 컬럼). 접수 `specialNotes`와 무관 */
+  draftCustomerSpecialNotes?: string | null;
   /** 발주서가 대기 접수에 연결된 경우 고객 입력 폼에 반영 */
   pendingInquiry?: PendingInquiryPrefill | null;
 }

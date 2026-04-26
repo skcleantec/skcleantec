@@ -933,7 +933,6 @@ router.get('/by-token/:token', async (req, res) => {
         preferredTimeDetail: pendingRow.preferredTimeDetail,
         buildingType: pendingRow.buildingType,
         moveInDate: pendingRow.moveInDate ? pendingRow.moveInDate.toISOString().slice(0, 10) : null,
-        specialNotes: pendingRow.specialNotes,
         memo: pendingRow.memo,
       }
     : null;
@@ -970,6 +969,8 @@ router.get('/by-token/:token', async (req, res) => {
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
     professionalOptions,
     formConfig: resolvedPublicFormConfig(formConfig),
+    /** 미제출 발주서에 고객이 이어 쓰는 특이사항(접수 `specialNotes`와 별도) */
+    draftCustomerSpecialNotes: form.customerSpecialNotes,
     pendingInquiry,
   });
 });
@@ -1001,6 +1002,10 @@ router.post('/submit/:token', async (req, res) => {
 
   const rawIds = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
   const professionalIds = await filterActiveProfessionalOptionIds(prisma, rawIds);
+  const customerSpecialNotes =
+    body.specialNotes != null && String(body.specialNotes).trim()
+      ? String(body.specialNotes).trim()
+      : null;
 
   const form = await prisma.orderForm.findUnique({ where: { token } });
   if (!form) {
@@ -1094,7 +1099,6 @@ router.post('/submit/:token', async (req, res) => {
           preferredTimeDetail: useDetailStr,
           buildingType: body.buildingType || null,
           moveInDate,
-          specialNotes: body.specialNotes || null,
           serviceTotalAmount: form.totalAmount,
           serviceDepositAmount: form.depositAmount,
           serviceBalanceAmount: form.balanceAmount,
@@ -1105,7 +1109,7 @@ router.post('/submit/:token', async (req, res) => {
       });
       await tx.orderForm.update({
         where: { id: form.id },
-        data: { submittedAt: new Date() },
+        data: { submittedAt: new Date(), customerSpecialNotes },
       });
     });
     changedInquiryId = existingPending.id;
@@ -1133,7 +1137,6 @@ router.post('/submit/:token', async (req, res) => {
           preferredTimeDetail: useDetailStr,
           buildingType: body.buildingType || null,
           moveInDate,
-          specialNotes: body.specialNotes || null,
           serviceTotalAmount: form.totalAmount,
           serviceDepositAmount: form.depositAmount,
           serviceBalanceAmount: form.balanceAmount,
@@ -1146,7 +1149,7 @@ router.post('/submit/:token', async (req, res) => {
       });
       await tx.orderForm.update({
         where: { id: form.id },
-        data: { submittedAt: new Date() },
+        data: { submittedAt: new Date(), customerSpecialNotes },
       });
       changedInquiryId = createdInquiry.id;
     });

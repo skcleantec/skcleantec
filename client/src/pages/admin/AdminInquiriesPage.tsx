@@ -62,6 +62,10 @@ import {
   type OrderFollowupStatus,
 } from '../../constants/orderFollowupStatus';
 import { happyCallRowTone } from '../../utils/happyCall';
+import {
+  effectiveAdminTeamSpecialNotes,
+  effectiveCustomerOrderNotes,
+} from '../../utils/inquirySpecialNotesDisplay';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import {
   buildOrderFormCustomerMessage,
@@ -319,6 +323,8 @@ interface InquiryItem {
     balanceAmount?: number | null;
     /** 고객 제출 시각 — null이면 발주서 목록과 같이 미제출 */
     submittedAt?: string | null;
+    /** 발주서 「고객 특이사항」란(관리자·팀 공유 specialNotes와 별도) */
+    customerSpecialNotes?: string | null;
     createdBy: { id: string; name: string; phone?: string | null; role: string };
   } | null;
   serviceTotalAmount?: number | null;
@@ -549,6 +555,8 @@ export function AdminInquiriesPage() {
   const [claimPhotoFiles, setClaimPhotoFiles] = useState<File[]>([]);
   const claimPhotoInputRef = useRef<HTMLInputElement>(null);
   const statusFilterPanelRef = useRef<HTMLDivElement | null>(null);
+  /** 구데이터: 고객 특이사항만 접수 specialNotes에 있음 — 저장 시 빈 관리자 메모로 덮어쓰지 않도록 PATCH에서 specialNotes 제외 */
+  const omitSpecialNotesIfLegacyUnchangedRef = useRef(false);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -1015,6 +1023,10 @@ export function AdminInquiriesPage() {
 
   const openEdit = (item: InquiryItem) => {
     setEditItem(item);
+    const notesCtx = { specialNotes: item.specialNotes, orderForm: item.orderForm };
+    omitSpecialNotesIfLegacyUnchangedRef.current =
+      effectiveCustomerOrderNotes(notesCtx).trim() !== '' &&
+      effectiveAdminTeamSpecialNotes(notesCtx) === '';
     const a = effectiveInquiryAmounts(item);
     setEditForm({
       customerName: item.customerName,
@@ -1040,7 +1052,7 @@ export function AdminInquiriesPage() {
       areaPyeong: item.areaPyeong != null ? String(item.areaPyeong) : '',
       buildingType: item.buildingType || '',
       moveInDate: item.moveInDate ? item.moveInDate.slice(0, 10) : '',
-      specialNotes: item.specialNotes || '',
+      specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
       kitchenCount: item.kitchenCount != null ? String(item.kitchenCount) : '',
       amountTotal: a.total != null ? String(a.total) : '',
       amountDeposit: a.deposit != null ? String(a.deposit) : '',
@@ -1383,6 +1395,9 @@ export function AdminInquiriesPage() {
         serviceBalanceAmount: parseWon(editForm.amountBalance),
         externalTransferFee: parseWon(editForm.externalTransferFee),
       };
+      if (omitSpecialNotesIfLegacyUnchangedRef.current && editForm.specialNotes.trim() === '') {
+        delete patch.specialNotes;
+      }
       // 서버는 body에 createdById 키가 있으면 비관리자에게 403 — 마케터는 팀장 등만 바꿔도 저장되도록 관리자일 때만 전송
       if (me?.role === 'ADMIN') {
         patch.createdById = editForm.createdById || null;
@@ -3167,15 +3182,39 @@ export function AdminInquiriesPage() {
                   className="w-full px-2 py-2 border border-gray-300 rounded bg-white"
                 />
               </div>
-              <div className="sm:col-span-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">특이사항 (고객 작성)</label>
-                <textarea
-                  value={editForm.specialNotes}
-                  onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-                  placeholder="고객 발주서 특이사항"
-                />
+              <div className="sm:col-span-2 space-y-2">
+                {editItem &&
+                effectiveCustomerOrderNotes({
+                  specialNotes: editItem.specialNotes,
+                  orderForm: editItem.orderForm,
+                }).trim() !== '' ? (
+                  <div>
+                    <label className="block text-fluid-sm text-gray-600 mb-1">
+                      고객 발주서 특이사항 (읽기 전용)
+                    </label>
+                    <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-sm text-gray-800">
+                      {effectiveCustomerOrderNotes({
+                        specialNotes: editItem.specialNotes,
+                        orderForm: editItem.orderForm,
+                      })}
+                    </div>
+                    <p className="mt-1 text-fluid-2xs text-gray-500">
+                      고객이 발주서 11항에 작성한 내용입니다. 서식·금액 등은 발주서 본문에서 확인하세요.
+                    </p>
+                  </div>
+                ) : null}
+                <div>
+                  <label className="block text-fluid-sm text-gray-600 mb-1">
+                    특이사항 (관리자·팀장 공유)
+                  </label>
+                  <textarea
+                    value={editForm.specialNotes}
+                    onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                    placeholder="현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)"
+                  />
+                </div>
               </div>
 
               <div className="sm:col-span-2 p-3 bg-amber-50 border border-amber-100 rounded text-fluid-xs text-amber-900">

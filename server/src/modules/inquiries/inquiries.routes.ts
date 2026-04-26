@@ -104,6 +104,7 @@ const inquiryDetailInclude = {
       depositAmount: true,
       balanceAmount: true,
       submittedAt: true,
+      customerSpecialNotes: true,
       createdBy: { select: { id: true, name: true } },
     },
   },
@@ -253,6 +254,7 @@ router.get('/', async (req, res) => {
         depositAmount: true,
         balanceAmount: true,
         submittedAt: true,
+        customerSpecialNotes: true,
         createdBy: { select: { id: true, name: true, role: true } },
       },
     },
@@ -386,7 +388,9 @@ router.patch('/:id', async (req, res) => {
   const inquiry = await prisma.inquiry.findUnique({
     where: { id },
     include: {
-      orderForm: { select: { createdById: true } },
+      orderForm: {
+        select: { id: true, createdById: true, submittedAt: true, customerSpecialNotes: true },
+      },
       assignments: {
         orderBy: { sortOrder: 'asc' },
         include: { teamLeader: { select: assignmentTeamLeaderSelect } },
@@ -749,6 +753,20 @@ router.patch('/:id', async (req, res) => {
         updateData.status !== undefined ? (updateData.status as InquiryStatus) : inquiry.status;
       if (statusAfterPatch === 'DEPOSIT_PENDING' && inquiry.inquiryNumber == null) {
         updateData.inquiryNumber = await allocateNextInquiryNumber(tx);
+      }
+      /** 구데이터: 제출 발주서인데 고객 특이사항이 접수 specialNotes에만 있음 → 관리자가 팀 공유 메모를 처음 저장할 때 발주서 customer_special_notes로 옮김 */
+      if (updateData.specialNotes !== undefined && inquiry.orderForm?.id && inquiry.orderForm.submittedAt) {
+        const prevSn = String(inquiry.specialNotes ?? '').trim();
+        const nextRaw = updateData.specialNotes;
+        const nextSn =
+          nextRaw === null || nextRaw === undefined ? '' : String(nextRaw).trim();
+        const formCustEmpty = !String(inquiry.orderForm.customerSpecialNotes ?? '').trim();
+        if (formCustEmpty && prevSn && nextSn && nextSn !== prevSn) {
+          await tx.orderForm.update({
+            where: { id: inquiry.orderForm.id },
+            data: { customerSpecialNotes: prevSn },
+          });
+        }
       }
       if (Object.keys(updateData).length > 0) {
         await tx.inquiry.update({ where: { id }, data: updateData });
