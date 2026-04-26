@@ -17,6 +17,7 @@ import { addressMatchesRegions } from '../../utils/regionMatch';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import { CustomCalendarCreateModal } from '../../components/admin/CustomCalendarCreateModal';
 import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabsBar';
+import { EditAppIcon } from '../../components/icons/EditAppIcon';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/ScheduleDayAssignmentSummaryModal';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
@@ -992,7 +993,7 @@ export function AdminSchedulePage() {
         <>
           {/* 범례 */}
           <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2.5 text-fluid-xs text-gray-600 leading-relaxed">
-            <div className="flex flex-wrap gap-x-5 gap-y-2 items-center">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <span className="inline-flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full border-2 border-rose-500 bg-white shrink-0" />
                 <span>
@@ -1015,10 +1016,16 @@ export function AdminSchedulePage() {
                 <span className="text-calendar-xs font-bold text-teal-700 tabular-nums leading-none">12</span>
                 손없는날
               </span>
+              <div className="flex w-full min-w-0 justify-end min-[520px]:w-auto min-[520px]:flex-1 min-[520px]:basis-0">
+                <HelpTooltip
+                  className="shrink-0"
+                  text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)}
+                />
+              </div>
             </div>
-            <div className="mt-2 flex min-w-0 flex-col gap-2 border-t border-gray-200/80 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-2 min-w-0 border-t border-gray-200/80 pt-2">
               <CustomCalendarTabsBar
-                className="flex-1 min-w-0"
+                className="w-full min-w-0"
                 calendars={customCalendars}
                 activeId={activeCustomCalendarId}
                 onSelect={(id) => setActiveCustomCalendarId(id)}
@@ -1026,29 +1033,16 @@ export function AdminSchedulePage() {
                   setCustomCalendarEditing(null);
                   setCustomCalendarModalOpen(true);
                 }}
-                onEdit={(item) => {
-                  setCustomCalendarEditing(item);
-                  setCustomCalendarModalOpen(true);
-                }}
-              />
-              <HelpTooltip
-                className="shrink-0 self-end sm:self-auto"
-                text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)}
               />
             </div>
             {activeCustomCalendar && (
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white/80 px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-fluid-xs font-semibold ${
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-fluid-xs font-semibold ${
                       customCalendarColorTokens(activeCustomCalendar.colorKey).badge
                     }`}
                   >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        customCalendarColorTokens(activeCustomCalendar.colorKey).dot
-                      }`}
-                    />
                     {activeCustomCalendar.name}
                   </span>
                   <span className="text-fluid-xs text-gray-600 truncate" title={activeCustomCalendar.regions.join(', ')}>
@@ -1062,14 +1056,28 @@ export function AdminSchedulePage() {
                     {activeCustomCalendar.hideAssignedInRegionBadge ? ' · 배정건배지제외' : ''}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveCustomCalendarId(null)}
-                  className="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-xs text-gray-700 hover:bg-gray-50"
-                  title="전체 캘린더로 돌아가기"
-                >
-                  ← 전체 캘린더
-                </button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomCalendarEditing(activeCustomCalendar);
+                      setCustomCalendarModalOpen(true);
+                    }}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    title="이 캘린더 이름·지역 수정 · 삭제"
+                    aria-label="이 캘린더 수정"
+                  >
+                    <EditAppIcon className="h-3.5 w-3.5" alt="" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveCustomCalendarId(null)}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-xs text-gray-700 hover:bg-gray-50"
+                    title="전체 캘린더로 돌아가기"
+                  >
+                    ← 전체 캘린더
+                  </button>
+                </div>
               </div>
             )}
           </div>

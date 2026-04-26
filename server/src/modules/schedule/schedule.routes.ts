@@ -63,7 +63,6 @@ const scheduleListSelectLite = {
   serviceDepositAmount: true,
   serviceBalanceAmount: true,
   externalTransferFee: true,
-  externalSettlementCategory: true,
   createdBy: { select: { id: true, name: true } },
   orderForm: {
     select: {

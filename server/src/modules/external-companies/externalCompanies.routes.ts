@@ -407,7 +407,6 @@ router.get('/settlement/monthly-overview', async (req, res) => {
       preferredDate: true,
       status: true,
       externalTransferFee: true,
-      externalSettlementCategory: true,
       cancelFeeExternalCompanyId: true,
       cancelFeeExternalCompany: { select: { id: true, name: true } },
       assignments: {
@@ -437,7 +436,6 @@ router.get('/settlement/monthly-overview', async (req, res) => {
 
   const companyNameById = new Map<string, string>();
   const payableByMonthCompany = new Map<string, number>();
-  const payableByMonthCompanyCategory = new Map<string, number>();
   const paidByMonthCompany = new Map<string, number>();
   const monthSet = new Set<string>();
 
@@ -458,9 +456,6 @@ router.get('/settlement/monthly-overview', async (req, res) => {
     const prev = payableByMonthCompany.get(key) ?? 0;
     const signed = isCancelled ? -fee : fee;
     payableByMonthCompany.set(key, prev + signed);
-    const category = inq.externalSettlementCategory ?? 4;
-    const catKey = `${monthKey}|${cid}|${category}`;
-    payableByMonthCompanyCategory.set(catKey, (payableByMonthCompanyCategory.get(catKey) ?? 0) + signed);
   }
 
   for (const p of payments) {
@@ -493,16 +488,6 @@ router.get('/settlement/monthly-overview', async (req, res) => {
         const prev = cumulativeByCompany.get(cid) ?? 0;
         const cumulativeRemaining = prev + remainingAmount;
         cumulativeByCompany.set(cid, cumulativeRemaining);
-        const categoryTotals = [4, 5, 6, 7].map((category) => {
-          const catKey = `${month}|${cid}|${category}`;
-          const payableByCategory = payableByMonthCompanyCategory.get(catKey) ?? 0;
-          return {
-            category,
-            payableAmount: payableByCategory,
-            paidAmount: 0,
-            remainingAmount: payableByCategory,
-          };
-        });
         return {
           externalCompanyId: cid,
           companyName: companyNameById.get(cid) ?? cid,
@@ -510,7 +495,6 @@ router.get('/settlement/monthly-overview', async (req, res) => {
           paidAmount,
           remainingAmount,
           cumulativeRemaining,
-          categoryTotals,
         };
       })
       .filter((x): x is NonNullable<typeof x> => Boolean(x));
@@ -598,7 +582,6 @@ router.get('/settlement/company-detail', async (req, res) => {
       preferredDate: true,
       status: true,
       externalTransferFee: true,
-      externalSettlementCategory: true,
     },
   });
   const cancelledRows = await prisma.inquiry.findMany({
@@ -627,7 +610,6 @@ router.get('/settlement/company-detail', async (req, res) => {
       preferredDate: true,
       status: true,
       externalTransferFee: true,
-      externalSettlementCategory: true,
     },
   });
   const items = [
@@ -642,7 +624,6 @@ router.get('/settlement/company-detail', async (req, res) => {
       isCancelled: false,
       feeAmount: r.externalTransferFee ?? 0,
       signedFeeAmount: r.externalTransferFee ?? 0,
-      settlementCategory: r.externalSettlementCategory ?? null,
     })),
     ...cancelledRows.map((r) => ({
       inquiryId: r.id,
@@ -655,7 +636,6 @@ router.get('/settlement/company-detail', async (req, res) => {
       isCancelled: true,
       feeAmount: r.externalTransferFee ?? 0,
       signedFeeAmount: -(r.externalTransferFee ?? 0),
-      settlementCategory: r.externalSettlementCategory ?? null,
     })),
   ].sort((a, b) => (b.preferredDate ?? '').localeCompare(a.preferredDate ?? ''));
   const inquiryCount = activeRows.length;

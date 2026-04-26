@@ -309,7 +309,6 @@ interface InquiryItem {
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
   externalTransferFee?: number | null;
-  externalSettlementCategory?: 4 | 5 | 6 | 7 | null;
   /** 접수를 등록한 마케터(개별 접수·POST 시 설정) */
   createdBy?: { id: string; name: string; phone?: string | null } | null;
   orderForm?: {
@@ -543,7 +542,6 @@ export function AdminInquiriesPage() {
     amountDeposit: '',
     amountBalance: '',
     externalTransferFee: '',
-    externalSettlementCategory: '4',
     createdById: '',
   });
   const [claimItem, setClaimItem] = useState<InquiryItem | null>(null);
@@ -1049,8 +1047,6 @@ export function AdminInquiriesPage() {
       amountBalance: a.balance != null ? String(a.balance) : '',
       externalTransferFee:
         item.externalTransferFee != null ? String(item.externalTransferFee) : '',
-      externalSettlementCategory:
-        item.externalSettlementCategory != null ? String(item.externalSettlementCategory) : '4',
       createdById: item.createdBy?.id ?? '',
     });
   };
@@ -1386,9 +1382,6 @@ export function AdminInquiriesPage() {
         serviceDepositAmount: parseWon(editForm.amountDeposit),
         serviceBalanceAmount: parseWon(editForm.amountBalance),
         externalTransferFee: parseWon(editForm.externalTransferFee),
-        externalSettlementCategory: [4, 5, 6, 7].includes(Number(editForm.externalSettlementCategory))
-          ? Number(editForm.externalSettlementCategory)
-          : null,
       };
       // 서버는 body에 createdById 키가 있으면 비관리자에게 403 — 마케터는 팀장 등만 바꿔도 저장되도록 관리자일 때만 전송
       if (me?.role === 'ADMIN') {
@@ -3243,21 +3236,6 @@ export function AdminInquiriesPage() {
                   inputMode="numeric"
                 />
                 <p className="text-fluid-xs text-gray-500 mt-1">타업체 담당으로 배정된 건의 수수료. 비우면 미입력.</p>
-              </div>
-              <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">타업체 정산 항목(4/5/6/7)</label>
-                <select
-                  value={editForm.externalSettlementCategory}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, externalSettlementCategory: e.target.value || '4' }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm bg-white"
-                >
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                  <option value="6">6</option>
-                  <option value="7">7</option>
-                </select>
               </div>
               <div className="sm:col-span-2">
                 <InquirySettlementPanel

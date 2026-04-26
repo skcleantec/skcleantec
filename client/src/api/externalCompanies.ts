@@ -180,7 +180,6 @@ export type ExternalSettlementCompanyDetail = {
     isCancelled: boolean;
     feeAmount: number;
     signedFeeAmount: number;
-    settlementCategory: 4 | 5 | 6 | 7 | null;
   }>;
 };
 
@@ -200,12 +199,6 @@ export type ExternalSettlementMonthlyOverview = {
       paidAmount: number;
       remainingAmount: number;
       cumulativeRemaining: number;
-      categoryTotals: Array<{
-        category: 4 | 5 | 6 | 7;
-        payableAmount: number;
-        paidAmount: number;
-        remainingAmount: number;
-      }>;
     }>;
   }>;
   overall: {
