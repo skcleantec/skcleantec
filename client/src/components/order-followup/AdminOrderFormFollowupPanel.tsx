@@ -97,7 +97,7 @@ function actionLabelKo(action: string): string {
 
 export const FOLLOWUP_PANEL_HELP =
   '전화 부재·보류 등 후속 관리입니다.\n' +
-  '이 화면에서는 부재·보류 건만 목록·필터합니다. 예약금 대기·입금 완료 등은 접수 목록에서 이어갑니다.\n' +
+  '이 화면에서는 부재·보류 건만 목록·필터합니다. 재연락 후 이용 확정이면 편집에서 「예약금 대기」또는「입금 완료」로 바꾸면 접수가 자동으로 만들어지고 접수 목록에서 이어갈 수 있습니다.\n' +
   '등록일로 범위를 좁힌 뒤, 상단 칩으로 「부재」「보류」를 골라 볼 수 있습니다.\n' +
   '재연락 후에도 부재·보류가 이어지면 「부재+1」로 누적 횟수를 올릴 수 있습니다.\n' +
   '편집에서 「골드DB」를 켜면 고급 DB로 올릴 때까지 집중이 필요한 건으로, 목록에서 노란 배경으로 표시됩니다.\n' +
@@ -513,19 +513,22 @@ export function AdminOrderFormFollowupPanel({
     []
   );
 
-  /** 부재·보류 화면 편집 상태: 부재/보류만 허용 */
-  const editStatusOptions = useMemo(() => {
-    const allowed = (
-      [
-        { value: 'ABSENT', label: '부재' },
-        { value: 'ON_HOLD', label: '보류' },
-      ] as const
-    ).map((row) => ({
-      value: row.value as OrderFollowupStatus,
-      label: row.label,
-    }));
-    return allowed;
-  }, []);
+  /** 부재·보류 편집: 부재/보류 유지 + 재연락 성공 시 입금 흐름(접수 자동 생성·연결은 서버 처리) */
+  const editStatusOptions = useMemo(
+    () =>
+      (
+        [
+          'ABSENT',
+          'ON_HOLD',
+          'DEPOSIT_PENDING',
+          'RESERVED',
+        ] as const satisfies readonly OrderFollowupStatus[]
+      ).map((value) => ({
+        value,
+        label: ORDER_FOLLOWUP_STATUS_LABEL[value],
+      })),
+    []
+  );
 
   const unlinkInquiryFromEdit = async () => {
     if (!edit) return;
@@ -1035,12 +1038,27 @@ export function AdminOrderFormFollowupPanel({
                     disabled={edit.status === 'FULFILLED'}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm bg-white disabled:bg-gray-50"
                   >
-                    {editStatusOptions.map((o) => (
+                    {(edit.status === 'FULFILLED'
+                      ? [
+                          ...editStatusOptions,
+                          {
+                            value: 'FULFILLED' as const,
+                            label: ORDER_FOLLOWUP_STATUS_LABEL.FULFILLED,
+                          },
+                        ]
+                      : editStatusOptions
+                    ).map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>
                     ))}
                   </select>
+                  {edit.status !== 'FULFILLED' ? (
+                    <p className="mt-1 text-fluid-2xs text-gray-500 leading-snug">
+                      「예약금 대기」는 접수 목록의 입금대기로, 「입금 완료」는 입금완료로 넘깁니다. 접수가 아직 없으면
+                      저장 시 자동으로 만들어 연결됩니다.
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">메모</label>
