@@ -3,10 +3,14 @@ import {
   useLayoutEffect,
   useRef,
   useCallback,
-  useEffect,
   type RefObject,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import {
+  INQUIRY_EDIT_SECTION_ANCHOR_ORDER,
+  INQUIRY_EDIT_SECTION_TITLE_HINTS,
+  inquiryEditSecDomId,
+} from '../../constants/inquiryEditSectionOrder';
 
 const STORAGE_KEY = 'sk_inquiry_edit_section_nav_y_ratio_v1';
 const HOLD_MS = 420;
@@ -58,16 +62,21 @@ function scrollToNext(scroller: HTMLElement, sections: HTMLElement[]) {
   scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
 }
 
-function scrollToSectionIndex(sections: HTMLElement[], oneBased: number) {
+/** 고정 번호 N → `#inq-edit-sec-{anchor}` (없으면 무시) */
+function scrollToCanonicalSection(sc: HTMLElement, oneBased: number) {
   const i = oneBased - 1;
-  if (i < 0 || i >= sections.length) return;
-  sections[i]!.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (i < 0 || i >= INQUIRY_EDIT_SECTION_ANCHOR_ORDER.length) return;
+  const anchor = INQUIRY_EDIT_SECTION_ANCHOR_ORDER[i]!;
+  const el = sc.querySelector(`#${CSS.escape(inquiryEditSecDomId(anchor))}`) as HTMLElement | null;
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+const SECTION_JUMP_COUNT = INQUIRY_EDIT_SECTION_ANCHOR_ORDER.length;
 
 export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) {
   const [topPx, setTopPx] = useState(80);
   const [dragging, setDragging] = useState(false);
-  const [sectionCount, setSectionCount] = useState(0);
   const [stackHeight, setStackHeight] = useState(FAB_MIN_H);
   const topPxRef = useRef(80);
   const holdTimerRef = useRef<number | null>(null);
@@ -101,7 +110,7 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
     ro.observe(el);
     setStackHeight(el.getBoundingClientRect().height);
     return () => ro.disconnect();
-  }, [sectionCount]);
+  }, []);
 
   /** 저장된 세로 위치는 스택 실측 이후 한 번만 적용 (섹션 수 변화로 비율 재적용 X) */
   useLayoutEffect(() => {
@@ -138,18 +147,6 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
       return next;
     });
   }, [clampTop, stackHeight]);
-
-  useEffect(() => {
-    const sc = scrollContainerRef.current;
-    if (!sc) return;
-    const update = () => setSectionCount(collectSections(sc).length);
-    update();
-    const mo = new MutationObserver(() => {
-      update();
-    });
-    mo.observe(sc, { childList: true, subtree: true });
-    return () => mo.disconnect();
-  }, [scrollContainerRef]);
 
   useLayoutEffect(() => {
     const onResize = () => {
@@ -291,8 +288,7 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
   const onJumpTo = (n: number) => {
     const sc = scrollContainerRef.current;
     if (!sc) return;
-    const sections = collectSections(sc);
-    scrollToSectionIndex(sections, n);
+    scrollToCanonicalSection(sc, n);
   };
 
   return (
@@ -346,26 +342,27 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
           </button>
         </div>
 
-        {sectionCount > 0 ? (
-          <div
-            className="flex flex-col gap-0.5 rounded-l-xl border border-gray-200/80 bg-white/50 py-1 pl-0.5 backdrop-blur-sm"
-            role="group"
-            aria-label="섹션 번호로 이동"
-          >
-            {Array.from({ length: sectionCount }, (_, idx) => idx + 1).map((num) => (
+        <div
+          className="flex flex-col gap-0.5 rounded-l-xl border border-gray-200/80 bg-white/50 py-1 pl-0.5 backdrop-blur-sm"
+          role="group"
+          aria-label="섹션 고정 번호로 이동 (1~9번, 7~9는 발주서·현장·이력)"
+        >
+          {Array.from({ length: SECTION_JUMP_COUNT }, (_, idx) => idx + 1).map((num) => {
+            const hint = INQUIRY_EDIT_SECTION_TITLE_HINTS[num - 1] ?? '';
+            return (
               <button
                 key={num}
                 type="button"
                 onClick={() => onJumpTo(num)}
                 className="flex h-7 w-full min-h-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-gray-800 hover:bg-blue-50 active:bg-blue-100 sm:h-8 sm:text-fluid-2xs touch-manipulation"
-                title={`${num}번째 섹션`}
-                aria-label={`${num}번 섹션으로 이동`}
+                title={hint ? `${num}. ${hint}` : `${num}번 섹션`}
+                aria-label={hint ? `${num}번, ${hint}` : `${num}번 섹션으로 이동`}
               >
                 {num}
               </button>
-            ))}
-          </div>
-        ) : null}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

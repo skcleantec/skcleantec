@@ -34,6 +34,7 @@ import {
   effectiveCustomerOrderNotes,
   effectiveTeamSharedAdminNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
+import { getInquiryEditSectionNumber } from '../../constants/inquiryEditSectionOrder';
 
 function AdminScheduleDetailSection({
   title,
@@ -45,6 +46,9 @@ function AdminScheduleDetailSection({
   /** 스크롤 점프용 앵커 — `data-inq-edit-section` + id 부여 */
   sectionAnchor?: string;
 }) {
+  const sectionNo = getInquiryEditSectionNumber(sectionAnchor);
+  const displayTitle = sectionNo != null ? `${sectionNo}. ${title}` : title;
+
   return (
     <section
       className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
@@ -52,7 +56,7 @@ function AdminScheduleDetailSection({
       data-inq-edit-section={sectionAnchor ? '' : undefined}
     >
       <h3 className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-fluid-xs font-semibold text-gray-600">
-        {title}
+        {displayTitle}
       </h3>
       <div className="p-4 sm:p-5">{children}</div>
     </section>
