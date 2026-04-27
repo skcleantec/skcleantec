@@ -58,7 +58,7 @@ function scrollToNext(scroller: HTMLElement, sections: HTMLElement[]) {
   scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
 }
 
-function scrollToSectionIndex(scroller: HTMLElement, sections: HTMLElement[], oneBased: number) {
+function scrollToSectionIndex(sections: HTMLElement[], oneBased: number) {
   const i = oneBased - 1;
   if (i < 0 || i >= sections.length) return;
   sections[i]!.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -292,7 +292,7 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
     const sc = scrollContainerRef.current;
     if (!sc) return;
     const sections = collectSections(sc);
-    scrollToSectionIndex(sc, sections, n);
+    scrollToSectionIndex(sections, n);
   };
 
   return (
