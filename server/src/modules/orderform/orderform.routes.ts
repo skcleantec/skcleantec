@@ -1109,7 +1109,14 @@ router.post('/submit/:token', async (req, res) => {
       });
       await tx.orderForm.update({
         where: { id: form.id },
-        data: { submittedAt: new Date(), customerSpecialNotes },
+        data: {
+          submittedAt: new Date(),
+          customerSpecialNotes,
+          /** 발주서 목록 「예약일」열 — 고객 제출 값을 접수와 동일하게 반영 */
+          preferredDate: useDateStr,
+          preferredTime: useTimeStr,
+          preferredTimeDetail: useDetailStr,
+        },
       });
     });
     changedInquiryId = existingPending.id;
@@ -1149,7 +1156,13 @@ router.post('/submit/:token', async (req, res) => {
       });
       await tx.orderForm.update({
         where: { id: form.id },
-        data: { submittedAt: new Date(), customerSpecialNotes },
+        data: {
+          submittedAt: new Date(),
+          customerSpecialNotes,
+          preferredDate: useDateStr,
+          preferredTime: useTimeStr,
+          preferredTimeDetail: useDetailStr,
+        },
       });
       changedInquiryId = createdInquiry.id;
     });
