@@ -310,108 +310,122 @@ export function InquirySettlementPanel({
         {row('잔금', balanceDisplay, 'accent')}
       </div>
 
-      <div className="border-t border-gray-200 bg-gray-50/60 px-3 py-2 sm:px-4">
-        <div className="text-fluid-2xs font-medium text-gray-500">
-          추가 · 할인 항목 {items.length > 0 ? `(${items.length}건)` : ''}
-        </div>
-      </div>
+      <details className="group border-t-2 border-blue-200 bg-white open:bg-white">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 border-b border-blue-100 bg-gray-50/90 px-3 py-2.5 text-left hover:bg-gray-100 sm:px-4 sm:py-3 [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0 text-fluid-2xs font-medium text-gray-800 sm:text-fluid-xs">
+            추가·할인 항목
+            {items.length > 0 ? (
+              <span className="ml-1.5 tabular-nums text-gray-600">({items.length}건)</span>
+            ) : null}
+            <span className="ml-1.5 block text-fluid-2xs font-normal text-gray-500 sm:inline">
+              · 합계·총 결제금액(추가 반영)
+            </span>
+          </span>
+          <span className="shrink-0 rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium tabular-nums text-gray-600 sm:text-fluid-2xs">
+            <span className="group-open:hidden">펼치기</span>
+            <span className="hidden group-open:inline">접기</span>
+          </span>
+        </summary>
 
-      <ul className="divide-y divide-gray-100">
-        {items.length === 0 ? (
-          <li className="px-3 py-3 text-fluid-xs text-gray-400 sm:px-4">
-            아직 추가된 항목이 없습니다.
-          </li>
-        ) : (
-          items.map((it) => (
-            <ExtraChargeRow
-              key={it.id}
-              item={it}
-              readOnly={readOnly}
-              onPatch={(next) => handlePatch(it.id, next, it)}
-              onDelete={() => handleDelete(it.id)}
-            />
-          ))
-        )}
-      </ul>
+        <div className="border-b border-gray-200 bg-white">
+          <ul className="divide-y divide-gray-100">
+            {items.length === 0 ? (
+              <li className="px-3 py-3 text-fluid-xs text-gray-400 sm:px-4">
+                아직 추가된 항목이 없습니다.
+              </li>
+            ) : (
+              items.map((it) => (
+                <ExtraChargeRow
+                  key={it.id}
+                  item={it}
+                  readOnly={readOnly}
+                  onPatch={(next) => handlePatch(it.id, next, it)}
+                  onDelete={() => handleDelete(it.id)}
+                />
+              ))
+            )}
+          </ul>
 
-      {!readOnly ? (
-        <div className="border-t border-gray-100 bg-gray-50 px-3 py-3 sm:px-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
-            <input
-              type="text"
-              value={draftDesc}
-              onChange={(e) => setDraftDesc(e.target.value)}
-              placeholder="항목명 (예: 곰팡이 제거)"
-              maxLength={120}
-              disabled={busy}
-              className="min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-fluid-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:flex-1"
-            />
-            <input
-              type="text"
-              inputMode="numeric"
-              value={draftAmt}
-              onChange={(e) => setDraftAmt(formatAmountInputDisplay(e.target.value))}
-              placeholder="금액 (예: 40000 · 4만)"
-              disabled={busy}
-              className="min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:w-40"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void handleAdd();
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => void handleAdd()}
-              disabled={busy}
-              className="hidden min-h-[40px] items-center justify-center rounded-md bg-blue-600 px-3.5 text-fluid-xs font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 sm:inline-flex"
-            >
-              + 항목 추가
-            </button>
+          {!readOnly ? (
+            <div className="border-t border-gray-100 bg-gray-50 px-3 py-3 sm:px-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+                <input
+                  type="text"
+                  value={draftDesc}
+                  onChange={(e) => setDraftDesc(e.target.value)}
+                  placeholder="항목명 (예: 곰팡이 제거)"
+                  maxLength={120}
+                  disabled={busy}
+                  className="min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-fluid-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:flex-1"
+                />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={draftAmt}
+                  onChange={(e) => setDraftAmt(formatAmountInputDisplay(e.target.value))}
+                  placeholder="금액 (예: 40000 · 4만)"
+                  disabled={busy}
+                  className="min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:w-40"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleAdd();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleAdd()}
+                  disabled={busy}
+                  className="hidden min-h-[40px] items-center justify-center rounded-md bg-blue-600 px-3.5 text-fluid-xs font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 sm:inline-flex"
+                >
+                  + 항목 추가
+                </button>
+              </div>
+              <AmountQuickChips
+                disabled={busy}
+                draft={draftAmt}
+                onChange={setDraftAmt}
+              />
+              {draftAmt.trim() && normalizeAmount(draftAmt) != null ? (
+                <p className="mt-1 text-fluid-2xs text-gray-500">
+                  입력 금액:{' '}
+                  <span className="tabular-nums font-medium text-gray-700">
+                    {formatWonSigned(normalizeAmount(draftAmt) ?? 0)}
+                  </span>
+                </p>
+              ) : null}
+              {error ? (
+                <p className="mt-1.5 text-fluid-2xs text-rose-700">{error}</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void handleAdd()}
+                disabled={busy}
+                className="mt-2 inline-flex h-9 w-full shrink-0 items-center justify-center rounded-md bg-blue-600 px-3 text-fluid-2xs font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 sm:hidden"
+              >
+                + 항목 추가
+              </button>
+            </div>
+          ) : null}
+
+          <div className="divide-y divide-gray-100 border-t-2 border-blue-200 bg-blue-50/60">
+            {row(
+              '추가·할인 합계',
+              totals.extraSum === 0 ? '0원' : formatWonSigned(totals.extraSum),
+              totals.extraSum > 0 ? 'plus' : totals.extraSum < 0 ? 'minus' : undefined,
+            )}
+            {row(
+              '총 결제받을 금액 (잔금 + 추가·할인)',
+              serviceBalanceAmount != null ? formatWon(totals.receive) : '—',
+              'accent',
+            )}
+            {serviceTotalAmount != null
+              ? row('총 결제금액(추가 반영)', formatWon(totals.grand))
+              : null}
           </div>
-          <AmountQuickChips
-            disabled={busy}
-            draft={draftAmt}
-            onChange={setDraftAmt}
-          />
-          {draftAmt.trim() && normalizeAmount(draftAmt) != null ? (
-            <p className="mt-1 text-fluid-2xs text-gray-500">
-              입력 금액:{' '}
-              <span className="tabular-nums font-medium text-gray-700">
-                {formatWonSigned(normalizeAmount(draftAmt) ?? 0)}
-              </span>
-            </p>
-          ) : null}
-          {error ? (
-            <p className="mt-1.5 text-fluid-2xs text-rose-700">{error}</p>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => void handleAdd()}
-            disabled={busy}
-            className="mt-2.5 inline-flex min-h-[48px] w-full items-center justify-center rounded-md bg-blue-600 px-4 text-fluid-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 sm:hidden"
-          >
-            + 항목 추가
-          </button>
         </div>
-      ) : null}
-
-      <div className="divide-y divide-gray-100 border-t-2 border-blue-200 bg-blue-50/60">
-        {row(
-          '추가·할인 합계',
-          totals.extraSum === 0 ? '0원' : formatWonSigned(totals.extraSum),
-          totals.extraSum > 0 ? 'plus' : totals.extraSum < 0 ? 'minus' : undefined,
-        )}
-        {row(
-          '총 결제받을 금액 (잔금 + 추가·할인)',
-          serviceBalanceAmount != null ? formatWon(totals.receive) : '—',
-          'accent',
-        )}
-        {serviceTotalAmount != null
-          ? row('총 결제금액(추가 반영)', formatWon(totals.grand))
-          : null}
-      </div>
+      </details>
     </section>
   );
 }
@@ -584,7 +598,7 @@ function ExtraChargeRow({
   );
 }
 
-/** 모바일에서 0 을 여러 번 치지 않도록 1만·5만·10만을 한 번에 더하는 버튼.
+/** 모바일에서 0 을 여러 번 치지 않도록 천·만 단위 금액을 한 번에 더하는 버튼.
  * `compact` 는 편집 인라인 행처럼 공간이 좁을 때 사용. */
 function AmountQuickChips({
   disabled,
@@ -598,42 +612,55 @@ function AmountQuickChips({
   compact?: boolean;
 }) {
   const presets: Array<{ label: string; delta: number }> = [
-    { label: '+1만', delta: 10000 },
-    { label: '+5만', delta: 50000 },
-    { label: '+10만', delta: 100000 },
-    { label: '+50만', delta: 500000 },
+    { label: '+1천', delta: 1_000 },
+    { label: '+5천', delta: 5_000 },
+    { label: '+1만', delta: 10_000 },
+    { label: '+10만', delta: 100_000 },
   ];
   const baseBtn =
-    'rounded-full border border-gray-200 bg-white px-2.5 text-gray-700 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 tabular-nums';
-  const size = compact ? 'h-7 text-fluid-2xs' : 'h-8 text-fluid-2xs sm:text-fluid-xs';
+    'shrink-0 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 tabular-nums';
+  const sizePad = compact
+    ? 'h-6 min-h-0 px-1.5 text-[10px] leading-none sm:h-7 sm:px-2 sm:text-fluid-2xs'
+    : 'h-6 min-h-0 px-1.5 text-[10px] leading-none sm:h-7 sm:px-2 sm:text-fluid-2xs md:h-8 md:px-2.5 md:text-fluid-xs';
   return (
-    <div className={`${compact ? 'mt-1.5' : 'mt-2'} flex flex-wrap items-center gap-1.5`}>
+    <div
+      className={`${
+        compact ? 'mt-1.5' : 'mt-2'
+      } flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-1 sm:pb-0 [&::-webkit-scrollbar]:hidden`}
+    >
       {presets.map((p) => (
         <button
           key={p.label}
           type="button"
           disabled={disabled}
           onClick={() => onChange(addToDraftAmount(draft, p.delta))}
-          className={`${baseBtn} ${size}`}
+          className={`${baseBtn} ${sizePad}`}
         >
           {p.label}
         </button>
       ))}
-      <span className="mx-0.5 inline-block h-4 w-px bg-gray-200" aria-hidden />
+      <span
+        className="mx-0.5 inline-block h-3 w-px shrink-0 self-center bg-gray-200 sm:h-3.5"
+        aria-hidden
+      />
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(toggleDraftSign(draft))}
-        className={`${baseBtn} ${size} ${draft.trim().startsWith('-') ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100' : ''}`}
+        className={`${baseBtn} ${sizePad} ${
+          draft.trim().startsWith('-')
+            ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
+            : ''
+        }`}
         title="할인(-)로 바꾸기"
       >
-        ± 부호
+        ±부호
       </button>
       <button
         type="button"
         disabled={disabled || !draft}
         onClick={() => onChange('')}
-        className={`${baseBtn} ${size} text-gray-500`}
+        className={`${baseBtn} ${sizePad} text-gray-500`}
       >
         지우기
       </button>

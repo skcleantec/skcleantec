@@ -3534,6 +3534,15 @@ export function AdminInquiriesPage() {
             refresh(true);
             setEditItem(null);
           }}
+          onInquiryRefresh={async () => {
+            if (!token || !editItem) return;
+            try {
+              const raw = await getInquiry(token, editItem.id);
+              openEdit(raw as unknown as InquiryItem);
+            } catch {
+              refresh(false);
+            }
+          }}
         />
       )}
 

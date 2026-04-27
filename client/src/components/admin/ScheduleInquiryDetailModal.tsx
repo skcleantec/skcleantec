@@ -6,6 +6,7 @@ import { formatAssignableUserLabel, type UserItem } from '../../api/users';
 import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
 import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
+import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
 import { AddressSearch } from '../forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
@@ -34,9 +35,22 @@ import {
   effectiveTeamSharedAdminNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
 
-function AdminScheduleDetailSection({ title, children }: { title: string; children: ReactNode }) {
+function AdminScheduleDetailSection({
+  title,
+  children,
+  sectionAnchor,
+}: {
+  title: string;
+  children: ReactNode;
+  /** 스크롤 점프용 앵커 — `data-inq-edit-section` + id 부여 */
+  sectionAnchor?: string;
+}) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <section
+      className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+      id={sectionAnchor ? `inq-edit-sec-${sectionAnchor}` : undefined}
+      data-inq-edit-section={sectionAnchor ? '' : undefined}
+    >
       <h3 className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-fluid-xs font-semibold text-gray-600">
         {title}
       </h3>
@@ -258,6 +272,8 @@ export type ScheduleInquiryDetailModalProps =
       meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
       onSaved: () => void;
+      /** 추가·할인 항목 등 별도 API 저장 후 `item`을 다시 맞출 때(예: getInquiry 후 setState) */
+      onInquiryRefresh?: () => void | Promise<void>;
     }
   | {
       mode: 'create';
@@ -419,6 +435,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     onClose,
     onSaved,
   } = props;
+  const onInquiryRefresh = isCreate
+    ? undefined
+    : (props as { onInquiryRefresh?: () => void | Promise<void> }).onInquiryRefresh;
   const canEditMarketer = currentUserRole === 'ADMIN';
 
   const [saving, setSaving] = useState(false);
@@ -428,6 +447,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const assigneeHelpRef = useRef<HTMLDivElement | null>(null);
   const [crewHelpOpen, setCrewHelpOpen] = useState(false);
   const crewHelpRef = useRef<HTMLDivElement | null>(null);
+  const inquiryEditScrollRef = useRef<HTMLDivElement | null>(null);
+  const inquiryEditNavBoundsRef = useRef<HTMLDivElement | null>(null);
   const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
   const [occupiedCrewNamesByDate, setOccupiedCrewNamesByDate] = useState<Set<string>>(new Set());
   const [preferredDateLocked, setPreferredDateLocked] = useState(isCreate);
@@ -1045,10 +1066,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           ) : null}
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6">
+        <div ref={inquiryEditNavBoundsRef} className="relative isolate flex min-h-0 flex-1 flex-col">
+        <div
+          ref={inquiryEditScrollRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6 [scrollbar-gutter:stable]"
+        >
         <div className="space-y-4">
-        <AdminScheduleDetailSection title="고객 · 주소">
+        <AdminScheduleDetailSection title="고객 · 주소" sectionAnchor="customer">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
             <label className="block text-gray-600 mb-1">성함</label>
@@ -1064,7 +1088,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               value={editForm.nickname}
               onChange={(e) => setEditForm((p) => ({ ...p, nickname: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded"
-              placeholder="예: 어머님, 관리실"
+              placeholder="숨고 아이디, 닉네임"
             />
           </div>
           <div>
@@ -1096,7 +1120,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         </div>
         </AdminScheduleDetailSection>
 
-        <AdminScheduleDetailSection title="유형 · 면적 · 방·주방">
+        <AdminScheduleDetailSection title="유형 · 면적 · 방·주방" sectionAnchor="property">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
             <label className="block text-gray-600 mb-1">보조 연락처</label>
@@ -1190,7 +1214,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         </div>
         </AdminScheduleDetailSection>
 
-        <AdminScheduleDetailSection title="일정">
+        <AdminScheduleDetailSection title="일정" sectionAnchor="schedule">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
@@ -1324,28 +1348,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   orderForm: item.orderForm,
                 })}
               </div>
-              <p className="text-[11px] text-gray-500">
-                고객이 발주서 11항에 작성한 내용입니다. 팀장·타업체와 공유할 메모는 아래 「상태 · 배정 · 팀원 · 메모」의 특이사항란에 입력하세요.
-              </p>
             </div>
           ) : null}
         </div>
         </AdminScheduleDetailSection>
 
-        <AdminScheduleDetailSection title="정산 · 옵션">
+        <AdminScheduleDetailSection title="정산 · 옵션" sectionAnchor="settlement">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <div className="sm:col-span-2 p-3 bg-amber-50 border border-amber-100 rounded text-xs text-amber-900">
-            정산·표시용 금액(원). 비우면 해당 항목은 비움 처리됩니다.
-            {!isCreate &&
-              item?.orderForm &&
-              item.serviceTotalAmount == null &&
-              item.serviceDepositAmount == null &&
-              item.serviceBalanceAmount == null && (
-                <span className="block mt-1 text-amber-950/90">
-                  발주서 금액을 표시 중입니다. 저장하면 접수 건에 고정됩니다.
-                </span>
-              )}
-          </div>
           <div>
             <label className="block text-gray-600 mb-1">총액 (원)</label>
             <input
@@ -1456,21 +1465,27 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         </AdminScheduleDetailSection>
 
         {!isCreate && item ? (
-          <AdminScheduleDetailSection title="결제 금액 내역 (팀장·관리자 추가 항목)">
+          <AdminScheduleDetailSection
+            title="결제 금액 내역 (팀장·관리자 추가 항목)"
+            sectionAnchor="extra-charges"
+          >
             <InquirySettlementPanel
               inquiryId={item.id}
               token={token}
               mode="admin"
-              readOnly
+              readOnly={false}
               serviceTotalAmount={item.serviceTotalAmount ?? item.orderForm?.totalAmount ?? null}
               serviceDepositAmount={item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null}
               serviceBalanceAmount={item.serviceBalanceAmount ?? item.orderForm?.balanceAmount ?? null}
               initialExtraCharges={item.extraCharges}
+              onChanged={() => {
+                void onInquiryRefresh?.();
+              }}
             />
           </AdminScheduleDetailSection>
         ) : null}
 
-        <AdminScheduleDetailSection title="상태 · 배정 · 팀원 · 메모">
+        <AdminScheduleDetailSection title="상태 · 배정 · 팀원 · 메모" sectionAnchor="status">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div className={isCreate ? 'sm:col-span-2' : ''}>
             <label className="block text-gray-600 mb-1">상태</label>
@@ -1681,7 +1696,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         </AdminScheduleDetailSection>
 
         {!isCreate && item?.claimMemo?.trim() && (
-          <AdminScheduleDetailSection title="클레임 (참고)">
+          <AdminScheduleDetailSection title="클레임 (참고)" sectionAnchor="claim">
             <p className="text-xs font-medium text-orange-800 mb-2">등록된 클레임 내용</p>
             <p className="whitespace-pre-wrap rounded-lg border border-orange-100 bg-orange-50/80 p-3 text-sm text-gray-900">
               {item.claimMemo}
@@ -1690,13 +1705,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         )}
 
         {!isCreate && orderFormPhotoId && (
-          <AdminScheduleDetailSection title="발주서 첨부 사진 (고객 업로드)">
+          <AdminScheduleDetailSection title="발주서 첨부 사진 (고객 업로드)" sectionAnchor="order-photos">
             <AdminOrderFormPhotosPanel orderFormId={orderFormPhotoId} token={token} />
           </AdminScheduleDetailSection>
         )}
 
         {!isCreate && item && (
-          <AdminScheduleDetailSection title="현장 사진 (청소 전·후)">
+          <AdminScheduleDetailSection title="현장 사진 (청소 전·후)" sectionAnchor="site-photos">
             <div className="min-w-0">
               <InquiryCleaningPhotosPanel inquiryId={item.id} variant="admin" token={token} />
             </div>
@@ -1704,7 +1719,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         )}
 
         {!isCreate && item && (
-          <AdminScheduleDetailSection title="날짜·금액 변경 이력">
+          <AdminScheduleDetailSection title="날짜·금액 변경 이력" sectionAnchor="history">
             <details className="overflow-hidden rounded-lg border border-gray-200">
               <summary className="cursor-pointer select-none bg-gray-50 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-100">
                 이력 펼치기 / 접기
@@ -1726,6 +1741,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
         </div>
         </div>
+        <InquiryEditSectionNav
+          scrollContainerRef={inquiryEditScrollRef}
+          boundsRef={inquiryEditNavBoundsRef}
+        />
 
         <div className="relative z-20 flex shrink-0 gap-2 border-t border-gray-200 bg-white px-5 py-3 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {canDeleteInquiry && (

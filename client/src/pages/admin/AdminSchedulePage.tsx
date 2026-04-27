@@ -31,6 +31,7 @@ import {
 } from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
+import { getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
@@ -1900,6 +1901,15 @@ export function AdminSchedulePage() {
           meUser={meUser}
           onClose={() => setDetailItem(null)}
           onSaved={() => fetchMonthData(false)}
+          onInquiryRefresh={async () => {
+            if (!token || !detailItem) return;
+            try {
+              const raw = await getInquiry(token, detailItem.id);
+              setDetailItem(raw as unknown as ScheduleItem);
+            } catch {
+              void fetchMonthData(false);
+            }
+          }}
         />
       )}
 
