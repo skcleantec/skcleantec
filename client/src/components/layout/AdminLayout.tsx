@@ -1,4 +1,11 @@
-import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useSyncExternalStore,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { clearToken, getToken, subscribeAdminAuth } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAuth';
@@ -68,6 +75,27 @@ function CalendarCuteIcon({ className }: { className?: string }) {
   );
 }
 
+/** 모바일 관리자 FAB — 발주서(위) bottom ↔ 스케줄(아래) top 사이 = GAP 만큼 */
+const ADMIN_MOBILE_FAB_PX = 40;
+const ADMIN_MOBILE_FAB_GAP = 2;
+/** 스케줄 버튼 top − 이 값 = 발주서 버튼 top (한 줄로 붙음) */
+const ADMIN_MOBILE_FAB_ISSUE_TOP_OFFSET = ADMIN_MOBILE_FAB_PX + ADMIN_MOBILE_FAB_GAP;
+
+/** 발주서 발급 FAB 아이콘 */
+function OrderIssueFabIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.5 4.5h5.2L18.5 9.3V19a1.2 1.2 0 01-1.2 1.2H8.5A1.2 1.2 0 017.3 19V5.7A1.2 1.2 0 018.5 4.5z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.7 4.5v4.8h4.8" />
+      <path strokeLinecap="round" d="M9.6 12.3h5.6M9.6 15.1h5.6" />
+    </svg>
+  );
+}
+
 export function AdminLayout() {
   const adminToken = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const navigate = useNavigate();
@@ -94,6 +122,10 @@ export function AdminLayout() {
   const fabHoldTimerRef = useRef<number | null>(null);
   const fabDragOffsetRef = useRef({ y: 0 });
   const fabPressMovedRef = useRef(false);
+  /** 길게 눌러 이동을 시작한 버튼 — 드래그 시 스케줄 top 계산·탭 시 이동 경로 */
+  const fabPointerAnchorRef = useRef<'schedule' | 'issue' | null>(null);
+  /** 드래그 중 closure 없이 “두 FAB 동시 표시” 여부 */
+  const fabBothStackedRef = useRef(false);
   const fabStorageKey = 'admin_schedule_fab_pos_v1';
   const [celebration, setCelebration] = useState<InquiryCelebratePayload | null>(null);
   const [celebrationOpen, setCelebrationOpen] = useState(false);
@@ -296,13 +328,28 @@ export function AdminLayout() {
     location.pathname === '/admin/team-leaders' ||
     location.pathname.startsWith('/admin/team-leaders/');
 
-  /** FAB는 항상 오른쪽 여백에 붙이고, 저장·드래그는 세로(top)만 사용 */
-  const clampFabTop = useCallback((top: number) => {
-    if (typeof window === 'undefined') return top;
-    const h = 56;
+  const showScheduleFab =
+    Boolean(fabTop != null) && !location.pathname.startsWith('/admin/schedule');
+  const showOrderIssueFab =
+    Boolean(fabTop != null) && !location.pathname.startsWith('/admin/inquiries/order-issue');
+  const fabSafeRight = 'max(12px, env(safe-area-inset-right, 0px))';
+  /** 발주서 FAB top — 스케줄과 같이 있을 때만 위로 스택 */
+  const issueFabTopPx =
+    fabTop == null
+      ? undefined
+      : showScheduleFab && showOrderIssueFab
+        ? Math.max(8, fabTop - ADMIN_MOBILE_FAB_ISSUE_TOP_OFFSET)
+        : fabTop;
+
+  fabBothStackedRef.current = showScheduleFab && showOrderIssueFab;
+
+  /** FAB는 항상 오른쪽 여백에 붙이고, 저장·드래그는 세로(스케줄 버튼 top)만 사용 */
+  const clampFabTop = useCallback((scheduleTop: number) => {
+    if (typeof window === 'undefined') return scheduleTop;
+    const h = ADMIN_MOBILE_FAB_PX;
     const margin = 12;
     const maxY = Math.max(margin, window.innerHeight - h - margin - 16);
-    return Math.min(maxY, Math.max(72, top));
+    return Math.min(maxY, Math.max(72, scheduleTop));
   }, []);
 
   useEffect(() => {
@@ -311,7 +358,8 @@ export function AdminLayout() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const fallbackY = clampFabTop(Math.round(window.innerHeight * 0.58));
+    /** 기본 위치: 화면 중하단보다 조금 위(엄지 영역·이중 FAB 여유) */
+    const fallbackY = clampFabTop(Math.round(window.innerHeight * 0.46));
     try {
       const raw = window.localStorage.getItem(fabStorageKey);
       if (!raw) {
@@ -343,12 +391,33 @@ export function AdminLayout() {
     return () => window.removeEventListener('resize', onResize);
   }, [clampFabTop]);
 
+  const beginFabPointer = useCallback(
+    (anchor: 'schedule' | 'issue', evt: ReactPointerEvent<HTMLButtonElement>) => {
+      fabPointerAnchorRef.current = anchor;
+      fabPressMovedRef.current = false;
+      fabPointerIdRef.current = evt.pointerId;
+      const rect = evt.currentTarget.getBoundingClientRect();
+      fabDragOffsetRef.current = { y: evt.clientY - rect.top };
+      if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
+      fabHoldTimerRef.current = window.setTimeout(() => setFabDragging(true), 420);
+    },
+    []
+  );
+
   useEffect(() => {
     const onMove = (evt: PointerEvent) => {
       if (fabPointerIdRef.current == null || evt.pointerId !== fabPointerIdRef.current) return;
       if (fabDragging) {
         evt.preventDefault();
-        const next = clampFabTop(evt.clientY - fabDragOffsetRef.current.y);
+        const anchor = fabPointerAnchorRef.current;
+        let nextScheduleTop: number;
+        if (anchor === 'issue' && fabBothStackedRef.current) {
+          const newIssueTop = evt.clientY - fabDragOffsetRef.current.y;
+          nextScheduleTop = newIssueTop + ADMIN_MOBILE_FAB_ISSUE_TOP_OFFSET;
+        } else {
+          nextScheduleTop = evt.clientY - fabDragOffsetRef.current.y;
+        }
+        const next = clampFabTop(nextScheduleTop);
         fabTopRef.current = next;
         setFabTop(next);
         return;
@@ -366,7 +435,9 @@ export function AdminLayout() {
         fabHoldTimerRef.current = null;
       }
       const wasDragging = fabDragging;
+      const tapAnchor = fabPointerAnchorRef.current;
       fabPointerIdRef.current = null;
+      fabPointerAnchorRef.current = null;
       setFabDragging(false);
       if (wasDragging) {
         const y = fabTopRef.current;
@@ -378,7 +449,8 @@ export function AdminLayout() {
         return;
       }
       if (!fabPressMovedRef.current) {
-        navigate('/admin/schedule');
+        if (tapAnchor === 'issue') navigate('/admin/inquiries/order-issue');
+        else navigate('/admin/schedule');
       }
     };
     window.addEventListener('pointermove', onMove, { passive: false });
@@ -660,28 +732,38 @@ export function AdminLayout() {
       <main className="max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
         <Outlet />
       </main>
-      {!location.pathname.startsWith('/admin/schedule') && fabTop != null && (
+      {showOrderIssueFab && (
+        <button
+          type="button"
+          aria-label="발주서 발급으로 이동"
+          title={fabDragging ? '세로 위치 이동 중' : '발주서 발급 (길게 눌러 세로 위치만 이동)'}
+          onPointerDown={(evt) => beginFabPointer('issue', evt)}
+          className={`fixed z-[119] lg:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-600/70 bg-amber-400 text-amber-950 shadow-[0_4px_14px_rgba(180,83,9,0.28),0_1px_4px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/30 transition-[transform,box-shadow] active:scale-[0.94] active:shadow-sm ${
+            fabDragging ? 'cursor-grabbing touch-none' : 'cursor-pointer'
+          }`}
+          style={{
+            top: issueFabTopPx,
+            right: fabSafeRight,
+          }}
+        >
+          <OrderIssueFabIcon className="h-5 w-5" />
+        </button>
+      )}
+      {showScheduleFab && (
         <button
           type="button"
           aria-label="스케줄 바로가기"
           title={fabDragging ? '세로 위치 이동 중' : '스케줄 바로가기 (길게 눌러 세로 위치만 이동)'}
-          onPointerDown={(evt) => {
-            fabPressMovedRef.current = false;
-            fabPointerIdRef.current = evt.pointerId;
-            const target = evt.currentTarget.getBoundingClientRect();
-            fabDragOffsetRef.current = { y: evt.clientY - target.top };
-            if (fabHoldTimerRef.current != null) window.clearTimeout(fabHoldTimerRef.current);
-            fabHoldTimerRef.current = window.setTimeout(() => setFabDragging(true), 420);
-          }}
-          className={`fixed z-[120] lg:hidden flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-[0_10px_28px_rgba(29,78,216,0.38),0_3px_10px_rgba(15,23,42,0.18)] ring-1 ring-inset ring-white/15 transition-[transform,box-shadow] active:scale-[0.94] active:shadow-[0_6px_18px_rgba(29,78,216,0.28),0_2px_6px_rgba(15,23,42,0.14)] ${
+          onPointerDown={(evt) => beginFabPointer('schedule', evt)}
+          className={`fixed z-[120] lg:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-[0_6px_18px_rgba(29,78,216,0.32),0_2px_8px_rgba(15,23,42,0.14)] ring-1 ring-inset ring-white/15 transition-[transform,box-shadow] active:scale-[0.94] active:shadow-[0_4px_14px_rgba(29,78,216,0.26),0_1px_4px_rgba(15,23,42,0.12)] ${
             fabDragging ? 'cursor-grabbing touch-none' : 'cursor-pointer'
           }`}
           style={{
-            top: fabTop,
-            right: 'max(12px, env(safe-area-inset-right, 0px))',
+            top: fabTop ?? undefined,
+            right: fabSafeRight,
           }}
         >
-          <CalendarCuteIcon className="h-7 w-7 drop-shadow-sm" />
+          <CalendarCuteIcon className="h-5 w-5 drop-shadow-sm" />
         </button>
       )}
     </div>

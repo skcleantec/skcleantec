@@ -720,11 +720,10 @@ export function AdminOrderFormFollowupPanel({
         ) : (
           <>
             <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full min-w-[800px] border-collapse text-fluid-xs text-center">
+              <table className="w-full min-w-[680px] border-collapse text-fluid-xs text-center">
                 <thead>
                   <tr className="border-b border-gray-200 bg-white">
                     <th className="py-2.5 px-2 font-semibold text-gray-600">고객</th>
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">접수</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">연락처</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">상태</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">부재</th>
@@ -756,21 +755,6 @@ export function AdminOrderFormFollowupPanel({
                             </span>
                           </>
                         ) : null}
-                      </td>
-                      <td className="py-2 px-2 text-gray-700">
-                        {row.inquiry ? (
-                          <Link
-                            to={`/admin/inquiries?openInquiry=${encodeURIComponent(row.inquiry.id)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="tabular-nums text-blue-700 underline underline-offset-2 hover:text-blue-900"
-                            title={`${row.inquiry.customerName} 접수 열기`}
-                          >
-                            {row.inquiry.inquiryNumber ?? '—'}
-                          </Link>
-                        ) : (
-                          '—'
-                        )}
                       </td>
                       <td className="py-2 px-2 tabular-nums text-gray-800">{displayPhone(row.customerPhone)}</td>
                       <td className="py-2 px-2">
@@ -859,20 +843,6 @@ export function AdminOrderFormFollowupPanel({
                     </div>
                     <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
                   </div>
-                  {row.inquiry ? (
-                    <p className="mt-1 text-fluid-2xs text-gray-600">
-                      접수{' '}
-                      <Link
-                        to={`/admin/inquiries?openInquiry=${encodeURIComponent(row.inquiry.id)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-blue-700 underline underline-offset-2"
-                      >
-                        {row.inquiry.inquiryNumber ?? '번호 없음'}
-                      </Link>
-                      <span className="text-gray-500"> · {row.inquiry.customerName}</span>
-                    </p>
-                  ) : null}
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-fluid-2xs text-gray-600">
                     <span>부재 {row.deferCount}회</span>
                     <span>담당 {row.handledBy?.name ?? '—'}</span>

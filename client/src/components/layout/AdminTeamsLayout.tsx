@@ -3,13 +3,7 @@ import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
-
-const tabClass = ({ isActive }: { isActive: boolean }) =>
-  `inline-flex items-center px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px whitespace-nowrap ${
-    isActive
-      ? 'border-blue-600 text-gray-900 bg-white'
-      : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
-  }`;
+import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 
 /** 팀 관리(/admin/teams/*) — 관리자만. 권한은 레이아웃에서 한 번만 확인(탭 전환 시 자식마다 getMe 반복 방지). */
 export function AdminTeamsLayout() {
@@ -74,21 +68,18 @@ export function AdminTeamsLayout() {
   }
 
   return (
-    <div className="min-w-0">
-      <nav
-        className="flex flex-wrap gap-1 border-b border-gray-200 mb-6"
-        aria-label="팀 관리 하위 메뉴"
-      >
-        <NavLink to="/admin/teams/leader-stats" className={tabClass}>
+    <div className="min-w-0 w-full max-w-full">
+      <AdminSubNavScroll aria-label="팀 관리 하위 메뉴">
+        <NavLink to="/admin/teams/leader-stats" className={({ isActive }) => adminSubNavTabClassName(isActive)}>
           팀장
         </NavLink>
-        <NavLink to="/admin/teams" end className={tabClass}>
+        <NavLink to="/admin/teams" end className={({ isActive }) => adminSubNavTabClassName(isActive)}>
           팀원
         </NavLink>
-        <NavLink to="/admin/teams/holidays" className={tabClass}>
+        <NavLink to="/admin/teams/holidays" className={({ isActive }) => adminSubNavTabClassName(isActive)}>
           휴일 캘린더
         </NavLink>
-      </nav>
+      </AdminSubNavScroll>
       <Outlet />
     </div>
   );
