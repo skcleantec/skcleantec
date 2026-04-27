@@ -1,9 +1,17 @@
-import { useState, useLayoutEffect, useRef, useCallback, type RefObject, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useState,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useEffect,
+  type RefObject,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 
 const STORAGE_KEY = 'sk_inquiry_edit_section_nav_y_ratio_v1';
 const HOLD_MS = 420;
-/** 약(위 화살+그립+아래 화살) */
-const WIDGET_H = 96;
+/** ▲+그립+▼ 최소 높이(측정 전 폴백) */
+const FAB_MIN_H = 96;
 
 type Props = {
   scrollContainerRef: RefObject<HTMLElement | null>;
@@ -50,9 +58,17 @@ function scrollToNext(scroller: HTMLElement, sections: HTMLElement[]) {
   scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
 }
 
+function scrollToSectionIndex(scroller: HTMLElement, sections: HTMLElement[], oneBased: number) {
+  const i = oneBased - 1;
+  if (i < 0 || i >= sections.length) return;
+  sections[i]!.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) {
   const [topPx, setTopPx] = useState(80);
   const [dragging, setDragging] = useState(false);
+  const [sectionCount, setSectionCount] = useState(0);
+  const [stackHeight, setStackHeight] = useState(FAB_MIN_H);
   const topPxRef = useRef(80);
   const holdTimerRef = useRef<number | null>(null);
   const pointerIdRef = useRef<number | null>(null);
@@ -60,21 +76,38 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
   const dragStartClientYRef = useRef(0);
   const dragStartTopRef = useRef(0);
   const dragActiveRef = useRef(false);
+  const stackRef = useRef<HTMLDivElement | null>(null);
+  const appliedStorageRatio = useRef(false);
 
-  const clampTop = useCallback((raw: number) => {
-    const bounds = boundsRef.current;
-    if (!bounds) return raw;
-    const h = bounds.clientHeight;
-    const min = 8;
-    const max = Math.max(min, h - WIDGET_H - 8);
-    return Math.min(max, Math.max(min, raw));
-  }, [boundsRef]);
+  const clampTop = useCallback(
+    (raw: number) => {
+      const bounds = boundsRef.current;
+      if (!bounds) return raw;
+      const h = bounds.clientHeight;
+      const wh = Math.max(FAB_MIN_H, stackHeight);
+      const min = 8;
+      const max = Math.max(min, h - wh - 8);
+      return Math.min(max, Math.max(min, raw));
+    },
+    [boundsRef, stackHeight]
+  );
 
   useLayoutEffect(() => {
+    const el = stackRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      setStackHeight(el.getBoundingClientRect().height);
+    });
+    ro.observe(el);
+    setStackHeight(el.getBoundingClientRect().height);
+    return () => ro.disconnect();
+  }, [sectionCount]);
+
+  /** 저장된 세로 위치는 스택 실측 이후 한 번만 적용 (섹션 수 변화로 비율 재적용 X) */
+  useLayoutEffect(() => {
+    if (appliedStorageRatio.current) return;
     const bounds = boundsRef.current;
-    if (!bounds) return;
-    const h = bounds.clientHeight;
-    if (h <= 0) return;
+    if (!bounds || stackHeight <= 0) return;
     let ratio = 0.38;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -85,10 +118,38 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
     } catch {
       /* ignore */
     }
-    const next = clampTop(ratio * h - WIDGET_H / 2);
+    const h = bounds.clientHeight;
+    if (h <= 0) return;
+    const wh = Math.max(FAB_MIN_H, stackHeight);
+    const min = 8;
+    const max = Math.max(min, h - wh - 8);
+    const next = Math.min(max, Math.max(min, ratio * h - wh / 2));
     setTopPx(next);
     topPxRef.current = next;
-  }, [boundsRef, clampTop]);
+    appliedStorageRatio.current = true;
+  }, [stackHeight]);
+
+  /** 스택 높이·클램프 변화 시 현재 top만 경계 안으로 (튀는 현상 방지) */
+  useLayoutEffect(() => {
+    if (!appliedStorageRatio.current) return;
+    setTopPx((prev) => {
+      const next = clampTop(prev);
+      topPxRef.current = next;
+      return next;
+    });
+  }, [clampTop, stackHeight]);
+
+  useEffect(() => {
+    const sc = scrollContainerRef.current;
+    if (!sc) return;
+    const update = () => setSectionCount(collectSections(sc).length);
+    update();
+    const mo = new MutationObserver(() => {
+      update();
+    });
+    mo.observe(sc, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [scrollContainerRef]);
 
   useLayoutEffect(() => {
     const onResize = () => {
@@ -132,7 +193,8 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
         const bounds = boundsRef.current;
         if (bounds) {
           const y = topPxRef.current;
-          const ratio = (y + WIDGET_H / 2) / Math.max(1, bounds.clientHeight);
+          const wh = Math.max(FAB_MIN_H, stackRef.current?.getBoundingClientRect().height ?? stackHeight);
+          const ratio = (y + wh / 2) / Math.max(1, bounds.clientHeight);
           const clamped = Math.min(1, Math.max(0, ratio));
           try {
             window.localStorage.setItem(STORAGE_KEY, String(clamped));
@@ -150,7 +212,7 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
         window.removeEventListener('pointercancel', onUp);
       };
     },
-    [boundsRef, clampTop]
+    [boundsRef, clampTop, stackHeight]
   );
 
   useLayoutEffect(
@@ -226,54 +288,84 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
     else scrollToNext(sc, sections);
   };
 
+  const onJumpTo = (n: number) => {
+    const sc = scrollContainerRef.current;
+    if (!sc) return;
+    const sections = collectSections(sc);
+    scrollToSectionIndex(sc, sections, n);
+  };
+
   return (
     <div className="pointer-events-none absolute inset-y-0 right-0 z-[50] w-0" aria-hidden={false}>
       <div
-        className="pointer-events-auto absolute flex flex-col overflow-hidden rounded-l-xl border border-gray-200/80 bg-white/50 backdrop-blur-sm"
+        ref={stackRef}
+        className="pointer-events-auto absolute flex w-[44px] flex-col gap-1"
         style={{
           top: topPx,
           right: 0,
-          width: 44,
         }}
       >
-        <button
-          type="button"
-          onClick={() => onSectionNav('up')}
-          className="flex h-10 w-full min-h-[40px] items-center justify-center border-b border-gray-100 text-gray-700 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
-          aria-label="이전 섹션으로"
-          title="이전 섹션"
-        >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 15l6-6 6 6" />
-          </svg>
-        </button>
-        <div
-          onPointerDown={onHandlePointerDown}
-          className={`flex min-h-[16px] flex-1 cursor-grab select-none items-center justify-center border-b border-gray-100 py-0.5 text-gray-400 active:cursor-grabbing ${
-            dragging ? 'cursor-grabbing bg-gray-100' : 'hover:bg-gray-50/80'
-          }`}
-          style={{ touchAction: 'none' }}
-          title="길게 눌러 세로 위치만 이동"
-          role="separator"
-          aria-label="길게 눌러 위젯 위치를 세로로 이동"
-        >
-          <span className="text-[10px] font-bold leading-none tracking-tighter text-gray-400" aria-hidden>
-            ⋮
-            <br />
-            ⋮
-          </span>
+        <div className="flex flex-col overflow-hidden rounded-l-xl border border-gray-200/80 bg-white/50 backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={() => onSectionNav('up')}
+            className="flex h-10 w-full min-h-[40px] items-center justify-center border-b border-gray-100 text-gray-700 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
+            aria-label="이전 섹션으로"
+            title="이전 섹션"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 15l6-6 6 6" />
+            </svg>
+          </button>
+          <div
+            onPointerDown={onHandlePointerDown}
+            className={`flex min-h-[16px] flex-1 cursor-grab select-none items-center justify-center border-b border-gray-100 py-0.5 text-gray-400 active:cursor-grabbing ${
+              dragging ? 'cursor-grabbing bg-gray-100' : 'hover:bg-gray-50/80'
+            }`}
+            style={{ touchAction: 'none' }}
+            title="길게 눌러 세로 위치만 이동"
+            role="separator"
+            aria-label="길게 눌러 위젯 위치를 세로로 이동"
+          >
+            <span className="text-[10px] font-bold leading-none tracking-tighter text-gray-400" aria-hidden>
+              ⋮
+              <br />
+              ⋮
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onSectionNav('down')}
+            className="flex h-10 w-full min-h-[40px] items-center justify-center text-gray-700 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
+            aria-label="다음 섹션으로"
+            title="다음 섹션"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => onSectionNav('down')}
-          className="flex h-10 w-full min-h-[40px] items-center justify-center text-gray-700 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
-          aria-label="다음 섹션으로"
-          title="다음 섹션"
-        >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-          </svg>
-        </button>
+
+        {sectionCount > 0 ? (
+          <div
+            className="flex flex-col gap-0.5 rounded-l-xl border border-gray-200/80 bg-white/50 py-1 pl-0.5 backdrop-blur-sm"
+            role="group"
+            aria-label="섹션 번호로 이동"
+          >
+            {Array.from({ length: sectionCount }, (_, idx) => idx + 1).map((num) => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => onJumpTo(num)}
+                className="flex h-7 w-full min-h-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-gray-800 hover:bg-blue-50 active:bg-blue-100 sm:h-8 sm:text-fluid-2xs touch-manipulation"
+                title={`${num}번째 섹션`}
+                aria-label={`${num}번 섹션으로 이동`}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );
