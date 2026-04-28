@@ -1,5 +1,6 @@
 /** 서버 `OrderFollowupStatus` 와 동일 */
 export type OrderFollowupStatus =
+  | 'REQUESTED'
   | 'ABSENT'
   | 'DEPOSIT_PENDING'
   | 'ON_HOLD'
@@ -7,6 +8,7 @@ export type OrderFollowupStatus =
   | 'FULFILLED';
 
 export const ORDER_FOLLOWUP_STATUS_LABEL: Record<OrderFollowupStatus, string> = {
+  REQUESTED: '요청',
   ABSENT: '부재',
   DEPOSIT_PENDING: '예약금 대기',
   ON_HOLD: '보류·고민',
@@ -15,6 +17,7 @@ export const ORDER_FOLLOWUP_STATUS_LABEL: Record<OrderFollowupStatus, string> = 
 };
 
 export const ORDER_FOLLOWUP_STATUS_OPTIONS: { value: OrderFollowupStatus; label: string }[] = [
+  { value: 'REQUESTED', label: ORDER_FOLLOWUP_STATUS_LABEL.REQUESTED },
   { value: 'ABSENT', label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT },
   { value: 'DEPOSIT_PENDING', label: ORDER_FOLLOWUP_STATUS_LABEL.DEPOSIT_PENDING },
   { value: 'ON_HOLD', label: ORDER_FOLLOWUP_STATUS_LABEL.ON_HOLD },

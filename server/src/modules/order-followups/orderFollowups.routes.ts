@@ -139,7 +139,7 @@ router.get('/', async (req, res) => {
   const where: import('@prisma/client').Prisma.OrderFollowupWhereInput = {};
   /** 부재·보류 화면은 항상 부재/보류 상태만 조회한다. */
   const absHoldOnly: import('@prisma/client').Prisma.OrderFollowupWhereInput = {
-    status: { in: ['ABSENT', 'ON_HOLD'] },
+    status: { in: ['REQUESTED', 'ABSENT', 'ON_HOLD'] },
   };
   where.AND = [absHoldOnly];
   if (inquiryIdFilter) {
@@ -302,6 +302,19 @@ router.patch('/:id', async (req, res) => {
   const data: import('@prisma/client').Prisma.OrderFollowupUpdateInput = {
     handledBy: { connect: { id: user.userId } },
   };
+
+  if (typeof body.customerPhone === 'string') {
+    const next = body.customerPhone.trim();
+    if (next !== prev.customerPhone) {
+      data.customerPhone = next;
+      await appendFollowupLog(prisma, {
+        followupId: id,
+        actorId: user.userId,
+        action: 'CUSTOMER_PHONE',
+        detail: JSON.stringify({ from: prev.customerPhone, to: next }),
+      });
+    }
+  }
 
   if ('inquiryId' in body) {
     const raw = body.inquiryId;

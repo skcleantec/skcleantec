@@ -72,6 +72,7 @@ export function parseStatus(raw: unknown): OrderFollowupStatus | null {
   if (typeof raw !== 'string') return null;
   const u = raw.toUpperCase().trim();
   const allowed: OrderFollowupStatus[] = [
+    'REQUESTED',
     'ABSENT',
     'DEPOSIT_PENDING',
     'ON_HOLD',

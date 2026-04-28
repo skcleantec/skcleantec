@@ -231,6 +231,11 @@ export const crewMessages = {
     ko: '미팅',
     th: 'เวลานัดหมาย',
   },
+  /** 팀장이 미팅 시각을 수정한 뒤 시간 옆 배지 — 본문은 태국어(한국어는 title·접근성용) */
+  'crew.schedule.meetingTimeEditedBadge': {
+    ko: '수정됨',
+    th: 'แก้ไขแล้ว',
+  },
   'crew.schedule.wsConnected': {
     ko: '실시간 연결됨',
     th: 'เชื่อมต่อเรียลไทม์แล้ว',

@@ -85,6 +85,17 @@ const teamInquiryInclude = {
     orderBy: { sortOrder: 'asc' as const },
     include: { createdBy: { select: { id: true, name: true } } },
   },
+  changeLogs: {
+    orderBy: { createdAt: 'desc' as const },
+    take: 80,
+    select: {
+      id: true,
+      createdAt: true,
+      lines: true,
+      actorId: true,
+      actor: { select: { id: true, name: true } },
+    },
+  },
 } as const;
 
 /**
@@ -441,7 +452,10 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
     const updated = await prisma.$transaction(async (tx) => {
       await tx.inquiry.update({
         where: { id },
-        data: { crewMeetingTime: next },
+        data: {
+          crewMeetingTime: next,
+          crewMeetingTimeUpdatedAt: new Date(),
+        },
       });
       await tx.inquiryChangeLog.create({
         data: {

@@ -43,6 +43,8 @@ export type CrewFieldInquiryOut = {
   preferredTime: string | null;
   /** 팀장 지정 크루 미팅(HH:mm). 오전 희망일 때만 의미 있음 */
   crewMeetingTime: string | null;
+  /** 팀장이 미팅 시각을 저장한 적 있음 — 크루 UI 태국어 «수정됨» 등 */
+  crewMeetingTimeEdited: boolean;
   status: string;
   leaders: CrewFieldLeaderOut[];
 };
@@ -104,6 +106,7 @@ export async function buildCrewFieldSchedule(
       preferredTime: true,
       betweenScheduleSlot: true,
       crewMeetingTime: true,
+      crewMeetingTimeUpdatedAt: true,
       status: true,
       crewMemberNote: true,
       assignments: {
@@ -190,17 +193,19 @@ export async function buildCrewFieldSchedule(
       for (const inq of dayInquiries) {
         const names = parseCrewMemberNoteToNames(inq.crewMemberNote);
         if (!names.some((n) => nameToMemberIdsInGroup(n).includes(mid))) continue;
+        const effMeeting = effectiveCrewMeetingTimeForDisplay(
+          inq.preferredTime,
+          inq.betweenScheduleSlot,
+          inq.crewMeetingTime
+        );
         matched.push({
           inquiryId: inq.id,
           inquiryNumber: inq.inquiryNumber,
           customerName: inq.customerName,
           address: inq.address,
           preferredTime: inq.preferredTime,
-          crewMeetingTime: effectiveCrewMeetingTimeForDisplay(
-            inq.preferredTime,
-            inq.betweenScheduleSlot,
-            inq.crewMeetingTime
-          ),
+          crewMeetingTime: effMeeting,
+          crewMeetingTimeEdited: Boolean(inq.crewMeetingTimeUpdatedAt) && Boolean(effMeeting),
           status: inq.status,
           leaders: inq.assignments.map((a) => ({
             id: a.teamLeader.id,

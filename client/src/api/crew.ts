@@ -207,6 +207,8 @@ export interface CrewFieldInquiry {
   preferredTime: string | null;
   /** 팀장 지정 현장 미팅(HH:mm KST). 오전 희망 접수 등에서만 채워짐 */
   crewMeetingTime?: string | null;
+  /** 팀장이 미팅 시각 저장·변경 후 true — 시간 옆 «수정됨»(태국어) 배지 */
+  crewMeetingTimeEdited?: boolean;
   status: string;
   leaders: CrewFieldLeader[];
 }

@@ -12,6 +12,8 @@ import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryClea
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
+import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
+import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { postTeamInquiryDetailViewed, patchTeamInquiryCrewMeetingTime } from '../../api/team';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import {
@@ -121,6 +123,8 @@ export interface InquiryItem {
   betweenScheduleSlot?: string | null;
   /** 팀장 지정 크루 미팅(HH:mm KST). 오전 희망일 때만 */
   crewMeetingTime?: string | null;
+  /** 팀장이 미팅 시각을 저장·변경한 시각(ISO) — 크루 «수정됨» 배지 등 */
+  crewMeetingTimeUpdatedAt?: string | null;
   status: string;
   memo: string | null;
   /** 접수 `specialNotes` 원문 — 표시는 effective* 유틸로 고객/관리자 구분 */
@@ -168,6 +172,8 @@ export interface InquiryItem {
     createdAt?: string;
     updatedAt?: string;
   }>;
+  /** 접수 변경 이력(미팅 시각 포함) — 목록 조회 포함 시 서버 제공 */
+  changeLogs?: InquiryChangeLogEntry[];
 }
 
 export function formatScheduleLine(item: InquiryItem) {
@@ -673,6 +679,21 @@ export function TeamInquiryDetailModal({
                 <span className="text-gray-800">{formatScheduleLine(item)}</span>
               </TeamModalRow>
             </TeamModalSection>
+
+            <details className="overflow-hidden rounded-lg border border-gray-200">
+              <summary className="cursor-pointer select-none bg-gray-50 px-3 py-2.5 text-fluid-sm text-gray-700 hover:bg-gray-100">
+                접수 변경 이력 보기 (날짜·금액·현장 미팅 등)
+              </summary>
+              <div className="border-t border-gray-100 bg-white p-3">
+                <InquiryChangeHistoryBlock
+                  logs={item.changeLogs}
+                  className="mb-0 border-0 bg-transparent p-0"
+                  showEmptyHint
+                  sectionHeading="접수 변경 이력"
+                  emptyHintText="저장된 변경 이력이 없습니다."
+                />
+              </div>
+            </details>
 
             {onPreferredDateChange ? (
               <div className="rounded-xl border border-blue-200 bg-blue-50/90 p-4 shadow-sm">

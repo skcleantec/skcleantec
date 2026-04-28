@@ -10,7 +10,7 @@ export type AdminListIntakeResult =
   | { kind: 'updated_inquiry' }
   | { kind: 'created_deposit_reserved'; inquiryStatus: 'DEPOSIT_PENDING' | 'DEPOSIT_COMPLETED' };
 
-type Kind = 'absent' | 'hold' | 'deposit' | 'reserved';
+type Kind = 'requested' | 'absent' | 'hold' | 'deposit' | 'reserved';
 
 function emptyForm() {
   return {
@@ -76,12 +76,14 @@ export function AdminListIntakeModal({
     }
     setSaving(true);
     try {
-      if (kind === 'absent' || kind === 'hold') {
+      if (kind === 'requested' || kind === 'absent' || kind === 'hold') {
+        const status: OrderFollowupStatus =
+          kind === 'requested' ? 'REQUESTED' : kind === 'absent' ? 'ABSENT' : 'ON_HOLD';
         await createOrderFollowup(token, {
           customerName: n,
           nickname: nickname.trim() || null,
           customerPhone: phone.trim(),
-          status: kind === 'absent' ? 'ABSENT' : 'ON_HOLD',
+          status,
           memo: memo.trim() || null,
         });
         onCommitted({ kind: 'absent_or_hold' });
@@ -197,6 +199,20 @@ export function AdminListIntakeModal({
                 <input
                   type="radio"
                   name="listIntakeKind"
+                  checked={kind === 'requested'}
+                  onChange={() => setKind('requested')}
+                  className="mt-0.5"
+                  disabled={saving}
+                />
+                <span>
+                  <span className="font-medium text-gray-900">{ORDER_FOLLOWUP_STATUS_LABEL.REQUESTED}</span>
+                  <span className="mt-0.5 block text-gray-500">부재현황 상단 상태 · 접수 확정 전 문의 단계에 사용</span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-100 p-2 hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="listIntakeKind"
                   checked={kind === 'absent'}
                   onChange={() => setKind('absent')}
                   className="mt-0.5"
@@ -282,7 +298,7 @@ export function AdminListIntakeModal({
                 ? '등록 중…'
                 : editMode
                   ? '수정 저장'
-                  : kind === 'absent' || kind === 'hold'
+                  : kind === 'requested' || kind === 'absent' || kind === 'hold'
                     ? '등록 후 부재현황으로'
                     : '등록'}
             </button>

@@ -23,6 +23,18 @@ function formatVehicles(leaders: CrewFieldLeader[]): string {
   return parts.length ? parts.join('·') : '—';
 }
 
+function MeetingTimeEditedBadgeInline() {
+  const { ko, th } = crewT('crew.schedule.meetingTimeEditedBadge');
+  return (
+    <span
+      className="inline-block rounded bg-amber-50 px-1 py-px text-[0.58rem] sm:text-[0.6rem] font-medium text-amber-900 leading-tight max-w-[5.5rem] text-center shrink-0"
+      title={`${ko} (${th})`}
+    >
+      {th}
+    </span>
+  );
+}
+
 type TodayRow = {
   key: string;
   memberName: string;
@@ -31,6 +43,8 @@ type TodayRow = {
   timeText: string;
   /** 팀장 지정 미팅 HH:mm, 없으면 null */
   meetingTime: string | null;
+  /** 팀장이 미팅 시각 저장·변경 후 true — 태국어 «수정됨» 배지 */
+  meetingTimeEdited?: boolean;
   vehicleText: string;
   inactive: boolean;
 };
@@ -53,6 +67,7 @@ function buildDayList(
         leaderLeaders: [],
         timeText: '—',
         meetingTime: null,
+        meetingTimeEdited: false,
         vehicleText: '—',
         inactive: !gm.isActive,
       });
@@ -61,6 +76,7 @@ function buildDayList(
 
     m.inquiries.forEach((inq, i) => {
       const meetingRaw = (inq.crewMeetingTime ?? '').trim();
+      const edited = Boolean(inq.crewMeetingTimeEdited);
       rows.push({
         key: `${gm.teamMemberId}-${inq.inquiryId}-${i}`,
         memberName: gm.name,
@@ -68,6 +84,7 @@ function buildDayList(
         leaderLeaders: inq.leaders,
         timeText: (inq.preferredTime ?? '').trim() || '—',
         meetingTime: meetingRaw || null,
+        meetingTimeEdited: edited,
         vehicleText: formatVehicles(inq.leaders),
         inactive: !gm.isActive,
       });
@@ -281,9 +298,10 @@ export function CrewFieldSchedulePage() {
                       >
                         {!leadersOnly && !hasVehicle ? (
                           hasMeeting ? (
-                            <span className="inline-block min-w-0">
+                            <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
                               <span className="text-gray-600">{meetingThLabel}</span>
-                              <span className="tabular-nums"> {row.meetingTime}</span>
+                              <span className="tabular-nums">{row.meetingTime}</span>
+                              {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
                             </span>
                           ) : (
                             <span className="text-gray-500">—</span>
@@ -294,9 +312,11 @@ export function CrewFieldSchedulePage() {
                             {hasMeeting ? (
                               <>
                                 <span className="text-gray-400"> · </span>
-                                <span className="text-gray-600">{meetingThLabel}</span>
-                                <span> </span>
-                                <span className="tabular-nums">{row.meetingTime}</span>
+                                <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                                  <span className="text-gray-600">{meetingThLabel}</span>
+                                  <span className="tabular-nums">{row.meetingTime}</span>
+                                  {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
+                                </span>
                               </>
                             ) : null}
                           </span>
@@ -306,9 +326,11 @@ export function CrewFieldSchedulePage() {
                             {hasMeeting ? (
                               <>
                                 <span className="text-gray-400"> · </span>
-                                <span className="text-gray-600">{meetingThLabel}</span>
-                                <span> </span>
-                                <span className="tabular-nums align-middle">{row.meetingTime}</span>
+                                <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 align-middle">
+                                  <span className="text-gray-600">{meetingThLabel}</span>
+                                  <span className="tabular-nums">{row.meetingTime}</span>
+                                  {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
+                                </span>
                               </>
                             ) : null}
                           </span>
@@ -320,8 +342,11 @@ export function CrewFieldSchedulePage() {
                             {hasMeeting ? (
                               <>
                                 <span className="text-gray-400"> · </span>
-                                <span className="text-gray-600">{meetingThLabel}</span>
-                                <span className="tabular-nums"> {row.meetingTime}</span>
+                                <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                                  <span className="text-gray-600">{meetingThLabel}</span>
+                                  <span className="tabular-nums">{row.meetingTime}</span>
+                                  {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
+                                </span>
                               </>
                             ) : null}
                           </span>
@@ -382,8 +407,15 @@ export function CrewFieldSchedulePage() {
                           <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 whitespace-nowrap">
                             {row.timeText}
                           </td>
-                          <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 tabular-nums whitespace-nowrap">
-                            {row.meetingTime ?? '—'}
+                          <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 tabular-nums">
+                            {row.meetingTime ? (
+                              <span className="inline-flex flex-wrap items-center justify-center gap-x-1 gap-y-1">
+                                <span className="whitespace-nowrap">{row.meetingTime}</span>
+                                {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
                           </td>
                           <td
                             className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 truncate"

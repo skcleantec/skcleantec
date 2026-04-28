@@ -6,30 +6,38 @@ function normalizeLines(raw: unknown): string[] {
   return raw.filter((x): x is string => typeof x === 'string');
 }
 
-/** 접수 날짜·금액 변경 이력 (관리자 PATCH 시 서버 기록) */
+/** 접수 날짜·금액·미팅 시각 등 변경 이력 (관리자·팀장 PATCH 시 서버 기록) */
 export function InquiryChangeHistoryBlock({
   logs,
   className = '',
   showEmptyHint = false,
+  sectionHeading = '날짜·금액 변경 이력',
+  emptyHintText,
 }: {
   logs: InquiryChangeLogEntry[] | undefined;
   /** 기본은 카드형 여백. 접기 안쪽 등에서는 `mb-0 p-0 border-0 bg-transparent` 등으로 조정 */
   className?: string;
   /** true면 이력이 없을 때 안내 문구 표시 (접수 목록 상세 등) */
   showEmptyHint?: boolean;
+  /** 섹션 제목 커스터마이즈(팀장 상세 등) */
+  sectionHeading?: string;
+  /** 이력 없음 안내(미지정 시 기본 한 문구 사용) */
+  emptyHintText?: string;
 }) {
   const entries =
     logs?.map((log) => ({ ...log, lines: normalizeLines(log.lines) })).filter((e) => e.lines.length > 0) ??
     [];
+  const emptyHint =
+    emptyHintText ?? '저장된 날짜·금액 변경 이력이 없습니다.';
   if (entries.length === 0) {
     if (showEmptyHint) {
-      return <p className="text-xs text-gray-500">저장된 날짜·금액 변경 이력이 없습니다.</p>;
+      return <p className="text-xs text-gray-500">{emptyHint}</p>;
     }
     return null;
   }
   return (
     <div className={`mb-6 p-4 bg-amber-50/80 border border-amber-100 rounded-lg ${className}`}>
-      <h3 className="text-sm font-medium text-amber-900 mb-3">날짜·금액 변경 이력</h3>
+      <h3 className="text-sm font-medium text-amber-900 mb-3">{sectionHeading}</h3>
       <ul className="space-y-3 text-sm">
         {entries.map((log) => (
           <li key={log.id} className="border-l-2 border-amber-300 pl-3">

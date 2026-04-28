@@ -92,6 +92,7 @@ function actionLabelKo(action: string): string {
     LINK_ORDERFORM: '발주서 연결(구버전 기록)',
     UNLINK_ORDERFORM: '발주서 연결 해제(구버전 기록)',
     INQUIRY_LINK: '접수 연결',
+    CUSTOMER_PHONE: '연락처 변경',
   };
   return map[action] ?? action;
 }
@@ -169,6 +170,14 @@ function logDetailDescription(log: OrderFollowupLogItem): string {
       return '닉네임을 업데이트했습니다.';
     }
 
+    if (
+      log.action === 'CUSTOMER_PHONE' &&
+      typeof j.from === 'string' &&
+      typeof j.to === 'string'
+    ) {
+      return `연락처를 「${j.from}」에서 「${j.to}」(으)로 바꿨습니다.`;
+    }
+
     if (log.action === 'DEFER') {
       const n = typeof j.deferCount === 'number' ? j.deferCount : Number(j.deferCount);
       const note = typeof j.note === 'string' && j.note.trim() ? j.note.trim() : '';
@@ -197,11 +206,13 @@ function statusToneClass(status: OrderFollowupStatus): string {
     ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
     : status === 'RESERVED'
       ? 'bg-blue-50 text-blue-900 border border-blue-200'
-      : status === 'ON_HOLD'
-        ? 'bg-amber-50 text-amber-950 border border-amber-200'
-        : status === 'DEPOSIT_PENDING'
-          ? 'bg-orange-50 text-orange-900 border border-orange-200'
-          : 'bg-gray-100 text-gray-800 border border-gray-200';
+      : status === 'REQUESTED'
+        ? 'bg-sky-50 text-sky-950 border border-sky-200'
+        : status === 'ON_HOLD'
+          ? 'bg-amber-50 text-amber-950 border border-amber-200'
+          : status === 'DEPOSIT_PENDING'
+            ? 'bg-orange-50 text-orange-900 border border-orange-200'
+            : 'bg-gray-100 text-gray-800 border border-gray-200';
 }
 
 const STATUS_BADGE_BASE =
@@ -297,6 +308,7 @@ export function AdminOrderFormFollowupPanel({
   const [edit, setEdit] = useState<OrderFollowupItem | null>(null);
   const [editName, setEditName] = useState('');
   const [editNickname, setEditNickname] = useState('');
+  const [editPhone, setEditPhone] = useState('');
   const [editStatus, setEditStatus] = useState<OrderFollowupStatus>('ABSENT');
   const [editMemo, setEditMemo] = useState('');
   const [editNext, setEditNext] = useState('');
@@ -365,7 +377,12 @@ export function AdminOrderFormFollowupPanel({
 
   /** 예전에 다른 상태로 필터를 둔 경우 — 이 화면에서는 부재·보류만 */
   useEffect(() => {
-    if (filterStatus !== '' && filterStatus !== 'ABSENT' && filterStatus !== 'ON_HOLD') {
+    if (
+      filterStatus !== '' &&
+      filterStatus !== 'REQUESTED' &&
+      filterStatus !== 'ABSENT' &&
+      filterStatus !== 'ON_HOLD'
+    ) {
       setFilterStatus('');
     }
   }, [filterStatus]);
@@ -397,6 +414,7 @@ export function AdminOrderFormFollowupPanel({
     if (!edit) return;
     setEditName(edit.customerName);
     setEditNickname(edit.nickname ?? '');
+    setEditPhone(edit.customerPhone ?? '');
     setEditStatus(edit.status);
     setEditMemo(edit.memo ?? '');
     setEditNext(toLocalDatetimeValue(edit.nextContactAt));
@@ -465,6 +483,7 @@ export function AdminOrderFormFollowupPanel({
       await patchOrderFollowup(token, edit.id, {
         customerName: nextName,
         nickname: editNickname.trim() || null,
+        customerPhone: editPhone.trim(),
         status: editStatus,
         memo: editMemo.trim() || null,
         nextContactAt: fromLocalDatetimeValue(editNext),
@@ -509,6 +528,7 @@ export function AdminOrderFormFollowupPanel({
     () =>
       [
         { value: '' as const, label: '전체' },
+        { value: 'REQUESTED' as const, label: ORDER_FOLLOWUP_STATUS_LABEL.REQUESTED },
         { value: 'ABSENT' as const, label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT },
         { value: 'ON_HOLD' as const, label: ORDER_FOLLOWUP_STATUS_LABEL.ON_HOLD },
       ] as const,
@@ -520,6 +540,7 @@ export function AdminOrderFormFollowupPanel({
     () =>
       (
         [
+          'REQUESTED',
           'ABSENT',
           'ON_HOLD',
           'DEPOSIT_PENDING',
@@ -1009,6 +1030,18 @@ export function AdminOrderFormFollowupPanel({
                       placeholder="동명이인 구분용 별명"
                     />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">연락처</label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm tabular-nums text-gray-900 shadow-sm"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="숫자·하이픈"
+                  />
                 </div>
                 <div>
                   <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">상태</label>

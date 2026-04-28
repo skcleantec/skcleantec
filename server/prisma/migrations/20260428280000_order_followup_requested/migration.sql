@@ -1,0 +1,1 @@
+ALTER TYPE "OrderFollowupStatus" ADD VALUE 'REQUESTED';

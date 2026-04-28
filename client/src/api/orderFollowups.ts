@@ -129,6 +129,8 @@ export async function patchOrderFollowup(
   body: {
     /** 편집 시 고객명 수정 */
     customerName?: string;
+    /** 편집 시 연락처 수정 */
+    customerPhone?: string;
     /** 편집 시 닉네임 수정 (`null`·빈 문자열로 제거 가능) */
     nickname?: string | null;
     status?: OrderFollowupStatus;
