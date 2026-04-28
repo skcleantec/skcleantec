@@ -30,15 +30,17 @@ export function formatMeetingTimeKoLabel(hhmm: string): string {
   return `오전 ${h}시${m === 0 ? '' : ` ${m}분`}`;
 }
 
-/** `<input type="time">` 값 → `HH:mm` (서버·허용 목록과 동일 형식) */
+/** `<input type="time">` 값 → `HH:mm` (브라우저가 초 `:ss` 를 붙이는 경우 포함) */
 export function normalizeTimeInputToHhmm(raw: string): string | null {
   const t = raw.trim();
   if (!t) return null;
-  const m = t.match(/^(\d{1,2}):(\d{2})$/);
+  const m = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (!m) return null;
   const h = Number(m[1]);
   const min = Number(m[2]);
   if (!Number.isFinite(h) || !Number.isFinite(min) || min < 0 || min > 59) return null;
+  const sec = m[3] != null ? Number(m[3]) : 0;
+  if (m[3] != null && (!Number.isFinite(sec) || sec < 0 || sec > 59)) return null;
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 

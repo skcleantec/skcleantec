@@ -11,6 +11,7 @@ import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
+import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
 import { postTeamInquiryDetailViewed, patchTeamInquiryCrewMeetingTime } from '../../api/team';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import {
@@ -327,7 +328,6 @@ export function TeamInquiryDetailModal({
 }) {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const [happySaving, setHappySaving] = useState(false);
-  const [crewMeetingSaving, setCrewMeetingSaving] = useState(false);
 
   useEffect(() => {
     if (!teamToken || !item?.id) return;
@@ -345,8 +345,21 @@ export function TeamInquiryDetailModal({
   }, [teamToken, item.id]);
   const [preferredDateInput, setPreferredDateInput] = useState(item.preferredDate?.slice(0, 10) ?? '');
   const [preferredDateSaving, setPreferredDateSaving] = useState(false);
+  /** 서버 저장값과 별도 — 시간 입력 중 경고·PATCH 방지 */
+  const [crewMeetingDraft, setCrewMeetingDraft] = useState(() => item.crewMeetingTime ?? '');
+  const [crewMeetingSaving, setCrewMeetingSaving] = useState(false);
+  /** 저장 직후 사용자 피드백 메시지(몇 초 후 자동 숨김) */
+  const [crewMeetingSaveNotice, setCrewMeetingSaveNotice] = useState<string | null>(null);
   const canHappy = enableHappyCall && isHappyCallEligible(item.status, item.preferredDate);
   const showHappyBlock = enableHappyCall && item.preferredDate;
+
+  useEffect(() => {
+    setCrewMeetingDraft(item.crewMeetingTime ?? '');
+  }, [item.id]);
+
+  useEffect(() => {
+    setCrewMeetingSaveNotice(null);
+  }, [item.id]);
 
   const handleHappyCallComplete = async () => {
     if (!onHappyCallComplete) return;
@@ -378,17 +391,18 @@ export function TeamInquiryDetailModal({
     }
   };
 
-  const handleCrewMeetingTimeChange = async (raw: string) => {
+  const handleCrewMeetingSave = async () => {
     if (!teamToken) {
       alert('로그인이 필요합니다.');
       return;
     }
-    const normalized = raw === '' ? null : normalizeTimeInputToHhmm(raw);
-    if (raw !== '' && normalized == null) {
+    const t = crewMeetingDraft.trim();
+    const normalized = t === '' ? null : normalizeTimeInputToHhmm(t);
+    if (t !== '' && normalized === null) {
       alert('시간 형식이 올바르지 않습니다.');
       return;
     }
-    if (normalized != null && !isAllowedCrewMeetingHhmm(normalized)) {
+    if (normalized !== null && !isAllowedCrewMeetingHhmm(normalized)) {
       alert('미팅 시각은 오전 4시~8시 사이 30분 단위만 선택할 수 있습니다.');
       return;
     }
@@ -397,12 +411,35 @@ export function TeamInquiryDetailModal({
     try {
       const next = (await patchTeamInquiryCrewMeetingTime(teamToken, item.id, val)) as InquiryItem;
       onInquiryPatched?.(next);
+      setCrewMeetingDraft(next.crewMeetingTime ?? '');
+      setCrewMeetingSaveNotice(
+        val != null
+          ? `미팅 시각이 ${val}로 저장되었습니다. 크루 「현장 일정」에 반영됩니다.`
+          : '미팅 미지정으로 저장되었습니다. 크루 「현장 일정」에도 표시되지 않습니다.',
+      );
+      window.setTimeout(() => setCrewMeetingSaveNotice(null), 4500);
     } catch (e) {
       alert(e instanceof Error ? e.message : '미팅 시각 저장에 실패했습니다.');
     } finally {
       setCrewMeetingSaving(false);
     }
   };
+
+  const crewMeetingPreview =
+    crewMeetingDraft.trim() === '' ? null : normalizeTimeInputToHhmm(crewMeetingDraft.trim());
+  const crewMeetingPreviewLabel =
+    crewMeetingPreview && isAllowedCrewMeetingHhmm(crewMeetingPreview)
+      ? formatMeetingTimeKoLabel(crewMeetingPreview)
+      : null;
+  const crewMeetingDirty = (() => {
+    const savedRaw = (item.crewMeetingTime ?? '').trim();
+    const savedNorm = savedRaw === '' ? null : normalizeTimeInputToHhmm(savedRaw);
+    const t = crewMeetingDraft.trim();
+    if (t === '') return savedRaw !== '';
+    const n = normalizeTimeInputToHhmm(t);
+    if (n === null) return true;
+    return n !== (savedNorm ?? null);
+  })();
 
   const mine = viewerTeamLeaderId ? myAssignmentForViewer(item, viewerTeamLeaderId) : null;
   const primaryCustomerTitle = inquiryPrimaryCustomerLabel(item);
@@ -585,35 +622,45 @@ export function TeamInquiryDetailModal({
               </TeamModalRow>
               {isMorningBucketForTeamMeeting(item) ? (
                 <TeamModalRow label="미팅시간">
-                  <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="space-y-2">
+                    <div className="flex min-w-0 w-full flex-col gap-2 items-start sm:flex-row sm:flex-wrap sm:items-center">
                       <input
                         type="time"
-                        min="04:00"
-                        max="08:00"
-                        step={1800}
-                        className="min-h-[44px] w-[min(100%,14rem)] rounded-lg border border-gray-300 bg-white px-2 py-2 text-fluid-base tabular-nums text-gray-900 [color-scheme:light]"
+                        className="h-9 min-h-9 w-[9.75rem] max-w-full shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-fluid-sm tabular-nums text-gray-900 shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)] [color-scheme:light]"
                         disabled={crewMeetingSaving || !teamToken}
-                        value={item.crewMeetingTime ?? ''}
-                        onChange={(e) => void handleCrewMeetingTimeChange(e.target.value)}
-                        aria-label="현장 미팅 시각 (크루 일정에 표시)"
+                        value={crewMeetingDraft}
+                        onChange={(e) => setCrewMeetingDraft(e.target.value)}
+                        aria-label="현장 미팅 시각 (저장 시 크루 일정에 반영)"
                       />
-                      {item.crewMeetingTime ? (
-                        <span className="text-fluid-sm text-gray-700">
-                          {formatMeetingTimeKoLabel(item.crewMeetingTime)}
+                      {crewMeetingPreviewLabel ? (
+                        <span className="inline-flex shrink-0 items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-fluid-2xs font-medium tabular-nums text-gray-700">
+                          {crewMeetingPreviewLabel}
                         </span>
                       ) : null}
-                      <button
-                        type="button"
-                        disabled={crewMeetingSaving || !teamToken || !item.crewMeetingTime}
-                        onClick={() => void handleCrewMeetingTimeChange('')}
-                        className="min-h-[44px] shrink-0 rounded-lg border border-gray-300 bg-white px-3 text-fluid-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                      >
-                        지우기
-                      </button>
+                      <div className="inline-flex w-fit shrink-0 self-start items-stretch overflow-hidden rounded-lg border border-gray-200/95 bg-gray-50/90 shadow-[0_1px_2px_rgba(15,23,42,0.05)] ring-1 ring-black/[0.03]">
+                        <button
+                          type="button"
+                          disabled={crewMeetingSaving || !teamToken || crewMeetingDraft.trim() === ''}
+                          onClick={() => setCrewMeetingDraft('')}
+                          className="min-h-9 shrink-0 touch-manipulation border-0 px-2.5 py-2 text-fluid-2xs font-medium leading-none text-gray-600 hover:bg-white hover:text-gray-900 disabled:opacity-35 sm:px-3"
+                        >
+                          지우기
+                        </button>
+                        <button
+                          type="button"
+                          disabled={crewMeetingSaving || !teamToken || !crewMeetingDirty}
+                          onClick={() => void handleCrewMeetingSave()}
+                          className="min-h-9 shrink-0 border-0 border-l border-gray-200 bg-gray-950 px-3 py-2 text-fluid-2xs font-semibold leading-none text-white transition-colors hover:bg-gray-900 disabled:opacity-40 sm:px-3.5"
+                        >
+                          {crewMeetingSaving ? '저장중' : '저장'}
+                        </button>
+                      </div>
                     </div>
+                    {crewMeetingSaveNotice ? (
+                      <TeamInlineNoticeModule variant="success">{crewMeetingSaveNotice}</TeamInlineNoticeModule>
+                    ) : null}
                     <p className="text-fluid-2xs text-gray-500">
-                      희망이 오전일 때만 지정 가능합니다. 시간 도구에서 오전 4시~8시, 30분 단위로 선택하세요. 지정하면 크루 「현장 일정」에 표시됩니다.
+                      시간을 선택·입력한 뒤 <strong className="font-medium text-gray-700">저장</strong>을 누르면 반영됩니다. 오전 4시~8시, 30분 단위입니다. 크루 「현장 일정」과 관리자 접수 목록 등은 접수 변경 알림 채널로 갱신됩니다.
                     </p>
                   </div>
                 </TeamModalRow>

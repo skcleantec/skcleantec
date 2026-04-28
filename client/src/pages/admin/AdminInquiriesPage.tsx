@@ -44,6 +44,8 @@ import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryClea
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
 import { TeamMemberSearchSelect } from '../../components/admin/TeamMemberSearchSelect';
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
@@ -922,6 +924,15 @@ export function AdminInquiriesPage() {
         void loadMarketerOverview({ silent: true });
       });
   };
+
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  const refreshInquiriesSilent = useCallback(() => {
+    refreshRef.current(false);
+  }, []);
+  /** 팀 미팅 시각 등 접수 변경 WS → 목록 무음 재조회 (AdminLayout 배지와 별개 리스너) */
+  const { connected: inquiriesListWsConnected } = useInboxRealtime(token, refreshInquiriesSilent, Boolean(token));
+  useVisibilityInterval(refreshInquiriesSilent, token && !inquiriesListWsConnected ? 25000 : 0);
 
   const openListIntakeModal = useCallback(() => {
     setListIntakeEditInquiryId(null);

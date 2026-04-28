@@ -457,7 +457,9 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
       });
     });
     void notifyAllActiveCrewGroupsRefresh().catch((e) => console.error('[crew-meeting-time] crew refresh', e));
-    notifyInboxRefresh([userId]);
+    void notifyCsReportNavBadges(id).catch((e) =>
+      console.error('[crew-meeting-time] staff/leaders nav refresh', e),
+    );
     res.json(await attachCrewMembersOne(updated));
   } catch (e: unknown) {
     console.error('[PATCH /team/inquiries/:id/crew-meeting-time]', e);
