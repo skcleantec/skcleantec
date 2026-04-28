@@ -9,9 +9,15 @@ function formatCurrency(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
 }
 
-/** 접수 목록 필터와 동일한 KST 연월 YYYY-MM */
+/** 서비스접수 필터와 동일한 KST 연월 YYYY-MM */
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+}
+
+function kstMonthTitleKo(): string {
+  const k = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+  const [y, m] = k.split('-');
+  return `${y}년 ${parseInt(m, 10)}월`;
 }
 
 export function AdminDashboardPage() {
@@ -38,6 +44,10 @@ export function AdminDashboardPage() {
           dailySales: [],
           happyCallOverdueCount: 0,
           happyCallPendingBeforeDeadlineCount: 0,
+          teamLeaderWorkloadThisMonth: [],
+          teamLeaderDayOffToday: [],
+          teamMembersDailyRosterRestToday: [],
+          dailyRosterModeActive: false,
         });
         setApiError(err instanceof Error ? err.message : '서버에 연결할 수 없습니다.');
       })
@@ -58,7 +68,140 @@ export function AdminDashboardPage() {
 
       <TelemarketingSessionBlock />
 
-      {/* 접수 통계 — 접수 목록으로 이동 시 `datePreset`/`month`/`status` 전달. 검색어 입력 시 목록은 자동으로 접수일「전체」로 넓혀짐(AdminInquiriesPage). */}
+      {/* 팀 현황: 이번 달 업무량 · 오늘 휴무 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <section className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+          <div className="mb-2 border-b border-gray-100 pb-2">
+            <h2 className="text-fluid-sm font-semibold text-gray-900">이번 달 현장 업무</h2>
+            <p className="text-fluid-2xs text-gray-500 leading-snug mt-0.5">
+              {kstMonthTitleKo()} · 접수 이번 달(KST) · 취소 제외 · 팀장 배정(1차)
+            </p>
+          </div>
+          {loading ? (
+            <p className="py-6 text-center text-fluid-2xs text-gray-400">불러오는 중…</p>
+          ) : (stats?.teamLeaderWorkloadThisMonth?.length ?? 0) === 0 ? (
+            <p className="rounded border border-dashed border-gray-200 bg-gray-50/80 py-6 px-2 text-center text-fluid-2xs text-gray-500">
+              해당 건이 없습니다.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 sm:divide-x sm:divide-gray-100">
+              {(() => {
+                const rows = stats!.teamLeaderWorkloadThisMonth!;
+                const byKm = [...rows]
+                  .filter((r) => (r.maxKmFromJuan ?? 0) > 0)
+                  .sort((a, b) => (b.maxKmFromJuan ?? 0) - (a.maxKmFromJuan ?? 0));
+                const byJob = [...rows].sort((a, b) => b.jobCount - a.jobCount);
+                const fmtKm = (n: number) =>
+                  Number.isInteger(n) ? n.toLocaleString('ko-KR') : n.toLocaleString('ko-KR', { maximumFractionDigits: 1 });
+                return (
+                  <>
+                    <div className="min-w-0 sm:pr-3">
+                      <p className="text-fluid-2xs font-medium text-gray-700 mb-1">최장 거리 (주안)</p>
+                      <p className="text-[10px] text-gray-400 mb-1.5 leading-tight">
+                        배정 건 중 가장 먼 1건(km)
+                      </p>
+                      {byKm.length === 0 ? (
+                        <p className="text-[10px] text-amber-800/90 bg-amber-50/80 rounded px-1.5 py-1.5 leading-snug">
+                          좌표 없음
+                        </p>
+                      ) : (
+                        <ul className="space-y-0 border border-gray-100 rounded overflow-hidden">
+                          {byKm.map((row, idx) => (
+                            <li
+                              key={`km-${row.teamLeaderId}`}
+                              className="flex items-center gap-1.5 px-1.5 py-1 text-fluid-2xs border-b border-gray-50 last:border-0 bg-white"
+                            >
+                              <span className="w-4 shrink-0 tabular-nums text-gray-400 text-center">{idx + 1}</span>
+                              <span className="flex-1 min-w-0 truncate text-gray-900" title={row.name}>
+                                {row.name}
+                              </span>
+                              <span className="shrink-0 tabular-nums font-medium text-gray-800">
+                                {fmtKm(row.maxKmFromJuan ?? 0)}
+                                <span className="text-gray-400 font-normal ml-0.5">km</span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="min-w-0 sm:pl-1">
+                      <p className="text-fluid-2xs font-medium text-gray-700 mb-1">건수</p>
+                      <p className="text-[10px] text-gray-400 mb-1.5 leading-tight">동일 조건</p>
+                      <ul className="space-y-0 border border-gray-100 rounded overflow-hidden">
+                        {byJob.map((row, idx) => (
+                          <li
+                            key={`job-${row.teamLeaderId}`}
+                            className="flex items-center gap-1.5 px-1.5 py-1 text-fluid-2xs border-b border-gray-50 last:border-0"
+                          >
+                            <span className="w-4 shrink-0 tabular-nums text-gray-400 text-center">{idx + 1}</span>
+                            <span className="flex-1 min-w-0 truncate text-gray-900" title={row.name}>
+                              {row.name}
+                            </span>
+                            <span className="shrink-0 tabular-nums font-medium text-indigo-950">{row.jobCount}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+          <div className="mb-2 border-b border-gray-100 pb-2">
+            <h2 className="text-fluid-sm font-semibold text-gray-900">오늘 인원</h2>
+            <p className="text-fluid-2xs text-gray-500 mt-0.5">
+              {new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10)} (KST)
+            </p>
+          </div>
+          {loading ? (
+            <p className="py-4 text-center text-fluid-2xs text-gray-400">불러오는 중…</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 sm:divide-x sm:divide-gray-100">
+              <div className="min-w-0 sm:pr-3">
+                <p className="text-fluid-2xs font-medium text-gray-700 mb-1">팀장 휴무</p>
+                <p className="text-[10px] text-gray-400 mb-1.5 leading-tight">스케줄 휴무 등록</p>
+                {(stats?.teamLeaderDayOffToday?.length ?? 0) === 0 ? (
+                  <p className="text-fluid-2xs text-gray-400 py-1">없음</p>
+                ) : (
+                  <ul className="border border-gray-100 rounded overflow-hidden divide-y divide-gray-50">
+                    {stats!.teamLeaderDayOffToday!.map((p) => (
+                      <li key={p.teamLeaderId} className="px-1.5 py-1 text-fluid-2xs text-gray-900 truncate" title={p.name}>
+                        {p.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="min-w-0 sm:pl-1">
+                <p className="text-fluid-2xs font-medium text-gray-700 mb-1">팀원 · 명단 제외</p>
+                <p className="text-[10px] text-gray-400 mb-1.5 leading-tight">
+                  조장 일일 명단에 오늘 미포함 (배정 후보 제외)
+                </p>
+                {!stats?.dailyRosterModeActive ? (
+                  <p className="text-fluid-2xs text-gray-400 py-1 leading-snug">
+                    일일 명단 모드 크루 없음
+                  </p>
+                ) : (stats?.teamMembersDailyRosterRestToday?.length ?? 0) === 0 ? (
+                  <p className="text-fluid-2xs text-gray-400 py-1">없음 · 명단에 포함된 상태</p>
+                ) : (
+                  <ul className="border border-gray-100 rounded overflow-hidden divide-y divide-gray-50 max-h-40 overflow-y-auto overscroll-y-contain">
+                    {stats!.teamMembersDailyRosterRestToday!.map((m) => (
+                      <li key={m.teamMemberId} className="px-1.5 py-1 text-fluid-2xs text-gray-900 truncate" title={m.name}>
+                        {m.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* 접수 통계 — 서비스접수로 이동 시 `datePreset`/`month`/`status` 전달. 검색어 입력 시 목록은 자동으로 접수일「전체」로 넓혀짐(AdminInquiriesPage). */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="오늘 접수"
@@ -183,7 +326,7 @@ function StatCard({
       <button
         type="button"
         onClick={onClick}
-        title={`${label} — 접수 목록으로 이동`}
+        title={`${label} — 서비스접수로 이동`}
         className={`${base} cursor-pointer transition-colors hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100`}
       >
         {inner}

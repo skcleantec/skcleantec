@@ -15,7 +15,7 @@ export const ADMIN_NAV_DEF: Record<
 > = {
   dashboard: { to: '/admin/dashboard', label: '대시보드' },
   /** 본문 탭으로 발주서 목록만 빠르게 (`AdminInquiriesLayout`) */
-  inquiries: { to: '/admin/inquiries', label: '접수 목록' },
+  inquiries: { to: '/admin/inquiries', label: '서비스접수' },
   schedule: { to: '/admin/schedule', label: '스케줄 표' },
   /** 팀장·마케터·타업체 등 — 관리자만 GNB에 노출 */
   'team-leaders': { to: '/admin/team-leaders', label: '관리자 전용', adminOnly: true },

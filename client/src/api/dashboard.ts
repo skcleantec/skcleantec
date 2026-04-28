@@ -18,6 +18,20 @@ export interface DashboardStats {
   happyCallOverdueCount: number;
   /** 마감 전 미완 */
   happyCallPendingBeforeDeadlineCount: number;
+  /** 이번 달 접수일(KST)·취소 제외·팀장 배정 건수·주안 최대 km(배정 건 중 1건) — 1차 배정 팀장 */
+  teamLeaderWorkloadThisMonth: Array<{
+    teamLeaderId: string;
+    name: string;
+    jobCount: number;
+    /** 인천 주안 기준 직선거리(km) 중 최댓값 — 해당 월 배정 접수 중 좌표 있음 */
+    maxKmFromJuan: number;
+  }>;
+  /** 오늘 팀장 휴무 등록(재직 중) */
+  teamLeaderDayOffToday: Array<{ teamLeaderId: string; name: string }>;
+  /** 일일 명단 모드(useDailyRosterOnly)에서 오늘 명단에 안 올린 팀원(조장 배정 명단 제외 = 쉼) */
+  teamMembersDailyRosterRestToday: Array<{ teamMemberId: string; name: string }>;
+  /** 크루 그룹 중 일일 명단 모드 사용 여부 — false면 우측 안내 표시 */
+  dailyRosterModeActive: boolean;
 }
 
 export async function getDashboardStats(token: string): Promise<DashboardStats> {

@@ -25,7 +25,9 @@ router.use(teamAuthMiddleware);
 /** 팀 화면 기준 현재 사용자(프리뷰 매핑 반영) */
 router.get('/me', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
-  const viewer = (req as unknown as { teamViewer?: { role?: string; previewExternal?: boolean } }).teamViewer;
+  const viewer = (req as unknown as {
+    teamViewer?: { role?: string; previewExternal?: boolean; previewTeamLeader?: boolean };
+  }).teamViewer;
   const me = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -48,6 +50,7 @@ router.get('/me', async (req, res) => {
     ...me,
     viewerRole: viewer?.role ?? me.role,
     previewExternal: Boolean(viewer?.previewExternal),
+    previewTeamLeader: Boolean(viewer?.previewTeamLeader),
   });
 });
 

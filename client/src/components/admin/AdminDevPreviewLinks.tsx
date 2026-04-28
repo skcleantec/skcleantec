@@ -1,0 +1,194 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { setTeamToken } from '../../stores/teamAuth';
+import { getUsers, formatAssignableUserLabel, type UserItem } from '../../api/users';
+import { getTeamCrewGroups, type TeamCrewGroupItem } from '../../api/teamCrewGroups';
+
+function kstTodayYmd(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+type Panel = 'tl' | 'ext' | 'crew' | null;
+
+const btn =
+  'rounded px-1.5 py-0.5 font-medium text-[clamp(0.6rem,1.4vw,0.75rem)] transition-colors hover:bg-gray-200/80';
+
+export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null }) {
+  const navigate = useNavigate();
+  const [panel, setPanel] = useState<Panel>(null);
+  const [loading, setLoading] = useState(false);
+  const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
+  const [externals, setExternals] = useState<UserItem[]>([]);
+  const [crews, setCrews] = useState<TeamCrewGroupItem[]>([]);
+  const [err, setErr] = useState('');
+
+  const openPanel = async (p: Exclude<Panel, null>) => {
+    if (!adminToken) return;
+    setPanel(p);
+    setErr('');
+    setLoading(true);
+    try {
+      if (p === 'tl') {
+        const items = await getUsers(adminToken, 'TEAM_LEADER', { employedOn: kstTodayYmd() });
+        setTeamLeaders(items);
+      } else if (p === 'ext') {
+        const items = await getUsers(adminToken, 'EXTERNAL_PARTNER', { employedOn: kstTodayYmd() });
+        setExternals(items);
+      } else {
+        const r = await getTeamCrewGroups(adminToken);
+        setCrews(r.items.filter((g) => g.isActive));
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const goTeamLeader = (id: string) => {
+    if (!adminToken) return;
+    setTeamToken(adminToken);
+    navigate(
+      `/team/dashboard?previewRole=team_leader&previewTeamLeaderId=${encodeURIComponent(id)}`,
+    );
+    setPanel(null);
+  };
+
+  const goExternal = (u: UserItem) => {
+    if (!adminToken) return;
+    setTeamToken(adminToken);
+    const q = new URLSearchParams({ previewRole: 'external' });
+    if (u.externalCompanyId) q.set('externalCompanyId', u.externalCompanyId);
+    const name = u.externalCompanyName?.trim() || u.name;
+    q.set('previewExternalName', name);
+    navigate(`/team/dashboard?${q.toString()}`);
+    setPanel(null);
+  };
+
+  const goCrew = (loginId: string) => {
+    navigate(`/login?devCrew=1&loginId=${encodeURIComponent(loginId)}`, {
+      state: {
+        from: { pathname: '/crew', search: '', hash: '', state: null },
+      },
+    });
+    setPanel(null);
+  };
+
+  if (!adminToken) return null;
+
+  return (
+    <>
+      <div
+        className="inline-flex max-w-full flex-wrap items-center gap-0.5 rounded border border-gray-200 bg-gray-50/90 px-0.5 py-0.5 text-gray-700"
+        title="개발자용: 대상 선택 후 화면 이동"
+      >
+        <span className="shrink-0 pl-0.5 text-[9px] font-medium uppercase tracking-tight text-gray-400">
+          미리보기
+        </span>
+        <button type="button" className={`${btn} text-blue-700`} onClick={() => void openPanel('tl')}>
+          팀장
+        </button>
+        <button
+          type="button"
+          className={`${btn} text-indigo-700`}
+          onClick={() => void openPanel('ext')}
+        >
+          타업체
+        </button>
+        <button type="button" className={`${btn} text-emerald-800`} onClick={() => void openPanel('crew')}>
+          크루
+        </button>
+      </div>
+      {panel ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-end justify-center bg-black/35 p-2 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPanel(null)}
+        >
+          <div
+            className="flex max-h-[min(70vh,420px)] w-full max-w-sm flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+              <span className="text-fluid-xs font-semibold text-gray-800">
+                {panel === 'tl' ? '팀장 화면' : panel === 'ext' ? '타업체 화면' : '크루 로그인'}
+              </span>
+              <button
+                type="button"
+                className="rounded p-1 text-gray-500 hover:bg-gray-100"
+                aria-label="닫기"
+                onClick={() => setPanel(null)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+              {err ? (
+                <p className="text-fluid-xs text-red-600">{err}</p>
+              ) : loading ? (
+                <p className="text-fluid-xs text-gray-500">불러오는 중…</p>
+              ) : panel === 'tl' ? (
+                <ul className="space-y-0.5">
+                  {teamLeaders.length === 0 ? (
+                    <li className="text-fluid-xs text-gray-500">표시할 팀장이 없습니다.</li>
+                  ) : (
+                    teamLeaders.map((u) => (
+                      <li key={u.id}>
+                        <button
+                          type="button"
+                          className="w-full rounded border border-transparent px-2 py-1.5 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50"
+                          onClick={() => goTeamLeader(u.id)}
+                        >
+                          {u.name}
+                          <span className="ml-1 text-[10px] text-gray-400">{u.email}</span>
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              ) : panel === 'ext' ? (
+                <ul className="space-y-0.5">
+                  {externals.length === 0 ? (
+                    <li className="text-fluid-xs text-gray-500">표시할 타업체 계정이 없습니다.</li>
+                  ) : (
+                    externals.map((u) => (
+                      <li key={u.id}>
+                        <button
+                          type="button"
+                          className="w-full rounded border border-transparent px-2 py-1.5 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50"
+                          onClick={() => goExternal(u)}
+                        >
+                          {formatAssignableUserLabel(u)}
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              ) : (
+                <ul className="space-y-0.5">
+                  {crews.length === 0 ? (
+                    <li className="text-fluid-xs text-gray-500">활성 크루 그룹이 없습니다.</li>
+                  ) : (
+                    crews.map((g) => (
+                      <li key={g.id}>
+                        <button
+                          type="button"
+                          className="w-full rounded border border-transparent px-2 py-1.5 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50"
+                          onClick={() => goCrew(g.loginId)}
+                        >
+                          <span className="font-medium">{g.name}</span>
+                          <span className="ml-1 text-[10px] text-gray-500">{g.loginId}</span>
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}

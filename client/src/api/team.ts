@@ -1,24 +1,12 @@
 import type { CsReport } from './cs';
 import { API } from './apiPrefix';
+import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 
 function headers(token: string) {
   return {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
   };
-}
-
-function withTeamPreviewQuery(url: string): string {
-  if (typeof window === 'undefined') return url;
-  const cur = new URLSearchParams(window.location.search);
-  if (cur.get('previewRole') !== 'external') return url;
-  const next = new URL(url, window.location.origin);
-  next.searchParams.set('previewRole', 'external');
-  const n = cur.get('previewExternalName');
-  if (n) next.searchParams.set('previewExternalName', n);
-  const cid = cur.get('externalCompanyId');
-  if (cid) next.searchParams.set('externalCompanyId', cid);
-  return `${next.pathname}${next.search}`;
 }
 
 export async function getTeamInquiries(token: string) {
@@ -39,6 +27,7 @@ export interface TeamViewerMe {
   externalCompany?: { id: string; name: string } | null;
   viewerRole?: string;
   previewExternal?: boolean;
+  previewTeamLeader?: boolean;
 }
 
 export async function getTeamMe(token: string): Promise<TeamViewerMe> {

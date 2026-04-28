@@ -1,13 +1,13 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 
-/** 접수 목록(/admin/inquiries/*) — 접수·부재현황·발주서 발급/목록·설정 전환 */
+/** 서비스접수(/admin/inquiries/*) — 접수·부재현황·발주서 발급/목록·설정 전환 */
 export function AdminInquiriesLayout() {
   return (
     <div className="min-w-0 w-full max-w-full">
-      <AdminSubNavScroll aria-label="접수 목록 하위 메뉴">
+      <AdminSubNavScroll aria-label="서비스접수 하위 메뉴">
         <NavLink to="/admin/inquiries" end className={({ isActive }) => adminSubNavTabClassName(isActive)}>
-          접수 목록
+          서비스접수
         </NavLink>
         <NavLink to="/admin/inquiries/followup" className={({ isActive }) => adminSubNavTabClassName(isActive)}>
           부재·보류

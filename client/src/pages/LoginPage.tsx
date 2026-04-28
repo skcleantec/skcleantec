@@ -68,8 +68,33 @@ export function LoginPage() {
   const sessionExpired = Boolean((location.state as { sessionExpired?: boolean } | null)?.sessionExpired);
   /** 로그인 제출 시 증가 — 진행 중인 자동 `getMe`가 새 토큰·저장소를 덮어쓰지 않도록 */
   const sessionProbeGen = useRef(0);
+  const devCrewInitRef = useRef(false);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [crewLoginMode, setCrewLoginMode] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  /** 관리자 미리보기 → 크루 로그인: 토큰 정리 후 크루 폼만 남김 */
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    if (sp.get('devCrew') !== '1') return;
+    if (devCrewInitRef.current) return;
+    devCrewInitRef.current = true;
+    sessionProbeGen.current += 1;
+    clearToken();
+    clearTeamToken();
+    clearCrewToken();
+    const lid = sp.get('loginId')?.trim() ?? '';
+    setCrewLoginMode(true);
+    if (lid) setEmail(lid);
+    navigate('/login', { replace: true, state: location.state });
+  }, [navigate, location.search, location.state]);
 
   useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    if (sp.get('devCrew') === '1') return;
     let cancelled = false;
     let a = getToken();
     let t = getTeamToken();
@@ -143,13 +168,7 @@ export function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [navigate, location.state]);
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [crewLoginMode, setCrewLoginMode] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  }, [navigate, location.state, location.search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

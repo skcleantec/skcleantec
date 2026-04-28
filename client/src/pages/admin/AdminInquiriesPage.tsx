@@ -1538,7 +1538,7 @@ export function AdminInquiriesPage() {
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-gray-800">접수 목록</h1>
+            <h1 className="text-xl font-semibold text-gray-800">서비스접수</h1>
           </div>
           {token && (
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -3565,7 +3565,7 @@ export function AdminInquiriesPage() {
                 <p className="mt-1 text-fluid-2xs text-gray-500">
                   {listIntakeEditInquiryId
                     ? '고객명·닉네임·연락처·메모를 수정합니다. 처리 구분은 변경하지 않습니다.'
-                    : '부재·보류는 부재현황에서만 이어갑니다. 입금대기·입금완료는 접수 목록에 바로 나타납니다.'}
+                    : '부재·보류는 부재현황에서만 이어갑니다. 입금대기·입금완료는 서비스접수에 바로 나타납니다.'}
                 </p>
               </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-4 py-3">
@@ -3619,7 +3619,7 @@ export function AdminInquiriesPage() {
                         <span className="font-medium text-gray-900">
                           {ORDER_FOLLOWUP_STATUS_LABEL.ABSENT}
                         </span>
-                        <span className="mt-0.5 block text-gray-500">부재현황으로 이동 · 접수 목록에는 없음</span>
+                        <span className="mt-0.5 block text-gray-500">부재현황으로 이동 · 서비스접수에는 없음</span>
                       </span>
                     </label>
                     <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-100 p-2 hover:bg-gray-50">
@@ -3635,7 +3635,7 @@ export function AdminInquiriesPage() {
                         <span className="font-medium text-gray-900">
                           {ORDER_FOLLOWUP_STATUS_LABEL.ON_HOLD}
                         </span>
-                        <span className="mt-0.5 block text-gray-500">부재현황으로 이동 · 접수 목록에는 없음</span>
+                        <span className="mt-0.5 block text-gray-500">부재현황으로 이동 · 서비스접수에는 없음</span>
                       </span>
                     </label>
                     <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-sky-200 bg-sky-50/50 p-2 hover:bg-sky-50">
@@ -3652,7 +3652,7 @@ export function AdminInquiriesPage() {
                           {ORDER_FOLLOWUP_STATUS_LABEL.DEPOSIT_PENDING}
                         </span>
                         <span className="mt-0.5 block text-sky-900/80">
-                          접수 목록(입금대기) + 부재현황(예약금 대기) 연동
+                          서비스접수(입금대기) + 부재현황(예약금 대기) 연동
                         </span>
                       </span>
                     </label>
@@ -3670,7 +3670,7 @@ export function AdminInquiriesPage() {
                           {ORDER_FOLLOWUP_STATUS_LABEL.RESERVED}
                         </span>
                         <span className="mt-0.5 block text-sky-900/80">
-                          접수 목록(입금완료) + 부재현황(입금 완료) 연동
+                          서비스접수(입금완료) + 부재현황(입금 완료) 연동
                         </span>
                       </span>
                     </label>

@@ -5,16 +5,28 @@ import { adminOrMarketer } from '../auth/auth.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { happyCallDeadlineEnd } from '../inquiries/happyCall.helpers.js';
+import { distanceKmFromJuan } from '../inquiries/inquiryJuanDistance.js';
 
 const router = Router();
 
 router.use(authMiddleware);
 router.use(adminOrMarketer);
 
-/** 매출 집계 대상: 청소 완료·진행중 건 */
-const SALES_STATUS = ['COMPLETED', 'IN_PROGRESS'] as const;
+/** 대시보드 매출 금액·그래프 — 취소만 제외 (접수만 된 건도 평수·발주금액 반영) */
+const SALES_AMOUNT_STATUSES = [
+  'PENDING',
+  'RECEIVED',
+  'DEPOSIT_PENDING',
+  'DEPOSIT_COMPLETED',
+  'ORDER_FORM_PENDING',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CS_PROCESSING',
+  'ON_HOLD',
+] as const;
 
-/** 해피콜 통계 집계 대상(DB에 `ON_HOLD` enum 미적용 시에도 `notIn`에 `ON_HOLD`를 넣지 않기 위해 허용 목록 사용) */
+/** 이번 달 팀장별 현장 카드 — 접수일(KST) 이번 달·취소 제외·1차 배정이 팀장인 건만 */
 const HAPPY_CALL_STATS_STATUSES = [
   'RECEIVED',
   'ASSIGNED',
@@ -29,31 +41,43 @@ function getInquiryAmount(inq: { orderForm?: { totalAmount: number } | null; are
   return 0;
 }
 
+/** 매출 차트 기준일(KST): 예정일 있으면 예정일, 없으면 접수일 */
+function effectiveSalesDateYmd(inquiry: { preferredDate: Date | null; createdAt: Date }): string {
+  if (inquiry.preferredDate != null) {
+    return new Date(inquiry.preferredDate).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+  }
+  return inquiry.createdAt.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+/** KST 날짜(YYYY-MM-DD)에 일수 더하기 */
+function kstYmdAddDays(ymd: string, deltaDays: number): string {
+  const d = new Date(`${ymd}T12:00:00+09:00`);
+  d.setDate(d.getDate() + deltaDays);
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
 router.get('/stats', async (_req, res) => {
   try {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-
-  /** 오늘 접수: 접수 목록 `datePreset=today`와 동일 — 접수일(createdAt) KST 하루 */
-  const kstTodayRange = kstDayRangeYmd(kstTodayYmd());
+  /** 오늘 접수: 서비스접수 `datePreset=today`와 동일 — 접수일(createdAt) KST 하루 */
+  const todayYmd = kstTodayYmd();
+  const kstTodayRange = kstDayRangeYmd(todayYmd);
   if (!kstTodayRange) {
     res.status(500).json({ error: '오늘 구간을 계산할 수 없습니다.' });
     return;
   }
 
   /** 이번 달 미분배: 접수일(createdAt) KST 기준 이번 달 + 상태 RECEIVED */
-  const kstMonthKey = kstTodayYmd().slice(0, 7);
+  const kstMonthKey = todayYmd.slice(0, 7);
   const kstThisMonth = kstMonthRangeYm(kstMonthKey);
   if (!kstThisMonth) {
     res.status(500).json({ error: '이번 달 구간을 계산할 수 없습니다.' });
     return;
   }
 
-  const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeadersRaw] = await Promise.all([
+  const todayOffDbDate = new Date(`${todayYmd}T12:00:00+09:00`);
+
+  const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeadersRaw, monthWorkloadInquiries, todayLeaderDayOffRows, rosterRestrictedMembers, rosterOnTodayRows] =
+    await Promise.all([
     prisma.inquiry.count({
       where: {
         createdAt: { gte: kstTodayRange.gte, lte: kstTodayRange.lte },
@@ -67,7 +91,7 @@ router.get('/stats', async (_req, res) => {
     }),
     prisma.estimateConfig.findFirst().then((c) => c?.pricePerPyeong ?? 5000),
     prisma.inquiry.findMany({
-      where: { status: { in: [...SALES_STATUS] } },
+      where: { status: { in: [...SALES_AMOUNT_STATUSES] } },
       include: {
         orderForm: { select: { totalAmount: true } },
         assignments: {
@@ -80,23 +104,114 @@ router.get('/stats', async (_req, res) => {
       where: { role: 'TEAM_LEADER', isActive: true },
       select: { id: true, name: true, hireDate: true, resignationDate: true },
     }),
+    prisma.inquiry.findMany({
+      where: {
+        createdAt: { gte: kstThisMonth.gte, lte: kstThisMonth.lte },
+        status: { not: 'CANCELLED' },
+        assignments: {
+          some: {
+            teamLeader: { role: 'TEAM_LEADER' },
+          },
+        },
+      },
+      select: {
+        addressGeoLat: true,
+        addressGeoLng: true,
+        assignments: {
+          orderBy: { sortOrder: 'asc' },
+          take: 1,
+          select: {
+            teamLeaderId: true,
+            teamLeader: { select: { id: true, role: true } },
+          },
+        },
+      },
+    }),
+    prisma.userDayOff.findMany({
+      where: {
+        date: todayOffDbDate,
+        teamLeader: { role: 'TEAM_LEADER', isActive: true },
+      },
+      select: {
+        teamLeaderId: true,
+        teamLeader: { select: { id: true, name: true, hireDate: true, resignationDate: true } },
+      },
+    }),
+    prisma.teamCrewGroupMember.findMany({
+      where: { group: { isActive: true, useDailyRosterOnly: true } },
+      select: { teamMemberId: true },
+    }),
+    prisma.teamCrewGroupDayRoster.findMany({
+      where: {
+        date: todayOffDbDate,
+        group: { isActive: true, useDailyRosterOnly: true },
+      },
+      select: { teamMemberId: true },
+    }),
   ]);
 
   const pricePerPyeong = estimateConfig;
 
-  const todayYmd = kstTodayYmd();
   const teamLeaders = teamLeadersRaw.filter((tl) =>
     isUserEmployedOnYmd(tl.hireDate, tl.resignationDate, todayYmd)
   );
 
-  /** 오늘 매출: preferredDate가 오늘인 건 */
+  /** 이번 달 팀장별 현장 건수·주안 최대 거리: 접수일(KST) 이번 달·취소 제외·1차 배정 팀장 — km은 배정 건 중 좌표 있는 건의 최댓값 */
+  const tlEmployedIds = new Set(teamLeaders.map((t) => t.id));
+  const tlNameById = new Map(teamLeaders.map((t) => [t.id, t.name]));
+  const workloadAgg = new Map<string, { jobCount: number; maxKm: number }>();
+  for (const row of monthWorkloadInquiries) {
+    const a = row.assignments[0];
+    if (!a || a.teamLeader.role !== 'TEAM_LEADER') continue;
+    if (!tlEmployedIds.has(a.teamLeaderId)) continue;
+    const km = distanceKmFromJuan(row.addressGeoLat, row.addressGeoLng);
+    const cur = workloadAgg.get(a.teamLeaderId) ?? { jobCount: 0, maxKm: 0 };
+    cur.jobCount += 1;
+    if (km != null) cur.maxKm = Math.max(cur.maxKm, km);
+    workloadAgg.set(a.teamLeaderId, cur);
+  }
+  const teamLeaderWorkloadThisMonth = [...workloadAgg.entries()]
+    .map(([teamLeaderId, v]) => ({
+      teamLeaderId,
+      name: tlNameById.get(teamLeaderId) ?? '',
+      jobCount: v.jobCount,
+      maxKmFromJuan: Math.round(v.maxKm * 10) / 10,
+    }))
+    .filter((w) => w.jobCount > 0)
+    .sort((a, b) => b.jobCount - a.jobCount);
+
+  /** 오늘 팀장 휴무 (재직 중만) */
+  const teamLeaderDayOffToday = todayLeaderDayOffRows
+    .filter((r) =>
+      isUserEmployedOnYmd(r.teamLeader.hireDate, r.teamLeader.resignationDate, todayYmd)
+    )
+    .map((r) => ({ teamLeaderId: r.teamLeaderId, name: r.teamLeader.name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+
+  /** 오늘 일일 명단(useDailyRosterOnly)에 포함되지 않은 팀원 = 조장 명단에서 제외 → 당일 배정 후보에서 빠짐 */
+  const rosterRestrictedIds = new Set(rosterRestrictedMembers.map((r) => r.teamMemberId));
+  const rosterOnTodayIds = new Set(rosterOnTodayRows.map((r) => r.teamMemberId));
+  const restingRosterMemberIds = [...rosterRestrictedIds].filter((id) => !rosterOnTodayIds.has(id));
+  let teamMembersDailyRosterRestToday: { teamMemberId: string; name: string }[] = [];
+  if (restingRosterMemberIds.length > 0) {
+    teamMembersDailyRosterRestToday = (
+      await prisma.teamMember.findMany({
+        where: { id: { in: restingRosterMemberIds }, isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      })
+    ).map((m) => ({ teamMemberId: m.id, name: m.name }));
+  }
+  const dailyRosterModeActive = rosterRestrictedIds.size > 0;
+
+  /** 오늘 매출: 기준일(KST)이 오늘인 건 — 예정일 없으면 접수일 */
   const todaySales = inquiriesForSales
-    .filter((i) => i.preferredDate && new Date(i.preferredDate).toDateString() === today.toDateString())
+    .filter((i) => effectiveSalesDateYmd(i) === todayYmd)
     .reduce((sum, i) => sum + getInquiryAmount(i, pricePerPyeong), 0);
 
-  /** 이번 달 매출: preferredDate가 이번 달인 건 */
+  /** 이번 달 매출: 기준일(KST)이 이번 달인 건 */
   const monthSales = inquiriesForSales
-    .filter((i) => i.preferredDate && new Date(i.preferredDate) >= monthStart && new Date(i.preferredDate) <= monthEnd)
+    .filter((i) => effectiveSalesDateYmd(i).startsWith(kstMonthKey))
     .reduce((sum, i) => sum + getInquiryAmount(i, pricePerPyeong), 0);
 
   /** 팀장별 매출 */
@@ -116,17 +231,12 @@ router.get('/stats', async (_req, res) => {
   }
   salesByTeamLeader.sort((a, b) => b.amount - a.amount);
 
-  /** 최근 7일 일별 매출 (그래프용) */
+  /** 최근 7일 일별 매출 (그래프용, KST 일자 · 예정일 없으면 접수일) */
   const dailySales: { date: string; amount: number }[] = [];
   for (let d = 6; d >= 0; d--) {
-    const dStart = new Date(today);
-    dStart.setDate(dStart.getDate() - d);
-    dStart.setHours(0, 0, 0, 0);
-    const dEnd = new Date(dStart);
-    dEnd.setHours(23, 59, 59, 999);
-    const dateStr = dStart.toISOString().slice(0, 10);
+    const dateStr = kstYmdAddDays(todayYmd, -d);
     const amt = inquiriesForSales
-      .filter((i) => i.preferredDate && new Date(i.preferredDate) >= dStart && new Date(i.preferredDate) <= dEnd)
+      .filter((i) => effectiveSalesDateYmd(i) === dateStr)
       .reduce((sum, i) => sum + getInquiryAmount(i, pricePerPyeong), 0);
     dailySales.push({ date: dateStr, amount: amt });
   }
@@ -158,6 +268,10 @@ router.get('/stats', async (_req, res) => {
     dailySales,
     happyCallOverdueCount,
     happyCallPendingBeforeDeadlineCount,
+    teamLeaderWorkloadThisMonth,
+    teamLeaderDayOffToday,
+    teamMembersDailyRosterRestToday,
+    dailyRosterModeActive,
   });
   } catch (err) {
     console.error('[dashboard/stats]', err);

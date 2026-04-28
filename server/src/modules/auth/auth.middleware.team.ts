@@ -24,8 +24,19 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
       return;
     }
     let effective = payload;
-    const q = req.query as { previewRole?: string; previewExternalName?: string; externalCompanyId?: string };
+    const q = req.query as {
+      previewRole?: string;
+      previewExternalName?: string;
+      externalCompanyId?: string;
+      previewTeamLeaderId?: string;
+    };
     const previewExternal = allowedPreviewStaff && q.previewRole === 'external';
+    const previewTeamLeaderFlag =
+      allowedPreviewStaff &&
+      q.previewRole === 'team_leader' &&
+      typeof q.previewTeamLeaderId === 'string' &&
+      q.previewTeamLeaderId.trim().length > 0;
+
     if (previewExternal) {
       const previewExternalName =
         typeof q.previewExternalName === 'string' && q.previewExternalName.trim()
@@ -55,19 +66,47 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
         email: target.email,
         role: 'EXTERNAL_PARTNER',
       };
+    } else if (previewTeamLeaderFlag) {
+      const tlId = q.previewTeamLeaderId!.trim();
+      const target = await prisma.user.findFirst({
+        where: { id: tlId, role: 'TEAM_LEADER', isActive: true },
+        select: { id: true, email: true },
+      });
+      if (!target) {
+        res.status(400).json({ error: '팀장 프리뷰 계정을 찾을 수 없습니다.' });
+        return;
+      }
+      effective = {
+        userId: target.id,
+        email: target.email,
+        role: 'TEAM_LEADER',
+      };
     }
     (req as Request & {
       user: AuthPayload;
-      teamViewer?: { userId: string; role: string; email?: string; previewExternal: boolean };
+      teamViewer?: {
+        userId: string;
+        role: string;
+        email?: string;
+        previewExternal: boolean;
+        previewTeamLeader: boolean;
+      };
     }).user = effective;
     (req as Request & {
       user: AuthPayload;
-      teamViewer?: { userId: string; role: string; email?: string; previewExternal: boolean };
+      teamViewer?: {
+        userId: string;
+        role: string;
+        email?: string;
+        previewExternal: boolean;
+        previewTeamLeader: boolean;
+      };
     }).teamViewer = {
       userId: payload.userId,
       role: payload.role,
       email: payload.email,
       previewExternal,
+      previewTeamLeader: Boolean(previewTeamLeaderFlag && effective.userId !== payload.userId),
     };
     next();
   } catch (e) {

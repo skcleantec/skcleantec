@@ -102,12 +102,23 @@ export function TeamLayout() {
 
   const searchParams = new URLSearchParams(location.search);
   const previewExternal = searchParams.get('previewRole') === 'external';
+  const previewTeamLeader = searchParams.get('previewRole') === 'team_leader';
   const previewExternalName = (searchParams.get('previewExternalName') || '클린느').trim();
+  const previewTeamLeaderId = (searchParams.get('previewTeamLeaderId') || '').trim();
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
-  const previewQuery = previewExternal
-    ? `?previewRole=external&previewExternalName=${encodeURIComponent(previewExternalName)}`
-    : '';
+  let previewQuery = '';
+  if (previewExternal) {
+    const q = new URLSearchParams({
+      previewRole: 'external',
+      previewExternalName: previewExternalName,
+    });
+    const cid = searchParams.get('externalCompanyId');
+    if (cid) q.set('externalCompanyId', cid);
+    previewQuery = `?${q.toString()}`;
+  } else if (previewTeamLeader && previewTeamLeaderId) {
+    previewQuery = `?previewRole=team_leader&previewTeamLeaderId=${encodeURIComponent(previewTeamLeaderId)}`;
+  }
   const teamTo = (path: string) => `${path}${previewQuery}`;
 
   return (
@@ -204,24 +215,36 @@ export function TeamLayout() {
                 <span className="text-indigo-600">타업체 프리뷰</span>
               </div>
             ) : (
-              <UserProfileMenu
-                token={teamToken}
-                teamProfileVehicleField
-                showVehicleForPreviewAdmin={Boolean(
-                  isTeamPreviewAdminEmail(userEmail) && userRole === 'ADMIN'
-                )}
-                me={{ name: userName, phone: userPhone, vehicleNumber: userVehicleNumber, role: userRole }}
-                onSaved={(next) => {
-                  setUserName(next.name);
-                  setUserPhone(next.phone);
-                  setUserVehicleNumber(next.vehicleNumber);
-                }}
-                onLogout={handleLogout}
-                onSessionExpired={() => {
-                  clearTeamToken();
-                  navigate('/login', { replace: true, state: { sessionExpired: true } });
-                }}
-              />
+              <>
+                {previewTeamLeader ? (
+                  <span className="hidden sm:inline rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-[clamp(0.6rem,1.4vw,0.75rem)] font-medium text-teal-900 whitespace-nowrap">
+                    팀장 프리뷰
+                  </span>
+                ) : null}
+                <UserProfileMenu
+                  token={teamToken}
+                  teamProfileVehicleField
+                  showVehicleForPreviewAdmin={Boolean(
+                    isTeamPreviewAdminEmail(userEmail) && userRole === 'ADMIN'
+                  )}
+                  me={{
+                    name: userName,
+                    phone: userPhone,
+                    vehicleNumber: userVehicleNumber,
+                    role: userRole,
+                  }}
+                  onSaved={(next) => {
+                    setUserName(next.name);
+                    setUserPhone(next.phone);
+                    setUserVehicleNumber(next.vehicleNumber);
+                  }}
+                  onLogout={handleLogout}
+                  onSessionExpired={() => {
+                    clearTeamToken();
+                    navigate('/login', { replace: true, state: { sessionExpired: true } });
+                  }}
+                />
+              </>
             )}
           </div>
         </div>

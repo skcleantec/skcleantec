@@ -25,6 +25,7 @@ import {
 import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 import { UserProfileMenu } from '../common/UserProfileMenu';
+import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -506,7 +507,8 @@ export function AdminLayout() {
             >
               SK클린텍 솔루션
             </button>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
+              {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
               <UserProfileMenu
                 token={adminToken}
                 me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
@@ -693,22 +695,7 @@ export function AdminLayout() {
             )}
           </div>
           <div className="hidden md:flex items-center gap-2 sm:gap-3 shrink-0">
-            {teamPreviewLink && (
-              <>
-                <NavLink
-                  to="/team/dashboard"
-                  className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-blue-600 hover:text-blue-800 whitespace-nowrap py-2"
-                >
-                  팀장 화면
-                </NavLink>
-                <NavLink
-                  to="/team/dashboard?previewRole=external&previewExternalName=%ED%81%B4%EB%A6%B0%EB%8A%90"
-                  className="text-[clamp(0.65rem,1.5vw,0.875rem)] text-indigo-600 hover:text-indigo-800 whitespace-nowrap py-2"
-                >
-                  타업체 화면
-                </NavLink>
-              </>
-            )}
+            {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
             <UserProfileMenu
               token={adminToken}
               me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
