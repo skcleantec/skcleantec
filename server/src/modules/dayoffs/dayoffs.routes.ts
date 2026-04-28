@@ -263,6 +263,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     leaderSlots,
     crewAvailableByDate,
     closureRows,
+    slotToAdjustmentRows,
   ] = await Promise.all([
     prisma.user.findMany({
       where: { role: 'TEAM_LEADER', isActive: true },
@@ -303,6 +304,10 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     prisma.scheduleDayClosure.findMany({
       where: { date: { gte: rangeStart, lte: rangeEnd } },
       select: { date: true, scope: true },
+    }),
+    prisma.scheduleDaySlotToAdjustment.findMany({
+      where: { date: { gte: rangeStart, lte: rangeEnd } },
+      select: { date: true, morningDelta: true, afternoonDelta: true },
     }),
   ]);
 
@@ -356,6 +361,14 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       afternoonWorkingCount?: number;
       /** 관리자 일정 마감 범위 */
       closureScope?: 'FULL' | 'MORNING' | 'AFTERNOON';
+      /** 표시 보정 적용 전(시스템 계산·마감 반영) 오전 잔여 슬롯 */
+      computedAssignableMorning?: number;
+      /** 표시 보정 적용 전 오후 잔여 슬롯 */
+      computedAssignableAfternoonSlot?: number;
+      /** 오전 TO 표시에 가산한 보정치 */
+      slotToMorningAdjustment?: number;
+      /** 오후 TO 표시에 가산한 보정치 */
+      slotToAfternoonAdjustment?: number;
     }
   > = {};
 
@@ -554,7 +567,67 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     }
   }
 
+  const slotAdjByKey = new Map<string, { morningDelta: number; afternoonDelta: number }>();
+  for (const row of slotToAdjustmentRows) {
+    slotAdjByKey.set(toDateKey(row.date), {
+      morningDelta: row.morningDelta,
+      afternoonDelta: row.afternoonDelta,
+    });
+  }
+  for (const key of Object.keys(byDate)) {
+    const cur = byDate[key];
+    const adj = slotAdjByKey.get(key) ?? { morningDelta: 0, afternoonDelta: 0 };
+    const baseAm = cur.assignableMorning;
+    const basePm = cur.assignableAfternoonSlot;
+    const am = Math.max(0, baseAm + adj.morningDelta);
+    const pm = Math.max(0, basePm + adj.afternoonDelta);
+    byDate[key] = {
+      ...cur,
+      computedAssignableMorning: baseAm,
+      computedAssignableAfternoonSlot: basePm,
+      slotToMorningAdjustment: adj.morningDelta,
+      slotToAfternoonAdjustment: adj.afternoonDelta,
+      assignableMorning: am,
+      assignableAfternoonSlot: pm,
+      unassignedTotal: am + pm,
+    };
+  }
+
   res.json({ byDate });
+});
+
+const SLOT_ADJ_LIMIT = 300;
+
+router.put('/schedule-slot-to-adjustment', authMiddleware, adminOrMarketer, async (req, res) => {
+  const body = req.body as { date?: string; morningDelta?: unknown; afternoonDelta?: unknown };
+  const { date } = body;
+  if (!date || !YMD.test(date)) {
+    res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
+    return;
+  }
+  const nm = Math.trunc(Number(body.morningDelta));
+  const np = Math.trunc(Number(body.afternoonDelta));
+  if (!Number.isFinite(nm) || !Number.isFinite(np)) {
+    res.status(400).json({ error: '보정값은 정수여야 합니다.' });
+    return;
+  }
+  if (Math.abs(nm) > SLOT_ADJ_LIMIT || Math.abs(np) > SLOT_ADJ_LIMIT) {
+    res.status(400).json({ error: `표시 보정은 -${SLOT_ADJ_LIMIT} ~ +${SLOT_ADJ_LIMIT} 범위입니다.` });
+    return;
+  }
+
+  const d = new Date(`${date}T12:00:00+09:00`);
+  if (nm === 0 && np === 0) {
+    await prisma.scheduleDaySlotToAdjustment.deleteMany({ where: { date: d } });
+  } else {
+    await prisma.scheduleDaySlotToAdjustment.upsert({
+      where: { date: d },
+      create: { date: d, morningDelta: nm, afternoonDelta: np },
+      update: { morningDelta: nm, afternoonDelta: np },
+    });
+  }
+
+  res.json({ ok: true });
 });
 
 export default router;

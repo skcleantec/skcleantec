@@ -88,6 +88,13 @@ export interface ScheduleStatsByDate {
   crewRemaining?: number;
   /** 팀원 잔여 기준 표준(2명) 접수 추가 가능 건수(참고) */
   additionalStandardJobsByCrew?: number;
+  /** 표시 보정 적용 전 오전 잔여 슬롯(계산·마감 반영) */
+  computedAssignableMorning?: number;
+  computedAssignableAfternoonSlot?: number;
+  /** 오전 TO 표시 가산 보정 */
+  slotToMorningAdjustment?: number;
+  /** 오후 TO 표시 가산 보정 */
+  slotToAfternoonAdjustment?: number;
 }
 
 export async function getScheduleStats(
@@ -101,6 +108,21 @@ export async function getScheduleStats(
   });
   if (!res.ok) throw new Error('스케줄 현황을 불러올 수 없습니다.');
   return res.json();
+}
+
+export async function putScheduleSlotToAdjustment(
+  token: string,
+  payload: { date: string; morningDelta: number; afternoonDelta: number }
+): Promise<void> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/dayoffs/schedule-slot-to-adjustment`), {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? '인원(TO) 표시 보정 저장에 실패했습니다.');
+  }
 }
 
 export interface TeamCalendarDayEntry {

@@ -20,6 +20,7 @@ import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabs
 import { EditAppIcon } from '../../components/icons/EditAppIcon';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/ScheduleDayAssignmentSummaryModal';
+import { ScheduleDaySlotToAdjustModal } from '../../components/admin/ScheduleDaySlotToAdjustModal';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
@@ -532,6 +533,7 @@ export function AdminSchedulePage() {
   } | null>(null);
   const [closureBusy, setClosureBusy] = useState(false);
   const [assignmentSummaryOpen, setAssignmentSummaryOpen] = useState(false);
+  const [slotToAdjustOpen, setSlotToAdjustOpen] = useState(false);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [closureModalOpen, setClosureModalOpen] = useState(false);
   const [scheduleMapOpen, setScheduleMapOpen] = useState(false);
@@ -1401,6 +1403,17 @@ export function AdminSchedulePage() {
                   <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {token &&
+                    selectedDate &&
+                    (meRole === 'ADMIN' || meRole === 'MARKETER') && (
+                      <button
+                        type="button"
+                        onClick={() => setSlotToAdjustOpen(true)}
+                        className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100"
+                      >
+                        인원조정
+                      </button>
+                    )}
                   {token && selectedDate && (
                     <button
                       type="button"
@@ -2008,6 +2021,19 @@ export function AdminSchedulePage() {
           onClose={() => setAssignmentSummaryOpen(false)}
           dateYmd={selectedDate}
           items={byDate[selectedDate] ?? []}
+        />
+      )}
+
+      {slotToAdjustOpen && selectedDate && token && (
+        <ScheduleDaySlotToAdjustModal
+          open={slotToAdjustOpen}
+          onClose={() => setSlotToAdjustOpen(false)}
+          dateYmd={selectedDate}
+          token={token}
+          stats={stats[selectedDate]}
+          onSaved={() => {
+            void fetchMonthData(false);
+          }}
         />
       )}
 

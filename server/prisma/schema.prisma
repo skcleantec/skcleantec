@@ -387,6 +387,17 @@ model ScheduleDayClosure {
   @@map("schedule_day_closures")
 }
 
+/// 스케줄표·캘린더에 표시되는 오전·오후 잔여 슬롯(TO) 숫자 보정(가산)
+model ScheduleDaySlotToAdjustment {
+  id             String   @id @default(uuid())
+  date           DateTime @unique @db.Date @map("date")
+  morningDelta   Int      @default(0) @map("morning_delta")
+  afternoonDelta Int      @default(0) @map("afternoon_delta")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("schedule_day_slot_to_adjustments")
+}
+
 /// 일자별 팀장 오전·오후 가용(관리자 수동, 없으면 휴무일 기준)
 model ScheduleDayLeaderSlot {
   id                 String   @id @default(uuid())
