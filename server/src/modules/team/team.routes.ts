@@ -12,7 +12,6 @@ import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { assertCrewCapacityForInquiry } from '../inquiries/crewMemberCapacity.helpers.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
-import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 
 const router = Router();
@@ -521,8 +520,7 @@ router.get('/schedule', async (req, res) => {
  */
 router.get('/external-settlement', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  const previewStaff =
-    (user.role === 'ADMIN' || user.role === 'MARKETER') && isTeamPreviewAdminEmail(user.email);
+  const previewStaff = user.role === 'ADMIN' || user.role === 'MARKETER';
   if (user.role !== 'EXTERNAL_PARTNER' && !previewStaff) {
     res.status(403).json({ error: '타업체 계정(또는 개발자 프리뷰)만 접근할 수 있습니다.' });
     return;

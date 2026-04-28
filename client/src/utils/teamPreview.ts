@@ -1,6 +1,7 @@
 /**
- * 관리자·마케터가 팀장 화면 미리보기 가능한 로그인 이메일 (Vite: VITE_TEAM_PREVIEW_ADMIN_EMAILS)
- * 기본값: pyo (로컬·시드 보조 관리자)
+ * (레거시) 이메일 화이트리스트 — 일부 서버 기능(배정 등)에서만 여전히 사용.
+ * 팀·크루 화면 「미리보기」는 ADMIN/MARKETER 전원에게 열려 있음.
+ * Vite: VITE_TEAM_PREVIEW_ADMIN_EMAILS (기본값: pyo)
  */
 export function isTeamPreviewAdminEmail(email: string | undefined | null): boolean {
   if (!email?.trim()) return false;

@@ -40,7 +40,7 @@ export async function loginCrew(loginId: string, password: string) {
   }>;
 }
 
-/** 관리자 미리보기 전용 — 비밀번호 없이 크루 JWT (서버에서 미리보기 이메일·역할 검증) */
+/** 관리자 미리보기 전용 — 비밀번호 없이 크루 JWT (서버에서 ADMIN·MARKETER만 허용) */
 export async function crewDevPreviewLogin(adminToken: string, loginId: string) {
   let res: Response;
   try {

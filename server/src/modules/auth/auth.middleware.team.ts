@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
 import type { AuthPayload } from './auth.middleware.js';
-import { isTeamPreviewAdminEmail } from './teamPreview.helpers.js';
 import { prisma } from '../../lib/prisma.js';
 
 export async function teamAuthMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -16,9 +15,9 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
     const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
     const allowedTeamLeader =
       payload.role === 'TEAM_LEADER' || payload.role === 'EXTERNAL_PARTNER';
+    /** 관리자·마케터는 팀 API에서 previewRole로 팀장·타업체 화면 미리보기 가능 */
     const allowedPreviewStaff =
-      (payload.role === 'ADMIN' || payload.role === 'MARKETER') &&
-      isTeamPreviewAdminEmail(payload.email);
+      payload.role === 'ADMIN' || payload.role === 'MARKETER';
     if (!allowedTeamLeader && !allowedPreviewStaff) {
       res.status(403).json({ error: '팀장 권한이 필요합니다.' });
       return;

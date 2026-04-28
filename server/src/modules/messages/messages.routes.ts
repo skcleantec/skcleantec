@@ -5,7 +5,6 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
-import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 
 const router = Router();
 
@@ -18,9 +17,7 @@ async function resolveTeamPreviewExternalActor(
   user: AuthPayload
 ): Promise<AuthPayload> {
   const previewExternal =
-    req.query.previewRole === 'external' &&
-    (user.role === 'ADMIN' || user.role === 'MARKETER') &&
-    isTeamPreviewAdminEmail(user.email);
+    req.query.previewRole === 'external' && (user.role === 'ADMIN' || user.role === 'MARKETER');
   if (!previewExternal) return user;
 
   const externalCompanyId =

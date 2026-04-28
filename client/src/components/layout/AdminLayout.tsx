@@ -9,7 +9,6 @@ import {
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { clearToken, getToken, subscribeAdminAuth } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAuth';
-import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime, useInquiryCelebrateRealtime, type InquiryCelebratePayload } from '../../hooks/useInboxRealtime';
@@ -182,11 +181,12 @@ export function AdminLayout() {
     getMe(token)
       .then((u: { role?: string; email?: string; name?: string; phone?: string | null; vehicleNumber?: string | null }) => {
         if (cancelled) return;
-        setMeRole(typeof u.role === 'string' ? u.role : null);
+        const role = typeof u.role === 'string' ? u.role : null;
+        setMeRole(role);
         setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
         setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
         setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
-        const preview = Boolean(u.email && isTeamPreviewAdminEmail(u.email));
+        const preview = role === 'ADMIN' || role === 'MARKETER';
         setTeamPreviewLink(preview);
         if (preview && !getTeamToken()) {
           setTeamToken(token);

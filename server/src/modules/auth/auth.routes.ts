@@ -270,16 +270,12 @@ router.post('/crew-login', async (req, res) => {
 
 /**
  * 관리자 미리보기 전용 — 비밀번호 없이 크루 JWT 발급
- * (`TEAM_PREVIEW_ADMIN_EMAILS`에 포함된 ADMIN/MARKETER만, 클라이언트 미리보기 패널과 동일 조건)
+ * (역할 ADMIN 또는 MARKETER, 관리자 GNB 「미리보기」패널과 동일 조건)
  */
 router.post('/crew-dev-preview', authMiddleware, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   if (user.role !== 'ADMIN' && user.role !== 'MARKETER') {
     res.status(403).json({ error: '권한이 필요합니다.' });
-    return;
-  }
-  if (!isTeamPreviewAdminEmail(user.email)) {
-    res.status(403).json({ error: '미리보기 전용 계정만 사용할 수 있습니다.' });
     return;
   }
   const { loginId } = req.body as { loginId?: string };

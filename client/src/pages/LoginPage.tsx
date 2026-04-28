@@ -5,7 +5,6 @@ import { loginCrew, getCrewMe } from '../api/crew';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
-import { isTeamPreviewAdminEmail } from '../utils/teamPreview';
 
 /** ProtectedRoute / TeamProtectedRoute 가 넘긴 `state.from` 만 안전하게 읽기 */
 function readResumeLocation(state: unknown): RouterLocation | undefined {
@@ -206,9 +205,7 @@ export function LoginPage() {
         clearTeamToken();
         clearCrewToken();
         setToken(token);
-        if (user?.email && isTeamPreviewAdminEmail(user.email)) {
-          setTeamToken(token);
-        }
+        setTeamToken(token);
         navigate(resolveAdminResumePath(resumeFrom), { replace: true });
       } else {
         setError('지원하지 않는 계정 유형입니다.');

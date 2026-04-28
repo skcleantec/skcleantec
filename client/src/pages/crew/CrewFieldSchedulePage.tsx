@@ -267,7 +267,7 @@ export function CrewFieldSchedulePage() {
                         </div>
                       </div>
                       <div
-                        className="mt-0.5 flex min-w-0 items-baseline gap-x-1 text-left text-[0.62rem] sm:text-[0.65rem] leading-tight text-gray-900"
+                        className="mt-0.5 min-w-0 max-w-full overflow-x-auto text-left text-[0.62rem] sm:text-[0.65rem] leading-tight text-gray-900 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin]"
                         title={leaderVehicleLine !== '—' ? leaderVehicleLine : undefined}
                       >
                         {!leadersOnly && !hasVehicle ? (
@@ -275,15 +275,13 @@ export function CrewFieldSchedulePage() {
                         ) : !leadersOnly ? (
                           <span className="tabular-nums">{v || '—'}</span>
                         ) : !hasVehicle ? (
-                          <span className="min-w-0 truncate">{plainLeaders}</span>
+                          <span className="min-w-0 truncate block">{plainLeaders}</span>
                         ) : (
-                          <>
-                            <span className="min-w-0 flex-1 truncate">{plainLeaders}</span>
-                            <span className="shrink-0 text-gray-400" aria-hidden>
-                              /
-                            </span>
-                            <span className="shrink-0 max-w-[45%] tabular-nums truncate sm:max-w-none">{v}</span>
-                          </>
+                          <span className="inline-block min-w-0 max-w-none whitespace-nowrap">
+                            <span>{plainLeaders}</span>
+                            <span className="text-gray-400"> / </span>
+                            <span className="tabular-nums">{v}</span>
+                          </span>
                         )}
                       </div>
                     </li>

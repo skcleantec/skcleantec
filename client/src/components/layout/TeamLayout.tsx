@@ -7,8 +7,6 @@ import { getTeamNavBadges } from '../../api/team';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { UserProfileMenu } from '../common/UserProfileMenu';
-import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
-
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
@@ -118,6 +116,13 @@ export function TeamLayout() {
   const previewTeamLeader = searchParams.get('previewRole') === 'team_leader';
   const previewExternalName = (searchParams.get('previewExternalName') || '클린느').trim();
   const previewTeamLeaderId = (searchParams.get('previewTeamLeaderId') || '').trim();
+  const adminJwt = getToken();
+  const showAdminScreenLink = Boolean(
+    adminJwt &&
+      teamToken &&
+      adminJwt === teamToken &&
+      (previewExternal || previewTeamLeader),
+  );
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
   let previewQuery = '';
@@ -213,7 +218,7 @@ export function TeamLayout() {
             </nav>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
-            {isTeamPreviewAdminEmail(userEmail) && getToken() ? (
+            {showAdminScreenLink ? (
               <NavLink
                 to="/admin/dashboard"
                 className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] font-medium text-blue-700 hover:bg-blue-100 hover:text-blue-900 whitespace-nowrap"
@@ -238,7 +243,7 @@ export function TeamLayout() {
                   token={teamToken}
                   teamProfileVehicleField
                   showVehicleForPreviewAdmin={Boolean(
-                    isTeamPreviewAdminEmail(userEmail) && userRole === 'ADMIN'
+                    (userRole === 'ADMIN' || userRole === 'MARKETER') && previewTeamLeader
                   )}
                   me={{
                     name: userName,

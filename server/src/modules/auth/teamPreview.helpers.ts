@@ -1,5 +1,6 @@
 /**
- * 관리자·마케터가 팀장 API/화면을 미리볼 수 있는 계정 (이메일 로그인 기준, 소문자 비교)
+ * 이메일 화이트리스트 — 일부 API(예: ADMIN을 팀장으로 배정)에서만 사용.
+ * 팀 라우터(teamAuthMiddleware)의 previewRole 미리보기는 ADMIN·MARKETER 전원 허용.
  * Railway 등: TEAM_PREVIEW_ADMIN_EMAILS=pyo,other@example.com
  */
 export function isTeamPreviewAdminEmail(email: string | undefined | null): boolean {

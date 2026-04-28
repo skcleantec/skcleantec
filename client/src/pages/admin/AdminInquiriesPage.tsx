@@ -5,14 +5,10 @@ import {
   getInquiries,
   getInquiry,
   getMarketerOverview,
-  createInquiry,
   updateInquiry,
   deleteInquiry,
   type MarketerOverviewResponse,
 } from '../../api/inquiries';
-import {
-  createOrderFollowup,
-} from '../../api/orderFollowups';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import {
   forceMatchOrderFormToInquiry,
@@ -24,6 +20,7 @@ import {
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
+import { AdminListIntakeModal, type AdminListIntakeResult } from '../../components/admin/AdminListIntakeModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
@@ -58,10 +55,6 @@ import {
   isInquirySourceHiddenFromUi,
   phoneListTwoLines,
 } from '../../utils/inquiryListDisplay';
-import {
-  ORDER_FOLLOWUP_STATUS_LABEL,
-  type OrderFollowupStatus,
-} from '../../constants/orderFollowupStatus';
 import { happyCallRowTone } from '../../utils/happyCall';
 import {
   effectiveAdminTeamSpecialNotes,
@@ -572,15 +565,14 @@ export function AdminInquiriesPage() {
   >([]);
   /** 접수 목록 — 부재현황과 동일 취지의 전화·상태별 신규 (부재/보류 → 부재현황, 입금대기/완료 → 이 목록) */
   const [listIntakeOpen, setListIntakeOpen] = useState(false);
-  const [listIntakeKind, setListIntakeKind] = useState<'absent' | 'hold' | 'deposit' | 'reserved'>(
-    'deposit'
-  );
-  const [listIntakeName, setListIntakeName] = useState('');
-  const [listIntakeNickname, setListIntakeNickname] = useState('');
-  const [listIntakePhone, setListIntakePhone] = useState('');
-  const [listIntakeMemo, setListIntakeMemo] = useState('');
-  const [listIntakeSaving, setListIntakeSaving] = useState(false);
   const [listIntakeEditInquiryId, setListIntakeEditInquiryId] = useState<string | null>(null);
+  const [listIntakeEditSeed, setListIntakeEditSeed] = useState<{
+    customerName: string;
+    nickname: string;
+    customerPhone: string;
+    memo: string;
+    depositPending: boolean;
+  } | null>(null);
   /** 전화·상태별 신규 직후 목록 재조회(필터가 동일해도 한 번 더) */
   const [inquiryListBump, setInquiryListBump] = useState(0);
   const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
@@ -899,98 +891,48 @@ export function AdminInquiriesPage() {
       });
   };
 
-  const openListIntakeModal = () => {
-    setListIntakeName('');
-    setListIntakeNickname('');
-    setListIntakePhone('');
-    setListIntakeMemo('');
-    setListIntakeKind('deposit');
+  const openListIntakeModal = useCallback(() => {
     setListIntakeEditInquiryId(null);
+    setListIntakeEditSeed(null);
     setListIntakeOpen(true);
+  }, []);
+
+  const handleListIntakeCommitted = (result: AdminListIntakeResult) => {
+    if (result.kind === 'absent_or_hold') {
+      navigate('/admin/inquiries/followup');
+      return;
+    }
+    if (result.kind === 'updated_inquiry') {
+      refresh(true);
+      return;
+    }
+    const inqSt = result.inquiryStatus;
+    const todayYmd = kstTodayYmd();
+    const month = kstMonthKeyNow();
+    flushSync(() => {
+      setDateBasis('createdAt');
+      setDatePreset('today');
+      setMonthKey(month);
+      setDayKey(todayYmd);
+      setStatusFilter(inqSt);
+      setMarketerFilterId('');
+      setTeamLeaderFilterId('');
+      setSearchInput('');
+      setAppliedSearchQuery('');
+      setInquiryListBump((n) => n + 1);
+    });
   };
 
   const openListIntakeEditModal = (item: InquiryItem) => {
-    setListIntakeName(item.customerName ?? '');
-    setListIntakeNickname(item.nickname ?? '');
-    setListIntakePhone(item.customerPhone ?? '');
-    setListIntakeMemo(item.memo ?? '');
-    setListIntakeKind(item.status === 'DEPOSIT_PENDING' ? 'deposit' : 'reserved');
     setListIntakeEditInquiryId(item.id);
+    setListIntakeEditSeed({
+      customerName: item.customerName ?? '',
+      nickname: item.nickname ?? '',
+      customerPhone: item.customerPhone ?? '',
+      memo: item.memo ?? '',
+      depositPending: item.status === 'DEPOSIT_PENDING',
+    });
     setListIntakeOpen(true);
-  };
-
-  const submitListIntake = async () => {
-    if (!token) return;
-    const name = listIntakeName.trim();
-    if (!name) {
-      alert('고객명을 입력해 주세요.');
-      return;
-    }
-    setListIntakeSaving(true);
-    try {
-      if (listIntakeKind === 'absent' || listIntakeKind === 'hold') {
-        await createOrderFollowup(token, {
-          customerName: name,
-          nickname: listIntakeNickname.trim() || null,
-          customerPhone: listIntakePhone.trim(),
-          status: listIntakeKind === 'absent' ? 'ABSENT' : 'ON_HOLD',
-          memo: listIntakeMemo.trim() || null,
-        });
-        setListIntakeOpen(false);
-        navigate('/admin/inquiries/followup');
-        return;
-      }
-      if (listIntakeEditInquiryId) {
-        await updateInquiry(token, listIntakeEditInquiryId, {
-          customerName: name,
-          nickname: listIntakeNickname.trim() || null,
-          customerPhone: listIntakePhone.trim() || '',
-          memo: listIntakeMemo.trim() || null,
-        });
-        setListIntakeOpen(false);
-        refresh(true);
-        return;
-      }
-      const inqSt = listIntakeKind === 'deposit' ? 'DEPOSIT_PENDING' : 'DEPOSIT_COMPLETED';
-      const created = (await createInquiry(token, {
-        customerName: name,
-        nickname: listIntakeNickname.trim() || null,
-        customerPhone: listIntakePhone.trim() || '',
-        address: '',
-        addressDetail: null,
-        memo: listIntakeMemo.trim() || null,
-        source: '전화',
-        status: inqSt,
-      })) as { id: string };
-      const fuSt: OrderFollowupStatus = listIntakeKind === 'deposit' ? 'DEPOSIT_PENDING' : 'RESERVED';
-      await createOrderFollowup(token, {
-        customerName: name,
-        nickname: listIntakeNickname.trim() || null,
-        customerPhone: listIntakePhone.trim(),
-        status: fuSt,
-        memo: listIntakeMemo.trim() || null,
-        inquiryId: created.id,
-      });
-      const todayYmd = kstTodayYmd();
-      const month = kstMonthKeyNow();
-      flushSync(() => {
-        setDateBasis('createdAt');
-        setDatePreset('today');
-        setMonthKey(month);
-        setDayKey(todayYmd);
-        setStatusFilter(inqSt);
-        setMarketerFilterId('');
-        setTeamLeaderFilterId('');
-        setSearchInput('');
-        setAppliedSearchQuery('');
-        setListIntakeOpen(false);
-        setInquiryListBump((n) => n + 1);
-      });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '등록에 실패했습니다.');
-    } finally {
-      setListIntakeSaving(false);
-    }
   };
 
   useEffect(() => {
@@ -3546,177 +3488,21 @@ export function AdminInquiriesPage() {
         />
       )}
 
-      {listIntakeOpen &&
-        token &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[580] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="list-intake-title"
-          >
-            <div className="absolute inset-0" aria-hidden onClick={() => !listIntakeSaving && setListIntakeOpen(false)} />
-            <div className="relative z-10 flex max-h-[min(92dvh,640px)] w-full max-w-lg flex-col rounded-t-2xl border border-gray-200 bg-white shadow-xl sm:rounded-xl">
-              <ModalCloseButton onClick={() => !listIntakeSaving && setListIntakeOpen(false)} />
-              <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12">
-                <h2 id="list-intake-title" className="text-fluid-base font-semibold text-gray-900">
-                  {listIntakeEditInquiryId ? '전화·상태 수정' : '전화·상태별 신규'}
-                </h2>
-                <p className="mt-1 text-fluid-2xs text-gray-500">
-                  {listIntakeEditInquiryId
-                    ? '고객명·닉네임·연락처·메모를 수정합니다. 처리 구분은 변경하지 않습니다.'
-                    : '부재·보류는 부재현황에서만 이어갑니다. 입금대기·입금완료는 서비스접수에 바로 나타납니다.'}
-                </p>
-              </div>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-4 py-3">
-                <div>
-                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">고객명 *</label>
-                  <input
-                    type="text"
-                    value={listIntakeName}
-                    onChange={(e) => setListIntakeName(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm"
-                    autoComplete="name"
-                    disabled={listIntakeSaving}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">닉네임 (선택)</label>
-                  <input
-                    type="text"
-                    value={listIntakeNickname}
-                    onChange={(e) => setListIntakeNickname(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm"
-                    disabled={listIntakeSaving}
-                    placeholder="예: 어머님, 관리실"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">연락처</label>
-                  <input
-                    type="tel"
-                    value={listIntakePhone}
-                    onChange={(e) => setListIntakePhone(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm tabular-nums"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    disabled={listIntakeSaving}
-                  />
-                </div>
-                <fieldset>
-                  <legend className="mb-2 text-fluid-xs font-medium text-gray-700">처리 구분 *</legend>
-                  <div className={`space-y-2 text-fluid-2xs sm:text-fluid-xs ${listIntakeEditInquiryId ? 'pointer-events-none opacity-60' : ''}`}>
-                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-100 p-2 hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="listIntakeKind"
-                        checked={listIntakeKind === 'absent'}
-                        onChange={() => setListIntakeKind('absent')}
-                        className="mt-0.5"
-                        disabled={listIntakeSaving}
-                      />
-                      <span>
-                        <span className="font-medium text-gray-900">
-                          {ORDER_FOLLOWUP_STATUS_LABEL.ABSENT}
-                        </span>
-                        <span className="mt-0.5 block text-gray-500">부재현황으로 이동 · 서비스접수에는 없음</span>
-                      </span>
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-100 p-2 hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="listIntakeKind"
-                        checked={listIntakeKind === 'hold'}
-                        onChange={() => setListIntakeKind('hold')}
-                        className="mt-0.5"
-                        disabled={listIntakeSaving}
-                      />
-                      <span>
-                        <span className="font-medium text-gray-900">
-                          {ORDER_FOLLOWUP_STATUS_LABEL.ON_HOLD}
-                        </span>
-                        <span className="mt-0.5 block text-gray-500">부재현황으로 이동 · 서비스접수에는 없음</span>
-                      </span>
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-sky-200 bg-sky-50/50 p-2 hover:bg-sky-50">
-                      <input
-                        type="radio"
-                        name="listIntakeKind"
-                        checked={listIntakeKind === 'deposit'}
-                        onChange={() => setListIntakeKind('deposit')}
-                        className="mt-0.5"
-                        disabled={listIntakeSaving}
-                      />
-                      <span>
-                        <span className="font-medium text-gray-900">
-                          {ORDER_FOLLOWUP_STATUS_LABEL.DEPOSIT_PENDING}
-                        </span>
-                        <span className="mt-0.5 block text-sky-900/80">
-                          서비스접수(입금대기) + 부재현황(예약금 대기) 연동
-                        </span>
-                      </span>
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-sky-200 bg-sky-50/50 p-2 hover:bg-sky-50">
-                      <input
-                        type="radio"
-                        name="listIntakeKind"
-                        checked={listIntakeKind === 'reserved'}
-                        onChange={() => setListIntakeKind('reserved')}
-                        className="mt-0.5"
-                        disabled={listIntakeSaving}
-                      />
-                      <span>
-                        <span className="font-medium text-gray-900">
-                          {ORDER_FOLLOWUP_STATUS_LABEL.RESERVED}
-                        </span>
-                        <span className="mt-0.5 block text-sky-900/80">
-                          서비스접수(입금완료) + 부재현황(입금 완료) 연동
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-                </fieldset>
-                <div>
-                  <label className="mb-1 block text-fluid-xs font-medium text-gray-700">메모</label>
-                  <textarea
-                    value={listIntakeMemo}
-                    onChange={(e) => setListIntakeMemo(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm"
-                    disabled={listIntakeSaving}
-                  />
-                </div>
-              </div>
-              <div className="shrink-0 border-t border-gray-100 px-4 py-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setListIntakeOpen(false)}
-                    disabled={listIntakeSaving}
-                    className="order-2 w-full rounded-lg border border-gray-300 py-2.5 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 sm:order-1 sm:w-auto sm:px-4"
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void submitListIntake()}
-                    disabled={listIntakeSaving}
-                    className="order-1 w-full min-h-[44px] touch-manipulation rounded-lg bg-sky-700 py-2.5 text-fluid-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50 sm:order-2 sm:w-auto sm:px-5"
-                  >
-                    {listIntakeSaving
-                      ? '등록 중…'
-                      : listIntakeEditInquiryId
-                        ? '수정 저장'
-                        : listIntakeKind === 'absent' || listIntakeKind === 'hold'
-                        ? '등록 후 부재현황으로'
-                        : '등록'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      {token && (
+        <AdminListIntakeModal
+          open={listIntakeOpen}
+          token={token}
+          editMode={Boolean(listIntakeEditInquiryId)}
+          editInquiryId={listIntakeEditInquiryId}
+          editSeed={listIntakeEditSeed}
+          onClose={() => {
+            setListIntakeOpen(false);
+            setListIntakeEditInquiryId(null);
+            setListIntakeEditSeed(null);
+          }}
+          onCommitted={handleListIntakeCommitted}
+        />
+      )}
 
       {createInquiryModalDate && token && (
         <ScheduleInquiryDetailModal

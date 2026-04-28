@@ -13,6 +13,7 @@ import {
 } from '../../api/orderFollowups';
 import { getInquiries } from '../../api/inquiries';
 import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
+import { AdminListIntakeModal } from '../admin/AdminListIntakeModal';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { HelpTooltip } from '../ui/HelpTooltip';
@@ -278,6 +279,7 @@ export function AdminOrderFormFollowupPanel({
   linkedInquiryId?: string | null;
   onClearLinkedInquiry?: () => void;
 }) {
+  const [listIntakeOpen, setListIntakeOpen] = useState(false);
   const [items, setItems] = useState<OrderFollowupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -631,6 +633,14 @@ export function AdminOrderFormFollowupPanel({
                   일별
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => setListIntakeOpen(true)}
+                className="inline-flex min-h-[30px] shrink-0 items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-2.5 py-1 text-fluid-2xs sm:text-fluid-xs font-medium text-sky-900 hover:bg-sky-100"
+                title="일반 워크플로우(부재/보류/입금)로 신규 등록 · 서비스접수와 동일"
+              >
+                일반 등록
+              </button>
               {datePreset === 'month' && (
                 <YearMonthSelect
                   value={dateMonthKey}
@@ -1282,6 +1292,15 @@ export function AdminOrderFormFollowupPanel({
           </div>,
           document.body
         )}
+      <AdminListIntakeModal
+        open={listIntakeOpen}
+        token={token}
+        editMode={false}
+        editInquiryId={null}
+        editSeed={null}
+        onClose={() => setListIntakeOpen(false)}
+        onCommitted={() => void load()}
+      />
       <ConfirmPasswordModal
         open={Boolean(deleteTarget)}
         title={
