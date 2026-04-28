@@ -21,18 +21,14 @@ export function isMorningPreferenceForCrewMeeting(preferredTime: string | null, 
   return false;
 }
 
-/** 04:00 ~ 08:00 (포함), 30분 단위 */
-export function allowedCrewMeetingTimesKst(): string[] {
-  const out: string[] = [];
-  for (let mins = 4 * 60; mins <= 8 * 60; mins += 30) {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-  }
-  return out;
+/** KST `HH:mm` (DB·화면 문자열 형식 일치). */
+export function isValidStoredCrewMeetingHhMm(s: string): boolean {
+  const m = s.match(/^(\d{2}):(\d{2})$/);
+  if (!m) return false;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  return hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59;
 }
-
-const ALLOWED = new Set(allowedCrewMeetingTimesKst());
 
 export function parseCrewMeetingTimeBody(
   raw: unknown
@@ -44,8 +40,8 @@ export function parseCrewMeetingTimeBody(
   if (!s) {
     return { ok: true, value: null };
   }
-  if (!ALLOWED.has(s)) {
-    return { ok: false, error: '미팅 시각은 오전 4시~8시 사이 30분 단위만 선택할 수 있습니다.' };
+  if (!isValidStoredCrewMeetingHhMm(s)) {
+    return { ok: false, error: '미팅 시각은 HH:mm 형식(00:00~23:59)으로 입력해 주세요.' };
   }
   return { ok: true, value: s };
 }

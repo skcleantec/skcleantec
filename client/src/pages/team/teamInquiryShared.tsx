@@ -16,7 +16,7 @@ import { postTeamInquiryDetailViewed, patchTeamInquiryCrewMeetingTime } from '..
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import {
   formatMeetingTimeKoLabel,
-  isAllowedCrewMeetingHhmm,
+  isValidCrewMeetingHhmm,
   isMorningBucketForTeamMeeting,
   normalizeTimeInputToHhmm,
 } from '../../utils/crewMeetingTime';
@@ -402,10 +402,6 @@ export function TeamInquiryDetailModal({
       alert('시간 형식이 올바르지 않습니다.');
       return;
     }
-    if (normalized !== null && !isAllowedCrewMeetingHhmm(normalized)) {
-      alert('미팅 시각은 오전 4시~8시 사이 30분 단위만 선택할 수 있습니다.');
-      return;
-    }
     const val = normalized;
     setCrewMeetingSaving(true);
     try {
@@ -428,7 +424,7 @@ export function TeamInquiryDetailModal({
   const crewMeetingPreview =
     crewMeetingDraft.trim() === '' ? null : normalizeTimeInputToHhmm(crewMeetingDraft.trim());
   const crewMeetingPreviewLabel =
-    crewMeetingPreview && isAllowedCrewMeetingHhmm(crewMeetingPreview)
+    crewMeetingPreview && isValidCrewMeetingHhmm(crewMeetingPreview)
       ? formatMeetingTimeKoLabel(crewMeetingPreview)
       : null;
   const crewMeetingDirty = (() => {
@@ -660,7 +656,7 @@ export function TeamInquiryDetailModal({
                       <TeamInlineNoticeModule variant="success">{crewMeetingSaveNotice}</TeamInlineNoticeModule>
                     ) : null}
                     <p className="text-fluid-2xs text-gray-500">
-                      시간을 선택·입력한 뒤 <strong className="font-medium text-gray-700">저장</strong>을 누르면 반영됩니다. 오전 4시~8시, 30분 단위입니다. 크루 「현장 일정」과 관리자 접수 목록 등은 접수 변경 알림 채널로 갱신됩니다.
+                      시간을 선택·입력한 뒤 <strong className="font-medium text-gray-700">저장</strong>을 누르면 반영됩니다. 크루 「현장 일정」과 관리자 접수 목록 등은 접수 변경 알림 채널로 갱신됩니다.
                     </p>
                   </div>
                 </TeamModalRow>

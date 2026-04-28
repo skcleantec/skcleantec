@@ -13,21 +13,22 @@ export function isMorningBucketForTeamMeeting(item: {
   );
 }
 
-/** 04:00 ~ 08:00 KST 30분 간격 */
-export const MORNING_MEETING_TIME_OPTIONS_KST: string[] = (() => {
-  const out: string[] = [];
-  for (let mins = 4 * 60; mins <= 8 * 60; mins += 30) {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-  }
-  return out;
-})();
-
 export function formatMeetingTimeKoLabel(hhmm: string): string {
-  const [h, m] = hhmm.split(':').map(Number);
+  const [hs, ms] = hhmm.split(':');
+  const h = Number(hs);
+  const m = Number(ms);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
-  return `오전 ${h}시${m === 0 ? '' : ` ${m}분`}`;
+  if (h === 0) {
+    return m === 0 ? '오전 12시' : `오전 12시 ${m}분`;
+  }
+  if (h < 12) {
+    return m === 0 ? `오전 ${h}시` : `오전 ${h}시 ${m}분`;
+  }
+  if (h === 12) {
+    return m === 0 ? '오후 12시' : `오후 12시 ${m}분`;
+  }
+  const h12 = h - 12;
+  return m === 0 ? `오후 ${h12}시` : `오후 ${h12}시 ${m}분`;
 }
 
 /** `<input type="time">` 값 → `HH:mm` (브라우저가 초 `:ss` 를 붙이는 경우 포함) */
@@ -44,6 +45,11 @@ export function normalizeTimeInputToHhmm(raw: string): string | null {
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
-export function isAllowedCrewMeetingHhmm(hhmm: string): boolean {
-  return MORNING_MEETING_TIME_OPTIONS_KST.includes(hhmm);
+/** 저장·표시용 `HH:mm` (00:00~23:59) */
+export function isValidCrewMeetingHhmm(hhmm: string): boolean {
+  const m = hhmm.match(/^(\d{2}):(\d{2})$/);
+  if (!m) return false;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  return h >= 0 && h <= 23 && min >= 0 && min <= 59;
 }

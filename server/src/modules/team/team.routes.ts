@@ -386,7 +386,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
   res.json(await attachCrewMembersOne(updated));
 });
 
-/** 팀장: 오전 희망 접수일 때만 크루 현장 일정에 노출할 미팅 시각(KST 04:00~08:00, 30분 단위) */
+/** 팀장: 오전 희망 접수일 때만 크루 현장 일정에 노출할 미팅 시각(KST, HH:mm) */
 router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
   try {
     const { userId } = (req as unknown as { user: AuthPayload }).user;
