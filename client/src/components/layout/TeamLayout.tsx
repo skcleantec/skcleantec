@@ -13,7 +13,6 @@ export function TeamLayout() {
   const location = useLocation();
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
   const [userVehicleNumber, setUserVehicleNumber] = useState<string | null>(null);
   const [userNameEn, setUserNameEn] = useState<string | null>(null);
@@ -26,7 +25,6 @@ export function TeamLayout() {
     if (!token) {
       setUserName(null);
       setUserRole(null);
-      setUserEmail(null);
       setUserPhone(null);
       setUserVehicleNumber(null);
       setUserNameEn(null);
@@ -44,7 +42,6 @@ export function TeamLayout() {
         }) => {
           setUserName(u.name ?? null);
           setUserRole(u.role ?? null);
-          setUserEmail(u.email ?? null);
           setUserPhone(u.phone ?? null);
           setUserVehicleNumber(u.vehicleNumber ?? null);
           setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
@@ -53,7 +50,6 @@ export function TeamLayout() {
       .catch((e) => {
         setUserName(null);
         setUserRole(null);
-        setUserEmail(null);
         setUserPhone(null);
         setUserVehicleNumber(null);
         setUserNameEn(null);
