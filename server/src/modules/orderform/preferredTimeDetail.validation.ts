@@ -1,5 +1,8 @@
 /** 고객 발주서 `preferredTimeDetail` — 시간대별 허용 시각 (클라이언트 `orderFormPreferredTimeDetail.ts` 와 동일 규칙) */
 
+/** 오후 구체적 시각 단일 허용값 — ORDER_FORM_AFTERNOON_TIME_DETAIL_VALUE 와 문자열 동일 */
+const AFTERNOON_NEGOTIABLE_DETAIL = '12시~2시 사이 (협의)';
+
 const M = (h: number, min: number) => h * 60 + min;
 
 function hhmm(totalMin: number): string {
@@ -18,7 +21,7 @@ function halfHourRange(startMin: number, endMin: number): string[] {
 
 function allowedValuesForSlot(slot: string): Set<string> | null {
   if (slot === '오전') return new Set(halfHourRange(M(8, 0), M(9, 0)));
-  if (slot === '오후') return new Set(halfHourRange(M(12, 0), M(14, 0)));
+  if (slot === '오후') return new Set([AFTERNOON_NEGOTIABLE_DETAIL]);
   if (slot === '사이청소') return new Set(halfHourRange(M(10, 0), M(13, 0)));
   return null;
 }
