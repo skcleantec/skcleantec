@@ -34,9 +34,9 @@ export function ScheduleDaySlotToAdjustModal({
   const dispAm = stats?.assignableMorning ?? 0;
   const dispPm = stats?.assignableAfternoonSlot ?? 0;
   const compAm =
-    stats?.computedAssignableMorning ?? Math.max(0, dispAm - amAdj);
+    stats?.computedAssignableMorning ?? dispAm - amAdj;
   const compPm =
-    stats?.computedAssignableAfternoonSlot ?? Math.max(0, dispPm - pmAdj);
+    stats?.computedAssignableAfternoonSlot ?? dispPm - pmAdj;
 
   const persist = useCallback(
     async (nextAmAdj: number, nextPmAdj: number) => {
@@ -103,7 +103,13 @@ export function ScheduleDaySlotToAdjustModal({
                     −
                   </button>
                   <div className="min-w-[4.5rem] text-center">
-                    <span className="text-xl font-bold tabular-nums text-amber-950">{dispAm}</span>
+                    <span
+                      className={`text-xl font-bold tabular-nums ${
+                        dispAm < 0 ? 'text-rose-700' : 'text-amber-950'
+                      }`}
+                    >
+                      {dispAm}
+                    </span>
                     <span className="block text-fluid-2xs text-gray-500 mt-0.5 tabular-nums">
                       계산 {compAm} · 보정 {formatAdjSigned(amAdj)}
                     </span>
@@ -132,7 +138,13 @@ export function ScheduleDaySlotToAdjustModal({
                     −
                   </button>
                   <div className="min-w-[4.5rem] text-center">
-                    <span className="text-xl font-bold tabular-nums text-sky-950">{dispPm}</span>
+                    <span
+                      className={`text-xl font-bold tabular-nums ${
+                        dispPm < 0 ? 'text-rose-700' : 'text-sky-950'
+                      }`}
+                    >
+                      {dispPm}
+                    </span>
                     <span className="block text-fluid-2xs text-gray-500 mt-0.5 tabular-nums">
                       계산 {compPm} · 보정 {formatAdjSigned(pmAdj)}
                     </span>

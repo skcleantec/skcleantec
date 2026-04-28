@@ -475,8 +475,8 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       (t) => leaderSlotsFor(t.id).afternoon && !afternoonAssignedIds.has(t.id)
     );
 
-    const assignableMorning = Math.max(0, morningWorkingCount - morningOccupied);
-    const assignableAfternoonSlot = Math.max(0, afternoonWorkingCount - afternoonOccupied);
+    const assignableMorning = morningWorkingCount - morningOccupied;
+    const assignableAfternoonSlot = afternoonWorkingCount - afternoonOccupied;
     const unassignedTotal = assignableMorning + assignableAfternoonSlot;
 
     const crewAvailable = crewAvailableByDate.get(key) ?? 0;
@@ -579,8 +579,8 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     const adj = slotAdjByKey.get(key) ?? { morningDelta: 0, afternoonDelta: 0 };
     const baseAm = cur.assignableMorning;
     const basePm = cur.assignableAfternoonSlot;
-    const am = Math.max(0, baseAm + adj.morningDelta);
-    const pm = Math.max(0, basePm + adj.afternoonDelta);
+    const am = baseAm + adj.morningDelta;
+    const pm = basePm + adj.afternoonDelta;
     byDate[key] = {
       ...cur,
       computedAssignableMorning: baseAm,

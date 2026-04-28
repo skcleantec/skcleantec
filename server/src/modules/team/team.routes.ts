@@ -9,7 +9,6 @@ import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtra
 import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
-import { assertCrewCapacityForInquiry } from '../inquiries/crewMemberCapacity.helpers.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
@@ -357,18 +356,6 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       include: teamInquiryInclude,
     });
     res.json(await attachCrewMembersOne(unchanged));
-    return;
-  }
-
-  const cap = await assertCrewCapacityForInquiry({
-    prisma,
-    preferredDate,
-    crewMemberCount: inquiry.crewMemberCount ?? null,
-    excludeInquiryId: id,
-    assigneeUserIdsPreview: inquiry.assignments.map((a) => a.teamLeader.id),
-  });
-  if (!cap.ok) {
-    res.status(400).json({ error: cap.error });
     return;
   }
 

@@ -58,13 +58,20 @@ function isFullDayClosure(s: ScheduleStatsByDate | undefined): boolean {
   return Boolean(s.manualClosed);
 }
 
-/** 스케줄 표와 동일: 팀장 오전·오후 슬롯에 분배 잔여가 있는 날 */
-function hasAssignableLeaderSlots(s: ScheduleStatsByDate | undefined): boolean {
+function leaderSlotPositive(s: ScheduleStatsByDate | undefined): boolean {
   if (!s) return false;
   if (isFullDayClosure(s)) return false;
   const am = s.assignableMorning ?? 0;
   const pm = s.assignableAfternoonSlot ?? 0;
   return am > 0 || pm > 0;
+}
+
+/** 팀장 슬롯이 소진을 넘김 → 일정 과밀 */
+function leaderSlotDeficitBad(s: ScheduleStatsByDate | undefined): boolean {
+  if (!s || isFullDayClosure(s)) return false;
+  const am = s.assignableMorning ?? 0;
+  const pm = s.assignableAfternoonSlot ?? 0;
+  return am < 0 || pm < 0;
 }
 
 function parseYmdHint(s: string | undefined): { y: number; m: number } | null {
@@ -309,8 +316,9 @@ export function PreferredDateCalendarModal({
                   }
                   const key = getDateKey(d);
                   const st = stats[key];
-                  const assignable = hasAssignableLeaderSlots(st);
-                  const full = st != null && !assignable && !statsError;
+                  const positive = leaderSlotPositive(st);
+                  const deficitBad = leaderSlotDeficitBad(st);
+                  const full = st != null && !positive && !deficitBad && !statsError;
                   const isSat = i % 7 === 6;
                   const isSun = i % 7 === 0;
                   const isHol = isPublicHoliday(year, month, d);
@@ -322,7 +330,8 @@ export function PreferredDateCalendarModal({
 
                   let cellBg = 'bg-white hover:bg-gray-50';
                   if (isPast) cellBg = 'bg-gray-50 cursor-not-allowed';
-                  else if (assignable) cellBg = 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-200/80';
+                  else if (deficitBad) cellBg = 'bg-rose-50/95 hover:bg-rose-100/90 border-rose-200/80';
+                  else if (positive) cellBg = 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-200/80';
                   else if (full) cellBg = 'bg-slate-100/95 hover:bg-slate-200/80';
 
                   const am = st?.assignableMorning ?? 0;
@@ -331,11 +340,13 @@ export function PreferredDateCalendarModal({
                   const titleParts = isPast
                     ? ['지난 날짜는 선택할 수 없습니다']
                     : [
-                        assignable
-                          ? '분배 가능 (팀장 슬롯 잔여)'
-                          : full
-                            ? '팀장 슬롯 없음·마감에 가까움'
-                            : '현황 없음',
+                        deficitBad
+                          ? '팀장 슬롯 초과 (잔여 마이너스)'
+                          : positive
+                            ? '분배 여유 있음'
+                            : full
+                              ? '팀장 슬롯 없음 또는 마감'
+                              : '현황 없음',
                         `오전 잔여 ${am}`,
                         `오후 잔여 ${pm}`,
                       ];
@@ -376,9 +387,17 @@ export function PreferredDateCalendarModal({
                       </div>
                       {!isPast && st && !statsError && (
                         <div className="mt-0.5 tabular-nums text-[9px] sm:text-[10px] text-gray-600">
-                          <span className="text-amber-900/90">오{am}</span>
+                          <span
+                            className={am < 0 ? 'text-rose-800 font-semibold' : 'text-amber-900/90'}
+                          >
+                            오{am}
+                          </span>
                           <span className="text-gray-400 mx-px">/</span>
-                          <span className="text-sky-900/90">후{pm}</span>
+                          <span
+                            className={pm < 0 ? 'text-rose-800 font-semibold' : 'text-sky-900/90'}
+                          >
+                            후{pm}
+                          </span>
                         </div>
                       )}
                     </button>
@@ -391,11 +410,15 @@ export function PreferredDateCalendarModal({
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-fluid-2xs text-gray-600">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-sm bg-emerald-100 border border-emerald-300 shrink-0" />
-              분배 가능
+              분배 여유(+)
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-rose-100 border border-rose-300 shrink-0" />
+              슬롯 초과(−)
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-sm bg-slate-200 shrink-0" />
-              슬롯 없음
+              여유 없음 / 0
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-gray-900 shrink-0" />

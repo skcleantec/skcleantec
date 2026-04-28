@@ -26,10 +26,6 @@ import {
   parseProfessionalOptionIdsRaw,
 } from '../orderform/specialtyOptions.js';
 import { allocateNextInquiryNumber } from './inquiryNumber.js';
-import {
-  assertCrewCapacityForInquiry,
-  preferredDateYmdKst,
-} from './crewMemberCapacity.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 import inquiryExtraChargesAdminRoutes from '../inquiry-extra-charges/inquiryExtraCharges.admin.routes.js';
@@ -554,35 +550,6 @@ router.patch('/:id', async (req, res) => {
   const mergedClaimMemo =
     data.claimMemo !== undefined ? String(data.claimMemo ?? '').trim() : String(inquiry.claimMemo ?? '').trim();
 
-  /** 팀원 용량 검사: 예약일·팀원 수가 실제로 바뀔 때만 (같은 날 팀장만 수정하는 PATCH는 제외) */
-  const preferredDateKstChanged =
-    data.preferredDate !== undefined &&
-    preferredDateYmdKst(mergedPreferredDate) !== preferredDateYmdKst(inquiry.preferredDate);
-  const crewMemberCountChanged =
-    data.crewMemberCount !== undefined &&
-    (mergedCrew ?? null) !== (inquiry.crewMemberCount ?? null);
-
-  if (mergedStatus !== 'CANCELLED' && mergedStatus !== 'ON_HOLD' && mergedPreferredDate) {
-    const capacityRelevant =
-      preferredDateKstChanged ||
-      crewMemberCountChanged ||
-      (data.status !== undefined &&
-        (inquiry.status === 'CANCELLED' || inquiry.status === 'ON_HOLD'));
-    if (capacityRelevant) {
-      const cap = await assertCrewCapacityForInquiry({
-        prisma,
-        preferredDate: mergedPreferredDate,
-        crewMemberCount: mergedCrew ?? null,
-        excludeInquiryId: id,
-        assigneeUserIdsPreview: wantsTeamSync ? teamLeaderIds : undefined,
-      });
-      if (!cap.ok) {
-        res.status(400).json({ error: cap.error });
-        return;
-      }
-    }
-  }
-
   const mergedTime =
     data.preferredTime !== undefined
       ? String(data.preferredTime)
@@ -909,19 +876,6 @@ router.post('/', async (req, res) => {
   }
 
   const preferredDate = body.preferredDate ? new Date(body.preferredDate as string) : null;
-
-  if (status !== 'CANCELLED' && status !== 'ON_HOLD' && preferredDate) {
-    const cap = await assertCrewCapacityForInquiry({
-      prisma,
-      preferredDate,
-      crewMemberCount,
-      excludeInquiryId: undefined,
-    });
-    if (!cap.ok) {
-      res.status(400).json({ error: cap.error });
-      return;
-    }
-  }
 
   const inquiry = await prisma.$transaction(async (tx) => {
     const inquiryNumber =

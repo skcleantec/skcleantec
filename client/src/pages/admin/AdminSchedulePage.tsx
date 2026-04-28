@@ -65,7 +65,7 @@ const adminScheduleMapIconUrl =
   (import.meta.env.VITE_ADMIN_SCHEDULE_MAP_ICON_URL ?? '').trim() || DEFAULT_ADMIN_SCHEDULE_MAP_ICON;
 
 function scheduleLegendSlotHelpText(crewUnits: number): string {
-  return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. 사이는 발주서 옵션 건수이며 확정 시 오전 또는 오후 한 칸을 씁니다.`;
+  return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 0보다 작으면 해당 구간이 소진 건수보다 많이 잡혀 있다는 뜻입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. 사이는 발주서 옵션 건수이며 확정 시 오전 또는 오후 한 칸을 씁니다.`;
 }
 
 const SCHEDULE_UNASSIGNED_SECTION_HELP =
@@ -836,6 +836,21 @@ export function AdminSchedulePage() {
     return map;
   }, [filteredItems, customCalendars, activeCustomCalendar]);
 
+  /** 이번 달에 팀장 슬롯(오전·오후)이 마이너스인 날짜 — 일정 초과 빠르게 파악용 */
+  const leaderSlotDeficitKeysInMonth = useMemo(() => {
+    const last = new Date(year, month, 0).getDate();
+    const keys: string[] = [];
+    for (let day = 1; day <= last; day++) {
+      const key = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const s = stats[key];
+      if (!s || isFullDayClosure(s)) continue;
+      const am = s.assignableMorning ?? 0;
+      const pm = s.assignableAfternoonSlot ?? 0;
+      if (am < 0 || pm < 0) keys.push(key);
+    }
+    return keys.sort((a, b) => a.localeCompare(b));
+  }, [stats, year, month]);
+
   const usedCustomCalendarColors = useMemo(
     () => customCalendars.map((c) => c.colorKey),
     [customCalendars]
@@ -1087,6 +1102,28 @@ export function AdminSchedulePage() {
             )}
           </div>
 
+          {leaderSlotDeficitKeysInMonth.length > 0 ? (
+            <div
+              role="status"
+              className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs text-rose-950"
+            >
+              <span className="font-semibold">팀장 슬롯 초과:</span>{' '}
+              이번 달{' '}
+              <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>일에서 오전·오후 잔여(TO)가 마이너스입니다.
+              일부 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
+              <button
+                type="button"
+                className="ml-1 font-medium text-rose-900 underline underline-offset-2 hover:text-rose-950"
+                onClick={() => {
+                  const first = leaderSlotDeficitKeysInMonth[0];
+                  if (first) setSelectedDate(first);
+                }}
+              >
+                첫 해당일로 선택
+              </button>
+            </div>
+          ) : null}
+
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
           <div
             className="rounded-xl border border-gray-200 bg-gray-200/90 p-px shadow-sm overflow-hidden max-lg:[touch-action:pan-y]"
@@ -1149,21 +1186,35 @@ export function AdminSchedulePage() {
                     morningRem > 0 ||
                     afternoonRem > 0 ||
                     sideUnconfirmed > 0);
+                const leaderSlotDeficit =
+                  Boolean(dayStats) &&
+                  !isFullDayClosure(dayStats) &&
+                  (morningRem < 0 || afternoonRem < 0);
+                const hasEmptySlotsOrDeficit =
+                  hasEmptySlots || leaderSlotDeficit;
                 const isSlotFull =
                   Boolean(dayStats && isFullDayClosure(dayStats)) ||
-                  (workingCount > 0 && morningRem === 0 && afternoonRem === 0);
+                  (!leaderSlotDeficit && workingCount > 0 && morningRem === 0 && afternoonRem === 0);
                 const weekdayColor =
                   isHoliday || isSunday ? 'text-rose-600' : isSaturday ? 'text-slate-600' : 'text-gray-500';
                 const pendingAccent = pendingDayCount > 0 && !isSelected;
                 const onHoldAccent = onHoldDayCount > 0 && !isSelected;
-                const emptyAccent = !isSelected && hasEmptySlots && pendingDayCount === 0 && onHoldDayCount === 0;
+                const deficitAccent = leaderSlotDeficit && !isSelected;
+                const emptyAccent =
+                  !isSelected &&
+                  hasEmptySlotsOrDeficit &&
+                  pendingDayCount === 0 &&
+                  onHoldDayCount === 0 &&
+                  !leaderSlotDeficit;
                 const cellBg = isSelected
                   ? 'bg-white ring-2 ring-gray-900 ring-inset z-[1]'
-                  : isSlotFull
-                    ? 'bg-slate-100'
-                    : hasEvents
-                      ? 'bg-slate-50/90'
-                      : 'bg-white';
+                  : leaderSlotDeficit
+                    ? 'bg-rose-50/90'
+                    : isSlotFull
+                      ? 'bg-slate-100'
+                      : hasEvents
+                        ? 'bg-slate-50/90'
+                        : 'bg-white';
                 return (
                   <div
                     key={key}
@@ -1184,10 +1235,14 @@ export function AdminSchedulePage() {
                     }}
                     className={`min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 px-1.5 py-1 sm:px-2 sm:py-1.5 flex flex-col cursor-pointer relative overflow-hidden text-left transition-colors ${
                       cellBg
-                    } ${pendingAccent ? 'ring-1 ring-rose-400/90 ring-inset' : ''} ${
+                    } ${deficitAccent ? 'ring-2 ring-rose-500/90 ring-inset' : ''} ${
+                      pendingAccent ? 'ring-1 ring-rose-400/90 ring-inset' : ''
+                    } ${
                       onHoldAccent ? 'ring-1 ring-amber-500/95 ring-inset' : ''
                     } ${emptyAccent ? 'ring-1 ring-rose-300/80 ring-inset' : ''} ${
-                      !isSelected && !isSlotFull && !pendingAccent && !onHoldAccent ? 'hover:bg-gray-50/95' : ''
+                      !isSelected && !isSlotFull && !leaderSlotDeficit && !pendingAccent && !onHoldAccent
+                        ? 'hover:bg-gray-50/95'
+                        : ''
                     } ${pendingDayCount > 0 ? 'bg-rose-50/50' : ''} ${
                       onHoldDayCount > 0 && pendingDayCount === 0 ? 'bg-amber-50/35' : ''
                     }`}
@@ -1262,24 +1317,48 @@ export function AdminSchedulePage() {
                     </div>
                     <div className="mt-1.5 sm:mt-2 flex flex-col gap-0.5 sm:gap-1 min-w-0 flex-1 min-h-0">
                       <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
-                        <span className={isSlotFull ? 'text-slate-600 font-medium text-calendar-2xs' : 'text-amber-900/90 font-medium text-calendar-2xs'}>
+                        <span
+                          className={
+                            morningRem < 0
+                              ? 'text-rose-800 font-semibold text-calendar-2xs'
+                              : isSlotFull
+                                ? 'text-slate-600 font-medium text-calendar-2xs'
+                                : 'text-amber-900/90 font-medium text-calendar-2xs'
+                          }
+                        >
                           오전
                         </span>
                         <span
                           className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
-                            isSlotFull ? 'text-slate-800' : 'text-amber-950'
+                            morningRem < 0
+                              ? 'text-rose-700'
+                              : isSlotFull
+                                ? 'text-slate-800'
+                                : 'text-amber-950'
                           }`}
                         >
                           {morningRem}
                         </span>
                       </div>
                         <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
-                        <span className={isSlotFull ? 'text-slate-600 font-medium text-calendar-2xs' : 'text-sky-800 font-medium text-calendar-2xs'}>
+                        <span
+                          className={
+                            afternoonRem < 0
+                              ? 'text-rose-800 font-semibold text-calendar-2xs'
+                              : isSlotFull
+                                ? 'text-slate-600 font-medium text-calendar-2xs'
+                                : 'text-sky-800 font-medium text-calendar-2xs'
+                          }
+                        >
                           오후
                         </span>
                         <span
                           className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
-                            isSlotFull ? 'text-slate-800' : 'text-sky-950'
+                            afternoonRem < 0
+                              ? 'text-rose-700'
+                              : isSlotFull
+                                ? 'text-slate-800'
+                                : 'text-sky-950'
                           }`}
                         >
                           {afternoonRem}
@@ -1509,6 +1588,26 @@ export function AdminSchedulePage() {
                 </p>
               ) : null}
 
+              {stats[selectedDate] &&
+              !isFullDayClosure(stats[selectedDate]) &&
+              ((stats[selectedDate].assignableMorning ?? 0) < 0 ||
+                (stats[selectedDate].assignableAfternoonSlot ?? 0) < 0) ? (
+                <div
+                  role="alert"
+                  className="mb-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs leading-snug text-rose-950"
+                >
+                  <span className="font-semibold">팀장 슬롯 초과:</span> 선택한 날 분배 잔여가 부족합니다.{' '}
+                  <span className="tabular-nums font-semibold text-rose-900">
+                    오전 {(stats[selectedDate].assignableMorning ?? 0)}
+                  </span>
+                  {' · '}
+                  <span className="tabular-nums font-semibold text-rose-900">
+                    오후 {(stats[selectedDate].assignableAfternoonSlot ?? 0)}
+                  </span>
+                  접수 예약일·배정을 조정해 주세요.
+                </div>
+              ) : null}
+
               {/* 요약: 휴무·근무가능·오전·후 소진 (항상 표시) */}
               {stats[selectedDate] && (
                 <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-100 text-fluid-sm">
@@ -1566,12 +1665,22 @@ export function AdminSchedulePage() {
                       return (
                         <div className="pt-1 border-t border-gray-200/90 text-fluid-sm">
                           <span className="text-gray-500">슬롯 남은 자리(건)</span>
-                          <span className="ml-2 font-semibold text-blue-800">
+                          <span
+                            className={`ml-2 font-semibold tabular-nums ${
+                              am < 0 || aa < 0 ? 'text-rose-800' : 'text-blue-800'
+                            }`}
+                          >
                             오전 {am} · 오후 {aa} · 합(TO) {sum}
                           </span>
+                          {(am < 0 || aa < 0) ? (
+                            <span className="block text-fluid-xs text-rose-800 mt-1 font-medium">
+                              마이너스는 팀장 슬롯이 소진을 넘긴 상태입니다. 일정 조정을 검토해 주세요.
+                            </span>
+                          ) : (
                           <span className="block text-fluid-xs text-gray-500 mt-1">
                             휴무 팀장은 근무 인원에서 제외됩니다. 사이청소는 확정 시 오전 또는 오후 중 하나를 사용합니다.
                           </span>
+                          )}
                         </div>
                       );
                     })()}
