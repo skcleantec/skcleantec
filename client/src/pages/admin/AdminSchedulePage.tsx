@@ -1475,20 +1475,20 @@ export function AdminSchedulePage() {
 
           {/* 선택한 날짜의 일정 목록 + 상세 보기 */}
           {selectedDate && (
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <h3 className="text-fluid-sm font-medium text-gray-800 tabular-nums min-w-0">
+            <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3 mb-3">
+                <h3 className="text-fluid-xs sm:text-fluid-sm font-medium text-gray-800 tabular-nums min-w-0">
                   {formatDateCompactWithWeekday(selectedDate)}{' '}
                   <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
                 </h3>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center justify-end gap-1 sm:justify-start sm:gap-1.5 md:gap-2 shrink-0 min-w-0 w-full sm:w-auto">
                   {token &&
                     selectedDate &&
                     (meRole === 'ADMIN' || meRole === 'MARKETER') && (
                       <button
                         type="button"
                         onClick={() => setSlotToAdjustOpen(true)}
-                        className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100"
+                        className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 leading-snug whitespace-nowrap"
                       >
                         인원조정
                       </button>
@@ -1497,7 +1497,7 @@ export function AdminSchedulePage() {
                     <button
                       type="button"
                       onClick={() => setAssignmentSummaryOpen(true)}
-                      className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50"
+                      className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 leading-snug whitespace-nowrap"
                     >
                       배정현황
                     </button>
@@ -1507,7 +1507,7 @@ export function AdminSchedulePage() {
                       <button
                         type="button"
                         onClick={() => setAvailabilityModalOpen(true)}
-                        className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-blue-200 bg-white text-blue-900 hover:bg-blue-50"
+                        className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-blue-200 bg-white text-blue-900 hover:bg-blue-50 leading-snug whitespace-nowrap"
                       >
                         가용인원
                       </button>
@@ -1526,7 +1526,7 @@ export function AdminSchedulePage() {
                               setClosureBusy(false);
                             }
                           }}
-                          className="px-3 py-1.5 text-fluid-xs font-medium rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                          className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50 leading-snug sm:whitespace-nowrap"
                         >
                           일정마감 해제
                         </button>
@@ -1535,7 +1535,7 @@ export function AdminSchedulePage() {
                           type="button"
                           disabled={closureBusy}
                           onClick={() => setClosureModalOpen(true)}
-                          className="px-3 py-1.5 text-fluid-xs font-medium rounded-md bg-gray-800 text-white hover:bg-gray-900 disabled:opacity-50"
+                          className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded-md bg-gray-800 text-white hover:bg-gray-900 disabled:opacity-50 leading-snug whitespace-nowrap"
                         >
                           일정마감
                         </button>
@@ -1546,14 +1546,14 @@ export function AdminSchedulePage() {
                     <button
                       type="button"
                       onClick={() => setScheduleMapOpen(true)}
-                      className="inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+                      className="inline-flex items-center justify-center shrink-0 size-[clamp(2rem,5.5vmin,2.5rem)] min-h-[32px] min-w-[32px] rounded-full border-[1.5px] border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm touch-manipulation sm:size-10 sm:border-2"
                       title="접수건 위치 검색"
                       aria-label="접수건 위치 검색"
                     >
                       <img
                         src={adminScheduleMapIconUrl}
                         alt=""
-                        className="h-7 w-7 object-contain pointer-events-none select-none"
+                        className="size-[clamp(1.25rem,3.8vmin,1.75rem)] sm:h-7 sm:w-7 object-contain pointer-events-none select-none"
                         loading="lazy"
                         decoding="async"
                       />
@@ -1562,11 +1562,11 @@ export function AdminSchedulePage() {
                   <button
                     type="button"
                     onClick={() => setCreateInquiryModalDate(selectedDate)}
-                    className="inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+                    className="inline-flex items-center justify-center shrink-0 size-[clamp(2rem,5.5vmin,2.5rem)] min-h-[32px] min-w-[32px] rounded-full border-[1.5px] border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm touch-manipulation sm:size-10 sm:border-2"
                     title="이 날짜로 신규 접수 (상세와 동일한 폼)"
                     aria-label="이 날짜로 신규 접수"
                   >
-                    <CirclePlusIcon className="w-5 h-5" />
+                    <CirclePlusIcon className="size-[clamp(0.9rem,2.8vmin,1.15rem)] sm:w-5 sm:h-5 shrink-0" />
                   </button>
                 </div>
               </div>
