@@ -13,18 +13,10 @@ import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { CrewBiLine, CrewBiInline, crewT } from '../../i18n/crew/crewI18n';
 import { CrewMemberNameLines } from '../../components/crew/CrewMemberNameLines';
-
-function leaderDisplayLabel(l: CrewFieldLeader): string {
-  if (l.role === 'EXTERNAL_PARTNER') {
-    return l.externalCompanyName ? `[타] ${l.externalCompanyName}` : l.name;
-  }
-  return l.name;
-}
-
-function formatLeaderNames(leaders: CrewFieldLeader[]): string {
-  if (!leaders.length) return '—';
-  return leaders.map(leaderDisplayLabel).join('·');
-}
+import {
+  CrewScheduleLeaderNames,
+  crewScheduleLeadersPlain,
+} from '../../components/crew/CrewScheduleLeaderNames';
 
 function formatVehicles(leaders: CrewFieldLeader[]): string {
   const parts = leaders.map((l) => (l.vehicleNumber ?? '').trim()).filter(Boolean);
@@ -35,34 +27,30 @@ type TodayRow = {
   key: string;
   memberName: string;
   memberNameTh?: string | null;
-  leaderText: string;
+  leaderLeaders: CrewFieldLeader[];
   timeText: string;
   vehicleText: string;
-  rosterOff: boolean;
   inactive: boolean;
 };
 
 function buildDayList(
   day: CrewFieldDay | undefined,
   groupMembers: CrewMeResponse['group']['members'],
-  useRoster: boolean,
 ): TodayRow[] {
   const rows: TodayRow[] = [];
   const byId = new Map((day?.members ?? []).map((m) => [m.teamMemberId, m]));
 
   for (const gm of groupMembers) {
     const m = byId.get(gm.teamMemberId);
-    const rosterOff = Boolean(useRoster && m && !m.onRoster);
 
     if (!m || !Array.isArray(m.inquiries) || m.inquiries.length === 0) {
       rows.push({
         key: `${gm.teamMemberId}-none`,
         memberName: gm.name,
         memberNameTh: gm.nameTh,
-        leaderText: '—',
+        leaderLeaders: [],
         timeText: '—',
         vehicleText: '—',
-        rosterOff,
         inactive: !gm.isActive,
       });
       continue;
@@ -73,10 +61,9 @@ function buildDayList(
         key: `${gm.teamMemberId}-${inq.inquiryId}-${i}`,
         memberName: gm.name,
         memberNameTh: gm.nameTh,
-        leaderText: formatLeaderNames(inq.leaders),
+        leaderLeaders: inq.leaders,
         timeText: (inq.preferredTime ?? '').trim() || '—',
         vehicleText: formatVehicles(inq.leaders),
-        rosterOff,
         inactive: !gm.isActive,
       });
     });
@@ -92,7 +79,6 @@ export function CrewFieldSchedulePage() {
   const me = outlet?.me ?? null;
   /** 첫 진입·리셋 시 한국 달력 기준 오늘 */
   const [selectedYmd, setSelectedYmd] = useState(() => kstTodayYmd());
-  const [useDailyRosterOnly, setUseDailyRosterOnly] = useState(false);
   const [days, setDays] = useState<CrewFieldDay[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -101,7 +87,6 @@ export function CrewFieldSchedulePage() {
     if (!token || !me) return;
     try {
       const r = await getCrewFieldSchedule(token, selectedYmd, selectedYmd);
-      setUseDailyRosterOnly(Boolean(r.useDailyRosterOnly));
       setDays(Array.isArray(r.days) ? r.days : []);
     } catch {
       setDays([]);
@@ -114,7 +99,6 @@ export function CrewFieldSchedulePage() {
     setLoading(true);
     try {
       const r = await getCrewFieldSchedule(token, selectedYmd, selectedYmd);
-      setUseDailyRosterOnly(Boolean(r.useDailyRosterOnly));
       setDays(Array.isArray(r.days) ? r.days : []);
     } catch {
       setDays([]);
@@ -135,8 +119,8 @@ export function CrewFieldSchedulePage() {
   const safeDays = Array.isArray(days) ? days : [];
   const dayForSelected = safeDays.find((d) => d.date === selectedYmd);
   const rows = useMemo(
-    () => (me ? buildDayList(dayForSelected, me.group.members, useDailyRosterOnly) : []),
-    [dayForSelected, me, useDailyRosterOnly],
+    () => (me ? buildDayList(dayForSelected, me.group.members) : []),
+    [dayForSelected, me],
   );
 
   if (!outlet) {
@@ -161,25 +145,34 @@ export function CrewFieldSchedulePage() {
     : `${crewT('crew.schedule.wsFallback').ko} / ${crewT('crew.schedule.wsFallback').th}`;
 
   return (
-    <div className="space-y-2 min-w-0">
-      <div className="bg-white border border-gray-200 rounded-lg px-2.5 py-2">
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 min-w-0">
-          <div className="min-w-0 flex flex-wrap items-baseline gap-x-1.5 gap-y-0 leading-none">
-            <span className="text-sm font-semibold text-gray-900">{crewT('crew.schedule.title').ko}</span>
-            <span className="text-[0.65rem] text-gray-500">{crewT('crew.schedule.title').th}</span>
-            <span className="text-[0.7rem] text-gray-600 tabular-nums">· {formatDateCompactWithWeekday(selectedYmd)}</span>
+    <div className="space-y-1 lg:space-y-2 min-w-0">
+      <div className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 sm:px-2.5 sm:py-2">
+        <div className="flex flex-nowrap items-center justify-between gap-1.5 min-w-0">
+          <div className="min-w-0 flex-1 flex items-center gap-x-1 leading-tight overflow-hidden">
+            <span className="text-[0.8125rem] sm:text-sm font-semibold text-gray-900 truncate shrink-0">
+              {crewT('crew.schedule.title').ko}
+            </span>
+            <span className="hidden lg:inline text-[0.65rem] text-gray-500 truncate">
+              {crewT('crew.schedule.title').th}
+            </span>
+            <span className="text-[0.62rem] sm:text-[0.7rem] text-gray-600 tabular-nums truncate min-w-0">
+              · {formatDateCompactWithWeekday(selectedYmd)}
+            </span>
           </div>
           <span
-            className={`shrink-0 text-[0.6rem] leading-tight rounded px-1.5 py-0.5 tabular-nums ${
+            className={`shrink-0 text-[0.58rem] sm:text-[0.6rem] leading-none rounded px-1 py-px sm:px-1.5 sm:py-0.5 tabular-nums ${
               wsConnected ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'
             }`}
             title={wsBadgeTitle}
           >
-            {crewT(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff').ko}·
-            {crewT(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff').th}
+            <span className="lg:hidden">{crewT(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff').ko}</span>
+            <span className="hidden lg:inline">
+              {crewT(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff').ko}·
+              {crewT(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff').th}
+            </span>
           </span>
         </div>
-        <div className="mt-1.5 flex flex-wrap items-stretch gap-2">
+        <div className="mt-1 flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0">
           <input
             type="date"
             value={selectedYmd}
@@ -188,21 +181,24 @@ export function CrewFieldSchedulePage() {
               const v = e.target.value;
               if (YMD_RE.test(v)) setSelectedYmd(v);
             }}
-            className="min-w-0 flex-1 basis-[8.5rem] max-w-[13rem] py-1 px-2 border border-gray-300 rounded text-sm text-gray-900 bg-white tabular-nums"
+            className="min-w-0 flex-1 min-h-[30px] sm:min-h-0 py-0.5 px-1.5 sm:py-1 sm:px-2 border border-gray-300 rounded text-[13px] sm:text-sm text-gray-900 bg-white tabular-nums"
           />
           <button
             type="button"
             onClick={() => setSelectedYmd(kstTodayYmd())}
-            className={`shrink-0 py-1 px-2.5 text-xs rounded border leading-tight ${
+            className={`shrink-0 py-0.5 px-2 sm:py-1 sm:px-2.5 text-[0.6875rem] sm:text-xs rounded border leading-none sm:leading-tight ${
               selectedYmd === kstToday
                 ? 'border-gray-200 bg-gray-100 text-gray-500'
                 : 'border-indigo-300 bg-indigo-50 text-indigo-800'
             }`}
           >
-            {crewT('crew.schedule.todayButton').ko}/{crewT('crew.schedule.todayButton').th}
+            <span className="sm:hidden">{crewT('crew.schedule.todayButton').ko}</span>
+            <span className="hidden sm:inline">
+              {crewT('crew.schedule.todayButton').ko}/{crewT('crew.schedule.todayButton').th}
+            </span>
           </button>
         </div>
-        <p className="text-[0.6rem] text-gray-500 mt-1 leading-snug">
+        <p className="hidden lg:block text-[0.6rem] text-gray-500 mt-1 leading-snug">
           <span className="text-gray-700">{crewT('crew.schedule.intro').ko}</span>
           <span className="text-gray-400 mx-0.5">·</span>
           <span className="text-gray-500">{crewT('crew.schedule.intro').th}</span>
@@ -215,74 +211,146 @@ export function CrewFieldSchedulePage() {
         </p>
       ) : (
         <>
-          <p className="text-[0.6rem] text-gray-500 px-0.5 leading-snug">
+          <p className="text-[0.55rem] text-gray-500 px-0.5 leading-tight hidden lg:block">
             <span className="text-gray-700">{crewT('crew.schedule.emptyTodayHint').ko}</span>
             <span className="text-gray-400 mx-0.5">·</span>
             <span>{crewT('crew.schedule.emptyTodayHint').th}</span>
           </p>
-          <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0">
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden sm:rounded-lg">
-              <table className="w-full min-w-[320px] border-collapse text-[0.7rem] sm:text-fluid-2xs table-fixed">
-                <colgroup>
-                  <col className="w-[22%]" />
-                  <col className="w-[34%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[26%]" />
-                </colgroup>
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border-b border-gray-200 px-1 py-1.5 text-center align-middle font-medium text-gray-800">
-                      <CrewBiInline id="crew.schedule.colMember" className="leading-tight" />
-                    </th>
-                    <th className="border-b border-gray-200 px-1 py-1.5 text-center align-middle font-medium text-gray-800">
-                      <CrewBiInline id="crew.schedule.colAssignLeader" className="leading-tight" />
-                    </th>
-                    <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
-                      <CrewBiInline id="crew.schedule.colTimeOnly" className="leading-tight" />
-                    </th>
-                    <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
-                      <CrewBiInline id="crew.schedule.colVehicleOnly" className="leading-tight" />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.key} className="hover:bg-gray-50/80">
-                      <td className="border-b border-gray-100 px-1 py-1.5 text-center align-middle">
-                        <div className="tabular-nums leading-tight break-words">
+
+          {rows.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/90 px-2 py-4 sm:px-3 sm:py-8 text-center">
+              <p className="text-[0.8125rem] sm:text-fluid-sm text-gray-600 leading-snug">
+                이 날짜에 표시할 일정이 없습니다.
+              </p>
+              <p className="text-[0.58rem] sm:text-[0.65rem] text-gray-500 mt-0.5 sm:mt-1 leading-tight sm:leading-snug hidden sm:block">
+                날짜를 변경하거나 일자 명단·접수 메모를 확인해 주세요.
+              </p>
+            </div>
+          ) : (
+            <>
+              <ul className="lg:hidden list-none space-y-1 min-w-0 w-full max-w-full -mx-3 px-3 sm:mx-0 sm:px-0">
+                {rows.map((row) => {
+                  const plainLeaders = crewScheduleLeadersPlain(row.leaderLeaders);
+                  const v = (row.vehicleText ?? '').trim();
+                  const hasVehicle = v && v !== '—';
+                  const leadersOnly = plainLeaders !== '—';
+                  const leaderVehicleLine =
+                    !leadersOnly && !hasVehicle
+                      ? '—'
+                      : !leadersOnly
+                        ? v || '—'
+                        : !hasVehicle
+                          ? plainLeaders
+                          : `${plainLeaders} / ${v}`;
+                  const a11y = [row.memberName, row.timeText, leaderVehicleLine].filter(Boolean).join(' · ');
+                  return (
+                    <li
+                      key={row.key}
+                      className={`rounded-md border border-gray-200 bg-white px-2 py-1.5 min-w-0 ${row.inactive ? 'opacity-[0.72]' : ''}`}
+                      title={a11y}
+                      aria-label={a11y}
+                    >
+                      <div className="flex items-start justify-between gap-2 min-w-0">
+                        <div className="min-w-0 flex-1 text-[0.7rem] leading-tight">
                           <CrewMemberNameLines
                             name={row.memberName}
                             nameTh={row.memberNameTh}
                             inactive={row.inactive}
+                            className="!justify-start"
                           />
-                          {row.rosterOff ? (
-                            <span className="block mt-0.5 text-amber-900 leading-tight">
-                              <CrewBiInline id="crew.schedule.rosterOffBadge" className="text-[0.6rem]" />
-                            </span>
-                          ) : null}
                         </div>
-                      </td>
-                      <td
-                        className="border-b border-gray-100 px-1 py-1.5 text-center align-middle text-gray-800 truncate"
-                        title={row.leaderText}
+                        <div
+                          className="shrink-0 text-[0.7rem] font-medium tabular-nums text-gray-900 leading-none pt-px"
+                          title={`${crewT('crew.schedule.colTimeOnly').ko} ${row.timeText}`}
+                        >
+                          {row.timeText}
+                        </div>
+                      </div>
+                      <div
+                        className="mt-0.5 flex min-w-0 items-baseline gap-x-1 text-left text-[0.62rem] sm:text-[0.65rem] leading-tight text-gray-900"
+                        title={leaderVehicleLine !== '—' ? leaderVehicleLine : undefined}
                       >
-                        {row.leaderText}
-                      </td>
-                      <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 whitespace-nowrap">
-                        {row.timeText}
-                      </td>
-                      <td
-                        className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 truncate"
-                        title={row.vehicleText}
-                      >
-                        {row.vehicleText}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        {!leadersOnly && !hasVehicle ? (
+                          <span className="text-gray-500">—</span>
+                        ) : !leadersOnly ? (
+                          <span className="tabular-nums">{v || '—'}</span>
+                        ) : !hasVehicle ? (
+                          <span className="min-w-0 truncate">{plainLeaders}</span>
+                        ) : (
+                          <>
+                            <span className="min-w-0 flex-1 truncate">{plainLeaders}</span>
+                            <span className="shrink-0 text-gray-400" aria-hidden>
+                              /
+                            </span>
+                            <span className="shrink-0 max-w-[45%] tabular-nums truncate sm:max-w-none">{v}</span>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="hidden lg:block w-full min-w-0 overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden sm:rounded-lg">
+                  <table className="w-full min-w-[320px] border-collapse text-[0.7rem] sm:text-fluid-2xs table-fixed">
+                    <colgroup>
+                      <col className="w-[22%]" />
+                      <col className="w-[34%]" />
+                      <col className="w-[18%]" />
+                      <col className="w-[26%]" />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border-b border-gray-200 px-1 py-1.5 text-center align-middle font-medium text-gray-800">
+                          <CrewBiInline id="crew.schedule.colMember" className="leading-tight" />
+                        </th>
+                        <th className="border-b border-gray-200 px-1 py-1.5 text-center align-middle font-medium text-gray-800">
+                          <CrewBiInline id="crew.schedule.colAssignLeader" className="leading-tight" />
+                        </th>
+                        <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
+                          <CrewBiInline id="crew.schedule.colTimeOnly" className="leading-tight" />
+                        </th>
+                        <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
+                          <CrewBiInline id="crew.schedule.colVehicleOnly" className="leading-tight" />
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row) => (
+                        <tr key={row.key} className="hover:bg-gray-50/80">
+                          <td className="border-b border-gray-100 px-1 py-1.5 text-center align-middle">
+                            <div className="tabular-nums leading-tight break-words">
+                              <CrewMemberNameLines
+                                name={row.memberName}
+                                nameTh={row.memberNameTh}
+                                inactive={row.inactive}
+                              />
+                            </div>
+                          </td>
+                          <td
+                            className="border-b border-gray-100 px-1 py-1.5 text-center align-middle text-gray-800 truncate"
+                            title={crewScheduleLeadersPlain(row.leaderLeaders)}
+                          >
+                            <CrewScheduleLeaderNames leaders={row.leaderLeaders} />
+                          </td>
+                          <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 whitespace-nowrap">
+                            {row.timeText}
+                          </td>
+                          <td
+                            className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 truncate"
+                            title={row.vehicleText}
+                          >
+                            {row.vehicleText}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

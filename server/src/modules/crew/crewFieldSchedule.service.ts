@@ -27,6 +27,8 @@ export function* eachYmdInRange(startYmd: string, endYmd: string): Generator<str
 export type CrewFieldLeaderOut = {
   id: string;
   name: string;
+  /** 로마자 표기 — 크루 일정 표 배정 팀장 옆 표시 */
+  nameEn: string | null;
   role: string;
   vehicleNumber: string | null;
   externalCompanyName: string | null;
@@ -116,6 +118,21 @@ export async function buildCrewFieldSchedule(
     },
   });
 
+  /** `users.name_en` 미마이그레이션 DB 호환 — 조회 실패 시 빈 맵 */
+  let leaderNameEnById = new Map<string, string | null>();
+  try {
+    const leaderIds = [...new Set(inquiries.flatMap((q) => q.assignments.map((a) => a.teamLeader.id)))];
+    if (leaderIds.length > 0) {
+      const rows = await prisma.user.findMany({
+        where: { id: { in: leaderIds } },
+        select: { id: true, nameEn: true },
+      });
+      leaderNameEnById = new Map(rows.map((r) => [r.id, r.nameEn]));
+    }
+  } catch {
+    leaderNameEnById = new Map();
+  }
+
   const inquiriesByYmd = new Map<string, typeof inquiries>();
   for (const q of inquiries) {
     const ymd = preferredDateYmdKst(q.preferredDate);
@@ -178,6 +195,8 @@ export async function buildCrewFieldSchedule(
           leaders: inq.assignments.map((a) => ({
             id: a.teamLeader.id,
             name: a.teamLeader.name,
+            /** DB `users.name_en` 반영 후 Prisma select에 `nameEn` 포함 가능 */
+            nameEn: null as string | null,
             role: a.teamLeader.role,
             vehicleNumber: a.teamLeader.vehicleNumber,
             externalCompanyName: a.teamLeader.externalCompany?.name ?? null,

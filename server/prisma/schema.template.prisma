@@ -61,6 +61,8 @@ model User {
   email        String   @unique
   passwordHash String   @map("password_hash")
   name         String
+  /// 크루 현장 일정 등 표시용 로마자 이름 (선택)
+  nameEn       String?  @map("name_en") @db.VarChar(128)
   role         UserRole @default(TEAM_LEADER)
   phone        String?
   vehicleNumber String? @map("vehicle_number") @db.VarChar(64)

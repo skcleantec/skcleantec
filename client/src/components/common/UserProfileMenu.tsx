@@ -6,6 +6,8 @@ type MeUser = {
   phone?: string | null;
   vehicleNumber?: string | null;
   role?: string | null;
+  /** 팀장 전용 로마자 이름 */
+  nameEn?: string | null;
 };
 
 export function UserProfileMenu({
@@ -25,7 +27,12 @@ export function UserProfileMenu({
   loading?: boolean;
   teamProfileVehicleField?: boolean;
   showVehicleForPreviewAdmin?: boolean;
-  onSaved?: (next: { name: string; phone: string | null; vehicleNumber: string | null }) => void;
+  onSaved?: (next: {
+    name: string;
+    phone: string | null;
+    vehicleNumber: string | null;
+    nameEn?: string | null;
+  }) => void;
   onLogout: () => void;
   onSessionExpired?: () => void;
 }) {
@@ -34,6 +41,7 @@ export function UserProfileMenu({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
+  const [nameEn, setNameEn] = useState('');
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -53,6 +61,7 @@ export function UserProfileMenu({
     setName((me?.name ?? '').trim());
     setPhone((me?.phone ?? '').trim());
     setVehicleNumber((me?.vehicleNumber ?? '').trim());
+    setNameEn((me?.nameEn ?? '').trim());
     setPassword('');
     setModalOpen(true);
   };
@@ -66,16 +75,23 @@ export function UserProfileMenu({
     }
     setSaving(true);
     try {
-      const updated = await updateMyProfile(token, {
+      const payload: Parameters<typeof updateMyProfile>[1] = {
         name: trimmedName,
         phone: phone.trim() ? phone.trim() : null,
         vehicleNumber: vehicleNumber.trim() ? vehicleNumber.trim() : null,
         password: password.trim() ? password.trim() : undefined,
-      });
+      };
+      if (me?.role === 'TEAM_LEADER') {
+        payload.nameEn = nameEn.trim() ? nameEn.trim() : null;
+      }
+      const updated = await updateMyProfile(token, payload);
       onSaved?.({
         name: String(updated.name ?? trimmedName),
         phone: updated.phone == null ? null : String(updated.phone),
         vehicleNumber: updated.vehicleNumber == null ? null : String(updated.vehicleNumber),
+        ...(me?.role === 'TEAM_LEADER'
+          ? { nameEn: updated.nameEn == null ? null : String(updated.nameEn) }
+          : {}),
       });
       setModalOpen(false);
     } catch (e) {
@@ -151,6 +167,22 @@ export function UserProfileMenu({
                   placeholder="이름"
                 />
               </label>
+              {me?.role === 'TEAM_LEADER' ? (
+                <label className="block">
+                  <span className="mb-1 block text-xs text-gray-600">영문 이름 (선택)</span>
+                  <input
+                    value={nameEn}
+                    onChange={(e) => setNameEn(e.target.value)}
+                    maxLength={128}
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="예: Kim Cheolsu"
+                    autoComplete="off"
+                  />
+                  <p className="mt-1 text-fluid-2xs text-gray-500 leading-snug">
+                    크루 「현장 일정」 배정 팀장 옆에 함께 표시됩니다.
+                  </p>
+                </label>
+              ) : null}
               <label className="block">
                 <span className="mb-1 block text-xs text-gray-600">전화번호</span>
                 <input

@@ -70,7 +70,13 @@ export async function getMe(token: string) {
 
 export async function updateMyProfile(
   token: string,
-  body: { name?: string; phone?: string | null; vehicleNumber?: string | null; password?: string }
+  body: {
+    name?: string;
+    phone?: string | null;
+    vehicleNumber?: string | null;
+    password?: string;
+    nameEn?: string | null;
+  },
 ) {
   let res: Response;
   try {

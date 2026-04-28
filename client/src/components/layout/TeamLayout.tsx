@@ -18,6 +18,7 @@ export function TeamLayout() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
   const [userVehicleNumber, setUserVehicleNumber] = useState<string | null>(null);
+  const [userNameEn, setUserNameEn] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [newAssignmentCount, setNewAssignmentCount] = useState(0);
@@ -30,22 +31,34 @@ export function TeamLayout() {
       setUserEmail(null);
       setUserPhone(null);
       setUserVehicleNumber(null);
+      setUserNameEn(null);
       return;
     }
     getMe(token)
-      .then((u: { name?: string; role?: string; email?: string | null; phone?: string | null; vehicleNumber?: string | null }) => {
-        setUserName(u.name ?? null);
-        setUserRole(u.role ?? null);
-        setUserEmail(u.email ?? null);
-        setUserPhone(u.phone ?? null);
-        setUserVehicleNumber(u.vehicleNumber ?? null);
-      })
+      .then(
+        (u: {
+          name?: string;
+          role?: string;
+          email?: string | null;
+          phone?: string | null;
+          vehicleNumber?: string | null;
+          nameEn?: string | null;
+        }) => {
+          setUserName(u.name ?? null);
+          setUserRole(u.role ?? null);
+          setUserEmail(u.email ?? null);
+          setUserPhone(u.phone ?? null);
+          setUserVehicleNumber(u.vehicleNumber ?? null);
+          setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
+        },
+      )
       .catch((e) => {
         setUserName(null);
         setUserRole(null);
         setUserEmail(null);
         setUserPhone(null);
         setUserVehicleNumber(null);
+        setUserNameEn(null);
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
@@ -232,11 +245,13 @@ export function TeamLayout() {
                     phone: userPhone,
                     vehicleNumber: userVehicleNumber,
                     role: userRole,
+                    nameEn: userNameEn,
                   }}
                   onSaved={(next) => {
                     setUserName(next.name);
                     setUserPhone(next.phone);
                     setUserVehicleNumber(next.vehicleNumber);
+                    if (next.nameEn !== undefined) setUserNameEn(next.nameEn);
                   }}
                   onLogout={handleLogout}
                   onSessionExpired={() => {

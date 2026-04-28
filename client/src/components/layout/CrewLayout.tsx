@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { getCrewToken, subscribeCrewAuth, clearCrewToken } from '../../stores/crewAuth';
+import { setToken } from '../../stores/auth';
+import { DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY } from '../../constants/devPreviewAuth';
 import { getCrewMe } from '../../api/crew';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import type { CrewMeResponse } from '../../api/crew';
@@ -11,11 +13,22 @@ export function CrewLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [me, setMe] = useState<CrewMeResponse | null>(null);
+  const [hasAdminBackup, setHasAdminBackup] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        setHasAdminBackup(Boolean(sessionStorage.getItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY)));
+      } catch {
+        setHasAdminBackup(false);
+      }
+    });
+  }, [crewToken]);
 
   useEffect(() => {
     const token = getCrewToken();
     if (!token) {
-      setMe(null);
+      queueMicrotask(() => setMe(null));
       return;
     }
     getCrewMe(token)
@@ -55,16 +68,46 @@ export function CrewLayout() {
                 {crewT('crew.layout.titlePrefix').th} {me?.group.name ?? '…'}
               </div>
             </div>
-            <button
-              type="button"
-              className="shrink-0 self-center px-2 py-1 rounded text-fluid-xs text-red-700 hover:bg-red-50 border border-transparent hover:border-red-100"
-              onClick={() => {
-                clearCrewToken();
-                navigate('/login', { replace: true });
-              }}
-            >
-              <CrewBiLine id="crew.layout.logout" />
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {hasAdminBackup ? (
+                <button
+                  type="button"
+                  className="shrink-0 self-center px-2 py-1 rounded text-fluid-xs text-indigo-800 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
+                  onClick={() => {
+                    try {
+                      const t = sessionStorage.getItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY);
+                      if (t) {
+                        setToken(t);
+                        sessionStorage.removeItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY);
+                        setHasAdminBackup(false);
+                        clearCrewToken();
+                        navigate('/admin/dashboard', { replace: true });
+                      }
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                >
+                  <CrewBiLine id="crew.layout.goAdmin" />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="shrink-0 self-center px-2 py-1 rounded text-fluid-xs text-red-700 hover:bg-red-50 border border-transparent hover:border-red-100"
+                onClick={() => {
+                  try {
+                    sessionStorage.removeItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY);
+                  } catch {
+                    /* ignore */
+                  }
+                  setHasAdminBackup(false);
+                  clearCrewToken();
+                  navigate('/login', { replace: true });
+                }}
+              >
+                <CrewBiLine id="crew.layout.logout" />
+              </button>
+            </div>
           </div>
           <nav className="flex flex-wrap items-center gap-2 text-fluid-xs">
             <NavLink
@@ -109,7 +152,7 @@ export function CrewLayout() {
           </nav>
         </div>
       </header>
-      <main className="flex-1 min-h-0 min-w-0 max-w-4xl w-full mx-auto px-4 py-4 overflow-y-auto">
+      <main className="flex-1 min-h-0 min-w-0 max-w-4xl w-full mx-auto px-3 py-2.5 sm:px-4 sm:py-4 overflow-y-auto">
         <Outlet context={outletCtx} />
       </main>
     </div>

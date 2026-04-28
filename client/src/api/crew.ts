@@ -40,6 +40,35 @@ export async function loginCrew(loginId: string, password: string) {
   }>;
 }
 
+/** 관리자 미리보기 전용 — 비밀번호 없이 크루 JWT (서버에서 미리보기 이메일·역할 검증) */
+export async function crewDevPreviewLogin(adminToken: string, loginId: string) {
+  let res: Response;
+  try {
+    res = await fetch(`${API}/auth/crew-dev-preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({ loginId }),
+    });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: unknown };
+    const msg = typeof data.error === 'string' && data.error.trim() ? data.error.trim() : null;
+    throw new Error(msg ?? `크루 미리보기에 실패했습니다. (HTTP ${res.status})`);
+  }
+  return res.json() as Promise<{
+    token: string;
+    crewGroup: { id: string; name: string; crewViewerRole: 'LEADER' | 'MEMBER' };
+  }>;
+}
+
 export interface CrewMeResponse {
   role: string;
   crewGroupId: string;
@@ -163,6 +192,8 @@ export async function putCrewDayRoster(
 export interface CrewFieldLeader {
   id: string;
   name: string;
+  /** 팀장 프로필 로마자 이름 — 크루 현장 일정 배정 열 옆 표시 */
+  nameEn?: string | null;
   role: string;
   vehicleNumber: string | null;
   externalCompanyName: string | null;

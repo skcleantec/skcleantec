@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { setTeamToken } from '../../stores/teamAuth';
+import { crewDevPreviewLogin } from '../../api/crew';
+import { clearToken } from '../../stores/auth';
+import { setCrewToken } from '../../stores/crewAuth';
+import { setTeamToken, clearTeamToken } from '../../stores/teamAuth';
+import { DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY } from '../../constants/devPreviewAuth';
 import { getUsers, formatAssignableUserLabel, type UserItem } from '../../api/users';
 import { getTeamCrewGroups, type TeamCrewGroupItem } from '../../api/teamCrewGroups';
 
@@ -21,6 +25,7 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
   const [externals, setExternals] = useState<UserItem[]>([]);
   const [crews, setCrews] = useState<TeamCrewGroupItem[]>([]);
   const [err, setErr] = useState('');
+  const [crewNavBusy, setCrewNavBusy] = useState(false);
 
   const openPanel = async (p: Exclude<Panel, null>) => {
     if (!adminToken) return;
@@ -65,13 +70,32 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
     setPanel(null);
   };
 
-  const goCrew = (loginId: string) => {
-    navigate(`/login?devCrew=1&loginId=${encodeURIComponent(loginId)}`, {
-      state: {
-        from: { pathname: '/crew', search: '', hash: '', state: null },
-      },
-    });
-    setPanel(null);
+  const goCrew = async (loginId: string) => {
+    if (!adminToken) return;
+    setErr('');
+    setCrewNavBusy(true);
+    try {
+      const data = await crewDevPreviewLogin(adminToken, loginId);
+      try {
+        sessionStorage.setItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY, adminToken);
+      } catch {
+        /* ignore */
+      }
+      clearToken();
+      clearTeamToken();
+      setCrewToken(data.token);
+      navigate('/crew', {
+        replace: true,
+        state: {
+          from: { pathname: '/crew', search: '', hash: '', state: null },
+        },
+      });
+      setPanel(null);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '크루 화면으로 이동하지 못했습니다.');
+    } finally {
+      setCrewNavBusy(false);
+    }
   };
 
   if (!adminToken) return null;
@@ -112,7 +136,7 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
           >
             <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
               <span className="text-fluid-xs font-semibold text-gray-800">
-                {panel === 'tl' ? '팀장 화면' : panel === 'ext' ? '타업체 화면' : '크루 로그인'}
+                {panel === 'tl' ? '팀장 화면' : panel === 'ext' ? '타업체 화면' : '크루 화면'}
               </span>
               <button
                 type="button"
@@ -128,6 +152,8 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
                 <p className="text-fluid-xs text-red-600">{err}</p>
               ) : loading ? (
                 <p className="text-fluid-xs text-gray-500">불러오는 중…</p>
+              ) : crewNavBusy ? (
+                <p className="text-fluid-xs text-gray-500">크루 화면으로 이동 중…</p>
               ) : panel === 'tl' ? (
                 <ul className="space-y-0.5">
                   {teamLeaders.length === 0 ? (
@@ -174,8 +200,9 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
                       <li key={g.id}>
                         <button
                           type="button"
-                          className="w-full rounded border border-transparent px-2 py-1.5 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50"
-                          onClick={() => goCrew(g.loginId)}
+                          disabled={crewNavBusy}
+                          className="w-full rounded border border-transparent px-2 py-1.5 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                          onClick={() => void goCrew(g.loginId)}
                         >
                           <span className="font-medium">{g.name}</span>
                           <span className="ml-1 text-[10px] text-gray-500">{g.loginId}</span>

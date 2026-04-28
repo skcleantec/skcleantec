@@ -42,6 +42,10 @@ export const crewMessages = {
     ko: '로그아웃',
     th: 'ออกจากระบบ',
   },
+  'crew.layout.goAdmin': {
+    ko: '관리자로 가기',
+    th: 'ไปผู้ดูแลระบบ',
+  },
 
   /** CrewHomePage */
   'crew.home.title': {
@@ -221,10 +225,6 @@ export const crewMessages = {
   'crew.schedule.colVehicleOnly': {
     ko: '차량',
     th: 'ทะเบียน',
-  },
-  'crew.schedule.rosterOffBadge': {
-    ko: '명단外',
-    th: 'นอกรายชื่อ',
   },
   'crew.schedule.wsConnected': {
     ko: '실시간 연결됨',

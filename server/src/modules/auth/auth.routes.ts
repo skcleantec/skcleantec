@@ -8,6 +8,34 @@ import { isSuperAdminRoleAndEmail } from './superAdmin.js';
 import { isTeamPreviewAdminEmail } from './teamPreview.helpers.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
+/** 활성 크루 그룹 — 로그인·미리보기 공통 조회 */
+async function findActiveCrewGroupByLoginId(loginId: string) {
+  const lid = loginId.trim();
+  if (!lid) return null;
+  return prisma.teamCrewGroup.findFirst({
+    where: { loginId: lid, isActive: true },
+    include: {
+      members: { select: { isGroupLeader: true } },
+    },
+  });
+}
+
+function issueCrewJwtPayload(group: NonNullable<Awaited<ReturnType<typeof findActiveCrewGroupByLoginId>>>) {
+  const hasLeaderSlot = group.members.some((m) => m.isGroupLeader);
+  const crewViewerRole: CrewViewerRole = hasLeaderSlot ? 'LEADER' : 'MEMBER';
+  const payload: AuthPayload = {
+    userId: `crew:${group.id}`,
+    email: group.loginId,
+    role: 'TEAM_CREW_GROUP',
+    crewGroupId: group.id,
+    crewViewerRole,
+  };
+  const token = jwt.sign(payload, config.jwtSecret, {
+    expiresIn: config.jwtExpiresIn,
+  } as jwt.SignOptions);
+  return { token, crewViewerRole };
+}
+
 const router = Router();
 
 async function loginWithPassword(req: Request, res: Response) {
@@ -77,6 +105,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       id: true,
       email: true,
       name: true,
+      nameEn: true,
       phone: true,
       vehicleNumber: true,
       role: true,
@@ -96,8 +125,20 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 router.patch('/me', authMiddleware, async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
-  const body = req.body as { name?: string; phone?: string | null; vehicleNumber?: string | null; password?: string };
-  const data: { name?: string; phone?: string | null; vehicleNumber?: string | null; passwordHash?: string } = {};
+  const body = req.body as {
+    name?: string;
+    phone?: string | null;
+    vehicleNumber?: string | null;
+    password?: string;
+    nameEn?: string | null;
+  };
+  const data: {
+    name?: string;
+    phone?: string | null;
+    vehicleNumber?: string | null;
+    passwordHash?: string;
+    nameEn?: string | null;
+  } = {};
 
   if (body.vehicleNumber !== undefined) {
     const existingForVehicle = await prisma.user.findUnique({
@@ -117,6 +158,21 @@ router.patch('/me', authMiddleware, async (req, res) => {
       data.vehicleNumber = v || null;
     }
     /** 그 외 관리자·마케터는 vehicleNumber 키가 와도 무시 */
+  }
+
+  if (body.nameEn !== undefined) {
+    const existingForEn = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (existingForEn?.role === 'TEAM_LEADER') {
+      const v = body.nameEn ? String(body.nameEn).trim() : '';
+      if (v.length > 128) {
+        res.status(400).json({ error: '영문 이름은 128자 이내로 입력해 주세요.' });
+        return;
+      }
+      data.nameEn = v || null;
+    }
   }
 
   if (body.name !== undefined) {
@@ -144,6 +200,7 @@ router.patch('/me', authMiddleware, async (req, res) => {
         id: true,
         email: true,
         name: true,
+        nameEn: true,
         phone: true,
         vehicleNumber: true,
         role: true,
@@ -168,6 +225,7 @@ router.patch('/me', authMiddleware, async (req, res) => {
       id: true,
       email: true,
       name: true,
+      nameEn: true,
       phone: true,
       vehicleNumber: true,
       role: true,
@@ -189,12 +247,7 @@ router.post('/crew-login', async (req, res) => {
     res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요.' });
     return;
   }
-  const group = await prisma.teamCrewGroup.findFirst({
-    where: { loginId: lid, isActive: true },
-    include: {
-      members: { select: { isGroupLeader: true } },
-    },
-  });
+  const group = await findActiveCrewGroupByLoginId(lid);
   if (!group) {
     res.status(401).json({ error: '계정을 찾을 수 없거나 비활성입니다.' });
     return;
@@ -204,19 +257,43 @@ router.post('/crew-login', async (req, res) => {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;
   }
-  const hasLeaderSlot = group.members.some((m) => m.isGroupLeader);
-  const crewViewerRole: CrewViewerRole = hasLeaderSlot ? 'LEADER' : 'MEMBER';
+  const { token, crewViewerRole } = issueCrewJwtPayload(group);
+  res.json({
+    token,
+    crewGroup: {
+      id: group.id,
+      name: group.name,
+      crewViewerRole,
+    },
+  });
+});
 
-  const payload: AuthPayload = {
-    userId: `crew:${group.id}`,
-    email: group.loginId,
-    role: 'TEAM_CREW_GROUP',
-    crewGroupId: group.id,
-    crewViewerRole,
-  };
-  const token = jwt.sign(payload, config.jwtSecret, {
-    expiresIn: config.jwtExpiresIn,
-  } as jwt.SignOptions);
+/**
+ * 관리자 미리보기 전용 — 비밀번호 없이 크루 JWT 발급
+ * (`TEAM_PREVIEW_ADMIN_EMAILS`에 포함된 ADMIN/MARKETER만, 클라이언트 미리보기 패널과 동일 조건)
+ */
+router.post('/crew-dev-preview', authMiddleware, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (user.role !== 'ADMIN' && user.role !== 'MARKETER') {
+    res.status(403).json({ error: '권한이 필요합니다.' });
+    return;
+  }
+  if (!isTeamPreviewAdminEmail(user.email)) {
+    res.status(403).json({ error: '미리보기 전용 계정만 사용할 수 있습니다.' });
+    return;
+  }
+  const { loginId } = req.body as { loginId?: string };
+  const lid = loginId != null ? String(loginId).trim() : '';
+  if (!lid) {
+    res.status(400).json({ error: '크루 로그인 아이디를 입력해주세요.' });
+    return;
+  }
+  const group = await findActiveCrewGroupByLoginId(lid);
+  if (!group) {
+    res.status(404).json({ error: '계정을 찾을 수 없거나 비활성입니다.' });
+    return;
+  }
+  const { token, crewViewerRole } = issueCrewJwtPayload(group);
   res.json({
     token,
     crewGroup: {

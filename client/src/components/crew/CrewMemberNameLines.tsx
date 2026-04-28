@@ -1,4 +1,4 @@
-/** 크루 화면 공통: 한글(또는 기본) 이름 + 선택적 태국어 등 보조 한 줄 */
+/** 크루 화면 공통: 기본 이름 + 외국어 표기를 같은 줄에 붙여 표시(가운데 정렬 블록) */
 export function CrewMemberNameLines({
   name,
   nameTh,
@@ -20,14 +20,18 @@ export function CrewMemberNameLines({
       ? 'text-emerald-950'
       : 'text-gray-900';
   const subCls = inactive
-    ? 'text-gray-400'
+    ? 'text-gray-400 line-through'
     : variant === 'emerald'
       ? 'text-emerald-800/95'
       : 'text-gray-600';
   return (
-    <span className={`block ${className}`}>
-      <span className={mainCls}>{name}</span>
-      {th ? <span className={`block text-[0.65rem] mt-0.5 leading-tight ${subCls}`}>{th}</span> : null}
+    <span
+      className={`inline-flex max-w-full min-w-0 flex-nowrap items-baseline justify-center gap-x-1 ${className}`}
+    >
+      <span className={`min-w-0 shrink truncate ${mainCls}`}>{name}</span>
+      {th ? (
+        <span className={`shrink-0 text-[0.65rem] leading-tight whitespace-nowrap ${subCls}`}>{th}</span>
+      ) : null}
     </span>
   );
 }
