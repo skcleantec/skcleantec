@@ -37,6 +37,25 @@ function isCelebratePayload(d: unknown): d is InquiryCelebratePayload {
   );
 }
 
+export type RosterAckPayload = {
+  type: 'inquiry:rosterAck';
+  messageKo: string;
+  messageTh: string;
+};
+
+/** 호환용 — 예전 이름 */
+export type CrewRosterAckPayload = RosterAckPayload;
+
+/** 구버전 서버 `crew:rosterAck` 도 수신 후 정규화 */
+function parseRosterAckPayload(d: unknown): RosterAckPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  const t = o.type;
+  if (t !== 'inquiry:rosterAck' && t !== 'crew:rosterAck') return null;
+  if (typeof o.messageKo !== 'string' || typeof o.messageTh !== 'string') return null;
+  return { type: 'inquiry:rosterAck', messageKo: o.messageKo, messageTh: o.messageTh };
+}
+
 type Bucket = {
   token: string;
   ws: WebSocket | null;
@@ -45,12 +64,17 @@ type Bucket = {
   refreshListeners: Set<() => void>;
   connectionListeners: Set<(connected: boolean) => void>;
   celebrationListeners: Set<(p: InquiryCelebratePayload) => void>;
+  rosterAckListeners: Set<(p: RosterAckPayload) => void>;
 };
 
 const buckets = new Map<string, Bucket>();
 
 function bucketHasSubscribers(bucket: Bucket): boolean {
-  return bucket.refreshListeners.size > 0 || bucket.celebrationListeners.size > 0;
+  return (
+    bucket.refreshListeners.size > 0 ||
+    bucket.celebrationListeners.size > 0 ||
+    bucket.rosterAckListeners.size > 0
+  );
 }
 
 function notifyConnection(bucket: Bucket, connected: boolean) {
@@ -101,6 +125,16 @@ function connectBucket(bucket: Bucket) {
           }
         }
       }
+      const rosterAck = parseRosterAckPayload(data);
+      if (rosterAck) {
+        for (const fn of bucket.rosterAckListeners) {
+          try {
+            fn(rosterAck);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -126,7 +160,12 @@ function connectBucket(bucket: Bucket) {
 function destroyBucketIfIdle(token: string) {
   const bucket = buckets.get(token);
   if (!bucket) return;
-  if (bucket.refreshListeners.size > 0 || bucket.connectionListeners.size > 0 || bucket.celebrationListeners.size > 0)
+  if (
+    bucket.refreshListeners.size > 0 ||
+    bucket.connectionListeners.size > 0 ||
+    bucket.celebrationListeners.size > 0 ||
+    bucket.rosterAckListeners.size > 0
+  )
     return;
   bucket.tearDown = true;
   if (bucket.reconnectTimer) {
@@ -170,6 +209,7 @@ export function useInboxRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -249,6 +289,7 @@ export function useInquiryCelebrateRealtime(
         refreshListeners: new Set(),
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -298,3 +339,52 @@ export function useInquiryCelebrateRealtime(
   /** Same cadence as AdminLayout nav badge fallback (15s) when WebSocket is down. */
   useVisibilityInterval(pollCelebrations, enabled && token && !wsConnected ? 15000 : 0);
 }
+
+/** 크루·팀장 공통: 현장 팀원 구성 변경 시 상단 확인 배너 (한·태 동시 표시). */
+export function useRosterAckRealtime(
+  token: string | null,
+  onRosterAck: (p: RosterAckPayload) => void,
+  enabled: boolean
+): void {
+  const onRosterAckRef = useRef(onRosterAck);
+  onRosterAckRef.current = onRosterAck;
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: RosterAckPayload) => onRosterAckRef.current(p);
+    b.rosterAckListeners.add(listener);
+    const noopConn = (_c: boolean) => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.rosterAckListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}
+
+/** @deprecated `useRosterAckRealtime` 사용 */
+export const useCrewRosterAckRealtime = useRosterAckRealtime;

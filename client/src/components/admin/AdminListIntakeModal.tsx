@@ -18,6 +18,7 @@ function emptyForm() {
     nickname: '',
     phone: '',
     memo: '',
+    preferredMoveInCleanYmd: '',
     kind: 'deposit' as Kind,
   };
 }
@@ -46,6 +47,7 @@ export function AdminListIntakeModal({
   const [nickname, setNickname] = useState('');
   const [phone, setPhone] = useState('');
   const [memo, setMemo] = useState('');
+  const [preferredMoveInCleanYmd, setPreferredMoveInCleanYmd] = useState('');
   const [kind, setKind] = useState<Kind>('deposit');
   const [saving, setSaving] = useState(false);
 
@@ -56,6 +58,7 @@ export function AdminListIntakeModal({
       setNickname(editSeed.nickname ?? '');
       setPhone(editSeed.customerPhone ?? '');
       setMemo(editSeed.memo ?? '');
+      setPreferredMoveInCleanYmd('');
       setKind(editSeed.depositPending ? 'deposit' : 'reserved');
       return;
     }
@@ -64,6 +67,7 @@ export function AdminListIntakeModal({
     setNickname(z.nickname);
     setPhone(z.phone);
     setMemo(z.memo);
+    setPreferredMoveInCleanYmd(z.preferredMoveInCleanYmd);
     setKind(z.kind);
   }, [open, editMode, editInquiryId, editSeed]);
 
@@ -76,6 +80,8 @@ export function AdminListIntakeModal({
     }
     setSaving(true);
     try {
+      const pmd = preferredMoveInCleanYmd.trim();
+      const pmdBody = pmd ? { preferredMoveInCleaningDate: pmd } : {};
       if (kind === 'requested' || kind === 'absent' || kind === 'hold') {
         const status: OrderFollowupStatus =
           kind === 'requested' ? 'REQUESTED' : kind === 'absent' ? 'ABSENT' : 'ON_HOLD';
@@ -85,6 +91,7 @@ export function AdminListIntakeModal({
           customerPhone: phone.trim(),
           status,
           memo: memo.trim() || null,
+          ...pmdBody,
         });
         onCommitted({ kind: 'absent_or_hold' });
         onClose();
@@ -122,6 +129,7 @@ export function AdminListIntakeModal({
         status: fuSt,
         memo: memo.trim() || null,
         inquiryId: created.id,
+        ...pmdBody,
       });
       onCommitted({
         kind: 'created_deposit_reserved',
@@ -191,6 +199,21 @@ export function AdminListIntakeModal({
               autoComplete="tel"
               disabled={saving}
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-fluid-xs font-medium text-gray-700">
+              입주청소 희망날짜 (선택)
+            </label>
+            <input
+              type="date"
+              value={preferredMoveInCleanYmd}
+              onChange={(e) => setPreferredMoveInCleanYmd(e.target.value)}
+              className="w-full max-w-[280px] rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm tabular-nums"
+              disabled={saving}
+            />
+            <p className="mt-1 text-fluid-3xs text-gray-500">
+              선택 시 부재현황 목록에 등록일 옆으로 희망일이 함께 표시됩니다.
+            </p>
           </div>
           <fieldset>
             <legend className="mb-2 text-fluid-xs font-medium text-gray-700">처리 구분 *</legend>

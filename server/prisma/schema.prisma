@@ -652,6 +652,8 @@ model OrderFollowup {
   status             OrderFollowupStatus  @map("status")
   deferCount         Int                  @default(0) @map("defer_count")
   goldDb             Boolean              @default(false) @map("gold_db")
+  /// 입주청소 희망일(선택) — YYYY-MM-DD 문자열
+  preferredMoveInCleaningDate String?     @map("preferred_move_in_cleaning_date") @db.VarChar(10)
   memo               String?              @map("memo") @db.Text
   nextContactAt      DateTime?            @map("next_contact_at")
   depositReceivedAt  DateTime?            @map("deposit_received_at")

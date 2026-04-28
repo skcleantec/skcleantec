@@ -93,6 +93,7 @@ function actionLabelKo(action: string): string {
     UNLINK_ORDERFORM: '발주서 연결 해제(구버전 기록)',
     INQUIRY_LINK: '접수 연결',
     CUSTOMER_PHONE: '연락처 변경',
+    PREFERRED_MOVE_IN_CLEANING_DATE: '입주청소 희망일',
   };
   return map[action] ?? action;
 }
@@ -140,7 +141,11 @@ function logDetailDescription(log: OrderFollowupLogItem): string {
       const phPart = phone ? ` 연락처: ${phone}.` : ' 연락처는 비어 있습니다.';
       const inqPart =
         typeof j.inquiryId === 'string' && j.inquiryId.trim() ? ' 특정 접수에 연결해 등록했습니다.' : '';
-      return `${head}${stPart}${phPart}${inqPart}`;
+      const pref =
+        typeof j.preferredMoveInCleaningDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(j.preferredMoveInCleaningDate)
+          ? ` 입주청소 희망일: ${formatDateCompactWithWeekday(j.preferredMoveInCleaningDate)}.`
+          : '';
+      return `${head}${stPart}${phPart}${inqPart}${pref}`;
     }
 
     if (log.action === 'INQUIRY_LINK' && typeof j.from !== 'undefined') {
@@ -189,6 +194,25 @@ function logDetailDescription(log: OrderFollowupLogItem): string {
       return j.goldDb
         ? '골드DB로 표시했습니다. (고급 DB 전까지 집중 관리)'
         : '골드DB 표시를 해제했습니다.';
+    }
+
+    if (log.action === 'PREFERRED_MOVE_IN_CLEANING_DATE') {
+      const from =
+        typeof j.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(j.from)
+          ? formatDateCompactWithWeekday(j.from)
+          : j.from === null || j.from === ''
+            ? null
+            : String(j.from);
+      const to =
+        typeof j.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(j.to)
+          ? formatDateCompactWithWeekday(j.to)
+          : j.to === null || j.to === ''
+            ? null
+            : String(j.to);
+      if (!from && to) return `입주청소 희망일을 「${to}」로 설정했습니다.`;
+      if (from && !to) return `입주청소 희망일(「${from}」)을 비웠습니다.`;
+      if (from && to) return `입주청소 희망일을 「${from}」에서 「${to}」(으)로 바꿨습니다.`;
+      return '입주청소 희망일을 변경했습니다.';
     }
 
     if (log.action === 'LINK_ORDERFORM' && typeof j.orderFormId === 'string') {
@@ -312,6 +336,7 @@ export function AdminOrderFormFollowupPanel({
   const [editStatus, setEditStatus] = useState<OrderFollowupStatus>('ABSENT');
   const [editMemo, setEditMemo] = useState('');
   const [editNext, setEditNext] = useState('');
+  const [editPreferredYmd, setEditPreferredYmd] = useState('');
   const [editGoldDb, setEditGoldDb] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [connectInqQ, setConnectInqQ] = useState('');
@@ -418,6 +443,7 @@ export function AdminOrderFormFollowupPanel({
     setEditStatus(edit.status);
     setEditMemo(edit.memo ?? '');
     setEditNext(toLocalDatetimeValue(edit.nextContactAt));
+    setEditPreferredYmd(edit.preferredMoveInCleaningDate?.trim() ?? '');
     setEditGoldDb(edit.goldDb ?? false);
     /** 편집 열자마자 자동 검색 요청을 보내면 입력·드롭다운 체감이 끊겨 보여 수동 검색으로 변경 */
     setConnectInqQ('');
@@ -487,6 +513,7 @@ export function AdminOrderFormFollowupPanel({
         status: editStatus,
         memo: editMemo.trim() || null,
         nextContactAt: fromLocalDatetimeValue(editNext),
+        preferredMoveInCleaningDate: editPreferredYmd.trim() || null,
         goldDb: editGoldDb,
       });
       setEdit(null);
@@ -751,7 +778,17 @@ export function AdminOrderFormFollowupPanel({
         ) : (
           <>
             <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full min-w-[680px] border-collapse text-fluid-xs text-center">
+              <table className="w-full min-w-[680px] border-collapse text-fluid-xs text-center table-fixed">
+                <colgroup>
+                  <col style={{ width: '13%' }} />
+                  <col style={{ width: '13%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '7%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '25%' }} />
+                </colgroup>
                 <thead>
                   <tr className="border-b border-gray-200 bg-white">
                     <th className="py-2.5 px-2 font-semibold text-gray-600">고객</th>
@@ -759,8 +796,8 @@ export function AdminOrderFormFollowupPanel({
                     <th className="py-2.5 px-2 font-semibold text-gray-600">상태</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">부재</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">담당</th>
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">다음 연락</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">등록일</th>
+                    <th className="py-2.5 px-2 font-semibold text-gray-600">희망일</th>
                     <th className="py-2.5 px-2 font-semibold text-gray-600">작업</th>
                   </tr>
                 </thead>
@@ -795,11 +832,18 @@ export function AdminOrderFormFollowupPanel({
                       <td className="py-2 px-2 text-gray-700 truncate max-w-[6rem]">
                         {row.handledBy?.name ?? '—'}
                       </td>
-                      <td className="py-2 px-2 text-gray-600 tabular-nums text-[11px]">
-                        {row.nextContactAt ? formatDateTimeCompactWithWeekday(row.nextContactAt) : '—'}
-                      </td>
-                      <td className="py-2 px-2 text-gray-500 text-[11px] tabular-nums">
+                      <td className="py-2 px-2 text-gray-500 text-[11px] tabular-nums truncate" title={formatDateCompactWithWeekday(row.createdAt)}>
                         {formatDateCompactWithWeekday(row.createdAt)}
+                      </td>
+                      <td className="py-2 px-2 text-gray-500 text-[11px] tabular-nums truncate" title={
+                        row.preferredMoveInCleaningDate
+                          ? formatDateCompactWithWeekday(row.preferredMoveInCleaningDate)
+                          : ''
+                      }
+                      >
+                        {row.preferredMoveInCleaningDate
+                          ? formatDateCompactWithWeekday(row.preferredMoveInCleaningDate)
+                          : '—'}
                       </td>
                       <td className="py-2 px-2">
                         <div className="flex flex-wrap justify-center gap-1">
@@ -877,7 +921,13 @@ export function AdminOrderFormFollowupPanel({
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-fluid-2xs text-gray-600">
                     <span>부재 {row.deferCount}회</span>
                     <span>담당 {row.handledBy?.name ?? '—'}</span>
-                    <span>등록일 {formatDateCompactWithWeekday(row.createdAt)}</span>
+                    <span className="block">등록일 {formatDateCompactWithWeekday(row.createdAt)}</span>
+                    <span className="block text-gray-700">
+                      희망일{' '}
+                      {row.preferredMoveInCleaningDate
+                        ? formatDateCompactWithWeekday(row.preferredMoveInCleaningDate)
+                        : '—'}
+                    </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Link
@@ -1168,6 +1218,21 @@ export function AdminOrderFormFollowupPanel({
                   </div>
                 ) : null}
                 <div>
+                  <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">
+                    입주청소 희망날짜 (선택)
+                  </label>
+                  <input
+                    type="date"
+                    value={editPreferredYmd}
+                    onChange={(e) => setEditPreferredYmd(e.target.value)}
+                    disabled={edit.status === 'FULFILLED'}
+                    className="w-full max-w-[280px] rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm tabular-nums bg-white disabled:bg-gray-50"
+                  />
+                  <p className="mt-1 text-fluid-3xs text-gray-500">
+                    선택 시 목록 등록일 옆에 희망일이 표시됩니다.
+                  </p>
+                </div>
+                <div>
                   <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">다음 연락</label>
                   <input
                     type="datetime-local"
@@ -1288,6 +1353,11 @@ export function AdminOrderFormFollowupPanel({
                   <span className="tabular-nums">
                     등록일 {formatDateCompactWithWeekday(memoView.createdAt)}
                   </span>
+                  {memoView.preferredMoveInCleaningDate ? (
+                    <span className="tabular-nums">
+                      · 희망일 {formatDateCompactWithWeekday(memoView.preferredMoveInCleaningDate)}
+                    </span>
+                  ) : null}
                   {memoView.customerPhone.trim() ? (
                     <span className="tabular-nums">· {memoView.customerPhone}</span>
                   ) : null}

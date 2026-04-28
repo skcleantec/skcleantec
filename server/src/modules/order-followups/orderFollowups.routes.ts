@@ -72,6 +72,19 @@ function parseNextContact(raw: unknown): Date | null | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
+/** 입주청소 희망일 YYYY-MM-DD — 잘못된 값이면 `INVALID` */
+function parsePreferredMoveInCleaningDate(raw: unknown): string | null | 'INVALID' {
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw !== 'string') return 'INVALID';
+  const s = raw.trim();
+  if (!s) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return 'INVALID';
+  const [ys, ms, ds] = s.split('-').map(Number);
+  const dt = new Date(ys, ms - 1, ds);
+  if (dt.getFullYear() !== ys || dt.getMonth() !== ms - 1 || dt.getDate() !== ds) return 'INVALID';
+  return s;
+}
+
 type DepositFlowStatus = 'DEPOSIT_PENDING' | 'RESERVED';
 
 /** 부재현황 입금 흐름 상태일 때 접수를 자동 생성해 연결용 inquiryId를 돌려준다. */
@@ -222,6 +235,15 @@ router.post('/', async (req, res) => {
   const memo = typeof body.memo === 'string' ? body.memo.trim() || null : null;
   const nextContactAt = parseNextContact(body.nextContactAt);
   const goldDb = typeof body.goldDb === 'boolean' ? body.goldDb : false;
+  let preferredMoveInCleaningDate: string | null | undefined = undefined;
+  if (Object.prototype.hasOwnProperty.call(body, 'preferredMoveInCleaningDate')) {
+    const parsed = parsePreferredMoveInCleaningDate(body.preferredMoveInCleaningDate);
+    if (parsed === 'INVALID') {
+      res.status(400).json({ error: '입주청소 희망 날짜는 YYYY-MM-DD 형식의 유효한 날짜여야 합니다.' });
+      return;
+    }
+    preferredMoveInCleaningDate = parsed;
+  }
   let connectInquiryId: string | undefined;
   if (typeof body.inquiryId === 'string' && body.inquiryId.trim()) {
     const iid = body.inquiryId.trim();
@@ -259,6 +281,9 @@ router.post('/', async (req, res) => {
       createdById: user.userId,
       handledById: user.userId,
       depositReceivedAt: status === 'RESERVED' ? new Date() : null,
+      ...(preferredMoveInCleaningDate !== undefined
+        ? { preferredMoveInCleaningDate }
+        : {}),
       ...(connectInquiryId ? { inquiryId: connectInquiryId } : {}),
     },
     include: FOLLOWUP_INCLUDE,
@@ -273,6 +298,9 @@ router.post('/', async (req, res) => {
       nickname,
       customerPhone,
       ...(connectInquiryId ? { inquiryId: connectInquiryId } : {}),
+      ...(preferredMoveInCleaningDate !== undefined
+        ? { preferredMoveInCleaningDate: preferredMoveInCleaningDate ?? null }
+        : {}),
     }),
   });
   const full = await prisma.orderFollowup.findUniqueOrThrow({
@@ -414,6 +442,24 @@ router.patch('/:id', async (req, res) => {
       action: 'NEXT_CONTACT',
       detail: nc ? nc.toISOString() : null,
     });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'preferredMoveInCleaningDate')) {
+    const p = parsePreferredMoveInCleaningDate(body.preferredMoveInCleaningDate);
+    if (p === 'INVALID') {
+      res.status(400).json({ error: '입주청소 희망 날짜는 YYYY-MM-DD 형식의 유효한 날짜여야 합니다.' });
+      return;
+    }
+    const prevP = prev.preferredMoveInCleaningDate ?? null;
+    if (p !== prevP) {
+      data.preferredMoveInCleaningDate = p;
+      await appendFollowupLog(prisma, {
+        followupId: id,
+        actorId: user.userId,
+        action: 'PREFERRED_MOVE_IN_CLEANING_DATE',
+        detail: JSON.stringify({ from: prevP, to: p }),
+      });
+    }
   }
 
   const st = parseStatus(body.status);

@@ -7,6 +7,8 @@ import { getCrewMe } from '../../api/crew';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import type { CrewMeResponse } from '../../api/crew';
 import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
+import { RosterAckBanner } from '../common/RosterAckBanner';
+import { useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
 
 export function CrewLayout() {
   const crewToken = useSyncExternalStore(subscribeCrewAuth, getCrewToken, () => null);
@@ -14,6 +16,15 @@ export function CrewLayout() {
   const { pathname } = useLocation();
   const [me, setMe] = useState<CrewMeResponse | null>(null);
   const [hasAdminBackup, setHasAdminBackup] = useState(false);
+  const [rosterAckBanner, setRosterAckBanner] = useState<RosterAckPayload | null>(null);
+
+  const dismissRosterAckBanner = useCallback(() => setRosterAckBanner(null), []);
+
+  useRosterAckRealtime(
+    crewToken,
+    useCallback((p) => setRosterAckBanner(p), []),
+    Boolean(crewToken),
+  );
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -56,6 +67,9 @@ export function CrewLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {rosterAckBanner ? (
+        <RosterAckBanner payload={rosterAckBanner} onDismiss={dismissRosterAckBanner} />
+      ) : null}
       <header className="bg-white border-b border-gray-200 shrink-0">
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col gap-2 min-w-0">
           <div className="flex items-center justify-between gap-2 min-w-0">

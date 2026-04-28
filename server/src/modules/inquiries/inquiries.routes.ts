@@ -29,6 +29,7 @@ import { allocateNextInquiryNumber } from './inquiryNumber.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 import inquiryExtraChargesAdminRoutes from '../inquiry-extra-charges/inquiryExtraCharges.admin.routes.js';
+import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
@@ -39,7 +40,11 @@ import {
 } from './inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
 import { notifyAfterInquiryPatch } from '../push/inquiryTeamWebPush.js';
-import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
+import {
+  notifyAllActiveCrewGroupsRefresh,
+  notifyAllActiveCrewRosterAck,
+  notifyTeamLeaderUsersRosterAck,
+} from '../crew/crewFieldRealtime.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
@@ -550,6 +555,32 @@ router.patch('/:id', async (req, res) => {
   const mergedClaimMemo =
     data.claimMemo !== undefined ? String(data.claimMemo ?? '').trim() : String(inquiry.claimMemo ?? '').trim();
 
+  const mergedCrewMemberNote =
+    data.crewMemberNote !== undefined ? (data.crewMemberNote as string | null) : inquiry.crewMemberNote;
+  const crewRosterChanged = isCrewRosterChanged(
+    inquiry.crewMemberNote,
+    inquiry.crewMemberCount,
+    mergedCrewMemberNote,
+    mergedCrew,
+  );
+  /** 팀원(투입) 메모·인원 변경 시 현장 미팅 시각은 팀장이 다시 넣도록 초기화 */
+  let crewRosterAckMessages: { messageKo: string; messageTh: string } | null = null;
+  if (crewRosterChanged) {
+    data.crewMeetingTime = null;
+    data.crewMeetingTimeUpdatedAt = null;
+    const cn = String(inquiry.customerName ?? '').trim() || '고객';
+    const hadPrevMeeting = Boolean((inquiry.crewMeetingTime ?? '').trim());
+    crewRosterAckMessages = hadPrevMeeting
+      ? {
+          messageKo: `「${cn}」 접수의 현장 팀원 구성이 바뀌어, 지정돼 있던 현장 미팅 시각을 초기화했습니다.`,
+          messageTh: `งาน"${cn}" มีการเปลี่ยนทีมภาคสนาม เวลานัดภาคสนามที่หัวหน้ากำหนดจึงถูกรีเซ็ตแล้ว`,
+        }
+      : {
+          messageKo: `「${cn}」 접수의 현장 팀원(투입) 구성이 변경되었습니다.`,
+          messageTh: `งาน"${cn}" มีการเปลี่ยนทีมงานภาคสนาม (การลงชื่อคนทำงานหรือจำนวนคน)`,
+        };
+  }
+
   const mergedTime =
     data.preferredTime !== undefined
       ? String(data.preferredTime)
@@ -666,6 +697,11 @@ router.patch('/:id', async (req, res) => {
   if (data.crewMemberCount !== undefined)
     pushIfChanged('팀원 인원', inquiry.crewMemberCount, data.crewMemberCount, fmtNum);
   if (data.crewMemberNote !== undefined) pushIfChanged('팀원 메모', inquiry.crewMemberNote, data.crewMemberNote);
+  if (crewRosterChanged && (inquiry.crewMeetingTime ?? '').trim()) {
+    lines.push(
+      `현장 미팅(크루): 팀원 구성 변경으로 미팅 시각 초기화 (이전: ${(inquiry.crewMeetingTime ?? '').trim()})`,
+    );
+  }
   if (Object.prototype.hasOwnProperty.call(body, 'createdById')) {
     const rawCb = body.createdById;
     const nextCreatedByIdForLog = rawCb == null || rawCb === '' ? null : String(rawCb);
@@ -837,6 +873,13 @@ router.patch('/:id', async (req, res) => {
     wantsTeamSync;
   if (crewFieldNotify) {
     void notifyAllActiveCrewGroupsRefresh().catch((e) => console.error('[crew-field-notify]', e));
+  }
+  if (crewRosterAckMessages) {
+    void notifyAllActiveCrewRosterAck(crewRosterAckMessages).catch((e) =>
+      console.error('[crew-roster-ack]', e),
+    );
+    const rosterLeaderIds = updated.assignments.map((a) => a.teamLeaderId);
+    notifyTeamLeaderUsersRosterAck(rosterLeaderIds, crewRosterAckMessages);
   }
 
   res.json(attachDistanceFromJuanForInquiry(updated));

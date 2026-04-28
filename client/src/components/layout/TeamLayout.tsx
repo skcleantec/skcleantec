@@ -5,8 +5,9 @@ import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/te
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { getTeamNavBadges } from '../../api/team';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useInboxRealtime, useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
 import { UserProfileMenu } from '../common/UserProfileMenu';
+import { RosterAckBanner } from '../common/RosterAckBanner';
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
@@ -19,6 +20,9 @@ export function TeamLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [newAssignmentCount, setNewAssignmentCount] = useState(0);
+  const [rosterAckBanner, setRosterAckBanner] = useState<RosterAckPayload | null>(null);
+
+  const dismissRosterAckBanner = useCallback(() => setRosterAckBanner(null), []);
 
   useEffect(() => {
     const token = getTeamToken();
@@ -88,6 +92,12 @@ export function TeamLayout() {
   const { connected: navWsConnected } = useInboxRealtime(teamToken, fetchTeamBadges, Boolean(teamToken));
   useVisibilityInterval(fetchTeamBadges, navWsConnected ? 0 : 15000);
 
+  useRosterAckRealtime(
+    teamToken,
+    useCallback((p) => setRosterAckBanner(p), []),
+    Boolean(teamToken),
+  );
+
   const handleLogout = () => {
     const a = getToken();
     const t = getTeamToken();
@@ -137,6 +147,9 @@ export function TeamLayout() {
 
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
+      {rosterAckBanner ? (
+        <RosterAckBanner payload={rosterAckBanner} onDismiss={dismissRosterAckBanner} />
+      ) : null}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">

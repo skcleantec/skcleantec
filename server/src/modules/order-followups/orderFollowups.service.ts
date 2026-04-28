@@ -48,6 +48,7 @@ export function serializeFollowup(row: FollowupWithRelations) {
     deferCount: row.deferCount,
     goldDb: row.goldDb,
     memo: row.memo,
+    preferredMoveInCleaningDate: row.preferredMoveInCleaningDate ?? null,
     nextContactAt: row.nextContactAt?.toISOString() ?? null,
     depositReceivedAt: row.depositReceivedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
