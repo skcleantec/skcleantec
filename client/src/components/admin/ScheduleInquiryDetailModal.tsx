@@ -302,6 +302,14 @@ function effectiveAmounts(item: ScheduleItem) {
   };
 }
 
+/** 타업체 배정과 자사 팀장이 동시에 있던 접수는 타업체 한 명만 남겨 초기 폼값으로 둠(타업체는 정산 블록에서만 배정·변경). */
+function initialTeamLeaderIdsForEdit(assignments: ScheduleItem['assignments']): string[] {
+  if (!assignments || assignments.length === 0) return [''];
+  const ext = assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
+  if (ext) return [ext.teamLeader.id];
+  return assignments.map((a) => a.teamLeader.id);
+}
+
 /**
  * 타업체 공유용 접수 정보 텍스트 생성.
  * 접수번호 + 고객·현장·일정·금액·메모를 포함한다.
@@ -570,8 +578,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       betweenScheduleSlot: it.betweenScheduleSlot ?? '',
       preferredTimeDetail: it.preferredTimeDetail || '',
       memo: it.memo || '',
-      teamLeaderIds:
-        it.assignments.length > 0 ? it.assignments.map((a) => a.teamLeader.id) : [''],
+      teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: statusValueForEdit(it),
@@ -632,24 +639,42 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const otherSelected = new Set(
         editForm.teamLeaderIds.filter((lid, i) => i !== rowIndex && lid.trim() !== '')
       );
-      /** 서버가 team-preview일 때만 `teamLeaders`에 넣는 본인 ADMIN 행 — 슬롯 가용 목록과 무관하게 선택 가능 */
+      /** 팀장 드롭다운에는 타업체 계정 제외 — 타업체는 「정산」의 타업체 담당에서만 지정 */
       const base =
         ids == null
-          ? teamLeaders
+          ? teamLeaders.filter((t) => t.role !== 'EXTERNAL_PARTNER')
           : teamLeaders.filter(
               (t) =>
-                t.role === 'EXTERNAL_PARTNER' ||
-                ids.includes(t.id) ||
-                (t.role === 'ADMIN' && meUser != null && t.id === meUser.id)
+                t.role !== 'EXTERNAL_PARTNER' &&
+                (ids.includes(t.id) || (t.role === 'ADMIN' && meUser != null && t.id === meUser.id))
             );
       const allowed = base.filter((t) => !otherSelected.has(t.id) || t.id === curId);
       const cur = teamLeaders.find((t) => t.id === curId);
       if (curId && cur && !allowed.some((t) => t.id === curId)) {
+        if (cur.role === 'EXTERNAL_PARTNER') return allowed;
         return [...allowed, cur];
       }
       return allowed;
     };
   }, [teamLeaders, assignableLeaderIdsForSlot, editForm.teamLeaderIds, meUser]);
+
+  /** 배정 타업체 계정 하나만 — 정산의 타업체 담당 드롭다운과 동기화 */
+  const resolvedExternalLeadId = useMemo(() => {
+    for (const id of editForm.teamLeaderIds) {
+      const u = teamLeaders.find((t) => t.id === id);
+      if (!id.trim()) continue;
+      if (u?.role === 'EXTERNAL_PARTNER') return id;
+    }
+    return '';
+  }, [editForm.teamLeaderIds, teamLeaders]);
+
+  const externalPartnerOptions = useMemo(
+    () =>
+      teamLeaders
+        .filter((t) => t.role === 'EXTERNAL_PARTNER')
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko')),
+    [teamLeaders]
+  );
 
   useEffect(() => {
     if (!item) return;
@@ -669,8 +694,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       betweenScheduleSlot: it.betweenScheduleSlot ?? '',
       preferredTimeDetail: it.preferredTimeDetail || '',
       memo: it.memo || '',
-      teamLeaderIds:
-        it.assignments.length > 0 ? it.assignments.map((x) => x.teamLeader.id) : [''],
+      teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: statusValueForEdit(it),
@@ -795,7 +819,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       alert('주소를 입력해주세요.');
       return;
     }
-    const leaderIdsForSave = editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
+    const leaderIdsForSave = resolvedExternalLeadId
+      ? [resolvedExternalLeadId]
+      : editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
     if (
       leaderIdsForSave.length > 0 &&
       (editForm.status === 'PENDING' ||
@@ -1359,7 +1385,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
         <AdminScheduleDetailSection title="정산 · 옵션" sectionAnchor="settlement">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <div>
+          <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">총액 (원)</label>
             <input
               value={editForm.amountTotal}
@@ -1369,25 +1395,58 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               placeholder="0"
             />
           </div>
-          <div>
-            <label className="block text-gray-600 mb-1">예약금 (원)</label>
-            <input
-              value={editForm.amountDeposit}
-              onChange={(e) => setEditForm((p) => ({ ...p, amountDeposit: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              inputMode="numeric"
-            />
+          <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:gap-x-4">
+            <div className="min-w-0">
+              <label className="block text-gray-600 mb-1">예약금 (원)</label>
+              <input
+                value={editForm.amountDeposit}
+                onChange={(e) => setEditForm((p) => ({ ...p, amountDeposit: e.target.value }))}
+                className="w-full min-w-0 px-2 py-2 sm:px-3 border border-gray-300 rounded tabular-nums"
+                inputMode="numeric"
+              />
+            </div>
+            <div className="min-w-0">
+              <label className="block text-gray-600 mb-1">잔금 (원)</label>
+              <input
+                value={editForm.amountBalance}
+                onChange={(e) => setEditForm((p) => ({ ...p, amountBalance: e.target.value }))}
+                className="w-full min-w-0 px-2 py-2 sm:px-3 border border-gray-300 rounded tabular-nums"
+                inputMode="numeric"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-gray-600 mb-1">잔금 (원)</label>
-            <input
-              value={editForm.amountBalance}
-              onChange={(e) => setEditForm((p) => ({ ...p, amountBalance: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              inputMode="numeric"
-            />
+          <div className="sm:col-span-2">
+            <label className="block text-gray-600 mb-1">타업체 담당</label>
+            <select
+              value={resolvedExternalLeadId}
+              onChange={(e) => {
+                const v = e.target.value;
+                setEditForm((p) => {
+                  if (v === '') {
+                    const keep = p.teamLeaderIds.filter((id) => {
+                      const u = teamLeaders.find((x) => x.id === id);
+                      return id.trim() !== '' && u?.role !== 'EXTERNAL_PARTNER';
+                    });
+                    return { ...p, teamLeaderIds: keep.length > 0 ? keep : [''] };
+                  }
+                  return { ...p, teamLeaderIds: [v] };
+                });
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-sm"
+              aria-describedby="sched-settlement-external-hint"
+            >
+              <option value="">선택 안 함 (자사 팀장만)</option>
+              {externalPartnerOptions.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {formatAssignableUserLabel(u)}
+                </option>
+              ))}
+            </select>
+            <p id="sched-settlement-external-hint" className="text-[11px] text-gray-500 mt-1">
+              타업체를 선택하면 자사 팀장과 동시 분배가 되지 않습니다. 타업체 수수료는 아래 입력란에만 해당합니다.
+            </p>
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">타업체 수수료 (원)</label>
             <input
               value={editForm.externalTransferFee}
@@ -1396,7 +1455,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               inputMode="numeric"
               placeholder="비우면 미입력"
             />
-            <p className="text-[11px] text-gray-500 mt-1">타업체 담당으로 배정된 건에 대해 받는 수수료</p>
+            <p className="text-[11px] text-gray-500 mt-1">타업체 담당으로 분배된 건에 대해 받는 수수료</p>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">전문 시공 옵션</label>
@@ -1533,78 +1592,97 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           )}
           <div className="sm:col-span-2 space-y-2">
-            <label className="block text-gray-600 mb-1">담당 팀장·타업체 (여러 명 가능)</label>
-            {editForm.teamLeaderIds.map((lid, idx) => (
-              <div key={idx} className="flex gap-2 items-center">
-                <select
-                  value={lid}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setEditForm((p) => {
-                      const next = [...p.teamLeaderIds];
-                      next[idx] = v;
-                      return { ...p, teamLeaderIds: next };
-                    });
-                  }}
-                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-sm"
-                >
-                  <option value="">선택 안 함</option>
-                  {leaderOptionsForRow(idx).map((tl) => (
-                    <option key={tl.id} value={tl.id}>
-                      {formatAssignableUserLabel(tl)}
-                    </option>
-                  ))}
-                </select>
-                {editForm.teamLeaderIds.length > 1 && (
+            <label className="block text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
+            {resolvedExternalLeadId ? (
+              <div
+                className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-sm text-amber-950"
+                role="status"
+              >
+                <span className="font-medium">타업체 담당 지정됨</span> — 자사 팀장은 함께 지정할 수
+                없습니다. 담당 변경은 위 「정산 · 옵션」의 《타업체 담당》에서 하세요.
+                {(() => {
+                  const u = teamLeaders.find((t) => t.id === resolvedExternalLeadId);
+                  return u ? (
+                    <span className="mt-1 block text-xs text-amber-900/95">
+                      선택: {formatAssignableUserLabel(u)}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+            ) : (
+              <>
+                {editForm.teamLeaderIds.map((lid, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <select
+                      value={lid}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setEditForm((p) => {
+                          const next = [...p.teamLeaderIds];
+                          next[idx] = v;
+                          return { ...p, teamLeaderIds: next };
+                        });
+                      }}
+                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-sm"
+                    >
+                      <option value="">선택 안 함</option>
+                      {leaderOptionsForRow(idx).map((tl) => (
+                        <option key={tl.id} value={tl.id}>
+                          {formatAssignableUserLabel(tl)}
+                        </option>
+                      ))}
+                    </select>
+                    {editForm.teamLeaderIds.length > 1 && (
+                      <button
+                        type="button"
+                        className="shrink-0 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
+                        onClick={() =>
+                          setEditForm((p) => ({
+                            ...p,
+                            teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
+                          }))
+                        }
+                      >
+                        제거
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
-                    className="shrink-0 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
+                    className="text-sm text-blue-600 hover:underline"
                     onClick={() =>
-                      setEditForm((p) => ({
-                        ...p,
-                        teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
-                      }))
+                      setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
                     }
                   >
-                    제거
+                    + 팀장 추가
                   </button>
-                )}
-              </div>
-            ))}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="text-sm text-blue-600 hover:underline"
-                onClick={() =>
-                  setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
-                }
-              >
-                + 담당 추가
-              </button>
-              {assignableLeaderIdsForSlot != null && (
-                <div ref={assigneeHelpRef} className="relative group">
-                  <button
-                    type="button"
-                    aria-label="담당 배정 규칙 안내"
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-[11px] font-semibold text-gray-600 hover:bg-gray-50"
-                    onClick={() => setAssigneeHelpOpen((prev) => !prev)}
-                  >
-                    ?
-                  </button>
-                  <div
-                    className={`absolute z-20 left-0 top-7 w-72 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs leading-5 text-gray-600 shadow-lg ${
-                      assigneeHelpOpen ? 'block' : 'hidden group-hover:block'
-                    }`}
-                  >
-                    예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장을 우선 표시합니다.
-                    타업체 담당은 항상 선택할 수 있습니다. 현재 선택된 담당은 항상 목록에 남습니다.
-                    서버에서 허용된 개발용(team-preview) 관리자만 목록에 본인 ADMIN이 포함되며, 그
-                    경우 슬롯 필터와 관계없이 본인을 선택할 수 있습니다. 다른 로그인에는 해당 항목이
-                    없습니다.
-                  </div>
+                  {assignableLeaderIdsForSlot != null && (
+                    <div ref={assigneeHelpRef} className="relative group">
+                      <button
+                        type="button"
+                        aria-label="담당 배정 규칙 안내"
+                        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-[11px] font-semibold text-gray-600 hover:bg-gray-50"
+                        onClick={() => setAssigneeHelpOpen((prev) => !prev)}
+                      >
+                        ?
+                      </button>
+                      <div
+                        className={`absolute z-20 left-0 top-7 w-72 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs leading-5 text-gray-600 shadow-lg ${
+                          assigneeHelpOpen ? 'block' : 'hidden group-hover:block'
+                        }`}
+                      >
+                        예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장을 우선 표시합니다.
+                        타업체 분배는 「정산 · 옵션」의 《타업체 담당》에서 선택합니다. 현재 선택된 팀장은
+                        목록에 남습니다. 서버에서 허용된 개발용(team-preview) 관리자만 목록에 본인 ADMIN이 포함되며, 그 경우
+                        슬롯 필터와 관계없이 본인을 선택할 수 있습니다.
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
           <div className="sm:col-span-2">
             <div className="mb-2 flex items-center gap-2">

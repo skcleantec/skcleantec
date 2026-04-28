@@ -473,6 +473,14 @@ function effectiveInquiryAmounts(it: InquiryItem) {
   };
 }
 
+/** 타업체 배정과 자사 팀장이 동시에 있던 접수는 타업체 한 명만 유지 (타업체는 정산에서만 지정·변경). */
+function initialTeamLeaderIdsForEdit(assignments: InquiryItem['assignments']): string[] {
+  if (!assignments || assignments.length === 0) return [''];
+  const ext = assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
+  if (ext) return [ext.teamLeader.id];
+  return assignments.map((a) => a.teamLeader.id);
+}
+
 /** 목록 정렬: 예약완료(RECEIVED)가 아닌 상태를 먼저, 그 다음 예약완료를 날짜순(최신 우선) */
 function sortInquiryItemsForList(rows: InquiryItem[]): InquiryItem[] {
   return rows
@@ -649,9 +657,33 @@ export function AdminInquiriesPage() {
       const otherSelected = new Set(
         editForm.teamLeaderIds.filter((lid, i) => i !== rowIndex && lid.trim() !== '')
       );
-      return teamLeaders.filter((t) => !otherSelected.has(t.id) || t.id === curId);
+      const base = teamLeaders.filter((t) => t.role !== 'EXTERNAL_PARTNER');
+      const allowed = base.filter((t) => !otherSelected.has(t.id) || t.id === curId);
+      const cur = teamLeaders.find((t) => t.id === curId);
+      if (curId && cur && !allowed.some((t) => t.id === curId)) {
+        if (cur.role === 'EXTERNAL_PARTNER') return allowed;
+        return [...allowed, cur];
+      }
+      return allowed;
     };
   }, [teamLeaders, editForm.teamLeaderIds]);
+
+  const resolvedExternalLeadId = useMemo(() => {
+    for (const id of editForm.teamLeaderIds) {
+      const u = teamLeaders.find((t) => t.id === id);
+      if (!id.trim()) continue;
+      if (u?.role === 'EXTERNAL_PARTNER') return id;
+    }
+    return '';
+  }, [editForm.teamLeaderIds, teamLeaders]);
+
+  const externalPartnerOptions = useMemo(
+    () =>
+      teamLeaders
+        .filter((t) => t.role === 'EXTERNAL_PARTNER')
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko')),
+    [teamLeaders]
+  );
 
   const crewPickOptions = useMemo(
     () => mergeCrewPickPoolWithSelections(poolTeamMembers, editForm.crewMemberNames),
@@ -1004,7 +1036,7 @@ export function AdminInquiriesPage() {
       preferredTimeDetail: item.preferredTimeDetail || '',
       memo: item.memo || '',
       teamLeaderIds:
-        item.assignments.length > 0 ? item.assignments.map((a) => a.teamLeader.id) : [''],
+        initialTeamLeaderIdsForEdit(item.assignments),
       crewMemberCount: item.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(item.crewMemberNote),
       status: item.status,
@@ -1399,9 +1431,11 @@ export function AdminInquiriesPage() {
         setSaving(false);
         return;
       }
-      const ids = editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
+      const leaderIdsForSave = resolvedExternalLeadId
+        ? [resolvedExternalLeadId]
+        : editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
       if (
-        ids.length > 0 &&
+        leaderIdsForSave.length > 0 &&
         (editForm.status === 'PENDING' ||
           editForm.status === 'DEPOSIT_PENDING' ||
           editForm.status === 'DEPOSIT_COMPLETED' ||
@@ -1431,7 +1465,7 @@ export function AdminInquiriesPage() {
         const pickedNames = editForm.crewMemberNames.map((n) => n.trim()).filter(Boolean);
         patch.crewMemberNote = pickedNames.length > 0 ? pickedNames.join('/') : null;
       }
-      patch.teamLeaderIds = ids;
+      patch.teamLeaderIds = leaderIdsForSave;
       await updateInquiry(token, editItem.id, patch);
       setEditItem(null);
       refresh(true);
@@ -3197,46 +3231,92 @@ export function AdminInquiriesPage() {
                   ) : null;
                 })()}
               </div>
-              <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">총액 (원)</label>
-                <input
-                  value={editForm.amountTotal}
-                  onChange={(e) => setEditForm((p) => ({ ...p, amountTotal: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-                  placeholder="예: 500000"
-                  inputMode="numeric"
-                />
-              </div>
-              <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">예약금 (원)</label>
-                <input
-                  value={editForm.amountDeposit}
-                  onChange={(e) => setEditForm((p) => ({ ...p, amountDeposit: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-                  placeholder="예: 100000"
-                  inputMode="numeric"
-                />
-              </div>
-              <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">잔금 (원)</label>
-                <input
-                  value={editForm.amountBalance}
-                  onChange={(e) => setEditForm((p) => ({ ...p, amountBalance: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-                  placeholder="예: 400000"
-                  inputMode="numeric"
-                />
-              </div>
-              <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">타업체 수수료 (원)</label>
-                <input
-                  value={editForm.externalTransferFee}
-                  onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-                  placeholder="정보 넘길 때 받은 금액"
-                  inputMode="numeric"
-                />
-                <p className="text-fluid-xs text-gray-500 mt-1">타업체 담당으로 배정된 건의 수수료. 비우면 미입력.</p>
+              <div className="sm:col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                  <div className="sm:col-span-2">
+                    <label className="block text-fluid-sm text-gray-600 mb-1">총액 (원)</label>
+                    <input
+                      value={editForm.amountTotal}
+                      onChange={(e) => setEditForm((p) => ({ ...p, amountTotal: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                      placeholder="예: 500000"
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:gap-x-4">
+                    <div className="min-w-0">
+                      <label className="block text-fluid-sm text-gray-600 mb-1">예약금 (원)</label>
+                      <input
+                        value={editForm.amountDeposit}
+                        onChange={(e) => setEditForm((p) => ({ ...p, amountDeposit: e.target.value }))}
+                        className="w-full min-w-0 px-2 py-2 sm:px-3 border border-gray-300 rounded text-fluid-sm tabular-nums"
+                        placeholder="예: 100000"
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="block text-fluid-sm text-gray-600 mb-1">잔금 (원)</label>
+                      <input
+                        value={editForm.amountBalance}
+                        onChange={(e) => setEditForm((p) => ({ ...p, amountBalance: e.target.value }))}
+                        className="w-full min-w-0 px-2 py-2 sm:px-3 border border-gray-300 rounded text-fluid-sm tabular-nums"
+                        placeholder="예: 400000"
+                        inputMode="numeric"
+                      />
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-fluid-sm text-gray-600 mb-1">타업체 담당</label>
+                    <select
+                      value={resolvedExternalLeadId}
+                      disabled={
+                        editForm.status === 'PENDING' ||
+                        editForm.status === 'DEPOSIT_PENDING' ||
+                        editForm.status === 'DEPOSIT_COMPLETED' ||
+                        editForm.status === 'ORDER_FORM_PENDING' ||
+                        editForm.status === 'ON_HOLD'
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setEditForm((p) => {
+                          if (v === '') {
+                            const keep = p.teamLeaderIds.filter((id) => {
+                              const u = teamLeaders.find((x) => x.id === id);
+                              return id.trim() !== '' && u?.role !== 'EXTERNAL_PARTNER';
+                            });
+                            return { ...p, teamLeaderIds: keep.length > 0 ? keep : [''] };
+                          }
+                          return { ...p, teamLeaderIds: [v] };
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-fluid-sm disabled:bg-gray-100"
+                      aria-describedby="inq-edit-settlement-external-hint"
+                    >
+                      <option value="">선택 안 함 (자사 팀장만)</option>
+                      {externalPartnerOptions.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {formatAssignableUserLabel(u)}
+                        </option>
+                      ))}
+                    </select>
+                    <p id="inq-edit-settlement-external-hint" className="text-[11px] text-gray-500 mt-1">
+                      타업체를 선택하면 자사 팀장과 동시 분배가 되지 않습니다. 타업체 수수료는 아래 입력란에만 해당합니다.
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-fluid-sm text-gray-600 mb-1">타업체 수수료 (원)</label>
+                    <input
+                      value={editForm.externalTransferFee}
+                      onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                      placeholder="비우면 미입력"
+                      inputMode="numeric"
+                    />
+                    <p className="text-fluid-xs text-gray-500 mt-1">
+                      타업체 담당으로 분배된 건에 대해 받는 수수료
+                    </p>
+                  </div>
+                </div>
               </div>
               <div className="sm:col-span-2">
                 <InquirySettlementPanel
@@ -3260,11 +3340,79 @@ export function AdminInquiriesPage() {
                 />
               </div>
               <div className="sm:col-span-2 space-y-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">담당 팀장·타업체 (여러 명 가능)</label>
-                {editForm.teamLeaderIds.map((lid, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <select
-                      value={lid}
+                <label className="block text-fluid-sm text-gray-600 mb-1">
+                  담당 팀장 (여러 명 가능)
+                  <HelpTooltip
+                    className="ml-1 align-middle"
+                    text="타업체 분배는 위쪽 《타업체 담당》에서 선택합니다. 자사 팀장만 여러 명 선택할 수 있습니다."
+                  />
+                </label>
+                {resolvedExternalLeadId ? (
+                  <div
+                    className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-fluid-sm text-amber-950"
+                    role="status"
+                  >
+                    <span className="font-medium">타업체 담당 지정됨</span>
+                    {' — '}
+                    자사 팀장은 함께 지정할 수 없습니다. 담당 변경은 위쪽 《타업체 담당》에서 하세요.
+                    {(() => {
+                      const u = teamLeaders.find((t) => t.id === resolvedExternalLeadId);
+                      return u ? (
+                        <span className="mt-1 block text-xs text-amber-900/95">
+                          선택: {formatAssignableUserLabel(u)}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+                ) : (
+                  <>
+                    {editForm.teamLeaderIds.map((lid, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <select
+                          value={lid}
+                          disabled={
+                            editForm.status === 'PENDING' ||
+                            editForm.status === 'DEPOSIT_PENDING' ||
+                            editForm.status === 'DEPOSIT_COMPLETED' ||
+                            editForm.status === 'ORDER_FORM_PENDING' ||
+                            editForm.status === 'ON_HOLD'
+                          }
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setEditForm((p) => {
+                              const next = [...p.teamLeaderIds];
+                              next[idx] = v;
+                              return { ...p, teamLeaderIds: next };
+                            });
+                          }}
+                          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-fluid-sm disabled:bg-gray-100"
+                        >
+                          <option value="">선택 안 함</option>
+                          {leaderOptionsForRow(idx).map((tl) => (
+                            <option key={tl.id} value={tl.id}>
+                              {formatAssignableUserLabel(tl)}
+                            </option>
+                          ))}
+                        </select>
+                        {editForm.teamLeaderIds.length > 1 && (
+                          <button
+                            type="button"
+                            className="shrink-0 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded"
+                            onClick={() =>
+                              setEditForm((p) => ({
+                                ...p,
+                                teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
+                              }))
+                            }
+                          >
+                            제거
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="text-fluid-sm text-blue-600 hover:underline disabled:opacity-50"
                       disabled={
                         editForm.status === 'PENDING' ||
                         editForm.status === 'DEPOSIT_PENDING' ||
@@ -3272,55 +3420,14 @@ export function AdminInquiriesPage() {
                         editForm.status === 'ORDER_FORM_PENDING' ||
                         editForm.status === 'ON_HOLD'
                       }
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setEditForm((p) => {
-                          const next = [...p.teamLeaderIds];
-                          next[idx] = v;
-                          return { ...p, teamLeaderIds: next };
-                        });
-                      }}
-                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-fluid-sm disabled:bg-gray-100"
+                      onClick={() =>
+                        setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
+                      }
                     >
-                      <option value="">선택 안 함</option>
-                      {leaderOptionsForRow(idx).map((tl) => (
-                        <option key={tl.id} value={tl.id}>
-                          {formatAssignableUserLabel(tl)}
-                        </option>
-                      ))}
-                    </select>
-                    {editForm.teamLeaderIds.length > 1 && (
-                      <button
-                        type="button"
-                        className="shrink-0 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded"
-                        onClick={() =>
-                          setEditForm((p) => ({
-                            ...p,
-                            teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
-                          }))
-                        }
-                      >
-                        제거
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="text-sm text-blue-600 hover:underline"
-                  disabled={
-                    editForm.status === 'PENDING' ||
-                    editForm.status === 'DEPOSIT_PENDING' ||
-                    editForm.status === 'DEPOSIT_COMPLETED' ||
-                    editForm.status === 'ORDER_FORM_PENDING' ||
-                    editForm.status === 'ON_HOLD'
-                  }
-                  onClick={() =>
-                    setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
-                  }
-                >
-                  + 담당 추가
-                </button>
+                      + 팀장 추가
+                    </button>
+                  </>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-fluid-sm text-gray-600 mb-1">팀원 투입</label>
