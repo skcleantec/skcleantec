@@ -29,6 +29,7 @@ import { allocateNextInquiryNumber } from './inquiryNumber.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 import inquiryExtraChargesAdminRoutes from '../inquiry-extra-charges/inquiryExtraCharges.admin.routes.js';
+import { buildInquiryPatchCrewRosterAckMessages } from './crewRosterAckMessages.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
@@ -46,6 +47,8 @@ import {
   notifyTeamLeaderUsersRosterAck,
 } from '../crew/crewFieldRealtime.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { inquiryDetailInclude } from './inquiryDetailInclude.js';
+import { handlePostSwapCrewWithPartner } from './inquiryCrewPartnerSwap.handler.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -91,41 +94,6 @@ async function verifyAdminPasswordForRequest(
 }
 
 const router = Router();
-
-const inquiryDetailInclude = {
-  createdBy: { select: { id: true, name: true } },
-  assignments: {
-    orderBy: { sortOrder: 'asc' as const },
-    include: { teamLeader: { select: assignmentTeamLeaderSelect } },
-  },
-  orderForm: {
-    select: {
-      id: true,
-      createdById: true,
-      totalAmount: true,
-      depositAmount: true,
-      balanceAmount: true,
-      submittedAt: true,
-      customerSpecialNotes: true,
-      createdBy: { select: { id: true, name: true } },
-    },
-  },
-  changeLogs: {
-    orderBy: { createdAt: 'desc' as const },
-    take: 30,
-    select: {
-      id: true,
-      createdAt: true,
-      lines: true,
-      actorId: true,
-      actor: { select: { id: true, name: true } },
-    },
-  },
-  extraCharges: {
-    orderBy: { sortOrder: 'asc' as const },
-    include: { createdBy: { select: { id: true, name: true } } },
-  },
-};
 
 router.use(authMiddleware);
 router.use(adminOrMarketer);
@@ -356,6 +324,9 @@ router.get('/:id', async (req, res) => {
 router.use('/:inquiryId/cleaning-photos', inquiryCleaningPhotosAdminRoutes);
 router.use('/:inquiryId/extra-charges', inquiryExtraChargesAdminRoutes);
 
+/** 같은 예약일 다른 접수와 팀원 투입(인원·이름) 맞바꿈 — 드롭다운으로는 가용 인원 부족할 때 사용 */
+router.post('/:id/swap-crew-with-partner', handlePostSwapCrewWithPartner);
+
 /** 관리자만 — 비밀번호 확인 후 접수 영구 삭제 */
 router.delete('/:id', adminOrMarketer, async (req, res) => {
   const { id } = req.params;
@@ -568,17 +539,10 @@ router.patch('/:id', async (req, res) => {
   if (crewRosterChanged) {
     data.crewMeetingTime = null;
     data.crewMeetingTimeUpdatedAt = null;
-    const cn = String(inquiry.customerName ?? '').trim() || '고객';
-    const hadPrevMeeting = Boolean((inquiry.crewMeetingTime ?? '').trim());
-    crewRosterAckMessages = hadPrevMeeting
-      ? {
-          messageKo: `「${cn}」 접수의 현장 팀원 구성이 바뀌어, 지정돼 있던 현장 미팅 시각을 초기화했습니다.`,
-          messageTh: `งาน"${cn}" มีการเปลี่ยนทีมภาคสนาม เวลานัดภาคสนามที่หัวหน้ากำหนดจึงถูกรีเซ็ตแล้ว`,
-        }
-      : {
-          messageKo: `「${cn}」 접수의 현장 팀원(투입) 구성이 변경되었습니다.`,
-          messageTh: `งาน"${cn}" มีการเปลี่ยนทีมงานภาคสนาม (การลงชื่อคนทำงานหรือจำนวนคน)`,
-        };
+    crewRosterAckMessages = buildInquiryPatchCrewRosterAckMessages(inquiry.crewMemberNote, mergedCrewMemberNote, {
+      customerName: String(inquiry.customerName ?? ''),
+      hadPrevMeeting: Boolean((inquiry.crewMeetingTime ?? '').trim()),
+    });
   }
 
   const mergedTime =

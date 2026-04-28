@@ -103,6 +103,31 @@ export async function updateInquiry(
   return res.json();
 }
 
+/** 같은 예약일(KST) 접수 간 팀원 이름 교환 — 상세 form과 동일 응답 */
+export async function swapInquiryCrewWithPartner(
+  token: string,
+  inquiryId: string,
+  params: {
+    partnerInquiryId: string;
+    myCrewName?: string;
+    partnerCrewName?: string;
+  }
+): Promise<Record<string, unknown>> {
+  const res = await fetch(
+    `${API}/inquiries/${encodeURIComponent(inquiryId)}/swap-crew-with-partner`,
+    {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify(params),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '팀원 맞바꿈에 실패했습니다.');
+  }
+  return res.json();
+}
+
 /** 관리자 전용 — 비밀번호 확인 후 접수 영구 삭제 */
 export async function deleteInquiry(token: string, id: string, password: string): Promise<void> {
   const res = await fetch(`${API}/inquiries/${encodeURIComponent(id)}`, {

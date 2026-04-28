@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { createInquiry, deleteInquiry, getInquiry, updateInquiry } from '../../api/inquiries';
+import {
+  createInquiry,
+  deleteInquiry,
+  getInquiry,
+  swapInquiryCrewWithPartner,
+  updateInquiry,
+} from '../../api/inquiries';
 import { createOrderFollowup } from '../../api/orderFollowups';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
 import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
@@ -87,6 +93,47 @@ function isCancelConfirmedStatus(it: { status: string; happyCallCompletedAt?: st
 
 function statusValueForEdit(it: { status: string; happyCallCompletedAt?: string | null }): string {
   return isCancelConfirmedStatus(it) ? 'CANCEL_CONFIRMED' : it.status;
+}
+
+/** 서버 `swap-crew-with-partner`와 동일한 범위에서 맞바꿈 불가 */
+function isBlockedForCrewPartnerSwapStatus(s: string): boolean {
+  return (
+    s === 'CANCELLED' ||
+    s === 'CANCEL_CONFIRMED' ||
+    s === 'ON_HOLD' ||
+    s === 'PENDING' ||
+    s === 'DEPOSIT_PENDING' ||
+    s === 'DEPOSIT_COMPLETED' ||
+    s === 'ORDER_FORM_PENDING'
+  );
+}
+
+function partnerSwapStatusForRow(it: ScheduleItem): string {
+  return isCancelConfirmedStatus(it) ? 'CANCEL_CONFIRMED' : it.status;
+}
+
+function formatScheduleItemAssignmentLeaders(it: ScheduleItem): string {
+  const rows = it.assignments ?? [];
+  if (rows.length === 0) return '미배정';
+  return rows
+    .map((a) => {
+      const u = a.teamLeader;
+      if (u.role === 'EXTERNAL_PARTNER') {
+        const ec = u.externalCompany?.name?.trim();
+        return ec ? `[타업체] ${ec} (${u.name})` : `[타업체] ${u.name}`;
+      }
+      return u.name;
+    })
+    .join(' · ');
+}
+
+function crewPreviewLabel(it: ScheduleItem): string {
+  const n = it.crewMemberCount ?? 0;
+  const raw = (it.crewMemberNote ?? '').trim();
+  if (!raw && n <= 0) return '팀원 미입력';
+  const names = parseCrewMemberNoteToNames(raw).filter(Boolean);
+  if (names.length > 0) return `${n}명 · ${names.join('/')}`;
+  return `${n}명`;
 }
 
 function distanceFromJuanLabel(item: ScheduleItem): string | null {
@@ -472,6 +519,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   );
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePasswordOpen, setDeletePasswordOpen] = useState(false);
+  const [crewSwapModalOpen, setCrewSwapModalOpen] = useState(false);
+  const [crewSwapListLoading, setCrewSwapListLoading] = useState(false);
+  const [crewSwapSubmitting, setCrewSwapSubmitting] = useState(false);
+  const [crewSwapDayItems, setCrewSwapDayItems] = useState<ScheduleItem[]>([]);
+  const [crewSwapPartnerId, setCrewSwapPartnerId] = useState('');
+  const [crewSwapPickMyName, setCrewSwapPickMyName] = useState('');
+  const [crewSwapPickPartnerName, setCrewSwapPickPartnerName] = useState('');
   const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
   const [marketerQuickValue, setMarketerQuickValue] = useState('');
   const [copyHint, setCopyHint] = useState<string | null>(null);
@@ -762,7 +816,131 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     };
   }, [token, editForm.preferredDate, isCreate, item?.id]);
 
+  /** 해당 예약일 풀에서 ‘남아 있는 교체 가능’ 이름이 없을 때(true면 드롭다운으로는 바꾸기 어려운 경우가 많음) */
+  const crewPoolNoFreeReplacement = useMemo(() => {
+    if (poolTeamMembers.length === 0) return true;
+    const cur = new Set(
+      editForm.crewMemberNames.map((x) => x.trim()).filter(Boolean)
+    );
+    for (const m of poolTeamMembers) {
+      const name = m.name.trim();
+      if (!name) continue;
+      if (occupiedCrewNamesByDate.has(name)) continue;
+      if (cur.has(name)) continue;
+      return false;
+    }
+    return true;
+  }, [poolTeamMembers, occupiedCrewNamesByDate, editForm.crewMemberNames]);
+
   const effectiveCrewSlots = Math.max(0, editForm.crewMemberCount);
+
+  const canUseCrewPartnerSwap = useMemo(() => {
+    if (isCreate || !item || effectiveCrewSlots <= 0) return false;
+    if (isBlockedForCrewPartnerSwapStatus(editForm.status)) return false;
+    if (!(editForm.preferredDate || '').trim()) return false;
+    const lids = resolvedExternalLeadId
+      ? [resolvedExternalLeadId]
+      : editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
+    if (lids.length === 0) return false;
+    return true;
+  }, [
+    isCreate,
+    item,
+    effectiveCrewSlots,
+    editForm.status,
+    editForm.preferredDate,
+    editForm.teamLeaderIds,
+    resolvedExternalLeadId,
+  ]);
+
+  const showCrewPartnerSwapEntry = canUseCrewPartnerSwap && crewPoolNoFreeReplacement;
+
+  const crewSwapCandidates = useMemo(() => {
+    if (!item || !crewSwapModalOpen) return [];
+    return crewSwapDayItems.filter((it) => {
+      if (it.id === item.id) return false;
+      if (!(it.assignments?.length ?? 0)) return false;
+      const st = partnerSwapStatusForRow(it);
+      if (isBlockedForCrewPartnerSwapStatus(st)) return false;
+      return true;
+    });
+  }, [crewSwapDayItems, crewSwapModalOpen, item]);
+
+  const crewSwapMyNameOptions = useMemo(
+    () => editForm.crewMemberNames.map((x) => x.trim()).filter(Boolean),
+    [editForm.crewMemberNames]
+  );
+
+  const crewSwapPartnerNameOptions = useMemo(() => {
+    if (!crewSwapPartnerId) return [] as string[];
+    const row = crewSwapDayItems.find((i) => i.id === crewSwapPartnerId);
+    return parseCrewMemberNoteToNames(row?.crewMemberNote);
+  }, [crewSwapDayItems, crewSwapPartnerId]);
+
+  useEffect(() => {
+    if (!crewSwapModalOpen) return;
+    const my = crewSwapMyNameOptions;
+    if (my.length === 1) {
+      setCrewSwapPickMyName(my[0]!);
+    } else {
+      setCrewSwapPickMyName((prev) => (prev && my.includes(prev) ? prev : ''));
+    }
+  }, [crewSwapModalOpen, crewSwapMyNameOptions]);
+
+  useEffect(() => {
+    if (!crewSwapModalOpen || !crewSwapPartnerId) return;
+    const opts = crewSwapPartnerNameOptions;
+    if (opts.length === 1) {
+      setCrewSwapPickPartnerName(opts[0]!);
+    } else {
+      setCrewSwapPickPartnerName((prev) => (prev && opts.includes(prev) ? prev : ''));
+    }
+  }, [crewSwapModalOpen, crewSwapPartnerId, crewSwapPartnerNameOptions]);
+
+  const crewSwapReadyToRun = useMemo(() => {
+    if (!crewSwapPartnerId.trim()) return false;
+    if (crewSwapMyNameOptions.length === 0 || crewSwapPartnerNameOptions.length === 0) return false;
+    if (crewSwapMyNameOptions.length > 1 && !crewSwapPickMyName.trim()) return false;
+    if (crewSwapPartnerNameOptions.length > 1 && !crewSwapPickPartnerName.trim()) return false;
+    return true;
+  }, [
+    crewSwapPartnerId,
+    crewSwapMyNameOptions,
+    crewSwapPartnerNameOptions,
+    crewSwapPickMyName,
+    crewSwapPickPartnerName,
+  ]);
+
+  useEffect(() => {
+    if (!crewSwapModalOpen) {
+      setCrewSwapPartnerId('');
+      setCrewSwapPickMyName('');
+      setCrewSwapPickPartnerName('');
+      return;
+    }
+    if (!token) return;
+    const ymd = editForm.preferredDate?.trim().slice(0, 10);
+    if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      setCrewSwapDayItems([]);
+      return;
+    }
+    let cancelled = false;
+    setCrewSwapListLoading(true);
+    getSchedule(token, ymd, ymd, { lite: true })
+      .then((r) => {
+        if (cancelled) return;
+        setCrewSwapDayItems(r.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setCrewSwapDayItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCrewSwapListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [crewSwapModalOpen, token, editForm.preferredDate]);
 
   useEffect(() => {
     setEditForm((prev) => {
@@ -801,6 +979,83 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       document.removeEventListener('keydown', onEsc);
     };
   }, [assigneeHelpOpen, crewHelpOpen]);
+
+  const handleCrewPartnerSwapConfirm = useCallback(async () => {
+    if (!token || !item || !crewSwapPartnerId.trim()) return;
+    const myOpts = editForm.crewMemberNames.map((x) => x.trim()).filter(Boolean);
+    const partnerRow = crewSwapDayItems.find((i) => i.id === crewSwapPartnerId);
+    const partnerOpts = parseCrewMemberNoteToNames(partnerRow?.crewMemberNote);
+    if (myOpts.length === 0 || partnerOpts.length === 0) {
+      alert('양쪽 접수에 투입된 팀원 이름이 필요합니다.');
+      return;
+    }
+    if (myOpts.length > 1 && !crewSwapPickMyName.trim()) {
+      alert('이 접수에서 교환할 팀원을 선택해 주세요.');
+      return;
+    }
+    if (partnerOpts.length > 1 && !crewSwapPickPartnerName.trim()) {
+      alert('상대 접수에서 맞바꿀 팀원을 선택해 주세요.');
+      return;
+    }
+    setCrewSwapSubmitting(true);
+    try {
+      const params: {
+        partnerInquiryId: string;
+        myCrewName?: string;
+        partnerCrewName?: string;
+      } = {
+        partnerInquiryId: crewSwapPartnerId.trim(),
+      };
+      if (myOpts.length > 1) params.myCrewName = crewSwapPickMyName.trim();
+      if (partnerOpts.length > 1) params.partnerCrewName = crewSwapPickPartnerName.trim();
+      const raw = (await swapInquiryCrewWithPartner(token, item.id, params)) as {
+        crewMemberCount?: unknown;
+        crewMemberNote?: unknown;
+      };
+      const n = raw.crewMemberCount;
+      const count =
+        typeof n === 'number' && Number.isFinite(n)
+          ? n
+          : typeof n === 'string' && n.trim() !== ''
+            ? parseInt(n, 10)
+            : 0;
+      const safeCount = Number.isFinite(count)
+        ? Math.max(0, Math.min(100, Math.floor(count)))
+        : 0;
+      const noteVal = raw.crewMemberNote;
+      const noteStr =
+        noteVal == null ? '' : typeof noteVal === 'string' ? noteVal : String(noteVal);
+      setEditForm((p) => ({
+        ...p,
+        crewMemberCount: safeCount,
+        crewMemberNames: parseCrewMemberNoteToNames(noteStr),
+      }));
+      setCrewSwapModalOpen(false);
+      setCrewSwapPartnerId('');
+      await onInquiryRefresh?.();
+      onSaved();
+      void getInquiry(token, item.id)
+        .then((data) => {
+          const rawLogs = (data as { changeLogs?: InquiryChangeLogEntry[] }).changeLogs;
+          setHistoryLogs(Array.isArray(rawLogs) ? rawLogs : []);
+        })
+        .catch(() => {});
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '팀원 변경에 실패했습니다.');
+    } finally {
+      setCrewSwapSubmitting(false);
+    }
+  }, [
+    token,
+    item,
+    crewSwapPartnerId,
+    crewSwapPickMyName,
+    crewSwapPickPartnerName,
+    editForm.crewMemberNames,
+    crewSwapDayItems,
+    onInquiryRefresh,
+    onSaved,
+  ]);
 
   const handleSave = async () => {
     if (!token) {
@@ -1762,6 +2017,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 크루 그룹에서 「집계·일자 명단」모드를 쓰는 경우, 해당 예약일에 가용한 팀원만 목록에 나옵니다. 같은 창에서 이미
                 선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다.
               </p>
+              {showCrewPartnerSwapEntry ? (
+                <button
+                  type="button"
+                  className="mt-2 min-h-[40px] touch-manipulation rounded border border-gray-300 bg-white px-4 py-2 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50"
+                  onClick={() => setCrewSwapModalOpen(true)}
+                >
+                  팀원변경
+                </button>
+              ) : null}
             </div>
           )}
           <div className="sm:col-span-2">
@@ -1878,6 +2142,187 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         initialYmd={editForm.preferredDate}
         onSelect={(ymd) => setEditForm((p) => ({ ...p, preferredDate: ymd }))}
       />
+      {crewSwapModalOpen &&
+        item &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[560] flex items-center justify-center bg-black/40 p-4 sm:p-6"
+            role="dialog"
+            aria-modal
+            aria-labelledby="crew-partner-swap-title"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 cursor-default"
+              aria-label="닫기"
+              onClick={() => !crewSwapSubmitting && setCrewSwapModalOpen(false)}
+            />
+            <div
+              className="relative flex max-h-[min(90vh,40rem)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 sm:px-5">
+                <h3 id="crew-partner-swap-title" className="text-base font-semibold text-gray-900">
+                  팀원 변경
+                </h3>
+                <p className="mt-1 text-fluid-xs text-gray-600">
+                  같은 예약일의 상대 접수를 고른 뒤, 교환할 팀원 이름을 지정하세요. 투입 인원 수는 그대로입니다.
+                </p>
+              </div>
+              <div className="max-h-[min(65vh,28rem)] min-h-[12rem] flex-1 overflow-y-auto px-4 py-3 sm:px-5">
+                {crewSwapListLoading ? (
+                  <p className="py-8 text-center text-fluid-sm text-gray-500">목록을 불러오는 중…</p>
+                ) : crewSwapCandidates.length === 0 ? (
+                  <p className="py-8 text-center text-fluid-sm text-gray-600">
+                    선택할 수 있는 상대 접수가 없습니다. 같은 예약일에 담당 팀장이 배정된 접수만 표시합니다.
+                  </p>
+                ) : (
+                  <>
+                    {crewSwapMyNameOptions.length > 1 ? (
+                      <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                        <p className="mb-2 text-fluid-xs font-medium text-gray-800">① 이 접수에서 맞바꿀 팀원</p>
+                        <div className="flex flex-wrap gap-2">
+                          {crewSwapMyNameOptions.map((n, mi) => {
+                            const on = crewSwapPickMyName === n;
+                            return (
+                              <button
+                                key={`my-${mi}-${n}`}
+                                type="button"
+                                disabled={crewSwapSubmitting}
+                                onClick={() => setCrewSwapPickMyName(n)}
+                                className={`min-h-[44px] touch-manipulation rounded-lg border px-3 py-2 text-fluid-sm font-medium transition-colors ${
+                                  on
+                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-900 shadow-sm'
+                                    : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-100'
+                                }`}
+                              >
+                                {n}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <p className="mb-2 text-fluid-xs font-medium text-gray-800">
+                      {crewSwapMyNameOptions.length > 1 ? '② 상대 접수 선택' : '상대 접수 선택'}
+                    </p>
+                    <ul className="space-y-3">
+                      {crewSwapCandidates.map((it) => {
+                        const partnerNames = parseCrewMemberNoteToNames(it.crewMemberNote);
+                        const inquirySelected = crewSwapPartnerId === it.id;
+                        const hasNames = partnerNames.length > 0;
+                        const multiPartner = partnerNames.length > 1;
+
+                        return (
+                          <li
+                            key={it.id}
+                            className={`rounded-lg border p-3 shadow-sm transition-colors ${
+                              inquirySelected
+                                ? 'border-indigo-500 bg-indigo-50/50'
+                                : 'border-gray-200 bg-white hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <span className="block truncate font-medium text-gray-900" title={it.customerName}>
+                                {it.customerName.trim()}
+                                {it.inquiryNumber ? (
+                                  <span className="ml-1 text-fluid-xs font-normal text-gray-600">
+                                    (#{it.inquiryNumber})
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="mt-0.5 block text-fluid-xs text-gray-600">
+                                팀장 {formatScheduleItemAssignmentLeaders(it)}
+                              </span>
+                              <span className="mt-0.5 block text-fluid-xs text-gray-500">{crewPreviewLabel(it)}</span>
+                            </div>
+
+                            {!hasNames ? (
+                              <p className="mt-2 text-fluid-2xs text-amber-800">팀원 이름이 비어 있어 교환할 수 없습니다.</p>
+                            ) : multiPartner ? (
+                              <div className="mt-3 border-t border-gray-200 pt-3">
+                                <p className="mb-2 text-fluid-2xs font-medium text-gray-700">
+                                  맞바꿀 상대 팀원 (이름 선택)
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {partnerNames.map((n, pi) => {
+                                    const chipOn =
+                                      inquirySelected && crewSwapPickPartnerName === n;
+                                    return (
+                                      <button
+                                        key={`${it.id}-p-${pi}-${n}`}
+                                        type="button"
+                                        disabled={crewSwapSubmitting}
+                                        onClick={() => {
+                                          setCrewSwapPartnerId(it.id);
+                                          setCrewSwapPickPartnerName(n);
+                                        }}
+                                        className={`min-h-[44px] touch-manipulation rounded-lg border px-3 py-2 text-fluid-sm font-medium transition-colors ${
+                                          chipOn
+                                            ? 'border-indigo-600 bg-white text-indigo-900 shadow-sm ring-1 ring-indigo-300'
+                                            : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-100'
+                                        } ${crewSwapSubmitting ? 'opacity-60' : ''}`}
+                                      >
+                                        {n}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-3">
+                                <button
+                                  type="button"
+                                  disabled={crewSwapSubmitting}
+                                  onClick={() => {
+                                    setCrewSwapPartnerId(it.id);
+                                    setCrewSwapPickPartnerName(partnerNames[0]!);
+                                  }}
+                                  className={`min-h-[44px] w-full touch-manipulation rounded-lg border px-3 py-2 text-fluid-sm font-medium transition-colors sm:w-auto sm:min-w-[8rem] ${
+                                    inquirySelected && crewSwapPickPartnerName === partnerNames[0]
+                                      ? 'border-indigo-600 bg-indigo-100 text-indigo-900'
+                                      : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  선택: {partnerNames[0]}
+                                </button>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 px-4 py-3 sm:justify-end sm:px-5">
+                <button
+                  type="button"
+                  disabled={crewSwapSubmitting}
+                  className="min-h-[44px] touch-manipulation rounded-lg border border-gray-300 px-4 py-2 text-fluid-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  onClick={() => setCrewSwapModalOpen(false)}
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    crewSwapSubmitting ||
+                    crewSwapListLoading ||
+                    !crewSwapReadyToRun ||
+                    crewSwapCandidates.length === 0
+                  }
+                  className="min-h-[44px] touch-manipulation rounded-lg bg-indigo-600 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
+                  onClick={() => void handleCrewPartnerSwapConfirm()}
+                >
+                  {crewSwapSubmitting ? '처리 중…' : '교환'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
       {deleteConfirmOpen &&
         item &&
         createPortal(
