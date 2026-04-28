@@ -11,8 +11,14 @@ import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
-import { postTeamInquiryDetailViewed } from '../../api/team';
+import { postTeamInquiryDetailViewed, patchTeamInquiryCrewMeetingTime } from '../../api/team';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
+import {
+  formatMeetingTimeKoLabel,
+  isAllowedCrewMeetingHhmm,
+  isMorningBucketForTeamMeeting,
+  normalizeTimeInputToHhmm,
+} from '../../utils/crewMeetingTime';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
   return (
@@ -110,6 +116,10 @@ export interface InquiryItem {
   preferredDate: string | null;
   preferredTime: string | null;
   preferredTimeDetail?: string | null;
+  /** 사이청소 등 — 스케줄 슬롯·미팅 시간 판별에 사용 */
+  betweenScheduleSlot?: string | null;
+  /** 팀장 지정 크루 미팅(HH:mm KST). 오전 희망일 때만 */
+  crewMeetingTime?: string | null;
   status: string;
   memo: string | null;
   /** 접수 `specialNotes` 원문 — 표시는 effective* 유틸로 고객/관리자 구분 */
@@ -301,6 +311,7 @@ export function TeamInquiryDetailModal({
   enableHappyCall,
   onHappyCallComplete,
   onPreferredDateChange,
+  onInquiryPatched,
   viewerTeamLeaderId,
 }: {
   item: InquiryItem;
@@ -309,11 +320,14 @@ export function TeamInquiryDetailModal({
   enableHappyCall?: boolean;
   onHappyCallComplete?: () => Promise<void>;
   onPreferredDateChange?: (preferredDate: string) => Promise<void>;
+  /** PATCH 응답으로 상세 state 갱신 (미팅 시각 등) */
+  onInquiryPatched?: (next: InquiryItem) => void;
   /** 설정 시 본인 배정일·배정자·공동 배정 행 표시 (배정목록 등) */
   viewerTeamLeaderId?: string | null;
 }) {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const [happySaving, setHappySaving] = useState(false);
+  const [crewMeetingSaving, setCrewMeetingSaving] = useState(false);
 
   useEffect(() => {
     if (!teamToken || !item?.id) return;
@@ -361,6 +375,32 @@ export function TeamInquiryDetailModal({
       alert(e instanceof Error ? e.message : '예약일 변경에 실패했습니다.');
     } finally {
       setPreferredDateSaving(false);
+    }
+  };
+
+  const handleCrewMeetingTimeChange = async (raw: string) => {
+    if (!teamToken) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+    const normalized = raw === '' ? null : normalizeTimeInputToHhmm(raw);
+    if (raw !== '' && normalized == null) {
+      alert('시간 형식이 올바르지 않습니다.');
+      return;
+    }
+    if (normalized != null && !isAllowedCrewMeetingHhmm(normalized)) {
+      alert('미팅 시각은 오전 4시~8시 사이 30분 단위만 선택할 수 있습니다.');
+      return;
+    }
+    const val = normalized;
+    setCrewMeetingSaving(true);
+    try {
+      const next = (await patchTeamInquiryCrewMeetingTime(teamToken, item.id, val)) as InquiryItem;
+      onInquiryPatched?.(next);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '미팅 시각 저장에 실패했습니다.');
+    } finally {
+      setCrewMeetingSaving(false);
     }
   };
 
@@ -487,7 +527,7 @@ export function TeamInquiryDetailModal({
               </TeamModalRow>
             </TeamModalSection>
 
-            <TeamModalSection title="물량 · 유형">
+            <TeamModalSection title="유형">
               <TeamModalRow label="평수">
                 <span className="text-gray-800">
                   {item.areaPyeong != null
@@ -498,6 +538,11 @@ export function TeamInquiryDetailModal({
               <TeamModalRow label="방 · 화 · 베">
                 <span className="text-gray-800">{formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}</span>
               </TeamModalRow>
+              {item.propertyType ? (
+                <TeamModalRow label="건축물 유형">
+                  <span className="text-gray-800">{item.propertyType}</span>
+                </TeamModalRow>
+              ) : null}
               <TeamModalRow label="투입 팀원">
                 {(() => {
                   const fallback = (item.crewMemberNote ?? '')
@@ -538,9 +583,39 @@ export function TeamInquiryDetailModal({
                   );
                 })()}
               </TeamModalRow>
-              {item.propertyType ? (
-                <TeamModalRow label="건축물 유형">
-                  <span className="text-gray-800">{item.propertyType}</span>
+              {isMorningBucketForTeamMeeting(item) ? (
+                <TeamModalRow label="미팅시간">
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="time"
+                        min="04:00"
+                        max="08:00"
+                        step={1800}
+                        className="min-h-[44px] w-[min(100%,14rem)] rounded-lg border border-gray-300 bg-white px-2 py-2 text-fluid-base tabular-nums text-gray-900 [color-scheme:light]"
+                        disabled={crewMeetingSaving || !teamToken}
+                        value={item.crewMeetingTime ?? ''}
+                        onChange={(e) => void handleCrewMeetingTimeChange(e.target.value)}
+                        aria-label="현장 미팅 시각 (크루 일정에 표시)"
+                      />
+                      {item.crewMeetingTime ? (
+                        <span className="text-fluid-sm text-gray-700">
+                          {formatMeetingTimeKoLabel(item.crewMeetingTime)}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={crewMeetingSaving || !teamToken || !item.crewMeetingTime}
+                        onClick={() => void handleCrewMeetingTimeChange('')}
+                        className="min-h-[44px] shrink-0 rounded-lg border border-gray-300 bg-white px-3 text-fluid-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                      >
+                        지우기
+                      </button>
+                    </div>
+                    <p className="text-fluid-2xs text-gray-500">
+                      희망이 오전일 때만 지정 가능합니다. 시간 도구에서 오전 4시~8시, 30분 단위로 선택하세요. 지정하면 크루 「현장 일정」에 표시됩니다.
+                    </p>
+                  </div>
                 </TeamModalRow>
               ) : null}
             </TeamModalSection>

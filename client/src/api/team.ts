@@ -163,6 +163,42 @@ export async function patchTeamInquiryPreferredDate(
   return res.json();
 }
 
+/** 팀장: 크루 현장 일정용 미팅 시각(KST HH:mm 또는 null). 오전 희망 시에만 유효 */
+export async function patchTeamInquiryCrewMeetingTime(
+  token: string,
+  inquiryId: string,
+  crewMeetingTime: string | null,
+) {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/crew-meeting-time`),
+    {
+      method: 'PATCH',
+      headers: headers(token),
+      body: JSON.stringify({ crewMeetingTime }),
+    },
+  );
+  if (!res.ok) {
+    const raw = await res.text();
+    let message = '';
+    try {
+      const j = JSON.parse(raw) as { error?: unknown };
+      if (typeof j.error === 'string' && j.error.trim()) message = j.error.trim();
+    } catch {
+      if (raw.trim()) message = raw.trim().slice(0, 300);
+    }
+    if (!message) {
+      message =
+        res.status === 401
+          ? '로그인이 만료되었거나 권한이 없습니다.'
+          : res.status === 404
+            ? '담당 접수를 찾을 수 없습니다.'
+            : `미팅 시각 저장에 실패했습니다. (HTTP ${res.status})`;
+    }
+    throw new Error(message);
+  }
+  return res.json();
+}
+
 /** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S + 미확인 배정 — 한 요청 */
 export async function getTeamNavBadges(token: string): Promise<{
   unreadCount: number;

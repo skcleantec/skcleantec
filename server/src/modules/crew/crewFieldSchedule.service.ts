@@ -3,6 +3,7 @@ import { preferredDateYmdKst } from '../inquiries/crewMemberCapacity.helpers.js'
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 import { getDayRosterInRange } from '../team-crew-groups/crewGroupDayRoster.service.js';
+import { effectiveCrewMeetingTimeForDisplay } from '../inquiries/crewMeetingTime.helpers.js';
 
 const NOTE_SPLIT = /[,·/|]/g;
 
@@ -40,6 +41,8 @@ export type CrewFieldInquiryOut = {
   customerName: string;
   address: string;
   preferredTime: string | null;
+  /** 팀장 지정 크루 미팅(HH:mm). 오전 희망일 때만 의미 있음 */
+  crewMeetingTime: string | null;
   status: string;
   leaders: CrewFieldLeaderOut[];
 };
@@ -99,6 +102,8 @@ export async function buildCrewFieldSchedule(
       address: true,
       preferredDate: true,
       preferredTime: true,
+      betweenScheduleSlot: true,
+      crewMeetingTime: true,
       status: true,
       crewMemberNote: true,
       assignments: {
@@ -191,6 +196,11 @@ export async function buildCrewFieldSchedule(
           customerName: inq.customerName,
           address: inq.address,
           preferredTime: inq.preferredTime,
+          crewMeetingTime: effectiveCrewMeetingTimeForDisplay(
+            inq.preferredTime,
+            inq.betweenScheduleSlot,
+            inq.crewMeetingTime
+          ),
           status: inq.status,
           leaders: inq.assignments.map((a) => ({
             id: a.teamLeader.id,

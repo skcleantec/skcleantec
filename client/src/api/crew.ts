@@ -205,6 +205,8 @@ export interface CrewFieldInquiry {
   customerName: string;
   address: string;
   preferredTime: string | null;
+  /** 팀장 지정 현장 미팅(HH:mm KST). 오전 희망 접수 등에서만 채워짐 */
+  crewMeetingTime?: string | null;
   status: string;
   leaders: CrewFieldLeader[];
 }

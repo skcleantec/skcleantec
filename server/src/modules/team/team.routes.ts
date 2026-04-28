@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
@@ -12,6 +13,11 @@ import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
+import {
+  parseCrewMeetingTimeBody,
+  validateCrewMeetingTimeForInquiry,
+} from '../inquiries/crewMeetingTime.helpers.js';
+import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 
 const router = Router();
 
@@ -378,6 +384,99 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
     });
   });
   res.json(await attachCrewMembersOne(updated));
+});
+
+/** 팀장: 오전 희망 접수일 때만 크루 현장 일정에 노출할 미팅 시각(KST 04:00~08:00, 30분 단위) */
+router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
+  try {
+    const { userId } = (req as unknown as { user: AuthPayload }).user;
+    const { id } = req.params;
+    const parsed = parseCrewMeetingTimeBody((req.body as { crewMeetingTime?: unknown })?.crewMeetingTime);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    const inquiry = await prisma.inquiry.findFirst({
+      where: {
+        id,
+        assignments: { some: { teamLeaderId: userId } },
+      },
+      select: {
+        id: true,
+        customerName: true,
+        status: true,
+        preferredTime: true,
+        betweenScheduleSlot: true,
+        crewMeetingTime: true,
+      },
+    });
+    if (!inquiry) {
+      res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+      return;
+    }
+    if (inquiry.status === 'CANCELLED') {
+      res.status(400).json({ error: '취소된 접수입니다.' });
+      return;
+    }
+    const chk = validateCrewMeetingTimeForInquiry(
+      inquiry.preferredTime,
+      inquiry.betweenScheduleSlot,
+      parsed.value
+    );
+    if (!chk.ok) {
+      res.status(400).json({ error: chk.error });
+      return;
+    }
+    const before = inquiry.crewMeetingTime;
+    const next = parsed.value;
+    if (before === next) {
+      const unchanged = await prisma.inquiry.findUnique({
+        where: { id },
+        include: teamInquiryInclude,
+      });
+      res.json(await attachCrewMembersOne(unchanged));
+      return;
+    }
+    const fmt = (v: string | null) => v ?? '(미지정)';
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.inquiry.update({
+        where: { id },
+        data: { crewMeetingTime: next },
+      });
+      await tx.inquiryChangeLog.create({
+        data: {
+          inquiryId: id,
+          customerName: inquiry.customerName,
+          actorId: userId,
+          lines: [`현장 미팅(크루): ${fmt(before)} → ${fmt(next)}`],
+        },
+      });
+      return tx.inquiry.findUnique({
+        where: { id },
+        include: teamInquiryInclude,
+      });
+    });
+    void notifyAllActiveCrewGroupsRefresh().catch((e) => console.error('[crew-meeting-time] crew refresh', e));
+    notifyInboxRefresh([userId]);
+    res.json(await attachCrewMembersOne(updated));
+  } catch (e: unknown) {
+    console.error('[PATCH /team/inquiries/:id/crew-meeting-time]', e);
+    const msg = e instanceof Error ? e.message : String(e);
+    const prismaSchemaHint =
+      e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2022'
+        ? true
+        : e instanceof Prisma.PrismaClientValidationError
+          ? true
+          : /crew_meeting|crewMeetingTime|Unknown field|Unknown arg/i.test(msg);
+    if (prismaSchemaHint) {
+      res.status(500).json({
+        error:
+          'DB에 미팅 시각 컬럼(crew_meeting_time)이 없거나 Prisma 스키마가 맞지 않습니다. 운영 DB에 마이그레이션을 적용하고(npx prisma migrate deploy) 서버를 재시작한 뒤 다시 시도해 주세요.',
+      });
+      return;
+    }
+    res.status(500).json({ error: '미팅 시각 저장 중 서버 오류가 발생했습니다.' });
+  }
 });
 
 /** 접수 취소(관리자/마케터만, 비밀번호 확인 필수) */

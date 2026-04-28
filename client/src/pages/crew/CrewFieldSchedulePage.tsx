@@ -29,6 +29,8 @@ type TodayRow = {
   memberNameTh?: string | null;
   leaderLeaders: CrewFieldLeader[];
   timeText: string;
+  /** 팀장 지정 미팅 HH:mm, 없으면 null */
+  meetingTime: string | null;
   vehicleText: string;
   inactive: boolean;
 };
@@ -50,6 +52,7 @@ function buildDayList(
         memberNameTh: gm.nameTh,
         leaderLeaders: [],
         timeText: '—',
+        meetingTime: null,
         vehicleText: '—',
         inactive: !gm.isActive,
       });
@@ -57,12 +60,14 @@ function buildDayList(
     }
 
     m.inquiries.forEach((inq, i) => {
+      const meetingRaw = (inq.crewMeetingTime ?? '').trim();
       rows.push({
         key: `${gm.teamMemberId}-${inq.inquiryId}-${i}`,
         memberName: gm.name,
         memberNameTh: gm.nameTh,
         leaderLeaders: inq.leaders,
         timeText: (inq.preferredTime ?? '').trim() || '—',
+        meetingTime: meetingRaw || null,
         vehicleText: formatVehicles(inq.leaders),
         inactive: !gm.isActive,
       });
@@ -234,6 +239,8 @@ export function CrewFieldSchedulePage() {
                   const v = (row.vehicleText ?? '').trim();
                   const hasVehicle = v && v !== '—';
                   const leadersOnly = plainLeaders !== '—';
+                  const meetingThLabel = crewT('crew.schedule.colMeeting').th;
+                  const hasMeeting = Boolean(row.meetingTime);
                   const leaderVehicleLine =
                     !leadersOnly && !hasVehicle
                       ? '—'
@@ -242,7 +249,9 @@ export function CrewFieldSchedulePage() {
                         : !hasVehicle
                           ? plainLeaders
                           : `${plainLeaders} / ${v}`;
-                  const a11y = [row.memberName, row.timeText, leaderVehicleLine].filter(Boolean).join(' · ');
+                  const a11y = [row.memberName, row.timeText, leaderVehicleLine, hasMeeting ? row.meetingTime : '']
+                    .filter(Boolean)
+                    .join(' · ');
                   return (
                     <li
                       key={row.key}
@@ -271,16 +280,50 @@ export function CrewFieldSchedulePage() {
                         title={leaderVehicleLine !== '—' ? leaderVehicleLine : undefined}
                       >
                         {!leadersOnly && !hasVehicle ? (
-                          <span className="text-gray-500">—</span>
+                          hasMeeting ? (
+                            <span className="inline-block min-w-0">
+                              <span className="text-gray-600">{meetingThLabel}</span>
+                              <span className="tabular-nums"> {row.meetingTime}</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">—</span>
+                          )
                         ) : !leadersOnly ? (
-                          <span className="tabular-nums">{v || '—'}</span>
+                          <span className="tabular-nums inline-block min-w-0">
+                            {v || '—'}
+                            {hasMeeting ? (
+                              <>
+                                <span className="text-gray-400"> · </span>
+                                <span className="text-gray-600">{meetingThLabel}</span>
+                                <span> </span>
+                                <span className="tabular-nums">{row.meetingTime}</span>
+                              </>
+                            ) : null}
+                          </span>
                         ) : !hasVehicle ? (
-                          <span className="min-w-0 truncate block">{plainLeaders}</span>
+                          <span className="min-w-0 block">
+                            <span className="truncate inline align-middle">{plainLeaders}</span>
+                            {hasMeeting ? (
+                              <>
+                                <span className="text-gray-400"> · </span>
+                                <span className="text-gray-600">{meetingThLabel}</span>
+                                <span> </span>
+                                <span className="tabular-nums align-middle">{row.meetingTime}</span>
+                              </>
+                            ) : null}
+                          </span>
                         ) : (
                           <span className="inline-block min-w-0 max-w-none whitespace-nowrap">
                             <span>{plainLeaders}</span>
                             <span className="text-gray-400"> / </span>
                             <span className="tabular-nums">{v}</span>
+                            {hasMeeting ? (
+                              <>
+                                <span className="text-gray-400"> · </span>
+                                <span className="text-gray-600">{meetingThLabel}</span>
+                                <span className="tabular-nums"> {row.meetingTime}</span>
+                              </>
+                            ) : null}
                           </span>
                         )}
                       </div>
@@ -291,11 +334,12 @@ export function CrewFieldSchedulePage() {
 
               <div className="hidden lg:block w-full min-w-0 overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0">
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden sm:rounded-lg">
-                  <table className="w-full min-w-[320px] border-collapse text-[0.7rem] sm:text-fluid-2xs table-fixed">
+                  <table className="w-full min-w-[360px] border-collapse text-[0.7rem] sm:text-fluid-2xs table-fixed">
                     <colgroup>
-                      <col className="w-[22%]" />
-                      <col className="w-[34%]" />
                       <col className="w-[18%]" />
+                      <col className="w-[28%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[14%]" />
                       <col className="w-[26%]" />
                     </colgroup>
                     <thead>
@@ -308,6 +352,9 @@ export function CrewFieldSchedulePage() {
                         </th>
                         <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
                           <CrewBiInline id="crew.schedule.colTimeOnly" className="leading-tight" />
+                        </th>
+                        <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
+                          <CrewBiInline id="crew.schedule.colMeeting" className="leading-tight" />
                         </th>
                         <th className="border-b border-gray-200 px-0.5 py-1.5 text-center align-middle font-medium text-gray-800">
                           <CrewBiInline id="crew.schedule.colVehicleOnly" className="leading-tight" />
@@ -334,6 +381,9 @@ export function CrewFieldSchedulePage() {
                           </td>
                           <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 whitespace-nowrap">
                             {row.timeText}
+                          </td>
+                          <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 tabular-nums whitespace-nowrap">
+                            {row.meetingTime ?? '—'}
                           </td>
                           <td
                             className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 truncate"

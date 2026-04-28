@@ -344,6 +344,7 @@ export function TeamSchedulePage() {
           item={detailItem}
           onClose={() => setDetailItem(null)}
           enableHappyCall
+          onInquiryPatched={(next) => setDetailItem(next)}
           onPreferredDateChange={async (preferredDate) => {
             if (!token) return;
             await patchTeamInquiryPreferredDate(token, detailItem.id, preferredDate);

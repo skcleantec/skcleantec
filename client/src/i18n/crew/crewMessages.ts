@@ -226,6 +226,11 @@ export const crewMessages = {
     ko: '차량',
     th: 'ทะเบียน',
   },
+  /** 현장 미팅(팀장 지정). 모바일은 차량 옆에 태국어 라벨로 표시 */
+  'crew.schedule.colMeeting': {
+    ko: '미팅',
+    th: 'เวลานัดหมาย',
+  },
   'crew.schedule.wsConnected': {
     ko: '실시간 연결됨',
     th: 'เชื่อมต่อเรียลไทม์แล้ว',
