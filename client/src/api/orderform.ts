@@ -43,6 +43,10 @@ export interface OrderFormConfigPublic {
   infoLinkText: string | null;
   submitSuccessTitle: string | null;
   submitSuccessBody: string | null;
+  /** 고객 발주서 시간대 선택 확인 모달 */
+  timeSlotAckTitle?: string | null;
+  timeSlotAckBody?: string | null;
+  timeSlotAckConsentHint?: string | null;
 }
 
 export interface ProfessionalSpecialtyOptionDto {
@@ -152,6 +156,18 @@ export async function getOrderForms(
   const qs = params.toString();
   const res = await fetch(`${API}/orderforms${qs ? `?${qs}` : ''}`, { headers: headers(token) });
   if (!res.ok) throw new Error('발주서 목록을 불러올 수 없습니다.');
+  return res.json();
+}
+
+/** 고객 발주서 편집 iframe — 실제 고객 `/order/:token` 과 동일 화면용 토큰(서버에서 금액 동기화) */
+export async function getDesignerPreviewOrderToken(authToken: string): Promise<{ token: string }> {
+  const res = await fetch(`${API}/orderforms/designer-preview-token`, {
+    headers: headers(authToken),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '미리보기 발주서를 불러오지 못했습니다.');
+  }
   return res.json();
 }
 

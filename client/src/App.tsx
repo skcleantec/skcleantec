@@ -15,6 +15,7 @@ import { AdminTeamLeadersLayout } from './components/layout/AdminTeamLeadersLayo
 import { AdminInquiryBulkDeletePage } from './pages/admin/AdminInquiryBulkDeletePage';
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
 import { AdminOrderFormPage } from './pages/admin/AdminOrderFormPage';
+import { AdminOrderFormCustomerPreviewPage } from './pages/admin/AdminOrderFormCustomerPreviewPage';
 import { TeamDashboardPage } from './pages/team/TeamDashboardPage';
 import { TeamSchedulePage } from './pages/team/TeamSchedulePage';
 import { TeamMessagesPage } from './pages/team/TeamMessagesPage';
@@ -62,7 +63,11 @@ function App() {
             <Route path="followup" element={<AdminOrderFormPage />} />
             <Route path="order-forms" element={<AdminOrderFormPage />} />
             <Route path="order-issue" element={<AdminOrderFormPage />} />
-            <Route path="order-settings" element={<AdminOrderFormPage />} />
+            <Route
+              path="order-settings"
+              element={<Navigate to="/admin/inquiries/order-customer-preview" replace />}
+            />
+            <Route path="order-customer-preview" element={<AdminOrderFormCustomerPreviewPage />} />
           </Route>
           <Route path="schedule" element={<AdminSchedulePage />} />
           <Route path="team-leaders" element={<AdminTeamLeadersLayout />}>
@@ -80,7 +85,7 @@ function App() {
           <Route path="teams/leader-stats" element={<Navigate to="/admin/team-leaders/leader-stats" replace />} />
           <Route path="messages" element={<AdminMessagesPage />} />
           <Route path="orderforms" element={<Navigate to="/admin/inquiries/order-issue" replace />} />
-          <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-settings?tab=notice" replace />} />
+          <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />} />
           <Route path="orderforms/followup" element={<Navigate to="/admin/inquiries/followup" replace />} />
           <Route path="cs" element={<AdminCsPage />} />
           <Route path="advertising" element={<AdminAdvertisingPage />} />

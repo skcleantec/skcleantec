@@ -1,63 +1,17 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-
-function ChevronLeftIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M15 6l-6 6 6 6" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
-}
+import { Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
-import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
-import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
 import { AdminOrderFormFollowupPanel } from '../../components/order-followup/AdminOrderFormFollowupPanel';
-import {
-  getEstimateConfig,
-  updateEstimateConfig,
-  getEstimateOptions,
-  createEstimateOption,
-  updateEstimateOption,
-  deleteEstimateOption,
-  type EstimateOption,
-} from '../../api/estimate';
 import {
   getOrderForms,
   createOrderForm,
   deleteOrderForm,
   getFormConfig,
-  updateFormConfig,
   getAdminOrderFormPhotos,
   type OrderForm,
   type OrderFormIssuerOption,
@@ -77,34 +31,15 @@ import {
   withDefaultText,
 } from '../../utils/orderFormCustomerCopy';
 import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
-type Tab = 'config' | 'messages' | 'issue' | 'followup' | 'list' | 'specialty' | 'notice';
 
-const VALID_TABS: Tab[] = ['config', 'messages', 'issue', 'followup', 'list', 'specialty', 'notice'];
+type Tab = 'issue' | 'followup' | 'list';
 
-/** 발주서 GNB 화면 상단 탭 순서(발주서 목록·부재현황은 접수 메뉴 하위에서만 사용) */
-const ORDER_FORM_PAGE_SUB_TABS: Tab[] = ['issue', 'config', 'messages', 'specialty', 'notice'];
-const INQUIRIES_SETTINGS_SUB_TABS: Tab[] = ['config', 'messages', 'specialty', 'notice'];
+const VALID_TABS: Tab[] = ['issue', 'followup', 'list'];
 
-const SUB_TAB_ORDER_STORAGE_KEY = 'skcleanteck.adminOrderFormSubTabOrder';
-
-/** 저장 없을 때 상단 탭 기본 순서 */
-const DEFAULT_SUB_TAB_ORDER: Tab[] = [
-  'issue',
-  'config',
-  'messages',
-  'specialty',
-  'notice',
-];
-
-const TAB_LABELS: Record<Tab, string> = {
-  issue: '발주서 발급',
-  followup: '부재·보류',
-  config: '설정',
-  messages: '폼 메시지',
-  list: '발주서 목록',
-  specialty: '발주서 설정',
-  notice: '안내사항설정',
-};
+function parseTabParam(raw: string | null): Tab {
+  if (raw && VALID_TABS.includes(raw as Tab)) return raw as Tab;
+  return 'issue';
+}
 
 /** 발주서 목록 「예약일」열·모바일 카드: 날짜(요일) + 시간대·상세 */
 function formatOrderFormReservationCell(order: OrderForm): {
@@ -129,55 +64,19 @@ function formatOrderFormReservationCell(order: OrderForm): {
   return { dateText, detailText, title };
 }
 
-function normalizeSubTabOrder(parsed: unknown): Tab[] {
-  if (!Array.isArray(parsed)) return [...DEFAULT_SUB_TAB_ORDER];
-  const seen = new Set<Tab>();
-  const out: Tab[] = [];
-  for (const x of parsed) {
-    const t = x as Tab;
-    if (ORDER_FORM_PAGE_SUB_TABS.includes(t) && !seen.has(t)) {
-      seen.add(t);
-      out.push(t);
-    }
-  }
-  for (const t of ORDER_FORM_PAGE_SUB_TABS) {
-    if (!seen.has(t)) out.push(t);
-  }
-  return out;
-}
-
-function loadSubTabOrder(): Tab[] {
-  let order: Tab[];
-  try {
-    const raw = localStorage.getItem(SUB_TAB_ORDER_STORAGE_KEY);
-    if (!raw) order = [...DEFAULT_SUB_TAB_ORDER];
-    else order = normalizeSubTabOrder(JSON.parse(raw) as unknown);
-  } catch {
-    order = [...DEFAULT_SUB_TAB_ORDER];
-  }
-  return order;
-}
-
-function parseTabParam(raw: string | null): Tab {
-  if (raw && VALID_TABS.includes(raw as Tab)) return raw as Tab;
-  return 'issue';
-}
-
 export function AdminOrderFormPage() {
   const token = getToken();
   const location = useLocation();
   const navigate = useNavigate();
   /** 접수 메뉴 하위로 끼워 넣은 발주서 화면 */
-  const inquiriesEmbed = useMemo((): 'list' | 'followup' | 'issue' | 'settings' | null => {
+  const inquiriesEmbed = useMemo((): 'list' | 'followup' | 'issue' | null => {
     if (location.pathname === '/admin/inquiries/order-forms') return 'list';
     if (location.pathname === '/admin/inquiries/followup') return 'followup';
     if (location.pathname === '/admin/inquiries/order-issue') return 'issue';
-    if (location.pathname === '/admin/inquiries/order-settings') return 'settings';
     return null;
   }, [location.pathname]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => parseTabParam(searchParams.get('tab')));
-  const [subTabOrder, setSubTabOrder] = useState<Tab[]>(() => loadSubTabOrder());
   const [previewModal, setPreviewModal] = useState<null | { kind: 'message' | 'link'; order: OrderForm }>(
     null
   );
@@ -190,82 +89,6 @@ export function AdminOrderFormPage() {
   }>(null);
   const [issuePreviewOpen, setIssuePreviewOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OrderForm | null>(null);
-  const subNavScrollRef = useRef<HTMLDivElement>(null);
-  const [showSubNavMoreLeft, setShowSubNavMoreLeft] = useState(false);
-  const [showSubNavMoreRight, setShowSubNavMoreRight] = useState(false);
-
-  const updateSubNavScrollHint = useCallback(() => {
-    const el = subNavScrollRef.current;
-    if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    const hasOverflow = scrollWidth > clientWidth + 2;
-    const atStart = scrollLeft <= 3;
-    const atEnd = scrollLeft + clientWidth >= scrollWidth - 3;
-    setShowSubNavMoreLeft(hasOverflow && !atStart);
-    setShowSubNavMoreRight(hasOverflow && !atEnd);
-  }, []);
-
-  useEffect(() => {
-    queueMicrotask(() => updateSubNavScrollHint());
-  }, [tab, subTabOrder, updateSubNavScrollHint]);
-
-  const persistSubTabOrder = useCallback((next: Tab[]) => {
-    setSubTabOrder(next);
-    try {
-      localStorage.setItem(SUB_TAB_ORDER_STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore quota */
-    }
-  }, []);
-
-  const moveSubTab = useCallback(
-    (index: number, delta: -1 | 1) => {
-      setSubTabOrder((prev) => {
-        const next = [...prev];
-        const j = index + delta;
-        if (j < 0 || j >= next.length) return prev;
-        [next[index], next[j]] = [next[j], next[index]];
-        try {
-          localStorage.setItem(SUB_TAB_ORDER_STORAGE_KEY, JSON.stringify(next));
-        } catch {
-          /* ignore */
-        }
-        return next;
-      });
-    },
-    []
-  );
-
-  const resetSubTabOrder = useCallback(() => {
-    persistSubTabOrder([...DEFAULT_SUB_TAB_ORDER]);
-  }, [persistSubTabOrder]);
-
-  useEffect(() => {
-    const el = subNavScrollRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => updateSubNavScrollHint());
-    ro.observe(el);
-    window.addEventListener('resize', updateSubNavScrollHint);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', updateSubNavScrollHint);
-    };
-  }, [updateSubNavScrollHint]);
-
-  const subNavScrollStep = () => {
-    const el = subNavScrollRef.current;
-    if (!el) return 160;
-    return Math.min(160, Math.max(80, Math.round(el.clientWidth * 0.45)));
-  };
-
-  const scrollSubNavLeft = () => {
-    subNavScrollRef.current?.scrollBy({ left: -subNavScrollStep(), behavior: 'smooth' });
-  };
-
-  const scrollSubNavRight = () => {
-    subNavScrollRef.current?.scrollBy({ left: subNavScrollStep(), behavior: 'smooth' });
-  };
-
   useEffect(() => {
     if (inquiriesEmbed === 'list') {
       setTab('list');
@@ -277,11 +100,6 @@ export function AdminOrderFormPage() {
     }
     if (inquiriesEmbed === 'issue') {
       setTab('issue');
-      return;
-    }
-    if (inquiriesEmbed === 'settings') {
-      const raw = parseTabParam(searchParams.get('tab'));
-      setTab(INQUIRIES_SETTINGS_SUB_TABS.includes(raw) ? raw : 'config');
       return;
     }
     setTab(parseTabParam(searchParams.get('tab')));
@@ -301,25 +119,6 @@ export function AdminOrderFormPage() {
     () => searchParams.get('inquiryId')?.trim() || null,
     [searchParams]
   );
-  const goTab = useCallback(
-    (t: Tab) => {
-      setTab(t);
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (t === 'issue') {
-            next.delete('tab');
-          } else {
-            next.set('tab', t);
-          }
-          return next;
-        },
-        { replace: true }
-      );
-    },
-    [setSearchParams]
-  );
-
   const clearFollowupInquiryLink = useCallback(() => {
     setSearchParams(
       (prev) => {
@@ -330,7 +129,6 @@ export function AdminOrderFormPage() {
       { replace: true }
     );
   }, [setSearchParams]);
-  const [options, setOptions] = useState<EstimateOption[]>([]);
   const [orderForms, setOrderForms] = useState<OrderForm[]>([]);
   const [listIssuers, setListIssuers] = useState<OrderFormIssuerOption[]>([]);
   const [listDatePreset, setListDatePreset] = useState<OrderFormListDatePreset>('all');
@@ -383,11 +181,6 @@ export function AdminOrderFormPage() {
   const [pendingLinkId, setPendingLinkId] = useState('');
   const pendingInquiryFromUrlConsumed = useRef<string | null>(null);
 
-  // 설정 폼
-  const [configForm, setConfigForm] = useState({ pricePerPyeong: '', depositAmount: '' });
-  const [newOptionName, setNewOptionName] = useState('');
-  const [newOptionAmount, setNewOptionAmount] = useState('');
-  const [configSaving, setConfigSaving] = useState(false);
 
   // 폼 메시지 설정 (빈 API와 동일하게 기본 문구로 채워 두어 첫 화면부터 실제 문구가 보임)
   const [msgConfig, setMsgConfig] = useState<FormMessagesState>(() =>
@@ -403,22 +196,6 @@ export function AdminOrderFormPage() {
       submitSuccessBody: '',
     })
   );
-  const [msgSaving, setMsgSaving] = useState(false);
-
-  const refreshConfig = () => {
-    if (!token) return;
-    getEstimateConfig(token).then((c) => {
-      setConfigForm({
-        pricePerPyeong: String(c.pricePerPyeong),
-        depositAmount: String(c.depositAmount),
-      });
-    }).catch(() => setError('설정을 불러올 수 없습니다.'));
-  };
-
-  const refreshOptions = () => {
-    if (!token) return;
-    getEstimateOptions(token).then((r) => setOptions(r.items)).catch(() => {});
-  };
 
   const refreshOrderForms = useCallback(() => {
     if (!token) return;
@@ -454,11 +231,6 @@ export function AdminOrderFormPage() {
       });
   };
 
-  useEffect(() => {
-    if (!token) return;
-    refreshConfig();
-    refreshOptions();
-  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -546,84 +318,6 @@ export function AdminOrderFormPage() {
     );
   }, [token, inquiriesEmbed, searchParams, setSearchParams]);
 
-  const handleSaveConfig = async () => {
-    if (!token) return;
-    setConfigSaving(true);
-    setError(null);
-    try {
-      const price = parseInt(configForm.pricePerPyeong, 10);
-      const deposit = parseInt(configForm.depositAmount, 10);
-      if (isNaN(price) || isNaN(deposit)) throw new Error('숫자를 입력해주세요.');
-      await updateEstimateConfig(token, {
-        pricePerPyeong: price,
-        depositAmount: deposit,
-      });
-      refreshConfig();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '저장 실패');
-    } finally {
-      setConfigSaving(false);
-    }
-  };
-
-  const handleAddOption = async () => {
-    if (!token || !newOptionName.trim()) return;
-    setError(null);
-    try {
-      await createEstimateOption(token, {
-        name: newOptionName.trim(),
-        extraAmount: newOptionAmount ? parseInt(newOptionAmount, 10) : 0,
-      });
-      setNewOptionName('');
-      setNewOptionAmount('');
-      refreshOptions();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '추가 실패');
-    }
-  };
-
-  const handleToggleOption = async (opt: EstimateOption) => {
-    if (!token) return;
-    try {
-      await updateEstimateOption(token, opt.id, { isActive: !opt.isActive });
-      refreshOptions();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '수정 실패');
-    }
-  };
-
-  const handleSaveMsgConfig = async () => {
-    if (!token) return;
-    setMsgSaving(true);
-    setError(null);
-    try {
-      await updateFormConfig(token, {
-        formTitle: msgConfig.formTitle || undefined,
-        priceLabel: msgConfig.priceLabel || undefined,
-        reviewEventText: msgConfig.reviewEventText || undefined,
-        footerNotice1: msgConfig.footerNotice1 || undefined,
-        footerNotice2: msgConfig.footerNotice2 || undefined,
-        submitSuccessTitle: msgConfig.submitSuccessTitle || undefined,
-        submitSuccessBody: msgConfig.submitSuccessBody || undefined,
-      });
-      refreshMsgConfig();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '저장 실패');
-    } finally {
-      setMsgSaving(false);
-    }
-  };
-
-  const handleDeleteOption = async (opt: EstimateOption) => {
-    if (!token) return;
-    if (!confirm(`"${opt.name}" 옵션을 비활성화할까요?`)) return;
-    try {
-      await deleteEstimateOption(token, opt.id);
-      refreshOptions();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '삭제 실패');
-    }
-  };
 
   const addToTotalAmount = (delta: number) => {
     setIssueForm((f) => {
@@ -742,348 +436,28 @@ export function AdminOrderFormPage() {
     await refreshOrderForms();
   };
 
-  const tabClass = (t: Tab) =>
-    `inline-flex items-center px-2 sm:px-3 py-2 text-[clamp(0.6rem,1.4vw,0.875rem)] font-medium rounded whitespace-nowrap shrink-0 flex-none break-keep ${tab === t ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:text-gray-900'}`;
+
+  const legacyTab = searchParams.get('tab');
+  if (legacyTab === 'messages') {
+    return <Navigate to="/admin/inquiries/order-customer-preview" replace />;
+  }
+  if (legacyTab === 'notice') {
+    return <Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />;
+  }
+  if (legacyTab === 'specialty') {
+    return <Navigate to="/admin/inquiries/order-customer-preview?panel=specialty" replace />;
+  }
+  if (legacyTab === 'config') {
+    return <Navigate to="/admin/inquiries/order-customer-preview" replace />;
+  }
 
   return (
     <div className="min-w-0 w-full max-w-full">
-      {inquiriesEmbed === null && (
-        <>
-          <div className="mb-6 w-full min-w-0">
-            <div className="relative min-w-0">
-              <div
-                ref={subNavScrollRef}
-                onScroll={updateSubNavScrollHint}
-                className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                style={{ WebkitOverflowScrolling: 'touch' }}
-                role="tablist"
-                aria-label="발주서 하위 메뉴"
-              >
-                {(inquiriesEmbed === 'settings'
-                  ? subTabOrder.filter((t) => INQUIRIES_SETTINGS_SUB_TABS.includes(t))
-                  : subTabOrder
-                ).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => goTab(t)}
-                    className={tabClass(t)}
-                    aria-label={t === 'notice' ? '안내사항설정' : undefined}
-                  >
-                    {TAB_LABELS[t]}
-                  </button>
-                ))}
-              </div>
-              {showSubNavMoreLeft && (
-                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center justify-start lg:hidden">
-                  <div
-                    className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-gray-50 via-gray-50/95 to-transparent"
-                    aria-hidden
-                  />
-                  <button
-                    type="button"
-                    onClick={scrollSubNavLeft}
-                    className="pointer-events-auto relative ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
-                    aria-label="하위 메뉴가 왼쪽으로 더 있습니다. 탭하면 스크롤됩니다."
-                  >
-                    <ChevronLeftIcon className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
-              {showSubNavMoreRight && (
-                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center justify-end lg:hidden">
-                  <div
-                    className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-gray-50 via-gray-50/95 to-transparent"
-                    aria-hidden
-                  />
-                  <button
-                    type="button"
-                    onClick={scrollSubNavRight}
-                    className="pointer-events-auto relative mr-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
-                    aria-label="하위 메뉴가 오른쪽으로 더 있습니다. 탭하면 스크롤됩니다."
-                  >
-                    <ChevronRightIcon className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {inquiriesEmbed === 'settings' && (
-        <div className="mb-6 w-full min-w-0">
-          <div className="flex flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {(
-              [
-                { id: 'config' as const, label: '설정' },
-                { id: 'messages' as const, label: '폼메세지' },
-                { id: 'notice' as const, label: '안내사항 설정' },
-                { id: 'specialty' as const, label: '발주서 설정' },
-              ] as const
-            ).map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                onClick={() => goTab(row.id)}
-                className={tabClass(row.id)}
-              >
-                {row.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded">{error}</div>
       )}
 
-      {tab === 'config' && (
-        <div className="space-y-6">
-          <section className="p-4 bg-white border border-gray-200 rounded">
-            <h2 className="text-base font-medium text-gray-900 mb-1">발주서 화면 하위 메뉴 순서</h2>
-            <p className="text-sm text-gray-500 mb-4">
-              상단 탭(발주서 발급·설정 등) 표시 순서를 바꿉니다. 이 브라우저에만 저장됩니다.
-            </p>
-            <ul className="space-y-2 max-w-md">
-              {subTabOrder.map((t, i) => (
-                <li
-                  key={t}
-                  className="flex items-center justify-between gap-2 py-2 px-3 bg-gray-50 border border-gray-100 rounded text-sm"
-                >
-                  <span className="text-gray-900 font-medium">{TAB_LABELS[t]}</span>
-                  <span className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => moveSubTab(i, -1)}
-                      disabled={i === 0}
-                      className="px-2 py-1 text-xs border border-gray-300 rounded bg-white hover:bg-gray-100 disabled:opacity-40 disabled:pointer-events-none"
-                      aria-label={`${TAB_LABELS[t]} 위로`}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveSubTab(i, 1)}
-                      disabled={i === subTabOrder.length - 1}
-                      className="px-2 py-1 text-xs border border-gray-300 rounded bg-white hover:bg-gray-100 disabled:opacity-40 disabled:pointer-events-none"
-                      aria-label={`${TAB_LABELS[t]} 아래로`}
-                    >
-                      ↓
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              onClick={resetSubTabOrder}
-              className="mt-4 px-4 py-2 border border-gray-300 text-sm text-gray-700 rounded hover:bg-gray-50"
-            >
-              기본 순서로 초기화
-            </button>
-          </section>
-
-          <section className="p-4 bg-white border border-gray-200 rounded">
-            <h2 className="text-base font-medium text-gray-900 mb-4">견적 기본 설정</h2>
-            <div className="grid grid-cols-2 gap-4 max-w-md">
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">평당 금액 (원)</label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  value={configForm.pricePerPyeong}
-                  onChange={(e) => setConfigForm((f) => ({ ...f, pricePerPyeong: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">예약금 (원)</label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  value={configForm.depositAmount}
-                  onChange={(e) => setConfigForm((f) => ({ ...f, depositAmount: e.target.value }))}
-                />
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleSaveConfig}
-              disabled={configSaving}
-              className="mt-4 px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded disabled:opacity-50"
-            >
-              저장
-            </button>
-          </section>
-
-          <section className="p-4 bg-white border border-gray-200 rounded">
-            <h2 className="text-base font-medium text-gray-900 mb-4">추가 옵션</h2>
-            <div className="flex gap-2 mb-4">
-              <input
-                type="text"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="옵션명 (예: 현장 선택 추가)"
-                value={newOptionName}
-                onChange={(e) => setNewOptionName(e.target.value)}
-              />
-              <input
-                type="number"
-                className="w-24 px-3 py-2 border border-gray-300 rounded text-sm"
-                placeholder="추가금액"
-                value={newOptionAmount}
-                onChange={(e) => setNewOptionAmount(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={handleAddOption}
-                className="px-4 py-2 bg-gray-700 text-white text-sm rounded"
-              >
-                추가
-              </button>
-            </div>
-            <ul className="space-y-2">
-              {options.map((opt) => (
-                <li
-                  key={opt.id}
-                  className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-                >
-                  <span className={opt.isActive ? '' : 'text-gray-400 line-through'}>
-                    {opt.name} {opt.extraAmount > 0 ? `+${opt.extraAmount.toLocaleString('ko-KR')}원` : ''}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleOption(opt)}
-                      className="text-xs text-gray-600"
-                    >
-                      {opt.isActive ? '비활성' : '활성'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteOption(opt)}
-                      className="text-xs text-red-600"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      )}
-
-      {tab === 'messages' && (
-        <div className="space-y-6">
-          <section className="p-4 bg-white border border-gray-200 rounded">
-            <h2 className="text-base font-medium text-gray-900 mb-4">폼 메시지 편집</h2>
-            <p className="text-sm text-gray-500 mb-4">
-              고객이 보는 발주서 폼에 표시되는 문구를 수정할 수 있습니다. 저장 후 발급되는 새 발주서부터 적용됩니다.
-            </p>
-            <p className="text-sm text-gray-600 mb-4 p-3 bg-gray-50 border border-gray-200 rounded">
-              <span className="font-medium text-gray-800">고객 안내사항</span> 본문과 동의란 링크 문구는{' '}
-              <Link to="/admin/inquiries/order-settings?tab=notice" className="text-blue-600 underline hover:text-blue-800">
-                안내사항설정
-              </Link>{' '}
-              메뉴에서 편집합니다.
-            </p>
-            <div className="space-y-4 max-w-lg">
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">폼 제목</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
-                  value={msgConfig.formTitle}
-                  onChange={(e) => setMsgConfig((c) => ({ ...c, formTitle: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">금액 라벨 (예: 특가)</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
-                  value={msgConfig.priceLabel ?? ''}
-                  onChange={(e) => setMsgConfig((c) => ({ ...c, priceLabel: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">리뷰 이벤트 문구</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
-                  value={msgConfig.reviewEventText ?? ''}
-                  onChange={(e) => setMsgConfig((c) => ({ ...c, reviewEventText: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">안내 문구 1</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
-                  value={msgConfig.footerNotice1 ?? ''}
-                  onChange={(e) => setMsgConfig((c) => ({ ...c, footerNotice1: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">안내 문구 2</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
-                  value={msgConfig.footerNotice2 ?? ''}
-                  onChange={(e) => setMsgConfig((c) => ({ ...c, footerNotice2: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">제출 완료 제목</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
-                  value={msgConfig.submitSuccessTitle ?? ''}
-                  onChange={(e) => setMsgConfig((c) => ({ ...c, submitSuccessTitle: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">제출 완료 안내</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
-                  value={msgConfig.submitSuccessBody ?? ''}
-                  onChange={(e) => setMsgConfig((c) => ({ ...c, submitSuccessBody: e.target.value }))}
-                />
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleSaveMsgConfig}
-              disabled={msgSaving}
-              className="mt-4 px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded disabled:opacity-50"
-            >
-              저장
-            </button>
-          </section>
-
-          <section className="p-4 bg-gray-50 border border-gray-200 rounded">
-            <h2 className="text-base font-medium text-gray-900 mb-3">미리보기</h2>
-            <div className="bg-white p-4 rounded border border-gray-200 text-sm max-w-md">
-              <h3 className="font-semibold text-gray-900 mb-2">
-                {withDefaultText(msgConfig.formTitle, 'formTitle')}
-              </h3>
-              <p className="font-medium text-gray-900">
-                총 금액 150,000원 {withDefaultText(msgConfig.priceLabel, 'priceLabel')}
-              </p>
-              <p className="text-gray-600 mt-1">잔금 130,000원, 예약금 20,000원</p>
-              <p className="text-gray-800 text-xs mt-1">
-                {withDefaultText(msgConfig.reviewEventText, 'reviewEventText')}
-              </p>
-              <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-700">
-                <p>{withDefaultText(msgConfig.footerNotice1, 'footerNotice1')}</p>
-                <p>{withDefaultText(msgConfig.footerNotice2, 'footerNotice2')}</p>
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
 
       {tab === 'followup' && token && (
         <AdminOrderFormFollowupPanel
@@ -1779,10 +1153,6 @@ export function AdminOrderFormPage() {
         </div>
       )}
 
-      {tab === 'specialty' && <AdminOrderFormSpecialtySettingsPage />}
-
-      {tab === 'notice' && <AdminOrderFormNoticePage embedded />}
-
       {issuePreviewOpen &&
         createPortal(
           (() => {
@@ -1830,14 +1200,15 @@ export function AdminOrderFormPage() {
                   </div>
                   <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gray-50 p-4 space-y-4">
                     <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm">
-                      <h3 className="mb-2 text-base font-semibold text-gray-900">{formTitleText}</h3>
+                      <h3 className="mb-2 text-base font-semibold text-gray-900 whitespace-pre-line">{formTitleText}</h3>
                       <p className="font-medium text-gray-900 tabular-nums">
-                        총 금액 {total.toLocaleString('ko-KR')}원 {priceLabelText}
+                        총 금액 {total.toLocaleString('ko-KR')}원{' '}
+                        <span className="whitespace-pre-line align-top">{priceLabelText}</span>
                       </p>
                       <p className="mt-1 text-gray-600 tabular-nums">
                         잔금 {balance.toLocaleString('ko-KR')}원, 예약금 {deposit.toLocaleString('ko-KR')}원
                       </p>
-                      <p className="mt-1 text-xs text-gray-600">{reviewText}</p>
+                      <p className="mt-1 text-xs text-gray-600 whitespace-pre-line">{reviewText}</p>
                       {issueForm.optionNote.trim() ? (
                         <p className="mt-2 text-gray-700">추가: {issueForm.optionNote.trim()}</p>
                       ) : null}

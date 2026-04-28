@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 
-/** 서비스접수(/admin/inquiries/*) — 접수·부재현황·발주서 발급/목록·설정 전환 */
+/** 서비스접수(/admin/inquiries/*) — 접수·부재현황·발주서 발급/목록·발주서설정 */
 export function AdminInquiriesLayout() {
   return (
     <div className="min-w-0 w-full max-w-full">
@@ -19,10 +19,11 @@ export function AdminInquiriesLayout() {
           발주서 발급
         </NavLink>
         <NavLink
-          to="/admin/inquiries/order-settings"
-          className={({ isActive }) => adminSubNavTabClassName(isActive, 'sm:ml-auto')}
+          to="/admin/inquiries/order-customer-preview"
+          title="발주서 폼 설정·미리보기"
+          className={({ isActive }) => `${adminSubNavTabClassName(isActive)} shrink-0 sm:ml-auto`}
         >
-          설정
+          발주서설정
         </NavLink>
       </AdminSubNavScroll>
       <Outlet />

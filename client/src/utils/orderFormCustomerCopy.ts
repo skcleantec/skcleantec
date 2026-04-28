@@ -11,7 +11,7 @@ export function withDefaultText(raw: string | null | undefined, key: FormMsgDefa
   return orderFormConfigLine(raw, ORDER_FORM_CONFIG_DEFAULTS[key]);
 }
 
-/** 폼 메시지 탭에서 다루는 필드 (고객 안내 본문은 발주서 화면의 안내사항설정 탭에서 편집) */
+/** 폼 메시지 필드 — 편집 UI는 발주서 미리보기·설정 탭 연계 (고객 안내 본문은 안내사항설정에서 편집) */
 export type FormMessagesState = Pick<
   OrderFormConfigPublic,
   | 'formTitle'
@@ -21,6 +21,9 @@ export type FormMessagesState = Pick<
   | 'footerNotice2'
   | 'submitSuccessTitle'
   | 'submitSuccessBody'
+  | 'timeSlotAckTitle'
+  | 'timeSlotAckBody'
+  | 'timeSlotAckConsentHint'
 >;
 
 /** API 응답을 편집용 상태로: 비어 있는 항목은 기본 문구로 채워 placeholder 없이 바로 수정 가능 */
@@ -33,6 +36,9 @@ export function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessa
     footerNotice2: withDefaultText(c.footerNotice2, 'footerNotice2'),
     submitSuccessTitle: withDefaultText(c.submitSuccessTitle, 'submitSuccessTitle'),
     submitSuccessBody: withDefaultText(c.submitSuccessBody, 'submitSuccessBody'),
+    timeSlotAckTitle: withDefaultText(c.timeSlotAckTitle, 'timeSlotAckTitle'),
+    timeSlotAckBody: withDefaultText(c.timeSlotAckBody, 'timeSlotAckBody'),
+    timeSlotAckConsentHint: withDefaultText(c.timeSlotAckConsentHint, 'timeSlotAckConsentHint'),
   };
 }
 

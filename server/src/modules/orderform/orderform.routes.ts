@@ -29,8 +29,12 @@ import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
+import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
+import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
 
 const router = Router();
+
+const VALID_ORDER_TIME_SLOTS = new Set(['오전', '오후', '사이청소']);
 
 type ForceMatchInquirySnapshot = {
   id: string;
@@ -248,6 +252,57 @@ const orderFormCreatedBySelect = {
   select: { id: true, name: true, role: true },
 } as const;
 
+/** 편집기 왼쪽 iframe용 — 실제 `/order/:token` 과 동일 렌더. 목록에서는 숨김 */
+export const DESIGNER_PREVIEW_ORDER_TOKEN = 'skct_designer_preview_v1';
+
+/** 견적 설정·추가 옵션 반영해 미리보기 발주서 금액 동기화 (32평 기준) */
+async function upsertDesignerPreviewOrderForm(createdById: string) {
+  const DEMO_PYEONG = 32;
+  const ec = await prisma.estimateConfig.findFirst();
+  const pricePer = ec?.pricePerPyeong ?? 8000;
+  const deposit = ec?.depositAmount ?? 20000;
+  const extras = await prisma.estimateOption.aggregate({
+    where: { isActive: true },
+    _sum: { extraAmount: true },
+  });
+  const extraSum = extras._sum.extraAmount ?? 0;
+  const totalAmount = pricePer * DEMO_PYEONG + extraSum;
+  const balanceAmount = Math.max(0, totalAmount - deposit);
+
+  const existing = await prisma.orderForm.findUnique({
+    where: { token: DESIGNER_PREVIEW_ORDER_TOKEN },
+  });
+  if (!existing) {
+    return prisma.orderForm.create({
+      data: {
+        token: DESIGNER_PREVIEW_ORDER_TOKEN,
+        customerName: '미리보기(고객용)',
+        customerPhone: '010-0000-0000',
+        totalAmount,
+        depositAmount: deposit,
+        balanceAmount,
+        createdById,
+      },
+    });
+  }
+  return prisma.orderForm.update({
+    where: { token: DESIGNER_PREVIEW_ORDER_TOKEN },
+    data: { totalAmount, depositAmount: deposit, balanceAmount },
+  });
+}
+
+/** 관리자/마케터: 고객 발주서 편집 화면용 고정 미리보기 토큰 (없으면 생성, 호출 시 금액 동기화) */
+router.get('/designer-preview-token', authMiddleware, adminOrMarketer, async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  try {
+    const form = await upsertDesignerPreviewOrderForm(userId);
+    res.json({ token: form.token });
+  } catch (e) {
+    console.error('[designer-preview-token]', e);
+    res.status(500).json({ error: '미리보기 발주서를 준비하지 못했습니다.' });
+  }
+});
+
 /** 관리자/마케터: 발주서 목록 (발급일·담당·제출 상태 필터) */
 router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const q = req.query as Record<string, string | undefined>;
@@ -265,7 +320,9 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const submitStatus =
     submitStatusRaw === 'pending' || submitStatusRaw === 'submitted' ? submitStatusRaw : 'all';
 
-  const where: Prisma.OrderFormWhereInput = {};
+  const where: Prisma.OrderFormWhereInput = {
+    token: { not: DESIGNER_PREVIEW_ORDER_TOKEN },
+  };
   if (dateRange) {
     where.createdAt = { gte: dateRange.gte, lte: dateRange.lte };
   }
@@ -785,15 +842,8 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
 
 const DEFAULT_FORM_CONFIG = {
   id: '',
-  formTitle: 'SK클린텍 입주청소 발주서',
-  priceLabel: '(특가)',
-  reviewEventText: '* 리뷰 별5점 이벤트 참여, 1만원 입금',
-  footerNotice1: '‼️ 청소 전일 저녁, 담당 팀장 연락 드림',
-  footerNotice2: '❌ 연락 없을 시, 본사 확인 요청 필',
+  ...ORDER_FORM_CONFIG_DEFAULTS,
   infoContent: null as string | null,
-  infoLinkText: '고객 정보처리 동의 및 안내사항',
-  submitSuccessTitle: '제출이 완료되었습니다.',
-  submitSuccessBody: '청소 전일 저녁, 담당 팀장이 연락드립니다.',
   updatedAt: new Date().toISOString(),
 };
 
@@ -807,6 +857,9 @@ type FormConfigRow = {
   infoLinkText: string | null;
   submitSuccessTitle: string | null;
   submitSuccessBody: string | null;
+  timeSlotAckTitle?: string | null;
+  timeSlotAckBody?: string | null;
+  timeSlotAckConsentHint?: string | null;
 };
 
 /** 고객용: DB에 ""·null이 있어도 기본 문구로 내려줌 (클라이언트 ?? 만으로는 빈 문자열이 남음) */
@@ -827,6 +880,9 @@ function resolvedPublicFormConfig(row: FormConfigRow) {
     infoLinkText: line(row.infoLinkText, d.infoLinkText),
     submitSuccessTitle: line(row.submitSuccessTitle, d.submitSuccessTitle),
     submitSuccessBody: line(row.submitSuccessBody, d.submitSuccessBody),
+    timeSlotAckTitle: line(row.timeSlotAckTitle, d.timeSlotAckTitle),
+    timeSlotAckBody: line(row.timeSlotAckBody, d.timeSlotAckBody),
+    timeSlotAckConsentHint: line(row.timeSlotAckConsentHint, d.timeSlotAckConsentHint),
   };
 }
 
@@ -873,6 +929,15 @@ router.put('/form-config', authMiddleware, adminOnly, async (req, res) => {
         ...(body.infoLinkText != null && { infoLinkText: body.infoLinkText ? String(body.infoLinkText) : null }),
         ...(body.submitSuccessTitle != null && { submitSuccessTitle: body.submitSuccessTitle ? String(body.submitSuccessTitle) : null }),
         ...(body.submitSuccessBody != null && { submitSuccessBody: body.submitSuccessBody ? String(body.submitSuccessBody) : null }),
+        ...(body.timeSlotAckTitle != null && {
+          timeSlotAckTitle: body.timeSlotAckTitle ? String(body.timeSlotAckTitle) : null,
+        }),
+        ...(body.timeSlotAckBody != null && {
+          timeSlotAckBody: body.timeSlotAckBody ? String(body.timeSlotAckBody) : null,
+        }),
+        ...(body.timeSlotAckConsentHint != null && {
+          timeSlotAckConsentHint: body.timeSlotAckConsentHint ? String(body.timeSlotAckConsentHint) : null,
+        }),
       },
     });
     res.json(updated);
@@ -1053,6 +1118,10 @@ router.post('/submit/:token', async (req, res) => {
     res.status(400).json({ error: '청소 날짜와 시간을 입력해주세요.' });
     return;
   }
+  if (!VALID_ORDER_TIME_SLOTS.has(useTimeStr)) {
+    res.status(400).json({ error: '시간대를 선택해주세요.' });
+    return;
+  }
 
   const adminDetailLocked = Boolean(
     form.preferredTimeDetail && String(form.preferredTimeDetail).trim()
@@ -1062,6 +1131,17 @@ router.post('/submit/:token', async (req, res) => {
     : body.preferredTimeDetail != null && String(body.preferredTimeDetail).trim()
       ? String(body.preferredTimeDetail).trim()
       : null;
+
+  if (
+    !adminDetailLocked &&
+    useDetailStr &&
+    !isAllowedPreferredTimeDetail(useTimeStr, useDetailStr)
+  ) {
+    res.status(400).json({
+      error: '구체적 시각을 해당 시간대에서 허용되는 범위로 선택해 주세요.',
+    });
+    return;
+  }
 
   const preferredDate = new Date(useDateStr + 'T12:00:00');
   const moveInDate = body.moveInDate

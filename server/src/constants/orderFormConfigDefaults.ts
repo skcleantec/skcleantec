@@ -1,9 +1,9 @@
 import {
   ORDER_FORM_TIME_SLOT_ACK_BODY_DEFAULT,
   ORDER_FORM_TIME_SLOT_ACK_CONSENT_HINT_DEFAULT,
-} from './orderFormTimeSlotAckDefaults';
+} from './orderFormTimeSlotAckDefaults.js';
 
-/** 서버 `orderform.routes` DEFAULT_FORM_CONFIG와 동일 — DB·API에 빈 문자열이 있어도 화면에 기본 문구 표시 */
+/** `orderform.routes` 기본 폼 설정과 동일해야 함 */
 export const ORDER_FORM_CONFIG_DEFAULTS = {
   formTitle: 'SK클린텍 입주청소 발주서',
   priceLabel: '(특가)',
@@ -17,9 +17,3 @@ export const ORDER_FORM_CONFIG_DEFAULTS = {
   timeSlotAckBody: ORDER_FORM_TIME_SLOT_ACK_BODY_DEFAULT,
   timeSlotAckConsentHint: ORDER_FORM_TIME_SLOT_ACK_CONSENT_HINT_DEFAULT,
 } as const;
-
-/** null·undefined·공백만 있는 문자열이면 fallback (?? 는 빈 문자열을 대체하지 않음) */
-export function orderFormConfigLine(raw: string | null | undefined, fallback: string): string {
-  const t = raw != null ? String(raw).trim() : '';
-  return t || fallback;
-}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   getOrderFormByToken,
@@ -7,11 +7,23 @@ import {
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { AddressSearch } from '../../components/forms/AddressSearch';
-import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot } from '../../constants/orderFormSchedule';
+import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot, type OrderTimeSlot } from '../../constants/orderFormSchedule';
 import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
+import {
+  allowedPreferredTimeDetailValues,
+  coercePreferredTimeDetailForSlot,
+  getPreferredTimeDetailSelectOptions,
+  preferredTimeDetailRangeHint,
+} from '../../constants/orderFormPreferredTimeDetail';
+
+const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o) => o.value));
+
+function isValidOrderTimeSlot(v: string): v is OrderTimeSlot {
+  return ORDER_TIME_SLOT_VALUE_SET.has(v);
+}
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
@@ -64,7 +76,7 @@ export function OrderFormPage() {
     areaBasis: '',
     areaPyeong: '',
     preferredDate: kstTodayYmd(),
-    preferredTime: '오전',
+    preferredTime: '',
     preferredTimeDetail: '',
     roomCount: '',
     balconyCount: '',
@@ -93,14 +105,41 @@ export function OrderFormPage() {
       infoLinkText?: string | null;
       submitSuccessTitle?: string | null;
       submitSuccessBody?: string | null;
+      timeSlotAckTitle?: string | null;
+      timeSlotAckBody?: string | null;
+      timeSlotAckConsentHint?: string | null;
     };
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
+  const [timeSlotAckOpen, setTimeSlotAckOpen] = useState(false);
+  const [pendingTimeSlot, setPendingTimeSlot] = useState<OrderTimeSlot | null>(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [professionalOptionIds, setProfessionalOptionIds] = useState<string[]>([]);
   const [professionalOptions, setProfessionalOptions] = useState<ProfessionalSpecialtyOptionDto[]>([]);
+
+  const cancelTimeSlotAck = useCallback(() => {
+    setPendingTimeSlot(null);
+    setTimeSlotAckOpen(false);
+  }, []);
+
+  const confirmTimeSlotAck = useCallback(() => {
+    if (pendingTimeSlot) {
+      setForm((f) => ({ ...f, preferredTime: pendingTimeSlot }));
+    }
+    setPendingTimeSlot(null);
+    setTimeSlotAckOpen(false);
+  }, [pendingTimeSlot]);
+
+  useEffect(() => {
+    if (!timeSlotAckOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cancelTimeSlotAck();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [timeSlotAckOpen, cancelTimeSlotAck]);
 
   const toggleProfessionalOption = (id: string) => {
     setProfessionalOptionIds((prev) =>
@@ -136,7 +175,7 @@ export function OrderFormPage() {
           areaBasis: p?.areaBasis ?? '',
           areaPyeong: p?.areaPyeong != null ? String(p.areaPyeong) : '',
           preferredDate: p?.preferredDate ?? data.preferredDate ?? kstTodayYmd(),
-          preferredTime: p?.preferredTime ?? data.preferredTime ?? '오전',
+          preferredTime: p?.preferredTime ?? data.preferredTime ?? '',
           preferredTimeDetail: p?.preferredTimeDetail ?? data.preferredTimeDetail ?? '',
           roomCount: p?.roomCount != null ? String(p.roomCount) : '',
           bathroomCount: p?.bathroomCount != null ? String(p.bathroomCount) : '',
@@ -162,6 +201,21 @@ export function OrderFormPage() {
 
   useEffect(() => subscribeOrderGuideAgreeTerms(() => setAgreeToTerms(true)), []);
 
+  /** 시간대 변경 시 구체적 시각을 허용 목록에 맞게 유지 */
+  useEffect(() => {
+    const locked = Boolean(order?.preferredTimeDetail?.trim());
+    if (!order || locked) return;
+    const slot = form.preferredTime;
+    if (!slot || !isValidOrderTimeSlot(slot)) {
+      if (form.preferredTimeDetail) setForm((f) => ({ ...f, preferredTimeDetail: '' }));
+      return;
+    }
+    const next = coercePreferredTimeDetailForSlot(form.preferredTimeDetail, slot);
+    if (next !== form.preferredTimeDetail) {
+      setForm((f) => ({ ...f, preferredTimeDetail: next }));
+    }
+  }, [order, form.preferredTime, form.preferredTimeDetail]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
@@ -182,13 +236,25 @@ export function OrderFormPage() {
       const useDate = scheduleLockedByAdmin
         ? order!.preferredDate!.trim()
         : form.preferredDate.trim();
-      const useTime = scheduleLockedByAdmin
+      const useTimeRaw = scheduleLockedByAdmin
         ? (order!.preferredTime?.trim() || form.preferredTime)
-        : form.preferredTime;
+        : form.preferredTime.trim();
+      const useTime = useTimeRaw.trim();
       if (!useDate || !useTime) throw new Error('청소 날짜와 시간을 확인해주세요.');
+      if (!isValidOrderTimeSlot(useTime)) {
+        throw new Error('시간대를 선택해주세요.');
+      }
       const useTimeDetail = detailLockedByAdmin
         ? order!.preferredTimeDetail!.trim()
         : form.preferredTimeDetail.trim() || undefined;
+      if (
+        !detailLockedByAdmin &&
+        form.preferredTimeDetail.trim() &&
+        isValidOrderTimeSlot(useTime) &&
+        !allowedPreferredTimeDetailValues(useTime).has(form.preferredTimeDetail.trim())
+      ) {
+        throw new Error('구체적 시각을 해당 시간대 범위에서 선택해 주세요.');
+      }
       if (!form.buildingType) throw new Error('신축·구축·인테리어·거주(짐이있는상태) 중 하나를 선택해주세요.');
       if (!agreeToTerms) throw new Error('고객 정보처리 동의 및 안내사항에 동의해 주세요.');
 
@@ -265,8 +331,8 @@ export function OrderFormPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative">
         <div className="absolute top-4 right-4"><CloseButton /></div>
         <div className="text-center max-w-sm">
-          <p className="text-lg font-medium text-gray-900">{successTitle}</p>
-          <p className="text-gray-600 mt-2">{successBody}</p>
+          <p className="text-lg font-medium text-gray-900 whitespace-pre-line">{successTitle}</p>
+          <p className="text-gray-600 mt-2 whitespace-pre-line">{successBody}</p>
         </div>
       </div>
     );
@@ -285,20 +351,22 @@ export function OrderFormPage() {
         <div className="absolute top-4 right-4">
           <CloseButton />
         </div>
-        <h1 className="text-lg font-semibold text-gray-900 mb-1">
+        <h1 className="text-lg font-semibold text-gray-900 mb-1 whitespace-pre-line">
           {orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle)}
         </h1>
         {order && (
           <div className="mb-6 p-4 bg-white border border-gray-200 rounded text-sm">
             <p className="font-medium text-gray-900">
               총 금액 {(order.totalAmount ?? 0).toLocaleString()}원{' '}
-              {orderFormConfigLine(order.formConfig?.priceLabel, ORDER_FORM_CONFIG_DEFAULTS.priceLabel)}
+              <span className="whitespace-pre-line align-top">
+                {orderFormConfigLine(order.formConfig?.priceLabel, ORDER_FORM_CONFIG_DEFAULTS.priceLabel)}
+              </span>
             </p>
             <p className="text-gray-600 mt-1">
               잔금 {(order.balanceAmount ?? 0).toLocaleString()}원, 예약금{' '}
               {(order.depositAmount ?? 0).toLocaleString()}원
             </p>
-            <p className="text-gray-600 text-xs mt-1">
+            <p className="text-gray-600 text-xs mt-1 whitespace-pre-line">
               {orderFormConfigLine(
                 order.formConfig?.reviewEventText,
                 ORDER_FORM_CONFIG_DEFAULTS.reviewEventText
@@ -442,8 +510,19 @@ export function OrderFormPage() {
               <select
                 className={inputCls}
                 value={form.preferredTime}
-                onChange={(e) => setForm((f) => ({ ...f, preferredTime: e.target.value }))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '') {
+                    setForm((f) => ({ ...f, preferredTime: '' }));
+                    return;
+                  }
+                  if (!isValidOrderTimeSlot(v)) return;
+                  if (v === form.preferredTime) return;
+                  setPendingTimeSlot(v);
+                  setTimeSlotAckOpen(true);
+                }}
               >
+                <option value="">선택하기</option>
                 {ORDER_TIME_SLOT_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -461,30 +540,27 @@ export function OrderFormPage() {
                 {order!.preferredTimeDetail}{' '}
                 <span className="text-gray-500">(관리자 지정·수정 불가)</span>
               </div>
+            ) : !form.preferredTime || !isValidOrderTimeSlot(form.preferredTime) ? (
+              <p className="text-xs text-gray-500 px-1 py-2">
+                먼저 위에서 시간대(오전·오후·사이청소)를 선택하신 뒤, 희망 시각을 고를 수 있습니다.
+              </p>
             ) : (
               <>
-                <input
-                  type="text"
+                <select
                   className={inputCls}
+                  aria-label="구체적 시각 선택"
                   value={form.preferredTimeDetail}
                   onChange={(e) => setForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))}
-                  placeholder="예: 10:30, 오전 10시"
-                />
-                <input
-                  type="time"
-                  className={`${inputCls} mt-2`}
-                  aria-label="시·분 선택 (선택)"
-                  value={
-                    /^([01]\d|2[0-3]):[0-5]\d$/.test(form.preferredTimeDetail.trim())
-                      ? form.preferredTimeDetail.trim()
-                      : ''
-                  }
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))
-                  }
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  위에 직접 입력하거나, 아래에서 시·분만 고를 수 있습니다. 비워 두셔도 됩니다.
+                >
+                  <option value="">선택 안 함</option>
+                  {getPreferredTimeDetailSelectOptions(form.preferredTime).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                  {preferredTimeDetailRangeHint(form.preferredTime)} 비워 두셔도 접수는 가능합니다.
                 </p>
               </>
             )}
@@ -630,29 +706,43 @@ export function OrderFormPage() {
             </div>
           </div>
 
-          <div className="flex items-start gap-2 py-4">
-            <input
-              type="checkbox"
-              id="agreeTerms"
-              checked={agreeToTerms}
-              onChange={(e) => setAgreeToTerms(e.target.checked)}
-              className="mt-1 shrink-0 w-4 h-4"
-            />
-            <label htmlFor="agreeTerms" className="text-sm text-gray-700 leading-relaxed cursor-pointer">
-              <Link
-                to="/info"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 underline hover:text-blue-700"
-                onClick={(e) => e.stopPropagation()}
+          <div className="py-4">
+            <div className="mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-gradient-to-b from-gray-50/95 to-white px-4 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.03]">
+              <label
+                htmlFor="agreeTerms"
+                className="flex w-full cursor-pointer flex-row items-start gap-3"
               >
-                {orderFormConfigLine(
-                  order?.formConfig?.infoLinkText,
-                  ORDER_FORM_CONFIG_DEFAULTS.infoLinkText
-                )}
-              </Link>
-              에 동의합니다. (클릭 시 전체 내용 보기)
-            </label>
+                <input
+                  type="checkbox"
+                  id="agreeTerms"
+                  checked={agreeToTerms}
+                  onChange={(e) => setAgreeToTerms(e.target.checked)}
+                  className="mt-1 h-5 w-5 shrink-0 rounded border-2 border-gray-400 text-gray-900 accent-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-800"
+                  aria-describedby="agreeTerms-hint"
+                />
+                <span
+                  id="agreeTerms-hint"
+                  className="min-w-0 flex-1 text-left text-fluid-base font-semibold leading-snug tracking-tight text-gray-900"
+                >
+                  <Link
+                    to="/info"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-blue-700 underline decoration-2 underline-offset-[3px] transition hover:text-blue-900"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {orderFormConfigLine(
+                      order?.formConfig?.infoLinkText,
+                      ORDER_FORM_CONFIG_DEFAULTS.infoLinkText
+                    )}
+                  </Link>
+                  <span className="font-semibold text-gray-900"> 에 동의합니다.</span>{' '}
+                  <span className="text-fluid-xs font-medium text-gray-500">
+                    (클릭 시 전체 내용 보기)
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
@@ -723,14 +813,102 @@ export function OrderFormPage() {
           </div>
         ) : null}
 
-        <div className="text-xs text-gray-500 mt-8 text-center">
-          <p>
+        {timeSlotAckOpen && pendingTimeSlot ? (
+          <div
+            className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="time-slot-ack-title"
+            aria-describedby="time-slot-ack-desc"
+            onClick={() => cancelTimeSlotAck()}
+          >
+            <div
+              className="w-full max-h-[min(92dvh,640px)] sm:max-h-[85vh] max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="max-h-[min(92dvh,640px)] sm:max-h-[85vh] overflow-y-auto overscroll-y-contain">
+                <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/90 to-white px-5 pb-4 pt-5 sm:px-6">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 ring-1 ring-blue-100/80"
+                      aria-hidden
+                    >
+                      <svg
+                        className="h-6 w-6 text-blue-700"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v6l3 2" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2
+                        id="time-slot-ack-title"
+                        className="text-base font-semibold leading-snug tracking-tight text-gray-900"
+                      >
+                        {orderFormConfigLine(
+                          order?.formConfig?.timeSlotAckTitle,
+                          ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckTitle
+                        )}
+                      </h2>
+                      <p className="mt-1 text-fluid-xs text-gray-500">
+                        선택 예정:{' '}
+                        <span className="font-medium text-gray-800">
+                          {labelForTimeSlot(pendingTimeSlot)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div id="time-slot-ack-desc" className="px-5 py-4 text-fluid-sm leading-relaxed text-gray-700 sm:px-6">
+                  <div className="whitespace-pre-wrap break-words">
+                    {orderFormConfigLine(
+                      order?.formConfig?.timeSlotAckBody,
+                      ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckBody
+                    )}
+                  </div>
+                  <p className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-fluid-xs text-amber-950 whitespace-pre-wrap break-words">
+                    {orderFormConfigLine(
+                      order?.formConfig?.timeSlotAckConsentHint,
+                      ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckConsentHint
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:flex-row sm:justify-end sm:gap-3 sm:px-5">
+                <button
+                  type="button"
+                  onClick={() => cancelTimeSlotAck()}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-fluid-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99] sm:w-auto sm:min-w-[7rem] sm:py-2.5"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => confirmTimeSlotAck()}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99] sm:w-auto sm:min-w-[11rem] sm:py-2.5"
+                  autoFocus
+                >
+                  동의하고 선택하기
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="text-xs text-gray-500 mt-8 text-center space-y-1">
+          <p className="whitespace-pre-line">
             {orderFormConfigLine(
               order?.formConfig?.footerNotice1,
               ORDER_FORM_CONFIG_DEFAULTS.footerNotice1
             )}
           </p>
-          <p>
+          <p className="whitespace-pre-line">
             {orderFormConfigLine(
               order?.formConfig?.footerNotice2,
               ORDER_FORM_CONFIG_DEFAULTS.footerNotice2

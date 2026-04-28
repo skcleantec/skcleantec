@@ -475,6 +475,12 @@ model OrderFormConfig {
   infoLinkText        String?  @map("info_link_text")
   submitSuccessTitle  String?  @map("submit_success_title")
   submitSuccessBody   String?  @map("submit_success_body")
+  /// 고객 발주서 — 시간대 선택 전 확인 모달 제목
+  timeSlotAckTitle       String? @map("time_slot_ack_title")
+  /// 고객 발주서 — 시간대 안내 본문(여러 줄 가능)
+  timeSlotAckBody        String? @map("time_slot_ack_body") @db.Text
+  /// 고객 발주서 — 동의 버튼 상단 안내(노란 박스)
+  timeSlotAckConsentHint String? @map("time_slot_ack_consent_hint") @db.Text
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("order_form_config")

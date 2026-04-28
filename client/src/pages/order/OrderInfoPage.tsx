@@ -80,7 +80,7 @@ export function OrderInfoPage() {
           <div className="p-6 space-y-8">
             {sections.map((section, i) => (
               <section key={i}>
-                <h2 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200">
+                <h2 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200 whitespace-pre-line">
                   {section.title}
                 </h2>
                 <ul className="space-y-3">
