@@ -1,5 +1,6 @@
 import type { CsReport } from './cs';
 import { API } from './apiPrefix';
+import { AuthSessionExpiredError } from './auth';
 import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 
 function headers(token: string) {
@@ -20,6 +21,8 @@ export interface TeamViewerMe {
   email?: string | null;
   role: string;
   name?: string | null;
+  /** 팀장 전용 로마자 이름 */
+  nameEn?: string | null;
   phone?: string | null;
   vehicleNumber?: string | null;
   allowSelfDayOffEdit?: boolean;
@@ -32,6 +35,9 @@ export interface TeamViewerMe {
 
 export async function getTeamMe(token: string): Promise<TeamViewerMe> {
   const res = await fetch(withTeamPreviewQuery(`${API}/team/me`), { headers: headers(token) });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
   if (!res.ok) throw new Error('팀 사용자 정보를 불러올 수 없습니다.');
   return res.json();
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
@@ -6,6 +7,7 @@ import {
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
+import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
@@ -22,6 +24,8 @@ import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 
 export function TeamDashboardPage() {
   const token = getTeamToken();
+  const location = useLocation();
+  const previewKey = teamPreviewDepsKey(location.search);
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
@@ -42,7 +46,7 @@ export function TeamDashboardPage() {
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [token]);
+  }, [token, previewKey]);
 
   useEffect(() => {
     void loadDashboard();

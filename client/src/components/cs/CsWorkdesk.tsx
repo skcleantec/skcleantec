@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { getCsReports, updateCsReport, deleteCsReport, type CsReport } from '../../api/cs';
@@ -16,6 +17,7 @@ import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 
 const STATUS_OPTIONS = [
   { value: 'RECEIVED', label: '접수' },
@@ -113,6 +115,8 @@ type CsWorkdeskProps = {
 };
 
 export function CsWorkdesk({ mode }: CsWorkdeskProps) {
+  const location = useLocation();
+  const previewKey = teamPreviewDepsKey(location.search);
   const token = mode === 'admin' ? getToken() : getTeamToken();
   const [items, setItems] = useState<CsReport[]>([]);
   const [loading, setLoading] = useState(false);
@@ -162,7 +166,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
           if (withLoading) setLoading(false);
         });
     },
-    [token, mode]
+    [token, mode, previewKey]
   );
 
   const { connected: csWsConnected } = useInboxRealtime(

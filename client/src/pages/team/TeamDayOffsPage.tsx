@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { getMyDayOffs, addDayOff, removeDayOff } from '../../api/dayoffs';
 import { getTeamMe } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
+import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -44,6 +46,8 @@ type DayOffConfirmModal = { mode: 'add' | 'remove'; ymd: string } | null;
 
 export function TeamDayOffsPage() {
   const token = getTeamToken();
+  const location = useLocation();
+  const previewKey = teamPreviewDepsKey(location.search);
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -71,7 +75,7 @@ export function TeamDayOffsPage() {
         setSelfEditAllowed(false);
       })
       .finally(() => setProfileReady(true));
-  }, [token]);
+  }, [token, previewKey]);
 
   useEffect(() => {
     if (!token) return;
@@ -92,7 +96,7 @@ export function TeamDayOffsPage() {
         if (listFetchGenRef.current !== gen) return;
         setLoading(false);
       });
-  }, [token, year, month]);
+  }, [token, year, month, previewKey]);
 
   const getDateKey = (d: number) => {
     const m = month < 10 ? `0${month}` : `${month}`;

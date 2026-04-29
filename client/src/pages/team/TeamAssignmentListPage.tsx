@@ -8,7 +8,7 @@ import {
 } from '../../api/team';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
@@ -29,6 +29,7 @@ import {
   TeamInquiryDetailModal,
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
+import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 
 function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number | null }) {
   if (item.areaPyeong == null) return '-';
@@ -91,6 +92,8 @@ function inYmdRange(ymd: string | null, from: string, to: string): boolean {
 export function TeamAssignmentListPage() {
   const token = getTeamToken();
   const navigate = useNavigate();
+  const location = useLocation();
+  const previewKey = teamPreviewDepsKey(location.search);
   const initialRange = computeDateRangeFromPreset('thisMonth')!;
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
@@ -136,7 +139,7 @@ export function TeamAssignmentListPage() {
         if (!opts?.silent) setLoading(false);
       }
     },
-    [token, navigate]
+    [token, navigate, previewKey]
   );
 
   useEffect(() => {

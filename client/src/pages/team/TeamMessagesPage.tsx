@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getTeamOfficeMessages, sendTeamToManagement } from '../../api/messages';
 import { getTeamMe } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
+import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -23,6 +25,8 @@ function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: Scro
 
 export function TeamMessagesPage() {
   const token = getTeamToken();
+  const location = useLocation();
+  const previewKey = teamPreviewDepsKey(location.search);
   const [myId, setMyId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -38,7 +42,7 @@ export function TeamMessagesPage() {
     getTeamMe(token)
       .then((u: { id?: string }) => setMyId(typeof u.id === 'string' ? u.id : null))
       .catch(() => setMyId(null));
-  }, [token]);
+  }, [token, previewKey]);
 
   const loadMessages = useCallback(
     (opts?: { silent?: boolean }) => {
@@ -58,7 +62,7 @@ export function TeamMessagesPage() {
           if (!opts?.silent) setLoading(false);
         });
     },
-    [token]
+    [token, previewKey]
   );
 
   useEffect(() => {
@@ -77,7 +81,7 @@ export function TeamMessagesPage() {
         if (nearBottom) scrollToEnd(messagesEndRef, 'smooth');
       })
       .catch(() => {});
-  }, [token]);
+  }, [token, previewKey]);
 
   const { connected: wsConnected } = useInboxRealtime(token, pollMessages, Boolean(token));
   useMessageThreadPoll(Boolean(token) && !wsConnected, pollMessages);

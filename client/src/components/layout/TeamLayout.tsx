@@ -2,16 +2,18 @@ import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
-import { getMe, isAuthSessionExpiredError } from '../../api/auth';
-import { getTeamNavBadges } from '../../api/team';
+import { getTeamMe, getTeamNavBadges, type TeamViewerMe } from '../../api/team';
+import { isAuthSessionExpiredError } from '../../api/auth';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime, useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { RosterAckBanner } from '../common/RosterAckBanner';
+import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
   const location = useLocation();
+  const previewKey = teamPreviewDepsKey(location.search);
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
@@ -34,23 +36,14 @@ export function TeamLayout() {
       setUserNameEn(null);
       return;
     }
-    getMe(token)
-      .then(
-        (u: {
-          name?: string;
-          role?: string;
-          email?: string | null;
-          phone?: string | null;
-          vehicleNumber?: string | null;
-          nameEn?: string | null;
-        }) => {
-          setUserName(u.name ?? null);
-          setUserRole(u.role ?? null);
-          setUserPhone(u.phone ?? null);
-          setUserVehicleNumber(u.vehicleNumber ?? null);
-          setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
-        },
-      )
+    getTeamMe(token)
+      .then((u: TeamViewerMe) => {
+        setUserName(u.name ?? null);
+        setUserRole(u.role ?? null);
+        setUserPhone(u.phone ?? null);
+        setUserVehicleNumber(u.vehicleNumber ?? null);
+        setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
+      })
       .catch((e) => {
         setUserName(null);
         setUserRole(null);
@@ -62,7 +55,7 @@ export function TeamLayout() {
           navigate('/login', { replace: true, state: { sessionExpired: true } });
         }
       });
-  }, [teamToken, navigate]);
+  }, [teamToken, navigate, location.search]);
 
   const fetchTeamBadges = useCallback(() => {
     const token = getTeamToken();
@@ -74,7 +67,7 @@ export function TeamLayout() {
         setNewAssignmentCount(r.newAssignmentCount ?? 0);
       })
       .catch(() => {});
-  }, []);
+  }, [previewKey]);
 
   useEffect(() => {
     const token = getTeamToken();
@@ -87,6 +80,11 @@ export function TeamLayout() {
       delete (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount;
       delete (window as { __refreshTeamNavBadges?: () => void }).__refreshTeamNavBadges;
     };
+  }, [fetchTeamBadges]);
+
+  useEffect(() => {
+    if (!getTeamToken()) return;
+    void fetchTeamBadges();
   }, [fetchTeamBadges]);
 
   const { connected: navWsConnected } = useInboxRealtime(teamToken, fetchTeamBadges, Boolean(teamToken));

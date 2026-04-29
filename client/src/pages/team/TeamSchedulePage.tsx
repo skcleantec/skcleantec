@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
@@ -6,6 +7,7 @@ import {
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
+import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { isPublicHoliday } from '../../utils/holidays';
@@ -48,6 +50,8 @@ function getMonthRange(year: number, month: number) {
 
 export function TeamSchedulePage() {
   const token = getTeamToken();
+  const location = useLocation();
+  const previewKey = teamPreviewDepsKey(location.search);
   const now = new Date();
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +79,7 @@ export function TeamSchedulePage() {
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [token, year, month]);
+  }, [token, year, month, previewKey]);
 
   useEffect(() => {
     void loadSchedule();
