@@ -25,6 +25,7 @@ import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
+import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -186,7 +187,9 @@ export function AdminLayout() {
         setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
         setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
         setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
-        const preview = role === 'ADMIN' || role === 'MARKETER';
+        /** 팀·크루 미리보기: 업무 관리자(ADMIN) + 개발용 이메일 화이트리스트만. 일반 마케터는 제외 */
+        const email = typeof u.email === 'string' ? u.email : '';
+        const preview = role === 'ADMIN' || isTeamPreviewAdminEmail(email);
         setTeamPreviewLink(preview);
         if (preview && !getTeamToken()) {
           setTeamToken(token);
