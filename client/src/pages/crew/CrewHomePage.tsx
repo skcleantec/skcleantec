@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { CrewLayoutContext } from '../../components/layout/CrewLayout';
-import { getCrewToken } from '../../stores/crewAuth';
-import { getCrewMonthlyJobStats, type CrewMonthlyJobStatItem } from '../../api/crew';
+import { getCrewToken, subscribeCrewAuth } from '../../stores/crewAuth';
+import { getCrewMonthlyJobStats, getCrewStaffNotices, type CrewMonthlyJobStatItem, type CrewStaffNoticeItem } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
 import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 
 function kstMonthYmNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -46,11 +48,40 @@ function formatMonthTh(ym: string): string {
 export function CrewHomePage() {
   const outlet = useOutletContext<CrewLayoutContext | undefined>();
   const me = outlet?.me ?? null;
+  const crewToken = useSyncExternalStore(subscribeCrewAuth, getCrewToken, () => null);
 
   const [statsMonth, setStatsMonth] = useState(kstMonthYmNow);
   const [stats, setStats] = useState<CrewMonthlyJobStatItem[] | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState(false);
+
+  const [staffNotices, setStaffNotices] = useState<CrewStaffNoticeItem[]>([]);
+  const [staffNoticesLoading, setStaffNoticesLoading] = useState(false);
+
+  const loadStaffNotices = useCallback(async () => {
+    const token = getCrewToken();
+    if (!token) return;
+    setStaffNoticesLoading(true);
+    try {
+      const { items } = await getCrewStaffNotices(token);
+      setStaffNotices(items);
+    } catch (e) {
+      if (e instanceof AuthSessionExpiredError) {
+        setStaffNotices([]);
+        return;
+      }
+      setStaffNotices([]);
+    } finally {
+      setStaffNoticesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!me) return;
+    void loadStaffNotices();
+  }, [me, loadStaffNotices]);
+
+  useInboxRealtime(crewToken ?? '', loadStaffNotices, Boolean(crewToken && me));
 
   const loadStats = useCallback(async (month: string) => {
     const token = getCrewToken();
@@ -105,6 +136,31 @@ export function CrewHomePage() {
 
   return (
     <div className="min-w-0">
+      <section className="mb-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm min-w-0">
+        <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
+          <h2 className="text-sm font-semibold text-slate-900 shrink-0">사무실 공지</h2>
+          {staffNoticesLoading ? (
+            <span className="text-[10px] text-slate-400 truncate">불러오는 중…</span>
+          ) : null}
+        </div>
+        {!staffNoticesLoading && staffNotices.length === 0 ? (
+          <p className="text-xs text-slate-500">등록된 공지가 없습니다.</p>
+        ) : staffNoticesLoading && staffNotices.length === 0 ? (
+          <p className="text-xs text-slate-500">불러오는 중…</p>
+        ) : (
+          <ul className="space-y-2 max-h-52 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+            {staffNotices.map((n) => (
+              <li key={n.id} className="rounded-lg border border-slate-100 bg-slate-50/90 px-2.5 py-2 text-xs min-w-0">
+                <p className="font-medium text-slate-800 whitespace-pre-wrap break-words">{n.content}</p>
+                <p className="mt-1 text-[10px] text-slate-500 tabular-nums truncate" title={n.sender.name}>
+                  {n.sender.name} · {formatDateTimeCompactWithWeekday(n.createdAt)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section className="rounded-2xl border border-indigo-100/80 bg-gradient-to-b from-indigo-50/40 via-white to-white shadow-[0_4px_24px_-4px_rgba(79,70,229,0.12)] overflow-hidden">
         <div className="px-3 py-2.5 flex items-center gap-2 min-w-0 border-b border-indigo-100/60 bg-white/70 backdrop-blur-sm">
           <button

@@ -76,6 +76,29 @@ router.get('/field-schedule', async (req, res) => {
   }
 });
 
+/** 운영(관리자·마케터) 공지 — 이 크루 그룹에 전달된 내역 */
+router.get('/staff-notices', async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  try {
+    const items = await prisma.crewStaffNotice.findMany({
+      where: { crewGroupId: gid },
+      orderBy: { createdAt: 'desc' },
+      take: 80,
+      select: {
+        id: true,
+        batchId: true,
+        content: true,
+        createdAt: true,
+        sender: { select: { id: true, name: true } },
+      },
+    });
+    res.json({ items });
+  } catch (e) {
+    console.error('GET /crew/staff-notices', e);
+    res.status(500).json({ error: '공지를 불러오지 못했습니다.' });
+  }
+});
+
 /**
  * 그룹장(그룹에 그룹장 슬롯이 있는 공유 계정): 소속 멤버의 표시용 보조 이름(nameTh)만 수정.
  * 한글 이름·연락처 등은 관리자만 변경.

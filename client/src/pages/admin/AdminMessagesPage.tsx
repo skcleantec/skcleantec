@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { broadcastToTeamLeaders, getConversations, getMessages, sendMessage } from '../../api/messages';
+import { broadcastToField, getConversations, getMessages, sendMessage } from '../../api/messages';
 import { getToken } from '../../stores/auth';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
@@ -26,6 +26,12 @@ interface Message {
 
 function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: ScrollBehavior = 'smooth') {
   requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior }));
+}
+
+function fieldPartnerRoleLabel(role: string): string {
+  if (role === 'EXTERNAL_PARTNER') return '외부업체';
+  if (role === 'TEAM_LEADER') return '팀장';
+  return role;
 }
 
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -74,6 +80,9 @@ export function AdminMessagesPage() {
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastError, setBroadcastError] = useState<string | null>(null);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [toTeamLeaders, setToTeamLeaders] = useState(true);
+  const [toExternalPartners, setToExternalPartners] = useState(false);
+  const [toCrew, setToCrew] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef<string | null>(null);
@@ -138,7 +147,11 @@ export function AdminMessagesPage() {
     setBroadcasting(true);
     setBroadcastError(null);
     try {
-      await broadcastToTeamLeaders(token, broadcastText.trim());
+      await broadcastToField(token, broadcastText.trim(), {
+        toTeamLeaders,
+        toExternalPartners,
+        toCrew,
+      });
       setBroadcastText('');
       loadConversations();
       if (selectedId) {
@@ -199,7 +212,7 @@ export function AdminMessagesPage() {
           onClick={() => setBroadcastOpen((o) => !o)}
           className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 sm:px-5 sm:py-3.5"
         >
-          <span className="text-sm font-semibold text-gray-900">전체 팀장에게 공지</span>
+          <span className="text-sm font-semibold text-gray-900">현장 공지(일괄)</span>
           <ChevronDownIcon
             className={`h-5 w-5 shrink-0 text-gray-500 transition-transform ${broadcastOpen ? 'rotate-180' : ''}`}
           />
@@ -211,22 +224,64 @@ export function AdminMessagesPage() {
             aria-labelledby="admin-broadcast-toggle"
             className="border-t border-gray-100 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4"
           >
-            <form onSubmit={handleBroadcast} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <textarea
-                value={broadcastText}
-                onChange={(e) => setBroadcastText(e.target.value)}
-                rows={3}
-                placeholder="공지 내용을 입력하세요. 모든 팀장에게 동일하게 전달됩니다."
-                className="max-h-40 min-w-0 max-w-full flex-1 resize-y overflow-y-auto rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={broadcasting}
-              />
-              <button
-                type="submit"
-                disabled={broadcasting || !broadcastText.trim()}
-                className="min-h-[44px] shrink-0 touch-manipulation rounded bg-gray-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
-              >
-                {broadcasting ? '전송 중…' : '전체 전송'}
-              </button>
+            <form onSubmit={handleBroadcast} className="flex flex-col gap-3">
+              <fieldset className="min-w-0 space-y-2 rounded border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+                <legend className="sr-only">공지 수신 대상</legend>
+                <p className="text-xs text-gray-600">받을 대상을 선택하세요. 최소 한 곳 이상.</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+                    <input
+                      type="checkbox"
+                      checked={toTeamLeaders}
+                      onChange={(e) => setToTeamLeaders(e.target.checked)}
+                      disabled={broadcasting}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    팀장
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+                    <input
+                      type="checkbox"
+                      checked={toExternalPartners}
+                      onChange={(e) => setToExternalPartners(e.target.checked)}
+                      disabled={broadcasting}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    외부업체
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+                    <input
+                      type="checkbox"
+                      checked={toCrew}
+                      onChange={(e) => setToCrew(e.target.checked)}
+                      disabled={broadcasting}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    팀원(크루 공유 로그인)
+                  </label>
+                </div>
+              </fieldset>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <textarea
+                  value={broadcastText}
+                  onChange={(e) => setBroadcastText(e.target.value)}
+                  rows={3}
+                  placeholder="공지 내용을 입력하세요. 선택한 대상에게 동일 내용이 전달됩니다."
+                  className="max-h-40 min-w-0 max-w-full flex-1 resize-y overflow-y-auto rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={broadcasting}
+                />
+                <button
+                  type="submit"
+                  disabled={
+                    broadcasting ||
+                    !broadcastText.trim() ||
+                    (!toTeamLeaders && !toExternalPartners && !toCrew)
+                  }
+                  className="min-h-[44px] shrink-0 touch-manipulation rounded bg-gray-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
+                >
+                  {broadcasting ? '전송 중…' : '전송'}
+                </button>
+              </div>
             </form>
             {broadcastError && (
               <p className="mt-2 text-sm text-red-600" role="alert">
@@ -322,7 +377,7 @@ export function AdminMessagesPage() {
                 </button>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-medium text-gray-900">{selected.name}</h2>
-                  <span className="text-xs text-gray-500">팀장</span>
+                  <span className="text-xs text-gray-500">{fieldPartnerRoleLabel(selected.role)}</span>
                 </div>
               </div>
               <div

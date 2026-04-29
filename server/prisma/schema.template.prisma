@@ -101,6 +101,7 @@ model User {
   externalCompanySettlementResetsAsActor ExternalCompanySettlementReset[] @relation("ExternalCompanySettlementResetActor")
   externalCompanySettlementPaymentsAsActor ExternalCompanySettlementPayment[] @relation("ExternalCompanySettlementPaymentActor")
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
+  crewStaffNoticesSent          CrewStaffNotice[]     @relation("CrewStaffNoticeSender")
 
   @@map("users")
 }
@@ -174,8 +175,25 @@ model TeamCrewGroup {
 
   members   TeamCrewGroupMember[]
   dayRoster TeamCrewGroupDayRoster[]
+  staffNotices CrewStaffNotice[]
 
   @@map("team_crew_groups")
+}
+
+/// 운영(관리자·마케터)이 공지 시 「크루」 수신을 선택한 경우 — 공유 로그인(팀 크루 그룹)이 조회
+model CrewStaffNotice {
+  id          String   @id @default(uuid())
+  batchId     String   @map("batch_id") @db.VarChar(64)
+  senderId    String   @map("sender_id")
+  crewGroupId String   @map("crew_group_id")
+  content     String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sender User          @relation("CrewStaffNoticeSender", fields: [senderId], references: [id], onDelete: Cascade)
+  group  TeamCrewGroup @relation(fields: [crewGroupId], references: [id], onDelete: Cascade)
+
+  @@index([crewGroupId, createdAt(sort: Desc)])
+  @@map("crew_staff_notices")
 }
 
 model TeamCrewGroupMember {

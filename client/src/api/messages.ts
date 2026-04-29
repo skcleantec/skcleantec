@@ -67,18 +67,33 @@ export async function sendTeamToManagement(token: string, content: string) {
   return res.json() as Promise<{ batchId: string; recipientCount: number }>;
 }
 
-/** 관리자·마케터: 재직 팀장 전원에게 공지 */
-export async function broadcastToTeamLeaders(token: string, content: string) {
+export type BroadcastToFieldTargets = {
+  toTeamLeaders: boolean;
+  toExternalPartners: boolean;
+  toCrew: boolean;
+};
+
+/** 관리자·마케터: 현장(팀장·외부업체·크루) 대상 공지 — 대상은 플래그로 선택 */
+export async function broadcastToField(
+  token: string,
+  content: string,
+  targets: BroadcastToFieldTargets,
+) {
   const res = await fetch(`${API}/messages/broadcast-to-leaders`, {
     method: 'POST',
     headers: { ...headers(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({
+      content,
+      toTeamLeaders: targets.toTeamLeaders,
+      toExternalPartners: targets.toExternalPartners,
+      toCrew: targets.toCrew,
+    }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(typeof err?.error === 'string' ? err.error : '전송에 실패했습니다.');
   }
-  return res.json() as Promise<{ batchId: string; recipientCount: number }>;
+  return res.json() as Promise<{ batchId: string; recipientCount: number; crewNoticeCount: number }>;
 }
 
 export async function sendMessage(token: string, receiverId: string, content: string) {

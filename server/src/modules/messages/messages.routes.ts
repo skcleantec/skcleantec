@@ -5,6 +5,7 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyCrewGroupsInboxRefresh } from '../crew/crewFieldRealtime.js';
 
 const router = Router();
 
@@ -69,19 +70,42 @@ async function getEmployedExternalPartnerIds(): Promise<string[]> {
   return usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd)).map((u) => u.id);
 }
 
-async function buildConversationList(myUserId: string, partners: PartnerRow[]) {
+async function getActiveCrewGroupIds(): Promise<string[]> {
+  const rows = await prisma.teamCrewGroup.findMany({
+    where: { isActive: true },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
+async function buildConversationList(myUserId: string, partners: PartnerRow[], opts?: { staffIdsMerge?: string[] }) {
   if (partners.length === 0) return [];
   const partnerIds = partners.map((p) => p.id);
-  const [allMessages, unreadBySender] = await Promise.all([
-    prisma.message.findMany({
-      where: {
+  const partnerIdSet = new Set(partnerIds);
+  const staffMergeSet = new Set((opts?.staffIdsMerge ?? []).filter(Boolean));
+  const useMerge = staffMergeSet.size > 0;
+
+  const messageWhere = useMerge
+    ? {
+        OR: [
+          { senderId: myUserId, receiverId: { in: partnerIds } },
+          { senderId: { in: partnerIds }, receiverId: myUserId },
+          { senderId: { in: [...staffMergeSet] }, receiverId: { in: partnerIds } },
+          { senderId: { in: partnerIds }, receiverId: { in: [...staffMergeSet] } },
+        ],
+      }
+    : {
         OR: [
           { senderId: myUserId, receiverId: { in: partnerIds } },
           { senderId: { in: partnerIds }, receiverId: myUserId },
         ],
-      },
+      };
+
+  const [allMessages, unreadBySender] = await Promise.all([
+    prisma.message.findMany({
+      where: messageWhere,
       orderBy: { createdAt: 'desc' },
-      take: 500,
+      take: 1000,
       select: { content: true, createdAt: true, senderId: true, receiverId: true },
     }),
     prisma.message.groupBy({
@@ -93,8 +117,19 @@ async function buildConversationList(myUserId: string, partners: PartnerRow[]) {
   const unreadMap = new Map(unreadBySender.map((u) => [u.senderId, u._count.id]));
   const lastByPartner = new Map<string, { content: string; createdAt: Date; senderId: string }>();
   for (const m of allMessages) {
-    const partnerId = m.senderId === myUserId ? m.receiverId : m.senderId;
-    if (!lastByPartner.has(partnerId)) lastByPartner.set(partnerId, m);
+    let partnerId: string | null = null;
+    if (useMerge) {
+      if (partnerIdSet.has(m.senderId) && (m.receiverId === myUserId || staffMergeSet.has(m.receiverId))) {
+        partnerId = m.senderId;
+      } else if (partnerIdSet.has(m.receiverId) && (m.senderId === myUserId || staffMergeSet.has(m.senderId))) {
+        partnerId = m.receiverId;
+      }
+    } else if (m.senderId === myUserId && partnerIdSet.has(m.receiverId)) {
+      partnerId = m.receiverId;
+    } else if (m.receiverId === myUserId && partnerIdSet.has(m.senderId)) {
+      partnerId = m.senderId;
+    }
+    if (partnerId && !lastByPartner.has(partnerId)) lastByPartner.set(partnerId, m);
   }
   const list = partners.map((u) => ({
     ...u,
@@ -135,7 +170,8 @@ router.get('/conversations', async (req, res) => {
       name: u.role === 'EXTERNAL_PARTNER' && u.externalCompany?.name ? `${u.name} (${u.externalCompany.name})` : u.name,
       role: u.role,
     }));
-    const list = await buildConversationList(userId, partners);
+    const staffIdsMerge = await getEmployedStaffIds();
+    const list = await buildConversationList(userId, partners, { staffIdsMerge });
     res.json(list);
     return;
   }
@@ -293,45 +329,80 @@ router.post('/team-send', async (req, res) => {
   notifyInboxRefresh([userId, ...staffIds]);
 });
 
-/** 관리자·마케터: 전체 팀장에게 공지(동일 내용) */
+/** 관리자·마케터: 현장 계정·크루 그룹 대상 공지(동일 내용) — 수신 대상은 본문 플래그로 선택 */
 router.post('/broadcast-to-leaders', async (req, res) => {
   const { userId, role } = (req as unknown as { user: AuthPayload }).user;
   if (role !== 'ADMIN' && role !== 'MARKETER') {
     res.status(403).json({ error: '관리자·마케터만 전송할 수 있습니다.' });
     return;
   }
-  const { content } = req.body as { content?: string };
-  if (!content?.trim()) {
+  const body = req.body as {
+    content?: string;
+    toTeamLeaders?: boolean;
+    toExternalPartners?: boolean;
+    toCrew?: boolean;
+  };
+  if (!body.content?.trim()) {
     res.status(400).json({ error: '내용을 입력해주세요.' });
     return;
   }
-  const leaderIds = await getEmployedTeamLeaderIds();
-  const partnerIds = await getEmployedExternalPartnerIds();
-  const receiverIds = [...new Set([...leaderIds, ...partnerIds])];
-  if (receiverIds.length === 0) {
-    res.status(400).json({ error: '수신 가능한 팀장·타업체 계정이 없습니다.' });
+  const toTeamLeaders = body.toTeamLeaders === true;
+  const toExternalPartners = body.toExternalPartners === true;
+  const toCrew = body.toCrew === true;
+  if (!toTeamLeaders && !toExternalPartners && !toCrew) {
+    res.status(400).json({ error: '팀장·외부업체·팀원(크루) 중 최소 한 곳을 선택해 주세요.' });
     return;
   }
+
+  const receiverIds: string[] = [];
+  if (toTeamLeaders) receiverIds.push(...(await getEmployedTeamLeaderIds()));
+  if (toExternalPartners) receiverIds.push(...(await getEmployedExternalPartnerIds()));
+  const uniqueReceivers = [...new Set(receiverIds)];
+
+  const crewGroupIds = toCrew ? await getActiveCrewGroupIds() : [];
+
+  if (uniqueReceivers.length === 0 && crewGroupIds.length === 0) {
+    res.status(400).json({ error: '선택한 대상에 보낼 수 있는 계정·크루 그룹이 없습니다.' });
+    return;
+  }
+
   const batchId = randomUUID();
-  const text = content.trim();
-  const created = await prisma.$transaction(
-    receiverIds.map((receiverId) =>
-      prisma.message.create({
+  const text = body.content.trim();
+
+  await prisma.$transaction(async (tx) => {
+    for (const receiverId of uniqueReceivers) {
+      await tx.message.create({
         data: {
           senderId: userId,
           receiverId,
           content: text,
           batchId,
         } as any,
-        include: {
-          sender: { select: { id: true, name: true } },
-          receiver: { select: { id: true, name: true } },
-        },
-      })
-    )
-  );
-  res.status(201).json({ batchId, recipientCount: created.length });
-  notifyInboxRefresh([userId, ...receiverIds]);
+      });
+    }
+    if (crewGroupIds.length > 0) {
+      await tx.crewStaffNotice.createMany({
+        data: crewGroupIds.map((crewGroupId) => ({
+          batchId,
+          senderId: userId,
+          crewGroupId,
+          content: text,
+        })),
+      });
+    }
+  });
+
+  const notifyUserIds = [userId, ...uniqueReceivers];
+  notifyInboxRefresh(notifyUserIds);
+  if (crewGroupIds.length > 0) {
+    notifyCrewGroupsInboxRefresh(crewGroupIds);
+  }
+
+  res.status(201).json({
+    batchId,
+    recipientCount: uniqueReceivers.length,
+    crewNoticeCount: crewGroupIds.length,
+  });
 });
 
 async function findEmployedUser(otherId: string) {
@@ -354,6 +425,10 @@ function canMessagePair(myRole: string, otherRole: string): boolean {
   return false;
 }
 
+function isFieldUserRole(role: string): boolean {
+  return role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER';
+}
+
 router.get('/:userId', async (req, res) => {
   const { userId: myId, role } = (req as unknown as { user: AuthPayload }).user;
   const { userId: otherId } = req.params;
@@ -366,25 +441,12 @@ router.get('/:userId', async (req, res) => {
     res.status(403).json({ error: '대화할 수 없는 사용자입니다.' });
     return;
   }
-  const messages = (await prisma.message.findMany({
-    where: {
-      OR: [
-        { senderId: myId, receiverId: otherId },
-        { senderId: otherId, receiverId: myId },
-      ],
-    },
-    orderBy: { createdAt: 'asc' },
-    select: {
-      id: true,
-      content: true,
-      createdAt: true,
-      readAt: true,
-      senderId: true,
-      receiverId: true,
-      batchId: true,
-      sender: { select: { id: true, name: true } },
-    },
-  } as any)) as Array<{
+
+  const staff = role === 'ADMIN' || role === 'MARKETER';
+  const useMergedStaffThread = staff && isFieldUserRole(other.role);
+  const staffIds = useMergedStaffThread ? await getEmployedStaffIds() : [];
+
+  type MsgRow = {
     id: string;
     content: string;
     createdAt: Date;
@@ -393,7 +455,63 @@ router.get('/:userId', async (req, res) => {
     receiverId: string;
     batchId: string | null;
     sender: { id: string; name: string };
-  }>;
+  };
+
+  let messages: MsgRow[];
+  if (useMergedStaffThread && staffIds.length > 0) {
+    const sidSet = new Set(staffIds);
+    const raw = (await prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: myId, receiverId: otherId },
+          { senderId: otherId, receiverId: myId },
+          { senderId: { in: staffIds }, receiverId: otherId },
+          { senderId: otherId, receiverId: { in: staffIds } },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        content: true,
+        createdAt: true,
+        readAt: true,
+        senderId: true,
+        receiverId: true,
+        batchId: true,
+        sender: { select: { id: true, name: true } },
+      },
+    } as any)) as MsgRow[];
+    const seenBatch = new Set<string>();
+    messages = [];
+    for (const m of raw) {
+      if (m.senderId === otherId && m.batchId && sidSet.has(m.receiverId)) {
+        if (seenBatch.has(m.batchId)) continue;
+        seenBatch.add(m.batchId);
+      }
+      messages.push(m);
+    }
+  } else {
+    messages = (await prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: myId, receiverId: otherId },
+          { senderId: otherId, receiverId: myId },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        content: true,
+        createdAt: true,
+        readAt: true,
+        senderId: true,
+        receiverId: true,
+        batchId: true,
+        sender: { select: { id: true, name: true } },
+      },
+    } as any)) as MsgRow[];
+  }
+
   const readNow = new Date();
   await prisma.message.updateMany({
     where: { senderId: otherId, receiverId: myId, readAt: null },

@@ -91,6 +91,28 @@ export interface CrewMeResponse {
   };
 }
 
+export interface CrewStaffNoticeItem {
+  id: string;
+  batchId: string;
+  content: string;
+  createdAt: string;
+  sender: { id: string; name: string };
+}
+
+/** 운영(관리자·마케터)에서 보낸 공지 목록 — 크루 공유 로그인 */
+export async function getCrewStaffNotices(token: string): Promise<{ items: CrewStaffNoticeItem[] }> {
+  const res = await fetch(`${API}/crew/staff-notices`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '공지를 불러올 수 없습니다.'));
+  }
+  return res.json();
+}
+
 export async function getCrewMe(token: string): Promise<CrewMeResponse> {
   let res: Response;
   try {
