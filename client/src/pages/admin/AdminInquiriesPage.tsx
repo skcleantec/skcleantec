@@ -2205,17 +2205,17 @@ export function AdminInquiriesPage() {
             <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
             <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm">
               <colgroup>
-                <col className="w-[10%]" />
+                <col className="w-[9%]" />
                 <col className="w-[6%]" />
                 <col className="w-[8%]" />
-                <col className="w-[7%]" />
-                <col className="w-[12%]" />
-                <col className="w-[4%]" />
+                <col className="w-[6%]" />
+                <col className="w-[10%]" />
+                <col className="w-[6%]" />
                 <col className="w-[8%]" />
                 <col className="w-[8%]" />
                 <col className="w-[10%]" />
                 <col className="w-[9%]" />
-                <col className="w-[18%]" />
+                <col className="w-[20%]" />
               </colgroup>
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-200">
@@ -2226,7 +2226,9 @@ export function AdminInquiriesPage() {
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">고객</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">연락처</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">주소</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">평수</th>
+                  <th className="px-0.5 py-1.5 text-center text-[10px] font-medium leading-tight text-gray-700 xl:px-1 xl:py-2 2xl:text-[11px]">
+                    평수
+                  </th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">예약일</th>
                   <th
                     className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs"
@@ -2349,10 +2351,10 @@ export function AdminInquiriesPage() {
                       {addressListShortSiGu(item.address)}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      className={`min-w-0 px-0.5 py-1 align-middle text-center text-[10px] leading-tight tabular-nums text-gray-600 xl:px-1 xl:py-1.5 2xl:text-[11px] ${pBorder}`}
                       title={formatAreaLine(item)}
                     >
-                      {formatAreaLine(item)}
+                      <span className="line-clamp-2 break-words">{formatAreaLine(item)}</span>
                     </td>
                     <td className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}>
                       <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
@@ -2434,10 +2436,10 @@ export function AdminInquiriesPage() {
                       </select>
                     </td>
                     <td
-                      className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder} ${isPreOrder ? 'border-r-2 border-r-red-500' : ''}`}
+                      className={`min-w-0 align-middle px-1 py-1.5 xl:px-1.5 xl:py-2 ${pBorder} ${isPreOrder ? 'border-r-2 border-r-red-500' : ''}`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-start gap-1 overflow-x-auto whitespace-nowrap pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-gray-200 [&>button]:bg-white [&>button]:px-1.5 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-medium [&>button]:leading-tight [&>button]:shadow-sm [&>button]:hover:bg-gray-50 [&>button]:active:bg-gray-100 sm:[&>button]:px-2 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
+                      <div className="flex flex-wrap content-start items-center justify-start gap-x-1 gap-y-1 [&>button]:inline-flex [&>button]:shrink-0 [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-gray-200 [&>button]:bg-white [&>button]:px-1.5 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-medium [&>button]:leading-tight [&>button]:shadow-sm [&>button]:hover:bg-gray-50 [&>button]:active:bg-gray-100 sm:[&>button]:px-2 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
                         {item.status === 'DEPOSIT_PENDING' ? (
                           <>
                             <button
@@ -2638,7 +2640,7 @@ export function AdminInquiriesPage() {
                 접수자: {labelForMarketerFilter(marketerFilterId, me, marketers)}
               </>
             ) : null}
-            <span className="hidden lg:inline"> · 행을 누르면 상세 · 표는 고정 폭·말줄임으로 한 화면에 맞춤(매우 좁을 때만 하단 막대)</span>
+            <span className="hidden lg:inline"> · 행을 누르면 상세 · 표는 고정 비율(작업 버튼은 줄바꿈)·말줄임 · 좁을 때 하단 가로 스크롤</span>
             <span className="lg:hidden"> · 카드 위쪽 탭 시 상세</span>
           </div>
         )}
