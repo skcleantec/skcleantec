@@ -103,6 +103,38 @@ function parseGuideSectionsFromDb(raw: string | null | undefined): GuideSection[
   return DEFAULT_GUIDE_SECTIONS;
 }
 
+const profOptionOrderBy: Prisma.ProfessionalSpecialtyOptionOrderByWithRelationInput[] = [
+  { parentId: 'asc' },
+  { sortOrder: 'asc' },
+  { createdAt: 'asc' },
+];
+
+const profOptionSelectPublic = {
+  id: true,
+  parentId: true,
+  isGroup: true,
+  label: true,
+  priceHint: true,
+  priceAmount: true,
+  emoji: true,
+  color: true,
+  sortOrder: true,
+} as const;
+
+const profOptionSelectListRow = {
+  id: true,
+  parentId: true,
+  isGroup: true,
+  label: true,
+  priceHint: true,
+  priceAmount: true,
+  emoji: true,
+  color: true,
+  sortOrder: true,
+  isActive: true,
+  createdAt: true,
+} as const;
+
 /** 공개: 고객 안내사항 페이지(`/info`)용 — 인증 없음 */
 router.get('/public-guide', async (_req, res) => {
   try {
@@ -127,9 +159,12 @@ router.get('/public-guide', async (_req, res) => {
 router.get('/professional-options', async (_req, res) => {
   try {
     const items = await prisma.professionalSpecialtyOption.findMany({
-      where: { isActive: true },
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, label: true, priceHint: true, emoji: true, color: true, sortOrder: true },
+      where: {
+        isActive: true,
+        OR: [{ parentId: null }, { parent: { isActive: true } }],
+      },
+      orderBy: profOptionOrderBy,
+      select: profOptionSelectPublic,
     });
     res.json({ items });
   } catch (err) {
@@ -142,7 +177,8 @@ router.get('/professional-options', async (_req, res) => {
 router.get('/professional-options/all', authMiddleware, adminOrMarketer, async (_req, res) => {
   try {
     const items = await prisma.professionalSpecialtyOption.findMany({
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      orderBy: profOptionOrderBy,
+      select: profOptionSelectListRow,
     });
     res.json({ items });
   } catch (err) {
@@ -155,7 +191,10 @@ router.get('/professional-options/all', authMiddleware, adminOrMarketer, async (
 router.post('/professional-options', authMiddleware, adminOrMarketer, async (req, res) => {
   const body = req.body as {
     label?: string;
+    parentId?: string | null;
+    isGroup?: boolean;
     priceHint?: string;
+    priceAmount?: unknown;
     emoji?: string;
     color?: string;
     sortOrder?: number;
@@ -171,13 +210,56 @@ router.post('/professional-options', authMiddleware, adminOrMarketer, async (req
     res.status(400).json({ error: '색상은 #RRGGBB 형식(예: #2563eb)으로 입력해주세요.' });
     return;
   }
+  const parentId =
+    body.parentId == null || body.parentId === '' ? null : String(body.parentId).trim() || null;
+  const isGroupRoot = Boolean(body.isGroup);
   const priceHint = body.priceHint != null ? String(body.priceHint).trim() : '';
+  const priceAmount = parseBodyInt(body.priceAmount);
   const emoji = body.emoji != null ? String(body.emoji).trim().slice(0, 8) : '';
   const sortOrder = body.sortOrder != null && Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0;
   const isActive = body.isActive !== false;
+
   try {
+    if (parentId) {
+      const p = await prisma.professionalSpecialtyOption.findUnique({ where: { id: parentId } });
+      if (!p) {
+        res.status(400).json({ error: '상위 대분류를 찾을 수 없습니다.' });
+        return;
+      }
+      if (p.parentId != null) {
+        res.status(400).json({ error: '하위 항목 아래에는 추가할 수 없습니다. (대분류·상세 1단계만)' });
+        return;
+      }
+      if (!p.isGroup) {
+        await prisma.professionalSpecialtyOption.update({ where: { id: parentId }, data: { isGroup: true } });
+      }
+    }
+
+    const isGroup = parentId ? false : isGroupRoot;
+    const finalPrice =
+      parentId != null
+        ? priceAmount != null && priceAmount >= 0
+          ? priceAmount
+          : null
+        : isGroup
+          ? null
+          : priceAmount != null && priceAmount >= 0
+            ? priceAmount
+            : null;
+
     const created = await prisma.professionalSpecialtyOption.create({
-      data: { id: randomUUID(), label, priceHint, emoji, color, sortOrder, isActive },
+      data: {
+        id: randomUUID(),
+        parentId,
+        isGroup,
+        label,
+        priceHint: priceHint || null,
+        priceAmount: finalPrice,
+        emoji: emoji || null,
+        color,
+        sortOrder,
+        isActive,
+      },
     });
     res.json(created);
   } catch (err) {
@@ -191,7 +273,10 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
   const { id } = req.params;
   const body = req.body as {
     label?: string;
+    parentId?: string | null;
+    isGroup?: boolean;
     priceHint?: string;
+    priceAmount?: unknown;
     emoji?: string;
     color?: string;
     sortOrder?: number;
@@ -202,34 +287,86 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
   }
-  const data: Record<string, unknown> = {};
+  const data: Prisma.ProfessionalSpecialtyOptionUpdateInput = {};
   if (body.label !== undefined) {
-    const label = String(body.label).trim();
-    if (!label) {
+    const l = String(body.label).trim();
+    if (!l) {
       res.status(400).json({ error: '항목명을 입력해주세요.' });
       return;
     }
-    data.label = label;
+    data.label = l;
+  }
+  if (body.parentId !== undefined) {
+    const pId =
+      body.parentId == null || body.parentId === '' ? null : String(body.parentId).trim() || null;
+    if (pId) {
+      if (pId === id) {
+        res.status(400).json({ error: '자기 자신을 상위로 둘 수 없습니다.' });
+        return;
+      }
+      const p = await prisma.professionalSpecialtyOption.findUnique({ where: { id: pId } });
+      if (!p) {
+        res.status(400).json({ error: '상위 항목을 찾을 수 없습니다.' });
+        return;
+      }
+      if (p.parentId != null) {
+        res.status(400).json({ error: '1단계 대분류만 상위로 지정할 수 있습니다.' });
+        return;
+      }
+      data.parent = { connect: { id: pId } };
+      data.isGroup = false;
+    } else {
+      data.parent = { disconnect: true };
+    }
+  }
+  if (body.isGroup !== undefined && !existing.parentId) {
+    data.isGroup = Boolean(body.isGroup);
   }
   if (body.priceHint !== undefined) data.priceHint = String(body.priceHint).trim();
   if (body.emoji !== undefined) data.emoji = String(body.emoji).trim().slice(0, 8);
   if (body.color !== undefined) {
-    const color = normalizeHexColor(String(body.color));
-    if (!color) {
+    const c = normalizeHexColor(String(body.color));
+    if (!c) {
       res.status(400).json({ error: '색상은 #RRGGBB 형식으로 입력해주세요.' });
       return;
     }
-    data.color = color;
+    data.color = c;
   }
   if (body.sortOrder !== undefined && Number.isFinite(Number(body.sortOrder))) {
     data.sortOrder = Number(body.sortOrder);
   }
   if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+  if (body.priceAmount !== undefined) {
+    const n = parseBodyInt(body.priceAmount);
+    if (n != null && n < 0) {
+      res.status(400).json({ error: '가격은 0 이상이어야 합니다.' });
+      return;
+    }
+    if (existing.parentId) {
+      data.priceAmount = n != null && n >= 0 ? n : null;
+    } else {
+      const willBeGroup =
+        'isGroup' in data && data.isGroup !== undefined
+          ? Boolean(data.isGroup)
+          : body.isGroup !== undefined
+            ? Boolean(body.isGroup)
+            : existing.isGroup;
+      data.priceAmount = willBeGroup ? null : n != null && n >= 0 ? n : null;
+    }
+  }
+  if (!existing.parentId) {
+    const nextIsGroup =
+      'isGroup' in data && data.isGroup !== undefined
+        ? Boolean(data.isGroup)
+        : body.isGroup !== undefined
+          ? Boolean(body.isGroup)
+          : existing.isGroup;
+    if (nextIsGroup) {
+      data.priceAmount = null;
+    }
+  }
   try {
-    const updated = await prisma.professionalSpecialtyOption.update({
-      where: { id },
-      data,
-    });
+    const updated = await prisma.professionalSpecialtyOption.update({ where: { id }, data });
     res.json(updated);
   } catch (err) {
     console.error('professional-options patch error:', err);
@@ -241,7 +378,18 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
 router.delete('/professional-options/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const { id } = req.params;
   try {
+    const row = await prisma.professionalSpecialtyOption.findUnique({
+      where: { id },
+      select: { parentId: true },
+    });
+    const pId = row?.parentId;
     await prisma.professionalSpecialtyOption.delete({ where: { id } });
+    if (pId) {
+      const remain = await prisma.professionalSpecialtyOption.count({ where: { parentId: pId } });
+      if (remain === 0) {
+        await prisma.professionalSpecialtyOption.update({ where: { id: pId }, data: { isGroup: false } });
+      }
+    }
     res.json({ ok: true });
   } catch {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
@@ -1008,9 +1156,12 @@ router.get('/by-token/:token', async (req, res) => {
       orderBy: { sortOrder: 'asc' },
     }),
     prisma.professionalSpecialtyOption.findMany({
-      where: { isActive: true },
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, label: true, priceHint: true, emoji: true, color: true, sortOrder: true },
+      where: {
+        isActive: true,
+        OR: [{ parentId: null }, { parent: { isActive: true } }],
+      },
+      orderBy: profOptionOrderBy,
+      select: profOptionSelectPublic,
     }),
   ]);
   let formConfig = await prisma.orderFormConfig.findFirst();

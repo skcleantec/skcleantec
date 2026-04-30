@@ -450,16 +450,27 @@ model ScheduleDayTeamMemberSlot {
 }
 
 /// 발주서·접수에서 선택하는 전문 시공 옵션 (관리자 설정)
+/// - 루트+`isGroup`: 대분류(섹션 제목, 직접 선택 불가). 하위는 `parentId`로 연결
+/// - 루트+!`isGroup`+자식 없음: 기존 단일 옵션과 동일(고객이 직접 체크)
+/// - `parentId`가 있으면 상세 옵션이며 `priceAmount`로 가격(원) 설정 가능
 model ProfessionalSpecialtyOption {
-  id        String   @id
+  id        String  @id
+  parentId  String? @map("parent_id")
+  parent    ProfessionalSpecialtyOption?  @relation("ProfSpecTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  ProfessionalSpecialtyOption[]  @relation("ProfSpecTree")
+  /// 루트(`parentId` null)에서만 사용. true면 대분류(섹션), 고객은 하위 항목만 선택
+  isGroup   Boolean @default(false) @map("is_group")
   label     String
-  priceHint String?  @map("price_hint")
+  priceHint String? @map("price_hint")
+  /// 상세 옵션(하위) 또는 단독 루트의 금액(원). 대분류 루트는 null
+  priceAmount Int?  @map("price_amount")
   emoji     String?
   color     String?
-  sortOrder Int      @default(0) @map("sort_order")
-  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@index([parentId, sortOrder])
   @@map("professional_specialty_options")
 }
 

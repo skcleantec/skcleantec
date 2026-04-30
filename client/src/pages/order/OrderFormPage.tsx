@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   getOrderFormByToken,
@@ -18,6 +18,12 @@ import {
   getPreferredTimeDetailSelectOptions,
   preferredTimeDetailRangeHint,
 } from '../../constants/orderFormPreferredTimeDetail';
+import {
+  formatProfOptionPriceDisplay,
+  isSelectableProfOption,
+  listProfChildren,
+  listProfRootNodes,
+} from '../../constants/professionalSpecialtyOptions';
 
 const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o) => o.value));
 
@@ -118,6 +124,22 @@ export function OrderFormPage() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [professionalOptionIds, setProfessionalOptionIds] = useState<string[]>([]);
   const [professionalOptions, setProfessionalOptions] = useState<ProfessionalSpecialtyOptionDto[]>([]);
+  /** 대분류(하위 있음) — 체크 시에만 세부 항목 표시 */
+  const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
+  const profRoots = useMemo(() => listProfRootNodes(professionalOptions), [professionalOptions]);
+
+  useEffect(() => {
+    setProfCatOpen((prev) => {
+      const next = { ...prev };
+      for (const root of listProfRootNodes(professionalOptions)) {
+        const kids = listProfChildren(professionalOptions, root.id);
+        if (kids.some((c) => professionalOptionIds.includes(c.id))) {
+          next[root.id] = true;
+        }
+      }
+      return next;
+    });
+  }, [professionalOptionIds, professionalOptions]);
 
   const cancelTimeSlotAck = useCallback(() => {
     setPendingTimeSlot(null);
@@ -675,33 +697,117 @@ export function OrderFormPage() {
               {professionalOptions.length === 0 ? (
                 <p className="text-sm text-gray-500">등록된 전문 시공 옵션이 없습니다.</p>
               ) : (
-                professionalOptions.map((o) => (
-                  <label
-                    key={o.id}
-                    className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={professionalOptionIds.includes(o.id)}
-                      onChange={() => toggleProfessionalOption(o.id)}
-                      className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
-                    />
-                    <span>
-                      {o.emoji ? (
-                        <span className="mr-1" aria-hidden>
-                          {o.emoji}
-                        </span>
-                      ) : null}
-                      <span
-                        className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
-                        style={{ backgroundColor: o.color }}
-                        aria-hidden
+                profRoots.map((root) => {
+                  const kids = listProfChildren(professionalOptions, root.id).filter((c) => c.isActive);
+                  const showAsSection = root.isGroup || kids.length > 0;
+                  if (showAsSection) {
+                    if (kids.length === 0) return null;
+                    const kidIds = kids.map((k) => k.id);
+                    const catOpen = profCatOpen[root.id] ?? false;
+                    return (
+                      <div key={root.id} className="space-y-1.5">
+                        <label className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug">
+                          <input
+                            type="checkbox"
+                            checked={catOpen}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setProfCatOpen((p) => ({ ...p, [root.id]: on }));
+                              if (!on) {
+                                setProfessionalOptionIds((ids) => ids.filter((id) => !kidIds.includes(id)));
+                              }
+                            }}
+                            className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
+                            aria-expanded={catOpen}
+                            aria-controls={`prof-sub-${root.id}`}
+                          />
+                          <span className="min-w-0">
+                            {root.emoji ? <span className="mr-1" aria-hidden>{root.emoji}</span> : null}
+                            <span
+                              className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
+                              style={{ backgroundColor: root.color }}
+                              aria-hidden
+                            />
+                            <span className="font-medium">{root.label}</span>
+                            <span className="block text-xs font-normal text-gray-500 mt-0.5">
+                              선택 시 세부 항목·금액을 고를 수 있습니다.
+                            </span>
+                          </span>
+                        </label>
+                        {catOpen ? (
+                          <div
+                            id={`prof-sub-${root.id}`}
+                            className="pl-2 sm:pl-3 space-y-2 border-l-2 border-gray-200"
+                            role="group"
+                            aria-label={`${root.label} 세부 옵션`}
+                          >
+                            {kids.map((o) => {
+                              const price = formatProfOptionPriceDisplay(o);
+                              return (
+                                <label
+                                  key={o.id}
+                                  className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={professionalOptionIds.includes(o.id)}
+                                    onChange={() => toggleProfessionalOption(o.id)}
+                                    className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
+                                  />
+                                  <span>
+                                    {o.emoji ? (
+                                      <span className="mr-1" aria-hidden>
+                                        {o.emoji}
+                                      </span>
+                                    ) : null}
+                                    <span
+                                      className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
+                                      style={{ backgroundColor: o.color }}
+                                      aria-hidden
+                                    />
+                                    <span className="font-medium">{o.label}</span>
+                                    {price ? <span className="text-gray-500"> {price}</span> : null}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }
+                  if (!root.isActive || !isSelectableProfOption(professionalOptions, root)) {
+                    return null;
+                  }
+                  const price = formatProfOptionPriceDisplay(root);
+                  return (
+                    <label
+                      key={root.id}
+                      className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={professionalOptionIds.includes(root.id)}
+                        onChange={() => toggleProfessionalOption(root.id)}
+                        className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
                       />
-                      <span className="font-medium">{o.label}</span>{' '}
-                      {o.priceHint ? <span className="text-gray-500">({o.priceHint})</span> : null}
-                    </span>
-                  </label>
-                ))
+                      <span>
+                        {root.emoji ? (
+                          <span className="mr-1" aria-hidden>
+                            {root.emoji}
+                          </span>
+                        ) : null}
+                        <span
+                          className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
+                          style={{ backgroundColor: root.color }}
+                          aria-hidden
+                        />
+                        <span className="font-medium">{root.label}</span>
+                        {price ? <span className="text-gray-500"> {price}</span> : null}
+                      </span>
+                    </label>
+                  );
+                })
               )}
             </div>
           </div>

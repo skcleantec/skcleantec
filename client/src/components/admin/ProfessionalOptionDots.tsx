@@ -1,6 +1,7 @@
 import {
   getProfessionalOptionById,
   normalizeProfessionalOptionIds,
+  formatProfOptionPriceDisplay,
   type ProfessionalSpecialtyOption,
 } from '../../constants/professionalSpecialtyOptions';
 
@@ -27,10 +28,11 @@ export function ProfessionalOptionDots({ rawIds, catalog }: Props) {
             />
           );
         }
+        const price = formatProfOptionPriceDisplay(opt);
         return (
           <span
             key={id}
-            title={`${opt.emoji ? `${opt.emoji} ` : ''}${opt.label}${opt.priceHint ? ` (${opt.priceHint})` : ''}`}
+            title={`${opt.emoji ? `${opt.emoji} ` : ''}${opt.label}${price ? ` ${price}` : ''}`}
             className="inline-block w-2.5 h-2.5 rounded-full shrink-0 border border-gray-300/80"
             style={{ backgroundColor: opt.color }}
           />

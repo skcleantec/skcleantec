@@ -12,7 +12,7 @@ export function parseProfessionalOptionIdsRaw(body: unknown): string[] {
   return out;
 }
 
-/** 고객 발주서 제출: 활성 옵션 id만 */
+/** 고객 발주서 제출: 활성이면서 '선택 가능'한 옵션 id만 (대분류 루트·비활성 부모의 자식 제외) */
 export async function filterActiveProfessionalOptionIds(
   prisma: PrismaClient,
   ids: string[]
@@ -20,9 +20,24 @@ export async function filterActiveProfessionalOptionIds(
   if (!ids.length) return [];
   const rows = await prisma.professionalSpecialtyOption.findMany({
     where: { id: { in: ids }, isActive: true },
-    select: { id: true },
+    select: {
+      id: true,
+      parentId: true,
+      isGroup: true,
+      parent: { select: { isActive: true, id: true } },
+      _count: { select: { children: true } },
+    },
   });
-  const allowed = new Set(rows.map((r) => r.id));
+  const allowed = new Set(
+    rows
+      .filter((r) => {
+        if (r.parentId) {
+          return r.parent?.isActive === true;
+        }
+        return !r.isGroup && r._count.children === 0;
+      })
+      .map((r) => r.id)
+  );
   return ids.filter((id) => allowed.has(id));
 }
 
@@ -47,10 +62,18 @@ export async function formatProfessionalOptionsMemoLine(
   if (!ids.length) return null;
   const rows = await prisma.professionalSpecialtyOption.findMany({
     where: { id: { in: ids } },
-    select: { id: true, label: true },
+    select: { id: true, label: true, priceAmount: true, priceHint: true },
   });
-  const labelById = new Map(rows.map((r) => [r.id, r.label]));
-  const parts = ids.map((id) => labelById.get(id) ?? id);
+  const labelById = new Map(rows.map((r) => [r.id, r] as const));
+  const parts = ids.map((id) => {
+    const r = labelById.get(id);
+    if (!r) return id;
+    if (r.priceAmount != null && r.priceAmount > 0) {
+      return `${r.label}(${r.priceAmount.toLocaleString('ko-KR')}원)`;
+    }
+    if (r.priceHint) return `${r.label}(${r.priceHint})`;
+    return r.label;
+  });
   return `전문 시공: ${parts.join(', ')}`;
 }
 

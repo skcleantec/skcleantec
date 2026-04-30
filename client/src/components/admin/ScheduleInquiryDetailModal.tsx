@@ -18,6 +18,10 @@ import { AddressSearch } from '../forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
 import {
+  formatProfOptionPriceDisplay,
+  isSelectableProfOption,
+  listProfChildren,
+  listProfRootNodes,
   normalizeProfessionalOptionIds,
   type ProfessionalSpecialtyOption,
 } from '../../constants/professionalSpecialtyOptions';
@@ -653,6 +657,23 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     };
   });
+
+  const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setProfCatOpen({});
+  }, [item?.id]);
+
+  useEffect(() => {
+    const auto: Record<string, boolean> = {};
+    for (const root of listProfRootNodes(professionalCatalog)) {
+      const kids = listProfChildren(professionalCatalog, root.id);
+      if (kids.some((c) => editForm.professionalOptionIds.includes(c.id))) {
+        auto[root.id] = true;
+      }
+    }
+    setProfCatOpen((p) => ({ ...p, ...auto }));
+  }, [editForm.professionalOptionIds, professionalCatalog]);
 
   useEffect(() => {
     if (!isCreate) return;
@@ -1715,33 +1736,118 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">전문 시공 옵션</label>
             <div className="space-y-1.5 max-h-44 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
-              {professionalCatalog.filter((o) => o.isActive).map((o) => (
-                <label key={o.id} className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 shrink-0"
-                    checked={editForm.professionalOptionIds.includes(o.id)}
-                    onChange={() =>
-                      setEditForm((p) => ({
-                        ...p,
-                        professionalOptionIds: p.professionalOptionIds.includes(o.id)
-                          ? p.professionalOptionIds.filter((x) => x !== o.id)
-                          : [...p.professionalOptionIds, o.id],
-                      }))
-                    }
-                  />
-                  <span
-                    className="inline-block w-2 h-2 rounded-full shrink-0 mt-0.5 border border-gray-300"
-                    style={{ backgroundColor: o.color }}
-                    aria-hidden
-                  />
-                  <span>
-                    {o.emoji ? <span className="mr-0.5">{o.emoji}</span> : null}
-                    {o.label}{' '}
-                    {o.priceHint ? <span className="text-gray-500">({o.priceHint})</span> : null}
-                  </span>
-                </label>
-              ))}
+              {listProfRootNodes(professionalCatalog).map((root) => {
+                const kids = listProfChildren(professionalCatalog, root.id).filter(
+                  (c) => c.isActive && isSelectableProfOption(professionalCatalog, c)
+                );
+                const showAsSection = root.isGroup || kids.length > 0;
+                if (showAsSection) {
+                  if (kids.length === 0) return null;
+                  const kidIds = kids.map((k) => k.id);
+                  const catOpen = profCatOpen[root.id] ?? false;
+                  return (
+                    <div key={root.id} className="space-y-1">
+                      <label className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 shrink-0"
+                          checked={catOpen}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setProfCatOpen((p) => ({ ...p, [root.id]: on }));
+                            if (!on) {
+                              setEditForm((p) => ({
+                                ...p,
+                                professionalOptionIds: p.professionalOptionIds.filter((id) => !kidIds.includes(id)),
+                              }));
+                            }
+                          }}
+                          aria-expanded={catOpen}
+                          aria-controls={`sched-prof-sub-${root.id}`}
+                        />
+                        <span className="min-w-0">
+                          <span className="font-medium text-gray-600">
+                            {root.emoji ? `${root.emoji} ` : null}
+                            {root.label}
+                          </span>
+                          <span className="block text-[10px] text-gray-500 mt-0.5">
+                            선택 시 세부 항목이 표시됩니다.
+                          </span>
+                        </span>
+                      </label>
+                      {catOpen ? (
+                        <div
+                          id={`sched-prof-sub-${root.id}`}
+                          className="pl-1 space-y-1 border-l border-gray-200 ml-1"
+                          role="group"
+                        >
+                          {kids.map((o) => {
+                            const price = formatProfOptionPriceDisplay(o);
+                            return (
+                              <label key={o.id} className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer pl-1">
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5 shrink-0"
+                                  checked={editForm.professionalOptionIds.includes(o.id)}
+                                  onChange={() =>
+                                    setEditForm((p) => ({
+                                      ...p,
+                                      professionalOptionIds: p.professionalOptionIds.includes(o.id)
+                                        ? p.professionalOptionIds.filter((x) => x !== o.id)
+                                        : [...p.professionalOptionIds, o.id],
+                                    }))
+                                  }
+                                />
+                                <span
+                                  className="inline-block w-2 h-2 rounded-full shrink-0 mt-0.5 border border-gray-300"
+                                  style={{ backgroundColor: o.color }}
+                                  aria-hidden
+                                />
+                                <span>
+                                  {o.emoji ? <span className="mr-0.5">{o.emoji}</span> : null}
+                                  {o.label}
+                                  {price ? <span className="text-gray-500"> {price}</span> : null}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                }
+                if (!root.isActive || !isSelectableProfOption(professionalCatalog, root)) {
+                  return null;
+                }
+                const price = formatProfOptionPriceDisplay(root);
+                return (
+                  <label key={root.id} className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 shrink-0"
+                      checked={editForm.professionalOptionIds.includes(root.id)}
+                      onChange={() =>
+                        setEditForm((p) => ({
+                          ...p,
+                          professionalOptionIds: p.professionalOptionIds.includes(root.id)
+                            ? p.professionalOptionIds.filter((x) => x !== root.id)
+                            : [...p.professionalOptionIds, root.id],
+                        }))
+                      }
+                    />
+                    <span
+                      className="inline-block w-2 h-2 rounded-full shrink-0 mt-0.5 border border-gray-300"
+                      style={{ backgroundColor: root.color }}
+                      aria-hidden
+                    />
+                    <span>
+                      {root.emoji ? <span className="mr-0.5">{root.emoji}</span> : null}
+                      {root.label}
+                      {price ? <span className="text-gray-500"> {price}</span> : null}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
             {editForm.professionalOptionIds.some((id) => {
               const o = professionalCatalog.find((c) => c.id === id);
@@ -1753,12 +1859,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   {editForm.professionalOptionIds.map((id) => {
                     const o = professionalCatalog.find((c) => c.id === id);
                     if (!o || o.isActive) return null;
+                    const price = formatProfOptionPriceDisplay(o);
                     return (
                       <li key={id} className="flex items-center justify-between gap-2">
                         <span>
                           {o.emoji ? `${o.emoji} ` : ''}
                           {o.label}
-                          {o.priceHint ? ` (${o.priceHint})` : ''}
+                          {price ? ` ${price}` : ''}
                         </span>
                         <button
                           type="button"

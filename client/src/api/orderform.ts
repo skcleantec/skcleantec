@@ -51,10 +51,15 @@ export interface OrderFormConfigPublic {
 
 export interface ProfessionalSpecialtyOptionDto {
   id: string;
+  parentId: string | null;
+  /** 루트만. true면 대분류(섹션), 직접 선택 불가 */
+  isGroup: boolean;
   label: string;
-  priceHint: string;
+  priceHint: string | null;
+  /** 상세·단독 루트 금액(원). 대분류 루트는 null */
+  priceAmount: number | null;
   /** 표시용 이모지 (선택) */
-  emoji: string;
+  emoji: string | null;
   color: string;
   sortOrder: number;
   isActive: boolean;
@@ -360,7 +365,10 @@ export async function createProfessionalOption(
   authToken: string,
   data: {
     label: string;
+    parentId?: string | null;
+    isGroup?: boolean;
     priceHint?: string;
+    priceAmount?: number | null;
     emoji?: string;
     color?: string;
     sortOrder?: number;
@@ -383,7 +391,18 @@ export async function updateProfessionalOption(
   authToken: string,
   id: string,
   data: Partial<
-    Pick<ProfessionalSpecialtyOptionDto, 'label' | 'priceHint' | 'emoji' | 'color' | 'sortOrder' | 'isActive'>
+    Pick<
+      ProfessionalSpecialtyOptionDto,
+      | 'label'
+      | 'parentId'
+      | 'isGroup'
+      | 'priceHint'
+      | 'priceAmount'
+      | 'emoji'
+      | 'color'
+      | 'sortOrder'
+      | 'isActive'
+    >
   >
 ): Promise<ProfessionalSpecialtyOptionDto> {
   const res = await fetch(`${API}/orderforms/professional-options/${id}`, {

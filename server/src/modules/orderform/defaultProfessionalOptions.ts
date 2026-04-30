@@ -80,6 +80,9 @@ export async function seedProfessionalDefaults(prisma: PrismaClient): Promise<vo
         color: row.color,
         sortOrder: row.sortOrder,
         isActive: true,
+        parentId: null,
+        isGroup: false,
+        priceAmount: null,
       },
       create: {
         id: row.id,
@@ -89,6 +92,9 @@ export async function seedProfessionalDefaults(prisma: PrismaClient): Promise<vo
         color: row.color,
         sortOrder: row.sortOrder,
         isActive: true,
+        parentId: null,
+        isGroup: false,
+        priceAmount: null,
       },
     });
   }
@@ -96,20 +102,30 @@ export async function seedProfessionalDefaults(prisma: PrismaClient): Promise<vo
 
 /** 서버 기동 시 — id가 없을 때만 생성(관리자가 수정한 내용은 유지) */
 export async function ensureMissingProfessionalDefaults(prisma: PrismaClient): Promise<void> {
-  for (const row of DEFAULT_PROFESSIONAL_OPTIONS) {
-    const exists = await prisma.professionalSpecialtyOption.findUnique({ where: { id: row.id } });
-    if (!exists) {
-      await prisma.professionalSpecialtyOption.create({
-        data: {
-          id: row.id,
-          label: row.label,
-          priceHint: row.priceHint,
-          emoji: row.emoji,
-          color: row.color,
-          sortOrder: row.sortOrder,
-          isActive: true,
-        },
-      });
+  try {
+    for (const row of DEFAULT_PROFESSIONAL_OPTIONS) {
+      const exists = await prisma.professionalSpecialtyOption.findUnique({ where: { id: row.id } });
+      if (!exists) {
+        await prisma.professionalSpecialtyOption.create({
+          data: {
+            id: row.id,
+            label: row.label,
+            priceHint: row.priceHint,
+            emoji: row.emoji,
+            color: row.color,
+            sortOrder: row.sortOrder,
+            isActive: true,
+            parentId: null,
+            isGroup: false,
+            priceAmount: null,
+          },
+        });
+      }
     }
+  } catch (e) {
+    console.warn(
+      '[startup] 전문 시공 기본 옵션 확인 스킵(DB 마이그레이션 필요 또는 스키마 불일치):',
+      e instanceof Error ? e.message : e
+    );
   }
 }
