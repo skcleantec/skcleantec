@@ -12,7 +12,25 @@ export function parseProfessionalOptionIdsRaw(body: unknown): string[] {
   return out;
 }
 
-/** 고객 발주서 제출: 활성이면서 '선택 가능'한 옵션 id만 (대분류 루트·비활성 부모의 자식 제외) */
+/** 루트에서의 깊이: 루트=0, 직계=1, 손자=2 … */
+export async function professionalOptionDepthFromRoot(
+  prisma: PrismaClient,
+  nodeId: string
+): Promise<number> {
+  let depth = 0;
+  let cur: string | null = nodeId;
+  for (;;) {
+    const row = await prisma.professionalSpecialtyOption.findUnique({
+      where: { id: cur },
+      select: { parentId: true },
+    });
+    if (!row?.parentId) return depth;
+    depth++;
+    cur = row.parentId;
+  }
+}
+
+/** 고객 발주서 제출: 활성이면서 '선택 가능'한 옵션 id만 (자식이 있는 노드·대분류 루트·비활성 부모의 자식 제외) */
 export async function filterActiveProfessionalOptionIds(
   prisma: PrismaClient,
   ids: string[]
@@ -31,10 +49,11 @@ export async function filterActiveProfessionalOptionIds(
   const allowed = new Set(
     rows
       .filter((r) => {
+        if (r._count.children > 0) return false;
         if (r.parentId) {
           return r.parent?.isActive === true;
         }
-        return !r.isGroup && r._count.children === 0;
+        return !r.isGroup;
       })
       .map((r) => r.id)
   );

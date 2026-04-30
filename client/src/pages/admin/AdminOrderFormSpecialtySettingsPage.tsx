@@ -10,7 +10,14 @@ import {
 import {
   listProfChildren,
   listProfRootNodes,
+  profDepthFromRoot,
 } from '../../constants/professionalSpecialtyOptions';
+import { HelpTooltip } from '../../components/ui/HelpTooltip';
+
+const SPECIALTY_SETTINGS_HELP =
+  '① 맨 위「대분류 추가」에서 섹션 제목만 만든 뒤, 생긴 카드 안 맨 아래 「+ 상세 옵션(가격) 추가」를 누르면 항목명·가격(원) 입력란이 열립니다(예: 가전내부분해).\n\n' +
+  '② 그 상세 한 줄 아래 들여쓴 영역에서 「+ 하위 금액 항목 추가」로 전자레인지·냉장고처럼 금액 리프를 더 넣을 수 있습니다(최대 3단).\n\n' +
+  '고객 발주서에서는 대분류 → 상세 → 금액 순으로 펼쳐서 고릅니다. 이미 만든 단일 루트에도 같은 카드 안에서 상세를 추가할 수 있습니다.';
 
 function parsePriceInt(raw: string): number | null {
   const t = raw.replace(/,/g, '').trim();
@@ -27,9 +34,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [newLabel, setNewLabel] = useState('');
-  const [newIsGroup, setNewIsGroup] = useState(false);
   const [newPriceHint, setNewPriceHint] = useState('');
-  const [newPriceAmount, setNewPriceAmount] = useState('');
   const [newEmoji, setNewEmoji] = useState('');
   const [newColor, setNewColor] = useState('#2563eb');
   const [newSortOrder, setNewSortOrder] = useState('0');
@@ -80,21 +85,17 @@ export function AdminOrderFormSpecialtySettingsPage() {
       return;
     }
     setError(null);
-    const pa = parsePriceInt(newPriceAmount);
     try {
       await createProfessionalOption(token, {
         label: newLabel.trim(),
-        isGroup: newIsGroup,
+        isGroup: true,
         priceHint: newPriceHint.trim() || undefined,
-        priceAmount: !newIsGroup ? pa : undefined,
         emoji: newEmoji.trim() || undefined,
         color: newColor,
         sortOrder: parseInt(newSortOrder, 10) || 0,
       });
       setNewLabel('');
-      setNewIsGroup(false);
       setNewPriceHint('');
-      setNewPriceAmount('');
       setNewEmoji('');
       setNewColor('#2563eb');
       setNewSortOrder('0');
@@ -209,13 +210,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <section className="p-4 bg-white border border-gray-200 rounded">
-        <h2 className="text-base font-medium text-gray-900 mb-2">전문 시공 옵션</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          <strong>대분류</strong>는 섹션 제목만 보이고 가격은 <strong>하위 상세</strong>에서 숫자(원)로
-          설정합니다. 고객 발주서에서는 <strong>대분류를 먼저 체크</strong>해야만 그 아래 세부 항목(예:
-          소독방역 5만원, 벽지소독 10만원)이 나타납니다. 대분류 체크를 해제하면 선택된 세부 항목은
-          함께 해제됩니다. <strong>단일 항목</strong>(대분류 아님)은 기존처럼 한 줄에서 바로 선택합니다.
-        </p>
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-base font-medium text-gray-900">전문 시공 옵션</h2>
+          <HelpTooltip className="shrink-0" text={SPECIALTY_SETTINGS_HELP} />
+        </div>
 
         {error && (
           <p className="text-sm text-red-600 mb-3" role="alert">
@@ -224,16 +222,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
         )}
 
         <div className="border border-gray-200 rounded p-3 bg-gray-50 mb-6">
-          <h3 className="text-sm font-medium text-gray-800 mb-3">루트에 항목 추가</h3>
-          <label className="flex items-center gap-2 mb-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              className="rounded border-gray-300"
-              checked={newIsGroup}
-              onChange={(e) => setNewIsGroup(e.target.checked)}
-            />
-            대분류로만 등록 (섹션 제목 — 이후 &quot;상세 추가&quot;로 가격 항목을 넣습니다)
-          </label>
+          <h3 className="text-sm font-medium text-gray-800 mb-1">대분류 추가</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            섹션 제목만 여기서 만듭니다. 가격·세부 항목은 아래에 생긴 카드 안에서「+ 상세 옵션」으로 넣습니다.
+          </p>
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-[140px]">
               <label className="block text-xs text-gray-600 mb-1">항목명</label>
@@ -242,46 +234,19 @@ export function AdminOrderFormSpecialtySettingsPage() {
                 className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
-                placeholder={newIsGroup ? '예: 창호·샷시' : '예: 새집증후군'}
+                placeholder="예: 창호·샷시"
               />
             </div>
-            {!newIsGroup && (
-              <>
-                <div className="w-28">
-                  <label className="block text-xs text-gray-600 mb-1">가격(원)</label>
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-right tabular-nums"
-                    value={newPriceAmount}
-                    onChange={(e) => setNewPriceAmount(e.target.value)}
-                    placeholder="150000"
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="flex-1 min-w-[100px]">
-                  <label className="block text-xs text-gray-600 mb-1">금액 안내(문구)</label>
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                    value={newPriceHint}
-                    onChange={(e) => setNewPriceHint(e.target.value)}
-                    placeholder="150,000원~"
-                  />
-                </div>
-              </>
-            )}
-            {newIsGroup && (
-              <div className="flex-1 min-w-[120px]">
-                <label className="block text-xs text-gray-600 mb-1">보조 안내(선택)</label>
-                <input
-                  type="text"
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                  value={newPriceHint}
-                  onChange={(e) => setNewPriceHint(e.target.value)}
-                  placeholder="섹션 설명"
-                />
-              </div>
-            )}
+            <div className="flex-1 min-w-[120px]">
+              <label className="block text-xs text-gray-600 mb-1">보조 안내 (선택)</label>
+              <input
+                type="text"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                value={newPriceHint}
+                onChange={(e) => setNewPriceHint(e.target.value)}
+                placeholder="섹션 설명"
+              />
+            </div>
             <div className="w-16">
               <label className="block text-xs text-gray-600 mb-1">이모지</label>
               <input
@@ -492,167 +457,443 @@ export function AdminOrderFormSpecialtySettingsPage() {
                         </div>
                       </div>
 
-                      {isSection && (
-                        <div className="mt-3 pl-2 border-l-2 border-gray-200 space-y-2">
-                          {children.map((ch) =>
-                            editingId === ch.id ? (
-                              <div key={ch.id} className="space-y-1 bg-gray-50 p-2 rounded">
-                                <div className="flex flex-wrap gap-1">
-                                  <input
-                                    type="text"
-                                    className="flex-1 min-w-[120px] text-xs px-2 py-1 border border-gray-300 rounded"
-                                    value={editDraft.label}
-                                    onChange={(e) => setEditDraft((d) => ({ ...d, label: e.target.value }))}
-                                  />
-                                  <input
-                                    type="text"
-                                    className="w-20 text-xs px-2 py-1 border border-gray-300 rounded text-right tabular-nums"
-                                    value={editDraft.priceAmount}
-                                    onChange={(e) => setEditDraft((d) => ({ ...d, priceAmount: e.target.value }))}
-                                    placeholder="원"
-                                    inputMode="numeric"
-                                  />
-                                  <input
-                                    type="text"
-                                    className="w-20 text-xs px-2 py-1 border border-gray-300 rounded"
-                                    value={editDraft.emoji}
-                                    onChange={(e) => setEditDraft((d) => ({ ...d, emoji: e.target.value }))}
-                                    maxLength={8}
-                                  />
-                                  <input
-                                    type="color"
-                                    className="h-7 w-8 border border-gray-300 rounded p-0"
-                                    value={editDraft.color}
-                                    onChange={(e) => setEditDraft((d) => ({ ...d, color: e.target.value }))}
-                                  />
-                                  <button
-                                    type="button"
-                                    className="text-xs px-2 py-1 bg-gray-800 text-white rounded"
-                                    onClick={saveEdit}
-                                  >
-                                    저장
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="text-xs px-2 py-1 border border-gray-300 rounded"
-                                    onClick={() => setEditingId(null)}
-                                  >
-                                    취소
-                                  </button>
+                      <div className="mt-3 pl-2 border-l-2 border-gray-200 space-y-2">
+                          {children.length === 0 ? (
+                            <p className="text-[11px] text-gray-500 leading-relaxed">
+                              아직 상세가 없습니다. 아래 <strong>+ 상세 옵션(가격) 추가</strong>에서 항목명과
+                              가격(원)을 입력해 저장하세요. (루트를 대분류로 만들지 않았어도, 상세를 넣으면
+                              고객 화면에서 섹션처럼 동작합니다.)
+                            </p>
+                          ) : null}
+                          {children.map((ch) => {
+                            const canAddGrandchild = profDepthFromRoot(items, ch.id) <= 1;
+                            const grandkids = listProfChildren(items, ch.id);
+                            return (
+                              <div key={ch.id} className="space-y-1.5">
+                                {editingId === ch.id ? (
+                                  <div className="space-y-1 bg-gray-50 p-2 rounded">
+                                    <div className="flex flex-wrap gap-1">
+                                      <input
+                                        type="text"
+                                        className="flex-1 min-w-[120px] text-xs px-2 py-1 border border-gray-300 rounded"
+                                        value={editDraft.label}
+                                        onChange={(e) => setEditDraft((d) => ({ ...d, label: e.target.value }))}
+                                      />
+                                      <input
+                                        type="text"
+                                        className="w-20 text-xs px-2 py-1 border border-gray-300 rounded text-right tabular-nums"
+                                        value={editDraft.priceAmount}
+                                        onChange={(e) =>
+                                          setEditDraft((d) => ({ ...d, priceAmount: e.target.value }))
+                                        }
+                                        placeholder="원"
+                                        inputMode="numeric"
+                                      />
+                                      <input
+                                        type="text"
+                                        className="w-20 text-xs px-2 py-1 border border-gray-300 rounded"
+                                        value={editDraft.emoji}
+                                        onChange={(e) => setEditDraft((d) => ({ ...d, emoji: e.target.value }))}
+                                        maxLength={8}
+                                      />
+                                      <input
+                                        type="color"
+                                        className="h-7 w-8 border border-gray-300 rounded p-0"
+                                        value={editDraft.color}
+                                        onChange={(e) => setEditDraft((d) => ({ ...d, color: e.target.value }))}
+                                      />
+                                      <button
+                                        type="button"
+                                        className="text-xs px-2 py-1 bg-gray-800 text-white rounded"
+                                        onClick={saveEdit}
+                                      >
+                                        저장
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="text-xs px-2 py-1 border border-gray-300 rounded"
+                                        onClick={() => setEditingId(null)}
+                                      >
+                                        취소
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                    <span
+                                      className={ch.isActive ? 'text-gray-800' : 'text-gray-400 line-through'}
+                                    >
+                                      <span
+                                        className="inline-block w-2 h-2 rounded-full mr-1 border border-gray-200 align-middle"
+                                        style={{ backgroundColor: ch.color }}
+                                      />
+                                      {ch.emoji ? `${ch.emoji} ` : null}
+                                      {ch.label}
+                                      {ch.priceAmount != null && ch.priceAmount > 0 && (
+                                        <span className="text-gray-500 ml-1">
+                                          {ch.priceAmount.toLocaleString('ko-KR')}원
+                                        </span>
+                                      )}
+                                      {ch.priceHint ? (
+                                        <span className="text-gray-500"> · {ch.priceHint}</span>
+                                      ) : null}
+                                    </span>
+                                    <span className="flex gap-1 shrink-0">
+                                      <button
+                                        type="button"
+                                        className="text-gray-600 px-1.5 py-0.5 border border-gray-200 rounded"
+                                        onClick={() => startEdit(ch)}
+                                      >
+                                        수정
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="text-gray-500 px-1.5 py-0.5 border border-gray-200 rounded"
+                                        onClick={() => handleToggle(ch)}
+                                      >
+                                        {ch.isActive ? '끄기' : '켜기'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="text-red-600 px-1.5 py-0.5 border border-red-100 rounded"
+                                        onClick={() => handleDelete(ch)}
+                                      >
+                                        삭제
+                                      </button>
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="ml-2 pl-2 border-l border-gray-100 space-y-1.5">
+                                  {grandkids.map((gc) =>
+                                    editingId === gc.id ? (
+                                      <div key={gc.id} className="space-y-1 bg-amber-50/50 p-2 rounded">
+                                        <div className="flex flex-wrap gap-1">
+                                          <input
+                                            type="text"
+                                            className="flex-1 min-w-[100px] text-xs px-2 py-1 border border-gray-300 rounded"
+                                            value={editDraft.label}
+                                            onChange={(e) =>
+                                              setEditDraft((d) => ({ ...d, label: e.target.value }))
+                                            }
+                                          />
+                                          <input
+                                            type="text"
+                                            className="w-20 text-xs px-2 py-1 border border-gray-300 rounded text-right tabular-nums"
+                                            value={editDraft.priceAmount}
+                                            onChange={(e) =>
+                                              setEditDraft((d) => ({ ...d, priceAmount: e.target.value }))
+                                            }
+                                            placeholder="원"
+                                            inputMode="numeric"
+                                          />
+                                          <input
+                                            type="text"
+                                            className="w-16 text-xs px-2 py-1 border border-gray-300 rounded"
+                                            value={editDraft.emoji}
+                                            onChange={(e) =>
+                                              setEditDraft((d) => ({ ...d, emoji: e.target.value }))
+                                            }
+                                            maxLength={8}
+                                          />
+                                          <input
+                                            type="color"
+                                            className="h-7 w-8 border border-gray-300 rounded p-0"
+                                            value={editDraft.color}
+                                            onChange={(e) =>
+                                              setEditDraft((d) => ({ ...d, color: e.target.value }))
+                                            }
+                                          />
+                                          <button
+                                            type="button"
+                                            className="text-xs px-2 py-1 bg-gray-800 text-white rounded"
+                                            onClick={saveEdit}
+                                          >
+                                            저장
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="text-xs px-2 py-1 border border-gray-300 rounded"
+                                            onClick={() => setEditingId(null)}
+                                          >
+                                            취소
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div
+                                        key={gc.id}
+                                        className="flex flex-wrap items-center justify-between gap-2 text-[11px]"
+                                      >
+                                        <span
+                                          className={
+                                            gc.isActive ? 'text-gray-700' : 'text-gray-400 line-through'
+                                          }
+                                        >
+                                          <span
+                                            className="inline-block w-2 h-2 rounded-full mr-1 border border-gray-200 align-middle"
+                                            style={{ backgroundColor: gc.color }}
+                                          />
+                                          {gc.emoji ? `${gc.emoji} ` : null}
+                                          {gc.label}
+                                          {gc.priceAmount != null && gc.priceAmount > 0 && (
+                                            <span className="text-gray-500 ml-1">
+                                              {gc.priceAmount.toLocaleString('ko-KR')}원
+                                            </span>
+                                          )}
+                                          {gc.priceHint ? (
+                                            <span className="text-gray-500"> · {gc.priceHint}</span>
+                                          ) : null}
+                                        </span>
+                                        <span className="flex gap-1 shrink-0">
+                                          <button
+                                            type="button"
+                                            className="text-gray-600 px-1 py-0.5 border border-gray-200 rounded"
+                                            onClick={() => startEdit(gc)}
+                                          >
+                                            수정
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="text-gray-500 px-1 py-0.5 border border-gray-200 rounded"
+                                            onClick={() => handleToggle(gc)}
+                                          >
+                                            {gc.isActive ? '끄기' : '켜기'}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="text-red-600 px-1 py-0.5 border border-red-100 rounded"
+                                            onClick={() => handleDelete(gc)}
+                                          >
+                                            삭제
+                                          </button>
+                                        </span>
+                                      </div>
+                                    )
+                                  )}
+
+                                  {canAddGrandchild ? (
+                                    childParentId === ch.id ? (
+                                      <div className="p-2 bg-amber-50/80 border border-amber-200 rounded text-[11px] space-y-2">
+                                        <p className="font-medium text-gray-800">
+                                          「{ch.label}」 아래 — 금액 세부 항목 추가
+                                        </p>
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-x-3 sm:gap-y-2">
+                                          <div className="sm:col-span-2">
+                                            <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                              항목명 (필수)
+                                            </label>
+                                            <input
+                                              type="text"
+                                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
+                                              value={childLabel}
+                                              onChange={(e) => setChildLabel(e.target.value)}
+                                              placeholder="예: 전자레인지"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                              가격 (원)
+                                            </label>
+                                            <input
+                                              type="text"
+                                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs text-right tabular-nums"
+                                              value={childPriceAmount}
+                                              onChange={(e) => setChildPriceAmount(e.target.value)}
+                                              placeholder="50000"
+                                              inputMode="numeric"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                              보조 문구 (선택)
+                                            </label>
+                                            <input
+                                              type="text"
+                                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
+                                              value={childPriceHint}
+                                              onChange={(e) => setChildPriceHint(e.target.value)}
+                                              placeholder="5만원~"
+                                            />
+                                          </div>
+                                          <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
+                                            <div>
+                                              <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                                이모지
+                                              </label>
+                                              <input
+                                                type="text"
+                                                className="w-10 px-1 py-1.5 border border-gray-300 rounded text-center text-xs"
+                                                value={childEmoji}
+                                                onChange={(e) => setChildEmoji(e.target.value)}
+                                                maxLength={8}
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                                색
+                                              </label>
+                                              <input
+                                                type="color"
+                                                className="h-8 w-10 border border-gray-200 rounded"
+                                                value={childColor}
+                                                onChange={(e) => setChildColor(e.target.value)}
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                                순서
+                                              </label>
+                                              <input
+                                                type="number"
+                                                className="w-16 px-1 py-1.5 border border-gray-300 rounded text-xs"
+                                                value={childSortOrder}
+                                                onChange={(e) => setChildSortOrder(e.target.value)}
+                                              />
+                                            </div>
+                                            <div className="flex gap-1 pt-3 sm:ml-auto">
+                                              <button
+                                                type="button"
+                                                className="px-2 py-1.5 bg-gray-800 text-white rounded text-xs"
+                                                onClick={() => handleAddChild(ch.id)}
+                                              >
+                                                저장
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="px-2 py-1.5 border border-gray-300 rounded text-xs"
+                                                onClick={() => setChildParentId(null)}
+                                              >
+                                                취소
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="mt-1 w-full text-left text-[11px] font-medium text-blue-800 border border-dashed border-blue-300 rounded px-2 py-1.5 bg-blue-50/50 hover:bg-blue-50"
+                                        onClick={() => {
+                                          setChildParentId(ch.id);
+                                          setChildLabel('');
+                                          setChildPriceAmount('');
+                                          setChildPriceHint('');
+                                          setChildEmoji('');
+                                          setChildColor('#6b7280');
+                                          setChildSortOrder('0');
+                                        }}
+                                      >
+                                        + 하위 금액 항목 추가 (항목명·가격 입력)
+                                      </button>
+                                    )
+                                  ) : null}
                                 </div>
                               </div>
-                            ) : (
-                              <div
-                                key={ch.id}
-                                className="flex flex-wrap items-center justify-between gap-2 text-xs"
-                              >
-                                <span
-                                  className={ch.isActive ? 'text-gray-800' : 'text-gray-400 line-through'}
-                                >
-                                  <span
-                                    className="inline-block w-2 h-2 rounded-full mr-1 border border-gray-200 align-middle"
-                                    style={{ backgroundColor: ch.color }}
-                                  />
-                                  {ch.emoji ? `${ch.emoji} ` : null}
-                                  {ch.label}
-                                  {ch.priceAmount != null && ch.priceAmount > 0 && (
-                                    <span className="text-gray-500 ml-1">
-                                      {ch.priceAmount.toLocaleString('ko-KR')}원
-                                    </span>
-                                  )}
-                                  {ch.priceHint ? <span className="text-gray-500"> · {ch.priceHint}</span> : null}
-                                </span>
-                                <span className="flex gap-1 shrink-0">
-                                  <button
-                                    type="button"
-                                    className="text-gray-600 px-1.5 py-0.5 border border-gray-200 rounded"
-                                    onClick={() => startEdit(ch)}
-                                  >
-                                    수정
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="text-gray-500 px-1.5 py-0.5 border border-gray-200 rounded"
-                                    onClick={() => handleToggle(ch)}
-                                  >
-                                    {ch.isActive ? '끄기' : '켜기'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="text-red-600 px-1.5 py-0.5 border border-red-100 rounded"
-                                    onClick={() => handleDelete(ch)}
-                                  >
-                                    삭제
-                                  </button>
-                                </span>
-                              </div>
-                            )
-                          )}
+                            );
+                          })}
 
                           {childParentId === root.id ? (
-                            <div className="p-2 bg-amber-50/80 border border-amber-200 rounded text-xs space-y-1">
-                              <p className="font-medium text-gray-800">상세 항목 추가</p>
-                              <div className="flex flex-wrap gap-1 items-end">
-                                <input
-                                  type="text"
-                                  className="flex-1 min-w-[100px] px-2 py-1 border border-gray-300 rounded"
-                                  value={childLabel}
-                                  onChange={(e) => setChildLabel(e.target.value)}
-                                  placeholder="이름"
-                                />
-                                <input
-                                  type="text"
-                                  className="w-24 px-2 py-1 border border-gray-300 rounded text-right tabular-nums"
-                                  value={childPriceAmount}
-                                  onChange={(e) => setChildPriceAmount(e.target.value)}
-                                  placeholder="가격(원)"
-                                />
-                                <input
-                                  type="text"
-                                  className="w-28 px-2 py-1 border border-gray-300 rounded"
-                                  value={childPriceHint}
-                                  onChange={(e) => setChildPriceHint(e.target.value)}
-                                  placeholder="보조문구"
-                                />
-                                <input
-                                  type="text"
-                                  className="w-10 px-1 py-1 border border-gray-300 rounded text-center"
-                                  value={childEmoji}
-                                  onChange={(e) => setChildEmoji(e.target.value)}
-                                  maxLength={8}
-                                />
-                                <input
-                                  type="color"
-                                  className="h-7 w-8 border border-gray-200 rounded"
-                                  value={childColor}
-                                  onChange={(e) => setChildColor(e.target.value)}
-                                />
-                                <input
-                                  type="number"
-                                  className="w-16 px-1 py-1 border border-gray-300 rounded"
-                                  value={childSortOrder}
-                                  onChange={(e) => setChildSortOrder(e.target.value)}
-                                />
-                                <button
-                                  type="button"
-                                  className="px-2 py-1 bg-gray-800 text-white rounded"
-                                  onClick={() => handleAddChild(root.id)}
-                                >
-                                  저장
-                                </button>
-                                <button
-                                  type="button"
-                                  className="px-2 py-1 border border-gray-300 rounded"
-                                  onClick={() => setChildParentId(null)}
-                                >
-                                  취소
-                                </button>
+                            <div className="p-3 bg-amber-50/80 border border-amber-200 rounded text-xs space-y-2">
+                              <p className="font-medium text-gray-800">
+                                「{root.label}」 아래 — 상세 옵션 (이름·가격)
+                              </p>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-x-3">
+                                <div className="sm:col-span-2">
+                                  <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                    항목명 (필수)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                    value={childLabel}
+                                    onChange={(e) => setChildLabel(e.target.value)}
+                                    placeholder="예: 가전내부분해"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                    가격 (원)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-right tabular-nums"
+                                    value={childPriceAmount}
+                                    onChange={(e) => setChildPriceAmount(e.target.value)}
+                                    placeholder="비워도 됨 (하위만 금액)"
+                                    inputMode="numeric"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                    보조 문구 (선택)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                    value={childPriceHint}
+                                    onChange={(e) => setChildPriceHint(e.target.value)}
+                                    placeholder="별도 안내"
+                                  />
+                                </div>
+                                <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
+                                  <div>
+                                    <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                      이모지
+                                    </label>
+                                    <input
+                                      type="text"
+                                      className="w-11 px-1 py-1.5 border border-gray-300 rounded text-center text-sm"
+                                      value={childEmoji}
+                                      onChange={(e) => setChildEmoji(e.target.value)}
+                                      maxLength={8}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                      색
+                                    </label>
+                                    <input
+                                      type="color"
+                                      className="h-9 w-11 border border-gray-200 rounded"
+                                      value={childColor}
+                                      onChange={(e) => setChildColor(e.target.value)}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-medium text-gray-600 mb-0.5">
+                                      순서
+                                    </label>
+                                    <input
+                                      type="number"
+                                      className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                      value={childSortOrder}
+                                      onChange={(e) => setChildSortOrder(e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="flex gap-1 pt-4 sm:ml-auto">
+                                    <button
+                                      type="button"
+                                      className="px-3 py-1.5 bg-gray-800 text-white rounded text-xs"
+                                      onClick={() => handleAddChild(root.id)}
+                                    >
+                                      저장
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="px-3 py-1.5 border border-gray-300 rounded text-xs"
+                                      onClick={() => setChildParentId(null)}
+                                    >
+                                      취소
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           ) : (
                             <button
                               type="button"
-                              className="text-xs text-blue-700 border border-dashed border-blue-200 rounded px-2 py-1"
+                              className="w-full text-left text-xs font-medium text-blue-800 border border-dashed border-blue-300 rounded px-2 py-2 bg-blue-50/40 hover:bg-blue-50"
                               onClick={() => {
                                 setChildParentId(root.id);
                                 setChildLabel('');
@@ -663,11 +904,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                 setChildSortOrder('0');
                               }}
                             >
-                              + 상세 옵션(가격) 추가
+                              + 상세 옵션(가격) 추가 — 항목명·가격(원) 입력
                             </button>
                           )}
                         </div>
-                      )}
                     </div>
                   )}
                 </li>

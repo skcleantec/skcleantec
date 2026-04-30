@@ -22,6 +22,7 @@ import {
   filterActiveProfessionalOptionIds,
   normalizeHexColor,
   parseProfessionalOptionIdsRaw,
+  professionalOptionDepthFromRoot,
 } from './specialtyOptions.js';
 import { ensureMissingProfessionalDefaults } from './defaultProfessionalOptions.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
@@ -113,6 +114,7 @@ const profOptionSelectPublic = {
   id: true,
   parentId: true,
   isGroup: true,
+  isActive: true,
   label: true,
   priceHint: true,
   priceAmount: true,
@@ -223,15 +225,21 @@ router.post('/professional-options', authMiddleware, adminOrMarketer, async (req
     if (parentId) {
       const p = await prisma.professionalSpecialtyOption.findUnique({ where: { id: parentId } });
       if (!p) {
-        res.status(400).json({ error: '상위 대분류를 찾을 수 없습니다.' });
+        res.status(400).json({ error: '상위 항목을 찾을 수 없습니다.' });
         return;
       }
-      if (p.parentId != null) {
-        res.status(400).json({ error: '하위 항목 아래에는 추가할 수 없습니다. (대분류·상세 1단계만)' });
+      const parentDepth = await professionalOptionDepthFromRoot(prisma, parentId);
+      if (parentDepth > 1) {
+        res.status(400).json({
+          error: '하위는 최대 2단계까지입니다. (대분류 → 중간 항목 → 세부 금액)',
+        });
         return;
       }
-      if (!p.isGroup) {
-        await prisma.professionalSpecialtyOption.update({ where: { id: parentId }, data: { isGroup: true } });
+      if (!p.parentId && !p.isGroup) {
+        await prisma.professionalSpecialtyOption.update({
+          where: { id: parentId },
+          data: { isGroup: true },
+        });
       }
     }
 
@@ -309,8 +317,11 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
         res.status(400).json({ error: '상위 항목을 찾을 수 없습니다.' });
         return;
       }
-      if (p.parentId != null) {
-        res.status(400).json({ error: '1단계 대분류만 상위로 지정할 수 있습니다.' });
+      const parentDepth = await professionalOptionDepthFromRoot(prisma, pId);
+      if (parentDepth > 1) {
+        res.status(400).json({
+          error: '하위는 최대 2단계까지입니다. (대분류 → 중간 항목 → 세부 금액)',
+        });
         return;
       }
       data.parent = { connect: { id: pId } };
@@ -387,7 +398,16 @@ router.delete('/professional-options/:id', authMiddleware, adminOrMarketer, asyn
     if (pId) {
       const remain = await prisma.professionalSpecialtyOption.count({ where: { parentId: pId } });
       if (remain === 0) {
-        await prisma.professionalSpecialtyOption.update({ where: { id: pId }, data: { isGroup: false } });
+        const parent = await prisma.professionalSpecialtyOption.findUnique({
+          where: { id: pId },
+          select: { parentId: true, isGroup: true },
+        });
+        if (parent && !parent.parentId) {
+          await prisma.professionalSpecialtyOption.update({
+            where: { id: pId },
+            data: { isGroup: false },
+          });
+        }
       }
     }
     res.json({ ok: true });

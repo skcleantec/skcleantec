@@ -23,6 +23,7 @@ import {
   isSelectableProfOption,
   listProfChildren,
   listProfRootNodes,
+  collectSubtreeOptionIds,
 } from '../../constants/professionalSpecialtyOptions';
 
 const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o) => o.value));
@@ -128,13 +129,34 @@ export function OrderFormPage() {
   const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
   const profRoots = useMemo(() => listProfRootNodes(professionalOptions), [professionalOptions]);
 
+  /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
+  const profSelectionSummary = useMemo(() => {
+    const rows: { key: string; text: string }[] = [];
+    let sum = 0;
+    for (const id of professionalOptionIds) {
+      const o = professionalOptions.find((x) => x.id === id);
+      if (!o || !o.isActive) continue;
+      if (!isSelectableProfOption(professionalOptions, o)) continue;
+      const price = formatProfOptionPriceDisplay(o);
+      if (o.priceAmount != null && o.priceAmount > 0) sum += o.priceAmount;
+      rows.push({
+        key: id,
+        text: price ? `${o.label} ${price}` : o.label,
+      });
+    }
+    return { rows, sum };
+  }, [professionalOptionIds, professionalOptions]);
+
   useEffect(() => {
     setProfCatOpen((prev) => {
       const next = { ...prev };
-      for (const root of listProfRootNodes(professionalOptions)) {
-        const kids = listProfChildren(professionalOptions, root.id);
-        if (kids.some((c) => professionalOptionIds.includes(c.id))) {
-          next[root.id] = true;
+      for (const sid of professionalOptionIds) {
+        let cur = professionalOptions.find((x) => x.id === sid);
+        while (cur) {
+          const pid = cur.parentId;
+          if (!pid) break;
+          next[pid] = true;
+          cur = professionalOptions.find((x) => x.id === pid);
         }
       }
       return next;
@@ -397,6 +419,26 @@ export function OrderFormPage() {
             {order.optionNote && (
               <p className="text-gray-600 mt-2">추가: {order.optionNote}</p>
             )}
+            {profSelectionSummary.rows.length > 0 ? (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-800 mb-1.5">전문 시공 선택 내역</p>
+                <ul className="text-xs text-gray-600 space-y-1 leading-snug">
+                  {profSelectionSummary.rows.map((r) => (
+                    <li key={r.key} className="flex gap-1.5">
+                      <span className="text-gray-400 shrink-0" aria-hidden>
+                        ·
+                      </span>
+                      <span>{r.text}</span>
+                    </li>
+                  ))}
+                </ul>
+                {profSelectionSummary.sum > 0 ? (
+                  <p className="text-[11px] text-gray-500 mt-2 tabular-nums">
+                    선택 항목 금액 합계 {profSelectionSummary.sum.toLocaleString('ko-KR')}원
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -702,7 +744,7 @@ export function OrderFormPage() {
                   const showAsSection = root.isGroup || kids.length > 0;
                   if (showAsSection) {
                     if (kids.length === 0) return null;
-                    const kidIds = kids.map((k) => k.id);
+                    const subtree = collectSubtreeOptionIds(professionalOptions, root.id);
                     const catOpen = profCatOpen[root.id] ?? false;
                     return (
                       <div key={root.id} className="space-y-1.5">
@@ -714,7 +756,9 @@ export function OrderFormPage() {
                               const on = e.target.checked;
                               setProfCatOpen((p) => ({ ...p, [root.id]: on }));
                               if (!on) {
-                                setProfessionalOptionIds((ids) => ids.filter((id) => !kidIds.includes(id)));
+                                setProfessionalOptionIds((ids) =>
+                                  ids.filter((id) => !subtree.includes(id))
+                                );
                               }
                             }}
                             className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
@@ -729,9 +773,6 @@ export function OrderFormPage() {
                               aria-hidden
                             />
                             <span className="font-medium">{root.label}</span>
-                            <span className="block text-xs font-normal text-gray-500 mt-0.5">
-                              선택 시 세부 항목·금액을 고를 수 있습니다.
-                            </span>
                           </span>
                         </label>
                         {catOpen ? (
@@ -742,6 +783,91 @@ export function OrderFormPage() {
                             aria-label={`${root.label} 세부 옵션`}
                           >
                             {kids.map((o) => {
+                              const gkids = listProfChildren(professionalOptions, o.id).filter(
+                                (c) => c.isActive
+                              );
+                              if (gkids.length > 0) {
+                                const midOpen = profCatOpen[o.id] ?? false;
+                                const subTree = collectSubtreeOptionIds(professionalOptions, o.id);
+                                return (
+                                  <div key={o.id} className="space-y-1.5 pl-1">
+                                    <label className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug">
+                                      <input
+                                        type="checkbox"
+                                        checked={midOpen}
+                                        onChange={(e) => {
+                                          const on = e.target.checked;
+                                          setProfCatOpen((p) => ({ ...p, [o.id]: on }));
+                                          if (!on) {
+                                            setProfessionalOptionIds((ids) =>
+                                              ids.filter((id) => !subTree.includes(id))
+                                            );
+                                          }
+                                        }}
+                                        className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
+                                        aria-expanded={midOpen}
+                                        aria-controls={`prof-sub-${o.id}`}
+                                      />
+                                      <span className="min-w-0">
+                                        {o.emoji ? <span className="mr-1" aria-hidden>{o.emoji}</span> : null}
+                                        <span
+                                          className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
+                                          style={{ backgroundColor: o.color }}
+                                          aria-hidden
+                                        />
+                                        <span className="font-medium">{o.label}</span>
+                                        <span className="block text-xs font-normal text-gray-500 mt-0.5">
+                                          선택 시 세부 금액 항목이 표시됩니다.
+                                        </span>
+                                      </span>
+                                    </label>
+                                    {midOpen ? (
+                                      <div
+                                        id={`prof-sub-${o.id}`}
+                                        className="pl-3 sm:pl-4 space-y-2 border-l border-gray-200"
+                                        role="group"
+                                        aria-label={`${o.label} 세부`}
+                                      >
+                                        {gkids.map((g) => {
+                                          const gPrice = formatProfOptionPriceDisplay(g);
+                                          return (
+                                            <label
+                                              key={g.id}
+                                              className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug"
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={professionalOptionIds.includes(g.id)}
+                                                onChange={() => toggleProfessionalOption(g.id)}
+                                                className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
+                                              />
+                                              <span>
+                                                {g.emoji ? (
+                                                  <span className="mr-1" aria-hidden>
+                                                    {g.emoji}
+                                                  </span>
+                                                ) : null}
+                                                <span
+                                                  className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
+                                                  style={{ backgroundColor: g.color }}
+                                                  aria-hidden
+                                                />
+                                                <span className="font-medium">{g.label}</span>
+                                                {gPrice ? (
+                                                  <span className="text-gray-500"> {gPrice}</span>
+                                                ) : null}
+                                              </span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                );
+                              }
+                              if (!isSelectableProfOption(professionalOptions, o) || !o.isActive) {
+                                return null;
+                              }
                               const price = formatProfOptionPriceDisplay(o);
                               return (
                                 <label
