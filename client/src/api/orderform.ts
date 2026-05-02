@@ -33,6 +33,55 @@ export interface OrderForm {
   createdBy?: OrderFormCreatedBy | null;
 }
 
+/** 고객 제출 확정 시 서버가 저장하는 스냅샷(JSON). 버전 확장 시 필드 추가 */
+export interface OrderFormCustomerSubmissionSnapshotV1 {
+  version: 1;
+  capturedAt: string;
+  fields: {
+    customerName: string;
+    address: string;
+    addressDetail: string | null;
+    customerPhone: string;
+    customerPhone2: string;
+    areaPyeong: number;
+    areaBasis: string;
+    propertyType: string;
+    preferredDate: string;
+    preferredTime: string;
+    preferredTimeDetail: string | null;
+    roomCount: number | null;
+    bathroomCount: number | null;
+    balconyCount: number | null;
+    kitchenCount: number | null;
+    buildingType: string | null;
+    moveInDate: string | null;
+    specialNotes: string | null;
+    professionalOptionIds: string[];
+    professionalOptionLabels: string[];
+  };
+  issuedSummary: {
+    totalAmount: number;
+    depositAmount: number;
+    balanceAmount: number;
+    optionNote: string | null;
+  };
+}
+
+export async function getOrderFormCustomerSubmission(
+  token: string,
+  orderFormId: string
+): Promise<{ submittedAt: string | null; snapshot: unknown | null }> {
+  const res = await fetch(
+    `${API}/orderforms/${encodeURIComponent(orderFormId)}/customer-submission`,
+    { headers: headers(token) }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '고객 제출 원본을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export interface OrderFormConfigPublic {
   formTitle: string;
   priceLabel: string | null;

@@ -619,6 +619,8 @@ model OrderForm {
   submittedAt     DateTime? @map("submitted_at")
   /// 고객 발주서 「특이사항」 자유 입력 — 접수 `specialNotes`(관리자·팀 공유)와 분리
   customerSpecialNotes String? @map("customer_special_notes") @db.Text
+  /// 고객 제출 확정 시점 스냅샷(JSON). 재발송·감사 대비 — 접수 수정과 별개 원본
+  customerSubmissionSnapshot Json? @map("customer_submission_snapshot")
 
   createdBy  User      @relation("OrderFormCreatedBy", fields: [createdById], references: [id])
   inquiries  Inquiry[]

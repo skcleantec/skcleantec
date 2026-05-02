@@ -534,6 +534,27 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   res.json({ items: list, issuers: issuerOptions });
 });
 
+/** 관리자/마케터: 고객 제출 원본 스냅샷(제출 시점 저장 JSON). 미제출이거나 레거시면 null */
+router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (req, res) => {
+  const rawId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  if (!/^[0-9a-f-]{36}$/i.test(rawId)) {
+    res.status(400).json({ error: '유효한 발주서 id가 필요합니다.' });
+    return;
+  }
+  const row = await prisma.orderForm.findFirst({
+    where: { id: rawId, token: { not: DESIGNER_PREVIEW_ORDER_TOKEN } },
+    select: { customerSubmissionSnapshot: true, submittedAt: true },
+  });
+  if (!row) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  res.json({
+    submittedAt: row.submittedAt,
+    snapshot: row.customerSubmissionSnapshot ?? null,
+  });
+});
+
 /** 관리자/마케터: 접수 강제 매칭 후보(고객 제출 완료 발주서) */
 router.get('/force-match-candidates', authMiddleware, adminOrMarketer, async (req, res) => {
   const q = req.query as Record<string, string | undefined>;
@@ -1319,6 +1340,60 @@ router.post('/submit/:token', async (req, res) => {
     ? new Date(body.moveInDate + 'T12:00:00')
     : null;
 
+  const moveInDateStr =
+    body.moveInDate != null && String(body.moveInDate).trim()
+      ? String(body.moveInDate).trim()
+      : null;
+
+  const profLabelRows =
+    professionalIds.length > 0
+      ? await prisma.professionalSpecialtyOption.findMany({
+          where: { id: { in: professionalIds } },
+          select: { id: true, label: true },
+        })
+      : [];
+  const profLabelById = new Map(profLabelRows.map((r) => [r.id, r.label]));
+  const professionalOptionLabels = professionalIds.map((id) => profLabelById.get(id) ?? id);
+
+  const customerSubmissionSnapshot = {
+    version: 1,
+    capturedAt: new Date().toISOString(),
+    fields: {
+      customerName: String(body.customerName || form.customerName || '').trim() || form.customerName,
+      address: String(body.address ?? ''),
+      addressDetail:
+        body.addressDetail != null && String(body.addressDetail).trim()
+          ? String(body.addressDetail).trim()
+          : null,
+      customerPhone: String(body.customerPhone ?? ''),
+      customerPhone2: String(body.customerPhone2).trim(),
+      areaPyeong: Number(body.areaPyeong),
+      areaBasis: areaBasisNorm,
+      propertyType: propertyTypeNorm,
+      preferredDate: useDateStr,
+      preferredTime: useTimeStr,
+      preferredTimeDetail: useDetailStr,
+      roomCount: body.roomCount ?? null,
+      bathroomCount: body.bathroomCount ?? null,
+      balconyCount: body.balconyCount ?? null,
+      kitchenCount: body.kitchenCount ?? null,
+      buildingType:
+        body.buildingType != null && String(body.buildingType).trim()
+          ? String(body.buildingType).trim()
+          : null,
+      moveInDate: moveInDateStr,
+      specialNotes: customerSpecialNotes,
+      professionalOptionIds: [...professionalIds],
+      professionalOptionLabels,
+    },
+    issuedSummary: {
+      totalAmount: form.totalAmount,
+      depositAmount: form.depositAmount,
+      balanceAmount: form.balanceAmount,
+      optionNote: form.optionNote,
+    },
+  };
+
   const existingPending = await prisma.inquiry.findFirst({
     where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
     select: { id: true, inquiryNumber: true },
@@ -1367,6 +1442,7 @@ router.post('/submit/:token', async (req, res) => {
           preferredDate: useDateStr,
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
+          customerSubmissionSnapshot,
         },
       });
     });
@@ -1413,6 +1489,7 @@ router.post('/submit/:token', async (req, res) => {
           preferredDate: useDateStr,
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
+          customerSubmissionSnapshot,
         },
       });
       changedInquiryId = createdInquiry.id;

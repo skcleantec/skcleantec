@@ -7,6 +7,7 @@ import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormFollowupPanel } from '../../components/order-followup/AdminOrderFormFollowupPanel';
+import { CustomerOrderSubmissionSnapshotModal } from '../../components/orderform/CustomerOrderSubmissionSnapshotModal';
 import {
   getOrderForms,
   createOrderForm,
@@ -78,6 +79,9 @@ export function AdminOrderFormPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => parseTabParam(searchParams.get('tab')));
   const [previewModal, setPreviewModal] = useState<null | { kind: 'message' | 'link'; order: OrderForm }>(
+    null
+  );
+  const [submissionViewer, setSubmissionViewer] = useState<null | { id: string; customerName: string }>(
     null
   );
   const [photosModal, setPhotosModal] = useState<null | {
@@ -986,6 +990,15 @@ export function AdminOrderFormPage() {
                           >
                             사진
                           </button>
+                          {o.submittedAt ? (
+                            <button
+                              type="button"
+                              onClick={() => setSubmissionViewer({ id: o.id, customerName: o.customerName })}
+                              className="text-fluid-xs font-medium text-violet-700 hover:underline"
+                            >
+                              제출원본
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => openDeleteModal(o)}
@@ -1119,6 +1132,17 @@ export function AdminOrderFormPage() {
                                   >
                                     사진
                                   </button>
+                                  {o.submittedAt ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSubmissionViewer({ id: o.id, customerName: o.customerName })
+                                      }
+                                      className="shrink-0 text-fluid-2xs font-medium text-violet-700 hover:underline xl:text-fluid-xs"
+                                    >
+                                      제출원본
+                                    </button>
+                                  ) : null}
                                   <button
                                     type="button"
                                     onClick={() => openDeleteModal(o)}
@@ -1345,6 +1369,14 @@ export function AdminOrderFormPage() {
           </div>,
           document.body
         )}
+      <CustomerOrderSubmissionSnapshotModal
+        open={Boolean(submissionViewer)}
+        onClose={() => setSubmissionViewer(null)}
+        authToken={token}
+        orderFormId={submissionViewer?.id ?? null}
+        customerName={submissionViewer?.customerName ?? ''}
+      />
+
       <ConfirmPasswordModal
         open={Boolean(deleteTarget)}
         title={
