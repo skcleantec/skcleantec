@@ -76,7 +76,7 @@ router.get('/sheet', async (req, res) => {
   >();
   for (const payDay of byPayDay.keys()) {
     const payDateYmd = payYmdInMonth(calYear, monthIndex, payDay);
-    const period = payrollAccrualPeriodForPaymentDate(payDateYmd);
+    const period = payrollAccrualPeriodForPaymentDate(payDateYmd, payDay);
     if (!period) continue;
     const bounds = payrollCyclePreferredDateWhere(period.startYmd, period.endYmd);
     const inquiries = await prisma.inquiry.findMany({
@@ -116,7 +116,7 @@ router.get('/sheet', async (req, res) => {
 
     if (m.monthlyPayDay != null && m.monthlyPayDay >= 1 && m.monthlyPayDay <= 31) {
       payDateYmd = payYmdInMonth(calYear, monthIndex, m.monthlyPayDay);
-      const period = payrollAccrualPeriodForPaymentDate(payDateYmd);
+      const period = payrollAccrualPeriodForPaymentDate(payDateYmd, m.monthlyPayDay);
       if (period) {
         accrualStartYmd = period.startYmd;
         accrualEndYmd = period.endYmd;
@@ -309,7 +309,7 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
     notes.push('월급 지급일 미설정');
   } else {
     payDateYmd = payYmdInMonth(calYear, monthIndex, m.monthlyPayDay);
-    const period = payrollAccrualPeriodForPaymentDate(payDateYmd);
+    const period = payrollAccrualPeriodForPaymentDate(payDateYmd, m.monthlyPayDay);
     if (period) {
       accrualStartYmd = period.startYmd;
       accrualEndYmd = period.endYmd;

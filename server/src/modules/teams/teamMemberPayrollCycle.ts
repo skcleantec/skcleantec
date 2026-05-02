@@ -1,9 +1,14 @@
 import { parseCrewMemberNoteToNames } from '../inquiries/crewMemberNoteCompare.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 
-/** 해당 월의 지급일 ymd (일자가 월 말을 넘으면 말일로 클램프). monthIndex 0-based */
+/** 그레고리력 월 길이 (서버 TZ와 무관). monthIndex 0-based */
+function daysInGregorianMonth(year: number, monthIndex0: number): number {
+  return new Date(Date.UTC(year, monthIndex0 + 1, 0)).getUTCDate();
+}
+
+/** 해당 월의 지급일 ymd (일자가 월 말을 넘으면 말일로 클램프). monthIndex 0-based · 순수 달력 */
 export function payYmdInMonth(year: number, monthIndex: number, payDay: number): string {
-  const last = new Date(year, monthIndex + 1, 0).getDate();
+  const last = daysInGregorianMonth(year, monthIndex);
   const d = Math.min(Math.max(1, payDay), last);
   const m = monthIndex + 1;
   return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -15,7 +20,8 @@ export function payYmdInMonth(year: number, monthIndex: number, payDay: number):
  */
 export function payrollCycleBoundsKst(monthlyPayDay: number): { startYmd: string; endYmd: string } {
   const todayYmd = dateToYmdKst(new Date());
-  const [ty, tm, _td] = todayYmd.split('-').map(Number);
+  const ty = parseInt(todayYmd.slice(0, 4), 10);
+  const tm = parseInt(todayYmd.slice(5, 7), 10);
   const monthIndex = tm - 1;
 
   const thisMonthPayYmd = payYmdInMonth(ty, monthIndex, monthlyPayDay);
@@ -24,21 +30,25 @@ export function payrollCycleBoundsKst(monthlyPayDay: number): { startYmd: string
 
   if (todayNoon >= thisPayNoon) {
     const startYmd = thisMonthPayYmd;
-    const nextMonthFirst = new Date(ty, monthIndex + 1, 1);
-    const ny = nextMonthFirst.getFullYear();
-    const nm = nextMonthFirst.getMonth();
-    const nextPayYmd = payYmdInMonth(ny, nm, monthlyPayDay);
-    const endStamp = new Date(`${nextPayYmd}T12:00:00+09:00`).getTime() - 86400000;
-    const endYmd = dateToYmdKst(new Date(endStamp));
+    let ny = ty;
+    let nm = tm + 1;
+    if (nm > 12) {
+      nm = 1;
+      ny += 1;
+    }
+    const nextPayYmd = payYmdInMonth(ny, nm - 1, monthlyPayDay);
+    const endYmd = dateToYmdKst(new Date(new Date(`${nextPayYmd}T12:00:00+09:00`).getTime() - 86400000));
     return { startYmd, endYmd };
   }
 
-  const prevMonthLast = new Date(ty, monthIndex, 0);
-  const py = prevMonthLast.getFullYear();
-  const pm = prevMonthLast.getMonth();
-  const startYmd = payYmdInMonth(py, pm, monthlyPayDay);
-  const endStamp = new Date(`${thisMonthPayYmd}T12:00:00+09:00`).getTime() - 86400000;
-  const endYmd = dateToYmdKst(new Date(endStamp));
+  let py = ty;
+  let pm = tm - 1;
+  if (pm < 1) {
+    pm = 12;
+    py -= 1;
+  }
+  const startYmd = payYmdInMonth(py, pm - 1, monthlyPayDay);
+  const endYmd = dateToYmdKst(new Date(new Date(`${thisMonthPayYmd}T12:00:00+09:00`).getTime() - 86400000));
   return { startYmd, endYmd };
 }
 
@@ -51,18 +61,32 @@ export function payrollCyclePreferredDateWhere(startYmd: string, endYmd: string)
 
 /**
  * 특정 지급일(`payYmd`)에 지급되는 급여에 대응하는 근무·산정 구간 (양 끝 포함).
- * 예: 지급 3/25 → 근무 2/25 ~ 3/24
+ * `monthlyPayDay`: 팀원 설정의 월급일(1~31). 지급일이 말일로 클램프돼 있어도 전월 구간 시작은 이 값으로 맞춘다.
+ * 예: 월급일 11 → 전월 11일 ~ 당월 10일 (지급이 당월 11일인 경우)
  */
-export function payrollAccrualPeriodForPaymentDate(payYmd: string): { startYmd: string; endYmd: string } | null {
+export function payrollAccrualPeriodForPaymentDate(
+  payYmd: string,
+  monthlyPayDay: number,
+): { startYmd: string; endYmd: string } | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(payYmd)) return null;
-  const payDay = parseInt(payYmd.slice(8, 10), 10);
-  const pay = new Date(`${payYmd}T12:00:00+09:00`);
-  const endStamp = pay.getTime() - 86400000;
-  const endYmd = dateToYmdKst(new Date(endStamp));
-  const py = pay.getFullYear();
-  const pm = pay.getMonth();
-  const prevMonthAnchor = new Date(py, pm - 1, 1);
-  const startYmd = payYmdInMonth(prevMonthAnchor.getFullYear(), prevMonthAnchor.getMonth(), payDay);
+  const pd = Math.floor(monthlyPayDay);
+  if (pd < 1 || pd > 31) return null;
+
+  const payNoonKst = new Date(`${payYmd}T12:00:00+09:00`);
+  if (Number.isNaN(payNoonKst.getTime())) return null;
+  const endYmd = dateToYmdKst(new Date(payNoonKst.getTime() - 86400000));
+
+  const y = parseInt(payYmd.slice(0, 4), 10);
+  const m = parseInt(payYmd.slice(5, 7), 10);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return null;
+
+  let prevY = y;
+  let prevM = m - 1;
+  if (prevM < 1) {
+    prevM = 12;
+    prevY -= 1;
+  }
+  const startYmd = payYmdInMonth(prevY, prevM - 1, pd);
   return { startYmd, endYmd };
 }
 

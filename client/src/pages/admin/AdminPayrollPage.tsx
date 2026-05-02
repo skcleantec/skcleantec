@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   getAdminPayrollSheet,
@@ -15,8 +15,8 @@ import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 
 const PAYROLL_HELP =
-  '급여 종류별로 표시 방식이 다릅니다.\n\n' +
-  '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」×「근무일 수」입니다. 급여 산정 구간 안에서 접수 예약일(KST)이 속하고, 현장 투입 메모에 해당 팀원 이름(태국어 표기 포함)이 일치하면 그 날을 근무 1일로 봅니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
+  '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·지출(요약)을 나누어 볼 수 있습니다.\n\n' +
+  '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
   '【팀장 · 월 고정 급여】현장 근무일 산정과 무관합니다. 사용자 등록에서 팀장 계정별 「월 고정 급여」「급여 지급일」을 넣으며, 선택한 귀속 월에 재직 구간과 겹치면 행에 나타납니다. 지급일을 비우면 해당 월 말일로 표시합니다.\n\n' +
   '【직원(마케터) · 월 고정 급여】팀장과 동일하게 사용자 등록에서 마케터 계정별로 급여를 따로 적습니다. 표에는 근무일·일당 대신 고정 월급만 반영됩니다. 실제 근무제·수당 등은 회사 규정에 맞게 금액에 반영해 입력하면 됩니다.\n\n' +
   '타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
@@ -59,8 +59,92 @@ function poolWorkDaysTitle(r: PayrollSheetRow): string | undefined {
   return `자동 산정 ${r.jobCount}일`;
 }
 
+const PAYROLL_TABS = ['pool', 'leader', 'marketer', 'expense'] as const;
+type PayrollTabId = (typeof PAYROLL_TABS)[number];
+
+function parsePayrollTab(raw: string | null): PayrollTabId | null {
+  if (raw === 'pool' || raw === 'leader' || raw === 'marketer' || raw === 'expense') return raw;
+  return null;
+}
+
+function payrollTabLabel(id: PayrollTabId): string {
+  switch (id) {
+    case 'pool':
+      return '팀원';
+    case 'leader':
+      return '팀장';
+    case 'marketer':
+      return '마케터';
+    case 'expense':
+      return '지출';
+    default:
+      return id;
+  }
+}
+
+function rowsForPayrollTab(rows: PayrollSheetRow[], tab: PayrollTabId): PayrollSheetRow[] {
+  if (tab === 'expense') return [];
+  if (tab === 'pool') return rows.filter((r) => r.kind === 'POOL_MEMBER');
+  if (tab === 'leader') return rows.filter((r) => r.kind === 'TEAM_LEADER');
+  return rows.filter((r) => r.kind === 'MARKETER');
+}
+
+function payrollExpenseSummary(rows: PayrollSheetRow[]) {
+  const pool = rows.filter((r) => r.kind === 'POOL_MEMBER');
+  const leaders = rows.filter((r) => r.kind === 'TEAM_LEADER');
+  const marketers = rows.filter((r) => r.kind === 'MARKETER');
+  const sum = (rs: PayrollSheetRow[]) =>
+    rs.reduce((acc, r) => acc + (typeof r.amount === 'number' && Number.isFinite(r.amount) ? r.amount : 0), 0);
+  return {
+    poolCount: pool.length,
+    poolSum: sum(pool),
+    leaderCount: leaders.length,
+    leaderSum: sum(leaders),
+    marketerCount: marketers.length,
+    marketerSum: sum(marketers),
+    totalCount: rows.length,
+    totalSum: sum(rows),
+  };
+}
+
+function payrollTabHint(tab: PayrollTabId): string {
+  switch (tab) {
+    case 'pool':
+      return '팀원마다 「월급 지급일」에 맞춰 산정합니다. 예: 매달 11일 지급이면 전달 11일~당월 10일(포함) 예약(KST)만 집계합니다. 같은 날은 1일만. 「설정」으로 해당 월만 수기 일수를 더할 수 있습니다.';
+    case 'leader':
+      return '팀장은 사용자 등록의 월 고정 급여·지급일 기준입니다. 근무일·일당 열과 무관합니다.';
+    case 'marketer':
+      return '직원(마케터)도 사용자 등록에서 월 고정 급여·지급일을 따로 적습니다.';
+    case 'expense':
+      return '아래는 급여표에 포함된 인건비만 요약합니다. 타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
+    default:
+      return '';
+  }
+}
+
 export function AdminPayrollPage() {
   const token = getToken();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const payrollTab: PayrollTabId = useMemo(
+    () => parsePayrollTab(searchParams.get('payTab')) ?? 'pool',
+    [searchParams]
+  );
+
+  const setPayrollTab = useCallback(
+    (t: PayrollTabId) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (t === 'pool') next.delete('payTab');
+          else next.set('payTab', t);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
   const [month, setMonth] = useState(() => kstMonthKeyNow());
   const [data, setData] = useState<PayrollSheetResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -170,9 +254,30 @@ export function AdminPayrollPage() {
     void load();
   }, [load]);
 
-  if (!token) return <Navigate to="/login" replace />;
+  const filteredRows = useMemo(
+    () => (data ? rowsForPayrollTab(data.rows, payrollTab) : []),
+    [data, payrollTab]
+  );
 
-  const rowsWithoutAmount = data ? data.rows.filter((r) => r.amount == null).length : 0;
+  const expenseSummary = useMemo(() => (data ? payrollExpenseSummary(data.rows) : null), [data]);
+
+  const tabAmountSum = useMemo(
+    () => filteredRows.reduce((acc, r) => acc + (typeof r.amount === 'number' ? r.amount : 0), 0),
+    [filteredRows]
+  );
+
+  const tabRowsTotal = filteredRows.length;
+  const tabRowsWithoutAmount = useMemo(
+    () => filteredRows.filter((r) => r.amount == null).length,
+    [filteredRows]
+  );
+
+  const globalRowsWithoutAmount = useMemo(
+    () => (data ? data.rows.filter((r) => r.amount == null).length : 0),
+    [data]
+  );
+
+  if (!token) return <Navigate to="/login" replace />;
 
   return (
     <div className="flex flex-col gap-4 min-w-0 max-w-6xl mx-auto w-full px-1 sm:px-0">
@@ -183,10 +288,8 @@ export function AdminPayrollPage() {
             <HelpTooltip text={PAYROLL_HELP} />
           </div>
           <p className="text-fluid-sm text-gray-600 mt-1">
-            <strong className="font-medium text-gray-800">현장 팀원</strong>은 근무일×일당(하루 한 번만 집계)·
-            <strong className="font-medium text-gray-800"> 팀장</strong>과{' '}
-            <strong className="font-medium text-gray-800">직원(마케터)</strong>은 각각 다른 조건의 월 고정 급여로 한 표에 모아
-            보여 줍니다.{' '}
+            상단 탭으로 <strong className="font-medium text-gray-800">팀원·팀장·마케터</strong> 목록을 나누어 보고,{' '}
+            <strong className="font-medium text-gray-800">지출</strong>에서는 해당 월 급여 인건비를 요약합니다.{' '}
             <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
               팀원(일당)·지급일
             </Link>
@@ -215,42 +318,6 @@ export function AdminPayrollPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white px-3 py-3 text-fluid-xs text-gray-700 grid gap-3 sm:grid-cols-3 shadow-sm">
-        <div className="min-w-0 border-b border-gray-100 pb-3 sm:border-b-0 sm:pb-0 sm:border-r sm:pr-3">
-          <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-slate-100 text-slate-800 border-slate-200">
-              현장
-            </span>
-            <span className="font-semibold text-gray-900">일당 · 근무일</span>
-          </div>
-          <p className="text-gray-600 leading-snug">
-            일당 × 근무일 수. 같은 예약일(KST)에 현장을 여러 번 나가도 1일로 집계합니다. 현장 투입 메모 이름 매칭.
-          </p>
-        </div>
-        <div className="min-w-0 border-b border-gray-100 pb-3 sm:border-b-0 sm:pb-0 sm:border-r sm:pr-3">
-          <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-blue-50 text-blue-900 border-blue-200">
-              팀장
-            </span>
-            <span className="font-semibold text-gray-900">월 고정 급여</span>
-          </div>
-          <p className="text-gray-600 leading-snug">
-            사용자 등록에서 팀장별 급여·지급일. 근무일·일당 열과 무관하며 해당 월 재직이면 표시.
-          </p>
-        </div>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-violet-50 text-violet-900 border-violet-200">
-              마케터
-            </span>
-            <span className="font-semibold text-gray-900">월 고정 급여</span>
-          </div>
-          <p className="text-gray-600 leading-snug">
-            직원(마케터) 계정도 팀장과 별도로 급여·지급일을 등록합니다. 표에는 고정 월급만 반영합니다.
-          </p>
-        </div>
-      </div>
-
       {error && (
         <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>
       )}
@@ -259,22 +326,187 @@ export function AdminPayrollPage() {
         <p className="text-fluid-sm text-gray-500 py-12 text-center">불러오는 중…</p>
       ) : data ? (
         <>
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-fluid-xs font-medium text-gray-800 tabular-nums">
-              대상 <strong className="mx-1">{data.totals.rowsTotal}</strong>명
-            </span>
-            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-fluid-xs font-semibold text-emerald-900 tabular-nums">
-              합계 {fmtWon(data.totals.amountSum)}
-            </span>
-            {rowsWithoutAmount > 0 ? (
-              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-fluid-xs text-amber-900 tabular-nums">
-                금액 미산출 {rowsWithoutAmount}건
-              </span>
-            ) : null}
-          </div>
+          <div className="rounded-lg border border-gray-200 bg-white shadow-sm min-w-0 overflow-hidden">
+            <nav
+              className="flex flex-nowrap gap-1 overflow-x-auto overscroll-x-contain px-2 pt-2 border-b border-gray-100 bg-gray-50/60 [scrollbar-width:thin]"
+              role="tablist"
+              aria-label="급여표 구분"
+            >
+              {PAYROLL_TABS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={payrollTab === id}
+                  onClick={() => setPayrollTab(id)}
+                  className={`shrink-0 whitespace-nowrap px-3 py-2 text-fluid-sm rounded-t-md border-b-2 transition-colors min-h-[44px] touch-manipulation ${
+                    payrollTab === id
+                      ? 'border-blue-600 font-semibold text-blue-900 bg-white'
+                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  {payrollTabLabel(id)}
+                </button>
+              ))}
+            </nav>
+            <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+              <p className="text-fluid-2xs sm:text-fluid-xs text-gray-600 leading-snug">{payrollTabHint(payrollTab)}</p>
+            </div>
 
-          <ul className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
-            {data.rows.map((r) => (
+            <div className="px-2 sm:px-3 py-3 space-y-3 min-w-0">
+              {payrollTab === 'expense' && expenseSummary ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-fluid-xs font-medium text-gray-800 tabular-nums">
+                      급여표 인원 <strong className="mx-1">{expenseSummary.totalCount}</strong>명
+                    </span>
+                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-fluid-xs font-semibold text-emerald-900 tabular-nums">
+                      인건비 합계 {fmtWon(expenseSummary.totalSum)}
+                    </span>
+                    {globalRowsWithoutAmount > 0 ? (
+                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-fluid-xs text-amber-900 tabular-nums">
+                        금액 미산출 {globalRowsWithoutAmount}건
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <ul className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                    {[
+                      {
+                        title: '현장 팀원',
+                        badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
+                        count: expenseSummary.poolCount,
+                        sum: expenseSummary.poolSum,
+                      },
+                      {
+                        title: '팀장',
+                        badgeClass: 'bg-blue-50 text-blue-900 border-blue-200',
+                        count: expenseSummary.leaderCount,
+                        sum: expenseSummary.leaderSum,
+                      },
+                      {
+                        title: '마케터',
+                        badgeClass: 'bg-violet-50 text-violet-900 border-violet-200',
+                        count: expenseSummary.marketerCount,
+                        sum: expenseSummary.marketerSum,
+                      },
+                    ].map((row) => (
+                      <li key={row.title} className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${row.badgeClass}`}>
+                            {row.title}
+                          </span>
+                          <span className="text-gray-600 tabular-nums">{row.count}명</span>
+                        </div>
+                        <span className="shrink-0 font-semibold text-gray-900 tabular-nums text-right">{fmtWon(row.sum)}</span>
+                      </li>
+                    ))}
+                    <li className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm bg-gray-50 font-semibold border-t border-gray-200">
+                      <span className="text-gray-900">합계</span>
+                      <span className="tabular-nums text-emerald-900">{fmtWon(expenseSummary.totalSum)}</span>
+                    </li>
+                  </ul>
+
+                  <div className="hidden lg:block min-w-0 w-full overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="w-full min-w-[480px] table-fixed border-collapse text-fluid-xs bg-white">
+                      <colgroup>
+                        <col className="w-[34%]" />
+                        <col className="w-[22%]" />
+                        <col className="w-[44%]" />
+                      </colgroup>
+                      <thead>
+                        <tr className="bg-gray-100 text-gray-700">
+                          <th className="border-b border-gray-200 px-2 py-2 text-center">구분</th>
+                          <th className="border-b border-gray-200 px-2 py-2 text-center">인원</th>
+                          <th className="border-b border-gray-200 px-2 py-2 text-center">예상 금액 합계</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="hover:bg-gray-50">
+                          <td className="border-b border-gray-100 px-2 py-2 text-center">
+                            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-slate-100 text-slate-800 border-slate-200">
+                              현장 팀원
+                            </span>
+                          </td>
+                          <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-gray-800">
+                            {expenseSummary.poolCount}
+                          </td>
+                          <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-medium text-gray-900">
+                            {fmtWon(expenseSummary.poolSum)}
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50">
+                          <td className="border-b border-gray-100 px-2 py-2 text-center">
+                            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-blue-50 text-blue-900 border-blue-200">
+                              팀장
+                            </span>
+                          </td>
+                          <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-gray-800">
+                            {expenseSummary.leaderCount}
+                          </td>
+                          <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-medium text-gray-900">
+                            {fmtWon(expenseSummary.leaderSum)}
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50">
+                          <td className="border-b border-gray-100 px-2 py-2 text-center">
+                            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-violet-50 text-violet-900 border-violet-200">
+                              마케터
+                            </span>
+                          </td>
+                          <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-gray-800">
+                            {expenseSummary.marketerCount}
+                          </td>
+                          <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-medium text-gray-900">
+                            {fmtWon(expenseSummary.marketerSum)}
+                          </td>
+                        </tr>
+                        <tr className="bg-gray-50 font-semibold">
+                          <td className="border-b border-gray-200 px-2 py-2 text-center text-gray-900">합계</td>
+                          <td className="border-b border-gray-200 px-2 py-2 text-center tabular-nums text-gray-900">
+                            {expenseSummary.totalCount}
+                          </td>
+                          <td className="border-b border-gray-200 px-2 py-2 text-right tabular-nums text-emerald-900">
+                            {fmtWon(expenseSummary.totalSum)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
+                    <strong className="text-gray-800">{data.monthLabel}</strong> 기준 급여표 인건비입니다. 타업체 대금·기타
+                    비용은{' '}
+                    <Link to="/admin/external-settlement" className="text-blue-700 underline underline-offset-2 font-medium">
+                      타업체 정산
+                    </Link>
+                    에서 확인해 주세요.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-fluid-xs font-medium text-gray-800 tabular-nums">
+                      대상 <strong className="mx-1">{tabRowsTotal}</strong>명
+                    </span>
+                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-fluid-xs font-semibold text-emerald-900 tabular-nums">
+                      합계 {fmtWon(tabAmountSum)}
+                    </span>
+                    {tabRowsWithoutAmount > 0 ? (
+                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-fluid-xs text-amber-900 tabular-nums">
+                        금액 미산출 {tabRowsWithoutAmount}건
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {filteredRows.length === 0 ? (
+                    <p className="text-fluid-sm text-gray-500 py-12 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                      해당 월에 이 탭에 표시할 인원이 없습니다.
+                    </p>
+                  ) : (
+                    <>
+                      <ul className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                        {filteredRows.map((r) => (
               <li key={`${r.kind}-${r.id}`} className="text-fluid-sm">
                 {r.kind === 'POOL_MEMBER' ? (
                   <div className="flex min-w-0 items-stretch">
@@ -394,7 +626,7 @@ export function AdminPayrollPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.rows.map((r) => (
+                    {filteredRows.map((r) => (
                       <tr
                         key={`${r.kind}-${r.id}`}
                         className={
@@ -495,9 +727,25 @@ export function AdminPayrollPage() {
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
-            <strong className="text-gray-800">{data.monthLabel}</strong> 기준 · 현장은 근무일×일당, 팀장·마케터는 월
-            고정액입니다. 금액이 「—」인 행은 팀원·사용자 설정을 채운 뒤 자동 계산됩니다. 현장은 「설정」에서 해당 월만
-            추가 근무일을 넣을 수 있습니다. 「현장」행(설정 제외)을 누르면 산정 접수 목록이 열립니다.
+            <strong className="text-gray-800">{data.monthLabel}</strong> 기준 ·{' '}
+            {payrollTab === 'pool' ? (
+              <>
+                현장 팀원은 근무일×일당입니다. 금액이 「—」인 행은 팀원 설정을 채운 뒤 자동 계산됩니다. 「설정」에서 해당
+                월만 추가 근무일을 넣을 수 있습니다. 행(설정 칸 제외)을 누르면 산정 접수 목록이 열립니다.
+              </>
+            ) : payrollTab === 'leader' ? (
+              <>팀장은 사용자 등록의 월 고정 급여·지급일 기준입니다. 금액이 「—」이면 해당 계정 설정을 확인해 주세요.</>
+            ) : (
+              <>
+                마케터(직원)도 사용자 등록의 월 고정 급여·지급일 기준입니다. 금액이 「—」이면 해당 계정 설정을 확인해 주세요.
+              </>
+            )}
+          </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </>
       ) : null}
