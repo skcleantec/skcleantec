@@ -34,6 +34,14 @@ export const crewMessages = {
     ko: '일자 명단',
     th: 'รายชื่อรายวัน',
   },
+  'crew.layout.navSettlement': {
+    ko: '정산',
+    th: 'สรุปค่าจ้าง',
+  },
+  'crew.layout.navTeamExpenses': {
+    ko: '팀 지출',
+    th: 'ค่าใช้จ่ายทีม',
+  },
   'crew.layout.navSettings': {
     ko: '설정',
     th: 'ตั้งค่า',
@@ -439,6 +447,213 @@ export const crewMessages = {
   'crew.roster.modalPasswordRequired': {
     ko: '비밀번호를 입력해 주세요.',
     th: 'กรุณาใส่รหัสผ่าน',
+  },
+
+  /** CrewSettlementPage — 정산·정산표 */
+  'crew.settlement.pageTitle': {
+    ko: '정산',
+    th: 'สรุปค่าจ้าง',
+  },
+  'crew.settlement.pageIntro': {
+    ko: '관리자 급여 화면과 같은 방식으로 산출된 참고 금액입니다. 설정·정산 처리는 관리자만 할 수 있습니다.',
+    th: 'ยอดอ้างอิงคำนวณแบบเดียวกับผู้ดูแลระบบ การตั้งค่าและปิดบัญชีทำได้เฉพาะผู้ดูแล',
+  },
+  'crew.settlement.pageIntroToggleAria': {
+    ko: '정산 화면 안내',
+    th: 'คำอธิบายหน้าสรุปค่าจ้าง',
+  },
+  'crew.settlement.tabSheet': {
+    ko: '정산표',
+    th: 'ตารางค่าจ้าง',
+  },
+  'crew.settlement.tabExpenses': {
+    ko: '팀 지출',
+    th: 'ค่าใช้จ่ายทีม',
+  },
+  'crew.settlement.passwordPrompt': {
+    ko: '조장 비밀번호',
+    th: 'รหัสหัวหน้ากลุ่ม',
+  },
+  'crew.settlement.passwordHint': {
+    ko: '관리자가 그룹에 설정한 「설정용 비밀번호」와 동일합니다.',
+    th: 'ใช้รหัสเดียวกับ 「รหัสตั้งค่า」ที่ผู้ดูแลตั้งให้กลุ่ม',
+  },
+  'crew.settlement.passwordSubmit': {
+    ko: '확인 후 불러오기',
+    th: 'ยืนยันแล้วโหลด',
+  },
+  'crew.settlement.loadFail': {
+    ko: '정산표를 불러오지 못했습니다.',
+    th: 'โหลดตารางไม่สำเร็จ',
+  },
+  'crew.settlement.sheetEmpty': {
+    ko: '이 달에 표시할 풀 팀원 행이 없습니다. (그룹에 연결된 활성 팀원만 표시)',
+    th: 'ไม่มีแถวในสายพูลในเดือนนี้ (แสดงเฉพาะสมาชิกที่ผูกกับกลุ่ม)',
+  },
+  'crew.settlement.sheetColName': {
+    ko: '이름',
+    th: 'ชื่อ',
+  },
+  'crew.settlement.sheetColPayDay': {
+    ko: '급여일',
+    th: 'วันจ่าย',
+  },
+  'crew.settlement.sheetColDays': {
+    ko: '일수',
+    th: 'วัน',
+  },
+  'crew.settlement.sheetColNet': {
+    ko: '실지급 예상',
+    th: 'จ่ายสุทธิ (ประมาณ)',
+  },
+  'crew.settlement.nameTapHint': {
+    ko: '이름을 누르면 귀속 접수·지출 등 상세 내역을 볼 수 있습니다.',
+    th: 'แตะชื่อเพื่อดูรายละเอียดงานในช่วงนับเงินและค่าใช้จ่าย',
+  },
+  'crew.settlement.sheetCompactHint': {
+    ko: '좁은 화면에서는 표를 좌우로 스크롤할 수 있습니다.',
+    th: 'จอแคบเลื่อนซ้าย-ขวาได้',
+  },
+  /** 모바일 정산표 카드 — 급여일·근무일 한 줄 */
+  'crew.settlement.sheetMobileStats': {
+    ko: '{pay} · 근무 {n}일',
+    th: '{pay} · {n} วัน',
+  },
+  'crew.settlement.sheetMobileOpenDetail': {
+    ko: '상세 보기',
+    th: 'ดูรายละเอียด',
+  },
+  'crew.settlement.sheetMobileTapFooter': {
+    ko: '카드를 누르면 급여·현장 상세를 볼 수 있습니다.',
+    th: 'แตะการ์ดเพื่อดูรายละเอียดค่าจ้างและงาน',
+  },
+  'crew.settlement.detailMonthHeading': {
+    ko: '귀속 월: {ym}',
+    th: 'เดือนอ้างอิง: {ym}',
+  },
+  'crew.settlement.detailClose': {
+    ko: '닫기',
+    th: 'ปิด',
+  },
+  'crew.settlement.detailLoading': {
+    ko: '상세를 불러오는 중…',
+    th: 'กำลังโหลดรายละเอียด…',
+  },
+  'crew.settlement.detailLoadFail': {
+    ko: '상세를 불러오지 못했습니다.',
+    th: 'โหลดรายละเอียดไม่สำเร็จ',
+  },
+  'crew.settlement.detailPeriod': {
+    ko: '귀속 기간',
+    th: 'ช่วงที่นับเงิน',
+  },
+  'crew.settlement.detailPayDayLabel': {
+    ko: '급여 지급일',
+    th: 'วันจ่ายเงินเดือน',
+  },
+  'crew.settlement.detailUnit': {
+    ko: '일당',
+    th: 'ค่าจ้างต่อวัน',
+  },
+  'crew.settlement.detailSysDays': {
+    ko: '자동 근무일',
+    th: 'วันทำงานอัตโนมัติ',
+  },
+  'crew.settlement.detailManualDays': {
+    ko: '수기 추가 일수',
+    th: 'วันเพิ่มด้วยมือ',
+  },
+  'crew.settlement.detailJobTotal': {
+    ko: '근무일수 합계',
+    th: 'วันทำงานรวม',
+  },
+  'crew.settlement.detailGross': {
+    ko: '산정액',
+    th: 'ยอดคำนวณ',
+  },
+  'crew.settlement.detailExpenseDeduction': {
+    ko: '크루 지출 차감',
+    th: 'หักค่าใช้จ่ายครูว์',
+  },
+  'crew.settlement.detailNet': {
+    ko: '실지급 예상',
+    th: 'จ่ายสุทธิ (ประมาณ)',
+  },
+  'crew.settlement.detailSectionInquiries': {
+    ko: '귀속 접수 내역',
+    th: 'งานในช่วงนับเงิน',
+  },
+  'crew.settlement.detailThPrefDate': {
+    ko: '예약일',
+    th: 'วันนัด',
+  },
+  'crew.settlement.detailThCustomer': {
+    ko: '고객',
+    th: 'ลูกค้า',
+  },
+  'crew.settlement.detailThInquiryNo': {
+    ko: '접수번호',
+    th: 'เลขงาน',
+  },
+  'crew.settlement.detailSectionExpenses': {
+    ko: '등록 지출',
+    th: 'ค่าใช้จ่ายที่บันทึก',
+  },
+  'crew.settlement.detailExpenseMemo': {
+    ko: '메모',
+    th: 'หมายเหตุ',
+  },
+  'crew.settlement.detailExpenseGroup': {
+    ko: '크루 그룹',
+    th: 'กลุ่มครูว์',
+  },
+  'crew.settlement.detailExpenseAt': {
+    ko: '등록일시',
+    th: 'เวลาบันทึก',
+  },
+  'crew.settlement.detailAttachments': {
+    ko: '영수증',
+    th: 'ใบเสร็จ',
+  },
+  'crew.settlement.detailAttachCount': {
+    ko: '{count}장',
+    th: '{count} ใบ',
+  },
+  'crew.settlement.detailSectionSettlement': {
+    ko: '관리자 정산',
+    th: 'การชำระ (ผู้ดูแลระบบ)',
+  },
+  'crew.settlement.detailSettled': {
+    ko: '이번 달 정산 완료',
+    th: 'ชำระเดือนนี้แล้ว',
+  },
+  'crew.settlement.detailNotSettled': {
+    ko: '이번 달 미정산',
+    th: 'เดือนนี้ยังไม่ชำระ',
+  },
+  'crew.settlement.detailPaidAmount': {
+    ko: '확정 금액',
+    th: 'ยอดที่ปิดบัญชี',
+  },
+  'crew.settlement.detailPaymentHistory': {
+    ko: '과거 정산 내역',
+    th: 'ประวัติชำระย้อนหลัง',
+  },
+  'crew.settlement.detailHistorySum': {
+    ko: '누적 정산 합계',
+    th: 'ยอดชำระสะสม',
+  },
+  'crew.settlement.detailNotesKoNotice': {
+    ko: '아래 안내 문구는 시스템 기본어(한국어)입니다.',
+    th: 'ข้อความด้านล่างเป็นภาษาเกาหลีจากระบบ',
+  },
+  'crew.settlement.detailEmptyLines': {
+    ko: '이 귀속 기간에 포함된 접수가 없습니다.',
+    th: 'ไม่มีงานในช่วงนี้',
+  },
+  'crew.settlement.detailEmptyExpense': {
+    ko: '등록된 크루 지출이 없습니다.',
+    th: 'ไม่มีค่าใช้จ่ายที่บันทึก',
   },
 
   /** CrewExpensesPage — 지출 */

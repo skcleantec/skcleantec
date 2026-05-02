@@ -20,7 +20,10 @@ async function findActiveCrewGroupByLoginId(loginId: string) {
   });
 }
 
-function issueCrewJwtPayload(group: NonNullable<Awaited<ReturnType<typeof findActiveCrewGroupByLoginId>>>) {
+function issueCrewJwtPayload(
+  group: NonNullable<Awaited<ReturnType<typeof findActiveCrewGroupByLoginId>>>,
+  crewJwtSource: 'login' | 'preview',
+) {
   const hasLeaderSlot = group.members.some((m) => m.isGroupLeader);
   const crewViewerRole: CrewViewerRole = hasLeaderSlot ? 'LEADER' : 'MEMBER';
   const payload: AuthPayload = {
@@ -29,6 +32,7 @@ function issueCrewJwtPayload(group: NonNullable<Awaited<ReturnType<typeof findAc
     role: 'TEAM_CREW_GROUP',
     crewGroupId: group.id,
     crewViewerRole,
+    crewJwtSource,
   };
   const token = jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
@@ -257,13 +261,14 @@ router.post('/crew-login', async (req, res) => {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;
   }
-  const { token, crewViewerRole } = issueCrewJwtPayload(group);
+  const { token, crewViewerRole } = issueCrewJwtPayload(group, 'login');
   res.json({
     token,
     crewGroup: {
       id: group.id,
       name: group.name,
       crewViewerRole,
+      crewJwtSource: 'login' as const,
     },
   });
 });
@@ -289,13 +294,14 @@ router.post('/crew-dev-preview', authMiddleware, async (req, res) => {
     res.status(404).json({ error: '계정을 찾을 수 없거나 비활성입니다.' });
     return;
   }
-  const { token, crewViewerRole } = issueCrewJwtPayload(group);
+  const { token, crewViewerRole } = issueCrewJwtPayload(group, 'preview');
   res.json({
     token,
     crewGroup: {
       id: group.id,
       name: group.name,
       crewViewerRole,
+      crewJwtSource: 'preview' as const,
     },
   });
 });
@@ -325,10 +331,13 @@ router.get('/crew-me', authMiddleware, async (req, res) => {
   const hasLeaderSlot = group.members.some((m) => m.isGroupLeader);
   const crewViewerRole: CrewViewerRole = hasLeaderSlot ? 'LEADER' : 'MEMBER';
 
+  const crewJwtSource = user.crewJwtSource ?? 'login';
+
   res.json({
     role: 'TEAM_CREW_GROUP',
     crewGroupId: group.id,
     crewViewerRole,
+    crewJwtSource,
     group: {
       id: group.id,
       name: group.name,

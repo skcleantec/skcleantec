@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import type { CrewLayoutContext } from '../../components/layout/CrewLayout';
+import type { CrewMeResponse } from '../../api/crew';
 import { getCrewToken } from '../../stores/crewAuth';
 import {
   deleteCrewExpense,
@@ -11,14 +10,15 @@ import {
 import { AuthSessionExpiredError } from '../../api/auth';
 import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
 
-function kstMonthKeyNow(): string {
-  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
-}
+export type CrewTeamExpensesTabVariant = 'page' | 'embedded';
 
-export function CrewExpensesPage() {
-  const outlet = useOutletContext<CrewLayoutContext | undefined>();
-  const me = outlet?.me ?? null;
-
+export function CrewTeamExpensesTab({
+  variant,
+  me,
+}: {
+  variant: CrewTeamExpensesTabVariant;
+  me: CrewMeResponse | null;
+}) {
   const [month, setMonth] = useState(() => kstMonthKeyNow());
   const [items, setItems] = useState<CrewExpenseListItemDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,14 +125,16 @@ export function CrewExpensesPage() {
 
   return (
     <div className="space-y-4 min-w-0">
-      <div>
-        <h1 className="text-fluid-lg font-semibold text-gray-900">
-          <CrewBiLine id="crew.expenses.title" koClassName="text-fluid-lg font-semibold text-gray-900" />
-        </h1>
-        <p className="mt-1 text-fluid-xs text-gray-600">
-          <CrewBiLine id="crew.expenses.intro" />
-        </p>
-      </div>
+      {variant === 'page' ? (
+        <div>
+          <h1 className="text-fluid-lg font-semibold text-gray-900">
+            <CrewBiLine id="crew.expenses.title" koClassName="text-fluid-lg font-semibold text-gray-900" />
+          </h1>
+          <p className="mt-1 text-fluid-xs text-gray-600">
+            <CrewBiLine id="crew.expenses.intro" />
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="text-fluid-xs text-gray-600 whitespace-nowrap">
@@ -346,6 +348,10 @@ export function CrewExpensesPage() {
       )}
     </div>
   );
+}
+
+function kstMonthKeyNow(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
 }
 
 function fmtIso(iso: string): string {

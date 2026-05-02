@@ -110,6 +110,14 @@ export function CrewLayout() {
                 className="shrink-0 self-center px-2 py-1 rounded text-fluid-xs text-red-700 hover:bg-red-50 border border-transparent hover:border-red-100"
                 onClick={() => {
                   try {
+                    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                      const k = sessionStorage.key(i);
+                      if (k?.startsWith('crewSensitivePwd:')) sessionStorage.removeItem(k);
+                    }
+                  } catch {
+                    /* ignore */
+                  }
+                  try {
                     sessionStorage.removeItem(DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY);
                   } catch {
                     /* ignore */
@@ -142,12 +150,22 @@ export function CrewLayout() {
               <CrewBiLine id="crew.layout.navSchedule" />
             </NavLink>
             <NavLink
-              to="/crew/expenses"
-              className={({ isActive }) =>
-                `px-2 py-1 rounded ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`
-              }
+              to={me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview' ? '/crew/settlement' : '/crew/settlement?tab=expenses'}
+              className={({ isActive }) => {
+                const settlementActive =
+                  isActive ||
+                  pathname.startsWith('/crew/settlement') ||
+                  pathname === '/crew/expenses';
+                return `px-2 py-1 rounded ${
+                  settlementActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
+                }`;
+              }}
             >
-              <CrewBiLine id="crew.layout.navExpenses" />
+              {me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview' ? (
+                <CrewBiLine id="crew.layout.navSettlement" />
+              ) : (
+                <CrewBiLine id="crew.layout.navTeamExpenses" />
+              )}
             </NavLink>
             <NavLink
               to="/crew/roster"

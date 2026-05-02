@@ -5,6 +5,8 @@ import { isSuperAdminRoleAndEmail } from './superAdmin.js';
 
 export type CrewViewerRole = 'LEADER' | 'MEMBER';
 
+export type CrewJwtSource = 'login' | 'preview';
+
 export interface AuthPayload {
   userId: string;
   email: string;
@@ -12,6 +14,8 @@ export interface AuthPayload {
   /** TEAM_CREW_GROUP 전용 — JWT에 포함 */
   crewGroupId?: string;
   crewViewerRole?: CrewViewerRole;
+  /** 크루 JWT만 — 미리보기 발급 시 정산표 등에서 조장 비번 검증 생략 */
+  crewJwtSource?: CrewJwtSource;
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {

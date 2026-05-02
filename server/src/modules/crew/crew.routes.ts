@@ -17,6 +17,10 @@ import {
   deleteCrewGroupExpense,
   listCrewExpensesForGroup,
 } from './crewGroupExpense.service.js';
+import { crewSettlementPayrollSheetAccess } from './crewSettlement.middleware.js';
+import { buildPoolMemberPayrollSheetRows } from '../admin-payroll/payrollSheetPoolShared.js';
+import { computePoolMemberPayrollDetail } from '../admin-payroll/poolMemberPayrollCompute.js';
+import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
@@ -28,6 +32,8 @@ const expenseUpload = multer({
   limits: { fileSize: 12 * 1024 * 1024 },
 });
 const expenseUploadFields = expenseUpload.fields([{ name: 'images', maxCount: 15 }]);
+
+const SETTLEMENT_MONTH_KEY = /^\d{4}-\d{2}$/;
 
 router.use(authMiddleware, crewGroupOnly);
 
@@ -278,6 +284,151 @@ router.put('/day-roster', crewGroupLeaderFromDb, async (req, res) => {
     console.error('PUT /crew/day-roster', e);
     res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
   }
+});
+
+/**
+ * 그룹 소속 풀 팀원만 — 관리자 정산표(풀)와 동일 산출의 읽기 전용 행.
+ * 조장 비번 헤더(X-Crew-Sensitive-Password) 또는 미리보기 JWT.
+ */
+router.get('/settlement/payroll-sheet', crewSettlementPayrollSheetAccess, async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    monthRaw || new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+  try {
+    const links = await prisma.teamCrewGroupMember.findMany({
+      where: { groupId: gid },
+      select: { teamMemberId: true },
+    });
+    const allowed = [...new Set(links.map((l) => l.teamMemberId))];
+    if (allowed.length === 0) {
+      res.json({ crewGroupId: gid, month: monthKey, rows: [] });
+      return;
+    }
+
+    const poolMembers = await prisma.teamMember.findMany({
+      where: { teamId: null, isActive: true, id: { in: allowed } },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        nameTh: true,
+        monthlyPayDay: true,
+        payAmountPerJob: true,
+        sortOrder: true,
+        createdAt: true,
+      },
+    });
+
+    const rows = await buildPoolMemberPayrollSheetRows(prisma, monthKey, poolMembers);
+    res.json({ crewGroupId: gid, month: monthKey, rows });
+  } catch (e) {
+    console.error('GET /crew/settlement/payroll-sheet', e);
+    res.status(500).json({ error: '조회 중 오류가 발생했습니다.' });
+  }
+});
+
+/** 그룹 소속 팀원 한 명 — 관리자 풀 상세와 동일 산출(읽기 전용). 정산표와 동일 게이트. */
+router.get('/settlement/pool-member/:teamMemberId/detail', crewSettlementPayrollSheetAccess, async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const teamMemberId =
+    typeof req.params.teamMemberId === 'string' ? req.params.teamMemberId.trim() : '';
+  if (!teamMemberId) {
+    res.status(400).json({ error: 'teamMemberId가 필요합니다.' });
+    return;
+  }
+
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && SETTLEMENT_MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const inGroup = await prisma.teamCrewGroupMember.findFirst({
+    where: { groupId: gid, teamMemberId },
+    select: { teamMemberId: true },
+  });
+  if (!inGroup) {
+    res.status(403).json({ error: '이 크루 그룹 소속 팀원만 조회할 수 있습니다.' });
+    return;
+  }
+
+  let computation: Awaited<ReturnType<typeof computePoolMemberPayrollDetail>>;
+  try {
+    const result = await computePoolMemberPayrollDetail(prisma, teamMemberId, monthKey);
+    if (!result) {
+      res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
+      return;
+    }
+    computation = result;
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_MONTH_KEY') {
+      res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+      return;
+    }
+    console.error('GET /crew/settlement/pool-member/detail', e);
+    res.status(500).json({ error: '조회 중 오류가 발생했습니다.' });
+    return;
+  }
+
+  const [currentSettlement, historyRows] = await Promise.all([
+    prisma.teamMemberPayrollSettlement.findUnique({
+      where: { teamMemberId_monthKey: { teamMemberId, monthKey } },
+      select: { amount: true, settledAt: true },
+    }),
+    prisma.teamMemberPayrollSettlement.findMany({
+      where: { teamMemberId },
+      orderBy: { settledAt: 'desc' },
+      select: { monthKey: true, amount: true, settledAt: true },
+    }),
+  ]);
+
+  const totalPaid = historyRows.reduce((s, r) => s + r.amount, 0);
+
+  res.json({
+    month: computation.monthKey,
+    member: {
+      id: computation.member.id,
+      name: computation.member.name,
+      nameTh: computation.member.nameTh,
+    },
+    payDateYmd: computation.payDateYmd,
+    accrualStartYmd: computation.accrualStartYmd,
+    accrualEndYmd: computation.accrualEndYmd,
+    unitAmount: computation.unitAmount,
+    poolSystemDays: computation.poolSystemDays,
+    poolManualExtraDays: computation.poolManualExtraDays,
+    jobCount: computation.jobCount,
+    amount: computation.amount,
+    crewExpenseTotal: computation.crewExpenseTotal,
+    amountNet: computation.amountNet,
+    crewExpenseLines: computation.crewExpenseLines,
+    notes: computation.notes,
+    lines: computation.lines,
+    settlement: currentSettlement
+      ? {
+          amount: currentSettlement.amount,
+          settledAt: currentSettlement.settledAt.toISOString(),
+        }
+      : null,
+    paymentHistory: {
+      totalPaid,
+      items: historyRows.map((r) => ({
+        monthKey: r.monthKey,
+        amount: r.amount,
+        settledAt: r.settledAt.toISOString(),
+      })),
+    },
+  });
 });
 
 /** 귀속 월별 크루 지출 목록 — 그룹 로그인 전원 조회 가능 */

@@ -36,7 +36,12 @@ export async function loginCrew(loginId: string, password: string) {
   }
   return res.json() as Promise<{
     token: string;
-    crewGroup: { id: string; name: string; crewViewerRole: 'LEADER' | 'MEMBER' };
+    crewGroup: {
+      id: string;
+      name: string;
+      crewViewerRole: 'LEADER' | 'MEMBER';
+      crewJwtSource?: 'login' | 'preview';
+    };
   }>;
 }
 
@@ -65,7 +70,12 @@ export async function crewDevPreviewLogin(adminToken: string, loginId: string) {
   }
   return res.json() as Promise<{
     token: string;
-    crewGroup: { id: string; name: string; crewViewerRole: 'LEADER' | 'MEMBER' };
+    crewGroup: {
+      id: string;
+      name: string;
+      crewViewerRole: 'LEADER' | 'MEMBER';
+      crewJwtSource?: 'login' | 'preview';
+    };
   }>;
 }
 
@@ -73,6 +83,8 @@ export interface CrewMeResponse {
   role: string;
   crewGroupId: string;
   crewViewerRole: 'LEADER' | 'MEMBER';
+  /** 서버 JWT 출처 — 미리보기면 정산표 조회 시 조장 비번 생략 */
+  crewJwtSource?: 'login' | 'preview';
   group: {
     id: string;
     name: string;
@@ -300,6 +312,171 @@ export interface CrewExpenseAttachmentDto {
   secureUrl: string;
   width: number | null;
   height: number | null;
+}
+
+export interface CrewSettlementPayrollSheetRow {
+  kind: 'POOL_MEMBER';
+  id: string;
+  name: string;
+  roleLabel: string;
+  payDateYmd: string | null;
+  accrualStartYmd: string | null;
+  accrualEndYmd: string | null;
+  jobCount: number | null;
+  unitAmount: number | null;
+  amount: number | null;
+  notes: string[];
+  poolSystemDays?: number | null;
+  poolManualExtraDays?: number | null;
+  poolSettlementComplete?: boolean;
+  crewExpenseTotal?: number;
+  amountNet?: number | null;
+}
+
+export class CrewSettlementGateError extends Error {
+  readonly httpStatus: number;
+  readonly code?: string;
+
+  constructor(message: string, httpStatus: number, code?: string) {
+    super(message);
+    this.name = 'CrewSettlementGateError';
+    this.httpStatus = httpStatus;
+    this.code = code;
+  }
+}
+
+export async function getCrewSettlementPayrollSheet(
+  token: string,
+  month: string,
+  options?: { sensitivePassword?: string },
+): Promise<{ crewGroupId: string; month: string; rows: CrewSettlementPayrollSheetRow[] }> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const sp = options?.sensitivePassword?.trim();
+  if (sp) headers['X-Crew-Sensitive-Password'] = sp;
+  const q =
+    month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  let res: Response;
+  try {
+    res = await fetch(`${API}/crew/settlement/payroll-sheet${q}`, { headers });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    code?: string;
+    crewGroupId?: string;
+    month?: string;
+    rows?: CrewSettlementPayrollSheetRow[];
+  };
+  if (res.status === 401) {
+    throw new CrewSettlementGateError(
+      typeof data.error === 'string' && data.error.trim() ? data.error.trim() : '조장 비밀번호가 필요합니다.',
+      401,
+      typeof data.code === 'string' ? data.code : undefined,
+    );
+  }
+  if (!res.ok) {
+    throw new CrewSettlementGateError(
+      typeof data.error === 'string' && data.error.trim()
+        ? data.error.trim()
+        : '정산표를 불러오지 못했습니다.',
+      res.status,
+      typeof data.code === 'string' ? data.code : undefined,
+    );
+  }
+  return {
+    crewGroupId: String(data.crewGroupId ?? ''),
+    month: typeof data.month === 'string' ? data.month : month,
+    rows: Array.isArray(data.rows) ? data.rows : [],
+  };
+}
+
+export interface CrewPoolPayrollDetailLineDto {
+  inquiryId: string;
+  inquiryNumber: string | null;
+  customerName: string;
+  nickname: string | null;
+  preferredDateYmd: string | null;
+  crewMemberNote: string | null;
+}
+
+export interface CrewPoolExpenseLedgerLineDto {
+  id: string;
+  amount: number;
+  memo: string | null;
+  createdAt: string;
+  crewGroupName: string;
+  attachmentCount: number;
+}
+
+export interface CrewPoolMemberPayrollDetailDto {
+  month: string;
+  member: { id: string; name: string; nameTh: string | null };
+  payDateYmd: string | null;
+  accrualStartYmd: string | null;
+  accrualEndYmd: string | null;
+  unitAmount: number | null;
+  poolSystemDays: number | null;
+  poolManualExtraDays: number;
+  jobCount: number | null;
+  amount: number | null;
+  crewExpenseTotal: number;
+  amountNet: number | null;
+  crewExpenseLines: CrewPoolExpenseLedgerLineDto[];
+  notes: string[];
+  lines: CrewPoolPayrollDetailLineDto[];
+  settlement: { amount: number; settledAt: string } | null;
+  paymentHistory: {
+    totalPaid: number;
+    items: Array<{ monthKey: string; amount: number; settledAt: string }>;
+  };
+}
+
+export async function getCrewSettlementPoolMemberDetail(
+  token: string,
+  teamMemberId: string,
+  month: string,
+  options?: { sensitivePassword?: string },
+): Promise<CrewPoolMemberPayrollDetailDto> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const sp = options?.sensitivePassword?.trim();
+  if (sp) headers['X-Crew-Sensitive-Password'] = sp;
+  const mid = encodeURIComponent(teamMemberId.trim());
+  const q =
+    month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  let res: Response;
+  try {
+    res = await fetch(`${API}/crew/settlement/pool-member/${mid}/detail${q}`, { headers });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    code?: string;
+  } & Partial<CrewPoolMemberPayrollDetailDto>;
+  if (res.status === 401) {
+    throw new CrewSettlementGateError(
+      typeof data.error === 'string' && data.error.trim() ? data.error.trim() : '조장 비밀번호가 필요합니다.',
+      401,
+      typeof data.code === 'string' ? data.code : undefined,
+    );
+  }
+  if (!res.ok) {
+    throw new CrewSettlementGateError(
+      typeof data.error === 'string' && data.error.trim()
+        ? data.error.trim()
+        : '상세를 불러오지 못했습니다.',
+      res.status,
+      typeof data.code === 'string' ? data.code : undefined,
+    );
+  }
+  return data as CrewPoolMemberPayrollDetailDto;
 }
 
 export interface CrewExpenseListItemDto {
