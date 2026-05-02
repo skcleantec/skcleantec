@@ -49,6 +49,8 @@ router.get('/', adminOrMarketer, async (req, res) => {
       hireDate: true,
       resignationDate: true,
       allowSelfDayOffEdit: true,
+      payrollMonthlySalary: true,
+      payrollPayDay: true,
       externalCompany: { select: { id: true, name: true } },
     },
     orderBy: { name: 'asc' },
@@ -82,6 +84,8 @@ router.get('/', adminOrMarketer, async (req, res) => {
         hireDate: true,
         resignationDate: true,
         allowSelfDayOffEdit: true,
+        payrollMonthlySalary: true,
+        payrollPayDay: true,
         externalCompany: { select: { id: true, name: true } },
       },
     });
@@ -105,6 +109,8 @@ router.get('/', adminOrMarketer, async (req, res) => {
       externalCompanyId: u.externalCompany?.id ?? null,
       externalCompanyName: u.externalCompany?.name ?? null,
       allowSelfDayOffEdit: u.role === 'TEAM_LEADER' ? u.allowSelfDayOffEdit : true,
+      payrollMonthlySalary: u.payrollMonthlySalary ?? null,
+      payrollPayDay: u.payrollPayDay ?? null,
       ...serializeUserDates(u),
     }))
   );
@@ -179,6 +185,8 @@ router.patch('/:id', adminOnly, async (req, res) => {
     hireDate?: string | null;
     resignationDate?: string | null;
     allowSelfDayOffEdit?: boolean;
+    payrollMonthlySalary?: number | null;
+    payrollPayDay?: number | null;
   };
   const authUser = (req as unknown as { user: AuthPayload }).user;
 
@@ -191,7 +199,15 @@ router.patch('/:id', adminOnly, async (req, res) => {
 
   const existing = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, role: true, email: true, hireDate: true, resignationDate: true },
+    select: {
+      id: true,
+      role: true,
+      email: true,
+      hireDate: true,
+      resignationDate: true,
+      payrollMonthlySalary: true,
+      payrollPayDay: true,
+    },
   });
   if (
     !existing ||
@@ -211,6 +227,8 @@ router.patch('/:id', adminOnly, async (req, res) => {
     hireDate?: Date | null;
     resignationDate?: Date | null;
     allowSelfDayOffEdit?: boolean;
+    payrollMonthlySalary?: number | null;
+    payrollPayDay?: number | null;
   } = {};
 
   if (body.name != null) {
@@ -292,6 +310,44 @@ router.patch('/:id', adminOnly, async (req, res) => {
     data.allowSelfDayOffEdit = Boolean(body.allowSelfDayOffEdit);
   }
 
+  const payrollRoleOk = existing.role === 'TEAM_LEADER' || existing.role === 'MARKETER';
+
+  if (body.payrollMonthlySalary !== undefined) {
+    if (!payrollRoleOk) {
+      res.status(400).json({ error: '급여 설정은 팀장·마케터 계정만 변경할 수 있습니다.' });
+      return;
+    }
+    const v = body.payrollMonthlySalary;
+    if (v === null) {
+      data.payrollMonthlySalary = null;
+    } else {
+      const n = typeof v === 'number' ? Math.trunc(v) : parseInt(String(v).replace(/,/g, '').trim(), 10);
+      if (!Number.isFinite(n) || n < 0) {
+        res.status(400).json({ error: '월 급여는 0 이상 정수(원)이어야 합니다.' });
+        return;
+      }
+      data.payrollMonthlySalary = n;
+    }
+  }
+
+  if (body.payrollPayDay !== undefined) {
+    if (!payrollRoleOk) {
+      res.status(400).json({ error: '급여 설정은 팀장·마케터 계정만 변경할 수 있습니다.' });
+      return;
+    }
+    const v = body.payrollPayDay;
+    if (v === null) {
+      data.payrollPayDay = null;
+    } else {
+      const d = typeof v === 'number' ? v : parseInt(String(v).trim(), 10);
+      if (!Number.isFinite(d) || d < 1 || d > 31) {
+        res.status(400).json({ error: '급여 지급일은 1~31 또는 비움(말일)입니다.' });
+        return;
+      }
+      data.payrollPayDay = d;
+    }
+  }
+
   if (Object.keys(data).length === 0) {
     const u = await prisma.user.findUnique({
       where: { id },
@@ -304,11 +360,15 @@ router.patch('/:id', adminOnly, async (req, res) => {
         hireDate: true,
         resignationDate: true,
         allowSelfDayOffEdit: true,
+        payrollMonthlySalary: true,
+        payrollPayDay: true,
       },
     });
     res.json({
       ...u!,
       allowSelfDayOffEdit: u!.role === 'TEAM_LEADER' ? u!.allowSelfDayOffEdit : true,
+      payrollMonthlySalary: u!.payrollMonthlySalary ?? null,
+      payrollPayDay: u!.payrollPayDay ?? null,
       ...serializeUserDates(u!),
     });
     return;
@@ -326,11 +386,15 @@ router.patch('/:id', adminOnly, async (req, res) => {
       hireDate: true,
       resignationDate: true,
       allowSelfDayOffEdit: true,
+      payrollMonthlySalary: true,
+      payrollPayDay: true,
     },
   });
   res.json({
     ...updated,
     allowSelfDayOffEdit: updated.role === 'TEAM_LEADER' ? updated.allowSelfDayOffEdit : true,
+    payrollMonthlySalary: updated.payrollMonthlySalary ?? null,
+    payrollPayDay: updated.payrollPayDay ?? null,
     ...serializeUserDates(updated),
   });
 });

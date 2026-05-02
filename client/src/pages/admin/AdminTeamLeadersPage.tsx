@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import {
@@ -37,6 +37,8 @@ export function AdminTeamLeadersPage() {
     password: '',
     hireDate: '',
     resignationDate: '',
+    payrollMonthlySalary: '',
+    payrollPayDay: '',
   });
   const [editLoading, setEditLoading] = useState(false);
   const [dayOffSwitchId, setDayOffSwitchId] = useState<string | null>(null);
@@ -113,6 +115,9 @@ export function AdminTeamLeadersPage() {
       password: '',
       hireDate: item.hireDate ?? '',
       resignationDate: item.resignationDate ?? '',
+      payrollMonthlySalary:
+        item.payrollMonthlySalary != null ? String(item.payrollMonthlySalary) : '',
+      payrollPayDay: item.payrollPayDay != null ? String(item.payrollPayDay) : '',
     });
   };
 
@@ -128,6 +133,8 @@ export function AdminTeamLeadersPage() {
         password?: string;
         hireDate?: string | null;
         resignationDate?: string | null;
+        payrollMonthlySalary?: number | null;
+        payrollPayDay?: number | null;
       } = {
         email: editForm.email.trim().toLowerCase(),
         name: editForm.name.trim(),
@@ -139,6 +146,32 @@ export function AdminTeamLeadersPage() {
       if (isSuperAdmin) {
         payload.hireDate = editForm.hireDate.trim() || null;
         payload.resignationDate = editForm.resignationDate.trim() || null;
+      }
+      if (editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER') {
+        const salaryTrim = editForm.payrollMonthlySalary.trim().replace(/,/g, '');
+        if (salaryTrim === '') {
+          payload.payrollMonthlySalary = null;
+        } else {
+          const n = Number(salaryTrim);
+          if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+            alert('월 고정 급여는 0 이상의 정수(원)로 입력해 주세요.');
+            setEditLoading(false);
+            return;
+          }
+          payload.payrollMonthlySalary = n;
+        }
+        const dayTrim = editForm.payrollPayDay.trim();
+        if (dayTrim === '') {
+          payload.payrollPayDay = null;
+        } else {
+          const d = Number.parseInt(dayTrim, 10);
+          if (!Number.isFinite(d) || d < 1 || d > 31) {
+            alert('급여 지급일은 1~31 사이로 입력해 주세요. 미입력 시 월 급여표에서 말일 등으로 표시됩니다.');
+            setEditLoading(false);
+            return;
+          }
+          payload.payrollPayDay = d;
+        }
       }
       await updateUser(token, editingUser.id, payload);
       setEditingUser(null);
@@ -681,6 +714,59 @@ export function AdminTeamLeadersPage() {
                     autoComplete="new-password"
                   />
                 </div>
+                {(editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER') && (
+                  <>
+                    <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+                      <div>
+                        <p className="text-fluid-xs font-medium text-gray-800">
+                          {editingUser.role === 'TEAM_LEADER'
+                            ? '팀장 · 월 급여표(현장 일당·근무일 산정과 무관)'
+                            : '직원(마케터) · 월 급여표'}
+                        </p>
+                        <p className="text-fluid-2xs text-gray-500 mt-0.5 leading-snug">
+                          {editingUser.role === 'TEAM_LEADER'
+                            ? '현장 팀원처럼 근무일×일당으로 계산하지 않고, 여기 입력한 월 고정 금액만 월 급여표에 반영됩니다.'
+                            : '마케터는 팀장과 계정·급여 조건이 다릅니다. 월 고정 급여만 표에 넣으며, 근무 형태별 세부는 금액에 반영해 주세요.'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">월 고정 급여 (원)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editForm.payrollMonthlySalary}
+                          onChange={(e) =>
+                            setEditForm((p) => ({ ...p, payrollMonthlySalary: e.target.value }))
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                          placeholder="예: 3500000 · 비우면 미설정"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">급여 지급일 (1–31)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={31}
+                          step={1}
+                          value={editForm.payrollPayDay}
+                          onChange={(e) =>
+                            setEditForm((p) => ({ ...p, payrollPayDay: e.target.value }))
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                          placeholder="비우면 월 급여표에서 말일 규칙"
+                        />
+                        <p className="text-fluid-2xs text-gray-500 mt-1">
+                        현장 팀원의 일당은{' '}
+                          <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
+                            팀원 등록
+                          </Link>
+                          에서 설정합니다.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
                 {isSuperAdmin && (
                   <>
                     <div>

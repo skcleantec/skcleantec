@@ -212,7 +212,7 @@ function parseTeamMemberPayFields(body: Record<string, unknown>): {
           ? Math.trunc(v)
           : parseInt(String(v).replace(/,/g, '').trim(), 10);
       if (!Number.isFinite(n) || n < 0) {
-        return { error: '건당 책정금액은 0 이상 정수(원)이거나 비워야 합니다.' };
+        return { error: '일당(1일 급여)는 0 이상 정수(원)이거나 비워야 합니다.' };
       }
       out.payAmountPerJob = n;
     }

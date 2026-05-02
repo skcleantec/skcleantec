@@ -21,6 +21,10 @@ export interface UserItem {
   resignationDate?: string | null;
   /** 팀장만: 본인 휴무일 등록·삭제 허용(관리자 설정) */
   allowSelfDayOffEdit?: boolean;
+  /** 팀장·마케터: 월 급여표용 고정 월급(원). 미설정 시 표에서 제외 또는 0 처리는 서버·화면 규칙 따름 */
+  payrollMonthlySalary?: number | null;
+  /** 팀장·마케터: 매월 급여 지급일(1–31). 미설정 시 월 급여표에서 말일 등 기본 규칙 */
+  payrollPayDay?: number | null;
 }
 
 /** @deprecated UserItem 사용 */
@@ -126,6 +130,8 @@ export async function updateUser(
     hireDate?: string | null;
     resignationDate?: string | null;
     allowSelfDayOffEdit?: boolean;
+    payrollMonthlySalary?: number | null;
+    payrollPayDay?: number | null;
   }
 ): Promise<UserItem> {
   const res = await fetch(`${API}/users/${encodeURIComponent(id)}`, {

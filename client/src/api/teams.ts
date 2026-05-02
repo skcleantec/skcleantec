@@ -25,7 +25,7 @@ export interface TeamMemberItem {
   isActive: boolean;
   /** 매월 급여 지급일(1~31). 미설정 시 null */
   monthlyPayDay?: number | null;
-  /** 건당 책정 금액(원). 미설정 시 null */
+  /** 1일 급여·일당(원). 미설정 시 null — 월 급여표에서 근무일 수×일당 계산 */
   payAmountPerJob?: number | null;
   /** 설정된 급여 주기(월급일~다음 월급 전일) 안 접수 예약일 기준·메모 이름 매칭 청소 건수 */
   payCycleJobCount?: number | null;

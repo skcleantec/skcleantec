@@ -23,6 +23,11 @@ import {
   setTeamCrewGroupMemberLeader,
   type TeamCrewGroupItem,
 } from '../../api/teamCrewGroups';
+import { HelpTooltip } from '../../components/ui/HelpTooltip';
+
+/** 팀 크루 그룹 섹션 도움말 */
+const CREW_GROUP_SECTION_HELP =
+  '현장 인원이 같은 아이디로 로그인해 동일 정보를 보게 할 그룹입니다. 멤버는 아래 팀원 목록(전사 풀)에서만 추가합니다.\n\n날짜별 일할 수 있는 인원은 크루 공유 로그인(/crew) 후 「일자 명단」에서 그룹장이 지정합니다.';
 
 /** 서버 teamCrewGroups LOGIN_ID_RE 와 동일 */
 const CREW_LOGIN_ID_RE = /^[a-zA-Z0-9@._-]{3,64}$/;
@@ -93,6 +98,9 @@ export function AdminTeamsPage() {
     payAmountPerJobInput: string;
   } | null>(null);
   const [editMemberSaving, setEditMemberSaving] = useState(false);
+
+  /** 팀원 목록 재정렬 중 (위로/아래로) */
+  const [memberOrderBusy, setMemberOrderBusy] = useState(false);
 
   const [crewGroups, setCrewGroups] = useState<TeamCrewGroupItem[]>([]);
   const [crewLoading, setCrewLoading] = useState(true);
@@ -172,6 +180,31 @@ export function AdminTeamsPage() {
     if (!items) return;
     const g = items.find((x) => x.id === groupId);
     if (g) setCrewEdit(g);
+  };
+
+  /** 현재 목록 순서대로 sortOrder 0..n-1 저장 */
+  const applyPoolMemberOrder = async (reordered: TeamMemberItem[]) => {
+    if (!token) return;
+    setMemberOrderBusy(true);
+    try {
+      await Promise.all(
+        reordered.map((mem, idx) => updatePoolTeamMember(token, mem.id, { sortOrder: idx }))
+      );
+      await refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '순서 저장에 실패했습니다.');
+    } finally {
+      setMemberOrderBusy(false);
+    }
+  };
+
+  const movePoolMemberInList = async (fromIndex: number, delta: -1 | 1) => {
+    const toIndex = fromIndex + delta;
+    if (toIndex < 0 || toIndex >= members.length) return;
+    const arr = [...members];
+    const [row] = arr.splice(fromIndex, 1);
+    arr.splice(toIndex, 0, row);
+    await applyPoolMemberOrder(arr);
   };
 
   useEffect(() => {
@@ -272,7 +305,7 @@ export function AdminTeamsPage() {
       else {
         const n = parseInt(payJobRaw, 10);
         if (!Number.isFinite(n) || n < 0) {
-          alert('건당 책정금액은 0 이상 정수(원)로 입력하거나 비워 두세요.');
+          alert('일당(1일 급여)는 0 이상 정수(원)로 입력하거나 비워 두세요.');
           return;
         }
         payAmountPerJob = n;
@@ -508,13 +541,9 @@ export function AdminTeamsPage() {
 
       <section className="bg-white border border-gray-200 rounded-lg p-4 min-w-0">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-3">
-          <div>
+          <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-gray-800">팀 크루 그룹 (공유 로그인)</h2>
-            <p className="text-xs text-gray-500 mt-1 max-w-2xl">
-              현장 인원이 같은 아이디로 로그인해 동일 정보를 보게 할 그룹입니다. 멤버는 아래 팀원 목록(전사 풀)에서만
-              추가합니다. <strong className="text-gray-700">날짜별 일할 수 있는 인원</strong>은 크루 공유 로그인(
-              <span className="font-mono">/crew</span>) 후 「일자 명단」에서 그룹장이 지정합니다.
-            </p>
+            <HelpTooltip className="shrink-0" text={CREW_GROUP_SECTION_HELP} />
           </div>
           <button
             type="button"
@@ -657,8 +686,8 @@ export function AdminTeamsPage() {
         <section className="bg-white border border-gray-200 rounded-lg p-4">
           <h2 className="text-sm font-semibold text-gray-800 mb-1">팀원 목록</h2>
           <p className="text-xs text-gray-500 mb-3">
-            등록한 팀원이 아래에 표시됩니다. 각 행에서 휴무일·정보 수정·사용 중지·삭제를 할 수 있습니다. 월급
-            정산(건수)용으로 「정보 수정」에서 매월 지급일·건당 책정금액을 설정할 수 있습니다.
+            등록한 팀원이 아래에 표시됩니다. 각 행에서 순서(위로·아래로)·휴무일·정보 수정·사용 중지·삭제를 할 수 있습니다.
+            월 급여표 산정용으로 「정보 수정」에서 매월 지급일·일당(1일 급여)을 설정할 수 있습니다. 같은 날 현장을 여러 번 나가도 급여 산정에서는 1일로 집계됩니다.
           </p>
           {members.length === 0 ? (
             <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-md px-3 py-4 text-center mb-3">
@@ -666,48 +695,76 @@ export function AdminTeamsPage() {
             </p>
           ) : (
             <ul className="divide-y divide-gray-100 border border-gray-100 rounded-md mb-3">
-              {members.map((m) => (
+              {members.map((m, index) => (
                 <li key={m.id} className="px-3 py-3 text-sm">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span className={m.isActive ? 'font-medium text-gray-900' : 'text-gray-400 line-through'}>
-                          {m.name}
-                        </span>
-                        {m.monthlyPayDay != null &&
-                        m.payCycleJobCount != null &&
-                        m.payCycleStartYmd &&
-                        m.payCycleEndYmd ? (
-                          <span
-                            className="text-xs text-blue-800 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded tabular-nums shrink-0"
-                            title={`급여 주기(KST): ${m.payCycleStartYmd} ~ ${m.payCycleEndYmd}. 접수 예약일 기준·현장 투입 메모(이름) 일치 건만 집계합니다.`}
-                          >
-                            급여주기 {m.payCycleJobCount}건 ({formatPayCycleRangeShort(m.payCycleStartYmd, m.payCycleEndYmd)})
+                    <div className="min-w-0 flex gap-2 sm:gap-3 flex-1">
+                      <span
+                        className="text-fluid-xs text-gray-400 tabular-nums shrink-0 w-6 text-center pt-0.5 sm:pt-1"
+                        title="표시 순서"
+                      >
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className={m.isActive ? 'font-medium text-gray-900' : 'text-gray-400 line-through'}>
+                            {m.name}
                           </span>
-                        ) : null}
-                        {(m.nameTh ?? '').trim() ? (
-                          <span className="text-xs text-gray-500 w-full sm:w-auto">({(m.nameTh ?? '').trim()})</span>
-                        ) : null}
-                        {m.phone ? (
-                          <span className="text-gray-500 text-xs">{m.phone}</span>
-                        ) : (
-                          <span className="text-xs text-gray-400">연락처 없음</span>
-                        )}
-                        {!m.isActive && (
-                          <span className="text-xs text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
-                            사용 안 함
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-fluid-xs text-gray-600 mt-1 tabular-nums">
-                        급여:{' '}
-                        {m.monthlyPayDay != null ? `매월 ${m.monthlyPayDay}일 지급` : '지급일 미설정'} ·{' '}
-                        {m.payAmountPerJob != null
-                          ? `건당 ${Number(m.payAmountPerJob).toLocaleString('ko-KR')}원`
-                          : '건당 금액 미설정'}
+                          {m.monthlyPayDay != null &&
+                          m.payCycleJobCount != null &&
+                          m.payCycleStartYmd &&
+                          m.payCycleEndYmd ? (
+                            <span
+                              className="text-xs text-blue-800 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded tabular-nums shrink-0"
+                              title={`급여 주기(KST): ${m.payCycleStartYmd} ~ ${m.payCycleEndYmd}. 접수 예약일 기준·현장 투입 메모(이름) 일치 건만 집계합니다.`}
+                            >
+                              급여주기 {m.payCycleJobCount}건 ({formatPayCycleRangeShort(m.payCycleStartYmd, m.payCycleEndYmd)})
+                            </span>
+                          ) : null}
+                          {(m.nameTh ?? '').trim() ? (
+                            <span className="text-xs text-gray-500 w-full sm:w-auto">({(m.nameTh ?? '').trim()})</span>
+                          ) : null}
+                          {m.phone ? (
+                            <span className="text-gray-500 text-xs">{m.phone}</span>
+                          ) : (
+                            <span className="text-xs text-gray-400">연락처 없음</span>
+                          )}
+                          {!m.isActive && (
+                            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
+                              사용 안 함
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-fluid-xs text-gray-600 mt-1 tabular-nums">
+                          급여:{' '}
+                          {m.monthlyPayDay != null ? `매월 ${m.monthlyPayDay}일 지급` : '지급일 미설정'} ·{' '}
+                          {m.payAmountPerJob != null
+                            ? `일당 ${Number(m.payAmountPerJob).toLocaleString('ko-KR')}원`
+                            : '일당 미설정'}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 shrink-0">
+                    <div className="flex flex-wrap gap-1.5 shrink-0 sm:pl-0 pl-8">
+                      <button
+                        type="button"
+                        className={`${memberRowBtn} disabled:opacity-40`}
+                        disabled={memberOrderBusy || index === 0}
+                        title="목록에서 한 칸 위로"
+                        aria-label={`${m.name} 순서 위로`}
+                        onClick={() => void movePoolMemberInList(index, -1)}
+                      >
+                        위로
+                      </button>
+                      <button
+                        type="button"
+                        className={`${memberRowBtn} disabled:opacity-40`}
+                        disabled={memberOrderBusy || index >= members.length - 1}
+                        title="목록에서 한 칸 아래로"
+                        aria-label={`${m.name} 순서 아래로`}
+                        onClick={() => void movePoolMemberInList(index, 1)}
+                      >
+                        아래로
+                      </button>
                       <button
                         type="button"
                         onClick={() => setDayOffModal({ memberId: m.id, memberName: m.name })}
@@ -891,7 +948,9 @@ export function AdminTeamsPage() {
                   />
                 </div>
                 <div className="pt-2 border-t border-gray-100">
-                  <p className="text-xs text-gray-600 mb-2">월급 정산 설정 (건수 × 단가는 다음 단계에서 반영)</p>
+                  <p className="text-xs text-gray-600 mb-2">
+                    월 급여표: 근무일 수 × 일당 (같은 날 여러 현장은 1일로 집계)
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-gray-500 block mb-1">매월 지급일 (1~31, 비우면 미설정)</label>
@@ -911,7 +970,7 @@ export function AdminTeamsPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">건당 책정금액 (원, 비우면 미설정)</label>
+                      <label className="text-xs text-gray-500 block mb-1">일당 · 1일 급여 (원, 비우면 미설정)</label>
                       <input
                         type="text"
                         inputMode="numeric"

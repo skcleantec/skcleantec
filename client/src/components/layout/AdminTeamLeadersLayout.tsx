@@ -97,6 +97,12 @@ export function AdminTeamLeadersLayout() {
         >
           타업체 정산
         </NavLink>
+        <NavLink
+          to="/admin/team-leaders/payroll"
+          className={({ isActive }) => adminSubNavTabClassName(isActive)}
+        >
+          월 급여표
+        </NavLink>
         <NavLink to="/admin/team-leaders/leader-stats" className={({ isActive }) => adminSubNavTabClassName(isActive)}>
           팀장
         </NavLink>

@@ -34,6 +34,7 @@ import { AdminTeamLeaderStatsPage } from './pages/admin/AdminTeamLeaderStatsPage
 import { AdminExternalCompaniesPage } from './pages/admin/AdminExternalCompaniesPage';
 import { AdminExternalSettlementPage } from './pages/admin/AdminExternalSettlementPage';
 import { AdminPageSettingsPage } from './pages/admin/AdminPageSettingsPage';
+import { AdminPayrollPage } from './pages/admin/AdminPayrollPage';
 import { CrewHomePage } from './pages/crew/CrewHomePage';
 import { CrewRosterLayout } from './pages/crew/CrewRosterLayout';
 import { CrewRosterCalendarPage } from './pages/crew/CrewRosterCalendarPage';
@@ -79,6 +80,7 @@ function App() {
             <Route path="inquiry-delete" element={<AdminInquiryBulkDeletePage />} />
             <Route path="external-companies" element={<AdminExternalCompaniesPage />} />
             <Route path="external-settlement" element={<AdminExternalSettlementPage />} />
+            <Route path="payroll" element={<AdminPayrollPage />} />
           </Route>
           <Route path="teams" element={<Navigate to="/admin/team-leaders/team-members" replace />} />
           <Route path="teams/holidays" element={<Navigate to="/admin/team-leaders/holiday-calendar" replace />} />

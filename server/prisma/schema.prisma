@@ -74,6 +74,8 @@ model User {
   hireDate     DateTime? @map("hire_date") @db.Date
   /// 퇴사일(미포함) — 해당일부터 근무·배정·드롭다운 제외. null이면 재직 중
   resignationDate DateTime? @map("resignation_date") @db.Date
+  payrollMonthlySalary Int? @map("payroll_monthly_salary")
+  payrollPayDay       Int? @map("payroll_pay_day")
   createdAt    DateTime @default(now()) @map("created_at")
   /// 팀장 본인 휴무일 등록·삭제 허용(관리자 사용자 목록에서 제어). 기본 true.
   allowSelfDayOffEdit Boolean @default(true) @map("allow_self_day_off_edit")
@@ -146,9 +148,9 @@ model TeamMember {
   phone     String?
   sortOrder Int      @default(0) @map("sort_order")
   isActive  Boolean  @default(true) @map("is_active")
-  /// 매월 급여 지급일(1~31). null이면 미설정 — 팀원 월급 정산(건수)용
+  /// 매월 급여 지급일(1~31). null이면 미설정 — 팀원 월급 정산(근무일 수)용
   monthlyPayDay   Int? @map("monthly_pay_day")
-  /// 건당 책정 금액(원). null이면 미설정 — 정산 시 건수×단가 계산에 사용
+  /// 1일 급여(일당, 원). null이면 미설정 — 정산 시 근무일 수×일당 계산에 사용(같은 날 여러 현장도 1일로 집계)
   payAmountPerJob Int? @map("pay_amount_per_job")
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -623,7 +625,6 @@ model OrderForm {
   submittedAt     DateTime? @map("submitted_at")
   /// 고객 발주서 「특이사항」 자유 입력 — 접수 `specialNotes`(관리자·팀 공유)와 분리
   customerSpecialNotes String? @map("customer_special_notes") @db.Text
-  /// 고객 제출 확정 시점 스냅샷(JSON). 재발송·감사 대비 — 접수 수정과 별개 원본
   customerSubmissionSnapshot Json? @map("customer_submission_snapshot")
 
   createdBy  User      @relation("OrderFormCreatedBy", fields: [createdById], references: [id])
