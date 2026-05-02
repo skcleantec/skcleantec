@@ -131,64 +131,83 @@ export function CrewLayout() {
               </button>
             </div>
           </div>
-          <nav className="flex flex-wrap items-center gap-2 text-fluid-xs">
-            <NavLink
-              to="/crew"
-              end
-              className={({ isActive }) =>
-                `px-2 py-1 rounded ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`
-              }
+          <nav
+            className="relative min-w-0 -mx-4 px-4 sm:mx-0 sm:px-0"
+            aria-label={`${crewT('crew.layout.navAriaLabel').ko}. ${crewT('crew.layout.navAriaLabel').th}`}
+          >
+            <div
+              className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain pb-0.5 text-fluid-xs [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              style={{ WebkitOverflowScrolling: 'touch' }}
             >
-              <CrewBiLine id="crew.layout.navHome" />
-            </NavLink>
-            <NavLink
-              to="/crew/schedule"
-              className={({ isActive }) =>
-                `px-2 py-1 rounded ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`
-              }
-            >
-              <CrewBiLine id="crew.layout.navSchedule" />
-            </NavLink>
-            <NavLink
-              to={me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview' ? '/crew/settlement' : '/crew/settlement?tab=expenses'}
-              className={({ isActive }) => {
-                const settlementActive =
-                  isActive ||
-                  pathname.startsWith('/crew/settlement') ||
-                  pathname === '/crew/expenses';
-                return `px-2 py-1 rounded ${
-                  settlementActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
-                }`;
-              }}
-            >
-              {me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview' ? (
-                <CrewBiLine id="crew.layout.navSettlement" />
-              ) : (
-                <CrewBiLine id="crew.layout.navTeamExpenses" />
-              )}
-            </NavLink>
-            <NavLink
-              to="/crew/roster"
-              className={() =>
-                `px-2 py-1 rounded ${
-                  pathname.startsWith('/crew/roster')
-                    ? 'bg-gray-200 text-gray-900'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`
-              }
-            >
-              <CrewBiLine id="crew.layout.navRoster" />
-            </NavLink>
-            {me?.crewViewerRole === 'LEADER' ? (
               <NavLink
-                to="/crew/settings"
+                to="/crew"
+                end
                 className={({ isActive }) =>
-                  `px-2 py-1 rounded ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`
+                  `shrink-0 whitespace-nowrap px-2 py-1 rounded ${
+                    isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
+                  }`
                 }
               >
-                <CrewBiLine id="crew.layout.navSettings" />
+                <CrewBiLine id="crew.layout.navHome" />
               </NavLink>
-            ) : null}
+              <NavLink
+                to="/crew/schedule"
+                className={({ isActive }) =>
+                  `shrink-0 whitespace-nowrap px-2 py-1 rounded ${
+                    isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
+                  }`
+                }
+              >
+                <CrewBiLine id="crew.layout.navSchedule" />
+              </NavLink>
+              <NavLink
+                to="/crew/roster"
+                className={() =>
+                  `shrink-0 whitespace-nowrap px-2 py-1 rounded ${
+                    pathname.startsWith('/crew/roster')
+                      ? 'bg-gray-200 text-gray-900'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`
+                }
+              >
+                <CrewBiLine id="crew.layout.navRoster" />
+              </NavLink>
+              <NavLink
+                to={
+                  me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview'
+                    ? '/crew/settlement'
+                    : '/crew/settlement?tab=expenses'
+                }
+                className={() => {
+                  const settlementActive =
+                    pathname.startsWith('/crew/settlement') || pathname === '/crew/expenses';
+                  return `shrink-0 whitespace-nowrap px-2 py-1 rounded ${
+                    settlementActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
+                  }`;
+                }}
+              >
+                {me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview' ? (
+                  <CrewBiLine id="crew.layout.navSettlement" />
+                ) : (
+                  <CrewBiLine id="crew.layout.navTeamExpenses" />
+                )}
+              </NavLink>
+              {me?.crewViewerRole === 'LEADER' ? (
+                <NavLink
+                  to="/crew/settings"
+                  className={({ isActive }) =>
+                    `shrink-0 whitespace-nowrap px-2 py-1 rounded ${
+                      isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
+                    }`
+                  }
+                >
+                  <CrewBiLine id="crew.layout.navSettings" />
+                </NavLink>
+              ) : null}
+            </div>
+            <p className="mt-1 text-[10px] text-gray-400 sm:hidden px-0.5">
+              {crewT('crew.layout.navScrollHint').ko} · {crewT('crew.layout.navScrollHint').th}
+            </p>
           </nav>
         </div>
       </header>

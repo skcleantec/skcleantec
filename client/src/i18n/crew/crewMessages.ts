@@ -54,6 +54,14 @@ export const crewMessages = {
     ko: '관리자로 가기',
     th: 'ไปผู้ดูแลระบบ',
   },
+  'crew.layout.navAriaLabel': {
+    ko: '크루 메뉴',
+    th: 'เมนูครูว์',
+  },
+  'crew.layout.navScrollHint': {
+    ko: '메뉴가 잘리면 좌우로 밀어 보세요.',
+    th: 'ถ้าเมนูถูกตัด ให้เลื่อนซ้าย-ขวา',
+  },
 
   /** CrewHomePage */
   'crew.home.title': {
@@ -482,6 +490,14 @@ export const crewMessages = {
     ko: '확인 후 불러오기',
     th: 'ยืนยันแล้วโหลด',
   },
+  'crew.settlement.menuGateLead': {
+    ko: '정산표와 팀 지출 메뉴를 이용하려면 조장 비밀번호가 필요합니다.',
+    th: 'หากต้องการใช้เมนูตารางค่าจ้างและค่าใช้จ่ายทีม ต้องกรอกรหัสหัวหน้ากลุ่ม',
+  },
+  'crew.settlement.menuGateVerifyFail': {
+    ko: '비밀번호 확인에 실패했습니다.',
+    th: 'ยืนยันรหัสผ่านไม่สำเร็จ',
+  },
   'crew.settlement.loadFail': {
     ko: '정산표를 불러오지 못했습니다.',
     th: 'โหลดตารางไม่สำเร็จ',
@@ -501,6 +517,18 @@ export const crewMessages = {
   'crew.settlement.sheetColDays': {
     ko: '일수',
     th: 'วัน',
+  },
+  'crew.settlement.sheetColSettlement': {
+    ko: '정산 여부',
+    th: 'สถานะชำระ',
+  },
+  'crew.settlement.sheetSettlementDone': {
+    ko: '정산완료',
+    th: 'ชำระแล้ว',
+  },
+  'crew.settlement.sheetSettlementPending': {
+    ko: '미정산',
+    th: 'ยังไม่ชำระ',
   },
   'crew.settlement.sheetColNet': {
     ko: '실지급 예상',

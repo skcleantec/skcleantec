@@ -479,6 +479,45 @@ export async function getCrewSettlementPoolMemberDetail(
   return data as CrewPoolMemberPayrollDetailDto;
 }
 
+/** 조장 비번 검증(access-ping) — 메뉴 진입용 */
+export async function pingCrewSettlementAccess(
+  token: string,
+  options?: { sensitivePassword?: string },
+): Promise<void> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const sp = options?.sensitivePassword?.trim();
+  if (sp) headers['X-Crew-Sensitive-Password'] = sp;
+  let res: Response;
+  try {
+    res = await fetch(`${API}/crew/settlement/access-ping`, { headers });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    code?: string;
+  };
+  if (res.status === 401) {
+    throw new CrewSettlementGateError(
+      typeof data.error === 'string' && data.error.trim() ? data.error.trim() : '조장 비밀번호가 필요합니다.',
+      401,
+      typeof data.code === 'string' ? data.code : undefined,
+    );
+  }
+  if (!res.ok) {
+    throw new CrewSettlementGateError(
+      typeof data.error === 'string' && data.error.trim()
+        ? data.error.trim()
+        : '확인에 실패했습니다.',
+      res.status,
+      typeof data.code === 'string' ? data.code : undefined,
+    );
+  }
+}
+
 export interface CrewExpenseListItemDto {
   id: string;
   monthKey: string;

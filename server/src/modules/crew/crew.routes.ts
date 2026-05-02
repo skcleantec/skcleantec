@@ -287,6 +287,13 @@ router.put('/day-roster', crewGroupLeaderFromDb, async (req, res) => {
 });
 
 /**
+ * 조장 비번·미리보기 JWT 검증만 수행 — 정산 메뉴 진입 확인용(무거운 조회 없음).
+ */
+router.get('/settlement/access-ping', crewSettlementPayrollSheetAccess, (_req, res) => {
+  res.json({ ok: true });
+});
+
+/**
  * 그룹 소속 풀 팀원만 — 관리자 정산표(풀)와 동일 산출의 읽기 전용 행.
  * 조장 비번 헤더(X-Crew-Sensitive-Password) 또는 미리보기 JWT.
  */

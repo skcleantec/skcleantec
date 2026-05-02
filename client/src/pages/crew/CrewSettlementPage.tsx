@@ -7,6 +7,7 @@ import {
   CrewSettlementGateError,
   getCrewSettlementPayrollSheet,
   getCrewSettlementPoolMemberDetail,
+  pingCrewSettlementAccess,
   type CrewPoolMemberPayrollDetailDto,
   type CrewSettlementPayrollSheetRow,
 } from '../../api/crew';
@@ -18,6 +19,82 @@ const TAB_EXPENSES = 'expenses';
 
 function sensitivePwdStorageKey(crewGroupId: string): string {
   return `crewSensitivePwd:${crewGroupId}`;
+}
+
+function hasStoredSettlementPwd(crewGroupId: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return Boolean(sessionStorage.getItem(sensitivePwdStorageKey(crewGroupId))?.trim());
+  } catch {
+    return false;
+  }
+}
+
+function CrewSettlementMenuGate({
+  crewGroupId,
+  onUnlocked,
+}: {
+  crewGroupId: string;
+  onUnlocked: () => void;
+}) {
+  const [pwd, setPwd] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const submit = () => {
+    const token = getCrewToken();
+    if (!token || !pwd.trim()) return;
+    setLoading(true);
+    setError(null);
+    void (async () => {
+      try {
+        await pingCrewSettlementAccess(token, { sensitivePassword: pwd });
+        try {
+          sessionStorage.setItem(sensitivePwdStorageKey(crewGroupId), pwd.trim());
+        } catch {
+          /* ignore */
+        }
+        onUnlocked();
+      } catch (e) {
+        if (e instanceof CrewSettlementGateError) {
+          setError(e.message);
+          return;
+        }
+        setError(e instanceof Error ? e.message : crewT('crew.settlement.menuGateVerifyFail').ko);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  };
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3 shadow-sm">
+      <p className="text-fluid-xs text-gray-800 font-medium">
+        <CrewBiLine id="crew.settlement.menuGateLead" />
+      </p>
+      <p className="text-fluid-2xs text-gray-500">
+        <CrewBiLine id="crew.settlement.passwordHint" />
+      </p>
+      <input
+        type="password"
+        autoComplete="current-password"
+        value={pwd}
+        onChange={(e) => setPwd(e.target.value)}
+        className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+      />
+      {error ? (
+        <div className="text-fluid-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5">{error}</div>
+      ) : null}
+      <button
+        type="button"
+        disabled={loading || !pwd.trim()}
+        onClick={() => submit()}
+        className="px-4 py-2 rounded-lg bg-gray-900 text-white text-fluid-sm font-semibold hover:bg-gray-800 disabled:opacity-50"
+      >
+        <CrewBiLine id="crew.settlement.passwordSubmit" />
+      </button>
+    </div>
+  );
 }
 
 function CrewSettlementIntroHint() {
@@ -76,9 +153,17 @@ export function CrewSettlementPage() {
   const outlet = useOutletContext<CrewLayoutContext | undefined>();
   const me = outlet?.me ?? null;
   const [searchParams, setSearchParams] = useSearchParams();
+  const [, forceMenuRender] = useState(0);
 
   const canSeePayroll =
     me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview';
+
+  const needsLeaderMenuPassword =
+    Boolean(me) && me.crewViewerRole === 'LEADER' && me.crewJwtSource !== 'preview';
+
+  const menuUnlocked =
+    !needsLeaderMenuPassword ||
+    (me != null && hasStoredSettlementPwd(me.crewGroupId));
 
   const tabFromUrl = searchParams.get('tab') === TAB_EXPENSES ? TAB_EXPENSES : 'sheet';
 
@@ -115,37 +200,46 @@ export function CrewSettlementPage() {
         <CrewSettlementIntroHint />
       </div>
 
-      {canSeePayroll ? (
-        <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
-          <button
-            type="button"
-            onClick={() => setTab('sheet')}
-            className={`px-3 py-1.5 rounded-md text-fluid-xs font-medium ${
-              activeTab === 'sheet'
-                ? 'bg-gray-900 text-white'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            <CrewBiLine id="crew.settlement.tabSheet" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab(TAB_EXPENSES)}
-            className={`px-3 py-1.5 rounded-md text-fluid-xs font-medium ${
-              activeTab === TAB_EXPENSES
-                ? 'bg-gray-900 text-white'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            <CrewBiLine id="crew.settlement.tabExpenses" />
-          </button>
-        </div>
-      ) : null}
-
-      {activeTab === 'sheet' && canSeePayroll ? (
-        <CrewSettlementSheetPanel me={me} />
+      {!menuUnlocked && needsLeaderMenuPassword ? (
+        <CrewSettlementMenuGate
+          crewGroupId={me.crewGroupId}
+          onUnlocked={() => forceMenuRender((n) => n + 1)}
+        />
       ) : (
-        <CrewTeamExpensesTab variant="embedded" me={me} />
+        <>
+          {canSeePayroll ? (
+            <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+              <button
+                type="button"
+                onClick={() => setTab('sheet')}
+                className={`px-3 py-1.5 rounded-md text-fluid-xs font-medium ${
+                  activeTab === 'sheet'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <CrewBiLine id="crew.settlement.tabSheet" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab(TAB_EXPENSES)}
+                className={`px-3 py-1.5 rounded-md text-fluid-xs font-medium ${
+                  activeTab === TAB_EXPENSES
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <CrewBiLine id="crew.settlement.tabExpenses" />
+              </button>
+            </div>
+          ) : null}
+
+          {activeTab === 'sheet' && canSeePayroll ? (
+            <CrewSettlementSheetPanel me={me} />
+          ) : (
+            <CrewTeamExpensesTab variant="embedded" me={me} />
+          )}
+        </>
       )}
     </div>
   );
@@ -337,11 +431,20 @@ function CrewSettlementSheetTable({
     n: r.jobCount == null ? dash : String(r.jobCount),
   });
 
+  const settlementBadgeClass = (done: boolean) =>
+    done
+      ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+      : 'bg-gray-50 text-gray-700 border-gray-200';
+
   return (
     <div className="space-y-1.5 min-w-0">
       {/* 모바일: 카드 리스트 */}
       <div className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden shadow-sm">
-        {rows.map((r) => (
+        {rows.map((r) => {
+          const settlementLbl = crewT(
+            r.poolSettlementComplete ? 'crew.settlement.sheetSettlementDone' : 'crew.settlement.sheetSettlementPending',
+          );
+          return (
           <button
             key={r.id}
             type="button"
@@ -349,7 +452,15 @@ function CrewSettlementSheetTable({
             className="w-full text-left px-3 py-2 min-w-0 flex items-stretch gap-2 active:bg-gray-50 hover:bg-gray-50/80 transition-colors"
           >
             <div className="min-w-0 flex-1 flex flex-col justify-center gap-0.5">
-              <span className="text-fluid-xs font-semibold text-gray-900 truncate">{r.name}</span>
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
+                <span className="text-fluid-xs font-semibold text-gray-900 truncate">{r.name}</span>
+                <span
+                  className={`inline-flex shrink-0 flex-col rounded px-1.5 py-0.5 text-[9px] font-semibold border leading-tight ${settlementBadgeClass(Boolean(r.poolSettlementComplete))}`}
+                >
+                  <span>{settlementLbl.ko}</span>
+                  <span className="text-[8px] font-medium opacity-90">{settlementLbl.th}</span>
+                </span>
+              </div>
               <span className="text-[10px] text-gray-600 tabular-nums leading-tight block">
                 {crewT('crew.settlement.sheetMobileStats', statsVars(r)).ko}
               </span>
@@ -376,7 +487,8 @@ function CrewSettlementSheetTable({
               ›
             </span>
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {/* 데스크톱: 표 */}
@@ -385,12 +497,13 @@ function CrewSettlementSheetTable({
           <CrewBiLine id="crew.settlement.nameTapHint" />
         </p>
         <div className="overflow-x-auto overscroll-x-contain">
-          <table className="w-full min-w-[520px] table-fixed border-collapse text-fluid-2xs">
+          <table className="w-full min-w-[600px] table-fixed border-collapse text-fluid-2xs">
             <colgroup>
-              <col className="w-[26%]" />
-              <col className="w-[18%]" />
+              <col className="w-[22%]" />
               <col className="w-[14%]" />
-              <col className="w-[42%]" />
+              <col className="w-[11%]" />
+              <col className="w-[17%]" />
+              <col className="w-[36%]" />
             </colgroup>
             <thead>
               <tr className="bg-gray-100 text-gray-700">
@@ -404,12 +517,21 @@ function CrewSettlementSheetTable({
                   <CrewBiInline id="crew.settlement.sheetColDays" />
                 </th>
                 <th className="border-b border-gray-200 px-2 py-1.5 text-center font-medium">
+                  <CrewBiInline id="crew.settlement.sheetColSettlement" />
+                </th>
+                <th className="border-b border-gray-200 px-2 py-1.5 text-center font-medium">
                   <CrewBiInline id="crew.settlement.sheetColNet" />
                 </th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows.map((row) => {
+                const settlementLbl = crewT(
+                  row.poolSettlementComplete
+                    ? 'crew.settlement.sheetSettlementDone'
+                    : 'crew.settlement.sheetSettlementPending',
+                );
+                return (
                 <tr key={row.id} className="hover:bg-gray-50">
                   <td className="border-b border-gray-100 px-2 py-1.5 text-center align-middle">
                     <button
@@ -427,11 +549,20 @@ function CrewSettlementSheetTable({
                   <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-800 align-middle">
                     {row.jobCount == null ? dash : `${row.jobCount}`}
                   </td>
+                  <td className="border-b border-gray-100 px-2 py-1.5 text-center align-middle">
+                    <span
+                      className={`inline-flex flex-col rounded px-1.5 py-0.5 text-[10px] font-semibold border leading-tight ${settlementBadgeClass(Boolean(row.poolSettlementComplete))}`}
+                    >
+                      <span>{settlementLbl.ko}</span>
+                      <span className="text-[9px] font-medium opacity-90">{settlementLbl.th}</span>
+                    </span>
+                  </td>
                   <td className="border-b border-gray-100 px-2 py-1.5 text-right tabular-nums font-semibold text-emerald-900 align-middle">
                     {fmtWon(row.amountNet)}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
