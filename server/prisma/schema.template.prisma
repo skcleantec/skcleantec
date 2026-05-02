@@ -105,8 +105,29 @@ model User {
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
   crewStaffNoticesSent          CrewStaffNotice[]     @relation("CrewStaffNoticeSender")
   teamMemberPayrollSettlementsAsActor TeamMemberPayrollSettlement[] @relation("TeamMemberPayrollSettlementActor")
+  teamLeaderPayrollPayments           TeamLeaderPayrollPayment[]
+  teamLeaderPayrollPaymentsAsActor    TeamLeaderPayrollPayment[] @relation("TeamLeaderPayrollPaymentActor")
 
   @@map("users")
+}
+
+/// 팀장 급여표 — 귀속 월별 수시 지급 내역(관리자 기록). 고정 급여일 없이 여러 차례 입금 가능.
+model TeamLeaderPayrollPayment {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  monthKey  String   @map("month_key") @db.VarChar(7)
+  amount    Int
+  paidOn    DateTime @map("paid_on") @db.Date
+  memo      String?  @db.Text
+  actorId   String?  @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("TeamLeaderPayrollPaymentActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, monthKey])
+  @@index([monthKey])
+  @@map("team_leader_payroll_payments")
 }
 
 /// 팀장/타업체 계정 브라우저 Web Push 구독 (엔드포인트당 1행)

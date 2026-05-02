@@ -27,6 +27,8 @@ export type PayrollSheetRow = {
   poolManualExtraDays?: number | null;
   /** 현장만: 해당 월 정산 완료 여부 */
   poolSettlementComplete?: boolean;
+  /** 팀장만: 해당 귀속 월 지급 건수 */
+  leaderPaymentCount?: number;
 };
 
 export type PayrollSheetResponse = {
@@ -145,6 +147,81 @@ export async function postPayrollPoolMemberSettle(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '정산 완료 처리에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export type PayrollTeamLeaderPaymentRow = {
+  id: string;
+  paidOnYmd: string;
+  amount: number;
+  memo: string | null;
+  createdAt: string;
+  monthKey: string;
+  monthLabel: string;
+};
+
+export type PayrollTeamLeaderPaymentsResponse = {
+  month: string;
+  monthLabel: string;
+  user: { id: string; name: string };
+  contractSalary: number | null;
+  monthPaidTotal: number;
+  monthPayments: PayrollTeamLeaderPaymentRow[];
+  priorPayments: PayrollTeamLeaderPaymentRow[];
+};
+
+export async function getPayrollTeamLeaderPayments(
+  token: string,
+  userId: string,
+  month?: string
+): Promise<PayrollTeamLeaderPaymentsResponse> {
+  const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  const res = await fetch(`${API}/admin/payroll/team-leader/${encodeURIComponent(userId)}/payments${q}`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '팀장 지급 내역을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function postPayrollTeamLeaderPayment(
+  token: string,
+  userId: string,
+  body: { amount: number; paidOn?: string; memo?: string },
+  month?: string
+): Promise<{ ok: boolean; payment: PayrollTeamLeaderPaymentRow }> {
+  const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  const res = await fetch(`${API}/admin/payroll/team-leader/${encodeURIComponent(userId)}/payments${q}`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '지급 등록에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function deletePayrollTeamLeaderPayment(
+  token: string,
+  paymentId: string,
+  password: string
+): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/admin/payroll/team-leader/payment/${encodeURIComponent(paymentId)}`, {
+    method: 'DELETE',
+    headers: {
+      ...headers(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
   }
   return res.json();
 }

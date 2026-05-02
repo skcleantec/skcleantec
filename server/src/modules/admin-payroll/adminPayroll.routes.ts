@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
@@ -20,12 +21,65 @@ router.use(authMiddleware, adminOnly);
 
 const MONTH_KEY = /^\d{4}-\d{2}$/;
 
+function todayYmdKst(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+/** @db.Date 로 저장된 값을 표시용 YYYY-MM-DD로 */
+function dateOnlyToYmd(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function parseYmdDateOnly(ymd: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!m) return null;
+  const y = parseInt(m[1], 10);
+  const mo = parseInt(m[2], 10) - 1;
+  const d = parseInt(m[3], 10);
+  const dt = new Date(Date.UTC(y, mo, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo || dt.getUTCDate() !== d) return null;
+  return dt;
+}
+
 function payrollMonthLabelFromKey(monthKey: string): string {
   const [ys, ms] = monthKey.split('-');
   const y = parseInt(ys, 10);
   const m = parseInt(ms, 10);
   if (!Number.isFinite(y) || !Number.isFinite(m)) return monthKey;
   return `${y}년 ${m}월`;
+}
+
+async function loadTeamLeaderPayrollSubject(
+  prismaClient: typeof prisma,
+  userId: string,
+  monthKey: string,
+): Promise<{
+  id: string;
+  name: string;
+  payrollMonthlySalary: number | null;
+} | null> {
+  const range = kstMonthRangeYm(monthKey);
+  if (!range) return null;
+  const monthStartYmd = dateToYmdKst(range.gte);
+  const monthEndYmd = dateToYmdKst(range.lte);
+  const u = await prismaClient.user.findFirst({
+    where: { id: userId, role: 'TEAM_LEADER', isActive: true },
+    select: {
+      id: true,
+      name: true,
+      payrollMonthlySalary: true,
+      hireDate: true,
+      resignationDate: true,
+    },
+  });
+  if (!u) return null;
+  if (!employmentOverlapsMonthKst(u.hireDate, u.resignationDate, monthStartYmd, monthEndYmd)) {
+    return null;
+  }
+  return { id: u.id, name: u.name, payrollMonthlySalary: u.payrollMonthlySalary };
 }
 
 type PayrollSheetRowKind = 'POOL_MEMBER' | 'TEAM_LEADER' | 'MARKETER';
@@ -65,6 +119,7 @@ router.get('/sheet', async (req, res) => {
     poolSystemDays?: number | null;
     poolManualExtraDays?: number | null;
     poolSettlementComplete?: boolean;
+    leaderPaymentCount?: number;
   };
 
   const rows: SheetRow[] = [];
@@ -205,10 +260,53 @@ router.get('/sheet', async (req, res) => {
     orderBy: [{ role: 'asc' }, { name: 'asc' }],
   });
 
+  const leaderIds = staffUsers.filter((u) => u.role === 'TEAM_LEADER').map((u) => u.id);
+  const leaderPaymentsMonth =
+    leaderIds.length === 0
+      ? []
+      : await prisma.teamLeaderPayrollPayment.findMany({
+          where: { userId: { in: leaderIds }, monthKey },
+          select: { userId: true, amount: true },
+        });
+  const leaderAgg = new Map<string, { sum: number; count: number }>();
+  for (const p of leaderPaymentsMonth) {
+    const cur = leaderAgg.get(p.userId) ?? { sum: 0, count: 0 };
+    cur.sum += p.amount;
+    cur.count += 1;
+    leaderAgg.set(p.userId, cur);
+  }
+
   for (const u of staffUsers) {
     if (!employmentOverlapsMonthKst(u.hireDate, u.resignationDate, monthStartYmd, monthEndYmd)) {
       continue;
     }
+
+    if (u.role === 'TEAM_LEADER') {
+      const notes: string[] = [];
+      if (u.payrollMonthlySalary != null) {
+        notes.push(`참고·등록 월급액 ${u.payrollMonthlySalary.toLocaleString('ko-KR')}원`);
+      }
+      const agg = leaderAgg.get(u.id);
+      const paymentCount = agg?.count ?? 0;
+      const paidSum = agg?.sum ?? 0;
+
+      rows.push({
+        kind: 'TEAM_LEADER',
+        id: u.id,
+        name: u.name,
+        roleLabel: '팀장',
+        payDateYmd: null,
+        accrualStartYmd: null,
+        accrualEndYmd: null,
+        jobCount: null,
+        unitAmount: null,
+        amount: paymentCount > 0 ? paidSum : null,
+        notes,
+        leaderPaymentCount: paymentCount,
+      });
+      continue;
+    }
+
     const notes: string[] = [];
     const payDayStaff =
       u.payrollPayDay != null && u.payrollPayDay >= 1 && u.payrollPayDay <= 31 ? u.payrollPayDay : 31;
@@ -220,10 +318,10 @@ router.get('/sheet', async (req, res) => {
     if (salary == null) notes.push('월 급여 미설정');
 
     rows.push({
-      kind: u.role === 'MARKETER' ? 'MARKETER' : 'TEAM_LEADER',
+      kind: 'MARKETER',
       id: u.id,
       name: u.name,
-      roleLabel: u.role === 'MARKETER' ? '마케터' : '팀장',
+      roleLabel: '마케터',
       payDateYmd,
       accrualStartYmd: null,
       accrualEndYmd: null,
@@ -421,6 +519,188 @@ router.post('/pool-member/:teamMemberId/settle', async (req: Request, res: Respo
     amount: computation.amount,
     settledAt: new Date().toISOString(),
   });
+});
+
+router.get('/team-leader/:userId/payments', async (req, res) => {
+  const userId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const subject = await loadTeamLeaderPayrollSubject(prisma, userId, monthKey);
+  if (!subject) {
+    res.status(404).json({ error: '팀장 급여 대상을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const [monthRows, priorRows] = await Promise.all([
+    prisma.teamLeaderPayrollPayment.findMany({
+      where: { userId, monthKey },
+      orderBy: [{ paidOn: 'desc' }, { createdAt: 'desc' }],
+    }),
+    prisma.teamLeaderPayrollPayment.findMany({
+      where: { userId, monthKey: { not: monthKey } },
+      orderBy: [{ paidOn: 'desc' }, { createdAt: 'desc' }],
+      take: 80,
+    }),
+  ]);
+
+  const mapRow = (row: (typeof monthRows)[number]) => ({
+    id: row.id,
+    paidOnYmd: dateOnlyToYmd(row.paidOn),
+    amount: row.amount,
+    memo: row.memo,
+    createdAt: row.createdAt.toISOString(),
+    monthKey: row.monthKey,
+    monthLabel: payrollMonthLabelFromKey(row.monthKey),
+  });
+
+  const monthPaidTotal = monthRows.reduce((s, r) => s + r.amount, 0);
+
+  res.json({
+    month: monthKey,
+    monthLabel: payrollMonthLabelFromKey(monthKey),
+    user: { id: subject.id, name: subject.name },
+    contractSalary: subject.payrollMonthlySalary,
+    monthPaidTotal,
+    monthPayments: monthRows.map(mapRow),
+    priorPayments: priorRows.map(mapRow),
+  });
+});
+
+router.post('/team-leader/:userId/payments', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const userId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const subject = await loadTeamLeaderPayrollSubject(prisma, userId, monthKey);
+  if (!subject) {
+    res.status(404).json({ error: '팀장 급여 대상을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const body = req.body as { amount?: unknown; paidOn?: unknown; memo?: unknown };
+  let amount = 0;
+  if (typeof body.amount === 'number' && Number.isInteger(body.amount)) {
+    amount = body.amount;
+  } else if (typeof body.amount === 'string' && /^\d+$/.test(body.amount.trim())) {
+    amount = parseInt(body.amount.trim(), 10);
+  }
+  if (amount <= 0 || amount > 500_000_000) {
+    res.status(400).json({ error: '금액은 1원 이상 5억 원 이하 정수로 입력해 주세요.' });
+    return;
+  }
+
+  const paidOnRaw =
+    typeof body.paidOn === 'string' && body.paidOn.trim() ? body.paidOn.trim() : todayYmdKst();
+  const paidOnDate = parseYmdDateOnly(paidOnRaw);
+  if (!paidOnDate) {
+    res.status(400).json({ error: '입금일은 YYYY-MM-DD 형식이어야 합니다.' });
+    return;
+  }
+
+  let memo: string | null = null;
+  if (typeof body.memo === 'string') {
+    const t = body.memo.trim();
+    memo = t.length > 2000 ? t.slice(0, 2000) : t.length ? t : null;
+  }
+
+  const row = await prisma.teamLeaderPayrollPayment.create({
+    data: {
+      userId,
+      monthKey,
+      amount,
+      paidOn: paidOnDate,
+      memo,
+      actorId: authUser.userId,
+    },
+  });
+
+  res.status(201).json({
+    ok: true,
+    payment: {
+      id: row.id,
+      paidOnYmd: dateOnlyToYmd(row.paidOn),
+      amount: row.amount,
+      memo: row.memo,
+      createdAt: row.createdAt.toISOString(),
+      monthKey: row.monthKey,
+      monthLabel: payrollMonthLabelFromKey(row.monthKey),
+    },
+  });
+});
+
+router.delete('/team-leader/payment/:paymentId', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const paymentId =
+    typeof req.params.paymentId === 'string' ? req.params.paymentId.trim() : '';
+  if (!paymentId) {
+    res.status(400).json({ error: 'paymentId가 필요합니다.' });
+    return;
+  }
+
+  const body = req.body as { password?: unknown };
+  const password = body.password != null ? String(body.password).trim() : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: authUser.userId },
+    select: { id: true, passwordHash: true },
+  });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const existing = await prisma.teamLeaderPayrollPayment.findUnique({
+    where: { id: paymentId },
+    select: {
+      id: true,
+      user: { select: { role: true } },
+    },
+  });
+
+  if (!existing || existing.user.role !== 'TEAM_LEADER') {
+    res.status(404).json({ error: '지급 내역을 찾을 수 없습니다.' });
+    return;
+  }
+
+  await prisma.teamLeaderPayrollPayment.delete({ where: { id: paymentId } });
+  res.json({ ok: true });
 });
 
 router.patch('/pool-member/:teamMemberId/month-adjust', async (req, res) => {

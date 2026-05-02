@@ -5,21 +5,26 @@ import { getToken } from '../../stores/auth';
 import {
   getAdminPayrollSheet,
   getPayrollPoolMemberDetail,
+  getPayrollTeamLeaderPayments,
   patchPayrollPoolMemberMonthAdjust,
   postPayrollPoolMemberSettle,
+  postPayrollTeamLeaderPayment,
+  deletePayrollTeamLeaderPayment,
   type PayrollSheetRow,
   type PayrollSheetResponse,
   type PayrollPoolMemberDetailResponse,
+  type PayrollTeamLeaderPaymentsResponse,
 } from '../../api/adminPayroll';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 
 const PAYROLL_HELP =
   '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·지출(요약)을 나누어 볼 수 있습니다.\n\n' +
   '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 상세에서는 「산정내역」과 「지급내역」을 바꿔 볼 수 있으며, 예상 급여가 나온 뒤 「정산완료」로 확정하면 지급 내역에 누적됩니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
-  '【팀장 · 월 고정 급여】현장 근무일 산정과 무관합니다. 사용자 등록에서 팀장 계정별 「월 고정 급여」「급여 지급일」을 넣으며, 선택한 귀속 월에 재직 구간과 겹치면 행에 나타납니다. 지급일을 비우면 해당 월 말일로 표시합니다.\n\n' +
-  '【직원(마케터) · 월 고정 급여】팀장과 동일하게 사용자 등록에서 마케터 계정별로 급여를 따로 적습니다. 표에는 근무일·일당 대신 고정 월급만 반영됩니다. 실제 근무제·수당 등은 회사 규정에 맞게 금액에 반영해 입력하면 됩니다.\n\n' +
+  '【팀장 · 수시 지급】고정 급여일이 없어도 됩니다. 귀속 월을 선택한 뒤, 행을 눌러 입금일·금액·메모를 여러 번 기록할 수 있습니다. 목록의 「당월 지급합」은 해당 월에 등록한 지급액 합계입니다. 사용자 등록의 「월 고정 급여」는 참고용으로 비고에만 표시됩니다. 지급 행 삭제는 본인 로그인 비밀번호 확인 후에만 가능합니다.\n\n' +
+  '【직원(마케터) · 월 고정 급여】팀장과 별도로 사용자 등록에서 마케터 계정별로 급여·지급일을 적습니다. 표에는 근무일·일당 대신 고정 월급만 반영됩니다. 실제 근무제·수당 등은 회사 규정에 맞게 금액에 반영해 입력하면 됩니다.\n\n' +
   '타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
 
 function kstMonthKeyNow(): string {
@@ -39,6 +44,16 @@ function compactPeriod(start: string | null, end: string | null): string {
 function compactPayDate(ymd: string | null): string {
   if (!ymd) return '—';
   return `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8))}`;
+}
+
+function todayYmdKst(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+/** 목록 「지급」열 표시 */
+function payDateCell(r: PayrollSheetRow): string {
+  if (r.kind === 'TEAM_LEADER') return '수시';
+  return compactPayDate(r.payDateYmd);
 }
 
 function fmtIsoDateTimeKst(iso: string): string {
@@ -128,7 +143,7 @@ function payrollTabHint(tab: PayrollTabId): string {
     case 'pool':
       return '팀원마다 「월급 지급일」에 맞춰 산정합니다. 예: 매달 11일 지급이면 전달 11일~당월 10일(포함) 예약(KST)만 집계합니다. 같은 날은 1일만. 「설정」으로 해당 월만 수기 일수를 더할 수 있습니다.';
     case 'leader':
-      return '팀장은 사용자 등록의 월 고정 급여·지급일 기준입니다. 근무일·일당 열과 무관합니다.';
+      return '팀장은 귀속 월별로 입금 내역을 여러 번 적습니다. 행을 눌러 등록·히스토리를 확인하세요.';
     case 'marketer':
       return '직원(마케터)도 사용자 등록에서 월 고정 급여·지급일을 따로 적습니다.';
     case 'expense':
@@ -174,6 +189,20 @@ export function AdminPayrollPage() {
   const [adjustSaving, setAdjustSaving] = useState(false);
   const [memberDetailPanelTab, setMemberDetailPanelTab] = useState<'accrual' | 'payments'>('accrual');
   const [settlingMemberId, setSettlingMemberId] = useState<string | null>(null);
+  const [leaderDetailForRow, setLeaderDetailForRow] = useState<PayrollSheetRow | null>(null);
+  const [leaderDetail, setLeaderDetail] = useState<PayrollTeamLeaderPaymentsResponse | null>(null);
+  const [leaderDetailLoading, setLeaderDetailLoading] = useState(false);
+  const [leaderDetailError, setLeaderDetailError] = useState<string | null>(null);
+  const [leaderPanelTab, setLeaderPanelTab] = useState<'month' | 'prior'>('month');
+  const [leaderFormAmount, setLeaderFormAmount] = useState('');
+  const [leaderFormPaidOn, setLeaderFormPaidOn] = useState(() => todayYmdKst());
+  const [leaderFormMemo, setLeaderFormMemo] = useState('');
+  const [leaderSaving, setLeaderSaving] = useState(false);
+  const [leaderPaymentDeleteTarget, setLeaderPaymentDeleteTarget] = useState<{
+    id: string;
+    paidOnYmd: string;
+    amount: number;
+  } | null>(null);
 
   const openPoolMemberDetail = useCallback((row: PayrollSheetRow) => {
     if (row.kind !== 'POOL_MEMBER') return;
@@ -186,6 +215,25 @@ export function AdminPayrollPage() {
     setMemberDetailError(null);
     setMemberDetailLoading(false);
     setMemberDetailPanelTab('accrual');
+  }, []);
+
+  const openLeaderDetail = useCallback((row: PayrollSheetRow) => {
+    if (row.kind !== 'TEAM_LEADER') return;
+    setLeaderDetailForRow(row);
+    setLeaderFormPaidOn(todayYmdKst());
+    setLeaderFormAmount('');
+    setLeaderFormMemo('');
+  }, []);
+
+  const closeLeaderDetail = useCallback(() => {
+    setLeaderDetailForRow(null);
+    setLeaderDetail(null);
+    setLeaderDetailError(null);
+    setLeaderDetailLoading(false);
+    setLeaderPanelTab('month');
+    setLeaderFormAmount('');
+    setLeaderFormMemo('');
+    setLeaderPaymentDeleteTarget(null);
   }, []);
 
   const closeAdjustModal = useCallback(() => {
@@ -224,14 +272,45 @@ export function AdminPayrollPage() {
   }, [token, memberDetailForRow, month]);
 
   useEffect(() => {
+    if (!token || !leaderDetailForRow || leaderDetailForRow.kind !== 'TEAM_LEADER') return;
+    let cancelled = false;
+    setLeaderDetailLoading(true);
+    setLeaderDetailError(null);
+    setLeaderDetail(null);
+    void getPayrollTeamLeaderPayments(token, leaderDetailForRow.id, month)
+      .then((d) => {
+        if (!cancelled) setLeaderDetail(d);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setLeaderDetailError(e instanceof Error ? e.message : '내역을 불러오지 못했습니다.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLeaderDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, leaderDetailForRow, month]);
+
+  useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key !== 'Escape') return;
       if (adjustModalRow) closeAdjustModal();
       else if (memberDetailForRow) closePoolMemberDetail();
+      else if (leaderDetailForRow) closeLeaderDetail();
     };
-    if (adjustModalRow || memberDetailForRow) window.addEventListener('keydown', onKey);
+    if (adjustModalRow || memberDetailForRow || leaderDetailForRow) window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [adjustModalRow, memberDetailForRow, closeAdjustModal, closePoolMemberDetail]);
+  }, [
+    adjustModalRow,
+    memberDetailForRow,
+    leaderDetailForRow,
+    closeAdjustModal,
+    closePoolMemberDetail,
+    closeLeaderDetail,
+  ]);
 
 
   const load = useCallback(async () => {
@@ -273,6 +352,10 @@ export function AdminPayrollPage() {
     setMemberDetailPanelTab('accrual');
   }, [memberDetailForRow?.id, month]);
 
+  useEffect(() => {
+    setLeaderPanelTab('month');
+  }, [leaderDetailForRow?.id, month]);
+
   const settlePoolMemberRow = useCallback(
     async (row: PayrollSheetRow) => {
       if (!token || row.kind !== 'POOL_MEMBER') return;
@@ -293,6 +376,48 @@ export function AdminPayrollPage() {
     },
     [token, month, load, memberDetailForRow?.id]
   );
+
+  const submitLeaderPayment = useCallback(async () => {
+    if (!token || !leaderDetailForRow || leaderDetailForRow.kind !== 'TEAM_LEADER') return;
+    const raw = leaderFormAmount.replace(/,/g, '').trim();
+    const amount = raw === '' ? NaN : Number.parseInt(raw, 10);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      alert('금액은 1원 이상 정수로 입력해 주세요.');
+      return;
+    }
+    setLeaderSaving(true);
+    try {
+      await postPayrollTeamLeaderPayment(
+        token,
+        leaderDetailForRow.id,
+        {
+          amount,
+          paidOn: leaderFormPaidOn.trim() || undefined,
+          memo: leaderFormMemo.trim() || undefined,
+        },
+        month
+      );
+      setLeaderFormAmount('');
+      setLeaderFormMemo('');
+      setLeaderFormPaidOn(todayYmdKst());
+      try {
+        const d = await getPayrollTeamLeaderPayments(token, leaderDetailForRow.id, month);
+        setLeaderDetail(d);
+        setLeaderDetailError(null);
+      } catch (refreshErr) {
+        setLeaderDetailError(
+          refreshErr instanceof Error
+            ? refreshErr.message
+            : '등록은 되었으나 목록을 다시 불러오지 못했습니다. 급여표 새로고침 후 다시 여세요.'
+        );
+      }
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '등록에 실패했습니다.');
+    } finally {
+      setLeaderSaving(false);
+    }
+  }, [token, leaderDetailForRow, leaderFormAmount, leaderFormPaidOn, leaderFormMemo, month, load]);
 
   useEffect(() => {
     void load();
@@ -315,6 +440,9 @@ export function AdminPayrollPage() {
     () => filteredRows.filter((r) => r.amount == null).length,
     [filteredRows]
   );
+
+  const amountColumnLabel =
+    payrollTab === 'leader' ? '당월 지급합' : payrollTab === 'marketer' ? '월 급여' : '예상금액';
 
   const globalRowsWithoutAmount = useMemo(
     () => (data ? data.rows.filter((r) => r.amount == null).length : 0),
@@ -339,7 +467,7 @@ export function AdminPayrollPage() {
             </Link>
             {' · '}
             <Link to="/admin/team-leaders" className="text-blue-700 underline underline-offset-2">
-              팀장·마케터(월 고정)
+              팀장(수시 지급)·마케터(월 고정)
             </Link>
           </p>
         </div>
@@ -538,7 +666,9 @@ export function AdminPayrollPage() {
                     </span>
                     {tabRowsWithoutAmount > 0 ? (
                       <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-fluid-xs text-amber-900 tabular-nums">
-                        금액 미산출 {tabRowsWithoutAmount}건
+                        {payrollTab === 'leader'
+                          ? `지급 미등록 ${tabRowsWithoutAmount}건`
+                          : `금액 미산출 ${tabRowsWithoutAmount}건`}
                       </span>
                     ) : null}
                   </div>
@@ -632,6 +762,35 @@ export function AdminPayrollPage() {
                       </button>
                     </div>
                   </div>
+                ) : r.kind === 'TEAM_LEADER' ? (
+                  <button
+                    type="button"
+                    onClick={() => openLeaderDetail(r)}
+                    className="w-full text-left px-3 py-2.5 hover:bg-blue-50/70 active:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 transition-colors touch-manipulation"
+                    aria-label={`${r.name} 팀장 지급 내역`}
+                  >
+                    <div className="flex items-start justify-between gap-2 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span
+                            className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                          >
+                            {r.roleLabel}
+                          </span>
+                          <span className="font-medium text-gray-900 truncate">{r.name}</span>
+                        </div>
+                        <div className="mt-1 text-fluid-xs text-gray-600 tabular-nums">
+                          당월 지급 <strong>{r.leaderPaymentCount ?? 0}</strong>건 · 수시 입금
+                        </div>
+                        {r.notes.length > 0 ? (
+                          <p className="mt-1 text-[11px] text-amber-800 leading-snug">{r.notes.join(' · ')}</p>
+                        ) : null}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-fluid-sm font-semibold text-gray-900 tabular-nums">{fmtWon(r.amount)}</div>
+                      </div>
+                    </div>
+                  </button>
                 ) : (
                   <div className="px-3 py-2.5">
                     <div className="flex items-start justify-between gap-2 min-w-0">
@@ -689,7 +848,7 @@ export function AdminPayrollPage() {
                       <th className="border-b border-gray-200 px-1.5 py-2 text-center">산정기간</th>
                       <th className="border-b border-gray-200 px-1.5 py-2 text-center">근무일</th>
                       <th className="border-b border-gray-200 px-1.5 py-2 text-center">일당</th>
-                      <th className="border-b border-gray-200 px-1.5 py-2 text-center">예상금액</th>
+                      <th className="border-b border-gray-200 px-1.5 py-2 text-center">{amountColumnLabel}</th>
                       <th className="border-b border-gray-200 px-1.5 py-2 text-center">설정</th>
                       <th className="border-b border-gray-200 px-1.5 py-2 text-center">비고</th>
                     </tr>
@@ -699,7 +858,7 @@ export function AdminPayrollPage() {
                       <tr
                         key={`${r.kind}-${r.id}`}
                         className={
-                          r.kind === 'POOL_MEMBER'
+                          r.kind === 'POOL_MEMBER' || r.kind === 'TEAM_LEADER'
                             ? 'group hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400'
                             : 'group hover:bg-gray-50'
                         }
@@ -716,7 +875,20 @@ export function AdminPayrollPage() {
                               role: 'button' as const,
                               'aria-label': `${r.name} 급여 산정 접수 상세 보기`,
                             }
-                          : {})}
+                          : r.kind === 'TEAM_LEADER'
+                            ? {
+                                onClick: () => openLeaderDetail(r),
+                                onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    openLeaderDetail(r);
+                                  }
+                                },
+                                tabIndex: 0,
+                                role: 'button' as const,
+                                'aria-label': `${r.name} 팀장 지급 내역`,
+                              }
+                            : {})}
                       >
                         <td className="border-b border-gray-100 px-1.5 py-1.5 text-center sticky left-0 z-[1] bg-white group-hover:bg-gray-50 border-r border-gray-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] align-middle">
                           <div className="flex flex-col items-center gap-1 min-w-0">
@@ -736,7 +908,7 @@ export function AdminPayrollPage() {
                           </div>
                         </td>
                         <td className="border-b border-gray-100 px-1.5 py-1.5 text-center tabular-nums text-gray-800">
-                          {compactPayDate(r.payDateYmd)}
+                          {payDateCell(r)}
                         </td>
                         <td
                           className="border-b border-gray-100 px-1.5 py-1.5 text-center tabular-nums text-gray-600 truncate"
@@ -758,6 +930,10 @@ export function AdminPayrollPage() {
                               {(r.poolManualExtraDays ?? 0) > 0 ? (
                                 <span className="text-[10px] text-blue-700 leading-none">+수기{r.poolManualExtraDays}</span>
                               ) : null}
+                            </span>
+                          ) : r.kind === 'TEAM_LEADER' ? (
+                            <span className="text-[10px] text-blue-900 tabular-nums">
+                              {(r.leaderPaymentCount ?? 0) > 0 ? `${r.leaderPaymentCount}건` : '—'}
                             </span>
                           ) : (
                             <span>{r.jobCount != null ? r.jobCount : '—'}</span>
@@ -826,7 +1002,10 @@ export function AdminPayrollPage() {
                 해당 월을 확정합니다. 「설정·정산완료」를 제외한 행을 누르면 산정 접수 목록이 열립니다.
               </>
             ) : payrollTab === 'leader' ? (
-              <>팀장은 사용자 등록의 월 고정 급여·지급일 기준입니다. 금액이 「—」이면 해당 계정 설정을 확인해 주세요.</>
+              <>
+                팀장 입금은 <strong className="font-medium text-gray-800">월 급여표 → 「팀장」</strong> 탭에서 이름을 눌러 등록합니다.
+                목록의 금액은 해당 귀속 월 지급 합계입니다. 행 삭제 시 로그인 비밀번호 확인이 필요합니다.
+              </>
             ) : (
               <>
                 마케터(직원)도 사용자 등록의 월 고정 급여·지급일 기준입니다. 금액이 「—」이면 해당 계정 설정을 확인해 주세요.
@@ -1121,6 +1300,290 @@ export function AdminPayrollPage() {
           </div>,
           document.body
         )}
+
+      {leaderDetailForRow &&
+        leaderDetailForRow.kind === 'TEAM_LEADER' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[215] overflow-y-auto overscroll-y-contain bg-black/45 px-3 py-6 sm:py-10"
+            role="presentation"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeLeaderDetail();
+            }}
+          >
+            <div
+              className="relative mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-white shadow-xl flex flex-col max-h-[min(88vh,720px)] min-h-0"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="payroll-leader-detail-title"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="shrink-0 border-b border-gray-100 px-4 pt-4 pb-3 sm:px-5">
+                <ModalCloseButton onClick={closeLeaderDetail} />
+                <div className="pr-10 flex flex-wrap items-center gap-2 gap-y-1">
+                  <span
+                    className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass('TEAM_LEADER')}`}
+                  >
+                    팀장
+                  </span>
+                  <h2 id="payroll-leader-detail-title" className="text-lg font-semibold text-gray-900">
+                    {leaderDetail?.user.name ?? leaderDetailForRow.name}
+                  </h2>
+                  <span className="text-fluid-xs text-gray-500 tabular-nums">
+                    {leaderDetail?.monthLabel ?? data?.monthLabel ?? ''}
+                  </span>
+                </div>
+                <nav
+                  className="mt-3 flex gap-1 overflow-x-auto overscroll-x-contain border-b border-gray-200"
+                  role="tablist"
+                  aria-label="팀장 지급 구분"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={leaderPanelTab === 'month'}
+                    onClick={() => setLeaderPanelTab('month')}
+                    className={`shrink-0 px-3 py-2 text-fluid-xs font-medium border-b-2 -mb-px transition-colors touch-manipulation whitespace-nowrap ${
+                      leaderPanelTab === 'month'
+                        ? 'border-blue-600 text-blue-800'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    이번 달 지급
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={leaderPanelTab === 'prior'}
+                    onClick={() => setLeaderPanelTab('prior')}
+                    className={`shrink-0 px-3 py-2 text-fluid-xs font-medium border-b-2 -mb-px transition-colors touch-manipulation whitespace-nowrap ${
+                      leaderPanelTab === 'prior'
+                        ? 'border-blue-600 text-blue-800'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    과거 내역
+                  </button>
+                </nav>
+                <p className="mt-2 text-fluid-2xs text-gray-500 leading-snug">
+                  팀장에게 보낸 금액은 <strong className="font-medium text-gray-700">월 급여표</strong> 상단에서 귀속 월을 고른 뒤,{' '}
+                  <strong className="font-medium text-gray-700">「팀장」</strong> 탭 목록에서 이름을 누르면 여기서 여러 번 나누어 적을 수
+                  있습니다.
+                </p>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-5 sm:pb-5 space-y-4">
+                {leaderDetailLoading ? (
+                  <p className="text-fluid-sm text-gray-500 py-4 text-center">불러오는 중…</p>
+                ) : null}
+
+                {leaderDetailError ? (
+                  <p className="text-fluid-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 whitespace-pre-wrap">
+                    {leaderDetailError}
+                  </p>
+                ) : null}
+
+                {!leaderDetailLoading && leaderDetailError ? (
+                  <p className="text-fluid-xs text-gray-700 border border-dashed border-amber-200 rounded-lg px-3 py-2 bg-amber-50/80 leading-snug">
+                    목록 조회에 실패했어도 아래 「지급 추가」에서 금액을 등록할 수 있습니다. 등록에 성공하면 내역을 다시 불러옵니다.
+                  </p>
+                ) : null}
+
+                {leaderDetail ? (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-fluid-xs text-gray-800 space-y-1">
+                    <div className="flex flex-wrap justify-between gap-2 tabular-nums">
+                      <span className="text-gray-600">당월 지급 합계</span>
+                      <span className="font-semibold text-emerald-900">{fmtWon(leaderDetail.monthPaidTotal)}</span>
+                    </div>
+                    {leaderDetail.contractSalary != null ? (
+                      <p className="text-[11px] text-gray-600">
+                        참고·사용자 등록 월 급여액{' '}
+                        <strong className="tabular-nums">{fmtWon(leaderDetail.contractSalary)}</strong>
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {leaderPanelTab === 'month' ? (
+                  <>
+                    {leaderDetail ? (
+                      <>
+                        {leaderDetail.monthPayments.length === 0 ? (
+                          <p className="text-fluid-sm text-gray-600 py-4 text-center border border-dashed border-gray-200 rounded-lg">
+                            이번 달 등록된 지급이 없습니다. 아래에서 추가해 주세요.
+                          </p>
+                        ) : (
+                          <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                            <table className="w-full table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs">
+                              <thead>
+                                <tr className="bg-gray-100 text-gray-700">
+                                  <th className="border-b border-gray-200 px-2 py-2 text-center">입금일</th>
+                                  <th className="border-b border-gray-200 px-2 py-2 text-center">금액</th>
+                                  <th className="border-b border-gray-200 px-2 py-2 text-center">메모</th>
+                                  <th className="border-b border-gray-200 px-2 py-2 text-center w-[4rem]">삭제</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {leaderDetail.monthPayments.map((row) => (
+                                  <tr key={row.id} className="hover:bg-gray-50">
+                                    <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-800">
+                                      {compactPayDate(row.paidOnYmd)}
+                                    </td>
+                                    <td className="border-b border-gray-100 px-2 py-1.5 text-right tabular-nums font-medium text-gray-900">
+                                      {Number(row.amount).toLocaleString('ko-KR')}
+                                    </td>
+                                    <td
+                                      className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-600 truncate"
+                                      title={row.memo ?? ''}
+                                    >
+                                      {row.memo?.trim() ? row.memo : '—'}
+                                    </td>
+                                    <td className="border-b border-gray-100 px-1 py-1.5 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setLeaderPaymentDeleteTarget({
+                                            id: row.id,
+                                            paidOnYmd: row.paidOnYmd,
+                                            amount: row.amount,
+                                          })
+                                        }
+                                        className="text-[11px] font-medium text-red-700 hover:underline"
+                                      >
+                                        삭제
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </>
+                    ) : null}
+
+                    <div className="rounded-lg border border-blue-100 bg-blue-50/40 px-3 py-3 space-y-3">
+                      <p className="text-fluid-xs font-medium text-blue-950">지급 추가</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="block text-fluid-xs text-gray-700">
+                          금액(원)
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={leaderFormAmount}
+                            onChange={(e) => setLeaderFormAmount(e.target.value)}
+                            placeholder="예: 500000"
+                            className="mt-1 w-full px-2 py-2 border border-gray-300 rounded text-sm tabular-nums bg-white"
+                          />
+                        </label>
+                        <label className="block text-fluid-xs text-gray-700">
+                          입금일
+                          <input
+                            type="date"
+                            value={leaderFormPaidOn}
+                            onChange={(e) => setLeaderFormPaidOn(e.target.value)}
+                            className="mt-1 w-full px-2 py-2 border border-gray-300 rounded text-sm tabular-nums bg-white"
+                          />
+                        </label>
+                      </div>
+                      <label className="block text-fluid-xs text-gray-700">
+                        메모 (선택)
+                        <input
+                          type="text"
+                          value={leaderFormMemo}
+                          onChange={(e) => setLeaderFormMemo(e.target.value)}
+                          placeholder="예: 주중 근무 분"
+                          className="mt-1 w-full px-2 py-2 border border-gray-300 rounded text-sm bg-white"
+                        />
+                      </label>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          disabled={leaderSaving}
+                          onClick={() => void submitLeaderPayment()}
+                          className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 touch-manipulation"
+                        >
+                          {leaderSaving ? '등록 중…' : '지급 등록'}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : leaderDetail ? (
+                  leaderDetail.priorPayments.length === 0 ? (
+                    <p className="text-fluid-sm text-gray-600 py-6 text-center border border-dashed border-gray-200 rounded-lg">
+                      다른 달 지급 기록이 없습니다.
+                    </p>
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                      <table className="w-full table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs">
+                        <thead>
+                          <tr className="bg-gray-100 text-gray-700">
+                            <th className="border-b border-gray-200 px-2 py-2 text-center">귀속월</th>
+                            <th className="border-b border-gray-200 px-2 py-2 text-center">입금일</th>
+                            <th className="border-b border-gray-200 px-2 py-2 text-center">금액</th>
+                            <th className="border-b border-gray-200 px-2 py-2 text-center">메모</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {leaderDetail.priorPayments.map((row) => (
+                            <tr key={row.id} className="hover:bg-gray-50">
+                              <td className="border-b border-gray-100 px-2 py-1.5 text-center text-gray-800">
+                                {row.monthLabel}
+                              </td>
+                              <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-700">
+                                {compactPayDate(row.paidOnYmd)}
+                              </td>
+                              <td className="border-b border-gray-100 px-2 py-1.5 text-right tabular-nums font-medium text-gray-900">
+                                {Number(row.amount).toLocaleString('ko-KR')}
+                              </td>
+                              <td
+                                className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-600 truncate"
+                                title={row.memo ?? ''}
+                              >
+                                {row.memo?.trim() ? row.memo : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                ) : (
+                  <p className="text-fluid-sm text-gray-600 py-6 text-center border border-dashed border-gray-200 rounded-lg">
+                    과거 내역을 불러오지 못했습니다. 급여표 상단 「새로고침」 후 다시 열거나, 이번 달 탭에서 지급을 등록해 보세요.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {createPortal(
+        <ConfirmPasswordModal
+          open={Boolean(leaderPaymentDeleteTarget)}
+          title={
+            leaderPaymentDeleteTarget
+              ? `팀장 지급 기록 삭제 (${compactPayDate(leaderPaymentDeleteTarget.paidOnYmd)} · ${Number(
+                  leaderPaymentDeleteTarget.amount
+                ).toLocaleString('ko-KR')}원)`
+              : ''
+          }
+          description="이 행을 삭제하면 해당 입금 기록만 제거됩니다."
+          confirmLabel="삭제"
+          zIndexClassName="z-[620]"
+          onClose={() => setLeaderPaymentDeleteTarget(null)}
+          onConfirm={async (password) => {
+            if (!token || !leaderDetailForRow || leaderDetailForRow.kind !== 'TEAM_LEADER' || !leaderPaymentDeleteTarget)
+              return;
+            await deletePayrollTeamLeaderPayment(token, leaderPaymentDeleteTarget.id, password);
+            const d = await getPayrollTeamLeaderPayments(token, leaderDetailForRow.id, month);
+            setLeaderDetail(d);
+            await load();
+          }}
+        />,
+        document.body
+      )}
 
       {adjustModalRow &&
         adjustModalRow.kind === 'POOL_MEMBER' &&
