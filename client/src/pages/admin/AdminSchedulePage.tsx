@@ -170,6 +170,7 @@ function scheduleItemExternalCompanyIds(item: ScheduleItem): string[] {
   return Array.from(out);
 }
 
+/** 지역 필터는 접수의 주소 검색 한 줄(`address`)만 사용한다. 상세주소는 빌딩명 등으로 오탐할 수 있어 제외한다. */
 function matchesCustomCalendarRegion(item: ScheduleItem, cal: Pick<UserCustomCalendarItem, 'regions'>): boolean {
   return Array.isArray(cal.regions) && cal.regions.length > 0
     ? addressMatchesRegions(item.address, cal.regions)
