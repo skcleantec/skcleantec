@@ -95,6 +95,9 @@ export async function createUser(
     name: string;
     phone?: string;
     role: 'TEAM_LEADER' | 'MARKETER';
+    /** 등록 시 선택 — 마케터·팀장 월 급여표 반영 */
+    payrollMonthlySalary?: number | null;
+    payrollPayDay?: number | null;
   }
 ): Promise<UserItem> {
   const res = await fetch(`${API}/users`, {

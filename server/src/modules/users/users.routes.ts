@@ -131,13 +131,16 @@ router.post('/team-leaders/day-off-self-edit', adminOnly, async (req, res) => {
 });
 
 router.post('/', adminOnly, async (req, res) => {
-  const { email, password, name, phone, role } = req.body as {
+  const body = req.body as {
     email?: string;
     password?: string;
     name?: string;
     phone?: string;
     role?: 'TEAM_LEADER' | 'MARKETER';
+    payrollMonthlySalary?: unknown;
+    payrollPayDay?: unknown;
   };
+  const { email, password, name, phone, role } = body;
   if (!email || !password || !name) {
     res.status(400).json({ error: '아이디, 비밀번호, 이름을 입력해주세요.' });
     return;
@@ -148,6 +151,42 @@ router.post('/', adminOnly, async (req, res) => {
     res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
     return;
   }
+
+  let payrollMonthlySalary: number | null | undefined;
+  let payrollPayDay: number | null | undefined;
+
+  if (userRole === 'TEAM_LEADER' || userRole === 'MARKETER') {
+    if (body.payrollMonthlySalary !== undefined) {
+      const v = body.payrollMonthlySalary;
+      if (v === null || v === '') {
+        payrollMonthlySalary = null;
+      } else {
+        const n =
+          typeof v === 'number'
+            ? Math.trunc(v)
+            : parseInt(String(v).replace(/,/g, '').trim(), 10);
+        if (!Number.isFinite(n) || n < 0) {
+          res.status(400).json({ error: '월 급여는 0 이상 정수(원)이어야 합니다.' });
+          return;
+        }
+        payrollMonthlySalary = n;
+      }
+    }
+    if (body.payrollPayDay !== undefined) {
+      const v = body.payrollPayDay;
+      if (v === null || v === '') {
+        payrollPayDay = null;
+      } else {
+        const d = typeof v === 'number' ? v : parseInt(String(v).trim(), 10);
+        if (!Number.isFinite(d) || d < 1 || d > 31) {
+          res.status(400).json({ error: '급여 지급일은 1~31 또는 비움(말일)입니다.' });
+          return;
+        }
+        payrollPayDay = d;
+      }
+    }
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
@@ -156,6 +195,8 @@ router.post('/', adminOnly, async (req, res) => {
       name,
       phone: phone || null,
       role: userRole,
+      ...(payrollMonthlySalary !== undefined ? { payrollMonthlySalary } : {}),
+      ...(payrollPayDay !== undefined ? { payrollPayDay } : {}),
     },
     select: {
       id: true,
@@ -166,11 +207,15 @@ router.post('/', adminOnly, async (req, res) => {
       hireDate: true,
       resignationDate: true,
       allowSelfDayOffEdit: true,
+      payrollMonthlySalary: true,
+      payrollPayDay: true,
     },
   });
   res.status(201).json({
     ...user,
     allowSelfDayOffEdit: user.role === 'TEAM_LEADER' ? user.allowSelfDayOffEdit : true,
+    payrollMonthlySalary: user.payrollMonthlySalary ?? null,
+    payrollPayDay: user.payrollPayDay ?? null,
     ...serializeUserDates(user),
   });
 });

@@ -20,6 +20,16 @@ type UserRole = 'TEAM_LEADER' | 'MARKETER';
 const userMobileCardShell =
   'rounded-xl border border-gray-200 bg-white text-left shadow-sm outline-none transition hover:border-gray-300 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation overflow-hidden';
 
+function formatUserPayrollSalaryCell(v: number | null | undefined): string {
+  if (v == null) return '—';
+  return `${Number(v).toLocaleString('ko-KR')}원`;
+}
+
+function formatUserPayrollPayDayCell(v: number | null | undefined): string {
+  if (v == null) return '말일';
+  return `${v}일`;
+}
+
 export function AdminTeamLeadersPage() {
   const token = getToken();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -49,6 +59,8 @@ export function AdminTeamLeadersPage() {
     password: '',
     name: '',
     phone: '',
+    payrollMonthlySalary: '',
+    payrollPayDay: '',
   });
 
   const refresh = (): Promise<void> => {
@@ -92,12 +104,47 @@ export function AdminTeamLeadersPage() {
     if (!token) return;
     setSubmitLoading(true);
     try {
-      await createUser(token, {
-        ...form,
-        phone: form.phone || undefined,
+      const payload: {
+        email: string;
+        password: string;
+        name: string;
+        phone?: string;
+        role: UserRole;
+        payrollMonthlySalary?: number | null;
+        payrollPayDay?: number | null;
+      } = {
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+        name: form.name.trim(),
+        phone: form.phone.trim() || undefined,
         role,
-      });
-      setForm({ email: '', password: '', name: '', phone: '' });
+      };
+
+      if (role === 'TEAM_LEADER' || role === 'MARKETER') {
+        const salaryTrim = form.payrollMonthlySalary.trim().replace(/,/g, '');
+        if (salaryTrim !== '') {
+          const n = Number(salaryTrim);
+          if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+            alert('월 고정 급여는 0 이상의 정수(원)로 입력해 주세요.');
+            setSubmitLoading(false);
+            return;
+          }
+          payload.payrollMonthlySalary = n;
+        }
+        const dayTrim = form.payrollPayDay.trim();
+        if (dayTrim !== '') {
+          const d = Number.parseInt(dayTrim, 10);
+          if (!Number.isFinite(d) || d < 1 || d > 31) {
+            alert('급여 지급일은 1~31 사이로 입력해 주세요. 비우면 월 급여표에서 말일로 표시됩니다.');
+            setSubmitLoading(false);
+            return;
+          }
+          payload.payrollPayDay = d;
+        }
+      }
+
+      await createUser(token, payload);
+      setForm({ email: '', password: '', name: '', phone: '', payrollMonthlySalary: '', payrollPayDay: '' });
       setShowForm(null);
       refresh();
     } catch (err) {
@@ -273,7 +320,7 @@ export function AdminTeamLeadersPage() {
               onClick={() => {
                 if (showForm === 'team') setShowForm(null);
                 else {
-                  setForm({ email: '', password: '', name: '', phone: '' });
+                  setForm({ email: '', password: '', name: '', phone: '', payrollMonthlySalary: '', payrollPayDay: '' });
                   setShowForm('team');
                 }
               }}
@@ -445,7 +492,7 @@ export function AdminTeamLeadersPage() {
               onClick={() => {
                 if (showForm === 'marketer') setShowForm(null);
                 else {
-                  setForm({ email: '', password: '', name: '', phone: '' });
+                  setForm({ email: '', password: '', name: '', phone: '', payrollMonthlySalary: '', payrollPayDay: '' });
                   setShowForm('marketer');
                 }
               }}
@@ -485,6 +532,10 @@ export function AdminTeamLeadersPage() {
                           <span className="mx-1 text-gray-400">·</span>
                           <span className="tabular-nums">{item.phone || '연락처 없음'}</span>
                         </p>
+                        <p className="mt-1 text-left text-fluid-2xs text-gray-600 tabular-nums">
+                          월급 {formatUserPayrollSalaryCell(item.payrollMonthlySalary)} · 급여일{' '}
+                          {formatUserPayrollPayDayCell(item.payrollPayDay)}
+                        </p>
                       </div>
                     </div>
                     <div
@@ -515,12 +566,14 @@ export function AdminTeamLeadersPage() {
 
               <div className="hidden lg:block">
                 <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-                  <table className="w-full border-collapse text-fluid-sm min-w-[560px]">
+                  <table className="w-full border-collapse text-fluid-sm min-w-[760px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">월 급여</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">급여일</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 w-28 whitespace-nowrap">관리</th>
                       </tr>
                     </thead>
@@ -531,6 +584,12 @@ export function AdminTeamLeadersPage() {
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.name}</td>
                           <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap tabular-nums">
                             {item.phone || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap tabular-nums text-fluid-xs">
+                            {formatUserPayrollSalaryCell(item.payrollMonthlySalary)}
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-700 whitespace-nowrap tabular-nums text-fluid-xs">
+                            {formatUserPayrollPayDayCell(item.payrollPayDay)}
                           </td>
                           <td className="px-4 py-3 text-center whitespace-nowrap">
                             <button
@@ -586,7 +645,9 @@ export function AdminTeamLeadersPage() {
               >
                 {showForm === 'team' ? '팀장 등록' : '마케터 등록'}
               </h2>
-              <p className="text-xs text-gray-500 mb-4">아이디·비밀번호·이름을 입력한 뒤 등록하세요.</p>
+              <p className="text-xs text-gray-500 mb-4">
+                아이디·비밀번호·이름은 필수입니다. 월 급여·급여일은 마케터·팀장 모두 선택 입력하며, 월 급여표에 반영됩니다.
+              </p>
               <form
                 onSubmit={(e) => handleSubmit(e, showForm === 'team' ? 'TEAM_LEADER' : 'MARKETER')}
                 className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left"
@@ -631,6 +692,42 @@ export function AdminTeamLeadersPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                     placeholder="010-0000-0000"
                   />
+                </div>
+                <div className="sm:col-span-2 rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+                  <p className="text-fluid-xs font-medium text-gray-800">
+                    {showForm === 'marketer' ? '마케터 · 월 급여표' : '팀장 · 참고 월급(수시 지급과 별개)'}
+                  </p>
+                  <p className="text-fluid-2xs text-gray-500 leading-snug">
+                    {showForm === 'marketer'
+                      ? '월 고정 급여와 매월 지급일을 넣으면 관리자 월 급여표 「마케터」 탭에 금액·지급일 열로 표시됩니다.'
+                      : '팀장 실제 지급은 급여표에서 수시 등록합니다. 여기 값은 참고·비고용이며, 비워도 됩니다.'}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">월 고정 급여 (원)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={form.payrollMonthlySalary}
+                        onChange={(e) => setForm((p) => ({ ...p, payrollMonthlySalary: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                        placeholder="예: 3500000 · 비우면 미설정"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">급여 지급일 (1–31)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        step={1}
+                        value={form.payrollPayDay}
+                        onChange={(e) => setForm((p) => ({ ...p, payrollPayDay: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                        placeholder="비우면 말일"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="sm:col-span-2 flex flex-wrap justify-center gap-2 pt-2">
                   <button
@@ -758,11 +855,17 @@ export function AdminTeamLeadersPage() {
                           placeholder="비우면 월 급여표에서 말일 규칙"
                         />
                         <p className="text-fluid-2xs text-gray-500 mt-1">
-                        현장 팀원의 일당은{' '}
-                          <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
-                            팀원 등록
-                          </Link>
-                          에서 설정합니다.
+                          {editingUser.role === 'MARKETER' ? (
+                            <>마케터 월 급여표 열과 동일하게 적용됩니다.</>
+                          ) : (
+                            <>
+                              현장 팀원의 일당은{' '}
+                              <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
+                                팀원 등록
+                              </Link>
+                              에서 설정합니다.
+                            </>
+                          )}
                         </p>
                       </div>
                     </div>
