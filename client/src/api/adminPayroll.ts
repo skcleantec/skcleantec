@@ -25,6 +25,8 @@ export type PayrollSheetRow = {
   poolSystemDays?: number | null;
   /** 현장만: 해당 월 수기 추가 근무일 */
   poolManualExtraDays?: number | null;
+  /** 현장만: 해당 월 정산 완료 여부 */
+  poolSettlementComplete?: boolean;
 };
 
 export type PayrollSheetResponse = {
@@ -57,6 +59,18 @@ export type PayrollPoolMemberDetailLine = {
   crewMemberNote: string | null;
 };
 
+export type PayrollSettlementSnapshot = {
+  amount: number;
+  settledAt: string;
+};
+
+export type PayrollPaymentHistoryItem = {
+  monthKey: string;
+  monthLabel: string;
+  amount: number;
+  settledAt: string;
+};
+
 export type PayrollPoolMemberDetailResponse = {
   month: string;
   monthLabel: string;
@@ -72,6 +86,12 @@ export type PayrollPoolMemberDetailResponse = {
   amount: number | null;
   notes: string[];
   lines: PayrollPoolMemberDetailLine[];
+  /** 해당 귀속 월 정산 완료 시 스냅샷 */
+  settlement: PayrollSettlementSnapshot | null;
+  paymentHistory: {
+    totalPaid: number;
+    items: PayrollPaymentHistoryItem[];
+  };
 };
 
 export async function getPayrollPoolMemberDetail(
@@ -108,6 +128,23 @@ export async function patchPayrollPoolMemberMonthAdjust(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '저장에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function postPayrollPoolMemberSettle(
+  token: string,
+  teamMemberId: string,
+  month?: string
+): Promise<{ ok: boolean; teamMemberId: string; monthKey: string; amount: number; settledAt: string }> {
+  const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  const res = await fetch(`${API}/admin/payroll/pool-member/${encodeURIComponent(teamMemberId)}/settle${q}`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '정산 완료 처리에 실패했습니다.');
   }
   return res.json();
 }

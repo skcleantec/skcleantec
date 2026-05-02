@@ -6,6 +6,7 @@ import {
   getAdminPayrollSheet,
   getPayrollPoolMemberDetail,
   patchPayrollPoolMemberMonthAdjust,
+  postPayrollPoolMemberSettle,
   type PayrollSheetRow,
   type PayrollSheetResponse,
   type PayrollPoolMemberDetailResponse,
@@ -16,7 +17,7 @@ import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 
 const PAYROLL_HELP =
   '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·지출(요약)을 나누어 볼 수 있습니다.\n\n' +
-  '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
+  '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 상세에서는 「산정내역」과 「지급내역」을 바꿔 볼 수 있으며, 예상 급여가 나온 뒤 「정산완료」로 확정하면 지급 내역에 누적됩니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
   '【팀장 · 월 고정 급여】현장 근무일 산정과 무관합니다. 사용자 등록에서 팀장 계정별 「월 고정 급여」「급여 지급일」을 넣으며, 선택한 귀속 월에 재직 구간과 겹치면 행에 나타납니다. 지급일을 비우면 해당 월 말일로 표시합니다.\n\n' +
   '【직원(마케터) · 월 고정 급여】팀장과 동일하게 사용자 등록에서 마케터 계정별로 급여를 따로 적습니다. 표에는 근무일·일당 대신 고정 월급만 반영됩니다. 실제 근무제·수당 등은 회사 규정에 맞게 금액에 반영해 입력하면 됩니다.\n\n' +
   '타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
@@ -38,6 +39,21 @@ function compactPeriod(start: string | null, end: string | null): string {
 function compactPayDate(ymd: string | null): string {
   if (!ymd) return '—';
   return `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8))}`;
+}
+
+function fmtIsoDateTimeKst(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
 }
 
 function roleBadgeClass(kind: PayrollSheetRow['kind']): string {
@@ -156,6 +172,8 @@ export function AdminPayrollPage() {
   const [adjustModalRow, setAdjustModalRow] = useState<PayrollSheetRow | null>(null);
   const [adjustExtraInput, setAdjustExtraInput] = useState('0');
   const [adjustSaving, setAdjustSaving] = useState(false);
+  const [memberDetailPanelTab, setMemberDetailPanelTab] = useState<'accrual' | 'payments'>('accrual');
+  const [settlingMemberId, setSettlingMemberId] = useState<string | null>(null);
 
   const openPoolMemberDetail = useCallback((row: PayrollSheetRow) => {
     if (row.kind !== 'POOL_MEMBER') return;
@@ -167,6 +185,7 @@ export function AdminPayrollPage() {
     setMemberDetail(null);
     setMemberDetailError(null);
     setMemberDetailLoading(false);
+    setMemberDetailPanelTab('accrual');
   }, []);
 
   const closeAdjustModal = useCallback(() => {
@@ -249,6 +268,31 @@ export function AdminPayrollPage() {
       setAdjustSaving(false);
     }
   }, [token, adjustModalRow, adjustExtraInput, month, load, closeAdjustModal]);
+
+  useEffect(() => {
+    setMemberDetailPanelTab('accrual');
+  }, [memberDetailForRow?.id, month]);
+
+  const settlePoolMemberRow = useCallback(
+    async (row: PayrollSheetRow) => {
+      if (!token || row.kind !== 'POOL_MEMBER') return;
+      if (row.amount == null || row.poolSettlementComplete) return;
+      setSettlingMemberId(row.id);
+      try {
+        await postPayrollPoolMemberSettle(token, row.id, month);
+        await load();
+        if (memberDetailForRow?.id === row.id) {
+          const d = await getPayrollPoolMemberDetail(token, row.id, month);
+          setMemberDetail(d);
+        }
+      } catch (e) {
+        alert(e instanceof Error ? e.message : '정산 완료에 실패했습니다.');
+      } finally {
+        setSettlingMemberId(null);
+      }
+    },
+    [token, month, load, memberDetailForRow?.id]
+  );
 
   useEffect(() => {
     void load();
@@ -525,6 +569,11 @@ export function AdminPayrollPage() {
                               {r.roleLabel}
                             </span>
                             <span className="font-medium text-gray-900 truncate">{r.name}</span>
+                            {r.poolSettlementComplete ? (
+                              <span className="inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200">
+                                정산완료
+                              </span>
+                            ) : null}
                           </div>
                           <div className="mt-1 text-fluid-xs text-gray-600 tabular-nums space-x-2">
                             <span>지급 {compactPayDate(r.payDateYmd)}</span>
@@ -549,7 +598,7 @@ export function AdminPayrollPage() {
                         </div>
                       </div>
                     </button>
-                    <div className="shrink-0 flex flex-col justify-center border-l border-gray-100 bg-gray-50/80">
+                    <div className="shrink-0 flex flex-col justify-center gap-1 border-l border-gray-100 bg-gray-50/80 py-1 px-0.5 min-w-[4.5rem]">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -557,9 +606,29 @@ export function AdminPayrollPage() {
                           e.stopPropagation();
                           openAdjustModal(r);
                         }}
-                        className="px-3 py-3 text-fluid-xs font-medium text-blue-800 hover:bg-blue-50 active:bg-blue-100 touch-manipulation whitespace-nowrap"
+                        className="px-2 py-2 text-fluid-2xs font-medium text-blue-800 hover:bg-blue-50 active:bg-blue-100 touch-manipulation whitespace-nowrap rounded-md border border-transparent hover:border-blue-200"
                       >
                         설정
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          settlingMemberId === r.id ||
+                          r.amount == null ||
+                          Boolean(r.poolSettlementComplete)
+                        }
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void settlePoolMemberRow(r);
+                        }}
+                        className="px-2 py-2 text-fluid-2xs font-semibold text-white bg-gray-900 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation whitespace-nowrap rounded-md"
+                      >
+                        {settlingMemberId === r.id
+                          ? '…'
+                          : r.poolSettlementComplete
+                            ? '완료'
+                            : '정산완료'}
                       </button>
                     </div>
                   </div>
@@ -602,14 +671,14 @@ export function AdminPayrollPage() {
               >
                 <table className="w-full min-w-[800px] table-fixed border-collapse border border-gray-200 rounded-lg overflow-hidden text-fluid-2xs xl:text-fluid-xs bg-white">
                   <colgroup>
-                    <col className="w-[18%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[8%]" />
+                    <col className="w-[17%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[5%]" />
                     <col className="w-[10%]" />
                     <col className="w-[11%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[17%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[26%]" />
                   </colgroup>
                   <thead>
                     <tr className="bg-gray-100 text-gray-700">
@@ -659,6 +728,11 @@ export function AdminPayrollPage() {
                             <span className="truncate max-w-full font-medium text-gray-900" title={r.name}>
                               {r.name}
                             </span>
+                            {r.kind === 'POOL_MEMBER' && r.poolSettlementComplete ? (
+                              <span className="inline-flex rounded px-1 py-0.5 text-[9px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200 leading-none">
+                                정산완료
+                              </span>
+                            ) : null}
                           </div>
                         </td>
                         <td className="border-b border-gray-100 px-1.5 py-1.5 text-center tabular-nums text-gray-800">
@@ -675,7 +749,7 @@ export function AdminPayrollPage() {
                           {compactPeriod(r.accrualStartYmd, r.accrualEndYmd)}
                         </td>
                         <td
-                          className="border-b border-gray-100 px-1 py-1.5 text-center tabular-nums align-middle"
+                          className="border-b border-gray-100 px-0.5 py-1.5 text-center tabular-nums align-middle max-w-[4.5rem]"
                           title={poolWorkDaysTitle(r)}
                         >
                           {r.kind === 'POOL_MEMBER' ? (
@@ -696,18 +770,36 @@ export function AdminPayrollPage() {
                           {r.amount != null ? `${Number(r.amount).toLocaleString('ko-KR')}` : '—'}
                         </td>
                         <td
-                          className="border-b border-gray-100 px-1 py-1.5 text-center align-middle bg-white group-hover:bg-gray-50"
+                          className="border-b border-gray-100 px-1 py-1.5 text-center align-middle bg-white group-hover:bg-gray-50 min-w-0"
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
                         >
                           {r.kind === 'POOL_MEMBER' ? (
-                            <button
-                              type="button"
-                              onClick={() => openAdjustModal(r)}
-                              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                            >
-                              설정
-                            </button>
+                            <div className="flex flex-wrap items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openAdjustModal(r)}
+                                className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
+                              >
+                                설정
+                              </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  settlingMemberId === r.id ||
+                                  r.amount == null ||
+                                  Boolean(r.poolSettlementComplete)
+                                }
+                                onClick={() => void settlePoolMemberRow(r)}
+                                className="rounded-md border border-gray-800 bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 whitespace-nowrap"
+                              >
+                                {settlingMemberId === r.id
+                                  ? '…'
+                                  : r.poolSettlementComplete
+                                    ? '완료'
+                                    : '정산완료'}
+                              </button>
+                            </div>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}
@@ -730,8 +822,8 @@ export function AdminPayrollPage() {
             <strong className="text-gray-800">{data.monthLabel}</strong> 기준 ·{' '}
             {payrollTab === 'pool' ? (
               <>
-                현장 팀원은 근무일×일당입니다. 금액이 「—」인 행은 팀원 설정을 채운 뒤 자동 계산됩니다. 「설정」에서 해당
-                월만 추가 근무일을 넣을 수 있습니다. 행(설정 칸 제외)을 누르면 산정 접수 목록이 열립니다.
+                현장 팀원은 근무일×일당입니다. 금액이 「—」인 행은 팀원 설정을 채운 뒤 자동 계산됩니다. 「설정」옆 「정산완료」로
+                해당 월을 확정합니다. 「설정·정산완료」를 제외한 행을 누르면 산정 접수 목록이 열립니다.
               </>
             ) : payrollTab === 'leader' ? (
               <>팀장은 사용자 등록의 월 고정 급여·지급일 기준입니다. 금액이 「—」이면 해당 계정 설정을 확인해 주세요.</>
@@ -782,9 +874,42 @@ export function AdminPayrollPage() {
                     {memberDetail?.monthLabel ?? data?.monthLabel ?? ''}
                   </span>
                 </div>
+                <nav
+                  className="mt-3 flex gap-1 overflow-x-auto overscroll-x-contain border-b border-gray-200"
+                  role="tablist"
+                  aria-label="상세 보기 전환"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={memberDetailPanelTab === 'accrual'}
+                    onClick={() => setMemberDetailPanelTab('accrual')}
+                    className={`shrink-0 whitespace-nowrap px-3 py-2 text-fluid-sm border-b-2 transition-colors min-h-[44px] touch-manipulation ${
+                      memberDetailPanelTab === 'accrual'
+                        ? 'border-blue-600 font-semibold text-blue-900'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    산정내역
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={memberDetailPanelTab === 'payments'}
+                    onClick={() => setMemberDetailPanelTab('payments')}
+                    className={`shrink-0 whitespace-nowrap px-3 py-2 text-fluid-sm border-b-2 transition-colors min-h-[44px] touch-manipulation ${
+                      memberDetailPanelTab === 'payments'
+                        ? 'border-blue-600 font-semibold text-blue-900'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    지급내역
+                  </button>
+                </nav>
                 <p className="mt-2 text-fluid-xs text-gray-600 leading-snug">
-                  예약일(KST)이 산정 구간에 속하고, 현장 투입 메모에 이름이 일치한 접수만 아래에 나열합니다. 같은 날이면
-                  급여 산정에서는 1일로만 칩니다.
+                  {memberDetailPanelTab === 'accrual'
+                    ? '예약일(KST)이 산정 구간에 속하고, 현장 투입 메모에 이름이 일치한 접수만 나열합니다. 같은 날은 급여 산정에서 1일로만 칩니다.'
+                    : '「정산완료」로 확정 저장된 귀속 월별 급여입니다. 아래 합계는 해당 팀원에 대해 지금까지 확정된 지급액의 합입니다.'}
                 </p>
               </div>
 
@@ -828,81 +953,165 @@ export function AdminPayrollPage() {
                         })()}
                       </span>
                     </div>
-                    {memberDetail.notes.length > 0 ? (
-                      <p className="text-fluid-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        {memberDetail.notes.join(' · ')}
-                      </p>
-                    ) : null}
 
-                    {memberDetail.lines.length === 0 ? (
-                      <p className="text-fluid-sm text-gray-600 py-6 text-center border border-dashed border-gray-200 rounded-lg">
-                        이번 산정 구간에 집계된 접수가 없습니다.
-                      </p>
+                    {memberDetailPanelTab === 'payments' ? (
+                      <>
+                        {(() => {
+                          const ph = memberDetail.paymentHistory ?? { totalPaid: 0, items: [] };
+                          return (
+                            <>
+                              <div className="flex flex-wrap gap-2 items-center">
+                                <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-fluid-xs font-semibold tabular-nums text-emerald-900">
+                                  누적 확정 지급 <strong className="ml-1">{fmtWon(ph.totalPaid)}</strong>
+                                </span>
+                                <span className="text-fluid-2xs text-gray-500 tabular-nums">{ph.items.length}건</span>
+                              </div>
+                              {ph.items.length === 0 ? (
+                                <p className="text-fluid-sm text-gray-600 py-8 text-center border border-dashed border-gray-200 rounded-lg">
+                                  아직 정산 완료된 내역이 없습니다. 「산정내역」에서 「정산완료」를 누르면 여기에 쌓입니다.
+                                </p>
+                              ) : (
+                                <>
+                                  <p className="text-fluid-xs text-gray-500 hidden sm:block">
+                                    귀속 월별 확정 금액과 정산 처리 시각입니다.
+                                  </p>
+                                  <div className="hidden sm:block overflow-x-auto rounded-lg border border-gray-200">
+                                    <table className="w-full min-w-[380px] table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs bg-white">
+                                      <colgroup>
+                                        <col className="w-[28%]" />
+                                        <col className="w-[28%]" />
+                                        <col className="w-[44%]" />
+                                      </colgroup>
+                                      <thead>
+                                        <tr className="bg-gray-100 text-gray-700">
+                                          <th className="border-b border-gray-200 px-2 py-2 text-center">귀속월</th>
+                                          <th className="border-b border-gray-200 px-2 py-2 text-center">확정금액</th>
+                                          <th className="border-b border-gray-200 px-2 py-2 text-center">정산일시(KST)</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {ph.items.map((row) => (
+                                          <tr key={row.monthKey} className="hover:bg-gray-50">
+                                            <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-900">
+                                              {row.monthLabel}
+                                            </td>
+                                            <td className="border-b border-gray-100 px-2 py-1.5 text-right tabular-nums font-medium text-gray-900">
+                                              {fmtWon(row.amount)}
+                                            </td>
+                                            <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-700 tabular-nums">
+                                              {fmtIsoDateTimeKst(row.settledAt)}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                  <ul className="sm:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white">
+                                    {ph.items.map((row) => (
+                                      <li key={row.monthKey} className="px-3 py-2.5 text-fluid-xs">
+                                        <div className="flex justify-between gap-2">
+                                          <span className="font-medium text-gray-900">{row.monthLabel}</span>
+                                          <span className="font-semibold tabular-nums text-emerald-900">
+                                            {fmtWon(row.amount)}
+                                          </span>
+                                        </div>
+                                        <div className="mt-1 text-[11px] text-gray-600 tabular-nums">
+                                          {fmtIsoDateTimeKst(row.settledAt)}
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </>
                     ) : (
                       <>
-                        <p className="text-fluid-xs text-gray-500 lg:hidden">
-                          좌우로 스크롤하여 전체 열을 볼 수 있습니다.
-                        </p>
-                        <div className="hidden sm:block overflow-x-auto rounded-lg border border-gray-200">
-                          <table className="w-full min-w-[520px] table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs bg-white">
-                            <colgroup>
-                              <col className="w-[14%]" />
-                              <col className="w-[18%]" />
-                              <col className="w-[22%]" />
-                              <col className="w-[46%]" />
-                            </colgroup>
-                            <thead>
-                              <tr className="bg-gray-100 text-gray-700">
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">예약일</th>
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">접수번호</th>
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">고객</th>
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">현장메모</th>
-                              </tr>
-                            </thead>
-                            <tbody>
+                        {memberDetail.notes.length > 0 ? (
+                          <p className="text-fluid-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                            {memberDetail.notes.join(' · ')}
+                          </p>
+                        ) : null}
+                        {memberDetail.settlement ? (
+                          <div className="text-fluid-xs text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 leading-snug">
+                            이 귀속 월은 정산 완료되었습니다. 확정 금액 <strong>{fmtWon(memberDetail.settlement.amount)}</strong>{' '}
+                            · {fmtIsoDateTimeKst(memberDetail.settlement.settledAt)}
+                          </div>
+                        ) : null}
+
+                        {memberDetail.lines.length === 0 ? (
+                          <p className="text-fluid-sm text-gray-600 py-6 text-center border border-dashed border-gray-200 rounded-lg">
+                            이번 산정 구간에 집계된 접수가 없습니다.
+                          </p>
+                        ) : (
+                          <>
+                            <p className="text-fluid-xs text-gray-500 lg:hidden">
+                              좌우로 스크롤하여 전체 열을 볼 수 있습니다.
+                            </p>
+                            <div className="hidden sm:block overflow-x-auto rounded-lg border border-gray-200">
+                              <table className="w-full min-w-[520px] table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs bg-white">
+                                <colgroup>
+                                  <col className="w-[14%]" />
+                                  <col className="w-[18%]" />
+                                  <col className="w-[22%]" />
+                                  <col className="w-[46%]" />
+                                </colgroup>
+                                <thead>
+                                  <tr className="bg-gray-100 text-gray-700">
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center">예약일</th>
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center">접수번호</th>
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center">고객</th>
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center">현장메모</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {memberDetail.lines.map((line) => (
+                                    <tr key={line.inquiryId} className="hover:bg-gray-50">
+                                      <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-800">
+                                        {compactPayDate(line.preferredDateYmd)}
+                                      </td>
+                                      <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-700 truncate" title={line.inquiryNumber ?? undefined}>
+                                        {line.inquiryNumber ?? '—'}
+                                      </td>
+                                      <td
+                                        className="border-b border-gray-100 px-2 py-1.5 text-center text-gray-900 truncate"
+                                        title={customerLineLabel(line)}
+                                      >
+                                        {customerLineLabel(line)}
+                                      </td>
+                                      <td
+                                        className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-600 truncate"
+                                        title={line.crewMemberNote ?? ''}
+                                      >
+                                        {line.crewMemberNote?.trim() ? line.crewMemberNote : '—'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <ul className="sm:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white">
                               {memberDetail.lines.map((line) => (
-                                <tr key={line.inquiryId} className="hover:bg-gray-50">
-                                  <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-800">
-                                    {compactPayDate(line.preferredDateYmd)}
-                                  </td>
-                                  <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-700 truncate" title={line.inquiryNumber ?? undefined}>
-                                    {line.inquiryNumber ?? '—'}
-                                  </td>
-                                  <td
-                                    className="border-b border-gray-100 px-2 py-1.5 text-center text-gray-900 truncate"
-                                    title={customerLineLabel(line)}
-                                  >
+                                <li key={line.inquiryId} className="px-3 py-2 text-fluid-xs">
+                                  <div className="flex justify-between gap-2 tabular-nums text-gray-700">
+                                    <span>{compactPayDate(line.preferredDateYmd)}</span>
+                                    <span className="truncate">{line.inquiryNumber ?? '—'}</span>
+                                  </div>
+                                  <div className="mt-1 font-medium text-gray-900 truncate" title={customerLineLabel(line)}>
                                     {customerLineLabel(line)}
-                                  </td>
-                                  <td
-                                    className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px] text-gray-600 truncate"
-                                    title={line.crewMemberNote ?? ''}
-                                  >
-                                    {line.crewMemberNote?.trim() ? line.crewMemberNote : '—'}
-                                  </td>
-                                </tr>
+                                  </div>
+                                  {line.crewMemberNote?.trim() ? (
+                                    <div className="mt-1 text-[11px] text-gray-600 line-clamp-2" title={line.crewMemberNote}>
+                                      {line.crewMemberNote}
+                                    </div>
+                                  ) : null}
+                                </li>
                               ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        <ul className="sm:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white">
-                          {memberDetail.lines.map((line) => (
-                            <li key={line.inquiryId} className="px-3 py-2 text-fluid-xs">
-                              <div className="flex justify-between gap-2 tabular-nums text-gray-700">
-                                <span>{compactPayDate(line.preferredDateYmd)}</span>
-                                <span className="truncate">{line.inquiryNumber ?? '—'}</span>
-                              </div>
-                              <div className="mt-1 font-medium text-gray-900 truncate" title={customerLineLabel(line)}>
-                                {customerLineLabel(line)}
-                              </div>
-                              {line.crewMemberNote?.trim() ? (
-                                <div className="mt-1 text-[11px] text-gray-600 line-clamp-2" title={line.crewMemberNote}>
-                                  {line.crewMemberNote}
-                                </div>
-                              ) : null}
-                            </li>
-                          ))}
-                        </ul>
+                            </ul>
+                          </>
+                        )}
                       </>
                     )}
                   </>

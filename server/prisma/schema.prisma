@@ -104,6 +104,7 @@ model User {
   externalCompanySettlementPaymentsAsActor ExternalCompanySettlementPayment[] @relation("ExternalCompanySettlementPaymentActor")
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
   crewStaffNoticesSent          CrewStaffNotice[]     @relation("CrewStaffNoticeSender")
+  teamMemberPayrollSettlementsAsActor TeamMemberPayrollSettlement[] @relation("TeamMemberPayrollSettlementActor")
 
   @@map("users")
 }
@@ -160,8 +161,26 @@ model TeamMember {
   crewGroupMembers  TeamCrewGroupMember[]
   crewGroupDayRoster TeamCrewGroupDayRoster[]
   payrollMonthAdjusts TeamMemberPayrollMonthAdjust[]
+  payrollSettlements TeamMemberPayrollSettlement[]
 
   @@map("team_members")
+}
+
+/// 현장 팀원 급여 정산 완료 (귀속 월당 1건 — 확정 지급액 스냅샷)
+model TeamMemberPayrollSettlement {
+  id           String   @id @default(uuid())
+  teamMemberId String   @map("team_member_id")
+  monthKey     String   @map("month_key") @db.VarChar(7)
+  amount       Int
+  settledAt    DateTime @default(now()) @map("settled_at")
+  actorId      String?  @map("actor_id")
+
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  actor      User?      @relation("TeamMemberPayrollSettlementActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([teamMemberId, monthKey])
+  @@index([teamMemberId, settledAt(sort: Desc)])
+  @@map("team_member_payroll_settlements")
 }
 
 /// 월 급여표 — 현장 팀원별 해당 귀속 월 수기 추가 근무일(자동 산정 일수에 가산)
