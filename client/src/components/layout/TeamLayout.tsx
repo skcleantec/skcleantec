@@ -12,39 +12,23 @@ import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { TeamBiInline, TeamBiLine, teamT } from '../../i18n/team/teamI18n';
 
 function teamAriaAssignNav(count: number): string {
-  if (count <= 0) {
-    const a = teamT('team.layout.aria.assignList');
-    return `${a.ko} · ${a.th}`;
-  }
-  const a = teamT('team.layout.aria.assignListUnread', { count: String(count) });
-  return `${a.ko} · ${a.th}`;
+  if (count <= 0) return teamT('team.layout.aria.assignList');
+  return teamT('team.layout.aria.assignListUnread', { count: String(count) });
 }
 
 function teamAriaAssignMobile(count: number): string {
-  if (count <= 0) {
-    const a = teamT('team.layout.aria.assignShort');
-    return `${a.ko} · ${a.th}`;
-  }
-  const a = teamT('team.layout.aria.assignShortUnread', { count: String(count) });
-  return `${a.ko} · ${a.th}`;
+  if (count <= 0) return teamT('team.layout.aria.assignShort');
+  return teamT('team.layout.aria.assignShortUnread', { count: String(count) });
 }
 
 function teamAriaCs(count: number): string {
-  if (count <= 0) {
-    const a = teamT('team.layout.aria.csOnly');
-    return `${a.ko} · ${a.th}`;
-  }
-  const a = teamT('team.layout.aria.csUnread', { count: String(count) });
-  return `${a.ko} · ${a.th}`;
+  if (count <= 0) return teamT('team.layout.aria.csOnly');
+  return teamT('team.layout.aria.csUnread', { count: String(count) });
 }
 
 function teamAriaMessages(count: number): string {
-  if (count <= 0) {
-    const a = teamT('team.layout.aria.messagesOnly');
-    return `${a.ko} · ${a.th}`;
-  }
-  const a = teamT('team.layout.aria.messagesUnread', { count: String(count) });
-  return `${a.ko} · ${a.th}`;
+  if (count <= 0) return teamT('team.layout.aria.messagesOnly');
+  return teamT('team.layout.aria.messagesUnread', { count: String(count) });
 }
 
 export function TeamLayout() {
@@ -195,14 +179,9 @@ export function TeamLayout() {
                   id="team.layout.partnerBrand"
                   vars={{ name: previewExternalName }}
                   koClassName="text-lg font-semibold text-gray-800"
-                  thClassName="text-fluid-2xs font-normal text-gray-600 leading-snug"
                 />
               ) : (
-                <TeamBiLine
-                  id="team.layout.brand"
-                  koClassName="text-lg font-semibold text-gray-800"
-                  thClassName="text-fluid-2xs font-normal text-gray-600 leading-snug"
-                />
+                <TeamBiLine id="team.layout.brand" koClassName="text-lg font-semibold text-gray-800" />
               )}
             </h1>
             <nav className="hidden sm:flex flex-wrap items-center gap-1">
@@ -280,7 +259,7 @@ export function TeamLayout() {
               <NavLink
                 to="/admin/dashboard"
                 className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] font-medium text-blue-700 hover:bg-blue-100 hover:text-blue-900 whitespace-nowrap"
-                title={`${teamT('team.layout.adminScreenTitle').ko} · ${teamT('team.layout.adminScreenTitle').th}`}
+                title={teamT('team.layout.adminScreenTitle')}
               >
                 <TeamBiInline id="team.layout.adminScreen" />
               </NavLink>

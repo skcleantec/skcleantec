@@ -33,9 +33,8 @@ function SettlementRowStatus({ code, cancelled }: { code: string; cancelled: boo
   }
   const st = teamInquiryStatus(code);
   return (
-    <span className="flex flex-col items-center leading-tight">
-      <span>{st.ko}</span>
-      <span className="text-[0.6rem] text-gray-500 font-normal">{st.th}</span>
+    <span className="inline-flex flex-col items-center justify-center leading-tight text-center">
+      <span>{st}</span>
     </span>
   );
 }

@@ -56,13 +56,11 @@ function getMonthRange(year: number, month: number) {
 }
 
 function yearOptionLabel(y: number): string {
-  const row = teamT('team.schedule.yearOption', { y: String(y) });
-  return `${row.ko} · ${row.th}`;
+  return teamT('team.schedule.yearOption', { y: String(y) });
 }
 
 function monthOptionLabel(m: number): string {
-  const row = teamT('team.schedule.monthOption', { m: String(m) });
-  return `${row.ko} · ${row.th}`;
+  return teamT('team.schedule.monthOption', { m: String(m) });
 }
 
 export function TeamSchedulePage() {
@@ -209,13 +207,12 @@ export function TeamSchedulePage() {
             </select>
           </div>
           <div className="grid grid-cols-7 text-center text-calendar-xs [word-break:keep-all]">
-            {TEAM_WEEKDAY_HEADERS.map((wh, wi) => (
+            {TEAM_WEEKDAY_HEADERS.map((label, wi) => (
               <div
-                key={`${wh.ko}-${wi}`}
+                key={`${label}-${wi}`}
                 className={`py-1.5 px-1 sm:py-2 sm:px-2 font-medium min-w-0 leading-tight ${wi === 6 ? 'text-blue-600' : 'text-gray-500'}`}
               >
-                <span className="block">{wh.ko}</span>
-                <span className={`block text-calendar-2xs ${wi === 6 ? 'text-blue-500' : 'text-gray-400'}`}>{wh.th}</span>
+                <span className="block">{label}</span>
               </div>
             ))}
             {calendarDays.map((d, i) => {

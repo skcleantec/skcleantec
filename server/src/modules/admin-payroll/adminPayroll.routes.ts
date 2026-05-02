@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { Prisma } from '@prisma/client';
+import { InquiryStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
@@ -20,12 +20,71 @@ import {
   type MarketerSettlementSlice,
 } from './marketerPayrollLedger.js';
 import { getAdminCrewExpenseDetail, listAdminCrewExpensesForMonth } from '../crew/crewGroupExpense.service.js';
+import { computePayrollExpenseForward } from './payrollExpenseForward.service.js';
 
 const router = Router();
 
 router.use(authMiddleware, adminOnly);
 
 const MONTH_KEY = /^\d{4}-\d{2}$/;
+
+router.get('/expense-forward', async (_req, res) => {
+  try {
+    const payload = await computePayrollExpenseForward(prisma);
+    res.json(payload);
+  } catch (e) {
+    console.error('[admin/payroll/expense-forward]', e);
+    res.status(500).json({ error: '진행 중 급여 집계 중 오류가 발생했습니다.' });
+  }
+});
+
+/** 접수 예약일(KST 월)·상태 기준 서비스 총액 합계 — 급여표 「수입」 탭용 */
+router.get('/income-summary', async (req: Request, res: Response) => {
+  try {
+    const monthKey = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+    if (!MONTH_KEY.test(monthKey)) {
+      res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+      return;
+    }
+    const range = kstMonthRangeYm(monthKey);
+    if (!range) {
+      res.status(400).json({ error: '유효하지 않은 월입니다.' });
+      return;
+    }
+
+    const statusWhere = {
+      preferredDate: { gte: range.gte, lte: range.lte },
+      status: { notIn: [InquiryStatus.CANCELLED, InquiryStatus.ON_HOLD] },
+    };
+
+    const [inquiryCount, agg] = await Promise.all([
+      prisma.inquiry.count({ where: statusWhere }),
+      prisma.inquiry.aggregate({
+        where: {
+          ...statusWhere,
+          serviceTotalAmount: { not: null },
+        },
+        _sum: { serviceTotalAmount: true },
+        _count: true,
+      }),
+    ]);
+
+    const inquiriesWithTotalAmount = agg._count;
+    const serviceTotalSum = agg._sum.serviceTotalAmount ?? 0;
+
+    res.json({
+      month: monthKey,
+      monthLabel: payrollMonthLabelFromKey(monthKey),
+      inquiryCount,
+      inquiriesWithTotalAmount,
+      inquiriesMissingTotalAmount: Math.max(0, inquiryCount - inquiriesWithTotalAmount),
+      serviceTotalSum,
+    });
+  } catch (e) {
+    console.error('[admin/payroll/income-summary]', e);
+    res.status(500).json({ error: '수입 집계 중 오류가 발생했습니다.' });
+  }
+});
 
 function todayYmdKst(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);

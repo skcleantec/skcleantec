@@ -64,6 +64,82 @@ export async function getAdminPayrollSheet(token: string, month?: string): Promi
   return res.json();
 }
 
+export type PayrollExpenseForwardPoolRow = {
+  teamMemberId: string;
+  name: string;
+  monthlyPayDay: number;
+  cycleStartYmd: string;
+  cycleEndYmd: string;
+  partialEndYmd: string;
+  payMonthKey: string;
+  autoJobDays: number;
+  manualExtraDays: number;
+  jobDays: number | null;
+  unitAmount: number | null;
+  partialGross: number | null;
+  crewExpenseTotal: number;
+  partialNet: number | null;
+  poolSettlementComplete: boolean;
+  notes: string[];
+};
+
+export type PayrollExpenseForwardMarketerRow = {
+  userId: string;
+  name: string;
+  payrollPayDay: number;
+  cycleStartYmd: string;
+  cycleEndYmd: string;
+  partialEndYmd: string;
+  payMonthKey: string;
+  monthlySalary: number | null;
+  settlementComplete: boolean;
+  rateBasis: 'cycle_days' | 'prev_calendar_month';
+  denominatorDays: number | null;
+  elapsedDays: number;
+  cycleDaysTotal: number;
+  accruedEstimate: number | null;
+};
+
+export type PayrollExpenseForwardResponse = {
+  todayYmd: string;
+  pool: PayrollExpenseForwardPoolRow[];
+  marketers: PayrollExpenseForwardMarketerRow[];
+  totals: {
+    poolPartialGross: number;
+    poolPartialNet: number;
+    marketerAccrued: number;
+  };
+};
+
+export async function getPayrollExpenseForward(token: string): Promise<PayrollExpenseForwardResponse> {
+  const res = await fetch(`${API}/admin/payroll/expense-forward`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '실시간 급여 집계를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export type PayrollIncomeSummaryResponse = {
+  month: string;
+  monthLabel: string;
+  inquiryCount: number;
+  inquiriesWithTotalAmount: number;
+  inquiriesMissingTotalAmount: number;
+  serviceTotalSum: number;
+};
+
+export async function getPayrollIncomeSummary(token: string, month: string): Promise<PayrollIncomeSummaryResponse> {
+  const mk = month.trim();
+  const q = /^\d{4}-\d{2}$/.test(mk) ? `?month=${encodeURIComponent(mk)}` : '';
+  const res = await fetch(`${API}/admin/payroll/income-summary${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '수입 집계를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export type PayrollPoolMemberDetailLine = {
   inquiryId: string;
   inquiryNumber: string | null;

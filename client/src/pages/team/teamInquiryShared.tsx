@@ -54,11 +54,10 @@ function CheckMiniIcon({ className }: { className?: string }) {
 }
 
 function TeamInquiryStatusBi({ code }: { code: string }) {
-  const { ko, th } = teamInquiryStatus(code);
+  const label = teamInquiryStatus(code);
   return (
-    <span className="inline-block rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
-      <span className="block leading-tight">{ko}</span>
-      <span className="block text-[0.65rem] leading-tight text-gray-600">{th}</span>
+    <span className="inline-block rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800 leading-tight">
+      {label}
     </span>
   );
 }
@@ -73,7 +72,7 @@ export function TeamHappyCallBadge({ item, className = '' }: { item: InquiryItem
   const base = `inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-fluid-2xs font-medium border shrink-0 ${className}`;
 
   if (item.happyCallCompletedAt) {
-    const title = `${teamT('team.inquiry.happy.titleDone').ko} · ${teamT('team.inquiry.happy.titleDone').th}`;
+    const title = teamT('team.inquiry.happy.titleDone');
     return (
       <span className={`${base} bg-green-50 text-green-800 border-green-200`} title={title}>
         <CheckMiniIcon className="w-3 h-3 shrink-0" />
@@ -84,7 +83,7 @@ export function TeamHappyCallBadge({ item, className = '' }: { item: InquiryItem
 
   const tone = happyCallRowTone(now, item.status, item.preferredDate, item.happyCallCompletedAt, hasAssignment);
   if (tone === 'overdue') {
-    const title = `${teamT('team.inquiry.happy.titleOverdue').ko} · ${teamT('team.inquiry.happy.titleOverdue').th}`;
+    const title = teamT('team.inquiry.happy.titleOverdue');
     return (
       <span className={`${base} bg-red-50 text-red-800 border-red-200`} title={title}>
         <PhoneMiniIcon className="w-3 h-3 shrink-0" />
@@ -93,7 +92,7 @@ export function TeamHappyCallBadge({ item, className = '' }: { item: InquiryItem
     );
   }
   if (tone === 'pending') {
-    const title = `${teamT('team.inquiry.happy.titlePending').ko} · ${teamT('team.inquiry.happy.titlePending').th}`;
+    const title = teamT('team.inquiry.happy.titlePending');
     return (
       <span className={`${base} bg-amber-50 text-amber-900 border-amber-200`} title={title}>
         <PhoneMiniIcon className="w-3 h-3 shrink-0" />
@@ -191,22 +190,12 @@ export function formatRoomInfo(r: number | null, b: number | null, v: number | n
   const rk = teamT('team.room.room');
   const bk = teamT('team.room.bath');
   const vk = teamT('team.room.veranda');
-  const koParts: string[] = [];
-  const thParts: string[] = [];
-  if (r != null) {
-    koParts.push(`${r}${rk.ko}`);
-    thParts.push(`${r}${rk.th}`);
-  }
-  if (b != null) {
-    koParts.push(`${b}${bk.ko}`);
-    thParts.push(`${b}${bk.th}`);
-  }
-  if (v != null) {
-    koParts.push(`${v}${vk.ko}`);
-    thParts.push(`${v}${vk.th}`);
-  }
-  if (!koParts.length) return `${teamT('team.common.emDash').ko} · ${teamT('team.common.emDash').th}`;
-  return `${koParts.join(' ')} · ${thParts.join(' ')}`;
+  const parts: string[] = [];
+  if (r != null) parts.push(`${r}${rk}`);
+  if (b != null) parts.push(`${b}${bk}`);
+  if (v != null) parts.push(`${v}${vk}`);
+  if (!parts.length) return `${teamT('team.common.emDash')}`;
+  return parts.join(' ');
 }
 
 export function formatCrewInfo(item: InquiryItem): string {
@@ -223,9 +212,7 @@ export function formatCrewInfo(item: InquiryItem): string {
       note = `${raw.slice(0, mid)}/${raw.slice(mid)}`;
     }
   }
-  const baseKo = fillTeamTemplate(teamT('team.modal.crewCount').ko, { count: String(n) });
-  const baseTh = fillTeamTemplate(teamT('team.modal.crewCount').th, { count: String(n) });
-  const base = `${baseKo} · ${baseTh}`;
+  const base = fillTeamTemplate(teamT('team.modal.crewCount'), { count: String(n) });
   return note ? `${base} · ${note}` : base;
 }
 
@@ -254,9 +241,7 @@ export function relativeDateHint(dateStr: string): string | null {
   if (diff === 2) return teamBiPlain('team.inquiry.relative.dayAfter');
   if (diff > 0 && diff <= 7) {
     const v = String(diff);
-    const ko = fillTeamTemplate(teamT('team.inquiry.relative.inDays').ko, { days: v });
-    const th = fillTeamTemplate(teamT('team.inquiry.relative.inDays').th, { days: v });
-    return `${ko} · ${th}`;
+    return fillTeamTemplate(teamT('team.inquiry.relative.inDays'), { days: v });
   }
   return null;
 }
@@ -405,7 +390,7 @@ export function TeamInquiryDetailModal({
       alert(
         e instanceof Error
           ? e.message
-          : `${teamT('team.alert.happyFail').ko}\n${teamT('team.alert.happyFail').th}`,
+          : `${teamT('team.alert.happyFail')}`,
       );
     } finally {
       setHappySaving(false);
@@ -415,7 +400,7 @@ export function TeamInquiryDetailModal({
   const handlePreferredDateSave = async () => {
     if (!onPreferredDateChange) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDateInput)) {
-      alert(`${teamT('team.alert.prefInvalid').ko}\n${teamT('team.alert.prefInvalid').th}`);
+      alert(teamT('team.alert.prefInvalid'));
       return;
     }
     setPreferredDateSaving(true);
@@ -426,7 +411,7 @@ export function TeamInquiryDetailModal({
       alert(
         e instanceof Error
           ? e.message
-          : `${teamT('team.alert.prefFail').ko}\n${teamT('team.alert.prefFail').th}`,
+          : `${teamT('team.alert.prefFail')}`,
       );
     } finally {
       setPreferredDateSaving(false);
@@ -435,13 +420,13 @@ export function TeamInquiryDetailModal({
 
   const handleCrewMeetingSave = async () => {
     if (!teamToken) {
-      alert(`${teamT('team.alert.needLogin').ko}\n${teamT('team.alert.needLogin').th}`);
+      alert(teamT('team.alert.needLogin'));
       return;
     }
     const t = crewMeetingDraft.trim();
     const normalized = t === '' ? null : normalizeTimeInputToHhmm(t);
     if (t !== '' && normalized === null) {
-      alert(`${teamT('team.alert.timeInvalid').ko}\n${teamT('team.alert.timeInvalid').th}`);
+      alert(teamT('team.alert.timeInvalid'));
       return;
     }
     const val = normalized;
@@ -462,7 +447,7 @@ export function TeamInquiryDetailModal({
       alert(
         e instanceof Error
           ? e.message
-          : `${teamT('team.alert.meetingFail').ko}\n${teamT('team.alert.meetingFail').th}`,
+          : `${teamT('team.alert.meetingFail')}`,
       );
     } finally {
       setCrewMeetingSaving(false);

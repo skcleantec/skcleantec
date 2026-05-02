@@ -9,6 +9,8 @@ import {
   getPayrollMarketerDetail,
   getPayrollCrewExpenses,
   getPayrollCrewExpenseDetail,
+  getPayrollExpenseForward,
+  getPayrollIncomeSummary,
   patchPayrollPoolMemberMonthAdjust,
   postPayrollPoolMemberSettle,
   postPayrollTeamLeaderPayment,
@@ -21,6 +23,8 @@ import {
   type PayrollMarketerDetailResponse,
   type PayrollCrewExpenseAdminItem,
   type PayrollCrewExpenseDetailResponse,
+  type PayrollExpenseForwardResponse,
+  type PayrollIncomeSummaryResponse,
 } from '../../api/adminPayroll';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
@@ -29,11 +33,13 @@ import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModa
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 
 const PAYROLL_HELP =
-  '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·지출(요약)을 나누어 볼 수 있습니다.\n\n' +
+  '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·지출·수입을 나누어 볼 수 있습니다.\n\n' +
   '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 상세에서는 「산정내역」과 「지급내역」을 바꿔 볼 수 있으며, 예상 급여가 나온 뒤 「정산완료」로 확정하면 지급 내역에 누적됩니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
   '【팀장 · 수시 지급】고정 급여일이 없어도 됩니다. 귀속 월을 선택한 뒤, 행을 눌러 입금일·금액·메모를 여러 번 기록할 수 있습니다. 목록의 「당월 지급합」은 해당 월에 등록한 지급액 합계입니다. 사용자 등록의 「월 고정 급여」는 참고용으로 비고에만 표시됩니다. 지급 행 삭제는 본인 로그인 비밀번호 확인 후에만 가능합니다.\n\n' +
   '【직원(마케터) · 월 고정 + 이월 미정산】사용자 등록의 월 급여·급여일과 동일한 산정기간 표시를 씁니다. 귀속 월 「합계」는 미정산 이월액과 등록 월급을 더한 지급 예정액입니다. 「정산완료」에서 실제 지급 금액을 적으면 부족분은 다음 귀속 월 합계에 자동 반영됩니다. 과거 월 급여 등록값이 바뀌면 이월 추정과 과거와 어긋날 수 있으니, 월급 변경 후에는 정산 기록을 참고해 주세요.\n\n' +
   '【크루 지출】크루 그룹장이 귀속 월·팀원·금액·영수증으로 등록한 지출은 「지출」 탭 목록과 팀원 급여 상세에 나타나며, 현장 팀원 행에서는 예상 급여에서 차감된 실지급 예상으로 표시됩니다. 「정산완료」 시 차감 후 금액이 확정됩니다.\n\n' +
+  '【지출 탭 · 좌우 카드】왼쪽은 선택한 귀속 월의 인건비 요약과 크루 지출 목록입니다. 오른쪽은 오늘(KST) 기준 「진행 중 급여 주기」입니다. 현장 팀원은 급여일 사이클에 맞춰 오늘까지 집계된 근무일·실지급 추정, 마케터는 미정산일 때 전월 일수로 일할·정산 완료 후에는 이번 주기 일수로 일할한 누적 추정액입니다. 팀장은 수시 입금이라 실시간 주기 카드에는 넣지 않고 왼쪽 월합에만 반영됩니다.\n\n' +
+  '【수입 탭】선택 귀속 월과 같은 달(KST)의 접수 「예약일」이 속하고, 취소·보류가 아닌 건의 「서비스 총액」 합계입니다. 총액 미입력 접수는 건수에는 포함되나 합계에는 포함되지 않습니다.\n\n' +
   '타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
 
 function kstMonthKeyNow(): string {
@@ -97,6 +103,21 @@ function fmtIsoDateTimeKst(iso: string): string {
   }
 }
 
+/** 지출 카드 등 한 줄 표시용 */
+function fmtShortDateTimeKst(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 function roleBadgeClass(kind: PayrollSheetRow['kind']): string {
   if (kind === 'POOL_MEMBER') return 'bg-slate-100 text-slate-800 border-slate-200';
   if (kind === 'TEAM_LEADER') return 'bg-blue-50 text-blue-900 border-blue-200';
@@ -116,11 +137,18 @@ function poolWorkDaysTitle(r: PayrollSheetRow): string | undefined {
   return `자동 산정 ${r.jobCount}일`;
 }
 
-const PAYROLL_TABS = ['pool', 'leader', 'marketer', 'expense'] as const;
+const PAYROLL_TABS = ['pool', 'leader', 'marketer', 'expense', 'income'] as const;
 type PayrollTabId = (typeof PAYROLL_TABS)[number];
 
 function parsePayrollTab(raw: string | null): PayrollTabId | null {
-  if (raw === 'pool' || raw === 'leader' || raw === 'marketer' || raw === 'expense') return raw;
+  if (
+    raw === 'pool' ||
+    raw === 'leader' ||
+    raw === 'marketer' ||
+    raw === 'expense' ||
+    raw === 'income'
+  )
+    return raw;
   return null;
 }
 
@@ -134,13 +162,15 @@ function payrollTabLabel(id: PayrollTabId): string {
       return '마케터';
     case 'expense':
       return '지출';
+    case 'income':
+      return '수입';
     default:
       return id;
   }
 }
 
 function rowsForPayrollTab(rows: PayrollSheetRow[], tab: PayrollTabId): PayrollSheetRow[] {
-  if (tab === 'expense') return [];
+  if (tab === 'expense' || tab === 'income') return [];
   if (tab === 'pool') return rows.filter((r) => r.kind === 'POOL_MEMBER');
   if (tab === 'leader') return rows.filter((r) => r.kind === 'TEAM_LEADER');
   return rows.filter((r) => r.kind === 'MARKETER');
@@ -150,17 +180,28 @@ function payrollExpenseSummary(rows: PayrollSheetRow[]) {
   const pool = rows.filter((r) => r.kind === 'POOL_MEMBER');
   const leaders = rows.filter((r) => r.kind === 'TEAM_LEADER');
   const marketers = rows.filter((r) => r.kind === 'MARKETER');
-  const sum = (rs: PayrollSheetRow[]) =>
+  const poolSum = pool.reduce((acc, r) => {
+    const net = r.amountNet;
+    const gross = r.amount;
+    const part =
+      typeof net === 'number' && Number.isFinite(net)
+        ? net
+        : typeof gross === 'number' && Number.isFinite(gross)
+          ? gross
+          : 0;
+    return acc + part;
+  }, 0);
+  const sumAmount = (rs: PayrollSheetRow[]) =>
     rs.reduce((acc, r) => acc + (typeof r.amount === 'number' && Number.isFinite(r.amount) ? r.amount : 0), 0);
   return {
     poolCount: pool.length,
-    poolSum: sum(pool),
+    poolSum,
     leaderCount: leaders.length,
-    leaderSum: sum(leaders),
+    leaderSum: sumAmount(leaders),
     marketerCount: marketers.length,
-    marketerSum: sum(marketers),
+    marketerSum: sumAmount(marketers),
     totalCount: rows.length,
-    totalSum: sum(rows),
+    totalSum: poolSum + sumAmount(leaders) + sumAmount(marketers),
   };
 }
 
@@ -173,7 +214,9 @@ function payrollTabHint(tab: PayrollTabId): string {
     case 'marketer':
       return '마케터는 「합계」에 미정산 이월과 등록 월급을 더해 표시합니다. 급여상세에서 정산 이력을, 정산완료에서 이번 달 지급액·메모를 저장합니다.';
     case 'expense':
-      return '크루 그룹장이 등록한 팀원별 지출 목록입니다. 행을 눌러 영수증을 확인하세요. 현장 팀원 탭에서는 지출만큼 차감된 실지급 예상으로 표시되며 「정산완료」 시 차감 후 금액이 확정됩니다.';
+      return '왼쪽: 선택 귀속 월 인건비(팀원은 실지급 예상)·팀장·마케터 합계와 크루 지출 목록. 오른쪽: 오늘 기준 진행 중 급여 주기의 풀·마케터 실시간 추정(팀장 제외).';
+    case 'income':
+      return '예약일(KST)이 해당 귀속 월인 접수 중 취소·보류를 제외한 건수와 「서비스 총액」 합계입니다.';
     default:
       return '';
   }
@@ -245,11 +288,40 @@ export function AdminPayrollPage() {
   const [crewExpenseDetail, setCrewExpenseDetail] = useState<PayrollCrewExpenseDetailResponse | null>(null);
   const [crewExpenseDetailLoading, setCrewExpenseDetailLoading] = useState(false);
 
+  const [expenseForward, setExpenseForward] = useState<PayrollExpenseForwardResponse | null>(null);
+  const [expenseForwardLoading, setExpenseForwardLoading] = useState(false);
+  const [expenseForwardError, setExpenseForwardError] = useState<string | null>(null);
+  /** 지출 탭 · 진행 주기 현장 팀원 상세 — 기본 접힘 */
+  const [expenseForwardPoolExpanded, setExpenseForwardPoolExpanded] = useState(false);
+  /** 지출 탭 · 진행 주기 마케터 상세 — 기본 접힘 */
+  const [expenseForwardMarketerExpanded, setExpenseForwardMarketerExpanded] = useState(false);
+  /** 지출 탭 · 크루 등록 지출 상세 — 기본 접힘 */
+  const [expenseCrewExpenseExpanded, setExpenseCrewExpenseExpanded] = useState(false);
+
+  const [incomeSummary, setIncomeSummary] = useState<PayrollIncomeSummaryResponse | null>(null);
+  const [incomeLoading, setIncomeLoading] = useState(false);
+  const [incomeError, setIncomeError] = useState<string | null>(null);
+
   const closeCrewExpenseDetail = useCallback(() => {
     setCrewExpenseDetailId(null);
     setCrewExpenseDetail(null);
     setCrewExpenseDetailLoading(false);
   }, []);
+
+  const loadExpenseForward = useCallback(async () => {
+    if (!token) return;
+    setExpenseForwardLoading(true);
+    setExpenseForwardError(null);
+    try {
+      const fwd = await getPayrollExpenseForward(token);
+      setExpenseForward(fwd);
+    } catch (e) {
+      setExpenseForward(null);
+      setExpenseForwardError(e instanceof Error ? e.message : '실시간 집계를 불러오지 못했습니다.');
+    } finally {
+      setExpenseForwardLoading(false);
+    }
+  }, [token]);
 
   const openPoolMemberDetail = useCallback((row: PayrollSheetRow) => {
     if (row.kind !== 'POOL_MEMBER') return;
@@ -437,6 +509,19 @@ export function AdminPayrollPage() {
       ]);
       setData(r);
       setCrewExpenseAdminItems(crewEx.items ?? []);
+      if (payrollTab === 'expense') {
+        void loadExpenseForward();
+      }
+      if (payrollTab === 'income') {
+        try {
+          const inc = await getPayrollIncomeSummary(token, month);
+          setIncomeSummary(inc);
+          setIncomeError(null);
+        } catch {
+          setIncomeSummary(null);
+          setIncomeError('수입 집계를 불러오지 못했습니다.');
+        }
+      }
     } catch (e) {
       setData(null);
       setCrewExpenseAdminItems([]);
@@ -444,7 +529,7 @@ export function AdminPayrollPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, month]);
+  }, [token, month, payrollTab, loadExpenseForward]);
 
   const silentReloadPayroll = useCallback(async () => {
     if (!token) return;
@@ -458,12 +543,62 @@ export function AdminPayrollPage() {
       ]);
       setData(r);
       setCrewExpenseAdminItems(crewEx.items ?? []);
+      if (payrollTab === 'expense') {
+        try {
+          const fwd = await getPayrollExpenseForward(token);
+          setExpenseForward(fwd);
+          setExpenseForwardError(null);
+        } catch {
+          /* 무음 */
+        }
+      }
+      if (payrollTab === 'income') {
+        try {
+          const inc = await getPayrollIncomeSummary(token, month);
+          setIncomeSummary(inc);
+          setIncomeError(null);
+        } catch {
+          /* 무음 */
+        }
+      }
     } catch {
       /* 무음 실패 무시 */
     }
-  }, [token, month]);
+  }, [token, month, payrollTab]);
 
   useInboxRealtime(token, silentReloadPayroll, Boolean(token));
+
+  useEffect(() => {
+    if (!token || payrollTab !== 'expense') return;
+    void loadExpenseForward();
+  }, [token, payrollTab, loadExpenseForward]);
+
+  useEffect(() => {
+    if (!token || payrollTab !== 'income') return;
+    let cancelled = false;
+    setIncomeLoading(true);
+    setIncomeError(null);
+    setIncomeSummary(null);
+    void getPayrollIncomeSummary(token, month)
+      .then((d) => {
+        if (!cancelled) {
+          setIncomeSummary(d);
+          setIncomeError(null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setIncomeSummary(null);
+          setIncomeError(e instanceof Error ? e.message : '수입 집계를 불러오지 못했습니다.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIncomeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, payrollTab, month]);
 
   useEffect(() => {
     if (!token || !crewExpenseDetailId) {
@@ -636,6 +771,36 @@ export function AdminPayrollPage() {
     [crewExpenseAdminItems],
   );
 
+  /** 진행 주기 기준 정산 미완료(진행) 인원의 실지급 추정 합 — 접힘 요약용 */
+  const expenseForwardPoolUnsettled = useMemo(() => {
+    if (!expenseForward) return { sum: 0, count: 0 };
+    let sum = 0;
+    let count = 0;
+    for (const r of expenseForward.pool) {
+      if (!r.cycleStartYmd) continue;
+      if (r.poolSettlementComplete) continue;
+      count += 1;
+      const n = r.partialNet;
+      if (typeof n === 'number' && Number.isFinite(n)) sum += n;
+    }
+    return { sum, count };
+  }, [expenseForward]);
+
+  /** 마케터: 진행 주기 있고 해당 귀속 월 미정산인 경우 일할 추정 누적 합 — 접힘 요약용 */
+  const expenseForwardMarketerUnsettled = useMemo(() => {
+    if (!expenseForward) return { sum: 0, count: 0 };
+    let sum = 0;
+    let count = 0;
+    for (const m of expenseForward.marketers) {
+      if (!m.cycleStartYmd) continue;
+      if (m.settlementComplete) continue;
+      count += 1;
+      const n = m.accruedEstimate;
+      if (typeof n === 'number' && Number.isFinite(n)) sum += n;
+    }
+    return { sum, count };
+  }, [expenseForward]);
+
   const tabAmountSum = useMemo(
     () =>
       filteredRows.reduce((acc, r) => {
@@ -685,7 +850,7 @@ export function AdminPayrollPage() {
           </div>
           <p className="text-fluid-sm text-gray-600 mt-1">
             상단 탭으로 <strong className="font-medium text-gray-800">팀원·팀장·마케터</strong> 목록을 나누어 보고,{' '}
-            <strong className="font-medium text-gray-800">지출</strong>에서는 해당 월 급여 인건비를 요약합니다.{' '}
+            <strong className="font-medium text-gray-800">지출·수입</strong>에서는 해당 월 인건비 요약과 접수 매출을 확인합니다.{' '}
             <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
               팀원(일당)·지급일
             </Link>
@@ -752,6 +917,17 @@ export function AdminPayrollPage() {
             <div className="px-2 sm:px-3 py-3 space-y-3 min-w-0">
               {payrollTab === 'expense' && expenseSummary ? (
                 <>
+                  <div className="flex flex-col xl:flex-row xl:items-start gap-3 min-w-0 w-full max-w-full">
+                    <div className="flex-1 min-w-0 space-y-3 rounded-lg border border-gray-200 bg-white p-2 sm:p-3 shadow-sm">
+                      <div className="border-b border-gray-100 pb-2">
+                        <h2 className="text-fluid-sm font-semibold text-gray-900">
+                          선택 귀속 월 · 인건비·지출{' '}
+                          <span className="tabular-nums text-gray-700">({data.monthLabel})</span>
+                        </h2>
+                        <p className="text-fluid-2xs text-gray-500 mt-1">
+                          팀원 합계는 크루 지출을 뺀 실지급 예상 금액 기준입니다.
+                        </p>
+                      </div>
                   <div className="flex flex-wrap gap-2">
                     <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-fluid-xs font-medium text-gray-800 tabular-nums">
                       급여표 인원 <strong className="mx-1">{expenseSummary.totalCount}</strong>명
@@ -766,7 +942,7 @@ export function AdminPayrollPage() {
                     ) : null}
                   </div>
 
-                  <ul className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                  <ul className="divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
                     {[
                       {
                         title: '현장 팀원',
@@ -803,181 +979,69 @@ export function AdminPayrollPage() {
                     </li>
                   </ul>
 
-                  <div className="hidden lg:block min-w-0 w-full overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="w-full min-w-[480px] table-fixed border-collapse text-fluid-xs bg-white">
-                      <colgroup>
-                        <col className="w-[34%]" />
-                        <col className="w-[22%]" />
-                        <col className="w-[44%]" />
-                      </colgroup>
-                      <thead>
-                        <tr className="bg-gray-100 text-gray-700">
-                          <th className="border-b border-gray-200 px-2 py-2 text-center">구분</th>
-                          <th className="border-b border-gray-200 px-2 py-2 text-center">인원</th>
-                          <th className="border-b border-gray-200 px-2 py-2 text-center">예상 금액 합계</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="hover:bg-gray-50">
-                          <td className="border-b border-gray-100 px-2 py-2 text-center">
-                            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-slate-100 text-slate-800 border-slate-200">
-                              현장 팀원
-                            </span>
-                          </td>
-                          <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-gray-800">
-                            {expenseSummary.poolCount}
-                          </td>
-                          <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-medium text-gray-900">
-                            {fmtWon(expenseSummary.poolSum)}
-                          </td>
-                        </tr>
-                        <tr className="hover:bg-gray-50">
-                          <td className="border-b border-gray-100 px-2 py-2 text-center">
-                            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-blue-50 text-blue-900 border-blue-200">
-                              팀장
-                            </span>
-                          </td>
-                          <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-gray-800">
-                            {expenseSummary.leaderCount}
-                          </td>
-                          <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-medium text-gray-900">
-                            {fmtWon(expenseSummary.leaderSum)}
-                          </td>
-                        </tr>
-                        <tr className="hover:bg-gray-50">
-                          <td className="border-b border-gray-100 px-2 py-2 text-center">
-                            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border bg-violet-50 text-violet-900 border-violet-200">
-                              마케터
-                            </span>
-                          </td>
-                          <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-gray-800">
-                            {expenseSummary.marketerCount}
-                          </td>
-                          <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-medium text-gray-900">
-                            {fmtWon(expenseSummary.marketerSum)}
-                          </td>
-                        </tr>
-                        <tr className="bg-gray-50 font-semibold">
-                          <td className="border-b border-gray-200 px-2 py-2 text-center text-gray-900">합계</td>
-                          <td className="border-b border-gray-200 px-2 py-2 text-center tabular-nums text-gray-900">
-                            {expenseSummary.totalCount}
-                          </td>
-                          <td className="border-b border-gray-200 px-2 py-2 text-right tabular-nums text-emerald-900">
-                            {fmtWon(expenseSummary.totalSum)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="rounded-lg border border-gray-200 bg-white px-2 sm:px-3 py-3 space-y-2 shadow-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-fluid-sm font-semibold text-gray-900">크루 등록 지출</span>
-                      <span className="text-fluid-xs text-gray-600 tabular-nums">
-                        {crewExpenseAdminItems.length}건 · 합계{' '}
-                        <strong className="text-gray-900">{fmtWon(crewExpenseMonthSum)}</strong>
+                  <div className="rounded-lg border border-gray-200 bg-white min-w-0 overflow-hidden shadow-sm">
+                    <button
+                      type="button"
+                      id="payroll-expense-crew-expense-toggle"
+                      aria-expanded={expenseCrewExpenseExpanded}
+                      aria-controls="payroll-expense-crew-expense-panel"
+                      onClick={() => setExpenseCrewExpenseExpanded((v) => !v)}
+                      className="w-full text-left px-2 py-2 sm:px-3 hover:bg-gray-50/80 transition-colors flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 min-w-0"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="text-gray-400 tabular-nums w-4 shrink-0 text-center text-fluid-xs leading-none" aria-hidden>
+                          {expenseCrewExpenseExpanded ? '▼' : '▶'}
+                        </span>
+                        <span className="text-fluid-xs font-semibold text-gray-900">크루 등록 지출</span>
                       </span>
-                    </div>
-                    {crewExpenseAdminItems.length === 0 ? (
-                      <p className="text-fluid-sm text-gray-500 py-6 text-center border border-dashed border-gray-100 rounded-lg bg-gray-50/60">
-                        해당 월에 등록된 크루 지출이 없습니다.
-                      </p>
-                    ) : (
-                      <>
-                        <ul className="lg:hidden divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden bg-white">
-                          {crewExpenseAdminItems.map((row) => (
-                            <li key={row.id}>
-                              <button
-                                type="button"
-                                className="w-full text-left px-3 py-2.5 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
-                                onClick={() => setCrewExpenseDetailId(row.id)}
-                              >
-                                <div className="flex justify-between gap-2">
-                                  <span className="font-medium text-gray-900 truncate">{row.memberName}</span>
-                                  <span className="shrink-0 font-semibold tabular-nums text-gray-900">
-                                    {fmtWon(row.amount)}
-                                  </span>
-                                </div>
-                                <div className="mt-1 text-fluid-2xs text-gray-600 truncate">{row.crewGroupName}</div>
-                                {row.memo ? (
-                                  <div className="mt-1 text-fluid-2xs text-gray-700 line-clamp-2">{row.memo}</div>
-                                ) : null}
-                                <div className="mt-1 text-[11px] text-gray-500 tabular-nums">
-                                  영수증 {row.attachmentCount}장 · 탭하여 상세
-                                </div>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                        <div className="hidden lg:block w-full min-w-0 overflow-x-auto rounded-lg border border-gray-100">
-                          <table className="w-full min-w-[720px] table-fixed border-collapse text-fluid-xs bg-white">
-                            <colgroup>
-                              <col className="w-[16%]" />
-                              <col className="w-[18%]" />
-                              <col className="w-[14%]" />
-                              <col className="w-[14%]" />
-                              <col className="w-[18%]" />
-                              <col className="w-[20%]" />
-                            </colgroup>
-                            <thead>
-                              <tr className="bg-gray-100 text-gray-700">
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">등록일시</th>
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">크루 그룹</th>
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">팀원</th>
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">금액</th>
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">영수증</th>
-                                <th className="border-b border-gray-200 px-2 py-2 text-center">메모</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {crewExpenseAdminItems.map((row) => (
-                                <tr
-                                  key={row.id}
-                                  className="hover:bg-gray-50 cursor-pointer"
-                                  role="button"
-                                  tabIndex={0}
+                      {!expenseCrewExpenseExpanded ? (
+                        <span className="text-fluid-xs font-semibold text-gray-900 tabular-nums pl-6 sm:pl-0 sm:text-right shrink-0 leading-none">
+                          {crewExpenseAdminItems.length}건 · 합계 {fmtWon(crewExpenseMonthSum)}
+                        </span>
+                      ) : null}
+                    </button>
+                    {expenseCrewExpenseExpanded ? (
+                      <div
+                        id="payroll-expense-crew-expense-panel"
+                        role="region"
+                        aria-labelledby="payroll-expense-crew-expense-toggle"
+                        className="border-t border-gray-100 px-2 pb-2 sm:px-3 pt-1 space-y-1"
+                      >
+                        {crewExpenseAdminItems.length === 0 ? (
+                          <p className="text-fluid-2xs text-gray-500 py-3 text-center border border-dashed border-gray-100 rounded bg-gray-50/60 leading-tight">
+                            해당 월에 등록된 크루 지출이 없습니다.
+                          </p>
+                        ) : (
+                          <ul className="flex flex-col gap-0.5 min-w-0">
+                            {crewExpenseAdminItems.map((row) => (
+                              <li key={row.id} className="min-w-0">
+                                <button
+                                  type="button"
+                                  className="w-full min-w-0 rounded border border-gray-100 bg-gray-50/70 px-2 py-1 hover:bg-gray-100/90 active:bg-gray-100 touch-manipulation text-left leading-none"
                                   onClick={() => setCrewExpenseDetailId(row.id)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.preventDefault();
-                                      setCrewExpenseDetailId(row.id);
-                                    }
-                                  }}
+                                  title={`${row.memberName} · ${fmtWon(row.amount)} · ${row.crewGroupName}${row.memo ? ` · ${row.memo}` : ''}`}
                                 >
-                                  <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-800">
-                                    {fmtIsoDateTimeKst(row.createdAt)}
-                                  </td>
-                                  <td
-                                    className="border-b border-gray-100 px-2 py-1.5 text-center text-gray-900 truncate"
-                                    title={row.crewGroupName}
-                                  >
-                                    {row.crewGroupName}
-                                  </td>
-                                  <td
-                                    className="border-b border-gray-100 px-2 py-1.5 text-center text-gray-900 truncate"
-                                    title={row.memberNameTh ? `${row.memberName} (${row.memberNameTh})` : row.memberName}
-                                  >
-                                    {row.memberName}
-                                  </td>
-                                  <td className="border-b border-gray-100 px-2 py-1.5 text-right tabular-nums font-medium text-gray-900">
-                                    {fmtWon(row.amount)}
-                                  </td>
-                                  <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-700">
-                                    {row.attachmentCount}장
-                                  </td>
-                                  <td
-                                    className="border-b border-gray-100 px-2 py-1.5 text-center text-gray-700 truncate"
-                                    title={row.memo ?? ''}
-                                  >
-                                    {row.memo ?? '—'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </>
-                    )}
+                                  <div className="flex min-w-0 flex-nowrap items-center gap-x-2 gap-y-0 overflow-hidden text-[11px]">
+                                    <span className="shrink-0 font-semibold text-gray-900 truncate max-w-[20vw] sm:max-w-[9rem]">
+                                      {row.memberName}
+                                    </span>
+                                    <span className="shrink-0 font-semibold tabular-nums text-gray-900">{fmtWon(row.amount)}</span>
+                                    <span className="shrink-0 text-gray-500 tabular-nums whitespace-nowrap">
+                                      {fmtShortDateTimeKst(row.createdAt)}
+                                    </span>
+                                    <span className="shrink-0 text-gray-500 whitespace-nowrap">{row.attachmentCount}장</span>
+                                    <span className="min-w-0 flex-1 truncate text-gray-600">{row.crewGroupName}</span>
+                                    {row.memo ? (
+                                      <span className="min-w-0 max-w-[35%] truncate text-gray-600 hidden sm:inline">{row.memo}</span>
+                                    ) : null}
+                                  </div>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
@@ -988,7 +1052,249 @@ export function AdminPayrollPage() {
                     </Link>
                     에서 확인해 주세요.
                   </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0 space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-2 sm:p-3 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100 pb-2">
+                        <h2 className="text-fluid-sm font-semibold text-gray-900">오늘 기준 진행 중 급여 주기</h2>
+                        <button
+                          type="button"
+                          onClick={() => void loadExpenseForward()}
+                          disabled={expenseForwardLoading || !token}
+                          className="px-2 py-1 text-fluid-2xs border border-indigo-300 rounded bg-white hover:bg-indigo-50 disabled:opacity-50"
+                        >
+                          실시간 새로고침
+                        </button>
+                      </div>
+                      <p className="text-fluid-2xs text-gray-600 leading-snug">
+                        기준일(KST){' '}
+                        <strong className="tabular-nums text-gray-800">{expenseForward?.todayYmd ?? '—'}</strong>. 현장 팀원은
+                        예약일·크루메모 기준 오늘까지 근무일수와 귀속 월 크루 지출 차감 후 실지급 추정입니다. 마케터는 해당 귀속
+                        월에 정산 완료 전이면 전월 달력 일수로 일할, 완료 후면 이번 급여 주기 일수로 일할 추정입니다. 팀장은 일별
+                        정산이므로 이 카드에는 넣지 않습니다.
+                      </p>
+                      {expenseForwardLoading ? (
+                        <p className="text-fluid-sm text-gray-500 py-4 text-center border border-dashed border-indigo-100 rounded-lg bg-white/70">
+                          실시간 집계 불러오는 중…
+                        </p>
+                      ) : null}
+                      {expenseForwardError ? (
+                        <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5">
+                          {expenseForwardError}
+                        </div>
+                      ) : null}
+                      {expenseForward ? (
+                        <>
+                          <div className="rounded-lg border border-gray-200 bg-white min-w-0 overflow-hidden shadow-sm">
+                            <button
+                              type="button"
+                              id="payroll-expense-forward-pool-toggle"
+                              aria-expanded={expenseForwardPoolExpanded}
+                              aria-controls="payroll-expense-forward-pool-panel"
+                              onClick={() => setExpenseForwardPoolExpanded((v) => !v)}
+                              className="w-full text-left px-2 py-2.5 hover:bg-gray-50/80 transition-colors flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 min-w-0"
+                            >
+                              <span className="flex items-center gap-2 min-w-0">
+                                <span className="text-gray-400 tabular-nums w-4 shrink-0 text-center" aria-hidden>
+                                  {expenseForwardPoolExpanded ? '▼' : '▶'}
+                                </span>
+                                <span className="text-fluid-xs font-semibold text-gray-900">현장 팀원 (진행 주기)</span>
+                              </span>
+                              {!expenseForwardPoolExpanded ? (
+                                <span className="text-fluid-sm font-semibold text-emerald-900 tabular-nums pl-6 sm:pl-0 sm:text-right shrink-0">
+                                  미정산 금액 {fmtWon(expenseForwardPoolUnsettled.sum)}
+                                  {expenseForwardPoolUnsettled.count > 0 ? (
+                                    <span className="text-fluid-2xs font-normal text-gray-600 whitespace-nowrap">
+                                      {' '}
+                                      ({expenseForwardPoolUnsettled.count}명)
+                                    </span>
+                                  ) : null}
+                                </span>
+                              ) : null}
+                            </button>
+                            {expenseForwardPoolExpanded ? (
+                              <div
+                                id="payroll-expense-forward-pool-panel"
+                                role="region"
+                                aria-labelledby="payroll-expense-forward-pool-toggle"
+                                className="px-2 pb-2 pt-0 border-t border-gray-100 space-y-2"
+                              >
+                                <ul className="grid grid-cols-1 gap-2">
+                                  {expenseForward.pool.map((r) => (
+                                    <li
+                                      key={r.teamMemberId}
+                                      className="min-w-0 rounded-lg border border-gray-100 bg-gray-50/70 px-2 py-2 text-fluid-2xs"
+                                    >
+                                      <div className="flex justify-between gap-2 min-w-0 items-start">
+                                        <span className="font-semibold text-gray-900 truncate min-w-0">{r.name}</span>
+                                        <span className="shrink-0 font-bold tabular-nums text-emerald-900">{fmtWon(r.partialNet)}</span>
+                                      </div>
+                                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-600 tabular-nums">
+                                        {r.cycleStartYmd ? (
+                                          <>
+                                            <span>{compactPeriod(r.cycleStartYmd, r.partialEndYmd)}</span>
+                                            <span>근무 {r.jobCount == null ? '—' : `${r.jobCount}일`}</span>
+                                            <span>일당 {fmtWon(r.unitAmount)}</span>
+                                            <span>
+                                              정산{' '}
+                                              {r.poolSettlementComplete ? (
+                                                <span className="text-emerald-800 font-medium">완료</span>
+                                              ) : (
+                                                <span className="text-gray-700">진행</span>
+                                              )}
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <span>{r.notes.join(' · ') || '—'}</span>
+                                        )}
+                                      </div>
+                                      {r.poolSettlementComplete && r.payMonthKey ? (
+                                        <div className="mt-1 text-[10px] text-emerald-800">
+                                          귀속 {r.payMonthKey} 정산완료 기록
+                                        </div>
+                                      ) : null}
+                                      {r.notes.length > 0 && r.cycleStartYmd ? (
+                                        <div className="mt-1 text-[10px] text-amber-800 leading-snug break-words">
+                                          {r.notes.join(' · ')}
+                                        </div>
+                                      ) : null}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="rounded-lg border border-gray-200 bg-white min-w-0 overflow-hidden shadow-sm">
+                            <button
+                              type="button"
+                              id="payroll-expense-forward-marketer-toggle"
+                              aria-expanded={expenseForwardMarketerExpanded}
+                              aria-controls="payroll-expense-forward-marketer-panel"
+                              onClick={() => setExpenseForwardMarketerExpanded((v) => !v)}
+                              className="w-full text-left px-2 py-2.5 hover:bg-gray-50/80 transition-colors flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 min-w-0"
+                            >
+                              <span className="flex items-center gap-2 min-w-0">
+                                <span className="text-gray-400 tabular-nums w-4 shrink-0 text-center" aria-hidden>
+                                  {expenseForwardMarketerExpanded ? '▼' : '▶'}
+                                </span>
+                                <span className="text-fluid-xs font-semibold text-gray-900">마케터 (일할 추정)</span>
+                              </span>
+                              {!expenseForwardMarketerExpanded ? (
+                                <span className="text-fluid-sm font-semibold text-violet-900 tabular-nums pl-6 sm:pl-0 sm:text-right shrink-0">
+                                  미정산 금액 {fmtWon(expenseForwardMarketerUnsettled.sum)}
+                                  {expenseForwardMarketerUnsettled.count > 0 ? (
+                                    <span className="text-fluid-2xs font-normal text-gray-600 whitespace-nowrap">
+                                      {' '}
+                                      ({expenseForwardMarketerUnsettled.count}명)
+                                    </span>
+                                  ) : null}
+                                </span>
+                              ) : null}
+                            </button>
+                            {expenseForwardMarketerExpanded ? (
+                              <div
+                                id="payroll-expense-forward-marketer-panel"
+                                role="region"
+                                aria-labelledby="payroll-expense-forward-marketer-toggle"
+                                className="px-2 pb-2 pt-0 border-t border-gray-100 space-y-2"
+                              >
+                                <ul className="grid grid-cols-1 gap-2">
+                                  {expenseForward.marketers.map((m) => (
+                                    <li
+                                      key={m.userId}
+                                      className="min-w-0 rounded-lg border border-gray-100 bg-gray-50/70 px-2 py-2 text-fluid-2xs"
+                                    >
+                                      <div className="flex justify-between gap-2 min-w-0 items-start">
+                                        <span className="font-semibold text-gray-900 truncate min-w-0">{m.name}</span>
+                                        <span className="shrink-0 font-bold tabular-nums text-violet-900">{fmtWon(m.accruedEstimate)}</span>
+                                      </div>
+                                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-600 tabular-nums">
+                                        {m.cycleStartYmd ? (
+                                          <>
+                                            <span>{compactPeriod(m.cycleStartYmd, m.partialEndYmd)}</span>
+                                            <span>경과 {m.elapsedDays}일</span>
+                                            <span>
+                                              일할{' '}
+                                              {m.rateBasis === 'cycle_days'
+                                                ? `주기${m.denominatorDays ?? '—'}일`
+                                                : `전월${m.denominatorDays ?? '—'}일`}
+                                            </span>
+                                            <span>월급 {fmtWon(m.monthlySalary)}</span>
+                                            <span>{m.settlementComplete ? '정산완료' : '미정산'}</span>
+                                          </>
+                                        ) : (
+                                          <span>월급일 미설정</span>
+                                        )}
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
                 </>
+              ) : payrollTab === 'income' ? (
+                <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3 shadow-sm space-y-3 min-w-0">
+                  <div className="border-b border-gray-100 pb-2">
+                    <h2 className="text-fluid-sm font-semibold text-gray-900">
+                      선택 귀속 월 · 접수 매출{' '}
+                      <span className="tabular-nums text-gray-700">({data.monthLabel})</span>
+                    </h2>
+                    <p className="text-fluid-2xs text-gray-500 mt-1 leading-snug">
+                      예약일(KST)이 해당 월에 속하는 접수만 집계합니다. 상태가 취소·보류인 건은 제외합니다. 아래 합계는 「서비스 총액」이
+                      입력된 접수만 더합니다.
+                    </p>
+                  </div>
+                  {incomeLoading ? (
+                    <p className="text-fluid-sm text-gray-500 py-10 text-center border border-dashed border-gray-100 rounded-lg bg-gray-50/60">
+                      불러오는 중…
+                    </p>
+                  ) : incomeError ? (
+                    <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{incomeError}</div>
+                  ) : incomeSummary ? (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-fluid-xs font-medium text-gray-800 tabular-nums">
+                          대상 접수 <strong className="mx-1">{incomeSummary.inquiryCount}</strong>건
+                        </span>
+                        <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-fluid-xs font-semibold text-sky-900 tabular-nums">
+                          서비스 총액 합계 {fmtWon(incomeSummary.serviceTotalSum)}
+                        </span>
+                        {incomeSummary.inquiriesMissingTotalAmount > 0 ? (
+                          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-fluid-xs text-amber-900 tabular-nums">
+                            총액 미입력 {incomeSummary.inquiriesMissingTotalAmount}건
+                          </span>
+                        ) : null}
+                      </div>
+                      <ul className="divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                        <li className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm">
+                          <span className="text-gray-700">합계에 포함된 접수</span>
+                          <span className="font-semibold text-gray-900 tabular-nums">{incomeSummary.inquiriesWithTotalAmount}건</span>
+                        </li>
+                        <li className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm bg-gray-50 font-semibold border-t border-gray-200">
+                          <span className="text-gray-900">서비스 총액 합계</span>
+                          <span className="tabular-nums text-sky-900">{fmtWon(incomeSummary.serviceTotalSum)}</span>
+                        </li>
+                      </ul>
+                      <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600 leading-snug">
+                        접수별 세부 금액은{' '}
+                        <Link to="/admin/inquiries" className="text-blue-700 underline underline-offset-2 font-medium">
+                          서비스접수 목록
+                        </Link>
+                        에서 확인할 수 있습니다.
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-fluid-sm text-gray-500 py-10 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                      집계 결과가 없습니다.
+                    </p>
+                  )}
+                </div>
               ) : (
                 <>
                   <div className="flex flex-wrap gap-2">

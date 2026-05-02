@@ -46,13 +46,11 @@ function formatDateLabelYmd(ymd: string): string {
 }
 
 function yearOptionLabel(y: number): string {
-  const row = teamT('team.schedule.yearOption', { y: String(y) });
-  return `${row.ko} · ${row.th}`;
+  return teamT('team.schedule.yearOption', { y: String(y) });
 }
 
 function monthOptionLabel(mo: number): string {
-  const row = teamT('team.schedule.monthOption', { m: String(mo) });
-  return `${row.ko} · ${row.th}`;
+  return teamT('team.schedule.monthOption', { m: String(mo) });
 }
 
 type DayOffConfirmModal = { mode: 'add' | 'remove'; ymd: string } | null;
@@ -203,13 +201,12 @@ export function TeamDayOffsPage() {
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="grid grid-cols-7 text-center text-xs">
-            {TEAM_WEEKDAY_HEADERS.map((wh, wi) => (
+            {TEAM_WEEKDAY_HEADERS.map((label, wi) => (
               <div
-                key={`${wh.ko}-${wi}`}
+                key={`${label}-${wi}`}
                 className={`py-2 font-medium leading-tight ${wi === 6 ? 'text-blue-600' : 'text-gray-600'}`}
               >
-                <span className="block">{wh.ko}</span>
-                <span className={`block text-[10px] ${wi === 6 ? 'text-blue-500' : 'text-gray-400'}`}>{wh.th}</span>
+                <span className="block">{label}</span>
               </div>
             ))}
             {calendarDays.map((d, i) => {
