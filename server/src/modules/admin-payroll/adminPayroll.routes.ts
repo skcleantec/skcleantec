@@ -21,6 +21,16 @@ import {
 } from './marketerPayrollLedger.js';
 import { getAdminCrewExpenseDetail, listAdminCrewExpensesForMonth } from '../crew/crewGroupExpense.service.js';
 import { computePayrollExpenseForward } from './payrollExpenseForward.service.js';
+import {
+  createPayrollAdminPersonalExpense,
+  deletePayrollAdminPersonalExpenseById,
+  listPayrollAdminPersonalExpensesForMonth,
+} from './payrollAdminPersonalExpense.service.js';
+import {
+  createPayrollIncomeDeposit,
+  deletePayrollIncomeDepositById,
+  listPayrollIncomeDepositsForMonth,
+} from './payrollIncomeDeposit.service.js';
 
 const router = Router();
 
@@ -1183,6 +1193,267 @@ router.get('/crew-expenses/:expenseId', async (req, res) => {
       createdAt: a.createdAt.toISOString(),
     })),
   });
+});
+
+/** 급여표 지출 탭 — 관리자 개인·업무 지출(귀속 월별, 참고용) */
+router.get('/admin-personal-expenses', async (req, res) => {
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const rows = await listPayrollAdminPersonalExpensesForMonth(prisma, monthKey);
+  res.json({
+    month: monthKey,
+    items: rows.map((row) => ({
+      id: row.id,
+      amount: row.amount,
+      memo: row.memo,
+      createdAt: row.createdAt.toISOString(),
+      createdBy: row.createdBy,
+    })),
+  });
+});
+
+router.post('/admin-personal-expenses', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const body = req.body as { month?: unknown; amount?: unknown; memo?: unknown };
+  const monthRaw = typeof body.month === 'string' ? body.month.trim() : '';
+  const monthKey =
+    monthRaw && MONTH_KEY.test(monthRaw)
+      ? monthRaw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const amtRaw = body.amount;
+  const amount =
+    typeof amtRaw === 'number' && Number.isFinite(amtRaw)
+      ? Math.floor(amtRaw)
+      : typeof amtRaw === 'string'
+        ? parseInt(amtRaw.replace(/,/g, '').trim(), 10)
+        : NaN;
+  if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000_000) {
+    res.status(400).json({ error: '금액은 1원 이상 유효한 숫자로 입력해 주세요.' });
+    return;
+  }
+
+  let memo: string | null = null;
+  if (typeof body.memo === 'string') {
+    const t = body.memo.trim();
+    memo = t.length > 2000 ? t.slice(0, 2000) : t.length ? t : null;
+  }
+
+  const row = await createPayrollAdminPersonalExpense(prisma, {
+    monthKey,
+    amount,
+    memo,
+    createdById: authUser.userId,
+  });
+
+  res.status(201).json({
+    ok: true,
+    item: {
+      id: row.id,
+      amount: row.amount,
+      memo: row.memo,
+      createdAt: row.createdAt.toISOString(),
+      createdBy: row.createdBy,
+    },
+  });
+});
+
+router.delete('/admin-personal-expenses/:expenseId', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const expenseId =
+    typeof req.params.expenseId === 'string' ? req.params.expenseId.trim() : '';
+  if (!expenseId) {
+    res.status(400).json({ error: 'expenseId가 필요합니다.' });
+    return;
+  }
+
+  const body = req.body as { password?: unknown };
+  const password = body.password != null ? String(body.password).trim() : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: authUser.userId },
+    select: { id: true, passwordHash: true },
+  });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const deleted = await deletePayrollAdminPersonalExpenseById(prisma, expenseId);
+  if (!deleted) {
+    res.status(404).json({ error: '지출 내역을 찾을 수 없습니다.' });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+/** 급여표 정산 탭 수입 — 귀속 월별 입금 기록(참고용) */
+router.get('/income-deposits', async (req, res) => {
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const rows = await listPayrollIncomeDepositsForMonth(prisma, monthKey);
+  res.json({
+    month: monthKey,
+    items: rows.map((row) => ({
+      id: row.id,
+      depositedOnYmd: dateOnlyToYmd(row.depositedOn),
+      amount: row.amount,
+      memo: row.memo,
+      createdAt: row.createdAt.toISOString(),
+      createdBy: row.createdBy,
+    })),
+  });
+});
+
+router.post('/income-deposits', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const body = req.body as { month?: unknown; depositedOn?: unknown; amount?: unknown; memo?: unknown };
+  const monthRaw = typeof body.month === 'string' ? body.month.trim() : '';
+  const monthKey =
+    monthRaw && MONTH_KEY.test(monthRaw)
+      ? monthRaw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const depRaw = typeof body.depositedOn === 'string' ? body.depositedOn.trim() : '';
+  const depDt = parseYmdDateOnly(depRaw);
+  if (!depDt) {
+    res.status(400).json({ error: '입금일은 YYYY-MM-DD 형식으로 입력해 주세요.' });
+    return;
+  }
+
+  const amtRaw = body.amount;
+  const amount =
+    typeof amtRaw === 'number' && Number.isFinite(amtRaw)
+      ? Math.floor(amtRaw)
+      : typeof amtRaw === 'string'
+        ? parseInt(amtRaw.replace(/,/g, '').trim(), 10)
+        : NaN;
+  if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000_000) {
+    res.status(400).json({ error: '금액은 1원 이상 유효한 숫자로 입력해 주세요.' });
+    return;
+  }
+
+  let memo: string | null = null;
+  if (typeof body.memo === 'string') {
+    const t = body.memo.trim();
+    memo = t.length > 2000 ? t.slice(0, 2000) : t.length ? t : null;
+  }
+
+  const row = await createPayrollIncomeDeposit(prisma, {
+    monthKey,
+    depositedOn: depDt,
+    amount,
+    memo,
+    createdById: authUser.userId,
+  });
+
+  res.status(201).json({
+    ok: true,
+    item: {
+      id: row.id,
+      depositedOnYmd: dateOnlyToYmd(row.depositedOn),
+      amount: row.amount,
+      memo: row.memo,
+      createdAt: row.createdAt.toISOString(),
+      createdBy: row.createdBy,
+    },
+  });
+});
+
+router.delete('/income-deposits/:depositId', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const depositId = typeof req.params.depositId === 'string' ? req.params.depositId.trim() : '';
+  if (!depositId) {
+    res.status(400).json({ error: 'depositId가 필요합니다.' });
+    return;
+  }
+
+  const body = req.body as { password?: unknown };
+  const password = body.password != null ? String(body.password).trim() : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: authUser.userId },
+    select: { id: true, passwordHash: true },
+  });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const deleted = await deletePayrollIncomeDepositById(prisma, depositId);
+  if (!deleted) {
+    res.status(404).json({ error: '입금 내역을 찾을 수 없습니다.' });
+    return;
+  }
+
+  res.json({ ok: true });
 });
 
 export default router;

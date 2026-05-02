@@ -32,3 +32,8 @@ alwaysApply: true
 
 - Docker 로컬 Postgres 절차: `.cursor/rules/local-db-setup.mdc`
 - Prisma provider 선택: `DATABASE_URL` 이 `postgresql://` 이면 PostgreSQL (`scripts/prepare-schema.js`).
+
+## Prisma 마이그레이션 — 원격 DB 반영 (에이전트 필수)
+
+- **`prisma/migrations`에 새 SQL·폴더를 추가하거나 기존 마이그레이션을 수정**한 작업이 끝나면, **`server/`에서 `npx prisma migrate deploy`** 를 실행해 **현재 `server/.env`의 `DATABASE_URL`이 가리키는 DB**에 미적용 분을 반영한다. 팀 기본 DB는 공개 Proxy 원격 DB다.
+- **사용자가 원격 DB에 쓰기를 금지**했을 때만 이 단계를 생략한다.

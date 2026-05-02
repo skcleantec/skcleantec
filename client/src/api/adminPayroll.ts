@@ -468,3 +468,124 @@ export async function getPayrollCrewExpenseDetail(
   }
   return res.json();
 }
+
+export type PayrollAdminPersonalExpenseItem = {
+  id: string;
+  amount: number;
+  memo: string | null;
+  createdAt: string;
+  createdBy: { id: string; name: string; email: string };
+};
+
+export async function getPayrollAdminPersonalExpenses(
+  token: string,
+  month?: string,
+): Promise<{ month: string; items: PayrollAdminPersonalExpenseItem[] }> {
+  const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  const res = await fetch(`${API}/admin/payroll/admin-personal-expenses${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '관리자 개인 지출을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function postPayrollAdminPersonalExpense(
+  token: string,
+  body: { month: string; amount: number; memo?: string },
+): Promise<{ ok: boolean; item: PayrollAdminPersonalExpenseItem }> {
+  const res = await fetch(`${API}/admin/payroll/admin-personal-expenses`, {
+    method: 'POST',
+    headers: {
+      ...headers(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '등록에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function deletePayrollAdminPersonalExpense(
+  token: string,
+  expenseId: string,
+  password: string,
+): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/admin/payroll/admin-personal-expenses/${encodeURIComponent(expenseId)}`, {
+    method: 'DELETE',
+    headers: {
+      ...headers(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export type PayrollIncomeDepositItem = {
+  id: string;
+  depositedOnYmd: string;
+  amount: number;
+  memo: string | null;
+  createdAt: string;
+  createdBy: { id: string; name: string; email: string };
+};
+
+export async function getPayrollIncomeDeposits(
+  token: string,
+  month?: string,
+): Promise<{ month: string; items: PayrollIncomeDepositItem[] }> {
+  const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  const res = await fetch(`${API}/admin/payroll/income-deposits${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '입금 내역을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function postPayrollIncomeDeposit(
+  token: string,
+  body: { month: string; depositedOn: string; amount: number; memo?: string },
+): Promise<{ ok: boolean; item: PayrollIncomeDepositItem }> {
+  const res = await fetch(`${API}/admin/payroll/income-deposits`, {
+    method: 'POST',
+    headers: {
+      ...headers(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '등록에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function deletePayrollIncomeDeposit(
+  token: string,
+  depositId: string,
+  password: string,
+): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/admin/payroll/income-deposits/${encodeURIComponent(depositId)}`, {
+    method: 'DELETE',
+    headers: {
+      ...headers(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+  return res.json();
+}

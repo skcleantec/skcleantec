@@ -26,7 +26,7 @@ alwaysApply: true
 |----------|-----------|
 | **`client/`** TypeScript·JSX 등 | 저장소에서 `cd client` 후 **`npx tsc -b --noEmit`** — 타입 오류 없을 것 |
 | **`server/`** TypeScript 등 | `cd server` 후 **`npx tsc --noEmit`** (또는 동등한 서버 빌드·타입 검사) |
-| **`schema.prisma`**·마이그레이션 등 Prisma | 필요 시 **`cd server`** 후 **`npx prisma generate`** — 클라이언트와 타입 불일치 방지. Windows 등에서 파일 잠금으로 실패하면 그 사실을 사용자에게 알린다 |
+| **`schema.prisma`**·마이그레이션 등 Prisma | `cd server` 후 **`npx prisma generate`** — 클라이언트와 타입 불일치 방지. **`prisma/migrations`에 새·변경 마이그레이션**을 둔 경우에는 같은 디렉터리에서 **`npx prisma migrate deploy`** 를 실행해 **`DATABASE_URL`이 가리키는 DB**(기본: 공개 원격 DB)에 **반드시 적용**한다 — 사용자에게만 명령어만 안내하고 끝내지 않는다. 사용자가 원격 적용 금지를 명시한 경우만 생략한다. Windows 등에서 파일 잠금으로 `generate` 실패하면 그 사실을 사용자에게 알린다 |
 | 수정 파일 | 가능하면 해당 경로 **`read_lints`** 등으로 새 진단 없음 확인 |
 
 **Windows PowerShell**에서는 명령 연결에 **`&&` 대신 `;`** 를 쓴다 (예: `cd c:\skcleanteck\client; npx tsc -b --noEmit`).
@@ -51,7 +51,8 @@ alwaysApply: true
 - **로컬·에이전트 기본 DB**: **공개 웹 DB만** — `server/.env`의 Railway 등 **Proxy `DATABASE_URL`**. 에이전트는 Docker/localhost Postgres로 붙이려 하지 않는다. 상세·금지 사항은 **`.cursor/rules/local-dev-remote-db.mdc`**.
 - **(선택)** 로컬 Docker Postgres는 사용자가 명시할 때만 — **`.cursor/rules/local-db-setup.mdc`**
 - **외부 웹서버·외부 DB 사용**을 전제로 설계
-- Prisma 마이그레이션으로 테이블을 외부 DB에 정확히 반영
+- Prisma 마이그레이션으로 테이블을 외부 DB에 정확히 반영한다
+- **`prisma/migrations`를 추가·수정한 작업**은 코딩 마무리 시 **`cd server` 후 `npx prisma migrate deploy`** 로 현재 **`DATABASE_URL` 원격 DB**에 적용하는 것을 원칙으로 한다 (에이전트는 사용자에게만 위임하지 않고 실행한다). 사용자가 원격 DB 쓰기 금지를 명시한 경우만 생략한다.
 - `DATABASE_URL` 등 연결 정보는 환경변수로만 관리
 - **웹하드(업로드 저장)**: **Cloudinary** 사용. 환경변수·보안 규칙은 `.cursor/rules/cloudinary.mdc` 참고
 - 배포 DB와 로컬이 같은 스키마를 쓰도록 마이그레이션을 맞춘다

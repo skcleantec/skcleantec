@@ -11,11 +11,17 @@ import {
   getPayrollCrewExpenseDetail,
   getPayrollExpenseForward,
   getPayrollIncomeSummary,
+  getPayrollAdminPersonalExpenses,
   patchPayrollPoolMemberMonthAdjust,
   postPayrollPoolMemberSettle,
   postPayrollTeamLeaderPayment,
   postPayrollMarketerSettle,
   deletePayrollTeamLeaderPayment,
+  postPayrollAdminPersonalExpense,
+  deletePayrollAdminPersonalExpense,
+  getPayrollIncomeDeposits,
+  postPayrollIncomeDeposit,
+  deletePayrollIncomeDeposit,
   type PayrollSheetRow,
   type PayrollSheetResponse,
   type PayrollPoolMemberDetailResponse,
@@ -25,6 +31,8 @@ import {
   type PayrollCrewExpenseDetailResponse,
   type PayrollExpenseForwardResponse,
   type PayrollIncomeSummaryResponse,
+  type PayrollAdminPersonalExpenseItem,
+  type PayrollIncomeDepositItem,
 } from '../../api/adminPayroll';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
@@ -33,13 +41,14 @@ import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModa
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 
 const PAYROLL_HELP =
-  '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·지출·수입을 나누어 볼 수 있습니다.\n\n' +
+  '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·정산·미정산현황을 나누어 볼 수 있습니다.\n\n' +
   '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 상세에서는 「산정내역」과 「지급내역」을 바꿔 볼 수 있으며, 예상 급여가 나온 뒤 「정산완료」로 확정하면 지급 내역에 누적됩니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
   '【팀장 · 수시 지급】고정 급여일이 없어도 됩니다. 귀속 월을 선택한 뒤, 행을 눌러 입금일·금액·메모를 여러 번 기록할 수 있습니다. 목록의 「당월 지급합」은 해당 월에 등록한 지급액 합계입니다. 사용자 등록의 「월 고정 급여」는 참고용으로 비고에만 표시됩니다. 지급 행 삭제는 본인 로그인 비밀번호 확인 후에만 가능합니다.\n\n' +
   '【직원(마케터) · 월 고정 + 이월 미정산】사용자 등록의 월 급여·급여일과 동일한 산정기간 표시를 씁니다. 귀속 월 「합계」는 미정산 이월액과 등록 월급을 더한 지급 예정액입니다. 「정산완료」에서 실제 지급 금액을 적으면 부족분은 다음 귀속 월 합계에 자동 반영됩니다. 과거 월 급여 등록값이 바뀌면 이월 추정과 과거와 어긋날 수 있으니, 월급 변경 후에는 정산 기록을 참고해 주세요.\n\n' +
-  '【크루 지출】크루 그룹장이 귀속 월·팀원·금액·영수증으로 등록한 지출은 「지출」 탭 목록과 팀원 급여 상세에 나타나며, 현장 팀원 행에서는 예상 급여에서 차감된 실지급 예상으로 표시됩니다. 「정산완료」 시 차감 후 금액이 확정됩니다.\n\n' +
-  '【지출 탭 · 좌우 카드】왼쪽은 선택한 귀속 월의 인건비 요약과 크루 지출 목록입니다. 오른쪽은 오늘(KST) 기준 「진행 중 급여 주기」입니다. 현장 팀원은 급여일 사이클에 맞춰 오늘까지 집계된 근무일·실지급 추정, 마케터는 미정산일 때 전월 일수로 일할·정산 완료 후에는 이번 주기 일수로 일할한 누적 추정액입니다. 팀장은 수시 입금이라 실시간 주기 카드에는 넣지 않고 왼쪽 월합에만 반영됩니다.\n\n' +
-  '【수입 탭】선택 귀속 월과 같은 달(KST)의 접수 「예약일」이 속하고, 취소·보류가 아닌 건의 「서비스 총액」 합계입니다. 총액 미입력 접수는 건수에는 포함되나 합계에는 포함되지 않습니다.\n\n' +
+  '【크루 지출】크루 그룹장이 귀속 월·팀원·금액·영수증으로 등록한 지출은 「정산」 탭 지출 영역과 팀원 급여 상세에 나타나며, 현장 팀원 행에서는 예상 급여에서 차감된 실지급 예상으로 표시됩니다. 「정산완료」 시 차감 후 금액이 확정됩니다.\n\n' +
+  '【관리자 개인 지출】크루 등록 지출 아래 접이식 영역에서 귀속 월별 참고 지출을 추가할 수 있습니다. 급여 산정·차감과는 무관하며 삭제 시 본인 비밀번호 확인이 필요합니다.\n\n' +
+  '【정산 탭】왼쪽은 해당 귀속 월 「지출」(인건비 요약·크루 등록 지출·관리자 개인 지출)입니다. 오른쪽은 같은 귀속 월 「수입」(예약일 기준 접수 서비스 총액 합계)과, 실제 입금을 수기로 적는 「입금 내역」(접수 매출과 별개 참고용)입니다.\n\n' +
+  '【미정산현황 탭】오늘(KST) 기준 「진행 중 급여 주기」 실시간 추정입니다. 현장 팀원은 급여일 사이클에 맞춰 오늘까지 집계된 근무일·실지급 추정, 마케터는 미정산일 때 전월 일수로 일할·정산 완료 후에는 이번 주기 일수로 일할한 누적 추정액입니다. 팀장은 수시 입금이라 이 카드에는 넣지 않고 정산 탭 지출 월합에만 반영됩니다.\n\n' +
   '타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
 
 function kstMonthKeyNow(): string {
@@ -137,7 +146,7 @@ function poolWorkDaysTitle(r: PayrollSheetRow): string | undefined {
   return `자동 산정 ${r.jobCount}일`;
 }
 
-const PAYROLL_TABS = ['pool', 'leader', 'marketer', 'expense', 'income'] as const;
+const PAYROLL_TABS = ['pool', 'leader', 'marketer', 'settlement', 'unsettled'] as const;
 type PayrollTabId = (typeof PAYROLL_TABS)[number];
 
 function parsePayrollTab(raw: string | null): PayrollTabId | null {
@@ -145,10 +154,12 @@ function parsePayrollTab(raw: string | null): PayrollTabId | null {
     raw === 'pool' ||
     raw === 'leader' ||
     raw === 'marketer' ||
-    raw === 'expense' ||
-    raw === 'income'
+    raw === 'settlement' ||
+    raw === 'unsettled'
   )
     return raw;
+  /** 구 URL: 지출·수입 탭 → 정산으로 통합 */
+  if (raw === 'expense' || raw === 'income') return 'settlement';
   return null;
 }
 
@@ -160,17 +171,17 @@ function payrollTabLabel(id: PayrollTabId): string {
       return '팀장';
     case 'marketer':
       return '마케터';
-    case 'expense':
-      return '지출';
-    case 'income':
-      return '수입';
+    case 'settlement':
+      return '정산';
+    case 'unsettled':
+      return '미정산현황';
     default:
       return id;
   }
 }
 
 function rowsForPayrollTab(rows: PayrollSheetRow[], tab: PayrollTabId): PayrollSheetRow[] {
-  if (tab === 'expense' || tab === 'income') return [];
+  if (tab === 'settlement' || tab === 'unsettled') return [];
   if (tab === 'pool') return rows.filter((r) => r.kind === 'POOL_MEMBER');
   if (tab === 'leader') return rows.filter((r) => r.kind === 'TEAM_LEADER');
   return rows.filter((r) => r.kind === 'MARKETER');
@@ -213,10 +224,10 @@ function payrollTabHint(tab: PayrollTabId): string {
       return '팀장은 귀속 월별로 입금 내역을 여러 번 적습니다. 행을 눌러 등록·히스토리를 확인하세요.';
     case 'marketer':
       return '마케터는 「합계」에 미정산 이월과 등록 월급을 더해 표시합니다. 급여상세에서 정산 이력을, 정산완료에서 이번 달 지급액·메모를 저장합니다.';
-    case 'expense':
-      return '왼쪽: 선택 귀속 월 인건비(팀원은 실지급 예상)·팀장·마케터 합계와 크루 지출 목록. 오른쪽: 오늘 기준 진행 중 급여 주기의 풀·마케터 실시간 추정(팀장 제외).';
-    case 'income':
-      return '예약일(KST)이 해당 귀속 월인 접수 중 취소·보류를 제외한 건수와 「서비스 총액」 합계입니다.';
+    case 'settlement':
+      return '왼쪽: 해당 귀속 월 지출. 오른쪽: 접수 매출 집계·입금 내역(수기)·서비스접수 목록 안내.';
+    case 'unsettled':
+      return '오늘(KST) 기준 진행 중 급여 주기 — 현장 팀원·마케터 실시간 추정(팀장 제외). 「실시간 새로고침」으로 최신 값을 불러옵니다.';
     default:
       return '';
   }
@@ -244,6 +255,20 @@ export function AdminPayrollPage() {
     },
     [setSearchParams]
   );
+
+  /** 구 bookmark ?payTab=expense|income → 정산으로 통일 */
+  useEffect(() => {
+    const raw = searchParams.get('payTab');
+    if (raw !== 'expense' && raw !== 'income') return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('payTab', 'settlement');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [searchParams, setSearchParams]);
 
   const [month, setMonth] = useState(() => kstMonthKeyNow());
   const [data, setData] = useState<PayrollSheetResponse | null>(null);
@@ -291,16 +316,41 @@ export function AdminPayrollPage() {
   const [expenseForward, setExpenseForward] = useState<PayrollExpenseForwardResponse | null>(null);
   const [expenseForwardLoading, setExpenseForwardLoading] = useState(false);
   const [expenseForwardError, setExpenseForwardError] = useState<string | null>(null);
-  /** 지출 탭 · 진행 주기 현장 팀원 상세 — 기본 접힘 */
+  /** 정산·미정산현황 탭 · 진행 주기 현장 팀원 상세 — 기본 접힘 */
   const [expenseForwardPoolExpanded, setExpenseForwardPoolExpanded] = useState(false);
-  /** 지출 탭 · 진행 주기 마케터 상세 — 기본 접힘 */
+  /** 정산·미정산현황 탭 · 진행 주기 마케터 상세 — 기본 접힘 */
   const [expenseForwardMarketerExpanded, setExpenseForwardMarketerExpanded] = useState(false);
-  /** 지출 탭 · 크루 등록 지출 상세 — 기본 접힘 */
+  /** 정산 탭 · 크루 등록 지출 상세 — 기본 접힘 */
   const [expenseCrewExpenseExpanded, setExpenseCrewExpenseExpanded] = useState(false);
+  /** 정산 탭 · 관리자 개인 지출 — 기본 접힘 */
+  const [expenseAdminPersonalExpanded, setExpenseAdminPersonalExpanded] = useState(false);
+  const [adminPersonalExpenseItems, setAdminPersonalExpenseItems] = useState<PayrollAdminPersonalExpenseItem[]>([]);
+  const [adminPersonalExpenseAmountInput, setAdminPersonalExpenseAmountInput] = useState('');
+  const [adminPersonalExpenseMemoInput, setAdminPersonalExpenseMemoInput] = useState('');
+  const [adminPersonalExpenseSaving, setAdminPersonalExpenseSaving] = useState(false);
+  const [adminPersonalExpenseFormError, setAdminPersonalExpenseFormError] = useState<string | null>(null);
+  const [adminPersonalExpenseDeleteTarget, setAdminPersonalExpenseDeleteTarget] = useState<{
+    id: string;
+    amount: number;
+  } | null>(null);
 
   const [incomeSummary, setIncomeSummary] = useState<PayrollIncomeSummaryResponse | null>(null);
   const [incomeLoading, setIncomeLoading] = useState(false);
   const [incomeError, setIncomeError] = useState<string | null>(null);
+
+  const [incomeDepositItems, setIncomeDepositItems] = useState<PayrollIncomeDepositItem[]>([]);
+  /** 정산 탭 수입 카드 · 입금 내역 — 기본 접힘 */
+  const [incomeDepositExpanded, setIncomeDepositExpanded] = useState(false);
+  const [incomeDepositAmountInput, setIncomeDepositAmountInput] = useState('');
+  const [incomeDepositMemoInput, setIncomeDepositMemoInput] = useState('');
+  const [incomeDepositDateInput, setIncomeDepositDateInput] = useState(() => todayYmdKst());
+  const [incomeDepositSaving, setIncomeDepositSaving] = useState(false);
+  const [incomeDepositFormError, setIncomeDepositFormError] = useState<string | null>(null);
+  const [incomeDepositDeleteTarget, setIncomeDepositDeleteTarget] = useState<{
+    id: string;
+    amount: number;
+    depositedOnYmd: string;
+  } | null>(null);
 
   const closeCrewExpenseDetail = useCallback(() => {
     setCrewExpenseDetailId(null);
@@ -500,31 +550,45 @@ export function AdminPayrollPage() {
     setLoading(true);
     setError(null);
     try {
-      const [r, crewEx] = await Promise.all([
+      const [r, crewEx, adminPers] = await Promise.all([
         getAdminPayrollSheet(token, month),
         getPayrollCrewExpenses(token, month).catch(() => ({
           month: '',
           items: [] as PayrollCrewExpenseAdminItem[],
         })),
+        getPayrollAdminPersonalExpenses(token, month).catch(() => ({
+          month: '',
+          items: [] as PayrollAdminPersonalExpenseItem[],
+        })),
       ]);
       setData(r);
       setCrewExpenseAdminItems(crewEx.items ?? []);
-      if (payrollTab === 'expense') {
+      setAdminPersonalExpenseItems(adminPers.items ?? []);
+      if (payrollTab === 'settlement' || payrollTab === 'unsettled') {
         void loadExpenseForward();
       }
-      if (payrollTab === 'income') {
+      if (payrollTab === 'settlement') {
         try {
-          const inc = await getPayrollIncomeSummary(token, month);
+          const [inc, dep] = await Promise.all([
+            getPayrollIncomeSummary(token, month),
+            getPayrollIncomeDeposits(token, month).catch(() => ({
+              month,
+              items: [] as PayrollIncomeDepositItem[],
+            })),
+          ]);
           setIncomeSummary(inc);
+          setIncomeDepositItems(dep.items ?? []);
           setIncomeError(null);
         } catch {
           setIncomeSummary(null);
+          setIncomeDepositItems([]);
           setIncomeError('수입 집계를 불러오지 못했습니다.');
         }
       }
     } catch (e) {
       setData(null);
       setCrewExpenseAdminItems([]);
+      setAdminPersonalExpenseItems([]);
       setError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
     } finally {
       setLoading(false);
@@ -534,16 +598,21 @@ export function AdminPayrollPage() {
   const silentReloadPayroll = useCallback(async () => {
     if (!token) return;
     try {
-      const [r, crewEx] = await Promise.all([
+      const [r, crewEx, adminPers] = await Promise.all([
         getAdminPayrollSheet(token, month),
         getPayrollCrewExpenses(token, month).catch(() => ({
           month: '',
           items: [] as PayrollCrewExpenseAdminItem[],
         })),
+        getPayrollAdminPersonalExpenses(token, month).catch(() => ({
+          month: '',
+          items: [] as PayrollAdminPersonalExpenseItem[],
+        })),
       ]);
       setData(r);
       setCrewExpenseAdminItems(crewEx.items ?? []);
-      if (payrollTab === 'expense') {
+      setAdminPersonalExpenseItems(adminPers.items ?? []);
+      if (payrollTab === 'settlement' || payrollTab === 'unsettled') {
         try {
           const fwd = await getPayrollExpenseForward(token);
           setExpenseForward(fwd);
@@ -552,10 +621,17 @@ export function AdminPayrollPage() {
           /* 무음 */
         }
       }
-      if (payrollTab === 'income') {
+      if (payrollTab === 'settlement') {
         try {
-          const inc = await getPayrollIncomeSummary(token, month);
+          const [inc, dep] = await Promise.all([
+            getPayrollIncomeSummary(token, month),
+            getPayrollIncomeDeposits(token, month).catch(() => ({
+              month,
+              items: [] as PayrollIncomeDepositItem[],
+            })),
+          ]);
           setIncomeSummary(inc);
+          setIncomeDepositItems(dep.items ?? []);
           setIncomeError(null);
         } catch {
           /* 무음 */
@@ -569,26 +645,35 @@ export function AdminPayrollPage() {
   useInboxRealtime(token, silentReloadPayroll, Boolean(token));
 
   useEffect(() => {
-    if (!token || payrollTab !== 'expense') return;
+    if (!token || (payrollTab !== 'settlement' && payrollTab !== 'unsettled')) return;
     void loadExpenseForward();
   }, [token, payrollTab, loadExpenseForward]);
 
   useEffect(() => {
-    if (!token || payrollTab !== 'income') return;
+    if (!token || payrollTab !== 'settlement') return;
     let cancelled = false;
     setIncomeLoading(true);
     setIncomeError(null);
     setIncomeSummary(null);
-    void getPayrollIncomeSummary(token, month)
-      .then((d) => {
+    setIncomeDepositItems([]);
+    void Promise.all([
+      getPayrollIncomeSummary(token, month),
+      getPayrollIncomeDeposits(token, month).catch(() => ({
+        month,
+        items: [] as PayrollIncomeDepositItem[],
+      })),
+    ])
+      .then(([inc, dep]) => {
         if (!cancelled) {
-          setIncomeSummary(d);
+          setIncomeSummary(inc);
+          setIncomeDepositItems(dep.items ?? []);
           setIncomeError(null);
         }
       })
       .catch((e) => {
         if (!cancelled) {
           setIncomeSummary(null);
+          setIncomeDepositItems([]);
           setIncomeError(e instanceof Error ? e.message : '수입 집계를 불러오지 못했습니다.');
         }
       })
@@ -771,6 +856,78 @@ export function AdminPayrollPage() {
     [crewExpenseAdminItems],
   );
 
+  const adminPersonalExpenseMonthSum = useMemo(
+    () => adminPersonalExpenseItems.reduce((acc, row) => acc + row.amount, 0),
+    [adminPersonalExpenseItems],
+  );
+
+  const incomeDepositMonthSum = useMemo(
+    () => incomeDepositItems.reduce((acc, row) => acc + row.amount, 0),
+    [incomeDepositItems],
+  );
+
+  const submitAdminPersonalExpense = useCallback(async () => {
+    if (!token) return;
+    const parsed = parseInt(adminPersonalExpenseAmountInput.replace(/,/g, '').trim(), 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      setAdminPersonalExpenseFormError('1원 이상의 금액을 입력해 주세요.');
+      return;
+    }
+    setAdminPersonalExpenseSaving(true);
+    setAdminPersonalExpenseFormError(null);
+    try {
+      await postPayrollAdminPersonalExpense(token, {
+        month,
+        amount: parsed,
+        memo: adminPersonalExpenseMemoInput.trim() || undefined,
+      });
+      const list = await getPayrollAdminPersonalExpenses(token, month);
+      setAdminPersonalExpenseItems(list.items);
+      setAdminPersonalExpenseAmountInput('');
+      setAdminPersonalExpenseMemoInput('');
+    } catch (e) {
+      setAdminPersonalExpenseFormError(e instanceof Error ? e.message : '등록에 실패했습니다.');
+    } finally {
+      setAdminPersonalExpenseSaving(false);
+    }
+  }, [token, month, adminPersonalExpenseAmountInput, adminPersonalExpenseMemoInput]);
+
+  useEffect(() => {
+    setIncomeDepositDateInput(todayYmdKst());
+  }, [month]);
+
+  const submitIncomeDeposit = useCallback(async () => {
+    if (!token) return;
+    const parsed = parseInt(incomeDepositAmountInput.replace(/,/g, '').trim(), 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      setIncomeDepositFormError('1원 이상의 금액을 입력해 주세요.');
+      return;
+    }
+    const ymd = incomeDepositDateInput.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      setIncomeDepositFormError('입금일을 선택해 주세요.');
+      return;
+    }
+    setIncomeDepositSaving(true);
+    setIncomeDepositFormError(null);
+    try {
+      await postPayrollIncomeDeposit(token, {
+        month,
+        depositedOn: ymd,
+        amount: parsed,
+        memo: incomeDepositMemoInput.trim() || undefined,
+      });
+      const list = await getPayrollIncomeDeposits(token, month);
+      setIncomeDepositItems(list.items);
+      setIncomeDepositAmountInput('');
+      setIncomeDepositMemoInput('');
+    } catch (e) {
+      setIncomeDepositFormError(e instanceof Error ? e.message : '등록에 실패했습니다.');
+    } finally {
+      setIncomeDepositSaving(false);
+    }
+  }, [token, month, incomeDepositAmountInput, incomeDepositMemoInput, incomeDepositDateInput]);
+
   /** 진행 주기 기준 정산 미완료(진행) 인원의 실지급 추정 합 — 접힘 요약용 */
   const expenseForwardPoolUnsettled = useMemo(() => {
     if (!expenseForward) return { sum: 0, count: 0 };
@@ -850,7 +1007,8 @@ export function AdminPayrollPage() {
           </div>
           <p className="text-fluid-sm text-gray-600 mt-1">
             상단 탭으로 <strong className="font-medium text-gray-800">팀원·팀장·마케터</strong> 목록을 나누어 보고,{' '}
-            <strong className="font-medium text-gray-800">지출·수입</strong>에서는 해당 월 인건비 요약과 접수 매출을 확인합니다.{' '}
+            <strong className="font-medium text-gray-800">정산</strong>에서는 해당 월 지출·수입을 한 화면에서 보고,{' '}
+            <strong className="font-medium text-gray-800">미정산현황</strong>에서는 진행 중 급여 주기 추정을 봅니다.{' '}
             <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
               팀원(일당)·지급일
             </Link>
@@ -915,17 +1073,17 @@ export function AdminPayrollPage() {
             </div>
 
             <div className="px-2 sm:px-3 py-3 space-y-3 min-w-0">
-              {payrollTab === 'expense' && expenseSummary ? (
+              {payrollTab === 'settlement' && expenseSummary ? (
                 <>
                   <div className="flex flex-col xl:flex-row xl:items-start gap-3 min-w-0 w-full max-w-full">
                     <div className="flex-1 min-w-0 space-y-3 rounded-lg border border-gray-200 bg-white p-2 sm:p-3 shadow-sm">
                       <div className="border-b border-gray-100 pb-2">
                         <h2 className="text-fluid-sm font-semibold text-gray-900">
-                          선택 귀속 월 · 인건비·지출{' '}
+                          해당 월 · 지출{' '}
                           <span className="tabular-nums text-gray-700">({data.monthLabel})</span>
                         </h2>
                         <p className="text-fluid-2xs text-gray-500 mt-1">
-                          팀원 합계는 크루 지출을 뺀 실지급 예상 금액 기준입니다.
+                          인건비 요약·크루 등록 지출·관리자 개인 지출입니다. 팀원 합계는 크루 지출을 뺀 실지급 예상 금액 기준입니다.
                         </p>
                       </div>
                   <div className="flex flex-wrap gap-2">
@@ -1044,6 +1202,118 @@ export function AdminPayrollPage() {
                     ) : null}
                   </div>
 
+                  <div className="rounded-lg border border-gray-200 bg-white min-w-0 overflow-hidden shadow-sm">
+                    <button
+                      type="button"
+                      id="payroll-expense-admin-personal-toggle"
+                      aria-expanded={expenseAdminPersonalExpanded}
+                      aria-controls="payroll-expense-admin-personal-panel"
+                      onClick={() => setExpenseAdminPersonalExpanded((v) => !v)}
+                      className="w-full text-left px-2 py-2 sm:px-3 hover:bg-gray-50/80 transition-colors flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 min-w-0"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="text-gray-400 tabular-nums w-4 shrink-0 text-center text-fluid-xs leading-none"
+                          aria-hidden
+                        >
+                          {expenseAdminPersonalExpanded ? '▼' : '▶'}
+                        </span>
+                        <span className="text-fluid-xs font-semibold text-gray-900">관리자 개인 지출</span>
+                      </span>
+                      {!expenseAdminPersonalExpanded ? (
+                        <span className="text-fluid-xs font-semibold text-gray-900 tabular-nums pl-6 sm:pl-0 sm:text-right shrink-0 leading-none">
+                          {adminPersonalExpenseItems.length}건 · 합계 {fmtWon(adminPersonalExpenseMonthSum)}
+                        </span>
+                      ) : null}
+                    </button>
+                    {expenseAdminPersonalExpanded ? (
+                      <div
+                        id="payroll-expense-admin-personal-panel"
+                        role="region"
+                        aria-labelledby="payroll-expense-admin-personal-toggle"
+                        className="border-t border-gray-100 px-2 pb-2 sm:px-3 pt-2 space-y-2"
+                      >
+                        <p className="text-fluid-2xs text-gray-500 leading-tight">
+                          귀속 월 기준 참고용 지출입니다. 현장 팀원 급여 산정에는 반영되지 않습니다.
+                        </p>
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 items-stretch sm:items-end">
+                          <label className="flex flex-col gap-0.5 min-w-[8rem] flex-1 sm:flex-initial">
+                            <span className="text-fluid-2xs text-gray-600">금액(원)</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={adminPersonalExpenseAmountInput}
+                              onChange={(e) => setAdminPersonalExpenseAmountInput(e.target.value)}
+                              placeholder="예: 50000"
+                              className="px-2 py-1.5 border border-gray-300 rounded text-sm tabular-nums w-full sm:w-36"
+                              disabled={adminPersonalExpenseSaving || !token}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-0.5 flex-1 min-w-0">
+                            <span className="text-fluid-2xs text-gray-600">메모</span>
+                            <input
+                              type="text"
+                              value={adminPersonalExpenseMemoInput}
+                              onChange={(e) => setAdminPersonalExpenseMemoInput(e.target.value)}
+                              placeholder="선택"
+                              className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full min-w-0"
+                              disabled={adminPersonalExpenseSaving || !token}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => void submitAdminPersonalExpense()}
+                            disabled={adminPersonalExpenseSaving || !token}
+                            className="px-3 py-1.5 text-sm font-medium rounded border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 shrink-0 touch-manipulation"
+                          >
+                            {adminPersonalExpenseSaving ? '등록 중…' : '추가 등록'}
+                          </button>
+                        </div>
+                        {adminPersonalExpenseFormError ? (
+                          <div className="text-fluid-2xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                            {adminPersonalExpenseFormError}
+                          </div>
+                        ) : null}
+                        {adminPersonalExpenseItems.length === 0 ? (
+                          <p className="text-fluid-2xs text-gray-500 py-3 text-center border border-dashed border-gray-100 rounded bg-gray-50/60 leading-tight">
+                            등록된 관리자 개인 지출이 없습니다.
+                          </p>
+                        ) : (
+                          <ul className="flex flex-col gap-1 min-w-0">
+                            {adminPersonalExpenseItems.map((row) => (
+                              <li
+                                key={row.id}
+                                className="flex flex-wrap items-center gap-2 justify-between rounded border border-gray-100 bg-gray-50/70 px-2 py-1.5 text-[11px]"
+                              >
+                                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0">
+                                  <span className="font-semibold tabular-nums text-gray-900 shrink-0">{fmtWon(row.amount)}</span>
+                                  <span className="text-gray-500 tabular-nums whitespace-nowrap shrink-0">
+                                    {fmtShortDateTimeKst(row.createdAt)}
+                                  </span>
+                                  <span className="text-gray-600 truncate min-w-0">{row.createdBy.name}</span>
+                                  {row.memo ? (
+                                    <span className="text-gray-600 truncate min-w-0 max-w-full sm:max-w-[50%]">
+                                      {row.memo}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="shrink-0 text-fluid-2xs text-red-700 hover:underline px-1 touch-manipulation"
+                                  onClick={() =>
+                                    setAdminPersonalExpenseDeleteTarget({ id: row.id, amount: row.amount })
+                                  }
+                                >
+                                  삭제
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+
                   <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
                     <strong className="text-gray-800">{data.monthLabel}</strong> 기준 급여표 인건비입니다. 타업체 대금·기타
                     비용은{' '}
@@ -1054,7 +1324,192 @@ export function AdminPayrollPage() {
                   </div>
                     </div>
 
-                    <div className="flex-1 min-w-0 space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-2 sm:p-3 shadow-sm">
+                    <div className="flex-1 min-w-0 space-y-3 rounded-lg border border-sky-200 bg-sky-50/40 p-2 sm:p-3 shadow-sm">
+                      <div className="border-b border-sky-100 pb-2">
+                        <h2 className="text-fluid-sm font-semibold text-gray-900">
+                          해당 월 · 수입{' '}
+                          <span className="tabular-nums text-gray-700">({data.monthLabel})</span>
+                        </h2>
+                        <p className="text-fluid-2xs text-gray-600 mt-1 leading-snug">
+                          예약일(KST)이 해당 월에 속하는 접수만 집계합니다. 상태가 취소·보류인 건은 제외합니다. 아래 합계는 「서비스 총액」이
+                          입력된 접수만 더합니다.
+                        </p>
+                      </div>
+                  {incomeLoading ? (
+                    <p className="text-fluid-sm text-gray-500 py-10 text-center border border-dashed border-sky-100 rounded-lg bg-white/70">
+                      불러오는 중…
+                    </p>
+                  ) : incomeError ? (
+                    <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{incomeError}</div>
+                  ) : incomeSummary ? (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-fluid-xs font-medium text-gray-800 tabular-nums">
+                          대상 접수 <strong className="mx-1">{incomeSummary.inquiryCount}</strong>건
+                        </span>
+                        <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-fluid-xs font-semibold text-sky-900 tabular-nums">
+                          서비스 총액 합계 {fmtWon(incomeSummary.serviceTotalSum)}
+                        </span>
+                        {incomeSummary.inquiriesMissingTotalAmount > 0 ? (
+                          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-fluid-xs text-amber-900 tabular-nums">
+                            총액 미입력 {incomeSummary.inquiriesMissingTotalAmount}건
+                          </span>
+                        ) : null}
+                      </div>
+                      <ul className="divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                        <li className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm">
+                          <span className="text-gray-700">합계에 포함된 접수</span>
+                          <span className="font-semibold text-gray-900 tabular-nums">{incomeSummary.inquiriesWithTotalAmount}건</span>
+                        </li>
+                        <li className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm bg-gray-50 font-semibold border-t border-gray-200">
+                          <span className="text-gray-900">서비스 총액 합계</span>
+                          <span className="tabular-nums text-sky-900">{fmtWon(incomeSummary.serviceTotalSum)}</span>
+                        </li>
+                      </ul>
+                      <div className="rounded-lg border border-gray-100 bg-white px-3 py-2 text-fluid-xs text-gray-600 leading-snug">
+                        접수별 세부 금액은{' '}
+                        <Link to="/admin/inquiries" className="text-blue-700 underline underline-offset-2 font-medium">
+                          서비스접수 목록
+                        </Link>
+                        에서 확인할 수 있습니다.
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-fluid-sm text-gray-500 py-10 text-center border border-dashed border-gray-200 rounded-lg bg-white/80">
+                      집계 결과가 없습니다.
+                    </p>
+                  )}
+
+                  <div className="rounded-lg border border-sky-300/70 bg-white min-w-0 overflow-hidden shadow-sm">
+                    <button
+                      type="button"
+                      id="payroll-settlement-income-deposit-toggle"
+                      aria-expanded={incomeDepositExpanded}
+                      aria-controls="payroll-settlement-income-deposit-panel"
+                      onClick={() => setIncomeDepositExpanded((v) => !v)}
+                      className="w-full text-left px-2 py-2 sm:px-3 hover:bg-sky-50/80 transition-colors flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 min-w-0"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="text-gray-400 tabular-nums w-4 shrink-0 text-center text-fluid-xs leading-none" aria-hidden>
+                          {incomeDepositExpanded ? '▼' : '▶'}
+                        </span>
+                        <span className="text-fluid-xs font-semibold text-gray-900">입금 내역</span>
+                      </span>
+                      {!incomeDepositExpanded ? (
+                        <span className="text-fluid-xs font-semibold text-sky-900 tabular-nums pl-6 sm:pl-0 sm:text-right shrink-0 leading-none">
+                          {incomeDepositItems.length}건 · 합계 {fmtWon(incomeDepositMonthSum)}
+                        </span>
+                      ) : null}
+                    </button>
+                    {incomeDepositExpanded ? (
+                      <div
+                        id="payroll-settlement-income-deposit-panel"
+                        role="region"
+                        aria-labelledby="payroll-settlement-income-deposit-toggle"
+                        className="border-t border-sky-100 px-2 pb-2 sm:px-3 pt-2 space-y-2"
+                      >
+                        <p className="text-fluid-2xs text-gray-600 leading-tight">
+                          귀속 월 기준으로 실제 입금된 금액을 참고용으로 적습니다. 위 「서비스 총액 합계」와 자동 대조되지 않으며,
+                          삭제 시 본인 비밀번호 확인이 필요합니다.
+                        </p>
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 items-stretch sm:items-end">
+                          <label className="flex flex-col gap-0.5 shrink-0">
+                            <span className="text-fluid-2xs text-gray-600">입금일</span>
+                            <input
+                              type="date"
+                              value={incomeDepositDateInput}
+                              onChange={(e) => setIncomeDepositDateInput(e.target.value)}
+                              className="px-2 py-1.5 border border-gray-300 rounded text-sm tabular-nums"
+                              disabled={incomeDepositSaving || !token}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-0.5 min-w-[8rem] flex-1 sm:flex-initial">
+                            <span className="text-fluid-2xs text-gray-600">금액(원)</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={incomeDepositAmountInput}
+                              onChange={(e) => setIncomeDepositAmountInput(e.target.value)}
+                              placeholder="예: 5000000"
+                              className="px-2 py-1.5 border border-gray-300 rounded text-sm tabular-nums w-full sm:w-36"
+                              disabled={incomeDepositSaving || !token}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-0.5 flex-1 min-w-0">
+                            <span className="text-fluid-2xs text-gray-600">메모</span>
+                            <input
+                              type="text"
+                              value={incomeDepositMemoInput}
+                              onChange={(e) => setIncomeDepositMemoInput(e.target.value)}
+                              placeholder="선택"
+                              className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full min-w-0"
+                              disabled={incomeDepositSaving || !token}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => void submitIncomeDeposit()}
+                            disabled={incomeDepositSaving || !token}
+                            className="px-3 py-1.5 text-sm font-medium rounded border border-sky-600 bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 shrink-0 touch-manipulation"
+                          >
+                            {incomeDepositSaving ? '등록 중…' : '추가 등록'}
+                          </button>
+                        </div>
+                        {incomeDepositFormError ? (
+                          <div className="text-fluid-2xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                            {incomeDepositFormError}
+                          </div>
+                        ) : null}
+                        {incomeDepositItems.length === 0 ? (
+                          <p className="text-fluid-2xs text-gray-500 py-3 text-center border border-dashed border-gray-100 rounded bg-gray-50/60 leading-tight">
+                            등록된 입금 내역이 없습니다.
+                          </p>
+                        ) : (
+                          <ul className="flex flex-col gap-1 min-w-0">
+                            {incomeDepositItems.map((row) => (
+                              <li
+                                key={row.id}
+                                className="flex flex-wrap items-center gap-2 justify-between rounded border border-gray-100 bg-gray-50/70 px-2 py-1.5 text-[11px]"
+                              >
+                                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0">
+                                  <span className="font-semibold tabular-nums text-gray-900 shrink-0">{fmtWon(row.amount)}</span>
+                                  <span className="text-gray-600 tabular-nums whitespace-nowrap shrink-0">
+                                    입금 {compactPayDate(row.depositedOnYmd)}
+                                  </span>
+                                  <span className="text-gray-500 tabular-nums whitespace-nowrap shrink-0">
+                                    {fmtShortDateTimeKst(row.createdAt)}
+                                  </span>
+                                  <span className="text-gray-600 truncate min-w-0">{row.createdBy.name}</span>
+                                  {row.memo ? (
+                                    <span className="text-gray-600 truncate min-w-0 max-w-full sm:max-w-[50%]">{row.memo}</span>
+                                  ) : null}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="shrink-0 text-fluid-2xs text-red-700 hover:underline px-1 touch-manipulation"
+                                  onClick={() =>
+                                    setIncomeDepositDeleteTarget({
+                                      id: row.id,
+                                      amount: row.amount,
+                                      depositedOnYmd: row.depositedOnYmd,
+                                    })
+                                  }
+                                >
+                                  삭제
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                    </div>
+                  </div>
+                </>
+              ) : payrollTab === 'unsettled' ? (
+                <div className="min-w-0 w-full max-w-full">
+                    <div className="min-w-0 w-full space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-2 sm:p-3 shadow-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100 pb-2">
                         <h2 className="text-fluid-sm font-semibold text-gray-900">오늘 기준 진행 중 급여 주기</h2>
                         <button
@@ -1236,64 +1691,6 @@ export function AdminPayrollPage() {
                         </>
                       ) : null}
                     </div>
-                  </div>
-                </>
-              ) : payrollTab === 'income' ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3 shadow-sm space-y-3 min-w-0">
-                  <div className="border-b border-gray-100 pb-2">
-                    <h2 className="text-fluid-sm font-semibold text-gray-900">
-                      선택 귀속 월 · 접수 매출{' '}
-                      <span className="tabular-nums text-gray-700">({data.monthLabel})</span>
-                    </h2>
-                    <p className="text-fluid-2xs text-gray-500 mt-1 leading-snug">
-                      예약일(KST)이 해당 월에 속하는 접수만 집계합니다. 상태가 취소·보류인 건은 제외합니다. 아래 합계는 「서비스 총액」이
-                      입력된 접수만 더합니다.
-                    </p>
-                  </div>
-                  {incomeLoading ? (
-                    <p className="text-fluid-sm text-gray-500 py-10 text-center border border-dashed border-gray-100 rounded-lg bg-gray-50/60">
-                      불러오는 중…
-                    </p>
-                  ) : incomeError ? (
-                    <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{incomeError}</div>
-                  ) : incomeSummary ? (
-                    <>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-fluid-xs font-medium text-gray-800 tabular-nums">
-                          대상 접수 <strong className="mx-1">{incomeSummary.inquiryCount}</strong>건
-                        </span>
-                        <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-fluid-xs font-semibold text-sky-900 tabular-nums">
-                          서비스 총액 합계 {fmtWon(incomeSummary.serviceTotalSum)}
-                        </span>
-                        {incomeSummary.inquiriesMissingTotalAmount > 0 ? (
-                          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-fluid-xs text-amber-900 tabular-nums">
-                            총액 미입력 {incomeSummary.inquiriesMissingTotalAmount}건
-                          </span>
-                        ) : null}
-                      </div>
-                      <ul className="divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
-                        <li className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm">
-                          <span className="text-gray-700">합계에 포함된 접수</span>
-                          <span className="font-semibold text-gray-900 tabular-nums">{incomeSummary.inquiriesWithTotalAmount}건</span>
-                        </li>
-                        <li className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm bg-gray-50 font-semibold border-t border-gray-200">
-                          <span className="text-gray-900">서비스 총액 합계</span>
-                          <span className="tabular-nums text-sky-900">{fmtWon(incomeSummary.serviceTotalSum)}</span>
-                        </li>
-                      </ul>
-                      <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600 leading-snug">
-                        접수별 세부 금액은{' '}
-                        <Link to="/admin/inquiries" className="text-blue-700 underline underline-offset-2 font-medium">
-                          서비스접수 목록
-                        </Link>
-                        에서 확인할 수 있습니다.
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-fluid-sm text-gray-500 py-10 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                      집계 결과가 없습니다.
-                    </p>
-                  )}
                 </div>
               ) : (
                 <>
@@ -2385,6 +2782,52 @@ export function AdminPayrollPage() {
             const d = await getPayrollTeamLeaderPayments(token, leaderDetailForRow.id, month);
             setLeaderDetail(d);
             await load();
+          }}
+        />,
+        document.body
+      )}
+
+      {createPortal(
+        <ConfirmPasswordModal
+          open={Boolean(adminPersonalExpenseDeleteTarget)}
+          title={
+            adminPersonalExpenseDeleteTarget
+              ? `관리자 개인 지출 삭제 (${Number(adminPersonalExpenseDeleteTarget.amount).toLocaleString('ko-KR')}원)`
+              : ''
+          }
+          description="이 지출 기록을 삭제합니다."
+          confirmLabel="삭제"
+          zIndexClassName="z-[620]"
+          onClose={() => setAdminPersonalExpenseDeleteTarget(null)}
+          onConfirm={async (password) => {
+            if (!token || !adminPersonalExpenseDeleteTarget) return;
+            await deletePayrollAdminPersonalExpense(token, adminPersonalExpenseDeleteTarget.id, password);
+            const list = await getPayrollAdminPersonalExpenses(token, month);
+            setAdminPersonalExpenseItems(list.items);
+          }}
+        />,
+        document.body
+      )}
+
+      {createPortal(
+        <ConfirmPasswordModal
+          open={Boolean(incomeDepositDeleteTarget)}
+          title={
+            incomeDepositDeleteTarget
+              ? `입금 내역 삭제 (${compactPayDate(incomeDepositDeleteTarget.depositedOnYmd)} · ${Number(
+                  incomeDepositDeleteTarget.amount
+                ).toLocaleString('ko-KR')}원)`
+              : ''
+          }
+          description="이 입금 기록을 삭제합니다."
+          confirmLabel="삭제"
+          zIndexClassName="z-[620]"
+          onClose={() => setIncomeDepositDeleteTarget(null)}
+          onConfirm={async (password) => {
+            if (!token || !incomeDepositDeleteTarget) return;
+            await deletePayrollIncomeDeposit(token, incomeDepositDeleteTarget.id, password);
+            const list = await getPayrollIncomeDeposits(token, month);
+            setIncomeDepositItems(list.items);
           }}
         />,
         document.body
