@@ -11,11 +11,10 @@ import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { isPublicHoliday } from '../../utils/holidays';
-import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
+import { isSonEomneungNal } from '../../utils/sonEomneungNal';
 import { formatDateCompactWithWeekday, kstTodayYmd, weekdayKoFromYmd } from '../../utils/dateFormat';
 import {
   STATUS_LABELS,
-  WEEKDAYS,
   type InquiryItem,
   formatScheduleLine,
   formatCrewInfo,
@@ -28,6 +27,14 @@ import {
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import type { ScheduleItem } from '../../api/schedule';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
+import {
+  TEAM_WEEKDAY_HEADERS,
+  TeamBiLine,
+  TeamBiInline,
+  formatTeamAreaPyeongBi,
+  teamBiPlain,
+  teamT,
+} from '../../i18n/team/teamI18n';
 
 /** 관리자 스케줄과 동일 아이콘. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL 로 덮어쓰기 */
 const DEFAULT_SCHEDULE_MAP_ICON =
@@ -48,6 +55,16 @@ function getMonthRange(year: number, month: number) {
   return { start: toDateKey(start), end: toDateKey(end) };
 }
 
+function yearOptionLabel(y: number): string {
+  const row = teamT('team.schedule.yearOption', { y: String(y) });
+  return `${row.ko} · ${row.th}`;
+}
+
+function monthOptionLabel(m: number): string {
+  const row = teamT('team.schedule.monthOption', { m: String(m) });
+  return `${row.ko} · ${row.th}`;
+}
+
 export function TeamSchedulePage() {
   const token = getTeamToken();
   const location = useLocation();
@@ -63,23 +80,26 @@ export function TeamSchedulePage() {
   const [mapModalItems, setMapModalItems] = useState<ScheduleItem[]>([]);
 
   /** 성능: 전체 담당 접수가 아닌 「현재 달력에 보이는 한 달」만 가져온다. */
-  const loadSchedule = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!token) return;
-    if (!opts?.silent) setLoading(true);
-    try {
-      const { start, end } = getMonthRange(year, month);
-      const [inv, hc] = await Promise.all([
-        getTeamSchedule(token, start, end) as Promise<{ items: InquiryItem[] }>,
-        getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
-      ]);
-      setItems(inv.items);
-      setHappyStats(hc);
-    } catch {
-      setItems([]);
-    } finally {
-      if (!opts?.silent) setLoading(false);
-    }
-  }, [token, year, month, previewKey]);
+  const loadSchedule = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!token) return;
+      if (!opts?.silent) setLoading(true);
+      try {
+        const { start, end } = getMonthRange(year, month);
+        const [inv, hc] = await Promise.all([
+          getTeamSchedule(token, start, end) as Promise<{ items: InquiryItem[] }>,
+          getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
+        ]);
+        setItems(inv.items);
+        setHappyStats(hc);
+      } catch {
+        setItems([]);
+      } finally {
+        if (!opts?.silent) setLoading(false);
+      }
+    },
+    [token, year, month, previewKey],
+  );
 
   useEffect(() => {
     void loadSchedule();
@@ -110,46 +130,57 @@ export function TeamSchedulePage() {
     return `${year}-${m}-${day}`;
   };
 
+  const mapPinLabel = teamBiPlain('team.schedule.mapThisInquiry');
+
   if (loading) {
     return (
-      <div className="py-12 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
+      <div className="py-12 text-center text-gray-500 text-fluid-sm">
+        <TeamBiLine id="team.common.loading" koClassName="text-fluid-sm text-gray-500" />
+      </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-5 min-w-0 pb-4">
-      <h1 className="text-xl font-semibold text-gray-800">스케줄</h1>
+      <h1 className="text-xl font-semibold text-gray-800">
+        <TeamBiLine id="team.schedule.title" koClassName="text-xl font-semibold text-gray-800" />
+      </h1>
       {(happyStats.overdueCount > 0 || happyStats.pendingBeforeDeadlineCount > 0) && (
         <div
-          className={`rounded-xl border px-4 py-3 text-fluid-sm ${
+          className={`rounded-xl border px-4 py-3 text-fluid-sm space-y-2 ${
             happyStats.overdueCount > 0
               ? 'border-red-200 bg-red-50 text-red-900'
               : 'border-amber-200 bg-amber-50 text-amber-900'
           }`}
         >
-          해피콜 미완:{' '}
-          {happyStats.overdueCount > 0 && (
-            <>
-              마감 초과 <strong className="tabular-nums">{happyStats.overdueCount}</strong>건
-            </>
-          )}
-          {happyStats.overdueCount > 0 && happyStats.pendingBeforeDeadlineCount > 0 && ' · '}
-          {happyStats.pendingBeforeDeadlineCount > 0 && (
-            <>
-              마감 전 <strong className="tabular-nums">{happyStats.pendingBeforeDeadlineCount}</strong>건
-            </>
-          )}
+          <TeamBiLine id="team.schedule.happyIncomplete" koClassName="text-fluid-sm font-medium" />
+          <div className="flex flex-wrap gap-x-3 gap-y-1 items-center">
+            {happyStats.overdueCount > 0 ? (
+              <TeamBiLine
+                id="team.assign.happyOverdueCases"
+                vars={{ count: String(happyStats.overdueCount) }}
+                koClassName="text-fluid-sm tabular-nums"
+              />
+            ) : null}
+            {happyStats.pendingBeforeDeadlineCount > 0 ? (
+              <TeamBiLine
+                id="team.assign.happyPendingCases"
+                vars={{ count: String(happyStats.pendingBeforeDeadlineCount) }}
+                koClassName="text-fluid-sm tabular-nums"
+              />
+            ) : null}
+          </div>
         </div>
       )}
       <section>
         <h2 className="text-base font-semibold text-gray-800 mb-3 px-1 flex items-center gap-2 flex-wrap">
-          <span className="w-1 h-4 bg-gray-400 rounded" />
-          달력 · 날짜별 상세
+          <span className="w-1 h-4 bg-gray-400 rounded shrink-0" />
+          <TeamBiLine id="team.schedule.sectionCalendar" koClassName="text-base font-semibold text-gray-800" />
           <span
-            className="text-fluid-2xs font-normal text-gray-500 ml-auto sm:ml-1"
-            title={SON_EOMNEUNG_NAL_HELP}
+            className="text-fluid-2xs font-normal text-gray-500 ml-auto sm:ml-1 max-w-[min(100%,14rem)] text-right"
+            title={teamBiPlain('team.schedule.legendTealTooltip')}
           >
-            <span className="font-bold text-teal-700 tabular-nums">숫자 청록</span>=손없는날
+            <TeamBiLine id="team.schedule.legendTealNumbers" koClassName="text-fluid-2xs font-normal text-gray-500 inline-block" />
           </span>
         </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
@@ -160,7 +191,9 @@ export function TeamSchedulePage() {
               className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg text-fluid-sm"
             >
               {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
-                <option key={y} value={y}>{y}년</option>
+                <option key={y} value={y}>
+                  {yearOptionLabel(y)}
+                </option>
               ))}
             </select>
             <select
@@ -169,17 +202,20 @@ export function TeamSchedulePage() {
               className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg text-fluid-sm"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>{m}월</option>
+                <option key={m} value={m}>
+                  {monthOptionLabel(m)}
+                </option>
               ))}
             </select>
           </div>
           <div className="grid grid-cols-7 text-center text-calendar-xs [word-break:keep-all]">
-            {WEEKDAYS.map((w, wi) => (
+            {TEAM_WEEKDAY_HEADERS.map((wh, wi) => (
               <div
-                key={w}
-                className={`py-1.5 px-1 sm:py-2 sm:px-2 font-medium min-w-0 ${wi === 6 ? 'text-blue-600' : 'text-gray-500'}`}
+                key={`${wh.ko}-${wi}`}
+                className={`py-1.5 px-1 sm:py-2 sm:px-2 font-medium min-w-0 leading-tight ${wi === 6 ? 'text-blue-600' : 'text-gray-500'}`}
               >
-                {w}
+                <span className="block">{wh.ko}</span>
+                <span className={`block text-calendar-2xs ${wi === 6 ? 'text-blue-500' : 'text-gray-400'}`}>{wh.th}</span>
               </div>
             ))}
             {calendarDays.map((d, i) => {
@@ -208,11 +244,7 @@ export function TeamSchedulePage() {
                     : isSaturday
                       ? 'text-blue-600'
                       : 'text-gray-800';
-              const weekdayClass = isHoliday
-                ? 'text-red-600'
-                : isSaturday
-                  ? 'text-blue-600'
-                  : 'text-gray-600';
+              const weekdayClass = isHoliday ? 'text-red-600' : isSaturday ? 'text-blue-600' : 'text-gray-600';
               return (
                 <div
                   key={key}
@@ -222,23 +254,30 @@ export function TeamSchedulePage() {
                   } ${isToday ? 'ring-1 ring-blue-400 ring-inset' : ''} ${isSelected ? 'bg-blue-200' : 'active:bg-gray-100'}`}
                 >
                   <span
-                    title={sonDay ? SON_EOMNEUNG_NAL_HELP : undefined}
+                    title={sonDay ? teamBiPlain('team.schedule.legendTealTooltip') : undefined}
                     className="absolute top-0.5 left-1 right-1 text-center text-calendar-2xs font-medium leading-tight tabular-nums"
                   >
                     <span className={dayNumClass}>{d}</span>{' '}
                     <span className={weekdayClass}>{weekdayKoFromYmd(year, month, d)}</span>
                   </span>
-                  {hasEvents && (
-                    <span className="text-calendar-2xs text-blue-600 font-medium">{dayItems.length}건</span>
-                  )}
+                  {hasEvents ? (
+                    <span className="text-calendar-2xs text-blue-600 font-medium inline-flex justify-center">
+                      <TeamBiLine
+                        id="team.schedule.jobsCount"
+                        vars={{ count: String(dayItems.length) }}
+                        koClassName="text-calendar-2xs text-blue-600 font-medium"
+                      />
+                    </span>
+                  ) : null}
                 </div>
               );
             })}
           </div>
           {selectedDate && (
             <div className="border-t border-gray-200 p-4 bg-gray-50">
-              <h3 className="text-fluid-xs font-semibold text-gray-700 mb-3 tabular-nums">
-                {formatDateCompactWithWeekday(selectedDate)} 상세
+              <h3 className="text-fluid-xs font-semibold text-gray-700 mb-3 tabular-nums leading-snug flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span>{formatDateCompactWithWeekday(selectedDate)}</span>
+                <TeamBiInline id="team.schedule.dayDetailSuffix" />
               </h3>
               {(byDate[selectedDate]?.length ?? 0) > 0 ? (
                 <div className="flex flex-col gap-2">
@@ -248,94 +287,95 @@ export function TeamSchedulePage() {
                     const memoTrim = item.scheduleMemo?.trim() ?? '';
                     const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
                     return (
-                    <div
-                      key={item.id}
-                      className="bg-white border border-gray-200 rounded-lg p-4"
-                      onClick={() => setDetailItem(item)}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-gray-900">{primaryLabel}</div>
-                          {memoSubtitle ? (
-                            <div className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
-                              {memoTrim}
-                            </div>
-                          ) : null}
-                          {item.memo?.trim() ? (
-                            <div
-                              className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-indigo-900/90"
-                              title={`관리자 특이사항: ${item.memo.trim()}`}
-                            >
-                              관리자: {item.memo.trim()}
-                            </div>
-                          ) : null}
-                          <div className="text-fluid-sm text-gray-600 mt-0.5">
-                            {item.customerPhone}
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-fluid-xs text-gray-600">
-                            <span>담당 {mk.name}</span>
-                            {mk.phone ? (
-                              <a
-                                href={`tel:${mk.phone}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700"
-                              >
-                                전화걸기
-                              </a>
+                      <div
+                        key={item.id}
+                        className="bg-white border border-gray-200 rounded-lg p-4"
+                        onClick={() => setDetailItem(item)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-gray-900">{primaryLabel}</div>
+                            {memoSubtitle ? (
+                              <div className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
+                                {memoTrim}
+                              </div>
                             ) : null}
+                            {item.memo?.trim() ? (
+                              <div
+                                className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-indigo-900/90"
+                                title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
+                              >
+                                {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
+                              </div>
+                            ) : null}
+                            <div className="text-fluid-sm text-gray-600 mt-0.5">{item.customerPhone}</div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-fluid-xs text-gray-600">
+                              <span>
+                                {teamBiPlain('team.assign.marketerPrefix')} {mk.name}
+                              </span>
+                              {mk.phone ? (
+                                <a
+                                  href={`tel:${mk.phone}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700"
+                                >
+                                  <TeamBiInline id="team.common.phoneCall" />
+                                </a>
+                              ) : null}
+                            </div>
+                            <div className="text-fluid-xs text-gray-500 mt-1 break-words">
+                              {item.address}
+                              {item.addressDetail ? ` ${item.addressDetail}` : ''}
+                            </div>
+                            <div className="text-fluid-xs text-gray-500 mt-0.5">
+                              {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} ·{' '}
+                              {formatTeamAreaPyeongBi(item.areaPyeong)}
+                            </div>
+                            <div className="text-fluid-xs text-gray-500 mt-0.5" title={formatCrewInfo(item)}>
+                              {formatCrewInfo(item)}
+                            </div>
                           </div>
-                          <div className="text-fluid-xs text-gray-500 mt-1 break-words">
-                            {item.address}
-                            {item.addressDetail ? ` ${item.addressDetail}` : ''}
-                          </div>
-                          <div className="text-fluid-xs text-gray-500 mt-0.5">
-                            {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} · {item.areaPyeong ?? '-'}평
-                          </div>
-                          <div className="text-fluid-xs text-gray-500 mt-0.5" title={formatCrewInfo(item)}>
-                            {formatCrewInfo(item)}
+                          <div className="shrink-0 flex flex-col items-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMapModalItems([item as unknown as ScheduleItem]);
+                              }}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-300 bg-white text-gray-700 shadow-sm hover:border-gray-400 hover:bg-gray-50 touch-manipulation"
+                              title={mapPinLabel}
+                              aria-label={mapPinLabel}
+                            >
+                              <img
+                                src={scheduleMapIconUrl}
+                                alt=""
+                                className="pointer-events-none h-7 w-7 select-none object-contain"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            </button>
+                            <a
+                              href={`tel:${item.customerPhone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-fluid-xs font-medium text-center"
+                            >
+                              <TeamBiInline id="team.common.phone" />
+                            </a>
                           </div>
                         </div>
-                        <div className="shrink-0 flex flex-col items-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMapModalItems([item as unknown as ScheduleItem]);
-                            }}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-300 bg-white text-gray-700 shadow-sm hover:border-gray-400 hover:bg-gray-50 touch-manipulation"
-                            title="이 접수 위치 지도"
-                            aria-label="이 접수 위치 지도"
-                          >
-                            <img
-                              src={scheduleMapIconUrl}
-                              alt=""
-                              className="pointer-events-none h-7 w-7 select-none object-contain"
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          </button>
-                          <a
-                            href={`tel:${item.customerPhone}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-fluid-xs font-medium text-center"
-                          >
-                            전화
-                          </a>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <span className="inline-block px-2 py-0.5 rounded text-fluid-xs bg-gray-200 text-gray-800">
+                            {STATUS_LABELS[item.status] ?? item.status}
+                          </span>
+                          <TeamHappyCallBadge item={item} />
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-2">
-                        <span className="inline-block px-2 py-0.5 rounded text-fluid-xs bg-gray-200 text-gray-800">
-                          {STATUS_LABELS[item.status] ?? item.status}
-                        </span>
-                        <TeamHappyCallBadge item={item} />
-                      </div>
-                    </div>
                     );
                   })}
                 </div>
               ) : (
                 <div className="text-center text-gray-500 text-fluid-sm py-4">
-                  해당 날짜에 일정이 없습니다.
+                  <TeamBiLine id="team.schedule.emptyDay" koClassName="text-fluid-sm text-gray-500" />
                 </div>
               )}
             </div>

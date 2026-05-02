@@ -5,6 +5,11 @@ import { getMyDayOffs, addDayOff, removeDayOff } from '../../api/dayoffs';
 import { getTeamMe } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import {
+  TEAM_WEEKDAY_HEADERS,
+  TeamBiLine,
+  teamT,
+} from '../../i18n/team/teamI18n';
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -34,12 +39,20 @@ function getCalendarDays(year: number, month: number) {
   return days;
 }
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
-
 function formatDateLabelYmd(ymd: string): string {
   const [y, m, d] = ymd.split('-').map((x) => parseInt(x, 10));
   if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd;
   return `${y}년 ${m}월 ${d}일`;
+}
+
+function yearOptionLabel(y: number): string {
+  const row = teamT('team.schedule.yearOption', { y: String(y) });
+  return `${row.ko} · ${row.th}`;
+}
+
+function monthOptionLabel(mo: number): string {
+  const row = teamT('team.schedule.monthOption', { m: String(mo) });
+  return `${row.ko} · ${row.th}`;
 }
 
 type DayOffConfirmModal = { mode: 'add' | 'remove'; ymd: string } | null;
@@ -142,18 +155,19 @@ export function TeamDayOffsPage() {
 
   return (
     <div className="flex flex-col gap-4 min-w-0">
-      <h1 className="text-xl font-semibold text-gray-800">휴무일 설정</h1>
-      <p className="text-sm text-gray-600">
-        날짜를 누르면 확인 창에서 휴무를 지정하거나, 이미 휴무인 날은 취소할 수 있습니다. 관리자 캘린더에 반영됩니다.
-      </p>
+      <h1 className="text-xl font-semibold text-gray-800">
+        <TeamBiLine id="team.dayoffs.pageTitle" koClassName="text-xl font-semibold text-gray-800" />
+      </h1>
+      <div className="text-sm text-gray-600">
+        <TeamBiLine id="team.dayoffs.intro" koClassName="text-sm text-gray-600" />
+      </div>
 
       {profileReady && !selfEditAllowed && (
         <div
           className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-fluid-sm text-amber-950"
           role="status"
         >
-          관리자에 의해 본인 휴무일 등록이 비활성화되어 있습니다. 변경이 필요하면 관리자에게 요청해 주세요. (이미
-          등록된 휴무는 그대로 표시됩니다.)
+          <TeamBiLine id="team.dayoffs.selfEditDeniedLong" koClassName="text-fluid-sm text-amber-950" />
         </div>
       )}
 
@@ -164,7 +178,9 @@ export function TeamDayOffsPage() {
           className="px-3 py-2 border border-gray-300 rounded text-sm"
         >
           {yearOptions.map((y) => (
-            <option key={y} value={y}>{y}년</option>
+            <option key={y} value={y}>
+              {yearOptionLabel(y)}
+            </option>
           ))}
         </select>
         <select
@@ -173,22 +189,27 @@ export function TeamDayOffsPage() {
           className="px-3 py-2 border border-gray-300 rounded text-sm"
         >
           {monthOptions.map((m) => (
-            <option key={m} value={m}>{m}월</option>
+            <option key={m} value={m}>
+              {monthOptionLabel(m)}
+            </option>
           ))}
         </select>
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-gray-500 text-sm">로딩 중...</div>
+        <div className="py-12 text-center text-gray-500 text-sm">
+          <TeamBiLine id="team.common.loading" koClassName="text-sm text-gray-500" />
+        </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="grid grid-cols-7 text-center text-xs">
-            {WEEKDAYS.map((w, wi) => (
+            {TEAM_WEEKDAY_HEADERS.map((wh, wi) => (
               <div
-                key={w}
-                className={`py-2 font-medium ${wi === 6 ? 'text-blue-600' : 'text-gray-600'}`}
+                key={`${wh.ko}-${wi}`}
+                className={`py-2 font-medium leading-tight ${wi === 6 ? 'text-blue-600' : 'text-gray-600'}`}
               >
-                {w}
+                <span className="block">{wh.ko}</span>
+                <span className={`block text-[10px] ${wi === 6 ? 'text-blue-500' : 'text-gray-400'}`}>{wh.th}</span>
               </div>
             ))}
             {calendarDays.map((d, i) => {
@@ -206,7 +227,11 @@ export function TeamDayOffsPage() {
                   } ${isOff ? 'bg-red-100 text-red-700 font-medium' : canInteract ? 'hover:bg-gray-50' : ''}`}
                 >
                   {d}
-                  {isOff && <span className="block text-[10px]">휴무</span>}
+                  {isOff ? (
+                    <span className="block text-[10px] leading-tight">
+                      <TeamBiLine id="team.dayoffs.cellLabel" koClassName="text-[10px] leading-tight text-red-700" />
+                    </span>
+                  ) : null}
                 </div>
               );
             })}
@@ -214,9 +239,9 @@ export function TeamDayOffsPage() {
         </div>
       )}
 
-      <div className="text-sm text-gray-500">
-        <span className="inline-block w-4 h-4 bg-red-100 rounded mr-1 align-middle" />
-        붉은색 = 휴무일
+      <div className="text-sm text-gray-500 flex items-start gap-1">
+        <span className="inline-block w-4 h-4 bg-red-100 rounded shrink-0 mt-0.5 align-middle" />
+        <TeamBiLine id="team.dayoffs.legendRed" koClassName="text-sm text-gray-500" />
       </div>
 
       {confirmModal &&
@@ -234,14 +259,20 @@ export function TeamDayOffsPage() {
               aria-labelledby="team-dayoff-confirm-title"
             >
               <h2 id="team-dayoff-confirm-title" className="text-lg font-semibold text-gray-900">
-                {confirmModal.mode === 'add' ? '해당 휴무를 지정할까요?' : '취소할까요?'}
+                {confirmModal.mode === 'add' ? (
+                  <TeamBiLine id="team.dayoffs.confirmAddTitle" koClassName="text-lg font-semibold text-gray-900" />
+                ) : (
+                  <TeamBiLine id="team.dayoffs.confirmRemoveTitle" koClassName="text-lg font-semibold text-gray-900" />
+                )}
               </h2>
               <p className="mt-2 text-fluid-sm text-gray-600">{formatDateLabelYmd(confirmModal.ymd)}</p>
-              <p className="mt-1 text-fluid-xs text-gray-500">
-                {confirmModal.mode === 'add'
-                  ? '지정하면 이 날짜는 관리자 스케줄에 휴무로 표시됩니다.'
-                  : '취소하면 이 날짜의 휴무가 해제됩니다.'}
-              </p>
+              <div className="mt-1 text-fluid-xs text-gray-500">
+                {confirmModal.mode === 'add' ? (
+                  <TeamBiLine id="team.dayoffs.confirmAddHint" koClassName="text-fluid-xs text-gray-500" />
+                ) : (
+                  <TeamBiLine id="team.dayoffs.confirmRemoveHint" koClassName="text-fluid-xs text-gray-500" />
+                )}
+              </div>
               <div className="mt-6 flex gap-2">
                 <button
                   type="button"
@@ -249,7 +280,7 @@ export function TeamDayOffsPage() {
                   onClick={() => setConfirmModal(null)}
                   className="flex-1 min-h-[44px] rounded-xl border border-gray-300 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  아니오
+                  <TeamBiLine id="team.dayoffs.no" koClassName="text-fluid-sm font-medium text-gray-800" />
                 </button>
                 <button
                   type="button"
@@ -257,7 +288,11 @@ export function TeamDayOffsPage() {
                   onClick={() => void handleConfirmDayOff()}
                   className="flex-1 min-h-[44px] rounded-xl bg-gray-900 text-fluid-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
                 >
-                  {confirmBusy ? '처리 중…' : '예'}
+                  {confirmBusy ? (
+                    <TeamBiLine id="team.modal.processing" koClassName="text-fluid-sm font-medium text-white" />
+                  ) : (
+                    <TeamBiLine id="team.dayoffs.yes" koClassName="text-fluid-sm font-medium text-white" />
+                  )}
                 </button>
               </div>
             </div>

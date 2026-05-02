@@ -18,6 +18,15 @@ export type PayrollDetailLineOut = {
   crewMemberNote: string | null;
 };
 
+export type CrewExpenseLedgerLineOut = {
+  id: string;
+  amount: number;
+  memo: string | null;
+  createdAt: string;
+  crewGroupName: string;
+  attachmentCount: number;
+};
+
 export type PoolMemberPayrollComputation = {
   monthKey: string;
   monthLabel: string;
@@ -29,7 +38,13 @@ export type PoolMemberPayrollComputation = {
   poolSystemDays: number | null;
   poolManualExtraDays: number;
   jobCount: number | null;
+  /** 근무일×일당 예상 급여(차감 전) */
   amount: number | null;
+  /** 해당 귀속 월 크루 등록 지출 합계 */
+  crewExpenseTotal: number;
+  /** 예상 급여 − 지출 (0 미만이면 0) — 정산 확정 금액 기준 */
+  amountNet: number | null;
+  crewExpenseLines: CrewExpenseLedgerLineOut[];
   notes: string[];
   lines: PayrollDetailLineOut[];
 };
@@ -155,6 +170,39 @@ export async function computePoolMemberPayrollDetail(
 
   const amount = unitAmount != null && jobCount !== null ? jobCount * unitAmount : null;
 
+  const expenseRows = await prisma.teamCrewGroupExpense.findMany({
+    where: { teamMemberId, monthKey },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      amount: true,
+      memo: true,
+      createdAt: true,
+      group: { select: { name: true } },
+      attachments: { select: { id: true } },
+    },
+  });
+
+  const crewExpenseTotal = expenseRows.reduce((s, row) => s + row.amount, 0);
+  const crewExpenseLines: CrewExpenseLedgerLineOut[] = expenseRows.map((row) => ({
+    id: row.id,
+    amount: row.amount,
+    memo: row.memo,
+    createdAt: row.createdAt.toISOString(),
+    crewGroupName: row.group.name,
+    attachmentCount: row.attachments.length,
+  }));
+
+  let amountNet: number | null = null;
+  if (amount != null) {
+    amountNet = Math.max(0, amount - crewExpenseTotal);
+    if (crewExpenseTotal > 0) {
+      notes.push(
+        `크루 등록 지출 ${crewExpenseTotal.toLocaleString('ko-KR')}원 차감 → 실지급 예상 ${amountNet.toLocaleString('ko-KR')}원`,
+      );
+    }
+  }
+
   return {
     monthKey,
     monthLabel,
@@ -167,6 +215,9 @@ export async function computePoolMemberPayrollDetail(
     poolManualExtraDays: manualExtra,
     jobCount,
     amount,
+    crewExpenseTotal,
+    amountNet,
+    crewExpenseLines,
     notes,
     lines,
   };

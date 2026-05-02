@@ -142,6 +142,14 @@ export function CrewLayout() {
               <CrewBiLine id="crew.layout.navSchedule" />
             </NavLink>
             <NavLink
+              to="/crew/expenses"
+              className={({ isActive }) =>
+                `px-2 py-1 rounded ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`
+              }
+            >
+              <CrewBiLine id="crew.layout.navExpenses" />
+            </NavLink>
+            <NavLink
               to="/crew/roster"
               className={() =>
                 `px-2 py-1 rounded ${

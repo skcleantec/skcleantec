@@ -87,3 +87,13 @@ export function crewGroupOnly(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+/** 크루 JWT에 그룹장 뷰(LEADER)인 경우만 통과 — 공유 로그인에서 조장 슬롯이 있을 때 발급 */
+export function crewLeaderJwtOnly(req: Request, res: Response, next: NextFunction) {
+  const user = (req as Request & { user?: AuthPayload }).user;
+  if (!user || user.crewViewerRole !== 'LEADER') {
+    res.status(403).json({ error: '그룹장만 이용할 수 있습니다.' });
+    return;
+  }
+  next();
+}
+

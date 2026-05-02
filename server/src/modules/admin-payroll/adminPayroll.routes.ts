@@ -6,7 +6,6 @@ import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middle
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
   crewMemberNoteIncludesTeamMember,
-  distinctPayrollDaysForPoolMember,
   payYmdInMonth,
   payrollAccrualPeriodForPaymentDate,
   payrollCyclePreferredDateWhere,
@@ -14,6 +13,18 @@ import {
 import { dateToYmdKst, employmentOverlapsMonthKst } from '../users/userEmployment.js';
 
 import { computePoolMemberPayrollDetail } from './poolMemberPayrollCompute.js';
+import {
+  compareMonthKey,
+  marketerRemainderAfterSettle,
+  marketerTotalDue,
+  simulateMarketerOpeningCarryForward,
+  type MarketerSettlementSlice,
+} from './marketerPayrollLedger.js';
+import {
+  sumCrewExpensesByMemberIdsForMonth,
+  getAdminCrewExpenseDetail,
+  listAdminCrewExpensesForMonth,
+} from '../crew/crewGroupExpense.service.js';
 
 const router = Router();
 
@@ -82,6 +93,40 @@ async function loadTeamLeaderPayrollSubject(
   return { id: u.id, name: u.name, payrollMonthlySalary: u.payrollMonthlySalary };
 }
 
+async function loadMarketerPayrollSubject(
+  prismaClient: typeof prisma,
+  userId: string,
+  monthKey: string,
+): Promise<{
+  id: string;
+  name: string;
+  payrollMonthlySalary: number | null;
+  payrollPayDay: number | null;
+  hireDate: Date | null;
+  resignationDate: Date | null;
+} | null> {
+  const range = kstMonthRangeYm(monthKey);
+  if (!range) return null;
+  const monthStartYmd = dateToYmdKst(range.gte);
+  const monthEndYmd = dateToYmdKst(range.lte);
+  const u = await prismaClient.user.findFirst({
+    where: { id: userId, role: 'MARKETER', isActive: true },
+    select: {
+      id: true,
+      name: true,
+      payrollMonthlySalary: true,
+      payrollPayDay: true,
+      hireDate: true,
+      resignationDate: true,
+    },
+  });
+  if (!u) return null;
+  if (!employmentOverlapsMonthKst(u.hireDate, u.resignationDate, monthStartYmd, monthEndYmd)) {
+    return null;
+  }
+  return u;
+}
+
 type PayrollSheetRowKind = 'POOL_MEMBER' | 'TEAM_LEADER' | 'MARKETER';
 
 router.get('/sheet', async (req, res) => {
@@ -97,6 +142,7 @@ router.get('/sheet', async (req, res) => {
     return;
   }
 
+  try {
   const monthStartYmd = dateToYmdKst(range.gte);
   const monthEndYmd = dateToYmdKst(range.lte);
   const [yStr, mStr] = monthKey.split('-');
@@ -120,6 +166,14 @@ router.get('/sheet', async (req, res) => {
     poolManualExtraDays?: number | null;
     poolSettlementComplete?: boolean;
     leaderPaymentCount?: number;
+    marketerOpeningCarryForward?: number;
+    marketerMonthlySalary?: number | null;
+    marketerTotalDue?: number | null;
+    marketerSettlementComplete?: boolean;
+    marketerSettledAmount?: number | null;
+    marketerUnsettledRemainder?: number | null;
+    crewExpenseTotal?: number;
+    amountNet?: number | null;
   };
 
   const rows: SheetRow[] = [];
@@ -137,23 +191,57 @@ router.get('/sheet', async (req, res) => {
     byPayDay.get(d)!.push(m);
   }
 
-  const inquiryCache = new Map<
-    number,
-    { crewMemberNote: string | null; preferredDate: Date | null }[]
-  >();
+  const payrollDaysByMemberId = new Map<string, Set<string>>();
+  for (const pm of poolMembers) {
+    payrollDaysByMemberId.set(pm.id, new Set());
+  }
+
+  /** 급여일별 산정 구간 — 접수는 커서 배치로만 적재(전량 메모리 적재 방지) */
+  const periodByPayDay = new Map<number, { startYmd: string; endYmd: string }>();
+  let envelopeMin: string | null = null;
+  let envelopeMax: string | null = null;
   for (const payDay of byPayDay.keys()) {
     const payDateYmd = payYmdInMonth(calYear, monthIndex, payDay);
     const period = payrollAccrualPeriodForPaymentDate(payDateYmd, payDay);
     if (!period) continue;
-    const bounds = payrollCyclePreferredDateWhere(period.startYmd, period.endYmd);
-    const inquiries = await prisma.inquiry.findMany({
-      where: {
-        preferredDate: { gte: bounds.gte, lte: bounds.lte },
-        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-      },
-      select: { crewMemberNote: true, preferredDate: true },
-    });
-    inquiryCache.set(payDay, inquiries);
+    periodByPayDay.set(payDay, period);
+    if (envelopeMin == null || period.startYmd < envelopeMin) envelopeMin = period.startYmd;
+    if (envelopeMax == null || period.endYmd > envelopeMax) envelopeMax = period.endYmd;
+  }
+
+  const PAYROLL_INQUIRY_BATCH = 2000;
+  if (periodByPayDay.size > 0 && envelopeMin != null && envelopeMax != null) {
+    const envBounds = payrollCyclePreferredDateWhere(envelopeMin, envelopeMax);
+    let cursorId: string | undefined;
+    for (;;) {
+      const batch = await prisma.inquiry.findMany({
+        where: {
+          preferredDate: { gte: envBounds.gte, lte: envBounds.lte },
+          status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+        },
+        select: { id: true, crewMemberNote: true, preferredDate: true },
+        orderBy: { id: 'asc' },
+        take: PAYROLL_INQUIRY_BATCH,
+        ...(cursorId ? { skip: 1, cursor: { id: cursorId } } : {}),
+      });
+      if (batch.length === 0) break;
+
+      for (const inq of batch) {
+        if (!inq.preferredDate) continue;
+        const ymd = dateToYmdKst(inq.preferredDate);
+        for (const [payDay, period] of periodByPayDay) {
+          if (ymd < period.startYmd || ymd > period.endYmd) continue;
+          const members = byPayDay.get(payDay);
+          if (!members?.length) continue;
+          for (const mem of members) {
+            if (!crewMemberNoteIncludesTeamMember(inq.crewMemberNote, mem)) continue;
+            payrollDaysByMemberId.get(mem.id)?.add(ymd);
+          }
+        }
+      }
+
+      cursorId = batch[batch.length - 1]!.id;
+    }
   }
 
   const poolAdjusts = await prisma.teamMemberPayrollMonthAdjust.findMany({
@@ -163,6 +251,11 @@ router.get('/sheet', async (req, res) => {
     },
   });
   const extraDaysByMemberId = new Map(poolAdjusts.map((a) => [a.teamMemberId, a.extraWorkDays]));
+
+  const crewExpenseByPoolMemberId = await sumCrewExpensesByMemberIdsForMonth(
+    poolMembers.map((pm) => pm.id),
+    monthKey,
+  );
 
   const poolSettlementRows = await prisma.teamMemberPayrollSettlement.findMany({
     where: {
@@ -196,9 +289,8 @@ router.get('/sheet', async (req, res) => {
       if (period) {
         accrualStartYmd = period.startYmd;
         accrualEndYmd = period.endYmd;
-        const cached = inquiryCache.get(m.monthlyPayDay);
-        if (cached) {
-          autoDays = distinctPayrollDaysForPoolMember(cached, m);
+        if (periodByPayDay.has(m.monthlyPayDay)) {
+          autoDays = payrollDaysByMemberId.get(m.id)?.size ?? 0;
         }
       }
     } else {
@@ -225,6 +317,14 @@ router.get('/sheet', async (req, res) => {
       amount = jobCount * unitAmount;
     }
 
+    const crewExpenseTotal = crewExpenseByPoolMemberId.get(m.id) ?? 0;
+    const amountNet = amount != null ? Math.max(0, amount - crewExpenseTotal) : null;
+    if (crewExpenseTotal > 0 && amount != null && amountNet != null) {
+      notes.push(
+        `크루 등록 지출 ${crewExpenseTotal.toLocaleString('ko-KR')}원 차감 → 실지급 예상 ${amountNet.toLocaleString('ko-KR')}원`,
+      );
+    }
+
     rows.push({
       kind: 'POOL_MEMBER',
       id: m.id,
@@ -240,6 +340,8 @@ router.get('/sheet', async (req, res) => {
       poolSystemDays: autoDays,
       poolManualExtraDays: manualExtra,
       poolSettlementComplete: settledMemberIds.has(m.id),
+      crewExpenseTotal,
+      amountNet,
     });
   }
 
@@ -274,6 +376,55 @@ router.get('/sheet', async (req, res) => {
     cur.sum += p.amount;
     cur.count += 1;
     leaderAgg.set(p.userId, cur);
+  }
+
+  const marketerIdsForSheet = staffUsers.filter((u) => u.role === 'MARKETER').map((u) => u.id);
+  const marketerAllSettleRows =
+    marketerIdsForSheet.length === 0
+      ? []
+      : await prisma.marketerPayrollSettlement.findMany({
+          where: { userId: { in: marketerIdsForSheet } },
+          select: {
+            userId: true,
+            monthKey: true,
+            openingCarryForward: true,
+            scheduledMonthlySalary: true,
+            settledAmount: true,
+            memo: true,
+            settledAt: true,
+          },
+          orderBy: [{ userId: 'asc' }, { monthKey: 'asc' }],
+        });
+
+  const marketerAscSlicesByUserId = new Map<string, MarketerSettlementSlice[]>();
+  const marketerCurrentMonthSettleByUserId = new Map<
+    string,
+    {
+      openingCarryForward: number;
+      scheduledMonthlySalary: number | null;
+      settledAmount: number;
+      memo: string | null;
+      settledAt: Date;
+    }
+  >();
+
+  for (const row of marketerAllSettleRows) {
+    const arr = marketerAscSlicesByUserId.get(row.userId) ?? [];
+    arr.push({
+      monthKey: row.monthKey,
+      scheduledMonthlySalary: row.scheduledMonthlySalary,
+      settledAmount: row.settledAmount,
+    });
+    marketerAscSlicesByUserId.set(row.userId, arr);
+    if (row.monthKey === monthKey) {
+      marketerCurrentMonthSettleByUserId.set(row.userId, {
+        openingCarryForward: row.openingCarryForward,
+        scheduledMonthlySalary: row.scheduledMonthlySalary,
+        settledAmount: row.settledAmount,
+        memo: row.memo,
+        settledAt: row.settledAt,
+      });
+    }
   }
 
   for (const u of staffUsers) {
@@ -317,18 +468,58 @@ router.get('/sheet', async (req, res) => {
     const salary = u.payrollMonthlySalary;
     if (salary == null) notes.push('월 급여 미설정');
 
+    const marketerAccrual = payrollAccrualPeriodForPaymentDate(payDateYmd, payDayStaff);
+
+    const ascFull = marketerAscSlicesByUserId.get(u.id) ?? [];
+    const ascBefore = ascFull.filter((s) => compareMonthKey(s.monthKey, monthKey) < 0);
+    const openingCarryForward = simulateMarketerOpeningCarryForward({
+      targetMonthKey: monthKey,
+      hireDate: u.hireDate,
+      resignationDate: u.resignationDate,
+      liveMonthlySalary: salary,
+      settlementsAscFull: ascFull,
+      settlementsAscBeforeTarget: ascBefore,
+    });
+    const totalDue = marketerTotalDue(openingCarryForward, salary);
+    const curSettle = marketerCurrentMonthSettleByUserId.get(u.id);
+    if (openingCarryForward > 0) {
+      notes.push(`미정산 이월 ${openingCarryForward.toLocaleString('ko-KR')}원 (이번 달 합산)`);
+    }
+    if (curSettle) {
+      const rem = marketerRemainderAfterSettle(
+        curSettle.openingCarryForward,
+        curSettle.scheduledMonthlySalary,
+        curSettle.settledAmount,
+      );
+      if (rem > 0) {
+        notes.push(`차월 이월 미정산 ${rem.toLocaleString('ko-KR')}원`);
+      }
+    }
+
     rows.push({
       kind: 'MARKETER',
       id: u.id,
       name: u.name,
       roleLabel: '마케터',
       payDateYmd,
-      accrualStartYmd: null,
-      accrualEndYmd: null,
+      accrualStartYmd: marketerAccrual?.startYmd ?? null,
+      accrualEndYmd: marketerAccrual?.endYmd ?? null,
       jobCount: null,
       unitAmount: null,
-      amount: salary != null ? salary : null,
+      amount: totalDue,
       notes,
+      marketerOpeningCarryForward: openingCarryForward,
+      marketerMonthlySalary: salary,
+      marketerTotalDue: totalDue,
+      marketerSettlementComplete: Boolean(curSettle),
+      marketerSettledAmount: curSettle?.settledAmount ?? null,
+      marketerUnsettledRemainder: curSettle
+        ? marketerRemainderAfterSettle(
+            curSettle.openingCarryForward,
+            curSettle.scheduledMonthlySalary,
+            curSettle.settledAmount,
+          )
+        : null,
     });
   }
 
@@ -347,8 +538,10 @@ router.get('/sheet', async (req, res) => {
   let amountSum = 0;
   let rowsWithAmount = 0;
   for (const r of rows) {
-    if (r.amount != null) {
-      amountSum += r.amount;
+    const contrib =
+      r.kind === 'POOL_MEMBER' && r.amountNet != null ? r.amountNet : r.amount != null ? r.amount : null;
+    if (contrib != null) {
+      amountSum += contrib;
       rowsWithAmount++;
     }
   }
@@ -363,6 +556,10 @@ router.get('/sheet', async (req, res) => {
       amountSum,
     },
   });
+  } catch (err) {
+    console.error('[admin/payroll/sheet]', err);
+    res.status(500).json({ error: '급여표를 계산하는 중 서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
+  }
 });
 
 /** 풀 팀원: 해당 월 급여 산정 구간에 포함된 접수 건별 상세 + 정산·지급 이력 */
@@ -427,6 +624,9 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
     poolManualExtraDays: computation.poolManualExtraDays,
     jobCount: computation.jobCount,
     amount: computation.amount,
+    crewExpenseTotal: computation.crewExpenseTotal,
+    amountNet: computation.amountNet,
+    crewExpenseLines: computation.crewExpenseLines,
     notes: computation.notes,
     lines: computation.lines,
     settlement: currentSettlement
@@ -488,7 +688,7 @@ router.post('/pool-member/:teamMemberId/settle', async (req: Request, res: Respo
     throw e;
   }
 
-  if (computation.amount == null) {
+  if (computation.amountNet == null) {
     res.status(400).json({
       error: '예상 급여가 산출되지 않아 정산할 수 없습니다. 월급일·일당·근무일을 확인해 주세요.',
     });
@@ -500,7 +700,7 @@ router.post('/pool-member/:teamMemberId/settle', async (req: Request, res: Respo
       data: {
         teamMemberId,
         monthKey,
-        amount: computation.amount,
+        amount: computation.amountNet,
         actorId: authUser.userId,
       },
     });
@@ -516,7 +716,7 @@ router.post('/pool-member/:teamMemberId/settle', async (req: Request, res: Respo
     ok: true,
     teamMemberId,
     monthKey,
-    amount: computation.amount,
+    amount: computation.amountNet,
     settledAt: new Date().toISOString(),
   });
 });
@@ -703,6 +903,257 @@ router.delete('/team-leader/payment/:paymentId', async (req: Request, res: Respo
   res.json({ ok: true });
 });
 
+router.get('/marketer/:userId/detail', async (req, res) => {
+  const userId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
+  if (!userId) {
+    res.status(400).json({ error: 'userId가 필요합니다.' });
+    return;
+  }
+
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const subject = await loadMarketerPayrollSubject(prisma, userId, monthKey);
+  if (!subject) {
+    res.status(404).json({ error: '마케터 급여 대상을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const [yStr, mStr] = monthKey.split('-');
+  const calYear = parseInt(yStr, 10);
+  const calMonthNum = parseInt(mStr, 10);
+  const monthIndex = calMonthNum - 1;
+
+  const payDayStaff =
+    subject.payrollPayDay != null && subject.payrollPayDay >= 1 && subject.payrollPayDay <= 31
+      ? subject.payrollPayDay
+      : 31;
+  const payDateYmd = payYmdInMonth(calYear, monthIndex, payDayStaff);
+  const marketerAccrual = payrollAccrualPeriodForPaymentDate(payDateYmd, payDayStaff);
+
+  const ascRows = await prisma.marketerPayrollSettlement.findMany({
+    where: { userId },
+    orderBy: { monthKey: 'asc' },
+    select: {
+      monthKey: true,
+      openingCarryForward: true,
+      scheduledMonthlySalary: true,
+      settledAmount: true,
+      memo: true,
+      settledAt: true,
+    },
+  });
+
+  const slicesFull: MarketerSettlementSlice[] = ascRows.map((r) => ({
+    monthKey: r.monthKey,
+    scheduledMonthlySalary: r.scheduledMonthlySalary,
+    settledAmount: r.settledAmount,
+  }));
+  const ascBefore = slicesFull.filter((s) => compareMonthKey(s.monthKey, monthKey) < 0);
+
+  const openingCarryForward = simulateMarketerOpeningCarryForward({
+    targetMonthKey: monthKey,
+    hireDate: subject.hireDate,
+    resignationDate: subject.resignationDate,
+    liveMonthlySalary: subject.payrollMonthlySalary,
+    settlementsAscFull: slicesFull,
+    settlementsAscBeforeTarget: ascBefore,
+  });
+
+  const totalDue = marketerTotalDue(openingCarryForward, subject.payrollMonthlySalary);
+
+  const notes: string[] = [];
+  if (subject.payrollPayDay == null) notes.push('지급일: 해당 월 말일');
+  if (subject.payrollMonthlySalary == null) notes.push('월 급여 미설정');
+  if (openingCarryForward > 0) {
+    notes.push(`미정산 이월 ${openingCarryForward.toLocaleString('ko-KR')}원 (이번 달 합산)`);
+  }
+
+  const currentRow = ascRows.find((r) => r.monthKey === monthKey);
+
+  const historyDesc = [...ascRows].sort((a, b) => b.settledAt.getTime() - a.settledAt.getTime());
+
+  const settlementHistory = historyDesc.map((r) => ({
+    monthKey: r.monthKey,
+    monthLabel: payrollMonthLabelFromKey(r.monthKey),
+    settledAmount: r.settledAmount,
+    openingCarryForward: r.openingCarryForward,
+    scheduledMonthlySalary: r.scheduledMonthlySalary,
+    remainderCarriedForward: marketerRemainderAfterSettle(
+      r.openingCarryForward,
+      r.scheduledMonthlySalary,
+      r.settledAmount,
+    ),
+    memo: r.memo,
+    settledAt: r.settledAt.toISOString(),
+  }));
+
+  const totalSettledSum = ascRows.reduce((s, r) => s + r.settledAmount, 0);
+
+  res.json({
+    month: monthKey,
+    monthLabel: payrollMonthLabelFromKey(monthKey),
+    member: { id: subject.id, name: subject.name },
+    payDateYmd,
+    accrualStartYmd: marketerAccrual?.startYmd ?? null,
+    accrualEndYmd: marketerAccrual?.endYmd ?? null,
+    openingCarryForward,
+    scheduledMonthlySalary: subject.payrollMonthlySalary,
+    totalDue,
+    notes,
+    settlement: currentRow
+      ? {
+          openingCarryForward: currentRow.openingCarryForward,
+          scheduledMonthlySalary: currentRow.scheduledMonthlySalary,
+          settledAmount: currentRow.settledAmount,
+          remainderCarriedForward: marketerRemainderAfterSettle(
+            currentRow.openingCarryForward,
+            currentRow.scheduledMonthlySalary,
+            currentRow.settledAmount,
+          ),
+          memo: currentRow.memo,
+          settledAt: currentRow.settledAt.toISOString(),
+        }
+      : null,
+    settlementHistory,
+    totalSettledSum,
+  });
+});
+
+router.post('/marketer/:userId/settle', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const userId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
+  if (!userId) {
+    res.status(400).json({ error: 'userId가 필요합니다.' });
+    return;
+  }
+
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const subject = await loadMarketerPayrollSubject(prisma, userId, monthKey);
+  if (!subject) {
+    res.status(404).json({ error: '마케터 급여 대상을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const ascRows = await prisma.marketerPayrollSettlement.findMany({
+    where: { userId },
+    orderBy: { monthKey: 'asc' },
+    select: {
+      monthKey: true,
+      scheduledMonthlySalary: true,
+      settledAmount: true,
+    },
+  });
+
+  const slicesFull: MarketerSettlementSlice[] = ascRows.map((r) => ({
+    monthKey: r.monthKey,
+    scheduledMonthlySalary: r.scheduledMonthlySalary,
+    settledAmount: r.settledAmount,
+  }));
+  const ascBefore = slicesFull.filter((s) => compareMonthKey(s.monthKey, monthKey) < 0);
+
+  const openingCarryForward = simulateMarketerOpeningCarryForward({
+    targetMonthKey: monthKey,
+    hireDate: subject.hireDate,
+    resignationDate: subject.resignationDate,
+    liveMonthlySalary: subject.payrollMonthlySalary,
+    settlementsAscFull: slicesFull,
+    settlementsAscBeforeTarget: ascBefore,
+  });
+
+  const totalDue = marketerTotalDue(openingCarryForward, subject.payrollMonthlySalary);
+  if (totalDue == null || totalDue < 1) {
+    res.status(400).json({
+      error: '정산할 급여 합계가 없습니다. 미정산 이월 또는 등록 월급을 확인해 주세요.',
+    });
+    return;
+  }
+
+  const body = req.body as { settledAmount?: unknown; memo?: unknown };
+  let settledAmount = 0;
+  if (typeof body.settledAmount === 'number' && Number.isInteger(body.settledAmount)) {
+    settledAmount = body.settledAmount;
+  } else if (
+    typeof body.settledAmount === 'string' &&
+    /^-?\d+$/.test(body.settledAmount.trim())
+  ) {
+    settledAmount = parseInt(body.settledAmount.trim(), 10);
+  }
+
+  if (settledAmount < 1 || settledAmount > 500_000_000) {
+    res.status(400).json({
+      error: '정산금은 1원 이상 5억 원 이하 정수로 입력해 주세요.',
+    });
+    return;
+  }
+
+  let memo: string | null = null;
+  if (typeof body.memo === 'string') {
+    const t = body.memo.trim();
+    memo = t.length > 2000 ? t.slice(0, 2000) : t.length ? t : null;
+  }
+
+  try {
+    await prisma.marketerPayrollSettlement.create({
+      data: {
+        userId,
+        monthKey,
+        openingCarryForward,
+        scheduledMonthlySalary: subject.payrollMonthlySalary,
+        settledAmount,
+        memo,
+        actorId: authUser.userId,
+      },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      res.status(409).json({ error: '이미 해당 귀속 월 정산이 완료되었습니다.' });
+      return;
+    }
+    throw e;
+  }
+
+  const remainder = marketerRemainderAfterSettle(
+    openingCarryForward,
+    subject.payrollMonthlySalary,
+    settledAmount,
+  );
+
+  res.status(201).json({
+    ok: true,
+    userId,
+    monthKey,
+    openingCarryForward,
+    scheduledMonthlySalary: subject.payrollMonthlySalary,
+    settledAmount,
+    remainderCarriedForward: remainder,
+    settledAt: new Date().toISOString(),
+  });
+});
+
 router.patch('/pool-member/:teamMemberId/month-adjust', async (req, res) => {
   const teamMemberId =
     typeof req.params.teamMemberId === 'string' ? req.params.teamMemberId.trim() : '';
@@ -764,6 +1215,68 @@ router.patch('/pool-member/:teamMemberId/month-adjust', async (req, res) => {
     update: { extraWorkDays: n },
   });
   res.json({ ok: true, teamMemberId, monthKey, extraWorkDays: n });
+});
+
+/** 크루 그룹장 등록 지출 — 귀속 월별 목록 (관리자) */
+router.get('/crew-expenses', async (req, res) => {
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const rows = await listAdminCrewExpensesForMonth(monthKey);
+  res.json({
+    month: monthKey,
+    items: rows.map((row) => ({
+      id: row.id,
+      crewGroupId: row.crewGroupId,
+      crewGroupName: row.group.name,
+      teamMemberId: row.teamMemberId,
+      memberName: row.teamMember.name,
+      memberNameTh: row.teamMember.nameTh,
+      amount: row.amount,
+      memo: row.memo,
+      attachmentCount: row.attachments.length,
+      createdAt: row.createdAt.toISOString(),
+    })),
+  });
+});
+
+/** 크루 지출 단건 상세 (영수증 URL 포함) */
+router.get('/crew-expenses/:expenseId', async (req, res) => {
+  const expenseId = typeof req.params.expenseId === 'string' ? req.params.expenseId.trim() : '';
+  if (!expenseId) {
+    res.status(400).json({ error: 'expenseId가 필요합니다.' });
+    return;
+  }
+  const row = await getAdminCrewExpenseDetail(expenseId);
+  if (!row) {
+    res.status(404).json({ error: '지출 내역을 찾을 수 없습니다.' });
+    return;
+  }
+  res.json({
+    id: row.id,
+    monthKey: row.monthKey,
+    amount: row.amount,
+    memo: row.memo,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    crewGroup: row.group,
+    teamMember: row.teamMember,
+    attachments: row.attachments.map((a) => ({
+      id: a.id,
+      secureUrl: a.secureUrl,
+      width: a.width,
+      height: a.height,
+      createdAt: a.createdAt.toISOString(),
+    })),
+  });
 });
 
 export default router;

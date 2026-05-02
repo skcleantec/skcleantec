@@ -294,3 +294,62 @@ export async function getCrewFieldSchedule(token: string, start: string, end: st
     days: CrewFieldDay[];
   }>;
 }
+
+export interface CrewExpenseAttachmentDto {
+  id: string;
+  secureUrl: string;
+  width: number | null;
+  height: number | null;
+}
+
+export interface CrewExpenseListItemDto {
+  id: string;
+  monthKey: string;
+  amount: number;
+  memo: string | null;
+  createdAt: string;
+  teamMember: { id: string; name: string; nameTh: string | null };
+  attachments: CrewExpenseAttachmentDto[];
+}
+
+export async function getCrewExpenses(token: string, month?: string) {
+  const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  const res = await fetch(`${API}/crew/expenses${q}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '지출 목록을 불러올 수 없습니다.'));
+  }
+  return res.json() as Promise<{ crewGroupId: string; month: string; items: CrewExpenseListItemDto[] }>;
+}
+
+export async function postCrewExpense(token: string, formData: FormData): Promise<{ item: { id: string } }> {
+  const res = await fetch(`${API}/crew/expenses`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '지출을 등록할 수 없습니다.'));
+  }
+  return res.json() as Promise<{ item: { id: string } }>;
+}
+
+export async function deleteCrewExpense(token: string, expenseId: string): Promise<void> {
+  const res = await fetch(`${API}/crew/expenses/${encodeURIComponent(expenseId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '삭제할 수 없습니다.'));
+  }
+}

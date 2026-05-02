@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "concurrently -n \"API,Vite\" \"npm run dev:server\" \"node scripts/dev-wait-client.mjs\"",
+    "dev:kill": "node scripts/dev-restart.mjs",
+    "dev:restart": "node scripts/dev-restart.mjs && npm run dev",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev:vite",
     "build": "cd server && npm run build && cd ../client && npm run build",

@@ -30,11 +30,17 @@ import {
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import {
+  TeamBiLine,
+  TeamBiInline,
+  formatTeamAreaPyeongBi,
+  teamBiPlain,
+} from '../../i18n/team/teamI18n';
 
 function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number | null }) {
-  if (item.areaPyeong == null) return '-';
+  const core = formatTeamAreaPyeongBi(item.areaPyeong);
   const b = item.areaBasis?.trim();
-  return b ? `${b} ${item.areaPyeong}평` : `${item.areaPyeong}평`;
+  return b ? `${b} ${core}` : core;
 }
 
 function toKstYmd(iso: string): string {
@@ -54,7 +60,8 @@ function myAssignment(item: InquiryItem, myId: string) {
 
 function leaderLabel(u: InquiryItem['assignments'][0]['teamLeader']): string {
   if (u.role === 'EXTERNAL_PARTNER') {
-    return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
+    const tag = teamBiPlain('team.modal.externalPartnerTag');
+    return u.externalCompany?.name ? `${tag} ${u.externalCompany.name}` : `${tag} ${u.name}`;
   }
   return u.name;
 }
@@ -134,7 +141,7 @@ export function TeamAssignmentListPage() {
         }
         setItems([]);
         setMyId(null);
-        setLoadError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
+        setLoadError(e instanceof Error ? e.message : teamBiPlain('team.assign.loadFail'));
       } finally {
         if (!opts?.silent) setLoading(false);
       }
@@ -195,55 +202,64 @@ export function TeamAssignmentListPage() {
   const rangeLabelHi = from <= to ? to : from;
 
   if (loading) {
-    return <div className="py-12 text-center text-gray-500 text-fluid-sm">로딩 중...</div>;
+    return (
+      <div className="py-12 text-center text-gray-500 text-fluid-sm">
+        <TeamBiLine id="team.common.loading" koClassName="text-fluid-sm text-gray-500" />
+      </div>
+    );
   }
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-4 pb-4">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">배정목록</h1>
-        <p className="mt-1 text-fluid-xs text-gray-500">
-          관리자가 본인에게 배정한 접수입니다. 넓은 화면에서는 표로, 모바일·태블릿(가로 1024px 미만)에서는 카드로 한 번에
-          요약해 봅니다. 카드를 누르면 전체 항목이 있는 상세로 열립니다. (재배정으로 본인 배정이 해제된 건은 목록에 안
-          나올 수 있습니다.)
-        </p>
+        <h1 className="text-xl font-semibold text-gray-800">
+          <TeamBiLine id="team.assign.title" koClassName="text-xl font-semibold text-gray-800" />
+        </h1>
+        <div className="mt-1 text-fluid-xs text-gray-500">
+          <TeamBiLine id="team.assign.intro" koClassName="text-fluid-xs text-gray-500" />
+        </div>
       </div>
 
       {(happyStats.overdueCount > 0 || happyStats.pendingBeforeDeadlineCount > 0) && (
         <div
-          className={`rounded-xl border px-4 py-3 text-fluid-sm ${
+          className={`rounded-xl border px-4 py-3 text-fluid-sm space-y-2 ${
             happyStats.overdueCount > 0
               ? 'border-red-200 bg-red-50 text-red-900'
               : 'border-amber-200 bg-amber-50 text-amber-900'
           }`}
         >
-          해피콜 미완:{' '}
-          {happyStats.overdueCount > 0 && (
-            <>
-              마감 초과 <strong className="tabular-nums">{happyStats.overdueCount}</strong>건
-            </>
-          )}
-          {happyStats.overdueCount > 0 && happyStats.pendingBeforeDeadlineCount > 0 && ' · '}
-          {happyStats.pendingBeforeDeadlineCount > 0 && (
-            <>
-              마감 전 <strong className="tabular-nums">{happyStats.pendingBeforeDeadlineCount}</strong>건
-            </>
-          )}
+          <TeamBiLine id="team.assign.happyIncompleteLead" koClassName="text-fluid-sm font-medium" />
+          <div className="flex flex-wrap gap-x-3 gap-y-1 items-center">
+            {happyStats.overdueCount > 0 ? (
+              <TeamBiLine
+                id="team.assign.happyOverdueCases"
+                vars={{ count: String(happyStats.overdueCount) }}
+                koClassName="text-fluid-sm tabular-nums"
+              />
+            ) : null}
+            {happyStats.pendingBeforeDeadlineCount > 0 ? (
+              <TeamBiLine
+                id="team.assign.happyPendingCases"
+                vars={{ count: String(happyStats.pendingBeforeDeadlineCount) }}
+                koClassName="text-fluid-sm tabular-nums"
+              />
+            ) : null}
+          </div>
         </div>
       )}
 
       <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
           <label className="flex flex-col gap-1 text-fluid-xs text-gray-600 min-w-0 sm:min-w-[9rem]">
-            기간 기준
+            <TeamBiInline id="team.assign.dateBasis" />
             <select
               value={dateBasis}
               onChange={(e) => setDateBasis(e.target.value as DateBasis)}
               className="rounded border border-gray-300 px-2 py-2 text-fluid-sm bg-white"
             >
-              <option value="assignedAt">배정일(본인)</option>
-              <option value="createdAt">접수일</option>
-              <option value="preferredDate">예약일</option>
+              <option value="assignedAt">{teamBiPlain('team.assign.basisAssigned')}</option>
+              <option value="createdAt">{teamBiPlain('team.assign.basisCreated')}</option>
+              <option value="preferredDate">{teamBiPlain('team.assign.basisPreferred')}</option>
             </select>
           </label>
           <div className="flex flex-wrap gap-1">
@@ -280,13 +296,13 @@ export function TeamAssignmentListPage() {
         )}
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
           <label className="flex flex-col gap-1 text-fluid-xs text-gray-600 min-w-0 sm:w-40">
-            상태
+            <TeamBiInline id="team.assign.status" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="rounded border border-gray-300 px-2 py-2 text-fluid-sm bg-white"
             >
-              <option value="">전체</option>
+              <option value="">{teamBiPlain('team.common.all')}</option>
               {Object.entries(STATUS_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v}
@@ -295,7 +311,7 @@ export function TeamAssignmentListPage() {
             </select>
           </label>
           <div className="flex flex-1 min-w-0 flex-col gap-1 sm:max-w-md">
-            <span className="text-fluid-xs text-gray-600">검색 (고객명·연락처·주소·접수번호)</span>
+            <TeamBiLine id="team.assign.searchHint" koClassName="text-fluid-xs text-gray-600" />
             <div className="flex gap-2">
               <input
                 type="search"
@@ -305,14 +321,14 @@ export function TeamAssignmentListPage() {
                   if (e.key === 'Enter') setAppliedSearch(searchInput);
                 }}
                 className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-2 text-fluid-sm"
-                placeholder="검색어"
+                placeholder={teamBiPlain('team.assign.searchPlaceholder')}
               />
               <button
                 type="button"
                 onClick={() => setAppliedSearch(searchInput)}
                 className="shrink-0 rounded bg-gray-800 px-3 py-2 text-fluid-sm font-medium text-white"
               >
-                조회
+                <TeamBiInline id="team.assign.searchBtn" />
               </button>
             </div>
           </div>
@@ -325,14 +341,16 @@ export function TeamAssignmentListPage() {
 
       <div className="bg-white border border-gray-200 rounded-lg">
         {filteredSorted.length === 0 ? (
-          <div className="p-8 text-center text-fluid-sm text-gray-500">조건에 맞는 배정이 없습니다.</div>
+          <div className="p-8 text-center text-fluid-sm text-gray-500">
+            <TeamBiLine id="team.assign.empty" koClassName="text-fluid-sm text-gray-500" />
+          </div>
         ) : (
           <>
             <p className="px-4 pt-3 text-fluid-xs text-gray-500 lg:hidden">
-              카드를 누르면 상세(배정자·공동 배정·평수 등)가 열립니다. 오른쪽 전화는 바로 걸기입니다.
+              <TeamBiLine id="team.assign.mobileHint" koClassName="text-fluid-xs text-gray-500" />
             </p>
             <p className="hidden px-4 pt-3 text-fluid-xs text-gray-500 lg:block sm:px-0">
-              표가 넓을 때는 좌우로 밀거나 하단 고정 막대·◀▶로 가로 스크롤할 수 있습니다.
+              <TeamBiLine id="team.assign.desktopHint" koClassName="text-fluid-xs text-gray-500" />
             </p>
 
             <div className="flex flex-col gap-3 p-3 lg:hidden">
@@ -348,7 +366,7 @@ export function TeamAssignmentListPage() {
                     key={item.id}
                     role="button"
                     tabIndex={0}
-                    aria-label={`${primaryLabel} 접수 상세`}
+                    aria-label={`${primaryLabel} · ${teamBiPlain('team.assign.detailAria')}`}
                     onClick={() => setDetailItem(item)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -363,7 +381,11 @@ export function TeamAssignmentListPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="truncate text-fluid-sm font-semibold text-gray-900">{primaryLabel}</span>
                           {item.claimMemo ? (
-                            <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="C/S 표시">
+                            <span
+                              className="shrink-0 text-orange-600"
+                              title={item.claimMemo}
+                              aria-label={teamBiPlain('team.assign.csDotAria')}
+                            >
                               ●
                             </span>
                           ) : null}
@@ -381,23 +403,25 @@ export function TeamAssignmentListPage() {
                         {item.memo?.trim() ? (
                           <p
                             className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-indigo-900/90"
-                            title={`관리자 특이사항: ${item.memo.trim()}`}
+                            title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
                           >
-                            관리자: {item.memo.trim()}
+                            {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
                           </p>
                         ) : null}
                         <p className="mt-1 text-fluid-xs tabular-nums text-gray-500">
-                          배정 {formatAssignedAt(mine?.assignedAt)}
+                          {teamBiPlain('team.assign.assignedPrefix')} {formatAssignedAt(mine?.assignedAt)}
                         </p>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-fluid-xs text-gray-600">
-                          <span>담당 {mk.name}</span>
+                          <span>
+                            {teamBiPlain('team.assign.marketerPrefix')} {mk.name}
+                          </span>
                           {mk.phone ? (
                             <a
                               href={`tel:${mk.phone}`}
                               onClick={(e) => e.stopPropagation()}
                               className="inline-flex rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700"
                             >
-                              담당자 전화
+                              <TeamBiInline id="team.assign.marketerPhone" />
                             </a>
                           ) : null}
                         </div>
@@ -410,15 +434,16 @@ export function TeamAssignmentListPage() {
                         onClick={(e) => e.stopPropagation()}
                         className="shrink-0 self-start rounded-lg bg-blue-600 px-3 py-2 text-center text-fluid-xs font-medium text-white hover:bg-blue-700"
                       >
-                        전화
+                        <TeamBiInline id="team.common.phone" />
                       </a>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 text-fluid-xs text-gray-700">
                       <span className="tabular-nums">
-                        예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
+                        {teamBiPlain('team.assign.bookingPrefix')}{' '}
+                        {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : teamBiPlain('team.common.emDash')}
                       </span>
                       <span className="rounded-md bg-gray-100 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
-                        {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '시간 미정'}
+                        {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : teamBiPlain('team.inquiry.timeUndecided')}
                       </span>
                       <span className="inline-flex rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
                         {STATUS_LABELS[item.status] ?? item.status}
@@ -439,20 +464,44 @@ export function TeamAssignmentListPage() {
                 <thead>
                   <tr className="bg-gray-100 border-b border-gray-200">
                     <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">
-                      배정일시
+                      <TeamBiLine id="team.assign.thAssignedAt" koClassName="text-fluid-xs font-medium text-gray-700" />
                     </th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">접수일·번호</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">배정자</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">고객</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">연락처</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 min-w-[88px]">주소</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">평수</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">방·화·베</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">예약일</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">시간대</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">상태</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">해피콜</th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap">공동 배정</th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thCreatedNum" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thAssigner" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thCustomer" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thPhone" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 min-w-[88px] align-middle">
+                      <TeamBiLine id="team.assign.thAddress" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thArea" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thRooms" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thPrefDate" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thTimeSlot" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thStatus" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thHappy" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thCoLeaders" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -488,9 +537,12 @@ export function TeamAssignmentListPage() {
                           className={`align-middle py-2 px-2 text-gray-600 text-center truncate max-w-[7rem] ${pBorder}`}
                           title={mine?.assignedBy?.name ?? ''}
                         >
-                          {mine?.assignedBy?.name ?? '—'}
-                          <span className="mt-0.5 block truncate text-fluid-2xs text-gray-500" title={`담당 ${mk.name}`}>
-                            담당 {mk.name}
+                          {mine?.assignedBy?.name ?? teamBiPlain('team.common.emDash')}
+                          <span
+                            className="mt-0.5 block truncate text-fluid-2xs text-gray-500"
+                            title={`${teamBiPlain('team.assign.marketerPrefix')} ${mk.name}`}
+                          >
+                            {teamBiPlain('team.assign.marketerPrefix')} {mk.name}
                           </span>
                           {mk.phone ? (
                             <a
@@ -498,7 +550,7 @@ export function TeamAssignmentListPage() {
                               onClick={(e) => e.stopPropagation()}
                               className="mt-1 inline-flex rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-blue-700"
                             >
-                              전화
+                              <TeamBiInline id="team.common.phone" />
                             </a>
                           ) : null}
                         </td>
@@ -525,9 +577,9 @@ export function TeamAssignmentListPage() {
                             {item.memo?.trim() ? (
                               <div
                                 className="mt-0.5 max-w-full truncate text-fluid-2xs font-normal text-indigo-900/85"
-                                title={`관리자 특이사항: ${item.memo.trim()}`}
+                                title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
                               >
-                                관리자: {item.memo.trim()}
+                                {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
                               </div>
                             ) : null}
                           </div>
@@ -559,7 +611,7 @@ export function TeamAssignmentListPage() {
                           </span>
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
-                          {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '-'}
+                          {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : teamBiPlain('team.inquiry.timeUndecided')}
                         </td>
                         <td className={`align-middle py-2 px-2 text-center whitespace-nowrap ${pBorder}`}>
                           <span className="inline-block rounded bg-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-800">
@@ -582,9 +634,24 @@ export function TeamAssignmentListPage() {
               </table>
             </SyncHorizontalScroll>
             </div>
-            <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-fluid-xs text-gray-600 sm:px-4">
-              표시 {filteredSorted.length}건 · 기간 {rangeLabelLo} ~ {rangeLabelHi} ·{' '}
-              {dateBasis === 'assignedAt' ? '배정일' : dateBasis === 'createdAt' ? '접수일' : '예약일'} 기준
+            <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-fluid-xs text-gray-600 sm:px-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
+              <TeamBiLine
+                id="team.assign.footerShowing"
+                vars={{ count: String(filteredSorted.length) }}
+                koClassName="text-fluid-xs text-gray-600"
+              />
+              <TeamBiLine
+                id="team.assign.footerRange"
+                vars={{ from: rangeLabelLo, to: rangeLabelHi }}
+                koClassName="text-fluid-xs text-gray-600"
+              />
+              {dateBasis === 'assignedAt' ? (
+                <TeamBiInline id="team.assign.basisAssigned" />
+              ) : dateBasis === 'createdAt' ? (
+                <TeamBiInline id="team.assign.basisCreated" />
+              ) : (
+                <TeamBiInline id="team.assign.basisPreferred" />
+              )}
             </div>
           </>
         )}

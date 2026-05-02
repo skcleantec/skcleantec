@@ -440,6 +440,88 @@ export const crewMessages = {
     ko: '비밀번호를 입력해 주세요.',
     th: 'กรุณาใส่รหัสผ่าน',
   },
+
+  /** CrewExpensesPage — 지출 */
+  'crew.layout.navExpenses': {
+    ko: '지출',
+    th: 'ค่าใช้จ่าย',
+  },
+  'crew.expenses.title': {
+    ko: '팀 지출',
+    th: 'ค่าใช้จ่ายของทีม',
+  },
+  'crew.expenses.intro': {
+    ko: '귀속 월을 선택한 뒤, 지출 내역을 확인할 수 있습니다. 그룹장만 새 지출을 등록하거나 삭제할 수 있습니다.',
+    th: 'เลือกเดือนที่เกี่ยวข้องแล้วดูรายการค่าใช้จ่าย เฉพาะหัวหน้ากลุ่มเพิ่มหรือลบได้',
+  },
+  'crew.expenses.monthLabel': {
+    ko: '귀속 월',
+    th: 'เดือนที่เกี่ยวข้อง',
+  },
+  'crew.expenses.memberLabel': {
+    ko: '팀원',
+    th: 'พนักงาน',
+  },
+  'crew.expenses.amountLabel': {
+    ko: '금액 (원)',
+    th: 'จำนวนเงิน (วอน)',
+  },
+  'crew.expenses.memoLabel': {
+    ko: '메모',
+    th: 'หมายเหตุ',
+  },
+  'crew.expenses.imagesLabel': {
+    ko: '영수증 사진',
+    th: 'รูปใบเสร็จ',
+  },
+  'crew.expenses.imagesHint': {
+    ko: '여러 장 선택할 수 있습니다.',
+    th: 'เลือกได้หลายรูป',
+  },
+  'crew.expenses.submit': {
+    ko: '등록',
+    th: 'บันทึก',
+  },
+  'crew.expenses.leaderOnly': {
+    ko: '그룹장만 지출을 등록·삭제할 수 있습니다.',
+    th: 'เฉพาะหัวหน้ากลุ่มบันทึกหรือลบได้',
+  },
+  'crew.expenses.loading': {
+    ko: '불러오는 중…',
+    th: 'กำลังโหลด…',
+  },
+  'crew.expenses.empty': {
+    ko: '이 달에 등록된 지출이 없습니다.',
+    th: 'ไม่มีรายการในเดือนนี้',
+  },
+  'crew.expenses.delete': {
+    ko: '삭제',
+    th: 'ลบ',
+  },
+  'crew.expenses.saved': {
+    ko: '등록되었습니다.',
+    th: 'บันทึกแล้ว',
+  },
+  'crew.expenses.deleted': {
+    ko: '삭제되었습니다.',
+    th: 'ลบแล้ว',
+  },
+  'crew.expenses.errAmount': {
+    ko: '금액은 1원 이상 숫자로 입력해 주세요.',
+    th: 'กรุณากรอกจำนวนเงินเป็นตัวเลขอย่างน้อย 1 วอน',
+  },
+  'crew.expenses.errMember': {
+    ko: '팀원을 선택해 주세요.',
+    th: 'กรุณาเลือกพนักงาน',
+  },
+  'crew.expenses.confirmDelete': {
+    ko: '이 지출 내역을 삭제할까요?',
+    th: 'ต้องการลบรายการนี้หรือไม่?',
+  },
+  'crew.expenses.attachShort': {
+    ko: '첨부',
+    th: 'แนบ',
+  },
 } as const;
 
 export type CrewMessageId = keyof typeof crewMessages;

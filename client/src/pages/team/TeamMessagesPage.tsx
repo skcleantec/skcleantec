@@ -7,6 +7,7 @@ import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 
 interface Message {
   id: string;
@@ -56,7 +57,7 @@ export function TeamMessagesPage() {
         })
         .catch(() => {
           setMessages([]);
-          setLoadError('메시지를 불러올 수 없습니다.');
+          setLoadError(teamBiPlain('team.messages.loadFail'));
         })
         .finally(() => {
           if (!opts?.silent) setLoading(false);
@@ -99,7 +100,7 @@ export function TeamMessagesPage() {
       (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
       scrollToEnd(messagesEndRef, 'smooth');
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : '전송에 실패했습니다.');
+      setSendError(err instanceof Error ? err.message : teamBiPlain('team.messages.sendFail'));
     } finally {
       setSending(false);
     }
@@ -107,13 +108,17 @@ export function TeamMessagesPage() {
 
   if (loading) {
     return (
-      <div className="py-12 text-center text-gray-500 text-sm">로딩 중...</div>
+      <div className="py-12 text-center text-gray-500 text-sm">
+        <TeamBiLine id="team.common.loading" koClassName="text-sm text-gray-500" />
+      </div>
     );
   }
 
   return (
     <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full overflow-hidden">
-      <h1 className="text-xl font-semibold text-gray-800 shrink-0">메시지</h1>
+      <h1 className="text-xl font-semibold text-gray-800 shrink-0">
+        <TeamBiLine id="team.messages.title" koClassName="text-xl font-semibold text-gray-800" />
+      </h1>
 
       {loadError && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2 shrink-0">{loadError}</p>
@@ -121,7 +126,9 @@ export function TeamMessagesPage() {
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col flex-1 min-h-0 min-w-0">
         <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 shrink-0">
-          <h2 className="font-medium text-gray-900">운영팀</h2>
+          <h2 className="font-medium text-gray-900">
+            <TeamBiLine id="team.messages.opsTeam" koClassName="font-medium text-gray-900" />
+          </h2>
         </div>
         <div
           ref={chatScrollRef}
@@ -129,7 +136,9 @@ export function TeamMessagesPage() {
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {messages.length === 0 ? (
-            <div className="text-center text-sm text-gray-500 py-8">아직 메시지가 없습니다.</div>
+            <div className="text-center text-sm text-gray-500 py-8">
+              <TeamBiLine id="team.messages.empty" koClassName="text-sm text-gray-500" />
+            </div>
           ) : (
             messages.map((m) => {
               const isMine = myId != null && m.senderId === myId;
@@ -146,7 +155,7 @@ export function TeamMessagesPage() {
                       <span>{formatDateTimeCompactWithWeekday(m.createdAt)}</span>
                       {isMine && !m.batchId && (
                         <span className={m.readAt ? 'text-blue-300' : 'text-gray-400'}>
-                          {m.readAt ? '읽음' : '읽지 않음'}
+                          {m.readAt ? teamBiPlain('team.messages.read') : teamBiPlain('team.messages.unread')}
                         </span>
                       )}
                     </div>
@@ -171,7 +180,7 @@ export function TeamMessagesPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="메시지 입력..."
+              placeholder={teamBiPlain('team.messages.placeholder')}
               className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={sending}
               autoComplete="off"
@@ -181,7 +190,7 @@ export function TeamMessagesPage() {
               disabled={sending || !input.trim()}
               className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
             >
-              전송
+              <TeamBiInline id="team.messages.send" />
             </button>
           </div>
         </form>

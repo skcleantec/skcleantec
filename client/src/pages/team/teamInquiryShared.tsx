@@ -22,6 +22,16 @@ import {
   isMorningBucketForTeamMeeting,
   normalizeTimeInputToHhmm,
 } from '../../utils/crewMeetingTime';
+import {
+  TeamBiLine,
+  TeamBiInline,
+  fillTeamTemplate,
+  formatTeamAreaPyeongBi,
+  teamBiPlain,
+  teamInquiryStatus,
+  teamInquiryStatusKoRecord,
+  teamT,
+} from '../../i18n/team/teamI18n';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
   return (
@@ -43,6 +53,16 @@ function CheckMiniIcon({ className }: { className?: string }) {
   );
 }
 
+function TeamInquiryStatusBi({ code }: { code: string }) {
+  const { ko, th } = teamInquiryStatus(code);
+  return (
+    <span className="inline-block rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
+      <span className="block leading-tight">{ko}</span>
+      <span className="block text-[0.65rem] leading-tight text-gray-600">{th}</span>
+    </span>
+  );
+}
+
 /** 목록 카드에서 상세 없이 해피콜 상태 표시 (상태 배지와 동일한 pill 스타일) */
 export function TeamHappyCallBadge({ item, className = '' }: { item: InquiryItem; className?: string }) {
   const now = new Date();
@@ -53,53 +73,38 @@ export function TeamHappyCallBadge({ item, className = '' }: { item: InquiryItem
   const base = `inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-fluid-2xs font-medium border shrink-0 ${className}`;
 
   if (item.happyCallCompletedAt) {
+    const title = `${teamT('team.inquiry.happy.titleDone').ko} · ${teamT('team.inquiry.happy.titleDone').th}`;
     return (
-      <span className={`${base} bg-green-50 text-green-800 border-green-200`} title="해피콜 완료">
+      <span className={`${base} bg-green-50 text-green-800 border-green-200`} title={title}>
         <CheckMiniIcon className="w-3 h-3 shrink-0" />
-        해피콜 완료
+        {teamBiPlain('team.inquiry.happy.done')}
       </span>
     );
   }
 
   const tone = happyCallRowTone(now, item.status, item.preferredDate, item.happyCallCompletedAt, hasAssignment);
   if (tone === 'overdue') {
+    const title = `${teamT('team.inquiry.happy.titleOverdue').ko} · ${teamT('team.inquiry.happy.titleOverdue').th}`;
     return (
-      <span
-        className={`${base} bg-red-50 text-red-800 border-red-200`}
-        title="해피콜 미완 · 마감 초과(작업일 전날 KST 말일)"
-      >
+      <span className={`${base} bg-red-50 text-red-800 border-red-200`} title={title}>
         <PhoneMiniIcon className="w-3 h-3 shrink-0" />
-        미완 · 마감초과
+        {teamBiPlain('team.inquiry.happy.overdueShort')}
       </span>
     );
   }
   if (tone === 'pending') {
+    const title = `${teamT('team.inquiry.happy.titlePending').ko} · ${teamT('team.inquiry.happy.titlePending').th}`;
     return (
-      <span className={`${base} bg-amber-50 text-amber-900 border-amber-200`} title="해피콜 미완 · 마감 전">
+      <span className={`${base} bg-amber-50 text-amber-900 border-amber-200`} title={title}>
         <PhoneMiniIcon className="w-3 h-3 shrink-0" />
-        해피콜 미완
+        {teamBiPlain('team.inquiry.happy.pendingShort')}
       </span>
     );
   }
   return null;
 }
 
-export const STATUS_LABELS: Record<string, string> = {
-  PENDING: '대기',
-  RECEIVED: '접수',
-  DEPOSIT_PENDING: '입금대기',
-  DEPOSIT_COMPLETED: '입금완료',
-  ORDER_FORM_PENDING: '미제출',
-  ASSIGNED: '분배',
-  IN_PROGRESS: '진행',
-  COMPLETED: '완료',
-  ON_HOLD: '보류',
-  CANCELLED: '취소',
-  CS_PROCESSING: 'C/S',
-  CANCEL_CONFIRMED: '취소확인',
-};
-
-export const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+export const STATUS_LABELS = teamInquiryStatusKoRecord();
 
 export interface InquiryItem {
   id: string;
@@ -177,17 +182,31 @@ export interface InquiryItem {
 }
 
 export function formatScheduleLine(item: InquiryItem) {
-  const slot = item.preferredTime ? labelForTimeSlot(item.preferredTime) : '시간 미정';
+  const slot = item.preferredTime ? labelForTimeSlot(item.preferredTime) : teamBiPlain('team.inquiry.timeUndecided');
   const d = item.preferredTimeDetail?.trim();
   return d ? `${slot} (${d})` : slot;
 }
 
 export function formatRoomInfo(r: number | null, b: number | null, v: number | null) {
-  const parts = [];
-  if (r != null) parts.push(`${r}방`);
-  if (b != null) parts.push(`${b}화`);
-  if (v != null) parts.push(`${v}베`);
-  return parts.length ? parts.join(' ') : '-';
+  const rk = teamT('team.room.room');
+  const bk = teamT('team.room.bath');
+  const vk = teamT('team.room.veranda');
+  const koParts: string[] = [];
+  const thParts: string[] = [];
+  if (r != null) {
+    koParts.push(`${r}${rk.ko}`);
+    thParts.push(`${r}${rk.th}`);
+  }
+  if (b != null) {
+    koParts.push(`${b}${bk.ko}`);
+    thParts.push(`${b}${bk.th}`);
+  }
+  if (v != null) {
+    koParts.push(`${v}${vk.ko}`);
+    thParts.push(`${v}${vk.th}`);
+  }
+  if (!koParts.length) return `${teamT('team.common.emDash').ko} · ${teamT('team.common.emDash').th}`;
+  return `${koParts.join(' ')} · ${thParts.join(' ')}`;
 }
 
 export function formatCrewInfo(item: InquiryItem): string {
@@ -204,7 +223,10 @@ export function formatCrewInfo(item: InquiryItem): string {
       note = `${raw.slice(0, mid)}/${raw.slice(mid)}`;
     }
   }
-  return note ? `팀원${n}명 · ${note}` : `팀원${n}명`;
+  const baseKo = fillTeamTemplate(teamT('team.modal.crewCount').ko, { count: String(n) });
+  const baseTh = fillTeamTemplate(teamT('team.modal.crewCount').th, { count: String(n) });
+  const base = `${baseKo} · ${baseTh}`;
+  return note ? `${base} · ${note}` : base;
 }
 
 export function marketerInfo(item: InquiryItem): { name: string; phone: string | null } {
@@ -227,10 +249,15 @@ export function relativeDateHint(dateStr: string): string | null {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const diff = Math.floor((dNorm.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-  if (diff === 0) return '오늘';
-  if (diff === 1) return '내일';
-  if (diff === 2) return '모레';
-  if (diff > 0 && diff <= 7) return `${diff}일 후`;
+  if (diff === 0) return teamBiPlain('team.inquiry.relative.today');
+  if (diff === 1) return teamBiPlain('team.inquiry.relative.tomorrow');
+  if (diff === 2) return teamBiPlain('team.inquiry.relative.dayAfter');
+  if (diff > 0 && diff <= 7) {
+    const v = String(diff);
+    const ko = fillTeamTemplate(teamT('team.inquiry.relative.inDays').ko, { days: v });
+    const th = fillTeamTemplate(teamT('team.inquiry.relative.inDays').th, { days: v });
+    return `${ko} · ${th}`;
+  }
   return null;
 }
 
@@ -276,7 +303,8 @@ function formatAssignedAtModal(iso?: string | null): string {
 
 function leaderLabelForAssignment(u: InquiryItem['assignments'][0]['teamLeader']): string {
   if (u.role === 'EXTERNAL_PARTNER') {
-    return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
+    const tag = teamBiPlain('team.modal.externalPartnerTag');
+    return u.externalCompany?.name ? `${tag} ${u.externalCompany.name}` : `${tag} ${u.name}`;
   }
   return u.name;
 }
@@ -292,7 +320,7 @@ function coLeadersSummaryForViewer(item: InquiryItem, viewerId: string): string 
   return others.length ? others.join(' · ') : '—';
 }
 
-function TeamModalSection({ title, children }: { title: string; children: ReactNode }) {
+function TeamModalSection({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
     <section className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <h3 className="border-b border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs font-semibold text-gray-600 sm:px-4">
@@ -303,7 +331,7 @@ function TeamModalSection({ title, children }: { title: string; children: ReactN
   );
 }
 
-function TeamModalRow({ label, children }: { label: string; children: ReactNode }) {
+function TeamModalRow({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="min-w-0 px-3 py-2.5 sm:grid sm:grid-cols-[7.5rem_1fr] sm:items-start sm:gap-3 sm:px-4 sm:py-3">
       <div className="mb-0.5 text-fluid-xs font-medium text-gray-500 sm:mb-0 sm:pt-0.5">{label}</div>
@@ -355,7 +383,7 @@ export function TeamInquiryDetailModal({
   const [crewMeetingDraft, setCrewMeetingDraft] = useState(() => item.crewMeetingTime ?? '');
   const [crewMeetingSaving, setCrewMeetingSaving] = useState(false);
   /** 저장 직후 사용자 피드백 메시지(몇 초 후 자동 숨김) */
-  const [crewMeetingSaveNotice, setCrewMeetingSaveNotice] = useState<string | null>(null);
+  const [crewMeetingSaveNotice, setCrewMeetingSaveNotice] = useState<ReactNode | null>(null);
   const canHappy = enableHappyCall && isHappyCallEligible(item.status, item.preferredDate);
   const showHappyBlock = enableHappyCall && item.preferredDate;
 
@@ -374,7 +402,11 @@ export function TeamInquiryDetailModal({
       await onHappyCallComplete();
       onClose();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '해피콜 완료 처리에 실패했습니다.');
+      alert(
+        e instanceof Error
+          ? e.message
+          : `${teamT('team.alert.happyFail').ko}\n${teamT('team.alert.happyFail').th}`,
+      );
     } finally {
       setHappySaving(false);
     }
@@ -383,7 +415,7 @@ export function TeamInquiryDetailModal({
   const handlePreferredDateSave = async () => {
     if (!onPreferredDateChange) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDateInput)) {
-      alert('예약일은 YYYY-MM-DD 형식으로 입력해 주세요.');
+      alert(`${teamT('team.alert.prefInvalid').ko}\n${teamT('team.alert.prefInvalid').th}`);
       return;
     }
     setPreferredDateSaving(true);
@@ -391,7 +423,11 @@ export function TeamInquiryDetailModal({
       await onPreferredDateChange(preferredDateInput);
       onClose();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '예약일 변경에 실패했습니다.');
+      alert(
+        e instanceof Error
+          ? e.message
+          : `${teamT('team.alert.prefFail').ko}\n${teamT('team.alert.prefFail').th}`,
+      );
     } finally {
       setPreferredDateSaving(false);
     }
@@ -399,13 +435,13 @@ export function TeamInquiryDetailModal({
 
   const handleCrewMeetingSave = async () => {
     if (!teamToken) {
-      alert('로그인이 필요합니다.');
+      alert(`${teamT('team.alert.needLogin').ko}\n${teamT('team.alert.needLogin').th}`);
       return;
     }
     const t = crewMeetingDraft.trim();
     const normalized = t === '' ? null : normalizeTimeInputToHhmm(t);
     if (t !== '' && normalized === null) {
-      alert('시간 형식이 올바르지 않습니다.');
+      alert(`${teamT('team.alert.timeInvalid').ko}\n${teamT('team.alert.timeInvalid').th}`);
       return;
     }
     const val = normalized;
@@ -415,13 +451,19 @@ export function TeamInquiryDetailModal({
       onInquiryPatched?.(next);
       setCrewMeetingDraft(next.crewMeetingTime ?? '');
       setCrewMeetingSaveNotice(
-        val != null
-          ? `미팅 시각이 ${val}로 저장되었습니다. 크루 「현장 일정」에 반영됩니다.`
-          : '미팅 미지정으로 저장되었습니다. 크루 「현장 일정」에도 표시되지 않습니다.',
+        val != null ? (
+          <TeamBiLine id="team.alert.meetingSavedAt" vars={{ time: val }} />
+        ) : (
+          <TeamBiLine id="team.alert.meetingSavedClear" />
+        ),
       );
       window.setTimeout(() => setCrewMeetingSaveNotice(null), 4500);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '미팅 시각 저장에 실패했습니다.');
+      alert(
+        e instanceof Error
+          ? e.message
+          : `${teamT('team.alert.meetingFail').ko}\n${teamT('team.alert.meetingFail').th}`,
+      );
     } finally {
       setCrewMeetingSaving(false);
     }
@@ -464,7 +506,9 @@ export function TeamInquiryDetailModal({
       >
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 bg-white px-4 pb-3 pt-4 sm:rounded-t-2xl">
           <div className="min-w-0 flex-1">
-            <p className="text-fluid-xs text-gray-500">접수 상세</p>
+            <p className="text-fluid-xs text-gray-500">
+              <TeamBiLine id="team.modal.detailTitle" koClassName="text-fluid-xs text-gray-500" />
+            </p>
             <div className="mt-0.5 flex items-center gap-2">
               <h2 id="team-inquiry-detail-title" className="min-w-0 flex-1 truncate text-lg font-semibold text-gray-900">
                 {primaryCustomerTitle}
@@ -475,9 +519,7 @@ export function TeamInquiryDetailModal({
                     {item.inquiryNumber}
                   </span>
                 ) : null}
-                <span className="rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
-                  {STATUS_LABELS[item.status] ?? item.status}
-                </span>
+                <TeamInquiryStatusBi code={item.status} />
                 {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
               </div>
             </div>
@@ -487,7 +529,7 @@ export function TeamInquiryDetailModal({
               type="button"
               onClick={onClose}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-800 touch-manipulation"
-              aria-label="닫기"
+              aria-label={teamBiPlain('team.common.close')}
             >
               <CloseMiniIcon className="h-5 w-5" />
             </button>
@@ -496,11 +538,17 @@ export function TeamInquiryDetailModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
           <div className="flex flex-col gap-4">
-            <TeamModalSection title="접수 정보">
-              <TeamModalRow label="접수일">
+            <TeamModalSection
+              title={<TeamBiLine id="team.modal.section.inquiry" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+            >
+              <TeamModalRow
+                label={<TeamBiLine id="team.modal.row.createdAt" koClassName="text-fluid-xs font-medium text-gray-500" />}
+              >
                 <span className="tabular-nums text-gray-800">{formatDateCompactWithWeekday(item.createdAt)}</span>
               </TeamModalRow>
-              <TeamModalRow label="담당 마케터">
+              <TeamModalRow
+                label={<TeamBiLine id="team.modal.row.marketer" koClassName="text-fluid-xs font-medium text-gray-500" />}
+              >
                 {(() => {
                   const m = marketerInfo(item);
                   return (
@@ -511,7 +559,7 @@ export function TeamInquiryDetailModal({
                           href={`tel:${m.phone}`}
                           className="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700"
                         >
-                          전화걸기
+                          <TeamBiInline id="team.common.phoneCall" />
                         </a>
                       ) : null}
                     </div>
@@ -519,35 +567,51 @@ export function TeamInquiryDetailModal({
                 })()}
               </TeamModalRow>
               {showScheduleMemoRow ? (
-                <TeamModalRow label="제목">
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.scheduleTitle" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
                   <span className="text-gray-900">{scheduleMemoTrim}</span>
                 </TeamModalRow>
               ) : null}
             </TeamModalSection>
 
             {viewerTeamLeaderId && mine ? (
-              <TeamModalSection title="배정 정보 (본인)">
-                <TeamModalRow label="배정일시">
+              <TeamModalSection
+                title={<TeamBiLine id="team.modal.section.assignmentMine" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+              >
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.assignedAt" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
                   <span className="tabular-nums text-gray-800">{formatAssignedAtModal(mine.assignedAt)}</span>
                 </TeamModalRow>
-                <TeamModalRow label="배정자">
-                  <span className="text-gray-800">{mine.assignedBy?.name ?? '—'}</span>
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.assigner" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
+                  <span className="text-gray-800">{mine.assignedBy?.name ?? teamBiPlain('team.common.emDash')}</span>
                 </TeamModalRow>
-                <TeamModalRow label="공동 배정">
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.coLeaders" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
                   <span className="text-gray-800">{coLeadersSummaryForViewer(item, viewerTeamLeaderId)}</span>
                 </TeamModalRow>
               </TeamModalSection>
             ) : null}
 
-            <TeamModalSection title="고객 · 현장">
-              <TeamModalRow label="연락처">
+            <TeamModalSection
+              title={<TeamBiLine id="team.modal.section.customerSite" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+            >
+              <TeamModalRow
+                label={<TeamBiLine id="team.modal.row.phone" koClassName="text-fluid-xs font-medium text-gray-500" />}
+              >
                 <div className="space-y-1.5">
                   <a href={`tel:${item.customerPhone}`} className="inline-block font-medium text-blue-700 underline underline-offset-2">
                     {item.customerPhone}
                   </a>
                   {item.customerPhone2?.trim() ? (
                     <div>
-                      <span className="mr-1 text-fluid-xs text-gray-500">보조</span>
+                      <span className="mr-1 text-fluid-xs text-gray-500 inline-block align-middle">
+                        <TeamBiLine id="team.modal.phoneSecondary" koClassName="text-fluid-xs text-gray-500" />
+                      </span>
                       <a
                         href={`tel:${item.customerPhone2}`}
                         className="inline-block text-blue-700 underline underline-offset-2"
@@ -558,7 +622,9 @@ export function TeamInquiryDetailModal({
                   ) : null}
                 </div>
               </TeamModalRow>
-              <TeamModalRow label="주소">
+              <TeamModalRow
+                label={<TeamBiLine id="team.modal.row.address" koClassName="text-fluid-xs font-medium text-gray-500" />}
+              >
                 <p className="leading-relaxed text-gray-800">
                   {item.address}
                   {item.addressDetail ? <span className="text-gray-600"> {item.addressDetail}</span> : null}
@@ -566,23 +632,32 @@ export function TeamInquiryDetailModal({
               </TeamModalRow>
             </TeamModalSection>
 
-            <TeamModalSection title="유형">
-              <TeamModalRow label="평수">
+            <TeamModalSection
+              title={<TeamBiLine id="team.modal.section.property" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+            >
+              <TeamModalRow
+                label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-xs font-medium text-gray-500" />}
+              >
                 <span className="text-gray-800">
-                  {item.areaPyeong != null
-                    ? `${item.areaBasis ? `${item.areaBasis} ` : ''}${item.areaPyeong}평`
-                    : '—'}
+                  {item.areaBasis ? `${item.areaBasis} ` : ''}
+                  {formatTeamAreaPyeongBi(item.areaPyeong)}
                 </span>
               </TeamModalRow>
-              <TeamModalRow label="방 · 화 · 베">
+              <TeamModalRow
+                label={<TeamBiLine id="team.modal.row.rooms" koClassName="text-fluid-xs font-medium text-gray-500" />}
+              >
                 <span className="text-gray-800">{formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}</span>
               </TeamModalRow>
               {item.propertyType ? (
-                <TeamModalRow label="건축물 유형">
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.buildingType" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
                   <span className="text-gray-800">{item.propertyType}</span>
                 </TeamModalRow>
               ) : null}
-              <TeamModalRow label="투입 팀원">
+              <TeamModalRow
+                label={<TeamBiLine id="team.modal.row.crew" koClassName="text-fluid-xs font-medium text-gray-500" />}
+              >
                 {(() => {
                   const fallback = (item.crewMemberNote ?? '')
                     .split(/[,·/|]/g)
@@ -594,11 +669,17 @@ export function TeamInquiryDetailModal({
                       : fallback.map((name) => ({ name, phone: null as string | null }));
                   const count = item.crewMemberCount ?? 0;
                   if (list.length === 0) {
-                    return <span className="text-gray-800">팀원{count}명</span>;
+                    return (
+                      <span className="text-gray-800">
+                        <TeamBiLine id="team.modal.crewCount" vars={{ count: String(count) }} koClassName="text-fluid-sm text-gray-800" />
+                      </span>
+                    );
                   }
                   return (
                     <div className="space-y-1.5">
-                      <span className="text-fluid-2xs text-gray-500">팀원{count}명</span>
+                      <span className="text-fluid-2xs text-gray-500 inline-block">
+                        <TeamBiLine id="team.modal.crewCount" vars={{ count: String(count) }} />
+                      </span>
                       <ul className="flex flex-wrap items-center gap-1.5">
                         {list.map((m, idx) => (
                           <li
@@ -623,7 +704,9 @@ export function TeamInquiryDetailModal({
                 })()}
               </TeamModalRow>
               {isMorningBucketForTeamMeeting(item) ? (
-                <TeamModalRow label="미팅시간">
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.meetingTime" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
                   <div className="space-y-2">
                     <div className="flex min-w-0 w-full flex-col gap-2 items-start sm:flex-row sm:flex-wrap sm:items-center">
                       <input
@@ -632,7 +715,7 @@ export function TeamInquiryDetailModal({
                         disabled={crewMeetingSaving || !teamToken}
                         value={crewMeetingDraft}
                         onChange={(e) => setCrewMeetingDraft(e.target.value)}
-                        aria-label="현장 미팅 시각 (저장 시 크루 일정에 반영)"
+                        aria-label={teamBiPlain('team.modal.meetingAria')}
                       />
                       {crewMeetingPreviewLabel ? (
                         <span className="inline-flex shrink-0 items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-fluid-2xs font-medium tabular-nums text-gray-700">
@@ -646,7 +729,7 @@ export function TeamInquiryDetailModal({
                           onClick={() => setCrewMeetingDraft('')}
                           className="min-h-9 shrink-0 touch-manipulation border-0 px-2.5 py-2 text-fluid-2xs font-medium leading-none text-gray-600 hover:bg-white hover:text-gray-900 disabled:opacity-35 sm:px-3"
                         >
-                          지우기
+                          <TeamBiLine id="team.common.clear" koClassName="text-fluid-2xs font-medium text-gray-600" />
                         </button>
                         <button
                           type="button"
@@ -654,51 +737,63 @@ export function TeamInquiryDetailModal({
                           onClick={() => void handleCrewMeetingSave()}
                           className="min-h-9 shrink-0 border-0 border-l border-gray-200 bg-gray-950 px-3 py-2 text-fluid-2xs font-semibold leading-none text-white transition-colors hover:bg-gray-900 disabled:opacity-40 sm:px-3.5"
                         >
-                          {crewMeetingSaving ? '저장중' : '저장'}
+                          {crewMeetingSaving ? (
+                            <TeamBiLine id="team.common.savingShort" koClassName="text-fluid-2xs font-semibold text-white" />
+                          ) : (
+                            <TeamBiLine id="team.common.save" koClassName="text-fluid-2xs font-semibold text-white" />
+                          )}
                         </button>
                       </div>
                     </div>
                     {crewMeetingSaveNotice ? (
                       <TeamInlineNoticeModule variant="success">{crewMeetingSaveNotice}</TeamInlineNoticeModule>
                     ) : null}
-                    <p className="text-fluid-2xs text-gray-500">
-                      시간을 선택·입력한 뒤 <strong className="font-medium text-gray-700">저장</strong>을 누르면 반영됩니다. 크루 「현장 일정」과 관리자 접수 목록 등은 접수 변경 알림 채널로 갱신됩니다.
-                    </p>
+                    <div className="text-fluid-2xs text-gray-500">
+                      <TeamBiLine id="team.modal.meetingHint" koClassName="text-fluid-2xs text-gray-500" />
+                    </div>
                   </div>
                 </TeamModalRow>
               ) : null}
             </TeamModalSection>
 
-            <TeamModalSection title="일정">
-              <TeamModalRow label="예약일">
+            <TeamModalSection
+              title={<TeamBiLine id="team.modal.section.schedule" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+            >
+              <TeamModalRow
+                label={<TeamBiLine id="team.modal.row.preferredDate" koClassName="text-fluid-xs font-medium text-gray-500" />}
+              >
                 <span className="tabular-nums text-gray-800">
-                  {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
+                  {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : teamBiPlain('team.common.emDash')}
                 </span>
               </TeamModalRow>
-              <TeamModalRow label="희망 시간">
+              <TeamModalRow
+                label={<TeamBiLine id="team.modal.row.preferredTime" koClassName="text-fluid-xs font-medium text-gray-500" />}
+              >
                 <span className="text-gray-800">{formatScheduleLine(item)}</span>
               </TeamModalRow>
             </TeamModalSection>
 
             <details className="overflow-hidden rounded-lg border border-gray-200">
               <summary className="cursor-pointer select-none bg-gray-50 px-3 py-2.5 text-fluid-sm text-gray-700 hover:bg-gray-100">
-                접수 변경 이력 보기 (날짜·금액·현장 미팅 등)
+                <TeamBiLine id="team.modal.historySummary" koClassName="text-fluid-sm text-gray-700" />
               </summary>
               <div className="border-t border-gray-100 bg-white p-3">
                 <InquiryChangeHistoryBlock
                   logs={item.changeLogs}
                   className="mb-0 border-0 bg-transparent p-0"
                   showEmptyHint
-                  sectionHeading="접수 변경 이력"
-                  emptyHintText="저장된 변경 이력이 없습니다."
+                  sectionHeading={teamBiPlain('team.changeHistory.heading')}
+                  emptyHintText={teamBiPlain('team.changeHistory.empty')}
                 />
               </div>
             </details>
 
             {onPreferredDateChange ? (
               <div className="rounded-xl border border-blue-200 bg-blue-50/90 p-4 shadow-sm">
-                <p className="text-fluid-xs font-semibold text-blue-950">예약일 변경 (팀장)</p>
-                <p className="mt-1 text-fluid-2xs text-blue-900/80">변경 후 관리자 화면에 반영됩니다.</p>
+                <TeamBiLine id="team.modal.prefDateTitle" koClassName="text-fluid-xs font-semibold text-blue-950" />
+                <div className="mt-1">
+                  <TeamBiLine id="team.modal.prefDateHint" koClassName="text-fluid-2xs text-blue-900/80" />
+                </div>
                 <div className="mt-3 flex flex-wrap items-stretch gap-2">
                   <input
                     type="date"
@@ -712,7 +807,11 @@ export function TeamInquiryDetailModal({
                     onClick={() => void handlePreferredDateSave()}
                     className="min-h-[44px] rounded-lg bg-blue-600 px-4 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {preferredDateSaving ? '저장 중…' : '변경 저장'}
+                    {preferredDateSaving ? (
+                      <TeamBiLine id="team.common.saving" koClassName="text-fluid-sm font-medium text-white" />
+                    ) : (
+                      <TeamBiLine id="team.modal.prefDateSave" koClassName="text-fluid-sm font-medium text-white" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -722,7 +821,9 @@ export function TeamInquiryDetailModal({
               specialNotes: item.specialNotes,
               orderForm: item.orderForm,
             }).trim() ? (
-              <TeamModalSection title="고객 발주서 특이사항">
+              <TeamModalSection
+                title={<TeamBiLine id="team.modal.section.orderNotes" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+              >
                 <div className="border-l-4 border-emerald-400 bg-emerald-50/70 px-3 py-3 text-fluid-sm leading-relaxed text-emerald-950 sm:px-4 whitespace-pre-wrap break-words">
                   {effectiveCustomerOrderNotes({
                     specialNotes: item.specialNotes,
@@ -737,7 +838,9 @@ export function TeamInquiryDetailModal({
               specialNotes: item.specialNotes,
               orderForm: item.orderForm,
             }).trim() ? (
-              <TeamModalSection title="특이사항 (관리자·팀장·타업체 공유)">
+              <TeamModalSection
+                title={<TeamBiLine id="team.modal.section.sharedNotes" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+              >
                 <div className="border-l-4 border-violet-400 bg-violet-50/75 px-3 py-3 text-fluid-sm leading-relaxed text-violet-950 sm:px-4 whitespace-pre-wrap break-words">
                   {effectiveTeamSharedAdminNotes({
                     memo: item.memo,
@@ -757,19 +860,25 @@ export function TeamInquiryDetailModal({
               initialExtraCharges={item.extraCharges}
             />
             {item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER') && (
-              <TeamModalSection title="타업체 수수료">
-                <TeamModalRow label="청구 수수료">
+              <TeamModalSection
+                title={<TeamBiLine id="team.modal.section.externalFee" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+              >
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.feeClaim" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
                   <span className="tabular-nums text-gray-900">
                     {item.externalTransferFee != null
                       ? `${item.externalTransferFee.toLocaleString('ko-KR')}원`
-                      : '미입력'}
+                      : teamBiPlain('team.modal.feeUnset')}
                   </span>
                 </TeamModalRow>
               </TeamModalSection>
             )}
 
             {item.claimMemo?.trim() ? (
-              <TeamModalSection title="C/S 표시">
+              <TeamModalSection
+                title={<TeamBiLine id="team.modal.section.csDisplay" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+              >
                 <div className="border-l-4 border-amber-400 bg-amber-50/80 px-3 py-3 text-fluid-sm leading-relaxed text-amber-950 sm:px-4 whitespace-pre-wrap break-words">
                   {item.claimMemo.trim()}
                 </div>
@@ -777,11 +886,13 @@ export function TeamInquiryDetailModal({
             ) : null}
 
             {showHappyBlock ? (
-              <TeamModalSection title="해피콜">
+              <TeamModalSection
+                title={<TeamBiLine id="team.modal.section.happy" koClassName="text-fluid-xs font-semibold text-gray-600" />}
+              >
                 <div className="px-3 py-3 sm:px-4">
                   {item.happyCallCompletedAt ? (
-                    <p className="text-fluid-sm font-medium text-green-800">
-                      완료 ·{' '}
+                    <div className="text-fluid-sm font-medium text-green-800">
+                      <TeamBiLine id="team.modal.happyDone" koClassName="text-fluid-sm font-medium text-green-800" />
                       <span className="font-normal tabular-nums text-gray-700">
                         {new Date(item.happyCallCompletedAt).toLocaleString('ko-KR', {
                           timeZone: 'Asia/Seoul',
@@ -789,13 +900,15 @@ export function TeamInquiryDetailModal({
                           timeStyle: 'short',
                         })}
                       </span>
-                    </p>
+                    </div>
                   ) : canHappy ? (
-                    <p className="text-fluid-sm leading-relaxed text-amber-900">
-                      미완료 — 작업 전 고객에게 일정 안내 전화를 걸어 주세요.
-                    </p>
+                    <div className="text-fluid-sm leading-relaxed text-amber-900">
+                      <TeamBiLine id="team.modal.happyTodo" koClassName="text-fluid-sm leading-relaxed text-amber-900" />
+                    </div>
                   ) : (
-                    <p className="text-fluid-sm text-gray-500">해당 없음</p>
+                    <div className="text-fluid-sm text-gray-500">
+                      <TeamBiLine id="team.modal.happyNa" koClassName="text-fluid-sm text-gray-500" />
+                    </div>
                   )}
                 </div>
               </TeamModalSection>
@@ -804,19 +917,18 @@ export function TeamInquiryDetailModal({
             {item.orderForm?.id ? (
               <section className="min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/80">
                 <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-emerald-950">
-                  <span>발주서 첨부 사진 (고객 업로드)</span>
+                  <TeamBiLine id="team.modal.orderPhotosTitle" koClassName="text-fluid-sm font-medium text-emerald-950" />
                 </header>
                 <div className="border-t border-emerald-200/80 px-4 pb-4 pt-1">
-                  <p className="mb-3 text-fluid-xs text-emerald-900/85">
-                    고객이 발주서 작성 시 올린 <strong className="font-semibold">현장 컨디션·특이 부위 사진</strong>입니다.
-                    도착 전 참고용으로 확인하세요.
-                  </p>
+                  <div className="mb-3 text-fluid-xs text-emerald-900/85">
+                    <TeamBiLine id="team.modal.orderPhotosHint" koClassName="text-fluid-xs text-emerald-900/85" />
+                  </div>
                   {teamToken ? (
                     <AdminOrderFormPhotosPanel orderFormId={item.orderForm.id} token={teamToken} />
                   ) : (
-                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
-                      로그인 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
-                    </p>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                      <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+                    </div>
                   )}
                 </div>
               </section>
@@ -824,13 +936,13 @@ export function TeamInquiryDetailModal({
 
             <details className="group min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/80 [&_summary::-webkit-details-marker]:hidden">
               <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-fluid-sm font-medium text-blue-950 hover:bg-blue-100/60 touch-manipulation select-none">
-                <span>현장 사진 (청소 전·후)</span>
+                <TeamBiLine id="team.modal.cleaningPhotosSummary" koClassName="text-fluid-sm font-medium text-blue-950" />
                 <ChevronDownMini className="h-5 w-5 shrink-0 text-blue-800 transition-transform group-open:rotate-180" />
               </summary>
               <div className="border-t border-blue-200/80 px-4 pb-4 pt-1">
-                <p className="mb-3 text-fluid-xs text-blue-900/85">
-                  <strong className="font-semibold">사진 올리기</strong>를 펼쳐 청소 전·후로 올리거나, 등록된 사진을 확인할 수 있습니다.
-                </p>
+                <div className="mb-3 text-fluid-xs text-blue-900/85">
+                  <TeamBiLine id="team.modal.cleaningPhotosHint" koClassName="text-fluid-xs text-blue-900/85" />
+                </div>
                 {teamToken ? (
                   <InquiryCleaningPhotosPanel
                     inquiryId={item.id}
@@ -840,21 +952,21 @@ export function TeamInquiryDetailModal({
                     phasesToShow={['BEFORE', 'AFTER']}
                   />
                 ) : (
-                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
-                    로그인 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
-                  </p>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                    <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+                  </div>
                 )}
               </div>
             </details>
 
             <section className="min-w-0 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/70">
               <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-amber-950">
-                <span>클레임 사진</span>
+                <TeamBiLine id="team.modal.claimPhotosTitle" koClassName="text-fluid-sm font-medium text-amber-950" />
               </header>
               <div className="border-t border-amber-200/80 px-4 pb-4 pt-1">
-                <p className="mb-3 text-fluid-xs text-amber-900/85">
-                  고객 <strong className="font-semibold">클레임(C/S) 접수 시 관리자가 첨부한 참고 사진</strong>입니다. 필요 시 확인하세요.
-                </p>
+                <div className="mb-3 text-fluid-xs text-amber-900/85">
+                  <TeamBiLine id="team.modal.claimPhotosHint" koClassName="text-fluid-xs text-amber-900/85" />
+                </div>
                 {teamToken ? (
                   <InquiryCleaningPhotosPanel
                     key={`claim-${item.id}`}
@@ -865,9 +977,9 @@ export function TeamInquiryDetailModal({
                     phasesToShow={['CLAIM']}
                   />
                 ) : (
-                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
-                    로그인 정보를 찾을 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
-                  </p>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                    <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+                  </div>
                 )}
               </div>
             </section>
@@ -882,7 +994,11 @@ export function TeamInquiryDetailModal({
               onClick={() => void handleHappyCallComplete()}
               className="min-h-[48px] w-full rounded-xl bg-blue-600 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {happySaving ? '처리 중…' : '해피콜 완료'}
+              {happySaving ? (
+                <TeamBiLine id="team.modal.processing" koClassName="text-fluid-sm font-medium text-white" />
+              ) : (
+                <TeamBiLine id="team.modal.happySubmit" koClassName="text-fluid-sm font-medium text-white" />
+              )}
             </button>
           ) : null}
           <div className="grid gap-2 grid-cols-1">
@@ -891,7 +1007,7 @@ export function TeamInquiryDetailModal({
               onClick={onClose}
               className="min-h-[44px] w-full rounded-xl border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100"
             >
-              닫기
+              <TeamBiLine id="team.common.close" koClassName="text-fluid-sm font-medium text-gray-800" />
             </button>
           </div>
         </footer>

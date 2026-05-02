@@ -2,13 +2,18 @@ import { prisma } from '../../lib/prisma.js';
 import { notifyInboxRefresh } from './inboxNotify.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
-async function employedStaffIds(): Promise<string[]> {
+/** 재직 중 ADMIN·MARKETER — 급여·지출 등 스태프 화면용 WS 알림 대상 */
+export async function getEmployedStaffUserIds(): Promise<string[]> {
   const todayYmd = kstTodayYmd();
   const usersRaw = await prisma.user.findMany({
     where: { isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
     select: { id: true, hireDate: true, resignationDate: true },
   });
   return usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd)).map((u) => u.id);
+}
+
+async function employedStaffIds(): Promise<string[]> {
+  return getEmployedStaffUserIds();
 }
 
 async function teamLeaderIdsForInquiry(inquiryId: string): Promise<string[]> {

@@ -4,6 +4,7 @@ import {
   computeDateRangeFromPreset,
   type DateRangePresetId,
 } from '../../utils/dateRangePresets';
+import type { TeamMessageId } from '../../i18n/team/teamMessages';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import {
   getTeamExternalSettlement,
@@ -15,6 +16,29 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { TeamBiInline, TeamBiLine, teamBiPlain, teamInquiryStatus } from '../../i18n/team/teamI18n';
+
+const TEAM_DATE_PRESET_MSG: Record<DateRangePresetId, TeamMessageId> = {
+  custom: 'team.datePreset.custom',
+  today: 'team.datePreset.today',
+  thisMonth: 'team.datePreset.thisMonth',
+  lastMonth: 'team.datePreset.lastMonth',
+  thisYear: 'team.datePreset.thisYear',
+  lastYear: 'team.datePreset.lastYear',
+};
+
+function SettlementRowStatus({ code, cancelled }: { code: string; cancelled: boolean }) {
+  if (cancelled) {
+    return <TeamBiInline id="team.settlement.badgeCancelledDeduction" />;
+  }
+  const st = teamInquiryStatus(code);
+  return (
+    <span className="flex flex-col items-center leading-tight">
+      <span>{st.ko}</span>
+      <span className="text-[0.6rem] text-gray-500 font-normal">{st.th}</span>
+    </span>
+  );
+}
 
 function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
@@ -59,7 +83,7 @@ export function TeamExternalSettlementPage() {
           (viewerRole === 'ADMIN' || viewerRole === 'MARKETER') && previewMode;
         if (me.role !== 'EXTERNAL_PARTNER' && !isPreviewStaff) {
           setData(null);
-          setError('타업체 계정 전용 메뉴입니다.');
+          setError(teamBiPlain('team.settlement.partnerOnly'));
           return;
         }
         const res = await getTeamExternalSettlement(token, {
@@ -77,7 +101,7 @@ export function TeamExternalSettlementPage() {
           return;
         }
         setData(null);
-        setError(e instanceof Error ? e.message : '정산 정보를 불러오지 못했습니다.');
+        setError(e instanceof Error ? e.message : teamBiPlain('team.settlement.loadFail'));
       } finally {
         if (!opts?.silent) setLoading(false);
       }
@@ -120,20 +144,26 @@ export function TeamExternalSettlementPage() {
   }, [data]);
 
   if (loading) {
-    return <div className="py-12 text-center text-gray-500 text-fluid-sm">로딩 중...</div>;
+    return (
+      <div className="py-12 text-center text-gray-500 text-fluid-sm">
+        <TeamBiLine id="team.common.loading" koClassName="text-fluid-sm text-gray-500" />
+      </div>
+    );
   }
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-4 pb-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-800">정산</h1>
-          <p className="mt-1 text-fluid-xs text-gray-500">
-            취소는 관리자/마케터만 처리합니다. 취소 건 수수료는 자동 차감 반영됩니다.
-          </p>
+          <h1 className="text-xl font-semibold text-gray-800">
+            <TeamBiLine id="team.layout.nav.settlement" koClassName="text-xl font-semibold text-gray-800" />
+          </h1>
+          <div className="mt-1">
+            <TeamBiLine id="team.settlement.adminCancelNote" koClassName="text-fluid-xs text-gray-500" />
+          </div>
         </div>
         <div className="flex flex-wrap gap-1">
-          {DATE_RANGE_PRESET_LABELS.map(({ id, label }) => (
+          {DATE_RANGE_PRESET_LABELS.map(({ id }) => (
             <button
               key={id}
               type="button"
@@ -142,7 +172,7 @@ export function TeamExternalSettlementPage() {
                 preset === id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300'
               }`}
             >
-              {label}
+              <TeamBiInline id={TEAM_DATE_PRESET_MSG[id]} />
             </button>
           ))}
         </div>
@@ -150,7 +180,7 @@ export function TeamExternalSettlementPage() {
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white p-3">
         <label className="text-fluid-xs text-gray-600">
-          시작일
+          <TeamBiLine id="team.settlement.dateFrom" koClassName="text-fluid-xs text-gray-600" />
           <input
             type="date"
             value={from}
@@ -163,7 +193,7 @@ export function TeamExternalSettlementPage() {
         </label>
         <span className="mt-5 text-gray-400">~</span>
         <label className="text-fluid-xs text-gray-600">
-          종료일
+          <TeamBiLine id="team.settlement.dateTo" koClassName="text-fluid-xs text-gray-600" />
           <input
             type="date"
             value={to}
@@ -182,58 +212,84 @@ export function TeamExternalSettlementPage() {
 
       {data ? (
         <>
-          <h2 className="text-fluid-sm font-medium text-gray-800">조회 기간 기준 (위 달력)</h2>
+          <h2 className="text-fluid-sm font-medium text-gray-800">
+            <TeamBiLine id="team.settlement.sectionPeriodBasis" koClassName="text-fluid-sm font-medium text-gray-800" />
+          </h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">업체</p>
+              <div className="text-fluid-2xs text-gray-500">
+                <TeamBiLine id="team.settlement.cardCompany" koClassName="text-fluid-2xs text-gray-500" />
+              </div>
               <p className="mt-1 truncate text-fluid-sm font-semibold text-gray-900" title={data.externalCompanyName ?? '-'}>
                 {data.externalCompanyName ?? '-'}
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">기간 총 수수료</p>
+              <div className="text-fluid-2xs text-gray-500">
+                <TeamBiLine id="team.settlement.cardPeriodTotalFee" koClassName="text-fluid-2xs text-gray-500" />
+              </div>
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">{won(data.totalFee)}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">정상/취소 건수</p>
+              <div className="text-fluid-2xs text-gray-500">
+                <TeamBiLine id="team.settlement.cardNormalCancelledCounts" koClassName="text-fluid-2xs text-gray-500" />
+              </div>
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
                 {data.inquiryCount} / {data.cancelledInquiryCount}
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">총 건수</p>
+              <div className="text-fluid-2xs text-gray-500">
+                <TeamBiLine id="team.settlement.cardTotalCount" koClassName="text-fluid-2xs text-gray-500" />
+              </div>
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">{data.totalCount}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">기간 이전 이월</p>
+              <div className="text-fluid-2xs text-gray-500">
+                <TeamBiLine id="team.settlement.cardCarryOver" koClassName="text-fluid-2xs text-gray-500" />
+              </div>
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
                 {won(data.carryOverAmount)}
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">기간 결제대상</p>
+              <div className="text-fluid-2xs text-gray-500">
+                <TeamBiLine id="team.settlement.cardPayable" koClassName="text-fluid-2xs text-gray-500" />
+              </div>
               <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
                 {won(data.payableAmount)}
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">기간 정산완료</p>
+              <div className="text-fluid-2xs text-gray-500">
+                <TeamBiLine id="team.settlement.cardPeriodPaid" koClassName="text-fluid-2xs text-gray-500" />
+              </div>
               <p className="mt-1 text-fluid-sm font-semibold text-emerald-700 tabular-nums">
                 {won(data.periodPaidAmount)}
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <p className="text-fluid-2xs text-gray-500">기간 남은 결제</p>
+              <div className="text-fluid-2xs text-gray-500">
+                <TeamBiLine id="team.settlement.cardRemainingPay" koClassName="text-fluid-2xs text-gray-500" />
+              </div>
               <p className={`mt-1 text-fluid-sm font-semibold tabular-nums ${remainingAmount > 0 ? 'text-rose-700' : 'text-gray-900'}`}>
                 {won(remainingAmount > 0 ? remainingAmount : 0)}
               </p>
             </div>
           </div>
 
-          <p className="mt-4 text-fluid-sm font-medium text-gray-800">올해({data.summaryYear}) 기준</p>
+          <div className="mt-4">
+            <TeamBiLine
+              id="team.settlement.yearHeading"
+              vars={{ year: String(data.summaryYear) }}
+              koClassName="text-fluid-sm font-medium text-gray-800"
+            />
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-xl border-2 border-rose-200 bg-rose-50/60 p-4 shadow-sm">
-              <p className="text-fluid-2xs font-medium uppercase tracking-wide text-rose-900/80">남은 결제(미수)</p>
+              <div className="text-fluid-2xs font-medium uppercase tracking-wide text-rose-900/80">
+                <TeamBiLine id="team.settlement.remainingReceivableTitle" koClassName="text-fluid-2xs font-medium uppercase tracking-wide text-rose-900/80" />
+              </div>
               <p
                 className={`mt-2 text-2xl font-bold tabular-nums sm:text-3xl ${
                   (data.yearRemainingAmount ?? 0) > 0 ? 'text-rose-800' : 'text-gray-800'
@@ -241,13 +297,15 @@ export function TeamExternalSettlementPage() {
               >
                 {won((data.yearRemainingAmount ?? 0) > 0 ? data.yearRemainingAmount ?? 0 : 0)}
               </p>
-              <p className="mt-2 text-fluid-xs text-gray-600">
-                올해 총 수수료(예약일 기준){' '}
-                <span className="font-semibold tabular-nums text-gray-900">{won(data.yearTotalFee ?? 0)}</span>
-              </p>
+              <div className="mt-2 space-y-1">
+                <TeamBiLine id="team.settlement.yearTotalFeeByBooking" koClassName="text-fluid-xs text-gray-600" />
+                <p className="font-semibold tabular-nums text-gray-900">{won(data.yearTotalFee ?? 0)}</p>
+              </div>
             </div>
             <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/60 p-4 shadow-sm">
-              <p className="text-fluid-2xs font-medium uppercase tracking-wide text-emerald-900/80">최근 정산완료</p>
+              <div className="text-fluid-2xs font-medium uppercase tracking-wide text-emerald-900/80">
+                <TeamBiLine id="team.settlement.recentPaidTitle" koClassName="text-fluid-2xs font-medium uppercase tracking-wide text-emerald-900/80" />
+              </div>
               {data.lastSettlementPayment ? (
                 <>
                   <p className="mt-2 text-2xl font-bold text-emerald-800 tabular-nums sm:text-3xl">
@@ -258,19 +316,27 @@ export function TeamExternalSettlementPage() {
                   </p>
                 </>
               ) : (
-                <p className="mt-3 text-fluid-sm text-gray-500">정산완료 내역이 아직 없습니다.</p>
+                <div className="mt-3">
+                  <TeamBiLine id="team.settlement.noPaidHistoryYet" koClassName="text-fluid-sm text-gray-500" />
+                </div>
               )}
-              <p className="mt-2 text-fluid-xs text-gray-600">
-                올해 정산완료 누적{' '}
+              <div className="mt-2 text-fluid-xs text-gray-600 flex flex-wrap items-baseline gap-x-1 gap-y-1">
+                <TeamBiLine id="team.settlement.yearPaidAccum" koClassName="text-fluid-xs text-gray-600" />
                 <span className="font-semibold tabular-nums text-emerald-900">{won(data.yearPeriodPaidAmount ?? 0)}</span>
-              </p>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-3 text-fluid-xs text-gray-600">
-            +수수료 합계 <strong className="text-emerald-700 tabular-nums">{won(totalPositive)}</strong>
-            {' · '}
-            취소 차감 <strong className="text-rose-700 tabular-nums">-{won(totalNegative)}</strong>
+          <div className="rounded-lg border border-gray-200 bg-white p-3 text-fluid-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-3 items-start">
+            <span className="inline-flex flex-col gap-1">
+              <TeamBiInline id="team.settlement.sumPositiveFees" />
+              <strong className="text-emerald-700 tabular-nums">{won(totalPositive)}</strong>
+            </span>
+            <span className="text-gray-300 hidden sm:inline self-center">·</span>
+            <span className="inline-flex flex-col gap-1">
+              <TeamBiInline id="team.settlement.cancelDeduction" />
+              <strong className="text-rose-700 tabular-nums">-{won(totalNegative)}</strong>
+            </span>
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-white">
@@ -285,7 +351,7 @@ export function TeamExternalSettlementPage() {
                       : 'bg-white text-gray-700 border-gray-300'
                   }`}
                 >
-                  정산 내역
+                  <TeamBiInline id="team.settlement.tabLines" />
                 </button>
                 <button
                   type="button"
@@ -296,7 +362,7 @@ export function TeamExternalSettlementPage() {
                       : 'bg-white text-gray-700 border-gray-300'
                   }`}
                 >
-                  정산완료내역
+                  <TeamBiInline id="team.settlement.tabPaidHistory" />
                 </button>
               </div>
             </div>
@@ -305,29 +371,46 @@ export function TeamExternalSettlementPage() {
               <div className="p-3">
                 <div className="rounded border border-gray-200 bg-white">
                   <div className="border-b border-gray-100 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
-                    {data.month} 기준 · 결제대상 {won(payableAmount)} / 정산완료 {won(data.periodPaidAmount)} / 남은 금액{' '}
-                    <strong className={remainingAmount > 0 ? 'text-rose-700' : 'text-gray-900'}>
-                      {won(remainingAmount > 0 ? remainingAmount : 0)}
-                    </strong>
-                    <p className="mt-1.5 text-fluid-2xs text-gray-500">
-                      아래 &quot;처리 후(누적)&quot;는 조회 기간이 아닌 <strong>전체 누적</strong> 수수료·정산(관리자 정산·미수와 동일한 귀속) 기준입니다. 위 &quot;남은
-                      금액&quot;은 <strong>이번 조회 기간</strong> 기준입니다.
-                    </p>
+                    <div className="text-fluid-xs">
+                      <TeamBiLine
+                        id="team.settlement.historyBanner"
+                        vars={{
+                          month: data.month,
+                          payable: won(payableAmount),
+                          paid: won(data.periodPaidAmount),
+                          remaining: won(remainingAmount > 0 ? remainingAmount : 0),
+                        }}
+                        koClassName="text-fluid-xs text-gray-600"
+                      />
+                    </div>
+                    <div className="mt-1.5 text-fluid-2xs text-gray-500">
+                      <TeamBiLine id="team.settlement.historyNote" koClassName="text-fluid-2xs text-gray-500" />
+                    </div>
                   </div>
                   {historyDisplay.length === 0 ? (
-                    <div className="px-3 py-8 text-center text-fluid-sm text-gray-500">
-                      해당 기간 정산완료 내역이 없습니다.
+                    <div className="px-3 py-8 text-center">
+                      <TeamBiLine id="team.settlement.emptyPaidPeriod" koClassName="text-fluid-sm text-gray-500" />
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[640px] border-collapse text-fluid-sm">
                         <thead>
                           <tr className="border-b border-gray-200 bg-gray-100">
-                            <th className="px-3 py-2 text-center font-medium text-gray-700">정산일</th>
-                            <th className="px-3 py-2 text-center font-medium text-gray-700">정산완료 금액</th>
-                            <th className="px-3 py-2 text-center font-medium text-gray-700">처리자</th>
-                            <th className="px-3 py-2 text-center font-medium text-gray-700">메모</th>
-                            <th className="px-3 py-2 text-center font-medium text-gray-700">처리 후(누적) 잔액</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                              <TeamBiLine id="team.settlement.thPaidDate" koClassName="text-fluid-xs font-medium text-gray-700" />
+                            </th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                              <TeamBiLine id="team.settlement.thPaidAmount" koClassName="text-fluid-xs font-medium text-gray-700" />
+                            </th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                              <TeamBiLine id="team.settlement.thActor" koClassName="text-fluid-xs font-medium text-gray-700" />
+                            </th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                              <TeamBiLine id="team.settlement.thMemo" koClassName="text-fluid-xs font-medium text-gray-700" />
+                            </th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                              <TeamBiLine id="team.settlement.thBalanceAfterCumulative" koClassName="text-fluid-xs font-medium text-gray-700" />
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -360,8 +443,8 @@ export function TeamExternalSettlementPage() {
 
           {activeTab === 'summary' ? <div className="space-y-3 lg:hidden">
             {data.items.length === 0 ? (
-              <div className="rounded-lg border border-gray-200 bg-white px-3 py-10 text-center text-gray-500">
-                해당 기간 정산 내역이 없습니다.
+              <div className="rounded-lg border border-gray-200 bg-white px-3 py-10 text-center">
+                <TeamBiLine id="team.settlement.emptyLinesPeriod" koClassName="text-gray-500 text-fluid-sm" />
               </div>
             ) : (
               data.items.map((it) => (
@@ -379,12 +462,18 @@ export function TeamExternalSettlementPage() {
                         it.isCancelled ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-700'
                       }`}
                     >
-                      {it.isCancelled ? '취소(차감)' : it.status}
+                      <SettlementRowStatus code={it.status} cancelled={it.isCancelled} />
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-fluid-xs text-gray-600">
-                    <span className="tabular-nums">
-                      예약일 {it.preferredDate ? formatDateCompactWithWeekday(it.preferredDate) : '-'}
+                  <div className="mt-2 flex items-center justify-between gap-2 text-fluid-xs text-gray-600">
+                    <span className="min-w-0 text-left tabular-nums">
+                      <TeamBiLine
+                        id="team.settlement.prefDateLine"
+                        vars={{
+                          date: it.preferredDate ? formatDateCompactWithWeekday(it.preferredDate) : '-',
+                        }}
+                        koClassName="text-fluid-xs text-gray-600"
+                      />
                     </span>
                     <span
                       className={`tabular-nums font-semibold ${
@@ -404,18 +493,28 @@ export function TeamExternalSettlementPage() {
             <table className="w-full min-w-[640px] border-collapse text-fluid-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-100">
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">예약일</th>
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">접수번호</th>
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">고객명</th>
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">상태</th>
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">수수료</th>
+                  <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                    <TeamBiLine id="team.settlement.thPreferredDate" koClassName="text-fluid-xs font-medium text-gray-700" />
+                  </th>
+                  <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                    <TeamBiLine id="team.settlement.thInquiryNo" koClassName="text-fluid-xs font-medium text-gray-700" />
+                  </th>
+                  <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                    <TeamBiLine id="team.settlement.thCustomer" koClassName="text-fluid-xs font-medium text-gray-700" />
+                  </th>
+                  <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                    <TeamBiLine id="team.settlement.thStatus" koClassName="text-fluid-xs font-medium text-gray-700" />
+                  </th>
+                  <th className="px-3 py-2 text-center font-medium text-gray-700 align-middle">
+                    <TeamBiLine id="team.settlement.thFee" koClassName="text-fluid-xs font-medium text-gray-700" />
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-10 text-center text-gray-500">
-                      해당 기간 정산 내역이 없습니다.
+                    <td colSpan={5} className="px-3 py-10 text-center">
+                      <TeamBiLine id="team.settlement.emptyLinesPeriod" koClassName="text-gray-500 text-fluid-sm" />
                     </td>
                   </tr>
                 ) : (
@@ -426,13 +525,13 @@ export function TeamExternalSettlementPage() {
                       </td>
                       <td className="px-3 py-2 text-center text-gray-700 tabular-nums">{it.inquiryNumber ?? '-'}</td>
                       <td className="px-3 py-2 text-center text-gray-900">{it.customerName}</td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-3 py-2 text-center align-middle">
                         <span
-                          className={`inline-flex rounded px-2 py-0.5 text-fluid-2xs font-medium ${
+                          className={`inline-flex min-h-[2.25rem] items-center justify-center rounded px-2 py-0.5 text-fluid-2xs font-medium ${
                             it.isCancelled ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-700'
                           }`}
                         >
-                          {it.isCancelled ? '취소(차감)' : it.status}
+                          <SettlementRowStatus code={it.status} cancelled={it.isCancelled} />
                         </span>
                       </td>
                       <td

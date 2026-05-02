@@ -1,13 +1,33 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, crewGroupOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import {
+  authMiddleware,
+  crewGroupOnly,
+  crewLeaderJwtOnly,
+  type AuthPayload,
+} from '../auth/auth.middleware.js';
 import { crewGroupLeaderFromDb } from './crewGroupLeader.middleware.js';
 import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { buildCrewFieldSchedule, getCrewMonthlyInquiryStats } from './crewFieldSchedule.service.js';
 import { notifyCrewGroupsInboxRefresh } from './crewFieldRealtime.js';
+import {
+  createCrewGroupExpense,
+  deleteCrewGroupExpense,
+  listCrewExpensesForGroup,
+} from './crewGroupExpense.service.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 
 const router = Router();
+
+const expenseUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 },
+});
+const expenseUploadFields = expenseUpload.fields([{ name: 'images', maxCount: 15 }]);
 
 router.use(authMiddleware, crewGroupOnly);
 
@@ -257,6 +277,141 @@ router.put('/day-roster', crewGroupLeaderFromDb, async (req, res) => {
     }
     console.error('PUT /crew/day-roster', e);
     res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
+  }
+});
+
+/** 귀속 월별 크루 지출 목록 — 그룹 로그인 전원 조회 가능 */
+router.get('/expenses', async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    monthRaw || new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+  try {
+    const rows = await listCrewExpensesForGroup(gid, monthKey);
+    res.json({
+      crewGroupId: gid,
+      month: monthKey,
+      items: rows.map((row) => ({
+        id: row.id,
+        monthKey: row.monthKey,
+        amount: row.amount,
+        memo: row.memo,
+        createdAt: row.createdAt.toISOString(),
+        teamMember: row.teamMember,
+        attachments: row.attachments.map((a) => ({
+          id: a.id,
+          secureUrl: a.secureUrl,
+          width: a.width,
+          height: a.height,
+        })),
+      })),
+    });
+  } catch (e) {
+    console.error('GET /crew/expenses', e);
+    res.status(500).json({ error: '조회 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
+ * 그룹장 전용 — 팀원별 지출 등록(영수증 복수 첨부).
+ * CLOUDINARY 미설정 시 이미지 없는 등록만 가능합니다.
+ */
+router.post('/expenses', crewGroupLeaderFromDb, crewLeaderJwtOnly, expenseUploadFields, async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const body = req.body as { monthKey?: string; teamMemberId?: string; amount?: string; memo?: string };
+  const monthKey =
+    typeof body.monthKey === 'string' && body.monthKey.trim()
+      ? body.monthKey.trim()
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    res.status(400).json({ error: 'monthKey는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+  const teamMemberId = typeof body.teamMemberId === 'string' ? body.teamMemberId.trim() : '';
+  if (!teamMemberId) {
+    res.status(400).json({ error: 'teamMemberId가 필요합니다.' });
+    return;
+  }
+  const amountParsed = parseInt(String(body.amount ?? '').replace(/,/g, ''), 10);
+  if (!Number.isFinite(amountParsed) || amountParsed < 1) {
+    res.status(400).json({ error: '금액은 1원 이상 정수로 입력해 주세요.' });
+    return;
+  }
+  const memoRaw = body.memo != null ? String(body.memo).trim() : '';
+  const memo = memoRaw ? memoRaw.slice(0, 4000) : null;
+
+  const rawFiles = req.files as Record<string, Express.Multer.File[]> | undefined;
+  const files = [...(rawFiles?.images ?? [])];
+  if (files.length > 0 && !isCloudinaryConfigured()) {
+    res.status(503).json({
+      error: '영수증 업로드를 위해 서버에 CLOUDINARY 설정이 필요합니다.',
+    });
+    return;
+  }
+
+  try {
+    const { expense, attachments } = await createCrewGroupExpense({
+      crewGroupId: gid,
+      teamMemberId,
+      monthKey,
+      amount: amountParsed,
+      memo,
+      imageBuffers: files.map((f) => ({ buffer: f.buffer, mimetype: f.mimetype })),
+    });
+    void getEmployedStaffUserIds()
+      .then((ids) => notifyInboxRefresh(ids))
+      .catch((e) => console.error('[crew-expense POST] notify', e));
+    notifyCrewGroupsInboxRefresh([gid]);
+    res.status(201).json({
+      item: {
+        id: expense.id,
+        monthKey: expense.monthKey,
+        amount: expense.amount,
+        memo: expense.memo,
+        createdAt: expense.createdAt.toISOString(),
+        attachmentCount: attachments.length,
+      },
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'NOT_GROUP_MEMBER') {
+      res.status(400).json({ error: '이 크루 그룹 소속 팀원만 선택할 수 있습니다.' });
+      return;
+    }
+    if (msg === 'CLOUDINARY_NOT_CONFIGURED') {
+      res.status(503).json({ error: '영수증 업로드가 준비되지 않았습니다.' });
+      return;
+    }
+    console.error('POST /crew/expenses', e);
+    res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
+  }
+});
+
+router.delete('/expenses/:expenseId', crewGroupLeaderFromDb, crewLeaderJwtOnly, async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const expenseId = typeof req.params.expenseId === 'string' ? req.params.expenseId.trim() : '';
+  if (!expenseId) {
+    res.status(400).json({ error: 'expenseId가 필요합니다.' });
+    return;
+  }
+  try {
+    const ok = await deleteCrewGroupExpense(gid, expenseId);
+    if (!ok) {
+      res.status(404).json({ error: '지출 내역을 찾을 수 없습니다.' });
+      return;
+    }
+    void getEmployedStaffUserIds()
+      .then((ids) => notifyInboxRefresh(ids))
+      .catch((e) => console.error('[crew-expense DELETE] notify', e));
+    notifyCrewGroupsInboxRefresh([gid]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('DELETE /crew/expenses/:expenseId', e);
+    res.status(500).json({ error: '삭제 중 오류가 발생했습니다.' });
   }
 });
 

@@ -9,6 +9,44 @@ import { useInboxRealtime, useRosterAckRealtime, type RosterAckPayload } from '.
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { RosterAckBanner } from '../common/RosterAckBanner';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { TeamBiInline, TeamBiLine, teamT } from '../../i18n/team/teamI18n';
+
+function teamAriaAssignNav(count: number): string {
+  if (count <= 0) {
+    const a = teamT('team.layout.aria.assignList');
+    return `${a.ko} · ${a.th}`;
+  }
+  const a = teamT('team.layout.aria.assignListUnread', { count: String(count) });
+  return `${a.ko} · ${a.th}`;
+}
+
+function teamAriaAssignMobile(count: number): string {
+  if (count <= 0) {
+    const a = teamT('team.layout.aria.assignShort');
+    return `${a.ko} · ${a.th}`;
+  }
+  const a = teamT('team.layout.aria.assignShortUnread', { count: String(count) });
+  return `${a.ko} · ${a.th}`;
+}
+
+function teamAriaCs(count: number): string {
+  if (count <= 0) {
+    const a = teamT('team.layout.aria.csOnly');
+    return `${a.ko} · ${a.th}`;
+  }
+  const a = teamT('team.layout.aria.csUnread', { count: String(count) });
+  return `${a.ko} · ${a.th}`;
+}
+
+function teamAriaMessages(count: number): string {
+  if (count <= 0) {
+    const a = teamT('team.layout.aria.messagesOnly');
+    return `${a.ko} · ${a.th}`;
+  }
+  const a = teamT('team.layout.aria.messagesUnread', { count: String(count) });
+  return `${a.ko} · ${a.th}`;
+}
+
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
@@ -151,20 +189,33 @@ export function TeamLayout() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <h1 className="text-lg font-semibold text-gray-800 shrink-0">
-              {isExternalPartner ? `${previewExternalName} 협력사` : 'SK클린텍'}
+            <h1 className="text-lg font-semibold text-gray-800 shrink-0 min-w-0">
+              {isExternalPartner ? (
+                <TeamBiLine
+                  id="team.layout.partnerBrand"
+                  vars={{ name: previewExternalName }}
+                  koClassName="text-lg font-semibold text-gray-800"
+                  thClassName="text-fluid-2xs font-normal text-gray-600 leading-snug"
+                />
+              ) : (
+                <TeamBiLine
+                  id="team.layout.brand"
+                  koClassName="text-lg font-semibold text-gray-800"
+                  thClassName="text-fluid-2xs font-normal text-gray-600 leading-snug"
+                />
+              )}
             </h1>
             <nav className="hidden sm:flex flex-wrap items-center gap-1">
               <NavLink to={teamTo('/team/dashboard')} className={navClass}>
-                대시보드
+                <TeamBiInline id="team.layout.nav.dashboard" />
               </NavLink>
               <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
                 <NavLink
                   to={teamTo('/team/assignments')}
                   className={navClass}
-                  aria-label={newAssignmentCount > 0 ? `배정목록, 미확인 ${newAssignmentCount}건` : '배정목록'}
+                  aria-label={teamAriaAssignNav(newAssignmentCount)}
                 >
-                  배정목록
+                  <TeamBiInline id="team.layout.nav.assignments" />
                 </NavLink>
                 {newAssignmentCount > 0 ? (
                   <span
@@ -176,25 +227,25 @@ export function TeamLayout() {
                 ) : null}
               </div>
               <NavLink to={teamTo('/team/schedule')} className={navClass}>
-                스케줄
+                <TeamBiInline id="team.layout.nav.schedule" />
               </NavLink>
               {isExternalPartner && (
                 <NavLink to={teamTo('/team/settlement')} className={navClass}>
-                  정산
+                  <TeamBiInline id="team.layout.nav.settlement" />
                 </NavLink>
               )}
               {!hideTeamDayoffs && (
                 <NavLink to={teamTo('/team/dayoffs')} className={navClass}>
-                  휴무일
+                  <TeamBiInline id="team.layout.nav.dayoffs" />
                 </NavLink>
               )}
               <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
                 <NavLink
                   to={teamTo('/team/cs')}
                   className={navClass}
-                  aria-label={csPendingCount > 0 ? `C/S, 미확인 ${csPendingCount}건` : 'C/S'}
+                  aria-label={teamAriaCs(csPendingCount)}
                 >
-                  C/S
+                  <TeamBiInline id="team.layout.nav.cs" />
                 </NavLink>
                 {csPendingCount > 0 ? (
                   <span
@@ -209,9 +260,9 @@ export function TeamLayout() {
                 <NavLink
                   to={teamTo('/team/messages')}
                   className={navClass}
-                  aria-label={unreadCount > 0 ? `메시지, 새 메시지 ${unreadCount}건` : '메시지'}
+                  aria-label={teamAriaMessages(unreadCount)}
                 >
-                  메시지
+                  <TeamBiInline id="team.layout.nav.messages" />
                 </NavLink>
                 {unreadCount > 0 ? (
                   <span
@@ -229,21 +280,23 @@ export function TeamLayout() {
               <NavLink
                 to="/admin/dashboard"
                 className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] font-medium text-blue-700 hover:bg-blue-100 hover:text-blue-900 whitespace-nowrap"
-                title="관리자 화면으로 전환"
+                title={`${teamT('team.layout.adminScreenTitle').ko} · ${teamT('team.layout.adminScreenTitle').th}`}
               >
-                관리자 화면
+                <TeamBiInline id="team.layout.adminScreen" />
               </NavLink>
             ) : null}
             {previewExternal ? (
               <div className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] text-indigo-800 whitespace-nowrap">
                 <span className="font-medium">{previewExternalName}</span>
-                <span className="text-indigo-600">타업체 프리뷰</span>
+                <span className="text-indigo-600 inline-block align-middle">
+                  <TeamBiInline id="team.layout.previewExternal" />
+                </span>
               </div>
             ) : (
               <>
                 {previewTeamLeader ? (
                   <span className="hidden sm:inline rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-[clamp(0.6rem,1.4vw,0.75rem)] font-medium text-teal-900 whitespace-nowrap">
-                    팀장 프리뷰
+                    <TeamBiInline id="team.layout.previewTeamLeader" />
                   </span>
                 ) : null}
                 <UserProfileMenu
@@ -278,14 +331,16 @@ export function TeamLayout() {
         {/* 모바일: 상단(헤더 바로 아래) 탭 메뉴 */}
         <nav className="flex sm:hidden border-t border-gray-100 bg-white">
           <NavLink to={teamTo('/team/dashboard')} className={mobileTabClass}>
-            대시보드
+            <TeamBiInline id="team.layout.nav.dashboard" />
           </NavLink>
           <NavLink
             to={teamTo('/team/assignments')}
             className={mobileTabClass}
-            aria-label={newAssignmentCount > 0 ? `배정, 미확인 ${newAssignmentCount}건` : '배정'}
+            aria-label={teamAriaAssignMobile(newAssignmentCount)}
           >
-            <span className="shrink-0">배정</span>
+            <span className="shrink-0 min-w-0">
+              <TeamBiInline id="team.layout.nav.assignmentsShort" />
+            </span>
             {newAssignmentCount > 0 ? (
               <span
                 className="-ml-1 inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
@@ -296,24 +351,26 @@ export function TeamLayout() {
             ) : null}
           </NavLink>
           <NavLink to={teamTo('/team/schedule')} className={mobileTabClass}>
-            스케줄
+            <TeamBiInline id="team.layout.nav.schedule" />
           </NavLink>
           {isExternalPartner && (
             <NavLink to={teamTo('/team/settlement')} className={mobileTabClass}>
-              정산
+              <TeamBiInline id="team.layout.nav.settlement" />
             </NavLink>
           )}
           {!hideTeamDayoffs && (
             <NavLink to={teamTo('/team/dayoffs')} className={mobileTabClass}>
-              휴무일
+              <TeamBiInline id="team.layout.nav.dayoffs" />
             </NavLink>
           )}
           <NavLink
             to={teamTo('/team/cs')}
             className={mobileTabClass}
-            aria-label={csPendingCount > 0 ? `C/S, 미확인 ${csPendingCount}건` : 'C/S'}
+            aria-label={teamAriaCs(csPendingCount)}
           >
-            <span className="shrink-0">C/S</span>
+            <span className="shrink-0 min-w-0">
+              <TeamBiInline id="team.layout.nav.cs" />
+            </span>
             {csPendingCount > 0 ? (
               <span
                 className="-ml-1 inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
@@ -326,9 +383,11 @@ export function TeamLayout() {
           <NavLink
             to={teamTo('/team/messages')}
             className={mobileTabClass}
-            aria-label={unreadCount > 0 ? `메시지, 새 메시지 ${unreadCount}건` : '메시지'}
+            aria-label={teamAriaMessages(unreadCount)}
           >
-            <span className="shrink-0">메시지</span>
+            <span className="shrink-0 min-w-0">
+              <TeamBiInline id="team.layout.nav.messages" />
+            </span>
             {unreadCount > 0 ? (
               <span
                 className="-ml-1 inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"

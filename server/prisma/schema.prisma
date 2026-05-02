@@ -105,6 +105,8 @@ model User {
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
   crewStaffNoticesSent          CrewStaffNotice[]     @relation("CrewStaffNoticeSender")
   teamMemberPayrollSettlementsAsActor TeamMemberPayrollSettlement[] @relation("TeamMemberPayrollSettlementActor")
+  marketerPayrollSettlements           MarketerPayrollSettlement[]
+  marketerPayrollSettlementsAsActor     MarketerPayrollSettlement[] @relation("MarketerPayrollSettlementActor")
   teamLeaderPayrollPayments           TeamLeaderPayrollPayment[]
   teamLeaderPayrollPaymentsAsActor    TeamLeaderPayrollPayment[] @relation("TeamLeaderPayrollPaymentActor")
 
@@ -181,6 +183,7 @@ model TeamMember {
   scheduleDaySlots ScheduleDayTeamMemberSlot[]
   crewGroupMembers  TeamCrewGroupMember[]
   crewGroupDayRoster TeamCrewGroupDayRoster[]
+  crewGroupExpenses TeamCrewGroupExpense[]
   payrollMonthAdjusts TeamMemberPayrollMonthAdjust[]
   payrollSettlements TeamMemberPayrollSettlement[]
 
@@ -202,6 +205,26 @@ model TeamMemberPayrollSettlement {
   @@unique([teamMemberId, monthKey])
   @@index([teamMemberId, settledAt(sort: Desc)])
   @@map("team_member_payroll_settlements")
+}
+
+/// 마케터 급여 정산 완료 (귀속 월당 1건 — 부분 지급 시 미정산액은 다음 달 합산)
+model MarketerPayrollSettlement {
+  id                     String   @id @default(uuid())
+  userId                 String   @map("user_id")
+  monthKey               String   @map("month_key") @db.VarChar(7)
+  openingCarryForward    Int      @map("opening_carry_forward")
+  scheduledMonthlySalary Int?     @map("scheduled_monthly_salary")
+  settledAmount          Int      @map("settled_amount")
+  memo                   String?  @db.Text
+  settledAt              DateTime @default(now()) @map("settled_at")
+  actorId                String?  @map("actor_id")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("MarketerPayrollSettlementActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, monthKey])
+  @@index([userId, settledAt(sort: Desc)])
+  @@map("marketer_payroll_settlements")
 }
 
 /// 월 급여표 — 현장 팀원별 해당 귀속 월 수기 추가 근무일(자동 산정 일수에 가산)
@@ -239,6 +262,7 @@ model TeamCrewGroup {
   members   TeamCrewGroupMember[]
   dayRoster TeamCrewGroupDayRoster[]
   staffNotices CrewStaffNotice[]
+  expenses  TeamCrewGroupExpense[]
 
   @@map("team_crew_groups")
 }
@@ -288,6 +312,42 @@ model TeamCrewGroupDayRoster {
   @@unique([groupId, date, teamMemberId])
   @@index([groupId, date])
   @@map("team_crew_group_day_roster")
+}
+
+/// 크루 그룹장이 등록하는 팀원별 월별 지출(영수증 첨부 가능)
+model TeamCrewGroupExpense {
+  id           String   @id @default(uuid())
+  crewGroupId  String   @map("crew_group_id")
+  teamMemberId String   @map("team_member_id")
+  /// 귀속 월 YYYY-MM (KST 달력 기준과 동일하게 클라이언트에서 전달)
+  monthKey     String   @map("month_key") @db.VarChar(7)
+  amount       Int
+  memo         String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  group       TeamCrewGroup                     @relation(fields: [crewGroupId], references: [id], onDelete: Cascade)
+  teamMember  TeamMember                        @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  attachments TeamCrewGroupExpenseAttachment[]
+
+  @@index([crewGroupId, monthKey])
+  @@index([teamMemberId, monthKey])
+  @@map("team_crew_group_expenses")
+}
+
+model TeamCrewGroupExpenseAttachment {
+  id                 String @id @default(uuid())
+  expenseId          String @map("expense_id")
+  cloudinaryPublicId String @map("cloudinary_public_id") @db.VarChar(512)
+  secureUrl          String @map("secure_url") @db.VarChar(2048)
+  width              Int?
+  height             Int?
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  expense TeamCrewGroupExpense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId])
+  @@map("team_crew_group_expense_attachments")
 }
 
 model TeamMemberDayOff {
