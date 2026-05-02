@@ -5,6 +5,7 @@ import { getToken } from '../../stores/auth';
 import {
   getAdminPayrollSheet,
   getPayrollPoolMemberDetail,
+  patchPayrollPoolMemberMonthAdjust,
   type PayrollSheetRow,
   type PayrollSheetResponse,
   type PayrollPoolMemberDetailResponse,
@@ -15,7 +16,7 @@ import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 
 const PAYROLL_HELP =
   '급여 종류별로 표시 방식이 다릅니다.\n\n' +
-  '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」×「근무일 수」입니다. 급여 산정 구간 안에서 접수 예약일(KST)이 속하고, 현장 투입 메모에 해당 팀원 이름(태국어 표기 포함)이 일치하면 그 날을 근무 1일로 봅니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다.\n\n' +
+  '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」×「근무일 수」입니다. 급여 산정 구간 안에서 접수 예약일(KST)이 속하고, 현장 투입 메모에 해당 팀원 이름(태국어 표기 포함)이 일치하면 그 날을 근무 1일로 봅니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
   '【팀장 · 월 고정 급여】현장 근무일 산정과 무관합니다. 사용자 등록에서 팀장 계정별 「월 고정 급여」「급여 지급일」을 넣으며, 선택한 귀속 월에 재직 구간과 겹치면 행에 나타납니다. 지급일을 비우면 해당 월 말일로 표시합니다.\n\n' +
   '【직원(마케터) · 월 고정 급여】팀장과 동일하게 사용자 등록에서 마케터 계정별로 급여를 따로 적습니다. 표에는 근무일·일당 대신 고정 월급만 반영됩니다. 실제 근무제·수당 등은 회사 규정에 맞게 금액에 반영해 입력하면 됩니다.\n\n' +
   '타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
@@ -49,6 +50,15 @@ function customerLineLabel(line: { customerName: string; nickname: string | null
   return line.nickname ? `${line.customerName} (${line.nickname})` : line.customerName;
 }
 
+function poolWorkDaysTitle(r: PayrollSheetRow): string | undefined {
+  if (r.kind !== 'POOL_MEMBER' || r.jobCount == null) return undefined;
+  const sys = r.poolSystemDays;
+  const man = r.poolManualExtraDays ?? 0;
+  if (man > 0 && sys != null) return `총 ${r.jobCount}일 — 자동 ${sys}일 + 수기 ${man}일`;
+  if (man > 0 && sys == null) return `총 ${r.jobCount}일 — 수기만 ${man}일`;
+  return `자동 산정 ${r.jobCount}일`;
+}
+
 export function AdminPayrollPage() {
   const token = getToken();
   const [month, setMonth] = useState(() => kstMonthKeyNow());
@@ -59,6 +69,9 @@ export function AdminPayrollPage() {
   const [memberDetail, setMemberDetail] = useState<PayrollPoolMemberDetailResponse | null>(null);
   const [memberDetailLoading, setMemberDetailLoading] = useState(false);
   const [memberDetailError, setMemberDetailError] = useState<string | null>(null);
+  const [adjustModalRow, setAdjustModalRow] = useState<PayrollSheetRow | null>(null);
+  const [adjustExtraInput, setAdjustExtraInput] = useState('0');
+  const [adjustSaving, setAdjustSaving] = useState(false);
 
   const openPoolMemberDetail = useCallback((row: PayrollSheetRow) => {
     if (row.kind !== 'POOL_MEMBER') return;
@@ -70,6 +83,18 @@ export function AdminPayrollPage() {
     setMemberDetail(null);
     setMemberDetailError(null);
     setMemberDetailLoading(false);
+  }, []);
+
+  const closeAdjustModal = useCallback(() => {
+    setAdjustModalRow(null);
+    setAdjustExtraInput('0');
+    setAdjustSaving(false);
+  }, []);
+
+  const openAdjustModal = useCallback((row: PayrollSheetRow) => {
+    if (row.kind !== 'POOL_MEMBER') return;
+    setAdjustModalRow(row);
+    setAdjustExtraInput(String(row.poolManualExtraDays ?? 0));
   }, []);
 
   useEffect(() => {
@@ -97,11 +122,13 @@ export function AdminPayrollPage() {
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') closePoolMemberDetail();
+      if (ev.key !== 'Escape') return;
+      if (adjustModalRow) closeAdjustModal();
+      else if (memberDetailForRow) closePoolMemberDetail();
     };
-    if (memberDetailForRow) window.addEventListener('keydown', onKey);
+    if (adjustModalRow || memberDetailForRow) window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [memberDetailForRow, closePoolMemberDetail]);
+  }, [adjustModalRow, memberDetailForRow, closeAdjustModal, closePoolMemberDetail]);
 
 
   const load = useCallback(async () => {
@@ -118,6 +145,26 @@ export function AdminPayrollPage() {
       setLoading(false);
     }
   }, [token, month]);
+
+  const submitAdjustModal = useCallback(async () => {
+    if (!token || !adjustModalRow || adjustModalRow.kind !== 'POOL_MEMBER') return;
+    const raw = adjustExtraInput.trim();
+    const n = raw === '' ? 0 : Number.parseInt(raw, 10);
+    if (!Number.isInteger(n) || n < 0 || n > 93) {
+      alert('추가 근무일은 0~93 사이 정수로 입력해 주세요.');
+      return;
+    }
+    setAdjustSaving(true);
+    try {
+      await patchPayrollPoolMemberMonthAdjust(token, adjustModalRow.id, n, month);
+      closeAdjustModal();
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
+    } finally {
+      setAdjustSaving(false);
+    }
+  }, [token, adjustModalRow, adjustExtraInput, month, load, closeAdjustModal]);
 
   useEffect(() => {
     void load();
@@ -230,39 +277,60 @@ export function AdminPayrollPage() {
             {data.rows.map((r) => (
               <li key={`${r.kind}-${r.id}`} className="text-fluid-sm">
                 {r.kind === 'POOL_MEMBER' ? (
-                  <button
-                    type="button"
-                    onClick={() => openPoolMemberDetail(r)}
-                    className="w-full text-left px-3 py-2.5 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 transition-colors touch-manipulation"
-                    aria-label={`${r.name} 급여 산정 접수 상세 보기`}
-                  >
-                    <div className="flex items-start justify-between gap-2 min-w-0">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span
-                            className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                  <div className="flex min-w-0 items-stretch">
+                    <button
+                      type="button"
+                      onClick={() => openPoolMemberDetail(r)}
+                      className="min-w-0 flex-1 text-left px-3 py-2.5 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 transition-colors touch-manipulation"
+                      aria-label={`${r.name} 급여 산정 접수 상세 보기`}
+                    >
+                      <div className="flex items-start justify-between gap-2 min-w-0">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span
+                              className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                            >
+                              {r.roleLabel}
+                            </span>
+                            <span className="font-medium text-gray-900 truncate">{r.name}</span>
+                          </div>
+                          <div className="mt-1 text-fluid-xs text-gray-600 tabular-nums space-x-2">
+                            <span>지급 {compactPayDate(r.payDateYmd)}</span>
+                            <span>·</span>
+                            <span>산정 {compactPeriod(r.accrualStartYmd, r.accrualEndYmd)}</span>
+                          </div>
+                          <div
+                            className="mt-1 text-fluid-xs text-gray-600 tabular-nums"
+                            title={poolWorkDaysTitle(r)}
                           >
-                            {r.roleLabel}
-                          </span>
-                          <span className="font-medium text-gray-900 truncate">{r.name}</span>
+                            {r.jobCount != null ? `${r.jobCount}일` : '—'} × {fmtWon(r.unitAmount)}
+                            {(r.poolManualExtraDays ?? 0) > 0 ? (
+                              <span className="ml-1 text-blue-700">· 수기+{r.poolManualExtraDays}</span>
+                            ) : null}
+                          </div>
+                          {r.notes.length > 0 ? (
+                            <p className="mt-1 text-[11px] text-amber-800 leading-snug">{r.notes.join(' · ')}</p>
+                          ) : null}
                         </div>
-                        <div className="mt-1 text-fluid-xs text-gray-600 tabular-nums space-x-2">
-                          <span>지급 {compactPayDate(r.payDateYmd)}</span>
-                          <span>·</span>
-                          <span>산정 {compactPeriod(r.accrualStartYmd, r.accrualEndYmd)}</span>
+                        <div className="text-right shrink-0">
+                          <div className="text-fluid-sm font-semibold text-gray-900 tabular-nums">{fmtWon(r.amount)}</div>
                         </div>
-                        <div className="mt-1 text-fluid-xs text-gray-600 tabular-nums">
-                          {r.jobCount != null ? `${r.jobCount}일` : '—'} × {fmtWon(r.unitAmount)}
-                        </div>
-                        {r.notes.length > 0 ? (
-                          <p className="mt-1 text-[11px] text-amber-800 leading-snug">{r.notes.join(' · ')}</p>
-                        ) : null}
                       </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-fluid-sm font-semibold text-gray-900 tabular-nums">{fmtWon(r.amount)}</div>
-                      </div>
+                    </button>
+                    <div className="shrink-0 flex flex-col justify-center border-l border-gray-100 bg-gray-50/80">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openAdjustModal(r);
+                        }}
+                        className="px-3 py-3 text-fluid-xs font-medium text-blue-800 hover:bg-blue-50 active:bg-blue-100 touch-manipulation whitespace-nowrap"
+                      >
+                        설정
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ) : (
                   <div className="px-3 py-2.5">
                     <div className="flex items-start justify-between gap-2 min-w-0">
@@ -300,15 +368,16 @@ export function AdminPayrollPage() {
                 className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
-                <table className="w-full min-w-[720px] table-fixed border-collapse border border-gray-200 rounded-lg overflow-hidden text-fluid-2xs xl:text-fluid-xs bg-white">
+                <table className="w-full min-w-[800px] table-fixed border-collapse border border-gray-200 rounded-lg overflow-hidden text-fluid-2xs xl:text-fluid-xs bg-white">
                   <colgroup>
-                    <col className="w-[22%]" />
-                    <col className="w-[9%]" />
-                    <col className="w-[14%]" />
-                    <col className="w-[7%]" />
+                    <col className="w-[18%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[10%]" />
                     <col className="w-[11%]" />
-                    <col className="w-[13%]" />
-                    <col className="w-[24%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[17%]" />
                   </colgroup>
                   <thead>
                     <tr className="bg-gray-100 text-gray-700">
@@ -320,6 +389,7 @@ export function AdminPayrollPage() {
                       <th className="border-b border-gray-200 px-1.5 py-2 text-center">근무일</th>
                       <th className="border-b border-gray-200 px-1.5 py-2 text-center">일당</th>
                       <th className="border-b border-gray-200 px-1.5 py-2 text-center">예상금액</th>
+                      <th className="border-b border-gray-200 px-1.5 py-2 text-center">설정</th>
                       <th className="border-b border-gray-200 px-1.5 py-2 text-center">비고</th>
                     </tr>
                   </thead>
@@ -372,14 +442,43 @@ export function AdminPayrollPage() {
                         >
                           {compactPeriod(r.accrualStartYmd, r.accrualEndYmd)}
                         </td>
-                        <td className="border-b border-gray-100 px-1.5 py-1.5 text-center tabular-nums">
-                          {r.jobCount != null ? r.jobCount : '—'}
+                        <td
+                          className="border-b border-gray-100 px-1 py-1.5 text-center tabular-nums align-middle"
+                          title={poolWorkDaysTitle(r)}
+                        >
+                          {r.kind === 'POOL_MEMBER' ? (
+                            <span className="inline-flex flex-col items-center gap-0.5">
+                              <span>{r.jobCount != null ? r.jobCount : '—'}</span>
+                              {(r.poolManualExtraDays ?? 0) > 0 ? (
+                                <span className="text-[10px] text-blue-700 leading-none">+수기{r.poolManualExtraDays}</span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span>{r.jobCount != null ? r.jobCount : '—'}</span>
+                          )}
                         </td>
                         <td className="border-b border-gray-100 px-1.5 py-1.5 text-right tabular-nums text-gray-700">
                           {r.unitAmount != null ? `${Number(r.unitAmount).toLocaleString('ko-KR')}` : '—'}
                         </td>
                         <td className="border-b border-gray-100 px-1.5 py-1.5 text-right tabular-nums font-medium text-gray-900">
                           {r.amount != null ? `${Number(r.amount).toLocaleString('ko-KR')}` : '—'}
+                        </td>
+                        <td
+                          className="border-b border-gray-100 px-1 py-1.5 text-center align-middle bg-white group-hover:bg-gray-50"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          {r.kind === 'POOL_MEMBER' ? (
+                            <button
+                              type="button"
+                              onClick={() => openAdjustModal(r)}
+                              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                            >
+                              설정
+                            </button>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
                         </td>
                         <td
                           className="border-b border-gray-100 px-1.5 py-1.5 text-center text-[11px] text-gray-600 truncate"
@@ -397,8 +496,8 @@ export function AdminPayrollPage() {
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
             <strong className="text-gray-800">{data.monthLabel}</strong> 기준 · 현장은 근무일×일당, 팀장·마케터는 월
-            고정액입니다. 금액이 「—」인 행은 팀원·사용자 설정을 채운 뒤 자동 계산됩니다. 「현장」행 아무 칸이나 누르면
-            산정 접수 목록이 열립니다.
+            고정액입니다. 금액이 「—」인 행은 팀원·사용자 설정을 채운 뒤 자동 계산됩니다. 현장은 「설정」에서 해당 월만
+            추가 근무일을 넣을 수 있습니다. 「현장」행(설정 제외)을 누르면 산정 접수 목록이 열립니다.
           </div>
         </>
       ) : null}
@@ -461,11 +560,24 @@ export function AdminPayrollPage() {
                         </strong>
                       </span>
                       <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-fluid-xs font-semibold tabular-nums text-emerald-900">
-                        {memberDetail.jobCount != null ? `${memberDetail.jobCount}일` : '—'} ×{' '}
-                        {memberDetail.unitAmount != null
-                          ? `${Number(memberDetail.unitAmount).toLocaleString('ko-KR')}원`
-                          : '—'}{' '}
-                        = {fmtWon(memberDetail.amount)}
+                        {(() => {
+                          const man = memberDetail.poolManualExtraDays ?? 0;
+                          const sys = memberDetail.poolSystemDays;
+                          const jc = memberDetail.jobCount;
+                          let dayPart: string;
+                          if (man > 0 && sys != null) dayPart = `총 ${jc ?? '—'}일(자동 ${sys}+수기 ${man})`;
+                          else if (man > 0 && sys == null) dayPart = `총 ${jc ?? '—'}일(수기 ${man})`;
+                          else dayPart = jc != null ? `${jc}일` : '—';
+                          return (
+                            <>
+                              {dayPart} ×{' '}
+                              {memberDetail.unitAmount != null
+                                ? `${Number(memberDetail.unitAmount).toLocaleString('ko-KR')}원`
+                                : '—'}{' '}
+                              = {fmtWon(memberDetail.amount)}
+                            </>
+                          );
+                        })()}
                       </span>
                     </div>
                     {memberDetail.notes.length > 0 ? (
@@ -547,6 +659,68 @@ export function AdminPayrollPage() {
                     )}
                   </>
                 ) : null}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {adjustModalRow &&
+        adjustModalRow.kind === 'POOL_MEMBER' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[220] overflow-y-auto overscroll-y-contain bg-black/45 px-3 py-10"
+            role="presentation"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeAdjustModal();
+            }}
+          >
+            <div
+              className="relative mx-auto mt-4 w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="payroll-adjust-title"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <ModalCloseButton onClick={closeAdjustModal} />
+              <h2 id="payroll-adjust-title" className="text-lg font-semibold text-gray-900 mb-1 pr-10">
+                추가 근무일 (수기)
+              </h2>
+              <p className="text-fluid-xs text-gray-600 mb-3">
+                {adjustModalRow.name} · {data?.monthLabel ?? month}
+              </p>
+              <p className="text-fluid-2xs text-gray-500 mb-4 leading-snug">
+                접수로 집계된 근무일 수에 더해져 예상 급여가 계산됩니다. 0으로 저장하면 수기 반영을 제거합니다.
+              </p>
+              <label htmlFor="payroll-extra-days" className="block text-sm text-gray-700 mb-1">
+                추가 근무일 수
+              </label>
+              <input
+                id="payroll-extra-days"
+                type="number"
+                min={0}
+                max={93}
+                step={1}
+                value={adjustExtraInput}
+                onChange={(e) => setAdjustExtraInput(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums mb-4"
+              />
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeAdjustModal}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-800 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  disabled={adjustSaving}
+                  onClick={() => void submitAdjustModal()}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {adjustSaving ? '저장 중…' : '저장'}
+                </button>
               </div>
             </div>
           </div>,

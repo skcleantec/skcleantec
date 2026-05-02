@@ -159,8 +159,25 @@ model TeamMember {
   scheduleDaySlots ScheduleDayTeamMemberSlot[]
   crewGroupMembers  TeamCrewGroupMember[]
   crewGroupDayRoster TeamCrewGroupDayRoster[]
+  payrollMonthAdjusts TeamMemberPayrollMonthAdjust[]
 
   @@map("team_members")
+}
+
+/// 월 급여표 — 현장 팀원별 해당 귀속 월 수기 추가 근무일(자동 산정 일수에 가산)
+model TeamMemberPayrollMonthAdjust {
+  id             String   @id @default(uuid())
+  teamMemberId   String   @map("team_member_id")
+  monthKey       String   @map("month_key") @db.VarChar(7)
+  extraWorkDays  Int      @default(0) @map("extra_work_days")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamMemberId, monthKey])
+  @@index([monthKey])
+  @@map("team_member_payroll_month_adjusts")
 }
 
 /// 태국인 팀원 등 공유 로그인으로 같은 화면을 보는 크루 그룹(팀원 관리에서 생성·설정)

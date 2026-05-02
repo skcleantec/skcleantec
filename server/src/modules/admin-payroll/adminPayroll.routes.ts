@@ -51,6 +51,8 @@ router.get('/sheet', async (req, res) => {
     unitAmount: number | null;
     amount: number | null;
     notes: string[];
+    poolSystemDays?: number | null;
+    poolManualExtraDays?: number | null;
   };
 
   const rows: SheetRow[] = [];
@@ -87,14 +89,30 @@ router.get('/sheet', async (req, res) => {
     inquiryCache.set(payDay, inquiries);
   }
 
+  const poolAdjusts = await prisma.teamMemberPayrollMonthAdjust.findMany({
+    where: {
+      monthKey,
+      teamMemberId: { in: poolMembers.map((pm) => pm.id) },
+    },
+  });
+  const extraDaysByMemberId = new Map(poolAdjusts.map((a) => [a.teamMemberId, a.extraWorkDays]));
+
   for (const m of poolMembers) {
     const notes: string[] = [];
     let payDateYmd: string | null = null;
     let accrualStartYmd: string | null = null;
     let accrualEndYmd: string | null = null;
-    let jobCount: number | null = null;
+    let autoDays: number | null = null;
     let unitAmount: number | null = m.payAmountPerJob;
     let amount: number | null = null;
+
+    const manualExtraRaw = extraDaysByMemberId.get(m.id) ?? 0;
+    const manualExtra =
+      typeof manualExtraRaw === 'number' &&
+      Number.isFinite(manualExtraRaw) &&
+      manualExtraRaw > 0
+        ? Math.min(93, Math.floor(manualExtraRaw))
+        : 0;
 
     if (m.monthlyPayDay != null && m.monthlyPayDay >= 1 && m.monthlyPayDay <= 31) {
       payDateYmd = payYmdInMonth(calYear, monthIndex, m.monthlyPayDay);
@@ -104,7 +122,7 @@ router.get('/sheet', async (req, res) => {
         accrualEndYmd = period.endYmd;
         const cached = inquiryCache.get(m.monthlyPayDay);
         if (cached) {
-          jobCount = distinctPayrollDaysForPoolMember(cached, m);
+          autoDays = distinctPayrollDaysForPoolMember(cached, m);
         }
       }
     } else {
@@ -114,6 +132,17 @@ router.get('/sheet', async (req, res) => {
     if (m.payAmountPerJob == null) {
       notes.push('일당(1일 급여) 미설정');
       unitAmount = null;
+    }
+
+    let jobCount: number | null = null;
+    if (autoDays !== null) {
+      jobCount = autoDays + manualExtra;
+    } else if (manualExtra > 0) {
+      jobCount = manualExtra;
+      notes.push('자동 근무일 산정 없음·수기 일만 반영');
+    }
+    if (manualExtra > 0) {
+      notes.push(`수기 추가 근무 ${manualExtra}일`);
     }
 
     if (jobCount != null && unitAmount != null) {
@@ -132,6 +161,8 @@ router.get('/sheet', async (req, res) => {
       unitAmount,
       amount,
       notes,
+      poolSystemDays: autoDays,
+      poolManualExtraDays: manualExtra,
     });
   }
 
@@ -255,6 +286,19 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
     return;
   }
 
+  const adjustRow = await prisma.teamMemberPayrollMonthAdjust.findUnique({
+    where: {
+      teamMemberId_monthKey: { teamMemberId, monthKey },
+    },
+  });
+  const manualExtraRaw = adjustRow?.extraWorkDays ?? 0;
+  const manualExtra =
+    typeof manualExtraRaw === 'number' &&
+    Number.isFinite(manualExtraRaw) &&
+    manualExtraRaw > 0
+      ? Math.min(93, Math.floor(manualExtraRaw))
+      : 0;
+
   const notes: string[] = [];
   let payDateYmd: string | null = null;
   let accrualStartYmd: string | null = null;
@@ -287,7 +331,8 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
   };
 
   let lines: LineOut[] = [];
-  let jobCount: number | null = null;
+  let poolSystemDays: number | null = null;
+  let autoDays: number | null = null;
 
   if (payDateYmd && accrualStartYmd && accrualEndYmd) {
     const bounds = payrollCyclePreferredDateWhere(accrualStartYmd, accrualEndYmd);
@@ -307,13 +352,14 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
       orderBy: [{ preferredDate: 'asc' }],
     });
 
-    jobCount = distinctPayrollDaysForPoolMember(
+    autoDays = distinctPayrollDaysForPoolMember(
       inquiries.map((i) => ({
         crewMemberNote: i.crewMemberNote,
         preferredDate: i.preferredDate,
       })),
       m,
     );
+    poolSystemDays = autoDays;
 
     lines = inquiries
       .filter((inq) => crewMemberNoteIncludesTeamMember(inq.crewMemberNote, m))
@@ -327,7 +373,18 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
       }));
   }
 
-  const amount = unitAmount != null && jobCount != null ? jobCount * unitAmount : null;
+  let jobCount: number | null = null;
+  if (autoDays !== null) {
+    jobCount = autoDays + manualExtra;
+  } else if (manualExtra > 0) {
+    jobCount = manualExtra;
+    notes.push('자동 근무일 산정 없음·수기 일만 반영');
+  }
+  if (manualExtra > 0) {
+    notes.push(`수기 추가 근무 ${manualExtra}일`);
+  }
+
+  const amount = unitAmount != null && jobCount !== null ? jobCount * unitAmount : null;
 
   res.json({
     month: monthKey,
@@ -337,11 +394,76 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
     accrualStartYmd,
     accrualEndYmd,
     unitAmount,
+    poolSystemDays,
+    poolManualExtraDays: manualExtra,
     jobCount,
     amount,
     notes,
     lines,
   });
+});
+
+router.patch('/pool-member/:teamMemberId/month-adjust', async (req, res) => {
+  const teamMemberId =
+    typeof req.params.teamMemberId === 'string' ? req.params.teamMemberId.trim() : '';
+  if (!teamMemberId) {
+    res.status(400).json({ error: 'teamMemberId가 필요합니다.' });
+    return;
+  }
+
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const body = req.body as { extraWorkDays?: unknown };
+  const v = body.extraWorkDays;
+  let n = 0;
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 93) {
+    n = v;
+  } else if (typeof v === 'string' && /^\d+$/.test(v.trim())) {
+    const parsed = parseInt(v.trim(), 10);
+    if (parsed >= 0 && parsed <= 93) n = parsed;
+    else {
+      res.status(400).json({ error: '추가 근무일은 0~93 정수입니다.' });
+      return;
+    }
+  } else if (v != null && v !== '') {
+    res.status(400).json({ error: '추가 근무일은 0~93 정수입니다.' });
+    return;
+  }
+
+  const exists = await prisma.teamMember.findFirst({
+    where: { id: teamMemberId, teamId: null, isActive: true },
+    select: { id: true },
+  });
+  if (!exists) {
+    res.status(404).json({ error: '풀 팀원을 찾을 수 없습니다.' });
+    return;
+  }
+
+  if (n === 0) {
+    await prisma.teamMemberPayrollMonthAdjust.deleteMany({
+      where: { teamMemberId, monthKey },
+    });
+    res.json({ ok: true, teamMemberId, monthKey, extraWorkDays: 0 });
+    return;
+  }
+
+  await prisma.teamMemberPayrollMonthAdjust.upsert({
+    where: {
+      teamMemberId_monthKey: { teamMemberId, monthKey },
+    },
+    create: { teamMemberId, monthKey, extraWorkDays: n },
+    update: { extraWorkDays: n },
+  });
+  res.json({ ok: true, teamMemberId, monthKey, extraWorkDays: n });
 });
 
 export default router;
