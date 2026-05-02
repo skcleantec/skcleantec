@@ -11,7 +11,9 @@ import {
   getPayrollCrewExpenseDetail,
   getPayrollExpenseForward,
   getPayrollIncomeSummary,
+  getPayrollExternalSettlementReceived,
   getPayrollAdminPersonalExpenses,
+  getPayrollAdminSharedExpenses,
   patchPayrollPoolMemberMonthAdjust,
   postPayrollPoolMemberSettle,
   postPayrollTeamLeaderPayment,
@@ -19,6 +21,8 @@ import {
   deletePayrollTeamLeaderPayment,
   postPayrollAdminPersonalExpense,
   deletePayrollAdminPersonalExpense,
+  postPayrollAdminSharedExpense,
+  deletePayrollAdminSharedExpense,
   getPayrollIncomeDeposits,
   postPayrollIncomeDeposit,
   deletePayrollIncomeDeposit,
@@ -32,7 +36,9 @@ import {
   type PayrollExpenseForwardResponse,
   type PayrollIncomeSummaryResponse,
   type PayrollAdminPersonalExpenseItem,
+  type PayrollAdminSharedExpenseItem,
   type PayrollIncomeDepositItem,
+  type PayrollExternalSettlementReceivedResponse,
 } from '../../api/adminPayroll';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
@@ -47,7 +53,8 @@ const PAYROLL_HELP =
   '【직원(마케터) · 월 고정 + 이월 미정산】사용자 등록의 월 급여·급여일과 동일한 산정기간 표시를 씁니다. 귀속 월 「합계」는 미정산 이월액과 등록 월급을 더한 지급 예정액입니다. 「정산완료」에서 실제 지급 금액을 적으면 부족분은 다음 귀속 월 합계에 자동 반영됩니다. 과거 월 급여 등록값이 바뀌면 이월 추정과 과거와 어긋날 수 있으니, 월급 변경 후에는 정산 기록을 참고해 주세요.\n\n' +
   '【크루 지출】크루 그룹장이 귀속 월·팀원·금액·영수증으로 등록한 지출은 「정산」 탭 지출 영역과 팀원 급여 상세에 나타나며, 현장 팀원 행에서는 예상 급여에서 차감된 실지급 예상으로 표시됩니다. 「정산완료」 시 차감 후 금액이 확정됩니다.\n\n' +
   '【관리자 개인 지출】크루 등록 지출 아래 접이식 영역에서 귀속 월별 참고 지출을 추가할 수 있습니다. 급여 산정·차감과는 무관하며 삭제 시 본인 비밀번호 확인이 필요합니다.\n\n' +
-  '【정산 탭】왼쪽은 해당 귀속 월 「지출」(인건비 요약·크루 등록 지출·관리자 개인 지출)입니다. 오른쪽은 같은 귀속 월 「수입」(예약일 기준 접수 서비스 총액 합계)과, 실제 입금을 수기로 적는 「입금 내역」(접수 매출과 별개 참고용)입니다.\n\n' +
+  '【공용 지출】관리자 개인 지출과 같은 방식으로 등록하는 부서·공용 성격 참고 지출입니다. 인건비·현장 팀원 차감과 무관하며 삭제 시 본인 비밀번호 확인이 필요합니다.\n\n' +
+  '【정산 탭】왼쪽은 해당 귀속 월 「지출」(인건비 요약·크루 등록 지출·공용 지출·관리자 개인 지출)입니다. 오른쪽 「수입」에는 예약일 기준 접수 서비스 총액 합계, 해당 월 정산일(KST)에 속하는 「타업체 정산완료」처리 금액(상세 내역 접이식), 실제 입금 수기 「입금 내역」(접수·타업체 자동 집계와 별개 참고용)이 있습니다.\n\n' +
   '【미정산현황 탭】오늘(KST) 기준 「진행 중 급여 주기」 실시간 추정입니다. 현장 팀원은 급여일 사이클에 맞춰 오늘까지 집계된 근무일·실지급 추정, 마케터는 미정산일 때 전월 일수로 일할·정산 완료 후에는 이번 주기 일수로 일할한 누적 추정액입니다. 팀장은 수시 입금이라 이 카드에는 넣지 않고 정산 탭 지출 월합에만 반영됩니다.\n\n' +
   '타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
 
@@ -225,7 +232,7 @@ function payrollTabHint(tab: PayrollTabId): string {
     case 'marketer':
       return '마케터는 「합계」에 미정산 이월과 등록 월급을 더해 표시합니다. 급여상세에서 정산 이력을, 정산완료에서 이번 달 지급액·메모를 저장합니다.';
     case 'settlement':
-      return '왼쪽: 해당 귀속 월 지출. 오른쪽: 접수 매출 집계·입금 내역(수기)·서비스접수 목록 안내.';
+      return '왼쪽: 해당 귀속 월 지출. 오른쪽: 접수 매출·타업체 정산완료 내역·입금 내역·서비스접수 목록 안내. 크루·공용·개인 지출은 접이식.';
     case 'unsettled':
       return '오늘(KST) 기준 진행 중 급여 주기 — 현장 팀원·마케터 실시간 추정(팀장 제외). 「실시간 새로고침」으로 최신 값을 불러옵니다.';
     default:
@@ -324,12 +331,24 @@ export function AdminPayrollPage() {
   const [expenseCrewExpenseExpanded, setExpenseCrewExpenseExpanded] = useState(false);
   /** 정산 탭 · 관리자 개인 지출 — 기본 접힘 */
   const [expenseAdminPersonalExpanded, setExpenseAdminPersonalExpanded] = useState(false);
+  /** 정산 탭 · 공용 지출 — 기본 접힘 */
+  const [expenseSharedExpanded, setExpenseSharedExpanded] = useState(false);
   const [adminPersonalExpenseItems, setAdminPersonalExpenseItems] = useState<PayrollAdminPersonalExpenseItem[]>([]);
   const [adminPersonalExpenseAmountInput, setAdminPersonalExpenseAmountInput] = useState('');
   const [adminPersonalExpenseMemoInput, setAdminPersonalExpenseMemoInput] = useState('');
   const [adminPersonalExpenseSaving, setAdminPersonalExpenseSaving] = useState(false);
   const [adminPersonalExpenseFormError, setAdminPersonalExpenseFormError] = useState<string | null>(null);
   const [adminPersonalExpenseDeleteTarget, setAdminPersonalExpenseDeleteTarget] = useState<{
+    id: string;
+    amount: number;
+  } | null>(null);
+
+  const [adminSharedExpenseItems, setAdminSharedExpenseItems] = useState<PayrollAdminSharedExpenseItem[]>([]);
+  const [adminSharedExpenseAmountInput, setAdminSharedExpenseAmountInput] = useState('');
+  const [adminSharedExpenseMemoInput, setAdminSharedExpenseMemoInput] = useState('');
+  const [adminSharedExpenseSaving, setAdminSharedExpenseSaving] = useState(false);
+  const [adminSharedExpenseFormError, setAdminSharedExpenseFormError] = useState<string | null>(null);
+  const [adminSharedExpenseDeleteTarget, setAdminSharedExpenseDeleteTarget] = useState<{
     id: string;
     amount: number;
   } | null>(null);
@@ -351,6 +370,11 @@ export function AdminPayrollPage() {
     amount: number;
     depositedOnYmd: string;
   } | null>(null);
+
+  const [externalSettlementReceived, setExternalSettlementReceived] =
+    useState<PayrollExternalSettlementReceivedResponse | null>(null);
+  /** 정산 탭 수입 카드 · 타업체 정산완료 내역 — 기본 접힘 */
+  const [externalSettlementExpanded, setExternalSettlementExpanded] = useState(false);
 
   const closeCrewExpenseDetail = useCallback(() => {
     setCrewExpenseDetailId(null);
@@ -550,7 +574,7 @@ export function AdminPayrollPage() {
     setLoading(true);
     setError(null);
     try {
-      const [r, crewEx, adminPers] = await Promise.all([
+      const [r, crewEx, adminPers, adminShared] = await Promise.all([
         getAdminPayrollSheet(token, month),
         getPayrollCrewExpenses(token, month).catch(() => ({
           month: '',
@@ -560,28 +584,42 @@ export function AdminPayrollPage() {
           month: '',
           items: [] as PayrollAdminPersonalExpenseItem[],
         })),
+        getPayrollAdminSharedExpenses(token, month).catch(() => ({
+          month: '',
+          items: [] as PayrollAdminSharedExpenseItem[],
+        })),
       ]);
       setData(r);
       setCrewExpenseAdminItems(crewEx.items ?? []);
       setAdminPersonalExpenseItems(adminPers.items ?? []);
+      setAdminSharedExpenseItems(adminShared.items ?? []);
       if (payrollTab === 'settlement' || payrollTab === 'unsettled') {
         void loadExpenseForward();
       }
       if (payrollTab === 'settlement') {
         try {
-          const [inc, dep] = await Promise.all([
+          const [inc, dep, ext] = await Promise.all([
             getPayrollIncomeSummary(token, month),
             getPayrollIncomeDeposits(token, month).catch(() => ({
               month,
               items: [] as PayrollIncomeDepositItem[],
             })),
+            getPayrollExternalSettlementReceived(token, month).catch(() => ({
+              month,
+              monthLabel: '',
+              paymentCount: 0,
+              totalAmount: 0,
+              items: [],
+            })),
           ]);
           setIncomeSummary(inc);
           setIncomeDepositItems(dep.items ?? []);
+          setExternalSettlementReceived(ext);
           setIncomeError(null);
         } catch {
           setIncomeSummary(null);
           setIncomeDepositItems([]);
+          setExternalSettlementReceived(null);
           setIncomeError('수입 집계를 불러오지 못했습니다.');
         }
       }
@@ -589,6 +627,7 @@ export function AdminPayrollPage() {
       setData(null);
       setCrewExpenseAdminItems([]);
       setAdminPersonalExpenseItems([]);
+      setAdminSharedExpenseItems([]);
       setError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
     } finally {
       setLoading(false);
@@ -598,7 +637,7 @@ export function AdminPayrollPage() {
   const silentReloadPayroll = useCallback(async () => {
     if (!token) return;
     try {
-      const [r, crewEx, adminPers] = await Promise.all([
+      const [r, crewEx, adminPers, adminShared] = await Promise.all([
         getAdminPayrollSheet(token, month),
         getPayrollCrewExpenses(token, month).catch(() => ({
           month: '',
@@ -608,10 +647,15 @@ export function AdminPayrollPage() {
           month: '',
           items: [] as PayrollAdminPersonalExpenseItem[],
         })),
+        getPayrollAdminSharedExpenses(token, month).catch(() => ({
+          month: '',
+          items: [] as PayrollAdminSharedExpenseItem[],
+        })),
       ]);
       setData(r);
       setCrewExpenseAdminItems(crewEx.items ?? []);
       setAdminPersonalExpenseItems(adminPers.items ?? []);
+      setAdminSharedExpenseItems(adminShared.items ?? []);
       if (payrollTab === 'settlement' || payrollTab === 'unsettled') {
         try {
           const fwd = await getPayrollExpenseForward(token);
@@ -623,15 +667,23 @@ export function AdminPayrollPage() {
       }
       if (payrollTab === 'settlement') {
         try {
-          const [inc, dep] = await Promise.all([
+          const [inc, dep, ext] = await Promise.all([
             getPayrollIncomeSummary(token, month),
             getPayrollIncomeDeposits(token, month).catch(() => ({
               month,
               items: [] as PayrollIncomeDepositItem[],
             })),
+            getPayrollExternalSettlementReceived(token, month).catch(() => ({
+              month,
+              monthLabel: '',
+              paymentCount: 0,
+              totalAmount: 0,
+              items: [],
+            })),
           ]);
           setIncomeSummary(inc);
           setIncomeDepositItems(dep.items ?? []);
+          setExternalSettlementReceived(ext);
           setIncomeError(null);
         } catch {
           /* 무음 */
@@ -656,17 +708,26 @@ export function AdminPayrollPage() {
     setIncomeError(null);
     setIncomeSummary(null);
     setIncomeDepositItems([]);
+    setExternalSettlementReceived(null);
     void Promise.all([
       getPayrollIncomeSummary(token, month),
       getPayrollIncomeDeposits(token, month).catch(() => ({
         month,
         items: [] as PayrollIncomeDepositItem[],
       })),
+      getPayrollExternalSettlementReceived(token, month).catch(() => ({
+        month,
+        monthLabel: '',
+        paymentCount: 0,
+        totalAmount: 0,
+        items: [],
+      })),
     ])
-      .then(([inc, dep]) => {
+      .then(([inc, dep, ext]) => {
         if (!cancelled) {
           setIncomeSummary(inc);
           setIncomeDepositItems(dep.items ?? []);
+          setExternalSettlementReceived(ext);
           setIncomeError(null);
         }
       })
@@ -674,6 +735,7 @@ export function AdminPayrollPage() {
         if (!cancelled) {
           setIncomeSummary(null);
           setIncomeDepositItems([]);
+          setExternalSettlementReceived(null);
           setIncomeError(e instanceof Error ? e.message : '수입 집계를 불러오지 못했습니다.');
         }
       })
@@ -861,11 +923,28 @@ export function AdminPayrollPage() {
     [adminPersonalExpenseItems],
   );
 
+  const adminSharedExpenseMonthSum = useMemo(
+    () => adminSharedExpenseItems.reduce((acc, row) => acc + row.amount, 0),
+    [adminSharedExpenseItems],
+  );
+
   const incomeDepositMonthSum = useMemo(
     () => incomeDepositItems.reduce((acc, row) => acc + row.amount, 0),
     [incomeDepositItems],
   );
 
+  /** 타업체 정산완료 집계 — 수입 카드 접이식 요약용 */
+  const payrollExternalSettlementSafe = useMemo((): PayrollExternalSettlementReceivedResponse => {
+    return (
+      externalSettlementReceived ?? {
+        month,
+        monthLabel: data?.monthLabel ?? '',
+        paymentCount: 0,
+        totalAmount: 0,
+        items: [],
+      }
+    );
+  }, [externalSettlementReceived, month, data?.monthLabel]);
   const submitAdminPersonalExpense = useCallback(async () => {
     if (!token) return;
     const parsed = parseInt(adminPersonalExpenseAmountInput.replace(/,/g, '').trim(), 10);
@@ -891,6 +970,32 @@ export function AdminPayrollPage() {
       setAdminPersonalExpenseSaving(false);
     }
   }, [token, month, adminPersonalExpenseAmountInput, adminPersonalExpenseMemoInput]);
+
+  const submitAdminSharedExpense = useCallback(async () => {
+    if (!token) return;
+    const parsed = parseInt(adminSharedExpenseAmountInput.replace(/,/g, '').trim(), 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      setAdminSharedExpenseFormError('1원 이상의 금액을 입력해 주세요.');
+      return;
+    }
+    setAdminSharedExpenseSaving(true);
+    setAdminSharedExpenseFormError(null);
+    try {
+      await postPayrollAdminSharedExpense(token, {
+        month,
+        amount: parsed,
+        memo: adminSharedExpenseMemoInput.trim() || undefined,
+      });
+      const list = await getPayrollAdminSharedExpenses(token, month);
+      setAdminSharedExpenseItems(list.items);
+      setAdminSharedExpenseAmountInput('');
+      setAdminSharedExpenseMemoInput('');
+    } catch (e) {
+      setAdminSharedExpenseFormError(e instanceof Error ? e.message : '등록에 실패했습니다.');
+    } finally {
+      setAdminSharedExpenseSaving(false);
+    }
+  }, [token, month, adminSharedExpenseAmountInput, adminSharedExpenseMemoInput]);
 
   useEffect(() => {
     setIncomeDepositDateInput(todayYmdKst());
@@ -1083,7 +1188,7 @@ export function AdminPayrollPage() {
                           <span className="tabular-nums text-gray-700">({data.monthLabel})</span>
                         </h2>
                         <p className="text-fluid-2xs text-gray-500 mt-1">
-                          인건비 요약·크루 등록 지출·관리자 개인 지출입니다. 팀원 합계는 크루 지출을 뺀 실지급 예상 금액 기준입니다.
+                          인건비 요약·크루 등록 지출·공용 지출·관리자 개인 지출입니다. 팀원 합계는 크루 지출을 뺀 실지급 예상 금액 기준입니다.
                         </p>
                       </div>
                   <div className="flex flex-wrap gap-2">
@@ -1193,6 +1298,118 @@ export function AdminPayrollPage() {
                                       <span className="min-w-0 max-w-[35%] truncate text-gray-600 hidden sm:inline">{row.memo}</span>
                                     ) : null}
                                   </div>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200 bg-white min-w-0 overflow-hidden shadow-sm">
+                    <button
+                      type="button"
+                      id="payroll-expense-shared-toggle"
+                      aria-expanded={expenseSharedExpanded}
+                      aria-controls="payroll-expense-shared-panel"
+                      onClick={() => setExpenseSharedExpanded((v) => !v)}
+                      className="w-full text-left px-2 py-2 sm:px-3 hover:bg-gray-50/80 transition-colors flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 min-w-0"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="text-gray-400 tabular-nums w-4 shrink-0 text-center text-fluid-xs leading-none"
+                          aria-hidden
+                        >
+                          {expenseSharedExpanded ? '▼' : '▶'}
+                        </span>
+                        <span className="text-fluid-xs font-semibold text-gray-900">공용 지출</span>
+                      </span>
+                      {!expenseSharedExpanded ? (
+                        <span className="text-fluid-xs font-semibold text-gray-900 tabular-nums pl-6 sm:pl-0 sm:text-right shrink-0 leading-none">
+                          {adminSharedExpenseItems.length}건 · 합계 {fmtWon(adminSharedExpenseMonthSum)}
+                        </span>
+                      ) : null}
+                    </button>
+                    {expenseSharedExpanded ? (
+                      <div
+                        id="payroll-expense-shared-panel"
+                        role="region"
+                        aria-labelledby="payroll-expense-shared-toggle"
+                        className="border-t border-gray-100 px-2 pb-2 sm:px-3 pt-2 space-y-2"
+                      >
+                        <p className="text-fluid-2xs text-gray-500 leading-tight">
+                          부서·공용 성격의 참고 지출입니다. 인건비·현장 팀원 차감과는 무관합니다.
+                        </p>
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 items-stretch sm:items-end">
+                          <label className="flex flex-col gap-0.5 min-w-[8rem] flex-1 sm:flex-initial">
+                            <span className="text-fluid-2xs text-gray-600">금액(원)</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={adminSharedExpenseAmountInput}
+                              onChange={(e) => setAdminSharedExpenseAmountInput(e.target.value)}
+                              placeholder="예: 50000"
+                              className="px-2 py-1.5 border border-gray-300 rounded text-sm tabular-nums w-full sm:w-36"
+                              disabled={adminSharedExpenseSaving || !token}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-0.5 flex-1 min-w-0">
+                            <span className="text-fluid-2xs text-gray-600">메모</span>
+                            <input
+                              type="text"
+                              value={adminSharedExpenseMemoInput}
+                              onChange={(e) => setAdminSharedExpenseMemoInput(e.target.value)}
+                              placeholder="선택"
+                              className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full min-w-0"
+                              disabled={adminSharedExpenseSaving || !token}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => void submitAdminSharedExpense()}
+                            disabled={adminSharedExpenseSaving || !token}
+                            className="px-3 py-1.5 text-sm font-medium rounded border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 shrink-0 touch-manipulation"
+                          >
+                            {adminSharedExpenseSaving ? '등록 중…' : '추가 등록'}
+                          </button>
+                        </div>
+                        {adminSharedExpenseFormError ? (
+                          <div className="text-fluid-2xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                            {adminSharedExpenseFormError}
+                          </div>
+                        ) : null}
+                        {adminSharedExpenseItems.length === 0 ? (
+                          <p className="text-fluid-2xs text-gray-500 py-3 text-center border border-dashed border-gray-100 rounded bg-gray-50/60 leading-tight">
+                            등록된 공용 지출이 없습니다.
+                          </p>
+                        ) : (
+                          <ul className="flex flex-col gap-1 min-w-0">
+                            {adminSharedExpenseItems.map((row) => (
+                              <li
+                                key={row.id}
+                                className="flex flex-wrap items-center gap-2 justify-between rounded border border-gray-100 bg-gray-50/70 px-2 py-1.5 text-[11px]"
+                              >
+                                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0">
+                                  <span className="font-semibold tabular-nums text-gray-900 shrink-0">{fmtWon(row.amount)}</span>
+                                  <span className="text-gray-500 tabular-nums whitespace-nowrap shrink-0">
+                                    {fmtShortDateTimeKst(row.createdAt)}
+                                  </span>
+                                  <span className="text-gray-600 truncate min-w-0">{row.createdBy.name}</span>
+                                  {row.memo ? (
+                                    <span className="text-gray-600 truncate min-w-0 max-w-full sm:max-w-[50%]">
+                                      {row.memo}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="shrink-0 text-fluid-2xs text-red-700 hover:underline px-1 touch-manipulation"
+                                  onClick={() =>
+                                    setAdminSharedExpenseDeleteTarget({ id: row.id, amount: row.amount })
+                                  }
+                                >
+                                  삭제
                                 </button>
                               </li>
                             ))}
@@ -1379,6 +1596,118 @@ export function AdminPayrollPage() {
                       집계 결과가 없습니다.
                     </p>
                   )}
+
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 min-w-0 overflow-hidden shadow-sm">
+                    <button
+                      type="button"
+                      id="payroll-settlement-external-received-toggle"
+                      aria-expanded={externalSettlementExpanded}
+                      aria-controls="payroll-settlement-external-received-panel"
+                      onClick={() => setExternalSettlementExpanded((v) => !v)}
+                      className="w-full text-left px-2 py-2 sm:px-3 hover:bg-emerald-50/90 transition-colors flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 min-w-0"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="text-gray-400 tabular-nums w-4 shrink-0 text-center text-fluid-xs leading-none" aria-hidden>
+                          {externalSettlementExpanded ? '▼' : '▶'}
+                        </span>
+                        <span className="text-fluid-xs font-semibold text-gray-900">타업체 정산 받은 금액</span>
+                      </span>
+                      {!externalSettlementExpanded ? (
+                        <span className="text-fluid-xs font-semibold text-emerald-900 tabular-nums pl-6 sm:pl-0 sm:text-right shrink-0 leading-none">
+                          {payrollExternalSettlementSafe.paymentCount}건 · 합계 {fmtWon(payrollExternalSettlementSafe.totalAmount)}
+                        </span>
+                      ) : null}
+                    </button>
+                    {externalSettlementExpanded ? (
+                      <div
+                        id="payroll-settlement-external-received-panel"
+                        role="region"
+                        aria-labelledby="payroll-settlement-external-received-toggle"
+                        className="border-t border-emerald-100 px-2 pb-2 sm:px-3 pt-2 space-y-2 bg-white/70"
+                      >
+                        <p className="text-fluid-2xs text-gray-600 leading-tight">
+                          「타업체 정산」화면에서 정산완료 처리한 금액 중, <strong className="text-gray-800">정산일(KST)</strong>이 선택한
+                          귀속 월({data.monthLabel})에 포함되는 건만 집계합니다. 세부 등록·추가 처리는{' '}
+                          <Link to="/admin/external-settlement" className="text-blue-700 underline underline-offset-2 font-medium">
+                            타업체 정산
+                          </Link>
+                          에서 하세요.
+                        </p>
+                        {payrollExternalSettlementSafe.items.length === 0 ? (
+                          <p className="text-fluid-2xs text-gray-500 py-3 text-center border border-dashed border-gray-100 rounded bg-gray-50/60 leading-tight">
+                            해당 월 정산일 기준 타업체 정산완료 내역이 없습니다.
+                          </p>
+                        ) : (
+                          <>
+                            <ul className="lg:hidden flex flex-col gap-1.5 min-w-0">
+                              {payrollExternalSettlementSafe.items.map((row) => (
+                                <li
+                                  key={row.id}
+                                  className="rounded border border-gray-100 bg-gray-50/80 px-2 py-2 text-fluid-2xs space-y-1"
+                                >
+                                  <div className="flex justify-between gap-2 min-w-0 items-start">
+                                    <span className="font-semibold text-gray-900 truncate min-w-0">{row.externalCompany.name}</span>
+                                    <span className="shrink-0 font-semibold tabular-nums text-emerald-900">{fmtWon(row.amount)}</span>
+                                  </div>
+                                  <div className="text-gray-600 tabular-nums">{fmtIsoDateTimeKst(row.paidAt)}</div>
+                                  <div className="text-gray-600">
+                                    등록자 {row.actor?.name?.trim() ? row.actor.name : '—'}
+                                  </div>
+                                  {row.memo?.trim() ? (
+                                    <div className="text-gray-700 break-words">{row.memo}</div>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="hidden lg:block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-gray-100">
+                              <table className="w-full table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs border border-gray-200 rounded-lg overflow-hidden bg-white">
+                                <colgroup>
+                                  <col className="w-[22%]" />
+                                  <col className="w-[18%]" />
+                                  <col className="w-[14%]" />
+                                  <col className="w-[30%]" />
+                                  <col className="w-[16%]" />
+                                </colgroup>
+                                <thead>
+                                  <tr className="bg-gray-100 text-gray-700">
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center">일시(KST)</th>
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center">업체명</th>
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center">금액</th>
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center">메모</th>
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center">등록자</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {payrollExternalSettlementSafe.items.map((row) => (
+                                    <tr key={row.id} className="hover:bg-gray-50">
+                                      <td className="border-b border-gray-100 px-2 py-2 text-center text-gray-800 whitespace-nowrap tabular-nums">
+                                        {fmtIsoDateTimeKst(row.paidAt)}
+                                      </td>
+                                      <td className="border-b border-gray-100 px-2 py-2 text-center text-gray-900 font-medium truncate max-w-0" title={row.externalCompany.name}>
+                                        {row.externalCompany.name}
+                                      </td>
+                                      <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-semibold text-emerald-900">
+                                        {fmtWon(row.amount)}
+                                      </td>
+                                      <td
+                                        className="border-b border-gray-100 px-2 py-2 text-center text-gray-600 truncate max-w-0"
+                                        title={row.memo ?? ''}
+                                      >
+                                        {row.memo?.trim() ? row.memo : '—'}
+                                      </td>
+                                      <td className="border-b border-gray-100 px-2 py-2 text-center text-gray-700 truncate max-w-0" title={row.actor?.name ?? ''}>
+                                        {row.actor?.name?.trim() ? row.actor.name : '—'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
 
                   <div className="rounded-lg border border-sky-300/70 bg-white min-w-0 overflow-hidden shadow-sm">
                     <button
@@ -2804,6 +3133,28 @@ export function AdminPayrollPage() {
             await deletePayrollAdminPersonalExpense(token, adminPersonalExpenseDeleteTarget.id, password);
             const list = await getPayrollAdminPersonalExpenses(token, month);
             setAdminPersonalExpenseItems(list.items);
+          }}
+        />,
+        document.body
+      )}
+
+      {createPortal(
+        <ConfirmPasswordModal
+          open={Boolean(adminSharedExpenseDeleteTarget)}
+          title={
+            adminSharedExpenseDeleteTarget
+              ? `공용 지출 삭제 (${Number(adminSharedExpenseDeleteTarget.amount).toLocaleString('ko-KR')}원)`
+              : ''
+          }
+          description="이 지출 기록을 삭제합니다."
+          confirmLabel="삭제"
+          zIndexClassName="z-[620]"
+          onClose={() => setAdminSharedExpenseDeleteTarget(null)}
+          onConfirm={async (password) => {
+            if (!token || !adminSharedExpenseDeleteTarget) return;
+            await deletePayrollAdminSharedExpense(token, adminSharedExpenseDeleteTarget.id, password);
+            const list = await getPayrollAdminSharedExpenses(token, month);
+            setAdminSharedExpenseItems(list.items);
           }}
         />,
         document.body

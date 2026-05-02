@@ -110,6 +110,7 @@ model User {
   teamLeaderPayrollPayments           TeamLeaderPayrollPayment[]
   teamLeaderPayrollPaymentsAsActor    TeamLeaderPayrollPayment[] @relation("TeamLeaderPayrollPaymentActor")
   payrollAdminPersonalExpensesCreated PayrollAdminPersonalExpense[] @relation("PayrollAdminPersonalExpenseCreator")
+  payrollAdminSharedExpensesCreated PayrollAdminSharedExpense[] @relation("PayrollAdminSharedExpenseCreator")
   payrollIncomeDepositsCreated PayrollIncomeDeposit[] @relation("PayrollIncomeDepositCreator")
 
   @@map("users")
@@ -366,6 +367,22 @@ model PayrollAdminPersonalExpense {
 
   @@index([monthKey, createdAt(sort: Desc)])
   @@map("payroll_admin_personal_expenses")
+}
+
+/// 급여표 「정산」탭 — 관리자가 귀속 월별로 기록하는 공용·부서 지출(참고용, 인건비 산정과 무관)
+model PayrollAdminSharedExpense {
+  id          String   @id @default(uuid())
+  monthKey    String   @map("month_key") @db.VarChar(7)
+  amount      Int
+  memo        String?  @db.Text
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy User @relation("PayrollAdminSharedExpenseCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([monthKey, createdAt(sort: Desc)])
+  @@map("payroll_admin_shared_expenses")
 }
 
 /// 급여표 「정산」탭 수입 영역 — 귀속 월별 실제 입금 기록(참고용, 접수 매출 자동 집계와 별개)

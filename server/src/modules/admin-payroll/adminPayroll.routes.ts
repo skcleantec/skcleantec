@@ -27,6 +27,11 @@ import {
   listPayrollAdminPersonalExpensesForMonth,
 } from './payrollAdminPersonalExpense.service.js';
 import {
+  createPayrollAdminSharedExpense,
+  deletePayrollAdminSharedExpenseById,
+  listPayrollAdminSharedExpensesForMonth,
+} from './payrollAdminSharedExpense.service.js';
+import {
   createPayrollIncomeDeposit,
   deletePayrollIncomeDepositById,
   listPayrollIncomeDepositsForMonth,
@@ -93,6 +98,55 @@ router.get('/income-summary', async (req: Request, res: Response) => {
   } catch (e) {
     console.error('[admin/payroll/income-summary]', e);
     res.status(500).json({ error: '수입 집계 중 오류가 발생했습니다.' });
+  }
+});
+
+/** 타업체 정산 메뉴에서 등록한 정산완료 금액 — 급여표 「정산」수입 카드용 (정산일 paidAt 기준 KST 월) */
+router.get('/external-settlement-received', async (req: Request, res: Response) => {
+  try {
+    const monthKey = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+    if (!MONTH_KEY.test(monthKey)) {
+      res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+      return;
+    }
+    const range = kstMonthRangeYm(monthKey);
+    if (!range) {
+      res.status(400).json({ error: '유효하지 않은 월입니다.' });
+      return;
+    }
+
+    const rows = await prisma.externalCompanySettlementPayment.findMany({
+      where: { paidAt: { gte: range.gte, lte: range.lte } },
+      orderBy: [{ paidAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        amount: true,
+        memo: true,
+        paidAt: true,
+        externalCompany: { select: { id: true, name: true } },
+        actor: { select: { id: true, name: true } },
+      },
+    });
+
+    const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
+
+    res.json({
+      month: monthKey,
+      monthLabel: payrollMonthLabelFromKey(monthKey),
+      paymentCount: rows.length,
+      totalAmount,
+      items: rows.map((r) => ({
+        id: r.id,
+        paidAt: r.paidAt.toISOString(),
+        amount: r.amount,
+        memo: r.memo,
+        externalCompany: r.externalCompany,
+        actor: r.actor,
+      })),
+    });
+  } catch (e) {
+    console.error('[admin/payroll/external-settlement-received]', e);
+    res.status(500).json({ error: '타업체 정산 내역 집계 중 오류가 발생했습니다.' });
   }
 });
 
@@ -1313,6 +1367,132 @@ router.delete('/admin-personal-expenses/:expenseId', async (req: Request, res: R
   }
 
   const deleted = await deletePayrollAdminPersonalExpenseById(prisma, expenseId);
+  if (!deleted) {
+    res.status(404).json({ error: '지출 내역을 찾을 수 없습니다.' });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+/** 급여표 정산 탭 — 관리자 공용 지출(귀속 월별, 참고용) */
+router.get('/admin-shared-expenses', async (req, res) => {
+  const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthKey =
+    raw && MONTH_KEY.test(raw)
+      ? raw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const rows = await listPayrollAdminSharedExpensesForMonth(prisma, monthKey);
+  res.json({
+    month: monthKey,
+    items: rows.map((row) => ({
+      id: row.id,
+      amount: row.amount,
+      memo: row.memo,
+      createdAt: row.createdAt.toISOString(),
+      createdBy: row.createdBy,
+    })),
+  });
+});
+
+router.post('/admin-shared-expenses', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const body = req.body as { month?: unknown; amount?: unknown; memo?: unknown };
+  const monthRaw = typeof body.month === 'string' ? body.month.trim() : '';
+  const monthKey =
+    monthRaw && MONTH_KEY.test(monthRaw)
+      ? monthRaw
+      : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+
+  if (!kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const amtRaw = body.amount;
+  const amount =
+    typeof amtRaw === 'number' && Number.isFinite(amtRaw)
+      ? Math.floor(amtRaw)
+      : typeof amtRaw === 'string'
+        ? parseInt(amtRaw.replace(/,/g, '').trim(), 10)
+        : NaN;
+  if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000_000) {
+    res.status(400).json({ error: '금액은 1원 이상 유효한 숫자로 입력해 주세요.' });
+    return;
+  }
+
+  let memo: string | null = null;
+  if (typeof body.memo === 'string') {
+    const t = body.memo.trim();
+    memo = t.length > 2000 ? t.slice(0, 2000) : t.length ? t : null;
+  }
+
+  const row = await createPayrollAdminSharedExpense(prisma, {
+    monthKey,
+    amount,
+    memo,
+    createdById: authUser.userId,
+  });
+
+  res.status(201).json({
+    ok: true,
+    item: {
+      id: row.id,
+      amount: row.amount,
+      memo: row.memo,
+      createdAt: row.createdAt.toISOString(),
+      createdBy: row.createdBy,
+    },
+  });
+});
+
+router.delete('/admin-shared-expenses/:expenseId', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const expenseId =
+    typeof req.params.expenseId === 'string' ? req.params.expenseId.trim() : '';
+  if (!expenseId) {
+    res.status(400).json({ error: 'expenseId가 필요합니다.' });
+    return;
+  }
+
+  const body = req.body as { password?: unknown };
+  const password = body.password != null ? String(body.password).trim() : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: authUser.userId },
+    select: { id: true, passwordHash: true },
+  });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const deleted = await deletePayrollAdminSharedExpenseById(prisma, expenseId);
   if (!deleted) {
     res.status(404).json({ error: '지출 내역을 찾을 수 없습니다.' });
     return;

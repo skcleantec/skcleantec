@@ -140,6 +140,37 @@ export async function getPayrollIncomeSummary(token: string, month: string): Pro
   return res.json();
 }
 
+export type PayrollExternalSettlementReceivedItem = {
+  id: string;
+  paidAt: string;
+  amount: number;
+  memo: string | null;
+  externalCompany: { id: string; name: string };
+  actor: { id: string; name: string } | null;
+};
+
+export type PayrollExternalSettlementReceivedResponse = {
+  month: string;
+  monthLabel: string;
+  paymentCount: number;
+  totalAmount: number;
+  items: PayrollExternalSettlementReceivedItem[];
+};
+
+export async function getPayrollExternalSettlementReceived(
+  token: string,
+  month: string,
+): Promise<PayrollExternalSettlementReceivedResponse> {
+  const mk = month.trim();
+  const q = /^\d{4}-\d{2}$/.test(mk) ? `?month=${encodeURIComponent(mk)}` : '';
+  const res = await fetch(`${API}/admin/payroll/external-settlement-received${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '타업체 정산 내역을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export type PayrollPoolMemberDetailLine = {
   inquiryId: string;
   inquiryNumber: string | null;
@@ -515,6 +546,66 @@ export async function deletePayrollAdminPersonalExpense(
   password: string,
 ): Promise<{ ok: boolean }> {
   const res = await fetch(`${API}/admin/payroll/admin-personal-expenses/${encodeURIComponent(expenseId)}`, {
+    method: 'DELETE',
+    headers: {
+      ...headers(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export type PayrollAdminSharedExpenseItem = {
+  id: string;
+  amount: number;
+  memo: string | null;
+  createdAt: string;
+  createdBy: { id: string; name: string; email: string };
+};
+
+export async function getPayrollAdminSharedExpenses(
+  token: string,
+  month?: string,
+): Promise<{ month: string; items: PayrollAdminSharedExpenseItem[] }> {
+  const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+  const res = await fetch(`${API}/admin/payroll/admin-shared-expenses${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '공용 지출을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function postPayrollAdminSharedExpense(
+  token: string,
+  body: { month: string; amount: number; memo?: string },
+): Promise<{ ok: boolean; item: PayrollAdminSharedExpenseItem }> {
+  const res = await fetch(`${API}/admin/payroll/admin-shared-expenses`, {
+    method: 'POST',
+    headers: {
+      ...headers(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '등록에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function deletePayrollAdminSharedExpense(
+  token: string,
+  expenseId: string,
+  password: string,
+): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/admin/payroll/admin-shared-expenses/${encodeURIComponent(expenseId)}`, {
     method: 'DELETE',
     headers: {
       ...headers(token),
