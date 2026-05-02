@@ -159,7 +159,7 @@ export function CrewSettlementPage() {
     me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview';
 
   const needsLeaderMenuPassword =
-    Boolean(me) && me.crewViewerRole === 'LEADER' && me.crewJwtSource !== 'preview';
+    me != null && me.crewViewerRole === 'LEADER' && me.crewJwtSource !== 'preview';
 
   const menuUnlocked =
     !needsLeaderMenuPassword ||

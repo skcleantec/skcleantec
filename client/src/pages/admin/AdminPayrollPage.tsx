@@ -1917,7 +1917,7 @@ export function AdminPayrollPage() {
                                         {r.cycleStartYmd ? (
                                           <>
                                             <span>{compactPeriod(r.cycleStartYmd, r.partialEndYmd)}</span>
-                                            <span>근무 {r.jobCount == null ? '—' : `${r.jobCount}일`}</span>
+                                            <span>근무 {r.jobDays == null ? '—' : `${r.jobDays}일`}</span>
                                             <span>일당 {fmtWon(r.unitAmount)}</span>
                                             <span>
                                               정산{' '}
