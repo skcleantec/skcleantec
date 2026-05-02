@@ -53,6 +53,16 @@ function getCalendarDays(year: number, month: number) {
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
+/** 급여 주기 표시용 (툴팁에는 전체 YMD 사용) */
+function formatPayCycleRangeShort(startYmd: string, endYmd: string): string {
+  const [sy, sm, sd] = startYmd.split('-');
+  const [ey, em, ed] = endYmd.split('-');
+  const a = `${Number(sm)}/${Number(sd)}`;
+  const b = `${Number(em)}/${Number(ed)}`;
+  if (sy === ey) return `${a}~${b}`;
+  return `${sy.slice(2)}.${a}~${ey.slice(2)}.${b}`;
+}
+
 export function AdminTeamsPage() {
   const token = getToken();
   const [members, setMembers] = useState<TeamMemberItem[]>([]);
@@ -79,6 +89,8 @@ export function AdminTeamsPage() {
     name: string;
     nameTh: string;
     phone: string;
+    monthlyPayDayInput: string;
+    payAmountPerJobInput: string;
   } | null>(null);
   const [editMemberSaving, setEditMemberSaving] = useState(false);
 
@@ -243,7 +255,35 @@ export function AdminTeamsPage() {
     try {
       const phone = editMemberModal.phone.trim() || null;
       const nameTh = editMemberModal.nameTh.trim() || null;
-      await updatePoolTeamMember(token, editMemberModal.memberId, { name, phone, nameTh });
+      const payDayRaw = editMemberModal.monthlyPayDayInput.trim();
+      let monthlyPayDay: number | null;
+      if (payDayRaw === '') monthlyPayDay = null;
+      else {
+        const d = parseInt(payDayRaw, 10);
+        if (!Number.isFinite(d) || d < 1 || d > 31) {
+          alert('월급 지급일은 1~31 사이 숫자로 입력하거나 비워 두세요.');
+          return;
+        }
+        monthlyPayDay = d;
+      }
+      const payJobRaw = editMemberModal.payAmountPerJobInput.replace(/,/g, '').trim();
+      let payAmountPerJob: number | null;
+      if (payJobRaw === '') payAmountPerJob = null;
+      else {
+        const n = parseInt(payJobRaw, 10);
+        if (!Number.isFinite(n) || n < 0) {
+          alert('건당 책정금액은 0 이상 정수(원)로 입력하거나 비워 두세요.');
+          return;
+        }
+        payAmountPerJob = n;
+      }
+      await updatePoolTeamMember(token, editMemberModal.memberId, {
+        name,
+        phone,
+        nameTh,
+        monthlyPayDay,
+        payAmountPerJob,
+      });
       setEditMemberModal(null);
       await refresh();
     } catch (e) {
@@ -617,7 +657,8 @@ export function AdminTeamsPage() {
         <section className="bg-white border border-gray-200 rounded-lg p-4">
           <h2 className="text-sm font-semibold text-gray-800 mb-1">팀원 목록</h2>
           <p className="text-xs text-gray-500 mb-3">
-            등록한 팀원이 아래에 표시됩니다. 각 행에서 휴무일·정보 수정·사용 중지·삭제를 할 수 있습니다.
+            등록한 팀원이 아래에 표시됩니다. 각 행에서 휴무일·정보 수정·사용 중지·삭제를 할 수 있습니다. 월급
+            정산(건수)용으로 「정보 수정」에서 매월 지급일·건당 책정금액을 설정할 수 있습니다.
           </p>
           {members.length === 0 ? (
             <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-md px-3 py-4 text-center mb-3">
@@ -633,6 +674,17 @@ export function AdminTeamsPage() {
                         <span className={m.isActive ? 'font-medium text-gray-900' : 'text-gray-400 line-through'}>
                           {m.name}
                         </span>
+                        {m.monthlyPayDay != null &&
+                        m.payCycleJobCount != null &&
+                        m.payCycleStartYmd &&
+                        m.payCycleEndYmd ? (
+                          <span
+                            className="text-xs text-blue-800 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded tabular-nums shrink-0"
+                            title={`급여 주기(KST): ${m.payCycleStartYmd} ~ ${m.payCycleEndYmd}. 접수 예약일 기준·현장 투입 메모(이름) 일치 건만 집계합니다.`}
+                          >
+                            급여주기 {m.payCycleJobCount}건 ({formatPayCycleRangeShort(m.payCycleStartYmd, m.payCycleEndYmd)})
+                          </span>
+                        ) : null}
                         {(m.nameTh ?? '').trim() ? (
                           <span className="text-xs text-gray-500 w-full sm:w-auto">({(m.nameTh ?? '').trim()})</span>
                         ) : null}
@@ -646,6 +698,13 @@ export function AdminTeamsPage() {
                             사용 안 함
                           </span>
                         )}
+                      </div>
+                      <div className="text-fluid-xs text-gray-600 mt-1 tabular-nums">
+                        급여:{' '}
+                        {m.monthlyPayDay != null ? `매월 ${m.monthlyPayDay}일 지급` : '지급일 미설정'} ·{' '}
+                        {m.payAmountPerJob != null
+                          ? `건당 ${Number(m.payAmountPerJob).toLocaleString('ko-KR')}원`
+                          : '건당 금액 미설정'}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1.5 shrink-0">
@@ -664,6 +723,9 @@ export function AdminTeamsPage() {
                             name: m.name,
                             nameTh: (m.nameTh ?? '').trim(),
                             phone: m.phone ?? '',
+                            monthlyPayDayInput: m.monthlyPayDay != null ? String(m.monthlyPayDay) : '',
+                            payAmountPerJobInput:
+                              m.payAmountPerJob != null ? String(m.payAmountPerJob) : '',
                           })
                         }
                         className={memberRowBtn}
@@ -785,7 +847,7 @@ export function AdminTeamsPage() {
             aria-modal
             aria-labelledby="edit-member-title"
           >
-            <div className="relative w-full max-w-sm rounded-lg bg-white shadow-lg border border-gray-200 p-5">
+            <div className="relative w-full max-w-md rounded-lg bg-white shadow-lg border border-gray-200 p-5">
               <ModalCloseButton
                 onClick={() => setEditMemberModal(null)}
                 disabled={editMemberSaving}
@@ -827,6 +889,43 @@ export function AdminTeamsPage() {
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                   />
+                </div>
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-xs text-gray-600 mb-2">월급 정산 설정 (건수 × 단가는 다음 단계에서 반영)</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">매월 지급일 (1~31, 비우면 미설정)</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={31}
+                        value={editMemberModal.monthlyPayDayInput}
+                        onChange={(e) =>
+                          setEditMemberModal((prev) =>
+                            prev ? { ...prev, monthlyPayDayInput: e.target.value } : null
+                          )
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                        placeholder="예: 25"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">건당 책정금액 (원, 비우면 미설정)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editMemberModal.payAmountPerJobInput}
+                        onChange={(e) =>
+                          setEditMemberModal((prev) =>
+                            prev ? { ...prev, payAmountPerJobInput: e.target.value } : null
+                          )
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums text-right"
+                        placeholder="예: 50000"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="mt-4 flex justify-end gap-2">

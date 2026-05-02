@@ -6,6 +6,11 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getAvailableFieldStaffMemberIdsOnDate } from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
+import {
+  crewMemberNoteIncludesTeamMember,
+  payrollCycleBoundsKst,
+  payrollCyclePreferredDateWhere,
+} from './teamMemberPayrollCycle.js';
 
 const router = Router();
 
@@ -125,6 +130,8 @@ router.get('/', async (_req, res) => {
         phone: m.phone,
         sortOrder: m.sortOrder,
         isActive: m.isActive,
+        monthlyPayDay: m.monthlyPayDay,
+        payAmountPerJob: m.payAmountPerJob,
         createdAt: m.createdAt.toISOString(),
         dayOffCount: m._count.dayOffs,
       })),
@@ -177,6 +184,42 @@ router.post('/', async (req, res) => {
 /** 전사 팀원 풀 (teamId 없음). `/:teamId`보다 먼저 등록해야 `/members`가 teamId로 오인되지 않음 */
 const MAX_POOL_MEMBERS = 100;
 
+function parseTeamMemberPayFields(body: Record<string, unknown>): {
+  monthlyPayDay?: number | null;
+  payAmountPerJob?: number | null;
+  error?: string;
+} {
+  const out: { monthlyPayDay?: number | null; payAmountPerJob?: number | null } = {};
+  if (Object.prototype.hasOwnProperty.call(body, 'monthlyPayDay')) {
+    const v = body.monthlyPayDay;
+    if (v === null || v === '') {
+      out.monthlyPayDay = null;
+    } else {
+      const n = typeof v === 'number' ? v : parseInt(String(v).trim(), 10);
+      if (!Number.isFinite(n) || n < 1 || n > 31) {
+        return { error: '월급 지급일은 1~31 사이 숫자이거나 비워야 합니다.' };
+      }
+      out.monthlyPayDay = n;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'payAmountPerJob')) {
+    const v = body.payAmountPerJob;
+    if (v === null || v === '') {
+      out.payAmountPerJob = null;
+    } else {
+      const n =
+        typeof v === 'number'
+          ? Math.trunc(v)
+          : parseInt(String(v).replace(/,/g, '').trim(), 10);
+      if (!Number.isFinite(n) || n < 0) {
+        return { error: '건당 책정금액은 0 이상 정수(원)이거나 비워야 합니다.' };
+      }
+      out.payAmountPerJob = n;
+    }
+  }
+  return out;
+}
+
 router.get('/members', async (req, res) => {
   const dateRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
   const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
@@ -186,16 +229,60 @@ router.get('/members', async (req, res) => {
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: { _count: { select: { dayOffs: true } } },
   });
-  let items = members.map((m) => ({
-    id: m.id,
-    name: m.name,
-    nameTh: m.nameTh,
-    phone: m.phone,
-    sortOrder: m.sortOrder,
-    isActive: m.isActive,
-    createdAt: m.createdAt.toISOString(),
-    dayOffCount: m._count.dayOffs,
-  }));
+
+  const distinctPayDays = [
+    ...new Set(
+      members
+        .map((x) => x.monthlyPayDay)
+        .filter((d): d is number => d != null && d >= 1 && d <= 31),
+    ),
+  ].sort((a, b) => a - b);
+
+  type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
+  const inquiriesByPayDay = new Map<number, CycleCache>();
+  for (const payDay of distinctPayDays) {
+    const { startYmd, endYmd } = payrollCycleBoundsKst(payDay);
+    const bounds = payrollCyclePreferredDateWhere(startYmd, endYmd);
+    const inquiries = await prisma.inquiry.findMany({
+      where: {
+        preferredDate: { gte: bounds.gte, lte: bounds.lte },
+        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+      },
+      select: { crewMemberNote: true },
+    });
+    inquiriesByPayDay.set(payDay, { startYmd, endYmd, inquiries });
+  }
+
+  let items = members.map((m) => {
+    let payCycleJobCount: number | null = null;
+    let payCycleStartYmd: string | null = null;
+    let payCycleEndYmd: string | null = null;
+    if (m.monthlyPayDay != null) {
+      const cached = inquiriesByPayDay.get(m.monthlyPayDay);
+      if (cached) {
+        payCycleStartYmd = cached.startYmd;
+        payCycleEndYmd = cached.endYmd;
+        payCycleJobCount = cached.inquiries.filter((inq) =>
+          crewMemberNoteIncludesTeamMember(inq.crewMemberNote, m),
+        ).length;
+      }
+    }
+    return {
+      id: m.id,
+      name: m.name,
+      nameTh: m.nameTh,
+      phone: m.phone,
+      sortOrder: m.sortOrder,
+      isActive: m.isActive,
+      monthlyPayDay: m.monthlyPayDay,
+      payAmountPerJob: m.payAmountPerJob,
+      createdAt: m.createdAt.toISOString(),
+      dayOffCount: m._count.dayOffs,
+      payCycleJobCount,
+      payCycleStartYmd,
+      payCycleEndYmd,
+    };
+  });
 
   if (preferredDate) {
     const hasDailyRosterAgg =
@@ -257,13 +344,18 @@ router.post('/members', async (req, res) => {
 
 router.patch('/members/:memberId', async (req, res) => {
   const { memberId } = req.params;
-  const body = req.body as {
+  const body = req.body as Record<string, unknown> & {
     name?: string;
     nameTh?: string | null;
     phone?: string | null;
     sortOrder?: number;
     isActive?: boolean;
   };
+  const payParsed = parseTeamMemberPayFields(body);
+  if (payParsed.error) {
+    res.status(400).json({ error: payParsed.error });
+    return;
+  }
   const member = await prisma.teamMember.findFirst({
     where: { id: memberId, teamId: null },
   });
@@ -300,6 +392,10 @@ router.patch('/members/:memberId', async (req, res) => {
             ? body.sortOrder
             : member.sortOrder,
       isActive: body.isActive === undefined ? undefined : Boolean(body.isActive),
+      monthlyPayDay:
+        payParsed.monthlyPayDay === undefined ? undefined : payParsed.monthlyPayDay,
+      payAmountPerJob:
+        payParsed.payAmountPerJob === undefined ? undefined : payParsed.payAmountPerJob,
     },
   });
   res.json({
@@ -309,6 +405,8 @@ router.patch('/members/:memberId', async (req, res) => {
     phone: updated.phone,
     sortOrder: updated.sortOrder,
     isActive: updated.isActive,
+    monthlyPayDay: updated.monthlyPayDay,
+    payAmountPerJob: updated.payAmountPerJob,
   });
 });
 
@@ -479,13 +577,18 @@ router.post('/:teamId/members', async (req, res) => {
 
 router.patch('/:teamId/members/:memberId', async (req, res) => {
   const { teamId, memberId } = req.params;
-  const body = req.body as {
+  const body = req.body as Record<string, unknown> & {
     name?: string;
     nameTh?: string | null;
     phone?: string | null;
     sortOrder?: number;
     isActive?: boolean;
   };
+  const payParsed = parseTeamMemberPayFields(body);
+  if (payParsed.error) {
+    res.status(400).json({ error: payParsed.error });
+    return;
+  }
   const member = await prisma.teamMember.findFirst({
     where: { id: memberId, teamId },
   });
@@ -520,6 +623,10 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
             ? body.sortOrder
             : member.sortOrder,
       isActive: body.isActive === undefined ? undefined : Boolean(body.isActive),
+      monthlyPayDay:
+        payParsed.monthlyPayDay === undefined ? undefined : payParsed.monthlyPayDay,
+      payAmountPerJob:
+        payParsed.payAmountPerJob === undefined ? undefined : payParsed.payAmountPerJob,
     },
   });
   res.json({
@@ -529,6 +636,8 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
     phone: updated.phone,
     sortOrder: updated.sortOrder,
     isActive: updated.isActive,
+    monthlyPayDay: updated.monthlyPayDay,
+    payAmountPerJob: updated.payAmountPerJob,
   });
 });
 

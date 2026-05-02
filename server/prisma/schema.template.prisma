@@ -146,6 +146,10 @@ model TeamMember {
   phone     String?
   sortOrder Int      @default(0) @map("sort_order")
   isActive  Boolean  @default(true) @map("is_active")
+  /// 매월 급여 지급일(1~31). null이면 미설정 — 팀원 월급 정산(건수)용
+  monthlyPayDay   Int? @map("monthly_pay_day")
+  /// 건당 책정 금액(원). null이면 미설정 — 정산 시 건수×단가 계산에 사용
+  payAmountPerJob Int? @map("pay_amount_per_job")
   createdAt DateTime @default(now()) @map("created_at")
 
   team    Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)

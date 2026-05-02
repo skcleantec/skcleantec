@@ -23,6 +23,14 @@ export interface TeamMemberItem {
   phone: string | null;
   sortOrder: number;
   isActive: boolean;
+  /** 매월 급여 지급일(1~31). 미설정 시 null */
+  monthlyPayDay?: number | null;
+  /** 건당 책정 금액(원). 미설정 시 null */
+  payAmountPerJob?: number | null;
+  /** 설정된 급여 주기(월급일~다음 월급 전일) 안 접수 예약일 기준·메모 이름 매칭 청소 건수 */
+  payCycleJobCount?: number | null;
+  payCycleStartYmd?: string | null;
+  payCycleEndYmd?: string | null;
   createdAt: string;
   dayOffCount: number;
 }
@@ -91,7 +99,15 @@ export async function addPoolTeamMember(
 export async function updatePoolTeamMember(
   token: string,
   memberId: string,
-  data: { name?: string; nameTh?: string | null; phone?: string | null; sortOrder?: number; isActive?: boolean }
+  data: {
+    name?: string;
+    nameTh?: string | null;
+    phone?: string | null;
+    sortOrder?: number;
+    isActive?: boolean;
+    monthlyPayDay?: number | null;
+    payAmountPerJob?: number | null;
+  }
 ): Promise<void> {
   const res = await fetch(`${API}/teams/members/${memberId}`, {
     method: 'PATCH',
@@ -217,7 +233,14 @@ export async function updateTeamMember(
   token: string,
   teamId: string,
   memberId: string,
-  data: { name?: string; phone?: string | null; sortOrder?: number; isActive?: boolean }
+  data: {
+    name?: string;
+    phone?: string | null;
+    sortOrder?: number;
+    isActive?: boolean;
+    monthlyPayDay?: number | null;
+    payAmountPerJob?: number | null;
+  }
 ): Promise<void> {
   const res = await fetch(`${API}/teams/${teamId}/members/${memberId}`, {
     method: 'PATCH',
