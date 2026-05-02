@@ -20,13 +20,17 @@ export async function professionalOptionDepthFromRoot(
   let depth = 0;
   let cur: string | null = nodeId;
   for (;;) {
-    const row = await prisma.professionalSpecialtyOption.findUnique({
-      where: { id: cur },
-      select: { parentId: true },
-    });
-    if (!row?.parentId) return depth;
+    if (cur === null) return depth;
+    const id: string = cur;
+    const row: { parentId: string | null } | null =
+      await prisma.professionalSpecialtyOption.findUnique({
+        where: { id },
+        select: { parentId: true },
+      });
+    const parentId: string | null = row?.parentId ?? null;
+    if (parentId === null) return depth;
     depth++;
-    cur = row.parentId;
+    cur = parentId;
   }
 }
 
