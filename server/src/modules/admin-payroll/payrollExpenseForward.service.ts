@@ -22,27 +22,68 @@ function payMonthKeyAfterAccrualEnd(accrualEndYmd: string): string {
   return dateToYmdKst(new Date(payMs)).slice(0, 7);
 }
 
-function calendarDaysInMonth(monthKey: string): number | null {
-  const m = /^(\d{4})-(\d{2})$/.exec(monthKey.trim());
-  if (!m) return null;
-  const y = parseInt(m[1], 10);
-  const mo = parseInt(m[2], 10);
-  if (!Number.isFinite(y) || mo < 1 || mo > 12) return null;
-  return new Date(Date.UTC(y, mo, 0)).getUTCDate();
-}
+/** 급여 귀속 구간(양 끝 포함)에 대해 등록 월급 일할 누적 — 미정산현황·급여표 수입·지출 탭과 동일 규칙 */
+export type MarketerAccruedEstimateInput = {
+  accrualStartYmd: string;
+  accrualEndYmd: string;
+  salary: number | null | undefined;
+  todayYmd: string;
+};
 
-function prevCalendarMonthKey(monthKey: string): string | null {
-  const m = /^(\d{4})-(\d{2})$/.exec(monthKey.trim());
-  if (!m) return null;
-  let y = parseInt(m[1], 10);
-  let mo = parseInt(m[2], 10);
-  mo -= 1;
-  if (mo < 1) {
-    mo = 12;
-    y -= 1;
+export type MarketerAccruedEstimateBreakdown = {
+  payMonthKey: string;
+  partialEndYmd: string;
+  cycleDaysTotal: number;
+  elapsedDays: number;
+  /** 귀속 구간 일수(inclusive)를 분모로 사용 — 주기 종료 시 일할 합이 등록 월급과 일치 */
+  rateBasis: 'cycle_days';
+  denominatorDays: number | null;
+  accruedEstimate: number | null;
+};
+
+export function computeMarketerAccruedEstimateForAccrualBounds(
+  input: MarketerAccruedEstimateInput,
+): MarketerAccruedEstimateBreakdown | null {
+  const { accrualStartYmd, accrualEndYmd, salary, todayYmd } = input;
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(accrualStartYmd.trim()) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(accrualEndYmd.trim())
+  ) {
+    return null;
   }
-  if (y < 1900) return null;
-  return `${y}-${String(mo).padStart(2, '0')}`;
+
+  const cycleDaysTotal = inclusiveCalendarDays(accrualStartYmd, accrualEndYmd);
+  if (cycleDaysTotal <= 0) return null;
+
+  const partialEndYmd = accrualEndYmd < todayYmd ? accrualEndYmd : todayYmd;
+  const elapsedDays =
+    partialEndYmd < accrualStartYmd ? 0 : inclusiveCalendarDays(accrualStartYmd, partialEndYmd);
+
+  const payMonthKey = payMonthKeyAfterAccrualEnd(accrualEndYmd);
+  const denominatorDays = cycleDaysTotal > 0 ? cycleDaysTotal : null;
+
+  let accruedEstimate: number | null = null;
+  const sal = salary;
+  if (
+    sal != null &&
+    Number.isFinite(sal) &&
+    sal > 0 &&
+    denominatorDays != null &&
+    denominatorDays > 0 &&
+    elapsedDays > 0
+  ) {
+    accruedEstimate = Math.round((sal * elapsedDays) / denominatorDays);
+  }
+
+  return {
+    payMonthKey,
+    partialEndYmd,
+    cycleDaysTotal,
+    elapsedDays,
+    rateBasis: 'cycle_days',
+    denominatorDays,
+    accruedEstimate,
+  };
 }
 
 export type PayrollExpenseForwardPoolRow = {
@@ -74,7 +115,7 @@ export type PayrollExpenseForwardMarketerRow = {
   payMonthKey: string;
   monthlySalary: number | null;
   settlementComplete: boolean;
-  rateBasis: 'cycle_days' | 'prev_calendar_month';
+  rateBasis: 'cycle_days';
   denominatorDays: number | null;
   elapsedDays: number;
   cycleDaysTotal: number;
@@ -301,11 +342,7 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
   for (const payDay of [...marketerByPayDay.keys()].sort((a, b) => a - b)) {
     const group = marketerByPayDay.get(payDay)!;
     const bounds = payrollCycleBoundsKst(payDay);
-    const partialEndYmd = bounds.endYmd < todayYmd ? bounds.endYmd : todayYmd;
     const payMonthKey = payMonthKeyAfterAccrualEnd(bounds.endYmd);
-    const cycleDaysTotal = inclusiveCalendarDays(bounds.startYmd, bounds.endYmd);
-    const elapsedDays =
-      partialEndYmd < bounds.startYmd ? 0 : inclusiveCalendarDays(bounds.startYmd, partialEndYmd);
 
     const userIds = group.map((u) => u.id);
     const settleRows =
@@ -317,10 +354,6 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
           });
     const settledSet = new Set(settleRows.map((r) => r.userId));
 
-    const startMonthKey = bounds.startYmd.slice(0, 7);
-    const prevMk = prevCalendarMonthKey(startMonthKey);
-    const prevDenom = prevMk ? calendarDaysInMonth(prevMk) : null;
-
     for (const u of group) {
       if (
         !employmentOverlapsMonthKst(u.hireDate, u.resignationDate, bounds.startYmd, bounds.endYmd)
@@ -330,27 +363,25 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
 
       const salary = u.payrollMonthlySalary;
       const settlementComplete = settledSet.has(u.id);
-      let rateBasis: 'cycle_days' | 'prev_calendar_month' = settlementComplete
-        ? 'cycle_days'
-        : 'prev_calendar_month';
-      let denominatorDays: number | null = null;
-      if (settlementComplete) {
-        denominatorDays = cycleDaysTotal > 0 ? cycleDaysTotal : null;
-      } else {
-        denominatorDays = prevDenom;
-      }
-
-      let accruedEstimate: number | null = null;
-      if (
-        salary != null &&
-        Number.isFinite(salary) &&
-        salary > 0 &&
-        denominatorDays != null &&
-        denominatorDays > 0 &&
-        elapsedDays > 0
-      ) {
-        accruedEstimate = Math.round((salary * elapsedDays) / denominatorDays);
-      }
+      const breakdown =
+        computeMarketerAccruedEstimateForAccrualBounds({
+          accrualStartYmd: bounds.startYmd,
+          accrualEndYmd: bounds.endYmd,
+          salary,
+          todayYmd,
+        }) ??
+        (() => {
+          const cdt = inclusiveCalendarDays(bounds.startYmd, bounds.endYmd);
+          return {
+            payMonthKey: payMonthKeyAfterAccrualEnd(bounds.endYmd),
+            partialEndYmd: bounds.endYmd < todayYmd ? bounds.endYmd : todayYmd,
+            cycleDaysTotal: cdt,
+            elapsedDays: 0,
+            rateBasis: 'cycle_days' as const,
+            denominatorDays: cdt > 0 ? cdt : null,
+            accruedEstimate: null,
+          } satisfies MarketerAccruedEstimateBreakdown;
+        })();
 
       marketerOut.push({
         userId: u.id,
@@ -358,15 +389,15 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
         payrollPayDay: payDay,
         cycleStartYmd: bounds.startYmd,
         cycleEndYmd: bounds.endYmd,
-        partialEndYmd,
-        payMonthKey,
+        partialEndYmd: breakdown.partialEndYmd,
+        payMonthKey: breakdown.payMonthKey,
         monthlySalary: salary,
         settlementComplete,
-        rateBasis,
-        denominatorDays,
-        elapsedDays,
-        cycleDaysTotal,
-        accruedEstimate,
+        rateBasis: breakdown.rateBasis,
+        denominatorDays: breakdown.denominatorDays,
+        elapsedDays: breakdown.elapsedDays,
+        cycleDaysTotal: breakdown.cycleDaysTotal,
+        accruedEstimate: breakdown.accruedEstimate,
       });
     }
   }
@@ -384,7 +415,7 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
       payMonthKey: '',
       monthlySalary: u.payrollMonthlySalary,
       settlementComplete: false,
-      rateBasis: 'prev_calendar_month',
+      rateBasis: 'cycle_days',
       denominatorDays: null,
       elapsedDays: 0,
       cycleDaysTotal: 0,

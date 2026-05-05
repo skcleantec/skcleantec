@@ -168,7 +168,11 @@ export function TeamLayout() {
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
       {rosterAckBanner ? (
-        <RosterAckBanner payload={rosterAckBanner} onDismiss={dismissRosterAckBanner} />
+        <RosterAckBanner
+          payload={rosterAckBanner}
+          onDismiss={dismissRosterAckBanner}
+          showThai={!isExternalPartner}
+        />
       ) : null}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">

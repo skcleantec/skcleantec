@@ -12,6 +12,8 @@ export type PayrollSheetRow = {
   id: string;
   name: string;
   roleLabel: string;
+  /** 현장 팀원: 팀원 등록 「월 급여 지급일」(1~31). 미설정 null — 수입·지출 매트릭스 열 구성용 */
+  monthlyPayDay?: number | null;
   payDateYmd: string | null;
   accrualStartYmd: string | null;
   accrualEndYmd: string | null;
@@ -27,6 +29,8 @@ export type PayrollSheetRow = {
   poolManualExtraDays?: number | null;
   /** 현장만: 해당 월 정산 완료 여부 */
   poolSettlementComplete?: boolean;
+  /** 현장만: 정산 완료 시 확정 지급액(실지급 스냅샷) */
+  poolSettledAmount?: number | null;
   /** 팀장만: 해당 귀속 월 지급 건수 */
   leaderPaymentCount?: number;
   /** 마케터: 미정산 이월 합산 전 금액 */
@@ -35,8 +39,12 @@ export type PayrollSheetRow = {
   marketerTotalDue?: number | null;
   marketerSettlementComplete?: boolean;
   marketerSettledAmount?: number | null;
+  /** 마케터: 급여 지급일(1~31, 미등록 시 말일과 동일하게 31) — 수입·지출 매트릭스 열 */
+  payrollPayDay?: number;
   /** 마케터: 해당 귀속 월 정산 후 차월 이월 미정산 */
   marketerUnsettledRemainder?: number | null;
+  /** 마케터: 미정산 시 등록 월급 일할 누적(오늘 KST까지, 이월 제외). 귀속 시작 전이면 0 */
+  marketerAccruedSalaryEstimateAsOfToday?: number | null;
   /** 현장 팀원: 해당 귀속 월 크루 등록 지출 합계 */
   crewExpenseTotal?: number;
   /** 현장 팀원: 예상 급여 − 지출 (최소 0) — 실지급 예상·정산 확정 기준 */
@@ -93,7 +101,7 @@ export type PayrollExpenseForwardMarketerRow = {
   payMonthKey: string;
   monthlySalary: number | null;
   settlementComplete: boolean;
-  rateBasis: 'cycle_days' | 'prev_calendar_month';
+  rateBasis: 'cycle_days';
   denominatorDays: number | null;
   elapsedDays: number;
   cycleDaysTotal: number;
@@ -136,6 +144,48 @@ export async function getPayrollIncomeSummary(token: string, month: string): Pro
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '수입 집계를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export type PayrollAccountLedgerLine = {
+  id: string;
+  occurredAt: string;
+  dateYmd: string;
+  direction: 'in' | 'out';
+  amount: number;
+  category: string;
+  summary: string;
+  memo: string | null;
+  sourceType: string;
+  entryKind: 'cash' | 'accrual';
+  runningAll: number;
+  runningCash: number;
+};
+
+export type PayrollAccountLedgerResponse = {
+  month: string;
+  monthLabel: string;
+  lines: PayrollAccountLedgerLine[];
+  totals: {
+    cashIn: number;
+    cashOut: number;
+    cashNet: number;
+    accrualIn: number;
+    allNet: number;
+  };
+};
+
+export async function getPayrollAccountLedger(
+  token: string,
+  month: string,
+): Promise<PayrollAccountLedgerResponse> {
+  const mk = month.trim();
+  const q = /^\d{4}-\d{2}$/.test(mk) ? `?month=${encodeURIComponent(mk)}` : '';
+  const res = await fetch(`${API}/admin/payroll/account-ledger${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '수입·지출 내역을 불러올 수 없습니다.');
   }
   return res.json();
 }

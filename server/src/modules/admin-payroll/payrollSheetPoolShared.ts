@@ -14,6 +14,8 @@ export type PoolPayrollSheetRowOut = {
   id: string;
   name: string;
   roleLabel: string;
+  /** 팀원 등록의 월 급여 지급일(1~31). 미설정·범위 밖이면 null */
+  monthlyPayDay: number | null;
   payDateYmd: string | null;
   accrualStartYmd: string | null;
   accrualEndYmd: string | null;
@@ -24,6 +26,8 @@ export type PoolPayrollSheetRowOut = {
   poolSystemDays?: number | null;
   poolManualExtraDays?: number | null;
   poolSettlementComplete?: boolean;
+  /** 귀속 월 정산 완료 시 확정 지급액(실지급 기준 스냅샷). 미정산이면 null */
+  poolSettledAmount?: number | null;
   crewExpenseTotal?: number;
   amountNet?: number | null;
 };
@@ -129,9 +133,9 @@ export async function buildPoolMemberPayrollSheetRows(
       ? []
       : await prismaClient.teamMemberPayrollSettlement.findMany({
           where: { monthKey, teamMemberId: { in: ids } },
-          select: { teamMemberId: true },
+          select: { teamMemberId: true, amount: true },
         });
-  const settledMemberIds = new Set(poolSettlementRows.map((r) => r.teamMemberId));
+  const settledAmountByMemberId = new Map(poolSettlementRows.map((row) => [row.teamMemberId, row.amount]));
 
   const rows: PoolPayrollSheetRowOut[] = [];
   for (const m of poolMembers) {
@@ -198,6 +202,8 @@ export async function buildPoolMemberPayrollSheetRows(
       id: m.id,
       name: m.name,
       roleLabel: '현장',
+      monthlyPayDay:
+        m.monthlyPayDay != null && m.monthlyPayDay >= 1 && m.monthlyPayDay <= 31 ? m.monthlyPayDay : null,
       payDateYmd,
       accrualStartYmd,
       accrualEndYmd,
@@ -207,7 +213,8 @@ export async function buildPoolMemberPayrollSheetRows(
       notes,
       poolSystemDays: autoDays,
       poolManualExtraDays: manualExtra,
-      poolSettlementComplete: settledMemberIds.has(m.id),
+      poolSettlementComplete: settledAmountByMemberId.has(m.id),
+      poolSettledAmount: settledAmountByMemberId.get(m.id) ?? null,
       crewExpenseTotal,
       amountNet,
     });

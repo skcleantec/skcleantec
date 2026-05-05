@@ -3,10 +3,12 @@ import type { RosterAckPayload } from '../../hooks/useInboxRealtime';
 type Props = {
   payload: RosterAckPayload;
   onDismiss: () => void;
+  /** false면 보조(태국어) 한 줄 숨김 — 타업체(EXTERNAL_PARTNER) 레이아웃 등 */
+  showThai?: boolean;
 };
 
-/** 현장 팀원 구성 변경 알림 — 한글(위)·태국어(아래), 우측 확인으로만 닫기 */
-export function RosterAckBanner({ payload, onDismiss }: Props) {
+/** 현장 팀원 구성 변경 알림 — 기본 한글·태국어 병기, 우측 확인으로만 닫기 */
+export function RosterAckBanner({ payload, onDismiss, showThai = true }: Props) {
   return (
     <div
       role="alert"
@@ -16,7 +18,9 @@ export function RosterAckBanner({ payload, onDismiss }: Props) {
       <div className="max-w-6xl mx-auto px-3 py-2.5 sm:px-4 flex items-start gap-3 min-w-0">
         <div className="min-w-0 flex-1 leading-snug pr-1">
           <div className="text-fluid-sm font-medium [text-wrap:pretty]">{payload.messageKo}</div>
-          <div className="text-fluid-xs mt-1 opacity-95 [text-wrap:pretty]">{payload.messageTh}</div>
+          {showThai ? (
+            <div className="text-fluid-xs mt-1 opacity-95 [text-wrap:pretty]">{payload.messageTh}</div>
+          ) : null}
         </div>
         <button
           type="button"

@@ -11,6 +11,7 @@ import {
   getPayrollCrewExpenseDetail,
   getPayrollExpenseForward,
   getPayrollIncomeSummary,
+  getPayrollAccountLedger,
   getPayrollExternalSettlementReceived,
   getPayrollAdminPersonalExpenses,
   getPayrollAdminSharedExpenses,
@@ -35,6 +36,7 @@ import {
   type PayrollCrewExpenseDetailResponse,
   type PayrollExpenseForwardResponse,
   type PayrollIncomeSummaryResponse,
+  type PayrollAccountLedgerResponse,
   type PayrollAdminPersonalExpenseItem,
   type PayrollAdminSharedExpenseItem,
   type PayrollIncomeDepositItem,
@@ -52,17 +54,18 @@ const PAYROLL_HELP =
   '【팀장 · 수시 지급】고정 급여일이 없어도 됩니다. 귀속 월을 선택한 뒤, 행을 눌러 입금일·금액·메모를 여러 번 기록할 수 있습니다. 목록의 「당월 지급합」은 해당 월에 등록한 지급액 합계입니다. 사용자 등록의 「월 고정 급여」는 참고용으로 비고에만 표시됩니다. 지급 행 삭제는 본인 로그인 비밀번호 확인 후에만 가능합니다.\n\n' +
   '【직원(마케터) · 월 고정 + 이월 미정산】사용자 등록의 월 급여·급여일과 동일한 산정기간 표시를 씁니다. 귀속 월 「합계」는 미정산 이월액과 등록 월급을 더한 지급 예정액입니다. 「정산완료」에서 실제 지급 금액을 적으면 부족분은 다음 귀속 월 합계에 자동 반영됩니다. 과거 월 급여 등록값이 바뀌면 이월 추정과 과거와 어긋날 수 있으니, 월급 변경 후에는 정산 기록을 참고해 주세요.\n\n' +
   '【크루 지출】크루 그룹장이 귀속 월·팀원·금액·영수증으로 등록한 지출은 「정산」 탭 지출 영역과 팀원 급여 상세에 나타나며, 현장 팀원 행에서는 예상 급여에서 차감된 실지급 예상으로 표시됩니다. 「정산완료」 시 차감 후 금액이 확정됩니다.\n\n' +
+  '【수입·지출】급여일이 설정된 현장 팀원과 마케터만 행으로, 등록된 급여 지급일 종류를 열로 둔 격자입니다. 기본은 접혀 있으며 열별·전체 합계만 보입니다. 급여일 제목을 누르면 해당 열 미정산 일괄 정산, 격자를 펼친 뒤 금액 칸을 누르면 개별 정산(마케터 미정산은 정산금 입력)입니다. 해당 칸에는 귀속 월 급여표와 같은 금액(현장은 근무일×일당−크루 지출 예상·정산 확정액, 마케터 미정산은 급여 귀속 구간 일수로 나눈 오늘까지 일할 누적+이월·정산 확정액)이 나가며, 정산완료 행은 음영으로 구분됩니다.\n\n' +
   '【관리자 개인 지출】크루 등록 지출 아래 접이식 영역에서 귀속 월별 참고 지출을 추가할 수 있습니다. 급여 산정·차감과는 무관하며 삭제 시 본인 비밀번호 확인이 필요합니다.\n\n' +
   '【공용 지출】관리자 개인 지출과 같은 방식으로 등록하는 부서·공용 성격 참고 지출입니다. 인건비·현장 팀원 차감과 무관하며 삭제 시 본인 비밀번호 확인이 필요합니다.\n\n' +
   '【정산 탭】왼쪽은 해당 귀속 월 「지출」(인건비 요약·크루 등록 지출·공용 지출·관리자 개인 지출)입니다. 오른쪽 「수입」에는 예약일 기준 접수 서비스 총액 합계, 해당 월 정산일(KST)에 속하는 「타업체 정산완료」처리 금액(상세 내역 접이식), 실제 입금 수기 「입금 내역」(접수·타업체 자동 집계와 별개 참고용)이 있습니다.\n\n' +
-  '【미정산현황 탭】오늘(KST) 기준 「진행 중 급여 주기」 실시간 추정입니다. 현장 팀원은 급여일 사이클에 맞춰 오늘까지 집계된 근무일·실지급 추정, 마케터는 미정산일 때 전월 일수로 일할·정산 완료 후에는 이번 주기 일수로 일할한 누적 추정액입니다. 팀장은 수시 입금이라 이 카드에는 넣지 않고 정산 탭 지출 월합에만 반영됩니다.\n\n' +
+  '【미정산현황 탭】오늘(KST) 기준 「진행 중 급여 주기」 실시간 추정입니다. 현장 팀원은 급여일 사이클에 맞춰 오늘까지 집계된 근무일·실지급 추정, 마케터는 미정산일 때 해당 급여 귀속 구간 일수(inclusive)로 월급을 나눈 일할 누적 추정액입니다(주기 마지막 날까지 가면 등록 월급과 일치). 팀장은 수시 입금이라 이 카드에는 넣지 않고 정산 탭 지출 월합에만 반영됩니다.\n\n' +
   '타업체 대금 등은 「타업체 정산」 메뉴를 이용해 주세요.';
 
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
 }
 
-function fmtWon(n: number | null): string {
+function fmtWon(n: number | null | undefined): string {
   if (n == null) return '—';
   return `${Number(n).toLocaleString('ko-KR')}원`;
 }
@@ -153,12 +156,113 @@ function poolWorkDaysTitle(r: PayrollSheetRow): string | undefined {
   return `자동 산정 ${r.jobCount}일`;
 }
 
-const PAYROLL_TABS = ['pool', 'leader', 'marketer', 'settlement', 'unsettled'] as const;
+/** 수입·지출 매트릭스용 실효 급여일(1~31). 현장 미설정은 null */
+function payrollInoutEffectivePayDay(r: PayrollSheetRow): number | null {
+  if (r.kind === 'POOL_MEMBER') {
+    const d = r.monthlyPayDay;
+    return d != null && d >= 1 && d <= 31 ? d : null;
+  }
+  if (r.kind === 'MARKETER') {
+    const d = r.payrollPayDay;
+    if (d != null && d >= 1 && d <= 31) return d;
+    if (r.payDateYmd && /^\d{4}-\d{2}-\d{2}$/.test(r.payDateYmd)) {
+      const dom = parseInt(r.payDateYmd.slice(8, 10), 10);
+      if (dom >= 1 && dom <= 31) return dom;
+    }
+    return null;
+  }
+  return null;
+}
+
+/** 수입·지출 탭: 열 payDay(1~31)가 해당 행의 급여일과 일치하는지 */
+function payrollInoutCellMatches(r: PayrollSheetRow, payDay: number): boolean {
+  if (r.kind !== 'POOL_MEMBER' && r.kind !== 'MARKETER') return false;
+  const eff = payrollInoutEffectivePayDay(r);
+  return eff === payDay;
+}
+
+/** 해당 칸 금액: 정산 완료면 확정액, 아니면 급여표 합계·실지급 예상 */
+function payrollInoutDisplayedAmount(r: PayrollSheetRow): number | null {
+  if (r.kind === 'POOL_MEMBER') {
+    if (
+      r.poolSettlementComplete &&
+      r.poolSettledAmount != null &&
+      Number.isFinite(r.poolSettledAmount)
+    ) {
+      return r.poolSettledAmount;
+    }
+    const v = r.amountNet ?? r.amount;
+    return typeof v === 'number' && Number.isFinite(v) ? v : null;
+  }
+  if (r.kind === 'MARKETER') {
+    if (
+      r.marketerSettlementComplete &&
+      r.marketerSettledAmount != null &&
+      Number.isFinite(r.marketerSettledAmount)
+    ) {
+      return r.marketerSettledAmount;
+    }
+    const opening = r.marketerOpeningCarryForward ?? 0;
+    const salEst = r.marketerAccruedSalaryEstimateAsOfToday;
+    if (salEst != null && Number.isFinite(salEst)) {
+      const sum = opening + salEst;
+      if (sum > 0 || salEst === 0) return sum;
+    }
+    const v = r.amount;
+    return typeof v === 'number' && Number.isFinite(v) ? v : null;
+  }
+  return null;
+}
+
+function payrollInoutShowSettledBadge(r: PayrollSheetRow): boolean {
+  if (r.kind === 'POOL_MEMBER') {
+    return Boolean(
+      r.poolSettlementComplete &&
+        r.poolSettledAmount != null &&
+        Number.isFinite(r.poolSettledAmount),
+    );
+  }
+  if (r.kind === 'MARKETER') {
+    return Boolean(
+      r.marketerSettlementComplete &&
+        r.marketerSettledAmount != null &&
+        Number.isFinite(r.marketerSettledAmount),
+    );
+  }
+  return false;
+}
+
+/** 해당 급여일 열에서 일괄 정산 가능한 행(미정산·금액 산출됨) */
+function inoutBulkUnsettledTargetsForPayDay(rows: PayrollSheetRow[], payDay: number): PayrollSheetRow[] {
+  return rows.filter((r) => {
+    if (!payrollInoutCellMatches(r, payDay)) return false;
+    if (r.kind === 'POOL_MEMBER') {
+      return !r.poolSettlementComplete && r.amountNet != null && Number.isFinite(r.amountNet);
+    }
+    if (r.kind === 'MARKETER') {
+      if (r.marketerSettlementComplete) return false;
+      const due = r.marketerTotalDue ?? r.amount;
+      return typeof due === 'number' && Number.isFinite(due) && due >= 1;
+    }
+    return false;
+  });
+}
+
+function inoutBulkSkippedInColumn(rows: PayrollSheetRow[], payDay: number): PayrollSheetRow[] {
+  return rows.filter((r) => {
+    if (!payrollInoutCellMatches(r, payDay)) return false;
+    if (payrollInoutShowSettledBadge(r)) return false;
+    return !inoutBulkUnsettledTargetsForPayDay([r], payDay).length;
+  });
+}
+
+const PAYROLL_TABS = ['pool', 'inout', 'leader', 'marketer', 'settlement', 'unsettled'] as const;
 type PayrollTabId = (typeof PAYROLL_TABS)[number];
 
 function parsePayrollTab(raw: string | null): PayrollTabId | null {
   if (
     raw === 'pool' ||
+    raw === 'inout' ||
     raw === 'leader' ||
     raw === 'marketer' ||
     raw === 'settlement' ||
@@ -174,6 +278,8 @@ function payrollTabLabel(id: PayrollTabId): string {
   switch (id) {
     case 'pool':
       return '팀원';
+    case 'inout':
+      return '수입·지출';
     case 'leader':
       return '팀장';
     case 'marketer':
@@ -188,7 +294,7 @@ function payrollTabLabel(id: PayrollTabId): string {
 }
 
 function rowsForPayrollTab(rows: PayrollSheetRow[], tab: PayrollTabId): PayrollSheetRow[] {
-  if (tab === 'settlement' || tab === 'unsettled') return [];
+  if (tab === 'settlement' || tab === 'unsettled' || tab === 'inout') return [];
   if (tab === 'pool') return rows.filter((r) => r.kind === 'POOL_MEMBER');
   if (tab === 'leader') return rows.filter((r) => r.kind === 'TEAM_LEADER');
   return rows.filter((r) => r.kind === 'MARKETER');
@@ -227,6 +333,8 @@ function payrollTabHint(tab: PayrollTabId): string {
   switch (tab) {
     case 'pool':
       return '팀원마다 「월급 지급일」에 맞춰 산정합니다. 예: 매달 11일 지급이면 전달 11일~당월 10일(포함) 예약(KST)만 집계합니다. 같은 날은 1일만. 「설정」으로 해당 월만 수기 일수를 더할 수 있습니다. 크루 그룹장이 등록한 해당 월 지출은 합산하여 차감된 실지급 예상으로 표시됩니다.';
+    case 'inout':
+      return '상단 「계정 수입·지출」은 입금·지급·접수 매출 등을 일자 순으로 모은 표입니다. 아래 격자는 급여 지급일 열 기준 인원별 금액입니다.';
     case 'leader':
       return '팀장은 귀속 월별로 입금 내역을 여러 번 적습니다. 행을 눌러 등록·히스토리를 확인하세요.';
     case 'marketer':
@@ -314,6 +422,19 @@ export function AdminPayrollPage() {
   const [marketerSettleAmountInput, setMarketerSettleAmountInput] = useState('');
   const [marketerSettleMemoInput, setMarketerSettleMemoInput] = useState('');
   const [marketerSettleSaving, setMarketerSettleSaving] = useState(false);
+
+  /** 수입·지출 격자: 기본 접힘 */
+  const [payrollInoutExpanded, setPayrollInoutExpanded] = useState(false);
+  /** 수입·지출 셀: 현장 정산 또는 마케터(정산완료) 요약 모달 */
+  const [inoutSheetModalRow, setInoutSheetModalRow] = useState<PayrollSheetRow | null>(null);
+  /** 수입·지출: 급여일 열 일괄 정산 모달 */
+  const [inoutBulkSettlePayDay, setInoutBulkSettlePayDay] = useState<number | null>(null);
+  const [inoutBulkSettling, setInoutBulkSettling] = useState(false);
+
+  const [accountLedger, setAccountLedger] = useState<PayrollAccountLedgerResponse | null>(null);
+  const [accountLedgerLoading, setAccountLedgerLoading] = useState(false);
+  const [accountLedgerError, setAccountLedgerError] = useState<string | null>(null);
+  const [ledgerHideAccrual, setLedgerHideAccrual] = useState(false);
 
   const [crewExpenseAdminItems, setCrewExpenseAdminItems] = useState<PayrollCrewExpenseAdminItem[]>([]);
   const [crewExpenseDetailId, setCrewExpenseDetailId] = useState<string | null>(null);
@@ -538,35 +659,51 @@ export function AdminPayrollPage() {
   }, [token, marketerDetailForRow, month]);
 
   useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key !== 'Escape') return;
-      if (adjustModalRow) closeAdjustModal();
-      else if (marketerSettleRow) closeMarketerSettleModal();
-      else if (memberDetailForRow) closePoolMemberDetail();
-      else if (leaderDetailForRow) closeLeaderDetail();
-      else if (marketerDetailForRow) closeMarketerDetail();
+    setPayrollInoutExpanded(false);
+    setLedgerHideAccrual(false);
+  }, [month]);
+
+  useEffect(() => {
+    if (!token || payrollTab !== 'inout') return;
+    let cancelled = false;
+    setAccountLedgerLoading(true);
+    setAccountLedgerError(null);
+    void getPayrollAccountLedger(token, month)
+      .then((d) => {
+        if (!cancelled) setAccountLedger(d);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setAccountLedger(null);
+          setAccountLedgerError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAccountLedgerLoading(false);
+      });
+    return () => {
+      cancelled = true;
     };
-    if (
-      adjustModalRow ||
-      marketerSettleRow ||
-      memberDetailForRow ||
-      leaderDetailForRow ||
-      marketerDetailForRow
-    )
-      window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [
-    adjustModalRow,
-    marketerSettleRow,
-    memberDetailForRow,
-    leaderDetailForRow,
-    marketerDetailForRow,
-    closeAdjustModal,
-    closeMarketerSettleModal,
-    closePoolMemberDetail,
-    closeLeaderDetail,
-    closeMarketerDetail,
-  ]);
+  }, [token, payrollTab, month]);
+
+  const ledgerDisplayRows = useMemo(() => {
+    if (!accountLedger) return [];
+    const base = ledgerHideAccrual
+      ? accountLedger.lines.filter((l) => l.entryKind === 'cash')
+      : accountLedger.lines;
+    if (!ledgerHideAccrual) return base;
+    let rc = 0;
+    return base.map((l) => {
+      rc += l.direction === 'in' ? l.amount : -l.amount;
+      return { ...l, runningCash: rc, runningAll: rc };
+    });
+  }, [accountLedger, ledgerHideAccrual]);
+
+  const ledgerEndBalances = useMemo(() => {
+    if (!accountLedger?.lines.length) return { cash: null as number | null, all: null as number | null };
+    const last = accountLedger.lines[accountLedger.lines.length - 1];
+    return { cash: last.runningCash, all: last.runningAll };
+  }, [accountLedger]);
 
 
   const load = useCallback(async () => {
@@ -692,6 +829,15 @@ export function AdminPayrollPage() {
     } catch {
       /* 무음 실패 무시 */
     }
+    if (payrollTab === 'inout') {
+      try {
+        const ledger = await getPayrollAccountLedger(token, month);
+        setAccountLedger(ledger);
+        setAccountLedgerError(null);
+      } catch {
+        /* 무음 */
+      }
+    }
   }, [token, month, payrollTab]);
 
   useInboxRealtime(token, silentReloadPayroll, Boolean(token));
@@ -799,9 +945,9 @@ export function AdminPayrollPage() {
   }, [leaderDetailForRow?.id, month]);
 
   const settlePoolMemberRow = useCallback(
-    async (row: PayrollSheetRow) => {
-      if (!token || row.kind !== 'POOL_MEMBER') return;
-      if (row.amountNet == null || row.poolSettlementComplete) return;
+    async (row: PayrollSheetRow): Promise<boolean> => {
+      if (!token || row.kind !== 'POOL_MEMBER') return false;
+      if (row.amountNet == null || row.poolSettlementComplete) return false;
       setSettlingMemberId(row.id);
       try {
         await postPayrollPoolMemberSettle(token, row.id, month);
@@ -810,8 +956,10 @@ export function AdminPayrollPage() {
           const d = await getPayrollPoolMemberDetail(token, row.id, month);
           setMemberDetail(d);
         }
+        return true;
       } catch (e) {
         alert(e instanceof Error ? e.message : '정산 완료에 실패했습니다.');
+        return false;
       } finally {
         setSettlingMemberId(null);
       }
@@ -1084,6 +1232,155 @@ export function AdminPayrollPage() {
     [filteredRows]
   );
 
+  /** 수입·지출 탭: 급여일이 설정된 현장 팀원·마케터만, 열은 급여일 종류(1~31) */
+  const payrollIncomeExpenseMatrix = useMemo(() => {
+    if (!data) {
+      return {
+        inoutRows: [] as PayrollSheetRow[],
+        columns: [] as number[],
+      };
+    }
+    const poolOrMarketer = data.rows.filter(
+      (r): r is PayrollSheetRow => r.kind === 'POOL_MEMBER' || r.kind === 'MARKETER',
+    );
+    const inoutRows = poolOrMarketer.filter((r) => payrollInoutEffectivePayDay(r) != null);
+    const daysSet = new Set<number>();
+    for (const r of inoutRows) {
+      const eff = payrollInoutEffectivePayDay(r);
+      if (eff != null) daysSet.add(eff);
+    }
+    const columns = [...daysSet].sort((a, b) => a - b);
+
+    /** 표시 순서: 현장 팀원 → 마케터 → 그 외 종류 */
+    const inoutKindTier = (k: PayrollSheetRow['kind']) =>
+      k === 'POOL_MEMBER' ? 0 : k === 'MARKETER' ? 1 : 2;
+
+    const sorted = [...inoutRows].sort((a, b) => {
+      const ta = inoutKindTier(a.kind);
+      const tb = inoutKindTier(b.kind);
+      if (ta !== tb) return ta - tb;
+      const da = a.payDateYmd ?? '9999-12-31';
+      const db = b.payDateYmd ?? '9999-12-31';
+      if (da !== db) return da.localeCompare(db);
+      return a.name.localeCompare(b.name, 'ko');
+    });
+
+    return { inoutRows: sorted, columns };
+  }, [data]);
+
+  const payrollInoutTotals = useMemo(() => {
+    const byKey: Record<string, number> = {};
+    let grand = 0;
+    const cols = payrollIncomeExpenseMatrix.columns;
+    const rowsIn = payrollIncomeExpenseMatrix.inoutRows;
+    for (const payDay of cols) {
+      const key = `d-${payDay}`;
+      let sum = 0;
+      for (const r of rowsIn) {
+        if (!payrollInoutCellMatches(r, payDay)) continue;
+        const n = payrollInoutDisplayedAmount(r);
+        if (n != null && Number.isFinite(n)) sum += n;
+      }
+      byKey[key] = sum;
+      grand += sum;
+    }
+    return { byKey, grand };
+  }, [payrollIncomeExpenseMatrix]);
+
+  const closeInoutSheetModal = useCallback(() => setInoutSheetModalRow(null), []);
+
+  const submitInoutPoolFromSheetModal = useCallback(async () => {
+    if (!inoutSheetModalRow || inoutSheetModalRow.kind !== 'POOL_MEMBER') return;
+    const ok = await settlePoolMemberRow(inoutSheetModalRow);
+    if (ok) setInoutSheetModalRow(null);
+  }, [inoutSheetModalRow, settlePoolMemberRow]);
+
+  const runInoutBulkSettleForPayDay = useCallback(async () => {
+    if (!token || inoutBulkSettlePayDay == null || !data) return;
+    const poolOrMarketer = data.rows.filter(
+      (r): r is PayrollSheetRow => r.kind === 'POOL_MEMBER' || r.kind === 'MARKETER',
+    );
+    const inoutRows = poolOrMarketer.filter((r) => payrollInoutEffectivePayDay(r) != null);
+    const targets = inoutBulkUnsettledTargetsForPayDay(inoutRows, inoutBulkSettlePayDay);
+    if (targets.length === 0) {
+      alert('이 급여일 열에서 일괄 정산할 미정산 인원이 없습니다.');
+      return;
+    }
+    setInoutBulkSettling(true);
+    try {
+      for (const r of targets) {
+        if (r.kind === 'POOL_MEMBER') {
+          await postPayrollPoolMemberSettle(token, r.id, month);
+        } else {
+          const amt = Math.floor(Number(r.marketerTotalDue ?? r.amount));
+          await postPayrollMarketerSettle(
+            token,
+            r.id,
+            { settledAmount: amt, memo: undefined },
+            month,
+          );
+        }
+      }
+      setInoutBulkSettlePayDay(null);
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '일괄 정산 중 오류가 발생했습니다.');
+      await load();
+    } finally {
+      setInoutBulkSettling(false);
+    }
+  }, [token, inoutBulkSettlePayDay, data, month, load]);
+
+  const handleInoutMatrixCellActivate = useCallback(
+    (r: PayrollSheetRow, payDay: number) => {
+      if (!payrollInoutCellMatches(r, payDay)) return;
+      if (r.kind === 'MARKETER' && !payrollInoutShowSettledBadge(r)) {
+        openMarketerSettleModal(r);
+        return;
+      }
+      setInoutSheetModalRow(r);
+    },
+    [openMarketerSettleModal],
+  );
+
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key !== 'Escape') return;
+      if (adjustModalRow) closeAdjustModal();
+      else if (marketerSettleRow) closeMarketerSettleModal();
+      else if (inoutBulkSettlePayDay != null) setInoutBulkSettlePayDay(null);
+      else if (inoutSheetModalRow) closeInoutSheetModal();
+      else if (memberDetailForRow) closePoolMemberDetail();
+      else if (leaderDetailForRow) closeLeaderDetail();
+      else if (marketerDetailForRow) closeMarketerDetail();
+    };
+    if (
+      adjustModalRow ||
+      marketerSettleRow ||
+      inoutSheetModalRow ||
+      inoutBulkSettlePayDay != null ||
+      memberDetailForRow ||
+      leaderDetailForRow ||
+      marketerDetailForRow
+    )
+      window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [
+    adjustModalRow,
+    marketerSettleRow,
+    inoutSheetModalRow,
+    inoutBulkSettlePayDay,
+    memberDetailForRow,
+    leaderDetailForRow,
+    marketerDetailForRow,
+    closeAdjustModal,
+    closeMarketerSettleModal,
+    closeInoutSheetModal,
+    closePoolMemberDetail,
+    closeLeaderDetail,
+    closeMarketerDetail,
+  ]);
+
   const tabRowsTotal = filteredRows.length;
 
   const amountColumnLabel =
@@ -1111,7 +1408,7 @@ export function AdminPayrollPage() {
             <HelpTooltip text={PAYROLL_HELP} />
           </div>
           <p className="text-fluid-sm text-gray-600 mt-1">
-            상단 탭으로 <strong className="font-medium text-gray-800">팀원·팀장·마케터</strong> 목록을 나누어 보고,{' '}
+            상단 탭으로 <strong className="font-medium text-gray-800">팀원·수입·지출·팀장·마케터</strong> 목록을 나누어 보고,{' '}
             <strong className="font-medium text-gray-800">정산</strong>에서는 해당 월 지출·수입을 한 화면에서 보고,{' '}
             <strong className="font-medium text-gray-800">미정산현황</strong>에서는 진행 중 급여 주기 추정을 봅니다.{' '}
             <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
@@ -1832,7 +2129,7 @@ export function AdminPayrollPage() {
                         )}
                       </div>
                     ) : null}
-                  </div>
+               Р  </div>
                     </div>
                   </div>
                 </>
@@ -1999,10 +2296,7 @@ export function AdminPayrollPage() {
                                             <span>{compactPeriod(m.cycleStartYmd, m.partialEndYmd)}</span>
                                             <span>경과 {m.elapsedDays}일</span>
                                             <span>
-                                              일할{' '}
-                                              {m.rateBasis === 'cycle_days'
-                                                ? `주기${m.denominatorDays ?? '—'}일`
-                                                : `전월${m.denominatorDays ?? '—'}일`}
+                                              일할 주기 {m.denominatorDays ?? '—'}일
                                             </span>
                                             <span>월급 {fmtWon(m.monthlySalary)}</span>
                                             <span>{m.settlementComplete ? '정산완료' : '미정산'}</span>
@@ -2020,6 +2314,530 @@ export function AdminPayrollPage() {
                         </>
                       ) : null}
                     </div>
+                </div>
+              ) : payrollTab === 'inout' ? (
+                <div className="min-w-0 w-full space-y-3">
+                  <div className="rounded-lg border border-gray-200 bg-white shadow-sm min-w-0 overflow-hidden">
+                    <div className="border-b border-gray-100 bg-gray-50/90 px-2 sm:px-3 py-2.5">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between min-w-0">
+                        <h3 className="text-fluid-sm font-semibold text-gray-900">계정 수입·지출 표</h3>
+                        <span className="text-fluid-2xs text-gray-600">
+                          해당 귀속 월(<strong className="text-gray-800">{data.monthLabel}</strong>) · 일자 순 · 현금 잔액은
+                          입금·지급 기준
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-fluid-2xs text-gray-600 leading-snug">
+                        「접수 매출」은 예약일·접수 총액 합계로, 실제 입금과 다를 수 있습니다. 급여·경비는 정산·지급 등록이 있는
+                        항목만 반영됩니다.
+                      </p>
+                    </div>
+                    <div className="px-2 sm:px-3 py-3 space-y-3">
+                      {accountLedgerLoading ? (
+                        <p className="text-fluid-sm text-gray-500 py-6 text-center">내역을 불러오는 중…</p>
+                      ) : accountLedgerError ? (
+                        <p className="text-fluid-sm text-red-700 py-4 text-center">{accountLedgerError}</p>
+                      ) : accountLedger ? (
+                        <>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-fluid-xs font-medium text-emerald-900 tabular-nums">
+                              현금 유입 {fmtWon(accountLedger.totals.cashIn)}
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-fluid-xs font-medium text-rose-900 tabular-nums">
+                              현금 유출 {fmtWon(accountLedger.totals.cashOut)}
+                            </span>
+                            <span
+                              className={`inline-flex items-center rounded-full border px-3 py-1 text-fluid-xs font-semibold tabular-nums ${
+                                accountLedger.totals.cashNet >= 0
+                                  ? 'border-sky-200 bg-sky-50 text-sky-900'
+                                  : 'border-amber-200 bg-amber-50 text-amber-950'
+                              }`}
+                            >
+                              현금 순액 {fmtWon(accountLedger.totals.cashNet)}
+                            </span>
+                            {accountLedger.totals.accrualIn > 0 ? (
+                              <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-fluid-xs font-medium text-violet-900 tabular-nums">
+                                접수 매출(예약일) {fmtWon(accountLedger.totals.accrualIn)}
+                              </span>
+                            ) : null}
+                            {ledgerEndBalances.cash != null ? (
+                              <span className="inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-fluid-xs font-bold text-gray-900 tabular-nums">
+                                월말 현금 누적 {fmtWon(ledgerEndBalances.cash)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer select-none touch-manipulation text-fluid-xs text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={ledgerHideAccrual}
+                              onChange={(e) => setLedgerHideAccrual(e.target.checked)}
+                              className="rounded border-gray-300 text-blue-700 focus:ring-blue-400"
+                            />
+                            접수 매출(예약일) 행 숨기기 — 실입금·지출만 보기
+                          </label>
+                          {ledgerDisplayRows.length === 0 ? (
+                            <p className="text-fluid-sm text-gray-500 py-6 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                              이 달에 표시할 수입·지출 내역이 없습니다.
+                            </p>
+                          ) : (
+                            <>
+                              <div className="hidden lg:block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0">
+                                <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs border border-gray-200 rounded-lg overflow-hidden">
+                                  <colgroup>
+                                    <col style={{ width: '7.5rem' }} />
+                                    <col style={{ width: '11rem' }} />
+                                    <col />
+                                    <col style={{ width: '7rem' }} />
+                                    <col style={{ width: '7rem' }} />
+                                    <col style={{ width: '8.5rem' }} />
+                                    {!ledgerHideAccrual ? <col style={{ width: '8.5rem' }} /> : null}
+                                  </colgroup>
+                                  <thead>
+                                    <tr className="bg-gray-100 text-gray-700">
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">일자</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">명목</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">적요</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">수입</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">지출</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">현금 잔액</th>
+                                      {!ledgerHideAccrual ? (
+                                        <th className="border-b border-gray-200 px-2 py-2 text-center">전체 잔액</th>
+                                      ) : null}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {ledgerDisplayRows.map((row) => (
+                                      <tr
+                                        key={row.id}
+                                        className={`group hover:bg-gray-50 ${
+                                          row.entryKind === 'accrual' ? 'bg-violet-50/40' : ''
+                                        }`}
+                                      >
+                                        <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-gray-800">
+                                          {row.dateYmd}
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-center">
+                                          <span className="block truncate" title={row.category}>
+                                            {row.category}
+                                            {row.entryKind === 'accrual' ? (
+                                              <span className="ml-1 text-[10px] font-normal text-violet-700">(장부)</span>
+                                            ) : null}
+                                          </span>
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-center">
+                                          <span className="block truncate" title={[row.summary, row.memo].filter(Boolean).join(' · ')}>
+                                            {row.summary}
+                                          </span>
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums text-emerald-900 font-medium">
+                                          {row.direction === 'in' ? fmtWon(row.amount) : '—'}
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums text-rose-900 font-medium">
+                                          {row.direction === 'out' ? fmtWon(row.amount) : '—'}
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-semibold text-gray-900">
+                                          {fmtWon(row.runningCash)}
+                                        </td>
+                                        {!ledgerHideAccrual ? (
+                                          <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums text-gray-800">
+                                            {fmtWon(row.runningAll)}
+                                          </td>
+                                        ) : null}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <ul className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                                {ledgerDisplayRows.map((row) => (
+                                  <li key={row.id} className="px-3 py-3 text-fluid-xs">
+                                    <div className="flex justify-between gap-2 min-w-0">
+                                      <span className="text-gray-500 tabular-nums shrink-0">{row.dateYmd}</span>
+                                      <span
+                                        className={`shrink-0 font-bold tabular-nums ${
+                                          row.direction === 'in' ? 'text-emerald-800' : 'text-rose-800'
+                                        }`}
+                                      >
+                                        {row.direction === 'in' ? '+' : '−'}
+                                        {fmtWon(row.amount)}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 font-medium text-gray-900">
+                                      {row.category}
+                                      {row.entryKind === 'accrual' ? (
+                                        <span className="ml-1 text-[10px] font-normal text-violet-700">(장부)</span>
+                                      ) : null}
+                                    </p>
+                                    <p className="mt-0.5 text-gray-600 break-words">{row.summary}</p>
+                                    <p className="mt-1 text-fluid-2xs text-gray-500 tabular-nums">
+                                      현금 잔액 {fmtWon(row.runningCash)}
+                                      {!ledgerHideAccrual ? ` · 전체 ${fmtWon(row.runningAll)}` : null}
+                                    </p>
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="text-fluid-2xs text-gray-500">
+                                월말 현금 누적은 이 표의 현금 항목만 순서대로 더한 값입니다. 이전 달 이월·미등록 거래는 포함되지
+                                않습니다.
+                              </p>
+                            </>
+                          )}
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <p className="text-fluid-2xs text-gray-600 leading-snug">
+                    <strong className="text-gray-800">{data.monthLabel}</strong> 급여표와 동일합니다. 합계 행 위 급여일을 누르면 해당 열
+                    일괄 정산, 격자를 펼친 뒤 금액 칸을 누르면 개별 정산(마케터 미정산은 정산금 입력 모달)입니다.{' '}
+                    <strong className="text-gray-800">현장 팀원</strong>은 해당 급여일 열에 근무일×일당−크루 지출 예상(또는 정산
+                    확정액), <strong className="text-gray-800">마케터</strong>는 미정산인 경우 같은 급여일 열에{' '}
+                    <strong className="text-gray-800">오늘(KST)까지 일할 누적</strong>(등록 월급÷해당 귀속 구간 일수×경과 일수 + 미정산
+                    이월)을 넣고, 정산 확정 시에는 확정 지급액을 넣습니다.
+                  </p>
+                  {payrollIncomeExpenseMatrix.inoutRows.length === 0 ? (
+                    <p className="text-fluid-sm text-gray-500 py-10 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                      해당 귀속 월에 표시할 인원이 없습니다. 현장 팀원은 「월 급여 지급일」, 마케터는 급여일이 등록된 경우만 이
+                      격자에 나타납니다.
+                    </p>
+                  ) : payrollIncomeExpenseMatrix.columns.length === 0 ? (
+                    <p className="text-fluid-sm text-gray-500 py-10 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                      급여 지급일로 쓸 수 있는 설정이 없습니다.{' '}
+                      <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
+                        팀원 등록
+                      </Link>
+                      의 지급일·
+                      <Link to="/admin/team-leaders" className="text-blue-700 underline underline-offset-2">
+                        직원(마케터) 급여일
+                      </Link>
+                      을 확인해 주세요.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden min-w-0">
+                        <div
+                          className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0"
+                          style={{ WebkitOverflowScrolling: 'touch' }}
+                        >
+                          <table
+                            className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs"
+                            style={{
+                              minWidth: `${Math.min(960, 112 + payrollIncomeExpenseMatrix.columns.length * 112 + 112)}px`,
+                            }}
+                          >
+                            <thead>
+                              <tr className="bg-gray-100 text-gray-700">
+                                <th className="border-b border-gray-200 px-2 py-2 text-center sticky left-0 z-10 bg-gray-100 border-r w-[4.25rem]">
+                                  구분
+                                </th>
+                                {payrollIncomeExpenseMatrix.columns.map((payDay) => (
+                                  <th
+                                    key={`inout-sum-h-${payDay}`}
+                                    className="border-b border-gray-200 px-1 py-2 text-center whitespace-nowrap tabular-nums"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => setInoutBulkSettlePayDay(payDay)}
+                                      title={`${payDay}일 급여일 열 일괄 정산`}
+                                      className="mx-auto inline-flex max-w-full items-center justify-center rounded-md px-1 py-0.5 text-fluid-xs font-semibold text-blue-900 underline underline-offset-2 decoration-blue-400 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                    >
+                                      {payDay}일
+                                    </button>
+                                  </th>
+                                ))}
+                                <th className="border-b border-gray-200 px-2 py-2 text-center whitespace-nowrap tabular-nums font-semibold text-emerald-900">
+                                  전체
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td className="border-b border-gray-100 px-2 py-2 text-center sticky left-0 z-10 bg-white border-r font-medium text-gray-800">
+                                  합계
+                                </td>
+                                {payrollIncomeExpenseMatrix.columns.map((payDay) => {
+                                  const key = `d-${payDay}`;
+                                  const sum = payrollInoutTotals.byKey[key] ?? 0;
+                                  return (
+                                    <td
+                                      key={`inout-sum-${payDay}`}
+                                      className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-emerald-900 font-semibold"
+                                    >
+                                      {fmtWon(sum)}
+                                    </td>
+                                  );
+                                })}
+                                <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-emerald-950 font-bold">
+                                  {fmtWon(payrollInoutTotals.grand)}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="border-t border-gray-100 bg-gray-50/80 px-3 py-2 text-fluid-2xs text-gray-600 leading-snug">
+                          급여일 제목을 누르면 해당 열 미정산 인원을 일괄 정산합니다. 개별 정산은 격자를 펼친 뒤 금액 칸을 누릅니다.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-expanded={payrollInoutExpanded}
+                        onClick={() => setPayrollInoutExpanded((v) => !v)}
+                        className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-left text-fluid-sm font-medium text-gray-900 hover:bg-gray-50/90 transition-colors touch-manipulation"
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className="text-gray-400 tabular-nums w-4 shrink-0 text-center" aria-hidden>
+                            {payrollInoutExpanded ? '▼' : '▶'}
+                          </span>
+                          <span>
+                            인원별 격자{' '}
+                            <span className="font-normal text-fluid-xs text-gray-600">
+                              (기본 접힘 · 펼치면 아래에 인원별 표)
+                            </span>
+                          </span>
+                        </span>
+                      </button>
+
+                      {payrollInoutExpanded ? (
+                        <>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-fluid-xs font-medium text-gray-800 tabular-nums">
+                          인원 <strong className="mx-1">{payrollIncomeExpenseMatrix.inoutRows.length}</strong>명
+                        </span>
+                        <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-fluid-xs font-medium text-gray-800 tabular-nums">
+                          급여일 열 <strong className="mx-1">{payrollIncomeExpenseMatrix.columns.length}</strong>개
+                        </span>
+                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-fluid-xs font-semibold text-emerald-900 tabular-nums">
+                          전체 합계 {fmtWon(payrollInoutTotals.grand)}
+                        </span>
+                      </div>
+                      <div className="hidden lg:block min-w-0 w-full">
+                        <SyncHorizontalScroll>
+                          <div
+                            className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0"
+                            style={{ WebkitOverflowScrolling: 'touch' }}
+                          >
+                            <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+                              <table
+                                className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs"
+                                style={{
+                                  minWidth: `${Math.min(1280, 228 + payrollIncomeExpenseMatrix.columns.length * 118)}px`,
+                                }}
+                              >
+                                <colgroup>
+                                  <col style={{ width: '20%' }} />
+                                  {payrollIncomeExpenseMatrix.columns.map((payDay) => (
+                                    <col key={`d-${payDay}`} />
+                                  ))}
+                                </colgroup>
+                                <thead>
+                                  <tr className="bg-gray-100 text-gray-700">
+                                    <th className="border-b border-gray-200 px-2 py-2 text-center sticky left-0 z-10 bg-gray-100 border-r">
+                                      인원
+                                    </th>
+                                    {payrollIncomeExpenseMatrix.columns.map((payDay) => (
+                                      <th
+                                        key={`d-${payDay}`}
+                                        className="border-b border-gray-200 px-1 py-2 text-center whitespace-nowrap tabular-nums"
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() => setInoutBulkSettlePayDay(payDay)}
+                                          title={`${payDay}일 열 일괄 정산`}
+                                          className="mx-auto inline-flex max-w-full items-center justify-center rounded-md px-1 py-0.5 text-fluid-xs font-semibold text-blue-900 underline underline-offset-2 decoration-blue-400 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                        >
+                                          {payDay}일
+                                        </button>
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {payrollIncomeExpenseMatrix.inoutRows.map((r) => (
+                                    <tr key={`${r.kind}-${r.id}`} className="hover:bg-gray-50 group">
+                                      <td className="border-b border-gray-100 px-2 py-2 text-center sticky left-0 z-10 bg-white border-r group-hover:bg-gray-50">
+                                        <div className="flex flex-col items-center gap-1 min-w-0 max-w-[14rem] mx-auto">
+                                          <span
+                                            className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                                          >
+                                            {r.roleLabel}
+                                          </span>
+                                          <span className="font-medium text-gray-900 truncate w-full" title={r.name}>
+                                            {r.name}
+                                          </span>
+                                        </div>
+                                      </td>
+                                      {payrollIncomeExpenseMatrix.columns.map((payDay) => {
+                                        const hit = payrollInoutCellMatches(r, payDay);
+                                        const settled = hit && payrollInoutShowSettledBadge(r);
+                                        const amt = hit ? payrollInoutDisplayedAmount(r) : null;
+                                        let cellTitle: string | undefined;
+                                        if (hit && r.kind === 'POOL_MEMBER') {
+                                          const parts: string[] = [];
+                                          if (r.jobCount != null) parts.push(`산정 ${r.jobCount}일`);
+                                          if (r.unitAmount != null)
+                                            parts.push(`일당 ${Number(r.unitAmount).toLocaleString('ko-KR')}원`);
+                                          if (settled) parts.push('정산완료 확정');
+                                          cellTitle = parts.length ? parts.join(' · ') : undefined;
+                                        } else if (hit && r.kind === 'MARKETER') {
+                                          const parts: string[] = [];
+                                          if (r.marketerMonthlySalary != null)
+                                            parts.push(`등록 월급 ${Number(r.marketerMonthlySalary).toLocaleString('ko-KR')}원`);
+                                          if (
+                                            r.marketerOpeningCarryForward != null &&
+                                            r.marketerOpeningCarryForward > 0
+                                          ) {
+                                            parts.push('미정산 이월 포함');
+                                          }
+                                          if (
+                                            !settled &&
+                                            r.marketerAccruedSalaryEstimateAsOfToday != null &&
+                                            Number.isFinite(r.marketerAccruedSalaryEstimateAsOfToday)
+                                          ) {
+                                            parts.push(
+                                              `일할 월급 누적 ${Number(r.marketerAccruedSalaryEstimateAsOfToday).toLocaleString('ko-KR')}원(오늘까지)`,
+                                            );
+                                          }
+                                          if (settled) parts.push('정산완료 확정');
+                                          cellTitle = parts.length ? parts.join(' · ') : undefined;
+                                        }
+                                        return (
+                                          <td
+                                            key={`d-${payDay}`}
+                                            title={cellTitle}
+                                            onClick={
+                                              hit
+                                                ? () => handleInoutMatrixCellActivate(r, payDay)
+                                                : undefined
+                                            }
+                                            className={`border-b border-gray-100 px-1.5 py-2 align-middle min-h-[3rem] ${
+                                              hit
+                                                ? 'cursor-pointer select-none touch-manipulation'
+                                                : ''
+                                            } ${
+                                              !hit
+                                                ? 'bg-gray-50/70 text-gray-300 text-center'
+                                                : settled
+                                                  ? 'bg-gray-100/95 text-gray-600 text-center'
+                                                  : 'bg-sky-50/90 text-gray-900 text-center'
+                                            }`}
+                                          >
+                                            {!hit ? (
+                                              <span className="text-gray-300">—</span>
+                                            ) : amt != null ? (
+                                              <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
+                                                <span className="tabular-nums font-semibold">{fmtWon(amt)}</span>
+                                                {r.kind === 'POOL_MEMBER' && r.jobCount != null && !settled ? (
+                                                  <span className="text-[10px] text-gray-600 tabular-nums">
+                                                    {r.jobCount}일
+                                                  </span>
+                                                ) : null}
+                                                {settled ? (
+                                                  <span className="text-[10px] text-gray-500 font-medium">
+                                                    정산완료
+                                                  </span>
+                                                ) : null}
+                                              </div>
+                                            ) : (
+                                              <span className="text-gray-400">—</span>
+                                            )}
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="bg-gray-100 text-gray-900 font-semibold">
+                                    <td className="border-t border-gray-200 px-2 py-2 text-center sticky left-0 z-10 bg-gray-100 border-r">
+                                      합계
+                                    </td>
+                                    {payrollIncomeExpenseMatrix.columns.map((payDay) => {
+                                      const key = `d-${payDay}`;
+                                      const sum = payrollInoutTotals.byKey[key] ?? 0;
+                                      return (
+                                        <td
+                                          key={key}
+                                          className="border-t border-gray-200 px-2 py-2 text-center tabular-nums text-emerald-900"
+                                        >
+                                          {fmtWon(sum)}
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                </tfoot>
+                              </table>
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-0.5 border-t border-gray-200 bg-emerald-50/70 px-3 py-2 text-fluid-sm font-semibold tabular-nums text-emerald-950">
+                                <span className="text-fluid-xs font-medium text-gray-600 sm:mr-2">전체 합계</span>
+                                <span>{fmtWon(payrollInoutTotals.grand)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </SyncHorizontalScroll>
+                      </div>
+                      <ul className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                        {payrollIncomeExpenseMatrix.inoutRows.map((r) => {
+                          const payDay = payrollInoutEffectivePayDay(r)!;
+                          const amt = payrollInoutDisplayedAmount(r);
+                          const settled = payrollInoutShowSettledBadge(r);
+                          return (
+                            <li key={`${r.kind}-${r.id}`} className="text-fluid-sm">
+                              <button
+                                type="button"
+                                onClick={() => handleInoutMatrixCellActivate(r, payDay)}
+                                className="w-full text-left px-3 py-3 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 transition-colors touch-manipulation min-h-[44px]"
+                              >
+                              <div className="flex items-start justify-between gap-2 min-w-0">
+                                <div className="min-w-0 flex flex-col gap-1">
+                                  <span
+                                    className={`inline-flex w-fit shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                                  >
+                                    {r.roleLabel}
+                                  </span>
+                                  <span className="font-semibold text-gray-900 truncate">{r.name}</span>
+                                </div>
+                                <span
+                                  className={`shrink-0 tabular-nums font-bold ${
+                                    settled ? 'text-gray-500' : 'text-emerald-900'
+                                  }`}
+                                >
+                                  {amt != null ? fmtWon(amt) : '—'}
+                                </span>
+                              </div>
+                              <div
+                                className={`mt-1.5 text-fluid-2xs leading-snug ${
+                                  settled ? 'text-gray-500' : 'text-gray-600'
+                                }`}
+                              >
+                                급여일 {payDay}일 · 탭하여 정산
+                                {r.kind === 'POOL_MEMBER' && r.jobCount != null && !settled
+                                  ? ` · 산정 ${r.jobCount}일`
+                                  : null}
+                                {r.kind === 'MARKETER' && !settled ? ' · 일할 누적+이월' : null}
+                                {settled ? ' · 정산완료(확정액)' : null}
+                              </div>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <div className="lg:hidden rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-right text-fluid-sm font-semibold tabular-nums text-emerald-950">
+                        전체 합계 {fmtWon(payrollInoutTotals.grand)}
+                      </div>
+                        </>
+                      ) : null}
+                    </>
+                  )}
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600 mt-2">
+                    <strong className="text-gray-800">{data.monthLabel}</strong> 기준 · 급여일 열은 현장{' '}
+                    <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2 font-medium">
+                      팀원 등록
+                    </Link>
+                    의 「월 급여 지급일」, 마케터는{' '}
+                    <Link to="/admin/team-leaders" className="text-blue-700 underline underline-offset-2 font-medium">
+                      팀장·직원
+                    </Link>
+                    사용자의 급여일(미등록 시 말일)과 맞춥니다. 급여일이 없는 현장 팀원은 이 표에 포함하지 않습니다.
+                  </div>
                 </div>
               ) : (
                 <>
@@ -3381,6 +4199,230 @@ export function AdminPayrollPage() {
                   </>
                 ) : null}
               </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {inoutSheetModalRow &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[226] overflow-y-auto overscroll-y-contain bg-black/45 px-3 py-10"
+            role="presentation"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeInoutSheetModal();
+            }}
+          >
+            <div
+              className="relative mx-auto w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl px-4 py-4 sm:px-5 sm:py-5"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="payroll-inout-cell-modal-title"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <ModalCloseButton onClick={closeInoutSheetModal} />
+              <h2 id="payroll-inout-cell-modal-title" className="pr-10 text-lg font-semibold text-gray-900">
+                {inoutSheetModalRow.kind === 'POOL_MEMBER' ? '현장 급여 정산' : '마케터 정산 내역'}
+              </h2>
+              <p className="mt-1 text-fluid-xs text-gray-600 tabular-nums">
+                {inoutSheetModalRow.name} · {data?.monthLabel ?? month}
+                {payrollInoutEffectivePayDay(inoutSheetModalRow) != null ? (
+                  <> · 급여일 {payrollInoutEffectivePayDay(inoutSheetModalRow)}일</>
+                ) : null}
+              </p>
+
+              {inoutSheetModalRow.kind === 'POOL_MEMBER' ? (
+                <div className="mt-4 space-y-3 text-fluid-sm">
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 space-y-1 tabular-nums text-gray-800">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-600">지급 예정일</span>
+                      <span>{compactPayDate(inoutSheetModalRow.payDateYmd)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-600">산정 구간</span>
+                      <span className="text-right">
+                        {compactPeriod(inoutSheetModalRow.accrualStartYmd, inoutSheetModalRow.accrualEndYmd)}
+                      </span>
+                    </div>
+                    {inoutSheetModalRow.jobCount != null ? (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-600">근무 산정</span>
+                        <span>{inoutSheetModalRow.jobCount}일</span>
+                      </div>
+                    ) : null}
+                    <div className="flex justify-between gap-2 font-semibold border-t border-gray-200 pt-1 mt-1">
+                      <span>실지급 예상</span>
+                      <span>{fmtWon(inoutSheetModalRow.amountNet ?? inoutSheetModalRow.amount)}</span>
+                    </div>
+                  </div>
+
+                  {!payrollInoutShowSettledBadge(inoutSheetModalRow) ? (
+                    <>
+                      {inoutSheetModalRow.amountNet == null ? (
+                        <p className="text-fluid-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                          예상 급여가 없어 정산할 수 없습니다. 일당·근무일을 확인해 주세요.
+                        </p>
+                      ) : null}
+                      <div className="flex flex-wrap gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const r = inoutSheetModalRow;
+                            closeInoutSheetModal();
+                            openPoolMemberDetail(r);
+                          }}
+                          className="px-4 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50"
+                        >
+                          산정 상세
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void submitInoutPoolFromSheetModal()}
+                          disabled={
+                            inoutSheetModalRow.amountNet == null ||
+                            settlingMemberId === inoutSheetModalRow.id
+                          }
+                          className="px-4 py-2 text-sm rounded-md bg-gray-900 text-white font-semibold hover:bg-gray-800 disabled:opacity-50"
+                        >
+                          {settlingMemberId === inoutSheetModalRow.id ? '처리 중…' : '정산완료'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-fluid-sm text-gray-700">
+                      이미 정산 완료되었습니다. 확정 실지급액{' '}
+                      <strong className="tabular-nums">{fmtWon(inoutSheetModalRow.poolSettledAmount)}</strong>
+                    </p>
+                  )}
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={closeInoutSheetModal}
+                      className="px-4 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3 text-fluid-sm">
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 space-y-1 tabular-nums">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-600">확정 지급액</span>
+                      <span className="font-semibold">{fmtWon(inoutSheetModalRow.marketerSettledAmount)}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const r = inoutSheetModalRow;
+                        closeInoutSheetModal();
+                        openMarketerDetail(r);
+                      }}
+                      className="px-4 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50"
+                    >
+                      급여 상세
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeInoutSheetModal}
+                      className="px-4 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {inoutBulkSettlePayDay != null &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[227] overflow-y-auto overscroll-y-contain bg-black/45 px-3 py-10"
+            role="presentation"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setInoutBulkSettlePayDay(null);
+            }}
+          >
+            <div
+              className="relative mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-white shadow-xl px-4 py-4 sm:px-5 sm:py-5 max-h-[min(88vh,720px)] flex flex-col min-h-0"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="payroll-inout-bulk-title"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <ModalCloseButton onClick={() => setInoutBulkSettlePayDay(null)} />
+              <h2 id="payroll-inout-bulk-title" className="pr-10 text-lg font-semibold text-gray-900">
+                {inoutBulkSettlePayDay}일 급여일 · 일괄 정산
+              </h2>
+              <p className="mt-1 text-fluid-xs text-gray-600">{data?.monthLabel ?? month}</p>
+
+              {(() => {
+                const bulkTargets = inoutBulkUnsettledTargetsForPayDay(
+                  payrollIncomeExpenseMatrix.inoutRows,
+                  inoutBulkSettlePayDay,
+                );
+                const bulkSkipped = inoutBulkSkippedInColumn(
+                  payrollIncomeExpenseMatrix.inoutRows,
+                  inoutBulkSettlePayDay,
+                );
+                return (
+                  <>
+                    <p className="mt-3 text-fluid-xs text-gray-700 leading-snug">
+                      미정산{' '}
+                      <strong className="tabular-nums">{bulkTargets.length}</strong>
+                      명을 순서대로 정산합니다. 마케터는 지급 예정 합계 금액으로 저장합니다.
+                    </p>
+                    <ul className="mt-3 flex-1 min-h-0 max-h-[42vh] overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">
+                      {bulkTargets.map((r) => (
+                        <li key={`${r.kind}-${r.id}`} className="px-3 py-2 text-fluid-xs flex justify-between gap-2">
+                          <span className="min-w-0">
+                            <span className="font-medium text-gray-900">{r.name}</span>
+                            <span className="text-gray-500 ml-1">{r.roleLabel}</span>
+                          </span>
+                          <span className="shrink-0 tabular-nums font-semibold text-emerald-900">
+                            {fmtWon(payrollInoutDisplayedAmount(r))}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {bulkSkipped.length > 0 ? (
+                      <div className="mt-3 text-fluid-2xs text-amber-900 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 space-y-1">
+                        <p className="font-medium">제외됨 ({bulkSkipped.length}명)</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          {bulkSkipped.map((r) => (
+                            <li key={`skip-${r.kind}-${r.id}`}>
+                              {r.name} ({r.roleLabel}) — 예상 급여 없음 등
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    <div className="mt-5 flex flex-wrap justify-end gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={inoutBulkSettling}
+                        onClick={() => setInoutBulkSettlePayDay(null)}
+                        className="px-4 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        취소
+                      </button>
+                      <button
+                        type="button"
+                        disabled={inoutBulkSettling || bulkTargets.length === 0}
+                        onClick={() => void runInoutBulkSettleForPayDay()}
+                        className="px-4 py-2 text-sm rounded-md bg-gray-900 text-white font-semibold hover:bg-gray-800 disabled:opacity-50"
+                      >
+                        {inoutBulkSettling ? '처리 중…' : `미정산 ${bulkTargets.length}건 정산`}
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>,
           document.body

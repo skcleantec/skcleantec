@@ -20,7 +20,10 @@ import {
   type MarketerSettlementSlice,
 } from './marketerPayrollLedger.js';
 import { getAdminCrewExpenseDetail, listAdminCrewExpensesForMonth } from '../crew/crewGroupExpense.service.js';
-import { computePayrollExpenseForward } from './payrollExpenseForward.service.js';
+import {
+  computePayrollExpenseForward,
+  computeMarketerAccruedEstimateForAccrualBounds,
+} from './payrollExpenseForward.service.js';
 import {
   createPayrollAdminPersonalExpense,
   deletePayrollAdminPersonalExpenseById,
@@ -36,6 +39,7 @@ import {
   deletePayrollIncomeDepositById,
   listPayrollIncomeDepositsForMonth,
 } from './payrollIncomeDeposit.service.js';
+import { buildPayrollAccountLedger } from './payrollAccountLedger.service.js';
 
 const router = Router();
 
@@ -147,6 +151,26 @@ router.get('/external-settlement-received', async (req: Request, res: Response) 
   } catch (e) {
     console.error('[admin/payroll/external-settlement-received]', e);
     res.status(500).json({ error: '타업체 정산 내역 집계 중 오류가 발생했습니다.' });
+  }
+});
+
+/** 귀속 월별 계정 수입·지출 타임라인 — 현금성(입금·지급)과 접수 매출(예약일 총액) 구분 */
+router.get('/account-ledger', async (req: Request, res: Response) => {
+  try {
+    const monthKey = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+    if (!MONTH_KEY.test(monthKey)) {
+      res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+      return;
+    }
+    const payload = await buildPayrollAccountLedger(prisma, monthKey);
+    res.json(payload);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_MONTH') {
+      res.status(400).json({ error: '유효하지 않은 월입니다.' });
+      return;
+    }
+    console.error('[admin/payroll/account-ledger]', e);
+    res.status(500).json({ error: '수입·지출 내역 집계 중 오류가 발생했습니다.' });
   }
 });
 
@@ -263,6 +287,7 @@ router.get('/sheet', async (req, res) => {
   try {
   const monthStartYmd = dateToYmdKst(range.gte);
   const monthEndYmd = dateToYmdKst(range.lte);
+  const todayYmd = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
   const [yStr, mStr] = monthKey.split('-');
   const calYear = parseInt(yStr, 10);
   const calMonthNum = parseInt(mStr, 10);
@@ -283,6 +308,7 @@ router.get('/sheet', async (req, res) => {
     poolSystemDays?: number | null;
     poolManualExtraDays?: number | null;
     poolSettlementComplete?: boolean;
+    poolSettledAmount?: number | null;
     leaderPaymentCount?: number;
     marketerOpeningCarryForward?: number;
     marketerMonthlySalary?: number | null;
@@ -290,6 +316,10 @@ router.get('/sheet', async (req, res) => {
     marketerSettlementComplete?: boolean;
     marketerSettledAmount?: number | null;
     marketerUnsettledRemainder?: number | null;
+    /** 마케터: 미정산 시 등록 월급을 귀속 일수로 나눈 오늘(KST)까지 일할 누적(이월 제외) — 수입·지출 탭 표시용 */
+    marketerAccruedSalaryEstimateAsOfToday?: number | null;
+    /** 마케터: 사용자 등록 급여일(미등록 시 말일과 동일하게 31) */
+    payrollPayDay?: number;
     crewExpenseTotal?: number;
     amountNet?: number | null;
   };
@@ -452,6 +482,27 @@ router.get('/sheet', async (req, res) => {
     });
     const totalDue = marketerTotalDue(openingCarryForward, salary);
     const curSettle = marketerCurrentMonthSettleByUserId.get(u.id);
+    const settlementComplete = Boolean(curSettle);
+    let marketerAccruedSalaryEstimateAsOfToday: number | null = null;
+    if (marketerAccrual?.startYmd && marketerAccrual?.endYmd) {
+      const accruedBreakdown = computeMarketerAccruedEstimateForAccrualBounds({
+        accrualStartYmd: marketerAccrual.startYmd,
+        accrualEndYmd: marketerAccrual.endYmd,
+        salary,
+        todayYmd,
+      });
+      if (accruedBreakdown && !settlementComplete) {
+        if (
+          salary != null &&
+          salary > 0 &&
+          accruedBreakdown.elapsedDays === 0
+        ) {
+          marketerAccruedSalaryEstimateAsOfToday = 0;
+        } else {
+          marketerAccruedSalaryEstimateAsOfToday = accruedBreakdown.accruedEstimate;
+        }
+      }
+    }
     if (openingCarryForward > 0) {
       notes.push(`미정산 이월 ${openingCarryForward.toLocaleString('ko-KR')}원 (이번 달 합산)`);
     }
@@ -471,6 +522,7 @@ router.get('/sheet', async (req, res) => {
       id: u.id,
       name: u.name,
       roleLabel: '마케터',
+      payrollPayDay: payDayStaff,
       payDateYmd,
       accrualStartYmd: marketerAccrual?.startYmd ?? null,
       accrualEndYmd: marketerAccrual?.endYmd ?? null,
@@ -481,7 +533,7 @@ router.get('/sheet', async (req, res) => {
       marketerOpeningCarryForward: openingCarryForward,
       marketerMonthlySalary: salary,
       marketerTotalDue: totalDue,
-      marketerSettlementComplete: Boolean(curSettle),
+      marketerSettlementComplete: settlementComplete,
       marketerSettledAmount: curSettle?.settledAmount ?? null,
       marketerUnsettledRemainder: curSettle
         ? marketerRemainderAfterSettle(
@@ -490,6 +542,7 @@ router.get('/sheet', async (req, res) => {
             curSettle.settledAmount,
           )
         : null,
+      marketerAccruedSalaryEstimateAsOfToday,
     });
   }
 
