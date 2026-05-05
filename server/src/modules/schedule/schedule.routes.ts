@@ -40,6 +40,7 @@ const scheduleListSelectLite = {
   addressGeoLng: true,
   areaPyeong: true,
   areaBasis: true,
+  exclusiveAreaSqm: true,
   propertyType: true,
   roomCount: true,
   bathroomCount: true,

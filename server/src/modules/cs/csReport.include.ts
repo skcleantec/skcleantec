@@ -18,6 +18,7 @@ export const csReportInquiryInclude = {
     claimMemo: true,
     areaPyeong: true,
     areaBasis: true,
+    exclusiveAreaSqm: true,
     propertyType: true,
     roomCount: true,
     bathroomCount: true,

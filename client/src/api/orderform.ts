@@ -43,8 +43,10 @@ export interface OrderFormCustomerSubmissionSnapshotV1 {
     addressDetail: string | null;
     customerPhone: string;
     customerPhone2: string;
-    areaPyeong: number;
+    areaPyeong: number | null;
     areaBasis: string;
+    /** 전용면적 기준 시 참고 ㎡ (신규 제출부터 저장, 과거 스냅샷은 생략될 수 있음) */
+    exclusiveAreaSqm?: number | null;
     propertyType: string;
     preferredDate: string;
     preferredTime: string;
@@ -124,6 +126,7 @@ export interface PendingInquiryPrefill {
   addressDetail: string | null;
   areaPyeong: number | null;
   areaBasis: string | null;
+  exclusiveAreaSqm?: number | null;
   propertyType: string | null;
   roomCount: number | null;
   bathroomCount: number | null;
@@ -363,7 +366,8 @@ export async function submitOrderForm(
     addressDetail?: string;
     customerPhone: string;
     customerPhone2: string;
-    areaPyeong: number;
+    /** 공급면적일 때만 값 있음, 전용이면 null */
+    areaPyeong?: number | null;
     areaBasis: string;
     propertyType: string;
     preferredDate?: string;
@@ -378,6 +382,7 @@ export async function submitOrderForm(
     specialNotes?: string;
     /** 전문 시공 옵션 id 목록 */
     professionalOptionIds?: string[];
+    exclusiveAreaSqm?: number | null;
   }
 ): Promise<void> {
   const res = await fetch(`${API}/orderforms/submit/${token}`, {

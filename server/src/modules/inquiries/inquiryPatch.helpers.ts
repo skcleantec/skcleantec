@@ -17,8 +17,25 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   if (body.addressDetail != null) {
     data.addressDetail = body.addressDetail ? String(body.addressDetail) : null;
   }
-  if (body.areaPyeong != null) data.areaPyeong = Number(body.areaPyeong);
+  if (Object.prototype.hasOwnProperty.call(body, 'areaPyeong')) {
+    const v = body.areaPyeong;
+    if (v === null || v === '' || v === undefined) {
+      data.areaPyeong = null;
+    } else {
+      const n = Number(v);
+      data.areaPyeong = Number.isFinite(n) ? n : null;
+    }
+  }
   if (body.areaBasis != null) data.areaBasis = body.areaBasis ? String(body.areaBasis) : null;
+  if (Object.prototype.hasOwnProperty.call(body, 'exclusiveAreaSqm')) {
+    const v = body.exclusiveAreaSqm;
+    if (v === null || v === '' || v === undefined) {
+      data.exclusiveAreaSqm = null;
+    } else {
+      const n = Number(v);
+      data.exclusiveAreaSqm = Number.isFinite(n) && n > 0 ? n : null;
+    }
+  }
   if (body.propertyType != null) {
     data.propertyType = body.propertyType ? String(body.propertyType) : null;
   }

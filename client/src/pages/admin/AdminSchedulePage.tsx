@@ -31,6 +31,7 @@ import {
   type UserItem,
 } from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
+import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
@@ -129,12 +130,6 @@ function shortSiGuFromAddress(address: string): string {
     return acc.join(' ');
   }
   return parts.slice(0, Math.min(2, parts.length)).join(' ');
-}
-
-function formatPyeongDisplay(n: number): string {
-  const r = Math.round(n * 10) / 10;
-  if (Number.isInteger(r)) return `${Math.round(n)}평`;
-  return `${r}평`;
 }
 
 function getCalendarDays(year: number, month: number) {
@@ -422,9 +417,14 @@ function ScheduleDayListItem({
           className="text-left w-full text-fluid-xs text-gray-600 leading-snug truncate hover:brightness-[0.99]"
         >
           {shortSiGuFromAddress(item.address)}
-          {item.areaPyeong != null && item.areaPyeong > 0
-            ? ` / ${formatPyeongDisplay(item.areaPyeong)}`
-            : ''}
+          {(() => {
+            const areaStr = formatInquiryAreaKoLine({
+              areaBasis: item.areaBasis,
+              areaPyeong: item.areaPyeong,
+              exclusiveAreaSqm: item.exclusiveAreaSqm,
+            });
+            return areaStr !== '—' ? ` / ${areaStr}` : '';
+          })()}
           <span className="text-gray-400"> · </span>
           <span>{slotLabelShort}</span>
           <span className="text-gray-400"> · </span>

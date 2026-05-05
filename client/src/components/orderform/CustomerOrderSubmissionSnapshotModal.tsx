@@ -148,8 +148,27 @@ export function CustomerOrderSubmissionSnapshotModal(props: {
                     {snapshot.fields.addressDetail?.trim() ? snapshot.fields.addressDetail : '—'}
                   </SnapshotRow>
                   <SnapshotRow label="건축물 유형">{snapshot.fields.propertyType}</SnapshotRow>
-                  <SnapshotRow label="평수 기준">{snapshot.fields.areaBasis}</SnapshotRow>
-                  <SnapshotRow label="평수">{snapshot.fields.areaPyeong}평</SnapshotRow>
+                  <SnapshotRow label="공급면적 (분양평수)">
+                    {snapshot.fields.areaBasis === '공급' &&
+                    snapshot.fields.areaPyeong != null &&
+                    Number.isFinite(snapshot.fields.areaPyeong)
+                      ? `${snapshot.fields.areaPyeong}평`
+                      : snapshot.fields.areaBasis !== '공급' &&
+                          snapshot.fields.areaBasis !== '전용' &&
+                          snapshot.fields.areaPyeong != null &&
+                          Number.isFinite(snapshot.fields.areaPyeong)
+                        ? `${snapshot.fields.areaPyeong}평 (레거시)`
+                        : '—'}
+                  </SnapshotRow>
+                  <SnapshotRow label="전용면적 (실제 내 집 공간)">
+                    {snapshot.fields.areaBasis === '전용' &&
+                    snapshot.fields.exclusiveAreaSqm != null &&
+                    Number.isFinite(snapshot.fields.exclusiveAreaSqm)
+                      ? `${Number(snapshot.fields.exclusiveAreaSqm).toLocaleString('ko-KR')}㎡`
+                      : snapshot.fields.areaBasis === '전용'
+                        ? '입력 없음'
+                        : '—'}
+                  </SnapshotRow>
                   <SnapshotRow label="방">{snapshot.fields.roomCount ?? '—'}</SnapshotRow>
                   <SnapshotRow label="발코니">{snapshot.fields.balconyCount ?? '—'}</SnapshotRow>
                   <SnapshotRow label="화장실">{snapshot.fields.bathroomCount ?? '—'}</SnapshotRow>

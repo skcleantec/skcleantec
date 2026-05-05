@@ -49,6 +49,7 @@ type ForceMatchInquirySnapshot = {
   addressDetail: string | null;
   areaPyeong: number | null;
   areaBasis: string | null;
+  exclusiveAreaSqm: number | null;
   propertyType: string | null;
   roomCount: number | null;
   bathroomCount: number | null;
@@ -845,6 +846,7 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
       addressDetail: true,
       areaPyeong: true,
       areaBasis: true,
+      exclusiveAreaSqm: true,
       propertyType: true,
       roomCount: true,
       bathroomCount: true,
@@ -883,6 +885,7 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
       data.addressDetail = source.addressDetail;
       data.areaPyeong = source.areaPyeong;
       data.areaBasis = source.areaBasis;
+      data.exclusiveAreaSqm = source.exclusiveAreaSqm;
       data.propertyType = source.propertyType;
       data.roomCount = source.roomCount;
       data.bathroomCount = source.bathroomCount;
@@ -1175,6 +1178,7 @@ router.get('/by-token/:token', async (req, res) => {
         addressDetail: pendingRow.addressDetail,
         areaPyeong: pendingRow.areaPyeong,
         areaBasis: pendingRow.areaBasis,
+        exclusiveAreaSqm: pendingRow.exclusiveAreaSqm ?? null,
         propertyType: pendingRow.propertyType,
         roomCount: pendingRow.roomCount,
         bathroomCount: pendingRow.bathroomCount,
@@ -1241,8 +1245,10 @@ router.post('/submit/:token', async (req, res) => {
     addressDetail?: string;
     customerPhone: string;
     customerPhone2: string;
-    areaPyeong: number;
+    /** 공급면적(분양평수)일 때만 필수 */
+    areaPyeong?: number | string | null;
     areaBasis: string;
+    exclusiveAreaSqm?: number | string | null;
     propertyType: string;
     preferredDate: string;
     preferredTime: string;
@@ -1280,13 +1286,48 @@ router.post('/submit/:token', async (req, res) => {
   }
   const areaBasisNorm = String(body.areaBasis || '').trim();
   if (areaBasisNorm !== '공급' && areaBasisNorm !== '전용') {
-    res.status(400).json({ error: '평수 기준으로 공급 또는 전용을 선택해주세요.' });
+    res.status(400).json({ error: '면적 기준으로 공급면적 또는 전용면적을 선택해주세요.' });
     return;
   }
   const propertyTypeNorm = String(body.propertyType || '').trim();
   if (!propertyTypeNorm) {
     res.status(400).json({ error: '아파트·오피스텔 등 건축물 유형을 선택해주세요.' });
     return;
+  }
+
+  let exclusiveAreaSqm: number | null = null;
+  let areaPyeongOut: number | null = null;
+  if (areaBasisNorm === '공급') {
+    const rawPy = body.areaPyeong;
+    if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
+      res.status(400).json({ error: '공급면적(분양평수)을 평 단위로 입력해 주세요.' });
+      return;
+    }
+    const n =
+      typeof rawPy === 'number'
+        ? rawPy
+        : Number(String(rawPy).replace(/,/g, '').trim());
+    if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
+      res.status(400).json({ error: '분양평수(평)는 양수 숫자로 입력해 주세요.' });
+      return;
+    }
+    areaPyeongOut = n;
+  } else {
+    const raw = body.exclusiveAreaSqm;
+    if (raw == null || (typeof raw === 'string' && raw.trim() === '')) {
+      res.status(400).json({ error: '전용면적(실제 내 집 공간)을 제곱미터(㎡)로 입력해 주세요.' });
+      return;
+    }
+    const n =
+      typeof raw === 'number'
+        ? raw
+        : Number(String(raw).replace(/,/g, '').trim());
+    if (!Number.isFinite(n) || n <= 0 || n > 1_000_000) {
+      res.status(400).json({ error: '전용 면적(㎡)은 양수 숫자로 입력해 주세요.' });
+      return;
+    }
+    exclusiveAreaSqm = n;
+    areaPyeongOut = null;
   }
 
   // 관리자가 발급 시 날짜를 넣었으면 그 날짜는 고객이 바꿀 수 없음(본문 무시). 미지정이면 고객 입력 사용.
@@ -1367,8 +1408,9 @@ router.post('/submit/:token', async (req, res) => {
           : null,
       customerPhone: String(body.customerPhone ?? ''),
       customerPhone2: String(body.customerPhone2).trim(),
-      areaPyeong: Number(body.areaPyeong),
+      areaPyeong: areaPyeongOut,
       areaBasis: areaBasisNorm,
+      exclusiveAreaSqm,
       propertyType: propertyTypeNorm,
       preferredDate: useDateStr,
       preferredTime: useTimeStr,
@@ -1413,8 +1455,9 @@ router.post('/submit/:token', async (req, res) => {
           customerPhone2: String(body.customerPhone2).trim(),
           address: body.address,
           addressDetail: body.addressDetail || null,
-          areaPyeong: body.areaPyeong,
+          areaPyeong: areaPyeongOut,
           areaBasis: areaBasisNorm,
+          exclusiveAreaSqm,
           propertyType: propertyTypeNorm,
           roomCount: body.roomCount ?? null,
           bathroomCount: body.bathroomCount ?? null,
@@ -1459,8 +1502,9 @@ router.post('/submit/:token', async (req, res) => {
           customerPhone2: String(body.customerPhone2).trim(),
           address: body.address,
           addressDetail: body.addressDetail || null,
-          areaPyeong: body.areaPyeong,
+          areaPyeong: areaPyeongOut,
           areaBasis: areaBasisNorm,
+          exclusiveAreaSqm,
           propertyType: propertyTypeNorm,
           roomCount: body.roomCount ?? null,
           bathroomCount: body.bathroomCount ?? null,

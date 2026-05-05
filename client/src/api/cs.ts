@@ -43,6 +43,7 @@ export interface CsReport {
     claimMemo?: string | null;
     areaPyeong?: number | null;
     areaBasis?: string | null;
+    exclusiveAreaSqm?: number | null;
     propertyType?: string | null;
     roomCount?: number | null;
     bathroomCount?: number | null;

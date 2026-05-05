@@ -122,6 +122,8 @@ export interface InquiryItem {
   addressDetail: string | null;
   areaPyeong: number | null;
   areaBasis?: string | null;
+  /** 전용면적 기준 시 참고 제곱미터 */
+  exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
   roomCount: number | null;
   bathroomCount: number | null;
@@ -190,6 +192,34 @@ export function formatScheduleLine(item: InquiryItem) {
   const slot = item.preferredTime ? labelForTimeSlot(item.preferredTime) : teamBiPlain('team.inquiry.timeUndecided');
   const d = item.preferredTimeDetail?.trim();
   return d ? `${slot} (${d})` : slot;
+}
+
+/** 목록·복사·모달 공통: 공급=평, 전용=㎡ 우선 표시 */
+export function formatTeamInquiryAreaSummary(item: {
+  areaBasis?: string | null;
+  areaPyeong?: number | null;
+  exclusiveAreaSqm?: number | null;
+}): string {
+  const b = item.areaBasis?.trim();
+  const sqm =
+    item.exclusiveAreaSqm != null && Number.isFinite(item.exclusiveAreaSqm)
+      ? item.exclusiveAreaSqm
+      : null;
+  const py = item.areaPyeong != null && Number.isFinite(item.areaPyeong) ? item.areaPyeong : null;
+  const core = formatTeamAreaPyeongBi(item.areaPyeong);
+
+  if (b === '공급') {
+    return py != null ? `공급 ${core}` : core;
+  }
+  if (b === '전용') {
+    if (sqm != null) {
+      const sqStr = Number(sqm).toLocaleString('ko-KR');
+      return py != null ? `전용 ${sqStr}㎡ (${core})` : `전용 ${sqStr}㎡`;
+    }
+    return `전용 ${core}`;
+  }
+  if (py != null && sqm != null) return `${core} · ${Number(sqm).toLocaleString('ko-KR')}㎡`;
+  return core;
 }
 
 export function formatRoomInfo(r: number | null, b: number | null, v: number | null) {
@@ -284,9 +314,17 @@ export function buildTeamInquiryShareClipText(item: InquiryItem): string {
 
   addRow('건축물', item.propertyType?.trim() || '');
   const basis = item.areaBasis?.trim();
-  if (item.areaPyeong != null || basis) {
-    const areaCore = formatTeamAreaPyeongBi(item.areaPyeong);
-    addRow('평수', basis ? `${basis} ${areaCore}` : areaCore);
+  const sqmShare =
+    item.exclusiveAreaSqm != null && Number.isFinite(item.exclusiveAreaSqm)
+      ? item.exclusiveAreaSqm
+      : null;
+  const showAreaRow =
+    basis === '공급' ||
+    basis === '전용' ||
+    item.areaPyeong != null ||
+    sqmShare != null;
+  if (showAreaRow) {
+    addRow('면적', formatTeamInquiryAreaSummary(item));
   }
   const structure = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount);
   if (structure && structure !== teamBiPlain('team.common.emDash')) addRow('구조', structure);
@@ -809,10 +847,7 @@ export function TeamInquiryDetailModal({
               <TeamModalRow
                 label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-xs font-medium text-gray-500" />}
               >
-                <span className="text-gray-800">
-                  {item.areaBasis ? `${item.areaBasis} ` : ''}
-                  {formatTeamAreaPyeongBi(item.areaPyeong)}
-                </span>
+                <span className="text-gray-800">{formatTeamInquiryAreaSummary(item)}</span>
               </TeamModalRow>
               <TeamModalRow
                 label={<TeamBiLine id="team.modal.row.rooms" koClassName="text-fluid-xs font-medium text-gray-500" />}

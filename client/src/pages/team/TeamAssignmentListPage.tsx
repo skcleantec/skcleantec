@@ -27,21 +27,11 @@ import {
   marketerInfo,
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
+  formatTeamInquiryAreaSummary,
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
-import {
-  TeamBiLine,
-  TeamBiInline,
-  formatTeamAreaPyeongBi,
-  teamBiPlain,
-} from '../../i18n/team/teamI18n';
-
-function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number | null }) {
-  const core = formatTeamAreaPyeongBi(item.areaPyeong);
-  const b = item.areaBasis?.trim();
-  return b ? `${b} ${core}` : core;
-}
+import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 
 function toKstYmd(iso: string): string {
   return new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
@@ -597,7 +587,7 @@ export function TeamAssignmentListPage() {
                           {item.addressDetail ? ` ${item.addressDetail}` : ''}
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
-                          {formatAreaLine(item)}
+                          {formatTeamInquiryAreaSummary(item)}
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
                           {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}

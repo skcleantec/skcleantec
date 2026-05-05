@@ -630,6 +630,8 @@ router.patch('/:id', async (req, res) => {
   if (data.addressDetail !== undefined) pushIfChanged('상세주소', inquiry.addressDetail, data.addressDetail);
   if (data.areaPyeong !== undefined) pushIfChanged('평수', inquiry.areaPyeong, data.areaPyeong, fmtNum);
   if (data.areaBasis !== undefined) pushIfChanged('평수 기준', inquiry.areaBasis, data.areaBasis);
+  if (data.exclusiveAreaSqm !== undefined)
+    pushIfChanged('전용 면적(㎡)', inquiry.exclusiveAreaSqm, data.exclusiveAreaSqm, fmtNum);
   if (data.propertyType !== undefined) pushIfChanged('건물 유형', inquiry.propertyType, data.propertyType);
   if (data.roomCount !== undefined) pushIfChanged('방', inquiry.roomCount, data.roomCount, fmtNum);
   if (data.bathroomCount !== undefined) pushIfChanged('화장실', inquiry.bathroomCount, data.bathroomCount, fmtNum);
@@ -899,6 +901,12 @@ router.post('/', async (req, res) => {
         addressDetail: body.addressDetail ? String(body.addressDetail) : null,
         areaPyeong: body.areaPyeong != null ? Number(body.areaPyeong) : null,
         areaBasis: body.areaBasis ? String(body.areaBasis) : null,
+        exclusiveAreaSqm: (() => {
+          const v = body.exclusiveAreaSqm;
+          if (v == null || v === '') return null;
+          const n = Number(v);
+          return Number.isFinite(n) && n > 0 ? n : null;
+        })(),
         propertyType: body.propertyType ? String(body.propertyType) : null,
         roomCount: body.roomCount != null ? Number(body.roomCount) : null,
         bathroomCount: body.bathroomCount != null ? Number(body.bathroomCount) : null,

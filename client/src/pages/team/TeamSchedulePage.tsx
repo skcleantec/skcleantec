@@ -23,6 +23,7 @@ import {
   getCalendarDays,
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
+  formatTeamInquiryAreaSummary,
 } from './teamInquiryShared';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import type { ScheduleItem } from '../../api/schedule';
@@ -31,7 +32,6 @@ import {
   TEAM_WEEKDAY_HEADERS,
   TeamBiLine,
   TeamBiInline,
-  formatTeamAreaPyeongBi,
   teamBiPlain,
   teamT,
 } from '../../i18n/team/teamI18n';
@@ -326,7 +326,7 @@ export function TeamSchedulePage() {
                             </div>
                             <div className="text-fluid-xs text-gray-500 mt-0.5">
                               {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} ·{' '}
-                              {formatTeamAreaPyeongBi(item.areaPyeong)}
+                              {formatTeamInquiryAreaSummary(item)}
                             </div>
                             <div className="text-fluid-xs text-gray-500 mt-0.5" title={formatCrewInfo(item)}>
                               {formatCrewInfo(item)}

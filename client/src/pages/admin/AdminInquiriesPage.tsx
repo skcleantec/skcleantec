@@ -57,6 +57,7 @@ import {
   isInquirySourceHiddenFromUi,
   phoneListTwoLines,
 } from '../../utils/inquiryListDisplay';
+import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
 import { happyCallRowTone } from '../../utils/happyCall';
 import {
   effectiveAdminTeamSpecialNotes,
@@ -73,12 +74,6 @@ import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
-
-function formatAreaLine(item: { areaBasis?: string | null; areaPyeong?: number | null }) {
-  if (item.areaPyeong == null) return '-';
-  const b = item.areaBasis?.trim();
-  return b ? `${b} ${item.areaPyeong}평` : `${item.areaPyeong}평`;
-}
 
 function formatRoomInfo(
   r: number | null,
@@ -279,6 +274,7 @@ interface InquiryItem {
   addressDetail: string | null;
   areaPyeong: number | null;
   areaBasis?: string | null;
+  exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
   roomCount: number | null;
   bathroomCount: number | null;
@@ -440,7 +436,7 @@ function formatInquiryTeamSummary(item: InquiryItem): string {
 /** 모바일 카드: 면적·방(값 있을 때만) + 팀 요약, `- · -` 방지 */
 function formatInquiryMobileSpecsTail(item: InquiryItem): string {
   const segs: string[] = [];
-  const area = formatAreaLine(item);
+  const area = formatInquiryAreaKoLine(item);
   if (area !== '-') segs.push(area);
   const rooms = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount);
   if (rooms !== '-') segs.push(rooms);
@@ -544,6 +540,7 @@ export function AdminInquiriesPage() {
     propertyType: '',
     areaBasis: '',
     areaPyeong: '',
+    exclusiveAreaSqm: '',
     buildingType: '',
     moveInDate: '',
     specialNotes: '',
@@ -1055,6 +1052,7 @@ export function AdminInquiriesPage() {
       propertyType: item.propertyType || '',
       areaBasis: item.areaBasis || '',
       areaPyeong: item.areaPyeong != null ? String(item.areaPyeong) : '',
+      exclusiveAreaSqm: item.exclusiveAreaSqm != null ? String(item.exclusiveAreaSqm) : '',
       buildingType: item.buildingType || '',
       moveInDate: item.moveInDate ? item.moveInDate.slice(0, 10) : '',
       specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
@@ -1407,8 +1405,52 @@ export function AdminInquiriesPage() {
       if (me?.role === 'ADMIN') {
         patch.createdById = editForm.createdById || null;
       }
-      if (editForm.areaPyeong.trim() !== '') {
-        patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
+      const basisTrim = editForm.areaBasis.trim();
+      if (basisTrim === '공급') {
+        const ap = editForm.areaPyeong.trim();
+        if (ap === '') {
+          alert('공급면적(분양평수)을 평 단위로 입력해 주세요.');
+          setSaving(false);
+          return;
+        }
+        const py = parseFloat(ap.replace(/,/g, ''));
+        if (Number.isNaN(py) || py <= 0) {
+          alert('분양평수(평)는 양수 숫자로 입력해 주세요.');
+          setSaving(false);
+          return;
+        }
+        patch.areaPyeong = py;
+        patch.exclusiveAreaSqm = null;
+      } else if (basisTrim === '전용') {
+        patch.areaPyeong = null;
+        const es = editForm.exclusiveAreaSqm.trim();
+        if (es === '') {
+          alert('전용면적(실제 내 집 공간)을 제곱미터로 입력해 주세요.');
+          setSaving(false);
+          return;
+        }
+        const ex = parseFloat(es.replace(/,/g, ''));
+        if (Number.isNaN(ex) || ex <= 0) {
+          alert('전용 면적(㎡)은 양수 숫자로 입력해 주세요.');
+          setSaving(false);
+          return;
+        }
+        patch.exclusiveAreaSqm = ex;
+      } else {
+        if (editForm.areaPyeong.trim() !== '') {
+          patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
+        }
+        const es = editForm.exclusiveAreaSqm.trim();
+        if (es === '') patch.exclusiveAreaSqm = null;
+        else {
+          const ex = parseFloat(es.replace(/,/g, ''));
+          if (Number.isNaN(ex) || ex <= 0) {
+            alert('전용 면적(㎡)은 양수 숫자로 입력해 주세요.');
+            setSaving(false);
+            return;
+          }
+          patch.exclusiveAreaSqm = ex;
+        }
       }
       if (editForm.kitchenCount.trim() === '') {
         patch.kitchenCount = null;
@@ -2352,9 +2394,9 @@ export function AdminInquiriesPage() {
                     </td>
                     <td
                       className={`min-w-0 px-0.5 py-1 align-middle text-center text-[10px] leading-tight tabular-nums text-gray-600 xl:px-1 xl:py-1.5 2xl:text-[11px] ${pBorder}`}
-                      title={formatAreaLine(item)}
+                      title={formatInquiryAreaKoLine(item)}
                     >
-                      <span className="line-clamp-2 break-words">{formatAreaLine(item)}</span>
+                      <span className="line-clamp-2 break-words">{formatInquiryAreaKoLine(item)}</span>
                     </td>
                     <td className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}>
                       <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
@@ -3055,27 +3097,61 @@ export function AdminInquiriesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">평수 기준</label>
+                <label className="block text-fluid-sm text-gray-600 mb-1">면적 기준</label>
                 <select
                   value={editForm.areaBasis}
-                  onChange={(e) => setEditForm((p) => ({ ...p, areaBasis: e.target.value }))}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setEditForm((p) => ({
+                      ...p,
+                      areaBasis: v,
+                      exclusiveAreaSqm: v === '전용' ? p.exclusiveAreaSqm : '',
+                      areaPyeong: v === '공급' ? p.areaPyeong : '',
+                    }));
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
                 >
                   <option value="">선택</option>
                   {AREA_BASIS_EDIT.map((v) => (
-                    <option key={v} value={v}>{v === '공급' ? '공급면적' : '전용면적'}</option>
+                    <option key={v} value={v}>{v === '공급' ? '공급면적 (분양평수)' : '전용면적 (실제 내 집 공간)'}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">평수 (숫자)</label>
-                <input
-                  value={editForm.areaPyeong}
-                  onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
-                  placeholder="예: 32"
-                />
-              </div>
+              {editForm.areaBasis === '공급' ? (
+                <div>
+                  <label className="block text-fluid-sm text-gray-600 mb-1">분양평수 (평)</label>
+                  <input
+                    value={editForm.areaPyeong}
+                    onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm tabular-nums"
+                    placeholder="예: 32"
+                    inputMode="decimal"
+                  />
+                </div>
+              ) : null}
+              {editForm.areaBasis === '전용' ? (
+                <div>
+                  <label className="block text-fluid-sm text-gray-600 mb-1">전용면적 (실제 내 집 공간, ㎡)</label>
+                  <input
+                    value={editForm.exclusiveAreaSqm}
+                    onChange={(e) => setEditForm((p) => ({ ...p, exclusiveAreaSqm: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm tabular-nums"
+                    placeholder="예: 84"
+                    inputMode="decimal"
+                  />
+                </div>
+              ) : null}
+              {editForm.areaBasis !== '공급' && editForm.areaBasis !== '전용' ? (
+                <div>
+                  <label className="block text-fluid-sm text-gray-600 mb-1">평수 (숫자·레거시)</label>
+                  <input
+                    value={editForm.areaPyeong}
+                    onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                    placeholder="면적 기준 선택 후 입력"
+                  />
+                </div>
+              ) : null}
               <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-fluid-sm text-gray-600 mb-1">방</label>

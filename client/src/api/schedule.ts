@@ -30,6 +30,8 @@ export interface ScheduleItem {
   addressGeoQuery?: string | null;
   areaPyeong: number | null;
   areaBasis?: string | null;
+  /** 전용면적 기준 시 참고 제곱미터 */
+  exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
   roomCount: number | null;
   bathroomCount: number | null;

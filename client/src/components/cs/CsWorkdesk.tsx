@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { getCsReports, updateCsReport, deleteCsReport, type CsReport } from '../../api/cs';
+import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
 import { getMe } from '../../api/auth';
 import { getTeamCsReports, patchTeamCsReport } from '../../api/team';
 import { getToken } from '../../stores/auth';
@@ -80,9 +81,11 @@ function processorNameLabel(item: CsReport): string {
 }
 
 function formatAreaLine(inquiry: NonNullable<CsReport['inquiry']>): string {
-  if (inquiry.areaPyeong == null) return '-';
-  const b = inquiry.areaBasis?.trim();
-  return b ? `${b} ${inquiry.areaPyeong}평` : `${inquiry.areaPyeong}평`;
+  return formatInquiryAreaKoLine({
+    areaBasis: inquiry.areaBasis,
+    areaPyeong: inquiry.areaPyeong,
+    exclusiveAreaSqm: inquiry.exclusiveAreaSqm,
+  });
 }
 
 function ServiceRatingStars({ value }: { value: number | null | undefined }) {

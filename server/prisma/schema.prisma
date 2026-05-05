@@ -459,6 +459,8 @@ model Inquiry {
   addressGeoLng   Float?       @map("address_geo_lng")
   areaPyeong      Float?       @map("area_pyeong")
   areaBasis       String?      @map("area_basis")
+  /// 전용면적 기준 시 고객·관리자 참고용 제곱미터(㎡). 평수와 별도.
+  exclusiveAreaSqm Float?      @map("exclusive_area_sqm")
   propertyType    String?      @map("property_type")
   roomCount       Int?         @map("room_count")
   bathroomCount   Int?         @map("bathroom_count")

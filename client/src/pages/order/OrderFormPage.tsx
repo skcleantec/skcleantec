@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   getOrderFormByToken,
@@ -45,10 +45,8 @@ const PROPERTY_TYPE_OPTIONS = [
   { value: '기타', label: '기타' },
 ] as const;
 
-const AREA_BASIS_OPTIONS = [
-  { value: '공급', label: '공급면적 기준' },
-  { value: '전용', label: '전용면적 기준' },
-] as const;
+const AREA_BASIS_COST_WARNING =
+  '잘못된 평수기입으로 인한 서비스비용변동은 책임지지 않습니다.';
 
 export function OrderFormPage() {
   const { token } = useParams<{ token: string }>();
@@ -63,6 +61,8 @@ export function OrderFormPage() {
     propertyType: string;
     areaBasis: string;
     areaPyeong: string;
+    /** 전용면적 기준일 때 참고 제곱미터(㎡) — 선택 입력 */
+    exclusiveAreaSqm: string;
     preferredDate: string;
     preferredTime: string;
     preferredTimeDetail: string;
@@ -82,6 +82,7 @@ export function OrderFormPage() {
     propertyType: '',
     areaBasis: '',
     areaPyeong: '',
+    exclusiveAreaSqm: '',
     preferredDate: kstTodayYmd(),
     preferredTime: '',
     preferredTimeDetail: '',
@@ -120,6 +121,9 @@ export function OrderFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
+  /** 면적 기준 선택 전 안내·확인 */
+  const [areaBasisAckModal, setAreaBasisAckModal] = useState<null | '공급' | '전용'>(null);
+  const pendingAreaBasisAckRef = useRef<'공급' | '전용' | null>(null);
   const [timeSlotAckOpen, setTimeSlotAckOpen] = useState(false);
   const [pendingTimeSlot, setPendingTimeSlot] = useState<OrderTimeSlot | null>(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
@@ -128,6 +132,8 @@ export function OrderFormPage() {
   /** 대분류(하위 있음) — 체크 시에만 세부 항목 표시 */
   const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
   const profRoots = useMemo(() => listProfRootNodes(professionalOptions), [professionalOptions]);
+  const formRef = useRef(form);
+  formRef.current = form;
 
   /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
   const profSelectionSummary = useMemo(() => {
@@ -166,6 +172,20 @@ export function OrderFormPage() {
   const cancelTimeSlotAck = useCallback(() => {
     setPendingTimeSlot(null);
     setTimeSlotAckOpen(false);
+  }, []);
+
+  const confirmAreaBasisAck = useCallback(() => {
+    const b = pendingAreaBasisAckRef.current;
+    pendingAreaBasisAckRef.current = null;
+    setAreaBasisAckModal(null);
+    if (b === '공급') setForm((f) => ({ ...f, areaBasis: '공급', exclusiveAreaSqm: '' }));
+    else if (b === '전용') setForm((f) => ({ ...f, areaBasis: '전용', areaPyeong: '' }));
+  }, []);
+
+  const requestAreaBasisSelection = useCallback((basis: '공급' | '전용') => {
+    if (formRef.current.areaBasis === basis) return;
+    pendingAreaBasisAckRef.current = basis;
+    setAreaBasisAckModal(basis);
   }, []);
 
   const confirmTimeSlotAck = useCallback(() => {
@@ -217,7 +237,18 @@ export function OrderFormPage() {
           addressDetail: p?.addressDetail ?? '',
           propertyType: p?.propertyType ?? '',
           areaBasis: p?.areaBasis ?? '',
-          areaPyeong: p?.areaPyeong != null ? String(p.areaPyeong) : '',
+          areaPyeong:
+            (p?.areaBasis ?? '').trim() === '전용'
+              ? ''
+              : p?.areaPyeong != null
+                ? String(p.areaPyeong)
+                : '',
+          exclusiveAreaSqm:
+            (p?.areaBasis ?? '').trim() === '공급'
+              ? ''
+              : p?.exclusiveAreaSqm != null && Number.isFinite(p.exclusiveAreaSqm)
+                ? String(p.exclusiveAreaSqm)
+                : '',
           preferredDate: p?.preferredDate ?? data.preferredDate ?? kstTodayYmd(),
           preferredTime: p?.preferredTime ?? data.preferredTime ?? '',
           preferredTimeDetail: p?.preferredTimeDetail ?? data.preferredTimeDetail ?? '',
@@ -265,16 +296,30 @@ export function OrderFormPage() {
     if (!token) return;
     setSubmitting(true);
     try {
-      const area = parseFloat(form.areaPyeong.replace(/,/g, ''));
       if (!form.customerName?.trim()) throw new Error('성함을 입력해주세요.');
       if (!form.address?.trim()) throw new Error('주소를 검색해주세요.');
       if (!form.customerPhone?.trim()) throw new Error('대표 전화번호를 입력해주세요.');
       if (!form.customerPhoneSecondary?.trim()) throw new Error('보조 전화번호를 입력해주세요.');
       if (!form.propertyType) throw new Error('건축물 유형을 선택해주세요.');
       if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
-        throw new Error('평수 기준으로 공급 또는 전용을 선택해주세요.');
+        throw new Error('면적 기준으로 공급면적 또는 전용면적을 선택해주세요.');
       }
-      if (isNaN(area) || area <= 0) throw new Error('평수를 숫자로 입력해주세요. (단위: 평)');
+      let submitAreaPyeong: number | null = null;
+      let submitExclusiveSqm: number | null = null;
+      if (form.areaBasis === '공급') {
+        const area = parseFloat(form.areaPyeong.replace(/,/g, '').trim());
+        if (Number.isNaN(area) || area <= 0) {
+          throw new Error('공급면적(분양평수)을 평 단위로 입력해 주세요.');
+        }
+        submitAreaPyeong = area;
+      } else {
+        const sq = parseFloat(form.exclusiveAreaSqm.replace(/,/g, '').trim());
+        if (Number.isNaN(sq) || sq <= 0) {
+          throw new Error('전용면적(실제 내 집 공간)을 제곱미터(㎡)로 입력해 주세요.');
+        }
+        submitExclusiveSqm = sq;
+        submitAreaPyeong = null;
+      }
       const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
       const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
       const useDate = scheduleLockedByAdmin
@@ -308,8 +353,9 @@ export function OrderFormPage() {
         addressDetail: form.addressDetail.trim() || undefined,
         customerPhone: form.customerPhone.trim(),
         customerPhone2: form.customerPhoneSecondary.trim(),
-        areaPyeong: area,
+        areaPyeong: submitAreaPyeong,
         areaBasis: form.areaBasis,
+        exclusiveAreaSqm: submitExclusiveSqm,
         propertyType: form.propertyType,
         preferredDate: useDate,
         preferredTime: useTime,
@@ -495,7 +541,7 @@ export function OrderFormPage() {
           </div>
 
           <div>
-            <label className={labelCls}>4. 건축물 유형 및 평수 *</label>
+            <label className={labelCls}>4. 건축물 유형 및 면적 *</label>
             <p className="text-xs font-medium text-gray-700 mb-2">건축물 유형 (하나 선택) *</p>
             <div className={radioGroupCls} role="radiogroup" aria-label="건축물 유형">
               {PROPERTY_TYPE_OPTIONS.map((o) => (
@@ -512,36 +558,91 @@ export function OrderFormPage() {
                 </label>
               ))}
             </div>
-            <p className="text-xs font-medium text-gray-700 mt-4 mb-2">평수 기준 (하나 선택) *</p>
-            <div className={radioGroupCls} role="radiogroup" aria-label="평수 기준">
-              {AREA_BASIS_OPTIONS.map((o) => (
-                <label key={o.value} className={radioLabelCls}>
+            <p className="text-xs font-medium text-gray-700 mt-4 mb-2">면적 기준 (하나 선택) *</p>
+            <div className="flex flex-col gap-3" role="radiogroup" aria-label="면적 기준">
+              <div
+                className={`rounded-lg border px-3 py-3 ${
+                  form.areaBasis === '공급' ? 'border-gray-800 bg-gray-50' : 'border-gray-200 bg-white'
+                }`}
+              >
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <input
+                    id="orderform-area-basis-supply"
                     type="radio"
                     name="areaBasis"
-                    value={o.value}
-                    checked={form.areaBasis === o.value}
-                    onChange={() => setForm((f) => ({ ...f, areaBasis: o.value }))}
-                    className="w-4 h-4 border-gray-300 text-gray-800"
+                    value="공급"
+                    checked={form.areaBasis === '공급'}
+                    onChange={() => requestAreaBasisSelection('공급')}
+                    className="w-4 h-4 shrink-0 border-gray-300 text-gray-800"
                   />
-                  {o.label}
-                </label>
-              ))}
-            </div>
-            <label className="block text-xs text-gray-600 mt-4 mb-1">평수 (숫자만 입력) *</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                inputMode="decimal"
-                className={`${inputCls} flex-1`}
-                value={form.areaPyeong}
-                onChange={(e) => setForm((f) => ({ ...f, areaPyeong: e.target.value }))}
-                placeholder="예: 32"
-              />
-              <span className="text-sm text-gray-700 shrink-0">평</span>
+                  <label
+                    htmlFor="orderform-area-basis-supply"
+                    className="cursor-pointer select-none flex flex-wrap items-center gap-x-2 gap-y-0.5"
+                  >
+                    <span className="font-medium text-gray-900 shrink-0">공급면적</span>
+                    <span className="text-xs text-gray-500 shrink-0">(분양평수)</span>
+                  </label>
+                  {form.areaBasis === '공급' ? (
+                    <span className="inline-flex flex-wrap items-center gap-1.5 sm:ml-auto">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        className="w-[6.5rem] px-2 py-1.5 border border-gray-400 rounded text-sm tabular-nums text-center"
+                        value={form.areaPyeong}
+                        onChange={(e) => setForm((f) => ({ ...f, areaPyeong: e.target.value }))}
+                        placeholder="평"
+                        aria-label="분양평수 평"
+                      />
+                      <span className="text-sm text-gray-800 shrink-0">평</span>
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <div
+                className={`rounded-lg border px-3 py-3 ${
+                  form.areaBasis === '전용' ? 'border-gray-800 bg-gray-50' : 'border-gray-200 bg-white'
+                }`}
+              >
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <input
+                    id="orderform-area-basis-exclusive"
+                    type="radio"
+                    name="areaBasis"
+                    value="전용"
+                    checked={form.areaBasis === '전용'}
+                    onChange={() => requestAreaBasisSelection('전용')}
+                    className="w-4 h-4 shrink-0 border-gray-300 text-gray-800"
+                  />
+                  <label
+                    htmlFor="orderform-area-basis-exclusive"
+                    className="cursor-pointer select-none flex flex-wrap items-center gap-x-2 gap-y-0.5"
+                  >
+                    <span className="font-medium text-gray-900 shrink-0">전용면적</span>
+                    <span className="text-xs text-gray-500 shrink-0">(실제 내 집 공간)</span>
+                  </label>
+                  {form.areaBasis === '전용' ? (
+                    <span className="inline-flex flex-wrap items-center gap-1.5 sm:ml-auto">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        className="w-[6.5rem] px-2 py-1.5 border border-gray-400 rounded text-sm tabular-nums text-center"
+                        value={form.exclusiveAreaSqm}
+                        onChange={(e) => setForm((f) => ({ ...f, exclusiveAreaSqm: e.target.value }))}
+                        placeholder="㎡"
+                        aria-label="전용면적 제곱미터"
+                      />
+                      <span className="text-sm text-gray-800 shrink-0">㎡</span>
+                    </span>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-              반드시 <span className="font-medium">평(坪)</span> 단위로 입력해 주세요. 제곱미터(㎡)가 아닙니다. 복층은 층별로 기재해 주세요.
+              공급면적은 <span className="font-medium text-gray-800">분양·등기상 공급 평수</span>, 전용면적은{' '}
+              <span className="font-medium text-gray-800">실제 거주 공간 기준 ㎡</span>로 적어 주세요. 복층은 층별로 기재해
+              주세요.
             </p>
           </div>
 
@@ -1039,6 +1140,86 @@ export function OrderFormPage() {
                   autoFocus
                 >
                   확인했어요
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {areaBasisAckModal ? (
+          <div
+            className="fixed inset-0 z-[1002] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="area-basis-ack-title"
+          >
+            <div
+              className="flex max-h-[min(92vh,36rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+              role="presentation"
+            >
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-4 pt-5 sm:px-6">
+                <h2
+                  id="area-basis-ack-title"
+                  className="text-base font-semibold tracking-tight text-gray-900"
+                >
+                  {areaBasisAckModal === '공급'
+                    ? '공급면적 (분양 평수)'
+                    : '전용면적 (실제 내 집 공간)'}
+                </h2>
+                <div className="mt-4 space-y-3 text-sm leading-relaxed text-gray-800">
+                  {areaBasisAckModal === '공급' ? (
+                    <>
+                      <p>
+                        공급면적은 &apos;전용면적&apos;에 이웃과 함께 사용하는 &apos;주거 공용면적&apos;을 합친
+                        공간입니다.
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">주거 공용면적이란?</span> 아파트 건물 내에서
+                        다른 세대와 공동으로 사용하는 계단, 복도, 엘리베이터, 1층 현관 등을 말합니다.
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">공식:</span> 공급면적 = 전용면적 + 주거 공용면적
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">특징:</span> 우리가 보통 아파트 크기를 말할 때
+                        &quot;34평형이다&quot;, &quot;25평형이다&quot;라고 부르는 기준이 바로 이 공급면적(분양면적)입니다.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        전용면적은 현관문을 열고 들어가서 나 혼자(우리 가족만) 독점적으로 사용하는 실제 거주 공간을
+                        말합니다.
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">포함되는 공간:</span> 거실, 침실, 주방, 화장실 등
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">제외되는 공간:</span> 발코니(베란다)는
+                        &apos;서비스 면적&apos;으로 분류되어 전용면적에 포함되지 않습니다.
+                      </p>
+                      <p>
+                        <span className="font-semibold text-gray-900">특징:</span> 세금 산정(취득세, 재산세 등)이나
+                        청약 자격을 결정할 때 기준이 되는 가장 중요한 면적입니다. 흔히 말하는 &apos;국민평수
+                        84㎡&apos;가 바로 이 전용면적을 의미합니다.
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-3 text-fluid-xs font-medium leading-snug text-amber-950">
+                  <span className="font-semibold text-amber-950">안내 · </span>
+                  {AREA_BASIS_COST_WARNING}
+                </div>
+              </div>
+              <div className="shrink-0 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:px-6">
+                <button
+                  type="button"
+                  onClick={confirmAreaBasisAck}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
+                  autoFocus
+                >
+                  확인하였습니다.
                 </button>
               </div>
             </div>

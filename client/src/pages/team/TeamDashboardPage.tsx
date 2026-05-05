@@ -19,9 +19,10 @@ import {
   relativeDateHint,
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
+  formatTeamInquiryAreaSummary,
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
-import { TeamBiLine, TeamBiInline, formatTeamAreaPyeongBi, teamBiPlain } from '../../i18n/team/teamI18n';
+import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 
 export function TeamDashboardPage() {
   const token = getTeamToken();
@@ -188,7 +189,7 @@ export function TeamDashboardPage() {
                       ) : null}
                       <div className="text-fluid-sm text-gray-700 mt-0.5">
                         {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} ·{' '}
-                        {formatTeamAreaPyeongBi(item.areaPyeong)}
+                        {formatTeamInquiryAreaSummary(item)}
                       </div>
                       <div className="text-fluid-xs text-gray-600 mt-1 truncate">
                         {item.address}
