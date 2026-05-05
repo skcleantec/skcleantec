@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
@@ -14,7 +14,13 @@ import { InquirySettlementPanel } from '../../components/inquiry/InquirySettleme
 import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
-import { postTeamInquiryDetailViewed, patchTeamInquiryCrewMeetingTime } from '../../api/team';
+import {
+  getTeamMe,
+  postTeamInquiryDetailViewed,
+  patchTeamInquiryCrewMeetingTime,
+  type TeamViewerMe,
+} from '../../api/team';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import {
   formatMeetingTimeKoLabel,
@@ -224,6 +230,151 @@ export function marketerInfo(item: InquiryItem): { name: string; phone: string |
   return { name: who.name, phone: who.phone ?? null };
 }
 
+/** 타업체가 협력 팀장에게 붙여넣기할 접수·발주 요약 텍스트 (관리자 「정보 복사」와 동일 계열) */
+export function buildTeamInquiryShareClipText(item: InquiryItem): string {
+  const sections: string[][] = [];
+  const currentSection = (): string[] => {
+    if (sections.length === 0) sections.push([]);
+    return sections[sections.length - 1];
+  };
+  const addRow = (label: string, value: string | null | undefined) => {
+    const v = typeof value === 'string' ? value.trim() : '';
+    if (!v) return;
+    currentSection().push(`· ${label}: ${v}`);
+  };
+  const endSection = () => {
+    if (currentSection().length > 0) sections.push([]);
+  };
+  const leaderClipboardLabel = (u: InquiryItem['assignments'][0]['teamLeader']): string => {
+    if (u.role === 'EXTERNAL_PARTNER') {
+      const tag = teamBiPlain('team.modal.externalPartnerTag');
+      return u.externalCompany?.name ? `${tag} ${u.externalCompany.name}` : `${tag} ${u.name}`;
+    }
+    return u.name;
+  };
+  const fmtWon = (n: number | null | undefined) =>
+    n != null && Number.isFinite(n) ? `${Number(n).toLocaleString('ko-KR')}원` : '';
+
+  addRow('상태', STATUS_LABELS[item.status] ?? item.status);
+  addRow(
+    '접수일',
+    (() => {
+      try {
+        return formatDateCompactWithWeekday(item.createdAt);
+      } catch {
+        return '';
+      }
+    })(),
+  );
+  const mk = marketerInfo(item);
+  addRow('담당 마케터', mk.phone ? `${mk.name} (${mk.phone})` : mk.name);
+  endSection();
+
+  const titleLine = inquiryPrimaryCustomerLabel(item).trim();
+  const memoTitle = (item.scheduleMemo ?? '').trim();
+  if (memoTitle && memoTitle !== titleLine) addRow('수기 제목', memoTitle);
+  addRow('고객 표시명', titleLine);
+  addRow('연락처', item.customerPhone?.trim() || '');
+  addRow('보조 연락처', item.customerPhone2?.trim() || '');
+  endSection();
+
+  addRow('주소', item.address?.trim() || '');
+  addRow('상세주소', item.addressDetail?.trim() || '');
+  endSection();
+
+  addRow('건축물', item.propertyType?.trim() || '');
+  const basis = item.areaBasis?.trim();
+  if (item.areaPyeong != null || basis) {
+    const areaCore = formatTeamAreaPyeongBi(item.areaPyeong);
+    addRow('평수', basis ? `${basis} ${areaCore}` : areaCore);
+  }
+  const structure = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount);
+  if (structure && structure !== teamBiPlain('team.common.emDash')) addRow('구조', structure);
+  addRow('현장 작업자', formatCrewInfo(item));
+  if (isMorningBucketForTeamMeeting(item)) {
+    const cm = (item.crewMeetingTime ?? '').trim();
+    if (cm && isValidCrewMeetingHhmm(normalizeTimeInputToHhmm(cm) ?? cm)) {
+      const norm = normalizeTimeInputToHhmm(cm) ?? cm;
+      addRow('현장 미팅(오전)', formatMeetingTimeKoLabel(norm));
+    }
+  }
+  endSection();
+
+  if (item.preferredDate?.trim()) {
+    try {
+      addRow('예약일', formatDateCompactWithWeekday(item.preferredDate));
+    } catch {
+      addRow('예약일', item.preferredDate.trim());
+    }
+  }
+  let hopeTime = formatScheduleLine(item);
+  const slot = item.betweenScheduleSlot?.trim();
+  if (item.preferredTime && slot) hopeTime = `${hopeTime} (${slot})`;
+  addRow('희망 시간', hopeTime);
+  endSection();
+
+  addRow('총액', fmtWon(item.serviceTotalAmount));
+  addRow('예약금', fmtWon(item.serviceDepositAmount));
+  addRow('잔금', fmtWon(item.serviceBalanceAmount));
+  const hasExtAssign = item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
+  if (hasExtAssign) {
+    addRow('타업체 수수료', item.externalTransferFee != null ? fmtWon(item.externalTransferFee) : '미입력');
+  }
+  endSection();
+
+  addRow(
+    '고객 발주서 특이사항',
+    effectiveCustomerOrderNotes({ specialNotes: item.specialNotes, orderForm: item.orderForm }),
+  );
+  addRow(
+    '특이사항 (관리자·팀장·타업체 공유)',
+    effectiveTeamSharedAdminNotes({
+      memo: item.memo,
+      specialNotes: item.specialNotes,
+      orderForm: item.orderForm,
+    }),
+  );
+  addRow('클레임·C/S 메모', item.claimMemo?.trim() || '');
+  endSection();
+
+  const subAt = item.orderForm?.submittedAt?.trim();
+  if (subAt) {
+    try {
+      addRow(
+        '발주서 제출',
+        new Date(subAt).toLocaleString('ko-KR', {
+          timeZone: 'Asia/Seoul',
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+      );
+    } catch {
+      addRow('발주서 제출', subAt);
+    }
+    endSection();
+  }
+
+  if (item.assignments.length > 0) {
+    const assignLines = item.assignments.map((a) => {
+      const who = leaderClipboardLabel(a.teamLeader);
+      const at = formatAssignedAtModal(a.assignedAt);
+      return `${who}${at !== '—' ? ` · 배정일 ${at}` : ''}`;
+    });
+    addRow('배정', assignLines.join('\n'));
+    endSection();
+  }
+
+  const body = sections
+    .filter((s) => s.length > 0)
+    .map((s) => s.join('\n'))
+    .join('\n\n');
+  const headerLines: string[] = ['━━━━━ 접수·발주 정보 ━━━━━'];
+  if (item.inquiryNumber?.trim()) headerLines.push(`접수번호: ${item.inquiryNumber.trim()}`);
+  const header = headerLines.join('\n');
+  const footer = '━━━━━━━━━━━━━━━━━━━';
+  return body ? `${header}\n\n${body}\n${footer}` : `${header}\n${footer}`;
+}
+
 /** 오늘·내일·N일 후 등만 (없으면 null) */
 export function relativeDateHint(dateStr: string): string | null {
   const parts = dateStr.split('-').map(Number);
@@ -347,9 +498,14 @@ export function TeamInquiryDetailModal({
 }) {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const [happySaving, setHappySaving] = useState(false);
+  const [viewerMe, setViewerMe] = useState<TeamViewerMe | null>(null);
+  const [shareCopyHint, setShareCopyHint] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!teamToken || !item?.id) return;
+    if (!teamToken || !item?.id) {
+      setViewerMe(null);
+      return;
+    }
     let cancelled = false;
     void postTeamInquiryDetailViewed(teamToken, item.id)
       .then(() => {
@@ -358,6 +514,13 @@ export function TeamInquiryDetailModal({
         w.__refreshTeamNavBadges?.();
       })
       .catch(() => {});
+    void getTeamMe(teamToken)
+      .then((me) => {
+        if (!cancelled) setViewerMe(me);
+      })
+      .catch(() => {
+        if (!cancelled) setViewerMe(null);
+      });
     return () => {
       cancelled = true;
     };
@@ -378,6 +541,7 @@ export function TeamInquiryDetailModal({
 
   useEffect(() => {
     setCrewMeetingSaveNotice(null);
+    setShareCopyHint(null);
   }, [item.id]);
 
   const handleHappyCallComplete = async () => {
@@ -470,6 +634,17 @@ export function TeamInquiryDetailModal({
     return n !== (savedNorm ?? null);
   })();
 
+  const showExternalShareCopy =
+    Boolean(teamToken) &&
+    (viewerMe?.role === 'EXTERNAL_PARTNER' || Boolean(viewerMe?.previewExternal));
+
+  const handleShareCopy = useCallback(async () => {
+    setShareCopyHint(null);
+    const ok = await copyTextToClipboard(buildTeamInquiryShareClipText(item));
+    setShareCopyHint(ok ? teamBiPlain('team.modal.copyShareDone') : teamBiPlain('team.modal.copyShareFail'));
+    window.setTimeout(() => setShareCopyHint(null), 1800);
+  }, [item]);
+
   const mine = viewerTeamLeaderId ? myAssignmentForViewer(item, viewerTeamLeaderId) : null;
   const primaryCustomerTitle = inquiryPrimaryCustomerLabel(item);
   const scheduleMemoTrim = item.scheduleMemo?.trim() ?? '';
@@ -509,7 +684,18 @@ export function TeamInquiryDetailModal({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
+            {showExternalShareCopy ? (
+              <button
+                type="button"
+                onClick={() => void handleShareCopy()}
+                className="shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
+                title={teamBiPlain('team.modal.copyShareOrderTitle')}
+                aria-live="polite"
+              >
+                {shareCopyHint ?? teamBiPlain('team.modal.copyShareOrder')}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onClose}

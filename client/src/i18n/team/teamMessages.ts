@@ -253,6 +253,13 @@ export const teamMessages = {
 
   'team.modal.externalPartnerTag': { ko: '[타업체]'},
 
+  'team.modal.copyShareOrder': { ko: '복사하기'},
+  'team.modal.copyShareOrderTitle': {
+    ko: '접수·발주(고객·현장·일정·금액·특이사항·배정 등) 전체를 텍스트로 복사합니다. 협력 팀장에게 전달할 때 사용하세요.',
+},
+  'team.modal.copyShareDone': { ko: '복사됨'},
+  'team.modal.copyShareFail': { ko: '복사 실패'},
+
   'team.room.room': { ko: '방'},
   'team.room.bath': { ko: '화'},
   'team.room.veranda': { ko: '베'},
