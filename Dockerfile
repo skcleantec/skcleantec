@@ -12,21 +12,19 @@ ENV NODE_OPTIONS=--max-old-space-size=6144
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
-
+# 루트 package.json은 로컬 concurrently용 — 이미지 빌드에 불필요(이 단계 제거로 설치·네트워크 시간 단축)
 COPY server/package.json server/package-lock.json ./server/
-RUN cd server && npm ci
+RUN cd server && npm ci --no-audit --no-fund
 
 COPY client/package.json client/package-lock.json ./client/
-RUN cd client && npm ci
+RUN cd client && npm ci --no-audit --no-fund
 
-COPY scripts ./scripts
 COPY server ./server
 COPY client ./client
 
 WORKDIR /app/server
-RUN node scripts/prepare-schema.js && npx prisma generate && npm run build
+# npm run build 안에 이미 prepare-schema + prisma generate + tsc 포함 — 이중 실행 제거
+RUN npm run build
 
 WORKDIR /app/client
 RUN npm run build
