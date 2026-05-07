@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { KakaoPostcodeEmbed } from 'react-daum-postcode';
+import { KakaoPostcodeEmbed, type Address as KakaoPostcodeAddress } from 'react-daum-postcode';
 
 interface AddressSearchProps {
   value: string;
@@ -9,14 +9,18 @@ interface AddressSearchProps {
   className?: string;
 }
 
-/** 카카오(구 다음) 주소 API 완료 콜백 데이터 (필요 필드만) */
-function addressLineFromPostcodeData(data: {
-  address?: string;
-  roadAddress?: string;
-  jibunAddress?: string;
-  buildingName?: string;
-}) {
-  const fullAddress = data.address || data.roadAddress || data.jibunAddress || '';
+/**
+ * 카카오 우편번호 완료 → 도로명 한 줄 우선.
+ * 지번/기본 `address`는 광역시명이 빠진 표기(대전 서구 …)인 경우가 많아, 지역 필터·행정명 일치를 위해
+ * `roadAddress`(및 자동 매핑 도로명)를 먼저 쓴다.
+ */
+function addressLineFromPostcodeData(data: KakaoPostcodeAddress) {
+  const road = (data.roadAddress ?? '').trim();
+  const autoRoad = (data.autoRoadAddress ?? '').trim();
+  const main = (data.address ?? '').trim();
+  const jibun = (data.jibunAddress ?? '').trim();
+  const autoJibun = (data.autoJibunAddress ?? '').trim();
+  const fullAddress = road || autoRoad || main || jibun || autoJibun;
   const buildingName = data.buildingName ? ` ${data.buildingName}` : '';
   return fullAddress + buildingName;
 }
