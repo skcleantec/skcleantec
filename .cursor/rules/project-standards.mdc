@@ -86,7 +86,8 @@ alwaysApply: true
 ## 9. 배포 (운영)
 
 - **운영 배포는 Railway만 사용한다. Vercel은 사용하지 않는다.**
-- 배포·빌드·시작 명령의 기준은 저장소 루트 **`railway.json`** 과 Railway 프로젝트 설정이다. **preDeploy·Prisma 규칙**: **`.cursor/rules/prisma-migrate-and-deploy.mdc`**
+- 배포·빌드·시작 명령의 기준은 저장소 루트 **`railway.json`** 과 Railway 프로젝트 설정이다. **Docker 멀티스테이지 빌드·Railpack 복귀 금지·캐시/prune 규칙**: **`.cursor/rules/railway-docker-deploy.mdc`** (속도·안정성 유지)
+- **preDeploy·Prisma 규칙**: **`.cursor/rules/prisma-migrate-and-deploy.mdc`**
 - 문서·가이드·답변에서 배포 절차를 안내할 때 **Vercel을 전제로 하지 않는다.** (루트 `vercel.json` 등은 레거시·참고용이며 운영 단일 소스가 아니다.)
 - **접수 변경 이력(`InquiryChangeLog`) 삭제**는 **최고 관리자**만 가능하다. 기본은 로그인 이메일 `admin`(환경변수 `SUPER_ADMIN_EMAIL`로 변경 가능). 삭제 API는 **본인 비밀번호** 확인 후에만 처리한다.
 - **삭제 기능 일반 규칙**: 앞으로 추가하는 **모든 삭제(데이터 영구 삭제) API·화면**은 **본인 비밀번호 확인 후**에만 동작하도록 한다. 상세는 `.cursor/rules/delete-password-and-date-presets.mdc` 참고.

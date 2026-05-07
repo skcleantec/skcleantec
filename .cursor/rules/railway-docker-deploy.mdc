@@ -1,0 +1,41 @@
+---
+description: Railway 배포 — Dockerfile 멀티스테이지 빌드 고정·속도·안전성 (Railpack 복귀 금지)
+alwaysApply: true
+---
+
+# Railway 배포 — Docker 빌드 표준 (유지 필수)
+
+## 목적
+
+- **빌드·배포 속도와 재현성**을 안정적으로 유지한다. (Railpack 단독 빌드로 되돌렸을 때 발생했던 **gRPC 끊김·OOM** 등 회귀 방지)
+- 운영 단일 소스는 저장소 루트 **`railway.json`** + **`Dockerfile`** 이다.
+
+## 필수 (에이전트·개발자)
+
+1. **`railway.json`** 의 `build.builder`는 **`DOCKERFILE`** 로 둔다. **`dockerfilePath`는 루트 `Dockerfile`**.
+2. **Railpack / Nixpacks 기본 빌더만 쓰는 방식으로 바꾸지 않는다.** 구조 변경이 필요하면 **팀 합의 후**이며, 빌드·헬스·preDeploy 전부 재검증한다.
+3. **`Dockerfile` 맨 위 주석 정책을 유지한다**: `# syntax=docker/dockerfile:1` **를 넣지 않는다** (BuildKit 프론트 gRPC 이슈·Railway Metal 빌더 대응).
+4. **빌드 단계 패턴** (의도적으로 바꾸지 않는다. 개선은 동일 목표 하에서만):
+   - 베이스: `node:22-bookworm-slim`, 멀티 스테이지 `build` → `runner`.
+   - `build` 스테이지: `DATABASE_URL` 더미(Postgres 가정), `NODE_OPTIONS=--max-old-space-size=6144`, **`CI=true`**.
+   - **의존성 캐시**: `server/package.json` + `server/package-lock.json` → `npm ci` → 동일하게 `client` → 그다음 **`COPY server` / `COPY client`** (lock만 바뀐 경우 상위 레이어 캐시 유지).
+   - 서버: `npm run build` 후 반드시 **`npm prune --omit=dev`** (러너 `node_modules`·이미지 전송량 감소, preDeploy에 필요한 `dependencies`는 유지).
+   - 클라이언트: **`NODE_ENV=production npm run build`** (프로덕션 번들).
+   - `runner`: `NODE_ENV=production`, 필요 시 `NODE_OPTIONS=--max-old-space-size=4096`, `dist`·`prisma`·`scripts`·클라 `dist` 복사 패턴 유지.
+
+## `.dockerignore`
+
+- **빌드 컨텍스트만 줄이는 항목**만 둔다 (`node_modules`, `dist`, `.git`, `.cursor`, `.github` 등).
+- **`**/test` 등 애매한 글로브**로 앱 소스 일부가 빠져 **이미지 빌드만 깨지는** 설정은 넣지 않는다. (과거 `tsconfig` 누락 사례 방지)
+
+## preDeploy·DB
+
+- **마이그레이션·시드·백필** 규칙은 **`.cursor/rules/prisma-migrate-and-deploy.mdc`** 를 따른다. 본 룰은 **이미지 빌드 방식**만 고정한다.
+
+## 변경 시 권장 검증
+
+- **`Dockerfile`** 또는 **`railway.json` build** 를 수정한 경우: 가능하면 로컬에서 **`docker build`** 로 한 번 성공 확인 후 푸시한다.
+
+## 참고 파일
+
+- `Dockerfile`, `.dockerignore`, `railway.json`
