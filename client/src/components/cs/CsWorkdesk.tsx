@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { getCsReports, updateCsReport, deleteCsReport, type CsReport } from '../../api/cs';
-import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
 import { getMe } from '../../api/auth';
 import { getTeamCsReports, patchTeamCsReport } from '../../api/team';
 import { getToken } from '../../stores/auth';
@@ -81,7 +81,7 @@ function processorNameLabel(item: CsReport): string {
 }
 
 function formatAreaLine(inquiry: NonNullable<CsReport['inquiry']>): string {
-  return formatInquiryAreaKoLine({
+  return formatInquiryAreaKoShort({
     areaBasis: inquiry.areaBasis,
     areaPyeong: inquiry.areaPyeong,
     exclusiveAreaSqm: inquiry.exclusiveAreaSqm,

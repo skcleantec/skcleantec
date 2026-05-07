@@ -30,6 +30,7 @@ import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { formatPreferredDateInputYmd, formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { formatInquiryAreaKoShortFromEditStrings } from '../../utils/inquiryAreaDisplay';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
@@ -437,34 +438,12 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
 
   // 현장 정보
   addRow('건축물', editForm.propertyType);
-  if (editForm.areaBasis.trim() === '공급') {
-    const areaValue = editForm.areaPyeong.trim();
-    if (areaValue) addRow('면적', `${areaValue}평 · 공급면적 (분양평수)`);
-  }
-  if (editForm.areaBasis.trim() === '전용') {
-    const sqRaw = editForm.exclusiveAreaSqm.trim();
-    if (sqRaw) {
-      const sqNum = parseFloat(sqRaw.replace(/,/g, ''));
-      if (!Number.isNaN(sqNum) && sqNum > 0) {
-        addRow(
-          '면적',
-          `${sqNum.toLocaleString('ko-KR')}㎡ · 전용면적 (실제 내 집 공간)`
-        );
-      }
-    }
-  }
-  if (
-    !editForm.areaBasis.trim() &&
-    (editForm.areaPyeong.trim() || editForm.exclusiveAreaSqm.trim())
-  ) {
-    const areaValue = editForm.areaPyeong.trim();
-    if (areaValue) addRow('평수(레거시)', `${areaValue}평`);
-    const sqRaw = editForm.exclusiveAreaSqm.trim();
-    if (sqRaw) {
-      const sqNum = parseFloat(sqRaw.replace(/,/g, ''));
-      if (!Number.isNaN(sqNum) && sqNum > 0) addRow('면적(레거시)', `${sqNum}㎡`);
-    }
-  }
+  const areaCopy = formatInquiryAreaKoShortFromEditStrings({
+    areaBasis: editForm.areaBasis,
+    areaPyeong: editForm.areaPyeong,
+    exclusiveAreaSqm: editForm.exclusiveAreaSqm,
+  });
+  if (areaCopy !== '—') addRow('면적', areaCopy);
   const structureParts: string[] = [];
   if (editForm.roomCount.trim()) structureParts.push(`방 ${editForm.roomCount}`);
   if (editForm.bathroomCount.trim()) structureParts.push(`화 ${editForm.bathroomCount}`);
@@ -1275,6 +1254,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     }
   }, [item, editForm]);
 
+  const detailHeaderAreaShort = useMemo(() => {
+    if (isCreate || !item) return '—';
+    return formatInquiryAreaKoShortFromEditStrings({
+      areaBasis: editForm.areaBasis,
+      areaPyeong: editForm.areaPyeong,
+      exclusiveAreaSqm: editForm.exclusiveAreaSqm,
+    });
+  }, [isCreate, item, editForm.areaBasis, editForm.areaPyeong, editForm.exclusiveAreaSqm]);
+
   return (
     <>
       {createPortal(
@@ -1421,6 +1409,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <p className="text-xs text-gray-500 leading-relaxed">
                 {item.inquiryNumber ? `접수번호 ${item.inquiryNumber}` : null}
                 {distanceJuanLabel ? `${item.inquiryNumber ? ' · ' : ''}주안 기준 ${distanceJuanLabel}` : null}
+                {detailHeaderAreaShort !== '—' ? ` · ${detailHeaderAreaShort}` : null}
                 {isManualIntakeInquiry(item.source) ? ' · 수기' : null}
                 {!isInquirySourceHiddenFromUi(item.source)
                   ? ` · 출처: ${formatInquirySourceLabel(item.source)}`

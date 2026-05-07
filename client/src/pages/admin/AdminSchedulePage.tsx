@@ -31,7 +31,7 @@ import {
   type UserItem,
 } from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
-import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
@@ -418,7 +418,7 @@ function ScheduleDayListItem({
         >
           {shortSiGuFromAddress(item.address)}
           {(() => {
-            const areaStr = formatInquiryAreaKoLine({
+            const areaStr = formatInquiryAreaKoShort({
               areaBasis: item.areaBasis,
               areaPyeong: item.areaPyeong,
               exclusiveAreaSqm: item.exclusiveAreaSqm,

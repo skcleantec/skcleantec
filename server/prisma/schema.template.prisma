@@ -981,7 +981,7 @@ model UserCustomCalendar {
   userId    String   @map("user_id")
   name      String   @db.VarChar(64)
   regions   Json
-  /// 탭 색상 키 (teal/amber/rose/violet/sky/emerald/slate 중 하나)
+  /// 탭 색상 키 — `CUSTOM_CALENDAR_COLOR_KEYS`(클라·서버 constants)에 정의된 짧은 영문 식별자
   colorKey  String   @default("teal") @map("color_key") @db.VarChar(16)
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")

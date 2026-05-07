@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { sanitizeCustomCalendarColorKey } from '../../constants/customCalendarColorKeys.js';
 
 /** 비동기 핸들러 에러를 JSON 500으로 내려주는 래퍼 */
 function asyncHandler(
@@ -32,8 +33,6 @@ const router = Router();
 
 router.use(authMiddleware);
 
-const COLOR_KEYS = ['teal', 'amber', 'rose', 'violet', 'sky', 'emerald', 'slate'] as const;
-
 function authUser(req: import('express').Request): AuthPayload {
   return (req as unknown as { user: AuthPayload }).user;
 }
@@ -53,12 +52,6 @@ function sanitizeRegions(value: unknown): string[] | null {
     if (cleaned.length >= 200) break;
   }
   return cleaned;
-}
-
-function sanitizeColorKey(value: unknown): string {
-  if (typeof value !== 'string') return 'teal';
-  const k = value.trim();
-  return (COLOR_KEYS as readonly string[]).includes(k) ? k : 'teal';
 }
 
 router.get(
@@ -95,7 +88,7 @@ router.post(
       return;
     }
 
-    const colorKey = sanitizeColorKey(body.colorKey);
+    const colorKey = sanitizeCustomCalendarColorKey(body.colorKey);
 
     const last = await prisma.userCustomCalendar.findFirst({
       where: { userId },
@@ -158,7 +151,7 @@ router.patch(
     }
 
     if (body.colorKey !== undefined) {
-      data.colorKey = sanitizeColorKey(body.colorKey);
+      data.colorKey = sanitizeCustomCalendarColorKey(body.colorKey);
     }
 
     if (body.sortOrder !== undefined) {

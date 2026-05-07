@@ -5,6 +5,7 @@ import { HelpTooltip } from '../ui/HelpTooltip';
 import { KOREAN_REGION_GROUPS } from '../../constants/koreanCities';
 import {
   CUSTOM_CALENDAR_COLOR_KEYS,
+  CUSTOM_CALENDAR_COLOR_LABEL_KO,
   customCalendarColorTokens,
   pickAutoColorKey,
   type CustomCalendarColorKey,
@@ -336,31 +337,45 @@ export function CustomCalendarCreateModal({
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
-            <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="flex items-center gap-1.5 mb-2">
               <div className="block text-fluid-sm font-medium text-gray-800">탭 색상</div>
-              <HelpTooltip text="상단 캘린더 탭에 표시될 색상입니다." className="shrink-0" />
+              <HelpTooltip
+                text="상단 캘린더 탭·달력 배지에 쓰입니다. 여러 캘린더를 색으로 구분해 보세요."
+                className="shrink-0"
+              />
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-8 sm:gap-2">
               {CUSTOM_CALENDAR_COLOR_KEYS.map((k) => {
                 const t = customCalendarColorTokens(k);
                 const active = colorKey === k;
+                const label = CUSTOM_CALENDAR_COLOR_LABEL_KO[k];
                 return (
                   <button
                     key={k}
                     type="button"
                     onClick={() => setColorKey(k)}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-fluid-xs ${
-                      active ? t.tabActive : t.tabIdle
+                    className={`flex min-w-0 flex-col items-center gap-0.5 rounded-lg border px-0.5 py-1 text-center transition sm:px-1 sm:py-1.5 ${
+                      active
+                        ? 'border-gray-900 bg-gray-50 ring-2 ring-gray-900 ring-offset-1'
+                        : 'border-transparent bg-gray-50/80 hover:border-gray-200 hover:bg-gray-50'
                     }`}
                     aria-pressed={active}
-                    title={k}
+                    aria-label={`색상 ${label}`}
+                    title={`${label} (${k})`}
                   >
-                    <span className={`h-2 w-2 rounded-full ${t.dot} ${active ? 'bg-white' : ''}`} />
-                    <span className="capitalize">{k}</span>
+                    <span
+                      className={`h-6 w-6 shrink-0 rounded-full border border-black/10 sm:h-7 sm:w-7 ${t.dot}`}
+                    />
+                    <span className="w-full truncate text-[8px] font-medium text-gray-700 min-[380px]:text-[9px] sm:text-[10px] leading-tight">
+                      {label}
+                    </span>
                   </button>
                 );
               })}
             </div>
+            <p className="mt-2 text-[10px] text-gray-500 leading-snug">
+              선택: <span className="font-medium text-gray-700">{CUSTOM_CALENDAR_COLOR_LABEL_KO[colorKey]}</span>
+            </p>
           </div>
 
           {error && (

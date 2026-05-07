@@ -22,6 +22,7 @@ import {
   type TeamViewerMe,
 } from '../../api/team';
 import { copyTextToClipboard } from '../../utils/clipboard';
+import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import {
   formatMeetingTimeKoLabel,
@@ -33,7 +34,6 @@ import {
   TeamBiLine,
   TeamBiInline,
   fillTeamTemplate,
-  formatTeamAreaPyeongBi,
   teamBiPlain,
   teamInquiryStatus,
   teamInquiryStatusKoRecord,
@@ -203,26 +203,8 @@ export function formatTeamInquiryAreaSummary(item: {
   areaPyeong?: number | null;
   exclusiveAreaSqm?: number | null;
 }): string {
-  const b = item.areaBasis?.trim();
-  const sqm =
-    item.exclusiveAreaSqm != null && Number.isFinite(item.exclusiveAreaSqm)
-      ? item.exclusiveAreaSqm
-      : null;
-  const py = item.areaPyeong != null && Number.isFinite(item.areaPyeong) ? item.areaPyeong : null;
-  const core = formatTeamAreaPyeongBi(item.areaPyeong);
-
-  if (b === '공급') {
-    return py != null ? `공급 ${core}` : core;
-  }
-  if (b === '전용') {
-    if (sqm != null) {
-      const sqStr = Number(sqm).toLocaleString('ko-KR');
-      return py != null ? `전용 ${sqStr}㎡ (${core})` : `전용 ${sqStr}㎡`;
-    }
-    return `전용 ${core}`;
-  }
-  if (py != null && sqm != null) return `${core} · ${Number(sqm).toLocaleString('ko-KR')}㎡`;
-  return core;
+  const s = formatInquiryAreaKoShort(item);
+  return s === '—' ? teamT('team.common.emDash') : s;
 }
 
 export function formatRoomInfo(r: number | null, b: number | null, v: number | null) {

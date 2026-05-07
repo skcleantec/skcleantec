@@ -57,7 +57,7 @@ import {
   isInquirySourceHiddenFromUi,
   phoneListTwoLines,
 } from '../../utils/inquiryListDisplay';
-import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryAreaKoLine, formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
 import { happyCallRowTone } from '../../utils/happyCall';
 import {
   effectiveAdminTeamSpecialNotes,
@@ -438,7 +438,7 @@ function formatInquiryTeamSummary(item: InquiryItem): string {
 /** 모바일 카드: 면적·방(값 있을 때만) + 팀 요약, `- · -` 방지 */
 function formatInquiryMobileSpecsTail(item: InquiryItem): string {
   const segs: string[] = [];
-  const area = formatInquiryAreaKoLine(item);
+  const area = formatInquiryAreaKoShort(item);
   if (area !== '-') segs.push(area);
   const rooms = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount);
   if (rooms !== '-') segs.push(rooms);
@@ -2398,7 +2398,7 @@ export function AdminInquiriesPage() {
                       className={`min-w-0 px-0.5 py-1 align-middle text-center text-[10px] leading-tight tabular-nums text-gray-600 xl:px-1 xl:py-1.5 2xl:text-[11px] ${pBorder}`}
                       title={formatInquiryAreaKoLine(item)}
                     >
-                      <span className="line-clamp-2 break-words">{formatInquiryAreaKoLine(item)}</span>
+                      <span className="line-clamp-2 break-words">{formatInquiryAreaKoShort(item)}</span>
                     </td>
                     <td className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}>
                       <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
