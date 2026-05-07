@@ -130,8 +130,12 @@ export function InquiryCleaningPhotosPanel({
     [visibleItems]
   );
 
-  const handleFiles = async (files: FileList | null, phase: CleaningPhotoPhase) => {
-    const raw = Array.from(files ?? []).filter((f) => f.type.startsWith('image/'));
+  const handleFiles = async (files: File[], phase: CleaningPhotoPhase) => {
+    const raw = files.filter((f) => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/i.test(f.name));
+    if (files.length > 0 && raw.length === 0) {
+      setError('지원 형식의 이미지만 올릴 수 있습니다. (JPEG, PNG, WebP, GIF)');
+      return;
+    }
     if (raw.length === 0) return;
     const batch = raw.slice(0, 20);
     setUploading(true);
@@ -229,9 +233,10 @@ export function InquiryCleaningPhotosPanel({
                   className="sr-only"
                   disabled={uploading}
                   onChange={(e) => {
-                    const list = e.target.files;
-                    e.target.value = '';
-                    void handleFiles(list, 'BEFORE');
+                    const input = e.target;
+                    const picked = input.files ? Array.from(input.files) : [];
+                    input.value = '';
+                    void handleFiles(picked, 'BEFORE');
                   }}
                 />
               </div>
@@ -254,9 +259,10 @@ export function InquiryCleaningPhotosPanel({
                   className="sr-only"
                   disabled={uploading}
                   onChange={(e) => {
-                    const list = e.target.files;
-                    e.target.value = '';
-                    void handleFiles(list, 'AFTER');
+                    const input = e.target;
+                    const picked = input.files ? Array.from(input.files) : [];
+                    input.value = '';
+                    void handleFiles(picked, 'AFTER');
                   }}
                 />
               </div>
@@ -285,9 +291,10 @@ export function InquiryCleaningPhotosPanel({
                 className="sr-only"
                 disabled={uploading}
                 onChange={(e) => {
-                  const list = e.target.files;
-                  e.target.value = '';
-                  void handleFiles(list, uploadPhase);
+                  const input = e.target;
+                  const picked = input.files ? Array.from(input.files) : [];
+                  input.value = '';
+                  void handleFiles(picked, uploadPhase);
                 }}
               />
               <button

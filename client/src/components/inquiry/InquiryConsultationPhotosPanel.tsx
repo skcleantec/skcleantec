@@ -67,8 +67,17 @@ export function InquiryConsultationPhotosPanel({
     [items]
   );
 
-  const handleFiles = async (files: FileList | null) => {
-    const raw = Array.from(files ?? []).filter((f) => f.type.startsWith('image/'));
+  const isLikelyUploadableImage = (f: File) => {
+    if (f.type.startsWith('image/')) return true;
+    return /\.(jpe?g|png|gif|webp)$/i.test(f.name);
+  };
+
+  const handleFiles = async (files: File[]) => {
+    const raw = files.filter(isLikelyUploadableImage);
+    if (files.length > 0 && raw.length === 0) {
+      setError('지원 형식의 이미지만 올릴 수 있습니다. (JPEG, PNG, WebP, GIF)');
+      return;
+    }
     if (raw.length === 0) return;
     const batch = raw.slice(0, 20);
     setUploading(true);
@@ -79,7 +88,13 @@ export function InquiryConsultationPhotosPanel({
     }
     try {
       const res = await uploadAdminConsultationPhotos(token, inquiryId, batch);
-      setItems((prev) => [...res.items, ...prev]);
+      const uploaded = Array.isArray(res.items) ? res.items : [];
+      if (uploaded.length > 0) {
+        setItems((prev) => [...uploaded, ...prev]);
+      } else {
+        const again = await listAdminConsultationPhotos(token, inquiryId);
+        setItems(again.items);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : '업로드에 실패했습니다.');
     } finally {
@@ -115,14 +130,15 @@ export function InquiryConsultationPhotosPanel({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
+              accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.gif,.webp"
               multiple
               className="sr-only"
               disabled={uploading}
               onChange={(e) => {
-                const list = e.target.files;
-                e.target.value = '';
-                void handleFiles(list);
+                const input = e.target;
+                const picked = input.files ? Array.from(input.files) : [];
+                input.value = '';
+                void handleFiles(picked);
               }}
             />
             <button
@@ -153,8 +169,8 @@ export function InquiryConsultationPhotosPanel({
               <ImageThumbLightbox
                 src={photo.secureUrl}
                 alt="상담 참고 사진"
-                thumbClassName="h-8 w-full max-h-8 object-cover"
-                buttonClassName="flex min-h-[44px] w-full items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
+                thumbClassName="h-20 w-full max-h-20 object-cover"
+                buttonClassName="flex min-h-[80px] w-full items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
                 gallerySlides={gallerySlides.length > 1 ? gallerySlides : undefined}
                 galleryIndex={items.findIndex((p) => p.id === photo.id)}
               />
