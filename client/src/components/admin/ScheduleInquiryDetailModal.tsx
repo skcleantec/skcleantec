@@ -186,6 +186,8 @@ type EditFormFields = {
   externalTransferFee: string;
   /** 수기(간편) 등록 제목(접수 리스트 노출) */
   scheduleMemo: string;
+  /** 상담·참고 — 마케터 메모 (팀장·타업체와 공유, 접수 저장 시 반영) */
+  consultationMemo: string;
   professionalOptionIds: string[];
 };
 
@@ -221,6 +223,7 @@ function buildPatchFromEditForm(
     serviceBalanceAmount: parseWon(editForm.amountBalance),
     externalTransferFee: parseWon(editForm.externalTransferFee),
     scheduleMemo: editForm.scheduleMemo.trim() || null,
+    consultationMemo: editForm.consultationMemo.trim() || null,
     professionalOptionIds: editForm.professionalOptionIds,
   };
   if (opts?.includeCreatedById === true) {
@@ -513,6 +516,9 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
       orderForm: item.orderForm,
     })
   );
+  if (editForm.consultationMemo.trim()) {
+    addRow('상담·마케터 메모', editForm.consultationMemo.trim());
+  }
 
   // 헤더와 합치기
   const body = sections
@@ -664,6 +670,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         amountBalance: '',
         externalTransferFee: '',
         scheduleMemo: '',
+        consultationMemo: '',
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
       };
     }
@@ -702,6 +709,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       scheduleMemo: it.scheduleMemo ?? '',
+      consultationMemo: it.consultationMemo ?? '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     };
   });
@@ -839,6 +847,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       scheduleMemo: it.scheduleMemo ?? '',
+      consultationMemo: it.consultationMemo ?? '',
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     });
     setMarketerQuickValue(it.createdBy?.id ?? '');
@@ -2316,16 +2325,25 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         </AdminScheduleDetailSection>
 
         {!isCreate && item && (
-          <AdminScheduleDetailSection
-            title="상담·참고 사진 (마케터·관리자 업로드)"
-            sectionAnchor="consultation-photos"
-          >
-            <div className="min-w-0 space-y-2">
-              <p className="text-fluid-xs text-gray-600">
-                고객과 상담 중 받은 현장 사진 등을 올리면, 배정된 팀장·타업체 담당과 마케터가 함께 확인할 수 있습니다. 삭제 시
-                본인 비밀번호 확인이 필요합니다.
-              </p>
-              <InquiryConsultationPhotosPanel inquiryId={item.id} variant="admin" token={token} />
+          <AdminScheduleDetailSection title="상담·참고" sectionAnchor="consultation-photos">
+            <div className="min-w-0 space-y-4">
+              <div>
+                <p className="text-fluid-xs font-medium text-gray-700 mb-2">사진 업로드</p>
+                <InquiryConsultationPhotosPanel inquiryId={item.id} variant="admin" token={token} />
+              </div>
+              <div>
+                <label htmlFor="inq-consultation-memo" className="text-fluid-xs font-medium text-gray-700 mb-1.5 block">
+                  메모 (마케터 메모)
+                </label>
+                <textarea
+                  id="inq-consultation-memo"
+                  value={editForm.consultationMemo}
+                  onChange={(e) => setEditForm((p) => ({ ...p, consultationMemo: e.target.value }))}
+                  rows={5}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm min-h-[100px]"
+                  placeholder="상담·전달 사항을 입력하세요. 저장하면 담당 팀장·타업체 화면에도 표시됩니다."
+                />
+              </div>
             </div>
           </AdminScheduleDetailSection>
         )}

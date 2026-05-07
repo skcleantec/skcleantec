@@ -116,6 +116,10 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
     const v = body.scheduleMemo;
     data.scheduleMemo = v == null || v === '' ? null : String(v);
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'consultationMemo')) {
+    const v = body.consultationMemo;
+    data.consultationMemo = v == null || v === '' ? null : String(v);
+  }
   if (Object.prototype.hasOwnProperty.call(body, 'claimMemo')) {
     const v = body.claimMemo;
     data.claimMemo = v == null || v === '' ? null : String(v);

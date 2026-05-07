@@ -288,6 +288,8 @@ interface InquiryItem {
   memo: string | null;
   /** 수기(간편) 등록 제목(리스트용) */
   scheduleMemo?: string | null;
+  /** 상담·참고 마케터 메모 */
+  consultationMemo?: string | null;
   claimMemo: string | null;
   buildingType: string | null;
   moveInDate: string | null;

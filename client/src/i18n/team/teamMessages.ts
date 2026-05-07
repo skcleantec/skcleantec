@@ -137,10 +137,9 @@ export const teamMessages = {
   'team.modal.orderPhotosHint': {
     ko: '고객이 발주서 작성 시 올린 현장 컨디션·특이 부위 사진입니다. 도착 전 참고용으로 확인하세요.',
 },
-  'team.modal.consultationPhotosTitle': { ko: '상담·참고 사진 (마케터·관리자)' },
-  'team.modal.consultationPhotosHint': {
-    ko: '상담·문의 과정에서 마케터 또는 관리자가 올린 참고 사진입니다. 발주서 고객 첨부와 별도이며, 읽기 전용입니다.',
-},
+  'team.modal.consultationSectionTitle': { ko: '상담·참고'},
+  'team.modal.consultationMemoLabel': { ko: '메모 (마케터 메모)'},
+  'team.modal.consultationThumbsLabel': { ko: '썸네일'},
   'team.modal.cleaningPhotosSummary': { ko: '현장 사진 (청소 전·후)'},
   'team.modal.cleaningPhotosHint': {
     ko: '사진 올리기를 펼쳐 청소 전·후로 올리거나, 등록된 사진을 확인할 수 있습니다.',

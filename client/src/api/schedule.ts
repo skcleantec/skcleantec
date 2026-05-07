@@ -47,6 +47,8 @@ export interface ScheduleItem {
   memo?: string | null;
   /** 스케줄 목록 전용 짧은 메모(특이사항·발주서 메모와 별개) */
   scheduleMemo?: string | null;
+  /** 상담·참고용 마케터 메모 — 팀장·타업체와 공유 */
+  consultationMemo?: string | null;
   claimMemo?: string | null;
   callAttempt?: number | null;
   buildingType?: string | null;

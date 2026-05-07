@@ -148,6 +148,8 @@ export interface InquiryItem {
   crewMembers?: Array<{ name: string; phone: string | null }>;
   /** 관리자 입력 수기(간편) 등록 제목 */
   scheduleMemo?: string | null;
+  /** 상담·참고 — 마케터 메모 (팀 화면 공유) */
+  consultationMemo?: string | null;
   claimMemo: string | null;
   createdAt: string;
   createdBy?: { id: string; name: string; phone?: string | null } | null;
@@ -1143,19 +1145,29 @@ export function TeamInquiryDetailModal({
 
             <section className="min-w-0 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/75">
               <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-indigo-950">
-                <TeamBiLine id="team.modal.consultationPhotosTitle" koClassName="text-fluid-sm font-medium text-indigo-950" />
+                <TeamBiLine id="team.modal.consultationSectionTitle" koClassName="text-fluid-sm font-medium text-indigo-950" />
               </header>
-              <div className="border-t border-indigo-200/80 px-4 pb-4 pt-1">
-                <div className="mb-3 text-fluid-xs text-indigo-900/85">
-                  <TeamBiLine id="team.modal.consultationPhotosHint" koClassName="text-fluid-xs text-indigo-900/85" />
-                </div>
-                {teamToken ? (
-                  <InquiryConsultationPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded />
-                ) : (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
-                    <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+              <div className="border-t border-indigo-200/80 px-4 pb-4 pt-3 space-y-4">
+                <div>
+                  <p className="text-fluid-xs font-medium text-indigo-950 mb-1.5">
+                    <TeamBiLine id="team.modal.consultationMemoLabel" koClassName="text-fluid-xs font-medium text-indigo-950" />
+                  </p>
+                  <div className="rounded-lg border border-indigo-200/80 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 whitespace-pre-wrap break-words min-h-[2.5rem]">
+                    {item.consultationMemo?.trim() ? item.consultationMemo.trim() : '—'}
                   </div>
-                )}
+                </div>
+                <div>
+                  <p className="text-fluid-xs font-medium text-indigo-950 mb-1.5">
+                    <TeamBiLine id="team.modal.consultationThumbsLabel" koClassName="text-fluid-xs font-medium text-indigo-950" />
+                  </p>
+                  {teamToken ? (
+                    <InquiryConsultationPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded hideThumbLabel />
+                  ) : (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                      <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+                    </div>
+                  )}
+                </div>
               </div>
             </section>
 

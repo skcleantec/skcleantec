@@ -57,6 +57,7 @@ const scheduleListSelectLite = {
   memo: true,
   specialNotes: true,
   scheduleMemo: true,
+  consultationMemo: true,
   crewMemberCount: true,
   crewMemberNote: true,
   professionalOptionIds: true,

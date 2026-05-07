@@ -647,6 +647,8 @@ router.patch('/:id', async (req, res) => {
   if (data.specialNotes !== undefined) pushIfChanged('특이사항', inquiry.specialNotes, data.specialNotes);
   if (data.memo !== undefined) pushIfChanged('메모', inquiry.memo, data.memo);
   if (data.scheduleMemo !== undefined) pushIfChanged('일정 메모', inquiry.scheduleMemo, data.scheduleMemo);
+  if (data.consultationMemo !== undefined)
+    pushIfChanged('상담·마케터 메모', inquiry.consultationMemo, data.consultationMemo);
   if (data.claimMemo !== undefined) pushIfChanged('클레임 메모', inquiry.claimMemo, data.claimMemo);
   if (data.status !== undefined) pushIfChanged('상태', inquiry.status, data.status, fmtStatus);
   /**
@@ -819,6 +821,10 @@ router.patch('/:id', async (req, res) => {
   if (!updated) {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
+  }
+  if (data.consultationMemo !== undefined) {
+    const leaderIds = updated.assignments.map((a) => a.teamLeaderId);
+    if (leaderIds.length > 0) notifyInboxRefresh(leaderIds);
   }
   void notifyAfterInquiryPatch({
     inquiryBefore: {

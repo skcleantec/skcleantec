@@ -22,6 +22,8 @@ type Props = {
   variant: 'team' | 'admin';
   token: string;
   embedded?: boolean;
+  /** 바깥에서 제목을 붙일 때 패널 내부 「썸네일」 라벨 숨김 */
+  hideThumbLabel?: boolean;
 };
 
 export function InquiryConsultationPhotosPanel({
@@ -29,6 +31,7 @@ export function InquiryConsultationPhotosPanel({
   variant,
   token,
   embedded = false,
+  hideThumbLabel = false,
 }: Props) {
   const [items, setItems] = useState<ConsultationPhotoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,20 +116,13 @@ export function InquiryConsultationPhotosPanel({
 
   return (
     <div className={wrapClass}>
-      {!embedded && variant === 'admin' && (
-        <span className="text-gray-500 block text-fluid-xs mb-2">상담·참고 사진</span>
-      )}
-
       {variant === 'admin' ? (
         <details className="group mb-3 min-w-0 rounded-lg border border-gray-200 bg-white overflow-hidden [&_summary::-webkit-details-marker]:hidden">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 min-h-[44px] touch-manipulation select-none">
-            <span>사진 올리기</span>
+            <span>파일에서 선택</span>
             <ChevronDownMini className="h-5 w-5 shrink-0 text-gray-500 transition-transform group-open:rotate-180" />
           </summary>
           <div className="border-t border-gray-100 bg-gray-50/80 px-3 pb-3 pt-2">
-            <p className="text-fluid-xs text-gray-600 mb-2">
-              마케터·관리자만 업로드할 수 있습니다. 담당 팀장·타업체는 팀 화면에서 같은 사진을 볼 수 있습니다.
-            </p>
             <input
               ref={fileInputRef}
               type="file"
@@ -147,7 +143,7 @@ export function InquiryConsultationPhotosPanel({
               onClick={() => fileInputRef.current?.click()}
               className="w-full sm:w-auto min-h-[44px] touch-manipulation rounded-lg border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
             >
-              {uploading ? '업로드 중…' : '사진 올리기 (여러 장·카메라·갤러리)'}
+              {uploading ? '업로드 중…' : '이미지 선택 (여러 장)'}
             </button>
           </div>
         </details>
@@ -155,6 +151,9 @@ export function InquiryConsultationPhotosPanel({
 
       {error && <p className="text-fluid-sm text-red-600 mb-2">{error}</p>}
 
+      {!hideThumbLabel ? (
+        <p className="text-fluid-xs font-medium text-gray-700 mb-1.5">썸네일</p>
+      ) : null}
       {loading ? (
         <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
       ) : items.length === 0 ? (
