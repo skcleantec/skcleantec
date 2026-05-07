@@ -1,5 +1,5 @@
 ---
-description: 로컬 개발 시 API/Vite 기동 안정화 규칙 (항상 npm run dev, Prisma 재생성 포함)
+description: 로컬 개발 시 API/Vite 기동 안정화 — npm run dev, server 의존성 복구, Prisma generate, 오류 대응
 alwaysApply: true
 ---
 
@@ -25,13 +25,21 @@ alwaysApply: true
 - `server/.env`의 `DATABASE_URL` 변경 후에는 API를 반드시 재시작한다.
 - 공개 URL에는 가능한 `?sslmode=require`를 포함한다.
 
+## `server` 의존성·Prisma 클라이언트 (**장애 예방**)
+
+- **`npm run dev`(서버 쪽)** 는 `server/package.json`에서 **`prepare-schema` → `prisma generate` → `tsx watch`** 순서를 유지한다. `dev`에서 `prisma generate`를 빼는 변경은 **금지**한다. (클론·`npm ci` 직후에도 스키마에 맞는 클라이언트가 보장된다.)
+- 저장소를 새로 받았거나 `server/node_modules`가 이상하면 **`cd server` 후 `npm ci`**(또는 `npm install`)로 **한 번에 복구**한다. Windows에서 Prisma 엔진 등 **파일 잠금(EPERM)** 이 나오면 API·에디터·`tsx watch`를 끈 뒤 다시 실행한다.
+- **금지(로컬 개발 트리):** Docker/배포 이미지용으로만 쓰는 **`npm prune --omit=dev`** 를 로컬 `server`에서 실행해 `node_modules`를 말린다. (이후 `Cannot find package 'dotenv'` 등 **`ERR_MODULE_NOT_FOUND`** 가 난다.)
+- **`@prisma/client`에 enum·모델 export가 없다**는 런타임 오류 예: `does not provide an export named 'InquiryStatus'`. 원인은 거의 항상 **생성 클라이언트 미생성·스텁 상태**다. 대응: `cd server` 후 `node scripts/prepare-schema.js` → **`npx prisma generate`** → 루트에서 `npm run dev` 재기동. (이미 `dev`에 generate가 있으면 재시작 한 번으로 동기화되기도 한다.)
+
 ## 서버 실행 전 체크리스트 (필수)
 
 1. `server/.env`에 `DATABASE_URL`, `PORT`가 올바르게 설정되어 있는지 확인
 2. 루트에서 이미 떠 있는 오래된 `node`, `vite`, `tsx watch` 중복 프로세스가 있으면 정리
-3. **Prisma 클라이언트 불일치/필드 오류 가능성이 있으면 먼저 아래 실행**
-   - `cd server && npx prisma generate`
-4. 루트에서 `npm run dev` 실행
+3. 방금 **`npm ci` / 클론 / `node_modules` 삭제·복구**를 했다면, 서버는 **`cd server` 후 `npm ci`**까지 끝났는지 확인(클라이언트 루트는 루트 `npm install` 등 기존 절차 유지)
+4. **Prisma 클라이언트 불일치·enum export 오류 가능성이 있으면 먼저 아래 실행**
+   - `cd server` 후 `node scripts/prepare-schema.js`(필요 시) 및 **`npx prisma generate`**
+5. 루트에서 `npm run dev` 실행
 
 ## 오류 대응 표준 절차
 
@@ -52,6 +60,16 @@ alwaysApply: true
 - Vite 포트가 자동으로 증가하는 것은 정상 동작
 - 접속 주소만 최신 포트로 갱신해 테스트한다
 - 단, API는 계속 `3000`에서 정상 기동되어야 한다
+
+### 4) `ERR_MODULE_NOT_FOUND` (예: `dotenv`, 기타 `server` 패키지)
+
+- **`cd server` 후 `npm ci`**(또는 `npm install`)로 `node_modules`를 다시 맞춘다.
+- 로컬에서 실수로 **`npm prune --omit=dev`** 를 돌린 경우에도 동일 증상이 나오므로, 위 복구 후 **`prisma generate`** 까지 한 세트로 점검한다.
+
+### 5) `The requested module '@prisma/client' does not provide an export named '…'` (enum 등)
+
+- **`npx prisma generate`** 가 제대로 돌지 않은 상태다. `cd server` 후 `node scripts/prepare-schema.js` → `npx prisma generate` 실행 후 `npm run dev` 재기동.
+- `dev` 스크립트에 이미 `prisma generate`가 있으면 **서버 프로세스를 완전히 내린 뒤** 루트에서 `npm run dev`를 다시 띄운다.
 
 ## 검증 규칙
 

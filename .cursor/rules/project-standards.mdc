@@ -50,6 +50,7 @@ alwaysApply: true
 
 - Prisma 스키마·마이그레이션·Railway 배포 DB 일관성: **`.cursor/rules/prisma-migrate-and-deploy.mdc`** (공유 DB에서 `db push` 금지, migrate만, 푸시/PR 점검).
 - **로컬·에이전트 기본 DB**: **공개 웹 DB만** — `server/.env`의 Railway 등 **Proxy `DATABASE_URL`**. 에이전트는 Docker/localhost Postgres로 붙이려 하지 않는다. 상세·금지 사항은 **`.cursor/rules/local-dev-remote-db.mdc`**.
+- **로컬 API 기동·`npm run dev`·`server/node_modules` 복구·Prisma 클라이언트 재생성** 절차·금지 사항은 **`.cursor/rules/local-dev-api-stability.mdc`**.
 - **(선택)** 로컬 Docker Postgres는 사용자가 명시할 때만 — **`.cursor/rules/local-db-setup.mdc`**
 - **외부 웹서버·외부 DB 사용**을 전제로 설계
 - Prisma 마이그레이션으로 테이블을 외부 DB에 정확히 반영한다
