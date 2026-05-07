@@ -1,5 +1,6 @@
-# syntax=docker/dockerfile:1
-# Railway: Railpack 대신 Docker 빌드 — gRPC "frontend server closed" / OOM 완화
+# Railway: Docker 빌드 (Railpack gRPC/OOM 대안)
+# 주의: `# syntax=docker/dockerfile:1` 은 BuildKit이 별도 프론트엔드 이미지를 띄움.
+# Railway Metal 빌더에서 해당 gRPC가 끊기는 사례가 있어, 표준 파서만 사용한다.
 FROM node:22-bookworm-slim AS build
 
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
