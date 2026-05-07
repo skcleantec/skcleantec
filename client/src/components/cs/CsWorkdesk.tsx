@@ -135,6 +135,42 @@ function OpenInNewIcon({ className }: { className?: string }) {
   );
 }
 
+const CS_AS_DATE_HELP =
+  '오늘(한국 기준) 이후만 선택됩니다. 관리 스케줄 상단 요약에만 표시되며, 팀/거래처 달력 예약 건수에는 넣지 않습니다.';
+
+const CS_FORWARD_HELP =
+  '수기·미연결 건을 선택한 담당 계정의 팀 C/S 화면에 바로 표시합니다. 저장 후 해당 계정에 실시간 반영됩니다.';
+
+function CsHelpQuestionButton({
+  label,
+  expanded,
+  onToggle,
+  buttonClassName,
+}: {
+  label: string;
+  expanded: boolean;
+  onToggle: () => void;
+  buttonClassName?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={
+        buttonClassName ??
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-current/20 text-current hover:bg-white/40 touch-manipulation'
+      }
+      title={label}
+      aria-expanded={expanded}
+      aria-label={`도움말: ${label}`}
+    >
+      <span className="text-sm font-semibold leading-none" aria-hidden>
+        ?
+      </span>
+    </button>
+  );
+}
+
 export type CsWorkdeskMode = 'admin' | 'team';
 
 type CsWorkdeskProps = {
@@ -163,6 +199,8 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   const [forwardSelectUserId, setForwardSelectUserId] = useState('');
   const [forwardSending, setForwardSending] = useState(false);
   const [editAsServiceDate, setEditAsServiceDate] = useState('');
+  const [asDateHelpOpen, setAsDateHelpOpen] = useState(false);
+  const [forwardHelpOpen, setForwardHelpOpen] = useState(false);
 
   useEffect(() => {
     if (mode !== 'admin' || !token) {
@@ -266,10 +304,14 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     setEditMemo(item.memo ?? '');
     setCompletionMethodInput('');
     setEditAsServiceDate(formatPreferredDateInputYmd(item.asServiceDate));
+    setAsDateHelpOpen(false);
+    setForwardHelpOpen(false);
   };
 
   const closeDetail = () => {
     setSelected(null);
+    setAsDateHelpOpen(false);
+    setForwardHelpOpen(false);
   };
 
   const handleSave = async () => {
@@ -293,6 +335,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       setError(null);
       if (updated.status === 'DONE') setCompletionMethodInput('');
       (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount?.();
+      closeDetail();
     } catch (e) {
       setError(e instanceof Error ? e.message : '수정에 실패했습니다.');
     } finally {
@@ -320,6 +363,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       setCompletionMethodInput('');
       setError(null);
       (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount?.();
+      closeDetail();
     } catch (e) {
       setError(e instanceof Error ? e.message : '처리 완료 저장에 실패했습니다.');
     } finally {
@@ -719,23 +763,33 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               </div>
 
               {selected.status !== 'DONE' ? (
-                <div className="rounded-lg border border-rose-100 bg-rose-50/60 p-3 space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-900" htmlFor="cs-as-service-date">
-                    A/S 예정일 <span className="font-normal text-gray-600">(재방문·처리일)</span>
-                  </label>
+                <div className="rounded-lg border border-rose-100 bg-rose-50/60 p-3 space-y-1.5 text-rose-900">
+                  <div className="flex items-start gap-2">
+                    <label
+                      className="flex-1 min-w-0 text-sm font-medium text-gray-900 pt-1"
+                      htmlFor="cs-as-service-date"
+                    >
+                      A/S 예정일 <span className="font-normal text-gray-600">(재방문·처리일)</span>
+                    </label>
+                    <CsHelpQuestionButton
+                      label={CS_AS_DATE_HELP}
+                      expanded={asDateHelpOpen}
+                      onToggle={() => setAsDateHelpOpen((v) => !v)}
+                    />
+                  </div>
+                  {asDateHelpOpen ? (
+                    <p className="text-fluid-xs leading-snug rounded-md border border-rose-200/80 bg-white/95 px-2.5 py-2 text-rose-900/90">
+                      {CS_AS_DATE_HELP}
+                    </p>
+                  ) : null}
                   <input
                     id="cs-as-service-date"
                     type="date"
                     min={kstTodayYmd()}
                     value={editAsServiceDate}
                     onChange={(e) => setEditAsServiceDate(e.target.value)}
-                    className="w-full min-h-[44px] border border-rose-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    className="w-full min-h-[44px] border border-rose-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900"
                   />
-                  <p className="text-fluid-xs text-rose-900/85 leading-snug">
-                    오늘(한국 기준) 이후만 선택됩니다.{' '}
-                    <strong className="font-medium">관리 스케줄</strong> 상단 요약에만 표시되며, 팀/거래철 달력
-                    예약 건수에는 넣지 않습니다.
-                  </p>
                 </div>
               ) : selected.asServiceDate ? (
                 <div className="text-sm text-gray-700">
@@ -774,12 +828,22 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               ) : null}
 
               {mode === 'admin' && selected.status !== 'DONE' ? (
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50/90 p-3 space-y-2">
-                  <div className="text-sm font-semibold text-indigo-950">팀장·타업체에 전달</div>
-                  <p className="text-fluid-xs text-indigo-900/90 leading-snug">
-                    수기·미연결 건을 선택한 담당 계정의 <strong className="font-medium">팀 C/S</strong> 화면에 바로
-                    표시합니다. 저장 후 해당 계정에 실시간 반영됩니다.
-                  </p>
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50/90 p-3 space-y-2 text-indigo-950">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0 text-sm font-semibold text-indigo-950 pt-1">
+                      팀장·타업체에 전달
+                    </div>
+                    <CsHelpQuestionButton
+                      label={CS_FORWARD_HELP}
+                      expanded={forwardHelpOpen}
+                      onToggle={() => setForwardHelpOpen((v) => !v)}
+                    />
+                  </div>
+                  {forwardHelpOpen ? (
+                    <p className="text-fluid-xs leading-snug rounded-md border border-indigo-200 bg-white/95 px-2.5 py-2 text-indigo-900/90">
+                      {CS_FORWARD_HELP}
+                    </p>
+                  ) : null}
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                     <select
                       value={forwardSelectUserId}
@@ -882,11 +946,18 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 <button
                   type="button"
                   onClick={() => setCsDeleteTarget(selected)}
-                  className="w-full py-2 mt-3 border border-red-300 text-red-700 text-sm font-medium rounded hover:bg-red-50 min-h-[44px] touch-manipulation"
+                  className="w-full py-2 border border-red-300 text-red-700 text-sm font-medium rounded hover:bg-red-50 min-h-[44px] touch-manipulation"
                 >
                   C/S 영구 삭제…
                 </button>
               ) : null}
+              <button
+                type="button"
+                onClick={closeDetail}
+                className="w-full py-2 border border-gray-300 text-gray-800 text-sm font-medium rounded bg-white hover:bg-gray-50 min-h-[44px] touch-manipulation"
+              >
+                닫기
+              </button>
             </div>
           </div>
         </div>
