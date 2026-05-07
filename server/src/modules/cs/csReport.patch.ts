@@ -1,10 +1,15 @@
 import type { Prisma } from '@prisma/client';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { kstTodayYmd } from '../users/userEmployment.js';
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 export type CsPatchBody = {
   status?: string;
   memo?: string | null;
   completionMethod?: string | null;
+  /** yyyy-mm-dd 또는 null(미지정). 오늘(KST) 이후만 허용 */
+  asServiceDate?: string | null;
 };
 
 /**
@@ -19,6 +24,21 @@ export function buildCsReportUpdateData(
 
   if (body.memo !== undefined) {
     data.memo = body.memo;
+  }
+
+  if (body.asServiceDate !== undefined) {
+    if (body.asServiceDate === null || body.asServiceDate === '') {
+      data.asServiceDate = null;
+    } else {
+      const y = String(body.asServiceDate).trim();
+      if (!YMD.test(y)) {
+        return { ok: false, error: 'A/S 예정일은 yyyy-mm-dd 형식이어야 합니다.' };
+      }
+      if (y < kstTodayYmd()) {
+        return { ok: false, error: 'A/S 예정일은 오늘(한국시간) 이후만 지정할 수 있습니다.' };
+      }
+      data.asServiceDate = new Date(`${y}T12:00:00+09:00`);
+    }
   }
 
   if (body.status !== undefined) {

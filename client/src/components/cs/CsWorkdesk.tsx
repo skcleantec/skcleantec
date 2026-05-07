@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { getCsReports, updateCsReport, deleteCsReport, type CsReport } from '../../api/cs';
+import { getCsReports, updateCsReport, deleteCsReport, forwardCsReport, type CsReport } from '../../api/cs';
 import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
 import { getMe } from '../../api/auth';
 import { getTeamCsReports, patchTeamCsReport } from '../../api/team';
@@ -12,12 +12,15 @@ import {
   formatDateTimeCompactWithWeekday,
   formatDateCompactWithWeekday,
   formatDateTimeTinyKo,
+  formatPreferredDateInputYmd,
+  kstTodayYmd,
 } from '../../utils/dateFormat';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { getAssignableScheduleUsers, formatAssignableUserLabel, type UserItem } from '../../api/users';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 
 const STATUS_OPTIONS = [
@@ -58,21 +61,42 @@ function formatTeamLeaderLabel(inquiry: NonNullable<CsReport['inquiry']>): strin
   return names.length ? names.join(' · ') : '미배정';
 }
 
+function forwardedToAsUserItem(f: NonNullable<CsReport['forwardedToUser']>): UserItem {
+  return {
+    id: f.id,
+    email: '',
+    name: f.name,
+    phone: null,
+    role: f.role,
+    externalCompanyId: f.externalCompanyId ?? f.externalCompany?.id ?? null,
+    externalCompanyName: f.externalCompany?.name ?? null,
+  };
+}
+
 function assigneeListLabel(item: CsReport): string {
-  if (!item.inquiry) return '—';
-  return formatTeamLeaderLabel(item.inquiry);
+  const inquiryLabel = item.inquiry ? formatTeamLeaderLabel(item.inquiry) : null;
+  const forwardLabel = item.forwardedToUser
+    ? `[전달] ${formatAssignableUserLabel(forwardedToAsUserItem(item.forwardedToUser))}`
+    : null;
+  if (forwardLabel && (!inquiryLabel || inquiryLabel === '미배정')) return forwardLabel;
+  if (inquiryLabel) return inquiryLabel;
+  if (forwardLabel) return forwardLabel;
+  return '—';
 }
 
 function firstAssigneeLabel(item: CsReport): string {
-  if (!item.inquiry) return '—';
-  const first = item.inquiry.assignments[0]?.teamLeader as
-    | { name: string; role?: string; externalCompany?: { name: string } | null }
-    | undefined;
-  if (!first) return '미배정';
-  if (first.role === 'EXTERNAL_PARTNER') {
-    return first.externalCompany?.name ? `[타업체] ${first.externalCompany.name}` : `[타업체] ${first.name}`;
+  if (item.inquiry?.assignments?.length) {
+    const first = item.inquiry.assignments[0]?.teamLeader as
+      | { name: string; role?: string; externalCompany?: { name: string } | null }
+      | undefined;
+    if (!first) return '미배정';
+    if (first.role === 'EXTERNAL_PARTNER') {
+      return first.externalCompany?.name ? `[타업체] ${first.externalCompany.name}` : `[타업체] ${first.name}`;
+    }
+    return first.name;
   }
-  return first.name;
+  if (item.forwardedToUser) return formatAssignableUserLabel(forwardedToAsUserItem(item.forwardedToUser));
+  return '—';
 }
 
 function processorNameLabel(item: CsReport): string {
@@ -135,6 +159,36 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   /** 관리자(ADMIN)로 로그인한 경우에만 C/S 삭제 UI 표시 — 마케터는 동일 메뉴 사용하지만 삭제 불가 */
   const [adminViewer, setAdminViewer] = useState(false);
   const [csDeleteTarget, setCsDeleteTarget] = useState<CsReport | null>(null);
+  const [forwardOptions, setForwardOptions] = useState<UserItem[]>([]);
+  const [forwardSelectUserId, setForwardSelectUserId] = useState('');
+  const [forwardSending, setForwardSending] = useState(false);
+  const [editAsServiceDate, setEditAsServiceDate] = useState('');
+
+  useEffect(() => {
+    if (mode !== 'admin' || !token) {
+      setForwardOptions([]);
+      return;
+    }
+    getAssignableScheduleUsers(token)
+      .then(setForwardOptions)
+      .catch(() => setForwardOptions([]));
+  }, [mode, token]);
+
+  useEffect(() => {
+    if (!selected) {
+      setForwardSelectUserId('');
+      return;
+    }
+    setForwardSelectUserId(selected.forwardedToUser?.id ?? '');
+  }, [selected?.id, selected?.forwardedToUser?.id]);
+
+  useEffect(() => {
+    if (!selected) {
+      setEditAsServiceDate('');
+      return;
+    }
+    setEditAsServiceDate(formatPreferredDateInputYmd(selected.asServiceDate));
+  }, [selected?.id, selected?.asServiceDate]);
 
   const fetchList = useCallback(
     (opts?: { withLoading?: boolean }) => {
@@ -195,7 +249,12 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
 
   const patchCs = (
     id: string,
-    data: { status?: string; memo?: string | null; completionMethod?: string | null }
+    data: {
+      status?: string;
+      memo?: string | null;
+      completionMethod?: string | null;
+      asServiceDate?: string | null;
+    }
   ) => {
     if (!token) return Promise.reject(new Error('로그인이 필요합니다.'));
     return mode === 'admin' ? updateCsReport(token, id, data) : patchTeamCsReport(token, id, data);
@@ -206,6 +265,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     setEditStatus(item.status);
     setEditMemo(item.memo ?? '');
     setCompletionMethodInput('');
+    setEditAsServiceDate(formatPreferredDateInputYmd(item.asServiceDate));
   };
 
   const closeDetail = () => {
@@ -223,6 +283,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       const updated = await patchCs(selected.id, {
         status: editStatus,
         memo: editMemo,
+        asServiceDate: editAsServiceDate.trim() || null,
         ...(editStatus === 'DONE' && selected.status !== 'DONE'
           ? { completionMethod: completionMethodInput.trim() }
           : {}),
@@ -250,6 +311,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       const updated = await patchCs(selected.id, {
         status: 'DONE',
         memo: editMemo,
+        asServiceDate: editAsServiceDate.trim() || null,
         completionMethod: completionMethodInput.trim(),
       });
       setEditStatus('DONE');
@@ -262,6 +324,23 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       setError(e instanceof Error ? e.message : '처리 완료 저장에 실패했습니다.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleForwardSend = async () => {
+    if (!token || !selected || mode !== 'admin') return;
+    setForwardSending(true);
+    try {
+      const target = forwardSelectUserId.trim() || null;
+      const updated = await forwardCsReport(token, selected.id, target);
+      setSelected(updated);
+      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+      setError(null);
+      (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '전달에 실패했습니다.');
+    } finally {
+      setForwardSending(false);
     }
   };
 
@@ -347,7 +426,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
         </div>
       ) : (
         <p className="text-fluid-2xs sm:text-fluid-xs text-gray-600 mb-2 sm:mb-3 leading-snug">
-          배정 접수와 연결된 C/S만 표시됩니다. 완료 시 처리 방법을 입력해 주세요.
+          배정 접수와 연결된 C/S 또는 관리자가 본인에게 전달한 C/S가 표시됩니다. 완료 시 처리 방법을 입력해 주세요.
         </p>
       )}
 
@@ -639,6 +718,34 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 )}
               </div>
 
+              {selected.status !== 'DONE' ? (
+                <div className="rounded-lg border border-rose-100 bg-rose-50/60 p-3 space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-900" htmlFor="cs-as-service-date">
+                    A/S 예정일 <span className="font-normal text-gray-600">(재방문·처리일)</span>
+                  </label>
+                  <input
+                    id="cs-as-service-date"
+                    type="date"
+                    min={kstTodayYmd()}
+                    value={editAsServiceDate}
+                    onChange={(e) => setEditAsServiceDate(e.target.value)}
+                    className="w-full min-h-[44px] border border-rose-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  />
+                  <p className="text-fluid-xs text-rose-900/85 leading-snug">
+                    오늘(한국 기준) 이후만 선택됩니다.{' '}
+                    <strong className="font-medium">관리 스케줄</strong> 상단 요약에만 표시되며, 팀/거래철 달력
+                    예약 건수에는 넣지 않습니다.
+                  </p>
+                </div>
+              ) : selected.asServiceDate ? (
+                <div className="text-sm text-gray-700">
+                  <span className="text-gray-500">A/S 예정일</span>{' '}
+                  <span className="font-medium tabular-nums">
+                    {formatDateCompactWithWeekday(selected.asServiceDate)}
+                  </span>
+                </div>
+              ) : null}
+
               {selected.inquiry ? (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
                   <div>
@@ -661,8 +768,51 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </div>
               ) : mode === 'admin' ? (
                 <p className="text-sm text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                  접수 목록과 자동 연결된 건이 없습니다. (성함·연락처가 접수 DB와 일치할 때 연결됩니다.)
+                  접수 목록과 자동 연결된 건이 없습니다. (성함·연락처가 접수 DB와 일치할 때 연결됩니다.) 아래에서 팀장·타업체에
+                  전달하면 해당 계정 C/S 메뉴에 표시됩니다.
                 </p>
+              ) : null}
+
+              {mode === 'admin' && selected.status !== 'DONE' ? (
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50/90 p-3 space-y-2">
+                  <div className="text-sm font-semibold text-indigo-950">팀장·타업체에 전달</div>
+                  <p className="text-fluid-xs text-indigo-900/90 leading-snug">
+                    수기·미연결 건을 선택한 담당 계정의 <strong className="font-medium">팀 C/S</strong> 화면에 바로
+                    표시합니다. 저장 후 해당 계정에 실시간 반영됩니다.
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                    <select
+                      value={forwardSelectUserId}
+                      onChange={(e) => setForwardSelectUserId(e.target.value)}
+                      className="flex-1 min-w-0 min-h-[44px] border border-indigo-300 rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="">전달 안 함 (목록에서 제외)</option>
+                      {forwardOptions.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {formatAssignableUserLabel(u)}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleForwardSend}
+                      disabled={forwardSending}
+                      className="min-h-[44px] shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-700 border border-indigo-800 hover:bg-indigo-800 disabled:opacity-50 touch-manipulation"
+                    >
+                      {forwardSending ? '처리 중…' : '보내기'}
+                    </button>
+                  </div>
+                  {selected.forwardedToUser ? (
+                    <p className="text-fluid-xs text-gray-700">
+                      현재 전달: {formatAssignableUserLabel(forwardedToAsUserItem(selected.forwardedToUser))}
+                    </p>
+                  ) : null}
+                </div>
+              ) : mode === 'admin' && selected.forwardedToUser ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                  전달: {formatAssignableUserLabel(forwardedToAsUserItem(selected.forwardedToUser))} (완료 건은 전달
+                  변경 불가)
+                </div>
               ) : null}
 
               <div>

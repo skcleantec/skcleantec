@@ -51,4 +51,5 @@ export const csReportCompletedBySelect = {
 export const csReportFullInclude = {
   inquiry: csReportInquiryInclude,
   completedBy: csReportCompletedBySelect,
+  forwardedToUser: { select: assignmentTeamLeaderSelect },
 } as const;

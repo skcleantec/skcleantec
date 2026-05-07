@@ -97,17 +97,34 @@ export interface ScheduleStatsByDate {
   slotToAfternoonAdjustment?: number;
 }
 
+export type AsCsScheduleListItem = {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  content: string;
+  status: string;
+  inquiryId: string | null;
+  inquiryNumber: string | null;
+};
+
 export async function getScheduleStats(
   token: string,
   start: string,
   end: string
-): Promise<{ byDate: Record<string, ScheduleStatsByDate> }> {
+): Promise<{ byDate: Record<string, ScheduleStatsByDate>; asCsByDate: Record<string, AsCsScheduleListItem[]> }> {
   const q = new URLSearchParams({ start, end }).toString();
   const res = await fetch(withTeamPreviewQuery(`${API}/dayoffs/schedule-stats?${q}`), {
     headers: headers(token),
   });
   if (!res.ok) throw new Error('스케줄 현황을 불러올 수 없습니다.');
-  return res.json();
+  const json = (await res.json()) as {
+    byDate?: Record<string, ScheduleStatsByDate>;
+    asCsByDate?: Record<string, AsCsScheduleListItem[]>;
+  };
+  return {
+    byDate: json.byDate ?? {},
+    asCsByDate: json.asCsByDate ?? {},
+  };
 }
 
 export async function putScheduleSlotToAdjustment(

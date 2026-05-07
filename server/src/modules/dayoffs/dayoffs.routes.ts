@@ -264,6 +264,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     crewAvailableByDate,
     closureRows,
     slotToAdjustmentRows,
+    asCsRows,
   ] = await Promise.all([
     prisma.user.findMany({
       where: { role: 'TEAM_LEADER', isActive: true },
@@ -308,6 +309,21 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     prisma.scheduleDaySlotToAdjustment.findMany({
       where: { date: { gte: rangeStart, lte: rangeEnd } },
       select: { date: true, morningDelta: true, afternoonDelta: true },
+    }),
+    prisma.csReport.findMany({
+      where: {
+        asServiceDate: { gte: rangeStart, lte: rangeEnd },
+      },
+      select: {
+        id: true,
+        customerName: true,
+        customerPhone: true,
+        content: true,
+        status: true,
+        inquiryId: true,
+        asServiceDate: true,
+        inquiry: { select: { inquiryNumber: true } },
+      },
     }),
   ]);
 
@@ -593,7 +609,36 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     };
   }
 
-  res.json({ byDate });
+  const asCsByDate: Record<
+    string,
+    Array<{
+      id: string;
+      customerName: string;
+      customerPhone: string;
+      content: string;
+      status: string;
+      inquiryId: string | null;
+      inquiryNumber: string | null;
+    }>
+  > = {};
+  for (const row of asCsRows) {
+    if (!row.asServiceDate) continue;
+    const key = row.asServiceDate.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+    if (!asCsByDate[key]) asCsByDate[key] = [];
+    const preview =
+      row.content.length > 120 ? `${row.content.slice(0, 118)}…` : row.content;
+    asCsByDate[key].push({
+      id: row.id,
+      customerName: row.customerName,
+      customerPhone: row.customerPhone,
+      content: preview,
+      status: row.status,
+      inquiryId: row.inquiryId,
+      inquiryNumber: row.inquiry?.inquiryNumber ?? null,
+    });
+  }
+
+  res.json({ byDate, asCsByDate });
 });
 
 const SLOT_ADJ_LIMIT = 300;

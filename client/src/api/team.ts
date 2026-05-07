@@ -258,7 +258,12 @@ export async function getTeamCsReports(token: string): Promise<{ items: CsReport
 export async function patchTeamCsReport(
   token: string,
   id: string,
-  data: { status?: string; memo?: string | null; completionMethod?: string | null }
+  data: {
+    status?: string;
+    memo?: string | null;
+    completionMethod?: string | null;
+    asServiceDate?: string | null;
+  }
 ): Promise<CsReport> {
   const res = await fetch(withTeamPreviewQuery(`${API}/team/cs/${encodeURIComponent(id)}`), {
     method: 'PATCH',

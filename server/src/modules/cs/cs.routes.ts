@@ -12,7 +12,9 @@ import { adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { csReportFullInclude } from './csReport.include.js';
 import { buildCsReportUpdateData } from './csReport.patch.js';
-import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
+import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
 const router = Router();
 
@@ -104,6 +106,55 @@ router.get('/pending-count', authMiddleware, adminOrMarketer, async (_req, res) 
   res.json({ count });
 });
 
+/** 관리자·마케터: C/S를 팀장/타업체 계정에 전달(또는 전달 해제). 접수 미연결·미배정 건 대응 */
+router.post('/:id/forward', authMiddleware, adminOrMarketer, async (req, res) => {
+  const { id } = req.params;
+  const body = req.body as { userId?: unknown };
+  const raw = body.userId;
+  const nextId =
+    raw === null || raw === undefined || raw === '' ? null : String(raw).trim() || null;
+
+  const existing = await prisma.csReport.findUnique({
+    where: { id },
+    select: { id: true, inquiryId: true, forwardedToUserId: true },
+  });
+  if (!existing) {
+    res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
+    return;
+  }
+
+  if (nextId) {
+    const u = await prisma.user.findFirst({
+      where: {
+        id: nextId,
+        isActive: true,
+        role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER'] },
+      },
+      select: { id: true, hireDate: true, resignationDate: true },
+    });
+    if (!u) {
+      res.status(400).json({ error: '팀장 또는 타업체 담당 계정만 지정할 수 있습니다.' });
+      return;
+    }
+    if (!isUserEmployedOnYmd(u.hireDate, u.resignationDate, kstTodayYmd())) {
+      res.status(400).json({ error: '재직 중인 팀장·타업체만 지정할 수 있습니다.' });
+      return;
+    }
+  }
+
+  const prevForward = existing.forwardedToUserId;
+  const updated = await prisma.csReport.update({
+    where: { id },
+    data: { forwardedToUserId: nextId },
+    include: csReportFullInclude,
+  });
+  res.json(updated);
+  void notifyCsReportNavBadges(updated.inquiryId, [
+    prevForward,
+    updated.forwardedToUserId,
+  ]);
+});
+
 /** 관리자·마케터: C/S 상세 */
 router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const { id } = req.params;
@@ -122,7 +173,12 @@ router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
 router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const { id } = req.params;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const body = req.body as { status?: string; memo?: string | null; completionMethod?: string | null };
+  const body = req.body as {
+    status?: string;
+    memo?: string | null;
+    completionMethod?: string | null;
+    asServiceDate?: string | null;
+  };
   const item = await prisma.csReport.findUnique({ where: { id } });
   if (!item) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
@@ -139,7 +195,10 @@ router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
     include: csReportFullInclude,
   });
   res.json(updated);
-  void notifyCsReportNavBadges(updated.inquiryId);
+  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : []);
+  if (Object.prototype.hasOwnProperty.call(built.data, 'asServiceDate')) {
+    void getEmployedStaffUserIds().then((ids) => notifyInboxRefresh(ids));
+  }
 });
 
 /** 관리자만 — 비밀번호 확인 후 C/S 영구 삭제 */
@@ -165,7 +224,7 @@ router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
 
   const existing = await prisma.csReport.findUnique({
     where: { id },
-    select: { id: true, inquiryId: true },
+    select: { id: true, inquiryId: true, forwardedToUserId: true },
   });
   if (!existing) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
@@ -173,7 +232,7 @@ router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
   }
 
   await prisma.csReport.delete({ where: { id } });
-  void notifyCsReportNavBadges(existing.inquiryId);
+  void notifyCsReportNavBadges(existing.inquiryId, existing.forwardedToUserId ? [existing.forwardedToUserId] : []);
   res.json({ ok: true });
 });
 

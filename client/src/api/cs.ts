@@ -59,6 +59,16 @@ export interface CsReport {
     createdAt?: string;
     assignments: Array<{ teamLeader: { id: string; name: string } }>;
   } | null;
+  /** 관리자가 팀장/타업체 계정으로 전달한 경우 */
+  forwardedToUser?: {
+    id: string;
+    name: string;
+    role?: string;
+    externalCompanyId?: string | null;
+    externalCompany?: { id: string; name: string } | null;
+  } | null;
+  /** A/S(재방문 등) 예정일 ISO — 관리 스케줄 표시용 */
+  asServiceDate?: string | null;
 }
 
 /** 공개: 이미지 업로드 */
@@ -137,7 +147,12 @@ export async function getCsReport(token: string, id: string): Promise<CsReport> 
 export async function updateCsReport(
   token: string,
   id: string,
-  data: { status?: string; memo?: string | null; completionMethod?: string | null }
+  data: {
+    status?: string;
+    memo?: string | null;
+    completionMethod?: string | null;
+    asServiceDate?: string | null;
+  }
 ): Promise<CsReport> {
   const res = await fetch(`${API}/cs/${id}`, {
     method: 'PATCH',
@@ -147,6 +162,29 @@ export async function updateCsReport(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '수정에 실패했습니다.');
+  }
+  const i = await res.json();
+  return {
+    ...i,
+    imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [],
+    serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : i.serviceRating ?? null,
+  };
+}
+
+/** 관리자·마케터: C/S를 팀장/타업체 계정에 전달(또는 전달 해제). userId null·빈 문자열이면 해제 */
+export async function forwardCsReport(
+  token: string,
+  id: string,
+  userId: string | null
+): Promise<CsReport> {
+  const res = await fetch(`${API}/cs/${encodeURIComponent(id)}/forward`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ userId: userId && userId.trim() ? userId.trim() : null }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '전달에 실패했습니다.');
   }
   const i = await res.json();
   return {

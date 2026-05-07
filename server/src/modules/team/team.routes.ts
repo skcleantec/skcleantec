@@ -10,9 +10,9 @@ import inquiryConsultationPhotosTeamRoutes from '../inquiry-consultation-photos/
 import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtraCharges.team.routes.js';
 import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
-import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
-import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
+import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 import {
   parseCrewMeetingTimeBody,
@@ -21,6 +21,21 @@ import {
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 
 const router = Router();
+
+/** 팀장/타업체 C/S 목록: 배정 접수 연결 건 또는 관리자 전달(forwarded) 건 */
+function teamCsAccessWhere(userId: string) {
+  return {
+    OR: [
+      {
+        inquiryId: { not: null },
+        inquiry: {
+          assignments: { some: { teamLeaderId: userId } },
+        },
+      },
+      { forwardedToUserId: userId },
+    ],
+  };
+}
 
 /** 팀 스케줄 범위 — 관리자 스케줄 API와 동일하게 KST 하루 경계 */
 const SCHEDULE_QUERY_YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -166,10 +181,7 @@ router.get('/nav-badges', async (req, res) => {
     prisma.csReport.count({
       where: {
         status: 'RECEIVED',
-        inquiryId: { not: null },
-        inquiry: {
-          assignments: { some: { teamLeaderId: userId } },
-        },
+        ...teamCsAccessWhere(userId),
       },
     }),
     prisma.assignment.count({
@@ -214,10 +226,7 @@ router.get('/cs/pending-count', async (req, res) => {
   const count = await prisma.csReport.count({
     where: {
       status: 'RECEIVED',
-      inquiryId: { not: null },
-      inquiry: {
-        assignments: { some: { teamLeaderId: userId } },
-      },
+      ...teamCsAccessWhere(userId),
     },
   });
   res.json({ count });
@@ -227,12 +236,7 @@ router.get('/cs/pending-count', async (req, res) => {
 router.get('/cs', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
   const items = await prisma.csReport.findMany({
-    where: {
-      inquiryId: { not: null },
-      inquiry: {
-        assignments: { some: { teamLeaderId: userId } },
-      },
-    },
+    where: teamCsAccessWhere(userId),
     orderBy: { createdAt: 'desc' },
     include: csReportFullInclude,
   });
@@ -244,15 +248,17 @@ router.patch('/cs/:id', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
   const user = (req as unknown as { user: AuthPayload }).user;
   const { id } = req.params;
-  const body = req.body as { status?: string; memo?: string | null; completionMethod?: string | null };
+  const body = req.body as {
+    status?: string;
+    memo?: string | null;
+    completionMethod?: string | null;
+    asServiceDate?: string | null;
+  };
 
   const report = await prisma.csReport.findFirst({
     where: {
       id,
-      inquiryId: { not: null },
-      inquiry: {
-        assignments: { some: { teamLeaderId: userId } },
-      },
+      ...teamCsAccessWhere(userId),
     },
   });
   if (!report) {
@@ -281,7 +287,10 @@ router.patch('/cs/:id', async (req, res) => {
     include: csReportFullInclude,
   });
   res.json(updated);
-  void notifyCsReportNavBadges(updated.inquiryId);
+  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : []);
+  if (Object.prototype.hasOwnProperty.call(built.data, 'asServiceDate')) {
+    void getEmployedStaffUserIds().then((ids) => notifyInboxRefresh(ids));
+  }
 });
 
 /** 해피콜 미완 건수 (마감 전 / 마감 후) — 팀장 본인 배정만 */

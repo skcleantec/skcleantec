@@ -28,9 +28,13 @@ async function teamLeaderIdsForInquiry(inquiryId: string): Promise<string[]> {
  * C/S 신규·상태 변경 시 GNB 배지(관리자 미처리 건수·팀장 담당 건수) 갱신용.
  * `inbox:refresh` 와 동일 채널로 보내 클라이언트가 GET /nav-badges 를 다시 호출하게 함.
  */
-export async function notifyCsReportNavBadges(inquiryId: string | null | undefined): Promise<void> {
+export async function notifyCsReportNavBadges(
+  inquiryId: string | null | undefined,
+  alsoNotifyUserIds?: ReadonlyArray<string | null | undefined>,
+): Promise<void> {
   const staff = await employedStaffIds();
   const id = inquiryId ?? null;
   const leaders = id ? await teamLeaderIdsForInquiry(id) : [];
-  notifyInboxRefresh([...staff, ...leaders]);
+  const extra = [...(alsoNotifyUserIds ?? [])].filter((x): x is string => typeof x === 'string' && x.length > 0);
+  notifyInboxRefresh([...new Set([...staff, ...leaders, ...extra])]);
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import {
   getSchedule,
   postScheduleDayClosure,
@@ -23,7 +24,7 @@ import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/Schedu
 import { ScheduleDaySlotToAdjustModal } from '../../components/admin/ScheduleDaySlotToAdjustModal';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
-import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
+import { getScheduleStats, type ScheduleStatsByDate, type AsCsScheduleListItem } from '../../api/dayoffs';
 import {
   getAssignableScheduleUsers,
   getInquiryCreatorOptions,
@@ -54,6 +55,12 @@ import { isManualIntakeInquiry } from '../../utils/manualIntakeInquiry';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+const CS_AS_STATUS_LABEL: Record<string, string> = {
+  RECEIVED: '접수',
+  PROCESSING: '처리중',
+  DONE: '완료',
+};
 
 const SCHEDULE_PAGE_OVERVIEW_HELP =
   '월별 배정·슬롯 현황을 한눈에 확인합니다.';
@@ -580,6 +587,7 @@ export function AdminSchedulePage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [items, setItems] = useState<ScheduleItem[]>([]);
   const [stats, setStats] = useState<Record<string, ScheduleStatsByDate>>({});
+  const [asCsByDate, setAsCsByDate] = useState<Record<string, AsCsScheduleListItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -651,8 +659,10 @@ export function AdminSchedulePage() {
 
       if (statsOutcome.status === 'fulfilled') {
         setStats(statsOutcome.value.byDate);
+        setAsCsByDate(statsOutcome.value.asCsByDate ?? {});
       } else {
         setStats({});
+        setAsCsByDate({});
         statsErr = '스케줄 현황(통계)을 불러오지 못했습니다. 접수 목록은 표시됩니다.';
       }
 
@@ -666,6 +676,10 @@ export function AdminSchedulePage() {
     },
     [token, year, month]
   );
+
+  useInboxRealtime(token, () => {
+    void fetchMonthData(false);
+  }, Boolean(token));
 
   const submitClosure = useCallback(
     async (scope: 'FULL' | 'MORNING' | 'AFTERNOON') => {
@@ -1696,6 +1710,14 @@ export function AdminSchedulePage() {
                       <span className="ml-1 font-medium">{stats[selectedDate].afternoonOccupied ?? 0}건</span>
                     </div>
                   </div>
+                  {selectedDate && (asCsByDate[selectedDate]?.length ?? 0) > 0 ? (
+                    <p className="mt-2 pt-2 border-t border-gray-200 text-fluid-sm sm:text-sm font-extrabold text-red-600 tracking-tight">
+                      A/S 발생{' '}
+                      <span className="tabular-nums">
+                        {asCsByDate[selectedDate]!.length}건
+                      </span>
+                    </p>
+                  ) : null}
                 </div>
               )}
 
@@ -2205,11 +2227,62 @@ export function AdminSchedulePage() {
                   </div>
                 );
               })()}
-              {(byDate[selectedDate]?.length ?? 0) === 0 && (
+              {(asCsByDate[selectedDate ?? '']?.length ?? 0) > 0 && selectedDate ? (
+                <div className="min-w-0 border-t-2 border-red-300 pt-3 mt-2">
+                  <div className="flex items-center gap-2 mb-2 border-b border-red-400/70 pb-1.5">
+                    <span className="text-fluid-sm font-bold text-red-700">A/S (C/S 예정)</span>
+                    <span className="text-fluid-xs text-red-800 tabular-nums">
+                      {(asCsByDate[selectedDate] ?? []).length}건
+                    </span>
+                  </div>
+                  <p className="text-fluid-2xs text-red-800/90 mb-2 leading-snug">
+                    예약 일정과 별도입니다. 접수가 있으면 행을 눌러 상세를 열 수 있습니다.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {(asCsByDate[selectedDate] ?? []).map((row) => (
+                      <button
+                        key={row.id}
+                        type="button"
+                        className="text-left rounded-lg border-2 border-red-400 bg-red-50 px-3 py-2.5 text-fluid-sm text-red-950 shadow-sm hover:bg-red-100/90 active:bg-red-100 min-h-[44px] touch-manipulation"
+                        onClick={async () => {
+                          if (!token) return;
+                          if (row.inquiryId) {
+                            try {
+                              const raw = await getInquiry(token, row.inquiryId);
+                              setMemoModalItem(null);
+                              setDetailItem(raw as unknown as ScheduleItem);
+                            } catch {
+                              alert('접수를 불러올 수 없습니다.');
+                            }
+                          } else {
+                            window.open(`${window.location.origin}/admin/cs`, '_blank', 'noopener,noreferrer');
+                          }
+                        }}
+                      >
+                        <div className="font-bold text-red-950">{row.customerName}</div>
+                        <div className="tabular-nums text-red-900 text-fluid-xs">{row.customerPhone}</div>
+                        {row.inquiryNumber ? (
+                          <div className="text-fluid-2xs text-red-800/90 font-mono mt-0.5">
+                            접수 {row.inquiryNumber}
+                          </div>
+                        ) : null}
+                        <div className="text-fluid-2xs text-red-900/90 line-clamp-3 mt-1 whitespace-pre-wrap">
+                          {row.content}
+                        </div>
+                        <div className="text-fluid-2xs text-red-700 mt-1 font-medium">
+                          C/S {CS_AS_STATUS_LABEL[row.status] ?? row.status}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {(byDate[selectedDate]?.length ?? 0) === 0 &&
+              (asCsByDate[selectedDate ?? '']?.length ?? 0) === 0 ? (
                 <div className="text-center text-gray-500 py-6 text-fluid-sm">
                   해당 날짜에 일정이 없습니다.
                 </div>
-              )}
+              ) : null}
             </div>
           )}
         </>
