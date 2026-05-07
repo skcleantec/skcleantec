@@ -362,12 +362,16 @@ export function AdminOrderFormFollowupPanel({
   const [deferSaving, setDeferSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OrderFollowupItem | null>(null);
   const [memoView, setMemoView] = useState<OrderFollowupItem | null>(null);
-  const suspendListRenderWhileEdit = Boolean(edit);
 
-  /** `status: ''` 를 넘기면 서버 상태 필터 없이 조회(상단 칩은 별도로 맞춤) */
+  /**
+   * 목록 재조회.
+   * - 기본: 로딩 스피너로 테이블을 갈아끼움(필터·초기 로드).
+   * - silent: 테이블 유지(편집/부재+1/삭제 후) — 스크롤 위치가 맨 위로 튀는 현상 방지.
+   */
   const load = useCallback(
-    async (opts?: { status?: OrderFollowupStatus | '' }) => {
-      setLoading(true);
+    async (opts?: { status?: OrderFollowupStatus | ''; silent?: boolean }) => {
+      const silent = opts?.silent === true;
+      if (!silent) setLoading(true);
       setError(null);
       const useStatus =
         opts !== undefined && 'status' in opts
@@ -400,7 +404,7 @@ export function AdminOrderFormFollowupPanel({
         setError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
         setItems([]);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     },
     [
@@ -537,7 +541,7 @@ export function AdminOrderFormFollowupPanel({
         goldDb: editGoldDb,
       });
       setEdit(null);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
     } finally {
@@ -552,7 +556,7 @@ export function AdminOrderFormFollowupPanel({
       await deferOrderFollowup(token, deferTarget.id, deferNote.trim());
       setDeferTarget(null);
       setDeferNote('');
-      await load();
+      await load({ silent: true });
     } catch (e) {
       alert(e instanceof Error ? e.message : '처리에 실패했습니다.');
     } finally {
@@ -568,7 +572,7 @@ export function AdminOrderFormFollowupPanel({
     if (edit?.id === deleteTarget.id) setEdit(null);
     setLogFor((prev) => (prev?.id === deleteTarget.id ? null : prev));
     setDeleteTarget(null);
-    await load();
+    await load({ silent: true });
   };
 
   const filterChips = useMemo(
@@ -606,7 +610,7 @@ export function AdminOrderFormFollowupPanel({
     try {
       const r = await patchOrderFollowup(token, edit.id, { inquiryId: null });
       setEdit(r.item);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       alert(e instanceof Error ? e.message : '연결 해제에 실패했습니다.');
     } finally {
@@ -620,7 +624,7 @@ export function AdminOrderFormFollowupPanel({
     try {
       const r = await patchOrderFollowup(token, edit.id, { inquiryId });
       setEdit(r.item);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       alert(e instanceof Error ? e.message : '접수 연결에 실패했습니다.');
     } finally {
@@ -809,10 +813,6 @@ export function AdminOrderFormFollowupPanel({
 
         {loading ? (
           <div className="p-10 text-center text-fluid-sm text-gray-500">불러오는 중…</div>
-        ) : suspendListRenderWhileEdit ? (
-          <div className="p-10 text-center text-fluid-sm text-gray-500">
-            편집 중…
-          </div>
         ) : items.length === 0 ? (
           <div className="p-10 text-center text-fluid-sm text-gray-500">
             {filterGoldDbOnly
@@ -1450,7 +1450,7 @@ export function AdminOrderFormFollowupPanel({
         editInquiryId={null}
         editSeed={null}
         onClose={() => setListIntakeOpen(false)}
-        onCommitted={() => void load()}
+        onCommitted={() => void load({ silent: true })}
       />
       <ConfirmPasswordModal
         open={Boolean(deleteTarget)}
