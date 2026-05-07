@@ -28,6 +28,7 @@ import {
 import { allocateNextInquiryNumber } from './inquiryNumber.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
+import inquiryConsultationPhotosAdminRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.admin.routes.js';
 import inquiryExtraChargesAdminRoutes from '../inquiry-extra-charges/inquiryExtraCharges.admin.routes.js';
 import { buildInquiryPatchCrewRosterAckMessages } from './crewRosterAckMessages.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
@@ -322,6 +323,7 @@ router.get('/:id', async (req, res) => {
 
 /** 접수별 현장 청소 전·후 사진 (Cloudinary) — 목록·업로드·삭제 */
 router.use('/:inquiryId/cleaning-photos', inquiryCleaningPhotosAdminRoutes);
+router.use('/:inquiryId/consultation-photos', inquiryConsultationPhotosAdminRoutes);
 router.use('/:inquiryId/extra-charges', inquiryExtraChargesAdminRoutes);
 
 /** 같은 예약일 다른 접수와 팀원 투입(인원·이름) 맞바꿈 — 드롭다운으로는 가용 인원 부족할 때 사용 */

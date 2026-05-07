@@ -9,6 +9,7 @@ import {
 } from '../../utils/inquirySpecialNotesDisplay';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
+import { InquiryConsultationPhotosPanel } from '../../components/inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
@@ -1139,6 +1140,24 @@ export function TeamInquiryDetailModal({
                 </div>
               </section>
             ) : null}
+
+            <section className="min-w-0 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/75">
+              <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-indigo-950">
+                <TeamBiLine id="team.modal.consultationPhotosTitle" koClassName="text-fluid-sm font-medium text-indigo-950" />
+              </header>
+              <div className="border-t border-indigo-200/80 px-4 pb-4 pt-1">
+                <div className="mb-3 text-fluid-xs text-indigo-900/85">
+                  <TeamBiLine id="team.modal.consultationPhotosHint" koClassName="text-fluid-xs text-indigo-900/85" />
+                </div>
+                {teamToken ? (
+                  <InquiryConsultationPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded />
+                ) : (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                    <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+                  </div>
+                )}
+              </div>
+            </section>
 
             <details className="group min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/80 [&_summary::-webkit-details-marker]:hidden">
               <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-fluid-sm font-medium text-blue-950 hover:bg-blue-100/60 touch-manipulation select-none">

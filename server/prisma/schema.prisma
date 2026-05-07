@@ -92,6 +92,7 @@ model User {
   team                Team? @relation("TeamLeaderTeam")
   scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
   inquiryCleaningPhotosUploaded InquiryCleaningPhoto[] @relation("CleaningPhotoUploader")
+  inquiryConsultationPhotosUploaded InquiryConsultationPhoto[] @relation("InquiryConsultationPhotoUploader")
   inquiryExtraChargesCreated    InquiryExtraCharge[]   @relation("InquiryExtraChargeCreatedBy")
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
   inquiryChangeLogsAsActor      InquiryChangeLog[]     @relation("InquiryChangeLogActor")
@@ -515,6 +516,7 @@ model Inquiry {
   createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   changeLogs  InquiryChangeLog[]
   cleaningPhotos InquiryCleaningPhoto[]
+  consultationPhotos InquiryConsultationPhoto[]
   csReports      CsReport[]
   orderFollowups OrderFollowup[]
 
@@ -568,6 +570,24 @@ model InquiryCleaningPhoto {
 
   @@index([inquiryId, phase, createdAt])
   @@map("inquiry_cleaning_photos")
+}
+
+/// 마케터·관리자가 상담 중 받은 참고 사진 (Cloudinary) — 담당 팀장·타업체·마케터 조회
+model InquiryConsultationPhoto {
+  id                 String   @id @default(uuid())
+  inquiryId          String   @map("inquiry_id")
+  cloudinaryPublicId String   @map("cloudinary_public_id") @db.VarChar(512)
+  secureUrl          String   @map("secure_url") @db.VarChar(1024)
+  width              Int?
+  height             Int?
+  uploadedById       String   @map("uploaded_by_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  inquiry    Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation("InquiryConsultationPhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([inquiryId, createdAt])
+  @@map("inquiry_consultation_photos")
 }
 
 enum ScheduleClosureScope {

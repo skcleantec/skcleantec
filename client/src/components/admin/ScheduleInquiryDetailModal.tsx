@@ -33,6 +33,7 @@ import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../uti
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
+import { InquiryConsultationPhotosPanel } from '../inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../inquiry/InquirySettlementPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
@@ -2313,6 +2314,21 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </div>
         </div>
         </AdminScheduleDetailSection>
+
+        {!isCreate && item && (
+          <AdminScheduleDetailSection
+            title="상담·참고 사진 (마케터·관리자 업로드)"
+            sectionAnchor="consultation-photos"
+          >
+            <div className="min-w-0 space-y-2">
+              <p className="text-fluid-xs text-gray-600">
+                고객과 상담 중 받은 현장 사진 등을 올리면, 배정된 팀장·타업체 담당과 마케터가 함께 확인할 수 있습니다. 삭제 시
+                본인 비밀번호 확인이 필요합니다.
+              </p>
+              <InquiryConsultationPhotosPanel inquiryId={item.id} variant="admin" token={token} />
+            </div>
+          </AdminScheduleDetailSection>
+        )}
 
         {!isCreate && item?.claimMemo?.trim() && (
           <AdminScheduleDetailSection title="클레임 (참고)" sectionAnchor="claim">
