@@ -165,6 +165,72 @@ function scheduleItemExternalCompanyIds(item: ScheduleItem): string[] {
   return Array.from(out);
 }
 
+/** 타업체 배정 중 DB 업체가 연결된 경우(우측 일정에서 업체별 접기 묶음용) */
+function primaryLinkedExternalCompany(item: ScheduleItem): { id: string; label: string } | null {
+  for (const a of item.assignments ?? []) {
+    if (a.teamLeader.role !== 'EXTERNAL_PARTNER') continue;
+    const id = a.teamLeader.externalCompany?.id?.trim() ?? '';
+    if (!id) continue;
+    const name = a.teamLeader.externalCompany?.name?.trim();
+    const label = name || a.teamLeader.name?.trim() || id;
+    return { id, label };
+  }
+  return null;
+}
+
+function inquiryHasExternalCompanyLinked(item: ScheduleItem): boolean {
+  return primaryLinkedExternalCompany(item) !== null;
+}
+
+function sortScheduleItemsByCustomer(items: ScheduleItem[]): ScheduleItem[] {
+  return [...items].sort((a, b) => {
+    const byName = a.customerName.localeCompare(b.customerName, 'ko');
+    if (byName !== 0) return byName;
+    return a.id.localeCompare(b.id);
+  });
+}
+
+type ExternalCompanyDayBucket = {
+  companyId: string;
+  label: string;
+  morning: ScheduleItem[];
+  afternoon: ScheduleItem[];
+  other: ScheduleItem[];
+};
+
+function buildLinkedExternalCompanyBuckets(
+  morning: ScheduleItem[],
+  afternoon: ScheduleItem[],
+  other: ScheduleItem[],
+): ExternalCompanyDayBucket[] {
+  const map = new Map<string, ExternalCompanyDayBucket>();
+  const touch = (slot: 'morning' | 'afternoon' | 'other', item: ScheduleItem) => {
+    const co = primaryLinkedExternalCompany(item);
+    if (!co) return;
+    let b = map.get(co.id);
+    if (!b) {
+      b = { companyId: co.id, label: co.label, morning: [], afternoon: [], other: [] };
+      map.set(co.id, b);
+    }
+    b[slot].push(item);
+  };
+  for (const item of morning) touch('morning', item);
+  for (const item of afternoon) touch('afternoon', item);
+  for (const item of other) touch('other', item);
+  const out = Array.from(map.values());
+  out.sort((a, b) => {
+    const byLabel = a.label.localeCompare(b.label, 'ko');
+    if (byLabel !== 0) return byLabel;
+    return a.companyId.localeCompare(b.companyId);
+  });
+  for (const b of out) {
+    b.morning = sortScheduleItemsByCustomer(b.morning);
+    b.afternoon = sortScheduleItemsByCustomer(b.afternoon);
+    b.other = sortScheduleItemsByCustomer(b.other);
+  }
+  return out;
+}
+
 /** 지역 필터는 접수의 주소 검색 한 줄(`address`)만 사용한다. 상세주소는 빌딩명 등으로 오탐할 수 있어 제외한다. */
 function matchesCustomCalendarRegion(item: ScheduleItem, cal: Pick<UserCustomCalendarItem, 'regions'>): boolean {
   return Array.isArray(cal.regions) && cal.regions.length > 0
@@ -1769,6 +1835,27 @@ export function AdminSchedulePage() {
                 const afternoonExt = afternoonList.filter(inquiryHasExternalAssignment);
                 const otherExt = otherList.filter(inquiryHasExternalAssignment);
 
+                const morningExtUnassigned = morningExt.filter((i) => !inquiryHasExternalCompanyLinked(i));
+                const afternoonExtUnassigned = afternoonExt.filter((i) => !inquiryHasExternalCompanyLinked(i));
+                const otherExtUnassigned = otherExt.filter((i) => !inquiryHasExternalCompanyLinked(i));
+
+                const morningExtUnassignedSorted = sortScheduleItemsByCustomer(morningExtUnassigned);
+                const afternoonExtUnassignedSorted = sortScheduleItemsByCustomer(afternoonExtUnassigned);
+                const otherExtUnassignedSorted = sortScheduleItemsByCustomer(otherExtUnassigned);
+
+                const extUnassignedTotal =
+                  morningExtUnassigned.length + afternoonExtUnassigned.length + otherExtUnassigned.length;
+
+                const morningExtAssigned = morningExt.filter(inquiryHasExternalCompanyLinked);
+                const afternoonExtAssigned = afternoonExt.filter(inquiryHasExternalCompanyLinked);
+                const otherExtAssigned = otherExt.filter(inquiryHasExternalCompanyLinked);
+
+                const linkedCompanyBuckets = buildLinkedExternalCompanyBuckets(
+                  morningExtAssigned,
+                  afternoonExtAssigned,
+                  otherExtAssigned,
+                );
+
                 const extTotal = morningExt.length + afternoonExt.length + otherExt.length;
 
                 return (
@@ -1891,81 +1978,202 @@ export function AdminSchedulePage() {
                           <ChevronDownIcon className="h-4 w-4 shrink-0 text-indigo-700 transition-transform group-open:rotate-180" />
                         </summary>
                         <div className="flex flex-col gap-3 px-3 pb-3 pt-1 border-t border-indigo-400/50">
-                          {morningExt.length > 0 && (
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
-                                <span className="text-fluid-xs font-bold text-amber-950">오전</span>
-                                <span className="text-fluid-2xs text-amber-900/80 tabular-nums">{morningExt.length}건</span>
+                          {extUnassignedTotal > 0 && (
+                            <div className="min-w-0 rounded-md border border-indigo-200/90 bg-white/70 p-2.5">
+                              <div className="flex items-center gap-2 mb-2 border-b border-indigo-300/60 pb-1.5">
+                                <span className="text-fluid-xs font-bold text-indigo-950">업체 미연결</span>
+                                <span className="text-fluid-2xs text-indigo-900/80 tabular-nums">{extUnassignedTotal}건</span>
                               </div>
-                              <div className="flex flex-col gap-1">
-                                {morningExt.map((item) => (
-                                  <ScheduleDayListItem
-                                    key={item.id}
-                                    item={item}
-                                    profCatalog={profCatalog}
-                                    onPick={() => {
-                                      setMemoModalItem(null);
-                                      setDetailItem(item);
-                                    }}
-                                    onOpenMemo={() => {
-                                      setDetailItem(null);
-                                      setMemoModalItem(item);
-                                    }}
-                                  />
-                                ))}
+                              <div className="flex flex-col gap-3">
+                                {morningExtUnassigned.length > 0 && (
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
+                                      <span className="text-fluid-xs font-bold text-amber-950">오전</span>
+                                      <span className="text-fluid-2xs text-amber-900/80 tabular-nums">
+                                        {morningExtUnassigned.length}건
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      {morningExtUnassignedSorted.map((item) => (
+                                        <ScheduleDayListItem
+                                          key={item.id}
+                                          item={item}
+                                          profCatalog={profCatalog}
+                                          onPick={() => {
+                                            setMemoModalItem(null);
+                                            setDetailItem(item);
+                                          }}
+                                          onOpenMemo={() => {
+                                            setDetailItem(null);
+                                            setMemoModalItem(item);
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {afternoonExtUnassigned.length > 0 && (
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 mb-2 border-b border-sky-600/70 pb-1">
+                                      <span className="text-fluid-xs font-bold text-sky-950">오후</span>
+                                      <span className="text-fluid-2xs text-sky-900/80 tabular-nums">
+                                        {afternoonExtUnassigned.length}건
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      {afternoonExtUnassignedSorted.map((item) => (
+                                        <ScheduleDayListItem
+                                          key={item.id}
+                                          item={item}
+                                          profCatalog={profCatalog}
+                                          onPick={() => {
+                                            setMemoModalItem(null);
+                                            setDetailItem(item);
+                                          }}
+                                          onOpenMemo={() => {
+                                            setDetailItem(null);
+                                            setMemoModalItem(item);
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {otherExtUnassigned.length > 0 && (
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 mb-2 border-b border-violet-500/70 pb-1">
+                                      <span className="text-fluid-xs font-bold text-violet-950">사이 · 일정 미확정</span>
+                                      <span className="text-fluid-2xs text-violet-900/80 tabular-nums">
+                                        {otherExtUnassigned.length}건
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      {otherExtUnassignedSorted.map((item) => (
+                                        <ScheduleDayListItem
+                                          key={item.id}
+                                          item={item}
+                                          profCatalog={profCatalog}
+                                          onPick={() => {
+                                            setMemoModalItem(null);
+                                            setDetailItem(item);
+                                          }}
+                                          onOpenMemo={() => {
+                                            setDetailItem(null);
+                                            setMemoModalItem(item);
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
-                          {afternoonExt.length > 0 && (
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 mb-2 border-b border-sky-600/70 pb-1">
-                                <span className="text-fluid-xs font-bold text-sky-950">오후</span>
-                                <span className="text-fluid-2xs text-sky-900/80 tabular-nums">{afternoonExt.length}건</span>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                {afternoonExt.map((item) => (
-                                  <ScheduleDayListItem
-                                    key={item.id}
-                                    item={item}
-                                    profCatalog={profCatalog}
-                                    onPick={() => {
-                                      setMemoModalItem(null);
-                                      setDetailItem(item);
-                                    }}
-                                    onOpenMemo={() => {
-                                      setDetailItem(null);
-                                      setMemoModalItem(item);
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {otherExt.length > 0 && (
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 mb-2 border-b border-violet-500/70 pb-1">
-                                <span className="text-fluid-xs font-bold text-violet-950">사이 · 일정 미확정</span>
-                                <span className="text-fluid-2xs text-violet-900/80 tabular-nums">{otherExt.length}건</span>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                {otherExt.map((item) => (
-                                  <ScheduleDayListItem
-                                    key={item.id}
-                                    item={item}
-                                    profCatalog={profCatalog}
-                                    onPick={() => {
-                                      setMemoModalItem(null);
-                                      setDetailItem(item);
-                                    }}
-                                    onOpenMemo={() => {
-                                      setDetailItem(null);
-                                      setMemoModalItem(item);
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                          {linkedCompanyBuckets.map((bucket) => {
+                            const bucketTotal =
+                              bucket.morning.length + bucket.afternoon.length + bucket.other.length;
+                            return (
+                              <details
+                                key={`${selectedDate ?? 'day'}-ext-co-${bucket.companyId}`}
+                                className="group/extco min-w-0 rounded-lg border border-indigo-200/90 bg-white/70 shadow-sm [&_summary::-webkit-details-marker]:hidden"
+                              >
+                                <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-2 px-2.5 py-2 hover:bg-indigo-50/80 rounded-lg">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-fluid-xs font-bold text-indigo-950 truncate" title={bucket.label}>
+                                      {bucket.label}
+                                    </span>
+                                    <span className="text-fluid-2xs text-indigo-900/80 tabular-nums shrink-0">
+                                      {bucketTotal}건
+                                    </span>
+                                  </div>
+                                  <ChevronDownIcon className="h-4 w-4 shrink-0 text-indigo-700 transition-transform group-open/extco:rotate-180" />
+                                </summary>
+                                <div className="flex flex-col gap-2.5 px-2.5 pb-2.5 pt-1 border-t border-indigo-200/70">
+                                  {bucket.morning.length > 0 && (
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 mb-1.5 border-b border-amber-500/60 pb-1">
+                                        <span className="text-fluid-2xs font-bold text-amber-950">오전</span>
+                                        <span className="text-fluid-2xs text-amber-900/75 tabular-nums">
+                                          {bucket.morning.length}건
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-col gap-1">
+                                        {bucket.morning.map((item) => (
+                                          <ScheduleDayListItem
+                                            key={item.id}
+                                            item={item}
+                                            profCatalog={profCatalog}
+                                            onPick={() => {
+                                              setMemoModalItem(null);
+                                              setDetailItem(item);
+                                            }}
+                                            onOpenMemo={() => {
+                                              setDetailItem(null);
+                                              setMemoModalItem(item);
+                                            }}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {bucket.afternoon.length > 0 && (
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 mb-1.5 border-b border-sky-600/60 pb-1">
+                                        <span className="text-fluid-2xs font-bold text-sky-950">오후</span>
+                                        <span className="text-fluid-2xs text-sky-900/75 tabular-nums">
+                                          {bucket.afternoon.length}건
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-col gap-1">
+                                        {bucket.afternoon.map((item) => (
+                                          <ScheduleDayListItem
+                                            key={item.id}
+                                            item={item}
+                                            profCatalog={profCatalog}
+                                            onPick={() => {
+                                              setMemoModalItem(null);
+                                              setDetailItem(item);
+                                            }}
+                                            onOpenMemo={() => {
+                                              setDetailItem(null);
+                                              setMemoModalItem(item);
+                                            }}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {bucket.other.length > 0 && (
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 mb-1.5 border-b border-violet-500/60 pb-1">
+                                        <span className="text-fluid-2xs font-bold text-violet-950">사이 · 일정 미확정</span>
+                                        <span className="text-fluid-2xs text-violet-900/75 tabular-nums">
+                                          {bucket.other.length}건
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-col gap-1">
+                                        {bucket.other.map((item) => (
+                                          <ScheduleDayListItem
+                                            key={item.id}
+                                            item={item}
+                                            profCatalog={profCatalog}
+                                            onPick={() => {
+                                              setMemoModalItem(null);
+                                              setDetailItem(item);
+                                            }}
+                                            onOpenMemo={() => {
+                                              setDetailItem(null);
+                                              setMemoModalItem(item);
+                                            }}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </details>
+                            );
+                          })}
                         </div>
                       </details>
                     )}
