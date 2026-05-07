@@ -12,6 +12,15 @@ function won(n: number): string {
   return `${Number(n).toLocaleString('ko-KR')}원`;
 }
 
+/** 정산 금액 입력 — 맨 앞 마이너스·숫자·콤마만 허용 (과납·오기입 보정용 음수) */
+function sanitizeExternalPayAmountInput(raw: string): string {
+  let s = raw.replace(/[^\d,\-]/g, '');
+  if (!s) return '';
+  const neg = s.charAt(0) === '-';
+  s = s.replace(/-/g, '');
+  return neg ? `-${s}` : s;
+}
+
 function kstTodayYmd(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
@@ -224,21 +233,27 @@ export function AdminExternalSettlementPage() {
       setPayFormError('정산일은 오늘(한국) 이후로 설정할 수 없습니다.');
       return;
     }
-    const amount = Number(payAmountInput.replace(/[^\d]/g, ''));
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setPayFormError('정산 금액을 0원보다 크게 입력해 주세요.');
+    const compact = payAmountInput.replace(/,/g, '').trim();
+    if (!/^-?\d+$/.test(compact)) {
+      setPayFormError('정산 금액은 정수로 입력해 주세요. (과납·오기입 보정 시 맨 앞에 - 를 붙일 수 있습니다)');
+      return;
+    }
+    const amount = Number(compact);
+    if (!Number.isFinite(amount) || amount === 0) {
+      setPayFormError('0원은 입력할 수 없습니다.');
       return;
     }
     if (!token) {
       setPayFormError('로그인이 만료되었습니다. 다시 로그인해 주세요.');
       return;
     }
-    const currentRemaining = Math.max(0, selected.remainingAmount);
+    const currentRemaining = selected.remainingAmount;
+    const floored = Math.trunc(amount);
     if (ymd !== payDateInput) setPayDateInput(ymd);
     setPayConfirm({
       currentRemaining,
-      inputAmount: Math.floor(amount),
-      afterRemaining: Math.max(0, currentRemaining - Math.floor(amount)),
+      inputAmount: floored,
+      afterRemaining: currentRemaining - floored,
     });
     setPayModalOpen(false);
   };
@@ -444,7 +459,13 @@ export function AdminExternalSettlementPage() {
               ) : null}
               <p className="text-xs text-gray-600">
                 현재 누적 미수금:{' '}
-                <strong className="text-rose-700 tabular-nums">{won(Math.max(0, selected.remainingAmount))}</strong>
+                <strong className="text-rose-700 tabular-nums">{won(selected.remainingAmount)}</strong>
+                {selected.remainingAmount < 0 ? (
+                  <span className="block mt-0.5 text-[11px] text-gray-500">
+                    음수는 과납 등으로 미수가 마이너스인 상태입니다. 0으로 맞출 때 동일 금액을 앞에{' '}
+                    <span className="font-medium text-gray-700">-</span> 를 붙여 입력하세요.
+                  </span>
+                ) : null}
               </p>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">정산일 (한국 기준)</label>
@@ -460,10 +481,15 @@ export function AdminExternalSettlementPage() {
               </div>
               <input
                 value={payAmountInput}
-                onChange={(e) => setPayAmountInput(e.target.value.replace(/[^\d,]/g, ''))}
-                placeholder="정산 금액"
+                onChange={(e) => setPayAmountInput(sanitizeExternalPayAmountInput(e.target.value))}
+                placeholder="정산 금액 (보정 시 -금액)"
+                inputMode="numeric"
                 className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
               />
+              <p className="text-[11px] text-gray-400">
+                일반 정산은 양수만 입력합니다. 잘못 입력한 정산을 되돌리거나 미수가 음수일 때는 앞에 - 를 붙인 정수를
+                입력할 수 있습니다.
+              </p>
               <input
                 value={payMemoInput}
                 onChange={(e) => setPayMemoInput(e.target.value)}
@@ -504,7 +530,9 @@ export function AdminExternalSettlementPage() {
             </p>
             <p className="text-sm flex justify-between">
               <span>입력금액</span>
-              <strong>{won(payConfirm.inputAmount)}</strong>
+              <strong className={payConfirm.inputAmount < 0 ? 'text-amber-800' : ''}>
+                {won(payConfirm.inputAmount)}
+              </strong>
             </p>
             <p className="text-sm flex justify-between">
               <span>처리 후 남은 금액</span>
@@ -570,7 +598,11 @@ export function AdminExternalSettlementPage() {
                         <p className="text-gray-500">{formatKstDateLabel(p.paidAt)}</p>
                         <p className="mt-1 flex items-center justify-between">
                           <span className="text-gray-500">금액</span>
-                          <strong className="tabular-nums text-emerald-700">{won(p.amount)}</strong>
+                          <strong
+                            className={`tabular-nums ${p.amount < 0 ? 'text-amber-800' : 'text-emerald-700'}`}
+                          >
+                            {won(p.amount)}
+                          </strong>
                         </p>
                         <p className="mt-1 text-gray-700">처리자: {p.actorName ?? '-'}</p>
                         <p className="mt-1 text-gray-700">메모: {p.memo ?? '-'}</p>
@@ -591,7 +623,11 @@ export function AdminExternalSettlementPage() {
                         {historyRows.map((p) => (
                           <tr key={p.id} className="border-t border-gray-100">
                             <td className="px-3 py-2 text-center tabular-nums">{formatKstDateLabel(p.paidAt)}</td>
-                            <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{won(p.amount)}</td>
+                            <td
+                              className={`px-3 py-2 text-right tabular-nums ${p.amount < 0 ? 'text-amber-800' : 'text-emerald-700'}`}
+                            >
+                              {won(p.amount)}
+                            </td>
                             <td className="px-3 py-2 text-center">{p.actorName ?? '-'}</td>
                             <td className="px-3 py-2 text-center">{p.memo ?? '-'}</td>
                           </tr>

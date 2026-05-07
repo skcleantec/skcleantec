@@ -904,10 +904,14 @@ router.post('/settlement/payments', async (req, res) => {
     res.status(400).json({ error: 'externalCompanyId가 필요합니다.' });
     return;
   }
-  if (!Number.isFinite(amount) || amount <= 0) {
-    res.status(400).json({ error: '정산완료 금액은 0원보다 커야 합니다.' });
+  if (!Number.isFinite(amount) || amount === 0) {
+    res.status(400).json({
+      error:
+        '정산완료 금액은 0이 아닌 정수여야 합니다. 과납·오기입 보정은 마이너스 금액으로 입력할 수 있습니다.',
+    });
     return;
   }
+  const amountInt = Math.trunc(amount);
   const co = await prisma.externalCompany.findFirst({
     where: { id: externalCompanyId, isActive: true },
     select: { id: true },
@@ -919,7 +923,7 @@ router.post('/settlement/payments', async (req, res) => {
   const row = await prisma.externalCompanySettlementPayment.create({
     data: {
       externalCompanyId,
-      amount: Math.floor(amount),
+      amount: amountInt,
       memo: memo || null,
       actorId,
       paidAt: paidResolved.paidAt,
