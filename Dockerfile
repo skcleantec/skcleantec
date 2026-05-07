@@ -9,25 +9,26 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
 # prepare-schema.js 가 DB provider 판별용으로 사용 (빌드 시 Postgres 가정)
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 ENV NODE_OPTIONS=--max-old-space-size=6144
+ENV CI=true
 
 WORKDIR /app
 
-# 루트 package.json은 로컬 concurrently용 — 이미지 빌드에 불필요(이 단계 제거로 설치·네트워크 시간 단축)
+# 루트 package.json은 로컬 concurrently용 — 이미지 빌드에 불필요(네트워크·레이어 캐시 분리)
 COPY server/package.json server/package-lock.json ./server/
 RUN cd server && npm ci --no-audit --no-fund
 
 COPY client/package.json client/package-lock.json ./client/
 RUN cd client && npm ci --no-audit --no-fund
 
+# lockfile 단계와 분리: 소스 변경 시 위 npm ci 레이어는 그대로 캐시됨
 COPY server ./server
 COPY client ./client
 
 WORKDIR /app/server
-# npm run build 안에 이미 prepare-schema + prisma generate + tsc 포함 — 이중 실행 제거
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
 
 WORKDIR /app/client
-RUN npm run build
+RUN NODE_ENV=production npm run build
 
 FROM node:22-bookworm-slim AS runner
 
