@@ -73,10 +73,14 @@ export async function listOrderFollowups(
     customerName?: string;
     /** 골드DB 표시된 행만 */
     goldDbOnly?: boolean;
-    /** 등록일(createdAt) 기준 — 접수 목록과 동일 KST 구간 */
+    /** 등록일(createdAt) 기준 — 접수 목록과 동일 KST 구간 (`preferredDatePreset`이 지정되면 무시됨) */
     datePreset?: OrderFollowupDatePreset;
     month?: string;
     day?: string;
+    /** 입주청소 희망일(YYYY-MM-DD) 기간 — 지정 시 등록일 필터는 적용되지 않음 */
+    preferredDatePreset?: OrderFollowupDatePreset;
+    preferredMonth?: string;
+    preferredDay?: string;
     /** 해당 접수에 연결된 부재현황만 */
     inquiryId?: string;
     /** 접수 미연결 행만 + 고객명(2자 이상) — 기존 행을 접수에 붙일 때 검색 */
@@ -90,7 +94,15 @@ export async function listOrderFollowups(
   if (opts?.goldDbOnly) q.set('goldDbOnly', '1');
   if (opts?.inquiryId?.trim()) q.set('inquiryId', opts.inquiryId.trim());
   if (opts?.missingInquiryLink) q.set('missingInquiryLink', '1');
-  if (opts?.datePreset && opts.datePreset !== 'all') {
+  const prefPreset = opts?.preferredDatePreset;
+  const usePreferred = prefPreset && prefPreset !== 'all';
+  if (usePreferred) {
+    q.set('preferredDatePreset', prefPreset);
+    if (prefPreset === 'month' && opts?.preferredMonth?.trim())
+      q.set('preferredMonth', opts.preferredMonth.trim());
+    if (prefPreset === 'day' && opts?.preferredDay?.trim())
+      q.set('preferredDay', opts.preferredDay.trim());
+  } else if (opts?.datePreset && opts.datePreset !== 'all') {
     q.set('datePreset', opts.datePreset);
     if (opts.datePreset === 'month' && opts.month?.trim()) q.set('month', opts.month.trim());
     if (opts.datePreset === 'day' && opts.day?.trim()) q.set('day', opts.day.trim());

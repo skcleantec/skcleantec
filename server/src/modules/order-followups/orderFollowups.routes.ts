@@ -4,7 +4,10 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
+import {
+  createdAtRangeFromQuery,
+  preferredMoveInYmdRangeFromQuery,
+} from '../inquiries/inquiryListDateRange.js';
 import {
   appendFollowupLog,
   FOLLOWUP_INCLUDE,
@@ -176,15 +179,30 @@ router.get('/', async (req, res) => {
       : [];
     where.AND = [...prevAnd, ...listExtraAnd];
   }
-  const dateRange = missingInquiryLink
+  const preferredYmdRange = missingInquiryLink
     ? null
-    : createdAtRangeFromQuery({
-        datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : undefined,
-        month: typeof req.query.month === 'string' ? req.query.month : undefined,
-        day: typeof req.query.day === 'string' ? req.query.day : undefined,
+    : preferredMoveInYmdRangeFromQuery({
+        preferredDatePreset:
+          typeof req.query.preferredDatePreset === 'string'
+            ? req.query.preferredDatePreset
+            : undefined,
+        preferredMonth:
+          typeof req.query.preferredMonth === 'string' ? req.query.preferredMonth : undefined,
+        preferredDay: typeof req.query.preferredDay === 'string' ? req.query.preferredDay : undefined,
       });
+  const dateRange =
+    missingInquiryLink || preferredYmdRange
+      ? null
+      : createdAtRangeFromQuery({
+          datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : undefined,
+          month: typeof req.query.month === 'string' ? req.query.month : undefined,
+          day: typeof req.query.day === 'string' ? req.query.day : undefined,
+        });
   if (dateRange) {
     where.createdAt = { gte: dateRange.gte, lte: dateRange.lte };
+  }
+  if (preferredYmdRange) {
+    where.preferredMoveInCleaningDate = { gte: preferredYmdRange.gte, lte: preferredYmdRange.lte };
   }
   if (customerName) {
     where.customerName = { contains: customerName, mode: 'insensitive' };

@@ -79,6 +79,8 @@ function roleLabelKo(role: string): string {
   return map[role] ?? role;
 }
 
+type FollowupListDateBasis = 'createdAt' | 'preferredMoveIn';
+
 function actionLabelKo(action: string): string {
   const map: Record<string, string> = {
     CREATE: '등록',
@@ -101,7 +103,8 @@ function actionLabelKo(action: string): string {
 export const FOLLOWUP_PANEL_HELP =
   '전화 부재·보류 등 후속 관리입니다.\n' +
   '이 화면에서는 부재·보류 건만 목록·필터합니다. 재연락 후 이용 확정이면 편집에서 「예약금 대기」또는「입금 완료」로 바꾸면 접수가 자동으로 만들어지고 접수 목록에서 이어갈 수 있습니다.\n' +
-  '등록일로 범위를 좁힌 뒤, 상단 칩으로 「부재」「보류」를 골라 볼 수 있습니다.\n' +
+  '상단에서 「등록일」또는「희망일(입주청소)」기준을 고른 뒤 오늘·월별·일별 등으로 범위를 좁힐 수 있습니다. 희망일 필터는 희망일이 입력된 행만 보여 줍니다.\n' +
+  '상단 칩으로 「부재」「보류」등을 골라 볼 수 있습니다.\n' +
   '재연락 후에도 부재·보류가 이어지면 「부재+1」로 누적 횟수를 올릴 수 있습니다.\n' +
   '편집에서 「골드DB」를 켜면 고급 DB로 올릴 때까지 집중이 필요한 건으로, 목록에서 노란 배경으로 표시됩니다.\n' +
   '「골드DB만」을 켜면 골드DB 건만 목록에 남깁니다. 안내는 화면 상단 ? 아이콘에서 볼 수 있습니다.';
@@ -321,6 +324,7 @@ export function AdminOrderFormFollowupPanel({
   const [filterGoldDbOnly, setFilterGoldDbOnly] = useState(false);
   const [filterStatus, setFilterStatus] = useState<OrderFollowupStatus | ''>('');
   const [filterCustomerName, setFilterCustomerName] = useState('');
+  const [listDateBasis, setListDateBasis] = useState<FollowupListDateBasis>('createdAt');
   const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('all');
   const [dateMonthKey, setDateMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
@@ -378,11 +382,17 @@ export function AdminOrderFormFollowupPanel({
           goldDbOnly: filterGoldDbOnly || undefined,
           ...(linkedInquiryId?.trim() ? { inquiryId: linkedInquiryId.trim() } : {}),
           ...(datePreset !== 'all'
-            ? {
-                datePreset,
-                ...(datePreset === 'month' ? { month: dateMonthKey } : {}),
-                ...(datePreset === 'day' ? { day: dateDayKey } : {}),
-              }
+            ? listDateBasis === 'preferredMoveIn'
+              ? {
+                  preferredDatePreset: datePreset,
+                  ...(datePreset === 'month' ? { preferredMonth: dateMonthKey } : {}),
+                  ...(datePreset === 'day' ? { preferredDay: dateDayKey } : {}),
+                }
+              : {
+                  datePreset,
+                  ...(datePreset === 'month' ? { month: dateMonthKey } : {}),
+                  ...(datePreset === 'day' ? { day: dateDayKey } : {}),
+                }
             : {}),
         });
         setItems(r.items);
@@ -393,7 +403,17 @@ export function AdminOrderFormFollowupPanel({
         setLoading(false);
       }
     },
-    [token, filterGoldDbOnly, filterStatus, filterCustomerName, datePreset, dateMonthKey, dateDayKey, linkedInquiryId]
+    [
+      token,
+      filterGoldDbOnly,
+      filterStatus,
+      filterCustomerName,
+      datePreset,
+      dateMonthKey,
+      dateDayKey,
+      linkedInquiryId,
+      listDateBasis,
+    ]
   );
 
   useEffect(() => {
@@ -638,7 +658,33 @@ export function AdminOrderFormFollowupPanel({
       <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-4 py-3">
           <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-2">
-            <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">등록일</span>
+            <div className="inline-flex shrink-0 rounded border border-gray-300 overflow-hidden text-fluid-sm">
+              <button
+                type="button"
+                onClick={() => setListDateBasis('createdAt')}
+                className={`px-2.5 py-1.5 font-medium ${
+                  listDateBasis === 'createdAt'
+                    ? 'bg-slate-700 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                등록일
+              </button>
+              <button
+                type="button"
+                onClick={() => setListDateBasis('preferredMoveIn')}
+                className={`px-2.5 py-1.5 font-medium border-l border-gray-300 ${
+                  listDateBasis === 'preferredMoveIn'
+                    ? 'bg-slate-700 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                희망일
+              </button>
+            </div>
+            <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">
+              {listDateBasis === 'createdAt' ? '등록일 범위' : '희망일 범위'}
+            </span>
             <div className="inline-flex min-w-0 flex-wrap items-center gap-2">
               <div className="inline-flex shrink-0 rounded border border-gray-300 overflow-hidden text-fluid-sm">
                 <button
@@ -773,7 +819,9 @@ export function AdminOrderFormFollowupPanel({
               ? '골드DB 건이 없습니다.'
               : linkedInquiryId?.trim()
                 ? '이 접수에 연결된 부재현황이 없습니다.'
-                : '등록된 건이 없습니다.'}
+                : listDateBasis === 'preferredMoveIn' && datePreset !== 'all'
+                  ? '선택한 희망일 범위에 맞는 건이 없습니다. 희망일이 비어 있는 행은 이 조회에서 제외됩니다.'
+                  : '등록된 건이 없습니다.'}
           </div>
         ) : (
           <>

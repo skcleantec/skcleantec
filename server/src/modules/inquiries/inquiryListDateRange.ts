@@ -54,3 +54,38 @@ export function createdAtRangeFromQuery(query: {
   }
   return null;
 }
+
+/**
+ * 부재현황 `preferredMoveInCleaningDate`(YYYY-MM-DD) 문자열 필드 구간.
+ * ISO 날짜 문자열은 사전순이 곧 달력순이라 `gte`/`lte`로 월·일 범위를 줄 수 있다.
+ */
+export function preferredMoveInYmdRangeFromQuery(query: {
+  preferredDatePreset?: string;
+  preferredMonth?: string;
+  preferredDay?: string;
+}): { gte: string; lte: string } | null {
+  const preset = query.preferredDatePreset as DatePreset | undefined;
+  if (!preset || preset === 'all') return null;
+  if (preset === 'today') {
+    const d = kstTodayYmd();
+    return { gte: d, lte: d };
+  }
+  if (preset === 'month') {
+    const mk = typeof query.preferredMonth === 'string' ? query.preferredMonth.trim() : '';
+    const m = /^(\d{4})-(\d{2})$/.exec(mk);
+    if (!m) return null;
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    if (mo < 1 || mo > 12) return null;
+    const lastDay = new Date(y, mo, 0).getDate();
+    const gte = `${y}-${String(mo).padStart(2, '0')}-01`;
+    const lte = `${y}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    return { gte, lte };
+  }
+  if (preset === 'day') {
+    const d = typeof query.preferredDay === 'string' ? query.preferredDay.trim() : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+    return { gte: d, lte: d };
+  }
+  return null;
+}
