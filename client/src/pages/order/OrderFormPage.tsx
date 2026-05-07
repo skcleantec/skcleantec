@@ -61,7 +61,7 @@ export function OrderFormPage() {
     propertyType: string;
     areaBasis: string;
     areaPyeong: string;
-    /** 전용면적 기준일 때 참고 제곱미터(㎡) — 선택 입력 */
+    /** 레거시·폼 초기화용 (전용 입력은 평 → areaPyeong 사용, 제출 시 미전송) */
     exclusiveAreaSqm: string;
     preferredDate: string;
     preferredTime: string;
@@ -178,8 +178,10 @@ export function OrderFormPage() {
     const b = pendingAreaBasisAckRef.current;
     pendingAreaBasisAckRef.current = null;
     setAreaBasisAckModal(null);
-    if (b === '공급') setForm((f) => ({ ...f, areaBasis: '공급', exclusiveAreaSqm: '' }));
-    else if (b === '전용') setForm((f) => ({ ...f, areaBasis: '전용', areaPyeong: '' }));
+    if (b === '공급')
+      setForm((f) => ({ ...f, areaBasis: '공급', exclusiveAreaSqm: '', areaPyeong: '' }));
+    else if (b === '전용')
+      setForm((f) => ({ ...f, areaBasis: '전용', areaPyeong: '', exclusiveAreaSqm: '' }));
   }, []);
 
   const requestAreaBasisSelection = useCallback((basis: '공급' | '전용') => {
@@ -237,18 +239,22 @@ export function OrderFormPage() {
           addressDetail: p?.addressDetail ?? '',
           propertyType: p?.propertyType ?? '',
           areaBasis: p?.areaBasis ?? '',
-          areaPyeong:
-            (p?.areaBasis ?? '').trim() === '전용'
-              ? ''
-              : p?.areaPyeong != null
-                ? String(p.areaPyeong)
-                : '',
-          exclusiveAreaSqm:
-            (p?.areaBasis ?? '').trim() === '공급'
-              ? ''
-              : p?.exclusiveAreaSqm != null && Number.isFinite(p.exclusiveAreaSqm)
-                ? String(p.exclusiveAreaSqm)
-                : '',
+          areaPyeong: (() => {
+            const basis = (p?.areaBasis ?? '').trim();
+            if (basis === '공급') {
+              return p?.areaPyeong != null && Number.isFinite(p.areaPyeong) ? String(p.areaPyeong) : '';
+            }
+            if (basis === '전용') {
+              if (p?.areaPyeong != null && Number.isFinite(p.areaPyeong)) return String(p.areaPyeong);
+              if (p?.exclusiveAreaSqm != null && Number.isFinite(p.exclusiveAreaSqm)) {
+                const py = p.exclusiveAreaSqm / 3.305785;
+                return String(Math.round(py * 100) / 100);
+              }
+              return '';
+            }
+            return p?.areaPyeong != null ? String(p.areaPyeong) : '';
+          })(),
+          exclusiveAreaSqm: '',
           preferredDate: p?.preferredDate ?? data.preferredDate ?? kstTodayYmd(),
           preferredTime: p?.preferredTime ?? data.preferredTime ?? '',
           preferredTimeDetail: p?.preferredTimeDetail ?? data.preferredTimeDetail ?? '',
@@ -313,12 +319,12 @@ export function OrderFormPage() {
         }
         submitAreaPyeong = area;
       } else {
-        const sq = parseFloat(form.exclusiveAreaSqm.replace(/,/g, '').trim());
-        if (Number.isNaN(sq) || sq <= 0) {
-          throw new Error('전용면적(실제 내 집 공간)을 제곱미터(㎡)로 입력해 주세요.');
+        const area = parseFloat(form.areaPyeong.replace(/,/g, '').trim());
+        if (Number.isNaN(area) || area <= 0) {
+          throw new Error('전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.');
         }
-        submitExclusiveSqm = sq;
-        submitAreaPyeong = null;
+        submitAreaPyeong = area;
+        submitExclusiveSqm = null;
       }
       const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
       const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
@@ -628,21 +634,20 @@ export function OrderFormPage() {
                         inputMode="decimal"
                         autoComplete="off"
                         className="w-[6.5rem] px-2 py-1.5 border border-gray-400 rounded text-sm tabular-nums text-center"
-                        value={form.exclusiveAreaSqm}
-                        onChange={(e) => setForm((f) => ({ ...f, exclusiveAreaSqm: e.target.value }))}
-                        placeholder="㎡"
-                        aria-label="전용면적 제곱미터"
+                        value={form.areaPyeong}
+                        onChange={(e) => setForm((f) => ({ ...f, areaPyeong: e.target.value }))}
+                        placeholder="평"
+                        aria-label="전용면적 평"
                       />
-                      <span className="text-sm text-gray-800 shrink-0">㎡</span>
+                      <span className="text-sm text-gray-800 shrink-0">평</span>
                     </span>
                   ) : null}
                 </div>
               </div>
             </div>
             <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-              공급면적은 <span className="font-medium text-gray-800">분양·등기상 공급 평수</span>, 전용면적은{' '}
-              <span className="font-medium text-gray-800">실제 거주 공간 기준 ㎡</span>로 적어 주세요. 복층은 층별로 기재해
-              주세요.
+              공급·전용 모두 <span className="font-medium text-gray-800">평</span> 단위로 적어 주세요. 등기·계약서가 ㎡만
+              표기된 경우에는 평으로 환산한 뒤 입력해 주세요. 복층은 층별로 기재해 주세요.
             </p>
           </div>
 
@@ -1167,6 +1172,41 @@ export function OrderFormPage() {
                     ? '공급면적 (분양 평수)'
                     : '전용면적 (실제 내 집 공간)'}
                 </h2>
+                <div className="mt-4 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3.5 shadow-sm">
+                  <p className="text-base font-bold leading-snug text-red-950 sm:text-[1.05rem]">
+                    주의: 면적란에는 반드시{' '}
+                    <span className="underline decoration-2 decoration-red-700 underline-offset-2">평수</span>로 적어
+                    주세요.
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-snug text-red-900">
+                    제곱미터(㎡)만 알고 계시면, 평으로 치수 변환(환산)한 값을 입력해야 합니다. ㎡ 그대로 넣지 마세요.
+                  </p>
+                  <div
+                    className="mt-3 border-4 border-red-700 bg-red-100 px-3 py-3.5 shadow-inner"
+                    role="note"
+                  >
+                    <p className="text-center text-fluid-base font-black leading-snug text-red-900 sm:text-lg">
+                      <span className="underline decoration-red-900 decoration-4 underline-offset-[5px]">
+                        분양 때 나오는{' '}
+                        <span className="text-red-800">타입·평형 명칭</span>은 면적란에{' '}
+                        <span className="text-red-950">절대 적지 마세요.</span>
+                      </span>
+                    </p>
+                    <p className="mt-2.5 text-center text-sm font-extrabold leading-snug text-red-950">
+                      <span className="underline decoration-red-800 decoration-2 underline-offset-2">
+                        34평형 · 59㎡형 · ○○A 타입 등 표기는 모두 금지
+                      </span>{' '}
+                      — 등기·계약서의{' '}
+                      <span className="underline decoration-red-900 decoration-[3px] underline-offset-2">
+                        실제 평수(숫자)
+                      </span>
+                      만 적어 주세요.
+                    </p>
+                  </div>
+                  <p className="mt-1.5 text-fluid-xs font-medium text-red-900/90">
+                    참고: 1평 ≈ 3.3058㎡ — 예) 전용 84㎡ → 약 25.4평
+                  </p>
+                </div>
                 <div className="mt-4 space-y-3 text-sm leading-relaxed text-gray-800">
                   {areaBasisAckModal === '공급' ? (
                     <>
@@ -1201,14 +1241,15 @@ export function OrderFormPage() {
                       </p>
                       <p>
                         <span className="font-semibold text-gray-900">특징:</span> 세금 산정(취득세, 재산세 등)이나
-                        청약 자격을 결정할 때 기준이 되는 가장 중요한 면적입니다. 흔히 말하는 &apos;국민평수
-                        84㎡&apos;가 바로 이 전용면적을 의미합니다.
+                        청약 자격을 결정할 때 기준이 되는 가장 중요한 면적입니다. 예를 들어 등기에는 &apos;전용 84㎡&apos;
+                        처럼 나오는 경우가 많은데, 발주서에는 그에 맞게{' '}
+                        <span className="font-semibold text-gray-900">평으로 환산한 숫자</span>를 적어 주세요.
                       </p>
                     </>
                   )}
                 </div>
-                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-3 text-fluid-xs font-medium leading-snug text-amber-950">
-                  <span className="font-semibold text-amber-950">안내 · </span>
+                <div className="mt-5 rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-3.5 text-sm font-semibold leading-snug text-amber-950">
+                  <span className="font-bold text-amber-950">안내 · </span>
                   {AREA_BASIS_COST_WARNING}
                 </div>
               </div>

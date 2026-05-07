@@ -45,7 +45,7 @@ export interface OrderFormCustomerSubmissionSnapshotV1 {
     customerPhone2: string;
     areaPyeong: number | null;
     areaBasis: string;
-    /** 전용면적 기준 시 참고 ㎡ (신규 제출부터 저장, 과거 스냅샷은 생략될 수 있음) */
+    /** 전용면적 기준 시 평수(과거 스냅샷은 exclusiveAreaSqm만 있을 수 있음) */
     exclusiveAreaSqm?: number | null;
     propertyType: string;
     preferredDate: string;
@@ -366,7 +366,7 @@ export async function submitOrderForm(
     addressDetail?: string;
     customerPhone: string;
     customerPhone2: string;
-    /** 공급면적일 때만 값 있음, 전용이면 null */
+    /** 공급·전용 모두 평 단위. 전용일 때는 exclusiveAreaSqm 생략(null). */
     areaPyeong?: number | null;
     areaBasis: string;
     propertyType: string;

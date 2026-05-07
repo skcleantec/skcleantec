@@ -1313,21 +1313,21 @@ router.post('/submit/:token', async (req, res) => {
     }
     areaPyeongOut = n;
   } else {
-    const raw = body.exclusiveAreaSqm;
-    if (raw == null || (typeof raw === 'string' && raw.trim() === '')) {
-      res.status(400).json({ error: '전용면적(실제 내 집 공간)을 제곱미터(㎡)로 입력해 주세요.' });
+    const rawPy = body.areaPyeong;
+    if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
+      res.status(400).json({ error: '전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.' });
       return;
     }
     const n =
-      typeof raw === 'number'
-        ? raw
-        : Number(String(raw).replace(/,/g, '').trim());
-    if (!Number.isFinite(n) || n <= 0 || n > 1_000_000) {
-      res.status(400).json({ error: '전용 면적(㎡)은 양수 숫자로 입력해 주세요.' });
+      typeof rawPy === 'number'
+        ? rawPy
+        : Number(String(rawPy).replace(/,/g, '').trim());
+    if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
+      res.status(400).json({ error: '전용면적(평)은 양수 숫자로 입력해 주세요.' });
       return;
     }
-    exclusiveAreaSqm = n;
-    areaPyeongOut = null;
+    areaPyeongOut = n;
+    exclusiveAreaSqm = null;
   }
 
   // 관리자가 발급 시 날짜를 넣었으면 그 날짜는 고객이 바꿀 수 없음(본문 무시). 미지정이면 고객 입력 사용.

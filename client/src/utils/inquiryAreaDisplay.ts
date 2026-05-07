@@ -76,7 +76,7 @@ export function formatInquiryAreaKoLine(item: {
       }
       return `전용면적 ${sqStr}㎡ (실제 내 집 공간)`;
     }
-    if (py != null) return `전용면적 ${py}평 (㎡ 미입력)`;
+    if (py != null) return `전용면적 ${py}평 (실제 내 집 공간)`;
     return '—';
   }
   if (py != null && sqm != null) {

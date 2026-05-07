@@ -162,12 +162,16 @@ export function CustomerOrderSubmissionSnapshotModal(props: {
                   </SnapshotRow>
                   <SnapshotRow label="전용면적 (실제 내 집 공간)">
                     {snapshot.fields.areaBasis === '전용' &&
-                    snapshot.fields.exclusiveAreaSqm != null &&
-                    Number.isFinite(snapshot.fields.exclusiveAreaSqm)
-                      ? `${Number(snapshot.fields.exclusiveAreaSqm).toLocaleString('ko-KR')}㎡`
-                      : snapshot.fields.areaBasis === '전용'
-                        ? '입력 없음'
-                        : '—'}
+                    snapshot.fields.areaPyeong != null &&
+                    Number.isFinite(snapshot.fields.areaPyeong)
+                      ? `${snapshot.fields.areaPyeong}평`
+                      : snapshot.fields.areaBasis === '전용' &&
+                          snapshot.fields.exclusiveAreaSqm != null &&
+                          Number.isFinite(snapshot.fields.exclusiveAreaSqm)
+                        ? `${Number(snapshot.fields.exclusiveAreaSqm).toLocaleString('ko-KR')}㎡ (과거 제출)`
+                        : snapshot.fields.areaBasis === '전용'
+                          ? '입력 없음'
+                          : '—'}
                   </SnapshotRow>
                   <SnapshotRow label="방">{snapshot.fields.roomCount ?? '—'}</SnapshotRow>
                   <SnapshotRow label="발코니">{snapshot.fields.balconyCount ?? '—'}</SnapshotRow>
