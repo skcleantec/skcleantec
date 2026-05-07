@@ -1,4 +1,5 @@
 import { API } from './apiPrefix';
+import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 
 export type CleaningPhotoPhase = 'BEFORE' | 'AFTER' | 'CLAIM';
 
@@ -28,9 +29,12 @@ export async function listTeamCleaningPhotos(
   token: string,
   inquiryId: string
 ): Promise<{ items: CleaningPhotoItem[] }> {
-  const res = await fetch(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/cleaning-photos`, {
-    headers: authHeaders(token),
-  });
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/cleaning-photos`),
+    {
+      headers: authHeaders(token),
+    }
+  );
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }
@@ -48,11 +52,14 @@ export async function uploadTeamCleaningPhotos(
   for (const f of files) {
     body.append('images', f);
   }
-  const res = await fetch(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/cleaning-photos`, {
-    method: 'POST',
-    headers: authHeaders(token),
-    body,
-  });
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/cleaning-photos`),
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body,
+    }
+  );
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }
@@ -63,7 +70,9 @@ export async function deleteTeamCleaningPhoto(
   photoId: string
 ): Promise<void> {
   const res = await fetch(
-    `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/cleaning-photos/${encodeURIComponent(photoId)}`,
+    withTeamPreviewQuery(
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/cleaning-photos/${encodeURIComponent(photoId)}`
+    ),
     { method: 'DELETE', headers: authHeaders(token) }
   );
   if (!res.ok) throw new Error(await readError(res));

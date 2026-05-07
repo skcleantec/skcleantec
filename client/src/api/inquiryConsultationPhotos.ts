@@ -1,4 +1,5 @@
 import { API } from './apiPrefix';
+import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 
 export interface ConsultationPhotoItem {
   id: string;
@@ -25,9 +26,12 @@ export async function listTeamConsultationPhotos(
   token: string,
   inquiryId: string
 ): Promise<{ items: ConsultationPhotoItem[] }> {
-  const res = await fetch(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/consultation-photos`, {
-    headers: authHeaders(token),
-  });
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/consultation-photos`),
+    {
+      headers: authHeaders(token),
+    }
+  );
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }

@@ -1,4 +1,5 @@
 import { API } from './apiPrefix';
+import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 
 export interface InquiryExtraCharge {
   id: string;
@@ -33,7 +34,7 @@ export async function listTeamInquiryExtraCharges(
   inquiryId: string,
 ): Promise<InquiryExtraCharge[]> {
   const res = await fetch(
-    `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/extra-charges`,
+    withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/extra-charges`),
     { headers: headers(token) },
   );
   if (!res.ok) throw new Error(await parseError(res, '목록을 불러올 수 없습니다.'));
@@ -48,7 +49,7 @@ export async function createTeamInquiryExtraCharge(
   input: { description: string; amount: number },
 ): Promise<InquiryExtraCharge> {
   const res = await fetch(
-    `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/extra-charges`,
+    withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/extra-charges`),
     {
       method: 'POST',
       headers: headers(token),
@@ -68,7 +69,9 @@ export async function patchTeamInquiryExtraCharge(
   input: { description?: string; amount?: number },
 ): Promise<InquiryExtraCharge> {
   const res = await fetch(
-    `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/extra-charges/${encodeURIComponent(chargeId)}`,
+    withTeamPreviewQuery(
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/extra-charges/${encodeURIComponent(chargeId)}`
+    ),
     {
       method: 'PATCH',
       headers: headers(token),
@@ -87,7 +90,9 @@ export async function deleteTeamInquiryExtraCharge(
   chargeId: string,
 ): Promise<void> {
   const res = await fetch(
-    `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/extra-charges/${encodeURIComponent(chargeId)}`,
+    withTeamPreviewQuery(
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/extra-charges/${encodeURIComponent(chargeId)}`
+    ),
     {
       method: 'DELETE',
       headers: headers(token),
