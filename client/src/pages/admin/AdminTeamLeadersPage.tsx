@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
@@ -8,6 +8,8 @@ import {
   updateUser,
   deleteUser,
   bulkSetTeamLeaderAllowSelfDayOffEdit,
+  uploadUserStaffIdCard,
+  deleteUserStaffIdCard,
   type UserItem,
 } from '../../api/users';
 import { getToken } from '../../stores/auth';
@@ -52,6 +54,8 @@ export function AdminTeamLeadersPage() {
     payrollPayDay: '',
   });
   const [editLoading, setEditLoading] = useState(false);
+  const [staffIdCardBusy, setStaffIdCardBusy] = useState(false);
+  const staffIdCardInputRef = useRef<HTMLInputElement>(null);
   const [dayOffSwitchId, setDayOffSwitchId] = useState<string | null>(null);
   const [bulkDayOffLoading, setBulkDayOffLoading] = useState(false);
   const [form, setForm] = useState({
@@ -280,6 +284,13 @@ export function AdminTeamLeadersPage() {
     <div className="mx-auto w-full max-w-4xl space-y-6 min-w-0 text-center">
       <div className="w-full text-left">
         <h1 className="text-xl font-semibold text-gray-800">사용자 등록</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          팀장·마케터는 아래 목록에서 「상세·수정」으로 사원증 사진을 등록할 수 있습니다. (현장 팀원은{' '}
+          <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
+            팀원 등록
+          </Link>
+          )
+        </p>
       </div>
 
       {apiError && (
@@ -772,7 +783,7 @@ export function AdminTeamLeadersPage() {
               <p className="text-xs text-gray-500 mb-4">
                 역할: {editingUser.role === 'MARKETER' ? '마케터' : '팀장'} · 새 비밀번호는 변경할 때만 입력
               </p>
-              <form onSubmit={handleEditSubmit} className="space-y-4">
+              <form id="admin-user-edit-form" onSubmit={handleEditSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">아이디 (로그인용)</label>
                   <input
@@ -895,23 +906,109 @@ export function AdminTeamLeadersPage() {
                     </div>
                   </>
                 )}
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="submit"
-                    disabled={editLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {editLoading ? '저장 중…' : '저장'}
-                  </button>
+              </form>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-2 mt-4">
+                <p className="text-sm font-medium text-gray-800">사원증 사진</p>
+                <p className="text-fluid-2xs text-gray-500 leading-snug">
+                  모바일에서 본인 아이디로 로그인해 고객에게 보여 주며 인증할 때 사용할 수 있도록 관리자가 등록합니다.
+                  이미지는 Cloudinary에 저장됩니다.{' '}
+                  <span className="text-amber-800">
+                    로컬에서 안 되면 서버 <code className="text-[11px]">server/.env</code>에 CLOUDINARY 설정을
+                    확인하세요.
+                  </span>
+                </p>
+                {editingUser.staffIdCardUrl ? (
+                  <img
+                    src={editingUser.staffIdCardUrl}
+                    alt=""
+                    className="max-h-52 w-full rounded border border-gray-200 bg-white object-contain"
+                  />
+                ) : (
+                  <p className="text-fluid-xs text-gray-500">등록된 사진이 없습니다.</p>
+                )}
+                <input
+                  ref={staffIdCardInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  tabIndex={-1}
+                  disabled={staffIdCardBusy || editLoading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    const inputEl = e.target;
+                    void (async () => {
+                      if (!f) return;
+                      if (!token || !editingUser) {
+                        alert('로그인이 필요합니다.');
+                        return;
+                      }
+                      setStaffIdCardBusy(true);
+                      try {
+                        const { staffIdCardUrl } = await uploadUserStaffIdCard(token, editingUser.id, f);
+                        setEditingUser({ ...editingUser, staffIdCardUrl });
+                        await refresh();
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : '업로드에 실패했습니다.');
+                      } finally {
+                        setStaffIdCardBusy(false);
+                        inputEl.value = '';
+                      }
+                    })();
+                  }}
+                />
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setEditingUser(null)}
-                    className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
+                    disabled={staffIdCardBusy || editLoading}
+                    className="inline-flex items-center rounded border border-gray-300 bg-white px-3 py-1.5 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                    onClick={() => staffIdCardInputRef.current?.click()}
                   >
-                    취소
+                    {staffIdCardBusy ? '처리 중…' : editingUser.staffIdCardUrl ? '사진 교체' : '사진 올리기'}
                   </button>
+                  {editingUser.staffIdCardUrl ? (
+                    <button
+                      type="button"
+                      disabled={staffIdCardBusy || editLoading}
+                      className="rounded border border-red-200 bg-white px-3 py-1.5 text-fluid-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      onClick={() => {
+                        if (!token || !editingUser) return;
+                        if (!window.confirm('사원증 사진을 삭제할까요?')) return;
+                        void (async () => {
+                          setStaffIdCardBusy(true);
+                          try {
+                            await deleteUserStaffIdCard(token, editingUser.id);
+                            setEditingUser({ ...editingUser, staffIdCardUrl: null });
+                            await refresh();
+                          } catch (err) {
+                            alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+                          } finally {
+                            setStaffIdCardBusy(false);
+                          }
+                        })();
+                      }}
+                    >
+                      사진 삭제
+                    </button>
+                  ) : null}
                 </div>
-              </form>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  form="admin-user-edit-form"
+                  disabled={editLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {editLoading ? '저장 중…' : '저장'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="px-4 py-2 border border-gray-300 rounded text-sm font-medium hover:bg-gray-50"
+                >
+                  취소
+                </button>
+              </div>
             </div>
           </div>,
           document.body

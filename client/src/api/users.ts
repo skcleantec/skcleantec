@@ -25,6 +25,8 @@ export interface UserItem {
   payrollMonthlySalary?: number | null;
   /** 팀장·마케터: 매월 급여 지급일(1–31). 미설정 시 월 급여표에서 말일 등 기본 규칙 */
   payrollPayDay?: number | null;
+  /** 고객 대면용 사원증 이미지 URL (관리자 Cloudinary 업로드) */
+  staffIdCardUrl?: string | null;
 }
 
 /** @deprecated UserItem 사용 */
@@ -174,5 +176,41 @@ export async function deleteUser(token: string, id: string): Promise<void> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+}
+
+/** 관리자: 팀장·마케터 사원증 이미지 업로드 */
+export async function uploadUserStaffIdCard(
+  token: string,
+  userId: string,
+  file: File
+): Promise<{ staffIdCardUrl: string }> {
+  const fd = new FormData();
+  fd.append('image', file);
+  const res = await fetch(`${API}/users/${encodeURIComponent(userId)}/staff-id-card`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: fd,
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error || `업로드에 실패했습니다. (HTTP ${res.status})`);
+  }
+  const data = (await res.json().catch(() => null)) as { staffIdCardUrl?: string } | null;
+  if (!data?.staffIdCardUrl) {
+    throw new Error('업로드 응답이 올바르지 않습니다.');
+  }
+  return { staffIdCardUrl: data.staffIdCardUrl };
+}
+
+/** 관리자: 팀장·마케터 사원증 이미지 삭제 */
+export async function deleteUserStaffIdCard(token: string, userId: string): Promise<void> {
+  const res = await fetch(`${API}/users/${encodeURIComponent(userId)}/staff-id-card`, {
+    method: 'DELETE',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error || '삭제에 실패했습니다.');
   }
 }

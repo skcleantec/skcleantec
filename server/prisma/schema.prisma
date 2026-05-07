@@ -79,6 +79,9 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   /// 팀장 본인 휴무일 등록·삭제 허용(관리자 사용자 목록에서 제어). 기본 true.
   allowSelfDayOffEdit Boolean @default(true) @map("allow_self_day_off_edit")
+  /// 고객 대면용 사원증 이미지(Cloudinary). 팀장·마케터 — 관리자 업로드.
+  staffIdCardPublicId String? @map("staff_id_card_public_id") @db.VarChar(512)
+  staffIdCardUrl      String? @map("staff_id_card_url") @db.VarChar(2048)
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
   assignmentsGiven     Assignment[] @relation("AdminAssignments")
@@ -181,6 +184,9 @@ model TeamMember {
   monthlyPayDay   Int? @map("monthly_pay_day")
   /// 1일 급여(일당, 원). null이면 미설정 — 정산 시 근무일 수×일당 계산에 사용(같은 날 여러 현장도 1일로 집계)
   payAmountPerJob Int? @map("pay_amount_per_job")
+  /// 고객 대면용 사원증 이미지(Cloudinary). 현장 팀원 — 관리자 업로드.
+  staffIdCardPublicId String? @map("staff_id_card_public_id") @db.VarChar(512)
+  staffIdCardUrl      String? @map("staff_id_card_url") @db.VarChar(2048)
   createdAt DateTime @default(now()) @map("created_at")
 
   team    Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)

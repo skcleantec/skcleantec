@@ -33,6 +33,8 @@ export interface TeamMemberItem {
   payCycleEndYmd?: string | null;
   createdAt: string;
   dayOffCount: number;
+  /** 고객 대면용 사원증 이미지 URL */
+  staffIdCardUrl?: string | null;
 }
 
 export interface TeamItem {
@@ -129,6 +131,40 @@ export async function deletePoolTeamMember(token: string, memberId: string, pass
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+}
+
+/** 관리자: 현장 팀원 사원증 이미지 업로드 */
+export async function uploadTeamMemberStaffIdCard(
+  token: string,
+  memberId: string,
+  file: File
+): Promise<{ staffIdCardUrl: string }> {
+  const fd = new FormData();
+  fd.append('image', file);
+  const res = await fetch(`${API}/teams/members/${encodeURIComponent(memberId)}/staff-id-card`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: fd,
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, '업로드에 실패했습니다.'));
+  }
+  const data = (await res.json().catch(() => null)) as { staffIdCardUrl?: string } | null;
+  if (!data?.staffIdCardUrl) {
+    throw new Error('업로드 응답이 올바르지 않습니다.');
+  }
+  return { staffIdCardUrl: data.staffIdCardUrl };
+}
+
+/** 관리자: 현장 팀원 사원증 이미지 삭제 */
+export async function deleteTeamMemberStaffIdCard(token: string, memberId: string): Promise<void> {
+  const res = await fetch(`${API}/teams/members/${encodeURIComponent(memberId)}/staff-id-card`, {
+    method: 'DELETE',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, '삭제에 실패했습니다.'));
   }
 }
 

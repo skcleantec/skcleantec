@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
@@ -6,6 +7,11 @@ import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isSuperAdminRoleAndEmail } from '../auth/superAdmin.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import {
+  clearStaffIdCardForUser,
+  replaceStaffIdCardForUser,
+} from '../staff-id-card/staffIdCard.service.js';
 import {
   dateToYmdKst,
   isUserEmployedOnYmd,
@@ -15,6 +21,11 @@ import {
 } from './userEmployment.js';
 
 const router = Router();
+
+const staffIdCardUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -51,6 +62,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
       allowSelfDayOffEdit: true,
       payrollMonthlySalary: true,
       payrollPayDay: true,
+      staffIdCardUrl: true,
       externalCompany: { select: { id: true, name: true } },
     },
     orderBy: { name: 'asc' },
@@ -86,6 +98,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
         allowSelfDayOffEdit: true,
         payrollMonthlySalary: true,
         payrollPayDay: true,
+        staffIdCardUrl: true,
         externalCompany: { select: { id: true, name: true } },
       },
     });
@@ -111,6 +124,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
       allowSelfDayOffEdit: u.role === 'TEAM_LEADER' ? u.allowSelfDayOffEdit : true,
       payrollMonthlySalary: u.payrollMonthlySalary ?? null,
       payrollPayDay: u.payrollPayDay ?? null,
+      staffIdCardUrl: u.staffIdCardUrl ?? null,
       ...serializeUserDates(u),
     }))
   );
@@ -209,6 +223,7 @@ router.post('/', adminOnly, async (req, res) => {
       allowSelfDayOffEdit: true,
       payrollMonthlySalary: true,
       payrollPayDay: true,
+      staffIdCardUrl: true,
     },
   });
   res.status(201).json({
@@ -216,8 +231,60 @@ router.post('/', adminOnly, async (req, res) => {
     allowSelfDayOffEdit: user.role === 'TEAM_LEADER' ? user.allowSelfDayOffEdit : true,
     payrollMonthlySalary: user.payrollMonthlySalary ?? null,
     payrollPayDay: user.payrollPayDay ?? null,
+    staffIdCardUrl: user.staffIdCardUrl ?? null,
     ...serializeUserDates(user),
   });
+});
+
+/** 관리자: 팀장·마케터 사원증 이미지 업로드 (Cloudinary) */
+router.post('/:id/staff-id-card', adminOnly, staffIdCardUpload.single('image'), async (req, res) => {
+  if (!isCloudinaryConfigured()) {
+    res.status(503).json({
+      error:
+        '이미지 업로드를 사용할 수 없습니다. 서버에 CLOUDINARY_URL 또는 CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET을 설정하세요.',
+    });
+    return;
+  }
+  const { id } = req.params;
+  const file = req.file;
+  if (!file?.buffer?.length) {
+    res.status(400).json({ error: '이미지 파일을 선택해 주세요.' });
+    return;
+  }
+  const mime = file.mimetype || '';
+  if (!mime.startsWith('image/')) {
+    res.status(400).json({ error: '이미지 파일만 업로드할 수 있습니다.' });
+    return;
+  }
+  try {
+    const { staffIdCardUrl } = await replaceStaffIdCardForUser(id, file.buffer, mime);
+    res.json({ staffIdCardUrl });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'user_not_found_or_invalid_role') {
+      res.status(404).json({ error: '사용자를 찾을 수 없거나 사원증을 등록할 수 있는 역할이 아닙니다.' });
+      return;
+    }
+    console.error('[users] staff-id-card upload:', e);
+    res.status(500).json({ error: '업로드에 실패했습니다.' });
+  }
+});
+
+/** 관리자: 팀장·마케터 사원증 이미지 삭제 */
+router.delete('/:id/staff-id-card', adminOnly, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await clearStaffIdCardForUser(id);
+    res.json({ ok: true, staffIdCardUrl: null });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'user_not_found_or_invalid_role') {
+      res.status(404).json({ error: '사용자를 찾을 수 없거나 사원증을 등록할 수 있는 역할이 아닙니다.' });
+      return;
+    }
+    console.error('[users] staff-id-card delete:', e);
+    res.status(500).json({ error: '삭제에 실패했습니다.' });
+  }
 });
 
 router.patch('/:id', adminOnly, async (req, res) => {
@@ -407,6 +474,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
         allowSelfDayOffEdit: true,
         payrollMonthlySalary: true,
         payrollPayDay: true,
+        staffIdCardUrl: true,
       },
     });
     res.json({
@@ -414,6 +482,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
       allowSelfDayOffEdit: u!.role === 'TEAM_LEADER' ? u!.allowSelfDayOffEdit : true,
       payrollMonthlySalary: u!.payrollMonthlySalary ?? null,
       payrollPayDay: u!.payrollPayDay ?? null,
+      staffIdCardUrl: u!.staffIdCardUrl ?? null,
       ...serializeUserDates(u!),
     });
     return;
@@ -433,6 +502,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
       allowSelfDayOffEdit: true,
       payrollMonthlySalary: true,
       payrollPayDay: true,
+      staffIdCardUrl: true,
     },
   });
   res.json({
@@ -440,6 +510,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     allowSelfDayOffEdit: updated.role === 'TEAM_LEADER' ? updated.allowSelfDayOffEdit : true,
     payrollMonthlySalary: updated.payrollMonthlySalary ?? null,
     payrollPayDay: updated.payrollPayDay ?? null,
+    staffIdCardUrl: updated.staffIdCardUrl ?? null,
     ...serializeUserDates(updated),
   });
 });

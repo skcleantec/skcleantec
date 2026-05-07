@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
@@ -11,6 +11,8 @@ import {
   getPoolMemberDayOffs,
   addPoolMemberDayOff,
   removePoolMemberDayOff,
+  uploadTeamMemberStaffIdCard,
+  deleteTeamMemberStaffIdCard,
   type TeamMemberItem,
 } from '../../api/teams';
 import {
@@ -96,8 +98,11 @@ export function AdminTeamsPage() {
     phone: string;
     monthlyPayDayInput: string;
     payAmountPerJobInput: string;
+    staffIdCardUrl: string | null;
   } | null>(null);
   const [editMemberSaving, setEditMemberSaving] = useState(false);
+  const [memberStaffIdCardBusy, setMemberStaffIdCardBusy] = useState(false);
+  const memberStaffIdCardInputRef = useRef<HTMLInputElement>(null);
 
   /** 팀원 목록 재정렬 중 (위로/아래로) */
   const [memberOrderBusy, setMemberOrderBusy] = useState(false);
@@ -783,6 +788,7 @@ export function AdminTeamsPage() {
                             monthlyPayDayInput: m.monthlyPayDay != null ? String(m.monthlyPayDay) : '',
                             payAmountPerJobInput:
                               m.payAmountPerJob != null ? String(m.payAmountPerJob) : '',
+                            staffIdCardUrl: m.staffIdCardUrl ?? null,
                           })
                         }
                         className={memberRowBtn}
@@ -946,6 +952,91 @@ export function AdminTeamsPage() {
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                   />
+                </div>
+                <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-3 space-y-2">
+                  <p className="text-xs font-medium text-gray-800">사원증 사진</p>
+                  <p className="text-[11px] text-gray-500 leading-snug">
+                    모바일 인증용으로 관리자가 등록합니다. (Cloudinary 저장) 로컬에서 실패하면{' '}
+                    <code className="text-[10px]">server/.env</code>의 CLOUDINARY 설정을 확인하세요.
+                  </p>
+                  {editMemberModal.staffIdCardUrl ? (
+                    <img
+                      src={editMemberModal.staffIdCardUrl}
+                      alt=""
+                      className="max-h-48 w-full rounded border border-gray-200 bg-white object-contain"
+                    />
+                  ) : (
+                    <p className="text-xs text-gray-500">등록된 사진이 없습니다.</p>
+                  )}
+                  <input
+                    ref={memberStaffIdCardInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    tabIndex={-1}
+                    disabled={memberStaffIdCardBusy || editMemberSaving}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      const inputEl = e.target;
+                      void (async () => {
+                        if (!f) return;
+                        if (!token || !editMemberModal) {
+                          alert('로그인이 필요합니다.');
+                          return;
+                        }
+                        setMemberStaffIdCardBusy(true);
+                        try {
+                          const { staffIdCardUrl } = await uploadTeamMemberStaffIdCard(
+                            token,
+                            editMemberModal.memberId,
+                            f
+                          );
+                          setEditMemberModal((prev) => (prev ? { ...prev, staffIdCardUrl } : null));
+                          await refresh();
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : '업로드에 실패했습니다.');
+                        } finally {
+                          setMemberStaffIdCardBusy(false);
+                          inputEl.value = '';
+                        }
+                      })();
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={memberStaffIdCardBusy || editMemberSaving}
+                      className="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                      onClick={() => memberStaffIdCardInputRef.current?.click()}
+                    >
+                      {memberStaffIdCardBusy ? '처리 중…' : editMemberModal.staffIdCardUrl ? '사진 교체' : '사진 올리기'}
+                    </button>
+                    {editMemberModal.staffIdCardUrl ? (
+                      <button
+                        type="button"
+                        disabled={memberStaffIdCardBusy || editMemberSaving}
+                        className="rounded border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        onClick={() => {
+                          if (!token || !editMemberModal) return;
+                          if (!window.confirm('사원증 사진을 삭제할까요?')) return;
+                          void (async () => {
+                            setMemberStaffIdCardBusy(true);
+                            try {
+                              await deleteTeamMemberStaffIdCard(token, editMemberModal.memberId);
+                              setEditMemberModal((prev) => (prev ? { ...prev, staffIdCardUrl: null } : null));
+                              await refresh();
+                            } catch (err) {
+                              alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+                            } finally {
+                              setMemberStaffIdCardBusy(false);
+                            }
+                          })();
+                        }}
+                      >
+                        사진 삭제
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="pt-2 border-t border-gray-100">
                   <p className="text-xs text-gray-600 mb-2">

@@ -1,8 +1,15 @@
 import { Router, type Request } from 'express';
+import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import {
+  clearStaffIdCardForTeamMember,
+  removeTeamMemberStaffIdCardAsset,
+  replaceStaffIdCardForTeamMember,
+} from '../staff-id-card/staffIdCard.service.js';
 import { getAvailableFieldStaffMemberIdsOnDate } from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
@@ -13,6 +20,11 @@ import {
 } from './teamMemberPayrollCycle.js';
 
 const router = Router();
+
+const staffIdCardUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 /** 활성 팀원 기준 최대 인원 (표준 구성: 팀장 1 + 팀원 2) */
@@ -134,6 +146,7 @@ router.get('/', async (_req, res) => {
         payAmountPerJob: m.payAmountPerJob,
         createdAt: m.createdAt.toISOString(),
         dayOffCount: m._count.dayOffs,
+        staffIdCardUrl: m.staffIdCardUrl ?? null,
       })),
     })),
   });
@@ -278,6 +291,7 @@ router.get('/members', async (req, res) => {
       payAmountPerJob: m.payAmountPerJob,
       createdAt: m.createdAt.toISOString(),
       dayOffCount: m._count.dayOffs,
+      staffIdCardUrl: m.staffIdCardUrl ?? null,
       payCycleJobCount,
       payCycleStartYmd,
       payCycleEndYmd,
@@ -407,7 +421,58 @@ router.patch('/members/:memberId', async (req, res) => {
     isActive: updated.isActive,
     monthlyPayDay: updated.monthlyPayDay,
     payAmountPerJob: updated.payAmountPerJob,
+    staffIdCardUrl: updated.staffIdCardUrl ?? null,
   });
+});
+
+/** 관리자: 현장 팀원 사원증 이미지 업로드 (Cloudinary) */
+router.post('/members/:memberId/staff-id-card', staffIdCardUpload.single('image'), async (req, res) => {
+  if (!isCloudinaryConfigured()) {
+    res.status(503).json({
+      error:
+        '이미지 업로드를 사용할 수 없습니다. 서버에 CLOUDINARY_URL 또는 CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET을 설정하세요.',
+    });
+    return;
+  }
+  const { memberId } = req.params;
+  const file = req.file;
+  if (!file?.buffer?.length) {
+    res.status(400).json({ error: '이미지 파일을 선택해 주세요.' });
+    return;
+  }
+  const mime = file.mimetype || '';
+  if (!mime.startsWith('image/')) {
+    res.status(400).json({ error: '이미지 파일만 업로드할 수 있습니다.' });
+    return;
+  }
+  try {
+    const { staffIdCardUrl } = await replaceStaffIdCardForTeamMember(memberId, file.buffer, mime);
+    res.json({ staffIdCardUrl });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'team_member_not_found') {
+      res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
+      return;
+    }
+    console.error('[teams] staff-id-card upload:', e);
+    res.status(500).json({ error: '업로드에 실패했습니다.' });
+  }
+});
+
+router.delete('/members/:memberId/staff-id-card', async (req, res) => {
+  const { memberId } = req.params;
+  try {
+    await clearStaffIdCardForTeamMember(memberId);
+    res.json({ ok: true, staffIdCardUrl: null });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'team_member_not_found') {
+      res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
+      return;
+    }
+    console.error('[teams] staff-id-card delete:', e);
+    res.status(500).json({ error: '삭제에 실패했습니다.' });
+  }
 });
 
 router.delete('/members/:memberId', async (req, res) => {
@@ -425,6 +490,7 @@ router.delete('/members/:memberId', async (req, res) => {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
   }
+  await removeTeamMemberStaffIdCardAsset(memberId);
   await prisma.teamMember.delete({ where: { id: memberId } });
   res.json({ ok: true });
 });
@@ -638,6 +704,7 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
     isActive: updated.isActive,
     monthlyPayDay: updated.monthlyPayDay,
     payAmountPerJob: updated.payAmountPerJob,
+    staffIdCardUrl: updated.staffIdCardUrl ?? null,
   });
 });
 
@@ -656,6 +723,7 @@ router.delete('/:teamId/members/:memberId', async (req, res) => {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
   }
+  await removeTeamMemberStaffIdCardAsset(memberId);
   await prisma.teamMember.delete({ where: { id: memberId } });
   res.json({ ok: true });
 });
