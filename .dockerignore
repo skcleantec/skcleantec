@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+.git
+.env
+.env.*
+**/.env
+*.log
+npm-debug.log*
+.DS_Store
+client/dist
+server/dist
+.vercel

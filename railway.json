@@ -1,11 +1,12 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "buildCommand": "npm install && cd server && npm install && node scripts/prepare-schema.js && npx prisma generate && cd ../client && npm install && cd .. && npm run build"
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "preDeployCommand": "cd server && node scripts/railway-predeploy-migrate.mjs && npm run db:backfill-inquiry-numbers && npx prisma db seed && npm run deploy:seed-from-config",
-    "startCommand": "cd server && npm run start",
+    "preDeployCommand": "node scripts/railway-predeploy-migrate.mjs && npm run db:backfill-inquiry-numbers && npx prisma db seed && npm run deploy:seed-from-config",
+    "startCommand": "npm run start",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 120
   }
