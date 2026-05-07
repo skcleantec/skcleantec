@@ -1198,6 +1198,61 @@ export function AdminSchedulePage() {
                   (!leaderSlotDeficit && workingCount > 0 && morningRem === 0 && afternoonRem === 0);
                 const weekdayColor =
                   isHoliday || isSunday ? 'text-rose-600' : isSaturday ? 'text-slate-600' : 'text-gray-500';
+                const dateAndWeekdayRow = (
+                  <>
+                    <span
+                      title={sonDay ? SON_EOMNEUNG_NAL_HELP : undefined}
+                      className={
+                        today
+                          ? sonDay
+                            ? 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-teal-700 text-calendar-xs font-bold text-white shadow-sm tabular-nums ring-1 ring-teal-500/90 sm:h-7 sm:min-w-[1.75rem]'
+                            : 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-gray-900 text-calendar-xs font-bold text-white shadow-sm tabular-nums sm:h-7 sm:min-w-[1.75rem]'
+                          : sonDay
+                            ? 'text-calendar-xs font-bold tabular-nums text-teal-700'
+                            : 'text-calendar-xs font-semibold tabular-nums text-gray-900'
+                      }
+                    >
+                      {d}
+                    </span>
+                    <span className={`text-calendar-2xs font-medium leading-tight truncate shrink-0 ${weekdayColor}`}>
+                      {weekdayKoFromYmd(year, month, d)}
+                    </span>
+                  </>
+                );
+                const customCalChips = (() => {
+                  if (activeCustomCalendar) {
+                    const total = dayItems.length;
+                    if (total <= 0) return null;
+                    const t = customCalendarColorTokens(activeCustomCalendar.colorKey);
+                    return (
+                      <span
+                        key="__active-custom-cal__"
+                        className={`inline-flex w-full max-sm:justify-center items-center gap-0.5 rounded px-1 py-px text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums sm:w-auto sm:shrink-0 ${t.badge}`}
+                        title={`${activeCustomCalendar.name} — ${total}건`}
+                      >
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.dot}`} />
+                        <span className="hidden sm:inline max-w-[3.5rem] truncate">{activeCustomCalendar.name}</span>
+                        <span className="font-bold">{total}</span>
+                      </span>
+                    );
+                  }
+                  const regionBadges = regionCountsByDate.get(key);
+                  if (!regionBadges || regionBadges.length === 0) return null;
+                  return regionBadges.map((b) => {
+                    const t = customCalendarColorTokens(b.colorKey);
+                    return (
+                      <span
+                        key={b.id}
+                        className={`inline-flex w-full max-sm:justify-center items-center gap-0.5 rounded px-1 py-px text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums sm:w-auto sm:shrink-0 ${t.badge}`}
+                        title={`${b.name} · ${b.regions?.join(', ') ?? ''} — ${b.count}건`}
+                      >
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.dot}`} />
+                        <span className="hidden sm:inline max-w-[3.5rem] truncate">{b.name}</span>
+                        <span className="font-bold">{b.count}</span>
+                      </span>
+                    );
+                  });
+                })();
                 const pendingAccent = pendingDayCount > 0 && !isSelected;
                 const onHoldAccent = onHoldDayCount > 0 && !isSelected;
                 const deficitAccent = leaderSlotDeficit && !isSelected;
@@ -1248,74 +1303,7 @@ export function AdminSchedulePage() {
                       onHoldDayCount > 0 && pendingDayCount === 0 ? 'bg-amber-50/35' : ''
                     }`}
                   >
-                    <div className="flex items-center gap-1 min-w-0 sm:gap-1.5">
-                      <span
-                        title={sonDay ? SON_EOMNEUNG_NAL_HELP : undefined}
-                        className={
-                          today
-                            ? sonDay
-                              ? 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-teal-700 text-calendar-xs font-bold text-white shadow-sm tabular-nums ring-1 ring-teal-500/90 sm:h-7 sm:min-w-[1.75rem]'
-                              : 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-gray-900 text-calendar-xs font-bold text-white shadow-sm tabular-nums sm:h-7 sm:min-w-[1.75rem]'
-                            : sonDay
-                              ? 'text-calendar-xs font-bold tabular-nums text-teal-700'
-                              : 'text-calendar-xs font-semibold tabular-nums text-gray-900'
-                        }
-                      >
-                        {d}
-                      </span>
-                      <span className={`text-calendar-2xs font-medium leading-tight truncate shrink-0 ${weekdayColor}`}>
-                        {weekdayKoFromYmd(year, month, d)}
-                      </span>
-                      {(() => {
-                        /**
-                         * 지역 캘린더 칩(상단 우측)
-                         *  - 활성 필터가 있을 때: 그 필터의 색상 칩 하나만 표시 (해당 날 필터와
-                         *    일치하는 접수건 수 = dayItems.length). 미배정/대기/취소 상관없이 총건수.
-                         *  - 필터 없을 때: 모든 커스텀 캘린더 중 해당 날 매칭이 있는 것들을 표시.
-                         */
-                        if (activeCustomCalendar) {
-                          const total = dayItems.length;
-                          if (total <= 0) return null;
-                          const t = customCalendarColorTokens(activeCustomCalendar.colorKey);
-                          return (
-                            <div className="ml-auto flex items-center gap-0.5 min-w-0">
-                              <span
-                                className={`inline-flex items-center gap-0.5 rounded px-1 py-0 text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums ${t.badge}`}
-                                title={`${activeCustomCalendar.name} — ${total}건`}
-                              >
-                                <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
-                                <span className="hidden sm:inline max-w-[3.5rem] truncate">
-                                  {activeCustomCalendar.name}
-                                </span>
-                                <span className="font-bold">{total}</span>
-                              </span>
-                            </div>
-                          );
-                        }
-                        const regionBadges = regionCountsByDate.get(key);
-                        if (!regionBadges || regionBadges.length === 0) return null;
-                        return (
-                          <div className="ml-auto flex flex-wrap justify-end items-center gap-0.5 min-w-0">
-                            {regionBadges.map((b) => {
-                              const t = customCalendarColorTokens(b.colorKey);
-                              return (
-                                <span
-                                  key={b.id}
-                                  className={`inline-flex items-center gap-0.5 rounded px-1 py-0 text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums ${t.badge}`}
-                                  title={`${b.name} · ${b.regions?.join(', ') ?? ''} — ${b.count}건`}
-                                >
-                                  <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} />
-                                  <span className="hidden sm:inline max-w-[3.5rem] truncate">
-                                    {b.name}
-                                  </span>
-                                  <span className="font-bold">{b.count}</span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-                    </div>
+                    <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">{dateAndWeekdayRow}</div>
                     <div className="mt-1.5 sm:mt-2 flex flex-col gap-0.5 sm:gap-1 min-w-0 flex-1 min-h-0">
                       <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
                         <span
@@ -1463,6 +1451,13 @@ export function AdminSchedulePage() {
                         )}
                       </div>
                     )}
+                    {customCalChips != null ? (
+                      <div className="w-full min-w-0 border-t border-gray-200/70 pt-0.5 max-sm:pt-1">
+                        <div className="grid grid-cols-2 gap-x-0.5 gap-y-0.5 sm:flex sm:flex-wrap sm:justify-end sm:gap-0.5">
+                          {customCalChips}
+                        </div>
+                      </div>
+                    ) : null}
                     {isSlotFull && (
                       <span className="mt-0.5 text-center text-[0.65rem] sm:text-calendar-2xs font-semibold text-slate-600 tracking-tight leading-none">
                         마감
