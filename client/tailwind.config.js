@@ -16,6 +16,25 @@ export default {
         'calendar-2xs': ['clamp(0.5rem, 0.12rem + 2.4vmin, 0.6875rem)', { lineHeight: '1.15' }],
         'calendar-xs': ['clamp(0.5625rem, 0.22rem + 2.9vmin, 0.75rem)', { lineHeight: '1.2' }],
       },
+      keyframes: {
+        loginTitleShimmer: {
+          '0%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' },
+        },
+        loginMistDrift: {
+          '0%, 100%': { transform: 'translateX(-10%) scale(1)' },
+          '50%': { transform: 'translateX(10%) scale(1.1)' },
+        },
+        loginSublineShine: {
+          '0%, 100%': { opacity: '0.45' },
+          '50%': { opacity: '1' },
+        },
+      },
+      animation: {
+        'login-title-shimmer': 'loginTitleShimmer 5.5s linear infinite',
+        'login-mist-drift': 'loginMistDrift 12s ease-in-out infinite',
+        'login-subline-shine': 'loginSublineShine 4.5s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
