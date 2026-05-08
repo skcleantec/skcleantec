@@ -31,6 +31,10 @@ export interface TeamViewerMe {
   viewerRole?: string;
   previewExternal?: boolean;
   previewTeamLeader?: boolean;
+  /** 관리자 업로드 사원증(Cloudinary). 모바일에서 열람 */
+  staffIdCardUrl?: string | null;
+  /** 입사일 — 사원증 하단 인증 문구용 */
+  hireDate?: string | null;
 }
 
 export async function getTeamMe(token: string): Promise<TeamViewerMe> {

@@ -10,6 +10,7 @@ import { UserProfileMenu } from '../common/UserProfileMenu';
 import { RosterAckBanner } from '../common/RosterAckBanner';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { TeamBiInline, TeamBiLine, teamT } from '../../i18n/team/teamI18n';
+import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -45,6 +46,9 @@ export function TeamLayout() {
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [newAssignmentCount, setNewAssignmentCount] = useState(0);
   const [rosterAckBanner, setRosterAckBanner] = useState<RosterAckPayload | null>(null);
+  const [staffIdCardUrl, setStaffIdCardUrl] = useState<string | null>(null);
+  const [hireDateIso, setHireDateIso] = useState<string | null>(null);
+  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
 
   const dismissRosterAckBanner = useCallback(() => setRosterAckBanner(null), []);
 
@@ -56,6 +60,9 @@ export function TeamLayout() {
       setUserPhone(null);
       setUserVehicleNumber(null);
       setUserNameEn(null);
+      setStaffIdCardUrl(null);
+      setHireDateIso(null);
+      setViewerUserId(null);
       return;
     }
     getTeamMe(token)
@@ -65,6 +72,9 @@ export function TeamLayout() {
         setUserPhone(u.phone ?? null);
         setUserVehicleNumber(u.vehicleNumber ?? null);
         setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
+        setStaffIdCardUrl(u.staffIdCardUrl ?? null);
+        setHireDateIso(u.hireDate ?? null);
+        setViewerUserId(u.id ?? null);
       })
       .catch((e) => {
         setUserName(null);
@@ -72,6 +82,9 @@ export function TeamLayout() {
         setUserPhone(null);
         setUserVehicleNumber(null);
         setUserNameEn(null);
+        setStaffIdCardUrl(null);
+        setHireDateIso(null);
+        setViewerUserId(null);
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
@@ -164,6 +177,9 @@ export function TeamLayout() {
     previewQuery = `?previewRole=team_leader&previewTeamLeaderId=${encodeURIComponent(previewTeamLeaderId)}`;
   }
   const teamTo = (path: string) => `${path}${previewQuery}`;
+
+  const showStaffIdCardDrawer =
+    Boolean(staffIdCardUrl) && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER');
 
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
@@ -385,6 +401,13 @@ export function TeamLayout() {
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
         <Outlet />
       </main>
+      <TeamMobileStaffIdCardDrawer
+        viewerUserId={viewerUserId}
+        imageUrl={staffIdCardUrl}
+        hireDateIso={hireDateIso}
+        viewerName={userName}
+        show={showStaffIdCardDrawer}
+      />
     </div>
   );
 }

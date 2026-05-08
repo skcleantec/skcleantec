@@ -55,11 +55,14 @@ router.get('/me', async (req, res) => {
       email: true,
       role: true,
       name: true,
+      nameEn: true,
       phone: true,
       vehicleNumber: true,
       allowSelfDayOffEdit: true,
       externalCompanyId: true,
       externalCompany: { select: { id: true, name: true } },
+      staffIdCardUrl: true,
+      hireDate: true,
     },
   });
   if (!me) {

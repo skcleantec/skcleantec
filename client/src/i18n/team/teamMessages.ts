@@ -384,6 +384,17 @@ export const teamMessages = {
   'team.settlement.thCustomer': { ko: '고객명'},
   'team.settlement.thStatus': { ko: '상태'},
   'team.settlement.thFee': { ko: '수수료'},
+
+  'team.staffIdCard.sheetTitle': { ko: '사원증' },
+  'team.staffIdCard.openSwipe': { ko: '사원증 보기' },
+  'team.staffIdCard.licenseCaption': { ko: '정식 라이선스 취득 인증' },
+  'team.staffIdCard.hireLabel': { ko: '입사일' },
+  'team.staffIdCard.hireUnset': { ko: '미등록' },
+  'team.staffIdCard.close': { ko: '닫기' },
+  'team.staffIdCard.edgeDragHint': { ko: '길게 눌러 위아래 위치를 바꿀 수 있습니다.' },
+  'team.staffIdCard.honorificSection': { ko: '전문 자격 · 직함' },
+  'team.staffIdCard.honorificCert': { ko: '인증' },
+  'team.staffIdCard.honorificNote': { ko: '본 증서는 교육·실무 평가를 수료한 직함입니다.' },
 } as const;
 
 export type TeamMessageId = keyof typeof teamMessages;

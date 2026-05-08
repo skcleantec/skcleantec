@@ -29,11 +29,30 @@ export default {
           '0%, 100%': { opacity: '0.45' },
           '50%': { opacity: '1' },
         },
+        staffIdCardShine: {
+          '0%': { backgroundPosition: '0% 50%' },
+          '100%': { backgroundPosition: '200% 50%' },
+        },
+        staffIdCardVignette: {
+          '0%, 100%': { opacity: '0.5' },
+          '50%': { opacity: '0.85' },
+        },
+        honorificCertBlink: {
+          '0%, 100%': { opacity: '1', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.85), 0 0 0 0 rgba(180, 83, 9, 0)' },
+          '50%': {
+            opacity: '0.72',
+            boxShadow:
+              'inset 0 1px 0 rgba(255,255,255,0.75), 0 0 10px 1px rgba(217, 119, 6, 0.22)',
+          },
+        },
       },
       animation: {
         'login-title-shimmer': 'loginTitleShimmer 5.5s linear infinite',
         'login-mist-drift': 'loginMistDrift 12s ease-in-out infinite',
         'login-subline-shine': 'loginSublineShine 4.5s ease-in-out infinite',
+        'staff-id-shine': 'staffIdCardShine 4s ease-in-out infinite',
+        'staff-id-vignette': 'staffIdCardVignette 6s ease-in-out infinite',
+        'honorific-cert-blink': 'honorificCertBlink 1.45s ease-in-out infinite',
       },
     },
   },
