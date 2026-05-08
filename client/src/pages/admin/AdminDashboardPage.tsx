@@ -87,26 +87,26 @@ export function AdminDashboardPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 sm:divide-x sm:divide-gray-100">
               {(() => {
                 const rows = stats!.teamLeaderWorkloadThisMonth!;
-                const byKm = [...rows]
-                  .filter((r) => (r.maxKmFromJuan ?? 0) > 0)
-                  .sort((a, b) => (b.maxKmFromJuan ?? 0) - (a.maxKmFromJuan ?? 0));
+                const bySumKm = [...rows]
+                  .filter((r) => (r.sumKmFromJuan ?? 0) > 0)
+                  .sort((a, b) => (b.sumKmFromJuan ?? 0) - (a.sumKmFromJuan ?? 0));
                 const byJob = [...rows].sort((a, b) => b.jobCount - a.jobCount);
                 const fmtKm = (n: number) =>
                   Number.isInteger(n) ? n.toLocaleString('ko-KR') : n.toLocaleString('ko-KR', { maximumFractionDigits: 1 });
                 return (
                   <>
                     <div className="min-w-0 sm:pr-3">
-                      <p className="text-fluid-2xs font-medium text-gray-700 mb-1">최장 거리 (주안)</p>
+                      <p className="text-fluid-2xs font-medium text-gray-700 mb-1">누적 거리 (주안)</p>
                       <p className="text-[10px] text-gray-400 mb-1.5 leading-tight">
-                        배정 건 중 가장 먼 1건(km)
+                        배정 건 중 좌표 있는 거리 합(km)
                       </p>
-                      {byKm.length === 0 ? (
+                      {bySumKm.length === 0 ? (
                         <p className="text-[10px] text-amber-800/90 bg-amber-50/80 rounded px-1.5 py-1.5 leading-snug">
                           좌표 없음
                         </p>
                       ) : (
                         <ul className="space-y-0 border border-gray-100 rounded overflow-hidden">
-                          {byKm.map((row, idx) => (
+                          {bySumKm.map((row, idx) => (
                             <li
                               key={`km-${row.teamLeaderId}`}
                               className="flex items-center gap-1.5 px-1.5 py-1 text-fluid-2xs border-b border-gray-50 last:border-0 bg-white"
@@ -116,7 +116,7 @@ export function AdminDashboardPage() {
                                 {row.name}
                               </span>
                               <span className="shrink-0 tabular-nums font-medium text-gray-800">
-                                {fmtKm(row.maxKmFromJuan ?? 0)}
+                                {fmtKm(row.sumKmFromJuan ?? 0)}
                                 <span className="text-gray-400 font-normal ml-0.5">km</span>
                               </span>
                             </li>

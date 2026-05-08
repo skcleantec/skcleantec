@@ -18,13 +18,15 @@ export interface DashboardStats {
   happyCallOverdueCount: number;
   /** 마감 전 미완 */
   happyCallPendingBeforeDeadlineCount: number;
-  /** 이번 달 접수일(KST)·취소 제외·팀장 배정 건수·주안 최대 km(배정 건 중 1건) — 1차 배정 팀장 */
+  /** 이번 달 접수일(KST)·취소 제외·팀장 배정 건수·주안 km 누적합·최대 km — 1차 배정 팀장 */
   teamLeaderWorkloadThisMonth: Array<{
     teamLeaderId: string;
     name: string;
     jobCount: number;
     /** 인천 주안 기준 직선거리(km) 중 최댓값 — 해당 월 배정 접수 중 좌표 있음 */
     maxKmFromJuan: number;
+    /** 동일 조건 건 중 좌표 있는 건의 거리 합(km) */
+    sumKmFromJuan: number;
   }>;
   /** 오늘 팀장 휴무 등록(재직 중) */
   teamLeaderDayOffToday: Array<{ teamLeaderId: string; name: string }>;

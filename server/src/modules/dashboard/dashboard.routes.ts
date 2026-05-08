@@ -156,18 +156,21 @@ router.get('/stats', async (_req, res) => {
     isUserEmployedOnYmd(tl.hireDate, tl.resignationDate, todayYmd)
   );
 
-  /** 이번 달 팀장별 현장 건수·주안 최대 거리: 접수일(KST) 이번 달·취소 제외·1차 배정 팀장 — km은 배정 건 중 좌표 있는 건의 최댓값 */
+  /** 이번 달 팀장별 현장 건수·주안 거리: 접수일(KST) 이번 달·취소 제외·1차 배정 팀장 — km은 좌표 있는 배정 건의 누적합·최댓값 */
   const tlEmployedIds = new Set(teamLeaders.map((t) => t.id));
   const tlNameById = new Map(teamLeaders.map((t) => [t.id, t.name]));
-  const workloadAgg = new Map<string, { jobCount: number; maxKm: number }>();
+  const workloadAgg = new Map<string, { jobCount: number; maxKm: number; sumKm: number }>();
   for (const row of monthWorkloadInquiries) {
     const a = row.assignments[0];
     if (!a || a.teamLeader.role !== 'TEAM_LEADER') continue;
     if (!tlEmployedIds.has(a.teamLeaderId)) continue;
     const km = distanceKmFromJuan(row.addressGeoLat, row.addressGeoLng);
-    const cur = workloadAgg.get(a.teamLeaderId) ?? { jobCount: 0, maxKm: 0 };
+    const cur = workloadAgg.get(a.teamLeaderId) ?? { jobCount: 0, maxKm: 0, sumKm: 0 };
     cur.jobCount += 1;
-    if (km != null) cur.maxKm = Math.max(cur.maxKm, km);
+    if (km != null) {
+      cur.maxKm = Math.max(cur.maxKm, km);
+      cur.sumKm += km;
+    }
     workloadAgg.set(a.teamLeaderId, cur);
   }
   const teamLeaderWorkloadThisMonth = [...workloadAgg.entries()]
@@ -176,6 +179,7 @@ router.get('/stats', async (_req, res) => {
       name: tlNameById.get(teamLeaderId) ?? '',
       jobCount: v.jobCount,
       maxKmFromJuan: Math.round(v.maxKm * 10) / 10,
+      sumKmFromJuan: Math.round(v.sumKm * 10) / 10,
     }))
     .filter((w) => w.jobCount > 0)
     .sort((a, b) => b.jobCount - a.jobCount);
