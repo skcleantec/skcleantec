@@ -14,6 +14,18 @@ export function kstTodayYmd(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
+/** KST 달력 `YYYY-MM-DD`에 일 수를 더함(음수면 과거). 한국 정오 기준으로 이동해 일 경계 오차를 줄임. */
+export function addDaysToKstYmd(ymd: string, deltaDays: number): string {
+  const p = ymd.split('-').map(Number);
+  const y = p[0];
+  const m = p[1];
+  const d = p[2];
+  if (!y || !m || !d) return ymd;
+  const isoNoonKst = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T12:00:00+09:00`;
+  const t = new Date(isoNoonKst).getTime() + deltaDays * 86400000;
+  return new Date(t).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
 /** JS Date#getDay() → 한 글자 요일 (일~토) */
 export const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const;
 

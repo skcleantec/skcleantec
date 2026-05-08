@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useSyncExternalStore, useMemo
 import { createPortal } from 'react-dom';
 import { formatPreferredDateInputYmd } from '../../utils/dateFormat';
 import { pickStaffHonorificsForUserId } from '../../utils/staffIdCardHonorifics';
+import { pickSyntheticHireYmdForUserId } from '../../utils/staffIdSyntheticHire';
 import { teamT } from '../../i18n/team/teamI18n';
 
 const MOBILE_MQ = '(max-width: 639px)';
@@ -34,9 +35,9 @@ function getMobileSnapshot() {
 }
 
 function formatHireDisplay(iso: string | null | undefined): string {
-  if (!iso) return teamT('team.staffIdCard.hireUnset');
+  if (!iso) return '';
   const ymd = formatPreferredDateInputYmd(iso);
-  if (!ymd) return teamT('team.staffIdCard.hireUnset');
+  if (!ymd) return '';
   return ymd.replace(/-/g, '.');
 }
 
@@ -238,9 +239,15 @@ export function TeamMobileStaffIdCardDrawer({
 
   const honorifics = useMemo(() => pickStaffHonorificsForUserId(viewerUserId ?? null), [viewerUserId]);
 
+  const hireDateDisplay = useMemo(() => {
+    const real = formatHireDisplay(hireDateIso);
+    if (real) return real;
+    return pickSyntheticHireYmdForUserId(viewerUserId ?? null).replace(/-/g, '.');
+  }, [hireDateIso, viewerUserId]);
+
   if (!enabled || !imageUrl) return null;
 
-  const hireLine = `${teamT('team.staffIdCard.hireLabel')} ${formatHireDisplay(hireDateIso)}`;
+  const hireLine = `${teamT('team.staffIdCard.hireLabel')} ${hireDateDisplay}`;
   const bottomStyle = `${clampEdgeVh(edgeBottomVh)}vh`;
 
   return (
@@ -322,30 +329,16 @@ export function TeamMobileStaffIdCardDrawer({
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-slate-200/40 to-transparent px-3 py-4">
-                <div className="relative overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br from-white via-slate-50/50 to-slate-100/80 shadow-[0_12px_40px_rgba(15,23,42,0.12),0_4px_12px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] ring-1 ring-slate-900/5">
-                  <div
-                    className="pointer-events-none absolute inset-0 z-[2] rounded-2xl shadow-[inset_0_0_48px_rgba(15,23,42,0.07),inset_0_1px_0_rgba(255,255,255,0.5)] motion-safe:animate-staff-id-vignette motion-reduce:animate-none"
-                    aria-hidden
-                  />
-                  <div
-                    className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-amber-100/15 via-transparent to-sky-100/10"
-                    aria-hidden
-                  />
-                  <div
-                    className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-r from-transparent via-white/40 to-transparent bg-[length:200%_100%] opacity-70 motion-safe:animate-staff-id-shine motion-reduce:animate-none"
-                    aria-hidden
-                  />
-                  <div
-                    className="pointer-events-none absolute -inset-px z-0 rounded-2xl bg-gradient-to-br from-white/60 via-transparent to-slate-300/25 opacity-80"
-                    aria-hidden
-                  />
-                  <div className="relative z-0 p-3.5">
-                    <img
-                      src={imageUrl}
-                      alt={viewerName ? `${viewerName} 사원증` : '사원증'}
-                      className="relative z-0 mx-auto block max-h-[min(58vh,24rem)] w-full rounded-lg object-contain shadow-[0_8px_24px_rgba(15,23,42,0.08)] ring-1 ring-black/5"
-                      loading="lazy"
-                    />
+                <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                  <div className="relative z-0 py-3.5">
+                    <div className="relative mx-auto w-full max-w-full">
+                      <img
+                        src={imageUrl}
+                        alt={viewerName ? `${viewerName} 사원증` : '사원증'}
+                        className="relative z-0 mx-auto block max-h-[min(58vh,24rem)] w-full object-contain"
+                        loading="lazy"
+                      />
+                    </div>
                   </div>
                   {honorifics.length > 0 ? (
                     <div className="relative z-[3] border-t border-slate-200/90 bg-gradient-to-b from-[#f8f9fb] via-white to-[#f4f6f9] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
@@ -392,11 +385,17 @@ export function TeamMobileStaffIdCardDrawer({
                       </p>
                     </div>
                   ) : null}
-                  <div className="relative z-[3] border-t border-amber-400/35 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 px-3 py-3 text-center shadow-[0_-8px_24px_rgba(0,0,0,0.25)]">
-                    <p className="text-[0.68rem] font-semibold tracking-wide text-amber-100 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">
+                  <div
+                    className="relative z-[3] px-3 pb-3 pt-10 text-center"
+                    style={{
+                      background:
+                        'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 38%, rgba(100,116,139,0.07) 52%, rgba(100,116,139,0.2) 66%, rgba(100,116,139,0.38) 78%, rgba(100,116,139,0.52) 90%, rgba(100,116,139,0.56) 100%)',
+                    }}
+                  >
+                    <p className="text-[0.68rem] font-semibold tracking-wide text-slate-800">
                       {teamT('team.staffIdCard.licenseCaption')}
                     </p>
-                    <p className="mt-1.5 tabular-nums text-[0.72rem] text-slate-200/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+                    <p className="mt-1.5 tabular-nums text-[0.72rem] text-slate-700">
                       {hireLine}
                     </p>
                   </div>
