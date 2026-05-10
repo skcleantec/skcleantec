@@ -717,7 +717,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
         });
         await tx.inquiry.update({
           where: { id: pid },
-          data: { orderFormId: created.id, status: 'ORDER_FORM_PENDING' },
+          data: { orderFormId: created.id, status: 'ORDER_FORM_PENDING', source: '발주서' },
         });
         return tx.orderForm.findUniqueOrThrow({
           where: { id: created.id },
@@ -773,6 +773,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
           preferredTimeDetail: preferredTimeDetail?.trim() || null,
           memo: inquiryMemo,
           status: 'ORDER_FORM_PENDING',
+          source: '발주서',
           orderFormId: created.id,
           createdById: userId,
           serviceTotalAmount: totalAmount,

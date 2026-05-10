@@ -265,7 +265,7 @@ export function TelemarketingSessionBlock() {
             <ModalCloseButton onClick={() => setModalOpen(false)} disabled={submitting} />
             <h3 className="text-lg font-medium text-gray-900 mb-2 pr-10">당일 광고비 입력</h3>
             <p className="text-fluid-xs text-gray-600 mb-3 leading-snug">
-              건수 채널은 과목별 건수만 입력합니다. 예약 분모가 있는 채널은 카드 안 한 줄에서 자동/수동을 고릅니다.
+              건수 채널은 과목별 건수만 입력합니다. 예약 분모가 있는 채널은 카드 안 한 줄에서 자동/수동을 고릅니다. 자동 건수는「직전 종료~지금」구간에서 본인이 발급한 발주서 중 고객 제출 완료 건 + 같은 구간에 새로 낸 미제출 발급 건을 합친 값입니다.
             </p>
             <div className="space-y-2 mb-4">
               {channels.map((c) =>

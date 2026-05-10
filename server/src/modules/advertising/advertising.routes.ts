@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import type { InquiryStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   authMiddleware,
@@ -23,10 +24,24 @@ import {
 } from './advertising.sessionEndNormalize.js';
 import {
   applyResolvedBookingDenominator,
-  countOrderFormSubmissionsInRange,
+  countBookingDenominatorAuto,
+  sumReservationCountsFromWorkSessionsInPeriod,
 } from './advertising.bookingDenominator.js';
 
 const router = Router();
+
+/**
+ * 광고비 분석 ROAS·건당 비용 분모 — 서비스접수 목록과 동일한 「예약완료」개념.
+ * 고객 발주서 제출 이후 상태(RECEIVED~). 미제출·대기·입금 단계·취소는 제외.
+ */
+const ADVERTISING_ANALYTICS_RESERVATION_STATUSES: InquiryStatus[] = [
+  'RECEIVED',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'ON_HOLD',
+  'CS_PROCESSING',
+];
 
 function authUser(req: unknown): AuthPayload {
   return (req as { user: AuthPayload }).user;
@@ -322,7 +337,7 @@ router.get('/sessions/active', authMiddleware, adminOrMarketer, async (req, res)
   res.json({ session });
 });
 
-/** 종료 입력 모달 — 예약(발주서 제출) 건수 자동 집계 미리보기 */
+/** 종료 입력 모달 — 예약(발주서) 분모 자동 집계 미리보기: 제출 완료 + 구간 내 신규 미제출 발급 */
 router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
   const session = await prisma.adWorkSession.findFirst({
@@ -339,7 +354,7 @@ router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarke
   });
   const rangeStart = prevEnded?.endedAt ?? session.startedAt;
   const now = new Date();
-  const autoCount = await countOrderFormSubmissionsInRange(prisma, user.userId, rangeStart, now);
+  const autoCount = await countBookingDenominatorAuto(prisma, user.userId, rangeStart, now);
   res.json({
     sessionId: session.id,
     rangeStartIso: rangeStart.toISOString(),
@@ -415,7 +430,7 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
       bookingDenominatorManual = true;
     } else {
       const rangeStart = prevEnded?.endedAt ?? session.startedAt;
-      bookingDenominatorCount = await countOrderFormSubmissionsInRange(
+      bookingDenominatorCount = await countBookingDenominatorAuto(
         prisma,
         user.userId,
         rangeStart,
@@ -433,10 +448,12 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
     let r: number | null = null;
     let a: number | null = null;
     let c: number | null = null;
+    const compact = (s: string) => s.replace(/\s+/g, '');
     for (const row of bd) {
-      if (row.label.includes('받은요청')) r = row.count;
-      else if (row.label.includes('자동견적')) a = row.count;
-      else if (row.label.includes('예약확정')) c = row.count;
+      const t = compact(row.label);
+      if (t.includes('받은요청')) r = row.count;
+      else if (t.includes('자동견적')) a = row.count;
+      else if (t.includes('예약확정')) c = row.count;
     }
     return { r, a, c };
   }
@@ -507,15 +524,42 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     sessionWhere.userId = { in: scope.marketerIds };
   }
 
-  const inquiryWhere = {
-    source: '발주서' as const,
-    orderFormId: { not: null } as const,
-    createdAt: { gte: range.from, lte: range.to },
-    ...(scope.marketerIds !== 'ALL_MARKETERS' ? { createdById: { in: scope.marketerIds } } : {}),
+  /**
+   * 접수 매출 집계용: 발주서 고객 제출일이 기간 안이고 상태가 예약완료·분배·진행 등.
+   * (예약완료 「건수」는 작업 종료 세션 분모 합 — `sumReservationCountsFromWorkSessionsInPeriod`)
+   */
+  const orderFormSubmittedInPeriod = {
+    submittedAt: {
+      not: null,
+      gte: range.from,
+      lte: range.to,
+    },
   };
 
+  const inquiryWhere: Prisma.InquiryWhereInput = {
+    orderFormId: { not: null },
+    status: { in: ADVERTISING_ANALYTICS_RESERVATION_STATUSES },
+    orderForm: {
+      is: orderFormSubmittedInPeriod,
+    },
+  };
+  if (scope.marketerIds !== 'ALL_MARKETERS') {
+    inquiryWhere.OR = [
+      { createdById: { in: scope.marketerIds } },
+      {
+        createdById: null,
+        orderForm: {
+          is: {
+            ...orderFormSubmittedInPeriod,
+            createdById: { in: scope.marketerIds },
+          },
+        },
+      },
+    ];
+  }
+
   /** 세션·지출: user 객체 없이 최소 필드만 (메모리 절약) */
-  const [sessions, inquiryTotals, inquiryByCreator] = await Promise.all([
+  const [sessions, reservationAgg, inquiryRows] = await Promise.all([
     prisma.adWorkSession.findMany({
       where: sessionWhere,
       select: {
@@ -523,25 +567,30 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
         spendLines: { select: { amount: true } },
       },
     }),
-    prisma.inquiry.aggregate({
+    sumReservationCountsFromWorkSessionsInPeriod(prisma, range.from, range.to, scope.marketerIds),
+    prisma.inquiry.findMany({
       where: inquiryWhere,
-      _count: { _all: true },
-      _sum: { serviceTotalAmount: true },
-    }),
-    prisma.inquiry.groupBy({
-      by: ['createdById'],
-      where: {
-        ...inquiryWhere,
-        createdById: { not: null },
+      select: {
+        createdById: true,
+        serviceTotalAmount: true,
+        orderForm: { select: { createdById: true } },
       },
-      _count: { _all: true },
-      _sum: { serviceTotalAmount: true },
     }),
   ]);
 
+  const reservationByUser = reservationAgg.byUser;
+  const inquiryCount = reservationAgg.total;
+
   const totalSpend = sumSpendFromSessions(sessions);
-  const inquiryCount = inquiryTotals._count._all;
-  const totalRevenue = inquiryTotals._sum.serviceTotalAmount ?? 0;
+  let totalRevenue = 0;
+  const revenueByUser = new Map<string, number>();
+  for (const row of inquiryRows) {
+    const amt = row.serviceTotalAmount ?? 0;
+    totalRevenue += amt;
+    const uid = row.createdById ?? row.orderForm?.createdById ?? null;
+    if (!uid) continue;
+    revenueByUser.set(uid, (revenueByUser.get(uid) ?? 0) + amt);
+  }
   const roas = totalSpend > 0 ? totalRevenue / totalSpend : null;
   const costPerInquiry = inquiryCount > 0 ? totalSpend / inquiryCount : null;
   const avgDailySpend = totalSpend / days;
@@ -554,15 +603,6 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     spendByUser.set(u, (spendByUser.get(u) ?? 0) + add);
   }
 
-  const revenueByUser = new Map<string, number>();
-  const inquiryCountByUser = new Map<string, number>();
-  for (const row of inquiryByCreator) {
-    const uid = row.createdById;
-    if (!uid) continue;
-    revenueByUser.set(uid, row._sum.serviceTotalAmount ?? 0);
-    inquiryCountByUser.set(uid, row._count._all);
-  }
-
   let rowUsers: { id: string; name: string; email: string; role: string }[] = [];
   if (scope.marketerIds === 'ALL_MARKETERS') {
     const marketers = await loadMarketerUsers(prisma, scope);
@@ -572,6 +612,9 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
       if (!mIds.has(uid)) extraIds.add(uid);
     }
     for (const uid of revenueByUser.keys()) {
+      if (!mIds.has(uid)) extraIds.add(uid);
+    }
+    for (const uid of reservationByUser.keys()) {
       if (!mIds.has(uid)) extraIds.add(uid);
     }
     const extras =
@@ -596,7 +639,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
   const byUser = rowUsers.map((u) => {
     const spend = spendByUser.get(u.id) ?? 0;
     const rev = revenueByUser.get(u.id) ?? 0;
-    const ic = inquiryCountByUser.get(u.id) ?? 0;
+    const ic = reservationByUser.get(u.id) ?? 0;
     return {
       userId: u.id,
       name: u.name,

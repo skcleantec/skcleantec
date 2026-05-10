@@ -10,12 +10,13 @@ export function inclusiveDayCount(fromYmd: string, toYmd: string): number {
   return Math.max(1, diff);
 }
 
+/** YYYY-MM-DD 구간을 한국 영업일 자정~끝으로 해석 (DB에 저장된 UTC 시각과 맞춤) */
 export function parseRange(from?: string, to?: string): { from: Date; to: Date; fromYmd: string; toYmd: string } | null {
   if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
     return null;
   }
-  const fromD = new Date(from + 'T00:00:00.000Z');
-  const toD = new Date(to + 'T23:59:59.999Z');
+  const fromD = new Date(`${from}T00:00:00+09:00`);
+  const toD = new Date(`${to}T23:59:59.999+09:00`);
   if (fromD > toD) return null;
   return { from: fromD, to: toD, fromYmd: from, toYmd: to };
 }

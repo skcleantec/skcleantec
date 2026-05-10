@@ -131,8 +131,9 @@ export function AdminAdvertisingPage() {
       <h1 className="text-fluid-xl font-semibold text-gray-800">광고비</h1>
       <p className="text-fluid-sm text-gray-600">
         {role === 'ADMIN'
-          ? '전체 마케터 기준 지출·발주서 접수 실적을 집계합니다. (마케터는 본인만 조회)'
-          : '본인의 광고비 지출과 발주서 접수 실적입니다.'}
+          ? '마케터별 광고 지출과, 서비스접수 목록 기준 예약완료 실적을 같은 기간으로 맞춰 봅니다. (마케터는 본인만 조회)'
+          : '본인 광고 지출과 예약완료 실적입니다.'}{' '}
+        기간 날짜는 한국시간(KST) 하루 단위입니다.
       </p>
       {role === 'ADMIN' && (
         <p className="text-fluid-sm text-gray-700 rounded-lg border border-blue-100 bg-blue-50/80 px-4 py-3">
@@ -219,6 +220,28 @@ export function AdminAdvertisingPage() {
         </button>
       </div>
 
+      <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-fluid-sm text-gray-800 space-y-2">
+        <p className="font-medium text-gray-900">실적·ROAS·건당 비용 — 계산 기준</p>
+        <ul className="list-disc pl-5 space-y-1.5 text-gray-700 leading-snug">
+          <li>
+            <strong>예약완료 건수</strong>: 선택 기간 안에 <strong>작업 종료 및 정산</strong>으로 끝낸 세션마다 더합니다. 종료할 때
+            숨고 등에서 <strong>수동 건수</strong>를 넣었으면 그 숫자가 우선이고, 자동이면 직전 종료 시각(없으면 세션 시작)~이번 종료 시각 사이의{' '}
+            <strong>예약·발주 관련 자동 집계</strong>(제출 완료 발주서 + 그 구간 신규 미제출 발급)를 씁니다. 저장된 값이 없을 때만 같은 구간을 다시
+            계산합니다.
+          </li>
+          <li>
+            <strong>접수 매출 합계</strong>: 같은 기간 안에 고객 발주서 제출이 완료된 시각을 기준으로, 접수 상태가 예약완료·분배·진행 등인 접수의
+            서비스 금액 합입니다. (건수와 나누는 기준이 달라 숫자가 어긋날 수 있습니다.)
+          </li>
+          <li>
+            <strong>ROAS</strong> = 접수 매출 합계 ÷ 같은 기간에 집계된 광고비 총액. <strong>건당 비용</strong> = 광고비 ÷ 예약완료 건수.
+          </li>
+          <li className="text-gray-600">
+            숨고 등에서 예약 분모를 쓰는 채널은, 종료 이력에 남은 예약확정(분모) 건수와 위 「예약완료 건수」가 같은 세션 기준으로 맞도록 집계합니다.
+          </li>
+        </ul>
+      </div>
+
       {loading ? (
         <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
       ) : (
@@ -227,10 +250,10 @@ export function AdminAdvertisingPage() {
             <h2 className="text-fluid-base font-medium text-gray-800 mb-3">기간 요약</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <SummaryCard label="총 광고비" value={s ? won(s.totalAdSpend) : '—'} />
-              <SummaryCard label="발주서 접수 건수" value={s ? String(s.orderInquiryCount) : '—'} />
+              <SummaryCard label="예약완료 건수" value={s ? String(s.orderInquiryCount) : '—'} sub="작업 종료 시 수동·자동 분모 합" />
               <SummaryCard label="접수 매출 합계" value={s ? won(s.totalRevenue) : '—'} />
               <SummaryCard label="ROAS" value={s?.roas != null ? numOrDash(s.roas) : '—'} sub="매출÷광고비" />
-              <SummaryCard label="접수 1건당 비용" value={s?.costPerInquiry != null ? won(s.costPerInquiry) : '—'} />
+              <SummaryCard label="건당 비용" value={s?.costPerInquiry != null ? won(Math.round(s.costPerInquiry)) : '—'} sub="광고비÷예약완료 건수" />
               <SummaryCard
                 label="일평균 광고비"
                 value={s ? won(Math.round(s.avgDailySpend)) : '—'}
@@ -248,7 +271,12 @@ export function AdminAdvertisingPage() {
                     <th className="text-center py-2 px-3">이름</th>
                     <th className="text-center py-2 px-3">역할</th>
                     <th className="text-center py-2 px-3">광고비</th>
-                    <th className="text-center py-2 px-3">발주 접수</th>
+                    <th
+                      className="text-center py-2 px-3"
+                      title="조회 기간 안 종료된 작업 세션별 예약 분모(수동 우선·없으면 직전 종료~이번 종료 자동) 합계"
+                    >
+                      예약완료 건수
+                    </th>
                     <th className="text-center py-2 px-3">매출</th>
                     <th className="text-center py-2 px-3">ROAS</th>
                     <th className="text-center py-2 px-3">건당 비용</th>

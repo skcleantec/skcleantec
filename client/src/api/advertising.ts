@@ -243,6 +243,7 @@ export interface AdvertisingAnalytics {
   period: { from: string; to: string; days: number };
   summary: {
     totalAdSpend: number;
+    /** 조회 기간 내 작업 종료 세션별 예약 분모(수동·자동) 합 — ROAS·건당 비용 분모 */
     orderInquiryCount: number;
     totalRevenue: number;
     roas: number | null;
@@ -255,6 +256,7 @@ export interface AdvertisingAnalytics {
     email: string;
     role: string;
     totalAdSpend: number;
+    /** 동일: 기간 내 종료 세션 분모 합 */
     orderInquiryCount: number;
     totalRevenue: number;
     roas: number | null;
