@@ -21,6 +21,44 @@ function sanitizeExternalPayAmountInput(raw: string): string {
   return neg ? `-${s}` : s;
 }
 
+/** 콤마·부호 제외 숫자 부분만 파싱 (빈 문자열은 0) */
+function payAmountAbsDigits(raw: string): number {
+  const d = raw.replace(/,/g, '').replace(/^-/, '').replace(/\D/g, '');
+  if (!d) return 0;
+  const n = Number(d);
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+}
+
+function payAmountIsNegative(raw: string): boolean {
+  return raw.replace(/,/g, '').trim().startsWith('-');
+}
+
+/** 표시용 — 한국어 천단위, 부호는 맨 앞만 */
+function formatExternalPayAmountDisplay(abs: number, negative: boolean): string {
+  const a = Math.abs(Math.trunc(abs));
+  if (a === 0 && !negative) return '';
+  if (a === 0 && negative) return '-';
+  const formatted = a.toLocaleString('ko-KR');
+  return negative ? `-${formatted}` : formatted;
+}
+
+/** 마이너스 토글 (`-` 단독 입력 상태 지원) */
+function toggleExternalPayAmountMinus(raw: string): string {
+  const compact = raw.replace(/,/g, '').trim();
+  if (compact === '') return '-';
+  if (compact === '-') return '';
+  const neg = compact.startsWith('-');
+  const abs = payAmountAbsDigits(raw);
+  return formatExternalPayAmountDisplay(abs, !neg);
+}
+
+/** 부호 유지한 채 절댓값에 단위만 더함 (모바일 패드용) */
+function addExternalPayAmountUnit(raw: string, unit: number): string {
+  const neg = payAmountIsNegative(raw);
+  const abs = payAmountAbsDigits(raw) + unit;
+  return formatExternalPayAmountDisplay(abs, neg);
+}
+
 function kstTodayYmd(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
@@ -479,16 +517,56 @@ export function AdminExternalSettlementPage() {
                 />
                 <p className="mt-0.5 text-[11px] text-gray-400">기본은 오늘 날짜이며, 변경 시 해당일로 정산·내역에 저장됩니다.</p>
               </div>
+              <label className="block text-xs text-gray-500 mb-1">정산 금액</label>
               <input
+                aria-label="정산 금액"
                 value={payAmountInput}
                 onChange={(e) => setPayAmountInput(sanitizeExternalPayAmountInput(e.target.value))}
                 placeholder="정산 금액 (보정 시 -금액)"
                 inputMode="numeric"
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm tabular-nums"
               />
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <button
+                  type="button"
+                  className="min-h-[40px] touch-manipulation rounded border border-gray-300 bg-gray-50 px-2.5 py-1.5 text-[11px] font-medium text-gray-800 active:bg-gray-100"
+                  onClick={() => setPayAmountInput((v) => sanitizeExternalPayAmountInput(toggleExternalPayAmountMinus(v)))}
+                >
+                  − 마이너스
+                </button>
+                <button
+                  type="button"
+                  className="min-h-[40px] touch-manipulation rounded border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-800 active:bg-gray-100"
+                  onClick={() => setPayAmountInput((v) => sanitizeExternalPayAmountInput(addExternalPayAmountUnit(v, 10_000)))}
+                >
+                  만
+                </button>
+                <button
+                  type="button"
+                  className="min-h-[40px] touch-manipulation rounded border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-800 active:bg-gray-100"
+                  onClick={() => setPayAmountInput((v) => sanitizeExternalPayAmountInput(addExternalPayAmountUnit(v, 100_000)))}
+                >
+                  십만
+                </button>
+                <button
+                  type="button"
+                  className="min-h-[40px] touch-manipulation rounded border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-800 active:bg-gray-100"
+                  onClick={() => setPayAmountInput((v) => sanitizeExternalPayAmountInput(addExternalPayAmountUnit(v, 1_000_000)))}
+                >
+                  백만
+                </button>
+                <button
+                  type="button"
+                  className="min-h-[40px] touch-manipulation rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-900 active:bg-amber-100"
+                  onClick={() => setPayAmountInput('')}
+                >
+                  정정
+                </button>
+              </div>
               <p className="text-[11px] text-gray-400">
-                일반 정산은 양수만 입력합니다. 잘못 입력한 정산을 되돌리거나 미수가 음수일 때는 앞에 - 를 붙인 정수를
-                입력할 수 있습니다.
+                일반 정산은 양수만 입력합니다. 잘못 입력한 정산을 되돌리거나 미수가 음수일 때는 「− 마이너스」 또는 앞에{' '}
+                <span className="font-medium text-gray-600">-</span> 를 붙인 정수를 입력할 수 있습니다. 「만·십만·백만」은
+                현재 부호를 유지한 채 금액만 더합니다.
               </p>
               <input
                 value={payMemoInput}
