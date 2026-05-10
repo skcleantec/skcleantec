@@ -27,6 +27,7 @@ import {
   countBookingDenominatorAuto,
   sumReservationCountsFromWorkSessionsInPeriod,
 } from './advertising.bookingDenominator.js';
+import { advertisingDailySettlementForMonthKey } from './advertising.dailySettlement.js';
 
 const router = Router();
 
@@ -493,6 +494,63 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
     include: { spendLines: { include: { channel: true } } },
   });
   res.json({ session: updated });
+});
+
+/** 마케터별 당월(또는 지정 월) KST 일자별 광고비·예약 분모·건당 비용 */
+router.get('/analytics/daily', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = authUser(req);
+  const monthKey = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    res.status(400).json({ error: 'month (YYYY-MM)를 지정해 주세요.' });
+    return;
+  }
+
+  let marketerId =
+    typeof req.query.marketerId === 'string' && /^[0-9a-f-]{36}$/i.test(req.query.marketerId.trim())
+      ? req.query.marketerId.trim()
+      : '';
+  if (user.role !== 'ADMIN') {
+    marketerId = user.userId;
+  }
+  if (!marketerId) {
+    res.status(400).json({ error: 'marketerId가 필요합니다.' });
+    return;
+  }
+  if (user.role !== 'ADMIN' && marketerId !== user.userId) {
+    res.status(403).json({ error: '다른 사용자 데이터를 조회할 수 없습니다.' });
+    return;
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: marketerId },
+    select: { id: true, name: true, email: true, role: true },
+  });
+  if (!target) {
+    res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+
+  try {
+    const payload = await advertisingDailySettlementForMonthKey(prisma, marketerId, monthKey);
+    res.json({
+      marketer: {
+        id: target.id,
+        name: target.name,
+        email: target.email,
+        role: target.role,
+      },
+      month: monthKey,
+      ...payload,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'invalid_month') {
+      res.status(400).json({ error: '유효한 월(YYYY-MM)이 아닙니다.' });
+      return;
+    }
+    console.error('[advertising /analytics/daily]', e);
+    res.status(500).json({ error: '일별 정산을 불러오지 못했습니다.' });
+  }
 });
 
 router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {

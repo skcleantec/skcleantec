@@ -20,6 +20,7 @@ import {
 } from '../../utils/dateRangePresets';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
+import { AdvertisingDailySettlementModal } from '../../components/admin/AdvertisingDailySettlementModal';
 
 function won(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -28,6 +29,35 @@ function won(n: number): string {
 function numOrDash(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '—';
   return n.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+}
+
+const ROAS_HEADER_HELP =
+  'ROAS = 접수 매출 합계 ÷ 같은 기간에 집계된 광고비 총액입니다.';
+
+function RoasHelpIcon() {
+  return (
+    <span
+      className="inline-flex shrink-0 text-gray-400 hover:text-gray-600 cursor-help align-middle"
+      title={ROAS_HEADER_HELP}
+      aria-label={ROAS_HEADER_HELP}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={1.5}
+        stroke="currentColor"
+        className="w-3.5 h-3.5"
+        aria-hidden
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"
+        />
+      </svg>
+    </span>
+  );
 }
 
 export function AdminAdvertisingPage() {
@@ -48,6 +78,8 @@ export function AdminAdvertisingPage() {
   const [deleteTarget, setDeleteTarget] = useState<AdChannel | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  const [dailySettlement, setDailySettlement] = useState<{ userId: string; name: string } | null>(null);
 
   const sortedChannels = useMemo(
     () => [...channels].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
@@ -237,7 +269,8 @@ export function AdminAdvertisingPage() {
             <strong>ROAS</strong> = 접수 매출 합계 ÷ 같은 기간에 집계된 광고비 총액. <strong>건당 비용</strong> = 광고비 ÷ 예약완료 건수.
           </li>
           <li className="text-gray-600">
-            숨고 등에서 예약 분모를 쓰는 채널은, 종료 이력에 남은 예약확정(분모) 건수와 위 「예약완료 건수」가 같은 세션 기준으로 맞도록 집계합니다.
+            숨고 등 예약 분모 채널은 종료 이력의 예약확정(분모)과 위 「예약완료 건수」가 세션 기준으로 맞습니다. 사용자별 표의{' '}
+            <strong>일별 정산</strong>으로 해당 월(KST)의 일자별 광고비·예약 건수·건당 비용을 확인할 수 있습니다.
           </li>
         </ul>
       </div>
@@ -265,7 +298,7 @@ export function AdminAdvertisingPage() {
           <div>
             <h2 className="text-fluid-base font-medium text-gray-800 mb-3">사용자별 집계</h2>
             <div className="border border-gray-200 rounded overflow-x-auto bg-white">
-              <table className="w-full text-fluid-sm min-w-[720px]">
+              <table className="w-full text-fluid-sm min-w-[800px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-center py-2 px-3">이름</th>
@@ -278,9 +311,15 @@ export function AdminAdvertisingPage() {
                       예약완료 건수
                     </th>
                     <th className="text-center py-2 px-3">매출</th>
-                    <th className="text-center py-2 px-3">ROAS</th>
+                    <th className="text-center py-2 px-3">
+                      <span className="inline-flex items-center justify-center gap-0.5">
+                        ROAS
+                        <RoasHelpIcon />
+                      </span>
+                    </th>
                     <th className="text-center py-2 px-3">건당 비용</th>
                     <th className="text-center py-2 px-3">일평균 광고비</th>
+                    <th className="text-center py-2 px-3 w-[7.5rem]">일별 정산</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -296,6 +335,15 @@ export function AdminAdvertisingPage() {
                         {row.costPerInquiry != null ? won(Math.round(row.costPerInquiry)) : '—'}
                       </td>
                       <td className="py-2 px-3 text-right">{won(Math.round(row.avgDailySpend))}</td>
+                      <td className="py-2 px-3 text-center">
+                        <button
+                          type="button"
+                          className="text-fluid-xs px-2 py-1 rounded border border-teal-600 text-teal-800 hover:bg-teal-50 whitespace-nowrap"
+                          onClick={() => setDailySettlement({ userId: row.userId, name: row.name?.trim() || row.email })}
+                        >
+                          일별 보기
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -466,6 +514,15 @@ export function AdminAdvertisingPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {token && dailySettlement && (
+        <AdvertisingDailySettlementModal
+          token={token}
+          marketerId={dailySettlement.userId}
+          marketerName={dailySettlement.name}
+          onClose={() => setDailySettlement(null)}
+        />
       )}
     </div>
   );

@@ -281,6 +281,39 @@ export async function getAdvertisingAnalytics(
   return res.json();
 }
 
+export type AdvertisingDailySettlementDay = {
+  ymd: string;
+  totalAdSpend: number;
+  reservationCount: number;
+  costPerReservation: number | null;
+};
+
+export type AdvertisingDailySettlementResponse = {
+  marketer: { id: string; name: string; email: string; role: string };
+  month: string;
+  days: AdvertisingDailySettlementDay[];
+  monthTotals: {
+    totalAdSpend: number;
+    reservationCount: number;
+    costPerReservation: number | null;
+  };
+};
+
+/** KST 기준 월(YYYY-MM) · 사용자별 일자별 광고비·예약 분모·건당 비용 */
+export async function getAdvertisingDailySettlement(
+  token: string,
+  month: string,
+  marketerId: string
+): Promise<AdvertisingDailySettlementResponse> {
+  const q = new URLSearchParams({ month, marketerId });
+  const res = await fetch(`${API}/advertising/analytics/daily?${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error((e as { error?: string }).error || '일별 정산을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export type AdSpendCountBreakdownRow = {
   lineItemId: string;
   label: string;
