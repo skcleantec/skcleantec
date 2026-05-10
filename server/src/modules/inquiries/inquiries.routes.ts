@@ -137,8 +137,22 @@ router.get('/', async (req, res) => {
   });
 
   const andClauses: Prisma.InquiryWhereInput[] = [];
+  /** 접수일 구간 + 「미제출」은 발주서 발급일이 구간 안이면 포함(예: 예전 접수에 오늘 링크 발급 시 목록에 보이게) */
   if (range) {
-    andClauses.push({ createdAt: { gte: range.gte, lte: range.lte } });
+    andClauses.push({
+      OR: [
+        { createdAt: { gte: range.gte, lte: range.lte } },
+        {
+          status: 'ORDER_FORM_PENDING',
+          orderForm: {
+            is: {
+              submittedAt: null,
+              createdAt: { gte: range.gte, lte: range.lte },
+            },
+          },
+        },
+      ],
+    });
   }
   if (status && typeof status === 'string') {
     const raw = status.trim();
@@ -195,18 +209,47 @@ router.get('/', async (req, res) => {
     }
   }
 
-  /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선 */
+  /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선.
+   * 미제출(링크만 발급)은 고객 예약일과 무관하게 같은 날·같은 달에 발급된 발주서면 목록에 포함(발주서 목록과 동일하게 보이게). */
   if (typeof scheduleDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(scheduleDay.trim())) {
     const r = kstDayRangeYmd(scheduleDay.trim());
     if (r) {
-      andClauses.push({ preferredDate: { not: null } });
-      andClauses.push({ preferredDate: { gte: r.gte, lte: r.lte } });
+      andClauses.push({
+        OR: [
+          {
+            AND: [{ preferredDate: { not: null } }, { preferredDate: { gte: r.gte, lte: r.lte } }],
+          },
+          {
+            status: 'ORDER_FORM_PENDING',
+            orderForm: {
+              is: {
+                submittedAt: null,
+                createdAt: { gte: r.gte, lte: r.lte },
+              },
+            },
+          },
+        ],
+      });
     }
   } else if (typeof scheduleMonth === 'string' && /^\d{4}-\d{2}$/.test(scheduleMonth.trim())) {
     const r = kstMonthRangeYm(scheduleMonth.trim());
     if (r) {
-      andClauses.push({ preferredDate: { not: null } });
-      andClauses.push({ preferredDate: { gte: r.gte, lte: r.lte } });
+      andClauses.push({
+        OR: [
+          {
+            AND: [{ preferredDate: { not: null } }, { preferredDate: { gte: r.gte, lte: r.lte } }],
+          },
+          {
+            status: 'ORDER_FORM_PENDING',
+            orderForm: {
+              is: {
+                submittedAt: null,
+                createdAt: { gte: r.gte, lte: r.lte },
+              },
+            },
+          },
+        ],
+      });
     }
   }
 

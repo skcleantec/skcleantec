@@ -183,6 +183,7 @@ export function AdminOrderFormPage() {
     Array<{ id: string; customerName: string; customerPhone: string }>
   >([]);
   const [pendingLinkId, setPendingLinkId] = useState('');
+  const [scheduleFabUnlinkedHint, setScheduleFabUnlinkedHint] = useState(false);
   const pendingInquiryFromUrlConsumed = useRef<string | null>(null);
 
 
@@ -302,6 +303,21 @@ export function AdminOrderFormPage() {
 
   useEffect(() => {
     if (!token) return;
+    const hint = searchParams.get('fabHint')?.trim();
+    if (hint !== 'scheduleNoDetail') return;
+    setScheduleFabUnlinkedHint(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('fabHint');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [token, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!token) return;
     const raw = searchParams.get('pendingInquiryId')?.trim();
     if (!raw) {
       pendingInquiryFromUrlConsumed.current = null;
@@ -310,6 +326,7 @@ export function AdminOrderFormPage() {
     if (pendingInquiryFromUrlConsumed.current === raw) return;
     pendingInquiryFromUrlConsumed.current = raw;
     setPendingLinkId(raw);
+    setScheduleFabUnlinkedHint(false);
     setTab('issue');
     setSearchParams(
       (prev) => {
@@ -483,6 +500,22 @@ export function AdminOrderFormPage() {
             </h2>
           </div>
           <div className="p-4 sm:p-6 lg:p-8">
+            {scheduleFabUnlinkedHint ? (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-fluid-sm text-amber-950">
+                <p className="font-medium">스케줄 화면에서 접수 상세를 연 상태에서 발주서 버튼을 눌러 주세요.</p>
+                <p className="mt-1 text-fluid-xs text-amber-900/95">
+                  상세 없이 발급하면 접수와 연결되지 않아 서비스접수 목록에는 미제출로 나오지 않고, 발주서 목록에만 보입니다.
+                  아래 「대기 접수 연결」에서 해당 접수를 고르거나, 접수 상세를 연 뒤 다시 시도해 주세요.
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 text-fluid-xs font-medium text-amber-900 underline hover:no-underline"
+                  onClick={() => setScheduleFabUnlinkedHint(false)}
+                >
+                  닫기
+                </button>
+              </div>
+            ) : null}
             <div className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-none">
               <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 md:gap-x-8 lg:grid-cols-12 lg:gap-x-8 lg:gap-y-5">
                 <div className="md:col-span-2 lg:col-span-12">

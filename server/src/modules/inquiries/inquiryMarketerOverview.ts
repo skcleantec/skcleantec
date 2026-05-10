@@ -18,7 +18,7 @@ export type MarketerOverviewResult = {
   marketers: MarketerOverviewRow[];
 };
 
-/** 접수 등록자(createdById) 기준. 과거 데이터는 orderForm.createdById로 보조 */
+/** 접수 등록자(createdById) 기준. 과거 데이터는 orderForm.createdById로 보조. 미제출(링크만 발급)은 발주서 작성자도 동일 건으로 본다 */
 export function whereInquiryAttributedToMarketer(marketerId: string): Prisma.InquiryWhereInput {
   return {
     OR: [
@@ -26,6 +26,15 @@ export function whereInquiryAttributedToMarketer(marketerId: string): Prisma.Inq
       {
         createdById: null,
         orderForm: { is: { createdById: marketerId } },
+      },
+      {
+        status: 'ORDER_FORM_PENDING',
+        orderForm: {
+          is: {
+            createdById: marketerId,
+            submittedAt: null,
+          },
+        },
       },
     ],
   };

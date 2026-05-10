@@ -37,6 +37,16 @@ const router = Router();
 
 const VALID_ORDER_TIME_SLOTS = new Set(['오전', '오후', '사이청소']);
 
+/** 목록 연동용 접수 생성 시 주소 미수집 표시. 미제출 발주서 삭제 시 해당 접수는 삭제한다. */
+const STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER = '(발주서 링크 발급)';
+
+function preferredDateYmdToKstNoon(ymdRaw: string | undefined): Date | null {
+  const ymd = ymdRaw?.trim();
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const d = new Date(`${ymd}T12:00:00+09:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 type ForceMatchInquirySnapshot = {
   id: string;
   status: string;
@@ -729,23 +739,54 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
       return;
     }
 
-    const orderForm = await prisma.orderForm.create({
-      data: {
-        token,
-        customerName: customerName.trim(),
-        customerPhone: customerPhoneOpt,
-        totalAmount,
-        depositAmount: deposit,
-        balanceAmount: balance,
-        optionNote: optionNote?.trim() || null,
-        preferredDate: preferredDate?.trim() || null,
-        preferredTime: preferredTime?.trim() || null,
-        preferredTimeDetail: preferredTimeDetail?.trim() || null,
-        createdById: userId,
-      },
-      include: {
-        createdBy: orderFormCreatedBySelect,
-      },
+    const prefDateStr = preferredDate?.trim() || null;
+    const memoParts: string[] = [];
+    if (optionNote?.trim()) memoParts.push(optionNote.trim());
+    if (preferredTime?.trim()) memoParts.push(`희망시간: ${preferredTime.trim()}`);
+    if (preferredTimeDetail?.trim()) memoParts.push(`시간 상세: ${preferredTimeDetail.trim()}`);
+    const inquiryMemo = memoParts.length ? memoParts.join('\n') : null;
+    const inquiryPreferredDate = preferredDateYmdToKstNoon(prefDateStr ?? undefined);
+
+    const orderForm = await prisma.$transaction(async (tx) => {
+      const created = await tx.orderForm.create({
+        data: {
+          token,
+          customerName: customerName.trim(),
+          customerPhone: customerPhoneOpt,
+          totalAmount,
+          depositAmount: deposit,
+          balanceAmount: balance,
+          optionNote: optionNote?.trim() || null,
+          preferredDate: prefDateStr,
+          preferredTime: preferredTime?.trim() || null,
+          preferredTimeDetail: preferredTimeDetail?.trim() || null,
+          createdById: userId,
+        },
+      });
+      await tx.inquiry.create({
+        data: {
+          customerName: customerName.trim(),
+          customerPhone: customerPhoneOpt ?? '',
+          address: STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER,
+          preferredDate: inquiryPreferredDate,
+          preferredTime: preferredTime?.trim() || null,
+          preferredTimeDetail: preferredTimeDetail?.trim() || null,
+          memo: inquiryMemo,
+          status: 'ORDER_FORM_PENDING',
+          orderFormId: created.id,
+          createdById: userId,
+          serviceTotalAmount: totalAmount,
+          serviceDepositAmount: deposit,
+          serviceBalanceAmount: balance,
+        },
+      });
+      return tx.orderForm.findUniqueOrThrow({
+        where: { id: created.id },
+        include: {
+          inquiries: { take: 1 },
+          createdBy: orderFormCreatedBySelect,
+        },
+      });
     });
     res.json(orderForm);
   } catch (e) {
@@ -927,7 +968,8 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
 
 /**
  * 관리자/마케터: 발주서 삭제 (본인 비밀번호 확인 필수).
- * - 미제출: 발주서만 삭제 (연결된 대기 접수는 orderFormId 만 해제).
+ * - 미제출: 발주서만 삭제. 일반 발급으로 자동 생성된 플레이스홀더 접수(주소 `(발주서 링크 발급)`)는 함께 삭제.
+ *   그 외 연결 접수는 orderFormId 만 해제하고 상태 복귀.
  * - 제출 완료: 발주서로 생성된 접수(Inquiry)도 함께 삭제된다. 복구 불가.
  *   (InquiryCleaningPhoto·Assignment 는 FK Cascade, InquiryChangeLog·CsReport 는 inquiryId SetNull)
  */
@@ -1005,17 +1047,23 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
     } else {
       const linked = await tx.inquiry.findMany({
         where: { orderFormId: id },
-        select: { id: true, status: true, inquiryNumber: true },
+        select: { id: true, status: true, inquiryNumber: true, address: true },
       });
       for (const row of linked) {
         if (row.status === 'ORDER_FORM_PENDING') {
-          await tx.inquiry.update({
-            where: { id: row.id },
-            data: {
-              orderFormId: null,
-              status: row.inquiryNumber != null ? 'DEPOSIT_COMPLETED' : 'PENDING',
-            },
-          });
+          const standaloneShell =
+            row.inquiryNumber == null && row.address === STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER;
+          if (standaloneShell) {
+            await tx.inquiry.delete({ where: { id: row.id } });
+          } else {
+            await tx.inquiry.update({
+              where: { id: row.id },
+              data: {
+                orderFormId: null,
+                status: row.inquiryNumber != null ? 'DEPOSIT_COMPLETED' : 'PENDING',
+              },
+            });
+          }
         } else {
           await tx.inquiry.update({
             where: { id: row.id },

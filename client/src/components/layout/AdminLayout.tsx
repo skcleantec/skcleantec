@@ -469,11 +469,13 @@ export function AdminLayout() {
       if (!fabPressMovedRef.current) {
         if (tapAnchor === 'issue') {
           const pid = getScheduleDetailInquiryIdForOrderFab();
-          navigate(
-            pid
-              ? `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(pid)}`
-              : '/admin/inquiries/order-issue'
-          );
+          if (pid) {
+            navigate(`/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(pid)}`);
+          } else if (location.pathname.startsWith('/admin/schedule')) {
+            navigate('/admin/inquiries/order-issue?fabHint=scheduleNoDetail');
+          } else {
+            navigate('/admin/inquiries/order-issue');
+          }
         } else navigate('/admin/schedule');
       }
     };
@@ -485,7 +487,7 @@ export function AdminLayout() {
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
     };
-  }, [clampFabTop, fabDragging, navigate]);
+  }, [clampFabTop, fabDragging, navigate, location.pathname]);
 
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">

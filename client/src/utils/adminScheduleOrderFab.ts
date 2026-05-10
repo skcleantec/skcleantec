@@ -4,11 +4,12 @@
  */
 let scheduleDetailInquiryIdForOrderFab: string | null = null;
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+/** Prisma 기본 `uuid()` 및 일반적인 하이픈 UUID 형식 (버전·variant 비트 제한 없음) */
+const INQUIRY_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function setScheduleDetailInquiryIdForOrderFab(inquiryId: string | null | undefined): void {
   const t = typeof inquiryId === 'string' ? inquiryId.trim() : '';
-  scheduleDetailInquiryIdForOrderFab = t && UUID_RE.test(t) ? t : null;
+  scheduleDetailInquiryIdForOrderFab = t && INQUIRY_ID_RE.test(t) ? t : null;
 }
 
 export function getScheduleDetailInquiryIdForOrderFab(): string | null {
