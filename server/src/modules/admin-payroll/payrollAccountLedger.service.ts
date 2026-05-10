@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { InquiryStatus } from '@prisma/client';
+import { InquiryStatus, PayrollAccountLedgerManualDirection, PayrollLedgerManualPayrollLinkKind } from '@prisma/client';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 
@@ -77,6 +77,7 @@ export async function buildPayrollAccountLedger(
     poolSettles,
     marketerSettles,
     inquiryRows,
+    manualLedgerEntries,
   ] = await Promise.all([
     prisma.payrollIncomeDeposit.findMany({
       where: { monthKey },
@@ -124,6 +125,15 @@ export async function buildPayrollAccountLedger(
         serviceTotalAmount: { not: null },
       },
       select: { preferredDate: true, serviceTotalAmount: true },
+    }),
+    prisma.payrollAccountLedgerManualEntry.findMany({
+      where: { monthKey },
+      orderBy: [{ occurredOn: 'asc' }, { createdAt: 'asc' }],
+      include: {
+        linkTeamMember: { select: { name: true } },
+        linkUser: { select: { name: true } },
+        linkExternalCompany: { select: { name: true } },
+      },
     }),
   ]);
 
@@ -213,6 +223,8 @@ export async function buildPayrollAccountLedger(
 
   for (const p of leaderPays) {
     const dateYmd = dateDbDateToYmd(p.paidOn);
+    const bucketHint =
+      p.settlementBucket === 'ADDITIONAL_RECEIPT_SETTLEMENT' ? ' (추가결재 정산)' : '';
     drafts.push({
       id: `team_leader_pay:${p.id}`,
       occurredAt: p.createdAt.toISOString(),
@@ -220,7 +232,7 @@ export async function buildPayrollAccountLedger(
       direction: 'out',
       amount: p.amount,
       category: '팀장 급여 지급',
-      summary: p.user.name,
+      summary: `${p.user.name}${bucketHint}`,
       memo: p.memo,
       sourceType: 'team_leader_payment',
       entryKind: 'cash',
@@ -257,6 +269,38 @@ export async function buildPayrollAccountLedger(
       summary: memoParts.join(' · '),
       memo: s.memo,
       sourceType: 'marketer_settlement',
+      entryKind: 'cash',
+    });
+  }
+
+  for (const me of manualLedgerEntries) {
+    const dateYmd = dateDbDateToYmd(me.occurredOn);
+    const dir = me.direction === PayrollAccountLedgerManualDirection.IN ? 'in' : 'out';
+    let linkHint = '';
+    if (dir === 'out' && me.payrollLinkKind !== PayrollLedgerManualPayrollLinkKind.NONE) {
+      if (me.payrollLinkKind === PayrollLedgerManualPayrollLinkKind.POOL_MEMBER && me.linkTeamMember) {
+        linkHint = ` · 현장 ${me.linkTeamMember.name}`;
+      } else if (me.payrollLinkKind === PayrollLedgerManualPayrollLinkKind.TEAM_LEADER && me.linkUser) {
+        linkHint = ` · 팀장 ${me.linkUser.name}`;
+      } else if (me.payrollLinkKind === PayrollLedgerManualPayrollLinkKind.MARKETER && me.linkUser) {
+        linkHint = ` · 마케터 ${me.linkUser.name}`;
+      } else if (
+        me.payrollLinkKind === PayrollLedgerManualPayrollLinkKind.EXTERNAL_COMPANY &&
+        me.linkExternalCompany
+      ) {
+        linkHint = ` · 타업체 ${me.linkExternalCompany.name}`;
+      }
+    }
+    drafts.push({
+      id: `ledger_manual:${me.id}`,
+      occurredAt: me.createdAt.toISOString(),
+      dateYmd,
+      direction: dir,
+      amount: me.amount,
+      category: dir === 'in' ? '수기 수입' : '수기 지출',
+      summary: `${me.accountLabel}${linkHint}`,
+      memo: me.memo,
+      sourceType: 'ledger_manual',
       entryKind: 'cash',
     });
   }

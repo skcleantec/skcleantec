@@ -34,4 +34,8 @@ export const inquiryDetailInclude = {
     orderBy: { sortOrder: 'asc' as const },
     include: { createdBy: { select: { id: true, name: true } } },
   },
+  additionalReceipts: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: { createdBy: { select: { id: true, name: true } } },
+  },
 } as const;

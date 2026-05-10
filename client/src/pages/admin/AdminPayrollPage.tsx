@@ -12,6 +12,8 @@ import {
   getPayrollExpenseForward,
   getPayrollIncomeSummary,
   getPayrollAccountLedger,
+  postPayrollAccountLedgerManualEntry,
+  deletePayrollAccountLedgerManualEntry,
   getPayrollExternalSettlementReceived,
   getPayrollAdminPersonalExpenses,
   getPayrollAdminSharedExpenses,
@@ -31,6 +33,7 @@ import {
   type PayrollSheetResponse,
   type PayrollPoolMemberDetailResponse,
   type PayrollTeamLeaderPaymentsResponse,
+  type PayrollTeamLeaderMonthAccrual,
   type PayrollMarketerDetailResponse,
   type PayrollCrewExpenseAdminItem,
   type PayrollCrewExpenseDetailResponse,
@@ -42,19 +45,27 @@ import {
   type PayrollIncomeDepositItem,
   type PayrollExternalSettlementReceivedResponse,
 } from '../../api/adminPayroll';
+import { listExternalCompanies, type ExternalCompanyListItem } from '../../api/externalCompanies';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 
+type LedgerManualPayrollLinkKind =
+  | 'none'
+  | 'pool_member'
+  | 'team_leader'
+  | 'marketer'
+  | 'external_company';
+
 const PAYROLL_HELP =
   '급여 종류별로 표시 방식이 다릅니다. 화면 상단 탭에서 팀원·팀장·마케터·정산·미정산현황을 나누어 볼 수 있습니다.\n\n' +
   '【현장 팀원 · 일당】팀원 등록에서 설정한 「일당(1일 급여)」와 「월급 지급일」마다 산정 구간이 붙습니다. 예를 들어 월급일이 매달 11일이면, 이번 월급일(당월 11일)에 해당하는 근무는 전달 11일부터 당월 10일까지(양 끝 포함) 예약일(KST)이 구간 안에 드는 접수만 집계합니다. 같은 날 여러 현장을 나가도 하루는 1일만 반영합니다. 상세에서는 「산정내역」과 「지급내역」을 바꿔 볼 수 있으며, 예상 급여가 나온 뒤 「정산완료」로 확정하면 지급 내역에 누적됩니다. 누락 등으로 자동 집계와 다를 때는 행의 「설정」에서 해당 월만 추가 근무일을 넣어 자동 일수에 더할 수 있습니다.\n\n' +
-  '【팀장 · 수시 지급】고정 급여일이 없어도 됩니다. 귀속 월을 선택한 뒤, 행을 눌러 입금일·금액·메모를 여러 번 기록할 수 있습니다. 목록의 「당월 지급합」은 해당 월에 등록한 지급액 합계입니다. 사용자 등록의 「월 고정 급여」는 참고용으로 비고에만 표시됩니다. 지급 행 삭제는 본인 로그인 비밀번호 확인 후에만 가능합니다.\n\n' +
+  '【팀장 · 수시 지급】고정 급여일이 없어도 됩니다. 귀속 월을 선택한 뒤, 행을 눌러 입금일·금액·메모를 여러 번 기록할 수 있습니다. 「당월 집계」는 해당 귀속 월의 예약일 기준 배정 접수 수·서비스 매출·추가결재 매출과, 사용자 등록 규칙으로 계산한 예상 지급·미정산을 보여 줍니다(취소 접수 제외). 목록의 「당월 지급합」은 등록한 입금액 합계입니다. 사용자 등록의 「월 고정 급여」는 참고용입니다. 지급 행 삭제는 본인 로그인 비밀번호 확인 후에만 가능합니다.\n\n' +
   '【직원(마케터) · 월 고정 + 이월 미정산】사용자 등록의 월 급여·급여일과 동일한 산정기간 표시를 씁니다. 귀속 월 「합계」는 미정산 이월액과 등록 월급을 더한 지급 예정액입니다. 「정산완료」에서 실제 지급 금액을 적으면 부족분은 다음 귀속 월 합계에 자동 반영됩니다. 과거 월 급여 등록값이 바뀌면 이월 추정과 과거와 어긋날 수 있으니, 월급 변경 후에는 정산 기록을 참고해 주세요.\n\n' +
   '【크루 지출】크루 그룹장이 귀속 월·팀원·금액·영수증으로 등록한 지출은 「정산」 탭 지출 영역과 팀원 급여 상세에 나타나며, 현장 팀원 행에서는 예상 급여에서 차감된 실지급 예상으로 표시됩니다. 「정산완료」 시 차감 후 금액이 확정됩니다.\n\n' +
-  '【수입·지출】급여일이 설정된 현장 팀원과 마케터만 행으로, 등록된 급여 지급일 종류를 열로 둔 격자입니다. 기본은 접혀 있으며 열별·전체 합계만 보입니다. 급여일 제목을 누르면 해당 열 미정산 일괄 정산, 격자를 펼친 뒤 금액 칸을 누르면 개별 정산(마케터 미정산은 정산금 입력)입니다. 해당 칸에는 귀속 월 급여표와 같은 금액(현장은 근무일×일당−크루 지출 예상·정산 확정액, 마케터 미정산은 급여 귀속 구간 일수로 나눈 오늘까지 일할 누적+이월·정산 확정액)이 나가며, 정산완료 행은 음영으로 구분됩니다.\n\n' +
+  '【수입·지출】급여일이 설정된 현장 팀원과 마케터만 행으로, 등록된 급여 지급일 종류를 열로 둔 격자입니다. 기본은 접혀 있으며 열별·전체 합계만 보입니다. 급여일 제목을 누르면 해당 열 미정산 일괄 정산, 격자를 펼친 뒤 금액 칸을 누르면 개별 정산(마케터 미정산은 정산금 입력)입니다. 해당 칸에는 월정산표와 같은 금액(현장은 근무일×일당−크루 지출 예상·정산 확정액, 마케터 미정산은 급여 귀속 구간 일수로 나눈 오늘까지 일할 누적+이월·정산 확정액)이 나가며, 정산완료 행은 음영으로 구분됩니다.\n\n' +
   '【관리자 개인 지출】크루 등록 지출 아래 접이식 영역에서 귀속 월별 참고 지출을 추가할 수 있습니다. 급여 산정·차감과는 무관하며 삭제 시 본인 비밀번호 확인이 필요합니다.\n\n' +
   '【공용 지출】관리자 개인 지출과 같은 방식으로 등록하는 부서·공용 성격 참고 지출입니다. 인건비·현장 팀원 차감과 무관하며 삭제 시 본인 비밀번호 확인이 필요합니다.\n\n' +
   '【정산 탭】왼쪽은 해당 귀속 월 「지출」(인건비 요약·크루 등록 지출·공용 지출·관리자 개인 지출)입니다. 오른쪽 「수입」에는 예약일 기준 접수 서비스 총액 합계, 해당 월 정산일(KST)에 속하는 「타업체 정산완료」처리 금액(상세 내역 접이식), 실제 입금 수기 「입금 내역」(접수·타업체 자동 집계와 별개 참고용)이 있습니다.\n\n' +
@@ -70,19 +81,276 @@ function fmtWon(n: number | null | undefined): string {
   return `${Number(n).toLocaleString('ko-KR')}원`;
 }
 
+type LeaderSettlementProfileFields = {
+  teamLeaderGeneralSettlementMode?: 'FIXED_PER_JOB_WON' | 'PERCENT_OF_GENERAL_SERVICE_BPS' | null;
+  teamLeaderGeneralSettlementValue?: number | null;
+  teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
+};
+
+/** 팀장 급여표·상세 — 사용자 등록 접수 정산 요약 한 줄 */
+function leaderSettlementProfileLine(f: LeaderSettlementProfileFields): string | null {
+  const parts: string[] = [];
+  const m = f.teamLeaderGeneralSettlementMode ?? null;
+  const v = f.teamLeaderGeneralSettlementValue ?? null;
+  const b = f.teamLeaderAdditionalReceiptCompanyShareBps ?? null;
+  if (m === 'FIXED_PER_JOB_WON' && v != null) {
+    parts.push(`일반 건당 ${Number(v).toLocaleString('ko-KR')}원`);
+  } else if (m === 'PERCENT_OF_GENERAL_SERVICE_BPS' && v != null) {
+    parts.push(`일반 만분율 ${v} (${(v / 100).toFixed(2)}%)`);
+  } else if (m != null && v == null) {
+    parts.push('일반: 방식만 등록');
+  }
+  if (b != null && Number.isFinite(b)) {
+    parts.push(`추가결재 회사몫 ${b} (${(b / 100).toFixed(2)}%)`);
+  }
+  return parts.length ? parts.join(' · ') : null;
+}
+
+function plainWon(n: number): string {
+  return `${Number(n).toLocaleString('ko-KR')}원`;
+}
+
+/** 팀장 행 — 이번 귀속 월에 지급해야 할 금액(일반 규칙 없으면 추가분만) */
+function leaderSettlementDueCell(r: PayrollSheetRow): ReactNode {
+  if (r.kind !== 'TEAM_LEADER') return '—';
+  const total = r.leaderMonthSettlementDueTotal;
+  if (total != null) {
+    const cls =
+      total > 0 ? 'text-gray-900' : total < 0 ? 'text-rose-700 font-semibold' : 'text-gray-600';
+    return <span className={`tabular-nums ${cls}`}>{plainWon(total)}</span>;
+  }
+  const add = r.leaderMonthSettlementDueAdditional ?? 0;
+  if (add !== 0) {
+    const cls = add > 0 ? 'text-gray-900 font-semibold' : 'text-rose-700 font-semibold';
+    return (
+      <span className="inline-flex flex-col items-center gap-0 leading-tight">
+        <span className={`tabular-nums ${cls}`}>{plainWon(add)}</span>
+        <span className="text-[9px] font-normal text-gray-500">
+          {add > 0 ? '추가만(지급)' : '추가(차감)'}
+        </span>
+      </span>
+    );
+  }
+  return <span className="text-gray-400">—</span>;
+}
+
+function LeaderAccrualKpiTile({
+  label,
+  value,
+  title,
+  accent,
+  compact,
+}: {
+  label: string;
+  value: ReactNode;
+  title?: string;
+  accent?: 'rose' | 'emerald' | 'slate';
+  compact?: boolean;
+}) {
+  const border =
+    accent === 'rose'
+      ? 'border-rose-200 bg-rose-50/90 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)]'
+      : accent === 'emerald'
+        ? 'border-emerald-200 bg-emerald-50/80'
+        : 'border-gray-200 bg-white';
+  const pad = compact ? 'px-1 py-0.5' : 'px-2 py-1.5';
+  const labelCls = compact ? 'text-[8px]' : 'text-[10px] sm:text-fluid-2xs';
+  const valueCls =
+    accent === 'rose'
+      ? `font-semibold text-rose-900 ${compact ? 'text-[11px]' : 'text-fluid-xs sm:text-fluid-sm'}`
+      : `font-semibold text-gray-900 ${compact ? 'text-[10px]' : 'text-fluid-xs'}`;
+
+  return (
+    <div className={`rounded-lg border text-center min-w-0 ${border} ${pad}`} title={title}>
+      <div className={`${labelCls} font-medium text-gray-500 leading-tight line-clamp-2`}>{label}</div>
+      <div className={`tabular-nums leading-snug mt-0.5 break-words ${valueCls}`}>{value}</div>
+    </div>
+  );
+}
+
+/**
+ * 팀장 귀속 월 집계 — 타일 그리드로 한눈에 스캔
+ * @param density table=표 셀, mobile=카드, modal=상세 상단
+ */
+function LeaderMonthAccrualDashboard({
+  accrual,
+  density,
+}: {
+  accrual: PayrollTeamLeaderMonthAccrual;
+  density: 'table' | 'mobile' | 'modal';
+}) {
+  const compact = density === 'table';
+  const paidTotal = accrual.paidGeneralSum + accrual.paidAdditionalSum;
+
+  let dueValue: ReactNode;
+  if (accrual.settlementDueTotal != null) {
+    const t = accrual.settlementDueTotal;
+    dueValue =
+      t < 0 ? (
+        <span className="font-semibold tabular-nums text-rose-800">{plainWon(t)}</span>
+      ) : (
+        plainWon(t)
+      );
+  } else if (accrual.settlementDueAdditional !== 0) {
+    const a = accrual.settlementDueAdditional;
+    dueValue = compact ? (
+      <>
+        <span className="block text-[8px] font-normal text-gray-500 leading-none">일반 미설정</span>
+        <span className={a < 0 ? 'font-semibold tabular-nums text-rose-800' : 'tabular-nums'}>
+          {plainWon(a)}
+        </span>
+      </>
+    ) : (
+      <>
+        <span className="block text-fluid-2xs font-normal text-gray-500">일반 규칙 미설정</span>
+        <span className={a < 0 ? 'font-semibold tabular-nums text-rose-800' : 'tabular-nums'}>
+          {plainWon(a)}
+        </span>
+      </>
+    );
+  } else {
+    dueValue = '—';
+  }
+
+  const dueDetailTitle = [
+    accrual.settlementDueGeneral != null ? `일반 예상 ${plainWon(accrual.settlementDueGeneral)}` : '일반 예상 —',
+    `추가 예상 ${plainWon(accrual.settlementDueAdditional)}`,
+  ].join('\n');
+  const paidTitle = `일반 ${plainWon(accrual.paidGeneralSum)}\n추가 ${plainWon(accrual.paidAdditionalSum)}`;
+  const unsettledTitle = [
+    accrual.unsettledGeneral != null ? `일반 ${plainWon(accrual.unsettledGeneral)}` : '일반 —',
+    `추가 ${plainWon(accrual.unsettledAdditional)}`,
+  ].join('\n');
+
+  const gridCls =
+    density === 'modal'
+      ? 'grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3'
+      : density === 'mobile'
+        ? 'grid grid-cols-3 gap-2'
+        : 'grid grid-cols-3 gap-1';
+
+  return (
+    <div className="space-y-2">
+      <div className={gridCls}>
+        <LeaderAccrualKpiTile
+          compact={compact}
+          label="배정"
+          value={`${accrual.assignedJobCount}건`}
+        />
+        <LeaderAccrualKpiTile
+          compact={compact}
+          label="추가건수"
+          value={`${accrual.additionalReceiptInquiryCount ?? 0}건`}
+        />
+        <LeaderAccrualKpiTile compact={compact} label="매출·일반" value={plainWon(accrual.generalSalesSum)} />
+        <LeaderAccrualKpiTile compact={compact} label="매출·추가" value={plainWon(accrual.additionalSalesSum)} />
+        <LeaderAccrualKpiTile
+          compact={compact}
+          label="예상 지급"
+          value={dueValue}
+          title={dueDetailTitle}
+          accent="slate"
+        />
+        <LeaderAccrualKpiTile
+          compact={compact}
+          label="입금 합계"
+          value={plainWon(paidTotal)}
+          title={paidTitle}
+          accent="emerald"
+        />
+        <LeaderAccrualKpiTile
+          compact={compact}
+          label="미정산"
+          value={
+            <span
+              className={
+                accrual.unsettledCombined < 0
+                  ? 'font-semibold tabular-nums text-rose-800'
+                  : undefined
+              }
+            >
+              {plainWon(accrual.unsettledCombined)}
+            </span>
+          }
+          title={unsettledTitle}
+          accent="rose"
+        />
+      </div>
+      {density === 'modal' ? (
+        <details className="rounded-lg border border-gray-200 bg-gray-50/90 px-3 py-2 text-fluid-2xs text-gray-600">
+          <summary className="cursor-pointer select-none font-medium text-gray-800 text-fluid-xs">
+            일반·추가 세부 보기
+          </summary>
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 tabular-nums sm:grid-cols-3">
+            <div className="text-center sm:text-left">
+              <div className="text-gray-500">예상·일반</div>
+              <div className="font-medium text-gray-900">
+                {accrual.settlementDueGeneral != null ? plainWon(accrual.settlementDueGeneral) : '—'}
+              </div>
+            </div>
+            <div className="text-center sm:text-left">
+              <div className="text-gray-500">예상·추가</div>
+              <div
+                className={`font-medium tabular-nums ${
+                  accrual.settlementDueAdditional < 0 ? 'text-rose-800' : 'text-gray-900'
+                }`}
+              >
+                {plainWon(accrual.settlementDueAdditional)}
+              </div>
+            </div>
+            <div className="text-center sm:text-left">
+              <div className="text-gray-500">입금·일반 / 추가</div>
+              <div className="font-medium text-gray-900">
+                {plainWon(accrual.paidGeneralSum)} · {plainWon(accrual.paidAdditionalSum)}
+              </div>
+            </div>
+            <div className="text-center sm:text-left">
+              <div className="text-gray-500">미정산·일반</div>
+              <div className="font-medium text-amber-900">
+                {accrual.unsettledGeneral != null ? plainWon(accrual.unsettledGeneral) : '—'}
+              </div>
+            </div>
+            <div className="text-center sm:text-left">
+              <div className="text-gray-500">미정산·추가</div>
+              <div
+                className={`font-medium tabular-nums ${
+                  accrual.unsettledAdditional < 0 ? 'text-rose-800' : 'text-amber-900'
+                }`}
+              >
+                {plainWon(accrual.unsettledAdditional)}
+              </div>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] text-gray-500 leading-snug">
+            예약일이 귀속 월에 포함된 배정 접수만 집계합니다. 미정산·일반 = max(0, 예상−입금). 미정산·추가 =
+            예상−입금(회사입금 가산·현장수금 차감 순액이라 음수 가능).
+          </p>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
 /** 현장 팀원 행 — 차감 전·지출·실지급 예상 표시 */
 function poolPayrollAmountCell(r: PayrollSheetRow): ReactNode {
   if (r.kind !== 'POOL_MEMBER') return fmtWon(r.amount);
   const gross = r.amount;
   const exp = r.crewExpenseTotal ?? 0;
+  const ledger = r.poolLedgerManualDeductionTotal ?? 0;
   const net = r.amountNet;
   if (gross == null) return fmtWon(null);
-  if (exp <= 0) return fmtWon(net ?? gross);
+  const showBreakdown = exp > 0 || ledger > 0;
+  if (!showBreakdown) return fmtWon(net ?? gross);
   return (
     <div className="space-y-0.5 text-right">
       <div className="text-fluid-2xs text-gray-400 line-through tabular-nums">{fmtWon(gross)}</div>
-      <div className="text-fluid-2xs text-red-700 tabular-nums">-{fmtWon(exp)}</div>
-      <div className="text-fluid-sm font-semibold text-gray-900 tabular-nums">{fmtWon(net ?? Math.max(0, gross - exp))}</div>
+      {exp > 0 ? (
+        <div className="text-fluid-2xs text-red-700 tabular-nums">-{fmtWon(exp)}</div>
+      ) : null}
+      {ledger > 0 ? (
+        <div className="text-fluid-2xs text-rose-800 tabular-nums">-{fmtWon(ledger)}</div>
+      ) : null}
+      <div className="text-fluid-sm font-semibold text-gray-900 tabular-nums">{fmtWon(net ?? Math.max(0, gross - exp - ledger))}</div>
     </div>
   );
 }
@@ -99,6 +367,40 @@ function compactPayDate(ymd: string | null): string {
 
 function todayYmdKst(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+/** monthKey YYYY-MM → 해당 월 마지막 날 YYYY-MM-DD */
+function lastYmdOfMonthKey(monthKey: string): string | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(monthKey.trim());
+  if (!m) return null;
+  const y = parseInt(m[1], 10);
+  const mo = parseInt(m[2], 10);
+  if (mo < 1 || mo > 12) return null;
+  const lastDay = new Date(y, mo, 0).getDate();
+  return `${m[1]}-${m[2]}-${String(lastDay).padStart(2, '0')}`;
+}
+
+/** 선택 귀속 월 안에서 오늘(KST) 기본값. 오늘이 그 달 밖이면 월 초·월 말로 맞춤 */
+function defaultLedgerOccurredOnYmd(monthKey: string): string {
+  const first = `${monthKey}-01`;
+  const last = lastYmdOfMonthKey(monthKey);
+  if (!last) return first;
+  const today = todayYmdKst();
+  if (today < first) return first;
+  if (today > last) return last;
+  return today;
+}
+
+function parseLedgerManualAmountDigits(raw: string): number {
+  const n = parseInt(raw.replace(/,/g, '').trim(), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function bumpLedgerManualAmount(raw: string, delta: number): string {
+  const cur = parseLedgerManualAmountDigits(raw);
+  const sum = cur + delta;
+  if (sum <= 0) return '';
+  return String(Math.min(sum, 1_000_000_000));
 }
 
 /** 목록 「지급」열 표시 */
@@ -336,7 +638,7 @@ function payrollTabHint(tab: PayrollTabId): string {
     case 'inout':
       return '상단 「계정 수입·지출」은 입금·지급·접수 매출 등을 일자 순으로 모은 표입니다. 아래 격자는 급여 지급일 열 기준 인원별 금액입니다.';
     case 'leader':
-      return '팀장은 귀속 월별로 입금 내역을 여러 번 적습니다. 행을 눌러 등록·히스토리를 확인하세요.';
+      return '목록은 요약 숫자와 「정산」「정산내역」만 보여 줍니다. 「정산」은 입금 등록 폼까지 바로 스크롤합니다.';
     case 'marketer':
       return '마케터는 「합계」에 미정산 이월과 등록 월급을 더해 표시합니다. 급여상세에서 정산 이력을, 정산완료에서 이번 달 지급액·메모를 저장합니다.';
     case 'settlement':
@@ -406,12 +708,16 @@ export function AdminPayrollPage() {
   const [leaderFormAmount, setLeaderFormAmount] = useState('');
   const [leaderFormPaidOn, setLeaderFormPaidOn] = useState(() => todayYmdKst());
   const [leaderFormMemo, setLeaderFormMemo] = useState('');
+  const [leaderFormSettlementBucket, setLeaderFormSettlementBucket] = useState<
+    'GENERAL_JOB_SETTLEMENT' | 'ADDITIONAL_RECEIPT_SETTLEMENT'
+  >('GENERAL_JOB_SETTLEMENT');
   const [leaderSaving, setLeaderSaving] = useState(false);
   const [leaderPaymentDeleteTarget, setLeaderPaymentDeleteTarget] = useState<{
     id: string;
     paidOnYmd: string;
     amount: number;
   } | null>(null);
+  const [leaderOpenFocusAddPayment, setLeaderOpenFocusAddPayment] = useState(false);
 
   const [marketerDetailForRow, setMarketerDetailForRow] = useState<PayrollSheetRow | null>(null);
   const [marketerDetail, setMarketerDetail] = useState<PayrollMarketerDetailResponse | null>(null);
@@ -435,6 +741,28 @@ export function AdminPayrollPage() {
   const [accountLedgerLoading, setAccountLedgerLoading] = useState(false);
   const [accountLedgerError, setAccountLedgerError] = useState<string | null>(null);
   const [ledgerHideAccrual, setLedgerHideAccrual] = useState(false);
+
+  const [ledgerManualModal, setLedgerManualModal] = useState<'in' | 'out' | null>(null);
+  const [ledgerManualOccurredOn, setLedgerManualOccurredOn] = useState('');
+  const [ledgerManualAccountLabel, setLedgerManualAccountLabel] = useState('');
+  const [ledgerManualAmount, setLedgerManualAmount] = useState('');
+  const [ledgerManualMemo, setLedgerManualMemo] = useState('');
+  const [ledgerManualPayrollLinkKind, setLedgerManualPayrollLinkKind] =
+    useState<LedgerManualPayrollLinkKind>('none');
+  const [ledgerManualLinkTeamMemberId, setLedgerManualLinkTeamMemberId] = useState('');
+  const [ledgerManualLinkUserId, setLedgerManualLinkUserId] = useState('');
+  const [ledgerManualLinkExternalCompanyId, setLedgerManualLinkExternalCompanyId] = useState('');
+  const [ledgerManualExternalCompanies, setLedgerManualExternalCompanies] = useState<ExternalCompanyListItem[]>(
+    [],
+  );
+  const [ledgerManualExternalCompaniesLoading, setLedgerManualExternalCompaniesLoading] = useState(false);
+  const [ledgerManualSaving, setLedgerManualSaving] = useState(false);
+  const [ledgerManualFormError, setLedgerManualFormError] = useState<string | null>(null);
+  const [ledgerManualDeleteTarget, setLedgerManualDeleteTarget] = useState<{
+    id: string;
+    label: string;
+    amount: number;
+  } | null>(null);
 
   const [crewExpenseAdminItems, setCrewExpenseAdminItems] = useState<PayrollCrewExpenseAdminItem[]>([]);
   const [crewExpenseDetailId, setCrewExpenseDetailId] = useState<string | null>(null);
@@ -531,12 +859,14 @@ export function AdminPayrollPage() {
     setMemberDetailPanelTab('accrual');
   }, []);
 
-  const openLeaderDetail = useCallback((row: PayrollSheetRow) => {
+  const openLeaderDetail = useCallback((row: PayrollSheetRow, opts?: { focusAddPayment?: boolean }) => {
     if (row.kind !== 'TEAM_LEADER') return;
     setLeaderDetailForRow(row);
+    setLeaderOpenFocusAddPayment(Boolean(opts?.focusAddPayment));
     setLeaderFormPaidOn(todayYmdKst());
     setLeaderFormAmount('');
     setLeaderFormMemo('');
+    setLeaderFormSettlementBucket('GENERAL_JOB_SETTLEMENT');
   }, []);
 
   const closeLeaderDetail = useCallback(() => {
@@ -545,8 +875,10 @@ export function AdminPayrollPage() {
     setLeaderDetailError(null);
     setLeaderDetailLoading(false);
     setLeaderPanelTab('month');
+    setLeaderOpenFocusAddPayment(false);
     setLeaderFormAmount('');
     setLeaderFormMemo('');
+    setLeaderFormSettlementBucket('GENERAL_JOB_SETTLEMENT');
     setLeaderPaymentDeleteTarget(null);
   }, []);
 
@@ -636,6 +968,15 @@ export function AdminPayrollPage() {
   }, [token, leaderDetailForRow, month]);
 
   useEffect(() => {
+    if (!leaderDetail || !leaderOpenFocusAddPayment) return;
+    const id = window.requestAnimationFrame(() => {
+      document.getElementById('payroll-leader-add-payment')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setLeaderOpenFocusAddPayment(false);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [leaderDetail, leaderOpenFocusAddPayment]);
+
+  useEffect(() => {
     if (!token || !marketerDetailForRow || marketerDetailForRow.kind !== 'MARKETER') return;
     let cancelled = false;
     setMarketerDetailLoading(true);
@@ -685,6 +1026,25 @@ export function AdminPayrollPage() {
       cancelled = true;
     };
   }, [token, payrollTab, month]);
+
+  useEffect(() => {
+    if (!token || ledgerManualModal !== 'out') return;
+    let cancelled = false;
+    setLedgerManualExternalCompaniesLoading(true);
+    void listExternalCompanies(token)
+      .then((r) => {
+        if (!cancelled) setLedgerManualExternalCompanies(r.items);
+      })
+      .catch(() => {
+        if (!cancelled) setLedgerManualExternalCompanies([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLedgerManualExternalCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, ledgerManualModal]);
 
   const ledgerDisplayRows = useMemo(() => {
     if (!accountLedger) return [];
@@ -1025,12 +1385,14 @@ export function AdminPayrollPage() {
           amount,
           paidOn: leaderFormPaidOn.trim() || undefined,
           memo: leaderFormMemo.trim() || undefined,
+          settlementBucket: leaderFormSettlementBucket,
         },
         month
       );
       setLeaderFormAmount('');
       setLeaderFormMemo('');
       setLeaderFormPaidOn(todayYmdKst());
+      setLeaderFormSettlementBucket('GENERAL_JOB_SETTLEMENT');
       try {
         const d = await getPayrollTeamLeaderPayments(token, leaderDetailForRow.id, month);
         setLeaderDetail(d);
@@ -1048,7 +1410,16 @@ export function AdminPayrollPage() {
     } finally {
       setLeaderSaving(false);
     }
-  }, [token, leaderDetailForRow, leaderFormAmount, leaderFormPaidOn, leaderFormMemo, month, load]);
+  }, [
+    token,
+    leaderDetailForRow,
+    leaderFormAmount,
+    leaderFormPaidOn,
+    leaderFormMemo,
+    leaderFormSettlementBucket,
+    month,
+    load,
+  ]);
 
   useEffect(() => {
     void load();
@@ -1404,7 +1775,7 @@ export function AdminPayrollPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between min-w-0">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold text-gray-900">월 급여표 (정산)</h1>
+            <h1 className="text-xl font-semibold text-gray-900">월정산표</h1>
             <HelpTooltip text={PAYROLL_HELP} />
           </div>
           <p className="text-fluid-sm text-gray-600 mt-1">
@@ -1451,7 +1822,7 @@ export function AdminPayrollPage() {
             <nav
               className="flex flex-nowrap gap-1 overflow-x-auto overscroll-x-contain px-2 pt-2 border-b border-gray-100 bg-gray-50/60 [scrollbar-width:thin]"
               role="tablist"
-              aria-label="급여표 구분"
+              aria-label="월정산표 구분"
             >
               {PAYROLL_TABS.map((id) => (
                 <button
@@ -2129,7 +2500,7 @@ export function AdminPayrollPage() {
                         )}
                       </div>
                     ) : null}
-               Р  </div>
+                    </div>
                     </div>
                   </div>
                 </>
@@ -2317,177 +2688,8 @@ export function AdminPayrollPage() {
                 </div>
               ) : payrollTab === 'inout' ? (
                 <div className="min-w-0 w-full space-y-3">
-                  <div className="rounded-lg border border-gray-200 bg-white shadow-sm min-w-0 overflow-hidden">
-                    <div className="border-b border-gray-100 bg-gray-50/90 px-2 sm:px-3 py-2.5">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between min-w-0">
-                        <h3 className="text-fluid-sm font-semibold text-gray-900">계정 수입·지출 표</h3>
-                        <span className="text-fluid-2xs text-gray-600">
-                          해당 귀속 월(<strong className="text-gray-800">{data.monthLabel}</strong>) · 일자 순 · 현금 잔액은
-                          입금·지급 기준
-                        </span>
-                      </div>
-                      <p className="mt-1.5 text-fluid-2xs text-gray-600 leading-snug">
-                        「접수 매출」은 예약일·접수 총액 합계로, 실제 입금과 다를 수 있습니다. 급여·경비는 정산·지급 등록이 있는
-                        항목만 반영됩니다.
-                      </p>
-                    </div>
-                    <div className="px-2 sm:px-3 py-3 space-y-3">
-                      {accountLedgerLoading ? (
-                        <p className="text-fluid-sm text-gray-500 py-6 text-center">내역을 불러오는 중…</p>
-                      ) : accountLedgerError ? (
-                        <p className="text-fluid-sm text-red-700 py-4 text-center">{accountLedgerError}</p>
-                      ) : accountLedger ? (
-                        <>
-                          <div className="flex flex-wrap gap-2 items-center">
-                            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-fluid-xs font-medium text-emerald-900 tabular-nums">
-                              현금 유입 {fmtWon(accountLedger.totals.cashIn)}
-                            </span>
-                            <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-fluid-xs font-medium text-rose-900 tabular-nums">
-                              현금 유출 {fmtWon(accountLedger.totals.cashOut)}
-                            </span>
-                            <span
-                              className={`inline-flex items-center rounded-full border px-3 py-1 text-fluid-xs font-semibold tabular-nums ${
-                                accountLedger.totals.cashNet >= 0
-                                  ? 'border-sky-200 bg-sky-50 text-sky-900'
-                                  : 'border-amber-200 bg-amber-50 text-amber-950'
-                              }`}
-                            >
-                              현금 순액 {fmtWon(accountLedger.totals.cashNet)}
-                            </span>
-                            {accountLedger.totals.accrualIn > 0 ? (
-                              <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-fluid-xs font-medium text-violet-900 tabular-nums">
-                                접수 매출(예약일) {fmtWon(accountLedger.totals.accrualIn)}
-                              </span>
-                            ) : null}
-                            {ledgerEndBalances.cash != null ? (
-                              <span className="inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-fluid-xs font-bold text-gray-900 tabular-nums">
-                                월말 현금 누적 {fmtWon(ledgerEndBalances.cash)}
-                              </span>
-                            ) : null}
-                          </div>
-                          <label className="flex items-center gap-2 cursor-pointer select-none touch-manipulation text-fluid-xs text-gray-700">
-                            <input
-                              type="checkbox"
-                              checked={ledgerHideAccrual}
-                              onChange={(e) => setLedgerHideAccrual(e.target.checked)}
-                              className="rounded border-gray-300 text-blue-700 focus:ring-blue-400"
-                            />
-                            접수 매출(예약일) 행 숨기기 — 실입금·지출만 보기
-                          </label>
-                          {ledgerDisplayRows.length === 0 ? (
-                            <p className="text-fluid-sm text-gray-500 py-6 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                              이 달에 표시할 수입·지출 내역이 없습니다.
-                            </p>
-                          ) : (
-                            <>
-                              <div className="hidden lg:block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0">
-                                <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs border border-gray-200 rounded-lg overflow-hidden">
-                                  <colgroup>
-                                    <col style={{ width: '7.5rem' }} />
-                                    <col style={{ width: '11rem' }} />
-                                    <col />
-                                    <col style={{ width: '7rem' }} />
-                                    <col style={{ width: '7rem' }} />
-                                    <col style={{ width: '8.5rem' }} />
-                                    {!ledgerHideAccrual ? <col style={{ width: '8.5rem' }} /> : null}
-                                  </colgroup>
-                                  <thead>
-                                    <tr className="bg-gray-100 text-gray-700">
-                                      <th className="border-b border-gray-200 px-2 py-2 text-center">일자</th>
-                                      <th className="border-b border-gray-200 px-2 py-2 text-center">명목</th>
-                                      <th className="border-b border-gray-200 px-2 py-2 text-center">적요</th>
-                                      <th className="border-b border-gray-200 px-2 py-2 text-center">수입</th>
-                                      <th className="border-b border-gray-200 px-2 py-2 text-center">지출</th>
-                                      <th className="border-b border-gray-200 px-2 py-2 text-center">현금 잔액</th>
-                                      {!ledgerHideAccrual ? (
-                                        <th className="border-b border-gray-200 px-2 py-2 text-center">전체 잔액</th>
-                                      ) : null}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {ledgerDisplayRows.map((row) => (
-                                      <tr
-                                        key={row.id}
-                                        className={`group hover:bg-gray-50 ${
-                                          row.entryKind === 'accrual' ? 'bg-violet-50/40' : ''
-                                        }`}
-                                      >
-                                        <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-gray-800">
-                                          {row.dateYmd}
-                                        </td>
-                                        <td className="border-b border-gray-100 px-2 py-2 text-center">
-                                          <span className="block truncate" title={row.category}>
-                                            {row.category}
-                                            {row.entryKind === 'accrual' ? (
-                                              <span className="ml-1 text-[10px] font-normal text-violet-700">(장부)</span>
-                                            ) : null}
-                                          </span>
-                                        </td>
-                                        <td className="border-b border-gray-100 px-2 py-2 text-center">
-                                          <span className="block truncate" title={[row.summary, row.memo].filter(Boolean).join(' · ')}>
-                                            {row.summary}
-                                          </span>
-                                        </td>
-                                        <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums text-emerald-900 font-medium">
-                                          {row.direction === 'in' ? fmtWon(row.amount) : '—'}
-                                        </td>
-                                        <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums text-rose-900 font-medium">
-                                          {row.direction === 'out' ? fmtWon(row.amount) : '—'}
-                                        </td>
-                                        <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-semibold text-gray-900">
-                                          {fmtWon(row.runningCash)}
-                                        </td>
-                                        {!ledgerHideAccrual ? (
-                                          <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums text-gray-800">
-                                            {fmtWon(row.runningAll)}
-                                          </td>
-                                        ) : null}
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                              <ul className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
-                                {ledgerDisplayRows.map((row) => (
-                                  <li key={row.id} className="px-3 py-3 text-fluid-xs">
-                                    <div className="flex justify-between gap-2 min-w-0">
-                                      <span className="text-gray-500 tabular-nums shrink-0">{row.dateYmd}</span>
-                                      <span
-                                        className={`shrink-0 font-bold tabular-nums ${
-                                          row.direction === 'in' ? 'text-emerald-800' : 'text-rose-800'
-                                        }`}
-                                      >
-                                        {row.direction === 'in' ? '+' : '−'}
-                                        {fmtWon(row.amount)}
-                                      </span>
-                                    </div>
-                                    <p className="mt-1 font-medium text-gray-900">
-                                      {row.category}
-                                      {row.entryKind === 'accrual' ? (
-                                        <span className="ml-1 text-[10px] font-normal text-violet-700">(장부)</span>
-                                      ) : null}
-                                    </p>
-                                    <p className="mt-0.5 text-gray-600 break-words">{row.summary}</p>
-                                    <p className="mt-1 text-fluid-2xs text-gray-500 tabular-nums">
-                                      현금 잔액 {fmtWon(row.runningCash)}
-                                      {!ledgerHideAccrual ? ` · 전체 ${fmtWon(row.runningAll)}` : null}
-                                    </p>
-                                  </li>
-                                ))}
-                              </ul>
-                              <p className="text-fluid-2xs text-gray-500">
-                                월말 현금 누적은 이 표의 현금 항목만 순서대로 더한 값입니다. 이전 달 이월·미등록 거래는 포함되지
-                                않습니다.
-                              </p>
-                            </>
-                          )}
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-
                   <p className="text-fluid-2xs text-gray-600 leading-snug">
-                    <strong className="text-gray-800">{data.monthLabel}</strong> 급여표와 동일합니다. 합계 행 위 급여일을 누르면 해당 열
+                    <strong className="text-gray-800">{data.monthLabel}</strong> 월정산표와 동일합니다. 합계 행 위 급여일을 누르면 해당 열
                     일괄 정산, 격자를 펼친 뒤 금액 칸을 누르면 개별 정산(마케터 미정산은 정산금 입력 모달)입니다.{' '}
                     <strong className="text-gray-800">현장 팀원</strong>은 해당 급여일 열에 근무일×일당−크루 지출 예상(또는 정산
                     확정액), <strong className="text-gray-800">마케터</strong>는 미정산인 경우 같은 급여일 열에{' '}
@@ -2827,7 +3029,7 @@ export function AdminPayrollPage() {
                       ) : null}
                     </>
                   )}
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600 mt-2">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
                     <strong className="text-gray-800">{data.monthLabel}</strong> 기준 · 급여일 열은 현장{' '}
                     <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2 font-medium">
                       팀원 등록
@@ -2837,6 +3039,273 @@ export function AdminPayrollPage() {
                       팀장·직원
                     </Link>
                     사용자의 급여일(미등록 시 말일)과 맞춥니다. 급여일이 없는 현장 팀원은 이 표에 포함하지 않습니다.
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-white shadow-sm min-w-0 overflow-hidden">
+                    <div className="border-b border-gray-100 bg-gray-50/90 px-2 sm:px-3 py-2.5">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                          <h3 className="text-fluid-sm font-semibold text-gray-900 shrink-0">계정 수입·지출 표</h3>
+                          <span className="inline-flex items-center gap-1.5 shrink-0" aria-label="수기 장부 추가">
+                            <button
+                              type="button"
+                              title="수입 계정 추가"
+                              aria-label="수입 계정 추가"
+                              onClick={() => {
+                                setLedgerManualFormError(null);
+                                setLedgerManualModal('in');
+                                setLedgerManualOccurredOn(defaultLedgerOccurredOnYmd(month));
+                                setLedgerManualAccountLabel('');
+                                setLedgerManualAmount('');
+                                setLedgerManualMemo('');
+                                setLedgerManualPayrollLinkKind('none');
+                                setLedgerManualLinkTeamMemberId('');
+                                setLedgerManualLinkUserId('');
+                                setLedgerManualLinkExternalCompanyId('');
+                              }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400 bg-emerald-50 text-lg font-bold leading-none text-emerald-900 hover:bg-emerald-100 touch-manipulation sm:h-8 sm:w-8"
+                            >
+                              +
+                            </button>
+                            <button
+                              type="button"
+                              title="지출 계정 추가"
+                              aria-label="지출 계정 추가"
+                              onClick={() => {
+                                setLedgerManualFormError(null);
+                                setLedgerManualModal('out');
+                                setLedgerManualOccurredOn(defaultLedgerOccurredOnYmd(month));
+                                setLedgerManualAccountLabel('');
+                                setLedgerManualAmount('');
+                                setLedgerManualMemo('');
+                                setLedgerManualPayrollLinkKind('none');
+                                setLedgerManualLinkTeamMemberId('');
+                                setLedgerManualLinkUserId('');
+                                setLedgerManualLinkExternalCompanyId('');
+                              }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-400 bg-rose-50 text-lg font-bold leading-none text-rose-900 hover:bg-rose-100 touch-manipulation sm:h-8 sm:w-8"
+                            >
+                              −
+                            </button>
+                          </span>
+                        </div>
+                        <span className="text-fluid-2xs text-gray-600 sm:text-right sm:max-w-[55%]">
+                          해당 귀속 월(<strong className="text-gray-800">{data.monthLabel}</strong>) · 일자 순 · 현금 잔액은
+                          입금·지급 기준
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-fluid-2xs text-gray-600 leading-snug">
+                        「+」「−」로 해당 귀속 월의 현금 수입·지출을 직접 넣을 수 있습니다(명목·금액·거래일). 수기 행 삭제는 표
+                        오른쪽 「작업」열에서 하며 비밀번호 확인이 필요합니다. 「접수 매출」은 예약일·접수 총액 합계로, 실제 입금과 다를 수 있습니다.
+                        급여·경비는 정산·지급 등록이 있는 항목만 반영됩니다.
+                      </p>
+                    </div>
+                    <div className="px-2 sm:px-3 py-3 space-y-3">
+                      {accountLedgerLoading ? (
+                        <p className="text-fluid-sm text-gray-500 py-6 text-center">내역을 불러오는 중…</p>
+                      ) : accountLedgerError ? (
+                        <p className="text-fluid-sm text-red-700 py-4 text-center">{accountLedgerError}</p>
+                      ) : accountLedger ? (
+                        <>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-fluid-xs font-medium text-emerald-900 tabular-nums">
+                              현금 유입 {fmtWon(accountLedger.totals.cashIn)}
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-fluid-xs font-medium text-rose-900 tabular-nums">
+                              현금 유출 {fmtWon(accountLedger.totals.cashOut)}
+                            </span>
+                            <span
+                              className={`inline-flex items-center rounded-full border px-3 py-1 text-fluid-xs font-semibold tabular-nums ${
+                                accountLedger.totals.cashNet >= 0
+                                  ? 'border-sky-200 bg-sky-50 text-sky-900'
+                                  : 'border-amber-200 bg-amber-50 text-amber-950'
+                              }`}
+                            >
+                              현금 순액 {fmtWon(accountLedger.totals.cashNet)}
+                            </span>
+                            {accountLedger.totals.accrualIn > 0 ? (
+                              <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-fluid-xs font-medium text-violet-900 tabular-nums">
+                                접수 매출(예약일) {fmtWon(accountLedger.totals.accrualIn)}
+                              </span>
+                            ) : null}
+                            {ledgerEndBalances.cash != null ? (
+                              <span className="inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-fluid-xs font-bold text-gray-900 tabular-nums">
+                                월말 현금 누적 {fmtWon(ledgerEndBalances.cash)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer select-none touch-manipulation text-fluid-xs text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={ledgerHideAccrual}
+                              onChange={(e) => setLedgerHideAccrual(e.target.checked)}
+                              className="rounded border-gray-300 text-blue-700 focus:ring-blue-400"
+                            />
+                            접수 매출(예약일) 행 숨기기 — 실입금·지출만 보기
+                          </label>
+                          {ledgerDisplayRows.length === 0 ? (
+                            <p className="text-fluid-sm text-gray-500 py-6 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                              이 달에 표시할 수입·지출 내역이 없습니다.
+                            </p>
+                          ) : (
+                            <>
+                              <div className="hidden lg:block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0">
+                                <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs border border-gray-200 rounded-lg overflow-hidden">
+                                  <colgroup>
+                                    <col style={{ width: '7.5rem' }} />
+                                    <col style={{ width: '11rem' }} />
+                                    <col />
+                                    <col style={{ width: '7rem' }} />
+                                    <col style={{ width: '7rem' }} />
+                                    <col style={{ width: '8.5rem' }} />
+                                    {!ledgerHideAccrual ? <col style={{ width: '8.5rem' }} /> : null}
+                                    <col style={{ width: '4rem' }} />
+                                  </colgroup>
+                                  <thead>
+                                    <tr className="bg-gray-100 text-gray-700">
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">일자</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">명목</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">적요</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">수입</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">지출</th>
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">현금 잔액</th>
+                                      {!ledgerHideAccrual ? (
+                                        <th className="border-b border-gray-200 px-2 py-2 text-center">전체 잔액</th>
+                                      ) : null}
+                                      <th className="border-b border-gray-200 px-2 py-2 text-center">작업</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {ledgerDisplayRows.map((row) => (
+                                      <tr
+                                        key={row.id}
+                                        className={`group hover:bg-gray-50 ${
+                                          row.entryKind === 'accrual' ? 'bg-violet-50/40' : ''
+                                        }`}
+                                      >
+                                        <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums text-gray-800">
+                                          {row.dateYmd}
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-center">
+                                          <span className="block truncate" title={row.category}>
+                                            {row.category}
+                                            {row.entryKind === 'accrual' ? (
+                                              <span className="ml-1 text-[10px] font-normal text-violet-700">(장부)</span>
+                                            ) : null}
+                                          </span>
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-center">
+                                          <span className="block truncate" title={[row.summary, row.memo].filter(Boolean).join(' · ')}>
+                                            {row.summary}
+                                          </span>
+                                          {row.memo?.trim() ? (
+                                            <span className="block truncate text-fluid-2xs text-gray-500 mt-0.5" title={row.memo ?? ''}>
+                                              {row.memo}
+                                            </span>
+                                          ) : null}
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums text-emerald-900 font-medium">
+                                          {row.direction === 'in' ? fmtWon(row.amount) : '—'}
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums text-rose-900 font-medium">
+                                          {row.direction === 'out' ? fmtWon(row.amount) : '—'}
+                                        </td>
+                                        <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums font-semibold text-gray-900">
+                                          {fmtWon(row.runningCash)}
+                                        </td>
+                                        {!ledgerHideAccrual ? (
+                                          <td className="border-b border-gray-100 px-2 py-2 text-right tabular-nums text-gray-800">
+                                            {fmtWon(row.runningAll)}
+                                          </td>
+                                        ) : null}
+                                        <td className="border-b border-gray-100 px-1 py-2 text-center align-middle">
+                                          {row.sourceType === 'ledger_manual' ? (
+                                            <button
+                                              type="button"
+                                              className="text-fluid-2xs text-red-700 hover:underline touch-manipulation whitespace-nowrap"
+                                              onClick={() => {
+                                                const raw = row.id.startsWith('ledger_manual:')
+                                                  ? row.id.slice('ledger_manual:'.length)
+                                                  : '';
+                                                if (!raw) return;
+                                                setLedgerManualDeleteTarget({
+                                                  id: raw,
+                                                  label: row.summary,
+                                                  amount: row.amount,
+                                                });
+                                              }}
+                                            >
+                                              삭제
+                                            </button>
+                                          ) : (
+                                            <span className="text-fluid-2xs text-gray-300 tabular-nums">—</span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <ul className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                                {ledgerDisplayRows.map((row) => (
+                                  <li key={row.id} className="px-3 py-3 text-fluid-xs">
+                                    <div className="flex justify-between gap-2 min-w-0 items-start">
+                                      <span className="text-gray-500 tabular-nums shrink-0">{row.dateYmd}</span>
+                                      <div className="flex items-start gap-2 shrink-0 min-w-0">
+                                        <span
+                                          className={`font-bold tabular-nums text-right ${
+                                            row.direction === 'in' ? 'text-emerald-800' : 'text-rose-800'
+                                          }`}
+                                        >
+                                          {row.direction === 'in' ? '+' : '−'}
+                                          {fmtWon(row.amount)}
+                                        </span>
+                                        {row.sourceType === 'ledger_manual' ? (
+                                          <button
+                                            type="button"
+                                            className="text-fluid-xs text-red-700 hover:underline touch-manipulation whitespace-nowrap shrink-0"
+                                            onClick={() => {
+                                              const raw = row.id.startsWith('ledger_manual:')
+                                                ? row.id.slice('ledger_manual:'.length)
+                                                : '';
+                                              if (!raw) return;
+                                              setLedgerManualDeleteTarget({
+                                                id: raw,
+                                                label: row.summary,
+                                                amount: row.amount,
+                                              });
+                                            }}
+                                          >
+                                            삭제
+                                          </button>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                    <p className="mt-1 font-medium text-gray-900">
+                                      {row.category}
+                                      {row.entryKind === 'accrual' ? (
+                                        <span className="ml-1 text-[10px] font-normal text-violet-700">(장부)</span>
+                                      ) : null}
+                                    </p>
+                                    <p className="mt-0.5 text-gray-600 break-words">{row.summary}</p>
+                                    {row.memo?.trim() ? (
+                                      <p className="mt-0.5 text-fluid-2xs text-gray-500 break-words">{row.memo}</p>
+                                    ) : null}
+                                    <p className="mt-1 text-fluid-2xs text-gray-500 tabular-nums">
+                                      현금 잔액 {fmtWon(row.runningCash)}
+                                      {!ledgerHideAccrual ? ` · 전체 ${fmtWon(row.runningAll)}` : null}
+                                    </p>
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="text-fluid-2xs text-gray-500">
+                                월말 현금 누적은 이 표의 현금 항목만 순서대로 더한 값입니다. 이전 달 이월·미등록 거래는 포함되지
+                                않습니다.
+                              </p>
+                            </>
+                          )}
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -2945,34 +3414,52 @@ export function AdminPayrollPage() {
                     </div>
                   </div>
                 ) : r.kind === 'TEAM_LEADER' ? (
-                  <button
-                    type="button"
-                    onClick={() => openLeaderDetail(r)}
-                    className="w-full text-left px-3 py-2.5 hover:bg-blue-50/70 active:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 transition-colors touch-manipulation"
-                    aria-label={`${r.name} 팀장 지급 내역`}
-                  >
-                    <div className="flex items-start justify-between gap-2 min-w-0">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span
-                            className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
-                          >
-                            {r.roleLabel}
-                          </span>
-                          <span className="font-medium text-gray-900 truncate">{r.name}</span>
-                        </div>
-                        <div className="mt-1 text-fluid-xs text-gray-600 tabular-nums">
-                          당월 지급 <strong>{r.leaderPaymentCount ?? 0}</strong>건 · 수시 입금
-                        </div>
-                        {r.notes.length > 0 ? (
-                          <p className="mt-1 text-[11px] text-amber-800 leading-snug">{r.notes.join(' · ')}</p>
-                        ) : null}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-fluid-sm font-semibold text-gray-900 tabular-nums">{fmtWon(r.amount)}</div>
-                      </div>
+                  <div className="px-3 py-2.5">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span
+                        className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                      >
+                        {r.roleLabel}
+                      </span>
+                      <span className="font-medium text-gray-900 truncate">{r.name}</span>
                     </div>
-                  </button>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] tabular-nums text-gray-900">
+                      <dt className="text-gray-500">배정건수</dt>
+                      <dd className="text-right">{r.leaderMonthAssignedJobCount ?? 0}건</dd>
+                      <dt className="text-gray-500">매출</dt>
+                      <dd className="text-right">{plainWon(r.leaderMonthGeneralSalesSum ?? 0)}</dd>
+                      <dt className="text-gray-500">추가건수</dt>
+                      <dd className="text-right">{r.leaderMonthAdditionalReceiptInquiryCount ?? 0}건</dd>
+                      <dt className="text-gray-500">추가매출</dt>
+                      <dd className="text-right">{plainWon(r.leaderMonthAdditionalSalesSum ?? 0)}</dd>
+                      <dt className="text-gray-500">팀장정산금</dt>
+                      <dd className="text-right min-w-0">{leaderSettlementDueCell(r)}</dd>
+                      <dt className="text-gray-500">미정산(누적)</dt>
+                      <dd
+                        className={`text-right font-semibold ${
+                          (r.leaderCumulativeUnsettledWon ?? 0) > 0 ? 'text-rose-700' : ''
+                        }`}
+                      >
+                        {plainWon(r.leaderCumulativeUnsettledWon ?? 0)}
+                      </dd>
+                    </dl>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openLeaderDetail(r, { focusAddPayment: true })}
+                        className="flex-1 rounded-lg border border-blue-600 bg-blue-600 px-2 py-2 text-fluid-xs font-semibold text-white hover:bg-blue-700 touch-manipulation"
+                      >
+                        정산
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openLeaderDetail(r)}
+                        className="flex-1 rounded-lg border border-gray-300 bg-white px-2 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 touch-manipulation"
+                      >
+                        정산내역
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex min-w-0 items-stretch">
                     <div className="min-w-0 flex-1 px-3 py-2.5">
@@ -3055,218 +3542,308 @@ export function AdminPayrollPage() {
                 className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
-                <table
-                  className={`w-full table-fixed border-collapse border border-gray-200 rounded-lg overflow-hidden text-fluid-2xs xl:text-fluid-xs bg-white ${
-                    payrollTab === 'marketer' ? 'min-w-[640px]' : 'min-w-[800px]'
-                  }`}
-                >
-                  {payrollTab === 'marketer' ? (
+                {payrollTab === 'leader' ? (
+                  <table className="w-full table-fixed border-collapse border border-gray-200 rounded-lg overflow-hidden text-fluid-2xs xl:text-fluid-xs bg-white min-w-[960px]">
                     <colgroup>
-                      <col className="w-[24%]" />
-                      <col className="w-[9%]" />
-                      <col className="w-[19%]" />
-                      <col className="w-[16%]" />
-                      <col className="w-[17%]" />
-                      <col className="w-[15%]" />
-                    </colgroup>
-                  ) : (
-                    <colgroup>
-                      <col className="w-[17%]" />
-                      <col className="w-[7%]" />
                       <col className="w-[11%]" />
-                      <col className="w-[5%]" />
-                      <col className="w-[10%]" />
+                      <col className="w-[8%]" />
+                      <col className="w-[11%]" />
+                      <col className="w-[8%]" />
                       <col className="w-[11%]" />
                       <col className="w-[13%]" />
-                      <col className="w-[26%]" />
+                      <col className="w-[13%]" />
+                      <col className="w-[24%]" />
                     </colgroup>
-                  )}
-                  <thead>
-                    <tr className="bg-gray-100 text-gray-700">
-                      <th className="border-b border-gray-200 px-1.5 py-2 text-center sticky left-0 z-10 bg-gray-100 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                        대상
-                      </th>
-                      <th className="border-b border-gray-200 px-1.5 py-2 text-center">지급</th>
-                      <th className="border-b border-gray-200 px-1.5 py-2 text-center">산정기간</th>
-                      {payrollTab !== 'marketer' ? (
-                        <>
-                          <th className="border-b border-gray-200 px-1.5 py-2 text-center">근무일</th>
-                          <th className="border-b border-gray-200 px-1.5 py-2 text-center">일당</th>
-                        </>
-                      ) : null}
-                      <th className="border-b border-gray-200 px-1.5 py-2 text-center">{amountColumnLabel}</th>
-                      <th className="border-b border-gray-200 px-1.5 py-2 text-center">설정</th>
-                      <th className="border-b border-gray-200 px-1.5 py-2 text-center">비고</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRows.map((r) => (
-                      <tr
-                        key={`${r.kind}-${r.id}`}
-                        className={
-                          r.kind === 'POOL_MEMBER' || r.kind === 'TEAM_LEADER'
-                            ? 'group hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400'
-                            : 'group hover:bg-gray-50'
-                        }
-                        {...(r.kind === 'POOL_MEMBER'
-                          ? {
-                              onClick: () => openPoolMemberDetail(r),
-                              onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  openPoolMemberDetail(r);
-                                }
-                              },
-                              tabIndex: 0,
-                              role: 'button' as const,
-                              'aria-label': `${r.name} 급여 산정 접수 상세 보기`,
-                            }
-                          : r.kind === 'TEAM_LEADER'
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-700">
+                        <th className="border-b border-gray-200 px-1 py-2 text-center sticky left-0 z-10 bg-gray-100 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                          팀장
+                        </th>
+                        <th className="border-b border-gray-200 px-1 py-2 text-center">배정건수</th>
+                        <th className="border-b border-gray-200 px-1 py-2 text-center">매출</th>
+                        <th className="border-b border-gray-200 px-1 py-2 text-center leading-tight">
+                          추가건수
+                          <span className="block font-normal text-[9px] text-gray-500 whitespace-normal">
+                            추가결재 있는 접수
+                          </span>
+                        </th>
+                        <th className="border-b border-gray-200 px-1 py-2 text-center">추가매출</th>
+                        <th className="border-b border-gray-200 px-1 py-2 text-center leading-tight">
+                          팀장정산금
+                          <span className="block font-normal text-[9px] text-gray-500 whitespace-normal">
+                            지급 예정
+                          </span>
+                        </th>
+                        <th
+                          className="border-b border-gray-200 px-1 py-2 text-center leading-tight"
+                          title="입사월부터 선택 귀속 월까지, 각 달 (예상 지급 − 해당 달 등록 입금)을 합산(음수는 0)"
+                        >
+                          팀장미정산
+                          <span className="block font-normal text-[9px] text-gray-500 whitespace-normal">누적</span>
+                        </th>
+                        <th className="border-b border-gray-200 px-1 py-2 text-center">작업</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRows.map((r) => (
+                        <tr key={`${r.kind}-${r.id}`} className="group hover:bg-gray-50">
+                          <td className="border-b border-gray-100 px-1 py-1.5 text-center sticky left-0 z-[1] bg-white group-hover:bg-gray-50 border-r border-gray-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] align-middle">
+                            <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 min-w-0">
+                              <span
+                                className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                              >
+                                {r.roleLabel}
+                              </span>
+                              <span className="truncate max-w-[6.5rem] font-medium text-gray-900" title={r.name}>
+                                {r.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="border-b border-gray-100 px-1 py-1.5 text-center tabular-nums align-middle">
+                            {r.leaderMonthAssignedJobCount ?? 0}건
+                          </td>
+                          <td className="border-b border-gray-100 px-1 py-1.5 text-right tabular-nums align-middle">
+                            {plainWon(r.leaderMonthGeneralSalesSum ?? 0)}
+                          </td>
+                          <td className="border-b border-gray-100 px-1 py-1.5 text-center tabular-nums align-middle">
+                            {r.leaderMonthAdditionalReceiptInquiryCount ?? 0}건
+                          </td>
+                          <td className="border-b border-gray-100 px-1 py-1.5 text-right tabular-nums align-middle">
+                            {plainWon(r.leaderMonthAdditionalSalesSum ?? 0)}
+                          </td>
+                          <td className="border-b border-gray-100 px-1 py-1.5 text-center align-middle">
+                            {leaderSettlementDueCell(r)}
+                          </td>
+                          <td
+                            className={`border-b border-gray-100 px-1 py-1.5 text-right tabular-nums font-semibold align-middle ${
+                              (r.leaderCumulativeUnsettledWon ?? 0) > 0 ? 'text-rose-700' : 'text-gray-900'
+                            }`}
+                          >
+                            {plainWon(r.leaderCumulativeUnsettledWon ?? 0)}
+                          </td>
+                          <td className="border-b border-gray-100 px-1 py-1.5 text-center align-middle bg-white group-hover:bg-gray-50">
+                            <div className="flex flex-wrap items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openLeaderDetail(r, { focusAddPayment: true })}
+                                className="rounded-md border border-blue-600 bg-blue-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap touch-manipulation"
+                              >
+                                정산
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openLeaderDetail(r)}
+                                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-[10px] font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap touch-manipulation"
+                              >
+                                정산내역
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table
+                    className={`w-full table-fixed border-collapse border border-gray-200 rounded-lg overflow-hidden text-fluid-2xs xl:text-fluid-xs bg-white ${
+                      payrollTab === 'marketer' ? 'min-w-[640px]' : 'min-w-[800px]'
+                    }`}
+                  >
+                    {payrollTab === 'marketer' ? (
+                      <colgroup>
+                        <col className="w-[24%]" />
+                        <col className="w-[9%]" />
+                        <col className="w-[19%]" />
+                        <col className="w-[16%]" />
+                        <col className="w-[17%]" />
+                        <col className="w-[15%]" />
+                      </colgroup>
+                    ) : (
+                      <colgroup>
+                        <col className="w-[17%]" />
+                        <col className="w-[7%]" />
+                        <col className="w-[11%]" />
+                        <col className="w-[5%]" />
+                        <col className="w-[10%]" />
+                        <col className="w-[11%]" />
+                        <col className="w-[13%]" />
+                        <col className="w-[26%]" />
+                      </colgroup>
+                    )}
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-700">
+                        <th className="border-b border-gray-200 px-1.5 py-2 text-center sticky left-0 z-10 bg-gray-100 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                          대상
+                        </th>
+                        <th className="border-b border-gray-200 px-1.5 py-2 text-center">지급</th>
+                        <th className="border-b border-gray-200 px-1.5 py-2 text-center">산정기간</th>
+                        {payrollTab !== 'marketer' ? (
+                          <>
+                            <th className="border-b border-gray-200 px-1.5 py-2 text-center">근무일</th>
+                            <th className="border-b border-gray-200 px-1.5 py-2 text-center">일당</th>
+                          </>
+                        ) : null}
+                        <th className="border-b border-gray-200 px-1.5 py-2 text-center">{amountColumnLabel}</th>
+                        <th className="border-b border-gray-200 px-1.5 py-2 text-center">설정</th>
+                        <th className="border-b border-gray-200 px-1.5 py-2 text-center">비고</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRows.map((r) => (
+                        <tr
+                          key={`${r.kind}-${r.id}`}
+                          className={
+                            r.kind === 'POOL_MEMBER'
+                              ? 'group hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400'
+                              : 'group hover:bg-gray-50'
+                          }
+                          {...(r.kind === 'POOL_MEMBER'
                             ? {
-                                onClick: () => openLeaderDetail(r),
+                                onClick: () => openPoolMemberDetail(r),
                                 onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
                                   if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
-                                    openLeaderDetail(r);
+                                    openPoolMemberDetail(r);
                                   }
                                 },
                                 tabIndex: 0,
                                 role: 'button' as const,
-                                'aria-label': `${r.name} 팀장 지급 내역`,
+                                'aria-label': `${r.name} 급여 산정 접수 상세 보기`,
                               }
                             : {})}
-                      >
-                        <td className="border-b border-gray-100 px-1.5 py-1.5 text-center sticky left-0 z-[1] bg-white group-hover:bg-gray-50 border-r border-gray-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] align-middle">
-                          <div className="flex flex-col items-center gap-1 min-w-0">
-                            <span
-                              className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
-                            >
-                              {r.roleLabel}
-                            </span>
-                            <span className="truncate max-w-full font-medium text-gray-900" title={r.name}>
-                              {r.name}
-                            </span>
-                            {r.kind === 'POOL_MEMBER' && r.poolSettlementComplete ? (
-                              <span className="inline-flex rounded px-1 py-0.5 text-[9px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200 leading-none">
-                                정산완료
+                        >
+                          <td className="border-b border-gray-100 px-1.5 py-1.5 text-center sticky left-0 z-[1] bg-white group-hover:bg-gray-50 border-r border-gray-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] align-middle">
+                            <div className="flex flex-col items-center gap-1 min-w-0">
+                              <span
+                                className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(r.kind)}`}
+                              >
+                                {r.roleLabel}
                               </span>
-                            ) : r.kind === 'MARKETER' && r.marketerSettlementComplete ? (
-                              <span className="inline-flex rounded px-1 py-0.5 text-[9px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200 leading-none">
-                                정산완료
+                              <span className="truncate max-w-full font-medium text-gray-900" title={r.name}>
+                                {r.name}
                               </span>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="border-b border-gray-100 px-1.5 py-1.5 text-center tabular-nums text-gray-800">
-                          {payDateCell(r)}
-                        </td>
-                        <td
-                          className="border-b border-gray-100 px-1.5 py-1.5 text-center tabular-nums text-gray-600 truncate"
-                          title={
-                            r.accrualStartYmd && r.accrualEndYmd
-                              ? `${r.accrualStartYmd} ~ ${r.accrualEndYmd}`
-                              : undefined
-                          }
-                        >
-                          {compactPeriod(r.accrualStartYmd, r.accrualEndYmd)}
-                        </td>
-                        {payrollTab !== 'marketer' ? (
-                          <>
-                            <td
-                              className="border-b border-gray-100 px-0.5 py-1.5 text-center tabular-nums align-middle max-w-[4.5rem]"
-                              title={poolWorkDaysTitle(r)}
-                            >
-                              {r.kind === 'POOL_MEMBER' ? (
-                                <span className="inline-flex flex-col items-center gap-0.5">
-                                  <span>{r.jobCount != null ? r.jobCount : '—'}</span>
-                                  {(r.poolManualExtraDays ?? 0) > 0 ? (
-                                    <span className="text-[10px] text-blue-700 leading-none">+수기{r.poolManualExtraDays}</span>
-                                  ) : null}
+                              {r.kind === 'POOL_MEMBER' && r.poolSettlementComplete ? (
+                                <span className="inline-flex rounded px-1 py-0.5 text-[9px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200 leading-none">
+                                  정산완료
                                 </span>
-                              ) : r.kind === 'TEAM_LEADER' ? (
-                                <span className="text-[10px] text-blue-900 tabular-nums">
-                                  {(r.leaderPaymentCount ?? 0) > 0 ? `${r.leaderPaymentCount}건` : '—'}
+                              ) : r.kind === 'MARKETER' && r.marketerSettlementComplete ? (
+                                <span className="inline-flex rounded px-1 py-0.5 text-[9px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200 leading-none">
+                                  정산완료
                                 </span>
-                              ) : (
-                                <span>{r.jobCount != null ? r.jobCount : '—'}</span>
-                              )}
-                            </td>
-                            <td className="border-b border-gray-100 px-1.5 py-1.5 text-right tabular-nums text-gray-700">
-                              {r.unitAmount != null ? `${Number(r.unitAmount).toLocaleString('ko-KR')}` : '—'}
-                            </td>
-                          </>
-                        ) : null}
-                        <td className="border-b border-gray-100 px-1.5 py-1.5 text-right tabular-nums font-medium text-gray-900">
-                          {poolPayrollAmountCell(r)}
-                        </td>
-                        <td
-                          className="border-b border-gray-100 px-1 py-1.5 text-center align-middle bg-white group-hover:bg-gray-50 min-w-0"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
-                          {r.kind === 'POOL_MEMBER' ? (
-                            <div className="flex flex-wrap items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => openAdjustModal(r)}
-                                className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
-                              >
-                                설정
-                              </button>
-                              <button
-                                type="button"
-                                disabled={
-                                  settlingMemberId === r.id ||
-                                  r.amountNet == null ||
-                                  Boolean(r.poolSettlementComplete)
-                                }
-                                onClick={() => void settlePoolMemberRow(r)}
-                                className="rounded-md border border-gray-800 bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 whitespace-nowrap"
-                              >
-                                {settlingMemberId === r.id
-                                  ? '…'
-                                  : r.poolSettlementComplete
-                                    ? '완료'
-                                    : '정산완료'}
-                              </button>
+                              ) : null}
                             </div>
-                          ) : r.kind === 'MARKETER' ? (
-                            <div className="flex flex-wrap items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => openMarketerDetail(r)}
-                                className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
+                          </td>
+                          <td className="border-b border-gray-100 px-1.5 py-1.5 text-center tabular-nums text-gray-800">
+                            {payDateCell(r)}
+                          </td>
+                          <td
+                            className="border-b border-gray-100 px-1.5 py-1.5 text-center tabular-nums text-gray-600 truncate"
+                            title={
+                              r.accrualStartYmd && r.accrualEndYmd
+                                ? `${r.accrualStartYmd} ~ ${r.accrualEndYmd}`
+                                : undefined
+                            }
+                          >
+                            {compactPeriod(r.accrualStartYmd, r.accrualEndYmd)}
+                          </td>
+                          {payrollTab !== 'marketer' ? (
+                            <>
+                              <td
+                                className="border-b border-gray-100 px-0.5 py-1.5 text-center tabular-nums align-middle max-w-[4.5rem]"
+                                title={poolWorkDaysTitle(r)}
                               >
-                                급여상세
-                              </button>
-                              <button
-                                type="button"
-                                disabled={
-                                  marketerSettleSaving ||
-                                  Boolean(r.marketerSettlementComplete) ||
-                                  r.marketerTotalDue == null ||
-                                  r.amount == null
-                                }
-                                onClick={() => openMarketerSettleModal(r)}
-                                className="rounded-md border border-gray-800 bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 whitespace-nowrap"
-                              >
-                                {r.marketerSettlementComplete ? '완료' : '정산완료'}
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
-                        </td>
-                        <td
-                          className="border-b border-gray-100 px-1.5 py-1.5 text-center text-[11px] text-gray-600 truncate"
-                          title={r.notes.join(' · ') || undefined}
-                        >
-                          {r.notes.length ? r.notes.join(' · ') : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                                {r.kind === 'POOL_MEMBER' ? (
+                                  <span className="inline-flex flex-col items-center gap-0.5">
+                                    <span>{r.jobCount != null ? r.jobCount : '—'}</span>
+                                    {(r.poolManualExtraDays ?? 0) > 0 ? (
+                                      <span className="text-[10px] text-blue-700 leading-none">
+                                        +수기{r.poolManualExtraDays}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
+                                )}
+                              </td>
+                              <td className="border-b border-gray-100 px-1.5 py-1.5 text-right tabular-nums text-gray-700">
+                                {r.kind === 'POOL_MEMBER' && r.unitAmount != null
+                                  ? `${Number(r.unitAmount).toLocaleString('ko-KR')}`
+                                  : '—'}
+                              </td>
+                            </>
+                          ) : null}
+                          <td className="border-b border-gray-100 px-1.5 py-1.5 text-right tabular-nums font-medium text-gray-900">
+                            {poolPayrollAmountCell(r)}
+                          </td>
+                          <td
+                            className="border-b border-gray-100 px-1 py-1.5 text-center align-middle bg-white group-hover:bg-gray-50 min-w-0"
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          >
+                            {r.kind === 'POOL_MEMBER' ? (
+                              <div className="flex flex-wrap items-center justify-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openAdjustModal(r)}
+                                  className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
+                                >
+                                  설정
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={
+                                    settlingMemberId === r.id ||
+                                    r.amountNet == null ||
+                                    Boolean(r.poolSettlementComplete)
+                                  }
+                                  onClick={() => void settlePoolMemberRow(r)}
+                                  className="rounded-md border border-gray-800 bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 whitespace-nowrap"
+                                >
+                                  {settlingMemberId === r.id
+                                    ? '…'
+                                    : r.poolSettlementComplete
+                                      ? '완료'
+                                      : '정산완료'}
+                                </button>
+                              </div>
+                            ) : r.kind === 'MARKETER' ? (
+                              <div className="flex flex-wrap items-center justify-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openMarketerDetail(r)}
+                                  className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
+                                >
+                                  급여상세
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={
+                                    marketerSettleSaving ||
+                                    Boolean(r.marketerSettlementComplete) ||
+                                    r.marketerTotalDue == null ||
+                                    r.amount == null
+                                  }
+                                  onClick={() => openMarketerSettleModal(r)}
+                                  className="rounded-md border border-gray-800 bg-gray-900 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 whitespace-nowrap"
+                                >
+                                  {r.marketerSettlementComplete ? '완료' : '정산완료'}
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-gray-300">—</span>
+                            )}
+                          </td>
+                          <td
+                            className="border-b border-gray-100 px-1.5 py-1.5 text-center text-[11px] text-gray-600 truncate"
+                            title={r.notes.join(' · ') || undefined}
+                          >
+                            {r.notes.length ? r.notes.join(' · ') : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </SyncHorizontalScroll>
           </div>
@@ -3280,8 +3857,8 @@ export function AdminPayrollPage() {
               </>
             ) : payrollTab === 'leader' ? (
               <>
-                팀장 입금은 <strong className="font-medium text-gray-800">월 급여표 → 「팀장」</strong> 탭에서 이름을 눌러 등록합니다.
-                목록의 금액은 해당 귀속 월 지급 합계입니다. 행 삭제 시 로그인 비밀번호 확인이 필요합니다.
+                숫자는 예약일이 선택 귀속 월인 배정 접수만 집계합니다. 「팀장정산금」은 사용자 등록 규칙·추가결재 회사 몫으로 계산한 이번 달 지급
+                예정액입니다. 「팀장미정산·누적」은 입사월부터 해당 월까지 각 달 (예상 − 등록 입금)을 더한 값입니다. 「정산」에서 입금을 등록합니다.
               </>
             ) : (
               <>
@@ -3404,13 +3981,19 @@ export function AdminPayrollPage() {
                                 ? `${Number(memberDetail.unitAmount).toLocaleString('ko-KR')}원`
                                 : '—'}{' '}
                               = 예상 {fmtWon(memberDetail.amount)}
-                              {memberDetail.crewExpenseTotal > 0 ? (
-                                <>
-                                  {' '}
-                                  · 지출 −{fmtWon(memberDetail.crewExpenseTotal)} · 실지급{' '}
-                                  <strong>{fmtWon(memberDetail.amountNet)}</strong>
-                                </>
-                              ) : null}
+                              {(() => {
+                                const crewExp = memberDetail.crewExpenseTotal ?? 0;
+                                const ledgerDed = memberDetail.poolLedgerManualDeductionTotal ?? 0;
+                                if (crewExp <= 0 && ledgerDed <= 0) return null;
+                                return (
+                                  <>
+                                    {' '}
+                                    {crewExp > 0 ? <>· 지출 −{fmtWon(crewExp)} </> : null}
+                                    {ledgerDed > 0 ? <>· 수기 연결 −{fmtWon(ledgerDed)} </> : null}· 실지급{' '}
+                                    <strong>{fmtWon(memberDetail.amountNet)}</strong>
+                                  </>
+                                );
+                              })()}
                             </>
                           );
                         })()}
@@ -3661,7 +4244,7 @@ export function AdminPayrollPage() {
             }}
           >
             <div
-              className="relative mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-white shadow-xl flex flex-col max-h-[min(88vh,720px)] min-h-0"
+              className="relative mx-auto w-full max-w-2xl rounded-xl border border-gray-200 bg-white shadow-xl flex flex-col max-h-[min(88vh,820px)] min-h-0"
               role="dialog"
               aria-modal="true"
               aria-labelledby="payroll-leader-detail-title"
@@ -3715,7 +4298,7 @@ export function AdminPayrollPage() {
                   </button>
                 </nav>
                 <p className="mt-2 text-fluid-2xs text-gray-500 leading-snug">
-                  팀장에게 보낸 금액은 <strong className="font-medium text-gray-700">월 급여표</strong> 상단에서 귀속 월을 고른 뒤,{' '}
+                  팀장에게 보낸 금액은 <strong className="font-medium text-gray-700">월정산표</strong> 상단에서 귀속 월을 고른 뒤,{' '}
                   <strong className="font-medium text-gray-700">「팀장」</strong> 탭 목록에서 이름을 누르면 여기서 여러 번 나누어 적을 수
                   있습니다.
                 </p>
@@ -3739,18 +4322,40 @@ export function AdminPayrollPage() {
                 ) : null}
 
                 {leaderDetail ? (
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-fluid-xs text-gray-800 space-y-1">
-                    <div className="flex flex-wrap justify-between gap-2 tabular-nums">
-                      <span className="text-gray-600">당월 지급 합계</span>
-                      <span className="font-semibold text-emerald-900">{fmtWon(leaderDetail.monthPaidTotal)}</span>
+                  <>
+                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-3 shadow-sm space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">
+                        <p className="text-fluid-sm font-semibold text-gray-900">당월 배정·매출·정산</p>
+                        <span className="text-fluid-2xs text-gray-500">예약일 귀속 · 취소 제외</span>
+                      </div>
+                      <LeaderMonthAccrualDashboard accrual={leaderDetail.monthAccrual} density="modal" />
                     </div>
-                    {leaderDetail.contractSalary != null ? (
-                      <p className="text-[11px] text-gray-600">
-                        참고·사용자 등록 월 급여액{' '}
-                        <strong className="tabular-nums">{fmtWon(leaderDetail.contractSalary)}</strong>
-                      </p>
-                    ) : null}
-                  </div>
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-fluid-xs text-gray-800 space-y-1">
+                      <div className="flex flex-wrap justify-between gap-2 tabular-nums">
+                        <span className="text-gray-600">당월 입금 등록 합계</span>
+                        <span className="font-semibold text-emerald-900">{fmtWon(leaderDetail.monthPaidTotal)}</span>
+                      </div>
+                      {(() => {
+                        const settleLine = leaderSettlementProfileLine(leaderDetail);
+                        return settleLine ? (
+                          <p className="text-[11px] text-gray-800 leading-snug border-t border-gray-200 pt-2 mt-2">
+                            <span className="font-medium text-gray-900">사용자 등록 접수 정산 규칙</span>{' '}
+                            <span className="tabular-nums">{settleLine}</span>
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-gray-500 leading-snug border-t border-gray-200 pt-2 mt-2">
+                            사용자 등록에서 일반 정산·추가결재 회사 몫을 설정하면 목록에 함께 표시됩니다.
+                          </p>
+                        );
+                      })()}
+                      {leaderDetail.contractSalary != null ? (
+                        <p className="text-[11px] text-gray-600">
+                          참고·사용자 등록 월 급여액{' '}
+                          <strong className="tabular-nums">{fmtWon(leaderDetail.contractSalary)}</strong>
+                        </p>
+                      ) : null}
+                    </div>
+                  </>
                 ) : null}
 
                 {leaderPanelTab === 'month' ? (
@@ -3767,6 +4372,7 @@ export function AdminPayrollPage() {
                               <thead>
                                 <tr className="bg-gray-100 text-gray-700">
                                   <th className="border-b border-gray-200 px-2 py-2 text-center">입금일</th>
+                                  <th className="border-b border-gray-200 px-2 py-2 text-center">구분</th>
                                   <th className="border-b border-gray-200 px-2 py-2 text-center">금액</th>
                                   <th className="border-b border-gray-200 px-2 py-2 text-center">메모</th>
                                   <th className="border-b border-gray-200 px-2 py-2 text-center w-[4rem]">삭제</th>
@@ -3777,6 +4383,13 @@ export function AdminPayrollPage() {
                                   <tr key={row.id} className="hover:bg-gray-50">
                                     <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-800">
                                       {compactPayDate(row.paidOnYmd)}
+                                    </td>
+                                    <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px]">
+                                      {row.settlementBucket === 'ADDITIONAL_RECEIPT_SETTLEMENT' ? (
+                                        <span className="font-medium text-violet-800">추가결재</span>
+                                      ) : (
+                                        <span className="text-gray-600">일반</span>
+                                      )}
                                     </td>
                                     <td className="border-b border-gray-100 px-2 py-1.5 text-right tabular-nums font-medium text-gray-900">
                                       {Number(row.amount).toLocaleString('ko-KR')}
@@ -3811,8 +4424,25 @@ export function AdminPayrollPage() {
                       </>
                     ) : null}
 
-                    <div className="rounded-lg border border-blue-100 bg-blue-50/40 px-3 py-3 space-y-3">
+                      <div id="payroll-leader-add-payment" className="rounded-lg border border-blue-100 bg-blue-50/40 px-3 py-3 space-y-3">
                       <p className="text-fluid-xs font-medium text-blue-950">지급 추가</p>
+                      <label className="block text-fluid-xs text-gray-700">
+                        지급 구분
+                        <select
+                          value={leaderFormSettlementBucket}
+                          onChange={(e) =>
+                            setLeaderFormSettlementBucket(
+                              e.target.value === 'ADDITIONAL_RECEIPT_SETTLEMENT'
+                                ? 'ADDITIONAL_RECEIPT_SETTLEMENT'
+                                : 'GENERAL_JOB_SETTLEMENT'
+                            )
+                          }
+                          className="mt-1 w-full px-2 py-2 border border-gray-300 rounded text-sm bg-white"
+                        >
+                          <option value="GENERAL_JOB_SETTLEMENT">일반(건당) 정산</option>
+                          <option value="ADDITIONAL_RECEIPT_SETTLEMENT">추가결재 정산</option>
+                        </select>
+                      </label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="block text-fluid-xs text-gray-700">
                           금액(원)
@@ -3868,6 +4498,7 @@ export function AdminPayrollPage() {
                         <thead>
                           <tr className="bg-gray-100 text-gray-700">
                             <th className="border-b border-gray-200 px-2 py-2 text-center">귀속월</th>
+                            <th className="border-b border-gray-200 px-2 py-2 text-center">구분</th>
                             <th className="border-b border-gray-200 px-2 py-2 text-center">입금일</th>
                             <th className="border-b border-gray-200 px-2 py-2 text-center">금액</th>
                             <th className="border-b border-gray-200 px-2 py-2 text-center">메모</th>
@@ -3878,6 +4509,13 @@ export function AdminPayrollPage() {
                             <tr key={row.id} className="hover:bg-gray-50">
                               <td className="border-b border-gray-100 px-2 py-1.5 text-center text-gray-800">
                                 {row.monthLabel}
+                              </td>
+                              <td className="border-b border-gray-100 px-2 py-1.5 text-center text-[11px]">
+                                {row.settlementBucket === 'ADDITIONAL_RECEIPT_SETTLEMENT' ? (
+                                  <span className="font-medium text-violet-800">추가결재</span>
+                                ) : (
+                                  <span className="text-gray-600">일반</span>
+                                )}
                               </td>
                               <td className="border-b border-gray-100 px-2 py-1.5 text-center tabular-nums text-gray-700">
                                 {compactPayDate(row.paidOnYmd)}
@@ -4000,6 +4638,351 @@ export function AdminPayrollPage() {
           }}
         />,
         document.body
+      )}
+
+      {ledgerManualModal != null &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[621] overflow-y-auto overscroll-y-contain bg-black/45 px-3 py-10"
+            role="presentation"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setLedgerManualModal(null);
+            }}
+          >
+            <div
+              className="relative mx-auto w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl px-4 py-4 sm:px-5 sm:py-5"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ledger-manual-modal-title"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <ModalCloseButton onClick={() => setLedgerManualModal(null)} />
+              <h2 id="ledger-manual-modal-title" className="pr-10 text-lg font-semibold text-gray-900">
+                {ledgerManualModal === 'in' ? '수입 계정 추가' : '지출 계정 추가'}
+              </h2>
+              <p className="mt-1 text-fluid-xs text-gray-600">
+                {data?.monthLabel ?? month} · 현금 장부에 반영됩니다.
+              </p>
+              <div className="mt-4 space-y-3">
+                <label className="block">
+                  <span className="text-fluid-xs text-gray-600">거래일 · 기본 오늘(KST), 귀속 월 안에서 변경 가능</span>
+                  <input
+                    type="date"
+                    value={ledgerManualOccurredOn}
+                    min={`${month}-01`}
+                    max={lastYmdOfMonthKey(month) ?? undefined}
+                    onChange={(e) => setLedgerManualOccurredOn(e.target.value)}
+                    className="mt-0.5 w-full px-2 py-1.5 border border-gray-300 rounded text-sm tabular-nums min-h-[44px] sm:min-h-0"
+                    disabled={ledgerManualSaving}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-fluid-xs text-gray-600">계정·명목</span>
+                  <input
+                    type="text"
+                    value={ledgerManualAccountLabel}
+                    onChange={(e) => setLedgerManualAccountLabel(e.target.value)}
+                    placeholder="예: 잡수입, 복리후생비"
+                    maxLength={128}
+                    className="mt-0.5 w-full px-2 py-1.5 border border-gray-300 rounded text-sm min-h-[44px] sm:min-h-0"
+                    disabled={ledgerManualSaving}
+                  />
+                </label>
+                {ledgerManualModal === 'out' ? (
+                  <div className="block space-y-2 rounded-lg border border-gray-100 bg-gray-50/90 px-2 py-2">
+                    <span className="text-fluid-xs text-gray-700 font-medium">급여·정산 연결(선택)</span>
+                    <p className="text-fluid-2xs text-gray-500 leading-snug">
+                      현장 팀원을 선택하면 해당 귀속 월 「실지급 예상」에서 금액을 차감합니다. 팀장·마케터·타업체는 장부
+                      요약에 이름으로 묶어 표시합니다.
+                    </p>
+                    <select
+                      value={ledgerManualPayrollLinkKind}
+                      onChange={(e) => {
+                        const v = e.target.value as LedgerManualPayrollLinkKind;
+                        setLedgerManualPayrollLinkKind(v);
+                        setLedgerManualLinkTeamMemberId('');
+                        setLedgerManualLinkUserId('');
+                        setLedgerManualLinkExternalCompanyId('');
+                      }}
+                      className="w-full px-2 py-2 border border-gray-300 rounded text-sm min-h-[44px]"
+                      disabled={ledgerManualSaving}
+                    >
+                      <option value="none">연결 없음</option>
+                      <option value="pool_member">현장 팀원 (실지급 예상 차감)</option>
+                      <option value="team_leader">팀장</option>
+                      <option value="marketer">마케터</option>
+                      <option value="external_company">타업체</option>
+                    </select>
+                    {ledgerManualPayrollLinkKind === 'pool_member' ? (
+                      <select
+                        value={ledgerManualLinkTeamMemberId}
+                        onChange={(e) => setLedgerManualLinkTeamMemberId(e.target.value)}
+                        className="w-full px-2 py-2 border border-gray-300 rounded text-sm min-h-[44px]"
+                        disabled={ledgerManualSaving}
+                      >
+                        <option value="">현장 팀원 선택…</option>
+                        {(data?.rows ?? [])
+                          .filter((row): row is PayrollSheetRow => row.kind === 'POOL_MEMBER')
+                          .map((row) => (
+                            <option key={row.id} value={row.id}>
+                              {row.name}
+                            </option>
+                          ))}
+                      </select>
+                    ) : null}
+                    {ledgerManualPayrollLinkKind === 'team_leader' ? (
+                      <select
+                        value={ledgerManualLinkUserId}
+                        onChange={(e) => setLedgerManualLinkUserId(e.target.value)}
+                        className="w-full px-2 py-2 border border-gray-300 rounded text-sm min-h-[44px]"
+                        disabled={ledgerManualSaving}
+                      >
+                        <option value="">팀장 선택…</option>
+                        {(data?.rows ?? [])
+                          .filter((row): row is PayrollSheetRow => row.kind === 'TEAM_LEADER')
+                          .map((row) => (
+                            <option key={row.id} value={row.id}>
+                              {row.name}
+                            </option>
+                          ))}
+                      </select>
+                    ) : null}
+                    {ledgerManualPayrollLinkKind === 'marketer' ? (
+                      <select
+                        value={ledgerManualLinkUserId}
+                        onChange={(e) => setLedgerManualLinkUserId(e.target.value)}
+                        className="w-full px-2 py-2 border border-gray-300 rounded text-sm min-h-[44px]"
+                        disabled={ledgerManualSaving}
+                      >
+                        <option value="">마케터 선택…</option>
+                        {(data?.rows ?? [])
+                          .filter((row): row is PayrollSheetRow => row.kind === 'MARKETER')
+                          .map((row) => (
+                            <option key={row.id} value={row.id}>
+                              {row.name}
+                            </option>
+                          ))}
+                      </select>
+                    ) : null}
+                    {ledgerManualPayrollLinkKind === 'external_company' ? (
+                      <select
+                        value={ledgerManualLinkExternalCompanyId}
+                        onChange={(e) => setLedgerManualLinkExternalCompanyId(e.target.value)}
+                        className="w-full px-2 py-2 border border-gray-300 rounded text-sm min-h-[44px]"
+                        disabled={
+                          ledgerManualSaving ||
+                          ledgerManualExternalCompaniesLoading ||
+                          ledgerManualExternalCompanies.length === 0
+                        }
+                      >
+                        <option value="">
+                          {ledgerManualExternalCompaniesLoading
+                            ? '타업체 목록 불러오는 중…'
+                            : ledgerManualExternalCompanies.length === 0
+                              ? '등록된 활성 타업체 없음'
+                              : '타업체 선택…'}
+                        </option>
+                        {ledgerManualExternalCompanies.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="block">
+                  <span className="text-fluid-xs text-gray-600">금액(원)</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={ledgerManualAmount}
+                    onChange={(e) => setLedgerManualAmount(e.target.value)}
+                    placeholder="숫자 입력 또는 아래 버튼"
+                    className="mt-0.5 w-full px-2 py-1.5 border border-gray-300 rounded text-sm tabular-nums min-h-[44px] sm:min-h-0"
+                    disabled={ledgerManualSaving}
+                  />
+                  <div className="mt-2 grid grid-cols-5 gap-1.5">
+                    {(
+                      [
+                        { label: '천', delta: 1_000 },
+                        { label: '만', delta: 10_000 },
+                        { label: '십만', delta: 100_000 },
+                        { label: '백만', delta: 1_000_000 },
+                      ] as const
+                    ).map(({ label, delta }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        disabled={ledgerManualSaving}
+                        onClick={() => setLedgerManualAmount((prev) => bumpLedgerManualAmount(prev, delta))}
+                        className="rounded-md border border-gray-300 bg-gray-50 py-2.5 text-fluid-xs font-semibold text-gray-900 hover:bg-gray-100 active:bg-gray-200 touch-manipulation min-h-[44px]"
+                      >
+                        +{label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={ledgerManualSaving}
+                      title="금액 입력 비우기"
+                      onClick={() => setLedgerManualAmount('')}
+                      className="rounded-md border border-amber-300 bg-amber-50 py-2.5 text-fluid-xs font-semibold text-amber-950 hover:bg-amber-100 active:bg-amber-200 touch-manipulation min-h-[44px]"
+                    >
+                      정정
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-fluid-2xs text-gray-500 leading-snug">
+                    천·만·십만·백만은 현재 금액에 더합니다. 정정은 금액 칸을 비웁니다.
+                  </p>
+                </div>
+                <label className="block">
+                  <span className="text-fluid-xs text-gray-600">메모(선택)</span>
+                  <input
+                    type="text"
+                    value={ledgerManualMemo}
+                    onChange={(e) => setLedgerManualMemo(e.target.value)}
+                    className="mt-0.5 w-full px-2 py-1.5 border border-gray-300 rounded text-sm min-h-[44px] sm:min-h-0"
+                    disabled={ledgerManualSaving}
+                  />
+                </label>
+                {ledgerManualFormError ? (
+                  <div className="text-fluid-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                    {ledgerManualFormError}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-5 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50"
+                  disabled={ledgerManualSaving}
+                  onClick={() => setLedgerManualModal(null)}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-2 text-sm rounded-md text-white border disabled:opacity-50 ${
+                    ledgerManualModal === 'in'
+                      ? 'border-emerald-700 bg-emerald-700 hover:bg-emerald-800'
+                      : 'border-rose-700 bg-rose-700 hover:bg-rose-800'
+                  }`}
+                  disabled={ledgerManualSaving || !token}
+                  onClick={async () => {
+                    if (!token || ledgerManualModal == null) return;
+                    setLedgerManualFormError(null);
+                    const label = ledgerManualAccountLabel.trim();
+                    if (!label) {
+                      setLedgerManualFormError('계정·명목을 입력해 주세요.');
+                      return;
+                    }
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(ledgerManualOccurredOn)) {
+                      setLedgerManualFormError('거래일을 선택해 주세요.');
+                      return;
+                    }
+                    if (ledgerManualOccurredOn.slice(0, 7) !== month) {
+                      setLedgerManualFormError('거래일은 화면 상단에서 선택한 귀속 월 안이어야 합니다.');
+                      return;
+                    }
+                    const amt = parseInt(ledgerManualAmount.replace(/,/g, '').trim(), 10);
+                    if (!Number.isFinite(amt) || amt < 1) {
+                      setLedgerManualFormError('금액은 1원 이상 숫자로 입력해 주세요.');
+                      return;
+                    }
+                    if (
+                      ledgerManualModal === 'out' &&
+                      ledgerManualPayrollLinkKind === 'pool_member' &&
+                      !ledgerManualLinkTeamMemberId.trim()
+                    ) {
+                      setLedgerManualFormError('연결할 현장 팀원을 선택해 주세요.');
+                      return;
+                    }
+                    if (
+                      ledgerManualModal === 'out' &&
+                      ledgerManualPayrollLinkKind === 'team_leader' &&
+                      !ledgerManualLinkUserId.trim()
+                    ) {
+                      setLedgerManualFormError('연결할 팀장을 선택해 주세요.');
+                      return;
+                    }
+                    if (
+                      ledgerManualModal === 'out' &&
+                      ledgerManualPayrollLinkKind === 'marketer' &&
+                      !ledgerManualLinkUserId.trim()
+                    ) {
+                      setLedgerManualFormError('연결할 마케터를 선택해 주세요.');
+                      return;
+                    }
+                    if (
+                      ledgerManualModal === 'out' &&
+                      ledgerManualPayrollLinkKind === 'external_company' &&
+                      !ledgerManualLinkExternalCompanyId.trim()
+                    ) {
+                      setLedgerManualFormError('연결할 타업체를 선택해 주세요.');
+                      return;
+                    }
+                    setLedgerManualSaving(true);
+                    try {
+                      await postPayrollAccountLedgerManualEntry(token, {
+                        month,
+                        occurredOn: ledgerManualOccurredOn,
+                        direction: ledgerManualModal,
+                        accountLabel: label,
+                        amount: amt,
+                        memo: ledgerManualMemo.trim() || undefined,
+                        ...(ledgerManualModal === 'out'
+                          ? {
+                              payrollLinkKind: ledgerManualPayrollLinkKind,
+                              ...(ledgerManualPayrollLinkKind === 'pool_member'
+                                ? { linkTeamMemberId: ledgerManualLinkTeamMemberId.trim() }
+                                : ledgerManualPayrollLinkKind === 'team_leader' ||
+                                    ledgerManualPayrollLinkKind === 'marketer'
+                                  ? { linkUserId: ledgerManualLinkUserId.trim() }
+                                  : ledgerManualPayrollLinkKind === 'external_company'
+                                    ? { linkExternalCompanyId: ledgerManualLinkExternalCompanyId.trim() }
+                                    : {}),
+                            }
+                          : {}),
+                      });
+                      setLedgerManualModal(null);
+                      await silentReloadPayroll();
+                    } catch (e) {
+                      setLedgerManualFormError(e instanceof Error ? e.message : '등록에 실패했습니다.');
+                    } finally {
+                      setLedgerManualSaving(false);
+                    }
+                  }}
+                >
+                  {ledgerManualSaving ? '저장 중…' : '저장'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {createPortal(
+        <ConfirmPasswordModal
+          open={Boolean(ledgerManualDeleteTarget)}
+          title={
+            ledgerManualDeleteTarget
+              ? `수기 장부 삭제 (${ledgerManualDeleteTarget.label} · ${Number(
+                  ledgerManualDeleteTarget.amount,
+                ).toLocaleString('ko-KR')}원)`
+              : ''
+          }
+          description="이 수기 수입·지출 행을 삭제합니다."
+          confirmLabel="삭제"
+          zIndexClassName="z-[622]"
+          onClose={() => setLedgerManualDeleteTarget(null)}
+          onConfirm={async (password) => {
+            if (!token || !ledgerManualDeleteTarget) return;
+            await deletePayrollAccountLedgerManualEntry(token, ledgerManualDeleteTarget.id, password);
+            setLedgerManualDeleteTarget(null);
+            await silentReloadPayroll();
+          }}
+        />,
+        document.body,
       )}
 
       {marketerDetailForRow &&

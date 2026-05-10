@@ -417,6 +417,7 @@ router.get('/settlement/pool-member/:teamMemberId/detail', crewSettlementPayroll
     jobCount: computation.jobCount,
     amount: computation.amount,
     crewExpenseTotal: computation.crewExpenseTotal,
+    poolLedgerManualDeductionTotal: computation.poolLedgerManualDeductionTotal,
     amountNet: computation.amountNet,
     crewExpenseLines: computation.crewExpenseLines,
     notes: computation.notes,

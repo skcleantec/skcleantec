@@ -603,6 +603,10 @@ export const crewMessages = {
     ko: '크루 지출 차감',
     th: 'หักค่าใช้จ่ายครูว์',
   },
+  'crew.settlement.detailLedgerManualDeduction': {
+    ko: '수기 장부 연결 선차감',
+    th: 'หักจากบันทึกบัญชีเชื่อมโยง',
+  },
   'crew.settlement.detailNet': {
     ko: '실지급 예상',
     th: 'จ่ายสุทธิ (ประมาณ)',

@@ -89,11 +89,22 @@ export interface ScheduleItem {
   changeLogs?: InquiryChangeLogEntry[];
   /** 인천 주안 기준 직선거리(km) */
   distanceFromJuanKm?: number | null;
-  /** 팀장/관리자 입력 추가·할인 정산 항목 */
+  /** 과거 현장 추가 금액(InquiryExtraCharge). 신규 추가결재는 additionalReceipts */
   extraCharges?: Array<{
     id: string;
     description: string;
     amount: number;
+    sortOrder?: number;
+    createdBy?: { id: string; name: string } | null;
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
+  /** 추가결재 — 일반 금액과 분리 · 별도 정산 */
+  additionalReceipts?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    settlementChannel?: 'COMPANY_DEPOSIT' | 'FIELD_RECEIVED';
     sortOrder?: number;
     createdBy?: { id: string; name: string } | null;
     createdAt?: string;

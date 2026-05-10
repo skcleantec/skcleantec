@@ -146,6 +146,10 @@ router.get('/', async (req, res) => {
             orderBy: { sortOrder: 'asc' },
             include: { createdBy: { select: { id: true, name: true } } },
           },
+          additionalReceipts: {
+            orderBy: { sortOrder: 'asc' },
+            include: { createdBy: { select: { id: true, name: true } } },
+          },
         },
       });
   /** 스케줄 월 단위: changeLogs·카카오 지오는 상세/접수 API에 맡겨 첫 페인트 지연 방지 */

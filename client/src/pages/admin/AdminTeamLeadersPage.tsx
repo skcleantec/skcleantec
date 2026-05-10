@@ -10,6 +10,7 @@ import {
   bulkSetTeamLeaderAllowSelfDayOffEdit,
   uploadUserStaffIdCard,
   deleteUserStaffIdCard,
+  type TeamLeaderGeneralSettlementModeApi,
   type UserItem,
 } from '../../api/users';
 import { getToken } from '../../stores/auth';
@@ -32,6 +33,87 @@ function formatUserPayrollPayDayCell(v: number | null | undefined): string {
   return `${v}일`;
 }
 
+/** 저장값 만분율(0~10000) → 입력란 표시용 회사 몫 % */
+function companyShareBpsToPercentInput(bps: number): string {
+  const p = bps / 100;
+  if (!Number.isFinite(p)) return '';
+  return Number.isInteger(p) ? String(p) : String(p);
+}
+
+/** 입력란 % (0~100, 소수 허용) → API 만분율 */
+function parseAdditionalReceiptCompanySharePercent(
+  raw: string,
+): { ok: true; bps: number | null } | { ok: false; message: string } {
+  const t = raw.trim().replace(/,/g, '');
+  if (t === '') return { ok: true, bps: null };
+  const n = Number(t);
+  if (!Number.isFinite(n)) {
+    return { ok: false, message: '추가결재 회사 몫은 숫자로 입력해 주세요. (예: 50)' };
+  }
+  if (n < 0 || n > 100) {
+    return { ok: false, message: '추가결재 회사 몫은 0 이상 100 이하(%)만 입력할 수 있습니다.' };
+  }
+  return { ok: true, bps: Math.round(n * 100) };
+}
+
+type RegisterFormState = {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  payrollMonthlySalary: string;
+  payrollPayDay: string;
+  /** 팀장 등록 전용 — 빈 문자열이면 미설정 */
+  teamLeaderGeneralSettlementMode: '' | TeamLeaderGeneralSettlementModeApi;
+  teamLeaderGeneralSettlementValue: string;
+  /** 추가결재 회사 몫 — 0~100 숫자만 (%). 빈 문자열이면 미설정 */
+  teamLeaderAdditionalReceiptCompanySharePercent: string;
+};
+
+function emptyRegisterForm(): RegisterFormState {
+  return {
+    email: '',
+    password: '',
+    name: '',
+    phone: '',
+    payrollMonthlySalary: '',
+    payrollPayDay: '',
+    teamLeaderGeneralSettlementMode: '',
+    teamLeaderGeneralSettlementValue: '',
+    teamLeaderAdditionalReceiptCompanySharePercent: '',
+  };
+}
+
+type EditFormState = {
+  email: string;
+  name: string;
+  phone: string;
+  password: string;
+  hireDate: string;
+  resignationDate: string;
+  payrollMonthlySalary: string;
+  payrollPayDay: string;
+  teamLeaderGeneralSettlementMode: '' | TeamLeaderGeneralSettlementModeApi;
+  teamLeaderGeneralSettlementValue: string;
+  teamLeaderAdditionalReceiptCompanySharePercent: string;
+};
+
+function emptyEditForm(): EditFormState {
+  return {
+    email: '',
+    name: '',
+    phone: '',
+    password: '',
+    hireDate: '',
+    resignationDate: '',
+    payrollMonthlySalary: '',
+    payrollPayDay: '',
+    teamLeaderGeneralSettlementMode: '',
+    teamLeaderGeneralSettlementValue: '',
+    teamLeaderAdditionalReceiptCompanySharePercent: '',
+  };
+}
+
 export function AdminTeamLeadersPage() {
   const token = getToken();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -43,29 +125,13 @@ export function AdminTeamLeadersPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
-  const [editForm, setEditForm] = useState({
-    email: '',
-    name: '',
-    phone: '',
-    password: '',
-    hireDate: '',
-    resignationDate: '',
-    payrollMonthlySalary: '',
-    payrollPayDay: '',
-  });
+  const [editForm, setEditForm] = useState<EditFormState>(() => emptyEditForm());
   const [editLoading, setEditLoading] = useState(false);
   const [staffIdCardBusy, setStaffIdCardBusy] = useState(false);
   const staffIdCardInputRef = useRef<HTMLInputElement>(null);
   const [dayOffSwitchId, setDayOffSwitchId] = useState<string | null>(null);
   const [bulkDayOffLoading, setBulkDayOffLoading] = useState(false);
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-    name: '',
-    phone: '',
-    payrollMonthlySalary: '',
-    payrollPayDay: '',
-  });
+  const [form, setForm] = useState<RegisterFormState>(() => emptyRegisterForm());
 
   const refresh = (): Promise<void> => {
     if (!token) return Promise.resolve();
@@ -116,6 +182,9 @@ export function AdminTeamLeadersPage() {
         role: UserRole;
         payrollMonthlySalary?: number | null;
         payrollPayDay?: number | null;
+        teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
+        teamLeaderGeneralSettlementValue?: number | null;
+        teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
       } = {
         email: form.email.trim().toLowerCase(),
         password: form.password,
@@ -147,8 +216,51 @@ export function AdminTeamLeadersPage() {
         }
       }
 
+      if (role === 'TEAM_LEADER') {
+        const modeRaw = form.teamLeaderGeneralSettlementMode;
+        const valRaw = form.teamLeaderGeneralSettlementValue.trim().replace(/,/g, '');
+
+        if (modeRaw === '') {
+          if (valRaw !== '') {
+            alert('일반 정산 방식을 선택한 뒤 금액·만분율을 입력해 주세요.');
+            setSubmitLoading(false);
+            return;
+          }
+          payload.teamLeaderGeneralSettlementMode = null;
+          payload.teamLeaderGeneralSettlementValue = null;
+        } else {
+          payload.teamLeaderGeneralSettlementMode = modeRaw;
+          if (valRaw === '') {
+            alert(
+              modeRaw === 'PERCENT_OF_GENERAL_SERVICE_BPS'
+                ? '일반 서비스 금액 대비 만분율을 입력해 주세요. (예: 1500 = 15%)'
+                : '건당 금액(원)을 입력해 주세요.'
+            );
+            setSubmitLoading(false);
+            return;
+          }
+          const n = Number.parseInt(valRaw, 10);
+          if (!Number.isFinite(n) || n < 0 || n > 100_000_000) {
+            alert('일반 정산 값은 0 이상 정수(상한 1억)여야 합니다.');
+            setSubmitLoading(false);
+            return;
+          }
+          payload.teamLeaderGeneralSettlementValue = n;
+        }
+
+        const shareParsed = parseAdditionalReceiptCompanySharePercent(
+          form.teamLeaderAdditionalReceiptCompanySharePercent,
+        );
+        if (!shareParsed.ok) {
+          alert(shareParsed.message);
+          setSubmitLoading(false);
+          return;
+        }
+        payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
+      }
+
       await createUser(token, payload);
-      setForm({ email: '', password: '', name: '', phone: '', payrollMonthlySalary: '', payrollPayDay: '' });
+      setForm(emptyRegisterForm());
       setShowForm(null);
       refresh();
     } catch (err) {
@@ -170,6 +282,19 @@ export function AdminTeamLeadersPage() {
       payrollMonthlySalary:
         item.payrollMonthlySalary != null ? String(item.payrollMonthlySalary) : '',
       payrollPayDay: item.payrollPayDay != null ? String(item.payrollPayDay) : '',
+      teamLeaderGeneralSettlementMode:
+        item.teamLeaderGeneralSettlementMode === 'FIXED_PER_JOB_WON' ||
+        item.teamLeaderGeneralSettlementMode === 'PERCENT_OF_GENERAL_SERVICE_BPS'
+          ? item.teamLeaderGeneralSettlementMode
+          : '',
+      teamLeaderGeneralSettlementValue:
+        item.teamLeaderGeneralSettlementValue != null
+          ? String(item.teamLeaderGeneralSettlementValue)
+          : '',
+      teamLeaderAdditionalReceiptCompanySharePercent:
+        item.teamLeaderAdditionalReceiptCompanyShareBps != null
+          ? companyShareBpsToPercentInput(item.teamLeaderAdditionalReceiptCompanyShareBps)
+          : '',
     });
   };
 
@@ -187,6 +312,9 @@ export function AdminTeamLeadersPage() {
         resignationDate?: string | null;
         payrollMonthlySalary?: number | null;
         payrollPayDay?: number | null;
+        teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
+        teamLeaderGeneralSettlementValue?: number | null;
+        teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
       } = {
         email: editForm.email.trim().toLowerCase(),
         name: editForm.name.trim(),
@@ -225,6 +353,50 @@ export function AdminTeamLeadersPage() {
           payload.payrollPayDay = d;
         }
       }
+
+      if (editingUser.role === 'TEAM_LEADER') {
+        const modeRaw = editForm.teamLeaderGeneralSettlementMode;
+        const valRaw = editForm.teamLeaderGeneralSettlementValue.trim().replace(/,/g, '');
+
+        if (modeRaw === '') {
+          if (valRaw !== '') {
+            alert('일반 정산 방식을 선택한 뒤 금액·만분율을 입력해 주세요.');
+            setEditLoading(false);
+            return;
+          }
+          payload.teamLeaderGeneralSettlementMode = null;
+          payload.teamLeaderGeneralSettlementValue = null;
+        } else {
+          payload.teamLeaderGeneralSettlementMode = modeRaw;
+          if (valRaw === '') {
+            alert(
+              modeRaw === 'PERCENT_OF_GENERAL_SERVICE_BPS'
+                ? '일반 서비스 금액 대비 만분율을 입력해 주세요.'
+                : '건당 금액(원)을 입력해 주세요.'
+            );
+            setEditLoading(false);
+            return;
+          }
+          const n = Number.parseInt(valRaw, 10);
+          if (!Number.isFinite(n) || n < 0 || n > 100_000_000) {
+            alert('일반 정산 값은 0 이상 정수(상한 1억)여야 합니다.');
+            setEditLoading(false);
+            return;
+          }
+          payload.teamLeaderGeneralSettlementValue = n;
+        }
+
+        const shareParsed = parseAdditionalReceiptCompanySharePercent(
+          editForm.teamLeaderAdditionalReceiptCompanySharePercent,
+        );
+        if (!shareParsed.ok) {
+          alert(shareParsed.message);
+          setEditLoading(false);
+          return;
+        }
+        payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
+      }
+
       await updateUser(token, editingUser.id, payload);
       setEditingUser(null);
       refresh();
@@ -331,8 +503,7 @@ export function AdminTeamLeadersPage() {
               onClick={() => {
                 if (showForm === 'team') setShowForm(null);
                 else {
-                  setForm({ email: '', password: '', name: '', phone: '', payrollMonthlySalary: '', payrollPayDay: '' });
-                  setShowForm('team');
+                  setForm(emptyRegisterForm());
                 }
               }}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xl font-light leading-none text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
@@ -503,8 +674,7 @@ export function AdminTeamLeadersPage() {
               onClick={() => {
                 if (showForm === 'marketer') setShowForm(null);
                 else {
-                  setForm({ email: '', password: '', name: '', phone: '', payrollMonthlySalary: '', payrollPayDay: '' });
-                  setShowForm('marketer');
+                  setForm(emptyRegisterForm());
                 }
               }}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-xl font-light leading-none text-white shadow-sm hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1"
@@ -657,7 +827,9 @@ export function AdminTeamLeadersPage() {
                 {showForm === 'team' ? '팀장 등록' : '마케터 등록'}
               </h2>
               <p className="text-xs text-gray-500 mb-4">
-                아이디·비밀번호·이름은 필수입니다. 월 급여·급여일은 마케터·팀장 모두 선택 입력하며, 월 급여표에 반영됩니다.
+                {showForm === 'team'
+                  ? '아이디·비밀번호·이름은 필수입니다. 일반 정산과 추가결재 회사 몫은 접수 정산에 반영됩니다. 아래 「참고」 블록의 월 고정 급여는 선택 사항입니다.'
+                  : '아이디·비밀번호·이름은 필수입니다. 월 급여·급여일은 선택 입력하며, 월 급여표 「마케터」 탭에 반영됩니다.'}
               </p>
               <form
                 onSubmit={(e) => handleSubmit(e, showForm === 'team' ? 'TEAM_LEADER' : 'MARKETER')}
@@ -704,41 +876,165 @@ export function AdminTeamLeadersPage() {
                     placeholder="010-0000-0000"
                   />
                 </div>
-                <div className="sm:col-span-2 rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
-                  <p className="text-fluid-xs font-medium text-gray-800">
-                    {showForm === 'marketer' ? '마케터 · 월 급여표' : '팀장 · 참고 월급(수시 지급과 별개)'}
-                  </p>
-                  <p className="text-fluid-2xs text-gray-500 leading-snug">
-                    {showForm === 'marketer'
-                      ? '월 고정 급여와 매월 지급일을 넣으면 관리자 월 급여표 「마케터」 탭에 금액·지급일 열로 표시됩니다.'
-                      : '팀장 실제 지급은 급여표에서 수시 등록합니다. 여기 값은 참고·비고용이며, 비워도 됩니다.'}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">월 고정 급여 (원)</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={form.payrollMonthlySalary}
-                        onChange={(e) => setForm((p) => ({ ...p, payrollMonthlySalary: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
-                        placeholder="예: 3500000 · 비우면 미설정"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">급여 지급일 (1–31)</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={31}
-                        step={1}
-                        value={form.payrollPayDay}
-                        onChange={(e) => setForm((p) => ({ ...p, payrollPayDay: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
-                        placeholder="비우면 말일"
-                      />
+                {showForm === 'team' ? (
+                  <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-3">
+                    <p className="text-fluid-xs font-medium text-gray-800">일반 정산 · 추가결재</p>
+                    <p className="text-fluid-2xs text-gray-600 leading-snug">
+                      일반 결재는 건당 원 또는 일반 서비스 금액 대비 만분율로 정합니다. 추가결재는{' '}
+                      <strong className="font-medium text-gray-800">회사 몫을 퍼센트 숫자(0~100)</strong>로 넣습니다(예: 50 → 회사
+                      50%, 나머지는 팀장). 비우면 정산 화면 기본 비율을 씁니다.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm text-gray-600 mb-1">일반 정산 방식</label>
+                        <select
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
+                          value={form.teamLeaderGeneralSettlementMode}
+                          onChange={(e) =>
+                            setForm((p) => ({
+                              ...p,
+                              teamLeaderGeneralSettlementMode: e.target
+                                .value as RegisterFormState['teamLeaderGeneralSettlementMode'],
+                            }))
+                          }
+                        >
+                          <option value="">미설정</option>
+                          <option value="FIXED_PER_JOB_WON">건당 고정(원)</option>
+                          <option value="PERCENT_OF_GENERAL_SERVICE_BPS">일반 서비스 금액 대비 만분율</option>
+                        </select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm text-gray-600 mb-1">
+                          {form.teamLeaderGeneralSettlementMode === 'PERCENT_OF_GENERAL_SERVICE_BPS'
+                            ? '만분율 (예: 1500 = 15%)'
+                            : form.teamLeaderGeneralSettlementMode === 'FIXED_PER_JOB_WON'
+                              ? '건당 금액 (원)'
+                              : '금액 또는 만분율'}
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          disabled={form.teamLeaderGeneralSettlementMode === ''}
+                          value={form.teamLeaderGeneralSettlementValue}
+                          onChange={(e) =>
+                            setForm((p) => ({ ...p, teamLeaderGeneralSettlementValue: e.target.value }))
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums disabled:bg-gray-100 disabled:text-gray-500"
+                          placeholder={
+                            form.teamLeaderGeneralSettlementMode === 'PERCENT_OF_GENERAL_SERVICE_BPS'
+                              ? '예: 1500'
+                              : form.teamLeaderGeneralSettlementMode === 'FIXED_PER_JOB_WON'
+                                ? '예: 80000'
+                                : '방식을 먼저 선택하세요'
+                          }
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm text-gray-600 mb-1">
+                          추가결재 회사 몫 (%){' '}
+                          <span className="font-normal text-gray-400">선택 · 비우면 미설정</span>
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={form.teamLeaderAdditionalReceiptCompanySharePercent}
+                          onChange={(e) =>
+                            setForm((p) => ({
+                              ...p,
+                              teamLeaderAdditionalReceiptCompanySharePercent: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                          placeholder="예: 50 (= 회사 50%)"
+                          aria-describedby="register-teamleader-add-share-hint"
+                        />
+                        <p id="register-teamleader-add-share-hint" className="mt-1 text-fluid-2xs text-gray-500">
+                          0~100 숫자만 입력합니다. 소수 가능합니다.
+                        </p>
+                      </div>
                     </div>
                   </div>
+                ) : null}
+                <div className="sm:col-span-2 rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+                  {showForm === 'team' ? (
+                    <details className="group space-y-3">
+                      <summary className="cursor-pointer select-none text-fluid-xs font-medium text-gray-800 list-none [&::-webkit-details-marker]:hidden">
+                        <span className="underline decoration-gray-300 underline-offset-2">
+                          참고 · 월 급여표용 고정 급여·급여일 (선택)
+                        </span>
+                      </summary>
+                      <p className="text-fluid-2xs text-gray-500 leading-snug">
+                        실제 지급은 급여표에서 수시 등록할 수 있습니다. 여기 값은 참고용이며 비워도 됩니다.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-1">월 고정 급여 (원)</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={form.payrollMonthlySalary}
+                            onChange={(e) =>
+                              setForm((p) => ({ ...p, payrollMonthlySalary: e.target.value }))
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums bg-white"
+                            placeholder="예: 3500000 · 비우면 미설정"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-1">급여 지급일 (1–31)</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            step={1}
+                            value={form.payrollPayDay}
+                            onChange={(e) =>
+                              setForm((p) => ({ ...p, payrollPayDay: e.target.value }))
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums bg-white"
+                            placeholder="비우면 말일"
+                          />
+                        </div>
+                      </div>
+                    </details>
+                  ) : (
+                    <>
+                      <p className="text-fluid-xs font-medium text-gray-800">마케터 · 월 급여표</p>
+                      <p className="text-fluid-2xs text-gray-500 leading-snug">
+                        월 고정 급여와 매월 지급일을 넣으면 관리자 월 급여표 「마케터」 탭에 금액·지급일 열로 표시됩니다.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-1">월 고정 급여 (원)</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={form.payrollMonthlySalary}
+                            onChange={(e) =>
+                              setForm((p) => ({ ...p, payrollMonthlySalary: e.target.value }))
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                            placeholder="예: 3500000 · 비우면 미설정"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-1">급여 지급일 (1–31)</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            step={1}
+                            value={form.payrollPayDay}
+                            onChange={(e) =>
+                              setForm((p) => ({ ...p, payrollPayDay: e.target.value }))
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                            placeholder="비우면 말일"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="sm:col-span-2 flex flex-wrap justify-center gap-2 pt-2">
                   <button
@@ -823,64 +1119,170 @@ export function AdminTeamLeadersPage() {
                     autoComplete="new-password"
                   />
                 </div>
-                {(editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER') && (
-                  <>
-                    <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
-                      <div>
-                        <p className="text-fluid-xs font-medium text-gray-800">
-                          {editingUser.role === 'TEAM_LEADER'
-                            ? '팀장 · 월 급여표(현장 일당·근무일 산정과 무관)'
-                            : '직원(마케터) · 월 급여표'}
-                        </p>
-                        <p className="text-fluid-2xs text-gray-500 mt-0.5 leading-snug">
-                          {editingUser.role === 'TEAM_LEADER'
-                            ? '현장 팀원처럼 근무일×일당으로 계산하지 않고, 여기 입력한 월 고정 금액만 월 급여표에 반영됩니다.'
-                            : '마케터는 팀장과 계정·급여 조건이 다릅니다. 월 고정 급여만 표에 넣으며, 근무 형태별 세부는 금액에 반영해 주세요.'}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">월 고정 급여 (원)</label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={editForm.payrollMonthlySalary}
-                          onChange={(e) =>
-                            setEditForm((p) => ({ ...p, payrollMonthlySalary: e.target.value }))
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
-                          placeholder="예: 3500000 · 비우면 미설정"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">급여 지급일 (1–31)</label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={31}
-                          step={1}
-                          value={editForm.payrollPayDay}
-                          onChange={(e) =>
-                            setEditForm((p) => ({ ...p, payrollPayDay: e.target.value }))
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
-                          placeholder="비우면 월 급여표에서 말일 규칙"
-                        />
-                        <p className="text-fluid-2xs text-gray-500 mt-1">
-                          {editingUser.role === 'MARKETER' ? (
-                            <>마케터 월 급여표 열과 동일하게 적용됩니다.</>
-                          ) : (
-                            <>
-                              현장 팀원의 일당은{' '}
-                              <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
-                                팀원 등록
-                              </Link>
-                              에서 설정합니다.
-                            </>
-                          )}
-                        </p>
-                      </div>
+                {editingUser.role === 'TEAM_LEADER' && (
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-3">
+                    <p className="text-fluid-xs font-medium text-gray-800">일반 정산 · 추가결재</p>
+                    <p className="text-fluid-2xs text-gray-600 leading-snug">
+                      접수의 일반 결재·추가결재 정산에 사용됩니다. 추가결재 회사 몫은{' '}
+                      <strong className="font-medium text-gray-800">0~100 퍼센트 숫자</strong>로 넣습니다. 비우면 정산 화면 기본값을
+                      따릅니다.
+                    </p>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">일반 정산 방식</label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
+                        value={editForm.teamLeaderGeneralSettlementMode}
+                        onChange={(e) =>
+                          setEditForm((p) => ({
+                            ...p,
+                            teamLeaderGeneralSettlementMode: e.target
+                              .value as EditFormState['teamLeaderGeneralSettlementMode'],
+                          }))
+                        }
+                      >
+                        <option value="">미설정</option>
+                        <option value="FIXED_PER_JOB_WON">건당 고정(원)</option>
+                        <option value="PERCENT_OF_GENERAL_SERVICE_BPS">일반 서비스 금액 대비 만분율</option>
+                      </select>
                     </div>
-                  </>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">
+                        {editForm.teamLeaderGeneralSettlementMode === 'PERCENT_OF_GENERAL_SERVICE_BPS'
+                          ? '만분율 (예: 1500 = 15%)'
+                          : editForm.teamLeaderGeneralSettlementMode === 'FIXED_PER_JOB_WON'
+                            ? '건당 금액 (원)'
+                            : '금액 또는 만분율'}
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        disabled={editForm.teamLeaderGeneralSettlementMode === ''}
+                        value={editForm.teamLeaderGeneralSettlementValue}
+                        onChange={(e) =>
+                          setEditForm((p) => ({ ...p, teamLeaderGeneralSettlementValue: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums disabled:bg-gray-100 disabled:text-gray-500"
+                        placeholder={
+                          editForm.teamLeaderGeneralSettlementMode === 'PERCENT_OF_GENERAL_SERVICE_BPS'
+                            ? '예: 1500'
+                            : editForm.teamLeaderGeneralSettlementMode === 'FIXED_PER_JOB_WON'
+                              ? '예: 80000'
+                              : '방식을 먼저 선택하세요'
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">
+                        추가결재 회사 몫 (%){' '}
+                        <span className="font-normal text-gray-400">선택 · 비우면 미설정</span>
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={editForm.teamLeaderAdditionalReceiptCompanySharePercent}
+                        onChange={(e) =>
+                          setEditForm((p) => ({
+                            ...p,
+                            teamLeaderAdditionalReceiptCompanySharePercent: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                        placeholder="예: 50 (= 회사 50%)"
+                        aria-describedby="edit-teamleader-add-share-hint"
+                      />
+                      <p id="edit-teamleader-add-share-hint" className="mt-1 text-fluid-2xs text-gray-500">
+                        0~100 숫자만 입력합니다. 소수 가능합니다.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {editingUser.role === 'TEAM_LEADER' && (
+                  <details className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+                    <summary className="cursor-pointer select-none text-fluid-xs font-medium text-gray-800 list-none [&::-webkit-details-marker]:hidden">
+                      <span className="underline decoration-gray-300 underline-offset-2">
+                        참고 · 월 급여표용 고정 급여·급여일
+                      </span>
+                    </summary>
+                    <p className="text-fluid-2xs text-gray-500 leading-snug">
+                      현장 팀원 일당은 팀원 등록에서 다룹니다. 여기는 월 급여표 열용 참고값이며 비워도 됩니다.
+                    </p>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">월 고정 급여 (원)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editForm.payrollMonthlySalary}
+                        onChange={(e) =>
+                          setEditForm((p) => ({ ...p, payrollMonthlySalary: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums bg-white"
+                        placeholder="예: 3500000 · 비우면 미설정"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">급여 지급일 (1–31)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        step={1}
+                        value={editForm.payrollPayDay}
+                        onChange={(e) =>
+                          setEditForm((p) => ({ ...p, payrollPayDay: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums bg-white"
+                        placeholder="비우면 월 급여표에서 말일 규칙"
+                      />
+                      <p className="text-fluid-2xs text-gray-500 mt-1">
+                        현장 팀원의 일당은{' '}
+                        <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
+                          팀원 등록
+                        </Link>
+                        에서 설정합니다.
+                      </p>
+                    </div>
+                  </details>
+                )}
+                {editingUser.role === 'MARKETER' && (
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+                    <div>
+                      <p className="text-fluid-xs font-medium text-gray-800">직원(마케터) · 월 급여표</p>
+                      <p className="text-fluid-2xs text-gray-500 mt-0.5 leading-snug">
+                        마케터는 팀장과 계정·급여 조건이 다릅니다. 월 고정 급여만 표에 넣으며, 근무 형태별 세부는 금액에 반영해 주세요.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">월 고정 급여 (원)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editForm.payrollMonthlySalary}
+                        onChange={(e) =>
+                          setEditForm((p) => ({ ...p, payrollMonthlySalary: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                        placeholder="예: 3500000 · 비우면 미설정"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">급여 지급일 (1–31)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        step={1}
+                        value={editForm.payrollPayDay}
+                        onChange={(e) =>
+                          setEditForm((p) => ({ ...p, payrollPayDay: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm tabular-nums"
+                        placeholder="비우면 월 급여표에서 말일 규칙"
+                      />
+                      <p className="text-fluid-2xs text-gray-500 mt-1">
+                        마케터 월 급여표 열과 동일하게 적용됩니다.
+                      </p>
+                    </div>
+                  </div>
                 )}
                 {isSuperAdmin && (
                   <>

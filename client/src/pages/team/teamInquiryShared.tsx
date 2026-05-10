@@ -177,11 +177,22 @@ export interface InquiryItem {
   serviceBalanceAmount?: number | null;
   /** 타업체 담당 시 청구할 수수료(원) */
   externalTransferFee?: number | null;
-  /** 팀장이 현장에서 추가·할인 항목을 기록한 정산 내역. 음수면 할인. */
+  /** 과거 `InquiryExtraCharge` 현장 추가 금액(레거시). 신규는 추가결재(additionalReceipts). */
   extraCharges?: Array<{
     id: string;
     description: string;
     amount: number;
+    sortOrder?: number;
+    createdBy?: { id: string; name: string } | null;
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
+  /** 일반 서비스와 별도 저장 — 추가결재(별도 정산) */
+  additionalReceipts?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    settlementChannel?: 'COMPANY_DEPOSIT' | 'FIELD_RECEIVED';
     sortOrder?: number;
     createdBy?: { id: string; name: string } | null;
     createdAt?: string;
@@ -1049,6 +1060,7 @@ export function TeamInquiryDetailModal({
               serviceDepositAmount={item.serviceDepositAmount}
               serviceBalanceAmount={item.serviceBalanceAmount}
               initialExtraCharges={item.extraCharges}
+              initialAdditionalReceipts={item.additionalReceipts}
             />
             {item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER') && (
               <TeamModalSection

@@ -723,6 +723,14 @@ function CrewSettlementDetailModal({
                       : '—'
                   }
                 />
+                <DetailStatRow
+                  labelId="crew.settlement.detailLedgerManualDeduction"
+                  value={
+                    (data.poolLedgerManualDeductionTotal ?? 0) > 0
+                      ? `−${Number(data.poolLedgerManualDeductionTotal).toLocaleString('ko-KR')}원`
+                      : '—'
+                  }
+                />
                 <DetailStatRow labelId="crew.settlement.detailNet" value={fmtWon(data.amountNet)} />
               </section>
 

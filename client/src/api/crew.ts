@@ -424,6 +424,7 @@ export interface CrewPoolMemberPayrollDetailDto {
   jobCount: number | null;
   amount: number | null;
   crewExpenseTotal: number;
+  poolLedgerManualDeductionTotal: number;
   amountNet: number | null;
   crewExpenseLines: CrewPoolExpenseLedgerLineDto[];
   notes: string[];

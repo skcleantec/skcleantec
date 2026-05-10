@@ -333,6 +333,16 @@ interface InquiryItem {
     updatedAt?: string;
     createdBy?: { id: string; name: string } | null;
   }>;
+  additionalReceipts?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    settlementChannel?: 'COMPANY_DEPOSIT' | 'FIELD_RECEIVED';
+    sortOrder?: number;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: { id: string; name: string } | null;
+  }>;
   changeLogs?: InquiryChangeLogEntry[];
   /** 팀장 해피콜 완료 시각 */
   happyCallCompletedAt?: string | null;
@@ -3425,6 +3435,7 @@ export function AdminInquiriesPage() {
                     editItem.serviceBalanceAmount ?? editItem.orderForm?.balanceAmount ?? null
                   }
                   initialExtraCharges={editItem.extraCharges}
+                  initialAdditionalReceipts={editItem.additionalReceipts}
                   onChanged={() => {
                     refresh(false);
                   }}

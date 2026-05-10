@@ -8,6 +8,7 @@ import {
   payrollCyclePreferredDateWhere,
 } from '../teams/teamMemberPayrollCycle.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
+import { sumLedgerManualPoolMemberDeductionsByMonth } from './payrollLedgerManualPayrollDeductions.js';
 
 export type PayrollDetailLineOut = {
   inquiryId: string;
@@ -42,7 +43,9 @@ export type PoolMemberPayrollComputation = {
   amount: number | null;
   /** 해당 귀속 월 크루 등록 지출 합계 */
   crewExpenseTotal: number;
-  /** 예상 급여 − 지출 (0 미만이면 0) — 정산 확정 금액 기준 */
+  /** 수기 장부 지출 중 이 팀원에 연결된 합계 */
+  poolLedgerManualDeductionTotal: number;
+  /** 예상 급여 − 지출 − 수기 연결 선차감 (0 미만이면 0) — 정산 확정 금액 기준 */
   amountNet: number | null;
   crewExpenseLines: CrewExpenseLedgerLineOut[];
   notes: string[];
@@ -184,6 +187,8 @@ export async function computePoolMemberPayrollDetail(
   });
 
   const crewExpenseTotal = expenseRows.reduce((s, row) => s + row.amount, 0);
+  const ledgerDedMap = await sumLedgerManualPoolMemberDeductionsByMonth(prisma, monthKey, [teamMemberId]);
+  const poolLedgerManualDeductionTotal = ledgerDedMap.get(teamMemberId) ?? 0;
   const crewExpenseLines: CrewExpenseLedgerLineOut[] = expenseRows.map((row) => ({
     id: row.id,
     amount: row.amount,
@@ -195,11 +200,16 @@ export async function computePoolMemberPayrollDetail(
 
   let amountNet: number | null = null;
   if (amount != null) {
-    amountNet = Math.max(0, amount - crewExpenseTotal);
+    amountNet = Math.max(0, amount - crewExpenseTotal - poolLedgerManualDeductionTotal);
+    const dedParts: string[] = [];
     if (crewExpenseTotal > 0) {
-      notes.push(
-        `크루 등록 지출 ${crewExpenseTotal.toLocaleString('ko-KR')}원 차감 → 실지급 예상 ${amountNet.toLocaleString('ko-KR')}원`,
-      );
+      dedParts.push(`크루 등록 지출 ${crewExpenseTotal.toLocaleString('ko-KR')}원`);
+    }
+    if (poolLedgerManualDeductionTotal > 0) {
+      dedParts.push(`수기 장부 연결 선차감 ${poolLedgerManualDeductionTotal.toLocaleString('ko-KR')}원`);
+    }
+    if (dedParts.length > 0 && amountNet != null) {
+      notes.push(`${dedParts.join(', ')} 차감 → 실지급 예상 ${amountNet.toLocaleString('ko-KR')}원`);
     }
   }
 
@@ -216,6 +226,7 @@ export async function computePoolMemberPayrollDetail(
     jobCount,
     amount,
     crewExpenseTotal,
+    poolLedgerManualDeductionTotal,
     amountNet,
     crewExpenseLines,
     notes,

@@ -359,7 +359,7 @@ export type ScheduleInquiryDetailModalProps =
       meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
       onSaved: () => void;
-      /** 추가·할인 항목 등 별도 API 저장 후 `item`을 다시 맞출 때(예: getInquiry 후 setState) */
+      /** 레거시 추가 금액·추가결재 등 별도 API 저장 후 `item`을 다시 맞출 때(예: getInquiry 후 setState) */
       onInquiryRefresh?: () => void | Promise<void>;
     }
   | {
@@ -2068,6 +2068,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               serviceDepositAmount={item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null}
               serviceBalanceAmount={item.serviceBalanceAmount ?? item.orderForm?.balanceAmount ?? null}
               initialExtraCharges={item.extraCharges}
+              initialAdditionalReceipts={item.additionalReceipts}
               onChanged={() => {
                 void onInquiryRefresh?.();
               }}

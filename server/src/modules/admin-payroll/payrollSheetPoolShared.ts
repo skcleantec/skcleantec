@@ -8,6 +8,7 @@ import {
 } from '../teams/teamMemberPayrollCycle.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 import { sumCrewExpensesByMemberIdsForMonth } from '../crew/crewGroupExpense.service.js';
+import { sumLedgerManualPoolMemberDeductionsByMonth } from './payrollLedgerManualPayrollDeductions.js';
 
 export type PoolPayrollSheetRowOut = {
   kind: 'POOL_MEMBER';
@@ -29,6 +30,8 @@ export type PoolPayrollSheetRowOut = {
   /** 귀속 월 정산 완료 시 확정 지급액(실지급 기준 스냅샷). 미정산이면 null */
   poolSettledAmount?: number | null;
   crewExpenseTotal?: number;
+  /** 해당 귀속 월 수기 장부 지출 중 이 팀원(풀)에 연결된 합계 — 실지급 예상에서 차감 */
+  poolLedgerManualDeductionTotal?: number;
   amountNet?: number | null;
 };
 
@@ -128,6 +131,11 @@ export async function buildPoolMemberPayrollSheetRows(
   const crewExpenseByPoolMemberId =
     ids.length === 0 ? new Map<string, number>() : await sumCrewExpensesByMemberIdsForMonth(ids, monthKey);
 
+  const ledgerManualDedByPoolMemberId =
+    ids.length === 0
+      ? new Map<string, number>()
+      : await sumLedgerManualPoolMemberDeductionsByMonth(prismaClient, monthKey, ids);
+
   const poolSettlementRows =
     ids.length === 0
       ? []
@@ -190,11 +198,21 @@ export async function buildPoolMemberPayrollSheetRows(
     }
 
     const crewExpenseTotal = crewExpenseByPoolMemberId.get(m.id) ?? 0;
-    const amountNet = amount != null ? Math.max(0, amount - crewExpenseTotal) : null;
-    if (crewExpenseTotal > 0 && amount != null && amountNet != null) {
-      notes.push(
-        `크루 등록 지출 ${crewExpenseTotal.toLocaleString('ko-KR')}원 차감 → 실지급 예상 ${amountNet.toLocaleString('ko-KR')}원`,
-      );
+    const poolLedgerManualDeductionTotal = ledgerManualDedByPoolMemberId.get(m.id) ?? 0;
+    const amountNet =
+      amount != null
+        ? Math.max(0, amount - crewExpenseTotal - poolLedgerManualDeductionTotal)
+        : null;
+
+    const dedParts: string[] = [];
+    if (crewExpenseTotal > 0) {
+      dedParts.push(`크루 등록 지출 ${crewExpenseTotal.toLocaleString('ko-KR')}원`);
+    }
+    if (poolLedgerManualDeductionTotal > 0) {
+      dedParts.push(`수기 장부 연결 선차감 ${poolLedgerManualDeductionTotal.toLocaleString('ko-KR')}원`);
+    }
+    if (dedParts.length > 0 && amount != null && amountNet != null) {
+      notes.push(`${dedParts.join(', ')} 차감 → 실지급 예상 ${amountNet.toLocaleString('ko-KR')}원`);
     }
 
     rows.push({
@@ -216,6 +234,7 @@ export async function buildPoolMemberPayrollSheetRows(
       poolSettlementComplete: settledAmountByMemberId.has(m.id),
       poolSettledAmount: settledAmountByMemberId.get(m.id) ?? null,
       crewExpenseTotal,
+      poolLedgerManualDeductionTotal,
       amountNet,
     });
   }

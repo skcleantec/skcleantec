@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// 팀장 일반 정산 — 건당 고정(원) 또는 일반 서비스 금액(`service_total_amount` 등) 대비 만분율
+enum TeamLeaderGeneralSettlementMode {
+  FIXED_PER_JOB_WON
+  PERCENT_OF_GENERAL_SERVICE_BPS
+}
+
+/// 팀장 월 지급 기록 구분 — 일반(건당) 정산 vs 추가결재 정산
+enum TeamLeaderPayrollPaymentBucket {
+  GENERAL_JOB_SETTLEMENT
+  ADDITIONAL_RECEIPT_SETTLEMENT
+}
+
 /// 자사가 고객 정보를 넘기는 외부 협력 업체 (타업체)
 model ExternalCompany {
   id        String   @id @default(uuid())
@@ -22,6 +34,7 @@ model ExternalCompany {
   settlementResets ExternalCompanySettlementReset[]
   settlementPayments ExternalCompanySettlementPayment[]
   inquiriesCancelFeeFor Inquiry[] @relation("InquiryCancelFeeExternalCompany")
+  payrollLedgerManualExpenseTargets PayrollAccountLedgerManualEntry[]
 
   @@map("external_companies")
 }
@@ -76,6 +89,12 @@ model User {
   resignationDate DateTime? @map("resignation_date") @db.Date
   payrollMonthlySalary Int? @map("payroll_monthly_salary")
   payrollPayDay       Int? @map("payroll_pay_day")
+  /// 팀장만 사용 — 일반 결재 정산: 건당 고정(원) 또는 일반 서비스 금액 대비 만분율
+  teamLeaderGeneralSettlementMode TeamLeaderGeneralSettlementMode? @map("team_leader_general_settlement_mode")
+  /// FIXED_PER_JOB_WON 이면 원/건, PERCENT_OF_GENERAL_SERVICE_BPS 이면 만분율(예 1500=15%)
+  teamLeaderGeneralSettlementValue Int? @map("team_leader_general_settlement_value")
+  /// 팀장만 사용 — 추가결재 정산 시 회사 몫 만분율(0~10000). null이면 UI에서 기본 50% 적용
+  teamLeaderAdditionalReceiptCompanyShareBps Int? @map("team_leader_additional_receipt_company_share_bps")
   createdAt    DateTime @default(now()) @map("created_at")
   /// 팀장 본인 휴무일 등록·삭제 허용(관리자 사용자 목록에서 제어). 기본 true.
   allowSelfDayOffEdit Boolean @default(true) @map("allow_self_day_off_edit")
@@ -97,6 +116,7 @@ model User {
   inquiryCleaningPhotosUploaded InquiryCleaningPhoto[] @relation("CleaningPhotoUploader")
   inquiryConsultationPhotosUploaded InquiryConsultationPhoto[] @relation("InquiryConsultationPhotoUploader")
   inquiryExtraChargesCreated    InquiryExtraCharge[]   @relation("InquiryExtraChargeCreatedBy")
+  inquiryAdditionalReceiptsCreated InquiryAdditionalReceipt[] @relation("InquiryAdditionalReceiptCreatedBy")
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
   inquiryChangeLogsAsActor      InquiryChangeLog[]     @relation("InquiryChangeLogActor")
   teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
@@ -116,6 +136,8 @@ model User {
   payrollAdminPersonalExpensesCreated PayrollAdminPersonalExpense[] @relation("PayrollAdminPersonalExpenseCreator")
   payrollAdminSharedExpensesCreated PayrollAdminSharedExpense[] @relation("PayrollAdminSharedExpenseCreator")
   payrollIncomeDepositsCreated PayrollIncomeDeposit[] @relation("PayrollIncomeDepositCreator")
+  payrollAccountLedgerManualEntriesCreated PayrollAccountLedgerManualEntry[] @relation("PayrollAccountLedgerManualEntryCreator")
+  payrollLedgerManualEntriesLinked PayrollAccountLedgerManualEntry[] @relation("PayrollLedgerManualLinkedUser")
   csReportsForwardedTo          CsReport[] @relation("CsReportForwardedTo")
 
   @@map("users")
@@ -131,6 +153,7 @@ model TeamLeaderPayrollPayment {
   memo      String?  @db.Text
   actorId   String?  @map("actor_id")
   createdAt DateTime @default(now()) @map("created_at")
+  settlementBucket TeamLeaderPayrollPaymentBucket @default(GENERAL_JOB_SETTLEMENT) @map("settlement_bucket")
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   actor User? @relation("TeamLeaderPayrollPaymentActor", fields: [actorId], references: [id], onDelete: SetNull)
@@ -197,6 +220,7 @@ model TeamMember {
   crewGroupExpenses TeamCrewGroupExpense[]
   payrollMonthAdjusts TeamMemberPayrollMonthAdjust[]
   payrollSettlements TeamMemberPayrollSettlement[]
+  payrollLedgerManualExpenseTargets PayrollAccountLedgerManualEntry[]
 
   @@map("team_members")
 }
@@ -410,6 +434,49 @@ model PayrollIncomeDeposit {
   @@map("payroll_income_deposits")
 }
 
+enum PayrollAccountLedgerManualDirection {
+  IN
+  OUT
+}
+
+/// 수기 장부 지출을 급여 대상(현장·팀장 등)과 연결할 때 구분 — 확장용 enum
+enum PayrollLedgerManualPayrollLinkKind {
+  NONE
+  POOL_MEMBER
+  TEAM_LEADER
+  MARKETER
+  EXTERNAL_COMPANY
+}
+
+/// 월정산표 「계정 수입·지출 표」— 관리자 수기 수입·지출(현금성 장부 반영)
+model PayrollAccountLedgerManualEntry {
+  id           String                          @id @default(uuid())
+  monthKey     String                          @map("month_key") @db.VarChar(7)
+  direction    PayrollAccountLedgerManualDirection @map("direction")
+  occurredOn   DateTime                        @map("occurred_on") @db.Date
+  accountLabel String                          @map("account_label") @db.VarChar(128)
+  amount       Int
+  memo         String?                         @db.Text
+  /// 지출을 특정 급여 대상 실지급 예상에서 차감할 때(수입은 NONE 고정)
+  payrollLinkKind PayrollLedgerManualPayrollLinkKind @default(NONE) @map("payroll_link_kind")
+  linkTeamMemberId String?                        @map("link_team_member_id")
+  linkUserId       String?                        @map("link_user_id")
+  linkExternalCompanyId String?                   @map("link_external_company_id")
+  createdById  String                          @map("created_by_id")
+  createdAt    DateTime                        @default(now()) @map("created_at")
+  updatedAt    DateTime                        @updatedAt @map("updated_at")
+
+  createdBy User @relation("PayrollAccountLedgerManualEntryCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  linkTeamMember TeamMember? @relation(fields: [linkTeamMemberId], references: [id], onDelete: Restrict)
+  linkUser User? @relation("PayrollLedgerManualLinkedUser", fields: [linkUserId], references: [id], onDelete: Restrict)
+  linkExternalCompany ExternalCompany? @relation(fields: [linkExternalCompanyId], references: [id], onDelete: Restrict)
+
+  @@index([monthKey, payrollLinkKind, linkTeamMemberId], map: "pld_manual_month_pool_idx")
+  @@index([monthKey, payrollLinkKind, linkUserId], map: "pld_manual_month_user_idx")
+  @@index([monthKey, occurredOn(sort: Asc), createdAt(sort: Asc)])
+  @@map("payroll_account_ledger_manual_entries")
+}
+
 model TeamMemberDayOff {
   id           String   @id @default(uuid())
   teamMemberId String   @map("team_member_id")
@@ -494,6 +561,7 @@ model Inquiry {
 
   assignments   Assignment[]
   extraCharges  InquiryExtraCharge[]
+  additionalReceipts InquiryAdditionalReceipt[]
   buildingType String?       @map("building_type")
   moveInDate   DateTime?     @map("move_in_date")
   specialNotes String?       @map("special_notes")
@@ -543,8 +611,17 @@ enum CleaningPhotoPhase {
   CLAIM
 }
 
-/// 팀장·관리자가 현장에서 발생한 추가 청소/할인 항목과 금액을 기록.
+/// 추가결재 수금 경로 — 정산(일당 가산·차감) 방식이 다름
+enum AdditionalReceiptSettlementChannel {
+  /// 회사 계좌 입금 — 팀장 지급액에 본인 몫만큼 가산
+  COMPANY_DEPOSIT
+  /// 현장에서 팀장이 직접 수금 — 일당에서 회사 몫만큼 차감
+  FIELD_RECEIVED
+}
+
+/// 팀장·관리자·마케터가 현장에서 발생한 추가 청구·할인 항목과 금액을 기록 (레거시).
 /// `amount`는 원화 정수, 음수면 할인. 총 결제받을 금액 = balance + sum(amount).
+/// 신규 「추가결재」(별도 정산)는 `InquiryAdditionalReceipt` 사용.
 model InquiryExtraCharge {
   id          String   @id @default(uuid())
   inquiryId   String   @map("inquiry_id")
@@ -560,6 +637,27 @@ model InquiryExtraCharge {
 
   @@index([inquiryId, sortOrder])
   @@map("inquiry_extra_charges")
+}
+
+/// 「추가결재」— 일반 서비스 금액(`service_*`)과 분리 저장. 정산 시 팀장별 추가결재 회사 몫 만분율로 별도 계산.
+model InquiryAdditionalReceipt {
+  id          String   @id @default(uuid())
+  inquiryId   String   @map("inquiry_id")
+  description String   @db.VarChar(120)
+  /// 원화 정수, 1원 이상
+  amount      Int
+  /// 회사입금 vs 현장수금 — 급여 정산 가산·차감 구분
+  settlementChannel AdditionalReceiptSettlementChannel @default(COMPANY_DEPOSIT) @map("settlement_channel")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  inquiry   Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("InquiryAdditionalReceiptCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([inquiryId, sortOrder])
+  @@map("inquiry_additional_receipts")
 }
 
 /// 현장 청소 전·후 사진 (Cloudinary)

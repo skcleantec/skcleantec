@@ -6,6 +6,7 @@ import {
 } from '../teams/teamMemberPayrollCycle.js';
 import { dateToYmdKst, employmentOverlapsMonthKst } from '../users/userEmployment.js';
 import { sumCrewExpensesByMemberIdsForMonth } from '../crew/crewGroupExpense.service.js';
+import { sumLedgerManualPoolMemberDeductionsByMonth } from './payrollLedgerManualPayrollDeductions.js';
 
 const PAYROLL_INQUIRY_BATCH = 2000;
 
@@ -100,6 +101,8 @@ export type PayrollExpenseForwardPoolRow = {
   unitAmount: number | null;
   partialGross: number | null;
   crewExpenseTotal: number;
+  /** 귀속 월 수기 장부에서 이 팀원에 연결된 지출 합계 */
+  poolLedgerManualDeductionTotal: number;
   partialNet: number | null;
   poolSettlementComplete: boolean;
   notes: string[];
@@ -181,6 +184,7 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
           unitAmount: m.payAmountPerJob,
           partialGross: null,
           crewExpenseTotal: 0,
+          poolLedgerManualDeductionTotal: 0,
           partialNet: null,
           poolSettlementComplete: false,
           notes,
@@ -222,7 +226,7 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
     }
 
     const ids = members.map((x) => x.id);
-    const [adjusts, settleRows, crewExpMap] = await Promise.all([
+    const [adjusts, settleRows, crewExpMap, ledgerDedMap] = await Promise.all([
       ids.length === 0
         ? []
         : prismaClient.teamMemberPayrollMonthAdjust.findMany({
@@ -235,6 +239,9 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
             select: { teamMemberId: true },
           }),
       ids.length === 0 ? new Map<string, number>() : sumCrewExpensesByMemberIdsForMonth(ids, payMonthKey),
+      ids.length === 0
+        ? new Map<string, number>()
+        : sumLedgerManualPoolMemberDeductionsByMonth(prismaClient, payMonthKey, ids),
     ]);
     const extraById = new Map(adjusts.map((a) => [a.teamMemberId, a.extraWorkDays]));
     const settledIds = new Set(settleRows.map((r) => r.teamMemberId));
@@ -261,10 +268,18 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
         partialGross = jobCount * unitAmount;
       }
       const crewExpenseTotal = crewExpMap.get(m.id) ?? 0;
+      const poolLedgerManualDeductionTotal = ledgerDedMap.get(m.id) ?? 0;
       const partialNet =
-        partialGross != null ? Math.max(0, partialGross - crewExpenseTotal) : null;
+        partialGross != null
+          ? Math.max(0, partialGross - crewExpenseTotal - poolLedgerManualDeductionTotal)
+          : null;
       if (crewExpenseTotal > 0 && partialGross != null) {
         notes.push(`귀속 ${payMonthKey} 크루 지출 −${crewExpenseTotal.toLocaleString('ko-KR')}원`);
+      }
+      if (poolLedgerManualDeductionTotal > 0 && partialGross != null) {
+        notes.push(
+          `귀속 ${payMonthKey} 수기 장부 연결 −${poolLedgerManualDeductionTotal.toLocaleString('ko-KR')}원`,
+        );
       }
 
       poolOut.push({
@@ -281,6 +296,7 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
         unitAmount,
         partialGross,
         crewExpenseTotal,
+        poolLedgerManualDeductionTotal,
         partialNet,
         poolSettlementComplete: settledIds.has(m.id),
         notes,
@@ -308,6 +324,7 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
       unitAmount: m.payAmountPerJob,
       partialGross: null,
       crewExpenseTotal: 0,
+      poolLedgerManualDeductionTotal: 0,
       partialNet: null,
       poolSettlementComplete: false,
       notes: ['월급 지급일 미설정'],

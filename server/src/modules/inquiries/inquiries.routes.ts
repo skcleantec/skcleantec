@@ -30,6 +30,7 @@ import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmp
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 import inquiryConsultationPhotosAdminRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.admin.routes.js';
 import inquiryExtraChargesAdminRoutes from '../inquiry-extra-charges/inquiryExtraCharges.admin.routes.js';
+import inquiryAdditionalReceiptsAdminRoutes from '../inquiry-additional-receipts/inquiryAdditionalReceipts.admin.routes.js';
 import { buildInquiryPatchCrewRosterAckMessages } from './crewRosterAckMessages.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
@@ -287,6 +288,10 @@ router.get('/', async (req, res) => {
       orderBy: { sortOrder: 'asc' as const },
       include: { createdBy: { select: { id: true, name: true } } },
     },
+    additionalReceipts: {
+      orderBy: { sortOrder: 'asc' as const },
+      include: { createdBy: { select: { id: true, name: true } } },
+    },
   } as const;
 
   const [itemsRaw, total] = await Promise.all([
@@ -368,6 +373,7 @@ router.get('/:id', async (req, res) => {
 router.use('/:inquiryId/cleaning-photos', inquiryCleaningPhotosAdminRoutes);
 router.use('/:inquiryId/consultation-photos', inquiryConsultationPhotosAdminRoutes);
 router.use('/:inquiryId/extra-charges', inquiryExtraChargesAdminRoutes);
+router.use('/:inquiryId/additional-receipts', inquiryAdditionalReceiptsAdminRoutes);
 
 /** 같은 예약일 다른 접수와 팀원 투입(인원·이름) 맞바꿈 — 드롭다운으로는 가용 인원 부족할 때 사용 */
 router.post('/:id/swap-crew-with-partner', handlePostSwapCrewWithPartner);

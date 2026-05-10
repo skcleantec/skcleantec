@@ -27,7 +27,17 @@ export interface UserItem {
   payrollPayDay?: number | null;
   /** 고객 대면용 사원증 이미지 URL (관리자 Cloudinary 업로드) */
   staffIdCardUrl?: string | null;
+  /** 팀장만: 일반 정산 방식 */
+  teamLeaderGeneralSettlementMode?: 'FIXED_PER_JOB_WON' | 'PERCENT_OF_GENERAL_SERVICE_BPS' | null;
+  /** 팀장만: 건당 원 또는 일반 서비스 금액 대비 만분율(예 1500=15%) */
+  teamLeaderGeneralSettlementValue?: number | null;
+  /** 팀장만: 추가결재 정산 시 회사 몫 만분율(0~10000). null이면 운영 기본값으로 해석 가능 */
+  teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
 }
+
+export type TeamLeaderGeneralSettlementModeApi =
+  | 'FIXED_PER_JOB_WON'
+  | 'PERCENT_OF_GENERAL_SERVICE_BPS';
 
 /** @deprecated UserItem 사용 */
 export type TeamLeader = UserItem;
@@ -100,6 +110,10 @@ export async function createUser(
     /** 등록 시 선택 — 마케터·팀장 월 급여표 반영 */
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
+    /** 팀장만 — 건당 정산·일반 서비스 비율 */
+    teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
+    teamLeaderGeneralSettlementValue?: number | null;
+    teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
   }
 ): Promise<UserItem> {
   const res = await fetch(`${API}/users`, {
@@ -137,6 +151,9 @@ export async function updateUser(
     allowSelfDayOffEdit?: boolean;
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
+    teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
+    teamLeaderGeneralSettlementValue?: number | null;
+    teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
   }
 ): Promise<UserItem> {
   const res = await fetch(`${API}/users/${encodeURIComponent(id)}`, {

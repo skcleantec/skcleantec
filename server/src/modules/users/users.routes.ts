@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
+import type { TeamLeaderGeneralSettlementMode } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
@@ -62,6 +63,9 @@ router.get('/', adminOrMarketer, async (req, res) => {
       allowSelfDayOffEdit: true,
       payrollMonthlySalary: true,
       payrollPayDay: true,
+      teamLeaderGeneralSettlementMode: true,
+      teamLeaderGeneralSettlementValue: true,
+      teamLeaderAdditionalReceiptCompanyShareBps: true,
       staffIdCardUrl: true,
       externalCompany: { select: { id: true, name: true } },
     },
@@ -98,6 +102,9 @@ router.get('/', adminOrMarketer, async (req, res) => {
         allowSelfDayOffEdit: true,
         payrollMonthlySalary: true,
         payrollPayDay: true,
+        teamLeaderGeneralSettlementMode: true,
+        teamLeaderGeneralSettlementValue: true,
+        teamLeaderAdditionalReceiptCompanyShareBps: true,
         staffIdCardUrl: true,
         externalCompany: { select: { id: true, name: true } },
       },
@@ -124,6 +131,9 @@ router.get('/', adminOrMarketer, async (req, res) => {
       allowSelfDayOffEdit: u.role === 'TEAM_LEADER' ? u.allowSelfDayOffEdit : true,
       payrollMonthlySalary: u.payrollMonthlySalary ?? null,
       payrollPayDay: u.payrollPayDay ?? null,
+      teamLeaderGeneralSettlementMode: u.teamLeaderGeneralSettlementMode ?? null,
+      teamLeaderGeneralSettlementValue: u.teamLeaderGeneralSettlementValue ?? null,
+      teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
       staffIdCardUrl: u.staffIdCardUrl ?? null,
       ...serializeUserDates(u),
     }))
@@ -153,6 +163,9 @@ router.post('/', adminOnly, async (req, res) => {
     role?: 'TEAM_LEADER' | 'MARKETER';
     payrollMonthlySalary?: unknown;
     payrollPayDay?: unknown;
+    teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null | string;
+    teamLeaderGeneralSettlementValue?: unknown;
+    teamLeaderAdditionalReceiptCompanyShareBps?: unknown;
   };
   const { email, password, name, phone, role } = body;
   if (!email || !password || !name) {
@@ -201,6 +214,55 @@ router.post('/', adminOnly, async (req, res) => {
     }
   }
 
+  let teamLeaderGeneralSettlementMode: TeamLeaderGeneralSettlementMode | null | undefined;
+  let teamLeaderGeneralSettlementValue: number | null | undefined;
+  let teamLeaderAdditionalReceiptCompanyShareBps: number | null | undefined;
+
+  const TL_GEN_MODES_POST = new Set<string>(['FIXED_PER_JOB_WON', 'PERCENT_OF_GENERAL_SERVICE_BPS']);
+
+  if (userRole === 'TEAM_LEADER') {
+    if (body.teamLeaderGeneralSettlementMode !== undefined) {
+      const v = body.teamLeaderGeneralSettlementMode;
+      if (v === null || v === '') {
+        teamLeaderGeneralSettlementMode = null;
+      } else if (typeof v === 'string' && TL_GEN_MODES_POST.has(v)) {
+        teamLeaderGeneralSettlementMode = v as TeamLeaderGeneralSettlementMode;
+      } else {
+        res.status(400).json({ error: '일반 정산 방식 값이 올바르지 않습니다.' });
+        return;
+      }
+    }
+    if (body.teamLeaderGeneralSettlementValue !== undefined) {
+      const v = body.teamLeaderGeneralSettlementValue;
+      if (v === null || v === '') {
+        teamLeaderGeneralSettlementValue = null;
+      } else {
+        const n =
+          typeof v === 'number'
+            ? Math.trunc(v)
+            : parseInt(String(v).replace(/,/g, '').trim(), 10);
+        if (!Number.isFinite(n) || n < 0 || n > 100_000_000) {
+          res.status(400).json({ error: '일반 정산 값은 0 이상 정수(상한 1억)여야 합니다.' });
+          return;
+        }
+        teamLeaderGeneralSettlementValue = n;
+      }
+    }
+    if (body.teamLeaderAdditionalReceiptCompanyShareBps !== undefined) {
+      const v = body.teamLeaderAdditionalReceiptCompanyShareBps;
+      if (v === null || v === '') {
+        teamLeaderAdditionalReceiptCompanyShareBps = null;
+      } else {
+        const n = typeof v === 'number' ? Math.trunc(v) : parseInt(String(v).trim(), 10);
+        if (!Number.isFinite(n) || n < 0 || n > 10000) {
+          res.status(400).json({ error: '추가결재 회사 몫은 0~10000(만분율) 사이여야 합니다.' });
+          return;
+        }
+        teamLeaderAdditionalReceiptCompanyShareBps = n;
+      }
+    }
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
@@ -211,6 +273,15 @@ router.post('/', adminOnly, async (req, res) => {
       role: userRole,
       ...(payrollMonthlySalary !== undefined ? { payrollMonthlySalary } : {}),
       ...(payrollPayDay !== undefined ? { payrollPayDay } : {}),
+      ...(userRole === 'TEAM_LEADER' && teamLeaderGeneralSettlementMode !== undefined
+        ? { teamLeaderGeneralSettlementMode }
+        : {}),
+      ...(userRole === 'TEAM_LEADER' && teamLeaderGeneralSettlementValue !== undefined
+        ? { teamLeaderGeneralSettlementValue }
+        : {}),
+      ...(userRole === 'TEAM_LEADER' && teamLeaderAdditionalReceiptCompanyShareBps !== undefined
+        ? { teamLeaderAdditionalReceiptCompanyShareBps }
+        : {}),
     },
     select: {
       id: true,
@@ -223,6 +294,9 @@ router.post('/', adminOnly, async (req, res) => {
       allowSelfDayOffEdit: true,
       payrollMonthlySalary: true,
       payrollPayDay: true,
+      teamLeaderGeneralSettlementMode: true,
+      teamLeaderGeneralSettlementValue: true,
+      teamLeaderAdditionalReceiptCompanyShareBps: true,
       staffIdCardUrl: true,
     },
   });
@@ -231,6 +305,10 @@ router.post('/', adminOnly, async (req, res) => {
     allowSelfDayOffEdit: user.role === 'TEAM_LEADER' ? user.allowSelfDayOffEdit : true,
     payrollMonthlySalary: user.payrollMonthlySalary ?? null,
     payrollPayDay: user.payrollPayDay ?? null,
+    teamLeaderGeneralSettlementMode: user.teamLeaderGeneralSettlementMode ?? null,
+    teamLeaderGeneralSettlementValue: user.teamLeaderGeneralSettlementValue ?? null,
+    teamLeaderAdditionalReceiptCompanyShareBps:
+      user.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
     staffIdCardUrl: user.staffIdCardUrl ?? null,
     ...serializeUserDates(user),
   });
@@ -299,6 +377,9 @@ router.patch('/:id', adminOnly, async (req, res) => {
     allowSelfDayOffEdit?: boolean;
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
+    teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null | string;
+    teamLeaderGeneralSettlementValue?: number | null | string;
+    teamLeaderAdditionalReceiptCompanyShareBps?: number | string | null;
   };
   const authUser = (req as unknown as { user: AuthPayload }).user;
 
@@ -341,6 +422,9 @@ router.patch('/:id', adminOnly, async (req, res) => {
     allowSelfDayOffEdit?: boolean;
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
+    teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null;
+    teamLeaderGeneralSettlementValue?: number | null;
+    teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
   } = {};
 
   if (body.name != null) {
@@ -460,6 +544,63 @@ router.patch('/:id', adminOnly, async (req, res) => {
     }
   }
 
+  const TL_GEN_MODES = new Set<string>(['FIXED_PER_JOB_WON', 'PERCENT_OF_GENERAL_SERVICE_BPS']);
+
+  if (body.teamLeaderGeneralSettlementMode !== undefined) {
+    if (existing.role !== 'TEAM_LEADER') {
+      res.status(400).json({ error: '일반 정산 방식은 팀장 계정만 변경할 수 있습니다.' });
+      return;
+    }
+    const v = body.teamLeaderGeneralSettlementMode;
+    if (v === null || v === '') {
+      data.teamLeaderGeneralSettlementMode = null;
+    } else if (typeof v === 'string' && TL_GEN_MODES.has(v)) {
+      data.teamLeaderGeneralSettlementMode = v as TeamLeaderGeneralSettlementMode;
+    } else {
+      res.status(400).json({ error: '일반 정산 방식 값이 올바르지 않습니다.' });
+      return;
+    }
+  }
+
+  if (body.teamLeaderGeneralSettlementValue !== undefined) {
+    if (existing.role !== 'TEAM_LEADER') {
+      res.status(400).json({ error: '일반 정산 금액·비율은 팀장 계정만 변경할 수 있습니다.' });
+      return;
+    }
+    const v = body.teamLeaderGeneralSettlementValue;
+    if (v === null || v === '') {
+      data.teamLeaderGeneralSettlementValue = null;
+    } else {
+      const n =
+        typeof v === 'number'
+          ? Math.trunc(v)
+          : parseInt(String(v).replace(/,/g, '').trim(), 10);
+      if (!Number.isFinite(n) || n < 0 || n > 100_000_000) {
+        res.status(400).json({ error: '일반 정산 값은 0 이상 정수(상한 1억)여야 합니다.' });
+        return;
+      }
+      data.teamLeaderGeneralSettlementValue = n;
+    }
+  }
+
+  if (body.teamLeaderAdditionalReceiptCompanyShareBps !== undefined) {
+    if (existing.role !== 'TEAM_LEADER') {
+      res.status(400).json({ error: '추가결재 회사 몫 비율은 팀장 계정만 변경할 수 있습니다.' });
+      return;
+    }
+    const v = body.teamLeaderAdditionalReceiptCompanyShareBps;
+    if (v === null || v === '') {
+      data.teamLeaderAdditionalReceiptCompanyShareBps = null;
+    } else {
+      const n = typeof v === 'number' ? Math.trunc(v) : parseInt(String(v).trim(), 10);
+      if (!Number.isFinite(n) || n < 0 || n > 10000) {
+        res.status(400).json({ error: '추가결재 회사 몫은 0~10000(만분율) 사이여야 합니다.' });
+        return;
+      }
+      data.teamLeaderAdditionalReceiptCompanyShareBps = n;
+    }
+  }
+
   if (Object.keys(data).length === 0) {
     const u = await prisma.user.findUnique({
       where: { id },
@@ -474,6 +615,9 @@ router.patch('/:id', adminOnly, async (req, res) => {
         allowSelfDayOffEdit: true,
         payrollMonthlySalary: true,
         payrollPayDay: true,
+        teamLeaderGeneralSettlementMode: true,
+        teamLeaderGeneralSettlementValue: true,
+        teamLeaderAdditionalReceiptCompanyShareBps: true,
         staffIdCardUrl: true,
       },
     });
@@ -482,6 +626,10 @@ router.patch('/:id', adminOnly, async (req, res) => {
       allowSelfDayOffEdit: u!.role === 'TEAM_LEADER' ? u!.allowSelfDayOffEdit : true,
       payrollMonthlySalary: u!.payrollMonthlySalary ?? null,
       payrollPayDay: u!.payrollPayDay ?? null,
+      teamLeaderGeneralSettlementMode: u!.teamLeaderGeneralSettlementMode ?? null,
+      teamLeaderGeneralSettlementValue: u!.teamLeaderGeneralSettlementValue ?? null,
+      teamLeaderAdditionalReceiptCompanyShareBps:
+        u!.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
       staffIdCardUrl: u!.staffIdCardUrl ?? null,
       ...serializeUserDates(u!),
     });
@@ -502,6 +650,9 @@ router.patch('/:id', adminOnly, async (req, res) => {
       allowSelfDayOffEdit: true,
       payrollMonthlySalary: true,
       payrollPayDay: true,
+      teamLeaderGeneralSettlementMode: true,
+      teamLeaderGeneralSettlementValue: true,
+      teamLeaderAdditionalReceiptCompanyShareBps: true,
       staffIdCardUrl: true,
     },
   });
@@ -510,6 +661,10 @@ router.patch('/:id', adminOnly, async (req, res) => {
     allowSelfDayOffEdit: updated.role === 'TEAM_LEADER' ? updated.allowSelfDayOffEdit : true,
     payrollMonthlySalary: updated.payrollMonthlySalary ?? null,
     payrollPayDay: updated.payrollPayDay ?? null,
+    teamLeaderGeneralSettlementMode: updated.teamLeaderGeneralSettlementMode ?? null,
+    teamLeaderGeneralSettlementValue: updated.teamLeaderGeneralSettlementValue ?? null,
+    teamLeaderAdditionalReceiptCompanyShareBps:
+      updated.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
     staffIdCardUrl: updated.staffIdCardUrl ?? null,
     ...serializeUserDates(updated),
   });

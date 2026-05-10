@@ -33,6 +33,35 @@ export type PayrollSheetRow = {
   poolSettledAmount?: number | null;
   /** 팀장만: 해당 귀속 월 지급 건수 */
   leaderPaymentCount?: number;
+  /** 팀장: 일반(건당) 정산 지급 합 */
+  leaderGeneralPaidSum?: number;
+  /** 팀장: 추가결재 정산 지급 합 */
+  leaderAdditionalPaidSum?: number;
+  /** 팀장: 귀속 월(KST) 예약일 기준 배정 접수 수 */
+  leaderMonthAssignedJobCount?: number;
+  /** 팀장: 위 접수 서비스 총액 합 */
+  leaderMonthGeneralSalesSum?: number;
+  /** 팀장: 추가결재 매출 합 */
+  leaderMonthAdditionalSalesSum?: number;
+  /** 팀장: 일반 정산 예상 지급(규칙 미설정 시 null) */
+  leaderMonthSettlementDueGeneral?: number | null;
+  /** 팀장: 추가결재 팀장 몫 예상 */
+  leaderMonthSettlementDueAdditional?: number;
+  /** 팀장: 일반+추가 예상 합(일반 미산출 시 null) */
+  leaderMonthSettlementDueTotal?: number | null;
+  /** 팀장: 일반 미정산(예상 없으면 null) */
+  leaderMonthUnsettledGeneral?: number | null;
+  leaderMonthUnsettledAdditional?: number;
+  /** 팀장: 미정산 합(일반 미설정 시 추가 미정산만 합산) */
+  leaderMonthUnsettledCombined?: number;
+  /** 팀장: 추가결재 금액이 있는 배정 접수 건수 */
+  leaderMonthAdditionalReceiptInquiryCount?: number;
+  /** 팀장: 입사월~선택 귀속 월까지 월별 미정산 합산 */
+  leaderCumulativeUnsettledWon?: number;
+  /** 팀장: 사용자 등록 일반 정산 방식 */
+  teamLeaderGeneralSettlementMode?: 'FIXED_PER_JOB_WON' | 'PERCENT_OF_GENERAL_SERVICE_BPS' | null;
+  teamLeaderGeneralSettlementValue?: number | null;
+  teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
   /** 마케터: 미정산 이월 합산 전 금액 */
   marketerOpeningCarryForward?: number;
   marketerMonthlySalary?: number | null;
@@ -47,6 +76,8 @@ export type PayrollSheetRow = {
   marketerAccruedSalaryEstimateAsOfToday?: number | null;
   /** 현장 팀원: 해당 귀속 월 크루 등록 지출 합계 */
   crewExpenseTotal?: number;
+  /** 현장 팀원: 수기 장부 지출 중 본인에게 연결된 합계 — 실지급 예상 차감 */
+  poolLedgerManualDeductionTotal?: number;
   /** 현장 팀원: 예상 급여 − 지출 (최소 0) — 실지급 예상·정산 확정 기준 */
   amountNet?: number | null;
 };
@@ -86,6 +117,7 @@ export type PayrollExpenseForwardPoolRow = {
   unitAmount: number | null;
   partialGross: number | null;
   crewExpenseTotal: number;
+  poolLedgerManualDeductionTotal: number;
   partialNet: number | null;
   poolSettlementComplete: boolean;
   notes: string[];
@@ -190,6 +222,56 @@ export async function getPayrollAccountLedger(
   return res.json();
 }
 
+export async function postPayrollAccountLedgerManualEntry(
+  token: string,
+  body: {
+    month: string;
+    occurredOn: string;
+    direction: 'in' | 'out';
+    accountLabel: string;
+    amount: number | string;
+    memo?: string | null;
+    payrollLinkKind?: 'none' | 'pool_member' | 'team_leader' | 'marketer' | 'external_company';
+    linkTeamMemberId?: string | null;
+    linkUserId?: string | null;
+    linkExternalCompanyId?: string | null;
+  },
+): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/admin/payroll/account-ledger/manual`, {
+    method: 'POST',
+    headers: {
+      ...headers(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '등록에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function deletePayrollAccountLedgerManualEntry(
+  token: string,
+  entryId: string,
+  password: string,
+): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/admin/payroll/account-ledger/manual/${encodeURIComponent(entryId)}`, {
+    method: 'DELETE',
+    headers: {
+      ...headers(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+  return res.json();
+}
+
 export type PayrollExternalSettlementReceivedItem = {
   id: string;
   paidAt: string;
@@ -266,6 +348,7 @@ export type PayrollPoolMemberDetailResponse = {
   /** 근무일×일당 예상(차감 전) */
   amount: number | null;
   crewExpenseTotal: number;
+  poolLedgerManualDeductionTotal: number;
   /** 예상 급여 − 지출 (최소 0) */
   amountNet: number | null;
   crewExpenseLines: PayrollCrewExpenseLedgerLine[];
@@ -342,6 +425,23 @@ export type PayrollTeamLeaderPaymentRow = {
   createdAt: string;
   monthKey: string;
   monthLabel: string;
+  settlementBucket?: 'GENERAL_JOB_SETTLEMENT' | 'ADDITIONAL_RECEIPT_SETTLEMENT';
+};
+
+export type PayrollTeamLeaderMonthAccrual = {
+  assignedJobCount: number;
+  /** 추가결재 금액이 있는 배정 접수 건수 */
+  additionalReceiptInquiryCount?: number;
+  generalSalesSum: number;
+  additionalSalesSum: number;
+  settlementDueGeneral: number | null;
+  settlementDueAdditional: number;
+  settlementDueTotal: number | null;
+  paidGeneralSum: number;
+  paidAdditionalSum: number;
+  unsettledGeneral: number | null;
+  unsettledAdditional: number;
+  unsettledCombined: number;
 };
 
 export type PayrollTeamLeaderPaymentsResponse = {
@@ -349,7 +449,12 @@ export type PayrollTeamLeaderPaymentsResponse = {
   monthLabel: string;
   user: { id: string; name: string };
   contractSalary: number | null;
+  teamLeaderGeneralSettlementMode?: 'FIXED_PER_JOB_WON' | 'PERCENT_OF_GENERAL_SERVICE_BPS' | null;
+  teamLeaderGeneralSettlementValue?: number | null;
+  teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
   monthPaidTotal: number;
+  /** 귀속 월 배정·매출·예상 정산·입금·미정산 */
+  monthAccrual: PayrollTeamLeaderMonthAccrual;
   monthPayments: PayrollTeamLeaderPaymentRow[];
   priorPayments: PayrollTeamLeaderPaymentRow[];
 };
@@ -373,7 +478,12 @@ export async function getPayrollTeamLeaderPayments(
 export async function postPayrollTeamLeaderPayment(
   token: string,
   userId: string,
-  body: { amount: number; paidOn?: string; memo?: string },
+  body: {
+    amount: number;
+    paidOn?: string;
+    memo?: string;
+    settlementBucket?: 'GENERAL_JOB_SETTLEMENT' | 'ADDITIONAL_RECEIPT_SETTLEMENT';
+  },
   month?: string
 ): Promise<{ ok: boolean; payment: PayrollTeamLeaderPaymentRow }> {
   const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';

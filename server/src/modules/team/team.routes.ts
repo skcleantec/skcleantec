@@ -8,6 +8,7 @@ import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCal
 import inquiryCleaningPhotosTeamRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.team.routes.js';
 import inquiryConsultationPhotosTeamRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.team.routes.js';
 import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtraCharges.team.routes.js';
+import inquiryAdditionalReceiptsTeamRoutes from '../inquiry-additional-receipts/inquiryAdditionalReceipts.team.routes.js';
 import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
@@ -101,6 +102,10 @@ const teamInquiryInclude = {
     },
   },
   extraCharges: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: { createdBy: { select: { id: true, name: true } } },
+  },
+  additionalReceipts: {
     orderBy: { sortOrder: 'asc' as const },
     include: { createdBy: { select: { id: true, name: true } } },
   },
@@ -203,6 +208,7 @@ router.get('/nav-badges', async (req, res) => {
 router.use('/inquiries/:inquiryId/cleaning-photos', inquiryCleaningPhotosTeamRoutes);
 router.use('/inquiries/:inquiryId/consultation-photos', inquiryConsultationPhotosTeamRoutes);
 router.use('/inquiries/:inquiryId/extra-charges', inquiryExtraChargesTeamRoutes);
+router.use('/inquiries/:inquiryId/additional-receipts', inquiryAdditionalReceiptsTeamRoutes);
 
 /** 팀장: 접수 상세를 열어 확인한 것으로 표시 — 메뉴 미확인 배정 수 감소 */
 router.post('/inquiries/:id/detail-viewed', async (req, res) => {

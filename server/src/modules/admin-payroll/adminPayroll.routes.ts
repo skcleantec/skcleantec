@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { InquiryStatus, Prisma } from '@prisma/client';
+import { InquiryStatus, PayrollAccountLedgerManualDirection, PayrollLedgerManualPayrollLinkKind, Prisma, TeamLeaderPayrollPaymentBucket, TeamLeaderGeneralSettlementMode } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
@@ -12,6 +12,11 @@ import { dateToYmdKst, employmentOverlapsMonthKst } from '../users/userEmploymen
 
 import { computePoolMemberPayrollDetail } from './poolMemberPayrollCompute.js';
 import { buildPoolMemberPayrollSheetRows } from './payrollSheetPoolShared.js';
+import {
+  attachPaidAndUnsettled,
+  computeLeaderCumulativeUnsettledThroughMonth,
+  computeTeamLeaderPayrollMonthAccrualMap,
+} from './teamLeaderPayrollMonthAccrual.service.js';
 import {
   compareMonthKey,
   marketerRemainderAfterSettle,
@@ -40,6 +45,10 @@ import {
   listPayrollIncomeDepositsForMonth,
 } from './payrollIncomeDeposit.service.js';
 import { buildPayrollAccountLedger } from './payrollAccountLedger.service.js';
+import {
+  createPayrollAccountLedgerManualEntry,
+  deletePayrollAccountLedgerManualEntryById,
+} from './payrollAccountLedgerManual.service.js';
 
 const router = Router();
 
@@ -174,6 +183,271 @@ router.get('/account-ledger', async (req: Request, res: Response) => {
   }
 });
 
+/** 계정 수입·지출 표 — 수기 수입·지출 행 추가 */
+router.post('/account-ledger/manual', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const body = req.body as {
+    month?: unknown;
+    occurredOn?: unknown;
+    direction?: unknown;
+    accountLabel?: unknown;
+    amount?: unknown;
+    memo?: unknown;
+    payrollLinkKind?: unknown;
+    linkTeamMemberId?: unknown;
+    linkUserId?: unknown;
+    linkExternalCompanyId?: unknown;
+  };
+
+  const monthRaw = typeof body.month === 'string' ? body.month.trim() : '';
+  const monthKey = monthRaw && MONTH_KEY.test(monthRaw) ? monthRaw : '';
+  if (!monthKey || !kstMonthRangeYm(monthKey)) {
+    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
+    return;
+  }
+
+  const depRaw = typeof body.occurredOn === 'string' ? body.occurredOn.trim() : '';
+  const occurredDt = parseYmdDateOnly(depRaw);
+  if (!occurredDt) {
+    res.status(400).json({ error: '거래일은 YYYY-MM-DD 형식으로 입력해 주세요.' });
+    return;
+  }
+  const ymdFromRow = dateOnlyToYmd(occurredDt);
+  if (ymdFromRow.slice(0, 7) !== monthKey) {
+    res.status(400).json({ error: '거래일은 선택한 귀속 월 안의 날짜여야 합니다.' });
+    return;
+  }
+
+  const dirRaw = typeof body.direction === 'string' ? body.direction.trim().toLowerCase() : '';
+  const direction =
+    dirRaw === 'in'
+      ? PayrollAccountLedgerManualDirection.IN
+      : dirRaw === 'out'
+        ? PayrollAccountLedgerManualDirection.OUT
+        : null;
+  if (!direction) {
+    res.status(400).json({ error: 'direction은 in 또는 out 이어야 합니다.' });
+    return;
+  }
+
+  const labelRaw = typeof body.accountLabel === 'string' ? body.accountLabel.trim() : '';
+  if (!labelRaw || labelRaw.length > 128) {
+    res.status(400).json({ error: '계정·명목은 1~128자로 입력해 주세요.' });
+    return;
+  }
+
+  const amtRaw = body.amount;
+  const amount =
+    typeof amtRaw === 'number' && Number.isFinite(amtRaw)
+      ? Math.floor(amtRaw)
+      : typeof amtRaw === 'string'
+        ? parseInt(amtRaw.replace(/,/g, '').trim(), 10)
+        : NaN;
+  if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000_000) {
+    res.status(400).json({ error: '금액은 1원 이상 유효한 숫자로 입력해 주세요.' });
+    return;
+  }
+
+  let memo: string | null = null;
+  if (typeof body.memo === 'string') {
+    const t = body.memo.trim();
+    memo = t.length > 2000 ? t.slice(0, 2000) : t.length ? t : null;
+  }
+
+  let payrollLinkKind: PayrollLedgerManualPayrollLinkKind = PayrollLedgerManualPayrollLinkKind.NONE;
+  let linkTeamMemberId: string | null = null;
+  let linkUserId: string | null = null;
+  let linkExternalCompanyId: string | null = null;
+
+  const rangeForLink = kstMonthRangeYm(monthKey);
+  const linkMonthStartYmd = rangeForLink ? dateToYmdKst(rangeForLink.gte) : '';
+  const linkMonthEndYmd = rangeForLink ? dateToYmdKst(rangeForLink.lte) : '';
+
+  if (direction === PayrollAccountLedgerManualDirection.OUT) {
+    const lkRaw =
+      typeof body.payrollLinkKind === 'string' ? body.payrollLinkKind.trim().toLowerCase() : '';
+    if (lkRaw === '' || lkRaw === 'none') {
+      payrollLinkKind = PayrollLedgerManualPayrollLinkKind.NONE;
+    } else if (lkRaw === 'pool_member') {
+      payrollLinkKind = PayrollLedgerManualPayrollLinkKind.POOL_MEMBER;
+      const tid =
+        typeof body.linkTeamMemberId === 'string' ? body.linkTeamMemberId.trim() : '';
+      if (!tid) {
+        res.status(400).json({ error: '현장 팀원 연결 시 대상을 선택해 주세요.' });
+        return;
+      }
+      const tm = await prisma.teamMember.findFirst({
+        where: { id: tid, teamId: null, isActive: true },
+        select: { id: true },
+      });
+      if (!tm) {
+        res.status(400).json({ error: '풀(현장) 팀원만 연결할 수 있습니다.' });
+        return;
+      }
+      linkTeamMemberId = tm.id;
+    } else if (lkRaw === 'team_leader') {
+      payrollLinkKind = PayrollLedgerManualPayrollLinkKind.TEAM_LEADER;
+      const uid = typeof body.linkUserId === 'string' ? body.linkUserId.trim() : '';
+      if (!uid) {
+        res.status(400).json({ error: '팀장 연결 시 대상을 선택해 주세요.' });
+        return;
+      }
+      const u = await prisma.user.findFirst({
+        where: { id: uid, isActive: true, role: 'TEAM_LEADER' },
+        select: { id: true, hireDate: true, resignationDate: true },
+      });
+      if (!u) {
+        res.status(400).json({ error: '활성 팀장 계정만 연결할 수 있습니다.' });
+        return;
+      }
+      if (
+        linkMonthStartYmd &&
+        linkMonthEndYmd &&
+        !employmentOverlapsMonthKst(u.hireDate, u.resignationDate, linkMonthStartYmd, linkMonthEndYmd)
+      ) {
+        res.status(400).json({ error: '선택한 귀속 월 급여표에 포함되지 않는 팀장입니다.' });
+        return;
+      }
+      linkUserId = u.id;
+    } else if (lkRaw === 'marketer') {
+      payrollLinkKind = PayrollLedgerManualPayrollLinkKind.MARKETER;
+      const uid = typeof body.linkUserId === 'string' ? body.linkUserId.trim() : '';
+      if (!uid) {
+        res.status(400).json({ error: '마케터 연결 시 대상을 선택해 주세요.' });
+        return;
+      }
+      const u = await prisma.user.findFirst({
+        where: { id: uid, isActive: true, role: 'MARKETER' },
+        select: { id: true, hireDate: true, resignationDate: true },
+      });
+      if (!u) {
+        res.status(400).json({ error: '활성 마케터 계정만 연결할 수 있습니다.' });
+        return;
+      }
+      if (
+        linkMonthStartYmd &&
+        linkMonthEndYmd &&
+        !employmentOverlapsMonthKst(u.hireDate, u.resignationDate, linkMonthStartYmd, linkMonthEndYmd)
+      ) {
+        res.status(400).json({ error: '선택한 귀속 월 급여표에 포함되지 않는 마케터입니다.' });
+        return;
+      }
+      linkUserId = u.id;
+    } else if (lkRaw === 'external_company') {
+      payrollLinkKind = PayrollLedgerManualPayrollLinkKind.EXTERNAL_COMPANY;
+      const cid =
+        typeof body.linkExternalCompanyId === 'string' ? body.linkExternalCompanyId.trim() : '';
+      if (!cid) {
+        res.status(400).json({ error: '타업체 연결 시 업체를 선택해 주세요.' });
+        return;
+      }
+      const ec = await prisma.externalCompany.findFirst({
+        where: { id: cid, isActive: true },
+        select: { id: true },
+      });
+      if (!ec) {
+        res.status(400).json({ error: '활성 타업체만 연결할 수 있습니다.' });
+        return;
+      }
+      linkExternalCompanyId = ec.id;
+    } else {
+      res.status(400).json({ error: '지원하지 않는 급여 연결 유형입니다.' });
+      return;
+    }
+  }
+
+  const row = await createPayrollAccountLedgerManualEntry(prisma, {
+    monthKey,
+    direction,
+    occurredOn: occurredDt,
+    accountLabel: labelRaw,
+    amount,
+    memo,
+    createdById: authUser.userId,
+    payrollLinkKind,
+    linkTeamMemberId,
+    linkUserId,
+    linkExternalCompanyId,
+  });
+
+  res.status(201).json({
+    ok: true,
+    item: {
+      id: row.id,
+      direction: row.direction === PayrollAccountLedgerManualDirection.IN ? 'in' : 'out',
+      occurredOnYmd: dateOnlyToYmd(row.occurredOn),
+      accountLabel: row.accountLabel,
+      amount: row.amount,
+      memo: row.memo,
+      payrollLinkKind:
+        row.payrollLinkKind === PayrollLedgerManualPayrollLinkKind.NONE
+          ? 'none'
+          : row.payrollLinkKind === PayrollLedgerManualPayrollLinkKind.POOL_MEMBER
+            ? 'pool_member'
+            : row.payrollLinkKind === PayrollLedgerManualPayrollLinkKind.TEAM_LEADER
+              ? 'team_leader'
+              : row.payrollLinkKind === PayrollLedgerManualPayrollLinkKind.MARKETER
+                ? 'marketer'
+                : row.payrollLinkKind === PayrollLedgerManualPayrollLinkKind.EXTERNAL_COMPANY
+                  ? 'external_company'
+                  : 'none',
+      linkTeamMemberId: row.linkTeamMemberId,
+      linkUserId: row.linkUserId,
+      linkExternalCompanyId: row.linkExternalCompanyId,
+      createdAt: row.createdAt.toISOString(),
+      createdBy: row.createdBy,
+    },
+  });
+});
+
+router.delete('/account-ledger/manual/:entryId', async (req: Request, res: Response) => {
+  const authUser = (req as Request & { user?: AuthPayload }).user;
+  if (!authUser?.userId) {
+    res.status(401).json({ error: '인증이 필요합니다.' });
+    return;
+  }
+
+  const entryId = typeof req.params.entryId === 'string' ? req.params.entryId.trim() : '';
+  if (!entryId) {
+    res.status(400).json({ error: 'entryId가 필요합니다.' });
+    return;
+  }
+
+  const body = req.body as { password?: unknown };
+  const password = body.password != null ? String(body.password).trim() : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: authUser.userId },
+    select: { id: true, passwordHash: true },
+  });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const deleted = await deletePayrollAccountLedgerManualEntryById(prisma, entryId);
+  if (!deleted) {
+    res.status(404).json({ error: '내역을 찾을 수 없습니다.' });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
 function todayYmdKst(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
@@ -213,6 +487,9 @@ async function loadTeamLeaderPayrollSubject(
   id: string;
   name: string;
   payrollMonthlySalary: number | null;
+  teamLeaderGeneralSettlementMode: TeamLeaderGeneralSettlementMode | null;
+  teamLeaderGeneralSettlementValue: number | null;
+  teamLeaderAdditionalReceiptCompanyShareBps: number | null;
 } | null> {
   const range = kstMonthRangeYm(monthKey);
   if (!range) return null;
@@ -224,6 +501,9 @@ async function loadTeamLeaderPayrollSubject(
       id: true,
       name: true,
       payrollMonthlySalary: true,
+      teamLeaderGeneralSettlementMode: true,
+      teamLeaderGeneralSettlementValue: true,
+      teamLeaderAdditionalReceiptCompanyShareBps: true,
       hireDate: true,
       resignationDate: true,
     },
@@ -232,7 +512,14 @@ async function loadTeamLeaderPayrollSubject(
   if (!employmentOverlapsMonthKst(u.hireDate, u.resignationDate, monthStartYmd, monthEndYmd)) {
     return null;
   }
-  return { id: u.id, name: u.name, payrollMonthlySalary: u.payrollMonthlySalary };
+  return {
+    id: u.id,
+    name: u.name,
+    payrollMonthlySalary: u.payrollMonthlySalary,
+    teamLeaderGeneralSettlementMode: u.teamLeaderGeneralSettlementMode ?? null,
+    teamLeaderGeneralSettlementValue: u.teamLeaderGeneralSettlementValue ?? null,
+    teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
+  };
 }
 
 async function loadMarketerPayrollSubject(
@@ -310,6 +597,10 @@ router.get('/sheet', async (req, res) => {
     poolSettlementComplete?: boolean;
     poolSettledAmount?: number | null;
     leaderPaymentCount?: number;
+    /** 팀장: 귀속 월 일반(건당) 정산 지급 합 */
+    leaderGeneralPaidSum?: number;
+    /** 팀장: 귀속 월 추가결재 정산 지급 합 */
+    leaderAdditionalPaidSum?: number;
     marketerOpeningCarryForward?: number;
     marketerMonthlySalary?: number | null;
     marketerTotalDue?: number | null;
@@ -320,7 +611,27 @@ router.get('/sheet', async (req, res) => {
     marketerAccruedSalaryEstimateAsOfToday?: number | null;
     /** 마케터: 사용자 등록 급여일(미등록 시 말일과 동일하게 31) */
     payrollPayDay?: number;
+    /** 팀장: 사용자 등록 일반 정산 방식 */
+    teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null;
+    teamLeaderGeneralSettlementValue?: number | null;
+    teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
+    /** 팀장: 귀속 월 예약일 기준 배정 접수 수·매출·예상 정산·미정산 */
+    leaderMonthAssignedJobCount?: number;
+    leaderMonthGeneralSalesSum?: number;
+    leaderMonthAdditionalSalesSum?: number;
+    leaderMonthSettlementDueGeneral?: number | null;
+    leaderMonthSettlementDueAdditional?: number;
+    leaderMonthSettlementDueTotal?: number | null;
+    leaderMonthUnsettledGeneral?: number | null;
+    leaderMonthUnsettledAdditional?: number;
+    leaderMonthUnsettledCombined?: number;
+    /** 추가결재 금액이 있는 배정 접수 건수 */
+    leaderMonthAdditionalReceiptInquiryCount?: number;
+    /** 입사월~선택 귀속 월까지 월별 미정산 합산 */
+    leaderCumulativeUnsettledWon?: number;
     crewExpenseTotal?: number;
+    /** 수기 장부 지출 중 해당 풀 팀원 연결 합계 — 실지급 예상 차감분 */
+    poolLedgerManualDeductionTotal?: number;
     amountNet?: number | null;
   };
 
@@ -358,6 +669,9 @@ router.get('/sheet', async (req, res) => {
       resignationDate: true,
       payrollMonthlySalary: true,
       payrollPayDay: true,
+      teamLeaderGeneralSettlementMode: true,
+      teamLeaderGeneralSettlementValue: true,
+      teamLeaderAdditionalReceiptCompanyShareBps: true,
     },
     orderBy: [{ role: 'asc' }, { name: 'asc' }],
   });
@@ -368,15 +682,61 @@ router.get('/sheet', async (req, res) => {
       ? []
       : await prisma.teamLeaderPayrollPayment.findMany({
           where: { userId: { in: leaderIds }, monthKey },
-          select: { userId: true, amount: true },
+          select: { userId: true, amount: true, settlementBucket: true },
         });
-  const leaderAgg = new Map<string, { sum: number; count: number }>();
+  const leaderAgg = new Map<
+    string,
+    { sum: number; count: number; sumGeneral: number; sumAdditional: number }
+  >();
   for (const p of leaderPaymentsMonth) {
-    const cur = leaderAgg.get(p.userId) ?? { sum: 0, count: 0 };
+    const cur = leaderAgg.get(p.userId) ?? {
+      sum: 0,
+      count: 0,
+      sumGeneral: 0,
+      sumAdditional: 0,
+    };
     cur.sum += p.amount;
     cur.count += 1;
+    if (p.settlementBucket === 'ADDITIONAL_RECEIPT_SETTLEMENT') {
+      cur.sumAdditional += p.amount;
+    } else {
+      cur.sumGeneral += p.amount;
+    }
     leaderAgg.set(p.userId, cur);
   }
+
+  const leaderStaffForAccrualMonth = staffUsers.filter(
+    (u) =>
+      u.role === 'TEAM_LEADER' &&
+      employmentOverlapsMonthKst(u.hireDate, u.resignationDate, monthStartYmd, monthEndYmd),
+  );
+
+  const leaderProfilesForAccrual = leaderStaffForAccrualMonth.map((u) => ({
+    id: u.id,
+    teamLeaderGeneralSettlementMode: u.teamLeaderGeneralSettlementMode ?? null,
+    teamLeaderGeneralSettlementValue: u.teamLeaderGeneralSettlementValue ?? null,
+    teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
+  }));
+
+  const leaderMonthAccrualById =
+    leaderProfilesForAccrual.length === 0
+      ? new Map()
+      : await computeTeamLeaderPayrollMonthAccrualMap(prisma, monthKey, leaderProfilesForAccrual);
+
+  const leaderCumulativeUnsettledById =
+    leaderStaffForAccrualMonth.length === 0
+      ? new Map<string, number>()
+      : await computeLeaderCumulativeUnsettledThroughMonth(
+          prisma,
+          monthKey,
+          leaderStaffForAccrualMonth.map((u) => ({
+            id: u.id,
+            hireDate: u.hireDate,
+            teamLeaderGeneralSettlementMode: u.teamLeaderGeneralSettlementMode ?? null,
+            teamLeaderGeneralSettlementValue: u.teamLeaderGeneralSettlementValue ?? null,
+            teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
+          })),
+        );
 
   const marketerIdsForSheet = staffUsers.filter((u) => u.role === 'MARKETER').map((u) => u.id);
   const marketerAllSettleRows =
@@ -434,12 +794,38 @@ router.get('/sheet', async (req, res) => {
 
     if (u.role === 'TEAM_LEADER') {
       const notes: string[] = [];
+      const genMode = u.teamLeaderGeneralSettlementMode ?? null;
+      const genVal = u.teamLeaderGeneralSettlementValue ?? null;
+      const addBps = u.teamLeaderAdditionalReceiptCompanyShareBps ?? null;
+      if (genMode === 'FIXED_PER_JOB_WON' && genVal != null) {
+        notes.push(`일반·건당 ${genVal.toLocaleString('ko-KR')}원`);
+      } else if (genMode === 'PERCENT_OF_GENERAL_SERVICE_BPS' && genVal != null) {
+        notes.push(`일반·만분율 ${genVal} (${(genVal / 100).toFixed(2)}%)`);
+      } else if (genMode != null && genVal == null) {
+        notes.push('일반 정산: 방식만 등록됨');
+      }
+      if (addBps != null) {
+        notes.push(`추가결재 회사몫 만분율 ${addBps} (${(addBps / 100).toFixed(2)}%)`);
+      }
       if (u.payrollMonthlySalary != null) {
         notes.push(`참고·등록 월급액 ${u.payrollMonthlySalary.toLocaleString('ko-KR')}원`);
       }
       const agg = leaderAgg.get(u.id);
       const paymentCount = agg?.count ?? 0;
       const paidSum = agg?.sum ?? 0;
+      const paidGeneral = agg?.sumGeneral ?? 0;
+      const paidAdditional = agg?.sumAdditional ?? 0;
+
+      const accrualCore = leaderMonthAccrualById.get(u.id) ?? {
+        assignedJobCount: 0,
+        additionalReceiptInquiryCount: 0,
+        generalSalesSum: 0,
+        additionalSalesSum: 0,
+        settlementDueGeneral: null,
+        settlementDueAdditional: 0,
+        settlementDueTotal: null,
+      };
+      const accrualFull = attachPaidAndUnsettled(accrualCore, paidGeneral, paidAdditional);
 
       rows.push({
         kind: 'TEAM_LEADER',
@@ -454,6 +840,22 @@ router.get('/sheet', async (req, res) => {
         amount: paymentCount > 0 ? paidSum : null,
         notes,
         leaderPaymentCount: paymentCount,
+        leaderGeneralPaidSum: paidGeneral > 0 ? paidGeneral : undefined,
+        leaderAdditionalPaidSum: paidAdditional > 0 ? paidAdditional : undefined,
+        teamLeaderGeneralSettlementMode: genMode,
+        teamLeaderGeneralSettlementValue: genVal,
+        teamLeaderAdditionalReceiptCompanyShareBps: addBps,
+        leaderMonthAssignedJobCount: accrualFull.assignedJobCount,
+        leaderMonthGeneralSalesSum: accrualFull.generalSalesSum,
+        leaderMonthAdditionalSalesSum: accrualFull.additionalSalesSum,
+        leaderMonthSettlementDueGeneral: accrualFull.settlementDueGeneral,
+        leaderMonthSettlementDueAdditional: accrualFull.settlementDueAdditional,
+        leaderMonthSettlementDueTotal: accrualFull.settlementDueTotal,
+        leaderMonthUnsettledGeneral: accrualFull.unsettledGeneral,
+        leaderMonthUnsettledAdditional: accrualFull.unsettledAdditional,
+        leaderMonthUnsettledCombined: accrualFull.unsettledCombined,
+        leaderMonthAdditionalReceiptInquiryCount: accrualFull.additionalReceiptInquiryCount,
+        leaderCumulativeUnsettledWon: leaderCumulativeUnsettledById.get(u.id) ?? 0,
       });
       continue;
     }
@@ -648,6 +1050,7 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
     jobCount: computation.jobCount,
     amount: computation.amount,
     crewExpenseTotal: computation.crewExpenseTotal,
+    poolLedgerManualDeductionTotal: computation.poolLedgerManualDeductionTotal,
     amountNet: computation.amountNet,
     crewExpenseLines: computation.crewExpenseLines,
     notes: computation.notes,
@@ -783,16 +1186,47 @@ router.get('/team-leader/:userId/payments', async (req, res) => {
     createdAt: row.createdAt.toISOString(),
     monthKey: row.monthKey,
     monthLabel: payrollMonthLabelFromKey(row.monthKey),
+    settlementBucket: row.settlementBucket,
   });
 
   const monthPaidTotal = monthRows.reduce((s, r) => s + r.amount, 0);
+
+  const paidGeneralSum = monthRows
+    .filter((r) => r.settlementBucket !== 'ADDITIONAL_RECEIPT_SETTLEMENT')
+    .reduce((s, r) => s + r.amount, 0);
+  const paidAdditionalSum = monthRows
+    .filter((r) => r.settlementBucket === 'ADDITIONAL_RECEIPT_SETTLEMENT')
+    .reduce((s, r) => s + r.amount, 0);
+
+  const accrualMap = await computeTeamLeaderPayrollMonthAccrualMap(prisma, monthKey, [
+    {
+      id: subject.id,
+      teamLeaderGeneralSettlementMode: subject.teamLeaderGeneralSettlementMode,
+      teamLeaderGeneralSettlementValue: subject.teamLeaderGeneralSettlementValue,
+      teamLeaderAdditionalReceiptCompanyShareBps: subject.teamLeaderAdditionalReceiptCompanyShareBps,
+    },
+  ]);
+  const accrualCore = accrualMap.get(subject.id) ?? {
+    assignedJobCount: 0,
+    additionalReceiptInquiryCount: 0,
+    generalSalesSum: 0,
+    additionalSalesSum: 0,
+    settlementDueGeneral: null,
+    settlementDueAdditional: 0,
+    settlementDueTotal: null,
+  };
+  const monthAccrual = attachPaidAndUnsettled(accrualCore, paidGeneralSum, paidAdditionalSum);
 
   res.json({
     month: monthKey,
     monthLabel: payrollMonthLabelFromKey(monthKey),
     user: { id: subject.id, name: subject.name },
     contractSalary: subject.payrollMonthlySalary,
+    teamLeaderGeneralSettlementMode: subject.teamLeaderGeneralSettlementMode,
+    teamLeaderGeneralSettlementValue: subject.teamLeaderGeneralSettlementValue,
+    teamLeaderAdditionalReceiptCompanyShareBps: subject.teamLeaderAdditionalReceiptCompanyShareBps,
     monthPaidTotal,
+    monthAccrual,
     monthPayments: monthRows.map(mapRow),
     priorPayments: priorRows.map(mapRow),
   });
@@ -823,7 +1257,12 @@ router.post('/team-leader/:userId/payments', async (req: Request, res: Response)
     return;
   }
 
-  const body = req.body as { amount?: unknown; paidOn?: unknown; memo?: unknown };
+  const body = req.body as {
+    amount?: unknown;
+    paidOn?: unknown;
+    memo?: unknown;
+    settlementBucket?: unknown;
+  };
   let amount = 0;
   if (typeof body.amount === 'number' && Number.isInteger(body.amount)) {
     amount = body.amount;
@@ -843,6 +1282,17 @@ router.post('/team-leader/:userId/payments', async (req: Request, res: Response)
     return;
   }
 
+  let settlementBucket: TeamLeaderPayrollPaymentBucket = 'GENERAL_JOB_SETTLEMENT';
+  const sb = body.settlementBucket;
+  if (sb === 'ADDITIONAL_RECEIPT_SETTLEMENT') settlementBucket = 'ADDITIONAL_RECEIPT_SETTLEMENT';
+  else if (sb !== undefined && sb !== null && sb !== '' && sb !== 'GENERAL_JOB_SETTLEMENT') {
+    res.status(400).json({
+      error:
+        'settlementBucket는 GENERAL_JOB_SETTLEMENT 또는 ADDITIONAL_RECEIPT_SETTLEMENT 여야 합니다.',
+    });
+    return;
+  }
+
   let memo: string | null = null;
   if (typeof body.memo === 'string') {
     const t = body.memo.trim();
@@ -857,6 +1307,7 @@ router.post('/team-leader/:userId/payments', async (req: Request, res: Response)
       paidOn: paidOnDate,
       memo,
       actorId: authUser.userId,
+      settlementBucket,
     },
   });
 
@@ -870,6 +1321,7 @@ router.post('/team-leader/:userId/payments', async (req: Request, res: Response)
       createdAt: row.createdAt.toISOString(),
       monthKey: row.monthKey,
       monthLabel: payrollMonthLabelFromKey(row.monthKey),
+      settlementBucket: row.settlementBucket,
     },
   });
 });
