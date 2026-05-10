@@ -184,3 +184,28 @@ $env:SKCT_TARGET_DATABASE_URL = '<Railway staging 공개 Proxy DATABASE_URL>'
 
 - 스테이징 웹 서비스 **재배포** 또는 앱 재시작 후, 스테이징 URL에서 데이터·로그인을 확인한다.
 - `pg_restore` 가 경고만 내고 끝나는 경우가 있어, **접수·사용자 몇 건**이 보이는지 꼭 확인한다.
+
+---
+
+## 웹에서 「운영 DB 가져오기」(스테이징 전용)
+
+배포된 **스테이징** 관리자 화면에서만, 지정한 개발자 계정의 프로필 드롭다운에 **운영 DB 가져오기**가 나타납니다. PowerShell 스크립트와 동일하게 `pg_dump` → `pg_restore(--clean --if-exists)` 를 서버에서 실행합니다.
+
+### Railway 스테이징 웹 서비스 변수
+
+| 변수 | 설명 |
+|------|------|
+| `STAGING_DB_IMPORT_ENABLED` | `true` 로 두면 기능 활성화(스테이징에서만 설정). **운영에는 넣지 않는다.** |
+| `STAGING_DB_IMPORT_SOURCE_DATABASE_URL` | **운영(메인) Postgres**의 공개 Proxy `DATABASE_URL`. 스테이징 앱이 이 주소로 **읽기 전용 덤프**만 한다. |
+| `STAGING_DB_IMPORT_OPERATOR_EMAIL_SUBSTRING` | (선택) 기본값 `pyo`. 로그인 이메일(소문자)에 이 문자열이 **포함**된 **ADMIN** 만 메뉴·API 사용 가능. 다른 개발자 계정으로 바꿀 때만 수정. |
+| `STAGING_DB_IMPORT_ALLOW_LOCAL` | (선택) 로컬 `npm run dev` 로 이 기능을 시험할 때만 `true`. `NODE_ENV=production` 이면 무시된다. |
+
+복원 대상은 항상 해당 서비스의 **`DATABASE_URL`**(스테이징 Postgres)이다. 운영 DB로 쓰기하지 않는다.
+
+Railway는 컨테이너에 `RAILWAY_ENVIRONMENT=staging` 을 넣는 경우가 많다. 코드상 **`RAILWAY_ENVIRONMENT === 'staging'`** 일 때만 위 변수 조합으로 기능이 켜진다(로컬 시험은 `STAGING_DB_IMPORT_ALLOW_LOCAL=true`).
+
+### 주의
+
+- 작업 중에는 Prisma 연결이 잠시 끊기므로 **스테이징 API가 잠깐 오류**를 낼 수 있다.
+- Railway를 **인스턴스 여러 개**로 띄우면 작업 상태 조회가 다른 인스턴스로 가 **404** 가 날 수 있다. 가능하면 스테이징 웹은 단일 인스턴스를 권장한다.
+- 이미지(Dockerfile 러너)에 `postgresql-client`(`pg_dump`/`pg_restore`)가 포함되어 있어야 한다.

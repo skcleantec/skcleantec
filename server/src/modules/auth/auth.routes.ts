@@ -6,6 +6,7 @@ import { config } from '../../config/index.js';
 import { authMiddleware, type AuthPayload, type CrewViewerRole } from './auth.middleware.js';
 import { isSuperAdminRoleAndEmail } from './superAdmin.js';
 import { isTeamPreviewAdminEmail } from './teamPreview.helpers.js';
+import { userMayUseStagingDbImport } from '../admin/stagingDbImport.helpers.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 
 /** 활성 크루 그룹 — 로그인·미리보기 공통 조회 */
@@ -135,6 +136,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     hireDate: r.hireDate,
     allowSelfDayOffEdit: user.role === 'TEAM_LEADER' ? user.allowSelfDayOffEdit : true,
     isSuperAdmin: isSuperAdminRoleAndEmail(user.role, user.email),
+    showStagingDbImport: userMayUseStagingDbImport(user.role, user.email),
   });
 });
 

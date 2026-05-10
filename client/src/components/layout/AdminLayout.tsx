@@ -24,6 +24,7 @@ import {
 import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 import { UserProfileMenu } from '../common/UserProfileMenu';
+import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 
@@ -118,6 +119,8 @@ export function AdminLayout() {
   const [draggingNavId, setDraggingNavId] = useState<AdminNavId | null>(null);
   const [fabTop, setFabTop] = useState<number | null>(null);
   const fabTopRef = useRef<number | null>(null);
+  const [showStagingDbImportMenu, setShowStagingDbImportMenu] = useState(false);
+  const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
   const [fabDragging, setFabDragging] = useState(false);
   const fabPointerIdRef = useRef<number | null>(null);
   const fabHoldTimerRef = useRef<number | null>(null);
@@ -174,19 +177,28 @@ export function AdminLayout() {
       setMePhone(null);
       setMeVehicleNumber(null);
       setTeamPreviewLink(false);
+      setShowStagingDbImportMenu(false);
       setMeProfileLoading(false);
       return;
     }
     setMeProfileLoading(true);
     let cancelled = false;
     getMe(token)
-      .then((u: { role?: string; email?: string; name?: string; phone?: string | null; vehicleNumber?: string | null }) => {
+      .then((u: {
+        role?: string;
+        email?: string;
+        name?: string;
+        phone?: string | null;
+        vehicleNumber?: string | null;
+        showStagingDbImport?: boolean;
+      }) => {
         if (cancelled) return;
         const role = typeof u.role === 'string' ? u.role : null;
         setMeRole(role);
         setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
         setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
         setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
+        setShowStagingDbImportMenu(Boolean(u.showStagingDbImport));
         /** 팀·크루 미리보기: 업무 관리자(ADMIN) + 개발용 이메일 화이트리스트만. 일반 마케터는 제외 */
         const email = typeof u.email === 'string' ? u.email : '';
         const preview = role === 'ADMIN' || isTeamPreviewAdminEmail(email);
@@ -203,6 +215,7 @@ export function AdminLayout() {
           setMePhone(null);
           setMeVehicleNumber(null);
           setTeamPreviewLink(false);
+          setShowStagingDbImportMenu(false);
           clearToken();
           navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
           return;
@@ -516,6 +529,8 @@ export function AdminLayout() {
                 token={adminToken}
                 me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
                 loading={meProfileLoading}
+                showStagingDbImport={showStagingDbImportMenu}
+                onStagingDbImport={() => setStagingDbImportModalOpen(true)}
                 onSaved={(next) => {
                   setMeName(next.name);
                   setMePhone(next.phone);
@@ -703,6 +718,8 @@ export function AdminLayout() {
               token={adminToken}
               me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
               loading={meProfileLoading}
+              showStagingDbImport={showStagingDbImportMenu}
+              onStagingDbImport={() => setStagingDbImportModalOpen(true)}
               onSaved={(next) => {
                 setMeName(next.name);
                 setMePhone(next.phone);
@@ -756,6 +773,17 @@ export function AdminLayout() {
           <CalendarCuteIcon className="h-5 w-5 drop-shadow-sm" />
         </button>
       )}
+      <AdminStagingDbImportModal
+        open={stagingDbImportModalOpen}
+        onClose={() => setStagingDbImportModalOpen(false)}
+        token={adminToken}
+        onSessionExpired={() => {
+          setStagingDbImportModalOpen(false);
+          clearToken();
+          clearTeamToken();
+          navigate('/login', { replace: true, state: { sessionExpired: true } });
+        }}
+      />
     </div>
   );
 }

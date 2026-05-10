@@ -21,6 +21,8 @@ export function UserProfileMenu({
   onSaved,
   onLogout,
   onSessionExpired,
+  showStagingDbImport,
+  onStagingDbImport,
 }: {
   token: string | null;
   me: MeUser | null;
@@ -35,6 +37,9 @@ export function UserProfileMenu({
   }) => void;
   onLogout: () => void;
   onSessionExpired?: () => void;
+  /** 스테이징 등에서만 서버가 true로 내려줌 */
+  showStagingDbImport?: boolean;
+  onStagingDbImport?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -124,7 +129,7 @@ export function UserProfileMenu({
           <span aria-hidden>▾</span>
         </button>
         {menuOpen ? (
-          <div className="absolute right-0 z-[140] mt-1 w-40 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+          <div className="absolute right-0 z-[140] mt-1 min-w-[11rem] w-max max-w-[min(100vw-2rem,16rem)] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
             <button
               type="button"
               onClick={openProfileModal}
@@ -132,6 +137,18 @@ export function UserProfileMenu({
             >
               개인정보 수정
             </button>
+            {showStagingDbImport && onStagingDbImport ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onStagingDbImport();
+                }}
+                className="block w-full px-3 py-2 text-left text-sm text-amber-900 hover:bg-amber-50"
+              >
+                운영 DB 가져오기
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onLogout}
