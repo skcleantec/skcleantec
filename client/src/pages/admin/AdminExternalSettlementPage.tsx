@@ -526,38 +526,41 @@ export function AdminExternalSettlementPage() {
                 inputMode="numeric"
                 className="w-full rounded border border-gray-300 px-3 py-2 text-sm tabular-nums"
               />
-              <div className="flex flex-wrap gap-1.5 pt-1">
+              <div className="flex w-full min-w-0 flex-nowrap gap-1 pt-1 sm:gap-1.5">
                 <button
                   type="button"
-                  className="min-h-[40px] touch-manipulation rounded border border-gray-300 bg-gray-50 px-2.5 py-1.5 text-[11px] font-medium text-gray-800 active:bg-gray-100"
+                  aria-label="마이너스 전환"
+                  title="마이너스 전환"
+                  className="flex min-h-[40px] min-w-0 flex-1 basis-0 touch-manipulation items-center justify-center rounded border border-gray-300 bg-gray-50 px-0.5 py-2 text-fluid-2xs font-medium leading-none text-gray-800 active:bg-gray-100 sm:px-1.5 sm:min-h-[42px]"
                   onClick={() => setPayAmountInput((v) => sanitizeExternalPayAmountInput(toggleExternalPayAmountMinus(v)))}
                 >
-                  − 마이너스
+                  <span className="sm:hidden">−</span>
+                  <span className="hidden sm:inline">− 마이너스</span>
                 </button>
                 <button
                   type="button"
-                  className="min-h-[40px] touch-manipulation rounded border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-800 active:bg-gray-100"
+                  className="flex min-h-[40px] min-w-0 flex-1 basis-0 touch-manipulation items-center justify-center rounded border border-gray-300 bg-white px-0.5 py-2 text-fluid-2xs font-medium leading-none text-gray-800 active:bg-gray-100 sm:px-1.5 sm:min-h-[42px]"
                   onClick={() => setPayAmountInput((v) => sanitizeExternalPayAmountInput(addExternalPayAmountUnit(v, 10_000)))}
                 >
                   만
                 </button>
                 <button
                   type="button"
-                  className="min-h-[40px] touch-manipulation rounded border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-800 active:bg-gray-100"
+                  className="flex min-h-[40px] min-w-0 flex-1 basis-0 touch-manipulation items-center justify-center rounded border border-gray-300 bg-white px-0.5 py-2 text-fluid-2xs font-medium leading-none text-gray-800 active:bg-gray-100 sm:px-1.5 sm:min-h-[42px]"
                   onClick={() => setPayAmountInput((v) => sanitizeExternalPayAmountInput(addExternalPayAmountUnit(v, 100_000)))}
                 >
                   십만
                 </button>
                 <button
                   type="button"
-                  className="min-h-[40px] touch-manipulation rounded border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-800 active:bg-gray-100"
+                  className="flex min-h-[40px] min-w-0 flex-1 basis-0 touch-manipulation items-center justify-center rounded border border-gray-300 bg-white px-0.5 py-2 text-fluid-2xs font-medium leading-none text-gray-800 active:bg-gray-100 sm:px-1.5 sm:min-h-[42px]"
                   onClick={() => setPayAmountInput((v) => sanitizeExternalPayAmountInput(addExternalPayAmountUnit(v, 1_000_000)))}
                 >
                   백만
                 </button>
                 <button
                   type="button"
-                  className="min-h-[40px] touch-manipulation rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-900 active:bg-amber-100"
+                  className="flex min-h-[40px] min-w-0 flex-1 basis-0 touch-manipulation items-center justify-center rounded border border-amber-200 bg-amber-50 px-0.5 py-2 text-fluid-2xs font-medium leading-none text-amber-900 active:bg-amber-100 sm:px-1.5 sm:min-h-[42px]"
                   onClick={() => setPayAmountInput('')}
                 >
                   정정
