@@ -7,18 +7,116 @@ function headers(token: string) {
   };
 }
 
+export type AdChannelSettlementMode = 'DIRECT_AMOUNT' | 'COUNT_LINES';
+
+export interface AdChannelLineItem {
+  id: string;
+  channelId: string;
+  label: string;
+  unitAmountWon: number;
+  countsForSpend: boolean;
+  useAsAvgDenominator: boolean;
+  sortOrder: number;
+  createdAt?: string;
+}
+
 export interface AdChannel {
   id: string;
   name: string;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
+  settlementMode?: AdChannelSettlementMode;
+  lineItems?: AdChannelLineItem[];
 }
 
 export async function getAdChannels(token: string, all?: boolean): Promise<{ items: AdChannel[] }> {
   const q = all ? '?all=1' : '';
   const res = await fetch(`${API}/advertising/channels${q}`, { headers: headers(token) });
   if (!res.ok) throw new Error('채널 목록을 불러올 수 없습니다.');
+  return res.json();
+}
+
+/** 관리자: 비활성 채널 포함 전체 + 과목 (정산 설정 화면) */
+export async function getAdvertisingSettlementConfig(token: string): Promise<{ items: AdChannel[] }> {
+  const res = await fetch(`${API}/advertising/settlement-config`, { headers: headers(token) });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || '정산 설정을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function patchAdChannelSettlementMode(
+  token: string,
+  channelId: string,
+  settlementMode: AdChannelSettlementMode
+): Promise<AdChannel> {
+  const res = await fetch(`${API}/advertising/channels/${channelId}/settlement-mode`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify({ settlementMode }),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || '정산 방식 변경에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function createAdChannelLineItem(
+  token: string,
+  channelId: string,
+  data: {
+    label: string;
+    unitAmountWon: number;
+    countsForSpend?: boolean;
+    sortOrder?: number;
+  }
+): Promise<AdChannelLineItem> {
+  const res = await fetch(`${API}/advertising/channels/${channelId}/line-items`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || '과목 추가에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function updateAdChannelLineItem(
+  token: string,
+  lineItemId: string,
+  data: {
+    label?: string;
+    unitAmountWon?: number;
+    countsForSpend?: boolean;
+    sortOrder?: number;
+  }
+): Promise<AdChannelLineItem> {
+  const res = await fetch(`${API}/advertising/line-items/${lineItemId}`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || '과목 수정에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function deleteAdChannelLineItem(token: string, lineItemId: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/advertising/line-items/${lineItemId}`, {
+    method: 'DELETE',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || '과목 삭제에 실패했습니다.');
+  }
   return res.json();
 }
 
@@ -103,21 +201,36 @@ export async function startAdSession(token: string): Promise<ActiveSession> {
   return res.json();
 }
 
+/** 종료 모달 — 발주서 제출 건수 자동 집계 미리보기 */
+export interface BookingDenominatorPreview {
+  sessionId?: string | null;
+  rangeStartIso: string | null;
+  autoCount: number;
+}
+
+export async function getBookingDenominatorPreview(token: string): Promise<BookingDenominatorPreview> {
+  const res = await fetch(`${API}/advertising/sessions/booking-denominator-preview`, {
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error('예약 건수 미리보기를 불러올 수 없습니다.');
+  return res.json();
+}
+
 export type EndAdSessionLine =
   | { channelId: string; amount: number }
-  | {
-      channelId: string;
-      soomgo: { received: number; autoEstimate: number; confirmed: number };
-    };
+  | { channelId: string; lineCounts: Record<string, number> };
 
 export async function endAdSession(
   token: string,
-  lines: EndAdSessionLine[]
+  lines: EndAdSessionLine[],
+  opts?: { bookingDenominator?: { manual: boolean; manualCount?: number } }
 ): Promise<{ session: unknown }> {
+  const body: Record<string, unknown> = { lines };
+  if (opts?.bookingDenominator) body.bookingDenominator = opts.bookingDenominator;
   const res = await fetch(`${API}/advertising/sessions/end`, {
     method: 'POST',
     headers: headers(token),
-    body: JSON.stringify({ lines }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
@@ -166,6 +279,16 @@ export async function getAdvertisingAnalytics(
   return res.json();
 }
 
+export type AdSpendCountBreakdownRow = {
+  lineItemId: string;
+  label: string;
+  unitAmountWon: number;
+  count: number;
+  countsForSpend: boolean;
+  useAsAvgDenominator: boolean;
+  lineAmountWon: number;
+};
+
 export interface HistorySession {
   id: string;
   userId: string;
@@ -177,6 +300,7 @@ export interface HistorySession {
     soomgoReceivedCount?: number | null;
     soomgoAutoEstimateCount?: number | null;
     soomgoConfirmedCount?: number | null;
+    countBreakdown?: AdSpendCountBreakdownRow[] | null;
   }[];
   user: { id: string; name: string; email: string; role: string };
 }

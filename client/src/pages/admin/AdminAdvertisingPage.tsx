@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { getMe } from '../../api/auth';
 import { getUsers } from '../../api/users';
 import {
   getAdChannels,
-  createAdChannel,
-  updateAdChannel,
   reorderAdChannels,
   deleteAdChannel,
   getAdvertisingAnalytics,
@@ -46,7 +45,6 @@ export function AdminAdvertisingPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const [newChannelName, setNewChannelName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<AdChannel | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -89,27 +87,6 @@ export function AdminAdvertisingPage() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const handleAddChannel = async () => {
-    if (!token || !newChannelName.trim()) return;
-    try {
-      await createAdChannel(token, newChannelName.trim());
-      setNewChannelName('');
-      await load();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : '추가 실패');
-    }
-  };
-
-  const handleToggleChannel = async (c: AdChannel) => {
-    if (!token) return;
-    try {
-      await updateAdChannel(token, c.id, { isActive: !c.isActive });
-      await load();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : '수정 실패');
-    }
-  };
 
   const moveChannel = async (id: string, direction: 'up' | 'down') => {
     if (!token) return;
@@ -157,6 +134,16 @@ export function AdminAdvertisingPage() {
           ? '전체 마케터 기준 지출·발주서 접수 실적을 집계합니다. (마케터는 본인만 조회)'
           : '본인의 광고비 지출과 발주서 접수 실적입니다.'}
       </p>
+      {role === 'ADMIN' && (
+        <p className="text-fluid-sm text-gray-700 rounded-lg border border-blue-100 bg-blue-50/80 px-4 py-3">
+          광고 채널을 <strong className="font-medium text-gray-900">추가할지</strong>, 채널별{' '}
+          <strong className="font-medium text-gray-900">사용함·사용 안 함</strong>은{' '}
+          <Link to="/admin/advertising/settings" className="font-medium text-blue-700 underline hover:text-blue-800">
+            광고비 → 설정
+          </Link>
+          에서 지정할 수 있습니다.
+        </p>
+      )}
 
       {err && (
         <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-fluid-sm">{err}</div>
@@ -321,12 +308,21 @@ export function AdminAdvertisingPage() {
                           {h.spendLines.map((l) => (
                             <span key={l.channel.id} className="inline-block mr-2 mb-1 align-top">
                               {l.channel.name} {won(l.amount)}
-                              {l.soomgoReceivedCount != null && (
+                              {Array.isArray(l.countBreakdown) && l.countBreakdown.length > 0 ? (
+                                <span className="block text-fluid-xs text-gray-500 mt-0.5 max-w-[24rem]">
+                                  {l.countBreakdown.map((bd) => (
+                                    <span key={bd.lineItemId} className="mr-2 mb-0.5 inline-block">
+                                      {bd.label} {bd.count}건
+                                      {bd.countsForSpend ? ` (${won(bd.lineAmountWon)})` : ' (합산 제외)'}
+                                    </span>
+                                  ))}
+                                </span>
+                              ) : l.soomgoReceivedCount != null ? (
                                 <span className="block text-fluid-xs text-gray-500 mt-0.5 max-w-[18rem]">
                                   받은요청 {l.soomgoReceivedCount}건 · 자동견적 {l.soomgoAutoEstimateCount ?? 0}건 · 예약확정{' '}
                                   {l.soomgoConfirmedCount ?? 0}건
                                 </span>
-                              )}
+                              ) : null}
                             </span>
                           ))}
                         </td>
@@ -342,26 +338,10 @@ export function AdminAdvertisingPage() {
 
       {isSuperAdmin && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-fluid-base font-medium text-gray-800 mb-2">광고 채널 관리 (최고 관리자)</h2>
+          <h2 className="text-fluid-base font-medium text-gray-800 mb-2">광고 채널 표시 순서·삭제 (최고 관리자)</h2>
           <p className="text-fluid-sm text-gray-600 mb-4">
-            순서는 위·아래로 조정합니다. 이력이 있는 채널은 삭제할 수 없으며 비활성화만 가능합니다. 삭제 시 본인 비밀번호가 필요합니다.
+            채널 추가·사용 여부는 「설정」 탭에서 관리합니다. 여기서는 목록 순서만 바꾸거나, 이력이 없는 채널만 삭제할 수 있습니다.
           </p>
-          <div className="flex flex-wrap gap-2 mb-4">
-            <input
-              type="text"
-              className="border border-gray-300 rounded px-3 py-1.5 text-fluid-sm flex-1 min-w-[12rem]"
-              placeholder="새 채널 이름"
-              value={newChannelName}
-              onChange={(e) => setNewChannelName(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => void handleAddChannel()}
-              className="px-3 py-1.5 bg-blue-600 text-white text-fluid-sm rounded hover:bg-blue-700"
-            >
-              추가
-            </button>
-          </div>
           <div className="border border-gray-200 rounded overflow-x-auto">
             <table className="w-full text-fluid-sm min-w-[520px]">
               <thead className="bg-gray-50">
@@ -394,18 +374,13 @@ export function AdminAdvertisingPage() {
                         ↓
                       </button>
                     </td>
-                    <td className={`py-2 px-3 ${c.isActive ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                    <td className={`py-2 px-3 ${c.isActive ? 'text-gray-900' : 'text-gray-500'}`}>
                       {c.name}
-                      {!c.isActive && ' (비활성)'}
+                      {!c.isActive && (
+                        <span className="block text-fluid-xs text-amber-700 mt-0.5">(설정에서 사용 안 함)</span>
+                      )}
                     </td>
                     <td className="py-2 px-3 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => void handleToggleChannel(c)}
-                        className="text-fluid-xs text-blue-600 hover:underline mr-2"
-                      >
-                        {c.isActive ? '비활성화' : '다시 사용'}
-                      </button>
                       <button
                         type="button"
                         onClick={() => {

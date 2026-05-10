@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   authMiddleware,
   adminOrMarketer,
+  adminOnly,
   type AuthPayload,
   superAdminOnly,
 } from '../auth/auth.middleware.js';
@@ -16,10 +17,14 @@ import {
   sumSpendFromSessions,
 } from './advertising.helpers.js';
 import {
-  isSoomgoChannelName,
-  SOOMGO_WON_PER_AUTO_ESTIMATE,
-  SOOMGO_WON_PER_RECEIVED_REQUEST,
-} from './soomgoAd.constants.js';
+  normalizeAdSessionEndLines,
+  type NormalizedAdSpendRow,
+  type RawAdSessionEndLine,
+} from './advertising.sessionEndNormalize.js';
+import {
+  applyResolvedBookingDenominator,
+  countOrderFormSubmissionsInRange,
+} from './advertising.bookingDenominator.js';
 
 const router = Router();
 
@@ -27,7 +32,7 @@ function authUser(req: unknown): AuthPayload {
   return (req as { user: AuthPayload }).user;
 }
 
-/** 활성 채널 목록 (종료 시 금액 입력용). ?all=1 이면 최고 관리자만 비활성 포함 */
+/** 활성 채널 목록 (종료 시 금액 입력용). ?all=1 이면 최고 관리자만 비활성 포함. 과목(lineItems) 포함 */
 router.get('/channels', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
   const all = req.query.all === '1' || req.query.all === 'true';
@@ -35,11 +40,146 @@ router.get('/channels', authMiddleware, adminOrMarketer, async (req, res) => {
   const channels = await prisma.adChannel.findMany({
     where: includeInactive ? {} : { isActive: true },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    include: { lineItems: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
   });
   res.json({ items: channels });
 });
 
-router.post('/channels', authMiddleware, superAdminOnly, async (req, res) => {
+/** 관리자 전용: 모든 채널·과목 설정 조회 (비활성 포함) */
+router.get('/settlement-config', authMiddleware, adminOnly, async (_req, res) => {
+  const items = await prisma.adChannel.findMany({
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    include: { lineItems: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
+  });
+  res.json({ items });
+});
+
+router.patch('/channels/:id/settlement-mode', authMiddleware, adminOnly, async (req, res) => {
+  const { id } = req.params;
+  const mode = (req.body as { settlementMode?: string }).settlementMode;
+  if (mode !== 'DIRECT_AMOUNT' && mode !== 'COUNT_LINES') {
+    res.status(400).json({ error: 'settlementMode는 DIRECT_AMOUNT 또는 COUNT_LINES 여야 합니다.' });
+    return;
+  }
+  /** 과목 0건이어도 건수 방식으로 전환 허용 → 설정 화면에서 과목 추가 후 사용 */
+  try {
+    const row = await prisma.adChannel.update({
+      where: { id },
+      data: { settlementMode: mode },
+      include: { lineItems: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
+    });
+    res.json(row);
+  } catch {
+    res.status(404).json({ error: '채널을 찾을 수 없습니다.' });
+  }
+});
+
+router.post('/channels/:channelId/line-items', authMiddleware, adminOnly, async (req, res) => {
+  const { channelId } = req.params;
+  const body = req.body as {
+    label?: string;
+    unitAmountWon?: number;
+    countsForSpend?: boolean;
+    sortOrder?: number;
+  };
+  const label = String(body.label ?? '').trim();
+  if (!label || label.length > 128) {
+    res.status(400).json({ error: '과목 이름을 입력해 주세요. (128자 이내)' });
+    return;
+  }
+  const unit = Math.round(Number(body.unitAmountWon));
+  if (!Number.isFinite(unit) || unit < 0) {
+    res.status(400).json({ error: '건당 금액은 0 이상 정수로 입력해 주세요.' });
+    return;
+  }
+  const ch = await prisma.adChannel.findUnique({ where: { id: channelId } });
+  if (!ch) {
+    res.status(404).json({ error: '채널을 찾을 수 없습니다.' });
+    return;
+  }
+  const countsForSpend = body.countsForSpend != null ? Boolean(body.countsForSpend) : true;
+  /** 합산 제외 과목 건수 = 종료 화면 평균 분모(자동). 별도 설정 불필요 */
+  const useAsAvgDenominator = !countsForSpend;
+  const sortOrder =
+    typeof body.sortOrder === 'number' && Number.isFinite(body.sortOrder) ? Math.round(body.sortOrder) : 0;
+
+  const row = await prisma.adChannelLineItem.create({
+    data: {
+      channelId,
+      label,
+      unitAmountWon: unit,
+      countsForSpend,
+      useAsAvgDenominator,
+      sortOrder,
+    },
+  });
+  res.json(row);
+});
+
+router.patch('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, res) => {
+  const { lineItemId } = req.params;
+  const body = req.body as {
+    label?: string;
+    unitAmountWon?: number;
+    countsForSpend?: boolean;
+    sortOrder?: number;
+  };
+  const existingFull = await prisma.adChannelLineItem.findUnique({
+    where: { id: lineItemId },
+  });
+  if (!existingFull) {
+    res.status(404).json({ error: '과목을 찾을 수 없습니다.' });
+    return;
+  }
+
+  let labelNext: string | undefined;
+  if (body.label != null) {
+    const label = String(body.label).trim();
+    if (!label || label.length > 128) {
+      res.status(400).json({ error: '과목 이름은 128자 이내로 입력해 주세요.' });
+      return;
+    }
+    labelNext = label;
+  }
+  if (body.unitAmountWon != null) {
+    const unit = Math.round(Number(body.unitAmountWon));
+    if (!Number.isFinite(unit) || unit < 0) {
+      res.status(400).json({ error: '건당 금액은 0 이상 정수입니다.' });
+      return;
+    }
+  }
+
+  const nextCountsForSpend =
+    body.countsForSpend != null ? Boolean(body.countsForSpend) : existingFull.countsForSpend;
+
+  const row = await prisma.adChannelLineItem.update({
+    where: { id: lineItemId },
+    data: {
+      ...(labelNext != null ? { label: labelNext } : {}),
+      ...(body.unitAmountWon != null
+        ? { unitAmountWon: Math.round(Number(body.unitAmountWon)) }
+        : {}),
+      ...(body.countsForSpend != null ? { countsForSpend: nextCountsForSpend } : {}),
+      useAsAvgDenominator: !nextCountsForSpend,
+      ...(body.sortOrder != null && Number.isFinite(body.sortOrder)
+        ? { sortOrder: Math.round(body.sortOrder) }
+        : {}),
+    },
+  });
+  res.json(row);
+});
+
+router.delete('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, res) => {
+  const { lineItemId } = req.params;
+  try {
+    await prisma.adChannelLineItem.delete({ where: { id: lineItemId } });
+    res.json({ ok: true });
+  } catch {
+    res.status(404).json({ error: '과목을 찾을 수 없습니다.' });
+  }
+});
+
+router.post('/channels', authMiddleware, adminOnly, async (req, res) => {
   const { name, sortOrder } = req.body as { name?: string; sortOrder?: number };
   const n = String(name ?? '').trim();
   if (!n) {
@@ -122,13 +262,29 @@ router.delete('/channels/:id', authMiddleware, superAdminOnly, async (req, res) 
   }
 });
 
-router.patch('/channels/:id', authMiddleware, superAdminOnly, async (req, res) => {
+router.patch('/channels/:id', authMiddleware, adminOnly, async (req, res) => {
+  const user = authUser(req);
   const { id } = req.params;
   const body = req.body as { name?: string; isActive?: boolean; sortOrder?: number };
+  const isSuper = isSuperAdminRoleAndEmail(user.role, user.email);
+
   const data: { name?: string; isActive?: boolean; sortOrder?: number } = {};
-  if (body.name != null) data.name = String(body.name).trim();
-  if (body.isActive != null) data.isActive = Boolean(body.isActive);
-  if (body.sortOrder != null && typeof body.sortOrder === 'number') data.sortOrder = body.sortOrder;
+  if (isSuper) {
+    if (body.name != null) data.name = String(body.name).trim();
+    if (body.isActive != null) data.isActive = Boolean(body.isActive);
+    if (body.sortOrder != null && typeof body.sortOrder === 'number') data.sortOrder = body.sortOrder;
+  } else {
+    if (body.name != null || body.sortOrder != null) {
+      res.status(403).json({ error: '채널 이름·표시 순서 변경은 최고 관리자만 가능합니다.' });
+      return;
+    }
+    if (body.isActive == null) {
+      res.status(400).json({ error: '사용 여부만 변경할 수 있습니다.' });
+      return;
+    }
+    data.isActive = Boolean(body.isActive);
+  }
+
   if (Object.keys(data).length === 0) {
     res.status(400).json({ error: '수정할 내용이 없습니다.' });
     return;
@@ -166,14 +322,36 @@ router.get('/sessions/active', authMiddleware, adminOrMarketer, async (req, res)
   res.json({ session });
 });
 
+/** 종료 입력 모달 — 예약(발주서 제출) 건수 자동 집계 미리보기 */
+router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = authUser(req);
+  const session = await prisma.adWorkSession.findFirst({
+    where: { userId: user.userId, endedAt: null },
+    orderBy: { startedAt: 'desc' },
+  });
+  if (!session) {
+    res.json({ session: null, autoCount: 0, rangeStartIso: null as string | null });
+    return;
+  }
+  const prevEnded = await prisma.adWorkSession.findFirst({
+    where: { userId: user.userId, endedAt: { not: null } },
+    orderBy: { endedAt: 'desc' },
+  });
+  const rangeStart = prevEnded?.endedAt ?? session.startedAt;
+  const now = new Date();
+  const autoCount = await countOrderFormSubmissionsInRange(prisma, user.userId, rangeStart, now);
+  res.json({
+    sessionId: session.id,
+    rangeStartIso: rangeStart.toISOString(),
+    autoCount,
+  });
+});
+
 router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
   const body = req.body as {
-    lines?: Array<{
-      channelId?: string;
-      amount?: number;
-      soomgo?: { received?: number; autoEstimate?: number; confirmed?: number };
-    }>;
+    lines?: RawAdSessionEndLine[];
+    bookingDenominator?: { manual?: boolean; manualCount?: number };
   };
   const rawLines = Array.isArray(body.lines) ? body.lines : [];
   const session = await prisma.adWorkSession.findFirst({
@@ -185,67 +363,22 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
     return;
   }
 
+  const prevEnded = await prisma.adWorkSession.findFirst({
+    where: { userId: user.userId, endedAt: { not: null } },
+    orderBy: { endedAt: 'desc' },
+  });
+
   const activeChannels = await prisma.adChannel.findMany({
     where: { isActive: true },
-    select: { id: true, name: true },
+    include: { lineItems: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
   });
-  const channelById = new Map(activeChannels.map((c) => [c.id, c]));
-  const allowed = new Set(activeChannels.map((c) => c.id));
 
-  const channelIds = new Set<string>();
-  const normalized: Array<{
-    channelId: string;
-    amount: number;
-    soomgoReceived?: number | null;
-    soomgoAuto?: number | null;
-    soomgoConfirmed?: number | null;
-  }> = [];
-
-  for (const row of rawLines) {
-    if (!row?.channelId || typeof row.channelId !== 'string') continue;
-    if (channelIds.has(row.channelId)) continue;
-    if (!allowed.has(row.channelId)) continue;
-
-    const ch = channelById.get(row.channelId);
-    if (!ch) continue;
-
-    if (isSoomgoChannelName(ch.name)) {
-      const sg = row.soomgo;
-      if (!sg || typeof sg !== 'object') {
-        res.status(400).json({ error: `${ch.name}: 숨고 채널은 받은요청·자동견적·예약확정 건수를 입력해 주세요.` });
-        return;
-      }
-      const received = Math.max(0, Math.floor(Number(sg.received)));
-      const autoEst = Math.max(0, Math.floor(Number(sg.autoEstimate)));
-      const confirmed = Math.max(0, Math.floor(Number(sg.confirmed)));
-      if (!Number.isFinite(received) || !Number.isFinite(autoEst) || !Number.isFinite(confirmed)) {
-        res.status(400).json({ error: `${ch.name}: 건수는 0 이상 정수로 입력해 주세요.` });
-        return;
-      }
-      const amt =
-        received * SOOMGO_WON_PER_RECEIVED_REQUEST + autoEst * SOOMGO_WON_PER_AUTO_ESTIMATE;
-      if (amt <= 0) {
-        res.status(400).json({
-          error: `${ch.name}: 받은요청·자동견적 건수로 산출된 당일 광고비가 0원입니다.`,
-        });
-        return;
-      }
-      channelIds.add(row.channelId);
-      normalized.push({
-        channelId: row.channelId,
-        amount: amt,
-        soomgoReceived: received,
-        soomgoAuto: autoEst,
-        soomgoConfirmed: confirmed,
-      });
-    } else {
-      if (typeof row.amount !== 'number' || !Number.isFinite(row.amount)) continue;
-      const amt = Math.max(0, Math.round(row.amount));
-      if (amt <= 0) continue;
-      channelIds.add(row.channelId);
-      normalized.push({ channelId: row.channelId, amount: amt, soomgoReceived: null, soomgoAuto: null, soomgoConfirmed: null });
-    }
+  const norm = normalizeAdSessionEndLines(rawLines, activeChannels);
+  if (!norm.ok) {
+    res.status(400).json({ error: norm.error });
+    return;
   }
+  const normalized = norm.rows;
 
   if (normalized.length > 0) {
     const total = normalized.reduce((s, l) => s + l.amount, 0);
@@ -255,23 +388,86 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
     }
   }
 
+  function normalizedRowsHaveDenomOnlyLines(rows: NormalizedAdSpendRow[]): boolean {
+    for (const r of rows) {
+      if (r.countBreakdown?.some((c) => !c.countsForSpend)) return true;
+    }
+    return false;
+  }
+
   const endedAt = new Date();
+
+  let bookingDenominatorCount: number | null = null;
+  let bookingDenominatorManual = false;
+
+  if (normalizedRowsHaveDenomOnlyLines(normalized)) {
+    const bd = body.bookingDenominator;
+    const manual = Boolean(bd?.manual);
+    if (manual) {
+      const mc = bd?.manualCount;
+      if (typeof mc !== 'number' || !Number.isFinite(mc) || mc < 0) {
+        res.status(400).json({
+          error: '예약 건수 수동 입력을 켠 경우 0 이상의 숫자를 입력해 주세요.',
+        });
+        return;
+      }
+      bookingDenominatorCount = Math.floor(mc);
+      bookingDenominatorManual = true;
+    } else {
+      const rangeStart = prevEnded?.endedAt ?? session.startedAt;
+      bookingDenominatorCount = await countOrderFormSubmissionsInRange(
+        prisma,
+        user.userId,
+        rangeStart,
+        endedAt,
+      );
+      bookingDenominatorManual = false;
+    }
+    applyResolvedBookingDenominator(normalized, bookingDenominatorCount);
+  }
+
+  function soomgoCountsFromBreakdown(
+    bd: NormalizedAdSpendRow['countBreakdown']
+  ): { r: number | null; a: number | null; c: number | null } {
+    if (!bd?.length) return { r: null, a: null, c: null };
+    let r: number | null = null;
+    let a: number | null = null;
+    let c: number | null = null;
+    for (const row of bd) {
+      if (row.label.includes('받은요청')) r = row.count;
+      else if (row.label.includes('자동견적')) a = row.count;
+      else if (row.label.includes('예약확정')) c = row.count;
+    }
+    return { r, a, c };
+  }
+
   await prisma.$transaction(async (tx) => {
     if (normalized.length > 0) {
       await tx.adSpendLine.createMany({
-        data: normalized.map((l) => ({
-          sessionId: session.id,
-          channelId: l.channelId,
-          amount: l.amount,
-          soomgoReceivedCount: l.soomgoReceived != null ? l.soomgoReceived : null,
-          soomgoAutoEstimateCount: l.soomgoAuto != null ? l.soomgoAuto : null,
-          soomgoConfirmedCount: l.soomgoConfirmed != null ? l.soomgoConfirmed : null,
-        })),
+        data: normalized.map((l) => {
+          const sg =
+            l.countBreakdown && l.countBreakdown.length > 0
+              ? soomgoCountsFromBreakdown(l.countBreakdown)
+              : { r: null, a: null, c: null };
+          return {
+            sessionId: session.id,
+            channelId: l.channelId,
+            amount: l.amount,
+            soomgoReceivedCount: sg.r,
+            soomgoAutoEstimateCount: sg.a,
+            soomgoConfirmedCount: sg.c,
+            countBreakdown: l.countBreakdown ?? undefined,
+          };
+        }),
       });
     }
     await tx.adWorkSession.update({
       where: { id: session.id },
-      data: { endedAt },
+      data: {
+        endedAt,
+        bookingDenominatorCount,
+        bookingDenominatorManual,
+      },
     });
   });
 

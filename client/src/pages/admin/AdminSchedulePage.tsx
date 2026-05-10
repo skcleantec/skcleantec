@@ -39,6 +39,7 @@ import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
@@ -621,6 +622,11 @@ export function AdminSchedulePage() {
   /** 모바일: 캘린더 가로 스와이프 — 왼쪽 다음 달, 오른쪽 전 달 (터치 종료 후 클릭 오동작 방지) */
   const calendarSwipeTouchRef = useRef<{ x: number; y: number; id: number } | null>(null);
   const calendarSwipeSuppressClickRef = useRef(false);
+
+  useEffect(() => {
+    setScheduleDetailInquiryIdForOrderFab(detailItem?.id ?? null);
+    return () => setScheduleDetailInquiryIdForOrderFab(null);
+  }, [detailItem?.id]);
 
   const fetchMonthData = useCallback(
     async (showLoading: boolean) => {

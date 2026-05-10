@@ -28,6 +28,8 @@ import { OrderInfoPage } from './pages/order/OrderInfoPage';
 import { CsReportPage } from './pages/cs/CsReportPage';
 import { AdminCsPage } from './pages/admin/AdminCsPage';
 import { AdminAdvertisingPage } from './pages/admin/AdminAdvertisingPage';
+import { AdminAdvertisingSettingsPage } from './pages/admin/AdminAdvertisingSettingsPage';
+import { AdminAdvertisingLayout } from './components/layout/AdminAdvertisingLayout';
 import { AdminTeamsPage } from './pages/admin/AdminTeamsPage';
 import { AdminTeamHolidayCalendarPage } from './pages/admin/AdminTeamHolidayCalendarPage';
 import { AdminTeamLeaderStatsPage } from './pages/admin/AdminTeamLeaderStatsPage';
@@ -91,7 +93,10 @@ function App() {
           <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />} />
           <Route path="orderforms/followup" element={<Navigate to="/admin/inquiries/followup" replace />} />
           <Route path="cs" element={<AdminCsPage />} />
-          <Route path="advertising" element={<AdminAdvertisingPage />} />
+          <Route path="advertising" element={<AdminAdvertisingLayout />}>
+            <Route index element={<AdminAdvertisingPage />} />
+            <Route path="settings" element={<AdminAdvertisingSettingsPage />} />
+          </Route>
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
         <Route path="/order/:token" element={<OrderFormPage />} />

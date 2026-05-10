@@ -27,6 +27,7 @@ import { UserProfileMenu } from '../common/UserProfileMenu';
 import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
+import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -466,8 +467,14 @@ export function AdminLayout() {
         return;
       }
       if (!fabPressMovedRef.current) {
-        if (tapAnchor === 'issue') navigate('/admin/inquiries/order-issue');
-        else navigate('/admin/schedule');
+        if (tapAnchor === 'issue') {
+          const pid = getScheduleDetailInquiryIdForOrderFab();
+          navigate(
+            pid
+              ? `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(pid)}`
+              : '/admin/inquiries/order-issue'
+          );
+        } else navigate('/admin/schedule');
       }
     };
     window.addEventListener('pointermove', onMove, { passive: false });

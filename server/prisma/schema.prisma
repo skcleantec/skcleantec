@@ -772,6 +772,14 @@ model CsReport {
   @@map("cs_reports")
 }
 
+/// 텔레마케팅 업무 종료 시 채널별 입력 방식
+enum AdChannelSettlementMode {
+  /** 채널당 당일 광고비(원) 한 번 입력 */
+  DIRECT_AMOUNT
+  /** 과목(건수)×건당금액으로 합산 — 과목은 AdChannelLineItem 으로 설정 */
+  COUNT_LINES
+}
+
 model AdChannel {
   id        String   @id @default(uuid())
   name      String
@@ -779,9 +787,31 @@ model AdChannel {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
 
+  settlementMode AdChannelSettlementMode @default(DIRECT_AMOUNT) @map("settlement_mode")
+
   spendLines AdSpendLine[]
+  lineItems  AdChannelLineItem[]
 
   @@map("ad_channels")
+}
+
+/// 채널별 광고비 과목(숨고 받은요청·자동견적 등). 건당 금액 0 + 집계 제외면 참고 건수만(예: 예약확정 건수).
+model AdChannelLineItem {
+  id               String   @id @default(uuid())
+  channelId        String   @map("channel_id")
+  label            String   @db.VarChar(128)
+  unitAmountWon    Int      @map("unit_amount_won")
+  /// false 이면 금액 합산에 포함하지 않음. 건수는 종료 화면에서 「총 광고비÷합산 제외 과목 건수」 평균 분모로 자동 사용.
+  countsForSpend   Boolean  @default(true) @map("counts_for_spend")
+  /** 저장 필드: 항상 !countsForSpend 와 동기화(API 자동). 스냅샷 JSON 호환용. */
+  useAsAvgDenominator Boolean @default(false) @map("use_as_avg_denominator")
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  channel AdChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, sortOrder])
+  @@map("ad_channel_line_items")
 }
 
 model AdWorkSession {
@@ -789,6 +819,10 @@ model AdWorkSession {
   userId    String    @map("user_id")
   startedAt DateTime  @map("started_at")
   endedAt   DateTime? @map("ended_at")
+  /// 평균 분모용 예약(고객 발주서 제출) 건수. 자동 집계 또는 수동 입력 최종값.
+  bookingDenominatorCount Int? @map("booking_denominator_count")
+  /// true면 종료 시점에 사용자가 수동 입력한 건수를 사용함
+  bookingDenominatorManual Boolean @default(false) @map("booking_denominator_manual")
 
   user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   spendLines AdSpendLine[]
@@ -806,6 +840,8 @@ model AdSpendLine {
   soomgoReceivedCount Int? @map("soomgo_received_count")
   soomgoAutoEstimateCount Int? @map("soomgo_auto_estimate_count")
   soomgoConfirmedCount Int? @map("soomgo_confirmed_count")
+  /// COUNT_LINES 채널 저장 시 과목별 건수 스냅샷(JSON 배열)
+  countBreakdown Json? @map("count_breakdown")
 
   session AdWorkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   channel AdChannel     @relation(fields: [channelId], references: [id], onDelete: Restrict)
