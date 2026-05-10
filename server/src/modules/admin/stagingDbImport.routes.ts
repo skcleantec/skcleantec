@@ -21,16 +21,28 @@ type ImportJob = {
 
 const jobs = new Map<string, ImportJob>();
 
-function runCmd(exe: string, args: string[]): Promise<{ code: number; stderr: string }> {
+function runCmd(exe: string, args: string[]): Promise<{ code: number; stderr: string; stdout: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(exe, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stderr = '';
+    let stdout = '';
     child.stderr?.on('data', (chunk: Buffer) => {
       stderr += chunk.toString();
     });
+    child.stdout?.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
     child.on('error', (err) => reject(err));
-    child.on('close', (code) => resolve({ code: code ?? 1, stderr }));
+    child.on('close', (code) => resolve({ code: code ?? 1, stderr, stdout }));
   });
+}
+
+/** 사용자에게 보여 줄 오류 요약(비밀번호 등은 보통 stderr에 안 나옴). */
+function formatToolFailure(tool: string, code: number, stderr: string, stdout: string): string {
+  const combined = `${stderr.trim()}\n${stdout.trim()}`.trim();
+  const max = 1600;
+  const snippet = combined.length > max ? `…\n${combined.slice(-max)}` : combined || '(출력 없음)';
+  return `${tool} 실패 (종료 코드 ${code}).\n${snippet}`;
 }
 
 function anyJobRunning(): boolean {
@@ -70,7 +82,7 @@ async function executeImportJob(jobId: string): Promise<void> {
     ]);
     if (dump.code !== 0) {
       job.status = 'failed';
-      job.message = `pg_dump 실패 (종료 코드 ${dump.code})`;
+      job.message = formatToolFailure('pg_dump', dump.code, dump.stderr, dump.stdout);
       job.finishedAt = new Date().toISOString();
       await fs.unlink(dumpPath).catch(() => {});
       return;
@@ -93,7 +105,7 @@ async function executeImportJob(jobId: string): Promise<void> {
       // 0: 성공, 1: 경고만, 2+: 치명적
       if (restore.code >= 2) {
         job.status = 'failed';
-        job.message = `pg_restore 실패 (종료 코드 ${restore.code})`;
+        job.message = formatToolFailure('pg_restore', restore.code, restore.stderr, restore.stdout);
       } else {
         job.status = 'done';
         job.message =

@@ -110,7 +110,9 @@ export function AdminStagingDbImportModal({ open, onClose, token, onSessionExpir
         {jobView ? (
           <div className="mt-3 rounded border border-gray-100 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-800">
             <p className="font-medium tabular-nums">상태: {jobView.status}</p>
-            {jobView.message ? <p className="mt-1 text-gray-600">{jobView.message}</p> : null}
+            {jobView.message ? (
+              <p className="mt-1 text-gray-600 whitespace-pre-wrap break-words text-left">{jobView.message}</p>
+            ) : null}
           </div>
         ) : null}
 

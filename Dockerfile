@@ -32,7 +32,16 @@ RUN NODE_ENV=production npm run build
 
 FROM node:22-bookworm-slim AS runner
 
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates postgresql-client \
+# Railway Postgres는 최신 메이저 버전인 경우가 많아, Debian 기본 postgresql-client(pg_dump 구버전)로는
+# "server version mismatch" 등으로 pg_dump 가 실패할 수 있음 → PGDG 최신 클라이언트 사용
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends ca-certificates curl gnupg openssl \
+  && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg \
+  && echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list \
+  && apt-get update -y \
+  && apt-get install -y --no-install-recommends postgresql-client \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app/server
