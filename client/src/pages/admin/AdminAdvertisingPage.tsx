@@ -252,29 +252,6 @@ export function AdminAdvertisingPage() {
         </button>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-fluid-sm text-gray-800 space-y-2">
-        <p className="font-medium text-gray-900">실적·ROAS·건당 비용 — 계산 기준</p>
-        <ul className="list-disc pl-5 space-y-1.5 text-gray-700 leading-snug">
-          <li>
-            <strong>예약완료 건수</strong>: 선택 기간 안에 <strong>작업 종료 및 정산</strong>으로 끝낸 세션마다 더합니다. 종료할 때
-            숨고 등에서 <strong>수동 건수</strong>를 넣었으면 그 숫자가 우선이고, 자동이면 직전 종료 시각(없으면 세션 시작)~이번 종료 시각 사이의{' '}
-            <strong>예약·발주 관련 자동 집계</strong>(제출 완료 발주서 + 그 구간 신규 미제출 발급)를 씁니다. 저장된 값이 없을 때만 같은 구간을 다시
-            계산합니다.
-          </li>
-          <li>
-            <strong>접수 매출 합계</strong>: 같은 기간 안에 고객 발주서 제출이 완료된 시각을 기준으로, 접수 상태가 예약완료·분배·진행 등인 접수의
-            서비스 금액 합입니다. (건수와 나누는 기준이 달라 숫자가 어긋날 수 있습니다.)
-          </li>
-          <li>
-            <strong>ROAS</strong> = 접수 매출 합계 ÷ 같은 기간에 집계된 광고비 총액. <strong>건당 비용</strong> = 광고비 ÷ 예약완료 건수.
-          </li>
-          <li className="text-gray-600">
-            숨고 등 예약 분모 채널은 종료 이력의 예약확정(분모)과 위 「예약완료 건수」가 세션 기준으로 맞습니다. 사용자별 표의{' '}
-            <strong>일별 정산</strong>으로 해당 월(KST)의 일자별 광고비·예약 건수·건당 비용을 확인할 수 있습니다.
-          </li>
-        </ul>
-      </div>
-
       {loading ? (
         <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
       ) : (
