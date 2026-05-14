@@ -23,13 +23,13 @@ export function buildPartyAppendixHtml(
     ${dateText}
   </div>
 
-  <table style="width: 100%; border: 0; border-collapse: collapse; table-layout: fixed;">
+  <table width="100%" style="border: 0; border-collapse: collapse; table-layout: fixed;">
     <tr>
-      <td style="width: 50%; vertical-align: top; padding: 0 20px 0 0;">
+      <td width="50%" style="vertical-align: top; padding: 0 20px 0 0;">
         <div style="font-size: 15px; font-weight: bold; margin-bottom: 16px;">[계 약 주] (갑)</div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px; text-align: left;">
+        <table width="100%" style="border-collapse: collapse; font-size: 14px; text-align: left;">
           <tbody>
-            <tr><td style="width: 80px; padding: 6px 0; color: #333; font-weight: bold;">상호</td><td style="padding: 6px 0;">[[EC_ISSUER_COMPANY]]</td></tr>
+            <tr><td width="80" style="padding: 6px 0; color: #333; font-weight: bold;">상호</td><td style="padding: 6px 0;">[[EC_ISSUER_COMPANY]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">대표자</td><td style="padding: 6px 0;">[[EC_ISSUER_REP]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">사업자번호</td><td style="padding: 6px 0;">[[EC_ISSUER_BIZNO]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">주소</td><td style="padding: 6px 0;">[[EC_ISSUER_ADDRESS]]</td></tr>
@@ -44,11 +44,11 @@ export function buildPartyAppendixHtml(
           </tbody>
         </table>
       </td>
-      <td style="width: 50%; vertical-align: top; padding: 0 0 0 20px;">
+      <td width="50%" style="vertical-align: top; padding: 0 0 0 20px;">
         <div style="font-size: 15px; font-weight: bold; margin-bottom: 16px;">[계 약 자] (을)</div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px; text-align: left;">
+        <table width="100%" style="border-collapse: collapse; font-size: 14px; text-align: left;">
           <tbody>
-            <tr><td style="width: 80px; padding: 6px 0; color: #333; font-weight: bold;">성명</td><td style="padding: 6px 0; font-weight: bold;">[[EC_SIGNER_NAME]]</td></tr>
+            <tr><td width="80" style="padding: 6px 0; color: #333; font-weight: bold;">성명</td><td style="padding: 6px 0; font-weight: bold;">[[EC_SIGNER_NAME]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">주민번호</td><td style="padding: 6px 0;">[[EC_SIGNER_RRN]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">주소</td><td style="padding: 6px 0;">[[EC_SIGNER_ADDRESS]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">연락처</td><td style="padding: 6px 0;">[[EC_SIGNER_PHONE]]</td></tr>
