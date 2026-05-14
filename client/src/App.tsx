@@ -37,6 +37,12 @@ import { AdminExternalCompaniesPage } from './pages/admin/AdminExternalCompanies
 import { AdminExternalSettlementPage } from './pages/admin/AdminExternalSettlementPage';
 import { AdminPageSettingsPage } from './pages/admin/AdminPageSettingsPage';
 import { AdminPayrollPage } from './pages/admin/AdminPayrollPage';
+import { AdminEContractLayout } from './components/layout/AdminEContractLayout';
+import { AdminEContractListPage } from './pages/admin/AdminEContractListPage';
+import { AdminEContractDefinitionPage } from './pages/admin/AdminEContractDefinitionPage';
+import { AdminEContractIssuerProfilePage } from './pages/admin/AdminEContractIssuerProfilePage';
+import { AdminEContractTeamOverviewPage } from './pages/admin/AdminEContractTeamOverviewPage';
+import { EContractPublicSignPage } from './pages/public/EContractPublicSignPage';
 import { CrewHomePage } from './pages/crew/CrewHomePage';
 import { CrewRosterLayout } from './pages/crew/CrewRosterLayout';
 import { CrewRosterCalendarPage } from './pages/crew/CrewRosterCalendarPage';
@@ -84,6 +90,12 @@ function App() {
             <Route path="external-companies" element={<AdminExternalCompaniesPage />} />
             <Route path="external-settlement" element={<AdminExternalSettlementPage />} />
             <Route path="payroll" element={<AdminPayrollPage />} />
+            <Route path="e-contracts" element={<AdminEContractLayout />}>
+              <Route index element={<AdminEContractListPage />} />
+              <Route path="issuer-profile" element={<AdminEContractIssuerProfilePage />} />
+              <Route path="definition/:definitionId" element={<AdminEContractDefinitionPage />} />
+              <Route path="overview" element={<AdminEContractTeamOverviewPage />} />
+            </Route>
           </Route>
           <Route path="teams" element={<Navigate to="/admin/team-leaders/team-members" replace />} />
           <Route path="teams/holidays" element={<Navigate to="/admin/team-leaders/holiday-calendar" replace />} />
@@ -99,6 +111,7 @@ function App() {
           </Route>
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
+        <Route path="/e-contract/sign/:token" element={<EContractPublicSignPage />} />
         <Route path="/order/:token" element={<OrderFormPage />} />
         <Route path="/info" element={<OrderInfoPage />} />
         <Route path="/cs" element={<CsReportPage />} />

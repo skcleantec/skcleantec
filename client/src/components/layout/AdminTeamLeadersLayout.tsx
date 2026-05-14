@@ -103,6 +103,12 @@ export function AdminTeamLeadersLayout() {
         >
           월정산표
         </NavLink>
+        <NavLink
+          to="/admin/team-leaders/e-contracts"
+          className={({ isActive }) => adminSubNavTabClassName(isActive)}
+        >
+          전자계약
+        </NavLink>
         <NavLink to="/admin/team-leaders/leader-stats" className={({ isActive }) => adminSubNavTabClassName(isActive)}>
           팀장
         </NavLink>

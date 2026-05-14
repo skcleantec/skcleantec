@@ -11,6 +11,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tiptap/core": "^3.23.4",
+    "@tiptap/extension-color": "^3.23.4",
+    "@tiptap/extension-font-family": "^3.23.4",
+    "@tiptap/extension-highlight": "^3.23.4",
+    "@tiptap/extension-link": "^3.23.4",
+    "@tiptap/extension-placeholder": "^3.23.4",
+    "@tiptap/extension-text-align": "^3.23.4",
+    "@tiptap/extension-text-style": "^3.23.4",
+    "@tiptap/extension-underline": "^3.23.4",
+    "@tiptap/pm": "^3.23.4",
+    "@tiptap/react": "^3.23.4",
+    "@tiptap/starter-kit": "^3.23.4",
+    "dompurify": "^3.4.3",
     "kor-lunar": "^1.6.1",
     "leaflet": "^1.9.4",
     "react": "^19.2.4",
@@ -20,6 +33,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@types/dompurify": "^3.0.5",
     "@types/leaflet": "^1.9.12",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",

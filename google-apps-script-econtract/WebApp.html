@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>제이제이 3PL 물류 전자계약</title>
+<style>
+  :root{
+    --pad:10px; --gap:6px;
+    --fs-base:18px; --fs-label:16px;
+    --radius:12px; --maxw:720px;
+  }
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans KR',sans-serif;
+       font-size:var(--fs-base); line-height:1.5; margin:0; padding:var(--pad);
+       max-width:var(--maxw); margin-inline:auto; color:#111; word-break:keep-all; overflow-wrap:anywhere;}
+  h1{font-size:20px;margin:4px 0 8px}
+  .form{display:flex;flex-direction:column;gap:var(--gap)}
+  label{font-size:var(--fs-label);color:#222;margin-bottom:2px;font-weight:700}
+  input,select,button{font-size:var(--fs-base)}
+  input,select{width:100%;padding:4px 6px;border:1px solid #ddd;border-radius:10px;min-height:28px}
+  .box{border:1px solid #eee;border-radius:var(--radius);padding:6px;background:#fafafa}
+  .muted{color:#555;font-size:15px}
+  button{padding:8px 10px;border-radius:10px;cursor:pointer;min-height:36px}
+  .btn-primary{border:1px solid #2563eb;background:#2563eb;color:#fff}
+  .btn-ghost{border:1px solid #111;background:#fff;color:#111}
+  .btn-warning{border:1px solid #ff7a00;background:#fff;color:#ff7a00}
+  .btn-disabled{opacity:.5; cursor:not-allowed}
+  .success{padding:8px;background:#f0fff0;border:1px solid #cfeacc;border-radius:var(--radius);margin-top:8px}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);color:#fff;display:none;align-items:center;justify-content:center;font-size:16px;z-index:9999}
+  .spinner{width:18px;height:18px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 1s linear infinite;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .error{color:#d32f2f;font-size:14px;display:none}
+  .top-actions{display:grid;gap:8px;grid-template-columns:1fr}
+  #addrLayer{position:fixed;inset:0;background:#fff;display:none;z-index:10000}
+  #addrHeader{display:flex;align-items:center;justify-content:space-between;padding:8px var(--pad);border-bottom:1px solid #eee;position:sticky;top:0;background:#fff}
+  #postcodeWrap{width:100%;height:calc(100dvh - 56px)}
+  .highlight{font-weight:800;color:#ff7a00}
+  .code-badge{font-family:ui-monospace,Menlo,Consolas,monospace;background:#111;color:#fff;padding:6px 10px;border-radius:999px;font-weight:800}
+  .row-compact{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  #signLayer{position:fixed;inset:0;background:#fff;display:none;z-index:10001}
+  #signHeader{display:flex;align-items:center;justify-content:space-between;padding:8px var(--pad);border-bottom:1px solid #eee;background:#fff}
+  #orientHint{padding:6px 10px;background:#fff3cd;color:#7a5400;border:1px solid #ffe69c;border-radius:8px;margin:8px}
+  #signPad{display:block;width:100%;height:60vh;border:1px dashed #bbb;background:#fff;border-radius:10px;margin:10px 0}
+  #signActions{display:flex;gap:8px;justify-content:flex-end}
+  #signPreview{display:none;max-width:100%;height:48px;border:1px dashed #ddd;border-radius:6px;margin-top:6px}
+  .consent-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .consent-check{white-space:nowrap}
+  /* 준비 상태 안내 */
+  #readyBox{display:none;margin:8px 0;padding:8px;border:1px solid #fde68a;background:#fffbeb;border-radius:10px;color:#7a5400}
+  #readyBox ul{margin:6px 0 0 18px}
+  #selfieErr{color:#d32f2f;font-size:14px;display:none;margin-top:4px}
+</style>
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+</head>
+<body>
+  <div id="overlay"><span class="spinner"></span><span id="overlayText">처리중…</span></div>
+
+  <div id="addrLayer" role="dialog" aria-modal="true">
+    <div id="addrHeader"><strong>주소 검색</strong><button class="btn-ghost" id="addrClose">닫기</button></div>
+    <div id="postcodeWrap"></div>
+  </div>
+
+  <div id="signLayer" role="dialog" aria-modal="true">
+    <div id="signHeader">
+      <strong>전자서명</strong>
+      <div id="signActions">
+        <button class="btn-ghost" id="signClear">지우기</button>
+        <button class="btn-primary" id="signDone">완료</button>
+      </div>
+    </div>
+    <div id="orientHint" style="display:none">가로 모드에서 서명하면 더 편합니다. 기기를 가로로 돌려 주세요.</div>
+    <div style="padding:0 var(--pad)"><canvas id="signPad"></canvas></div>
+  </div>
+
+  <h1>제이제이 3PL 물류 전자계약</h1>
+
+  <div class="box" style="margin-bottom:8px">
+    <div class="top-actions">
+      <button type="button" id="openContract" class="btn-ghost">계약서 내용 보기</button>
+      <label class="muted" style="margin:0"><input type="checkbox" id="read_confirm"> 내용을 확인하였습니다</label>
+    </div>
+  </div>
+
+  <div class="box muted" style="margin-bottom:8px">
+    전자서명법/전자문서법에 따라 효력이 인정됩니다. 본인확인 보조를 위해 셀카/서명 이미지 및 접속정보(IP/UA)를 최소 수집하며,
+    <b>계약 종료 시 즉시 폐기</b>합니다.
+  </div>
+
+  <div class="form">
+    <div><label>업체명*</label><input id="company_name" required></div>
+    <div><label>사업자등록번호</label><input id="biz_no"></div>
+    <div><label>담당자명*</label><input id="contact_name" required></div>
+    <div><label>연락처(휴대폰)*</label><input id="phone" inputmode="tel" required></div>
+
+    <div class="box">
+      <div class="form">
+        <div><label>우편번호*</label><input id="zip" readonly placeholder="주소 검색 버튼을 눌러주세요"></div>
+        <button type="button" id="searchAddr" class="btn-ghost">주소 검색</button>
+        <div><label>도로명 주소*</label><input id="roadaddr" readonly></div>
+        <div><label>상세 주소*</label><input id="addr_detail" placeholder="동/호수, 건물명 등"></div>
+      </div>
+    </div>
+
+    <div>
+      <label>이메일*</label>
+      <input id="email" type="email" required placeholder="example@domain.com">
+      <div id="emailErr" class="error">이메일 형식이 아닙니다.</div>
+    </div>
+
+    <!-- ★ 계약기간(개월) -->
+    <div><label>계약기간(개월)*</label><input id="contract_months" type="number" value="3" min="1"></div>
+
+    <div><label>시작일*</label><input id="start_date" type="date" required></div>
+    <!-- ★ 문구 제거 -->
+    <div><label>종료일*</label><input id="end_date" type="date" required></div>
+  </div>
+
+  <div class="box" style="margin:8px 0">
+    <div class="row-compact">
+      <div><b>셀카 본인확인</b> — <span class="highlight">오른쪽 <b>코드</b>를 종이에 적어 얼굴 옆에 들고 촬영</span></div>
+      <div id="challenge" class="code-badge">---- ----</div>
+    </div>
+  </div>
+
+  <div class="box" style="margin-bottom:8px">
+    <input id="selfie" type="file" accept="image/*" capture="user">
+    <div id="selfieErr">셀카(본인확인 사진)를 업로드해주세요.</div>
+  </div>
+
+  <!-- 서명: 버튼 + 미리보기 (텍스트 변경) -->
+  <div class="box" style="margin-bottom:8px">
+    <div class="row-compact">
+      <div><b>서명</b> <span id="signStatus" class="muted">(미완료)</span></div>
+      <button type="button" id="openSign" class="btn-warning">계약서명하기</button>
+    </div>
+    <img id="signPreview" alt="서명 미리보기">
+  </div>
+
+  <!-- 동의: 문구 왼쪽 / 체크+“동의합니다.” 오른쪽 -->
+  <div class="box" style="margin-bottom:8px">
+    <div class="consent-row">
+      <span class="muted">계약서 본문을 확인했고 내용에 동의합니다.</span>
+      <label class="consent-check"><input type="checkbox" id="agree_tos"> 동의합니다.</label>
+    </div>
+    <div class="consent-row">
+      <span class="muted">본인확인 보조자료(셀카/서명/IP/UA) 수집·이용에 동의합니다. <b>보관기간: 계약 종료 시 즉시 폐기</b>.</span>
+      <label class="consent-check"><input type="checkbox" id="agree_privacy"> 동의합니다.</label>
+    </div>
+  </div>
+
+  <!-- 준비 상태 안내 + 제출 버튼 -->
+  <div id="readyBox">
+    <b>제출을 위해 다음 항목을 완료해주세요:</b>
+    <ul id="readyList"></ul>
+  </div>
+
+  <button id="submit" class="btn-primary btn-disabled" style="width:100%" disabled>제출하고 계약서 이메일 발송</button>
+  <div id="done" class="success" style="display:none"></div>
+
+<script>
+  const overlay=document.getElementById('overlay'), overlayText=document.getElementById('overlayText');
+  function setOverlay(on,text){ overlayText.textContent=text||'처리중…'; overlay.style.display=on?'flex':'none'; }
+
+  /* 날짜 & 계약기간 연동 */
+  const monthsEl=document.getElementById('contract_months');
+  const startEl=document.getElementById('start_date'), endEl=document.getElementById('end_date');
+  const todayISO=new Date().toISOString().slice(0,10); startEl.value=startEl.value||todayISO;
+  let endTouched=false; endEl.addEventListener('input',()=>endTouched=true);
+  function addMonths(s,m){ const d=new Date(s), dd=d.getDate(); d.setMonth(d.getMonth()+m); if(d.getDate()!==dd) d.setDate(0); return d.toISOString().slice(0,10); }
+  function recalcEnd(force=false){
+    const m=parseInt(monthsEl.value||'3',10);
+    if(!startEl.value || Number.isNaN(m)) return;
+    if(force || !endTouched) endEl.value=addMonths(startEl.value, m);
+  }
+  recalcEnd(true);
+  startEl.addEventListener('change', ()=>recalcEnd(false));
+  monthsEl.addEventListener('input', ()=>recalcEnd(true));   // ★ 계약기간 변경 시 즉시 재계산
+
+  /* 이메일 검증 */
+  const emailEl=document.getElementById('email'), emailErr=document.getElementById('emailErr');
+  function validateEmail(){ if(!emailEl.value){emailErr.style.display='none';return true;} const ok=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailEl.value); emailErr.style.display=ok?'none':'block'; return ok; }
+  emailEl.addEventListener('input', ()=>{ validateEmail(); updateReadyState(); });
+
+  /* 주소검색(임베드) */
+  const zipEl=document.getElementById('zip'), roadEl=document.getElementById('roadaddr');
+  const addrLayer=document.getElementById('addrLayer'), postcodeWrap=document.getElementById('postcodeWrap');
+  document.getElementById('searchAddr').onclick=()=>{
+    addrLayer.style.display='block';
+    new daum.Postcode({
+      oncomplete:data=>{
+        zipEl.value=data.zonecode; roadEl.value=data.roadAddress||data.address;
+        addrLayer.style.display='none'; document.getElementById('addr_detail').focus();
+        updateReadyState();
+      }, width:'100%', height:'100%'
+    }).embed(postcodeWrap);
+  };
+  document.getElementById('addrClose').onclick=()=>{ addrLayer.style.display='none'; };
+
+  /* 계약서 미리보기 */
+  document.getElementById('openContract').onclick=()=>{
+    setOverlay(true,'계약서 불러오는 중…시간이 조금 걸립니다.');
+    google.script.run.withSuccessHandler(res=>{
+      setOverlay(false);
+      if(res && res.ok) window.open(res.pdfUrl,'_blank');
+    }).withFailureHandler(err=>{
+      setOverlay(false); alert('미리보기 오류: '+(err && err.message? err.message: err));
+    }).showContract();
+  };
+
+  /* 전체화면 서명 패드 (가로 안내 포함) */
+  let signatureDataUrl = '';
+  const signLayer=document.getElementById('signLayer');
+  const signPad=document.getElementById('signPad');
+  const spCtx=signPad.getContext('2d');
+  const orientHint=document.getElementById('orientHint');
+  let drawing=false, last=null;
+  function isLandscape(){ return window.matchMedia('(orientation: landscape)').matches || (window.innerWidth > window.innerHeight); }
+  async function tryLockLandscape(){ if (screen.orientation && screen.orientation.lock){ try{ await screen.orientation.lock('landscape'); }catch(_){} } }
+  function resizeSignCanvas(preserve=true){
+    const dpr=Math.max(1,window.devicePixelRatio||1);
+    const cssW=signPad.clientWidth||window.innerWidth-20;
+    const cssH=isLandscape() ? Math.round(window.innerHeight*0.7) : Math.round(window.innerHeight*0.6);
+    let data=null; if(preserve) data=signPad.toDataURL('image/png');
+    signPad.width=Math.round(cssW*dpr); signPad.height=Math.round(cssH*dpr);
+    signPad.style.width=cssW+'px'; signPad.style.height=cssH+'px';
+    spCtx.setTransform(dpr,0,0,dpr,0,0); spCtx.lineWidth=2; spCtx.lineCap='round';
+    if(preserve && data){ const img=new Image(); img.onload=()=>spCtx.drawImage(img,0,0,cssW,cssH); img.src=data; }
+    orientHint.style.display = isLandscape() ? 'none' : 'block';
+  }
+  function pos(e){ const r=signPad.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; }
+  function startDraw(e){ drawing=true; last=null; }
+  function moveDraw(e){ if(!drawing) return; const p=pos(e); spCtx.beginPath(); if(!last) last=p; spCtx.moveTo(last.x,last.y); spCtx.lineTo(p.x,p.y); spCtx.stroke(); last=p; }
+  function endDraw(){ drawing=false; last=null; }
+
+  document.getElementById('openSign').onclick=()=>{ signLayer.style.display='block'; tryLockLandscape(); resizeSignCanvas(false); };
+  document.getElementById('signClear').onclick=()=>{ spCtx.clearRect(0,0,signPad.width,signPad.height); };
+  document.getElementById('signDone').onclick=()=>{
+    signatureDataUrl = getTrimmedDataURL(signPad, 8); // 여백 크롭 후 저장
+    signLayer.style.display='none';
+    const prev=document.getElementById('signPreview'); prev.src=signatureDataUrl; prev.style.display='block';
+    document.getElementById('signStatus').textContent='(완료)';
+    updateReadyState();
+  };
+
+  signPad.addEventListener('mousedown',startDraw); signPad.addEventListener('mousemove',moveDraw); document.addEventListener('mouseup',endDraw);
+  signPad.addEventListener('touchstart',e=>{e.preventDefault();startDraw(e);},{passive:false});
+  signPad.addEventListener('touchmove',e=>{e.preventDefault();moveDraw(e);},{passive:false});
+  signPad.addEventListener('touchend',e=>{e.preventDefault();endDraw(e);},{passive:false});
+  window.addEventListener('resize', ()=>resizeSignCanvas(true));
+  window.addEventListener('orientationchange', ()=>setTimeout(()=>resizeSignCanvas(true), 150));
+
+  function getTrimmedDataURL(canvas, padding = 6){
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const data = ctx.getImageData(0,0,w,h).data;
+    let top=h, left=w, right=0, bottom=0, found=false;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const a = data[(y*w + x)*4 + 3];
+        if(a>0){ found=true;
+          if(x<left) left=x; if(x>right) right=x; if(y<top) top=y; if(y>bottom) bottom=y;
+        }
+      }
+    }
+    if(!found) return canvas.toDataURL('image/png');
+    left = Math.max(0, left - padding);
+    top = Math.max(0, top - padding);
+    right = Math.min(w-1, right + padding);
+    bottom = Math.min(h-1, bottom + padding);
+    const cw = right - left + 1, ch = bottom - top + 1;
+    const out = document.createElement('canvas'); out.width=cw; out.height=ch;
+    out.getContext('2d').drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch);
+    return out.toDataURL('image/png');
+  }
+
+  /* 난수 챌린지 코드 */
+  document.getElementById('challenge').textContent =
+    Math.random().toString(36).slice(2,6).toUpperCase() + '-' +
+    Math.random().toString(36).slice(2,6).toUpperCase();
+
+  /* 준비 상태 관리: 모든 조건 충족 시에만 제출 버튼 활성화 */
+  const submitBtn = document.getElementById('submit');
+  const readyBox = document.getElementById('readyBox');
+  const readyList = document.getElementById('readyList');
+  const selfieEl = document.getElementById('selfie');
+  const selfieErr = document.getElementById('selfieErr');
+  const agreeTosEl = document.getElementById('agree_tos');
+  const agreePrivEl = document.getElementById('agree_privacy');
+  const readConfirmEl = document.getElementById('read_confirm');
+
+  function missingReasons(){
+    const missing = [];
+
+    // 필수 입력(간단 체크)
+    const ids=['company_name','contact_name','phone','email','contract_months','start_date','end_date','zip','roadaddr','addr_detail'];
+    ids.forEach(id=>{
+      const el=document.getElementById(id);
+      if(!el || !String(el.value||'').trim()) missing.push(`필수 입력 누락: ${id}`);
+    });
+
+    // 이메일 형식
+    if(!validateEmail()) missing.push('이메일 형식 확인');
+
+    // 체크박스
+    if(!readConfirmEl.checked) missing.push('“내용을 확인하였습니다” 체크 필요');
+    if(!agreeTosEl.checked) missing.push('계약 내용 동의 필요');
+    if(!agreePrivEl.checked) missing.push('개인정보 수집·이용 동의 필요');
+
+    // 셀카(파일)
+    const hasSelfie = !!(selfieEl.files && selfieEl.files[0]);
+    if(!hasSelfie) missing.push('셀카(본인확인 사진) 업로드 필요');
+
+    // 서명
+    if(!signatureDataUrl) missing.push('서명 완료 필요 (“계약서명하기” 버튼)');
+
+    return missing;
+  }
+
+  function updateReadyState(){
+    const missing = missingReasons();
+
+    // 셀카 에러 표시
+    const hasSelfie = !!(selfieEl.files && selfieEl.files[0]);
+    selfieErr.style.display = hasSelfie ? 'none' : 'block';
+
+    if(missing.length === 0){
+      readyBox.style.display='none';
+      readyList.innerHTML='';
+      submitBtn.disabled=false;
+      submitBtn.classList.remove('btn-disabled');
+    }else{
+      readyBox.style.display='block';
+      readyList.innerHTML = missing.map(s=>`<li>${s}</li>`).join('');
+      submitBtn.disabled=true;
+      submitBtn.classList.add('btn-disabled');
+    }
+  }
+
+  // 이벤트 바인딩: 값이 바뀔 때마다 준비 상태 갱신
+  ['company_name','contact_name','phone','email','contract_months','start_date','end_date','zip','roadaddr','addr_detail']
+    .forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.addEventListener('input', updateReadyState);
+    });
+  [agreeTosEl, agreePrivEl, readConfirmEl].forEach(el=>el.addEventListener('change', updateReadyState));
+  selfieEl.addEventListener('change', updateReadyState);
+
+  // 초기 상태
+  updateReadyState();
+
+  function payloadBase(){
+    const addr=[zip.value? '('+zip.value+')':'' , roadaddr.value, addr_detail.value].filter(Boolean).join(' ');
+    return {
+      company_name: company_name.value.trim(),
+      company_address: addr.trim(),
+      biz_no: biz_no.value.trim(),
+      contact_name: contact_name.value.trim(),
+      phone: phone.value.trim(),
+      email: email.value.trim(),
+      start_date: start_date.value,
+      end_date: end_date.value,
+      auto_extend_months: monthsEl.value || '3'   // ★ Code.gs가 기대하는 키는 그대로 유지
+    };
+  }
+
+  document.getElementById('submit').onclick=async()=>{
+    // 이중 보호: 혹시라도 버튼이 강제로 눌렸을 때 막기
+    const missing = missingReasons();
+    if(missing.length){
+      updateReadyState();
+      alert('제출 불가: 아래 항목을 완료해주세요.\n- ' + missing.join('\n- '));
+      return;
+    }
+
+    setOverlay(true,'계약 진행중… 잠시만 기다려주세요');
+
+    try{
+      const selfieFile=document.getElementById('selfie').files[0];
+      const selfieDataUrl=await (async function(file,maxW=1200){
+        if(!file) return '';
+        const img=new Image(), fr=new FileReader();
+        await new Promise(res=>{ fr.onload=()=>{ img.onload=()=>res(); img.src=fr.result; }; fr.readAsDataURL(file); });
+        const c=document.createElement('canvas'), w=img.width,h=img.height, ratio=Math.min(1,maxW/w);
+        c.width=Math.round(w*ratio); c.height=Math.round(h*ratio);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        return c.toDataURL('image/png');
+      })(selfieFile);
+
+      const payload=Object.assign({}, payloadBase(), {
+        agree_tos: agreeTosEl.checked,
+        agree_privacy: agreePrivEl.checked,
+        read_confirmed: readConfirmEl.checked,
+        challenge_code: document.getElementById('challenge').textContent,
+        selfie_image: selfieDataUrl,
+        signature_png: signatureDataUrl,
+        user_agent: navigator.userAgent
+      });
+
+      google.script.run.withSuccessHandler(res=>{
+        setOverlay(false);
+        if(res && res.ok){
+          const box=document.getElementById('done');
+          box.style.display='block';
+          const msg=res.mailSent?'계약서가 이메일로 발송되었습니다.':('이메일 발송 실패: '+(res.mailError||''));          
+          box.innerHTML = msg; // 폴더 링크는 요구사항에 따라 제거
+          window.scrollTo(0,document.body.scrollHeight);
+        }
+      }).withFailureHandler(err=>{
+        setOverlay(false);
+        alert('제출 오류: '+(err && err.message? err.message: err));
+      }).handleSubmit(payload);
+    }catch(e){
+      setOverlay(false); alert('제출 준비 중 오류: '+e);
+    }
+  };
+</script>
+</body>
+</html>

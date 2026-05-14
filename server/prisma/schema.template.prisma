@@ -139,6 +139,14 @@ model User {
   payrollAccountLedgerManualEntriesCreated PayrollAccountLedgerManualEntry[] @relation("PayrollAccountLedgerManualEntryCreator")
   payrollLedgerManualEntriesLinked PayrollAccountLedgerManualEntry[] @relation("PayrollLedgerManualLinkedUser")
   csReportsForwardedTo          CsReport[] @relation("CsReportForwardedTo")
+  /// 관리자가 생성한 전자계약(팀장) 정의 — `modules/e-contract`
+  eContractDefinitionsCreated  EContractDefinition[] @relation("EContractDefinitionCreator")
+  /// 발행측(갑) 프로필 마지막 수정자 — `modules/e-contract`
+  eContractIssuerProfilesUpdated EContractIssuerProfile[] @relation("EContractIssuerProfileUpdater")
+  /// 전자계약 버전 게시자(관리자)
+  eContractVersionsPublishedBy EContractVersion[]    @relation("EContractVersionPublisher")
+  /// 팀장에게 발급·체결된 전자계약(수신측 사용자)
+  eContractIssuancesAsTeamLeader EContractIssuance[] @relation("EContractIssuanceTeamLeader")
 
   @@map("users")
 }
@@ -1141,4 +1149,141 @@ model UserCustomCalendar {
 
   @@index([userId, sortOrder])
   @@map("user_custom_calendars")
+}
+
+/// 전자계약 발행측(갑) 표기 — 본문 `[[EC_ISSUER_*]]` 치환·배포 시점 스냅샷.
+/// 다법인 시 `profile_key`로 확장 가능(단일테넌트는 `default`).
+model EContractIssuerProfile {
+  id                       String   @id @default(uuid())
+  profileKey               String   @unique @default("default") @map("profile_key") @db.VarChar(64)
+  companyName              String   @default("") @map("company_name") @db.VarChar(512)
+  representativeName       String?  @map("representative_name") @db.VarChar(128)
+  businessRegistrationNo   String?  @map("business_registration_no") @db.VarChar(32)
+  addressLine              String?  @map("address_line") @db.Text
+  phone                    String?  @db.VarChar(64)
+  fax                      String?  @db.VarChar(64)
+  email                    String?  @db.VarChar(256)
+  sealPublicId             String?  @map("seal_public_id") @db.VarChar(512)
+  sealSecureUrl            String?  @map("seal_secure_url") @db.VarChar(2048)
+  sealDisplayWidthPx       Int?     @map("seal_display_width_px")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+  updatedById              String?  @map("updated_by_id")
+  updatedBy                User?    @relation("EContractIssuerProfileUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("e_contract_issuer_profiles")
+}
+
+/// 팀장 전자계약 — 계약 종류(정의). 본문 히스토리는 `EContractVersion`.
+/// 모듈: `server/src/modules/e-contract`
+enum EContractVersionStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum EContractIssuanceStatus {
+  PENDING
+  OPENED
+  SIGNED
+  EXPIRED
+  REVOKED
+}
+
+model EContractDefinition {
+  id           String    @id @default(uuid())
+  title        String    @db.VarChar(512)
+  description  String?   @db.Text
+  /// 보관 종료 등 — 목록에서 기본 숨김 처리에 사용 (체결본은 유지)
+  isArchived   Boolean   @default(false) @map("is_archived")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdById  String?   @map("created_by_id")
+
+  createdBy User?               @relation("EContractDefinitionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  versions  EContractVersion[]
+  issuances EContractIssuance[]
+
+  @@index([isArchived, updatedAt(sort: Desc)])
+  @@map("e_contract_definitions")
+}
+
+/// 계약 문안 버전 — 발행 후 본문·해시 변경 금지(서비스 레이어). 히스토리 = 같은 definitionId 행 묶음.
+model EContractVersion {
+  id                 String                   @id @default(uuid())
+  definitionId       String                   @map("definition_id")
+  status             EContractVersionStatus   @default(DRAFT)
+  /// 배포 순번(1,2,…). 초안은 null.
+  publishedOrdinal   Int?                     @map("published_ordinal")
+  /// 배포 시점 문서 제목 스냅샷
+  titleSnapshot      String                   @map("title_snapshot") @db.VarChar(512)
+  /// 관리자 편집본(표시 시 마크다운→HTML 등 클라에서 처리 가능)
+  bodyMarkdown       String                   @map("body_markdown") @db.Text
+  /// 배포 시점 발행측 스냅샷(JSON). 레거시 배포는 null.
+  issuerSnapshot     Json?                    @map("issuer_snapshot")
+  /// 배포 후 체결자에게 보이는 HTML(플레이스홀더 치환 후). 없으면 `bodyMarkdown` 그대로.
+  bodyDisplayHtml    String?                  @map("body_display_html") @db.Text
+  /// 배포 시 본문+제목+ordinal 정규 문자열 해시(hex) — 「당시 문안」증명용
+  contentHash        String?                  @map("content_hash") @db.VarChar(128)
+  publishedAt        DateTime?                @map("published_at")
+  publishedById      String?                  @map("published_by_id")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+
+  definition  EContractDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  publishedBy User?               @relation("EContractVersionPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  issuances   EContractIssuance[]
+  submissions EContractSubmission[]
+
+  @@unique([definitionId, publishedOrdinal])
+  @@index([definitionId, status])
+  @@map("e_contract_versions")
+}
+
+/// 팀장에게 낸 링크(토큰) 1건 — 어느 배포 버전으로 체결 대상인지 고정.
+model EContractIssuance {
+  id             String                  @id @default(uuid())
+  token          String                  @unique @db.VarChar(128)
+  definitionId   String                  @map("definition_id")
+  versionId      String                  @map("version_id")
+  teamLeaderId   String                  @map("team_leader_id")
+  status         EContractIssuanceStatus @default(PENDING)
+  expiresAt      DateTime?               @map("expires_at")
+  notes          String?                 @db.Text
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  definition EContractDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  version    EContractVersion    @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  teamLeader User                @relation("EContractIssuanceTeamLeader", fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  submission EContractSubmission?
+
+  @@index([teamLeaderId, createdAt(sort: Desc)])
+  @@index([definitionId, versionId])
+  @@map("e_contract_issuances")
+}
+
+/// 체결 완료 1건(감사 로그 코어). `versionContentHash`는 배포 당시 `EContractVersion.contentHash` 복사.
+model EContractSubmission {
+  id                  String   @id @default(uuid())
+  issuanceId          String   @unique @map("issuance_id")
+  versionId           String   @map("version_id")
+  signedAt            DateTime @default(now()) @map("signed_at")
+  payload             Json?
+  versionContentHash  String?  @map("version_content_hash") @db.VarChar(128)
+  selfiePublicId      String?  @map("selfie_public_id") @db.VarChar(512)
+  selfieUrl           String?  @map("selfie_url") @db.VarChar(2048)
+  signaturePublicId   String?  @map("signature_public_id") @db.VarChar(512)
+  signatureUrl        String?  @map("signature_url") @db.VarChar(2048)
+  /// 체결 직후 버전 본문에 을 정보·서명 토큰을 치환한 HTML(감사·열람용)
+  mergedContractHtml  String?  @map("merged_contract_html") @db.Text
+  finalPdfPublicId    String?  @map("final_pdf_public_id") @db.VarChar(512)
+  finalPdfUrl         String?  @map("final_pdf_url") @db.VarChar(2048)
+  signerUserAgent     String?  @map("signer_user_agent") @db.VarChar(512)
+  signerIp            String?  @map("signer_ip") @db.VarChar(64)
+
+  issuance EContractIssuance @relation(fields: [issuanceId], references: [id], onDelete: Cascade)
+  version  EContractVersion  @relation(fields: [versionId], references: [id], onDelete: Restrict)
+
+  @@index([versionId, signedAt(sort: Desc)])
+  @@map("e_contract_submissions")
 }
