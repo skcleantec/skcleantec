@@ -1,6 +1,12 @@
-import { useEffect, useState, useRef, useLayoutEffect, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getEContractSubmissionDetail, type EContractSubmissionDetailDto } from '../../api/adminEContract';
-import { EContractBodyDisplay } from './EContractBodyDisplay';
+import { sanitizeEContractHtml } from '../../utils/sanitizeEContractHtml';
+
+// pagedjs 의 polyfill 은 client/public/vendor/pagedjs/ 에 사본을 두고 절대 URL 로 로드한다.
+// (pagedjs@0.4.3 의 package.json `exports` 가 `./dist/*` 를 노출하지 않아 ?url import 가
+//  최신 Vite 에서 막힌다. 사본은 npm install / dev / build 직전에 scripts/copy-pagedjs-polyfill.mjs
+//  가 자동으로 갱신한다.)
+const pagedPolyfillUrl = '/vendor/pagedjs/paged.polyfill.min.js';
 
 type Props = {
   token: string | null;
@@ -9,93 +15,199 @@ type Props = {
   onClose: () => void;
 };
 
-/** 체결 합본: 내부 max-height 없이 한 덩어리 스크롤 + (선택) 한 화면에 축소 */
-function SubmissionContractReader({ bodyHtml, fitOneScreen }: { bodyHtml: string; fitOneScreen: boolean }) {
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState<{ cw: number; ch: number; s: number } | null>(null);
-
-  const recompute = useCallback(() => {
-    if (!fitOneScreen) return;
-    const vp = viewportRef.current;
-    const m = measureRef.current;
-    if (!vp || !m) return;
-    const ch = m.scrollHeight;
-    const cw = m.scrollWidth;
-    const vph = vp.clientHeight;
-    const vpw = vp.clientWidth;
-    if (ch < 8 || cw < 8 || vph < 8 || vpw < 8) return;
-    const s = Math.min(1, (vph * 0.98) / ch, (vpw * 0.98) / cw);
-    setFit((prev) => {
-      if (prev && prev.cw === cw && prev.ch === ch && Math.abs(prev.s - s) < 0.0005) return prev;
-      return { cw, ch, s };
-    });
-  }, [fitOneScreen]);
-
-  useLayoutEffect(() => {
-    if (!fitOneScreen) {
-      setFit(null);
-      return;
+function escapeHtml(s: string): string {
+  return String(s).replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      case "'":
+        return '&#39;';
+      default:
+        return c;
     }
-    recompute();
-  }, [fitOneScreen, recompute, bodyHtml]);
+  });
+}
 
-  useEffect(() => {
-    if (!fitOneScreen) return;
-    const vp = viewportRef.current;
-    const m = measureRef.current;
-    if (!vp || !m) return;
-    const ro = new ResizeObserver(() => {
-      window.requestAnimationFrame(recompute);
-    });
-    ro.observe(vp);
-    ro.observe(m);
-    const t = window.setTimeout(recompute, 120);
-    return () => {
-      window.clearTimeout(t);
-      ro.disconnect();
-    };
-  }, [fitOneScreen, recompute]);
+/** iframe srcdoc — paged.js 로 A4 페이지 단위 분할·헤더·푸터를 직접 그린다 */
+function buildPagedHtmlDocument(opts: { bodyHtml: string; docId: string; pagedScriptUrl: string; title: string }): string {
+  const inner = sanitizeEContractHtml(opts.bodyHtml);
+  const docIdSafe = escapeHtml(opts.docId);
+  const titleSafe = escapeHtml(opts.title);
+  // 외부 URL (vite 처리됨) — 절대 URL 로 변환해 iframe 안에서도 접근되게 함
+  const absoluteScriptUrl = (() => {
+    try {
+      return new URL(opts.pagedScriptUrl, window.location.href).toString();
+    } catch {
+      return opts.pagedScriptUrl;
+    }
+  })();
+  const scriptUrlSafe = escapeHtml(absoluteScriptUrl);
 
-  if (!fitOneScreen) {
-    return (
-      <div ref={measureRef} className="min-w-0 rounded-md border border-gray-200 bg-white p-2">
-        <EContractBodyDisplay body={bodyHtml} maxHeightClass="" />
-      </div>
-    );
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>${titleSafe}</title>
+<style>
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm 16mm;
+  @top-right {
+    content: "문서 확인 번호 ${docIdSafe}";
+    font-family: 'Malgun Gothic','맑은 고딕',sans-serif;
+    font-size: 8pt;
+    color: #666;
   }
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-family: 'Malgun Gothic','맑은 고딕',sans-serif;
+    font-size: 9pt;
+    color: #333;
+  }
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Malgun Gothic','맑은 고딕','Noto Sans KR',sans-serif;
+  color: #111827;
+  line-height: 1.65;
+  font-size: 11pt;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+article.e-contract-body-html {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+article.e-contract-body-html p { margin: 0 0 0.6em 0; }
+article.e-contract-body-html h1 { font-size: 16pt; font-weight: 700; margin: 0.6em 0 0.4em; page-break-after: avoid; }
+article.e-contract-body-html h2 { font-size: 13pt; font-weight: 700; margin: 0.6em 0 0.4em; page-break-after: avoid; }
+article.e-contract-body-html h3 { font-size: 11.5pt; font-weight: 600; margin: 0.5em 0 0.3em; page-break-after: avoid; }
+article.e-contract-body-html ul, article.e-contract-body-html ol { margin: 0.4em 0 0.6em 1.4em; padding: 0; }
+article.e-contract-body-html li { margin: 0.1em 0; }
+article.e-contract-body-html blockquote {
+  margin: 0.6em 0;
+  padding-left: 10px;
+  border-left: 3px solid #d1d5db;
+  color: #4b5563;
+}
+article.e-contract-body-html table { border-collapse: collapse; page-break-inside: auto; }
+article.e-contract-body-html tr { page-break-inside: avoid; }
+article.e-contract-body-html img { max-width: 100%; height: auto; page-break-inside: avoid; }
+article.e-contract-body-html a { color: #1d4ed8; text-decoration: underline; }
+
+/* Quill / Tiptap 정렬 클래스 (iframe 안에는 Tailwind 가 없으므로 직접 처리) */
+article.e-contract-body-html .ql-align-center,
+article.e-contract-body-html [style*="text-align: center"] { text-align: center; }
+article.e-contract-body-html .ql-align-right,
+article.e-contract-body-html [style*="text-align: right"] { text-align: right; }
+article.e-contract-body-html .ql-align-justify,
+article.e-contract-body-html [style*="text-align: justify"] { text-align: justify; }
+
+/* 갑/을 정보 부록은 한 페이지 안에 모이도록 */
+.ec-party-appendix { page-break-inside: avoid; break-inside: avoid; }
+
+/* 화면용 — paged.js 가 그린 A4 페이지 카드 스타일 */
+@media screen {
+  body {
+    background: #e5e7eb;
+  }
+  .pagedjs_pages {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 0 24px;
+  }
+  .pagedjs_page {
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+  }
+}
+</style>
+</head>
+<body>
+<article class="e-contract-body-html">
+${inner}
+</article>
+<script>
+  // paged.polyfill.js 가 자동 시작되기 전에 후크 등록
+  window.PagedConfig = {
+    auto: true,
+    after: function() {
+      try { document.body.setAttribute('data-pagedjs-ready', '1'); } catch (e) {}
+      try { window.parent.postMessage({ type: 'pagedjs-rendered' }, '*'); } catch (e) {}
+    }
+  };
+</script>
+<script src="${scriptUrlSafe}"></script>
+</body>
+</html>`;
+}
+
+/**
+ * 체결 합본 — iframe + Paged.js
+ * - 실제 A4 페이지 단위로 분할된 모습을 그대로 보여줌
+ * - 각 페이지에 자동으로 문서 확인 번호(헤더) · 페이지 번호(푸터) 추가
+ * - 인쇄/PDF 저장 시에도 동일한 페이지 구분으로 출력
+ */
+function SubmissionContractReader({
+  bodyHtml,
+  docId,
+  title,
+  iframeRef,
+  onReadyChange,
+}: {
+  bodyHtml: string;
+  docId: string;
+  title: string;
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
+  onReadyChange: (ready: boolean) => void;
+}) {
+  const docHtml = useMemo(
+    () => buildPagedHtmlDocument({ bodyHtml, docId, pagedScriptUrl: pagedPolyfillUrl, title }),
+    [bodyHtml, docId, title]
+  );
+
+  // iframe 안에서 paged.js 가 페이지 분할을 끝내면 postMessage 로 알림 → 부모는 인쇄 버튼 활성화
+  useEffect(() => {
+    function onMsg(ev: MessageEvent) {
+      if (ev && ev.data && typeof ev.data === 'object' && ev.data.type === 'pagedjs-rendered') {
+        onReadyChange(true);
+      }
+    }
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [onReadyChange]);
+
+  // 본문 변경 시 일단 ready=false 로 리셋 + 8초 안전 fallback (paged.js 후크가 실패해도 인쇄 가능하게)
+  useEffect(() => {
+    onReadyChange(false);
+    const fallback = window.setTimeout(() => onReadyChange(true), 8000);
+    return () => window.clearTimeout(fallback);
+  }, [docHtml, onReadyChange]);
 
   return (
     <div
-      ref={viewportRef}
-      className="mx-auto flex w-full min-w-0 max-w-full justify-center overflow-hidden rounded-md border border-gray-200 bg-white p-2"
-      style={{ maxHeight: 'min(calc(96vh - 15.5rem), 78vh)', minHeight: 'min(220px, 40vh)' }}
+      className="w-full overflow-hidden rounded-md border border-gray-200 bg-gray-200"
+      style={{ height: 'min(calc(96vh - 14rem), 80vh)' }}
     >
-      {fit && fit.s > 0 ? (
-        <div
-          className="overflow-hidden"
-          style={{
-            width: Math.max(1, fit.cw * fit.s),
-            height: Math.max(1, fit.ch * fit.s),
-          }}
-        >
-          <div
-            ref={measureRef}
-            className="min-w-0"
-            style={{
-              width: fit.cw,
-              transform: `scale(${fit.s})`,
-              transformOrigin: 'top left',
-            }}
-          >
-            <EContractBodyDisplay body={bodyHtml} maxHeightClass="" />
-          </div>
-        </div>
-      ) : (
-        <div ref={measureRef} className="min-w-0 w-full">
-          <EContractBodyDisplay body={bodyHtml} maxHeightClass="" />
-        </div>
-      )}
+      <iframe
+        ref={iframeRef}
+        title="계약서 미리보기"
+        srcDoc={docHtml}
+        sandbox="allow-same-origin allow-scripts allow-modals"
+        className="block h-full w-full border-0 bg-gray-200"
+      />
     </div>
   );
 }
@@ -107,14 +219,15 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
   const [imageLightboxUrl, setImageLightboxUrl] = useState<string | null>(null);
   const [imageLightboxLabel, setImageLightboxLabel] = useState('');
   const [readerExpanded, setReaderExpanded] = useState(false);
-  const [fitOneScreen, setFitOneScreen] = useState(false);
+  const [pagedReady, setPagedReady] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
     if (!open) {
       setImageLightboxUrl(null);
       setImageLightboxLabel('');
       setReaderExpanded(false);
-      setFitOneScreen(false);
+      setPagedReady(false);
     }
   }, [open]);
 
@@ -128,6 +241,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
     setLoading(true);
     setErr(null);
     setDetail(null);
+    setPagedReady(false);
     void (async () => {
       try {
         const d = await getEContractSubmissionDetail(token, submissionId);
@@ -142,6 +256,20 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
       cancelled = true;
     };
   }, [open, token, submissionId]);
+
+  function triggerPrint() {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentWindow) {
+      window.alert('미리보기가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch {
+      window.alert('인쇄 창을 열지 못했습니다.');
+    }
+  }
 
   if (!open) return null;
 
@@ -170,7 +298,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
           className={`flex w-full flex-col overflow-hidden rounded-t-lg border border-gray-200 bg-white shadow-xl sm:rounded-lg ${
             readerExpanded && detail
               ? 'h-[96vh] max-h-[96vh] max-w-[min(1180px,99vw)]'
-              : 'max-h-[min(92vh,900px)] max-w-3xl'
+              : 'max-h-[min(94vh,1000px)] max-w-3xl'
           }`}
         >
           <div className="flex shrink-0 flex-col gap-3 border-b border-gray-200 px-4 py-3">
@@ -180,8 +308,9 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                   최종 체결본
                 </h2>
                 <p className="mt-1 text-fluid-2xs text-gray-600">
-                  아래 본문·다운로드 파일에는 <span className="font-medium text-gray-800">업체(갑) 표기·팀장(을) 입력·서명 이미지</span>가
-                  반영된 확정 HTML입니다. (구버전 체결은 합본이 없을 수 있습니다.)
+                  아래 미리보기는 <span className="font-medium text-gray-800">실제 A4 인쇄 페이지</span>로 분할되어 표시됩니다.
+                  각 페이지 머리말에 <span className="font-medium">문서 확인 번호</span>, 꼬리말에 <span className="font-medium">현재/전체 페이지 번호</span>가
+                  자동으로 들어갑니다.
                 </p>
               </div>
               <button
@@ -195,67 +324,52 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
             {detail && !loading && !err ? (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50"
-                  onClick={() => {
-                    const iframe = document.querySelector('iframe[title="계약서 미리보기"]') as HTMLIFrameElement;
-                    if (iframe && iframe.contentWindow) {
-                      iframe.contentWindow.focus();
-                      iframe.contentWindow.print();
-                    }
-                  }}
-                  title="PDF로 완벽한 페이지 나누기가 적용된 문서를 인쇄/다운로드합니다."
-                >
-                  인쇄 / PDF로 저장
-                </button>
-                <button
-                  type="button"
-                  disabled={!detail.selfieUrl}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45"
-                  onClick={() => {
-                    if (detail.selfieUrl) {
-                      setImageLightboxLabel('본인확인 셀카');
-                      setImageLightboxUrl(detail.selfieUrl);
-                    }
-                  }}
-                >
-                  셀카 보기
-                </button>
-                <button
-                  type="button"
-                  disabled={!detail.signatureUrl}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45"
-                  onClick={() => {
-                    if (detail.signatureUrl) {
-                      setImageLightboxLabel('서명');
-                      setImageLightboxUrl(detail.signatureUrl);
-                    }
-                  }}
-                >
-                  서명 보기
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-fluid-xs font-medium text-blue-900 hover:bg-blue-100"
-                  onClick={() => setReaderExpanded((v) => !v)}
-                >
-                  {readerExpanded ? '보통 크기' : '문서만 넓게'}
-                </button>
-                <button
-                  type="button"
-                  className={`rounded-lg border px-3 py-2 text-fluid-xs font-medium ${
-                    fitOneScreen
-                      ? 'border-violet-300 bg-violet-100 text-violet-900'
-                      : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setFitOneScreen((v) => !v)}
-                >
-                  {fitOneScreen ? '실제 크기(스크롤)' : '한 화면에 맞춤'}
-                </button>
+                  <button
+                    type="button"
+                    onClick={triggerPrint}
+                    disabled={!pagedReady}
+                    className="rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="아래 미리보기 그대로 인쇄·PDF 저장 (페이지 번호·문서 번호 포함)"
+                  >
+                    {pagedReady ? '인쇄 / PDF로 저장' : '페이지 준비 중…'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!detail.selfieUrl}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => {
+                      if (detail.selfieUrl) {
+                        setImageLightboxLabel('본인확인 셀카');
+                        setImageLightboxUrl(detail.selfieUrl);
+                      }
+                    }}
+                  >
+                    셀카 보기
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!detail.signatureUrl}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => {
+                      if (detail.signatureUrl) {
+                        setImageLightboxLabel('서명');
+                        setImageLightboxUrl(detail.signatureUrl);
+                      }
+                    }}
+                  >
+                    서명 보기
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-fluid-xs font-medium text-blue-900 hover:bg-blue-100"
+                    onClick={() => setReaderExpanded((v) => !v)}
+                  >
+                    {readerExpanded ? '보통 크기' : '문서만 넓게'}
+                  </button>
                 </div>
                 <p className="text-fluid-2xs text-gray-500">
-                  ⚠️ 화면에 보이는 A4 페이지 형태 그대로 PDF로 저장할 수 있습니다. 상단의 <strong>「인쇄 / PDF로 저장」</strong>을 눌러 대상을 "PDF로 저장"으로 선택하세요.
+                  ⚠️ 「인쇄 / PDF로 저장」을 누른 뒤 인쇄 대화상자에서 <strong>대상을 「PDF로 저장」</strong>으로 선택하면
+                  화면과 동일한 페이지 분할·머리말·꼬리말이 그대로 들어간 PDF가 만들어집니다.
                 </p>
               </div>
             ) : null}
@@ -280,14 +394,21 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                     <div>
                       <div className="text-fluid-sm font-semibold text-gray-900">계약서(제출본)</div>
                       <p className="mt-0.5 text-fluid-2xs text-gray-500">
-                        {fitOneScreen
-                          ? '「한 화면에 맞춤」으로 본문·서명까지 한 뷰에 맞춥니다. 글자가 작으면 「실제 크기(스크롤)」로 바꾸세요.'
-                          : '본문과 서명은 같은 문서 안에 이어집니다. 위에서 「한 화면에 맞춤」을 켜면 스크롤 없이 한 화면에 맞춥니다.'}
+                        본문·계약 당사자 정보·서명까지 한 문서로 묶여, 실제 A4 페이지 형태로 표시됩니다.
                       </p>
+                    </div>
+                    <div className="text-fluid-2xs text-gray-500">
+                      문서 확인 번호 <span className="font-mono text-gray-700">{detail.id}</span>
                     </div>
                   </div>
                   <div className="mt-2 min-w-0">
-                    <SubmissionContractReader bodyHtml={detail.bodyHtml} fitOneScreen={fitOneScreen} />
+                    <SubmissionContractReader
+                      bodyHtml={detail.bodyHtml}
+                      docId={detail.id}
+                      title={`${detail.definitionTitle} - ${detail.teamLeader.name}`}
+                      iframeRef={iframeRef}
+                      onReadyChange={setPagedReady}
+                    />
                   </div>
                 </div>
 

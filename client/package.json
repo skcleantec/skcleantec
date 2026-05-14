@@ -8,7 +8,10 @@
     "dev:vite": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node scripts/copy-pagedjs-polyfill.mjs",
+    "predev:vite": "node scripts/copy-pagedjs-polyfill.mjs",
+    "prebuild": "node scripts/copy-pagedjs-polyfill.mjs"
   },
   "dependencies": {
     "@tiptap/core": "^3.23.4",
