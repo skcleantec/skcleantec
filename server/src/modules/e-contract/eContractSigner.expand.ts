@@ -58,6 +58,9 @@ export function expandSignerPlaceholders(html: string, signer: SignerFilledField
   const phone = escapeHtml((signer.phone ?? '').trim());
   const notesRaw = (signer.freeTextNotes ?? '').trim();
   const notes = notesRaw ? escapeHtml(notesRaw).replace(/\n/g, '<br />') : '';
+  const notesRow = notes
+    ? `<tr><td style="padding: 6px 0; color: #333; font-weight: bold;">추가 기재</td><td style="padding: 6px 0;">${notes}</td></tr>`
+    : '';
   const sig = signatureMarkup(signer.signatureSecureUrl ?? '');
 
   const rep: Record<string, string> = {
@@ -66,6 +69,7 @@ export function expandSignerPlaceholders(html: string, signer: SignerFilledField
     '[[EC_SIGNER_ADDRESS]]': addr,
     '[[EC_SIGNER_PHONE]]': phone,
     '[[EC_SIGNER_FREETEXT]]': notes,
+    '[[EC_SIGNER_FREETEXT_ROW]]': notesRow,
     '[[EC_SIGNATURE]]': sig,
   };
   for (const [needle, val] of Object.entries(rep)) {

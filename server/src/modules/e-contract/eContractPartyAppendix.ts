@@ -20,42 +20,51 @@ export function buildPartyAppendixHtml(
   }
 
   const tmpl = `
-<div class="ec-party-appendix" style="margin-top: 50px; padding-top: 30px; border-top: 2px solid #111827; font-family: 'Malgun Gothic', sans-serif; color: #111827; page-break-inside: avoid;">
-  <div style="text-align: right; font-size: 11px; color: #6b7280; margin-bottom: 40px;">
+<div class="ec-party-appendix" style="margin-top: 60px; padding-top: 40px; border-top: 1px solid #000; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; color: #000; page-break-inside: avoid;">
+  <div style="text-align: right; font-size: 11px; color: #666; margin-bottom: 30px;">
     문서 확인 번호: <strong>${docId}</strong>
   </div>
 
-  <div style="text-align: center; margin-bottom: 50px; font-size: 18px; font-weight: bold; letter-spacing: 2px;">
+  <div style="text-align: center; margin-bottom: 60px; font-size: 18px; font-weight: bold; letter-spacing: 2px;">
     ${dateText}
   </div>
 
-  <table style="width: 100%; border: 0; border-collapse: separate; border-spacing: 20px 0; table-layout: fixed;">
+  <table style="width: 100%; border: 0; border-collapse: collapse; table-layout: fixed;">
     <tr>
-      <td style="width: 50%; vertical-align: top; padding: 0;">
-        <h3 style="font-size: 15px; font-weight: bold; margin: 0 0 12px 0; color: #111827; text-align: left;">계약주 (갑)</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+      <td style="width: 50%; vertical-align: top; padding: 0 20px 0 0;">
+        <div style="font-size: 15px; font-weight: bold; margin-bottom: 16px;">[계 약 주] (갑)</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; text-align: left;">
           <tbody>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; width: 32%; font-weight: bold;">상호</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_ISSUER_COMPANY]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">대표자</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_ISSUER_REP]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">사업자번호</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_ISSUER_BIZNO]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">주소</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_ISSUER_ADDRESS]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">연락처</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_ISSUER_PHONE]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">이메일</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_ISSUER_EMAIL]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold; height: 80px; vertical-align: middle;">(인)</th><td style="border: 1px solid #d1d5db; padding: 10px; text-align: center; vertical-align: middle;">[[EC_ISSUER_SEAL]]</td></tr>
+            <tr><td style="width: 80px; padding: 6px 0; color: #333; font-weight: bold;">상호</td><td style="padding: 6px 0;">[[EC_ISSUER_COMPANY]]</td></tr>
+            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">대표자</td><td style="padding: 6px 0;">[[EC_ISSUER_REP]]</td></tr>
+            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">사업자번호</td><td style="padding: 6px 0;">[[EC_ISSUER_BIZNO]]</td></tr>
+            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">주소</td><td style="padding: 6px 0;">[[EC_ISSUER_ADDRESS]]</td></tr>
+            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">연락처</td><td style="padding: 6px 0;">[[EC_ISSUER_PHONE]]</td></tr>
+            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">이메일</td><td style="padding: 6px 0;">[[EC_ISSUER_EMAIL]]</td></tr>
+            <tr>
+              <td colspan="2" style="padding-top: 20px; text-align: right; vertical-align: middle;">
+                <span style="font-weight: bold; margin-right: 16px; vertical-align: middle;">(인)</span>
+                <span style="display: inline-block; vertical-align: middle;">[[EC_ISSUER_SEAL]]</span>
+              </td>
+            </tr>
           </tbody>
         </table>
       </td>
-      <td style="width: 50%; vertical-align: top; padding: 0;">
-        <h3 style="font-size: 15px; font-weight: bold; margin: 0 0 12px 0; color: #111827; text-align: left;">계약자 (을)</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+      <td style="width: 50%; vertical-align: top; padding: 0 0 0 20px;">
+        <div style="font-size: 15px; font-weight: bold; margin-bottom: 16px;">[계 약 자] (을)</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; text-align: left;">
           <tbody>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; width: 32%; font-weight: bold;">성명</th><td style="border: 1px solid #d1d5db; padding: 10px; font-weight: bold;">[[EC_SIGNER_NAME]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">주민번호</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_SIGNER_RRN]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">주소</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_SIGNER_ADDRESS]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">연락처</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_SIGNER_PHONE]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">추가 기재</th><td style="border: 1px solid #d1d5db; padding: 10px;">[[EC_SIGNER_FREETEXT]]</td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold;">(인)</th><td style="border: 1px solid #d1d5db; padding: 10px;"></td></tr>
-            <tr><th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 10px; font-weight: bold; height: 80px; vertical-align: middle;">서명</th><td style="border: 1px solid #d1d5db; padding: 10px; text-align: center; vertical-align: middle;">[[EC_SIGNATURE]]</td></tr>
+            <tr><td style="width: 80px; padding: 6px 0; color: #333; font-weight: bold;">성명</td><td style="padding: 6px 0; font-weight: bold;">[[EC_SIGNER_NAME]]</td></tr>
+            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">주민번호</td><td style="padding: 6px 0;">[[EC_SIGNER_RRN]]</td></tr>
+            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">주소</td><td style="padding: 6px 0;">[[EC_SIGNER_ADDRESS]]</td></tr>
+            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">연락처</td><td style="padding: 6px 0;">[[EC_SIGNER_PHONE]]</td></tr>
+            [[EC_SIGNER_FREETEXT_ROW]]
+            <tr>
+              <td colspan="2" style="padding-top: 20px; text-align: right; vertical-align: middle;">
+                <span style="font-weight: bold; margin-right: 16px; vertical-align: middle;">(서명/인)</span>
+                <span style="display: inline-block; vertical-align: middle;">[[EC_SIGNATURE]]</span>
+              </td>
+            </tr>
           </tbody>
         </table>
       </td>
