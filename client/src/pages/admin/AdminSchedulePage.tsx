@@ -54,6 +54,10 @@ import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import { isManualIntakeInquiry } from '../../utils/manualIntakeInquiry';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
+import {
+  buildLeaderDayAssignmentCounts,
+  scheduleItemHasLeaderWithSingleAssignmentOnDay,
+} from '../../utils/scheduleLeaderDayAssignmentBalance';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -285,11 +289,14 @@ function ScheduleDayListItem({
   profCatalog,
   onPick,
   onOpenMemo,
+  leaderAssignmentCountsForDay,
 }: {
   item: ScheduleItem;
   profCatalog: ProfessionalSpecialtyOptionDto[];
   onPick: () => void;
   onOpenMemo: () => void;
+  /** 선택한 날짜의 팀장별 배정 건수(이번 달 목록 기준). 없으면 강조 생략 */
+  leaderAssignmentCountsForDay?: Map<string, number>;
 }) {
   const isExternalIntake = isManualIntakeInquiry(item.source);
   const isPreOrder =
@@ -300,12 +307,20 @@ function ScheduleDayListItem({
   const isCancelled = item.status === 'CANCELLED';
   const bucket = getScheduleTimeBucket(item);
   const isSide = isSideCleaningTime(item.preferredTime);
-  const slotAccent =
+  /** 왼쪽 띠만 — 오전/오후/사이 구분 유지 */
+  const slotLeftBorder =
     bucket === 'morning'
-      ? 'border-l-[6px] border-amber-500 bg-amber-50/50'
+      ? 'border-l-[6px] border-amber-500'
       : bucket === 'afternoon'
-        ? 'border-l-[6px] border-sky-600 bg-sky-50/50'
-        : 'border-l-[6px] border-violet-500 bg-violet-50/40';
+        ? 'border-l-[6px] border-sky-600'
+        : 'border-l-[6px] border-violet-500';
+  /** 팀장 당일 1건 미충족이 아닐 때만 쓰는 슬롯별 배경 */
+  const slotBgTint =
+    bucket === 'morning'
+      ? 'bg-amber-50/50'
+      : bucket === 'afternoon'
+        ? 'bg-sky-50/50'
+        : 'bg-violet-50/40';
   /** 사이청소는 오전·오후로 분류돼도 배지는 항상 「사이」(보라) 유지 */
   const slotBadgeClass = isSide
     ? 'bg-violet-100 text-violet-950 border border-violet-300'
@@ -353,12 +368,22 @@ function ScheduleDayListItem({
     item.happyCallCompletedAt,
     hasAssignment
   );
+  const leaderDayLoadUnderfilled = scheduleItemHasLeaderWithSingleAssignmentOnDay(
+    item,
+    leaderAssignmentCountsForDay
+  );
 
   return (
     <div
-      className={`text-left w-full py-1.5 pl-2 pr-1 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm text-fluid-sm ${slotAccent} ${
+      className={`text-left w-full py-1.5 pl-2 pr-1 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm text-fluid-sm ${slotLeftBorder} ${
+        leaderDayLoadUnderfilled ? 'bg-rose-50/95' : slotBgTint
+      } ${
         isPreOrder ? 'ring-1 ring-red-500' : ''
-      } ${isOnHold ? 'ring-1 ring-amber-500 bg-amber-50/40' : ''} ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}`}
+      } ${
+        isOnHold
+          ? `ring-1 ring-amber-500${!leaderDayLoadUnderfilled ? ' bg-amber-50/40' : ''}`
+          : ''
+      } ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}`}
     >
       <span
         className={`shrink-0 self-center inline-flex items-center justify-center min-w-[2.25rem] px-1 py-0.5 text-fluid-2xs font-bold leading-none rounded ${slotBadgeClass}`}
@@ -872,6 +897,22 @@ export function AdminSchedulePage() {
 
   const byDate = groupScheduleItemsByKstDate(filteredItems);
 
+  /** 이번 달 로드 전체 기준 — 팀장별 예약일당 배정 건수(배정 판단·UI용, DB 변경 없음) */
+  const leaderDayAssignmentCountsByDate = useMemo(
+    () => buildLeaderDayAssignmentCounts(items),
+    [items]
+  );
+  const leaderAssignmentCountsForSelectedDate = useMemo(() => {
+    if (!selectedDate) return undefined;
+    return leaderDayAssignmentCountsByDate.get(selectedDate);
+  }, [selectedDate, leaderDayAssignmentCountsByDate]);
+  const detailLeaderAssignmentCounts = useMemo(() => {
+    if (!detailItem?.preferredDate) return undefined;
+    const ymd = formatPreferredDateInputYmd(detailItem.preferredDate);
+    if (!ymd) return undefined;
+    return leaderDayAssignmentCountsByDate.get(ymd);
+  }, [detailItem?.preferredDate, leaderDayAssignmentCountsByDate]);
+
   /**
    * 전체 보기일 때, 각 날짜 칸 하단에 보여줄 "내가 만든 지역 캘린더별 건수" 집계.
    * - 활성 필터가 걸려 있으면 이미 필터링된 상태이므로 표시하지 않는다.
@@ -1101,6 +1142,12 @@ export function AdminSchedulePage() {
           {/* 범례 */}
           <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2.5 text-fluid-xs text-gray-600 leading-relaxed">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-3 shrink-0 rounded-sm border-2 border-rose-400 bg-rose-50 ring-1 ring-rose-200" />
+                <span>
+                  팀장 <span className="font-semibold text-rose-800">당일 1건</span> (추가 배정 검토)
+                </span>
+              </span>
               <span className="inline-flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full border-2 border-rose-500 bg-white shrink-0" />
                 <span>
@@ -1901,6 +1948,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
                                 setDetailItem(item);
@@ -1926,6 +1974,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
                                 setDetailItem(item);
@@ -1951,6 +2000,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
                                 setDetailItem(item);
@@ -1979,6 +2029,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
                                 setDetailItem(item);
@@ -2027,6 +2078,7 @@ export function AdminSchedulePage() {
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
+                                          leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                           onPick={() => {
                                             setMemoModalItem(null);
                                             setDetailItem(item);
@@ -2054,6 +2106,7 @@ export function AdminSchedulePage() {
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
+                                          leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                           onPick={() => {
                                             setMemoModalItem(null);
                                             setDetailItem(item);
@@ -2081,6 +2134,7 @@ export function AdminSchedulePage() {
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
+                                          leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                           onPick={() => {
                                             setMemoModalItem(null);
                                             setDetailItem(item);
@@ -2131,6 +2185,7 @@ export function AdminSchedulePage() {
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
+                                            leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                             onPick={() => {
                                               setMemoModalItem(null);
                                               setDetailItem(item);
@@ -2158,6 +2213,7 @@ export function AdminSchedulePage() {
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
+                                            leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                             onPick={() => {
                                               setMemoModalItem(null);
                                               setDetailItem(item);
@@ -2185,6 +2241,7 @@ export function AdminSchedulePage() {
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
+                                            leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                             onPick={() => {
                                               setMemoModalItem(null);
                                               setDetailItem(item);
@@ -2217,6 +2274,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
                                 setDetailItem(item);
@@ -2304,6 +2362,7 @@ export function AdminSchedulePage() {
           currentUserRole={meRole}
           marketerOptions={marketers}
           meUser={meUser}
+          leaderAssignmentCountsByLeaderId={detailLeaderAssignmentCounts}
           onClose={() => setDetailItem(null)}
           onSaved={() => fetchMonthData(false)}
           onInquiryRefresh={async () => {

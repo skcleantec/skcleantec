@@ -1,6 +1,36 @@
 /** 관리·C/S 목록 등 한국어 고정 표기용 */
 
-/** 목록·표·요약용 짧은 한 줄 (공급 N평 / 전용 N㎡) */
+/** 1평 ≈ 3.305785㎡ (레거시 ㎡만 있는 전용 접수 표시·폼 근사용) */
+export const SQM_PER_PYEONG = 3.305785;
+
+export function approxPyeongFromExclusiveSqm(sqm: number): number {
+  return Math.round((sqm / SQM_PER_PYEONG) * 100) / 100;
+}
+
+/** 접수 편집 폼 초기값 — 전용·고객발주서는 평(`areaPyeong`); 구 ㎡만 있으면 근사 평으로 채움 */
+export function inquiryAreaEditFormStringsFromItem(item: {
+  areaBasis?: string | null;
+  areaPyeong?: number | null;
+  exclusiveAreaSqm?: number | null;
+}): { areaPyeong: string; exclusiveAreaSqm: string } {
+  const basis = item.areaBasis?.trim() ?? '';
+  let areaPyeongStr = item.areaPyeong != null ? String(item.areaPyeong) : '';
+  const exclusiveSqmLegacy =
+    basis !== '공급' && basis !== '전용' && item.exclusiveAreaSqm != null
+      ? String(item.exclusiveAreaSqm)
+      : '';
+  if (
+    basis === '전용' &&
+    areaPyeongStr === '' &&
+    item.exclusiveAreaSqm != null &&
+    Number.isFinite(item.exclusiveAreaSqm)
+  ) {
+    areaPyeongStr = String(approxPyeongFromExclusiveSqm(item.exclusiveAreaSqm));
+  }
+  return { areaPyeong: areaPyeongStr, exclusiveAreaSqm: exclusiveSqmLegacy };
+}
+
+/** 목록·표·요약용 짧은 한 줄 (공급·전용 모두 평 우선; 구 방식 ㎡만 있으면 근사 평) */
 export function formatInquiryAreaKoShort(item: {
   areaBasis?: string | null;
   areaPyeong?: number | null;
@@ -18,10 +48,11 @@ export function formatInquiryAreaKoShort(item: {
     return `공급 ${py}평`;
   }
   if (b === '전용') {
-    if (sqm != null) {
-      return `전용 ${Number(sqm).toLocaleString('ko-KR')}㎡`;
-    }
     if (py != null) return `전용 ${py}평`;
+    if (sqm != null) {
+      const approx = approxPyeongFromExclusiveSqm(sqm);
+      return `전용 약 ${Number(approx).toLocaleString('ko-KR')}평`;
+    }
     return '—';
   }
   if (py != null && sqm != null) {
@@ -45,6 +76,13 @@ export function formatInquiryAreaKoShortFromEditStrings(input: {
   const sqParsed = sqStr ? Number.parseFloat(sqStr.replace(/,/g, '')) : NaN;
   const pyNum = Number.isFinite(pyParsed) && pyParsed > 0 ? pyParsed : null;
   const sqNum = Number.isFinite(sqParsed) && sqParsed > 0 ? sqParsed : null;
+  if (basis === '공급' || basis === '전용') {
+    return formatInquiryAreaKoShort({
+      areaBasis: basis,
+      areaPyeong: pyNum,
+      exclusiveAreaSqm: null,
+    });
+  }
   return formatInquiryAreaKoShort({
     areaBasis: basis || null,
     areaPyeong: pyNum,
@@ -69,14 +107,11 @@ export function formatInquiryAreaKoLine(item: {
     return `공급면적 ${py}평 (분양평수)`;
   }
   if (b === '전용') {
-    if (sqm != null) {
-      const sqStr = Number(sqm).toLocaleString('ko-KR');
-      if (py != null) {
-        return `전용면적 ${sqStr}㎡ (실제 내 집 공간) · 참고 ${py}평`;
-      }
-      return `전용면적 ${sqStr}㎡ (실제 내 집 공간)`;
-    }
     if (py != null) return `전용면적 ${py}평 (실제 내 집 공간)`;
+    if (sqm != null) {
+      const approx = approxPyeongFromExclusiveSqm(sqm);
+      return `전용면적 약 ${Number(approx).toLocaleString('ko-KR')}평 (구 ㎡ 입력·근사)`;
+    }
     return '—';
   }
   if (py != null && sqm != null) {

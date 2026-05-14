@@ -30,7 +30,11 @@ import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { formatPreferredDateInputYmd, formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
-import { formatInquiryAreaKoShortFromEditStrings } from '../../utils/inquiryAreaDisplay';
+import {
+  formatInquiryAreaKoShortFromEditStrings,
+  inquiryAreaEditFormStringsFromItem,
+} from '../../utils/inquiryAreaDisplay';
+import { scheduleItemHasLeaderWithSingleAssignmentOnDay } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
@@ -175,7 +179,7 @@ type EditFormFields = {
   propertyType: string;
   areaBasis: string;
   areaPyeong: string;
-  /** 전용면적 기준 시 참고 ㎡ */
+  /** 면적 기준 미선택·레거시 시 참고 ㎡ (공급·전용은 `areaPyeong` 평만 사용) */
   exclusiveAreaSqm: string;
   buildingType: string;
   moveInDate: string;
@@ -244,12 +248,12 @@ function buildPatchFromEditForm(
     patch.areaPyeong = py;
     patch.exclusiveAreaSqm = null;
   } else if (basisTrim === '전용') {
-    patch.areaPyeong = null;
-    const es = editForm.exclusiveAreaSqm.trim();
-    if (es === '') throw new Error('전용면적(실제 내 집 공간)을 제곱미터로 입력해 주세요.');
-    const ex = parseFloat(es.replace(/,/g, ''));
-    if (Number.isNaN(ex) || ex <= 0) throw new Error('전용 면적(㎡)은 양수 숫자로 입력해 주세요.');
-    patch.exclusiveAreaSqm = ex;
+    const ap = editForm.areaPyeong.trim();
+    if (ap === '') throw new Error('전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.');
+    const py = parseFloat(ap.replace(/,/g, ''));
+    if (Number.isNaN(py) || py <= 0) throw new Error('전용면적(평)은 양수 숫자로 입력해 주세요.');
+    patch.areaPyeong = py;
+    patch.exclusiveAreaSqm = null;
   } else {
     if (editForm.areaPyeong.trim() !== '') {
       patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
@@ -311,6 +315,9 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
     addressDetail: p.addressDetail,
     areaPyeong: p.areaPyeong != null ? Number(p.areaPyeong) : null,
     areaBasis: p.areaBasis ? String(p.areaBasis) : null,
+    exclusiveAreaSqm: Object.prototype.hasOwnProperty.call(p, 'exclusiveAreaSqm')
+      ? (p.exclusiveAreaSqm as number | null)
+      : null,
     propertyType: p.propertyType ? String(p.propertyType) : null,
     roomCount: p.roomCount,
     bathroomCount: p.bathroomCount,
@@ -361,6 +368,8 @@ export type ScheduleInquiryDetailModalProps =
       onSaved: () => void;
       /** 레거시 추가 금액·추가결재 등 별도 API 저장 후 `item`을 다시 맞출 때(예: getInquiry 후 setState) */
       onInquiryRefresh?: () => void | Promise<void>;
+      /** 스케줄 월 뷰에서만 전달. 해당 예약일·팀장별 당일 배정 건수(표시만, DB 없음) */
+      leaderAssignmentCountsByLeaderId?: Map<string, number>;
     }
   | {
       mode: 'create';
@@ -532,6 +541,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const onInquiryRefresh = isCreate
     ? undefined
     : (props as { onInquiryRefresh?: () => void | Promise<void> }).onInquiryRefresh;
+  const leaderAssignmentCountsByLeaderId = !isCreate
+    ? (props as { leaderAssignmentCountsByLeaderId?: Map<string, number> }).leaderAssignmentCountsByLeaderId
+    : undefined;
   const canEditMarketer = currentUserRole === 'ADMIN';
 
   const [saving, setSaving] = useState(false);
@@ -677,8 +689,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
       areaBasis: it.areaBasis || '',
-      areaPyeong: it.areaPyeong != null ? String(it.areaPyeong) : '',
-      exclusiveAreaSqm: it.exclusiveAreaSqm != null ? String(it.exclusiveAreaSqm) : '',
+      ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
       moveInDate: formatPreferredDateInputYmd(it.moveInDate),
       kitchenCount: it.kitchenCount != null ? String(it.kitchenCount) : '',
@@ -815,8 +826,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
       areaBasis: it.areaBasis || '',
-      areaPyeong: it.areaPyeong != null ? String(it.areaPyeong) : '',
-      exclusiveAreaSqm: it.exclusiveAreaSqm != null ? String(it.exclusiveAreaSqm) : '',
+      ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
       moveInDate: formatPreferredDateInputYmd(it.moveInDate),
       kitchenCount: it.kitchenCount != null ? String(it.kitchenCount) : '',
@@ -1254,6 +1264,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     }
   }, [item, editForm]);
 
+  const detailLeaderAssignmentUnderfilled = useMemo(() => {
+    if (!item || !leaderAssignmentCountsByLeaderId?.size) return false;
+    return scheduleItemHasLeaderWithSingleAssignmentOnDay(item, leaderAssignmentCountsByLeaderId);
+  }, [item, leaderAssignmentCountsByLeaderId]);
+
   const detailHeaderAreaShort = useMemo(() => {
     if (isCreate || !item) return '—';
     return formatInquiryAreaKoShortFromEditStrings({
@@ -1371,7 +1386,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           )}
           {!isCreate && item ? (
-            <div className="mt-2 space-y-1.5">
+            <div
+              className={
+                detailLeaderAssignmentUnderfilled
+                  ? 'mt-2 space-y-1.5 rounded-lg border border-rose-300 bg-rose-50/95 px-3 py-2.5 ring-1 ring-rose-200/80'
+                  : 'mt-2 space-y-1.5'
+              }
+            >
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex items-center gap-2">
                 <p className="min-w-0 truncate text-base font-semibold text-gray-900">{item.customerName}</p>
@@ -1418,6 +1439,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 {item.callAttempt != null ? ` · 통화 시도: ${item.callAttempt}` : null}
                 {item.claimMemo?.trim() ? ' · 클레임 등록됨' : null}
               </p>
+              {detailLeaderAssignmentUnderfilled ? (
+                <p className="text-[11px] font-semibold text-rose-900 leading-snug">
+                  당일 배정된 팀장 중 이날 1건만 있는 사람이 있습니다. 추가 오전·오후·사이 배정 여부를 검토하세요.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -1510,8 +1536,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 setEditForm((p) => ({
                   ...p,
                   areaBasis: v,
-                  exclusiveAreaSqm: v === '전용' ? p.exclusiveAreaSqm : '',
-                  areaPyeong: v === '공급' ? p.areaPyeong : '',
+                  exclusiveAreaSqm: v === '공급' || v === '전용' ? '' : p.exclusiveAreaSqm,
+                  areaPyeong:
+                    v === '공급' || v === '전용' ? (v === p.areaBasis ? p.areaPyeong : '') : p.areaPyeong,
                 }));
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded"
@@ -1538,12 +1565,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           ) : null}
           {editForm.areaBasis === '전용' ? (
             <div>
-              <label className="block text-gray-600 mb-1">전용면적 (실제 내 집 공간, ㎡)</label>
+              <label className="block text-gray-600 mb-1">전용면적 (평)</label>
               <input
-                value={editForm.exclusiveAreaSqm}
-                onChange={(e) => setEditForm((p) => ({ ...p, exclusiveAreaSqm: e.target.value }))}
+                value={editForm.areaPyeong}
+                onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
-                placeholder="예: 84"
+                placeholder="예: 25.5"
                 inputMode="decimal"
               />
             </div>

@@ -208,7 +208,7 @@ export function formatScheduleLine(item: InquiryItem) {
   return d ? `${slot} (${d})` : slot;
 }
 
-/** 목록·복사·모달 공통: 공급=평, 전용=㎡ 우선 표시 */
+/** 목록·복사·모달 공통: 공급·전용 표시는 `formatInquiryAreaKoShort`(평 기준; 구 ㎡는 근사) */
 export function formatTeamInquiryAreaSummary(item: {
   areaBasis?: string | null;
   areaPyeong?: number | null;

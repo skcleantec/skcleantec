@@ -57,7 +57,11 @@ import {
   isInquirySourceHiddenFromUi,
   phoneListTwoLines,
 } from '../../utils/inquiryListDisplay';
-import { formatInquiryAreaKoLine, formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
+import {
+  formatInquiryAreaKoLine,
+  formatInquiryAreaKoShort,
+  inquiryAreaEditFormStringsFromItem,
+} from '../../utils/inquiryAreaDisplay';
 import { happyCallRowTone } from '../../utils/happyCall';
 import {
   effectiveAdminTeamSpecialNotes,
@@ -1063,8 +1067,7 @@ export function AdminInquiriesPage() {
       customerPhone2: item.customerPhone2 || '',
       propertyType: item.propertyType || '',
       areaBasis: item.areaBasis || '',
-      areaPyeong: item.areaPyeong != null ? String(item.areaPyeong) : '',
-      exclusiveAreaSqm: item.exclusiveAreaSqm != null ? String(item.exclusiveAreaSqm) : '',
+      ...inquiryAreaEditFormStringsFromItem(item),
       buildingType: item.buildingType || '',
       moveInDate: item.moveInDate ? item.moveInDate.slice(0, 10) : '',
       specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
@@ -1434,20 +1437,20 @@ export function AdminInquiriesPage() {
         patch.areaPyeong = py;
         patch.exclusiveAreaSqm = null;
       } else if (basisTrim === '전용') {
-        patch.areaPyeong = null;
-        const es = editForm.exclusiveAreaSqm.trim();
-        if (es === '') {
-          alert('전용면적(실제 내 집 공간)을 제곱미터로 입력해 주세요.');
+        const ap = editForm.areaPyeong.trim();
+        if (ap === '') {
+          alert('전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.');
           setSaving(false);
           return;
         }
-        const ex = parseFloat(es.replace(/,/g, ''));
-        if (Number.isNaN(ex) || ex <= 0) {
-          alert('전용 면적(㎡)은 양수 숫자로 입력해 주세요.');
+        const py = parseFloat(ap.replace(/,/g, ''));
+        if (Number.isNaN(py) || py <= 0) {
+          alert('전용면적(평)은 양수 숫자로 입력해 주세요.');
           setSaving(false);
           return;
         }
-        patch.exclusiveAreaSqm = ex;
+        patch.areaPyeong = py;
+        patch.exclusiveAreaSqm = null;
       } else {
         if (editForm.areaPyeong.trim() !== '') {
           patch.areaPyeong = parseFloat(editForm.areaPyeong.replace(/,/g, ''));
@@ -3117,8 +3120,9 @@ export function AdminInquiriesPage() {
                     setEditForm((p) => ({
                       ...p,
                       areaBasis: v,
-                      exclusiveAreaSqm: v === '전용' ? p.exclusiveAreaSqm : '',
-                      areaPyeong: v === '공급' ? p.areaPyeong : '',
+                      exclusiveAreaSqm: v === '공급' || v === '전용' ? '' : p.exclusiveAreaSqm,
+                      areaPyeong:
+                        v === '공급' || v === '전용' ? (v === p.areaBasis ? p.areaPyeong : '') : p.areaPyeong,
                     }));
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
@@ -3143,12 +3147,12 @@ export function AdminInquiriesPage() {
               ) : null}
               {editForm.areaBasis === '전용' ? (
                 <div>
-                  <label className="block text-fluid-sm text-gray-600 mb-1">전용면적 (실제 내 집 공간, ㎡)</label>
+                  <label className="block text-fluid-sm text-gray-600 mb-1">전용면적 (평)</label>
                   <input
-                    value={editForm.exclusiveAreaSqm}
-                    onChange={(e) => setEditForm((p) => ({ ...p, exclusiveAreaSqm: e.target.value }))}
+                    value={editForm.areaPyeong}
+                    onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm tabular-nums"
-                    placeholder="예: 84"
+                    placeholder="예: 25.5"
                     inputMode="decimal"
                   />
                 </div>

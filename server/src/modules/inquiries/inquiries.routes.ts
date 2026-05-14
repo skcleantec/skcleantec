@@ -682,7 +682,7 @@ router.patch('/:id', async (req, res) => {
   if (data.areaPyeong !== undefined) pushIfChanged('평수', inquiry.areaPyeong, data.areaPyeong, fmtNum);
   if (data.areaBasis !== undefined) pushIfChanged('평수 기준', inquiry.areaBasis, data.areaBasis);
   if (data.exclusiveAreaSqm !== undefined)
-    pushIfChanged('전용 면적(㎡)', inquiry.exclusiveAreaSqm, data.exclusiveAreaSqm, fmtNum);
+    pushIfChanged('참고 전용면적(㎡)', inquiry.exclusiveAreaSqm, data.exclusiveAreaSqm, fmtNum);
   if (data.propertyType !== undefined) pushIfChanged('건물 유형', inquiry.propertyType, data.propertyType);
   if (data.roomCount !== undefined) pushIfChanged('방', inquiry.roomCount, data.roomCount, fmtNum);
   if (data.bathroomCount !== undefined) pushIfChanged('화장실', inquiry.bathroomCount, data.bathroomCount, fmtNum);
