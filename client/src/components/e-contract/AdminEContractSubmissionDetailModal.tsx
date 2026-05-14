@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { getEContractSubmissionDetail, type EContractSubmissionDetailDto } from '../../api/adminEContract';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { getEContractSubmissionDetail, downloadEContractSubmissionDocx, type EContractSubmissionDetailDto } from '../../api/adminEContract';
 import { EContractBodyDisplay } from './EContractBodyDisplay';
 import { sanitizeEContractHtml } from '../../utils/sanitizeEContractHtml';
 
@@ -67,13 +67,7 @@ function printSubmissionHtml(detail: EContractSubmissionDetailDto): void {
   const meta = esc(
     `${detail.teamLeader.name} (${detail.teamLeader.email}) · ${new Date(detail.signedAt).toLocaleString('ko-KR')}`
   );
-  const w = window.open('', '_blank', 'noopener,noreferrer');
-  if (!w) {
-    window.alert('팝업이 차단되어 인쇄 창을 열 수 없습니다. 브라우저에서 팝업을 허용해 주세요.');
-    return;
-  }
-  w.document.open();
-  w.document.write(`<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
@@ -82,7 +76,10 @@ function printSubmissionHtml(detail: EContractSubmissionDetailDto): void {
 body{font-family:system-ui,-apple-system,sans-serif;padding:20px;line-height:1.55;color:#111827;}
 h1{font-size:1.15rem;font-weight:600;}
 .ec-meta{font-size:13px;color:#4b5563;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e5e7eb;}
-@media print { body { padding: 12px; } }
+@media print {
+  body{padding:12px;}
+  img{max-width:100% !important;height:auto !important;page-break-inside:avoid;}
+}
 </style>
 </head>
 <body>
@@ -90,16 +87,135 @@ h1{font-size:1.15rem;font-weight:600;}
 <div class="ec-meta">${meta}</div>
 <div class="e-contract-body-html">${inner || '<p>(본문 없음)</p>'}</div>
 </body>
-</html>`);
-  w.document.close();
-  w.focus();
-  window.setTimeout(() => {
-    try {
-      w.print();
-    } catch {
-      /* ignore */
+</html>`;
+
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.title = '인쇄';
+  iframe.style.cssText =
+    'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0.02;pointer-events:none;z-index:-1';
+  document.body.appendChild(iframe);
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  const cleanup = () => {
+    URL.revokeObjectURL(blobUrl);
+    iframe.onload = null;
+    iframe.onerror = null;
+    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+  };
+
+  iframe.onerror = () => {
+    cleanup();
+    window.alert('인쇄용 문서를 불러오지 못했습니다. 「HTML 다운로드」로 저장한 뒤 브라우저에서 열어 인쇄해 주세요.');
+  };
+
+  iframe.onload = () => {
+    window.setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        window.alert('인쇄를 시작하지 못했습니다. 「HTML 다운로드」로 저장한 뒤 파일을 열어 인쇄해 주세요.');
+      } finally {
+        window.setTimeout(cleanup, 2500);
+      }
+    }, 50);
+  };
+
+  iframe.src = blobUrl;
+}
+
+/** 체결 합본: 내부 max-height 없이 한 덩어리 스크롤 + (선택) 한 화면에 축소 */
+function SubmissionContractReader({ bodyHtml, fitOneScreen }: { bodyHtml: string; fitOneScreen: boolean }) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ cw: number; ch: number; s: number } | null>(null);
+
+  const recompute = useCallback(() => {
+    if (!fitOneScreen) return;
+    const vp = viewportRef.current;
+    const m = measureRef.current;
+    if (!vp || !m) return;
+    const ch = m.scrollHeight;
+    const cw = m.scrollWidth;
+    const vph = vp.clientHeight;
+    const vpw = vp.clientWidth;
+    if (ch < 8 || cw < 8 || vph < 8 || vpw < 8) return;
+    const s = Math.min(1, (vph * 0.98) / ch, (vpw * 0.98) / cw);
+    setFit((prev) => {
+      if (prev && prev.cw === cw && prev.ch === ch && Math.abs(prev.s - s) < 0.0005) return prev;
+      return { cw, ch, s };
+    });
+  }, [fitOneScreen]);
+
+  useLayoutEffect(() => {
+    if (!fitOneScreen) {
+      setFit(null);
+      return;
     }
-  }, 300);
+    recompute();
+  }, [fitOneScreen, recompute, bodyHtml]);
+
+  useEffect(() => {
+    if (!fitOneScreen) return;
+    const vp = viewportRef.current;
+    const m = measureRef.current;
+    if (!vp || !m) return;
+    const ro = new ResizeObserver(() => {
+      window.requestAnimationFrame(recompute);
+    });
+    ro.observe(vp);
+    ro.observe(m);
+    const t = window.setTimeout(recompute, 120);
+    return () => {
+      window.clearTimeout(t);
+      ro.disconnect();
+    };
+  }, [fitOneScreen, recompute]);
+
+  if (!fitOneScreen) {
+    return (
+      <div ref={measureRef} className="min-w-0 rounded-md border border-gray-200 bg-white p-2">
+        <EContractBodyDisplay body={bodyHtml} maxHeightClass="" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={viewportRef}
+      className="mx-auto flex w-full min-w-0 max-w-full justify-center overflow-hidden rounded-md border border-gray-200 bg-white p-2"
+      style={{ maxHeight: 'min(calc(96vh - 15.5rem), 78vh)', minHeight: 'min(220px, 40vh)' }}
+    >
+      {fit && fit.s > 0 ? (
+        <div
+          className="overflow-hidden"
+          style={{
+            width: Math.max(1, fit.cw * fit.s),
+            height: Math.max(1, fit.ch * fit.s),
+          }}
+        >
+          <div
+            ref={measureRef}
+            className="min-w-0"
+            style={{
+              width: fit.cw,
+              transform: `scale(${fit.s})`,
+              transformOrigin: 'top left',
+            }}
+          >
+            <EContractBodyDisplay body={bodyHtml} maxHeightClass="" />
+          </div>
+        </div>
+      ) : (
+        <div ref={measureRef} className="min-w-0 w-full">
+          <EContractBodyDisplay body={bodyHtml} maxHeightClass="" />
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function AdminEContractSubmissionDetailModal({ token, submissionId, open, onClose }: Props) {
@@ -108,11 +224,17 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
   const [err, setErr] = useState<string | null>(null);
   const [imageLightboxUrl, setImageLightboxUrl] = useState<string | null>(null);
   const [imageLightboxLabel, setImageLightboxLabel] = useState('');
+  const [readerExpanded, setReaderExpanded] = useState(false);
+  const [fitOneScreen, setFitOneScreen] = useState(false);
+  const [docxBusy, setDocxBusy] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setImageLightboxUrl(null);
       setImageLightboxLabel('');
+      setReaderExpanded(false);
+      setFitOneScreen(false);
+      setDocxBusy(false);
     }
   }, [open]);
 
@@ -164,12 +286,24 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
           if (ev.target === ev.currentTarget) onClose();
         }}
       >
-        <div className="flex max-h-[min(92vh,900px)] w-full max-w-3xl flex-col rounded-t-lg border border-gray-200 bg-white shadow-xl sm:rounded-lg">
+        <div
+          className={`flex w-full flex-col overflow-hidden rounded-t-lg border border-gray-200 bg-white shadow-xl sm:rounded-lg ${
+            readerExpanded && detail
+              ? 'h-[96vh] max-h-[96vh] max-w-[min(1180px,99vw)]'
+              : 'max-h-[min(92vh,900px)] max-w-3xl'
+          }`}
+        >
           <div className="flex shrink-0 flex-col gap-3 border-b border-gray-200 px-4 py-3">
             <div className="flex items-start justify-between gap-2">
-              <h2 id="ec-submission-modal-title" className="text-fluid-md font-semibold text-gray-900">
-                체결 제출본 — 상세
-              </h2>
+              <div className="min-w-0">
+                <h2 id="ec-submission-modal-title" className="text-fluid-md font-semibold text-gray-900">
+                  최종 체결본
+                </h2>
+                <p className="mt-1 text-fluid-2xs text-gray-600">
+                  아래 본문·다운로드 파일에는 <span className="font-medium text-gray-800">업체(갑) 표기·팀장(을) 입력·서명 이미지</span>가
+                  반영된 확정 HTML입니다. (구버전 체결은 합본이 없을 수 있습니다.)
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={onClose}
@@ -179,7 +313,8 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
               </button>
             </div>
             {detail && !loading && !err ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50"
@@ -189,10 +324,25 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                 </button>
                 <button
                   type="button"
+                  disabled={docxBusy || !submissionId}
+                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                  onClick={() => {
+                    if (!token || !submissionId) return;
+                    setDocxBusy(true);
+                    void downloadEContractSubmissionDocx(token, submissionId)
+                      .catch((e) => window.alert(e instanceof Error ? e.message : 'Word 파일을 받지 못했습니다.'))
+                      .finally(() => setDocxBusy(false));
+                  }}
+                >
+                  {docxBusy ? 'Word 생성 중…' : 'Word(.docx) 다운로드'}
+                </button>
+                <button
+                  type="button"
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50"
                   onClick={() => printSubmissionHtml(detail)}
+                  title="새 창 없이 인쇄 대화상자만 열립니다. 대상에서 PDF로 저장을 선택하세요."
                 >
-                  인쇄 / PDF 저장
+                  인쇄 / PDF로 저장
                 </button>
                 <button
                   type="button"
@@ -220,6 +370,29 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                 >
                   서명 보기
                 </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-fluid-xs font-medium text-blue-900 hover:bg-blue-100"
+                  onClick={() => setReaderExpanded((v) => !v)}
+                >
+                  {readerExpanded ? '보통 크기' : '문서만 넓게'}
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-lg border px-3 py-2 text-fluid-xs font-medium ${
+                    fitOneScreen
+                      ? 'border-violet-300 bg-violet-100 text-violet-900'
+                      : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                  }`}
+                  onClick={() => setFitOneScreen((v) => !v)}
+                >
+                  {fitOneScreen ? '실제 크기(스크롤)' : '한 화면에 맞춤'}
+                </button>
+                </div>
+                <p className="text-fluid-2xs text-gray-500">
+                  PDF는 인쇄 창에서 <span className="font-medium text-gray-700">대상</span>을「PDF로 저장」또는「Microsoft Print to
+                  PDF」로 고르면 됩니다. 인쇄가 안 되면 HTML을 받은 뒤 파일을 연 다음 인쇄해 주세요.
+                </p>
               </div>
             ) : null}
           </div>
@@ -230,7 +403,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
             ) : err ? (
               <p className="text-center text-fluid-sm text-red-700">{err}</p>
             ) : detail ? (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {!detail.mergedUsed ? (
                   <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-900">
                     이 기록에는 체결 시점 합본 HTML이 없습니다. 아래는 해당 버전 계약 원문(갑 치환본)입니다. 신규 체결분은 합본이
@@ -238,122 +411,144 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                   </div>
                 ) : null}
 
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-fluid-xs text-gray-800">
-                  <div>
-                    <span className="font-medium">계약 종류</span> — {detail.definitionTitle}
-                  </div>
-                  <div className="mt-1">
-                    <span className="font-medium">팀장</span> — {detail.teamLeader.name}{' '}
-                    <span className="text-gray-600">({detail.teamLeader.email})</span>
-                  </div>
-                  <div className="mt-1">
-                    <span className="font-medium">버전</span> —{' '}
-                    <span className="tabular-nums">{detail.versionOrdinal != null ? `v${detail.versionOrdinal}` : '—'}</span>
-                    {detail.versionTitle ? ` · ${detail.versionTitle}` : null}
-                  </div>
-                  <div className="mt-1">
-                    <span className="font-medium">체결 시각</span> —{' '}
-                    <span className="tabular-nums">{new Date(detail.signedAt).toLocaleString('ko-KR')}</span>
-                  </div>
-                  {detail.signerIp ? (
-                    <div className="mt-1 break-all text-gray-600">
-                      <span className="font-medium text-gray-800">IP</span> — {detail.signerIp}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                      <div className="text-fluid-sm font-semibold text-gray-900">계약서(제출본)</div>
+                      <p className="mt-0.5 text-fluid-2xs text-gray-500">
+                        {fitOneScreen
+                          ? '「한 화면에 맞춤」으로 본문·서명까지 한 뷰에 맞춥니다. 글자가 작으면 「실제 크기(스크롤)」로 바꾸세요.'
+                          : '본문과 서명은 같은 문서 안에 이어집니다. 위에서 「한 화면에 맞춤」을 켜면 스크롤 없이 한 화면에 맞춥니다.'}
+                      </p>
                     </div>
-                  ) : null}
-                  {detail.signerUserAgent ? (
-                    <div className="mt-1 break-all text-gray-600">
-                      <span className="font-medium text-gray-800">UA</span> — {detail.signerUserAgent}
-                    </div>
-                  ) : null}
-                </div>
-
-                {signerEntered ? (
-                  <div className="rounded-lg border border-gray-200 p-3">
-                    <div className="text-fluid-xs font-medium text-gray-800">을(팀장) 입력 요약</div>
-                    <dl className="mt-2 grid gap-1 text-fluid-2xs text-gray-700 sm:grid-cols-2">
-                      {typeof signerEntered.name === 'string' ? (
-                        <>
-                          <dt className="text-gray-500">성함</dt>
-                          <dd className="truncate font-medium">{String(signerEntered.name)}</dd>
-                        </>
-                      ) : null}
-                      {typeof signerEntered.residentRegistrationNumber === 'string' ? (
-                        <>
-                          <dt className="text-gray-500">주민등록번호</dt>
-                          <dd className="font-mono tabular-nums">{String(signerEntered.residentRegistrationNumber)}</dd>
-                        </>
-                      ) : null}
-                      {typeof signerEntered.addressLine === 'string' ? (
-                        <>
-                          <dt className="self-start text-gray-500">주소</dt>
-                          <dd className="whitespace-pre-wrap break-words">{String(signerEntered.addressLine)}</dd>
-                        </>
-                      ) : null}
-                      {typeof signerEntered.phone === 'string' ? (
-                        <>
-                          <dt className="text-gray-500">연락처</dt>
-                          <dd className="tabular-nums">{String(signerEntered.phone)}</dd>
-                        </>
-                      ) : null}
-                      {typeof signerEntered.freeTextNotes === 'string' && String(signerEntered.freeTextNotes).trim() ? (
-                        <>
-                          <dt className="self-start text-gray-500">추가 기재</dt>
-                          <dd className="whitespace-pre-wrap break-words">{String(signerEntered.freeTextNotes)}</dd>
-                        </>
-                      ) : null}
-                    </dl>
                   </div>
-                ) : null}
-
-                <div>
-                  <div className="text-fluid-xs font-medium text-gray-800">계약 문안(제출본)</div>
-                  <div className="mt-2 min-w-0 rounded-md border border-gray-200 bg-white p-2">
-                    <EContractBodyDisplay body={detail.bodyHtml} maxHeightClass="max-h-[50vh]" />
+                  <div className="mt-2 min-w-0">
+                    <SubmissionContractReader bodyHtml={detail.bodyHtml} fitOneScreen={fitOneScreen} />
                   </div>
                 </div>
 
-                {(detail.selfieUrl || detail.signatureUrl) && (
-                  <div>
-                    <div className="text-fluid-xs font-medium text-gray-800">미리보기</div>
-                    <p className="mt-1 text-fluid-2xs text-gray-500">상단 「셀카 보기」「서명 보기」로 크게 볼 수 있습니다.</p>
-                    <div className="mt-2 flex flex-wrap gap-4">
-                      {detail.selfieUrl ? (
-                        <div className="min-w-0">
-                          <div className="text-fluid-2xs text-gray-500">셀카</div>
-                          <button
-                            type="button"
-                            className="mt-1 block overflow-hidden rounded border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onClick={() => {
-                              setImageLightboxLabel('본인확인 셀카');
-                              setImageLightboxUrl(detail.selfieUrl);
-                            }}
-                          >
-                            <img
-                              src={detail.selfieUrl}
-                              alt="본인 확인 셀카"
-                              className="max-h-40 w-auto object-contain"
-                            />
-                          </button>
+                <details className="group rounded-lg border border-gray-200 bg-gray-50 open:bg-white">
+                  <summary className="cursor-pointer list-none px-3 py-2.5 text-fluid-xs font-medium text-gray-800 marker:content-none [&::-webkit-details-marker]:hidden">
+                    <span className="inline-flex items-center gap-2">
+                      <span aria-hidden>▸</span>
+                      <span className="group-open:hidden">체결 요약·을 입력·이미지 미리보기 펼치기</span>
+                      <span className="hidden group-open:inline">체결 요약·을 입력·이미지 미리보기 접기</span>
+                    </span>
+                  </summary>
+                  <div className="space-y-4 border-t border-gray-200 px-3 pb-3 pt-3">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-fluid-xs text-gray-800">
+                      <div>
+                        <span className="font-medium">계약 종류</span> — {detail.definitionTitle}
+                      </div>
+                      <div className="mt-1">
+                        <span className="font-medium">팀장</span> — {detail.teamLeader.name}{' '}
+                        <span className="text-gray-600">({detail.teamLeader.email})</span>
+                      </div>
+                      <div className="mt-1">
+                        <span className="font-medium">버전</span> —{' '}
+                        <span className="tabular-nums">{detail.versionOrdinal != null ? `v${detail.versionOrdinal}` : '—'}</span>
+                        {detail.versionTitle ? ` · ${detail.versionTitle}` : null}
+                      </div>
+                      <div className="mt-1">
+                        <span className="font-medium">체결 시각</span> —{' '}
+                        <span className="tabular-nums">{new Date(detail.signedAt).toLocaleString('ko-KR')}</span>
+                      </div>
+                      {detail.signerIp ? (
+                        <div className="mt-1 break-all text-gray-600">
+                          <span className="font-medium text-gray-800">IP</span> — {detail.signerIp}
                         </div>
                       ) : null}
-                      {detail.signatureUrl ? (
-                        <div className="min-w-0">
-                          <div className="text-fluid-2xs text-gray-500">서명</div>
-                          <button
-                            type="button"
-                            className="mt-1 block overflow-hidden rounded border border-gray-200 bg-white p-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onClick={() => {
-                              setImageLightboxLabel('서명');
-                              setImageLightboxUrl(detail.signatureUrl);
-                            }}
-                          >
-                            <img src={detail.signatureUrl} alt="서명" className="max-h-24 w-auto object-contain" />
-                          </button>
+                      {detail.signerUserAgent ? (
+                        <div className="mt-1 break-all text-gray-600">
+                          <span className="font-medium text-gray-800">UA</span> — {detail.signerUserAgent}
                         </div>
                       ) : null}
                     </div>
+
+                    {signerEntered ? (
+                      <div className="rounded-lg border border-gray-200 p-3">
+                        <div className="text-fluid-xs font-medium text-gray-800">을(팀장) 입력 요약</div>
+                        <dl className="mt-2 grid gap-1 text-fluid-2xs text-gray-700 sm:grid-cols-2">
+                          {typeof signerEntered.name === 'string' ? (
+                            <>
+                              <dt className="text-gray-500">성함</dt>
+                              <dd className="truncate font-medium">{String(signerEntered.name)}</dd>
+                            </>
+                          ) : null}
+                          {typeof signerEntered.residentRegistrationNumber === 'string' ? (
+                            <>
+                              <dt className="text-gray-500">주민등록번호</dt>
+                              <dd className="font-mono tabular-nums">{String(signerEntered.residentRegistrationNumber)}</dd>
+                            </>
+                          ) : null}
+                          {typeof signerEntered.addressLine === 'string' ? (
+                            <>
+                              <dt className="self-start text-gray-500">주소</dt>
+                              <dd className="whitespace-pre-wrap break-words">{String(signerEntered.addressLine)}</dd>
+                            </>
+                          ) : null}
+                          {typeof signerEntered.phone === 'string' ? (
+                            <>
+                              <dt className="text-gray-500">연락처</dt>
+                              <dd className="tabular-nums">{String(signerEntered.phone)}</dd>
+                            </>
+                          ) : null}
+                          {typeof signerEntered.freeTextNotes === 'string' && String(signerEntered.freeTextNotes).trim() ? (
+                            <>
+                              <dt className="self-start text-gray-500">추가 기재</dt>
+                              <dd className="whitespace-pre-wrap break-words">{String(signerEntered.freeTextNotes)}</dd>
+                            </>
+                          ) : null}
+                        </dl>
+                      </div>
+                    ) : null}
+
+                    {(detail.selfieUrl || detail.signatureUrl) && (
+                      <div>
+                        <div className="text-fluid-xs font-medium text-gray-800">이미지 미리보기</div>
+                        <p className="mt-1 text-fluid-2xs text-gray-500">
+                          상단 「셀카 보기」「서명 보기」로 크게 볼 수 있습니다.
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-4">
+                          {detail.selfieUrl ? (
+                            <div className="min-w-0">
+                              <div className="text-fluid-2xs text-gray-500">셀카</div>
+                              <button
+                                type="button"
+                                className="mt-1 block overflow-hidden rounded border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onClick={() => {
+                                  setImageLightboxLabel('본인확인 셀카');
+                                  setImageLightboxUrl(detail.selfieUrl);
+                                }}
+                              >
+                                <img
+                                  src={detail.selfieUrl}
+                                  alt="본인 확인 셀카"
+                                  className="max-h-40 w-auto object-contain"
+                                />
+                              </button>
+                            </div>
+                          ) : null}
+                          {detail.signatureUrl ? (
+                            <div className="min-w-0">
+                              <div className="text-fluid-2xs text-gray-500">서명</div>
+                              <button
+                                type="button"
+                                className="mt-1 block overflow-hidden rounded border border-gray-200 bg-white p-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onClick={() => {
+                                  setImageLightboxLabel('서명');
+                                  setImageLightboxUrl(detail.signatureUrl);
+                                }}
+                              >
+                                <img src={detail.signatureUrl} alt="서명" className="max-h-24 w-auto object-contain" />
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </details>
               </div>
             ) : null}
           </div>

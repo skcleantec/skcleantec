@@ -31,6 +31,7 @@ import {
   patchIssuerProfile,
   previewBodyWithIssuerProfile,
 } from './eContractIssuer.profile.service.js';
+import { submissionMergedHtmlToDocxBuffer } from './eContractSubmissionDocx.js';
 
 const router = Router();
 router.use(authMiddleware, adminOnly);
@@ -378,6 +379,32 @@ router.get('/submissions', async (req, res) => {
   } catch (e) {
     console.error('[e-contract] submissions list all', e);
     res.status(500).json({ error: '불러오지 못했습니다.' });
+  }
+});
+
+router.get('/submissions/:submissionId/docx', async (req, res) => {
+  try {
+    const detail = await getSubmissionDetailForAdmin(req.params.submissionId);
+    const buf = await submissionMergedHtmlToDocxBuffer({
+      definitionTitle: detail.definitionTitle,
+      metaLinePlain: `${detail.teamLeader.name} (${detail.teamLeader.email}) · ${new Date(detail.signedAt).toLocaleString('ko-KR')}`,
+      bodyHtml: detail.bodyHtml,
+    });
+    const ascii = `e-contract-${req.params.submissionId.slice(0, 8)}.docx`;
+    const utf8Name = `${detail.definitionTitle.replace(/["\r\n]/g, ' ').slice(0, 80)}_체결.docx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(utf8Name)}`
+    );
+    res.send(buf);
+  } catch (e: unknown) {
+    if ((e as { code?: string })?.code === 'not_found') {
+      res.status(404).json({ error: '체결 기록을 찾을 수 없습니다.' });
+      return;
+    }
+    console.error('[e-contract] submission docx', e);
+    res.status(500).json({ error: 'Word 파일을 만들지 못했습니다.' });
   }
 });
 

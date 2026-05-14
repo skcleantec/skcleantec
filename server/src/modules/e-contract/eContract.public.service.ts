@@ -3,6 +3,8 @@ import { prisma } from '../../lib/prisma.js';
 import { deriveChallengeDigitsForToken } from './eContract.challenge.js';
 import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
 import type { ValidatedSignerSubmissionFields } from './eContractSigner.input.js';
+import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
+import { buildPartyAppendixHtml } from './eContractPartyAppendix.js';
 
 export type PublicSignSession = {
   issuanceId: string;
@@ -197,12 +199,16 @@ export async function completeSubmissionByToken(
       ? issuance.version.bodyDisplayHtml.trim()
       : issuance.version.bodyMarkdown.replace(/\r\n/g, '\n');
 
+  const issuerSnap = await getIssuerSnapshot();
+  const appendixHtml = buildPartyAppendixHtml(issuerSnap);
+  const versionBodyWithAppendix = `${versionBodyRaw}\n\n${appendixHtml}`;
+
   const signerForExpand: SignerFilledFields = {
     ...input.signerEntered,
     signatureSecureUrl: input.signatureUrl.trim(),
   };
 
-  const mergedHtml = expandSignerPlaceholders(versionBodyRaw, signerForExpand);
+  const mergedHtml = expandSignerPlaceholders(versionBodyWithAppendix, signerForExpand);
 
   const payloadObj: Record<string, unknown> = {
     agree: true,

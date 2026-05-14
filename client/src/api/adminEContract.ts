@@ -412,6 +412,37 @@ export async function listAllEContractSubmissions(
   return res.json() as Promise<{ submissions: EContractSubmissionRow[] }>;
 }
 
+/** 체결 제출본 Word(.docx) — 서버 `html-to-docx` 변환 */
+export async function downloadEContractSubmissionDocx(token: string, submissionId: string): Promise<void> {
+  const res = await fetch(`${API}/admin/e-contracts/submissions/${encodeURIComponent(submissionId)}/docx`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error((j as { error?: string }).error || 'Word 파일을 받지 못했습니다.');
+  }
+  const cd = res.headers.get('Content-Disposition');
+  let filename = `e-contract-${submissionId.slice(0, 8)}.docx`;
+  const m = cd?.match(/filename\*=UTF-8''([^;\s]+)/i);
+  if (m?.[1]) {
+    try {
+      filename = decodeURIComponent(m[1].replace(/['"]/g, ''));
+    } catch {
+      /* keep default */
+    }
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function getEContractSubmissionDetail(
   token: string,
   submissionId: string

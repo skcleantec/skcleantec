@@ -9,6 +9,8 @@ import { computeEContractContentHash } from './eContract.contentHash.js';
 import { expandIssuerPlaceholders } from './eContractIssuer.expand.js';
 import { issuerSnapshotBlockForPublish } from './eContractIssuer.profile.service.js';
 import { buildPartyAppendixHtml } from './eContractPartyAppendix.js';
+import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
+import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
 import { newEContractInviteToken } from './eContract.tokens.js';
 
 export async function listDefinitions(opts: { includeArchived: boolean }) {
@@ -421,7 +423,28 @@ export async function getSubmissionDetailForAdmin(submissionId: string) {
     typeof s.version.bodyDisplayHtml === 'string' && s.version.bodyDisplayHtml.trim() !== ''
       ? s.version.bodyDisplayHtml.trim()
       : s.version.bodyMarkdown.replace(/\r\n/g, '\n');
-  const bodyHtml = merged || versionFallback;
+  let bodyHtml = merged || versionFallback;
+
+  if (bodyHtml && !bodyHtml.includes('ec-party-appendix')) {
+    const issuerSnap = await getIssuerSnapshot();
+    const appendixHtml = buildPartyAppendixHtml(issuerSnap);
+    let withAppendix = `${bodyHtml}\n\n${appendixHtml}`;
+
+    const payload = s.payload as Record<string, any> | null;
+    if (payload && payload.signerEntered) {
+      const signerForExpand: SignerFilledFields = {
+        name: typeof payload.signerEntered.name === 'string' ? payload.signerEntered.name : '',
+        residentRegistrationNumber: typeof payload.signerEntered.residentRegistrationNumber === 'string' ? payload.signerEntered.residentRegistrationNumber : '',
+        addressLine: typeof payload.signerEntered.addressLine === 'string' ? payload.signerEntered.addressLine : '',
+        phone: typeof payload.signerEntered.phone === 'string' ? payload.signerEntered.phone : '',
+        freeTextNotes: typeof payload.signerEntered.freeTextNotes === 'string' ? payload.signerEntered.freeTextNotes : '',
+        signatureSecureUrl: s.signatureUrl?.trim() || '',
+      };
+      bodyHtml = expandSignerPlaceholders(withAppendix, signerForExpand);
+    } else {
+      bodyHtml = withAppendix;
+    }
+  }
 
   return {
     id: s.id,

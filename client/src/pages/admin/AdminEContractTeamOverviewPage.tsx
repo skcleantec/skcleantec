@@ -70,8 +70,9 @@ export function AdminEContractTeamOverviewPage() {
     <div className="min-w-0 w-full max-w-full px-4 sm:px-0">
       <h1 className="text-fluid-xl font-semibold text-gray-900">체결 기록</h1>
       <p className="mt-1 text-fluid-sm text-gray-600">
-        팀장이 제출한 전자계약을 표로 확인하고, <span className="font-medium text-gray-800">상세보기</span>에서 확정 문안·다운로드·본인확인
-        사진을 이용할 수 있습니다.
+        <span className="font-medium text-gray-800">상세보기</span>에서{' '}
+        <span className="font-medium text-gray-800">업체(갑)·팀장(을) 서명이 반영된 최종 HTML</span>을 볼 수 있고, HTML 다운로드·인쇄(PDF
+        저장)로 보관할 수 있습니다. 팀장 본인은 체결 완료 후 같은 링크에서도 동일 문서를 볼 수 있습니다.
       </p>
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">

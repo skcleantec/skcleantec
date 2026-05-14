@@ -51,6 +51,11 @@ export async function getIssuerProfilePayload(profileKey = DEFAULT_PROFILE_KEY) 
   };
 }
 
+export async function getIssuerSnapshot(profileKey = DEFAULT_PROFILE_KEY): Promise<EContractIssuerSnapshot> {
+  const row = await getIssuerProfile(profileKey);
+  return rowToIssuerSnapshot(row);
+}
+
 /** 관리 초안 미리보기 — 본문 갑 치환 + 하단 계약주·계약자 부록 HTML */
 export async function previewBodyWithIssuerProfile(profileKey: string | undefined, bodyMarkdown: string) {
   const row = await getIssuerProfile(profileKey?.trim() || DEFAULT_PROFILE_KEY);
