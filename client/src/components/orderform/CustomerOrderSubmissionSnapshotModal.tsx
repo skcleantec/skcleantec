@@ -181,9 +181,11 @@ export function CustomerOrderSubmissionSnapshotModal(props: {
                     {snapshot.fields.buildingType?.trim() ? snapshot.fields.buildingType : '—'}
                   </SnapshotRow>
                   <SnapshotRow label="입주일">
-                    {snapshot.fields.moveInDate?.trim()
-                      ? formatDateCompactWithWeekday(snapshot.fields.moveInDate)
-                      : '—'}
+                    {snapshot.fields.moveInDateUndecided
+                      ? '미정'
+                      : snapshot.fields.moveInDate?.trim()
+                        ? formatDateCompactWithWeekday(snapshot.fields.moveInDate)
+                        : '—'}
                   </SnapshotRow>
                   <SnapshotRow label="청소 희망일">
                     {formatDateCompactWithWeekday(snapshot.fields.preferredDate)}

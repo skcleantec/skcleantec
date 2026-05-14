@@ -53,6 +53,7 @@ export interface ScheduleItem {
   callAttempt?: number | null;
   buildingType?: string | null;
   moveInDate?: string | null;
+  moveInDateUndecided?: boolean;
   specialNotes?: string | null;
   /** 전문 시공 옵션 id 배열(JSON) */
   professionalOptionIds?: unknown;

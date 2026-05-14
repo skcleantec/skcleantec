@@ -77,6 +77,14 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   if (body.moveInDate !== undefined) {
     data.moveInDate = body.moveInDate ? new Date(String(body.moveInDate)) : null;
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'moveInDateUndecided')) {
+    const v = body.moveInDateUndecided;
+    const und = v === true || v === 'true' || String(v ?? '') === '1';
+    data.moveInDateUndecided = und;
+    if (und) {
+      data.moveInDate = null;
+    }
+  }
   if (body.specialNotes !== undefined) {
     data.specialNotes = body.specialNotes ? String(body.specialNotes) : null;
   }

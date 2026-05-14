@@ -31,7 +31,11 @@ const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o
 function isValidOrderTimeSlot(v: string): v is OrderTimeSlot {
   return ORDER_TIME_SLOT_VALUE_SET.has(v);
 }
-import { ORDER_BUILDING_TYPE_OPTIONS } from '../../constants/orderFormBuilding';
+import {
+  ORDER_BUILDING_TYPE_OPTIONS,
+  ORDER_BUILDING_TYPE_RESIDING,
+  requiresMoveInDateOrUndecided,
+} from '../../constants/orderFormBuilding';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
@@ -72,6 +76,8 @@ export function OrderFormPage() {
     kitchenCount: string;
     buildingType: string;
     moveInDate: string;
+    /** 신축·구축·인테리어 시 이사일 대신 */
+    moveInDateUndecided: boolean;
     specialNotes: string;
   }>({
     customerName: '',
@@ -92,6 +98,7 @@ export function OrderFormPage() {
     kitchenCount: '',
     buildingType: '',
     moveInDate: '',
+    moveInDateUndecided: false,
     specialNotes: '',
   });
   const [order, setOrder] = useState<{
@@ -263,7 +270,14 @@ export function OrderFormPage() {
           balconyCount: p?.balconyCount != null ? String(p.balconyCount) : '',
           kitchenCount: p?.kitchenCount != null ? String(p.kitchenCount) : '',
           buildingType: p?.buildingType ?? '',
-          moveInDate: p?.moveInDate ?? '',
+          moveInDate: (() => {
+            if (p?.moveInDateUndecided) return '';
+            const raw = p?.moveInDate ?? '';
+            if (!raw) return '';
+            const t = kstTodayYmd();
+            return raw < t ? '' : raw;
+          })(),
+          moveInDateUndecided: Boolean(p?.moveInDateUndecided),
           specialNotes: data.draftCustomerSpecialNotes ?? '',
         }));
         const fromForm = data.professionalOptions;
@@ -351,6 +365,19 @@ export function OrderFormPage() {
         throw new Error('구체적 시각을 해당 시간대 범위에서 선택해 주세요.');
       }
       if (!form.buildingType) throw new Error('신축·구축·인테리어·거주(짐이있는상태) 중 하나를 선택해주세요.');
+      if (requiresMoveInDateOrUndecided(form.buildingType)) {
+        if (!form.moveInDateUndecided && !form.moveInDate.trim()) {
+          throw new Error('신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.');
+        }
+      }
+      const moveInMinYmd = kstTodayYmd();
+      if (
+        !form.moveInDateUndecided &&
+        form.moveInDate.trim() &&
+        form.moveInDate.trim() < moveInMinYmd
+      ) {
+        throw new Error('이사 예정일은 오늘(한국 기준) 이후 날짜만 선택할 수 있습니다.');
+      }
       if (!agreeToTerms) throw new Error('고객 정보처리 동의 및 안내사항에 동의해 주세요.');
 
       await submitOrderForm(token, {
@@ -371,7 +398,8 @@ export function OrderFormPage() {
         bathroomCount: form.bathroomCount ? parseInt(form.bathroomCount, 10) : undefined,
         kitchenCount: form.kitchenCount ? parseInt(form.kitchenCount, 10) : undefined,
         buildingType: form.buildingType,
-        moveInDate: form.moveInDate || undefined,
+        moveInDate: form.moveInDateUndecided ? undefined : form.moveInDate || undefined,
+        moveInDateUndecided: form.moveInDateUndecided,
         specialNotes: form.specialNotes.trim() || undefined,
         professionalOptionIds: professionalOptionIds.length ? professionalOptionIds : undefined,
       });
@@ -794,7 +822,14 @@ export function OrderFormPage() {
             <select
               className={inputCls}
               value={form.buildingType}
-              onChange={(e) => setForm((f) => ({ ...f, buildingType: e.target.value }))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  buildingType: v,
+                  ...(v === ORDER_BUILDING_TYPE_RESIDING ? { moveInDateUndecided: false } : {}),
+                }));
+              }}
             >
               <option value="">선택</option>
               {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
@@ -807,16 +842,52 @@ export function OrderFormPage() {
           </div>
 
           <div>
-            <label className={labelCls}>10. 이사 날짜 (선택사항)</label>
+            <label className={labelCls}>
+              10. 이사 날짜
+              {requiresMoveInDateOrUndecided(form.buildingType) ? (
+                <span className="text-red-600"> *</span>
+              ) : (
+                <span className="text-gray-500"> (선택)</span>
+              )}
+            </label>
             <YmdSelect
               className={inputCls}
               value={form.moveInDate}
-              onChange={(v) => setForm((f) => ({ ...f, moveInDate: v }))}
+              onChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  moveInDate: v,
+                  moveInDateUndecided: v.trim() ? false : f.moveInDateUndecided,
+                }))
+              }
+              disabled={form.moveInDateUndecided}
+              minYmd={kstTodayYmd()}
               allowEmpty
               emitOnCompleteOnly
               idPrefix="orderform-move"
             />
-            <p className="text-xs text-gray-500 mt-1">* 이사 들어오는 일정</p>
+            {requiresMoveInDateOrUndecided(form.buildingType) ? (
+              <label className="mt-2 flex cursor-pointer items-center gap-2 text-fluid-sm text-gray-800">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={form.moveInDateUndecided}
+                  onChange={(e) => {
+                    const c = e.target.checked;
+                    setForm((f) => ({
+                      ...f,
+                      moveInDateUndecided: c,
+                      ...(c ? { moveInDate: '' } : {}),
+                    }));
+                  }}
+                />
+                미정 (이사일 추후 확정)
+              </label>
+            ) : null}
+            <p className="text-xs text-gray-500 mt-1">
+              * 거주가 아닌 경우 일자 입력 또는 미정 중 하나는 필수입니다. 이사일은 오늘(한국 기준) 이후만 선택할 수
+              있습니다.
+            </p>
           </div>
 
           <div>

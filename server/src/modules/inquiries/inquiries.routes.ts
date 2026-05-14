@@ -693,6 +693,10 @@ router.patch('/:id', async (req, res) => {
     pushIfChanged('희망 시간 상세', inquiry.preferredTimeDetail, data.preferredTimeDetail);
   if (data.buildingType !== undefined) pushIfChanged('건물 구분', inquiry.buildingType, data.buildingType);
   if (data.moveInDate !== undefined) pushIfChanged('이사일', inquiry.moveInDate, data.moveInDate, fmtDate);
+  if (data.moveInDateUndecided !== undefined) {
+    const fmtU = (v: unknown) => (v ? '미정' : '일자 지정');
+    pushIfChanged('이사일(미정)', inquiry.moveInDateUndecided, data.moveInDateUndecided, fmtU);
+  }
   if (data.specialNotes !== undefined) pushIfChanged('특이사항', inquiry.specialNotes, data.specialNotes);
   if (data.memo !== undefined) pushIfChanged('메모', inquiry.memo, data.memo);
   if (data.scheduleMemo !== undefined) pushIfChanged('일정 메모', inquiry.scheduleMemo, data.scheduleMemo);

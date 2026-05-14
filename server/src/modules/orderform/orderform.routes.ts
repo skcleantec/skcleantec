@@ -29,7 +29,7 @@ import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
-import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
+import { createdAtRangeFromQuery, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
 
@@ -71,6 +71,7 @@ type ForceMatchInquirySnapshot = {
   memo: string | null;
   buildingType: string | null;
   moveInDate: Date | null;
+  moveInDateUndecided: boolean;
   specialNotes: string | null;
   serviceTotalAmount: number | null;
   serviceDepositAmount: number | null;
@@ -900,6 +901,7 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
       memo: true,
       buildingType: true,
       moveInDate: true,
+      moveInDateUndecided: true,
       specialNotes: true,
       serviceTotalAmount: true,
       serviceDepositAmount: true,
@@ -938,6 +940,7 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
       data.preferredTimeDetail = source.preferredTimeDetail;
       data.buildingType = source.buildingType;
       data.moveInDate = source.moveInDate;
+      data.moveInDateUndecided = source.moveInDateUndecided;
       data.specialNotes = source.specialNotes;
       data.professionalOptionIds =
         source.professionalOptionIds == null ? Prisma.JsonNull : source.professionalOptionIds;
@@ -1240,6 +1243,7 @@ router.get('/by-token/:token', async (req, res) => {
         preferredTimeDetail: pendingRow.preferredTimeDetail,
         buildingType: pendingRow.buildingType,
         moveInDate: pendingRow.moveInDate ? pendingRow.moveInDate.toISOString().slice(0, 10) : null,
+        moveInDateUndecided: pendingRow.moveInDateUndecided,
         memo: pendingRow.memo,
       }
     : null;
@@ -1308,6 +1312,8 @@ router.post('/submit/:token', async (req, res) => {
     kitchenCount?: number;
     buildingType: string;
     moveInDate?: string;
+    /** 거주 외일 때 날짜 대신 미정 선택 */
+    moveInDateUndecided?: boolean | string;
     specialNotes?: string;
     professionalOptionIds?: unknown;
   };
@@ -1426,14 +1432,48 @@ router.post('/submit/:token', async (req, res) => {
   }
 
   const preferredDate = new Date(useDateStr + 'T12:00:00');
-  const moveInDate = body.moveInDate
-    ? new Date(body.moveInDate + 'T12:00:00')
-    : null;
 
-  const moveInDateStr =
+  const RESIDING_BT = '거주(짐이있는상태)';
+  const buildingTypeTrim =
+    body.buildingType != null && String(body.buildingType).trim()
+      ? String(body.buildingType).trim()
+      : '';
+  const moveInUndecidedRaw = body.moveInDateUndecided;
+  const moveInUndecided =
+    moveInUndecidedRaw === true ||
+    moveInUndecidedRaw === 'true' ||
+    String(moveInUndecidedRaw ?? '') === '1';
+
+  let moveInDateStr =
     body.moveInDate != null && String(body.moveInDate).trim()
       ? String(body.moveInDate).trim()
       : null;
+
+  if (moveInUndecided) {
+    moveInDateStr = null;
+  } else if (moveInDateStr && !/^\d{4}-\d{2}-\d{2}$/.test(moveInDateStr)) {
+    res.status(400).json({ error: '이사 예정일 형식이 올바르지 않습니다.' });
+    return;
+  }
+
+  if (moveInDateStr) {
+    const todayYmd = kstTodayYmd();
+    if (moveInDateStr < todayYmd) {
+      res.status(400).json({ error: '이사 예정일은 오늘(한국 기준) 이후 날짜만 선택할 수 있습니다.' });
+      return;
+    }
+  }
+
+  if (buildingTypeTrim && buildingTypeTrim !== RESIDING_BT) {
+    if (!moveInUndecided && !moveInDateStr) {
+      res.status(400).json({
+        error: '신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.',
+      });
+      return;
+    }
+  }
+
+  const moveInDate = moveInDateStr ? new Date(moveInDateStr + 'T12:00:00') : null;
 
   const profLabelRows =
     professionalIds.length > 0
@@ -1473,6 +1513,7 @@ router.post('/submit/:token', async (req, res) => {
           ? String(body.buildingType).trim()
           : null,
       moveInDate: moveInDateStr,
+      moveInDateUndecided: moveInUndecided,
       specialNotes: customerSpecialNotes,
       professionalOptionIds: [...professionalIds],
       professionalOptionLabels,
@@ -1517,6 +1558,7 @@ router.post('/submit/:token', async (req, res) => {
           preferredTimeDetail: useDetailStr,
           buildingType: body.buildingType || null,
           moveInDate,
+          moveInDateUndecided: moveInUndecided,
           serviceTotalAmount: form.totalAmount,
           serviceDepositAmount: form.depositAmount,
           serviceBalanceAmount: form.balanceAmount,
@@ -1564,6 +1606,7 @@ router.post('/submit/:token', async (req, res) => {
           preferredTimeDetail: useDetailStr,
           buildingType: body.buildingType || null,
           moveInDate,
+          moveInDateUndecided: moveInUndecided,
           serviceTotalAmount: form.totalAmount,
           serviceDepositAmount: form.depositAmount,
           serviceBalanceAmount: form.balanceAmount,

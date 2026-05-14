@@ -6,6 +6,14 @@ export const ORDER_BUILDING_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: '거주(짐이있는상태)', label: '거주(짐이있는상태)' },
 ];
 
+/** 「거주(짐이있는상태)」가 아니면 이사일 또는 「미정」 중 하나가 필요(발주서 제출·접수 편집 동일 규칙) */
+export const ORDER_BUILDING_TYPE_RESIDING = '거주(짐이있는상태)';
+
+export function requiresMoveInDateOrUndecided(buildingType: string | null | undefined): boolean {
+  const t = String(buildingType ?? '').trim();
+  return Boolean(t && t !== ORDER_BUILDING_TYPE_RESIDING);
+}
+
 export function labelForBuildingType(value: string | null | undefined): string {
   if (value == null || value === '') return '—';
   const o = ORDER_BUILDING_TYPE_OPTIONS.find((x) => x.value === value);

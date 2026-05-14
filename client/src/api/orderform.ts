@@ -57,6 +57,8 @@ export interface OrderFormCustomerSubmissionSnapshotV1 {
     kitchenCount: number | null;
     buildingType: string | null;
     moveInDate: string | null;
+    /** 거주 외이고 이사일 미입력 시 */
+    moveInDateUndecided?: boolean;
     specialNotes: string | null;
     professionalOptionIds: string[];
     professionalOptionLabels: string[];
@@ -137,6 +139,7 @@ export interface PendingInquiryPrefill {
   preferredTimeDetail: string | null;
   buildingType: string | null;
   moveInDate: string | null;
+  moveInDateUndecided?: boolean;
   memo: string | null;
 }
 
@@ -379,6 +382,7 @@ export async function submitOrderForm(
     kitchenCount?: number;
     buildingType: string;
     moveInDate?: string;
+    moveInDateUndecided?: boolean;
     specialNotes?: string;
     /** 전문 시공 옵션 id 목록 */
     professionalOptionIds?: string[];
