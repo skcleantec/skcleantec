@@ -1,0 +1,21 @@
+<ftr xmlns="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <p>
+    <pPr>
+      <spacing xmlns:ns1="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ns1:lineRule="auto"/>
+    </pPr>
+  </p>
+  <p>
+    <pPr>
+      <spacing xmlns:ns2="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ns2:lineRule="auto"/>
+    </pPr>
+    <r>
+      <rPr/>
+      <t xml:space="preserve"> / </t>
+    </r>
+  </p>
+  <p>
+    <pPr>
+      <spacing xmlns:ns3="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ns3:lineRule="auto"/>
+    </pPr>
+  </p>
+</ftr>

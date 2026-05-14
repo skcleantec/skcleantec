@@ -1,4 +1,5 @@
 import HTMLtoDOCX from 'html-to-docx';
+import JSZip from 'jszip';
 
 function stripScripts(html: string): string {
   return (html ?? '').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
@@ -56,10 +57,43 @@ ${body}
     fontSize: 22,
     margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
     creator: 'SK클린텍 전자계약',
+    footer: true,
+    pageNumber: true,
   });
 
-  if (Buffer.isBuffer(file)) return file;
-  if (file instanceof ArrayBuffer) return Buffer.from(file);
-  const ab = await (file as Blob).arrayBuffer();
-  return Buffer.from(ab);
+  let buf: Buffer;
+  if (Buffer.isBuffer(file)) buf = file;
+  else if (file instanceof ArrayBuffer) buf = Buffer.from(file);
+  else buf = Buffer.from(await (file as Blob).arrayBuffer());
+
+  try {
+    const zip = await JSZip.loadAsync(buf);
+    const footerFiles = Object.keys(zip.files).filter(k => k.startsWith('word/footer') && k.endsWith('.xml'));
+    
+    for (const footerPath of footerFiles) {
+      let footerXml = await zip.file(footerPath)!.async('string');
+      
+      const pageRegex = /<([a-zA-Z0-9]+:)?fldSimple [^>]*instr="PAGE"[^>]*>[\s\S]*?<\/\1fldSimple>/g;
+      
+      footerXml = footerXml.replace(pageRegex, (match) => {
+        const nsMatch = match.match(/xmlns:([^=]+)="http:\/\/schemas\.openxmlformats\.org\/wordprocessingml\/2006\/main"/);
+        const nsPrefix = nsMatch ? nsMatch[1] + ':' : '';
+        
+        return `${match}
+        <r xmlns="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+          <t xml:space="preserve"> / </t>
+        </r>
+        <fldSimple xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ${nsPrefix}instr="NUMPAGES">
+          <r xmlns="http://schemas.openxmlformats.org/wordprocessingml/2006/main" />
+        </fldSimple>`;
+      });
+      
+      zip.file(footerPath, footerXml);
+    }
+    
+    return await zip.generateAsync({ type: 'nodebuffer' });
+  } catch (err) {
+    console.error('[eContractDocx] Failed to inject NUMPAGES into DOCX footer', err);
+    return buf;
+  }
 }
