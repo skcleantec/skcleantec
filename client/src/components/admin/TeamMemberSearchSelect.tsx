@@ -23,19 +23,26 @@ interface Props {
   onChange: (v: string) => void;
   /** 현재 슬롯에서 선택 불가로 표시할 이름(이미 선택됐거나 해당 일자 다른 접수에 배정된 팀원 등). */
   disabledNames?: Set<string>;
+  /**
+   * 팀원 풀 `name` → 해당 접수 예약일·선택된 팀장 기준 「마지막 함께 근무한 예약일」까지의 순수 일수 차이.
+   * null/omit은 과거 같은 조합 기록 없음(배지 생략). 0이면 같은 달력일까지 기록이 같은 날 포함.
+   */
+  crewSpacingDaysByMemberName?: Record<string, number | null>;
   placeholder?: string;
 }
 
 /**
  * 등록된 팀원 목록에서 이름 일부/초성으로 검색해 선택하는 드롭다운.
- * - `disabledNames`에 포함된 이름은 회색 음영 + 클릭 불가로 표시.
- * - 현재 선택된 이름은 비활성 상태에서 예외적으로 그대로 유지해 보여준다.
+ * - `disabledNames`: 해당 이름은 회색 음영 + 클릭 불가(현재 선택값은 예외로 유지).
+ * - `crewSpacingDaysByMemberName`(선택): 부모가 조회해 넘김 · 이름 옆 `+N일` 안내 (선택 제한 없음).
+ * - 현재 선택된 이름은 비활성 목록 규칙에서 예외로 유지된다.
  */
 export function TeamMemberSearchSelect({
   options,
   value,
   onChange,
   disabledNames,
+  crewSpacingDaysByMemberName,
   placeholder,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -55,6 +62,15 @@ export function TeamMemberSearchSelect({
     const initialNorm = normalizeForSearch(toInitials(o.name));
     return initialNorm.includes(normalizeForSearch(qInitial));
   });
+
+  const selectedGapRaw = crewSpacingDaysByMemberName?.[selectedName];
+  const selectedGapSuffix =
+    selectedName !== '' &&
+    typeof selectedGapRaw === 'number' &&
+    Number.isFinite(selectedGapRaw)
+      ? ` +${selectedGapRaw}일`
+      : '';
+  const closedDisplay = `${selectedName}${selectedGapSuffix}`;
 
   useEffect(() => {
     if (!open) return;
@@ -80,7 +96,7 @@ export function TeamMemberSearchSelect({
     <div ref={boxRef} className="relative">
       <input
         ref={inputRef}
-        value={open ? query : selectedName}
+        value={open ? query : closedDisplay}
         onFocus={() => {
           setOpen(true);
           setQuery(selectedName);
@@ -108,11 +124,19 @@ export function TeamMemberSearchSelect({
           </button>
           {filtered.map((m) => {
             const isDisabled = Boolean(disabledNames?.has(m.name) && m.name !== selectedName);
+            const gap = crewSpacingDaysByMemberName?.[m.name];
+            const gapSuffix =
+              typeof gap === 'number' && Number.isFinite(gap) ? ` +${gap}일` : '';
             return (
               <button
                 key={m.id}
                 type="button"
                 disabled={isDisabled}
+                title={
+                  gapSuffix
+                    ? `선택된 팀장과 마지막으로 같은 접수 예약일이 있었던 날 기준 간격입니다. 선택은 어떤 간격에서도 가능합니다.`
+                    : undefined
+                }
                 className={`block w-full px-3 py-2 text-left text-sm ${
                   isDisabled ? 'cursor-not-allowed opacity-45 bg-gray-50' : 'hover:bg-blue-50'
                 } ${selected?.id === m.id ? 'bg-blue-50 text-blue-700' : 'text-gray-800'}`}
@@ -125,6 +149,7 @@ export function TeamMemberSearchSelect({
                 }}
               >
                 {m.name}
+                {gapSuffix ? <span className="tabular-nums text-gray-600">{gapSuffix}</span> : null}
               </button>
             );
           })}

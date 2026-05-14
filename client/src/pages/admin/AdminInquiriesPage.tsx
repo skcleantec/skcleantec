@@ -50,9 +50,10 @@ import { InquirySettlementPanel } from '../../components/inquiry/InquirySettleme
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
+import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } from '../../api/teams';
 import { TeamMemberSearchSelect } from '../../components/admin/TeamMemberSearchSelect';
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
+import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import {
@@ -669,6 +670,7 @@ export function AdminInquiriesPage() {
   const [orderCustomerPreviewError, setOrderCustomerPreviewError] = useState<string | null>(null);
   /** 편집 모달의 "투입 팀원 선택" 드롭다운에 쓰일 등록된 팀원 목록 */
   const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
+  const [crewSpacingByMemberName, setCrewSpacingByMemberName] = useState<Record<string, number | null>>({});
   /** 편집 중 예약일 기준, 다른 접수에 이미 배정된 팀원 이름 집합 (음영 처리용) */
   const [occupiedCrewNamesByDate, setOccupiedCrewNamesByDate] = useState<Set<string>>(new Set());
 
@@ -803,6 +805,27 @@ export function AdminInquiriesPage() {
       .then((r) => setPoolTeamMembers((r.items ?? []).filter((m) => m.isActive)))
       .catch(() => setPoolTeamMembers([]));
   }, [editItem, token, editForm.preferredDate]);
+
+  useEffect(() => {
+    const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';
+    const leaderId = resolveTeamLeaderIdForCrewSpacing(editForm.teamLeaderIds, teamLeaders);
+    if (!token || !leaderId || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      setCrewSpacingByMemberName({});
+      return;
+    }
+    let cancelled = false;
+    getCrewLeaderMemberSpacing(token, { teamLeaderId: leaderId, preferredDate: ymd })
+      .then((r) => {
+        if (cancelled) return;
+        setCrewSpacingByMemberName(r.spacingByMemberName ?? {});
+      })
+      .catch(() => {
+        if (!cancelled) setCrewSpacingByMemberName({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, editForm.preferredDate, editForm.teamLeaderIds, teamLeaders]);
 
   // 편집 중인 예약일 기준으로, 다른 접수에 이미 배정된 팀원 이름을 모아 음영 처리에 쓴다.
   useEffect(() => {
@@ -3636,6 +3659,7 @@ export function AdminInquiriesPage() {
                             options={crewPickOptions}
                             value={name}
                             disabledNames={disabled}
+                            crewSpacingDaysByMemberName={crewSpacingByMemberName}
                             onChange={(v) =>
                               setEditForm((p) => {
                                 const next = [...p.crewMemberNames];
@@ -3651,7 +3675,10 @@ export function AdminInquiriesPage() {
                   </div>
                   <p className="mt-1 text-fluid-xs text-gray-500">
                     크루 그룹에서 「집계·일자 명단」모드를 쓰는 경우, 해당 예약일에 가용한 팀원만 목록에 나옵니다. 같은 창에서 이미
-                    선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다.
+                    선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다. 첫 번째 자사 담당
+                    팀장(타업체 제외)을 기준으로, 목록에{' '}
+                    <span className="tabular-nums">+N일</span>이 붙은 팀원은 그 팀장과 마지막으로 같은 예약일에 들어간 뒤
+                    현재 편집 예약일까지 며칠이 지났는지(날짜 차이, 참고 표시만)입니다. 간격과 관계없이 선택은 가능합니다.
                   </p>
                 </div>
               )}

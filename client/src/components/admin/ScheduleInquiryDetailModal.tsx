@@ -9,7 +9,7 @@ import {
 } from '../../api/inquiries';
 import { createOrderFollowup } from '../../api/orderFollowups';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
-import { getPoolTeamMembers, type TeamMemberItem } from '../../api/teams';
+import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } from '../../api/teams';
 import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
@@ -48,6 +48,7 @@ import { InquirySettlementPanel } from '../inquiry/InquirySettlementPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
+import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
@@ -573,6 +574,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const inquiryEditScrollRef = useRef<HTMLDivElement | null>(null);
   const inquiryEditNavBoundsRef = useRef<HTMLDivElement | null>(null);
   const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
+  const [crewSpacingByMemberName, setCrewSpacingByMemberName] = useState<Record<string, number | null>>({});
   const [occupiedCrewNamesByDate, setOccupiedCrewNamesByDate] = useState<Set<string>>(new Set());
   const [preferredDateLocked, setPreferredDateLocked] = useState(isCreate);
   const [preferredDateCalOpen, setPreferredDateCalOpen] = useState(false);
@@ -874,6 +876,27 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       .then((r) => setPoolTeamMembers((r.items ?? []).filter((m) => m.isActive)))
       .catch(() => setPoolTeamMembers([]));
   }, [token, editForm.preferredDate]);
+
+  useEffect(() => {
+    const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';
+    const leaderId = resolveTeamLeaderIdForCrewSpacing(editForm.teamLeaderIds, teamLeaders);
+    if (!token || !leaderId || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      setCrewSpacingByMemberName({});
+      return;
+    }
+    let cancelled = false;
+    getCrewLeaderMemberSpacing(token, { teamLeaderId: leaderId, preferredDate: ymd })
+      .then((r) => {
+        if (cancelled) return;
+        setCrewSpacingByMemberName(r.spacingByMemberName ?? {});
+      })
+      .catch(() => {
+        if (!cancelled) setCrewSpacingByMemberName({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, editForm.preferredDate, editForm.teamLeaderIds, teamLeaders]);
 
   const crewPickOptions = useMemo(
     () => mergeCrewPickPoolWithSelections(poolTeamMembers, editForm.crewMemberNames),
@@ -2325,7 +2348,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   }`}
                 >
                   팀원 인원 수에 맞게 아래 드롭다운 선택칸이 늘어납니다. 검색창에 이름 일부나 초성(예:
-                  ㄱㅁ)을 입력하면 빠르게 필터링됩니다.
+                  ㄱㅁ)을 입력하면 빠르게 필터링됩니다. 선택된 첫 번째 자사 담당 팀장 기준 이름 옆{' '}
+                  <span className="tabular-nums">+N일</span>은 그 팀장과 같은 예약일에 마지막으로 함께 들어간 뒤 현재 편집 예약일까지의
+                  순수 일수 차이(참고만, 선택 제한 없음)입니다.
                 </div>
               </div>
             </div>
@@ -2367,6 +2392,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                       options={crewPickOptions}
                       value={name}
                       disabledNames={disabled}
+                      crewSpacingDaysByMemberName={crewSpacingByMemberName}
                       onChange={(v) =>
                         setEditForm((p) => {
                           const next = [...p.crewMemberNames];
@@ -2383,7 +2409,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </div>
               <p className="mt-1 text-xs text-gray-500">
                 크루 그룹에서 「집계·일자 명단」모드를 쓰는 경우, 해당 예약일에 가용한 팀원만 목록에 나옵니다. 같은 창에서 이미
-                선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다.
+                선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다. 첫 번째 자사 담당
+                팀장 기준 <span className="tabular-nums">+N일</span> 표시도 위와 동일합니다.
               </p>
               {showCrewPartnerSwapEntry ? (
                 <button

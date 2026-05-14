@@ -56,6 +56,26 @@ export async function getTeams(token: string): Promise<{ items: TeamItem[] }> {
 }
 
 /** 팀장 소속 없이 등록한 전사 팀원 풀 (teamId 없음) */
+
+/**
+ * 접수 편집 중 예약일·팀장 기준, 각 팀원과 그 팀장이 마지막으로 같은 건으로 들어간 날부터 며칠 지났는지(표시만).
+ */
+export async function getCrewLeaderMemberSpacing(
+  token: string,
+  params: { teamLeaderId: string; preferredDate: string }
+): Promise<{ spacingByMemberName: Record<string, number | null> }> {
+  const q = new URLSearchParams({
+    teamLeaderId: params.teamLeaderId.trim(),
+    preferredDate: params.preferredDate.trim(),
+  });
+  const res = await fetch(`${API}/teams/crew-leader-member-spacing?${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '팀원 배정 간격 정보를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export async function getPoolTeamMembers(
   token: string,
   preferredDate?: string | null

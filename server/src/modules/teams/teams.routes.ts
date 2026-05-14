@@ -18,6 +18,7 @@ import {
   payrollCycleBoundsKst,
   payrollCyclePreferredDateWhere,
 } from './teamMemberPayrollCycle.js';
+import { computeCrewSpacingByPoolMemberName } from './crewLeaderMemberSpacing.js';
 
 const router = Router();
 
@@ -103,6 +104,37 @@ router.get('/leader-monthly-stats', async (req, res) => {
       };
     }),
   });
+});
+
+/**
+ * 접수 상세·스케줄에서 투입 팀원 검색 시, 선택된 팀장(자사)과 같이 마지막으로 간 예약일부터
+ * 현재 편집 중 예약일까지 몇 칸의 날짜 차이인지(정보 표시만, 선택 제한 없음).
+ */
+router.get('/crew-leader-member-spacing', async (req, res) => {
+  const teamLeaderId = typeof req.query.teamLeaderId === 'string' ? req.query.teamLeaderId.trim() : '';
+  const ymdRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
+  if (!teamLeaderId) {
+    res.status(400).json({ error: 'teamLeaderId가 필요합니다.' });
+    return;
+  }
+  if (!YMD.test(ymdRaw)) {
+    res.status(400).json({ error: 'preferredDate는 YYYY-MM-DD 형식이어야 합니다.' });
+    return;
+  }
+
+  const members = await prisma.teamMember.findMany({
+    where: { teamId: null },
+    select: { name: true, nameTh: true },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+
+  const spacingByMemberName = await computeCrewSpacingByPoolMemberName(prisma, {
+    teamLeaderId,
+    currentYmd: ymdRaw,
+    poolMembers: members,
+  });
+
+  res.json({ spacingByMemberName });
 });
 
 async function verifyAdminPassword(req: Request, password: unknown): Promise<boolean> {
