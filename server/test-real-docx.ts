@@ -23,6 +23,7 @@ async function run() {
       submissionId: detail.id,
     });
     
+    import('fs').then(fs => fs.writeFileSync('test-real-docx.docx', buf));
     console.log("Success! Buffer size:", buf.length);
   } catch (err) {
     console.error("FAILED WITH ERROR:");

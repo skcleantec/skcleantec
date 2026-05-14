@@ -1,5 +1,4 @@
 import HTMLtoDOCX from 'html-to-docx';
-import JSZip from 'jszip';
 
 function stripScripts(html: string): string {
   return (html ?? '').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
@@ -61,39 +60,8 @@ ${body}
     pageNumber: true,
   });
 
-  let buf: Buffer;
-  if (Buffer.isBuffer(file)) buf = file;
-  else if (file instanceof ArrayBuffer) buf = Buffer.from(file);
-  else buf = Buffer.from(await (file as Blob).arrayBuffer());
-
-  try {
-    const zip = await JSZip.loadAsync(buf);
-    const footerFiles = Object.keys(zip.files).filter(k => k.startsWith('word/footer') && k.endsWith('.xml'));
-    
-    for (const footerPath of footerFiles) {
-      let footerXml = await zip.file(footerPath)!.async('string');
-      
-      const pageRegex = /<([a-zA-Z0-9]+:)?fldSimple [^>]*instr="PAGE"[^>]*>[\s\S]*?<\/\1fldSimple>/g;
-      
-      footerXml = footerXml.replace(pageRegex, (match) => {
-        return `${match}
-        <r>
-          <rPr/>
-          <t xml:space="preserve"> / </t>
-        </r>
-        <fldSimple xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" w:instr="NUMPAGES">
-          <r>
-            <rPr/>
-          </r>
-        </fldSimple>`;
-      });
-      
-      zip.file(footerPath, footerXml);
-    }
-    
-    return await zip.generateAsync({ type: 'nodebuffer' });
-  } catch (err) {
-    console.error('[eContractDocx] Failed to inject NUMPAGES into DOCX footer', err);
-    return buf;
-  }
+  if (Buffer.isBuffer(file)) return file;
+  if (file instanceof ArrayBuffer) return Buffer.from(file);
+  const ab = await (file as Blob).arrayBuffer();
+  return Buffer.from(ab);
 }

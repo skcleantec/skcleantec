@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { getEContractSubmissionDetail, downloadEContractSubmissionDocx, type EContractSubmissionDetailDto } from '../../api/adminEContract';
+import { useEffect, useState, useRef, useLayoutEffect, useCallback } from 'react';
+import { getEContractSubmissionDetail, type EContractSubmissionDetailDto } from '../../api/adminEContract';
 import { EContractBodyDisplay } from './EContractBodyDisplay';
 
 type Props = {
@@ -108,7 +108,6 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
   const [imageLightboxLabel, setImageLightboxLabel] = useState('');
   const [readerExpanded, setReaderExpanded] = useState(false);
   const [fitOneScreen, setFitOneScreen] = useState(false);
-  const [docxBusy, setDocxBusy] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -116,7 +115,6 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
       setImageLightboxLabel('');
       setReaderExpanded(false);
       setFitOneScreen(false);
-      setDocxBusy(false);
     }
   }, [open]);
 
@@ -199,17 +197,17 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                 <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={docxBusy || !submissionId}
-                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50"
                   onClick={() => {
-                    if (!token || !submissionId) return;
-                    setDocxBusy(true);
-                    void downloadEContractSubmissionDocx(token, submissionId)
-                      .catch((e) => window.alert(e instanceof Error ? e.message : 'Word 파일을 받지 못했습니다.'))
-                      .finally(() => setDocxBusy(false));
+                    const iframe = document.querySelector('iframe[title="계약서 미리보기"]') as HTMLIFrameElement;
+                    if (iframe && iframe.contentWindow) {
+                      iframe.contentWindow.focus();
+                      iframe.contentWindow.print();
+                    }
                   }}
+                  title="PDF로 완벽한 페이지 나누기가 적용된 문서를 인쇄/다운로드합니다."
                 >
-                  {docxBusy ? 'Word 생성 중…' : 'Word(.docx) 다운로드'}
+                  인쇄 / PDF로 저장
                 </button>
                 <button
                   type="button"
@@ -257,8 +255,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                 </button>
                 </div>
                 <p className="text-fluid-2xs text-gray-500">
-                  ⚠️ 브라우저 구조 상 화면을 직접 인쇄할 경우 매 페이지마다 전체 페이지 수와 문서 번호를 정확히 넣는 것이 불가능합니다.<br/>
-                  위변조 방지가 적용된(매 페이지 문서번호 및 쪽번호 포함) 완벽한 형태의 계약서가 필요하다면 가급적 <strong>「Word(.docx) 다운로드」</strong> 후 워드 프로그램에서 인쇄/PDF 저장을 권장합니다.
+                  ⚠️ 화면에 보이는 A4 페이지 형태 그대로 PDF로 저장할 수 있습니다. 상단의 <strong>「인쇄 / PDF로 저장」</strong>을 눌러 대상을 "PDF로 저장"으로 선택하세요.
                 </p>
               </div>
             ) : null}
