@@ -76,15 +76,15 @@ ${body}
       const pageRegex = /<([a-zA-Z0-9]+:)?fldSimple [^>]*instr="PAGE"[^>]*>[\s\S]*?<\/\1fldSimple>/g;
       
       footerXml = footerXml.replace(pageRegex, (match) => {
-        const nsMatch = match.match(/xmlns:([^=]+)="http:\/\/schemas\.openxmlformats\.org\/wordprocessingml\/2006\/main"/);
-        const nsPrefix = nsMatch ? nsMatch[1] + ':' : '';
-        
         return `${match}
-        <r xmlns="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <r>
+          <rPr/>
           <t xml:space="preserve"> / </t>
         </r>
-        <fldSimple xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ${nsPrefix}instr="NUMPAGES">
-          <r xmlns="http://schemas.openxmlformats.org/wordprocessingml/2006/main" />
+        <fldSimple xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" w:instr="NUMPAGES">
+          <r>
+            <rPr/>
+          </r>
         </fldSimple>`;
       });
       
