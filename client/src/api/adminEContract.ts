@@ -80,6 +80,26 @@ export type EContractSubmissionRow = {
   issuanceToken: string;
   issuanceStatus: string;
   versionContentHash: string | null;
+  teamLeaderId: string;
+  teamLeaderName: string;
+  teamLeaderEmail: string;
+};
+
+export type EContractSubmissionDetailDto = {
+  id: string;
+  signedAt: string;
+  definitionId: string;
+  definitionTitle: string;
+  teamLeader: { id: string; name: string; email: string };
+  versionOrdinal: number | null;
+  versionTitle: string;
+  mergedUsed: boolean;
+  bodyHtml: string;
+  selfieUrl: string | null;
+  signatureUrl: string | null;
+  signerIp: string | null;
+  signerUserAgent: string | null;
+  payload: unknown;
 };
 
 export type EContractIssuanceRow = {
@@ -247,7 +267,10 @@ export async function pickerTeamLeaders(token: string): Promise<{ teamLeaders: T
   return res.json() as Promise<{ teamLeaders: TeamLeaderPicker[] }>;
 }
 
-export async function previewEContractExpandedBody(token: string, bodyMarkdown: string): Promise<{ expanded: string }> {
+export async function previewEContractExpandedBody(
+  token: string,
+  bodyMarkdown: string
+): Promise<{ expanded: string; appendixHtml: string }> {
   const res = await fetch(`${API}/admin/e-contracts/preview-body`, {
     method: 'POST',
     headers: headers(token),
@@ -257,7 +280,9 @@ export async function previewEContractExpandedBody(token: string, bodyMarkdown: 
   if (!res.ok) throw new Error((data as { error?: string }).error || '미리보기를 만들지 못했습니다.');
   const expanded = (data as { expanded?: unknown }).expanded;
   if (typeof expanded !== 'string') throw new Error('미리보기 결과가 올바르지 않습니다.');
-  return { expanded };
+  const appendixHtml =
+    typeof (data as { appendixHtml?: unknown }).appendixHtml === 'string' ? (data as { appendixHtml: string }).appendixHtml : '';
+  return { expanded, appendixHtml };
 }
 
 export async function getEContractIssuerProfile(token: string): Promise<{
@@ -372,6 +397,33 @@ export async function listSubmissionsForTeamLeader(
     throw new Error((err as { error?: string }).error || '내역을 불러오지 못했습니다.');
   }
   return res.json() as Promise<{ submissions: EContractSubmissionRow[] }>;
+}
+
+export async function listAllEContractSubmissions(
+  token: string,
+  take = 200
+): Promise<{ submissions: EContractSubmissionRow[] }> {
+  const q = `?take=${encodeURIComponent(String(take))}`;
+  const res = await fetch(`${API}/admin/e-contracts/submissions${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '목록을 불러오지 못했습니다.');
+  }
+  return res.json() as Promise<{ submissions: EContractSubmissionRow[] }>;
+}
+
+export async function getEContractSubmissionDetail(
+  token: string,
+  submissionId: string
+): Promise<EContractSubmissionDetailDto> {
+  const res = await fetch(`${API}/admin/e-contracts/submissions/${encodeURIComponent(submissionId)}`, {
+    headers: headers(token),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string }).error || '불러오지 못했습니다.');
+  const sub = (data as { submission?: EContractSubmissionDetailDto }).submission;
+  if (!sub || typeof sub.bodyHtml !== 'string') throw new Error('응답이 올바르지 않습니다.');
+  return sub;
 }
 
 export function buildEContractPublicSignUrl(token: string): string {

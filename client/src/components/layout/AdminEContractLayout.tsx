@@ -15,6 +15,12 @@ export function AdminEContractLayout() {
         >
           발행측 정보
         </NavLink>
+        <NavLink
+          to="/admin/team-leaders/e-contracts/overview"
+          className={({ isActive }) => adminSubNavTabClassName(isActive)}
+        >
+          체결 기록
+        </NavLink>
       </AdminSubNavScroll>
       <Outlet />
     </div>

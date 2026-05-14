@@ -58,7 +58,11 @@ export function AdminEContractListPage() {
         <div>
           <h1 className="text-fluid-xl font-semibold text-gray-900">전자계약</h1>
           <p className="mt-1 text-fluid-sm text-gray-600">
-            계약 종류를 등록한 뒤 상세 화면에서 버전 초안 작성·배포, 팀장 링크 발급까지 진행합니다.
+            계약 종류를 등록한 뒤 상세 화면에서 버전 초안 작성·배포, 팀장 링크 발급까지 진행합니다.             팀장이 제출한 확정본은{' '}
+            <Link to="/admin/team-leaders/e-contracts/overview" className="text-blue-700 underline hover:no-underline">
+              체결 기록
+            </Link>
+            표에서 조회·상세보기·다운로드할 수 있습니다.
           </p>
         </div>
         <label className="flex items-center gap-2 text-fluid-sm text-gray-700">

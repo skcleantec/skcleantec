@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
+import { AdminEContractSubmissionDetailModal } from '../../components/e-contract/AdminEContractSubmissionDetailModal';
 import { EContractRichEditor } from '../../components/e-contract/EContractRichEditor';
 import { getToken } from '../../stores/auth';
 import {
@@ -43,10 +44,12 @@ export function AdminEContractDefinitionPage() {
   const [issuing, setIssuing] = useState(false);
 
   const [issuerPreviewExpanded, setIssuerPreviewExpanded] = useState<string | null>(null);
+  const [issuerPreviewAppendix, setIssuerPreviewAppendix] = useState('');
   const [issuerPreviewBusy, setIssuerPreviewBusy] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [delPwd, setDelPwd] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [submissionModalId, setSubmissionModalId] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     if (!token || !definitionId) return;
@@ -86,6 +89,7 @@ export function AdminEContractDefinitionPage() {
   useEffect(() => {
     if (!token || !draftId) {
       setIssuerPreviewExpanded(null);
+      setIssuerPreviewAppendix('');
       setIssuerPreviewBusy(false);
       return;
     }
@@ -94,10 +98,16 @@ export function AdminEContractDefinitionPage() {
     const tmr = window.setTimeout(() => {
       void (async () => {
         try {
-          const { expanded } = await previewEContractExpandedBody(token, draftBody);
-          if (!cancelled) setIssuerPreviewExpanded(expanded);
+          const { expanded, appendixHtml } = await previewEContractExpandedBody(token, draftBody);
+          if (!cancelled) {
+            setIssuerPreviewExpanded(expanded);
+            setIssuerPreviewAppendix(typeof appendixHtml === 'string' ? appendixHtml : '');
+          }
         } catch {
-          if (!cancelled) setIssuerPreviewExpanded(null);
+          if (!cancelled) {
+            setIssuerPreviewExpanded(null);
+            setIssuerPreviewAppendix('');
+          }
         } finally {
           if (!cancelled) setIssuerPreviewBusy(false);
         }
@@ -114,6 +124,14 @@ export function AdminEContractDefinitionPage() {
     () => (def?.versions ?? []).filter((v) => v.status === 'PUBLISHED').sort((a, b) => (a.publishedOrdinal ?? 0) - (b.publishedOrdinal ?? 0)),
     [def]
   );
+
+  /** 본문(갑 치환) + 하단 자동 부록(계약주·계약자 표) */
+  const fullIssuerPreviewHtml = useMemo(() => {
+    if (issuerPreviewExpanded !== null) {
+      return issuerPreviewExpanded + (issuerPreviewAppendix || '');
+    }
+    return draftBody;
+  }, [issuerPreviewExpanded, issuerPreviewAppendix, draftBody]);
 
   const ensureDraftLocal = async () => {
     if (!token || !definitionId) return;
@@ -368,7 +386,8 @@ export function AdminEContractDefinitionPage() {
             <div>
               <label className="block text-fluid-xs font-medium text-gray-700">본문 (서식·글꼴·색·정렬)</label>
               <p className="mt-1 text-fluid-2xs text-gray-500">
-                툴바 「+발행측」에서 갑 정보·도장 치환 토큰을 넣습니다. 과거 버전은 텍스트만일 수 있습니다.{' '}
+                툴바 「+발행측」에서 갑 정보·도장 치환 토큰을 넣습니다. 본문 아래 <span className="font-medium text-gray-700">계약주·계약자 정보 표</span>는
+                저장·배포 시 자동으로 붙으며, 미리보기에서 함께 확인할 수 있습니다.{' '}
                 <Link to="/admin/team-leaders/e-contracts/issuer-profile" className="text-blue-700 hover:underline">
                   발행측 정보 설정
                 </Link>
@@ -378,14 +397,15 @@ export function AdminEContractDefinitionPage() {
               </div>
               <div className="mt-6 rounded-lg border border-blue-100 bg-sky-50/50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-fluid-xs font-medium text-gray-800">발행측 치환 미리보기</div>
+                  <div className="text-fluid-xs font-medium text-gray-800">배포·체결 화면 미리보기</div>
                   {issuerPreviewBusy ? <span className="text-fluid-2xs text-gray-500">갱신 중…</span> : null}
                 </div>
                 <p className="mt-1 text-fluid-2xs text-gray-600">
-                  현재 「발행측 프로필」기준 표시본입니다. 배포하면 그 순간 정보가 해당 버전에 고정됩니다.
+                  작성하신 본문에 발행측(갑) 토큰이 치환된 뒤, <span className="font-medium text-gray-800">하단에 계약주·계약자 정보 표</span>가
+                  자동으로 붙은 형태입니다. 배포 후 팀장에게 보이는 문서와 동일합니다(을 항목은 체결 시 입력·치환).
                 </p>
-                <div className="mt-2 max-h-48 overflow-y-auto rounded bg-white">
-                  <EContractBodyDisplay body={issuerPreviewExpanded ?? draftBody} />
+                <div className="mt-2 max-h-[min(70vh,720px)] overflow-y-auto rounded border border-gray-200 bg-white p-2">
+                  <EContractBodyDisplay body={fullIssuerPreviewHtml} />
                 </div>
               </div>
             </div>
@@ -463,6 +483,9 @@ export function AdminEContractDefinitionPage() {
 
         <div className="mt-6">
           <h3 className="text-fluid-sm font-medium text-gray-800">발급 내역</h3>
+          <p className="mt-1 text-fluid-2xs text-gray-500">
+            체결 완료 후에는 아래 「제출본」에서 확정 문안을 열거나, 상단 메뉴 「체결 기록」에서 팀장별로 모아 볼 수 있습니다.
+          </p>
           <div className="mt-2 hidden lg:block overflow-x-auto">
             <table className="w-full border border-gray-200 text-fluid-xs">
               <thead>
@@ -471,13 +494,14 @@ export function AdminEContractDefinitionPage() {
                   <th className="border-b px-2 py-2 text-center">버전</th>
                   <th className="border-b px-2 py-2 text-center">상태</th>
                   <th className="border-b px-2 py-2 text-center">체결</th>
+                  <th className="border-b px-2 py-2 text-center">제출본</th>
                   <th className="border-b px-2 py-2 text-center">링크</th>
                 </tr>
               </thead>
               <tbody>
                 {issuances.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-gray-500">
+                    <td colSpan={6} className="py-6 text-center text-gray-500">
                       없음
                     </td>
                   </tr>
@@ -495,6 +519,19 @@ export function AdminEContractDefinitionPage() {
                           {row.submission?.signedAt
                             ? new Date(row.submission.signedAt).toLocaleString('ko-KR')
                             : '—'}
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          {row.submission?.id ? (
+                            <button
+                              type="button"
+                              className="text-blue-700 hover:underline"
+                              onClick={() => setSubmissionModalId(row.submission!.id)}
+                            >
+                              보기
+                            </button>
+                          ) : (
+                            '—'
+                          )}
                         </td>
                         <td className="px-2 py-2 text-center">
                           <button
@@ -525,6 +562,15 @@ export function AdminEContractDefinitionPage() {
                   <div className="text-gray-600">
                     v{row.version.publishedOrdinal ?? '—'} · {row.status}
                   </div>
+                  {row.submission?.id ? (
+                    <button
+                      type="button"
+                      className="mt-2 rounded border border-blue-200 bg-blue-50 px-3 py-1 text-blue-800"
+                      onClick={() => setSubmissionModalId(row.submission!.id)}
+                    >
+                      제출본 보기
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="mt-2 rounded border border-gray-300 px-3 py-1"
@@ -611,6 +657,13 @@ export function AdminEContractDefinitionPage() {
           </div>
         )}
       </section>
+
+      <AdminEContractSubmissionDetailModal
+        token={token}
+        submissionId={submissionModalId}
+        open={Boolean(submissionModalId)}
+        onClose={() => setSubmissionModalId(null)}
+      />
     </div>
   );
 }

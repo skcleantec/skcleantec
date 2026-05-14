@@ -18,6 +18,8 @@ import {
   listIssuancesForDefinition,
   listTeamLeadersForPicker,
   listSubmissionsByTeamLeader,
+  listAllSubmissionsForAdmin,
+  getSubmissionDetailForAdmin,
   patchDefinition,
   patchDraftVersion,
   publishVersion,
@@ -363,6 +365,32 @@ router.get('/team-leaders/:userId/submissions', async (req, res) => {
       return;
     }
     console.error('[e-contract] submissions by TL', e);
+    res.status(500).json({ error: '불러오지 못했습니다.' });
+  }
+});
+
+router.get('/submissions', async (req, res) => {
+  try {
+    const raw = req.query.take;
+    const take = typeof raw === 'string' ? Number.parseInt(raw, 10) : typeof raw === 'number' ? raw : 200;
+    const items = await listAllSubmissionsForAdmin(take);
+    res.json({ submissions: items });
+  } catch (e) {
+    console.error('[e-contract] submissions list all', e);
+    res.status(500).json({ error: '불러오지 못했습니다.' });
+  }
+});
+
+router.get('/submissions/:submissionId', async (req, res) => {
+  try {
+    const detail = await getSubmissionDetailForAdmin(req.params.submissionId);
+    res.json({ submission: detail });
+  } catch (e: unknown) {
+    if ((e as { code?: string })?.code === 'not_found') {
+      res.status(404).json({ error: '체결 기록을 찾을 수 없습니다.' });
+      return;
+    }
+    console.error('[e-contract] submission detail', e);
     res.status(500).json({ error: '불러오지 못했습니다.' });
   }
 });

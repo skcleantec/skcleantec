@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AdminEContractSubmissionDetailModal } from '../../components/e-contract/AdminEContractSubmissionDetailModal';
+import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { getToken } from '../../stores/auth';
 import {
-  listSubmissionsForTeamLeader,
+  listAllEContractSubmissions,
   pickerTeamLeaders,
   type EContractSubmissionRow,
   type TeamLeaderPicker,
@@ -20,10 +22,11 @@ function signedDaysAgo(signedIso: string): string {
 export function AdminEContractTeamOverviewPage() {
   const token = getToken();
   const [pickers, setPickers] = useState<TeamLeaderPicker[]>([]);
-  const [userId, setUserId] = useState('');
-  const [subs, setSubs] = useState<EContractSubmissionRow[]>([]);
+  const [filterLeaderId, setFilterLeaderId] = useState('');
+  const [allSubs, setAllSubs] = useState<EContractSubmissionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [submissionModalId, setSubmissionModalId] = useState<string | null>(null);
 
   const loadPickers = useCallback(async () => {
     if (!token) return;
@@ -35,126 +38,151 @@ export function AdminEContractTeamOverviewPage() {
     }
   }, [token]);
 
+  const loadAll = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setErr(null);
+    try {
+      const data = await listAllEContractSubmissions(token, 300);
+      setAllSubs(data.submissions);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '체결 목록을 불러오지 못했습니다.');
+      setAllSubs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     void loadPickers();
   }, [loadPickers]);
 
-  const loadSubs = async (id: string) => {
-    if (!token || !id) return;
-    setLoading(true);
-    setErr(null);
-    try {
-      const data = await listSubmissionsForTeamLeader(token, id);
-      setSubs(data.submissions);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : '내역을 불러오지 못했습니다.');
-      setSubs([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll]);
+
+  const rows = useMemo(() => {
+    if (!filterLeaderId) return allSubs;
+    return allSubs.filter((s) => s.teamLeaderId === filterLeaderId);
+  }, [allSubs, filterLeaderId]);
 
   return (
     <div className="min-w-0 w-full max-w-full px-4 sm:px-0">
-      <h1 className="text-fluid-xl font-semibold text-gray-900">팀장별 체결 기록</h1>
+      <h1 className="text-fluid-xl font-semibold text-gray-900">체결 기록</h1>
       <p className="mt-1 text-fluid-sm text-gray-600">
-        어떤 계약 종류를 <span className="font-medium text-gray-800">어떤 공개 버전(vN)</span>으로 언제 체결했는지 확인합니다.
+        팀장이 제출한 전자계약을 표로 확인하고, <span className="font-medium text-gray-800">상세보기</span>에서 확정 문안·다운로드·본인확인
+        사진을 이용할 수 있습니다.
       </p>
 
-      <div className="mt-6 max-w-md">
-        <label className="block text-fluid-xs font-medium text-gray-700">팀장 선택</label>
-        <select
-          value={userId}
-          onChange={(e) => {
-            const id = e.target.value;
-            setUserId(id);
-            if (id) void loadSubs(id);
-            else setSubs([]);
-          }}
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
+      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="min-w-[200px] max-w-md flex-1">
+          <label className="block text-fluid-xs font-medium text-gray-700">팀장 필터(선택)</label>
+          <select
+            value={filterLeaderId}
+            onChange={(e) => setFilterLeaderId(e.target.value)}
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
+          >
+            <option value="">전체</option>
+            {pickers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          disabled={loading || !token}
+          onClick={() => void loadAll()}
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
         >
-          <option value="">선택</option>
-          {pickers.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name} ({u.email})
-            </option>
-          ))}
-        </select>
+          새로고침
+        </button>
       </div>
 
       {err ? (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-800">{err}</div>
       ) : null}
 
-      {!userId ? (
-        <div className="mt-8 text-fluid-sm text-gray-500">팀장을 선택하면 체결 이력이 표시됩니다.</div>
-      ) : loading ? (
-        <div className="mt-8 text-center text-fluid-sm text-gray-500">불러오는 중…</div>
-      ) : subs.length === 0 ? (
-        <div className="mt-8 text-fluid-sm text-gray-500">체결 기록이 없습니다.</div>
+      {loading ? (
+        <div className="mt-10 text-center text-fluid-sm text-gray-500">불러오는 중…</div>
+      ) : rows.length === 0 ? (
+        <div className="mt-10 text-center text-fluid-sm text-gray-500">표시할 체결 기록이 없습니다.</div>
       ) : (
-        <>
-          <div className="mt-8 hidden lg:block overflow-x-auto">
-            <table className="w-full table-fixed border border-gray-200 bg-white text-fluid-sm">
-              <colgroup>
-                <col style={{ width: '24%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '22%' }} />
-                <col style={{ width: '14%' }} />
-                <col style={{ width: '30%' }} />
-              </colgroup>
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border-b border-gray-200 px-2 py-2 text-center text-fluid-xs">계약 종류</th>
-                  <th className="border-b border-gray-200 px-2 py-2 text-center text-fluid-xs">버전</th>
-                  <th className="border-b border-gray-200 px-2 py-2 text-center text-fluid-xs">체결 시각</th>
-                  <th className="border-b border-gray-200 px-2 py-2 text-center text-fluid-xs">경과</th>
-                  <th className="border-b border-gray-200 px-2 py-2 text-center text-fluid-xs">문안 해시(일부)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subs.map((s) => (
-                  <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="truncate px-2 py-2 text-center" title={s.definitionTitle}>
-                      {s.definitionTitle}
-                    </td>
-                    <td className="px-2 py-2 text-center tabular-nums">{s.versionOrdinal != null ? `v${s.versionOrdinal}` : '—'}</td>
-                    <td className="px-2 py-2 text-center">{new Date(s.signedAt).toLocaleString('ko-KR')}</td>
-                    <td className="px-2 py-2 text-center">{signedDaysAgo(s.signedAt)}</td>
-                    <td
-                      className="truncate px-2 py-2 text-center font-mono text-fluid-2xs"
-                      title={s.versionContentHash ?? ''}
-                    >
-                      {(() => {
-                        const h = s.versionContentHash;
-                        if (!h) return '—';
-                        return h.length <= 16 ? h : `${h.slice(0, 16)}…`;
-                      })()}
-                    </td>
+        <div className="mt-8">
+          <p className="mb-2 text-fluid-2xs text-gray-500 lg:hidden">표는 좌우로 스크롤하여 전체 열을 볼 수 있습니다.</p>
+          <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+            <SyncHorizontalScroll
+              className="min-w-0"
+              contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0"
+            >
+              <table className="w-full min-w-[920px] table-fixed border-collapse border-0 text-fluid-sm">
+                <colgroup>
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '18%' }} />
+                  <col style={{ width: '20%' }} />
+                  <col style={{ width: '7%' }} />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '18%' }} />
+                </colgroup>
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-100">
+                    <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">팀장</th>
+                    <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">이메일</th>
+                    <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">계약 종류</th>
+                    <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">버전</th>
+                    <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">체결 시각</th>
+                    <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">경과</th>
+                    <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">상세</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.map((s) => (
+                    <tr key={s.id} className="group border-b border-gray-100 hover:bg-gray-50">
+                      <td className="truncate px-2 py-2 text-center text-fluid-xs" title={s.teamLeaderName}>
+                        {s.teamLeaderName}
+                      </td>
+                      <td className="truncate px-2 py-2 text-center text-fluid-2xs" title={s.teamLeaderEmail}>
+                        {s.teamLeaderEmail}
+                      </td>
+                      <td className="truncate px-2 py-2 text-center text-fluid-xs" title={s.definitionTitle}>
+                        {s.definitionTitle}
+                      </td>
+                      <td className="px-2 py-2 text-center tabular-nums text-fluid-xs">
+                        {s.versionOrdinal != null ? `v${s.versionOrdinal}` : '—'}
+                      </td>
+                      <td className="truncate px-2 py-2 text-center text-fluid-2xs tabular-nums">
+                        {new Date(s.signedAt).toLocaleString('ko-KR')}
+                      </td>
+                      <td className="px-2 py-2 text-center text-fluid-xs">{signedDaysAgo(s.signedAt)}</td>
+                      <td className="px-2 py-2 text-center">
+                        <button
+                          type="button"
+                          className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-fluid-xs font-medium text-blue-900 hover:bg-blue-100"
+                          onClick={() => setSubmissionModalId(s.id)}
+                        >
+                          상세보기
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </SyncHorizontalScroll>
           </div>
-          <div className="mt-6 space-y-3 lg:hidden">
-            {subs.map((s) => (
-              <div key={s.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="font-semibold text-gray-900">{s.definitionTitle}</div>
-                <div className="mt-1 text-fluid-xs text-gray-600">
-                  버전 {s.versionOrdinal != null ? `v${s.versionOrdinal}` : '—'}
-                </div>
-                <div className="mt-2 text-fluid-sm">
-                  체결: {new Date(s.signedAt).toLocaleString('ko-KR')}{' '}
-                  <span className="text-gray-500">({signedDaysAgo(s.signedAt)})</span>
-                </div>
-                {s.versionContentHash ? (
-                  <div className="mt-1 break-all font-mono text-fluid-2xs text-gray-500">{s.versionContentHash}</div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </>
+          <p className="mt-3 text-center text-fluid-2xs text-gray-500">
+            최대 300건까지 최신순으로 표시됩니다. 팀장 필터로 목록을 좁힐 수 있습니다.
+          </p>
+        </div>
       )}
+
+      <AdminEContractSubmissionDetailModal
+        token={token}
+        submissionId={submissionModalId}
+        open={Boolean(submissionModalId)}
+        onClose={() => setSubmissionModalId(null)}
+      />
     </div>
   );
 }

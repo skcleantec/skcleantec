@@ -9,6 +9,7 @@ import {
   issuerSnapshotJsonFromPlain,
   type EContractIssuerSnapshot,
 } from './eContractIssuer.expand.js';
+import { buildPartyAppendixHtml } from './eContractPartyAppendix.js';
 
 const DEFAULT_PROFILE_KEY = 'default';
 
@@ -50,11 +51,13 @@ export async function getIssuerProfilePayload(profileKey = DEFAULT_PROFILE_KEY) 
   };
 }
 
-/** 관리 초안 미리보기 — 현재 프로필로 치환 */
+/** 관리 초안 미리보기 — 본문 갑 치환 + 하단 계약주·계약자 부록 HTML */
 export async function previewBodyWithIssuerProfile(profileKey: string | undefined, bodyMarkdown: string) {
   const row = await getIssuerProfile(profileKey?.trim() || DEFAULT_PROFILE_KEY);
-  const expanded = expandIssuerPlaceholders(bodyMarkdown, rowToIssuerSnapshot(row));
-  return { expanded };
+  const snap = rowToIssuerSnapshot(row);
+  const expanded = expandIssuerPlaceholders(bodyMarkdown, snap);
+  const appendixHtml = buildPartyAppendixHtml(snap);
+  return { expanded, appendixHtml };
 }
 
 function mapProfileResponse(row: EContractIssuerProfile) {

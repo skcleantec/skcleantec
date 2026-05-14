@@ -8,6 +8,7 @@ import { prisma } from '../../lib/prisma.js';
 import { computeEContractContentHash } from './eContract.contentHash.js';
 import { expandIssuerPlaceholders } from './eContractIssuer.expand.js';
 import { issuerSnapshotBlockForPublish } from './eContractIssuer.profile.service.js';
+import { buildPartyAppendixHtml } from './eContractPartyAppendix.js';
 import { newEContractInviteToken } from './eContract.tokens.js';
 
 export async function listDefinitions(opts: { includeArchived: boolean }) {
@@ -179,7 +180,9 @@ export async function publishVersion(actorId: string, versionId: string) {
   }
 
   const { snapshotJson, plain } = await issuerSnapshotBlockForPublish();
-  const bodyDisplayHtml = expandIssuerPlaceholders(v.bodyMarkdown, plain);
+  const mainDisplayHtml = expandIssuerPlaceholders(v.bodyMarkdown, plain);
+  const appendixHtml = buildPartyAppendixHtml(plain);
+  const bodyDisplayHtml = mainDisplayHtml + appendixHtml;
 
   return prisma.$transaction(async (tx) => {
     const agg = await tx.eContractVersion.aggregate({
@@ -317,6 +320,7 @@ export async function listSubmissionsByTeamLeader(userId: string) {
         select: {
           token: true,
           status: true,
+          teamLeader: { select: { id: true, name: true, email: true } },
           definition: { select: { id: true, title: true } },
         },
       },
@@ -336,5 +340,104 @@ export async function listSubmissionsByTeamLeader(userId: string) {
     issuanceToken: s.issuance.token,
     issuanceStatus: s.issuance.status,
     versionContentHash: s.versionContentHash,
+    teamLeaderId: s.issuance.teamLeader.id,
+    teamLeaderName: s.issuance.teamLeader.name,
+    teamLeaderEmail: s.issuance.teamLeader.email,
   }));
+}
+
+const ALL_SUBMISSIONS_MAX = 500;
+
+/** 관리자 — 전체 체결 제출 목록(최신순) */
+export async function listAllSubmissionsForAdmin(take = 200) {
+  const n = Math.min(Math.max(Number(take) || 200, 1), ALL_SUBMISSIONS_MAX);
+  const submissions = await prisma.eContractSubmission.findMany({
+    orderBy: { signedAt: 'desc' },
+    take: n,
+    select: {
+      id: true,
+      signedAt: true,
+      versionContentHash: true,
+      issuance: {
+        select: {
+          token: true,
+          status: true,
+          teamLeader: { select: { id: true, name: true, email: true } },
+          definition: { select: { id: true, title: true } },
+        },
+      },
+      version: {
+        select: { id: true, publishedOrdinal: true, titleSnapshot: true },
+      },
+    },
+  });
+
+  return submissions.map((s) => ({
+    id: s.id,
+    signedAt: s.signedAt,
+    definitionId: s.issuance.definition.id,
+    definitionTitle: s.issuance.definition.title,
+    versionOrdinal: s.version.publishedOrdinal,
+    versionTitle: s.version.titleSnapshot,
+    issuanceToken: s.issuance.token,
+    issuanceStatus: s.issuance.status,
+    versionContentHash: s.versionContentHash,
+    teamLeaderId: s.issuance.teamLeader.id,
+    teamLeaderName: s.issuance.teamLeader.name,
+    teamLeaderEmail: s.issuance.teamLeader.email,
+  }));
+}
+
+/** 관리자 열람 — 체결 제출본(합본 HTML·본인확인 이미지 등) */
+export async function getSubmissionDetailForAdmin(submissionId: string) {
+  const s = await prisma.eContractSubmission.findUnique({
+    where: { id: submissionId },
+    include: {
+      issuance: {
+        include: {
+          definition: { select: { id: true, title: true } },
+          teamLeader: { select: { id: true, name: true, email: true } },
+        },
+      },
+      version: {
+        select: {
+          publishedOrdinal: true,
+          titleSnapshot: true,
+          bodyMarkdown: true,
+          bodyDisplayHtml: true,
+        },
+      },
+    },
+  });
+  if (!s) {
+    throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
+  }
+
+  const merged =
+    typeof s.mergedContractHtml === 'string' && s.mergedContractHtml.trim() !== ''
+      ? s.mergedContractHtml.trim()
+      : '';
+  const versionFallback =
+    typeof s.version.bodyDisplayHtml === 'string' && s.version.bodyDisplayHtml.trim() !== ''
+      ? s.version.bodyDisplayHtml.trim()
+      : s.version.bodyMarkdown.replace(/\r\n/g, '\n');
+  const bodyHtml = merged || versionFallback;
+
+  return {
+    id: s.id,
+    signedAt: s.signedAt.toISOString(),
+    definitionId: s.issuance.definition.id,
+    definitionTitle: s.issuance.definition.title,
+    teamLeader: s.issuance.teamLeader,
+    versionOrdinal: s.version.publishedOrdinal,
+    versionTitle: s.version.titleSnapshot,
+    /** true면 체결 시점 을·서명 반영 확정본 */
+    mergedUsed: Boolean(merged),
+    bodyHtml,
+    selfieUrl: s.selfieUrl?.trim() || null,
+    signatureUrl: s.signatureUrl?.trim() || null,
+    signerIp: s.signerIp?.trim() || null,
+    signerUserAgent: s.signerUserAgent?.trim() || null,
+    payload: s.payload,
+  };
 }
