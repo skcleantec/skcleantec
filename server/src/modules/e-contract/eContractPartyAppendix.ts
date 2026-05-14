@@ -9,8 +9,6 @@ export function buildPartyAppendixHtml(
   issuer: EContractIssuerSnapshot | null,
   options?: { signedAtIso?: string; submissionId?: string }
 ): string {
-  const docId = options?.submissionId ? options.submissionId.toUpperCase().slice(0, 13) : '미발급(임시)';
-
   let dateText = '년 월 일 (체결 시 자동 입력)';
   if (options?.signedAtIso) {
     const d = new Date(options.signedAtIso);
@@ -21,10 +19,6 @@ export function buildPartyAppendixHtml(
 
   const tmpl = `
 <div class="ec-party-appendix" style="margin-top: 60px; padding-top: 40px; border-top: 1px solid #000; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; color: #000; page-break-inside: avoid;">
-  <div style="text-align: right; font-size: 11px; color: #666; margin-bottom: 30px;">
-    문서 확인 번호: <strong>${docId}</strong>
-  </div>
-
   <div style="text-align: center; margin-bottom: 60px; font-size: 18px; font-weight: bold; letter-spacing: 2px;">
     ${dateText}
   </div>

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getEContractSubmissionDetail, downloadEContractSubmissionDocx, type EContractSubmissionDetailDto } from '../../api/adminEContract';
 import { EContractBodyDisplay } from './EContractBodyDisplay';
-import { sanitizeEContractHtml } from '../../utils/sanitizeEContractHtml';
 
 type Props = {
   token: string | null;
@@ -9,123 +8,6 @@ type Props = {
   open: boolean;
   onClose: () => void;
 };
-
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function safeFileSegment(raw: string, max = 56): string {
-  const t = raw.replace(/[\\/:*?"<>|\s]+/g, '_').replace(/_+/g, '_').trim();
-  return (t.length ? t : 'contract').slice(0, max);
-}
-
-function downloadSubmissionHtml(detail: EContractSubmissionDetailDto): void {
-  const inner = sanitizeEContractHtml(detail.bodyHtml);
-  const title = esc(`${detail.definitionTitle} — 체결 제출본`);
-  const meta = esc(
-    `${detail.teamLeader.name} (${detail.teamLeader.email}) · ${new Date(detail.signedAt).toLocaleString('ko-KR')}`
-  );
-  const doc = `<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${title}</title>
-<style>
-body{font-family:system-ui,-apple-system,sans-serif;padding:20px;max-width:920px;margin:0 auto;line-height:1.55;color:#111827;}
-h1{font-size:1.2rem;font-weight:600;margin:0 0 12px;}
-.ec-meta{font-size:13px;color:#4b5563;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #e5e7eb;}
-</style>
-</head>
-<body>
-<h1>${title}</h1>
-<div class="ec-meta">${meta}</div>
-<div class="e-contract-body-html">${inner || '<p>(본문 없음)</p>'}</div>
-</body>
-</html>`;
-  const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const stamp = detail.signedAt.slice(0, 19).replace(/[T:]/g, '-');
-  a.href = url;
-  a.download = `${safeFileSegment(detail.definitionTitle)}_${stamp}.html`;
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function printSubmissionHtml(detail: EContractSubmissionDetailDto): void {
-  const inner = sanitizeEContractHtml(detail.bodyHtml);
-  const title = esc(`${detail.definitionTitle} — 체결 제출본`);
-  const meta = esc(
-    `${detail.teamLeader.name} (${detail.teamLeader.email}) · ${new Date(detail.signedAt).toLocaleString('ko-KR')}`
-  );
-  const html = `<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="utf-8"/>
-<title>${title}</title>
-<style>
-body{font-family:system-ui,-apple-system,sans-serif;padding:20px;line-height:1.55;color:#111827;}
-h1{font-size:1.15rem;font-weight:600;}
-.ec-meta{font-size:13px;color:#4b5563;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e5e7eb;}
-@media print {
-  body{padding:12px;}
-  img{max-width:100% !important;height:auto !important;page-break-inside:avoid;}
-}
-</style>
-</head>
-<body>
-<h1>${title}</h1>
-<div class="ec-meta">${meta}</div>
-<div class="e-contract-body-html">${inner || '<p>(본문 없음)</p>'}</div>
-</body>
-</html>`;
-
-  const iframe = document.createElement('iframe');
-  iframe.setAttribute('aria-hidden', 'true');
-  iframe.title = '인쇄';
-  iframe.style.cssText =
-    'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0.02;pointer-events:none;z-index:-1';
-  document.body.appendChild(iframe);
-
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const blobUrl = URL.createObjectURL(blob);
-
-  const cleanup = () => {
-    URL.revokeObjectURL(blobUrl);
-    iframe.onload = null;
-    iframe.onerror = null;
-    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-  };
-
-  iframe.onerror = () => {
-    cleanup();
-    window.alert('인쇄용 문서를 불러오지 못했습니다. 「HTML 다운로드」로 저장한 뒤 브라우저에서 열어 인쇄해 주세요.');
-  };
-
-  iframe.onload = () => {
-    window.setTimeout(() => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch {
-        window.alert('인쇄를 시작하지 못했습니다. 「HTML 다운로드」로 저장한 뒤 파일을 열어 인쇄해 주세요.');
-      } finally {
-        window.setTimeout(cleanup, 2500);
-      }
-    }, 50);
-  };
-
-  iframe.src = blobUrl;
-}
 
 /** 체결 합본: 내부 max-height 없이 한 덩어리 스크롤 + (선택) 한 화면에 축소 */
 function SubmissionContractReader({ bodyHtml, fitOneScreen }: { bodyHtml: string; fitOneScreen: boolean }) {
@@ -317,13 +199,6 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                 <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50"
-                  onClick={() => downloadSubmissionHtml(detail)}
-                >
-                  HTML 다운로드
-                </button>
-                <button
-                  type="button"
                   disabled={docxBusy || !submissionId}
                   className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
                   onClick={() => {
@@ -335,14 +210,6 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                   }}
                 >
                   {docxBusy ? 'Word 생성 중…' : 'Word(.docx) 다운로드'}
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50"
-                  onClick={() => printSubmissionHtml(detail)}
-                  title="새 창 없이 인쇄 대화상자만 열립니다. 대상에서 PDF로 저장을 선택하세요."
-                >
-                  인쇄 / PDF로 저장
                 </button>
                 <button
                   type="button"
@@ -390,8 +257,8 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                 </button>
                 </div>
                 <p className="text-fluid-2xs text-gray-500">
-                  PDF는 인쇄 창에서 <span className="font-medium text-gray-700">대상</span>을「PDF로 저장」또는「Microsoft Print to
-                  PDF」로 고르면 됩니다. 인쇄가 안 되면 HTML을 받은 뒤 파일을 연 다음 인쇄해 주세요.
+                  ⚠️ 브라우저 구조 상 화면을 직접 인쇄할 경우 매 페이지마다 전체 페이지 수와 문서 번호를 정확히 넣는 것이 불가능합니다.<br/>
+                  위변조 방지가 적용된(매 페이지 문서번호 및 쪽번호 포함) 완벽한 형태의 계약서가 필요하다면 가급적 <strong>「Word(.docx) 다운로드」</strong> 후 워드 프로그램에서 인쇄/PDF 저장을 권장합니다.
                 </p>
               </div>
             ) : null}
