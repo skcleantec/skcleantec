@@ -427,7 +427,10 @@ export async function getSubmissionDetailForAdmin(submissionId: string) {
 
   if (bodyHtml && !bodyHtml.includes('ec-party-appendix')) {
     const issuerSnap = await getIssuerSnapshot();
-    const appendixHtml = buildPartyAppendixHtml(issuerSnap);
+    const appendixHtml = buildPartyAppendixHtml(issuerSnap, {
+      submissionId: s.id,
+      signedAtIso: s.signedAt.toISOString(),
+    });
     let withAppendix = `${bodyHtml}\n\n${appendixHtml}`;
 
     const payload = s.payload as Record<string, any> | null;

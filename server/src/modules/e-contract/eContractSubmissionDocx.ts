@@ -20,10 +20,13 @@ export async function submissionMergedHtmlToDocxBuffer(opts: {
   definitionTitle: string;
   metaLinePlain: string;
   bodyHtml: string;
+  submissionId?: string;
 }): Promise<Buffer> {
   const body = stripScripts(opts.bodyHtml ?? '');
   const titleEsc = escapeXmlText(opts.definitionTitle);
   const metaEsc = escapeXmlText(opts.metaLinePlain);
+  const docId = opts.submissionId ? escapeXmlText(opts.submissionId.toUpperCase().slice(0, 13)) : '';
+
   const htmlString = `<!DOCTYPE html>
 <html lang="ko">
 <head><meta charset="utf-8" /></head>
@@ -34,7 +37,19 @@ ${body}
 </body>
 </html>`;
 
-  const file = await HTMLtoDOCX(htmlString, null, {
+  const headerHTML = docId
+    ? `<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="utf-8" /></head>
+<body>
+<div style="text-align: right; font-size: 9pt; color: #666; width: 100%;">
+  문서 확인 번호: ${docId}
+</div>
+</body>
+</html>`
+    : null;
+
+  const file = await HTMLtoDOCX(htmlString, headerHTML, {
     title: opts.definitionTitle.slice(0, 250),
     lang: 'ko-KR',
     font: 'Malgun Gothic',

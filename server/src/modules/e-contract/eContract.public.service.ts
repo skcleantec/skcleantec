@@ -1,5 +1,6 @@
 import { EContractIssuanceStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { randomUUID } from 'node:crypto';
 import { deriveChallengeDigitsForToken } from './eContract.challenge.js';
 import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
 import type { ValidatedSignerSubmissionFields } from './eContractSigner.input.js';
@@ -199,8 +200,14 @@ export async function completeSubmissionByToken(
       ? issuance.version.bodyDisplayHtml.trim()
       : issuance.version.bodyMarkdown.replace(/\r\n/g, '\n');
 
+  const submissionId = randomUUID();
+  const signedAtDate = new Date();
+
   const issuerSnap = await getIssuerSnapshot();
-  const appendixHtml = buildPartyAppendixHtml(issuerSnap);
+  const appendixHtml = buildPartyAppendixHtml(issuerSnap, {
+    submissionId,
+    signedAtIso: signedAtDate.toISOString(),
+  });
   const versionBodyWithAppendix = `${versionBodyRaw}\n\n${appendixHtml}`;
 
   const signerForExpand: SignerFilledFields = {
@@ -235,6 +242,8 @@ export async function completeSubmissionByToken(
 
       const sub = await tx.eContractSubmission.create({
         data: {
+          id: submissionId,
+          signedAt: signedAtDate,
           issuanceId: issuance.id,
           versionId: issuance.versionId,
           versionContentHash: issuance.version.contentHash,
