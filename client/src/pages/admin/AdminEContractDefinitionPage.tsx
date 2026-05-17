@@ -22,6 +22,69 @@ import {
   type TeamLeaderPicker,
 } from '../../api/adminEContract';
 
+/** 배포된 버전 — 원문 + 현재 발행측 프로필로 갑·부록 미리보기(API 동일 규칙) */
+function PublishedVersionLiveBodyPreview(props: {
+  adminToken: string;
+  versionId: string;
+  bodyMarkdown: string;
+  frozenFallback: string;
+}) {
+  const { adminToken, versionId, bodyMarkdown, frozenFallback } = props;
+  const [liveHtml, setLiveHtml] = useState<string | null>(null);
+  const [liveErr, setLiveErr] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!adminToken.trim()) {
+      setLiveHtml(null);
+      setLiveErr(false);
+      setBusy(false);
+      return;
+    }
+    const raw = (bodyMarkdown ?? '').trim();
+    if (!raw) {
+      setLiveHtml(null);
+      setLiveErr(false);
+      setBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setBusy(true);
+    setLiveErr(false);
+    void (async () => {
+      try {
+        const { expanded, appendixHtml } = await previewEContractExpandedBody(adminToken, raw);
+        const combined = `${expanded}\n\n${typeof appendixHtml === 'string' ? appendixHtml : ''}`;
+        if (!cancelled) setLiveHtml(combined);
+      } catch {
+        if (!cancelled) {
+          setLiveErr(true);
+          setLiveHtml(null);
+        }
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [adminToken, versionId, bodyMarkdown]);
+
+  const body = liveHtml ?? frozenFallback;
+
+  return (
+    <div className="mt-2">
+      {busy && !liveHtml ? (
+        <p className="mb-2 text-fluid-2xs text-gray-500">현재 발행측 정보를 반영해 미리보기를 준비합니다…</p>
+      ) : null}
+      {liveErr && !liveHtml ? (
+        <p className="mb-2 text-fluid-2xs text-amber-800">실시간 미리보기에 실패해 배포 시점 본문을 표시합니다.</p>
+      ) : null}
+      <EContractBodyDisplay body={body} maxHeightClass="max-h-64" />
+    </div>
+  );
+}
+
 export function AdminEContractDefinitionPage() {
   const { definitionId } = useParams<{ definitionId: string }>();
   const token = getToken();
@@ -599,9 +662,11 @@ export function AdminEContractDefinitionPage() {
               {v.contentHash ? (
                 <div className="mt-1 break-all font-mono text-fluid-2xs text-gray-500">{v.contentHash}</div>
               ) : null}
-              <EContractBodyDisplay
-                body={v.bodyDisplayHtml?.trim() ? v.bodyDisplayHtml : v.bodyMarkdown}
-                maxHeightClass="max-h-64"
+              <PublishedVersionLiveBodyPreview
+                adminToken={token ?? ''}
+                versionId={v.id}
+                bodyMarkdown={v.bodyMarkdown}
+                frozenFallback={v.bodyDisplayHtml?.trim() ? v.bodyDisplayHtml : v.bodyMarkdown}
               />
             </div>
           ))}

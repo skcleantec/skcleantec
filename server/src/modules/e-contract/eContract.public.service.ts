@@ -2,11 +2,10 @@ import { EContractIssuanceStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { randomUUID } from 'node:crypto';
 import { deriveChallengeDigitsForToken } from './eContract.challenge.js';
-import { expandIssuerPlaceholders, issuerSnapshotFromStoredJson } from './eContractIssuer.expand.js';
-import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
 import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
 import type { ValidatedSignerSubmissionFields } from './eContractSigner.input.js';
-import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices, stripPartyAppendixFromContractHtml } from './eContractPartyAppendix.js';
+import { dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
+import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
 
 export type PublicSignSession = {
   issuanceId: string;
@@ -110,27 +109,20 @@ export async function getPublicSignSession(rawToken: string): Promise<
       ? row.submission.mergedContractHtml.trim()
       : '';
 
-  const versionBody =
+  const versionFallback =
     row.version.bodyDisplayHtml !== null &&
     typeof row.version.bodyDisplayHtml === 'string' &&
     row.version.bodyDisplayHtml.trim() !== ''
       ? row.version.bodyDisplayHtml.trim()
-      : row.version.bodyMarkdown;
+      : row.version.bodyMarkdown.replace(/\r\n/g, '\n');
 
-  let bodyMarkdown = merged || versionBody;
+  let bodyMarkdown: string;
   if (merged) {
-    bodyMarkdown = dedupeTrailingPartyAppendices(bodyMarkdown);
-  }
-
-  /** 미체결 조회: 표시본 없이 원문만 있는 경우·토큰 잔존 시 갑·을 치환(미리보기·인쇄에서 빈 칸 방지) */
-  if (!alreadySigned) {
-    if (bodyMarkdown.includes('[[EC_ISSUER_')) {
-      const stored = issuerSnapshotFromStoredJson(row.version.issuerSnapshot);
-      const snap = stored ?? (await getIssuerSnapshot());
-      bodyMarkdown = expandIssuerPlaceholders(bodyMarkdown, snap);
-    }
+    bodyMarkdown = dedupeTrailingPartyAppendices(merged);
+  } else if (!alreadySigned) {
+    bodyMarkdown = await composePublishedVersionHtmlWithLiveIssuer(row.version);
+    const label = row.teamLeader.name?.trim() || '';
     if (bodyMarkdown.includes('[[EC_SIGNER_')) {
-      const label = row.teamLeader.name?.trim() || '';
       bodyMarkdown = expandSignerPlaceholders(bodyMarkdown, {
         name: label || '(체결 시 입력)',
         residentRegistrationNumber: '(체결 시 입력)',
@@ -140,6 +132,8 @@ export async function getPublicSignSession(rawToken: string): Promise<
         signatureSecureUrl: null,
       });
     }
+  } else {
+    bodyMarkdown = versionFallback;
   }
 
   return {
@@ -221,22 +215,13 @@ export async function completeSubmissionByToken(
 
   const issuance = await validateIssuanceWritable(rawToken);
 
-  const versionBodyRaw =
-    typeof issuance.version.bodyDisplayHtml === 'string' && issuance.version.bodyDisplayHtml.trim() !== ''
-      ? issuance.version.bodyDisplayHtml.trim()
-      : issuance.version.bodyMarkdown.replace(/\r\n/g, '\n');
-
   const submissionId = randomUUID();
   const signedAtDate = new Date();
 
-  const issuerSnap = await getIssuerSnapshot();
-  const appendixHtml = buildPartyAppendixHtml(issuerSnap, {
+  const versionBodyWithAppendix = await composePublishedVersionHtmlWithLiveIssuer(issuance.version, {
     submissionId,
     signedAtIso: signedAtDate.toISOString(),
   });
-  /** 배포 표시본에 이미 부록이 포함되어 있으므로 제거 후 체결 일자가 반영된 부록을 한 번만 붙인다. */
-  const versionMainOnly = stripPartyAppendixFromContractHtml(versionBodyRaw);
-  const versionBodyWithAppendix = `${versionMainOnly}\n\n${appendixHtml}`;
 
   const signerForExpand: SignerFilledFields = {
     ...input.signerEntered,
