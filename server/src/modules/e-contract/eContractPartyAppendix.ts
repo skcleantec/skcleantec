@@ -54,9 +54,15 @@ export function buildPartyAppendixHtml(
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">연락처</td><td style="padding: 6px 0;">[[EC_SIGNER_PHONE]]</td></tr>
             [[EC_SIGNER_FREETEXT_ROW]]
             <tr>
-              <td colspan="2" style="padding-top: 20px; text-align: right; vertical-align: middle;">
-                <span style="font-weight: bold; margin-right: 16px; vertical-align: middle;">(서명/인)</span>
-                <span style="display: inline-block; vertical-align: middle;">[[EC_SIGNATURE]]</span>
+              <td colspan="2" style="padding-top: 20px; vertical-align: top;">
+                <div style="border: 1px solid #111; border-radius: 4px; min-height: 120px; padding: 8px; box-sizing: border-box;">
+                  <div style="display: grid; grid-template-rows: auto 1fr; min-height: 104px;">
+                    <div style="font-size: 13px; font-weight: bold; color: #111; line-height: 1.25; justify-self: start; align-self: start; margin: 0; padding: 0;">(서명/인)</div>
+                    <div style="display: flex; justify-content: flex-end; align-items: flex-end; padding-top: 6px;">
+                      <span style="display: inline-block; max-width: 100%; text-align: right;">[[EC_SIGNATURE]]</span>
+                    </div>
+                  </div>
+                </div>
               </td>
             </tr>
           </tbody>
