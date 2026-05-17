@@ -134,6 +134,8 @@ export function OrderFormPage() {
   const [timeSlotAckOpen, setTimeSlotAckOpen] = useState(false);
   const [pendingTimeSlot, setPendingTimeSlot] = useState<OrderTimeSlot | null>(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  /** 안내 동의 체크 시 통화 특이사항 안내 모달 */
+  const [termsCounselNoticeOpen, setTermsCounselNoticeOpen] = useState(false);
   const [professionalOptionIds, setProfessionalOptionIds] = useState<string[]>([]);
   const [professionalOptions, setProfessionalOptions] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   /** 대분류(하위 있음) — 체크 시에만 세부 항목 표시 */
@@ -181,6 +183,15 @@ export function OrderFormPage() {
     setTimeSlotAckOpen(false);
   }, []);
 
+  const dismissTermsCounselNotice = useCallback(() => {
+    setTermsCounselNoticeOpen(false);
+  }, []);
+
+  const confirmTermsCounselNotice = useCallback(() => {
+    setAgreeToTerms(true);
+    setTermsCounselNoticeOpen(false);
+  }, []);
+
   const confirmAreaBasisAck = useCallback(() => {
     const b = pendingAreaBasisAckRef.current;
     pendingAreaBasisAckRef.current = null;
@@ -213,6 +224,15 @@ export function OrderFormPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [timeSlotAckOpen, cancelTimeSlotAck]);
+
+  useEffect(() => {
+    if (!termsCounselNoticeOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismissTermsCounselNotice();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [termsCounselNoticeOpen, dismissTermsCounselNotice]);
 
   const toggleProfessionalOption = (id: string) => {
     setProfessionalOptionIds((prev) =>
@@ -1125,7 +1145,15 @@ export function OrderFormPage() {
                   type="checkbox"
                   id="agreeTerms"
                   checked={agreeToTerms}
-                  onChange={(e) => setAgreeToTerms(e.target.checked)}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    if (!next) {
+                      setAgreeToTerms(false);
+                      setTermsCounselNoticeOpen(false);
+                      return;
+                    }
+                    setTermsCounselNoticeOpen(true);
+                  }}
                   className="mt-1 h-5 w-5 shrink-0 rounded border-2 border-gray-400 text-gray-900 accent-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-800"
                   aria-describedby="agreeTerms-hint"
                 />
@@ -1216,6 +1244,45 @@ export function OrderFormPage() {
                   autoFocus
                 >
                   확인했어요
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {termsCounselNoticeOpen ? (
+          <div
+            className="fixed inset-0 z-[1003] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="terms-counsel-notice-title"
+            onClick={dismissTermsCounselNotice}
+          >
+            <div
+              className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+              role="presentation"
+            >
+              <div className="px-6 pb-4 pt-7 text-center">
+                <h2
+                  id="terms-counsel-notice-title"
+                  className="text-base font-semibold tracking-tight text-gray-900"
+                >
+                  안내
+                </h2>
+                <div className="mt-4 space-y-3 text-left text-[15px] leading-relaxed text-gray-800">
+                  <p>상담사와의 통화 내용에 특이사항이 있는 경우 꼭 적어주세요.</p>
+                  <p className="font-semibold text-gray-900">기재 누락 시 본사에서 책임지지 않습니다.</p>
+                </div>
+              </div>
+              <div className="flex justify-center border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={confirmTermsCounselNotice}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
+                  autoFocus
+                >
+                  확인
                 </button>
               </div>
             </div>
