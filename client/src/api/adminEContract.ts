@@ -47,9 +47,13 @@ export type EContractIssuerProfileDto = {
   phone: string | null;
   fax: string | null;
   email: string | null;
+  issuerStampKind: 'SEAL' | 'SIGNATURE';
   sealPublicId: string | null;
   sealSecureUrl: string | null;
   sealDisplayWidthPx: number | null;
+  signaturePublicId: string | null;
+  signatureSecureUrl: string | null;
+  signatureDisplayWidthPx: number | null;
   updatedAt: string;
 };
 
@@ -302,10 +306,15 @@ export async function patchEContractIssuerProfile(
     phone: string | null;
     fax: string | null;
     email: string | null;
+    issuerStampKind: 'SEAL' | 'SIGNATURE';
     sealPublicId: string | null;
     sealSecureUrl: string | null;
     sealDisplayWidthPx: number | null;
     clearSeal: boolean;
+    signaturePublicId: string | null;
+    signatureSecureUrl: string | null;
+    signatureDisplayWidthPx: number | null;
+    clearSignature: boolean;
   }>
 ): Promise<{ profile: EContractIssuerProfileDto }> {
   const res = await fetch(`${API}/admin/e-contracts/issuer-profile`, {
@@ -318,7 +327,7 @@ export async function patchEContractIssuerProfile(
   return body as { profile: EContractIssuerProfileDto };
 }
 
-/** 발행측 도장 업로드(Cloudinary, 폴더 `e_contract/issuer`). */
+/** 발행측 도장·서명 업로드(Cloudinary, 폴더 `e_contract/issuer`). */
 export async function uploadEContractIssuerSeal(blob: Blob, token: string, filename: string) {
   const signRes = await fetch(`${API}/admin/e-contracts/issuer-profile/upload-sign`, {
     method: 'POST',

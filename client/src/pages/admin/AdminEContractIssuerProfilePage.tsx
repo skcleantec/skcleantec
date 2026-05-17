@@ -10,6 +10,16 @@ import {
 import { getToken } from '../../stores/auth';
 import { EC_ISSUER_PLACEHOLDER_OPTIONS } from '../../utils/eContractIssuerPlaceholders';
 
+type StampKind = 'SEAL' | 'SIGNATURE';
+
+function parseWidthPx(raw: string): number | null | 'bad' {
+  const t = raw.trim();
+  if (t === '') return null;
+  const n = Number(t);
+  if (Number.isNaN(n) || n < 48 || n > 320) return 'bad';
+  return n;
+}
+
 export function AdminEContractIssuerProfilePage() {
   const token = getToken();
   const [loading, setLoading] = useState(true);
@@ -25,23 +35,26 @@ export function AdminEContractIssuerProfilePage() {
   const [phone, setPhone] = useState('');
   const [fax, setFax] = useState('');
   const [email, setEmail] = useState('');
+  const [issuerStampKind, setIssuerStampKind] = useState<StampKind>('SEAL');
   const [sealDisplayWidthPx, setSealDisplayWidthPx] = useState<string>('96');
   const [sealPreviewUrl, setSealPreviewUrl] = useState<string | null>(null);
+  const [signatureDisplayWidthPx, setSignatureDisplayWidthPx] = useState<string>('96');
+  const [signaturePreviewUrl, setSignaturePreviewUrl] = useState<string | null>(null);
 
-  const hydrate = useCallback(
-    (p: EContractIssuerProfileDto) => {
-      setCompanyName(p.companyName);
-      setRepresentativeName(p.representativeName ?? '');
-      setBusinessRegistrationNo(p.businessRegistrationNo ?? '');
-      setAddressLine(p.addressLine ?? '');
-      setPhone(p.phone ?? '');
-      setFax(p.fax ?? '');
-      setEmail(p.email ?? '');
-      setSealDisplayWidthPx(String(p.sealDisplayWidthPx ?? 96));
-      setSealPreviewUrl(p.sealSecureUrl);
-    },
-    []
-  );
+  const hydrate = useCallback((p: EContractIssuerProfileDto) => {
+    setCompanyName(p.companyName);
+    setRepresentativeName(p.representativeName ?? '');
+    setBusinessRegistrationNo(p.businessRegistrationNo ?? '');
+    setAddressLine(p.addressLine ?? '');
+    setPhone(p.phone ?? '');
+    setFax(p.fax ?? '');
+    setEmail(p.email ?? '');
+    setIssuerStampKind(p.issuerStampKind === 'SIGNATURE' ? 'SIGNATURE' : 'SEAL');
+    setSealDisplayWidthPx(String(p.sealDisplayWidthPx ?? 96));
+    setSealPreviewUrl(p.sealSecureUrl);
+    setSignatureDisplayWidthPx(String(p.signatureDisplayWidthPx ?? 96));
+    setSignaturePreviewUrl(p.signatureSecureUrl);
+  }, []);
 
   const loadAll = useCallback(async () => {
     if (!token) return;
@@ -64,10 +77,14 @@ export function AdminEContractIssuerProfilePage() {
 
   const saveText = async () => {
     if (!token) return;
-    const wRaw = sealDisplayWidthPx.trim();
-    const wNum = wRaw === '' ? null : Number(wRaw);
-    if (wNum !== null && (Number.isNaN(wNum) || wNum < 48 || wNum > 320)) {
+    const sealW = parseWidthPx(sealDisplayWidthPx);
+    const sigW = parseWidthPx(signatureDisplayWidthPx);
+    if (sealW === 'bad') {
       setErr('도장 표시 너비는 48~320 또는 비움만 가능합니다.');
+      return;
+    }
+    if (sigW === 'bad') {
+      setErr('서명 표시 너비는 48~320 또는 비움만 가능합니다.');
       return;
     }
     setBusy(true);
@@ -82,10 +99,55 @@ export function AdminEContractIssuerProfilePage() {
         phone: phone.trim() || null,
         fax: fax.trim() || null,
         email: email.trim() || null,
-        sealDisplayWidthPx: wNum,
+        issuerStampKind,
+        sealDisplayWidthPx: sealW,
+        signatureDisplayWidthPx: sigW,
       });
       hydrate(profile);
       setMsg('저장했습니다.');
+      await loadAll();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '저장하지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveWidthsOnly = async () => {
+    if (!token) return;
+    const sealW = parseWidthPx(sealDisplayWidthPx);
+    const sigW = parseWidthPx(signatureDisplayWidthPx);
+    if (sealW === 'bad' || sigW === 'bad') {
+      setErr('표시 너비는 각각 48~320 또는 비움만 가능합니다.');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const { profile } = await patchEContractIssuerProfile(token, {
+        sealDisplayWidthPx: sealW,
+        signatureDisplayWidthPx: sigW,
+      });
+      hydrate(profile);
+      setMsg('표시 너비를 저장했습니다.');
+      await loadAll();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '저장하지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveStampKind = async (kind: StampKind) => {
+    if (!token || kind === issuerStampKind) return;
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const { profile } = await patchEContractIssuerProfile(token, { issuerStampKind: kind });
+      hydrate(profile);
+      setMsg(kind === 'SEAL' ? '계약서에는 도장 이미지가 표시됩니다.' : '계약서에는 서명 이미지가 표시됩니다.');
       await loadAll();
     } catch (e) {
       setErr(e instanceof Error ? e.message : '저장하지 못했습니다.');
@@ -107,7 +169,29 @@ export function AdminEContractIssuerProfilePage() {
         sealSecureUrl: up.secureUrl,
       });
       setSealPreviewUrl(up.secureUrl);
-      setMsg('도장 이미지를 저장했습니다. 필요하면 「텍스트 필드 저장」으로 너비만 다시 저장할 수 있습니다.');
+      setMsg('도장 이미지를 저장했습니다.');
+      await loadAll();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '업로드하지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadSignatureFile = async (files: FileList | null) => {
+    const f = files?.[0];
+    if (!token || !f) return;
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const up = await uploadEContractIssuerSeal(f, token, f.name || `issuer_sig_${Date.now()}.png`);
+      await patchEContractIssuerProfile(token, {
+        signaturePublicId: up.publicId,
+        signatureSecureUrl: up.secureUrl,
+      });
+      setSignaturePreviewUrl(up.secureUrl);
+      setMsg('서명 이미지를 저장했습니다.');
       await loadAll();
     } catch (e) {
       setErr(e instanceof Error ? e.message : '업로드하지 못했습니다.');
@@ -124,6 +208,22 @@ export function AdminEContractIssuerProfilePage() {
       await patchEContractIssuerProfile(token, { clearSeal: true });
       setSealPreviewUrl(null);
       setMsg('도장을 제거했습니다.');
+      await loadAll();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '처리하지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearSignature = async () => {
+    if (!token || !window.confirm('서명 이미지를 제거할까요?')) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await patchEContractIssuerProfile(token, { clearSignature: true });
+      setSignaturePreviewUrl(null);
+      setMsg('서명 이미지를 제거했습니다.');
       await loadAll();
     } catch (e) {
       setErr(e instanceof Error ? e.message : '처리하지 못했습니다.');
@@ -242,66 +342,153 @@ export function AdminEContractIssuerProfilePage() {
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="text-fluid-sm font-semibold text-gray-900">도장 PNG</h2>
+          <h2 className="text-fluid-sm font-semibold text-gray-900">갑 (인) — 도장 또는 서명</h2>
           <p className="mt-1 text-fluid-2xs text-gray-600">
-            본문에 <code className="rounded bg-gray-100 px-1">[[EC_ISSUER_SEAL]]</code> 를 넣으면 체결·배포 화면에 이미지로 치환됩니다.
+            동일 토큰 <code className="rounded bg-gray-100 px-1">[[EC_ISSUER_SEAL]]</code> 로 계약서·부록에 들어갑니다. 아래에서 표시 방식만
+            선택하면 됩니다.
           </p>
 
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <div>
-              <label className="block text-fluid-2xs font-medium text-gray-700">표시 너비(px)</label>
+          <div className="mt-4 flex flex-wrap gap-4">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-fluid-xs text-gray-800">
               <input
-                type="number"
-                min={48}
-                max={320}
-                value={sealDisplayWidthPx}
-                onChange={(e) => setSealDisplayWidthPx(e.target.value)}
-                className="mt-1 w-28 rounded-md border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+                type="radio"
+                name="issuer-stamp-kind"
+                checked={issuerStampKind === 'SEAL'}
+                disabled={busy}
+                onChange={() => void saveStampKind('SEAL')}
+                className="h-4 w-4"
               />
+              도장 이미지
+            </label>
+            <label className="inline-flex cursor-pointer items-center gap-2 text-fluid-xs text-gray-800">
+              <input
+                type="radio"
+                name="issuer-stamp-kind"
+                checked={issuerStampKind === 'SIGNATURE'}
+                disabled={busy}
+                onChange={() => void saveStampKind('SIGNATURE')}
+                className="h-4 w-4"
+              />
+              서명 이미지
+            </label>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2">
+            <div className={issuerStampKind === 'SEAL' ? '' : 'opacity-50'}>
+              <div className="text-fluid-2xs font-semibold text-gray-800">도장</div>
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="block text-fluid-2xs text-gray-600">너비(px)</label>
+                  <input
+                    type="number"
+                    min={48}
+                    max={320}
+                    value={sealDisplayWidthPx}
+                    onChange={(e) => setSealDisplayWidthPx(e.target.value)}
+                    disabled={busy || issuerStampKind !== 'SEAL'}
+                    className="mt-0.5 w-24 rounded-md border border-gray-300 px-2 py-1.5 text-fluid-xs tabular-nums"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={busy || issuerStampKind !== 'SEAL'}
+                  onClick={() => document.getElementById('issuer-seal-file')?.click()}
+                  className="rounded-md bg-blue-700 px-3 py-1.5 text-fluid-2xs font-medium text-white disabled:opacity-50"
+                >
+                  업로드
+                </button>
+                <input
+                  id="issuer-seal-file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => void uploadSealFile(e.target.files)}
+                />
+                <button
+                  type="button"
+                  disabled={busy || issuerStampKind !== 'SEAL'}
+                  onClick={() => void clearSeal()}
+                  className="text-fluid-2xs text-red-700 underline disabled:opacity-50"
+                >
+                  제거
+                </button>
+              </div>
+              <div className="mt-2 rounded border border-dashed border-gray-200 bg-gray-50 p-3 text-center">
+                {sealPreviewUrl ? (
+                  <img
+                    src={sealPreviewUrl}
+                    alt="도장"
+                    className="mx-auto max-h-36 max-w-full object-contain"
+                    width={Number(sealDisplayWidthPx) > 0 ? Number(sealDisplayWidthPx) : 96}
+                  />
+                ) : (
+                  <span className="text-fluid-2xs text-gray-500">미등록</span>
+                )}
+              </div>
             </div>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void saveText()}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs text-gray-900 disabled:opacity-50"
-            >
-              너비만 반영
-            </button>
+
+            <div className={issuerStampKind === 'SIGNATURE' ? '' : 'opacity-50'}>
+              <div className="text-fluid-2xs font-semibold text-gray-800">서명</div>
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="block text-fluid-2xs text-gray-600">너비(px)</label>
+                  <input
+                    type="number"
+                    min={48}
+                    max={320}
+                    value={signatureDisplayWidthPx}
+                    onChange={(e) => setSignatureDisplayWidthPx(e.target.value)}
+                    disabled={busy || issuerStampKind !== 'SIGNATURE'}
+                    className="mt-0.5 w-24 rounded-md border border-gray-300 px-2 py-1.5 text-fluid-xs tabular-nums"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={busy || issuerStampKind !== 'SIGNATURE'}
+                  onClick={() => document.getElementById('issuer-signature-file')?.click()}
+                  className="rounded-md bg-blue-700 px-3 py-1.5 text-fluid-2xs font-medium text-white disabled:opacity-50"
+                >
+                  업로드
+                </button>
+                <input
+                  id="issuer-signature-file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => void uploadSignatureFile(e.target.files)}
+                />
+                <button
+                  type="button"
+                  disabled={busy || issuerStampKind !== 'SIGNATURE'}
+                  onClick={() => void clearSignature()}
+                  className="text-fluid-2xs text-red-700 underline disabled:opacity-50"
+                >
+                  제거
+                </button>
+              </div>
+              <div className="mt-2 rounded border border-dashed border-gray-200 bg-gray-50 p-3 text-center">
+                {signaturePreviewUrl ? (
+                  <img
+                    src={signaturePreviewUrl}
+                    alt="서명"
+                    className="mx-auto max-h-36 max-w-full object-contain"
+                    width={Number(signatureDisplayWidthPx) > 0 ? Number(signatureDisplayWidthPx) : 96}
+                  />
+                ) : (
+                  <span className="text-fluid-2xs text-gray-500">미등록</span>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => document.getElementById('issuer-seal-file')?.click()}
-              className="rounded-lg bg-blue-700 px-4 py-2 text-fluid-xs font-medium text-white disabled:opacity-50"
-            >
-              이미지 선택·업로드
-            </button>
-            <input
-              id="issuer-seal-file"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => void uploadSealFile(e.target.files)}
-            />
-            <button type="button" disabled={busy} onClick={() => void clearSeal()} className="text-fluid-xs text-red-700 underline">
-              도장 제거
-            </button>
-          </div>
-
-          <div className="mt-4 rounded border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
-            {sealPreviewUrl ? (
-              <img
-                src={sealPreviewUrl}
-                alt="도장 미리보기"
-                className="mx-auto inline-block max-h-40 max-w-full object-contain"
-                width={Number(sealDisplayWidthPx) > 0 ? Number(sealDisplayWidthPx) : 96}
-              />
-            ) : (
-              <span className="text-fluid-xs text-gray-500">등록된 도장 없음</span>
-            )}
-          </div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void saveWidthsOnly()}
+            className="mt-4 rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs text-gray-900 disabled:opacity-50"
+          >
+            도장·서명 표시 너비만 저장
+          </button>
         </div>
       </div>
 

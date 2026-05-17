@@ -1,11 +1,11 @@
-import type { Prisma } from '@prisma/client';
-import type { EContractIssuerProfile } from '@prisma/client';
+import type { Prisma, EContractIssuerProfile, EContractIssuerStampKind } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   EC_ISSUER_PLACEHOLDER_KEYS,
   ISSUER_SEAL_PUBLIC_ID_PREFIX,
   expandIssuerPlaceholders,
   issuerSealLooksValid,
+  issuerSignatureLooksValid,
   issuerSnapshotJsonFromPlain,
   type EContractIssuerSnapshot,
 } from './eContractIssuer.expand.js';
@@ -24,9 +24,13 @@ function rowToIssuerSnapshot(row: EContractIssuerProfile): EContractIssuerSnapsh
     phone: row.phone ?? undefined,
     fax: row.fax ?? undefined,
     email: row.email ?? undefined,
+    issuerStampKind: row.issuerStampKind === 'SIGNATURE' ? 'SIGNATURE' : 'SEAL',
     sealPublicId: row.sealPublicId ?? undefined,
     sealSecureUrl: row.sealSecureUrl ?? undefined,
     sealDisplayWidthPx: row.sealDisplayWidthPx ?? undefined,
+    signaturePublicId: row.signaturePublicId ?? undefined,
+    signatureSecureUrl: row.signatureSecureUrl ?? undefined,
+    signatureDisplayWidthPx: row.signatureDisplayWidthPx ?? undefined,
   };
 }
 
@@ -76,9 +80,13 @@ function mapProfileResponse(row: EContractIssuerProfile) {
     phone: row.phone,
     fax: row.fax,
     email: row.email,
+    issuerStampKind: row.issuerStampKind,
     sealPublicId: row.sealPublicId,
     sealSecureUrl: row.sealSecureUrl,
     sealDisplayWidthPx: row.sealDisplayWidthPx,
+    signaturePublicId: row.signaturePublicId,
+    signatureSecureUrl: row.signatureSecureUrl,
+    signatureDisplayWidthPx: row.signatureDisplayWidthPx,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -91,10 +99,15 @@ type PatchIssuer = Partial<{
   phone: string | null;
   fax: string | null;
   email: string | null;
+  issuerStampKind: EContractIssuerStampKind | 'SEAL' | 'SIGNATURE';
   sealPublicId: string | null;
   sealSecureUrl: string | null;
   sealDisplayWidthPx: number | null;
   clearSeal: boolean;
+  signaturePublicId: string | null;
+  signatureSecureUrl: string | null;
+  signatureDisplayWidthPx: number | null;
+  clearSignature: boolean;
 }>;
 
 export async function patchIssuerProfile(actorId: string, profileKey: string | undefined, patch: PatchIssuer) {
@@ -132,6 +145,14 @@ export async function patchIssuerProfile(actorId: string, profileKey: string | u
   setNullable('fax', 'fax', 64);
   setNullable('email', 'email', 256);
 
+  if (patch.issuerStampKind !== undefined) {
+    const k = patch.issuerStampKind;
+    if (k !== 'SEAL' && k !== 'SIGNATURE') {
+      throw Object.assign(new Error('stamp_kind_invalid'), { code: 'bad_request' as const });
+    }
+    data.issuerStampKind = k as EContractIssuerStampKind;
+  }
+
   if (patch.clearSeal === true) {
     data.sealPublicId = null;
     data.sealSecureUrl = null;
@@ -153,6 +174,27 @@ export async function patchIssuerProfile(actorId: string, profileKey: string | u
     }
   }
 
+  if (patch.clearSignature === true) {
+    data.signaturePublicId = null;
+    data.signatureSecureUrl = null;
+  } else if (patch.signaturePublicId !== undefined || patch.signatureSecureUrl !== undefined) {
+    if (patch.signaturePublicId === null && patch.signatureSecureUrl === null) {
+      data.signaturePublicId = null;
+      data.signatureSecureUrl = null;
+    } else {
+      const pid = typeof patch.signaturePublicId === 'string' ? patch.signaturePublicId.trim() : '';
+      const surl = typeof patch.signatureSecureUrl === 'string' ? patch.signatureSecureUrl.trim() : '';
+      if (!pid.startsWith(ISSUER_SEAL_PUBLIC_ID_PREFIX)) {
+        throw Object.assign(new Error('signature_bad_public_id'), { code: 'bad_request' as const });
+      }
+      if (!issuerSignatureLooksValid({ signaturePublicId: pid, signatureSecureUrl: surl })) {
+        throw Object.assign(new Error('signature_bad_url'), { code: 'bad_request' as const });
+      }
+      data.signaturePublicId = pid.slice(0, 512);
+      data.signatureSecureUrl = surl.slice(0, 2048);
+    }
+  }
+
   if (patch.sealDisplayWidthPx !== undefined) {
     if (patch.sealDisplayWidthPx === null) {
       data.sealDisplayWidthPx = null;
@@ -164,6 +206,20 @@ export async function patchIssuerProfile(actorId: string, profileKey: string | u
       data.sealDisplayWidthPx = w;
     } else {
       throw Object.assign(new Error('seal_width_invalid'), { code: 'bad_request' as const });
+    }
+  }
+
+  if (patch.signatureDisplayWidthPx !== undefined) {
+    if (patch.signatureDisplayWidthPx === null) {
+      data.signatureDisplayWidthPx = null;
+    } else if (typeof patch.signatureDisplayWidthPx === 'number' && Number.isFinite(patch.signatureDisplayWidthPx)) {
+      const w = Math.round(patch.signatureDisplayWidthPx);
+      if (w < 48 || w > 320) {
+        throw Object.assign(new Error('signature_width_range'), { code: 'bad_request' as const });
+      }
+      data.signatureDisplayWidthPx = w;
+    } else {
+      throw Object.assign(new Error('signature_width_invalid'), { code: 'bad_request' as const });
     }
   }
 

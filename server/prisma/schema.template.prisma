@@ -1151,21 +1151,31 @@ model UserCustomCalendar {
   @@map("user_custom_calendars")
 }
 
+/// 갑(인) 칸에 넣을 이미지 종류 — 동일 토큰 `[[EC_ISSUER_SEAL]]` 로 치환.
+enum EContractIssuerStampKind {
+  SEAL
+  SIGNATURE
+}
+
 /// 전자계약 발행측(갑) 표기 — 본문 `[[EC_ISSUER_*]]` 치환·배포 시점 스냅샷.
 /// 다법인 시 `profile_key`로 확장 가능(단일테넌트는 `default`).
 model EContractIssuerProfile {
-  id                       String   @id @default(uuid())
-  profileKey               String   @unique @default("default") @map("profile_key") @db.VarChar(64)
-  companyName              String   @default("") @map("company_name") @db.VarChar(512)
-  representativeName       String?  @map("representative_name") @db.VarChar(128)
-  businessRegistrationNo   String?  @map("business_registration_no") @db.VarChar(32)
-  addressLine              String?  @map("address_line") @db.Text
-  phone                    String?  @db.VarChar(64)
-  fax                      String?  @db.VarChar(64)
-  email                    String?  @db.VarChar(256)
-  sealPublicId             String?  @map("seal_public_id") @db.VarChar(512)
-  sealSecureUrl            String?  @map("seal_secure_url") @db.VarChar(2048)
-  sealDisplayWidthPx       Int?     @map("seal_display_width_px")
+  id                       String                     @id @default(uuid())
+  profileKey               String                     @unique @default("default") @map("profile_key") @db.VarChar(64)
+  companyName              String                     @default("") @map("company_name") @db.VarChar(512)
+  representativeName       String?                    @map("representative_name") @db.VarChar(128)
+  businessRegistrationNo   String?                  @map("business_registration_no") @db.VarChar(32)
+  addressLine              String?                    @map("address_line") @db.Text
+  phone                    String?                    @db.VarChar(64)
+  fax                      String?                    @db.VarChar(64)
+  email                    String?                    @db.VarChar(256)
+  issuerStampKind          EContractIssuerStampKind   @default(SEAL) @map("issuer_stamp_kind")
+  sealPublicId             String?                    @map("seal_public_id") @db.VarChar(512)
+  sealSecureUrl            String?                    @map("seal_secure_url") @db.VarChar(2048)
+  sealDisplayWidthPx       Int?                       @map("seal_display_width_px")
+  signaturePublicId        String?                    @map("signature_public_id") @db.VarChar(512)
+  signatureSecureUrl       String?                    @map("signature_secure_url") @db.VarChar(2048)
+  signatureDisplayWidthPx  Int?                       @map("signature_display_width_px")
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
   updatedById              String?  @map("updated_by_id")

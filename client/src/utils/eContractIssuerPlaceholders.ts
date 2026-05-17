@@ -7,5 +7,5 @@ export const EC_ISSUER_PLACEHOLDER_OPTIONS: ReadonlyArray<{ token: string; label
   { token: '[[EC_ISSUER_PHONE]]', label: '전화' },
   { token: '[[EC_ISSUER_FAX]]', label: '팩스' },
   { token: '[[EC_ISSUER_EMAIL]]', label: '이메일' },
-  { token: '[[EC_ISSUER_SEAL]]', label: '도장 이미지' },
+  { token: '[[EC_ISSUER_SEAL]]', label: '갑 인감 — 도장 또는 서명 이미지' },
 ];

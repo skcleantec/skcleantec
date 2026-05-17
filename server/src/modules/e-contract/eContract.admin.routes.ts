@@ -98,6 +98,29 @@ router.patch('/issuer-profile', async (req, res) => {
             ? (b.sealDisplayWidthPx as number | null)
             : undefined
           : undefined,
+      issuerStampKind:
+        'issuerStampKind' in b && (b.issuerStampKind === 'SEAL' || b.issuerStampKind === 'SIGNATURE')
+          ? b.issuerStampKind
+          : undefined,
+      signaturePublicId:
+        'signaturePublicId' in b
+          ? typeof b.signaturePublicId === 'string' || b.signaturePublicId === null
+            ? (b.signaturePublicId as string | null)
+            : undefined
+          : undefined,
+      signatureSecureUrl:
+        'signatureSecureUrl' in b
+          ? typeof b.signatureSecureUrl === 'string' || b.signatureSecureUrl === null
+            ? (b.signatureSecureUrl as string | null)
+            : undefined
+          : undefined,
+      signatureDisplayWidthPx:
+        'signatureDisplayWidthPx' in b
+          ? b.signatureDisplayWidthPx === null || typeof b.signatureDisplayWidthPx === 'number'
+            ? (b.signatureDisplayWidthPx as number | null)
+            : undefined
+          : undefined,
+      clearSignature: b.clearSignature === true,
     });
     res.json({ profile, placeholders: [...EC_ISSUER_PLACEHOLDER_KEYS] });
   } catch (e: unknown) {
@@ -111,11 +134,19 @@ router.patch('/issuer-profile', async (req, res) => {
             ? '도장 업로드 식별자가 올바르지 않습니다.'
             : m === 'seal_bad_url'
               ? '도장 이미지 URL이 올바르지 않습니다.'
-              : m === 'seal_width_range'
-                ? '도장 표시 너비는 48~320 사이 숫자로 입력해 주세요.'
-                : m === 'nothing_to_patch'
-                  ? '변경할 값이 없습니다.'
-                  : '입력값을 확인해 주세요.';
+              : m === 'signature_bad_public_id'
+                ? '서명 이미지 업로드 식별자가 올바르지 않습니다.'
+                : m === 'signature_bad_url'
+                  ? '서명 이미지 URL이 올바르지 않습니다.'
+                  : m === 'stamp_kind_invalid'
+                    ? '갑 인감 표시 방식이 올바르지 않습니다.'
+                    : m === 'seal_width_range'
+                      ? '도장 표시 너비는 48~320 사이 숫자로 입력해 주세요.'
+                      : m === 'signature_width_range'
+                        ? '서명 표시 너비는 48~320 사이 숫자로 입력해 주세요.'
+                        : m === 'nothing_to_patch'
+                          ? '변경할 값이 없습니다.'
+                          : '입력값을 확인해 주세요.';
       res.status(400).json({ error: msg });
       return;
     }

@@ -1,5 +1,8 @@
 import { stabilizeEContractParagraphHtml } from './eContractBodyParagraphStabilize.js';
 
+/** DB·스냅샷과 동기 — Prisma `EContractIssuerStampKind` */
+export type EContractIssuerStampKind = 'SEAL' | 'SIGNATURE';
+
 /**
  * 발행측(갑) 플레이스홀더 치환 — 서버 표시본·미리보기·배포 시 동일 로직 유지.
  * 클라에도 토큰 문자열 목록 동기화: `EC_ISSUER_PLACEHOLDER_KEYS` (주석 참고).
@@ -12,9 +15,14 @@ export type EContractIssuerSnapshot = {
   phone?: string | null;
   fax?: string | null;
   email?: string | null;
+  /** 갑 (인) 칸에 도장 또는 서명 이미지 중 무엇을 쓸지 */
+  issuerStampKind?: EContractIssuerStampKind | null;
   sealPublicId?: string | null;
   sealSecureUrl?: string | null;
   sealDisplayWidthPx?: number | null;
+  signaturePublicId?: string | null;
+  signatureSecureUrl?: string | null;
+  signatureDisplayWidthPx?: number | null;
 };
 
 export const ISSUER_SEAL_PUBLIC_ID_PREFIX = 'e_contract/issuer/';
@@ -38,16 +46,25 @@ export const EC_ISSUER_PLACEHOLDER_KEYS: ReadonlyArray<{ token: string; label: s
   { token: TOKENS.PHONE, label: '전화' },
   { token: TOKENS.FAX, label: '팩스' },
   { token: TOKENS.EMAIL, label: '이메일' },
-  { token: TOKENS.SEAL, label: '도장 이미지' },
+  { token: TOKENS.SEAL, label: '갑 인감 — 도장 또는 서명 이미지' },
 ];
 
 export function issuerSealLooksValid(snapshot: Pick<EContractIssuerSnapshot, 'sealSecureUrl' | 'sealPublicId'>): boolean {
-  const url = snapshot.sealSecureUrl?.trim() ?? '';
-  const pid = snapshot.sealPublicId?.trim() ?? '';
+  return issuerIssuerFolderImageLooksValid(snapshot.sealPublicId, snapshot.sealSecureUrl);
+}
+
+export function issuerSignatureLooksValid(
+  snapshot: Pick<EContractIssuerSnapshot, 'signatureSecureUrl' | 'signaturePublicId'>
+): boolean {
+  return issuerIssuerFolderImageLooksValid(snapshot.signaturePublicId, snapshot.signatureSecureUrl);
+}
+
+function issuerIssuerFolderImageLooksValid(publicIdRaw: string | null | undefined, urlRaw: string | null | undefined): boolean {
+  const url = (urlRaw ?? '').trim().toLowerCase();
+  const pid = (publicIdRaw ?? '').trim();
   if (!url || !pid) return false;
   if (!pid.startsWith(ISSUER_SEAL_PUBLIC_ID_PREFIX)) return false;
-  const u = url.toLowerCase();
-  return u.includes('res.cloudinary.com') || u.includes('/image/upload/v');
+  return url.includes('res.cloudinary.com') || url.includes('/image/upload/v');
 }
 
 function escapeHtml(s: string): string {
@@ -64,10 +81,34 @@ function sealImgMarkup(snapshot: EContractIssuerSnapshot): string {
     return `<span class="e-contract-no-seal text-gray-500">(도장 미등록)</span>`;
   }
   const url = snapshot.sealSecureUrl!.trim();
-  let w = typeof snapshot.sealDisplayWidthPx === 'number' && Number.isFinite(snapshot.sealDisplayWidthPx) ? Math.round(snapshot.sealDisplayWidthPx) : 96;
+  let w =
+    typeof snapshot.sealDisplayWidthPx === 'number' && Number.isFinite(snapshot.sealDisplayWidthPx)
+      ? Math.round(snapshot.sealDisplayWidthPx)
+      : 96;
   if (w < 48) w = 48;
   if (w > 320) w = 320;
   return `<img src="${escapeHtml(url)}" alt="인" width="${w}" class="e-contract-seal-img inline-block align-middle max-w-[40%]" loading="lazy" />`;
+}
+
+function signatureImgMarkup(snapshot: EContractIssuerSnapshot): string {
+  if (!issuerSignatureLooksValid(snapshot)) {
+    return `<span class="e-contract-no-sign text-gray-500">(서명 미등록)</span>`;
+  }
+  const url = snapshot.signatureSecureUrl!.trim();
+  let w =
+    typeof snapshot.signatureDisplayWidthPx === 'number' && Number.isFinite(snapshot.signatureDisplayWidthPx)
+      ? Math.round(snapshot.signatureDisplayWidthPx)
+      : 96;
+  if (w < 48) w = 48;
+  if (w > 320) w = 320;
+  return `<img src="${escapeHtml(url)}" alt="서명" width="${w}" class="e-contract-issuer-signature-img inline-block align-middle max-w-[260px]" loading="lazy" />`;
+}
+
+/** `[[EC_ISSUER_SEAL]]` — 설정에 따라 도장 또는 서명 이미지 */
+function issuerStampSlotMarkup(snapshot: EContractIssuerSnapshot): string {
+  const kind = snapshot.issuerStampKind ?? 'SEAL';
+  if (kind === 'SIGNATURE') return signatureImgMarkup(snapshot);
+  return sealImgMarkup(snapshot);
 }
 
 function textOrDash(v: string | null | undefined): string {
@@ -89,7 +130,7 @@ export function expandIssuerPlaceholders(html: string, snapshot: EContractIssuer
     [TOKENS.PHONE]: textOrDash(sn.phone ?? ''),
     [TOKENS.FAX]: textOrDash(sn.fax ?? ''),
     [TOKENS.EMAIL]: textOrDash(sn.email ?? ''),
-    [TOKENS.SEAL]: sealImgMarkup(sn),
+    [TOKENS.SEAL]: issuerStampSlotMarkup(sn),
   };
   for (const [needle, needleRep] of Object.entries(rep)) {
     out = out.split(needle).join(needleRep);
@@ -105,6 +146,8 @@ export function issuerSnapshotJsonFromPlain(s: EContractIssuerSnapshot | null | 
     if (t) o[k] = t;
     else o[k] = null;
   };
+  const kind = sn.issuerStampKind === 'SIGNATURE' ? 'SIGNATURE' : 'SEAL';
+  o.issuerStampKind = kind;
   setStr('companyName', sn.companyName);
   setStr('representativeName', sn.representativeName);
   setStr('businessRegistrationNo', sn.businessRegistrationNo);
@@ -114,10 +157,16 @@ export function issuerSnapshotJsonFromPlain(s: EContractIssuerSnapshot | null | 
   setStr('email', sn.email);
   setStr('sealPublicId', sn.sealPublicId);
   setStr('sealSecureUrl', sn.sealSecureUrl);
+  setStr('signaturePublicId', sn.signaturePublicId);
+  setStr('signatureSecureUrl', sn.signatureSecureUrl);
   if (typeof sn.sealDisplayWidthPx === 'number' && Number.isFinite(sn.sealDisplayWidthPx)) {
     const w = Math.round(sn.sealDisplayWidthPx);
     o.sealDisplayWidthPx = w > 0 ? w : null;
-  }
+  } else o.sealDisplayWidthPx = null;
+  if (typeof sn.signatureDisplayWidthPx === 'number' && Number.isFinite(sn.signatureDisplayWidthPx)) {
+    const w = Math.round(sn.signatureDisplayWidthPx);
+    o.signatureDisplayWidthPx = w > 0 ? w : null;
+  } else o.signatureDisplayWidthPx = null;
   return o;
 }
 
@@ -131,7 +180,11 @@ export function issuerSnapshotFromStoredJson(raw: unknown): EContractIssuerSnaps
     const t = v.trim();
     return t || undefined;
   };
+  const kindRaw = o.issuerStampKind;
+  const issuerStampKind: EContractIssuerStampKind =
+    kindRaw === 'SIGNATURE' ? 'SIGNATURE' : 'SEAL';
   const snap: EContractIssuerSnapshot = {
+    issuerStampKind,
     companyName: pickStr('companyName'),
     representativeName: pickStr('representativeName'),
     businessRegistrationNo: pickStr('businessRegistrationNo'),
@@ -144,6 +197,12 @@ export function issuerSnapshotFromStoredJson(raw: unknown): EContractIssuerSnaps
     sealDisplayWidthPx:
       typeof o.sealDisplayWidthPx === 'number' && Number.isFinite(o.sealDisplayWidthPx)
         ? Math.round(o.sealDisplayWidthPx)
+        : undefined,
+    signaturePublicId: pickStr('signaturePublicId'),
+    signatureSecureUrl: pickStr('signatureSecureUrl'),
+    signatureDisplayWidthPx:
+      typeof o.signatureDisplayWidthPx === 'number' && Number.isFinite(o.signatureDisplayWidthPx)
+        ? Math.round(o.signatureDisplayWidthPx)
         : undefined,
   };
   return snap;
