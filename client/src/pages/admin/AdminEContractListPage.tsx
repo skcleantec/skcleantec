@@ -17,7 +17,11 @@ export function AdminEContractListPage() {
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      setRows([]);
+      return;
+    }
     setLoading(true);
     setErr(null);
     try {
@@ -65,14 +69,19 @@ export function AdminEContractListPage() {
             표에서 조회·상세보기·다운로드할 수 있습니다.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-fluid-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-            className="rounded border-gray-300"
-          />
-          보관(아카이브) 포함
+        <label className="flex cursor-pointer flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
+          <span className="flex items-center gap-2 text-fluid-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            보관(아카이브) 포함
+          </span>
+          <span className="text-fluid-2xs text-gray-500 sm:max-w-md">
+            끈 상태면 「보관」 처리된 계약 종류는 목록에 나오지 않습니다. 다른 PC·배포(스테이징·운영)는 DB가 따로 저장될 수 있습니다.
+          </span>
         </label>
       </div>
 
@@ -140,7 +149,13 @@ export function AdminEContractListPage() {
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-2 py-8 text-center text-gray-500">
-                    등록된 계약서가 없습니다.
+                    <div>등록된 계약서가 없습니다.</div>
+                    {!includeArchived ? (
+                      <p className="mx-auto mt-2 max-w-lg text-fluid-2xs text-amber-800">
+                        이전에 만든 종류가 있다면<strong className="font-medium"> 위의 「보관(아카이브) 포함」</strong>
+                        을 켜 보세요. 그래도 비면 지금 접속 중인 사이트가 예전에 쓰던 DB(예: 스테이징·운영 구분)와 다른지 확인이 필요합니다.
+                      </p>
+                    ) : null}
                   </td>
                 </tr>
               ) : (
@@ -197,7 +212,12 @@ export function AdminEContractListPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-fluid-sm text-gray-500">
-            등록된 계약서가 없습니다.
+            <div>등록된 계약서가 없습니다.</div>
+            {!includeArchived ? (
+              <p className="mx-auto mt-2 max-w-lg text-fluid-2xs text-amber-800">
+                이전에 만든 종류가 있다면<strong className="font-medium"> 위의 「보관(아카이브) 포함」</strong>을 켜 보세요. 그래도 비면 접속 중인 배포 환경의 DB가 같은지 확인하세요.
+              </p>
+            ) : null}
           </div>
         ) : (
           rows.map((d) => {
