@@ -126,9 +126,9 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                     onClick={triggerPrint}
                     disabled={!pagedReady}
                     className="rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    title="아래 미리보기 그대로 인쇄·PDF 저장 (페이지 번호·문서 번호 포함)"
+                    title="아래 미리보기 그대로 PDF 저장 (페이지 번호·문서 번호 포함)"
                   >
-                    {pagedReady ? '인쇄 / PDF로 저장' : '페이지 준비 중…'}
+                    {pagedReady ? 'PDF로 저장' : '페이지 준비 중…'}
                   </button>
                   <button
                     type="button"
@@ -165,7 +165,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                   </button>
                 </div>
                 <p className="text-fluid-2xs text-gray-500">
-                  ⚠️ 「인쇄 / PDF로 저장」을 누른 뒤 인쇄 대화상자에서 <strong>대상을 「PDF로 저장」</strong>으로 선택하면
+                  「PDF로 저장」을 누른 뒤 인쇄 대화상자에서 <strong>대상을 「PDF로 저장」</strong>으로 선택하면
                   화면과 동일한 페이지 분할·머리말·꼬리말이 그대로 들어간 PDF가 만들어집니다.
                 </p>
               </div>

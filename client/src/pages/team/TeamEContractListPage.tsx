@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  downloadEContractPagedHtml,
-  EContractPagedPreviewModal,
-} from '../../components/e-contract/EContractPagedPreviewModal';
+import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
 import { fetchEContractPublicSession, type PublicSignSessionDto } from '../../api/eContractPublic';
 import { listTeamEContractIssuances, type TeamLeaderEContractIssuanceItem } from '../../api/team';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
@@ -49,32 +46,34 @@ function TeamIssuanceDocActions({
   row,
   busy,
   compact,
+  tableRow,
   onPreview,
-  onDownload,
-  onPrint,
+  onPdfSave,
 }: {
   row: TeamLeaderEContractIssuanceItem;
   busy: boolean;
   compact?: boolean;
+  /** PC 표 진행 열: 버튼을 한 줄로 유지하고 넘치면 가로 스크롤 */
+  tableRow?: boolean;
   onPreview: () => void;
-  onDownload: () => void;
-  onPrint: () => void;
+  onPdfSave: () => void;
 }) {
   if (row.definitionArchived) return null;
   const btn =
     compact === true
-      ? 'inline-flex rounded-md border px-2 py-1 text-fluid-2xs font-medium disabled:opacity-50 touch-manipulation'
+      ? 'shrink-0 inline-flex rounded-md border px-2 py-1 text-fluid-2xs font-medium disabled:opacity-50 touch-manipulation whitespace-nowrap'
       : 'inline-flex rounded-md border px-3 py-2 text-fluid-xs font-medium disabled:opacity-50 touch-manipulation';
+  const rowClass =
+    tableRow === true
+      ? 'inline-flex shrink-0 flex-nowrap items-center gap-1'
+      : `flex flex-wrap gap-1 ${compact ? 'justify-center' : ''}`;
   return (
-    <div className={`flex flex-wrap gap-1 ${compact ? 'justify-center' : ''}`}>
+    <div className={rowClass}>
       <button type="button" disabled={busy} className={`${btn} border-blue-600 bg-white text-blue-900 hover:bg-blue-50`} onClick={onPreview}>
         미리보기
       </button>
-      <button type="button" disabled={busy} className={`${btn} border-gray-300 bg-white text-gray-800 hover:bg-gray-50`} onClick={onDownload}>
-        HTML 저장
-      </button>
-      <button type="button" disabled={busy} className={`${btn} border-gray-900 bg-gray-900 text-white hover:bg-gray-800`} onClick={onPrint}>
-        인쇄
+      <button type="button" disabled={busy} className={`${btn} border-gray-900 bg-gray-900 text-white hover:bg-gray-800`} onClick={onPdfSave}>
+        PDF로 저장
       </button>
     </div>
   );
@@ -131,19 +130,6 @@ export function TeamEContractListPage() {
         setPreviewSession(session);
         setPagedAutoPrint(true);
         setPagedPreviewOpen(true);
-      }),
-    [runWithPublicSession],
-  );
-
-  const onDocDownload = useCallback(
-    (row: TeamLeaderEContractIssuanceItem) =>
-      void runWithPublicSession(row, (session) => {
-        downloadEContractPagedHtml({
-          bodyRaw: session.bodyMarkdown,
-          docId: session.issuanceId,
-          definitionTitle: session.definitionTitle,
-          versionOrdinal: session.versionOrdinal,
-        });
       }),
     [runWithPublicSession],
   );
@@ -209,7 +195,7 @@ export function TeamEContractListPage() {
           안내 페이지로 이동합니다.
         </p>
         <p className="mt-2 text-fluid-2xs text-gray-500">
-          목록에서 「미리보기」「HTML 저장」「인쇄」로 A4 형태 확인·저장이 가능합니다(발급 링크와 동일 본문). 서명 화면에서도 동일합니다.
+          목록에서 「미리보기」「PDF로 저장」으로 A4 분할 문서를 확인·저장할 수 있습니다(인쇄 창에서 PDF 대상 선택). 서명 화면에서도 동일합니다.
         </p>
       </div>
 
@@ -274,6 +260,8 @@ export function TeamEContractListPage() {
                     {signOk ? (
                       <Link
                         to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="rounded-md bg-blue-600 px-3 py-2 text-fluid-sm font-medium text-white hover:bg-blue-700 touch-manipulation"
                       >
                         계약하기 (서명)
@@ -282,6 +270,8 @@ export function TeamEContractListPage() {
                     {row.hasSigned || row.status === 'SIGNED' ? (
                       <Link
                         to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="rounded-md border border-gray-300 bg-white px-3 py-2 text-fluid-sm text-gray-800 hover:bg-gray-50 touch-manipulation"
                       >
                         체결 내용 보기
@@ -293,8 +283,7 @@ export function TeamEContractListPage() {
                       row={row}
                       busy={docFetchRowId === row.id}
                       onPreview={() => onDocPreview(row)}
-                      onDownload={() => onDocDownload(row)}
-                      onPrint={() => onDocPrint(row)}
+                      onPdfSave={() => onDocPrint(row)}
                     />
                   </div>
                 </div>
@@ -305,14 +294,14 @@ export function TeamEContractListPage() {
           <SyncHorizontalScroll>
             <div className="-mx-4 px-4 sm:mx-0 sm:px-0 hidden lg:block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
               <div className="bg-white border border-gray-200 rounded-lg">
-                <table className="w-full border-collapse table-fixed border-separate border-spacing-0 text-fluid-xs min-w-[760px]">
+                <table className="w-full border-collapse table-fixed border-separate border-spacing-0 text-fluid-xs min-w-[820px]">
                   <colgroup>
                     <col className="w-[22%]" />
                     <col className="w-[18%]" />
                     <col className="w-[12%]" />
                     <col className="w-[16%]" />
-                    <col className="w-[15%]" />
-                    <col className="w-[17%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[19%]" />
                   </colgroup>
                   <thead>
                     <tr className="bg-gray-100 text-gray-800">
@@ -363,12 +352,14 @@ export function TeamEContractListPage() {
                           <td className="border-b border-gray-100 px-2 py-2 text-center text-fluid-xs">
                             {row.expiresAt ? formatDt(row.expiresAt) : '—'}
                           </td>
-                          <td className="border-b border-gray-100 px-2 py-2 text-center">
-                            <div className="flex flex-col items-center gap-1 min-w-0">
+                          <td className="border-b border-gray-100 px-1 py-2 text-center">
+                            <div className="mx-auto flex min-w-0 max-w-full flex-nowrap items-center justify-center gap-1 overflow-x-auto overscroll-x-contain py-0.5 [scrollbar-width:thin]" style={{ WebkitOverflowScrolling: 'touch' }}>
                               {signOk ? (
                                 <Link
                                   to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
-                                  className="inline-flex rounded-md bg-blue-600 px-2 py-1 text-fluid-2xs font-medium text-white hover:bg-blue-700 touch-manipulation"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0 inline-flex whitespace-nowrap rounded-md bg-blue-600 px-2 py-1 text-fluid-2xs font-medium text-white hover:bg-blue-700 touch-manipulation"
                                 >
                                   계약하기
                                 </Link>
@@ -376,21 +367,23 @@ export function TeamEContractListPage() {
                               {signed ? (
                                 <Link
                                   to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
-                                  className="inline-flex rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-2xs text-gray-800 hover:bg-gray-50 touch-manipulation"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0 inline-flex whitespace-nowrap rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-2xs text-gray-800 hover:bg-gray-50 touch-manipulation"
                                 >
                                   체결 확인
                                 </Link>
                               ) : null}
                               {!signOk && !signed ? (
-                                <span className="text-fluid-2xs text-gray-500">—</span>
+                                <span className="shrink-0 text-fluid-2xs text-gray-500">—</span>
                               ) : null}
                               <TeamIssuanceDocActions
                                 row={row}
                                 busy={docFetchRowId === row.id}
                                 compact
+                                tableRow
                                 onPreview={() => onDocPreview(row)}
-                                onDownload={() => onDocDownload(row)}
-                                onPrint={() => onDocPrint(row)}
+                                onPdfSave={() => onDocPrint(row)}
                               />
                             </div>
                           </td>

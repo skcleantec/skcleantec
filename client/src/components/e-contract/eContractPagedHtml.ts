@@ -158,9 +158,3 @@ ${inner}
 </body>
 </html>`;
 }
-
-export function buildEContractPagedDownloadFilenameBase(definitionTitle: string, versionOrdinal: number): string {
-  const raw = `${(definitionTitle ?? '').trim() || '계약서'}_v${versionOrdinal}`;
-  const safe = raw.replace(/[/\\?%*:|"<>]/g, '_').trim();
-  return safe.slice(0, 120) || '계약서';
-}

@@ -6,27 +6,22 @@ import {
   uploadEContractBlob,
   type PublicSignSessionDto,
 } from '../../api/eContractPublic';
-import {
-  downloadEContractPagedHtml,
-  EContractPagedPreviewModal,
-} from '../../components/e-contract/EContractPagedPreviewModal';
+import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
 import { getTeamToken } from '../../stores/teamAuth';
 
 function TeamLeaderContractDocToolbar({
   onPreview,
-  onDownload,
-  onPrint,
+  onPdfSave,
 }: {
   onPreview: () => void;
-  onDownload: () => void;
-  onPrint: () => void;
+  onPdfSave: () => void;
 }) {
   return (
     <div className="rounded-lg border border-blue-100 bg-blue-50/90 px-3 py-3 shadow-sm">
-      <div className="text-fluid-xs font-semibold text-blue-950">계약서 미리보기·저장·인쇄</div>
+      <div className="text-fluid-xs font-semibold text-blue-950">계약서 미리보기·PDF 저장</div>
       <p className="mt-1 text-fluid-2xs text-blue-900/80">
-        A4 페이지 단위 미리보기, HTML 파일 저장, 인쇄 대화상자에서 PDF로 저장할 수 있습니다.
+        A4 페이지 단위 미리보기 후, 인쇄 창에서 「PDF로 저장」을 선택하면 동일한 레이아웃으로 파일을 받을 수 있습니다.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
@@ -38,17 +33,10 @@ function TeamLeaderContractDocToolbar({
         </button>
         <button
           type="button"
-          onClick={onDownload}
-          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 touch-manipulation"
-        >
-          HTML 다운로드
-        </button>
-        <button
-          type="button"
-          onClick={onPrint}
+          onClick={onPdfSave}
           className="rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800 touch-manipulation"
         >
-          인쇄
+          PDF로 저장
         </button>
       </div>
     </div>
@@ -374,15 +362,7 @@ export function EContractPublicSignPage() {
                   setPagedAutoPrint(false);
                   setPagedPreviewOpen(true);
                 }}
-                onDownload={() =>
-                  downloadEContractPagedHtml({
-                    bodyRaw: session.bodyMarkdown,
-                    docId: session.issuanceId,
-                    definitionTitle: session.definitionTitle,
-                    versionOrdinal: session.versionOrdinal,
-                  })
-                }
-                onPrint={() => {
+                onPdfSave={() => {
                   setPagedAutoPrint(true);
                   setPagedPreviewOpen(true);
                 }}
@@ -439,15 +419,7 @@ export function EContractPublicSignPage() {
               setPagedAutoPrint(false);
               setPagedPreviewOpen(true);
             }}
-            onDownload={() =>
-              downloadEContractPagedHtml({
-                bodyRaw: session.bodyMarkdown,
-                docId: session.issuanceId,
-                definitionTitle: session.definitionTitle,
-                versionOrdinal: session.versionOrdinal,
-              })
-            }
-            onPrint={() => {
+            onPdfSave={() => {
               setPagedAutoPrint(true);
               setPagedPreviewOpen(true);
             }}

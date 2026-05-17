@@ -71,8 +71,8 @@ export function AdminEContractTeamOverviewPage() {
       <h1 className="text-fluid-xl font-semibold text-gray-900">체결 기록</h1>
       <p className="mt-1 text-fluid-sm text-gray-600">
         <span className="font-medium text-gray-800">상세보기</span>에서{' '}
-        <span className="font-medium text-gray-800">업체(갑)·팀장(을) 서명이 반영된 최종 HTML</span>을 볼 수 있고, HTML 다운로드·인쇄(PDF
-        저장)로 보관할 수 있습니다. 팀장 본인은 체결 완료 후 같은 링크에서도 동일 문서를 볼 수 있습니다.
+        <span className="font-medium text-gray-800">업체(갑)·팀장(을) 서명이 반영된 최종 문서</span>를 볼 수 있고, PDF로 저장(인쇄 창에서 PDF
+        선택)으로 보관할 수 있습니다. 팀장 본인은 체결 완료 후 같은 링크에서도 동일 문서를 볼 수 있습니다.
       </p>
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">

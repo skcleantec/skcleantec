@@ -122,16 +122,14 @@ export async function getPublicSignSession(rawToken: string): Promise<
   } else if (!alreadySigned) {
     bodyMarkdown = await composePublishedVersionHtmlWithLiveIssuer(row.version);
     const label = row.teamLeader.name?.trim() || '';
-    if (bodyMarkdown.includes('[[EC_SIGNER_')) {
-      bodyMarkdown = expandSignerPlaceholders(bodyMarkdown, {
-        name: label || '(체결 시 입력)',
-        residentRegistrationNumber: '(체결 시 입력)',
-        addressLine: '(체결 시 입력)',
-        phone: '(체결 시 입력)',
-        freeTextNotes: null,
-        signatureSecureUrl: null,
-      });
-    }
+    bodyMarkdown = expandSignerPlaceholders(bodyMarkdown, {
+      name: label || '(체결 시 입력)',
+      residentRegistrationNumber: '(체결 시 입력)',
+      addressLine: '(체결 시 입력)',
+      phone: '(체결 시 입력)',
+      freeTextNotes: null,
+      signatureSecureUrl: null,
+    });
   } else {
     bodyMarkdown = versionFallback;
   }

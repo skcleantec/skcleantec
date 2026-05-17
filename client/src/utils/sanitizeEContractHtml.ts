@@ -13,14 +13,17 @@ export function sanitizeEContractHtml(raw: string): string {
   if (!dirty) return '';
   return DOMPurify.sanitize(stabilizeEContractParagraphHtml(dirty), {
     USE_PROFILES: { html: true },
-    ADD_ATTR: ['style', 'class', 'target', 'rel', 'loading', 'width', 'height', 'alt'],
+    ADD_ATTR: ['style', 'class', 'target', 'rel', 'loading', 'width', 'height', 'alt', 'colspan', 'rowspan'],
     FORBID_TAGS: ['iframe', 'object', 'embed', 'form', 'input', 'button', 'meta', 'style', 'script'],
   });
 }
 
+/** 계약 본문이 HTML인지 — 선행 주석·부록만 있는 경우 등 레거시 단순 접두 검사 오판 방지 */
 export function eContractBodyLooksLikeHtml(body: string): boolean {
   const t = (body ?? '').trim();
   if (!t) return false;
-  if (/<[a-z][\s\S]*>/i.test(t)) return true;
+  if (/ec-party-appendix/i.test(t)) return true;
+  if (/<[a-z!?]/i.test(t)) return true;
+  if (/<\/[a-z]/i.test(t)) return true;
   return false;
 }

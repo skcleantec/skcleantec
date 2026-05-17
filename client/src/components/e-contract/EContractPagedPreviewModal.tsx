@@ -1,37 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EContractPagedIframeReader } from './EContractPagedIframeReader';
-import {
-  buildEContractPagedDownloadFilenameBase,
-  buildPagedHtmlDocument,
-  normalizeContractBodyForPaged,
-  PAGED_POLYFILL_URL,
-} from './eContractPagedHtml';
-
-export function downloadEContractPagedHtml(opts: {
-  bodyRaw: string;
-  docId: string;
-  definitionTitle: string;
-  versionOrdinal: number;
-}) {
-  const inner = normalizeContractBodyForPaged(opts.bodyRaw);
-  const title = `${opts.definitionTitle || '계약서'} · v${opts.versionOrdinal}`;
-  const html = buildPagedHtmlDocument({
-    bodyHtml: inner,
-    docId: opts.docId,
-    pagedScriptUrl: PAGED_POLYFILL_URL,
-    title,
-  });
-  const base = buildEContractPagedDownloadFilenameBase(opts.definitionTitle, opts.versionOrdinal);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${base}.html`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
+import { normalizeContractBodyForPaged } from './eContractPagedHtml';
 
 type Props = {
   open: boolean;
@@ -144,28 +113,14 @@ export function EContractPagedPreviewModal({
                 onClick={triggerPrint}
                 disabled={!pagedReady}
                 className="rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-                title="미리보기와 동일하게 인쇄·PDF 저장"
+                title="인쇄 대화상자에서 대상을 PDF로 저장하면 A4 분할·머리말·꼬리말이 그대로 반영됩니다"
               >
-                {pagedReady ? '인쇄 / PDF로 저장' : '페이지 준비 중…'}
-              </button>
-              <button
-                type="button"
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50"
-                onClick={() =>
-                  downloadEContractPagedHtml({
-                    bodyRaw,
-                    docId,
-                    definitionTitle,
-                    versionOrdinal,
-                  })
-                }
-              >
-                HTML 다운로드
+                {pagedReady ? 'PDF로 저장' : '페이지 준비 중…'}
               </button>
             </div>
             <p className="text-fluid-2xs text-gray-500">
-              「인쇄 / PDF로 저장」 후 인쇄 대화상자에서 「PDF로 저장」을 고르면 화면과 같은 페이지 분할이 적용됩니다. HTML 파일은
-              브라우저에서 연 뒤 동일하게 인쇄할 수 있습니다.
+              「PDF로 저장」을 누른 뒤 인쇄 창에서 <strong className="font-medium text-gray-700">대상을 「PDF로 저장」</strong>
+              으로 선택하세요. 실제 프린터로 인쇄할 때도 같은 버튼을 사용할 수 있습니다.
             </p>
           </div>
         </div>
