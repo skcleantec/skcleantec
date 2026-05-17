@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   fetchEContractPublicSession,
   submitEContractSign,
@@ -7,6 +7,7 @@ import {
   type PublicSignSessionDto,
 } from '../../api/eContractPublic';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
+import { getTeamToken } from '../../stores/teamAuth';
 
 function fitCanvasDpi(canvas: HTMLCanvasElement): void {
   const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
@@ -306,6 +307,16 @@ export function EContractPublicSignPage() {
             체결 시각:{' '}
             <span className="tabular-nums">{new Date(session.signedAtIso).toLocaleString('ko-KR')}</span>
           </p>
+        ) : null}
+        {getTeamToken() ? (
+          <div className="mt-6 flex justify-center px-1">
+            <Link
+              to="/team/dashboard"
+              className="inline-flex w-full max-w-sm justify-center rounded-lg bg-gray-900 px-4 py-3 text-center text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-800 touch-manipulation sm:w-auto sm:min-w-[200px]"
+            >
+              메인화면으로 돌아가기
+            </Link>
+          </div>
         ) : null}
         <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm text-left">
           <div className="text-fluid-xs font-medium text-gray-800">체결 계약문(확정본)</div>
