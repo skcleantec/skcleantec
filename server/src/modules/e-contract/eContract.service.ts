@@ -13,9 +13,8 @@ import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
 import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
 import { newEContractInviteToken } from './eContract.tokens.js';
 
-export async function listDefinitions(opts: { includeArchived: boolean }) {
+export async function listDefinitions() {
   return prisma.eContractDefinition.findMany({
-    where: opts.includeArchived ? undefined : { isArchived: false },
     orderBy: { updatedAt: 'desc' },
     select: {
       id: true,

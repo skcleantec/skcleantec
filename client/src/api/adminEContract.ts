@@ -114,12 +114,8 @@ export type EContractIssuanceRow = {
   submission: { id: string; signedAt: string } | null;
 };
 
-export async function listEContractDefinitions(
-  token: string,
-  opts?: { includeArchived?: boolean }
-): Promise<{ definitions: EContractDefinitionListItem[] }> {
-  const q = opts?.includeArchived ? '?includeArchived=1' : '';
-  const res = await fetch(`${API}/admin/e-contracts/definitions${q}`, { headers: headers(token) });
+export async function listEContractDefinitions(token: string): Promise<{ definitions: EContractDefinitionListItem[] }> {
+  const res = await fetch(`${API}/admin/e-contracts/definitions`, { headers: headers(token) });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '목록을 불러오지 못했습니다.');

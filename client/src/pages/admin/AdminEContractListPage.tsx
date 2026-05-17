@@ -12,7 +12,6 @@ export function AdminEContractListPage() {
   const [rows, setRows] = useState<EContractDefinitionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [includeArchived, setIncludeArchived] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -25,7 +24,7 @@ export function AdminEContractListPage() {
     setLoading(true);
     setErr(null);
     try {
-      const data = await listEContractDefinitions(token, { includeArchived });
+      const data = await listEContractDefinitions(token);
       setRows(data.definitions);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '불러오지 못했습니다.');
@@ -33,7 +32,7 @@ export function AdminEContractListPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, includeArchived]);
+  }, [token]);
 
   useEffect(() => {
     void load();
@@ -68,21 +67,10 @@ export function AdminEContractListPage() {
             </Link>
             표에서 조회·상세보기·다운로드할 수 있습니다.
           </p>
+          <p className="mt-2 text-fluid-2xs text-gray-500">
+            보관(아카이브) 처리된 계약 종류도 목록에 함께 표시됩니다. 스테이징과 운영은 DB가 서로 다를 수 있습니다.
+          </p>
         </div>
-        <label className="flex cursor-pointer flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
-          <span className="flex items-center gap-2 text-fluid-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={includeArchived}
-              onChange={(e) => setIncludeArchived(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            보관(아카이브) 포함
-          </span>
-          <span className="text-fluid-2xs text-gray-500 sm:max-w-md">
-            끈 상태면 「보관」 처리된 계약 종류는 목록에 나오지 않습니다. 다른 PC·배포(스테이징·운영)는 DB가 따로 저장될 수 있습니다.
-          </span>
-        </label>
       </div>
 
       <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -150,12 +138,9 @@ export function AdminEContractListPage() {
                 <tr>
                   <td colSpan={5} className="px-2 py-8 text-center text-gray-500">
                     <div>등록된 계약서가 없습니다.</div>
-                    {!includeArchived ? (
-                      <p className="mx-auto mt-2 max-w-lg text-fluid-2xs text-amber-800">
-                        이전에 만든 종류가 있다면<strong className="font-medium"> 위의 「보관(아카이브) 포함」</strong>
-                        을 켜 보세요. 그래도 비면 지금 접속 중인 사이트가 예전에 쓰던 DB(예: 스테이징·운영 구분)와 다른지 확인이 필요합니다.
-                      </p>
-                    ) : null}
+                    <p className="mx-auto mt-2 max-w-lg text-fluid-2xs text-gray-600">
+                      이전에 만든 적이 있는데 비어 보이면, 지금 접속한 사이트(스테이징·운영 등)의 DB가 같은지 확인해 주세요.
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -213,11 +198,9 @@ export function AdminEContractListPage() {
         ) : rows.length === 0 ? (
           <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-fluid-sm text-gray-500">
             <div>등록된 계약서가 없습니다.</div>
-            {!includeArchived ? (
-              <p className="mx-auto mt-2 max-w-lg text-fluid-2xs text-amber-800">
-                이전에 만든 종류가 있다면<strong className="font-medium"> 위의 「보관(아카이브) 포함」</strong>을 켜 보세요. 그래도 비면 접속 중인 배포 환경의 DB가 같은지 확인하세요.
-              </p>
-            ) : null}
+            <p className="mx-auto mt-2 max-w-lg text-fluid-2xs text-gray-600">
+              이전에 만든 적이 있는데 비어 보이면, 지금 접속한 배포 환경의 DB가 같은지 확인해 주세요.
+            </p>
           </div>
         ) : (
           rows.map((d) => {

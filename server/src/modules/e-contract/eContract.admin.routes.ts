@@ -166,10 +166,9 @@ router.post('/preview-body', async (req, res) => {
   }
 });
 
-router.get('/definitions', async (req, res) => {
+router.get('/definitions', async (_req, res) => {
   try {
-    const includeArchived = req.query.includeArchived === '1' || req.query.includeArchived === 'true';
-    const rows = await listDefinitions({ includeArchived });
+    const rows = await listDefinitions();
     res.json({ definitions: rows });
   } catch (e) {
     console.error('[e-contract] list definitions', e);
