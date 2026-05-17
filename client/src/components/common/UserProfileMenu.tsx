@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { isAuthSessionExpiredError, updateMyProfile } from '../../api/auth';
+
+type TeamEContractDropdown = {
+  listHref: string;
+  pendingCount: number;
+};
 
 type MeUser = {
   name?: string | null;
@@ -23,6 +29,8 @@ export function UserProfileMenu({
   onSessionExpired,
   showStagingDbImport,
   onStagingDbImport,
+  /** `/team/e-contracts`(프리뷰 쿼리 포함) — 팀장만 */
+  teamEContractMenu,
 }: {
   token: string | null;
   me: MeUser | null;
@@ -40,6 +48,7 @@ export function UserProfileMenu({
   /** 스테이징 등에서만 서버가 true로 내려줌 */
   showStagingDbImport?: boolean;
   onStagingDbImport?: () => void;
+  teamEContractMenu?: TeamEContractDropdown | null;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -137,6 +146,28 @@ export function UserProfileMenu({
             >
               개인정보 수정
             </button>
+            {teamEContractMenu ? (
+              <div className="border-t border-gray-100 pt-2 mt-1">
+                <p className="px-3 pb-1 text-fluid-2xs font-semibold uppercase tracking-wide text-gray-500">
+                  전자 계약
+                </p>
+                <Link
+                  to={teamEContractMenu.listHref}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 min-w-0"
+                >
+                  <span className="min-w-0 truncate">계약서 목록 · 체결</span>
+                  {teamEContractMenu.pendingCount > 0 ? (
+                    <span
+                      className="shrink-0 rounded-full bg-blue-600 px-1.5 py-0.5 text-xs font-medium text-white tabular-nums min-w-[1.25rem] text-center"
+                      aria-hidden
+                    >
+                      {teamEContractMenu.pendingCount > 99 ? '99+' : teamEContractMenu.pendingCount}
+                    </span>
+                  ) : null}
+                </Link>
+              </div>
+            ) : null}
             {showStagingDbImport && onStagingDbImport ? (
               <button
                 type="button"

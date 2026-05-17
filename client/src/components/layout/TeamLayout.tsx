@@ -45,6 +45,7 @@ export function TeamLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [newAssignmentCount, setNewAssignmentCount] = useState(0);
+  const [eContractPendingCount, setEContractPendingCount] = useState(0);
   const [rosterAckBanner, setRosterAckBanner] = useState<RosterAckPayload | null>(null);
   const [staffIdCardUrl, setStaffIdCardUrl] = useState<string | null>(null);
   const [hireDateIso, setHireDateIso] = useState<string | null>(null);
@@ -100,6 +101,7 @@ export function TeamLayout() {
         setUnreadCount(r.unreadCount);
         setCsPendingCount(r.csPendingCount);
         setNewAssignmentCount(r.newAssignmentCount ?? 0);
+        setEContractPendingCount(r.eContractPendingCount ?? 0);
       })
       .catch(() => {});
   }, [previewKey]);
@@ -317,6 +319,11 @@ export function TeamLayout() {
                     setUserVehicleNumber(next.vehicleNumber);
                     if (next.nameEn !== undefined) setUserNameEn(next.nameEn);
                   }}
+                  teamEContractMenu={
+                    userRole === 'TEAM_LEADER'
+                      ? { listHref: teamTo('/team/e-contracts'), pendingCount: eContractPendingCount }
+                      : null
+                  }
                   onLogout={handleLogout}
                   onSessionExpired={() => {
                     clearTeamToken();

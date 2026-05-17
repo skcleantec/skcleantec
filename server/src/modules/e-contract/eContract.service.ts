@@ -291,6 +291,57 @@ export async function listTeamLeadersForPicker() {
   });
 }
 
+const MAX_TEAM_ISSUANCE_LIST = 120;
+
+/** 팀장 대시보드·목록용: 해당 팀장에게 발급된 계약 초대 건 */
+export async function listIssuancesByTeamLeader(teamLeaderId: string) {
+  const leader = await prisma.user.findUnique({ where: { id: teamLeaderId }, select: { id: true, role: true } });
+  if (!leader || leader.role !== UserRole.TEAM_LEADER) {
+    throw Object.assign(new Error('team_leader_invalid'), { code: 'bad_request' as const });
+  }
+
+  const rows = await prisma.eContractIssuance.findMany({
+    where: { teamLeaderId },
+    orderBy: { createdAt: 'desc' },
+    take: MAX_TEAM_ISSUANCE_LIST,
+    include: {
+      definition: { select: { id: true, title: true, isArchived: true } },
+      version: { select: { id: true, publishedOrdinal: true, titleSnapshot: true } },
+      submission: { select: { id: true, signedAt: true } },
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    token: row.token,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+    expiresAt: row.expiresAt?.toISOString() ?? null,
+    notes: row.notes,
+    definitionId: row.definition.id,
+    definitionTitle: row.definition.title,
+    definitionArchived: row.definition.isArchived,
+    versionOrdinal: row.version.publishedOrdinal,
+    versionTitle: row.version.titleSnapshot,
+    signedAt: row.submission?.signedAt?.toISOString() ?? null,
+    hasSigned: Boolean(row.submission),
+  }));
+}
+
+/** GNB 배지용: 미체결·유효한 발급 건수(보관되지 않은 정의만) */
+export async function countPendingIssuancesForTeamLeader(teamLeaderId: string): Promise<number> {
+  const now = new Date();
+  return prisma.eContractIssuance.count({
+    where: {
+      teamLeaderId,
+      submission: null,
+      status: { in: [EContractIssuanceStatus.PENDING, EContractIssuanceStatus.OPENED] },
+      definition: { isArchived: false },
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+  });
+}
+
 export async function listIssuancesForDefinition(definitionId: string, take = 80) {
   return prisma.eContractIssuance.findMany({
     where: { definitionId },

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
@@ -20,6 +20,7 @@ import {
   validateCrewMeetingTimeForInquiry,
 } from '../inquiries/crewMeetingTime.helpers.js';
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
+import { countPendingIssuancesForTeamLeader, listIssuancesByTeamLeader } from '../e-contract/eContract.service.js';
 
 const router = Router();
 
@@ -181,8 +182,8 @@ async function attachCrewMembersOne<T extends { crewMemberNote: string | null } 
 
 /** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S + 미확인 배정(상세 미조회) — 한 요청으로 병렬 COUNT */
 router.get('/nav-badges', async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
-  const [unreadCount, csPendingCount, newAssignmentCount] = await Promise.all([
+  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  const [unreadCount, csPendingCount, newAssignmentCount, eContractPendingCount] = await Promise.all([
     prisma.message.count({
       where: { receiverId: userId, readAt: null },
     }),
@@ -201,8 +202,29 @@ router.get('/nav-badges', async (req, res) => {
         },
       },
     }),
+    role === UserRole.TEAM_LEADER ? countPendingIssuancesForTeamLeader(userId) : Promise.resolve(0),
   ]);
-  res.json({ unreadCount, csPendingCount, newAssignmentCount });
+  res.json({ unreadCount, csPendingCount, newAssignmentCount, eContractPendingCount });
+});
+
+router.get('/e-contracts/issuances', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  if (auth.role !== UserRole.TEAM_LEADER) {
+    res.status(403).json({ error: '팀장 전용 기능입니다.' });
+    return;
+  }
+  try {
+    const items = await listIssuancesByTeamLeader(auth.userId);
+    res.json({ items });
+  } catch (e: unknown) {
+    const code = (e as { code?: string })?.code;
+    if (code === 'bad_request') {
+      res.status(400).json({ error: '계정을 확인할 수 없습니다.' });
+      return;
+    }
+    console.error('[team] e-contracts/issuances', e);
+    res.status(500).json({ error: '목록을 불러오지 못했습니다.' });
+  }
 });
 
 router.use('/inquiries/:inquiryId/cleaning-photos', inquiryCleaningPhotosTeamRoutes);

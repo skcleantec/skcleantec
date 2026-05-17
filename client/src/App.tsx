@@ -23,6 +23,7 @@ import { TeamDayOffsPage } from './pages/team/TeamDayOffsPage';
 import { TeamCsPage } from './pages/team/TeamCsPage';
 import { TeamAssignmentListPage } from './pages/team/TeamAssignmentListPage';
 import { TeamExternalSettlementPage } from './pages/team/TeamExternalSettlementPage';
+import { TeamEContractListPage } from './pages/team/TeamEContractListPage';
 import { OrderFormPage } from './pages/order/OrderFormPage';
 import { OrderInfoPage } from './pages/order/OrderInfoPage';
 import { CsReportPage } from './pages/cs/CsReportPage';
@@ -149,6 +150,7 @@ function App() {
           <Route path="settlement" element={<TeamExternalSettlementPage />} />
           <Route path="cs" element={<TeamCsPage />} />
           <Route path="messages" element={<TeamMessagesPage />} />
+          <Route path="e-contracts" element={<TeamEContractListPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />

@@ -7,6 +7,7 @@ import {
 } from '../auth/auth.middleware.js';
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { prisma } from '../../lib/prisma.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import {
   createDefinition,
   createIssuance,
@@ -448,6 +449,7 @@ router.post('/issuances', async (req, res) => {
       expiresAt,
       notes,
     });
+    notifyInboxRefresh([teamLeaderId]);
     res.status(201).json({ issuance: row });
   } catch (e: unknown) {
     const code = (e as { code?: string })?.code;

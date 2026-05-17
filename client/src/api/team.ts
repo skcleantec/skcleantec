@@ -214,6 +214,7 @@ export async function getTeamNavBadges(token: string): Promise<{
   unreadCount: number;
   csPendingCount: number;
   newAssignmentCount: number;
+  eContractPendingCount: number;
 }> {
   const res = await fetch(withTeamPreviewQuery(`${API}/team/nav-badges`), { headers: headers(token) });
   if (!res.ok) throw new Error('배지 정보를 불러올 수 없습니다.');
@@ -222,6 +223,37 @@ export async function getTeamNavBadges(token: string): Promise<{
     unreadCount: Number(j.unreadCount) || 0,
     csPendingCount: Number(j.csPendingCount) || 0,
     newAssignmentCount: Number(j.newAssignmentCount) || 0,
+    eContractPendingCount: Number(j.eContractPendingCount) || 0,
+  };
+}
+
+export type TeamLeaderEContractIssuanceItem = {
+  id: string;
+  token: string;
+  status: string;
+  createdAt: string;
+  expiresAt: string | null;
+  notes?: string | null;
+  definitionId: string;
+  definitionTitle: string;
+  definitionArchived: boolean;
+  versionOrdinal: number | null;
+  versionTitle: string;
+  signedAt: string | null;
+  hasSigned: boolean;
+};
+
+export async function listTeamEContractIssuances(token: string): Promise<{ items: TeamLeaderEContractIssuanceItem[] }> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/e-contracts/issuances`), { headers: headers(token) });
+  if (res.status === 403 || res.status === 401) {
+    throw new Error('팀장 전용 기능입니다.');
+  }
+  if (!res.ok) {
+    throw new Error('계약 초대 목록을 불러올 수 없습니다.');
+  }
+  const j = (await res.json()) as { items?: TeamLeaderEContractIssuanceItem[] };
+  return {
+    items: Array.isArray(j.items) ? j.items : [],
   };
 }
 
