@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  downloadEContractPagedHtml,
+  EContractPagedPreviewModal,
+} from '../../components/e-contract/EContractPagedPreviewModal';
+import { fetchEContractPublicSession, type PublicSignSessionDto } from '../../api/eContractPublic';
 import { listTeamEContractIssuances, type TeamLeaderEContractIssuanceItem } from '../../api/team';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
@@ -40,6 +45,41 @@ function formatDt(iso: string): string {
   });
 }
 
+function TeamIssuanceDocActions({
+  row,
+  busy,
+  compact,
+  onPreview,
+  onDownload,
+  onPrint,
+}: {
+  row: TeamLeaderEContractIssuanceItem;
+  busy: boolean;
+  compact?: boolean;
+  onPreview: () => void;
+  onDownload: () => void;
+  onPrint: () => void;
+}) {
+  if (row.definitionArchived) return null;
+  const btn =
+    compact === true
+      ? 'inline-flex rounded-md border px-2 py-1 text-fluid-2xs font-medium disabled:opacity-50 touch-manipulation'
+      : 'inline-flex rounded-md border px-3 py-2 text-fluid-xs font-medium disabled:opacity-50 touch-manipulation';
+  return (
+    <div className={`flex flex-wrap gap-1 ${compact ? 'justify-center' : ''}`}>
+      <button type="button" disabled={busy} className={`${btn} border-blue-600 bg-white text-blue-900 hover:bg-blue-50`} onClick={onPreview}>
+        미리보기
+      </button>
+      <button type="button" disabled={busy} className={`${btn} border-gray-300 bg-white text-gray-800 hover:bg-gray-50`} onClick={onDownload}>
+        HTML 저장
+      </button>
+      <button type="button" disabled={busy} className={`${btn} border-gray-900 bg-gray-900 text-white hover:bg-gray-800`} onClick={onPrint}>
+        인쇄
+      </button>
+    </div>
+  );
+}
+
 export function TeamEContractListPage() {
   const token = getTeamToken();
   const location = useLocation();
@@ -49,6 +89,64 @@ export function TeamEContractListPage() {
   const [items, setItems] = useState<TeamLeaderEContractIssuanceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [previewSession, setPreviewSession] = useState<PublicSignSessionDto | null>(null);
+  const [pagedPreviewOpen, setPagedPreviewOpen] = useState(false);
+  const [pagedAutoPrint, setPagedAutoPrint] = useState(false);
+  const [docFetchRowId, setDocFetchRowId] = useState<string | null>(null);
+
+  const closeDocPreview = useCallback(() => {
+    setPagedPreviewOpen(false);
+    setPagedAutoPrint(false);
+    setPreviewSession(null);
+  }, []);
+
+  const runWithPublicSession = useCallback(
+    async (row: TeamLeaderEContractIssuanceItem, fn: (session: PublicSignSessionDto) => void) => {
+      setDocFetchRowId(row.id);
+      try {
+        const session = await fetchEContractPublicSession(row.token);
+        fn(session);
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : '계약 본문을 불러오지 못했습니다.');
+      } finally {
+        setDocFetchRowId(null);
+      }
+    },
+    [],
+  );
+
+  const onDocPreview = useCallback(
+    (row: TeamLeaderEContractIssuanceItem) =>
+      void runWithPublicSession(row, (session) => {
+        setPreviewSession(session);
+        setPagedAutoPrint(false);
+        setPagedPreviewOpen(true);
+      }),
+    [runWithPublicSession],
+  );
+
+  const onDocPrint = useCallback(
+    (row: TeamLeaderEContractIssuanceItem) =>
+      void runWithPublicSession(row, (session) => {
+        setPreviewSession(session);
+        setPagedAutoPrint(true);
+        setPagedPreviewOpen(true);
+      }),
+    [runWithPublicSession],
+  );
+
+  const onDocDownload = useCallback(
+    (row: TeamLeaderEContractIssuanceItem) =>
+      void runWithPublicSession(row, (session) => {
+        downloadEContractPagedHtml({
+          bodyRaw: session.bodyMarkdown,
+          docId: session.issuanceId,
+          definitionTitle: session.definitionTitle,
+          versionOrdinal: session.versionOrdinal,
+        });
+      }),
+    [runWithPublicSession],
+  );
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -111,7 +209,7 @@ export function TeamEContractListPage() {
           안내 페이지로 이동합니다.
         </p>
         <p className="mt-2 text-fluid-2xs text-gray-500">
-          서명 화면에서는 계약서를 A4 형태로 미리보기·HTML 저장·인쇄(PDF 저장)할 수 있습니다.
+          목록에서 「미리보기」「HTML 저장」「인쇄」로 A4 형태 확인·저장이 가능합니다(발급 링크와 동일 본문). 서명 화면에서도 동일합니다.
         </p>
       </div>
 
@@ -189,6 +287,15 @@ export function TeamEContractListPage() {
                         체결 내용 보기
                       </Link>
                     ) : null}
+                  </div>
+                  <div className="mt-2">
+                    <TeamIssuanceDocActions
+                      row={row}
+                      busy={docFetchRowId === row.id}
+                      onPreview={() => onDocPreview(row)}
+                      onDownload={() => onDocDownload(row)}
+                      onPrint={() => onDocPrint(row)}
+                    />
                   </div>
                 </div>
               );
@@ -277,6 +384,14 @@ export function TeamEContractListPage() {
                               {!signOk && !signed ? (
                                 <span className="text-fluid-2xs text-gray-500">—</span>
                               ) : null}
+                              <TeamIssuanceDocActions
+                                row={row}
+                                busy={docFetchRowId === row.id}
+                                compact
+                                onPreview={() => onDocPreview(row)}
+                                onDownload={() => onDocDownload(row)}
+                                onPrint={() => onDocPrint(row)}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -292,6 +407,19 @@ export function TeamEContractListPage() {
             표가 넓을 때는 좌우로 스크롤하여 볼 수 있습니다.
           </p>
         </>
+      ) : null}
+
+      {previewSession ? (
+        <EContractPagedPreviewModal
+          open={pagedPreviewOpen}
+          onClose={closeDocPreview}
+          bodyRaw={previewSession.bodyMarkdown}
+          docId={previewSession.issuanceId}
+          definitionTitle={previewSession.definitionTitle}
+          versionOrdinal={previewSession.versionOrdinal}
+          autoPrintOnReady={pagedAutoPrint}
+          onAutoPrintConsumed={() => setPagedAutoPrint(false)}
+        />
       ) : null}
     </div>
   );

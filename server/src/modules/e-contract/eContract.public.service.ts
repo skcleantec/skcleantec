@@ -2,9 +2,10 @@ import { EContractIssuanceStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { randomUUID } from 'node:crypto';
 import { deriveChallengeDigitsForToken } from './eContract.challenge.js';
+import { expandIssuerPlaceholders, issuerSnapshotFromStoredJson } from './eContractIssuer.expand.js';
+import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
 import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
 import type { ValidatedSignerSubmissionFields } from './eContractSigner.input.js';
-import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
 import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices, stripPartyAppendixFromContractHtml } from './eContractPartyAppendix.js';
 
 export type PublicSignSession = {
@@ -119,6 +120,26 @@ export async function getPublicSignSession(rawToken: string): Promise<
   let bodyMarkdown = merged || versionBody;
   if (merged) {
     bodyMarkdown = dedupeTrailingPartyAppendices(bodyMarkdown);
+  }
+
+  /** 미체결 조회: 표시본 없이 원문만 있는 경우·토큰 잔존 시 갑·을 치환(미리보기·인쇄에서 빈 칸 방지) */
+  if (!alreadySigned) {
+    if (bodyMarkdown.includes('[[EC_ISSUER_')) {
+      const stored = issuerSnapshotFromStoredJson(row.version.issuerSnapshot);
+      const snap = stored ?? (await getIssuerSnapshot());
+      bodyMarkdown = expandIssuerPlaceholders(bodyMarkdown, snap);
+    }
+    if (bodyMarkdown.includes('[[EC_SIGNER_')) {
+      const label = row.teamLeader.name?.trim() || '';
+      bodyMarkdown = expandSignerPlaceholders(bodyMarkdown, {
+        name: label || '(체결 시 입력)',
+        residentRegistrationNumber: '(체결 시 입력)',
+        addressLine: '(체결 시 입력)',
+        phone: '(체결 시 입력)',
+        freeTextNotes: null,
+        signatureSecureUrl: null,
+      });
+    }
   }
 
   return {

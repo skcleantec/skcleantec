@@ -120,3 +120,31 @@ export function issuerSnapshotJsonFromPlain(s: EContractIssuerSnapshot | null | 
   }
   return o;
 }
+
+/** 배포본에 저장된 `issuer_snapshot` JSON → 치환용 스냅샷 (형식 불명 시 null) */
+export function issuerSnapshotFromStoredJson(raw: unknown): EContractIssuerSnapshot | null {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const pickStr = (k: string): string | undefined => {
+    const v = o[k];
+    if (typeof v !== 'string') return undefined;
+    const t = v.trim();
+    return t || undefined;
+  };
+  const snap: EContractIssuerSnapshot = {
+    companyName: pickStr('companyName'),
+    representativeName: pickStr('representativeName'),
+    businessRegistrationNo: pickStr('businessRegistrationNo'),
+    addressLine: pickStr('addressLine'),
+    phone: pickStr('phone'),
+    fax: pickStr('fax'),
+    email: pickStr('email'),
+    sealPublicId: pickStr('sealPublicId'),
+    sealSecureUrl: pickStr('sealSecureUrl'),
+    sealDisplayWidthPx:
+      typeof o.sealDisplayWidthPx === 'number' && Number.isFinite(o.sealDisplayWidthPx)
+        ? Math.round(o.sealDisplayWidthPx)
+        : undefined,
+  };
+  return snap;
+}
