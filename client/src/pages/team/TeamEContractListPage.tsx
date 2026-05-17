@@ -110,6 +110,9 @@ export function TeamEContractListPage() {
           관리자가 발급한 계약서를 확인하고 같은 화면 흐름으로 서명할 수 있습니다. 체결은 보안 확인을 위해
           안내 페이지로 이동합니다.
         </p>
+        <p className="mt-2 text-fluid-2xs text-gray-500">
+          서명 화면에서는 계약서를 A4 형태로 미리보기·HTML 저장·인쇄(PDF 저장)할 수 있습니다.
+        </p>
       </div>
 
       {error ? (

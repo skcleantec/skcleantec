@@ -6,8 +6,54 @@ import {
   uploadEContractBlob,
   type PublicSignSessionDto,
 } from '../../api/eContractPublic';
+import {
+  downloadEContractPagedHtml,
+  EContractPagedPreviewModal,
+} from '../../components/e-contract/EContractPagedPreviewModal';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
 import { getTeamToken } from '../../stores/teamAuth';
+
+function TeamLeaderContractDocToolbar({
+  onPreview,
+  onDownload,
+  onPrint,
+}: {
+  onPreview: () => void;
+  onDownload: () => void;
+  onPrint: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-blue-100 bg-blue-50/90 px-3 py-3 shadow-sm">
+      <div className="text-fluid-xs font-semibold text-blue-950">계약서 미리보기·저장·인쇄</div>
+      <p className="mt-1 text-fluid-2xs text-blue-900/80">
+        A4 페이지 단위 미리보기, HTML 파일 저장, 인쇄 대화상자에서 PDF로 저장할 수 있습니다.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onPreview}
+          className="rounded-lg border border-blue-600 bg-white px-3 py-2 text-fluid-xs font-medium text-blue-900 hover:bg-blue-50 touch-manipulation"
+        >
+          미리보기
+        </button>
+        <button
+          type="button"
+          onClick={onDownload}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 touch-manipulation"
+        >
+          HTML 다운로드
+        </button>
+        <button
+          type="button"
+          onClick={onPrint}
+          className="rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800 touch-manipulation"
+        >
+          인쇄
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function fitCanvasDpi(canvas: HTMLCanvasElement): void {
   const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
@@ -47,6 +93,8 @@ export function EContractPublicSignPage() {
   const sketchEventsRef = useRef(0);
   const selfInputRef = useRef<HTMLInputElement | null>(null);
   const lastIssuanceIdRef = useRef('');
+  const [pagedPreviewOpen, setPagedPreviewOpen] = useState(false);
+  const [pagedAutoPrint, setPagedAutoPrint] = useState(false);
 
   const load = useCallback(async () => {
     if (!decoded) return;
@@ -296,41 +344,81 @@ export function EContractPublicSignPage() {
 
   if (session.alreadySigned) {
     return (
-      <div className="mx-auto min-h-[55vh] max-w-lg px-4 py-10">
-        <h1 className="text-center text-fluid-lg font-semibold text-gray-900">이미 체결되었습니다</h1>
-        <p className="mt-3 text-center text-fluid-sm text-gray-600">
-          <span className="font-medium">{session.definitionTitle}</span> · 버전{' '}
-          <span className="tabular-nums">v{session.versionOrdinal}</span>
-        </p>
-        {session.signedAtIso ? (
-          <p className="mt-2 text-center text-fluid-sm text-gray-700">
-            체결 시각:{' '}
-            <span className="tabular-nums">{new Date(session.signedAtIso).toLocaleString('ko-KR')}</span>
+      <>
+        <div className="mx-auto min-h-[55vh] max-w-lg px-4 py-10">
+          <h1 className="text-center text-fluid-lg font-semibold text-gray-900">이미 체결되었습니다</h1>
+          <p className="mt-3 text-center text-fluid-sm text-gray-600">
+            <span className="font-medium">{session.definitionTitle}</span> · 버전{' '}
+            <span className="tabular-nums">v{session.versionOrdinal}</span>
           </p>
-        ) : null}
+          {session.signedAtIso ? (
+            <p className="mt-2 text-center text-fluid-sm text-gray-700">
+              체결 시각:{' '}
+              <span className="tabular-nums">{new Date(session.signedAtIso).toLocaleString('ko-KR')}</span>
+            </p>
+          ) : null}
+          {getTeamToken() ? (
+            <div className="mt-6 flex justify-center px-1">
+              <Link
+                to="/team/dashboard"
+                className="inline-flex w-full max-w-sm justify-center rounded-lg bg-gray-900 px-4 py-3 text-center text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-800 touch-manipulation sm:w-auto sm:min-w-[200px]"
+              >
+                메인화면으로 돌아가기
+              </Link>
+            </div>
+          ) : null}
+          {getTeamToken() ? (
+            <div className="mt-4">
+              <TeamLeaderContractDocToolbar
+                onPreview={() => {
+                  setPagedAutoPrint(false);
+                  setPagedPreviewOpen(true);
+                }}
+                onDownload={() =>
+                  downloadEContractPagedHtml({
+                    bodyRaw: session.bodyMarkdown,
+                    docId: session.issuanceId,
+                    definitionTitle: session.definitionTitle,
+                    versionOrdinal: session.versionOrdinal,
+                  })
+                }
+                onPrint={() => {
+                  setPagedAutoPrint(true);
+                  setPagedPreviewOpen(true);
+                }}
+              />
+            </div>
+          ) : null}
+          <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm text-left">
+            <div className="text-fluid-xs font-medium text-gray-800">체결 계약문(확정본)</div>
+            <p className="mt-1 text-fluid-2xs text-gray-500">제출 시점에 입력·서명이 반영된 문서입니다.</p>
+            <div className="mt-3 min-w-0">
+              <EContractBodyDisplay body={session.bodyMarkdown} maxHeightClass="max-h-[60vh]" />
+            </div>
+          </section>
+        </div>
         {getTeamToken() ? (
-          <div className="mt-6 flex justify-center px-1">
-            <Link
-              to="/team/dashboard"
-              className="inline-flex w-full max-w-sm justify-center rounded-lg bg-gray-900 px-4 py-3 text-center text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-800 touch-manipulation sm:w-auto sm:min-w-[200px]"
-            >
-              메인화면으로 돌아가기
-            </Link>
-          </div>
+          <EContractPagedPreviewModal
+            open={pagedPreviewOpen}
+            onClose={() => {
+              setPagedPreviewOpen(false);
+              setPagedAutoPrint(false);
+            }}
+            bodyRaw={session.bodyMarkdown}
+            docId={session.issuanceId}
+            definitionTitle={session.definitionTitle}
+            versionOrdinal={session.versionOrdinal}
+            autoPrintOnReady={pagedAutoPrint}
+            onAutoPrintConsumed={() => setPagedAutoPrint(false)}
+          />
         ) : null}
-        <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm text-left">
-          <div className="text-fluid-xs font-medium text-gray-800">체결 계약문(확정본)</div>
-          <p className="mt-1 text-fluid-2xs text-gray-500">제출 시점에 입력·서명이 반영된 문서입니다.</p>
-          <div className="mt-3 min-w-0">
-            <EContractBodyDisplay body={session.bodyMarkdown} maxHeightClass="max-h-[60vh]" />
-          </div>
-        </section>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="mx-auto min-h-[70vh] w-full max-w-lg px-4 py-8">
+    <>
+      <div className="mx-auto min-h-[70vh] w-full max-w-lg px-4 py-8">
       <h1 className="text-fluid-lg font-semibold text-gray-900">전자계약</h1>
       <p className="mt-1 text-fluid-sm text-gray-600">
         <span className="font-medium text-gray-800">{session.signerNameLabel}</span> 님 전용 체결 링크입니다.
@@ -342,6 +430,29 @@ export function EContractPublicSignPage() {
         <p className="mt-2 text-fluid-2xs text-amber-800">
           링크 만료(참고): {new Date(session.expiresAtIso).toLocaleString('ko-KR')}
         </p>
+      ) : null}
+
+      {getTeamToken() ? (
+        <div className="mt-4">
+          <TeamLeaderContractDocToolbar
+            onPreview={() => {
+              setPagedAutoPrint(false);
+              setPagedPreviewOpen(true);
+            }}
+            onDownload={() =>
+              downloadEContractPagedHtml({
+                bodyRaw: session.bodyMarkdown,
+                docId: session.issuanceId,
+                definitionTitle: session.definitionTitle,
+                versionOrdinal: session.versionOrdinal,
+              })
+            }
+            onPrint={() => {
+              setPagedAutoPrint(true);
+              setPagedPreviewOpen(true);
+            }}
+          />
+        </div>
       ) : null}
 
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -543,6 +654,22 @@ export function EContractPublicSignPage() {
       </button>
 
       <p className="mt-6 text-center text-fluid-2xs text-gray-500">모바일 화면에 맞춘 간편 체결 페이지입니다.</p>
-    </div>
+      </div>
+      {getTeamToken() ? (
+        <EContractPagedPreviewModal
+          open={pagedPreviewOpen}
+          onClose={() => {
+            setPagedPreviewOpen(false);
+            setPagedAutoPrint(false);
+          }}
+          bodyRaw={session.bodyMarkdown}
+          docId={session.issuanceId}
+          definitionTitle={session.definitionTitle}
+          versionOrdinal={session.versionOrdinal}
+          autoPrintOnReady={pagedAutoPrint}
+          onAutoPrintConsumed={() => setPagedAutoPrint(false)}
+        />
+      ) : null}
+    </>
   );
 }

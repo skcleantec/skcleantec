@@ -8,7 +8,7 @@ import { prisma } from '../../lib/prisma.js';
 import { computeEContractContentHash } from './eContract.contentHash.js';
 import { expandIssuerPlaceholders } from './eContractIssuer.expand.js';
 import { issuerSnapshotBlockForPublish } from './eContractIssuer.profile.service.js';
-import { buildPartyAppendixHtml } from './eContractPartyAppendix.js';
+import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
 import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
 import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
 import { newEContractInviteToken } from './eContract.tokens.js';
@@ -474,6 +474,9 @@ export async function getSubmissionDetailForAdmin(submissionId: string) {
       ? s.version.bodyDisplayHtml.trim()
       : s.version.bodyMarkdown.replace(/\r\n/g, '\n');
   let bodyHtml = merged || versionFallback;
+  if (merged) {
+    bodyHtml = dedupeTrailingPartyAppendices(bodyHtml);
+  }
 
   if (bodyHtml && !bodyHtml.includes('ec-party-appendix')) {
     const issuerSnap = await getIssuerSnapshot();

@@ -1,5 +1,68 @@
 import { expandIssuerPlaceholders, type EContractIssuerSnapshot } from './eContractIssuer.expand.js';
 
+const APPENDIX_ROOT_OPEN_RE = /<div\b[^>]*\bec-party-appendix\b[^>]*>/i;
+
+/** `<div class="ec-party-appendix" …> … </div>` 의 닫는 위치 (중첩 div 고려) */
+function findMatchingDivClose(html: string, openDivMatchStart: number): number | null {
+  const tagRe = /<\/?div\b[^>]*>/gi;
+  tagRe.lastIndex = openDivMatchStart;
+  let depth = 0;
+  let match: RegExpExecArray | null;
+  while ((match = tagRe.exec(html))) {
+    const isClose = /^<\/div\b/i.test(match[0]);
+    if (!isClose) depth++;
+    else depth--;
+    if (depth === 0) {
+      return match.index + match[0].length;
+    }
+  }
+  return null;
+}
+
+/**
+ * 배포본(bodyDisplayHtml)에는 이미 부록이 포함되어 있다.
+ * 체결 제출 시 부록을 다시 붙이면 갑/을 표가 두 번 나오므로, 기존 부록 블록을 모두 제거한 뒤 한 번만 붙인다.
+ */
+export function stripPartyAppendixFromContractHtml(html: string): string {
+  let result = html;
+  for (;;) {
+    APPENDIX_ROOT_OPEN_RE.lastIndex = 0;
+    const m = APPENDIX_ROOT_OPEN_RE.exec(result);
+    if (!m) break;
+    const start = m.index;
+    const end = findMatchingDivClose(result, start);
+    if (end === null) break;
+    result = result.slice(0, start) + result.slice(end);
+  }
+  return result.replace(/\s+$/, '').trimEnd();
+}
+
+/**
+ * 과거 버그로 합본 HTML에 부록이 연속 두 번 이상 들어간 경우, 마지막 부록만 남긴다(체결 시점 일자·서명 반영본 우선).
+ */
+export function dedupeTrailingPartyAppendices(html: string): string {
+  const ranges: Array<{ start: number; end: number }> = [];
+  let pos = 0;
+  for (;;) {
+    const rest = html.slice(pos);
+    const m = rest.match(APPENDIX_ROOT_OPEN_RE);
+    if (!m || m.index === undefined) break;
+    const start = pos + m.index;
+    const end = findMatchingDivClose(html, start);
+    if (end === null) return html;
+    ranges.push({ start, end });
+    pos = end;
+  }
+  if (ranges.length <= 1) return html;
+  const lastBlock = html.slice(ranges[ranges.length - 1].start, ranges[ranges.length - 1].end);
+  let main = html;
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    const r = ranges[i];
+    main = main.slice(0, r.start) + main.slice(r.end);
+  }
+  return `${main.trimEnd()}\n\n${lastBlock}`.trimEnd();
+}
+
 /**
  * 편집기 본문 아래에 자동으로 붙는 블록(배포 표시본·미리보기·체결 화면 공통).
  * - 갑: 발행측 프로필로 토큰 치환

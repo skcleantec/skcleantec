@@ -5,7 +5,7 @@ import { deriveChallengeDigitsForToken } from './eContract.challenge.js';
 import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
 import type { ValidatedSignerSubmissionFields } from './eContractSigner.input.js';
 import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
-import { buildPartyAppendixHtml } from './eContractPartyAppendix.js';
+import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices, stripPartyAppendixFromContractHtml } from './eContractPartyAppendix.js';
 
 export type PublicSignSession = {
   issuanceId: string;
@@ -116,13 +116,18 @@ export async function getPublicSignSession(rawToken: string): Promise<
       ? row.version.bodyDisplayHtml.trim()
       : row.version.bodyMarkdown;
 
+  let bodyMarkdown = merged || versionBody;
+  if (merged) {
+    bodyMarkdown = dedupeTrailingPartyAppendices(bodyMarkdown);
+  }
+
   return {
     issuanceId: row.id,
     definitionTitle: row.definition.title,
     signerNameLabel: row.teamLeader.name,
     versionOrdinal: row.version.publishedOrdinal ?? 0,
     versionTitle: row.version.titleSnapshot,
-    bodyMarkdown: merged || versionBody,
+    bodyMarkdown,
     expiresAtIso: row.expiresAt?.toISOString() ?? null,
     challengeDigits,
     issuanceStatus: row.status,
@@ -208,7 +213,9 @@ export async function completeSubmissionByToken(
     submissionId,
     signedAtIso: signedAtDate.toISOString(),
   });
-  const versionBodyWithAppendix = `${versionBodyRaw}\n\n${appendixHtml}`;
+  /** 배포 표시본에 이미 부록이 포함되어 있으므로 제거 후 체결 일자가 반영된 부록을 한 번만 붙인다. */
+  const versionMainOnly = stripPartyAppendixFromContractHtml(versionBodyRaw);
+  const versionBodyWithAppendix = `${versionMainOnly}\n\n${appendixHtml}`;
 
   const signerForExpand: SignerFilledFields = {
     ...input.signerEntered,
