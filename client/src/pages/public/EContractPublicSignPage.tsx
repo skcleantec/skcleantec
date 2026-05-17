@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   fetchEContractPublicSession,
@@ -7,12 +7,6 @@ import {
   type PublicSignSessionDto,
 } from '../../api/eContractPublic';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
-import { expandSignerPlaceholdersPreview } from '../../utils/eContractSignerExpand';
-
-function formatRrnPreview(raw: string): string {
-  const d = raw.replace(/\D/g, '');
-  return d.length === 13 ? `${d.slice(0, 6)}-${d.slice(6)}` : '';
-}
 
 function fitCanvasDpi(canvas: HTMLCanvasElement): void {
   const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
@@ -84,20 +78,6 @@ export function EContractPublicSignPage() {
       setSignerFreeTextNotes('');
     }
   }, [session]);
-
-  const signerPreviewRrn = useMemo(() => formatRrnPreview(signerRrn), [signerRrn]);
-
-  const contractPreviewHtml = useMemo(() => {
-    if (!session || session.alreadySigned) return '';
-    return expandSignerPlaceholdersPreview(session.bodyMarkdown, {
-      name: signerName,
-      residentRegistrationNumber: signerPreviewRrn,
-      addressLine: signerAddress,
-      phone: signerPhone,
-      freeTextNotes: signerFreeTextNotes.trim() ? signerFreeTextNotes : null,
-      signatureSecureUrl: sigUploaded?.secureUrl ?? null,
-    });
-  }, [session, signerName, signerPreviewRrn, signerAddress, signerPhone, signerFreeTextNotes, sigUploaded]);
 
   const clearSignatureCanvas = () => {
     const c = canvasRef.current;
@@ -363,7 +343,7 @@ export function EContractPublicSignPage() {
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="text-fluid-sm font-semibold text-gray-900">을(본인) 정보</div>
         <p className="mt-2 text-fluid-2xs text-gray-600">
-          계약 본문에 삽입된 을 정보 칸(이름·주민등록번호·주소 등)에는 아래에 입력하는 내용이 들어갑니다. 작성 후 미리보기를 확인해 주세요.
+          계약 본문에 삽입된 을 정보 칸(이름·주민등록번호·주소 등)에는 아래에 입력하는 내용이 들어갑니다. 제출 전 내용을 다시 확인해 주세요.
         </p>
         <div className="mt-5 min-w-0 space-y-4">
           <div>
@@ -438,16 +418,6 @@ export function EContractPublicSignPage() {
             />
           </div>
         </div>
-
-        <div className="mt-6 rounded-md border border-dashed border-gray-200 bg-gray-50 p-3">
-          <div className="text-fluid-xs font-medium text-gray-800">입력·서명 반영 미리보기</div>
-          <p className="mt-1 text-fluid-2xs text-gray-500">
-            아래에 서명을 저장하면 서명 칸도 함께 갱신됩니다. 제출 시 확정본에 동일하게 저장됩니다.
-          </p>
-          <div className="mt-3 min-w-0">
-            <EContractBodyDisplay body={contractPreviewHtml} maxHeightClass="max-h-[40vh]" />
-          </div>
-        </div>
       </section>
 
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -484,9 +454,15 @@ export function EContractPublicSignPage() {
         <div className="mt-3 rounded-lg border border-dashed border-gray-400 bg-yellow-50 p-6 text-center">
           <span className="text-fluid-4xl font-bold tabular-nums tracking-wider text-gray-900">{session.challengeDigits}</span>
         </div>
-        <p className="mt-3 text-fluid-2xs text-gray-600">
-          위 번호와 얼굴이 함께 보이도록 셀카를 촬영해 업로드해 주세요.
-        </p>
+        <div
+          className="mt-4 rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-3.5 text-center shadow-sm"
+          role="note"
+          aria-live="polite"
+        >
+          <p className="text-[12px] font-semibold leading-snug text-gray-950">
+            위 번호와 얼굴이 함께 보이도록 셀카를 촬영해 업로드해 주세요.
+          </p>
+        </div>
 
         <div className="mt-6">
           <label htmlFor="e-contract-challenge" className="block text-fluid-xs font-medium text-gray-800">
@@ -533,7 +509,7 @@ export function EContractPublicSignPage() {
 
       <label className="mt-8 flex cursor-pointer gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
         <input type="checkbox" checked={agree} onChange={(ev) => setAgree(ev.target.checked)} />
-        <span className="text-fluid-sm text-gray-800">
+        <span className="text-[11px] text-gray-800">
           위 계약 내용 및 본인이 기재한 을 정보·서명·본인 확인 절차를 이해하였으며 동의합니다.
         </span>
       </label>
