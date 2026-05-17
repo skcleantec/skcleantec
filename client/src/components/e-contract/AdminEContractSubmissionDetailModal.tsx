@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getEContractSubmissionDetail, type EContractSubmissionDetailDto } from '../../api/adminEContract';
 import { EContractPagedIframeReader } from './EContractPagedIframeReader';
+import { downloadPagedIframeAsPdf, sanitizeEContractPdfFilenameBase } from './downloadPagedIframePdf';
 
 type Props = {
   token: string | null;
@@ -17,7 +18,14 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
   const [imageLightboxLabel, setImageLightboxLabel] = useState('');
   const [readerExpanded, setReaderExpanded] = useState(false);
   const [pagedReady, setPagedReady] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  const pdfFilenameBase = useMemo(() => {
+    if (!detail) return '계약서';
+    const vo = detail.versionOrdinal != null ? `v${detail.versionOrdinal}` : 'v';
+    return sanitizeEContractPdfFilenameBase(`${detail.definitionTitle}_${vo}_${detail.id}`);
+  }, [detail]);
 
   useEffect(() => {
     if (!open) {
@@ -25,6 +33,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
       setImageLightboxLabel('');
       setReaderExpanded(false);
       setPagedReady(false);
+      setPdfBusy(false);
     }
   }, [open]);
 
@@ -54,17 +63,19 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
     };
   }, [open, token, submissionId]);
 
-  function triggerPrint() {
+  async function runPdfDownload(): Promise<void> {
     const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentWindow) {
+    if (!iframe?.contentWindow) {
       window.alert('미리보기가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.');
       return;
     }
+    setPdfBusy(true);
     try {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-    } catch {
-      window.alert('인쇄 창을 열지 못했습니다.');
+      await downloadPagedIframeAsPdf(iframe, pdfFilenameBase);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'PDF를 저장하지 못했습니다.');
+    } finally {
+      setPdfBusy(false);
     }
   }
 
@@ -123,12 +134,12 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={triggerPrint}
-                    disabled={!pagedReady}
+                    onClick={() => void runPdfDownload()}
+                    disabled={!pagedReady || pdfBusy}
                     className="rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    title="아래 미리보기 그대로 PDF 저장 (페이지 번호·문서 번호 포함)"
+                    title="현재 미리보기를 PDF 파일로 저장합니다"
                   >
-                    {pagedReady ? 'PDF로 저장' : '페이지 준비 중…'}
+                    {pagedReady ? (pdfBusy ? 'PDF 생성 중…' : 'PDF로 저장') : '페이지 준비 중…'}
                   </button>
                   <button
                     type="button"
@@ -165,8 +176,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                   </button>
                 </div>
                 <p className="text-fluid-2xs text-gray-500">
-                  「PDF로 저장」을 누른 뒤 인쇄 대화상자에서 <strong>대상을 「PDF로 저장」</strong>으로 선택하면
-                  화면과 동일한 페이지 분할·머리말·꼬리말이 그대로 들어간 PDF가 만들어집니다.
+                  「PDF로 저장」은 인쇄 창 없이 파일로 받습니다. 페이지가 많으면 수십 초 걸릴 수 있습니다.
                 </p>
               </div>
             ) : null}

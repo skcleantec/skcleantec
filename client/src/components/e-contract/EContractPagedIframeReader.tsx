@@ -1,8 +1,13 @@
 import { useEffect, useMemo } from 'react';
 import { buildPagedHtmlDocument, PAGED_POLYFILL_URL } from './eContractPagedHtml';
+import { contractHtmlExpectsPartyAppendix } from './eContractPagedCaptureWait';
 
 /**
  * 체결 합본 / 계약 본문 — iframe + Paged.js (관리자 체결 상세·팀장 서명 화면 공통)
+ *
+ * 준비 완료 신호는 postMessage/맹목적 타임아웃 대신 DOM 폴링으로만 판단합니다.
+ * Paged.js가 페이지를 쪼근 뒤에야 `.pagedjs_pages` 안에 갑·을 부록이 붙는 경우가 있어,
+ * 너무 이르면 PDF 첫 저장 시 부록이 빠집니다.
  */
 export function EContractPagedIframeReader({
   bodyHtml,
@@ -23,20 +28,39 @@ export function EContractPagedIframeReader({
   );
 
   useEffect(() => {
-    function onMsg(ev: MessageEvent) {
-      if (ev && ev.data && typeof ev.data === 'object' && ev.data.type === 'pagedjs-rendered') {
-        onReadyChange(true);
-      }
-    }
-    window.addEventListener('message', onMsg);
-    return () => window.removeEventListener('message', onMsg);
-  }, [onReadyChange]);
-
-  useEffect(() => {
     onReadyChange(false);
-    const fallback = window.setTimeout(() => onReadyChange(true), 8000);
-    return () => window.clearTimeout(fallback);
-  }, [docHtml, onReadyChange]);
+
+    let cancelled = false;
+    const iv = window.setInterval(() => {
+      if (cancelled) return;
+      const doc = iframeRef.current?.contentDocument;
+      if (!doc?.body) return;
+
+      const pages = doc.querySelectorAll('.pagedjs_pages .pagedjs_page');
+      if (pages.length === 0) return;
+
+      if (contractHtmlExpectsPartyAppendix(doc)) {
+        const ap = doc.querySelector('.pagedjs_pages .ec-party-appendix');
+        const h = ap?.getBoundingClientRect().height ?? 0;
+        if (!ap || h < 12) return;
+      }
+
+      onReadyChange(true);
+      window.clearInterval(iv);
+    }, 100);
+
+    const timeout = window.setTimeout(() => {
+      if (cancelled) return;
+      onReadyChange(true);
+      window.clearInterval(iv);
+    }, 22000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(iv);
+      window.clearTimeout(timeout);
+    };
+  }, [docHtml, onReadyChange, iframeRef]);
 
   return (
     <div

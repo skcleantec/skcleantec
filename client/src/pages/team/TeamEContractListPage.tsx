@@ -90,12 +90,12 @@ export function TeamEContractListPage() {
   const [error, setError] = useState<string | null>(null);
   const [previewSession, setPreviewSession] = useState<PublicSignSessionDto | null>(null);
   const [pagedPreviewOpen, setPagedPreviewOpen] = useState(false);
-  const [pagedAutoPrint, setPagedAutoPrint] = useState(false);
+  const [pagedAutoPdfDownload, setPagedAutoPdfDownload] = useState(false);
   const [docFetchRowId, setDocFetchRowId] = useState<string | null>(null);
 
   const closeDocPreview = useCallback(() => {
     setPagedPreviewOpen(false);
-    setPagedAutoPrint(false);
+    setPagedAutoPdfDownload(false);
     setPreviewSession(null);
   }, []);
 
@@ -118,7 +118,7 @@ export function TeamEContractListPage() {
     (row: TeamLeaderEContractIssuanceItem) =>
       void runWithPublicSession(row, (session) => {
         setPreviewSession(session);
-        setPagedAutoPrint(false);
+        setPagedAutoPdfDownload(false);
         setPagedPreviewOpen(true);
       }),
     [runWithPublicSession],
@@ -128,7 +128,7 @@ export function TeamEContractListPage() {
     (row: TeamLeaderEContractIssuanceItem) =>
       void runWithPublicSession(row, (session) => {
         setPreviewSession(session);
-        setPagedAutoPrint(true);
+        setPagedAutoPdfDownload(true);
         setPagedPreviewOpen(true);
       }),
     [runWithPublicSession],
@@ -195,7 +195,7 @@ export function TeamEContractListPage() {
           안내 페이지로 이동합니다.
         </p>
         <p className="mt-2 text-fluid-2xs text-gray-500">
-          목록에서 「미리보기」「PDF로 저장」으로 A4 분할 문서를 확인·저장할 수 있습니다(인쇄 창에서 PDF 대상 선택). 서명 화면에서도 동일합니다.
+          목록에서 「미리보기」「PDF로 저장」으로 A4 분할 문서를 확인·파일로 받을 수 있습니다. 서명 화면에서도 동일합니다.
         </p>
       </div>
 
@@ -410,8 +410,8 @@ export function TeamEContractListPage() {
           docId={previewSession.issuanceId}
           definitionTitle={previewSession.definitionTitle}
           versionOrdinal={previewSession.versionOrdinal}
-          autoPrintOnReady={pagedAutoPrint}
-          onAutoPrintConsumed={() => setPagedAutoPrint(false)}
+          autoDownloadPdfOnReady={pagedAutoPdfDownload}
+          onAutoDownloadPdfConsumed={() => setPagedAutoPdfDownload(false)}
         />
       ) : null}
     </div>

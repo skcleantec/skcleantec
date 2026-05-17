@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EContractPagedIframeReader } from './EContractPagedIframeReader';
 import { normalizeContractBodyForPaged } from './eContractPagedHtml';
+import { downloadPagedIframeAsPdf } from './downloadPagedIframePdf';
 
 type Props = {
   open: boolean;
@@ -9,9 +10,9 @@ type Props = {
   docId: string;
   definitionTitle: string;
   versionOrdinal: number;
-  /** 인쇄 전용으로 모달을 연 경우 true → 페이지 준비 후 자동 인쇄 대화상자 */
-  autoPrintOnReady?: boolean;
-  onAutoPrintConsumed?: () => void;
+  /** 미리보기 준비 후 PDF 파일을 자동으로 저장(인쇄 창 없음) */
+  autoDownloadPdfOnReady?: boolean;
+  onAutoDownloadPdfConsumed?: () => void;
 };
 
 export function EContractPagedPreviewModal({
@@ -21,10 +22,11 @@ export function EContractPagedPreviewModal({
   docId,
   definitionTitle,
   versionOrdinal,
-  autoPrintOnReady,
-  onAutoPrintConsumed,
+  autoDownloadPdfOnReady,
+  onAutoDownloadPdfConsumed,
 }: Props) {
   const [pagedReady, setPagedReady] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const normalizedBody = useMemo(() => normalizeContractBodyForPaged(bodyRaw), [bodyRaw]);
@@ -32,48 +34,48 @@ export function EContractPagedPreviewModal({
     () => `${definitionTitle || '계약서'} · v${versionOrdinal}`,
     [definitionTitle, versionOrdinal]
   );
+  const pdfFilenameBase = useMemo(
+    () => `${definitionTitle || '계약서'}_v${versionOrdinal}_${docId}`,
+    [definitionTitle, versionOrdinal, docId]
+  );
 
   useEffect(() => {
     if (!open) {
       setPagedReady(false);
+      setPdfBusy(false);
     }
   }, [open]);
 
-  function triggerPrint() {
-    const iframe = iframeRef.current;
-    if (!iframe?.contentWindow) {
-      window.alert('미리보기가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.');
-      return;
-    }
+  async function runPdfDownload(): Promise<void> {
+    if (!pagedReady || pdfBusy) return;
+    setPdfBusy(true);
     try {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-    } catch {
-      window.alert('인쇄 창을 열지 못했습니다.');
+      await downloadPagedIframeAsPdf(iframeRef.current, pdfFilenameBase);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'PDF를 저장하지 못했습니다.');
+    } finally {
+      setPdfBusy(false);
     }
   }
 
-  const autoPrintDoneRef = useRef(false);
+  const autoPdfDoneRef = useRef(false);
   useEffect(() => {
-    if (!open) autoPrintDoneRef.current = false;
+    if (!open) autoPdfDoneRef.current = false;
   }, [open]);
 
   useEffect(() => {
-    if (!open || !autoPrintOnReady || !pagedReady || autoPrintDoneRef.current) return;
-    autoPrintDoneRef.current = true;
-    const iframe = iframeRef.current;
-    if (!iframe?.contentWindow) {
-      onAutoPrintConsumed?.();
-      return;
-    }
-    try {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-    } catch {
-      /* ignore */
-    }
-    onAutoPrintConsumed?.();
-  }, [open, autoPrintOnReady, pagedReady, onAutoPrintConsumed]);
+    if (!open || !autoDownloadPdfOnReady || !pagedReady || autoPdfDoneRef.current) return;
+    autoPdfDoneRef.current = true;
+    void (async () => {
+      try {
+        await downloadPagedIframeAsPdf(iframeRef.current, pdfFilenameBase);
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : 'PDF를 저장하지 못했습니다.');
+      } finally {
+        onAutoDownloadPdfConsumed?.();
+      }
+    })();
+  }, [open, autoDownloadPdfOnReady, pagedReady, pdfFilenameBase, onAutoDownloadPdfConsumed]);
 
   if (!open) return null;
 
@@ -95,7 +97,7 @@ export function EContractPagedPreviewModal({
                 계약서 미리보기 (A4)
               </h2>
               <p className="mt-1 text-fluid-2xs text-gray-600">
-                실제 A4 인쇄 페이지로 분할된 모습입니다. 머리말에 문서 확인 번호, 꼬리말에 페이지 번호가 들어갑니다.
+                실제 A4 인쇄 페이지로 분할된 모습입니다. 「PDF로 저장」 시 브라우저에서 파일로 바로 받습니다.
               </p>
             </div>
             <button
@@ -110,17 +112,15 @@ export function EContractPagedPreviewModal({
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={triggerPrint}
-                disabled={!pagedReady}
+                onClick={() => void runPdfDownload()}
+                disabled={!pagedReady || pdfBusy}
                 className="rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-                title="인쇄 대화상자에서 대상을 PDF로 저장하면 A4 분할·머리말·꼬리말이 그대로 반영됩니다"
               >
-                {pagedReady ? 'PDF로 저장' : '페이지 준비 중…'}
+                {!pagedReady ? '페이지 준비 중…' : pdfBusy ? 'PDF 생성 중…' : 'PDF로 저장'}
               </button>
             </div>
             <p className="text-fluid-2xs text-gray-500">
-              「PDF로 저장」을 누른 뒤 인쇄 창에서 <strong className="font-medium text-gray-700">대상을 「PDF로 저장」</strong>
-              으로 선택하세요. 실제 프린터로 인쇄할 때도 같은 버튼을 사용할 수 있습니다.
+              페이지가 많으면 잠시 걸릴 수 있습니다. 외부 이미지(도장·서명)는 출처 사이트 CORS 설정에 따라 일부 생략될 수 있습니다.
             </p>
           </div>
         </div>

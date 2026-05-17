@@ -26,6 +26,8 @@
     "@tiptap/react": "^3.23.4",
     "@tiptap/starter-kit": "^3.23.4",
     "dompurify": "^3.4.3",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "kor-lunar": "^1.6.1",
     "leaflet": "^1.9.4",
     "pagedjs": "^0.4.3",

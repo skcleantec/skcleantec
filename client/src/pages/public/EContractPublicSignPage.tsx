@@ -21,7 +21,7 @@ function TeamLeaderContractDocToolbar({
     <div className="rounded-lg border border-blue-100 bg-blue-50/90 px-3 py-3 shadow-sm">
       <div className="text-fluid-xs font-semibold text-blue-950">계약서 미리보기·PDF 저장</div>
       <p className="mt-1 text-fluid-2xs text-blue-900/80">
-        A4 페이지 단위 미리보기 후, 인쇄 창에서 「PDF로 저장」을 선택하면 동일한 레이아웃으로 파일을 받을 수 있습니다.
+        A4 페이지 단위 미리보기 후 「PDF로 저장」을 누르면 인쇄 창 없이 파일로 받을 수 있습니다.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
@@ -82,7 +82,7 @@ export function EContractPublicSignPage() {
   const selfInputRef = useRef<HTMLInputElement | null>(null);
   const lastIssuanceIdRef = useRef('');
   const [pagedPreviewOpen, setPagedPreviewOpen] = useState(false);
-  const [pagedAutoPrint, setPagedAutoPrint] = useState(false);
+  const [pagedAutoPdfDownload, setPagedAutoPdfDownload] = useState(false);
 
   const load = useCallback(async () => {
     if (!decoded) return;
@@ -359,11 +359,11 @@ export function EContractPublicSignPage() {
             <div className="mt-4">
               <TeamLeaderContractDocToolbar
                 onPreview={() => {
-                  setPagedAutoPrint(false);
+                  setPagedAutoPdfDownload(false);
                   setPagedPreviewOpen(true);
                 }}
                 onPdfSave={() => {
-                  setPagedAutoPrint(true);
+                  setPagedAutoPdfDownload(true);
                   setPagedPreviewOpen(true);
                 }}
               />
@@ -382,14 +382,14 @@ export function EContractPublicSignPage() {
             open={pagedPreviewOpen}
             onClose={() => {
               setPagedPreviewOpen(false);
-              setPagedAutoPrint(false);
+              setPagedAutoPdfDownload(false);
             }}
             bodyRaw={session.bodyMarkdown}
             docId={session.issuanceId}
             definitionTitle={session.definitionTitle}
             versionOrdinal={session.versionOrdinal}
-            autoPrintOnReady={pagedAutoPrint}
-            onAutoPrintConsumed={() => setPagedAutoPrint(false)}
+            autoDownloadPdfOnReady={pagedAutoPdfDownload}
+            onAutoDownloadPdfConsumed={() => setPagedAutoPdfDownload(false)}
           />
         ) : null}
       </>
@@ -416,11 +416,11 @@ export function EContractPublicSignPage() {
         <div className="mt-4">
           <TeamLeaderContractDocToolbar
             onPreview={() => {
-              setPagedAutoPrint(false);
+              setPagedAutoPdfDownload(false);
               setPagedPreviewOpen(true);
             }}
             onPdfSave={() => {
-              setPagedAutoPrint(true);
+              setPagedAutoPdfDownload(true);
               setPagedPreviewOpen(true);
             }}
           />
@@ -632,14 +632,14 @@ export function EContractPublicSignPage() {
           open={pagedPreviewOpen}
           onClose={() => {
             setPagedPreviewOpen(false);
-            setPagedAutoPrint(false);
+            setPagedAutoPdfDownload(false);
           }}
           bodyRaw={session.bodyMarkdown}
           docId={session.issuanceId}
           definitionTitle={session.definitionTitle}
           versionOrdinal={session.versionOrdinal}
-          autoPrintOnReady={pagedAutoPrint}
-          onAutoPrintConsumed={() => setPagedAutoPrint(false)}
+          autoDownloadPdfOnReady={pagedAutoPdfDownload}
+          onAutoDownloadPdfConsumed={() => setPagedAutoPdfDownload(false)}
         />
       ) : null}
     </>
