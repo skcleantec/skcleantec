@@ -1,3 +1,5 @@
+import { stabilizeEContractParagraphHtml } from './sanitizeEContractHtml';
+
 /**
  * 서버 `server/src/modules/e-contract/eContractSigner.expand.ts` 와 토큰·치환 로직 동기화.
  */
@@ -43,7 +45,7 @@ function signatureMarkup(url: string): string {
 
 /** 체결 페이지에서 입력값으로 계약 본문 미리보기 */
 export function expandSignerPlaceholdersPreview(html: string, signer: SignerPreviewFields): string {
-  let out = (html ?? '').replace(/\r\n/g, '\n');
+  let out = stabilizeEContractParagraphHtml((html ?? '').replace(/\r\n/g, '\n'));
   const name = escapeHtml((signer.name ?? '').trim());
   const rrn = escapeHtml((signer.residentRegistrationNumber ?? '').trim());
   const addr = escapeHtml((signer.addressLine ?? '').trim());

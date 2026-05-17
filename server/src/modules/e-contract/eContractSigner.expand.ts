@@ -1,3 +1,5 @@
+import { stabilizeEContractParagraphHtml } from './eContractBodyParagraphStabilize.js';
+
 /** 팀장(을) 플레이스홀더 — 계약본문에 포함 후 체결 제출 시 치환됩니다. */
 export type SignerFilledFields = {
   name: string;
@@ -51,7 +53,7 @@ function signatureMarkup(url: string): string {
  * 버전 표시본(갑 정보 치환 완료) HTML에 을 정보·서명 토큰을 채웁니다.
  */
 export function expandSignerPlaceholders(html: string, signer: SignerFilledFields): string {
-  let out = (html ?? '').replace(/\r\n/g, '\n');
+  let out = stabilizeEContractParagraphHtml((html ?? '').replace(/\r\n/g, '\n'));
   const name = escapeHtml((signer.name ?? '').trim());
   const rrn = escapeHtml((signer.residentRegistrationNumber ?? '').trim());
   const addr = escapeHtml((signer.addressLine ?? '').trim());

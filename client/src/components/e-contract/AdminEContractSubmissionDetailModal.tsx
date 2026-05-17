@@ -89,6 +89,10 @@ article.e-contract-body-html {
 }
 
 article.e-contract-body-html p { margin: 0 0 0.6em 0; }
+/* TipTap Enter 빈 줄: 완전히 빈 단락은 높이 0 가능 — 줄 한 칸 높이 보장 */
+article.e-contract-body-html p:empty { min-height: 1.65em; }
+article.e-contract-body-html p:has(> br:only-child) { min-height: 1em; }
+
 article.e-contract-body-html h1 { font-size: 16pt; font-weight: 700; margin: 0.6em 0 0.4em; page-break-after: avoid; }
 article.e-contract-body-html h2 { font-size: 13pt; font-weight: 700; margin: 0.6em 0 0.4em; page-break-after: avoid; }
 article.e-contract-body-html h3 { font-size: 11.5pt; font-weight: 600; margin: 0.5em 0 0.3em; page-break-after: avoid; }

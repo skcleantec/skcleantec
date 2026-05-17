@@ -1,3 +1,5 @@
+import { stabilizeEContractParagraphHtml } from './eContractBodyParagraphStabilize.js';
+
 /**
  * 발행측(갑) 플레이스홀더 치환 — 서버 표시본·미리보기·배포 시 동일 로직 유지.
  * 클라에도 토큰 문자열 목록 동기화: `EC_ISSUER_PLACEHOLDER_KEYS` (주석 참고).
@@ -78,7 +80,7 @@ function textOrDash(v: string | null | undefined): string {
  */
 export function expandIssuerPlaceholders(html: string, snapshot: EContractIssuerSnapshot | null): string {
   const sn = snapshot ?? {};
-  let out = (html ?? '').replace(/\r\n/g, '\n');
+  let out = stabilizeEContractParagraphHtml((html ?? '').replace(/\r\n/g, '\n'));
   const rep: Record<string, string> = {
     [TOKENS.COMPANY]: textOrDash(sn.companyName ?? '') || '',
     [TOKENS.REP]: textOrDash(sn.representativeName ?? ''),
