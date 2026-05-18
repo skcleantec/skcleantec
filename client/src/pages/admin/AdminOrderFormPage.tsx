@@ -135,12 +135,7 @@ export function AdminOrderFormPage() {
   }, [setSearchParams]);
   const [orderForms, setOrderForms] = useState<OrderForm[]>([]);
   const [listIssuers, setListIssuers] = useState<OrderFormIssuerOption[]>([]);
-  /**
-   * 기본 필터를 '전체'로 두면 운영 DB에 누적된 모든 발주서를 들고와 첫 진입이
-   * 매우 느려지는 문제가 있어 '이번 달'을 디폴트로 한다. 사용자는 필요 시
-   * 드롭다운에서 '전체'를 직접 선택해 과거 자료를 조회할 수 있다.
-   */
-  const [listDatePreset, setListDatePreset] = useState<OrderFormListDatePreset>('month');
+  const [listDatePreset, setListDatePreset] = useState<OrderFormListDatePreset>('all');
   const [listMonthKey, setListMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [listDayKey, setListDayKey] = useState(() => kstTodayYmd());
   const [listCustomerName, setListCustomerName] = useState('');
