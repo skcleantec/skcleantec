@@ -29,7 +29,19 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
     (req as Request & { user: AuthPayload }).user = payload;
     next();
-  } catch {
+  } catch (e) {
+    /**
+     * 만료/형식오류는 운영에서 정상 흐름. 클라이언트가 `code`로 자동 로그아웃하도록 표시.
+     */
+    if (e instanceof jwt.TokenExpiredError) {
+      res.status(401).json({ error: '로그인이 만료되었습니다.', code: 'token_expired' });
+      return;
+    }
+    if (e instanceof jwt.JsonWebTokenError) {
+      res.status(401).json({ error: '유효하지 않은 토큰입니다.', code: 'token_invalid' });
+      return;
+    }
+    console.error('[authMiddleware]', e);
     res.status(401).json({ error: '유효하지 않은 토큰입니다.' });
   }
 }

@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { devDirectWsOrigin } from '../api/apiPrefix';
 import { fetchCelebrationFeedHead, fetchCelebrationsSince } from '../api/celebrationFeed';
+import { notifyAuthRejected } from '../api/sessionGate';
 import { useVisibilityInterval } from './useVisibilityInterval';
+
+/**
+ * 서버 WS가 인증을 거부했을 때 닫는 코드들.
+ * - 4001: token required (없음)
+ * - 4002: invalid token (만료·서명 불일치 등)
+ * - 1008: policy violation (브라우저/프록시가 정책으로 끊은 경우)
+ *
+ * 이 코드들이 오면 같은 토큰으로 재연결을 시도해도 영원히 실패하므로,
+ * 재연결 타이머를 끄고 토큰 자동 폐기 알림(`notifyAuthRejected`)을 보낸다.
+ */
+const AUTH_REJECT_CLOSE_CODES = new Set<number>([4001, 4002, 1008]);
 
 function buildWsUrl(token: string): string {
   const base = import.meta.env.VITE_WS_URL as string | undefined;
@@ -139,9 +151,26 @@ function connectBucket(bucket: Bucket) {
       /* ignore */
     }
   };
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
     notifyConnection(bucket, false);
     bucket.ws = null;
+    /**
+     * 토큰 만료·거부 코드면 같은 토큰으로 재연결 시도하지 않는다.
+     * 클라이언트 store에 알려 토큰을 비우고 로그인 화면으로 이동시키도록 한다.
+     */
+    if (AUTH_REJECT_CLOSE_CODES.has(ev.code)) {
+      bucket.tearDown = true;
+      if (bucket.reconnectTimer) {
+        clearTimeout(bucket.reconnectTimer);
+        bucket.reconnectTimer = undefined;
+      }
+      try {
+        notifyAuthRejected('ws_close', ev.code);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     if (bucket.tearDown || !bucketHasSubscribers(bucket)) return;
     bucket.reconnectTimer = setTimeout(() => {
       bucket.reconnectTimer = undefined;

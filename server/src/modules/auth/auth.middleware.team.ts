@@ -109,6 +109,18 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
     };
     next();
   } catch (e) {
+    /**
+     * 만료·형식 오류는 운영에서 정상 흐름(만료된 클라이언트의 마지막 요청 등)이므로
+     * 스택 트레이스를 찍지 않는다. Railway 로그 폭주·진짜 에러 가림 방지.
+     */
+    if (e instanceof jwt.TokenExpiredError) {
+      res.status(401).json({ error: '로그인이 만료되었습니다.', code: 'token_expired' });
+      return;
+    }
+    if (e instanceof jwt.JsonWebTokenError) {
+      res.status(401).json({ error: '유효하지 않은 토큰입니다.', code: 'token_invalid' });
+      return;
+    }
     console.error('[teamAuthMiddleware]', e);
     res.status(401).json({ error: '유효하지 않은 토큰입니다.' });
   }
