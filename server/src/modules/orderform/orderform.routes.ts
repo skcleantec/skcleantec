@@ -483,6 +483,13 @@ router.get('/designer-preview-token', authMiddleware, adminOrMarketer, async (re
   }
 });
 
+/**
+ * 발주서 목록 응답 안전 상한.
+ * 운영 DB에 누적된 전체 발주서를 한꺼번에 들고와 페이지가 멈추는 사고를 막기 위해,
+ * 항상 최신순 N개까지만 응답한다. 그 이상은 필터(고객명·발급자·기간)로 좁히도록 한다.
+ */
+const ORDER_FORM_LIST_HARD_LIMIT = 300;
+
 /** 관리자/마케터: 발주서 목록 (발급일·담당·제출 상태 필터) */
 router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const q = req.query as Record<string, string | undefined>;
@@ -522,6 +529,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
     prisma.orderForm.findMany({
       where,
       orderBy: { createdAt: 'desc' },
+      take: ORDER_FORM_LIST_HARD_LIMIT,
       include: {
         inquiries: { take: 1 },
         createdBy: orderFormCreatedBySelect,
