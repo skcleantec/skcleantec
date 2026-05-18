@@ -325,7 +325,8 @@ export function AdminOrderFormFollowupPanel({
   const [filterStatus, setFilterStatus] = useState<OrderFollowupStatus | ''>('');
   const [filterCustomerName, setFilterCustomerName] = useState('');
   const [listDateBasis, setListDateBasis] = useState<FollowupListDateBasis>('createdAt');
-  const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('all');
+  /** 기본 '전체'는 인덱스가 불리한 정렬·스캔으로 느려질 수 있어 이번 달을 디폴트로 둔다. */
+  const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('month');
   const [dateMonthKey, setDateMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
 

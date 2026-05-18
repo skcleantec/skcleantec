@@ -135,7 +135,8 @@ export function AdminOrderFormPage() {
   }, [setSearchParams]);
   const [orderForms, setOrderForms] = useState<OrderForm[]>([]);
   const [listIssuers, setListIssuers] = useState<OrderFormIssuerOption[]>([]);
-  const [listDatePreset, setListDatePreset] = useState<OrderFormListDatePreset>('all');
+  /** 기본 '전체'는 행이 많을 때 첫 로드가 매우 느려져 '이번 달'을 디폴트로 둔다. */
+  const [listDatePreset, setListDatePreset] = useState<OrderFormListDatePreset>('month');
   const [listMonthKey, setListMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [listDayKey, setListDayKey] = useState(() => kstTodayYmd());
   const [listCustomerName, setListCustomerName] = useState('');

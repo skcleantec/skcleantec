@@ -615,6 +615,8 @@ export function AdminSchedulePage() {
   const [stats, setStats] = useState<Record<string, ScheduleStatsByDate>>({});
   const [asCsByDate, setAsCsByDate] = useState<Record<string, AsCsScheduleListItem[]>>({});
   const [loading, setLoading] = useState(true);
+  /** 스케줄 본문(items)은 먼저 그리고, 통계 API가 느릴 때 상단 배너만 표시 */
+  const [statsLoading, setStatsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<ScheduleItem | null>(null);
@@ -660,17 +662,58 @@ export function AdminSchedulePage() {
         return;
       }
       const rid = ++fetchGenRef.current;
-      if (showLoading) setLoading(true);
       const { start, end } = getMonthRange(year, month);
+
+      if (!showLoading) {
+        setLoadError(null);
+        let scheduleErr: string | null = null;
+        let statsErr: string | null = null;
+        const [scheduleOutcome, statsOutcome] = await Promise.allSettled([
+          getSchedule(token, start, end),
+          getScheduleStats(token, start, end),
+        ]);
+        if (rid !== fetchGenRef.current) return;
+
+        if (scheduleOutcome.status === 'fulfilled') {
+          setItems(scheduleOutcome.value.items);
+          const grouped = groupScheduleItemsByKstDate(scheduleOutcome.value.items);
+          setSelectedDate((prev) => {
+            if (prev != null) return prev;
+            return pickDefaultSelectedDate(year, month, grouped);
+          });
+        } else {
+          setItems([]);
+          scheduleErr =
+            scheduleOutcome.reason instanceof Error
+              ? scheduleOutcome.reason.message
+              : '스케줄을 불러오지 못했습니다.';
+        }
+
+        if (statsOutcome.status === 'fulfilled') {
+          setStats(statsOutcome.value.byDate);
+          setAsCsByDate(statsOutcome.value.asCsByDate ?? {});
+        } else {
+          setStats({});
+          setAsCsByDate({});
+          statsErr = '스케줄 현황(통계)을 불러오지 못했습니다. 접수 목록은 표시됩니다.';
+        }
+
+        if (rid !== fetchGenRef.current) return;
+        if (scheduleErr && statsErr) setLoadError(`${scheduleErr} ${statsErr}`);
+        else if (scheduleErr) setLoadError(scheduleErr);
+        else if (statsErr) setLoadError(statsErr);
+        else setLoadError(null);
+        return;
+      }
+
+      setLoading(true);
+      setStatsLoading(false);
       setLoadError(null);
 
       let scheduleErr: string | null = null;
       let statsErr: string | null = null;
 
-      const [scheduleOutcome, statsOutcome] = await Promise.allSettled([
-        getSchedule(token, start, end),
-        getScheduleStats(token, start, end),
-      ]);
+      const scheduleOutcome = await Promise.allSettled([getSchedule(token, start, end)]).then((r) => r[0]);
       if (rid !== fetchGenRef.current) return;
 
       if (scheduleOutcome.status === 'fulfilled') {
@@ -688,6 +731,20 @@ export function AdminSchedulePage() {
             : '스케줄을 불러오지 못했습니다.';
       }
 
+      setLoading(false);
+
+      if (scheduleErr) {
+        setStats({});
+        setAsCsByDate({});
+        setStatsLoading(false);
+        setLoadError(scheduleErr);
+        return;
+      }
+
+      setStatsLoading(true);
+      const statsOutcome = await Promise.allSettled([getScheduleStats(token, start, end)]).then((r) => r[0]);
+      if (rid !== fetchGenRef.current) return;
+
       if (statsOutcome.status === 'fulfilled') {
         setStats(statsOutcome.value.byDate);
         setAsCsByDate(statsOutcome.value.asCsByDate ?? {});
@@ -696,14 +753,13 @@ export function AdminSchedulePage() {
         setAsCsByDate({});
         statsErr = '스케줄 현황(통계)을 불러오지 못했습니다. 접수 목록은 표시됩니다.';
       }
+      setStatsLoading(false);
 
       if (rid !== fetchGenRef.current) return;
       if (scheduleErr && statsErr) setLoadError(`${scheduleErr} ${statsErr}`);
       else if (scheduleErr) setLoadError(scheduleErr);
       else if (statsErr) setLoadError(statsErr);
       else setLoadError(null);
-
-      if (showLoading) setLoading(false);
     },
     [token, year, month]
   );
@@ -1134,6 +1190,11 @@ export function AdminSchedulePage() {
 
       {loadError && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-fluid-sm text-red-700">{loadError}</div>
+      )}
+      {!loading && statsLoading && (
+        <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-fluid-xs text-amber-900">
+          일정 통계·가용 슬롯 정보를 불러오는 중입니다…
+        </div>
       )}
       {loading ? (
         <div className="py-12 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
