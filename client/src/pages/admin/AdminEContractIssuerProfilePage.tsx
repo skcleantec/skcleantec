@@ -8,6 +8,7 @@ import {
   type EContractIssuerPlaceholder,
 } from '../../api/adminEContract';
 import { getToken } from '../../stores/auth';
+import { SignaturePad } from '../../components/e-contract/SignaturePad';
 import { EC_ISSUER_PLACEHOLDER_OPTIONS } from '../../utils/eContractIssuerPlaceholders';
 
 type StampKind = 'SEAL' | 'SIGNATURE';
@@ -178,14 +179,13 @@ export function AdminEContractIssuerProfilePage() {
     }
   };
 
-  const uploadSignatureFile = async (files: FileList | null) => {
-    const f = files?.[0];
-    if (!token || !f) return;
+  const persistSignatureUpload = async (blob: Blob, filename: string) => {
+    if (!token) return;
     setBusy(true);
     setErr(null);
     setMsg(null);
     try {
-      const up = await uploadEContractIssuerSeal(f, token, f.name || `issuer_sig_${Date.now()}.png`);
+      const up = await uploadEContractIssuerSeal(blob, token, filename);
       await patchEContractIssuerProfile(token, {
         signaturePublicId: up.publicId,
         signatureSecureUrl: up.secureUrl,
@@ -195,9 +195,24 @@ export function AdminEContractIssuerProfilePage() {
       await loadAll();
     } catch (e) {
       setErr(e instanceof Error ? e.message : '업로드하지 못했습니다.');
+      throw e;
     } finally {
       setBusy(false);
     }
+  };
+
+  const uploadSignatureFile = async (files: FileList | null) => {
+    const f = files?.[0];
+    if (!f) return;
+    try {
+      await persistSignatureUpload(f, f.name || `issuer_sig_${Date.now()}.png`);
+    } catch {
+      /* persistSignatureUpload sets err */
+    }
+  };
+
+  const saveDrawnSignature = async (blob: Blob) => {
+    await persistSignatureUpload(blob, `issuer_sig_drawn_${Date.now()}.png`);
   };
 
   const clearSeal = async () => {
@@ -478,6 +493,13 @@ export function AdminEContractIssuerProfilePage() {
                   <span className="text-fluid-2xs text-gray-500">미등록</span>
                 )}
               </div>
+              <SignaturePad
+                disabled={issuerStampKind !== 'SIGNATURE'}
+                busy={busy}
+                hint="PC에서는 마우스로, 태블릿·휴대폰에서는 손가락·펜으로 서명한 뒤 저장하세요."
+                saveButtonLabel="그린 서명 저장"
+                onSave={saveDrawnSignature}
+              />
             </div>
           </div>
 

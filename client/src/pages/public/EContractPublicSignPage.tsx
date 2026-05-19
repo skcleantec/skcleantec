@@ -8,6 +8,7 @@ import {
 } from '../../api/eContractPublic';
 import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
+import { SignaturePad } from '../../components/e-contract/SignaturePad';
 import { getTeamToken } from '../../stores/teamAuth';
 
 function TeamLeaderContractDocToolbar({
@@ -43,18 +44,6 @@ function TeamLeaderContractDocToolbar({
   );
 }
 
-function fitCanvasDpi(canvas: HTMLCanvasElement): void {
-  const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-  if (!w || !h) return;
-  canvas.width = Math.floor(w * dpr);
-  canvas.height = Math.floor(h * dpr);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
 export function EContractPublicSignPage() {
   const { token } = useParams<{ token: string }>();
   const decoded = decodeURIComponent(token || '').trim();
@@ -75,10 +64,6 @@ export function EContractPublicSignPage() {
   const [signerPhone, setSignerPhone] = useState('');
   const [signerFreeTextNotes, setSignerFreeTextNotes] = useState('');
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawingRef = useRef(false);
-  const lastPtRef = useRef<{ x: number; y: number } | null>(null);
-  const sketchEventsRef = useRef(0);
   const selfInputRef = useRef<HTMLInputElement | null>(null);
   const lastIssuanceIdRef = useRef('');
   const [pagedPreviewOpen, setPagedPreviewOpen] = useState(false);
@@ -116,42 +101,6 @@ export function EContractPublicSignPage() {
     }
   }, [session]);
 
-  const clearSignatureCanvas = () => {
-    const c = canvasRef.current;
-    const ctx = c?.getContext('2d');
-    if (!c || !ctx) return;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, c.width, c.height);
-    sketchEventsRef.current = 0;
-    lastPtRef.current = null;
-    setSigUploaded(null);
-  };
-
-  const setupCanvasSizing = () => {
-    const c = canvasRef.current;
-    if (!c) return;
-    fitCanvasDpi(c);
-    const ctx = c.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, c.width, c.height);
-    sketchEventsRef.current = 0;
-    lastPtRef.current = null;
-  };
-
-  useEffect(() => {
-    if (!session || session.alreadySigned) return;
-    const c = canvasRef.current;
-    if (!c) return;
-    const ro = new ResizeObserver(() => {
-      setupCanvasSizing();
-      setSigUploaded(null);
-    });
-    ro.observe(c);
-    setupCanvasSizing();
-    return () => ro.disconnect();
-  }, [session]);
-
   const onSelfieSelected = async (files: FileList | null) => {
     if (!decoded || !files?.[0]) return;
     const f = files[0];
@@ -170,38 +119,21 @@ export function EContractPublicSignPage() {
     }
   };
 
-  const finalizeSignatureBlob = async () => {
-    if (!decoded || sketchEventsRef.current < 8) {
-      setMsg('서명을 충분히 그린 뒤 다시 저장해 주세요.');
-      return;
+  const savePublicSignature = async (blob: Blob) => {
+    if (!decoded) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const up = await uploadEContractBlob(blob, decoded, `signature_${Date.now()}.png`);
+      setSigUploaded(up);
+      setMsg('서명을 저장했습니다. 아래 「계약 완료 제출」을 눌러 주세요.');
+    } catch (e) {
+      setSigUploaded(null);
+      setMsg(e instanceof Error ? e.message : '서명 업로드에 실패했습니다.');
+      throw e;
+    } finally {
+      setBusy(false);
     }
-    const c = canvasRef.current;
-    if (!c) return;
-    await new Promise<void>((resolve) => {
-      c.toBlob(
-        async (blob) => {
-          if (!blob) {
-            resolve();
-            return;
-          }
-          setBusy(true);
-          setMsg(null);
-          try {
-            const up = await uploadEContractBlob(blob, decoded, `signature_${Date.now()}.png`);
-            setSigUploaded(up);
-            setMsg('서명을 저장했습니다. 아래 「계약 완료 제출」을 눌러 주세요.');
-          } catch (e) {
-            setSigUploaded(null);
-            setMsg(e instanceof Error ? e.message : '서명 업로드에 실패했습니다.');
-          } finally {
-            setBusy(false);
-            resolve();
-          }
-        },
-        'image/png',
-        1
-      );
-    });
   };
 
   const onSubmit = async () => {
@@ -259,55 +191,6 @@ export function EContractPublicSignPage() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const c = canvasRef.current;
-    const ctx = c?.getContext('2d');
-    if (!c || !ctx) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    drawingRef.current = true;
-    const rect = c.getBoundingClientRect();
-    const x = Math.round(e.clientX - rect.left);
-    const y = Math.round(e.clientY - rect.top);
-    lastPtRef.current = { x, y };
-    sketchEventsRef.current += 1;
-    ctx.strokeStyle = '#111827';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.fillStyle = '#111827';
-    ctx.beginPath();
-    ctx.arc(x, y, 1, 0, Math.PI * 2);
-    ctx.fill();
-  };
-
-  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawingRef.current) return;
-    const c = canvasRef.current;
-    const ctx = c?.getContext('2d');
-    if (!c || !ctx) return;
-    const rect = c.getBoundingClientRect();
-    const x = Math.round(e.clientX - rect.left);
-    const y = Math.round(e.clientY - rect.top);
-    const prev = lastPtRef.current;
-    if (prev) {
-      ctx.strokeStyle = '#111827';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(prev.x, prev.y);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      sketchEventsRef.current += 1;
-    }
-    lastPtRef.current = { x, y };
-  };
-
-  const endStroke = () => {
-    drawingRef.current = false;
-    lastPtRef.current = null;
   };
 
   if (!decoded) {
@@ -516,31 +399,7 @@ export function EContractPublicSignPage() {
 
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="text-fluid-sm font-semibold text-gray-900">서명</div>
-        <p className="mt-2 text-fluid-2xs text-gray-600">손가락·펜으로 박스 안에 서명을 그려 주세요.</p>
-        <div className="mt-3 rounded-md border border-gray-300 bg-white">
-          <canvas
-            ref={canvasRef}
-            className="h-44 w-full touch-none"
-            aria-label="서명 패드"
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={() => endStroke()}
-            onPointerLeave={() => endStroke()}
-          />
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" disabled={busy} onClick={() => clearSignatureCanvas()} className="rounded border border-gray-300 px-4 py-2 text-fluid-xs">
-            지우기
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void finalizeSignatureBlob()}
-            className="rounded-lg bg-gray-900 px-4 py-2 text-fluid-xs font-medium text-white"
-          >
-            서명을 이미지로 저장
-          </button>
-        </div>
+        <SignaturePad busy={busy} onSave={savePublicSignature} onClear={() => setSigUploaded(null)} />
       </section>
 
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
