@@ -152,10 +152,6 @@ export function AdminExternalCompaniesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-gray-800">타업체</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            접수·스케줄에서 타업체 담당을 배정하면 <strong className="font-medium text-gray-700">[타업체]</strong>
-            로 표시됩니다. 로그인은 팀장과 같은 주소(/team)입니다.
-          </p>
         </div>
         <button
           type="button"

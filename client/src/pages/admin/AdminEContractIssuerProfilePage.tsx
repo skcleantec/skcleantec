@@ -260,10 +260,6 @@ export function AdminEContractIssuerProfilePage() {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-fluid-lg font-semibold text-gray-900">전자계약 — 발행측(갑) 정보</h1>
-          <p className="mt-1 text-fluid-xs text-gray-600">
-            계약 본문에서 <code className="rounded bg-gray-100 px-1 py-0.5 text-fluid-2xs">[[EC_ISSUER_*]]</code> 토큰으로 삽입합니다.
-            배포 시 이 화면의 값이 해당 버전에 스냅샷 저장됩니다.
-          </p>
         </div>
         <Link
           to="/admin/team-leaders/e-contracts"
@@ -358,10 +354,6 @@ export function AdminEContractIssuerProfilePage() {
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <h2 className="text-fluid-sm font-semibold text-gray-900">갑 (인) — 도장 또는 서명</h2>
-          <p className="mt-1 text-fluid-2xs text-gray-600">
-            동일 토큰 <code className="rounded bg-gray-100 px-1">[[EC_ISSUER_SEAL]]</code> 로 계약서·부록에 들어갑니다. 아래에서 표시 방식만
-            선택하면 됩니다.
-          </p>
 
           <div className="mt-4 flex flex-wrap gap-4">
             <label className="inline-flex cursor-pointer items-center gap-2 text-fluid-xs text-gray-800">

@@ -631,25 +631,6 @@ function payrollExpenseSummary(rows: PayrollSheetRow[]) {
   };
 }
 
-function payrollTabHint(tab: PayrollTabId): string {
-  switch (tab) {
-    case 'pool':
-      return '팀원마다 「월급 지급일」에 맞춰 산정합니다. 예: 매달 11일 지급이면 전달 11일~당월 10일(포함) 예약(KST)만 집계합니다. 같은 날은 1일만. 「설정」으로 해당 월만 수기 일수를 더할 수 있습니다. 크루 그룹장이 등록한 해당 월 지출은 합산하여 차감된 실지급 예상으로 표시됩니다.';
-    case 'inout':
-      return '상단 「계정 수입·지출」은 입금·지급·접수 매출 등을 일자 순으로 모은 표입니다. 아래 격자는 급여 지급일 열 기준 인원별 금액입니다.';
-    case 'leader':
-      return '목록은 요약 숫자와 「정산」「정산내역」만 보여 줍니다. 「정산」은 입금 등록 폼까지 바로 스크롤합니다.';
-    case 'marketer':
-      return '마케터는 「합계」에 미정산 이월과 등록 월급을 더해 표시합니다. 급여상세에서 정산 이력을, 정산완료에서 이번 달 지급액·메모를 저장합니다.';
-    case 'settlement':
-      return '왼쪽: 해당 귀속 월 지출. 오른쪽: 접수 매출·타업체 정산완료 내역·입금 내역·서비스접수 목록 안내. 크루·공용·개인 지출은 접이식.';
-    case 'unsettled':
-      return '오늘(KST) 기준 진행 중 급여 주기 — 현장 팀원·마케터 실시간 추정(팀장 제외). 「실시간 새로고침」으로 최신 값을 불러옵니다.';
-    default:
-      return '';
-  }
-}
-
 export function AdminPayrollPage() {
   const token = getToken();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1005,29 +986,6 @@ export function AdminPayrollPage() {
   }, [month]);
 
   useEffect(() => {
-    if (!token || payrollTab !== 'inout') return;
-    let cancelled = false;
-    setAccountLedgerLoading(true);
-    setAccountLedgerError(null);
-    void getPayrollAccountLedger(token, month)
-      .then((d) => {
-        if (!cancelled) setAccountLedger(d);
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setAccountLedger(null);
-          setAccountLedgerError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setAccountLedgerLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, payrollTab, month]);
-
-  useEffect(() => {
     if (!token || ledgerManualModal !== 'out') return;
     let cancelled = false;
     setLedgerManualExternalCompaniesLoading(true);
@@ -1065,6 +1023,43 @@ export function AdminPayrollPage() {
     return { cash: last.runningCash, all: last.runningAll };
   }, [accountLedger]);
 
+  /** 정산·수입·지출 탭 공통 — 계정 장부 캐시 (탭 전환·load·mutation 후 동기화) */
+  const refreshAccountLedger = useCallback(
+    async (opts?: { silent?: boolean; isStale?: () => boolean }) => {
+      if (!token) return;
+      const silent = opts?.silent ?? true;
+      const stale = opts?.isStale;
+      if (!silent) {
+        setAccountLedgerLoading(true);
+        setAccountLedgerError(null);
+      }
+      try {
+        const ledger = await getPayrollAccountLedger(token, month);
+        if (stale?.()) return;
+        setAccountLedger(ledger);
+        if (!silent) setAccountLedgerError(null);
+      } catch (e) {
+        if (stale?.()) return;
+        if (!silent) {
+          setAccountLedger(null);
+          setAccountLedgerError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
+        }
+      } finally {
+        if (stale?.()) return;
+        if (!silent) setAccountLedgerLoading(false);
+      }
+    },
+    [token, month],
+  );
+
+  useEffect(() => {
+    if (!token || payrollTab !== 'inout') return;
+    let cancelled = false;
+    void refreshAccountLedger({ silent: false, isStale: () => cancelled });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, payrollTab, month, refreshAccountLedger]);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -1120,6 +1115,7 @@ export function AdminPayrollPage() {
           setIncomeError('수입 집계를 불러오지 못했습니다.');
         }
       }
+      void refreshAccountLedger({ silent: true });
     } catch (e) {
       setData(null);
       setCrewExpenseAdminItems([]);
@@ -1129,7 +1125,7 @@ export function AdminPayrollPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, month, payrollTab, loadExpenseForward]);
+  }, [token, month, payrollTab, loadExpenseForward, refreshAccountLedger]);
 
   const silentReloadPayroll = useCallback(async () => {
     if (!token) return;
@@ -1189,16 +1185,8 @@ export function AdminPayrollPage() {
     } catch {
       /* 무음 실패 무시 */
     }
-    if (payrollTab === 'inout') {
-      try {
-        const ledger = await getPayrollAccountLedger(token, month);
-        setAccountLedger(ledger);
-        setAccountLedgerError(null);
-      } catch {
-        /* 무음 */
-      }
-    }
-  }, [token, month, payrollTab]);
+    await refreshAccountLedger({ silent: true });
+  }, [token, month, payrollTab, refreshAccountLedger]);
 
   useInboxRealtime(token, silentReloadPayroll, Boolean(token));
 
@@ -1483,12 +1471,13 @@ export function AdminPayrollPage() {
       setAdminPersonalExpenseItems(list.items);
       setAdminPersonalExpenseAmountInput('');
       setAdminPersonalExpenseMemoInput('');
+      await refreshAccountLedger({ silent: true });
     } catch (e) {
       setAdminPersonalExpenseFormError(e instanceof Error ? e.message : '등록에 실패했습니다.');
     } finally {
       setAdminPersonalExpenseSaving(false);
     }
-  }, [token, month, adminPersonalExpenseAmountInput, adminPersonalExpenseMemoInput]);
+  }, [token, month, adminPersonalExpenseAmountInput, adminPersonalExpenseMemoInput, refreshAccountLedger]);
 
   const submitAdminSharedExpense = useCallback(async () => {
     if (!token) return;
@@ -1509,12 +1498,13 @@ export function AdminPayrollPage() {
       setAdminSharedExpenseItems(list.items);
       setAdminSharedExpenseAmountInput('');
       setAdminSharedExpenseMemoInput('');
+      await refreshAccountLedger({ silent: true });
     } catch (e) {
       setAdminSharedExpenseFormError(e instanceof Error ? e.message : '등록에 실패했습니다.');
     } finally {
       setAdminSharedExpenseSaving(false);
     }
-  }, [token, month, adminSharedExpenseAmountInput, adminSharedExpenseMemoInput]);
+  }, [token, month, adminSharedExpenseAmountInput, adminSharedExpenseMemoInput, refreshAccountLedger]);
 
   useEffect(() => {
     setIncomeDepositDateInput(todayYmdKst());
@@ -1545,12 +1535,13 @@ export function AdminPayrollPage() {
       setIncomeDepositItems(list.items);
       setIncomeDepositAmountInput('');
       setIncomeDepositMemoInput('');
+      await refreshAccountLedger({ silent: true });
     } catch (e) {
       setIncomeDepositFormError(e instanceof Error ? e.message : '등록에 실패했습니다.');
     } finally {
       setIncomeDepositSaving(false);
     }
-  }, [token, month, incomeDepositAmountInput, incomeDepositMemoInput, incomeDepositDateInput]);
+  }, [token, month, incomeDepositAmountInput, incomeDepositMemoInput, incomeDepositDateInput, refreshAccountLedger]);
 
   /** 진행 주기 기준 정산 미완료(진행) 인원의 실지급 추정 합 — 접힘 요약용 */
   const expenseForwardPoolUnsettled = useMemo(() => {
@@ -1778,18 +1769,6 @@ export function AdminPayrollPage() {
             <h1 className="text-xl font-semibold text-gray-900">월정산표</h1>
             <HelpTooltip text={PAYROLL_HELP} />
           </div>
-          <p className="text-fluid-sm text-gray-600 mt-1">
-            상단 탭으로 <strong className="font-medium text-gray-800">팀원·수입·지출·팀장·마케터</strong> 목록을 나누어 보고,{' '}
-            <strong className="font-medium text-gray-800">정산</strong>에서는 해당 월 지출·수입을 한 화면에서 보고,{' '}
-            <strong className="font-medium text-gray-800">미정산현황</strong>에서는 진행 중 급여 주기 추정을 봅니다.{' '}
-            <Link to="/admin/team-leaders/team-members" className="text-blue-700 underline underline-offset-2">
-              팀원(일당)·지급일
-            </Link>
-            {' · '}
-            <Link to="/admin/team-leaders" className="text-blue-700 underline underline-offset-2">
-              팀장(수시 지급)·마케터(월 고정)
-            </Link>
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <label className="text-fluid-xs text-gray-600 whitespace-nowrap">귀속·지급 월</label>
@@ -1841,9 +1820,6 @@ export function AdminPayrollPage() {
                 </button>
               ))}
             </nav>
-            <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-              <p className="text-fluid-2xs sm:text-fluid-xs text-gray-600 leading-snug">{payrollTabHint(payrollTab)}</p>
-            </div>
 
             <div className="px-2 sm:px-3 py-3 space-y-3 min-w-0">
               {payrollTab === 'settlement' && expenseSummary ? (
@@ -2518,13 +2494,6 @@ export function AdminPayrollPage() {
                           실시간 새로고침
                         </button>
                       </div>
-                      <p className="text-fluid-2xs text-gray-600 leading-snug">
-                        기준일(KST){' '}
-                        <strong className="tabular-nums text-gray-800">{expenseForward?.todayYmd ?? '—'}</strong>. 현장 팀원은
-                        예약일·크루메모 기준 오늘까지 근무일수와 귀속 월 크루 지출 차감 후 실지급 추정입니다. 마케터는 해당 귀속
-                        월에 정산 완료 전이면 전월 달력 일수로 일할, 완료 후면 이번 급여 주기 일수로 일할 추정입니다. 팀장은 일별
-                        정산이므로 이 카드에는 넣지 않습니다.
-                      </p>
                       {expenseForwardLoading ? (
                         <p className="text-fluid-sm text-gray-500 py-4 text-center border border-dashed border-indigo-100 rounded-lg bg-white/70">
                           실시간 집계 불러오는 중…
@@ -2688,14 +2657,6 @@ export function AdminPayrollPage() {
                 </div>
               ) : payrollTab === 'inout' ? (
                 <div className="min-w-0 w-full space-y-3">
-                  <p className="text-fluid-2xs text-gray-600 leading-snug">
-                    <strong className="text-gray-800">{data.monthLabel}</strong> 월정산표와 동일합니다. 합계 행 위 급여일을 누르면 해당 열
-                    일괄 정산, 격자를 펼친 뒤 금액 칸을 누르면 개별 정산(마케터 미정산은 정산금 입력 모달)입니다.{' '}
-                    <strong className="text-gray-800">현장 팀원</strong>은 해당 급여일 열에 근무일×일당−크루 지출 예상(또는 정산
-                    확정액), <strong className="text-gray-800">마케터</strong>는 미정산인 경우 같은 급여일 열에{' '}
-                    <strong className="text-gray-800">오늘(KST)까지 일할 누적</strong>(등록 월급÷해당 귀속 구간 일수×경과 일수 + 미정산
-                    이월)을 넣고, 정산 확정 시에는 확정 지급액을 넣습니다.
-                  </p>
                   {payrollIncomeExpenseMatrix.inoutRows.length === 0 ? (
                     <p className="text-fluid-sm text-gray-500 py-10 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
                       해당 귀속 월에 표시할 인원이 없습니다. 현장 팀원은 「월 급여 지급일」, 마케터는 급여일이 등록된 경우만 이
@@ -3093,11 +3054,6 @@ export function AdminPayrollPage() {
                           입금·지급 기준
                         </span>
                       </div>
-                      <p className="mt-1.5 text-fluid-2xs text-gray-600 leading-snug">
-                        「+」「−」로 해당 귀속 월의 현금 수입·지출을 직접 넣을 수 있습니다(명목·금액·거래일). 수기 행 삭제는 표
-                        오른쪽 「작업」열에서 하며 비밀번호 확인이 필요합니다. 「접수 매출」은 예약일·접수 총액 합계로, 실제 입금과 다를 수 있습니다.
-                        급여·경비는 정산·지급 등록이 있는 항목만 반영됩니다.
-                      </p>
                     </div>
                     <div className="px-2 sm:px-3 py-3 space-y-3">
                       {accountLedgerLoading ? (
@@ -4589,6 +4545,7 @@ export function AdminPayrollPage() {
             await deletePayrollAdminPersonalExpense(token, adminPersonalExpenseDeleteTarget.id, password);
             const list = await getPayrollAdminPersonalExpenses(token, month);
             setAdminPersonalExpenseItems(list.items);
+            await refreshAccountLedger({ silent: true });
           }}
         />,
         document.body
@@ -4611,6 +4568,7 @@ export function AdminPayrollPage() {
             await deletePayrollAdminSharedExpense(token, adminSharedExpenseDeleteTarget.id, password);
             const list = await getPayrollAdminSharedExpenses(token, month);
             setAdminSharedExpenseItems(list.items);
+            await refreshAccountLedger({ silent: true });
           }}
         />,
         document.body
@@ -4635,6 +4593,7 @@ export function AdminPayrollPage() {
             await deletePayrollIncomeDeposit(token, incomeDepositDeleteTarget.id, password);
             const list = await getPayrollIncomeDeposits(token, month);
             setIncomeDepositItems(list.items);
+            await refreshAccountLedger({ silent: true });
           }}
         />,
         document.body

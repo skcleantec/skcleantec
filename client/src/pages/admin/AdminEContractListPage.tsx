@@ -60,16 +60,6 @@ export function AdminEContractListPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-fluid-xl font-semibold text-gray-900">전자계약</h1>
-          <p className="mt-1 text-fluid-sm text-gray-600">
-            계약 종류를 등록한 뒤 상세 화면에서 버전 초안 작성·배포, 팀장 링크 발급까지 진행합니다.             팀장이 제출한 확정본은{' '}
-            <Link to="/admin/team-leaders/e-contracts/overview" className="text-blue-700 underline hover:no-underline">
-              체결 기록
-            </Link>
-            표에서 조회·상세보기·다운로드할 수 있습니다.
-          </p>
-          <p className="mt-2 text-fluid-2xs text-gray-500">
-            보관(아카이브) 처리된 계약 종류도 목록에 함께 표시됩니다. 스테이징과 운영은 DB가 서로 다를 수 있습니다.
-          </p>
         </div>
       </div>
 
@@ -138,9 +128,6 @@ export function AdminEContractListPage() {
                 <tr>
                   <td colSpan={5} className="px-2 py-8 text-center text-gray-500">
                     <div>등록된 계약서가 없습니다.</div>
-                    <p className="mx-auto mt-2 max-w-lg text-fluid-2xs text-gray-600">
-                      이전에 만든 적이 있는데 비어 보이면, 지금 접속한 사이트(스테이징·운영 등)의 DB가 같은지 확인해 주세요.
-                    </p>
                   </td>
                 </tr>
               ) : (
@@ -197,10 +184,7 @@ export function AdminEContractListPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-fluid-sm text-gray-500">
-            <div>등록된 계약서가 없습니다.</div>
-            <p className="mx-auto mt-2 max-w-lg text-fluid-2xs text-gray-600">
-              이전에 만든 적이 있는데 비어 보이면, 지금 접속한 배포 환경의 DB가 같은지 확인해 주세요.
-            </p>
+            등록된 계약서가 없습니다.
           </div>
         ) : (
           rows.map((d) => {
