@@ -17,6 +17,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         label: '타업체등록',
         title: '타업체 등록',
       },
+      {
+        to: '/admin/team-leaders/e-contracts',
+        label: '전자계약',
+        title: '전자계약',
+      },
     ],
   },
   {
