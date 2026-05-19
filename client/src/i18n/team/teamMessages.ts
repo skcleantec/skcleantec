@@ -165,9 +165,6 @@ export const teamMessages = {
   'team.alert.meetingFail': { ko: '미팅 시각 저장에 실패했습니다.'},
 
   'team.assign.title': { ko: '배정목록'},
-  'team.assign.intro': {
-    ko: '관리자가 본인에게 배정한 접수입니다. 넓은 화면에서는 표로, 모바일·태블릿(가로 1024px 미만)에서는 카드로 한 번에 요약해 봅니다. 카드를 누르면 전체 항목이 있는 상세로 열립니다. (재배정으로 본인 배정이 해제된 건은 목록에 안 나올 수 있습니다.)',
-},
   'team.assign.dateBasis': { ko: '기간 기준'},
   'team.assign.basisAssigned': { ko: '배정일(본인)'},
   'team.assign.basisCreated': { ko: '접수일'},

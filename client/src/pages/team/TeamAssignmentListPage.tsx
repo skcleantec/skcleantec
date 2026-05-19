@@ -269,9 +269,6 @@ export function TeamAssignmentListPage() {
         <h1 className="text-xl font-semibold text-gray-800">
           <TeamBiLine id="team.assign.title" koClassName="text-xl font-semibold text-gray-800" />
         </h1>
-        <div className="mt-1 text-fluid-xs text-gray-500">
-          <TeamBiLine id="team.assign.intro" koClassName="text-fluid-xs text-gray-500" />
-        </div>
       </div>
 
       {(happyStats.overdueCount > 0 || happyStats.pendingBeforeDeadlineCount > 0) && (
