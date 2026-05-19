@@ -3,9 +3,33 @@ import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
+import { getAdminAdvertisingNavItems } from '../../constants/adminAdvertisingNav';
+import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 
-/** 광고비 하위: 집계 화면·정산 설정(관리자만) */
+const ADMIN_ADVERTISING_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-advertising-side-nav-collapsed';
+
+function MobileAdvertisingSubNavTabs({ items }: { items: ReturnType<typeof getAdminAdvertisingNavItems> }) {
+  return (
+    <>
+      {items.map((item) =>
+        item.type === 'link' ? (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            title={item.title}
+            className={({ isActive }) => adminSubNavTabClassName(isActive)}
+          >
+            {item.label}
+          </NavLink>
+        ) : null
+      )}
+    </>
+  );
+}
+
+/** 광고비(/admin/advertising/*) — PC: 왼쪽 접이식 사이드 / 모바일: 가로 하위 탭 */
 export function AdminAdvertisingLayout() {
   const token = getToken();
   const location = useLocation();
@@ -80,22 +104,30 @@ export function AdminAdvertisingLayout() {
     return <Navigate to="/admin/advertising" replace />;
   }
 
+  const navItems = getAdminAdvertisingNavItems(isAdmin);
+
   return (
     <div className="min-w-0 w-full max-w-full">
-      <AdminSubNavScroll aria-label="광고비 하위 메뉴">
-        <NavLink to="/admin/advertising" end className={({ isActive }) => adminSubNavTabClassName(isActive)}>
-          광고비
-        </NavLink>
-        {isAdmin ? (
-          <NavLink
-            to="/admin/advertising/settings"
-            className={({ isActive }) => adminSubNavTabClassName(isActive)}
-          >
-            설정
-          </NavLink>
-        ) : null}
-      </AdminSubNavScroll>
-      <Outlet />
+      <div className="lg:hidden">
+        <AdminSubNavScroll aria-label="광고비 하위 메뉴">
+          <MobileAdvertisingSubNavTabs items={navItems} />
+        </AdminSubNavScroll>
+      </div>
+
+      <div className="min-w-0 lg:flex lg:items-start lg:gap-2.5 xl:gap-3 2xl:gap-4">
+        <div className="shrink-0 lg:-ml-4">
+          <AdminCollapsibleSectionSideNav
+            title="광고비"
+            items={navItems}
+            aria-label="광고비 하위 메뉴"
+            collapseStorageKey={ADMIN_ADVERTISING_SIDE_NAV_COLLAPSED_KEY}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <Outlet />
+        </div>
+      </div>
     </div>
   );
 }

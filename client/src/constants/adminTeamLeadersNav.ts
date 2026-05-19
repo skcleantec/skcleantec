@@ -1,0 +1,69 @@
+import type { AdminSideNavItem } from '../components/layout/AdminSectionSideNav';
+
+/** 관리자 전용(/admin/team-leaders/*) — PC 사이드·모바일 가로 탭 공통 정의 */
+export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
+  {
+    type: 'group',
+    label: '사용자등록',
+    children: [
+      {
+        to: '/admin/team-leaders',
+        end: true,
+        label: '팀장,마케터',
+        title: '팀장·마케터 등록',
+      },
+      {
+        to: '/admin/team-leaders/external-companies',
+        label: '타업체등록',
+        title: '타업체 등록',
+      },
+    ],
+  },
+  {
+    type: 'group',
+    label: '정산',
+    children: [
+      {
+        to: '/admin/team-leaders/external-settlement',
+        label: '타업체정산',
+        title: '타업체 정산',
+      },
+      {
+        to: '/admin/team-leaders/payroll',
+        label: '월정산표',
+      },
+    ],
+  },
+  {
+    type: 'group',
+    label: '직원관리',
+    children: [
+      {
+        to: '/admin/team-leaders/leader-stats',
+        label: '팀장',
+        title: '팀장별 실적',
+      },
+      {
+        to: '/admin/team-leaders/team-members',
+        label: '팀원',
+        title: '팀원 관리',
+      },
+      {
+        to: '/admin/team-leaders/holiday-calendar',
+        label: '휴일캘린더',
+        title: '휴일 캘린더',
+      },
+    ],
+  },
+  {
+    type: 'group',
+    label: '설정',
+    children: [
+      {
+        to: '/admin/team-leaders/page-settings',
+        label: '페이지설정',
+        title: '페이지 설정',
+      },
+    ],
+  },
+];

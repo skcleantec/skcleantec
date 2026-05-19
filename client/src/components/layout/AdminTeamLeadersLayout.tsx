@@ -3,9 +3,46 @@ import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
+import { ADMIN_TEAM_LEADERS_NAV_ITEMS } from '../../constants/adminTeamLeadersNav';
+import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 
-/** 사용자 등록(/admin/team-leaders/*) — 관리자만 */
+const ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-team-leaders-side-nav-collapsed';
+
+function MobileTeamLeadersSubNavTabs() {
+  return (
+    <>
+      {ADMIN_TEAM_LEADERS_NAV_ITEMS.flatMap((item) => {
+        if (item.type === 'link') {
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              title={item.title}
+              className={({ isActive }) => adminSubNavTabClassName(isActive)}
+            >
+              {item.label}
+            </NavLink>
+          );
+        }
+        return item.children.map((child) => (
+          <NavLink
+            key={child.to}
+            to={child.to}
+            end={child.end}
+            title={child.title ?? child.label}
+            className={({ isActive }) => adminSubNavTabClassName(isActive)}
+          >
+            {child.label}
+          </NavLink>
+        ));
+      })}
+    </>
+  );
+}
+
+/** 관리자 전용(/admin/team-leaders/*) — PC: 왼쪽 접이식 사이드 / 모바일: 가로 하위 탭 */
 export function AdminTeamLeadersLayout() {
   const token = getToken();
   const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other' | 'network_error'>('loading');
@@ -69,60 +106,26 @@ export function AdminTeamLeadersLayout() {
 
   return (
     <div className="min-w-0 w-full max-w-full">
-      <AdminSubNavScroll aria-label="사용자 등록 하위 메뉴">
-        <NavLink to="/admin/team-leaders" end className={({ isActive }) => adminSubNavTabClassName(isActive)}>
-          사용자 등록
-        </NavLink>
-        <NavLink
-          to="/admin/team-leaders/page-settings"
-          className={({ isActive }) => adminSubNavTabClassName(isActive)}
-        >
-          페이지 설정
-        </NavLink>
-        <NavLink
-          to="/admin/team-leaders/inquiry-delete"
-          className={({ isActive }) => adminSubNavTabClassName(isActive)}
-        >
-          접수건 삭제
-        </NavLink>
-        <NavLink
-          to="/admin/team-leaders/external-companies"
-          className={({ isActive }) => adminSubNavTabClassName(isActive)}
-        >
-          타업체 등록
-        </NavLink>
-        <NavLink
-          to="/admin/team-leaders/external-settlement"
-          className={({ isActive }) => adminSubNavTabClassName(isActive)}
-        >
-          타업체 정산
-        </NavLink>
-        <NavLink
-          to="/admin/team-leaders/payroll"
-          className={({ isActive }) => adminSubNavTabClassName(isActive)}
-        >
-          월정산표
-        </NavLink>
-        <NavLink
-          to="/admin/team-leaders/e-contracts"
-          className={({ isActive }) => adminSubNavTabClassName(isActive)}
-        >
-          전자계약
-        </NavLink>
-        <NavLink to="/admin/team-leaders/leader-stats" className={({ isActive }) => adminSubNavTabClassName(isActive)}>
-          팀장
-        </NavLink>
-        <NavLink to="/admin/team-leaders/team-members" className={({ isActive }) => adminSubNavTabClassName(isActive)}>
-          팀원
-        </NavLink>
-        <NavLink
-          to="/admin/team-leaders/holiday-calendar"
-          className={({ isActive }) => adminSubNavTabClassName(isActive)}
-        >
-          휴일 캘린더
-        </NavLink>
-      </AdminSubNavScroll>
-      <Outlet />
+      <div className="lg:hidden">
+        <AdminSubNavScroll aria-label="관리자 전용 하위 메뉴">
+          <MobileTeamLeadersSubNavTabs />
+        </AdminSubNavScroll>
+      </div>
+
+      <div className="min-w-0 lg:flex lg:items-start lg:gap-2.5 xl:gap-3 2xl:gap-4">
+        <div className="shrink-0 lg:-ml-4">
+          <AdminCollapsibleSectionSideNav
+            title="관리자 전용"
+            items={ADMIN_TEAM_LEADERS_NAV_ITEMS}
+            aria-label="관리자 전용 하위 메뉴"
+            collapseStorageKey={ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <Outlet />
+        </div>
+      </div>
     </div>
   );
 }
