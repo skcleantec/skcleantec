@@ -8,17 +8,13 @@ import {
 } from '../../api/team';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { shortTimeSlotLabel } from '../../constants/orderFormSchedule';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
-import {
-  DATE_RANGE_PRESET_LABELS,
-  computeDateRangeFromPreset,
-  type DateRangePresetId,
-} from '../../utils/dateRangePresets';
+import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import {
   STATUS_LABELS,
   type InquiryItem,
@@ -29,25 +25,32 @@ import {
   TeamInquiryDetailModal,
   formatTeamInquiryAreaSummary,
 } from './teamInquiryShared';
-import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
+import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import {
-  clampListPage,
   INQUIRY_LIST_DEFAULT_PAGE_SIZE,
+  parseInquiryListPageSize,
+  parseListPage,
   type InquiryListPageSize,
 } from '../../utils/listPagination';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 
-function toKstYmd(iso: string): string {
-  return new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+function kstMonthKeyNow(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
 }
 
-function preferredYmd(item: InquiryItem): string | null {
-  if (!item.preferredDate) return null;
-  const s = item.preferredDate;
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  return toKstYmd(s);
+type DatePreset = 'today' | 'all' | 'month' | 'day';
+type DateBasis = 'assignedAt' | 'createdAt' | 'preferredDate';
+
+function parseDatePreset(raw: string | null): DatePreset {
+  if (raw === 'today' || raw === 'all' || raw === 'month' || raw === 'day') return raw;
+  return 'month';
+}
+
+function parseDateBasis(raw: string | null): DateBasis {
+  if (raw === 'createdAt' || raw === 'preferredDate') return raw;
+  return 'assignedAt';
 }
 
 function myAssignment(item: InquiryItem, myId: string) {
@@ -76,43 +79,68 @@ function formatAssignedAt(iso?: string | null): string {
   });
 }
 
-type DateBasis = 'assignedAt' | 'createdAt' | 'preferredDate';
-
-function rowDateYmdForBasis(item: InquiryItem, myId: string, basis: DateBasis): string | null {
-  if (basis === 'createdAt') return toKstYmd(item.createdAt);
-  if (basis === 'preferredDate') return preferredYmd(item);
-  const mine = myAssignment(item, myId);
-  if (mine?.assignedAt) return toKstYmd(mine.assignedAt);
-  /** 배정일이 응답에 없을 때 접수일로 간주 — 이번 달 필터에서 신규 배정이 통째로 빠지는 것 방지 */
-  return toKstYmd(item.createdAt);
-}
-
-function inYmdRange(ymd: string | null, from: string, to: string): boolean {
-  if (!ymd) return false;
-  return ymd >= from && ymd <= to;
-}
-
 export function TeamAssignmentListPage() {
   const token = getTeamToken();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const previewKey = teamPreviewDepsKey(location.search);
-  const initialRange = computeDateRangeFromPreset('thisMonth')!;
-  const [from, setFrom] = useState(initialRange.from);
-  const [to, setTo] = useState(initialRange.to);
-  const [preset, setPreset] = useState<DateRangePresetId>('thisMonth');
-  const [dateBasis, setDateBasis] = useState<DateBasis>('assignedAt');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
+
+  const datePreset = parseDatePreset(searchParams.get('datePreset'));
+  const monthKey = useMemo(() => {
+    const m = searchParams.get('month');
+    if (m && /^\d{4}-\d{2}$/.test(m)) return m;
+    return kstMonthKeyNow();
+  }, [searchParams]);
+  const dayKey = useMemo(() => {
+    const d = searchParams.get('day');
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    return kstTodayYmd();
+  }, [searchParams]);
+  const dateBasis = parseDateBasis(searchParams.get('dateBasis'));
+  const statusFilter = searchParams.get('status') ?? '';
+  const appliedSearch = searchParams.get('q') ?? '';
+  const listPage = parseListPage(searchParams.get('page'));
+  const listPageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
+
+  const [searchInput, setSearchInput] = useState(appliedSearch);
   const [items, setItems] = useState<InquiryItem[]>([]);
+  const [listTotal, setListTotal] = useState(0);
   const [myId, setMyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
-  const [listPage, setListPage] = useState(1);
-  const [listPageSize, setListPageSize] = useState<InquiryListPageSize>(INQUIRY_LIST_DEFAULT_PAGE_SIZE);
+
+  const patchListParams = useCallback(
+    (patch: (next: URLSearchParams) => void) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          patch(next);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const listQueryKey = useMemo(
+    () =>
+      [
+        datePreset,
+        monthKey,
+        dayKey,
+        dateBasis,
+        statusFilter,
+        appliedSearch,
+        listPage,
+        listPageSize,
+        previewKey,
+      ].join('\0'),
+    [datePreset, monthKey, dayKey, dateBasis, statusFilter, appliedSearch, listPage, listPageSize, previewKey],
+  );
 
   const loadList = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -122,13 +150,24 @@ export function TeamAssignmentListPage() {
         setLoadError(null);
       }
       try {
+        const offset = (listPage - 1) * listPageSize;
         const [me, inv, hc] = await Promise.all([
           getTeamMe(token) as Promise<{ id: string }>,
-          getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
+          getTeamInquiries(token, {
+            datePreset,
+            month: datePreset === 'month' ? monthKey : undefined,
+            day: datePreset === 'day' ? dayKey : undefined,
+            dateBasis,
+            status: statusFilter || undefined,
+            q: appliedSearch.trim() || undefined,
+            limit: listPageSize,
+            offset,
+          }) as Promise<{ items: InquiryItem[]; total: number }>,
           getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
         ]);
         setMyId(me.id);
         setItems(inv.items);
+        setListTotal(typeof inv.total === 'number' ? inv.total : inv.items.length);
         setHappyStats(hc);
         if (!opts?.silent) setLoadError(null);
       } catch (e) {
@@ -138,18 +177,35 @@ export function TeamAssignmentListPage() {
           return;
         }
         setItems([]);
+        setListTotal(0);
         setMyId(null);
         setLoadError(e instanceof Error ? e.message : teamBiPlain('team.assign.loadFail'));
       } finally {
         if (!opts?.silent) setLoading(false);
       }
     },
-    [token, navigate, previewKey]
+    [
+      token,
+      navigate,
+      listQueryKey,
+      datePreset,
+      monthKey,
+      dayKey,
+      dateBasis,
+      statusFilter,
+      appliedSearch,
+      listPage,
+      listPageSize,
+    ],
   );
 
   useEffect(() => {
     void loadList();
   }, [loadList]);
+
+  useEffect(() => {
+    setSearchInput(appliedSearch);
+  }, [appliedSearch]);
 
   const silentRefresh = useCallback(() => {
     void loadList({ silent: true });
@@ -158,59 +214,46 @@ export function TeamAssignmentListPage() {
   const { connected: assignmentWsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !assignmentWsConnected ? 20000 : 0);
 
-  const applyPreset = (id: DateRangePresetId) => {
-    setPreset(id);
-    if (id === 'custom') return;
-    const r = computeDateRangeFromPreset(id);
-    if (r) {
-      setFrom(r.from);
-      setTo(r.to);
-    }
+  const applyDatePreset = (preset: DatePreset) => {
+    patchListParams((next) => {
+      next.set('datePreset', preset);
+      if (preset === 'month') {
+        next.set('month', monthKey);
+        next.delete('day');
+      } else if (preset === 'day') {
+        next.set('day', dayKey);
+        next.delete('month');
+      } else {
+        next.delete('month');
+        next.delete('day');
+      }
+      next.delete('page');
+    });
   };
 
-  const filteredSorted = useMemo(() => {
-    if (!myId) return [];
-    const lo = from <= to ? from : to;
-    const hi = from <= to ? to : from;
-    const q = appliedSearch.trim().toLowerCase();
-    const rows = items.filter((item) => {
-      if (statusFilter && item.status !== statusFilter) return false;
-      const rowYmd = rowDateYmdForBasis(item, myId, dateBasis);
-      if (!inYmdRange(rowYmd, lo, hi)) return false;
-      if (!q) return true;
-      const num = item.inquiryNumber?.toLowerCase() ?? '';
-      const memo = (item.scheduleMemo ?? '').toLowerCase();
-      return (
-        item.customerName.toLowerCase().includes(q) ||
-        item.customerPhone.toLowerCase().includes(q) ||
-        memo.includes(q) ||
-        `${item.address} ${item.addressDetail ?? ''}`.toLowerCase().includes(q) ||
-        (num && num.includes(q))
-      );
+  const handleListPageChange = (page: number) => {
+    patchListParams((next) => {
+      if (page <= 1) next.delete('page');
+      else next.set('page', String(page));
     });
-    rows.sort((a, b) => {
-      const ta = myAssignment(a, myId)?.assignedAt ?? '';
-      const tb = myAssignment(b, myId)?.assignedAt ?? '';
-      return tb.localeCompare(ta);
+  };
+
+  const handleListPageSizeChange = (size: InquiryListPageSize) => {
+    patchListParams((next) => {
+      if (size === INQUIRY_LIST_DEFAULT_PAGE_SIZE) next.delete('pageSize');
+      else next.set('pageSize', String(size));
+      next.delete('page');
     });
-    return rows;
-  }, [items, myId, from, to, dateBasis, statusFilter, appliedSearch]);
+  };
 
-  useEffect(() => {
-    setListPage(1);
-  }, [from, to, dateBasis, statusFilter, appliedSearch, preset]);
+  const paginatedRows = items;
 
-  useEffect(() => {
-    setListPage((p) => clampListPage(p, filteredSorted.length, listPageSize));
-  }, [filteredSorted.length, listPageSize]);
-
-  const paginatedRows = useMemo(() => {
-    const start = (listPage - 1) * listPageSize;
-    return filteredSorted.slice(start, start + listPageSize);
-  }, [filteredSorted, listPage, listPageSize]);
-
-  const rangeLabelLo = from <= to ? from : to;
-  const rangeLabelHi = from <= to ? to : from;
+  const filterSelectCls =
+    'rounded border border-gray-300 bg-white px-1.5 py-0.5 text-fluid-2xs shrink-0 min-h-0';
+  const filterBtnCls = (active: boolean, bordered?: boolean) =>
+    `px-2 py-0.5 text-fluid-2xs font-medium touch-manipulation min-h-0 ${bordered ? 'border-l border-gray-300' : ''} ${
+      active ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+    }`;
 
   if (loading) {
     return (
@@ -259,59 +302,99 @@ export function TeamAssignmentListPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-          <label className="flex flex-col gap-1 text-fluid-xs text-gray-600 min-w-0 sm:min-w-[9rem]">
-            <TeamBiInline id="team.assign.dateBasis" />
-            <select
-              value={dateBasis}
-              onChange={(e) => setDateBasis(e.target.value as DateBasis)}
-              className="rounded border border-gray-300 px-2 py-2 text-fluid-sm bg-white"
-            >
-              <option value="assignedAt">{teamBiPlain('team.assign.basisAssigned')}</option>
-              <option value="createdAt">{teamBiPlain('team.assign.basisCreated')}</option>
-              <option value="preferredDate">{teamBiPlain('team.assign.basisPreferred')}</option>
-            </select>
-          </label>
-          <div className="flex flex-wrap gap-1">
-            {DATE_RANGE_PRESET_LABELS.map(({ id, label }) => (
+      <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-2 sm:p-3 min-w-0">
+        <div className="flex w-full flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+          <select
+            value={dateBasis}
+            onChange={(e) => {
+              const v = e.target.value as DateBasis;
+              patchListParams((next) => {
+                next.set('dateBasis', v);
+                next.delete('page');
+              });
+            }}
+            className={filterSelectCls}
+            aria-label={teamBiPlain('team.assign.dateBasis')}
+          >
+            <option value="assignedAt">{teamBiPlain('team.assign.basisAssigned')}</option>
+            <option value="createdAt">{teamBiPlain('team.assign.basisCreated')}</option>
+            <option value="preferredDate">{teamBiPlain('team.assign.basisPreferred')}</option>
+          </select>
+          <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-2xs shrink-0">
+            {(
+              [
+                ['today', '당일'],
+                ['all', '전체'],
+                ['month', '월별'],
+                ['day', '날짜'],
+              ] as const
+            ).map(([id, label], i) => (
               <button
                 key={id}
                 type="button"
-                onClick={() => applyPreset(id)}
-                className={`rounded px-2.5 py-1.5 text-fluid-xs font-medium border touch-manipulation ${
-                  preset === id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300'
-                }`}
+                onClick={() => applyDatePreset(id)}
+                className={filterBtnCls(datePreset === id, i > 0)}
               >
                 {label}
               </button>
             ))}
           </div>
-        </div>
-        {preset === 'custom' && (
-          <div className="flex flex-wrap items-center gap-2 text-fluid-sm">
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="rounded border border-gray-300 px-2 py-1.5"
+          {datePreset === 'month' ? (
+            <YearMonthSelect
+              compact
+              value={monthKey}
+              onChange={(v) => {
+                patchListParams((next) => {
+                  next.set('datePreset', 'month');
+                  next.set('month', v);
+                  next.delete('day');
+                  next.delete('page');
+                });
+              }}
+              idPrefix="team-assign-month"
             />
-            <span className="text-gray-500">~</span>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="rounded border border-gray-300 px-2 py-1.5"
+          ) : null}
+          {datePreset === 'day' ? (
+            <YmdSelect
+              compact
+              value={dayKey}
+              onChange={(v) => {
+                patchListParams((next) => {
+                  next.set('datePreset', 'day');
+                  next.set('day', v);
+                  next.delete('month');
+                  next.delete('page');
+                });
+              }}
+              idPrefix="team-assign-day"
+            />
+          ) : null}
+          <div className="lg:ml-auto flex min-w-0 flex-wrap items-center justify-end">
+            <ListPaginationBar
+              compact
+              mode="summary"
+              page={listPage}
+              pageSize={listPageSize}
+              total={listTotal}
+              onPageChange={handleListPageChange}
+              onPageSizeChange={handleListPageSizeChange}
             />
           </div>
-        )}
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-          <label className="flex flex-col gap-1 text-fluid-xs text-gray-600 min-w-0 sm:w-40">
+        </div>
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="flex flex-col gap-0.5 text-fluid-2xs text-gray-600 min-w-0 sm:w-36">
             <TeamBiInline id="team.assign.status" />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded border border-gray-300 px-2 py-2 text-fluid-sm bg-white"
+              onChange={(e) => {
+                const v = e.target.value;
+                patchListParams((next) => {
+                  if (v) next.set('status', v);
+                  else next.delete('status');
+                  next.delete('page');
+                });
+              }}
+              className={filterSelectCls}
             >
               <option value="">{teamBiPlain('team.common.all')}</option>
               {Object.entries(STATUS_LABELS).map(([k, v]) => (
@@ -321,23 +404,37 @@ export function TeamAssignmentListPage() {
               ))}
             </select>
           </label>
-          <div className="flex flex-1 min-w-0 flex-col gap-1 sm:max-w-md">
-            <TeamBiLine id="team.assign.searchHint" koClassName="text-fluid-xs text-gray-600" />
-            <div className="flex gap-2">
+          <div className="flex flex-1 min-w-0 flex-col gap-0.5 sm:max-w-md">
+            <TeamBiLine id="team.assign.searchHint" koClassName="text-fluid-2xs text-gray-600" />
+            <div className="flex gap-1.5">
               <input
                 type="search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') setAppliedSearch(searchInput);
+                  if (e.key === 'Enter') {
+                    patchListParams((next) => {
+                      const q = searchInput.trim();
+                      if (q) next.set('q', q);
+                      else next.delete('q');
+                      next.delete('page');
+                    });
+                  }
                 }}
-                className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-2 text-fluid-sm"
+                className={`min-w-0 flex-1 ${filterSelectCls}`}
                 placeholder={teamBiPlain('team.assign.searchPlaceholder')}
               />
               <button
                 type="button"
-                onClick={() => setAppliedSearch(searchInput)}
-                className="shrink-0 rounded bg-gray-800 px-3 py-2 text-fluid-sm font-medium text-white"
+                onClick={() => {
+                  patchListParams((next) => {
+                    const q = searchInput.trim();
+                    if (q) next.set('q', q);
+                    else next.delete('q');
+                    next.delete('page');
+                  });
+                }}
+                className="shrink-0 rounded bg-gray-800 px-2 py-0.5 text-fluid-2xs font-medium text-white touch-manipulation min-h-0"
               >
                 <TeamBiInline id="team.assign.searchBtn" />
               </button>
@@ -351,23 +448,21 @@ export function TeamAssignmentListPage() {
       )}
 
       <div className="bg-white border border-gray-200 rounded-lg">
-        {filteredSorted.length === 0 ? (
+        {listTotal === 0 ? (
           <div className="p-8 text-center text-fluid-sm text-gray-500">
             <TeamBiLine id="team.assign.empty" koClassName="text-fluid-sm text-gray-500" />
           </div>
         ) : (
           <>
-            <p className="px-4 pt-3 text-fluid-xs text-gray-500 lg:hidden">
-              <TeamBiLine id="team.assign.mobileHint" koClassName="text-fluid-xs text-gray-500" />
-            </p>
-            <p className="hidden px-4 pt-3 text-fluid-xs text-gray-500 lg:block sm:px-0">
+<p className="hidden px-4 pt-3 text-fluid-xs text-gray-500 lg:block sm:px-0">
               <TeamBiLine id="team.assign.desktopHint" koClassName="text-fluid-xs text-gray-500" />
             </p>
 
             <div className="flex flex-col gap-3 p-3 lg:hidden">
               {paginatedRows.map((item) => {
                 const mine = myAssignment(item, myId!);
-                const addr = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
+                const addrFull = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
+                const addr = addressListShortSiGu(item.address);
                 const mk = marketerInfo(item);
                 const primaryLabel = inquiryPrimaryCustomerLabel(item);
                 const memoTrim = item.scheduleMemo?.trim() ?? '';
@@ -436,7 +531,7 @@ export function TeamAssignmentListPage() {
                             </a>
                           ) : null}
                         </div>
-                        <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={addr}>
+                        <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={addrFull}>
                           {addr}
                         </p>
                       </div>
@@ -459,7 +554,7 @@ export function TeamAssignmentListPage() {
                       <span className="inline-flex rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
                         {STATUS_LABELS[item.status] ?? item.status}
                       </span>
-                      <TeamHappyCallBadge item={item} />
+                      <TeamHappyCallBadge item={item} variant="list" />
                     </div>
                     <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatCrewInfo(item)}>
                       {formatCrewInfo(item)}
@@ -471,7 +566,22 @@ export function TeamAssignmentListPage() {
 
             <div className="hidden lg:block">
             <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-              <table className="w-full text-fluid-sm border-collapse min-w-[920px]">
+              <table className="w-full table-fixed text-fluid-sm border-collapse min-w-[960px]">
+                <colgroup>
+                  <col className="w-[8.5rem]" />
+                  <col className="w-[5.5rem]" />
+                  <col className="w-[6.5rem]" />
+                  <col className="w-[7rem]" />
+                  <col className="w-[6.5rem]" />
+                  <col className="w-[9rem]" />
+                  <col className="w-[4.5rem]" />
+                  <col className="w-[5.5rem]" />
+                  <col className="w-[5rem]" />
+                  <col className="w-[4.5rem]" />
+                  <col className="w-[4.5rem]" />
+                  <col className="w-[4.5rem]" />
+                  <col className="w-[6rem]" />
+                </colgroup>
                 <thead>
                   <tr className="bg-gray-100 border-b border-gray-200">
                     <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-gray-100 z-10 border-r border-gray-200">
@@ -530,7 +640,7 @@ export function TeamAssignmentListPage() {
                         onClick={() => setDetailItem(item)}
                       >
                         <td
-                          className={`align-middle py-2 px-2 text-gray-700 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-gray-100 group-hover:bg-gray-50 ${pBorder}`}
+                          className={`align-middle py-2 px-2 text-center text-gray-700 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-gray-100 group-hover:bg-gray-50 ${pBorder}`}
                         >
                           <span className="text-fluid-xs tabular-nums">{formatAssignedAt(mine?.assignedAt)}</span>
                         </td>
@@ -602,10 +712,9 @@ export function TeamAssignmentListPage() {
                         </td>
                         <td
                           className={`align-middle py-2 px-2 text-gray-600 text-center max-w-[140px] truncate ${pBorder}`}
-                          title={`${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`}
+                          title={`${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim()}
                         >
-                          {item.address}
-                          {item.addressDetail ? ` ${item.addressDetail}` : ''}
+                          {addressListShortSiGu(item.address)}
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
                           {formatTeamInquiryAreaSummary(item)}
@@ -630,7 +739,7 @@ export function TeamAssignmentListPage() {
                           </span>
                         </td>
                         <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>
-                          <TeamHappyCallBadge item={item} />
+                          <TeamHappyCallBadge item={item} variant="list" />
                         </td>
                         <td
                           className={`align-middle py-2 px-2 text-gray-600 text-center max-w-[120px] truncate ${pBorder}`}
@@ -645,29 +754,13 @@ export function TeamAssignmentListPage() {
               </table>
             </SyncHorizontalScroll>
             </div>
-            <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-fluid-xs text-gray-600 sm:px-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
-              <TeamBiLine
-                id="team.assign.footerRange"
-                vars={{ from: rangeLabelLo, to: rangeLabelHi }}
-                koClassName="text-fluid-xs text-gray-600"
-              />
-              {dateBasis === 'assignedAt' ? (
-                <TeamBiInline id="team.assign.basisAssigned" />
-              ) : dateBasis === 'createdAt' ? (
-                <TeamBiInline id="team.assign.basisCreated" />
-              ) : (
-                <TeamBiInline id="team.assign.basisPreferred" />
-              )}
-            </div>
             <ListPaginationBar
+              mode="nav"
               page={listPage}
               pageSize={listPageSize}
-              total={filteredSorted.length}
-              onPageChange={setListPage}
-              onPageSizeChange={(size) => {
-                setListPageSize(size);
-                setListPage(1);
-              }}
+              total={listTotal}
+              onPageChange={handleListPageChange}
+              onPageSizeChange={handleListPageSizeChange}
             />
           </>
         )}

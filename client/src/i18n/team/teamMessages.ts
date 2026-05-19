@@ -203,6 +203,8 @@ export const teamMessages = {
   'team.assign.thTimeSlot': { ko: '시간대'},
   'team.assign.thStatus': { ko: '상태'},
   'team.assign.thHappy': { ko: '해피콜'},
+  'team.assign.happyComplete': { ko: '완료'},
+  'team.assign.happyIncomplete': { ko: '미완료'},
   'team.assign.thCoLeaders': { ko: '공동 배정'},
   'team.assign.csDotAria': { ko: 'C/S 표시'},
 
@@ -333,6 +335,7 @@ export const teamMessages = {
 
   'team.settlement.dateFrom': { ko: '시작일'},
   'team.settlement.dateTo': { ko: '종료일'},
+  'team.settlement.dateBasisPreferred': { ko: '예약일'},
   'team.settlement.sectionPeriodBasis': { ko: '조회 기간 기준 (위 달력)'},
   'team.settlement.cardCompany': { ko: '업체'},
   'team.settlement.cardPeriodTotalFee': { ko: '기간 총 수수료'},

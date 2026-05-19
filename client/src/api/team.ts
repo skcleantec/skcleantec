@@ -10,10 +10,35 @@ function headers(token: string) {
   };
 }
 
-export async function getTeamInquiries(token: string) {
-  const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries`), { headers: headers(token) });
+export type TeamInquiriesListParams = {
+  datePreset?: 'today' | 'all' | 'month' | 'day';
+  month?: string;
+  day?: string;
+  dateBasis?: 'assignedAt' | 'createdAt' | 'preferredDate';
+  status?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export async function getTeamInquiries(token: string, params?: TeamInquiriesListParams) {
+  const qs = new URLSearchParams();
+  if (params) {
+    if (params.datePreset) qs.set('datePreset', params.datePreset);
+    if (params.month) qs.set('month', params.month);
+    if (params.day) qs.set('day', params.day);
+    if (params.dateBasis) qs.set('dateBasis', params.dateBasis);
+    if (params.status) qs.set('status', params.status);
+    if (params.q) qs.set('q', params.q);
+    if (params.limit != null) qs.set('limit', String(params.limit));
+    if (params.offset != null) qs.set('offset', String(params.offset));
+  }
+  const q = qs.toString();
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries${q ? `?${q}` : ''}`), {
+    headers: headers(token),
+  });
   if (!res.ok) throw new Error('담당 건을 불러올 수 없습니다.');
-  return res.json();
+  return res.json() as Promise<{ items: unknown[]; total?: number }>;
 }
 
 export interface TeamViewerMe {
@@ -67,6 +92,18 @@ export interface TeamExternalSettlementItem {
   assignedExternalLabel: string | null;
 }
 
+export type TeamExternalSettlementListParams = {
+  datePreset?: 'today' | 'all' | 'month' | 'day';
+  month?: string;
+  day?: string;
+  limit?: number;
+  offset?: number;
+  payLimit?: number;
+  payOffset?: number;
+  externalCompanyId?: string;
+  externalCompanyName?: string;
+};
+
 export interface TeamExternalSettlementResponse {
   month: string;
   from: string;
@@ -77,6 +114,10 @@ export interface TeamExternalSettlementResponse {
   cancelledInquiryCount: number;
   totalCount: number;
   totalFee: number;
+  periodPositiveFee: number;
+  periodNegativeFee: number;
+  itemsTotal: number;
+  paymentsTotal: number;
   carryOverAmount: number;
   payableAmount: number;
   periodPaidAmount: number;
@@ -106,9 +147,16 @@ export interface TeamExternalSettlementResponse {
 
 export async function getTeamExternalSettlement(
   token: string,
-  params: { from: string; to: string; externalCompanyId?: string; externalCompanyName?: string }
+  params: TeamExternalSettlementListParams
 ): Promise<TeamExternalSettlementResponse> {
-  const q = new URLSearchParams({ from: params.from, to: params.to });
+  const q = new URLSearchParams();
+  if (params.datePreset) q.set('datePreset', params.datePreset);
+  if (params.month) q.set('month', params.month);
+  if (params.day) q.set('day', params.day);
+  if (params.limit != null) q.set('limit', String(params.limit));
+  if (params.offset != null) q.set('offset', String(params.offset));
+  if (params.payLimit != null) q.set('payLimit', String(params.payLimit));
+  if (params.payOffset != null) q.set('payOffset', String(params.payOffset));
   if (params.externalCompanyId) q.set('externalCompanyId', params.externalCompanyId);
   if (params.externalCompanyName) q.set('externalCompanyName', params.externalCompanyName);
   const res = await fetch(withTeamPreviewQuery(`${API}/team/external-settlement?${q}`), {

@@ -16,11 +16,19 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 import {
+  parseSettlementListPaging,
+  settlementPreferredRangeFromQuery,
+} from './teamExternalSettlementRange.js';
+import {
   parseCrewMeetingTimeBody,
   validateCrewMeetingTimeForInquiry,
 } from '../inquiries/crewMeetingTime.helpers.js';
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { countPendingIssuancesForTeamLeader, listIssuancesByTeamLeader } from '../e-contract/eContract.service.js';
+import {
+  listTeamAssignmentsPaginated,
+  parseTeamAssignmentListQuery,
+} from './teamAssignmentList.js';
 
 const router = Router();
 
@@ -609,17 +617,32 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
 
 router.get('/inquiries', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
-  const rows = await prisma.inquiry.findMany({
-    where: {
-      assignments: {
-        some: { teamLeaderId: userId },
+  const hasPaging = typeof req.query.limit === 'string';
+  if (!hasPaging) {
+    const rows = await prisma.inquiry.findMany({
+      where: {
+        assignments: {
+          some: { teamLeaderId: userId },
+        },
       },
-    },
-    orderBy: { preferredDate: 'asc' },
-    include: teamInquiryInclude,
-  });
-  const items = await attachCrewMembers(rows);
-  res.json({ items });
+      orderBy: { preferredDate: 'asc' },
+      include: teamInquiryInclude,
+    });
+    const items = await attachCrewMembers(rows);
+    res.json({ items });
+    return;
+  }
+  try {
+    const parsed = parseTeamAssignmentListQuery(req.query as Record<string, unknown>);
+    const { items, total } = await listTeamAssignmentsPaginated(prisma, userId, parsed, {
+      teamInquiryInclude,
+      attachCrewMembers,
+    });
+    res.json({ items, total });
+  } catch (e) {
+    console.error('[GET /team/inquiries]', e);
+    res.status(500).json({ error: '배정 목록을 불러오지 못했습니다.' });
+  }
 });
 
 router.get('/schedule', async (req, res) => {
@@ -721,23 +744,15 @@ router.get('/external-settlement', async (req, res) => {
     return;
   }
 
-  const fromRaw = typeof req.query.from === 'string' ? req.query.from.trim() : '';
-  const toRaw = typeof req.query.to === 'string' ? req.query.to.trim() : '';
-  const now = new Date();
-  const fallbackMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const fallbackFromYmd = `${fallbackMonth}-01`;
-  const fromYmd = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : fallbackFromYmd;
-  const toYmd = /^\d{4}-\d{2}-\d{2}$/.test(toRaw)
-    ? toRaw
-    : (() => {
-        const tmp = new Date(`${fallbackFromYmd}T00:00:00+09:00`);
-        const last = new Date(tmp.getFullYear(), tmp.getMonth() + 1, 0);
-        return `${fallbackMonth}-${String(last.getDate()).padStart(2, '0')}`;
-      })();
-  const loYmd = fromYmd <= toYmd ? fromYmd : toYmd;
-  const hiYmd = fromYmd <= toYmd ? toYmd : fromYmd;
-  const from = new Date(`${loYmd}T00:00:00+09:00`);
-  const to = new Date(`${hiYmd}T23:59:59.999+09:00`);
+  const q = req.query as Record<string, unknown>;
+  const { from, to, loYmd, hiYmd } = settlementPreferredRangeFromQuery({
+    datePreset: typeof q.datePreset === 'string' ? q.datePreset : undefined,
+    month: typeof q.month === 'string' ? q.month : undefined,
+    day: typeof q.day === 'string' ? q.day : undefined,
+    from: typeof q.from === 'string' ? q.from : undefined,
+    to: typeof q.to === 'string' ? q.to : undefined,
+  });
+  const { itemsLimit, itemsOffset, payLimit, payOffset } = parseSettlementListPaging(q);
 
   const activeRows = await prisma.inquiry.findMany({
     where: {
@@ -839,6 +854,8 @@ router.get('/external-settlement', async (req, res) => {
   let inquiryCount = 0;
   let cancelledInquiryCount = 0;
   let totalFee = 0;
+  let periodPositiveFee = 0;
+  let periodNegativeFee = 0;
 
   for (const row of activeRows) {
     const fee = row.externalTransferFee ?? 0;
@@ -860,6 +877,7 @@ router.get('/external-settlement', async (req, res) => {
     });
     inquiryCount += 1;
     totalFee += fee;
+    periodPositiveFee += fee;
   }
 
   for (const row of cancelledRows) {
@@ -883,6 +901,7 @@ router.get('/external-settlement', async (req, res) => {
     });
     cancelledInquiryCount += 1;
     totalFee += sign * fee;
+    periodNegativeFee += fee;
   }
 
   items.sort((a, b) => {
@@ -1125,6 +1144,18 @@ router.get('/external-settlement', async (req, res) => {
     outstandingAfterByPaymentId.set(p.id, cumulativeNetSigned - paidRunning);
   }
 
+  const paymentsFull = paymentRows.map((r) => ({
+    id: r.id,
+    amount: r.amount,
+    paidAt: r.paidAt.toISOString(),
+    memo: r.memo ?? null,
+    actorName: r.actor?.name ?? null,
+    actorRole: r.actor?.role ?? null,
+    outstandingAfterCumulative: outstandingAfterByPaymentId.get(r.id) ?? 0,
+  }));
+  const itemsTotal = items.length;
+  const paymentsTotal = paymentsFull.length;
+
   res.json({
     month: loYmd.slice(0, 7),
     from: loYmd,
@@ -1135,6 +1166,8 @@ router.get('/external-settlement', async (req, res) => {
     cancelledInquiryCount,
     totalCount: inquiryCount + cancelledInquiryCount,
     totalFee,
+    periodPositiveFee,
+    periodNegativeFee,
     carryOverAmount,
     payableAmount,
     periodPaidAmount,
@@ -1148,16 +1181,10 @@ router.get('/external-settlement', async (req, res) => {
     yearPeriodPaidAmount,
     yearRemainingAmount,
     lastSettlementPayment,
-    payments: paymentRows.map((r) => ({
-      id: r.id,
-      amount: r.amount,
-      paidAt: r.paidAt.toISOString(),
-      memo: r.memo ?? null,
-      actorName: r.actor?.name ?? null,
-      actorRole: r.actor?.role ?? null,
-      outstandingAfterCumulative: outstandingAfterByPaymentId.get(r.id) ?? 0,
-    })),
-    items,
+    itemsTotal,
+    paymentsTotal,
+    payments: paymentsFull.slice(payOffset, payOffset + payLimit),
+    items: items.slice(itemsOffset, itemsOffset + itemsLimit),
   });
 });
 

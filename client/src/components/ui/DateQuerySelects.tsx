@@ -45,6 +45,8 @@ export type YearMonthSelectProps = {
   maxYear?: number;
   idPrefix?: string;
   disabled?: boolean;
+  /** 목록 필터 등 좁은 툴바용 */
+  compact?: boolean;
 };
 
 /** 값 `YYYY-MM` — 연도 숫자 + `N월` 셀렉트 */
@@ -56,6 +58,7 @@ export function YearMonthSelect({
   maxYear = 2040,
   idPrefix = 'ym',
   disabled = false,
+  compact = false,
 }: YearMonthSelectProps) {
   const p = parseYm(value);
   const t = new Date();
@@ -64,12 +67,17 @@ export function YearMonthSelect({
   const y = p?.y ?? fy;
   const m = p?.m ?? fm;
   const years = yearRange(minYear, maxYear);
+  const selectCls = compact
+    ? 'border border-gray-300 rounded px-1 py-0.5 text-fluid-2xs tabular-nums min-w-0 bg-white'
+    : 'border border-gray-300 rounded px-2 py-1.5 text-fluid-sm tabular-nums';
+  const unitCls = compact ? 'text-fluid-2xs text-gray-600' : 'text-fluid-sm text-gray-600';
+  const wrapGap = compact ? 'gap-0.5' : 'gap-1';
 
   return (
-    <div className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
+    <div className={`inline-flex flex-wrap items-center ${wrapGap} ${className}`}>
       <select
         id={`${idPrefix}-y`}
-        className="border border-gray-300 rounded px-2 py-1.5 text-fluid-sm tabular-nums"
+        className={selectCls}
         value={y}
         disabled={disabled}
         onChange={(e) => {
@@ -84,10 +92,10 @@ export function YearMonthSelect({
           </option>
         ))}
       </select>
-      <span className="text-fluid-sm text-gray-600">년</span>
+      <span className={unitCls}>년</span>
       <select
         id={`${idPrefix}-m`}
-        className="border border-gray-300 rounded px-2 py-1.5 text-fluid-sm"
+        className={selectCls}
         value={m}
         disabled={disabled}
         onChange={(e) => {
@@ -128,6 +136,7 @@ export type YmdSelectProps = {
    * 발주서의 「청소 날짜」처럼 과거 지정이 의미 없는 필드에 사용.
    */
   minYmd?: string;
+  compact?: boolean;
 };
 
 type DraftYmd = { y: number | null; m: number | null; d: number | null };
@@ -145,6 +154,7 @@ export function YmdSelect({
   allowEmpty = false,
   emitOnCompleteOnly = false,
   minYmd,
+  compact = false,
 }: YmdSelectProps) {
   const dis = disabled || readOnly;
   const deferred = Boolean(allowEmpty && emitOnCompleteOnly);
@@ -228,11 +238,17 @@ export function YmdSelect({
     onChange(`${safe.y}-${pad2(safe.m)}-${pad2(clampDay(safe.y, safe.m, safe.d))}`);
   };
 
+  const selectCls = compact
+    ? 'border border-gray-300 rounded px-1 py-0.5 text-fluid-2xs tabular-nums min-w-0 bg-white'
+    : 'border border-gray-300 rounded px-2 py-1.5 text-fluid-sm tabular-nums min-w-0';
+  const unitCls = compact ? 'text-fluid-2xs text-gray-600' : 'text-fluid-sm text-gray-600';
+  const wrapGap = compact ? 'gap-0.5' : 'gap-1';
+
   return (
-    <div className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
+    <div className={`inline-flex flex-wrap items-center ${wrapGap} ${className}`}>
       <select
         id={`${idPrefix}-y`}
-        className="border border-gray-300 rounded px-2 py-1.5 text-fluid-sm tabular-nums min-w-0"
+        className={selectCls}
         value={y ?? ''}
         disabled={dis}
         onChange={(e) => {
@@ -262,10 +278,10 @@ export function YmdSelect({
           </option>
         ))}
       </select>
-      <span className="text-fluid-sm text-gray-600">년</span>
+      <span className={unitCls}>년</span>
       <select
         id={`${idPrefix}-m`}
-        className="border border-gray-300 rounded px-2 py-1.5 text-fluid-sm min-w-0"
+        className={selectCls}
         value={y == null ? '' : deferred ? (m ?? '') : (m ?? 1)}
         disabled={dis || y == null}
         onChange={(e) => {
@@ -290,10 +306,10 @@ export function YmdSelect({
           </option>
         ))}
       </select>
-      <span className="text-fluid-sm text-gray-600">월</span>
+      <span className={unitCls}>월</span>
       <select
         id={`${idPrefix}-d`}
-        className="border border-gray-300 rounded px-2 py-1.5 text-fluid-sm tabular-nums min-w-0"
+        className={selectCls}
         value={y == null || m == null ? '' : deferred ? (d ?? '') : (d ?? 1)}
         disabled={dis || y == null || m == null}
         onChange={(e) => {
@@ -323,7 +339,7 @@ export function YmdSelect({
           </>
         )}
       </select>
-      <span className="text-fluid-sm text-gray-600">일</span>
+      <span className={unitCls}>일</span>
     </div>
   );
 }

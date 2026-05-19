@@ -1,10 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  DATE_RANGE_PRESET_LABELS,
-  computeDateRangeFromPreset,
-  type DateRangePresetId,
-} from '../../utils/dateRangePresets';
-import type { TeamMessageId } from '../../i18n/team/teamMessages';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import {
   getTeamExternalSettlement,
@@ -12,20 +6,31 @@ import {
   type TeamExternalSettlementResponse,
 } from '../../api/team';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
+import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
+import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import {
+  INQUIRY_LIST_DEFAULT_PAGE_SIZE,
+  parseInquiryListPageSize,
+  parseListPage,
+  type InquiryListPageSize,
+} from '../../utils/listPagination';
+import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { TeamBiInline, TeamBiLine, teamBiPlain, teamInquiryStatus } from '../../i18n/team/teamI18n';
 
-const TEAM_DATE_PRESET_MSG: Record<DateRangePresetId, TeamMessageId> = {
-  custom: 'team.datePreset.custom',
-  today: 'team.datePreset.today',
-  thisMonth: 'team.datePreset.thisMonth',
-  lastMonth: 'team.datePreset.lastMonth',
-  thisYear: 'team.datePreset.thisYear',
-  lastYear: 'team.datePreset.lastYear',
-};
+function kstMonthKeyNow(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+}
+
+type DatePreset = 'today' | 'all' | 'month' | 'day';
+
+function parseDatePreset(raw: string | null): DatePreset {
+  if (raw === 'today' || raw === 'all' || raw === 'month' || raw === 'day') return raw;
+  return 'month';
+}
 
 function SettlementRowStatus({ code, cancelled }: { code: string; cancelled: boolean }) {
   if (cancelled) {
@@ -49,17 +54,32 @@ export function TeamExternalSettlementPage() {
   const token = getTeamToken();
   const navigate = useNavigate();
   const location = useLocation();
-  const initialRange = computeDateRangeFromPreset('thisMonth')!;
-  const [from, setFrom] = useState(initialRange.from);
-  const [to, setTo] = useState(initialRange.to);
-  const [preset, setPreset] = useState<DateRangePresetId>('thisMonth');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const previewKey = teamPreviewDepsKey(location.search);
+
+  const datePreset = parseDatePreset(searchParams.get('datePreset'));
+  const monthKey = useMemo(() => {
+    const m = searchParams.get('month');
+    if (m && /^\d{4}-\d{2}$/.test(m)) return m;
+    return kstMonthKeyNow();
+  }, [searchParams]);
+  const dayKey = useMemo(() => {
+    const d = searchParams.get('day');
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    return kstTodayYmd();
+  }, [searchParams]);
+  const activeTab: SettlementTab = searchParams.get('tab') === 'history' ? 'history' : 'summary';
+  const itemsPage = parseListPage(searchParams.get('page'));
+  const payPage = parseListPage(searchParams.get('payPage'));
+  const listPage = activeTab === 'history' ? payPage : itemsPage;
+  const listPageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TeamExternalSettlementResponse | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [previewCompanyId, setPreviewCompanyId] = useState('');
   const [previewCompanyName, setPreviewCompanyName] = useState('');
-  const [activeTab, setActiveTab] = useState<SettlementTab>('summary');
 
   useEffect(() => {
     const q = new URLSearchParams(location.search);
@@ -67,6 +87,52 @@ export function TeamExternalSettlementPage() {
     setPreviewCompanyId(q.get('externalCompanyId') ?? '');
     setPreviewCompanyName((q.get('previewExternalName') ?? '').trim());
   }, [location.search]);
+
+  const patchListParams = useCallback(
+    (patch: (next: URLSearchParams) => void) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          patch(next);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const listQueryKey = useMemo(
+    () =>
+      [
+        datePreset,
+        monthKey,
+        dayKey,
+        activeTab,
+        itemsPage,
+        payPage,
+        listPageSize,
+        previewKey,
+        previewCompanyId,
+        previewCompanyName,
+        previewMode,
+      ].join('\0'),
+    [
+      datePreset,
+      monthKey,
+      dayKey,
+      activeTab,
+      itemsPage,
+      payPage,
+      listPageSize,
+      previewKey,
+      previewCompanyId,
+      previewCompanyName,
+      previewMode,
+    ],
+  );
+
+  const listTotal = activeTab === 'history' ? (data?.paymentsTotal ?? 0) : (data?.itemsTotal ?? 0);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -85,9 +151,16 @@ export function TeamExternalSettlementPage() {
           setError(teamBiPlain('team.settlement.partnerOnly'));
           return;
         }
+        const itemsOffset = (itemsPage - 1) * listPageSize;
+        const payOffset = (payPage - 1) * listPageSize;
         const res = await getTeamExternalSettlement(token, {
-          from,
-          to,
+          datePreset,
+          month: datePreset === 'month' ? monthKey : undefined,
+          day: datePreset === 'day' ? dayKey : undefined,
+          limit: listPageSize,
+          offset: itemsOffset,
+          payLimit: listPageSize,
+          payOffset,
           externalCompanyId: isPreviewStaff && previewCompanyId ? previewCompanyId : undefined,
           externalCompanyName: isPreviewStaff && previewCompanyName ? previewCompanyName : undefined,
         });
@@ -105,7 +178,7 @@ export function TeamExternalSettlementPage() {
         if (!opts?.silent) setLoading(false);
       }
     },
-    [from, to, navigate, previewCompanyId, previewCompanyName, previewMode, token]
+    [listQueryKey, datePreset, monthKey, dayKey, itemsPage, payPage, listPageSize, navigate, previewCompanyId, previewCompanyName, previewMode, token]
   );
 
   useEffect(() => {
@@ -119,28 +192,59 @@ export function TeamExternalSettlementPage() {
   const { connected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !connected ? 20000 : 0);
 
-  const totalPositive = useMemo(
-    () => (data?.items ?? []).reduce((s, it) => s + (it.signedFeeAmount > 0 ? it.signedFeeAmount : 0), 0),
-    [data?.items]
-  );
-  const totalNegative = useMemo(
-    () => (data?.items ?? []).reduce((s, it) => s + (it.signedFeeAmount < 0 ? Math.abs(it.signedFeeAmount) : 0), 0),
-    [data?.items]
-  );
-  const applyPreset = (id: DateRangePresetId) => {
-    setPreset(id);
-    if (id === 'custom') return;
-    const r = computeDateRangeFromPreset(id);
-    if (!r) return;
-    setFrom(r.from);
-    setTo(r.to);
+  const applyDatePreset = (preset: DatePreset) => {
+    patchListParams((next) => {
+      next.set('datePreset', preset);
+      if (preset === 'month') {
+        next.set('month', monthKey);
+        next.delete('day');
+      } else if (preset === 'day') {
+        next.set('day', dayKey);
+        next.delete('month');
+      } else {
+        next.delete('month');
+        next.delete('day');
+      }
+      next.delete('page');
+      next.delete('payPage');
+    });
   };
+
+  const handleListPageChange = (page: number) => {
+    patchListParams((next) => {
+      const key = activeTab === 'history' ? 'payPage' : 'page';
+      if (page <= 1) next.delete(key);
+      else next.set(key, String(page));
+    });
+  };
+
+  const handleListPageSizeChange = (size: InquiryListPageSize) => {
+    patchListParams((next) => {
+      if (size === INQUIRY_LIST_DEFAULT_PAGE_SIZE) next.delete('pageSize');
+      else next.set('pageSize', String(size));
+      next.delete('page');
+      next.delete('payPage');
+    });
+  };
+
+  const setActiveTab = (tab: SettlementTab) => {
+    patchListParams((next) => {
+      if (tab === 'history') next.set('tab', 'history');
+      else next.delete('tab');
+      next.delete('page');
+      next.delete('payPage');
+    });
+  };
+
+  const filterBtnCls = (active: boolean, bordered?: boolean) =>
+    `px-2 py-0.5 text-fluid-2xs font-medium touch-manipulation min-h-0 ${bordered ? 'border-l border-gray-300' : ''} ${
+      active ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+    }`;
+
   const payableAmount = data?.payableAmount ?? 0;
   const remainingAmount = data?.remainingAmount ?? 0;
-  const historyDisplay = useMemo(() => {
-    if (!data) return [];
-    return [...data.payments].sort((a, b) => b.paidAt.localeCompare(a.paidAt));
-  }, [data]);
+  const lineItems = data?.items ?? [];
+  const paymentRows = data?.payments ?? [];
 
   if (loading) {
     return (
@@ -152,57 +256,83 @@ export function TeamExternalSettlementPage() {
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-4 pb-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-800">
-            <TeamBiLine id="team.layout.nav.settlement" koClassName="text-xl font-semibold text-gray-800" />
-          </h1>
-          <div className="mt-1">
-            <TeamBiLine id="team.settlement.adminCancelNote" koClassName="text-fluid-xs text-gray-500" />
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {DATE_RANGE_PRESET_LABELS.map(({ id }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => applyPreset(id)}
-              className={`rounded px-2.5 py-1.5 text-fluid-xs font-medium border ${
-                preset === id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300'
-              }`}
-            >
-              <TeamBiInline id={TEAM_DATE_PRESET_MSG[id]} />
-            </button>
-          ))}
+      <div>
+        <h1 className="text-xl font-semibold text-gray-800">
+          <TeamBiLine id="team.layout.nav.settlement" koClassName="text-xl font-semibold text-gray-800" />
+        </h1>
+        <div className="mt-1">
+          <TeamBiLine id="team.settlement.adminCancelNote" koClassName="text-fluid-xs text-gray-500" />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white p-3">
-        <label className="text-fluid-xs text-gray-600">
-          <TeamBiLine id="team.settlement.dateFrom" koClassName="text-fluid-xs text-gray-600" />
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => {
-              setFrom(e.target.value);
-              setPreset('custom');
-            }}
-            className="mt-1 block rounded border border-gray-300 bg-white px-2 py-2 text-fluid-sm"
-          />
-        </label>
-        <span className="mt-5 text-gray-400">~</span>
-        <label className="text-fluid-xs text-gray-600">
-          <TeamBiLine id="team.settlement.dateTo" koClassName="text-fluid-xs text-gray-600" />
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => {
-              setTo(e.target.value);
-              setPreset('custom');
-            }}
-            className="mt-1 block rounded border border-gray-300 bg-white px-2 py-2 text-fluid-sm"
-          />
-        </label>
+      <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-2 sm:p-3 min-w-0">
+        <div className="flex w-full flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+          <span className="text-fluid-2xs text-gray-600 shrink-0">
+            <TeamBiInline id="team.settlement.dateBasisPreferred" />
+          </span>
+          <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-2xs shrink-0">
+            {(
+              [
+                ['today', '당일'],
+                ['all', '전체'],
+                ['month', '월별'],
+                ['day', '날짜'],
+              ] as const
+            ).map(([id, label], i) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => applyDatePreset(id)}
+                className={filterBtnCls(datePreset === id, i > 0)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {datePreset === 'month' ? (
+            <YearMonthSelect
+              compact
+              value={monthKey}
+              onChange={(v) => {
+                patchListParams((next) => {
+                  next.set('datePreset', 'month');
+                  next.set('month', v);
+                  next.delete('day');
+                  next.delete('page');
+                  next.delete('payPage');
+                });
+              }}
+              idPrefix="team-settle-month"
+            />
+          ) : null}
+          {datePreset === 'day' ? (
+            <YmdSelect
+              compact
+              value={dayKey}
+              onChange={(v) => {
+                patchListParams((next) => {
+                  next.set('datePreset', 'day');
+                  next.set('day', v);
+                  next.delete('month');
+                  next.delete('page');
+                  next.delete('payPage');
+                });
+              }}
+              idPrefix="team-settle-day"
+            />
+          ) : null}
+          <div className="lg:ml-auto flex min-w-0 flex-wrap items-center justify-end">
+            <ListPaginationBar
+              compact
+              mode="summary"
+              page={listPage}
+              pageSize={listPageSize}
+              total={listTotal}
+              onPageChange={handleListPageChange}
+              onPageSizeChange={handleListPageSizeChange}
+            />
+          </div>
+        </div>
       </div>
 
       {error ? (
@@ -329,12 +459,12 @@ export function TeamExternalSettlementPage() {
           <div className="rounded-lg border border-gray-200 bg-white p-3 text-fluid-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-3 items-start">
             <span className="inline-flex flex-col gap-1">
               <TeamBiInline id="team.settlement.sumPositiveFees" />
-              <strong className="text-emerald-700 tabular-nums">{won(totalPositive)}</strong>
+              <strong className="text-emerald-700 tabular-nums">{won(data.periodPositiveFee ?? 0)}</strong>
             </span>
             <span className="text-gray-300 hidden sm:inline self-center">·</span>
             <span className="inline-flex flex-col gap-1">
               <TeamBiInline id="team.settlement.cancelDeduction" />
-              <strong className="text-rose-700 tabular-nums">-{won(totalNegative)}</strong>
+              <strong className="text-rose-700 tabular-nums">-{won(data.periodNegativeFee ?? 0)}</strong>
             </span>
           </div>
 
@@ -386,7 +516,7 @@ export function TeamExternalSettlementPage() {
                       <TeamBiLine id="team.settlement.historyNote" koClassName="text-fluid-2xs text-gray-500" />
                     </div>
                   </div>
-                  {historyDisplay.length === 0 ? (
+                  {paymentRows.length === 0 ? (
                     <div className="px-3 py-8 text-center">
                       <TeamBiLine id="team.settlement.emptyPaidPeriod" koClassName="text-fluid-sm text-gray-500" />
                     </div>
@@ -413,7 +543,7 @@ export function TeamExternalSettlementPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {historyDisplay.map((row) => {
+                          {paymentRows.map((row) => {
                             const after = row.outstandingAfterCumulative ?? 0;
                             return (
                             <tr key={row.id} className="border-b border-gray-100">
@@ -435,18 +565,31 @@ export function TeamExternalSettlementPage() {
                       </table>
                     </div>
                   )}
+                  {paymentRows.length > 0 ? (
+                    <ListPaginationBar
+                      compact
+                      mode="nav"
+                      page={listPage}
+                      pageSize={listPageSize}
+                      total={listTotal}
+                      onPageChange={handleListPageChange}
+                      onPageSizeChange={handleListPageSizeChange}
+                    />
+                  ) : null}
                 </div>
               </div>
             ) : null}
           </div>
 
-          {activeTab === 'summary' ? <div className="space-y-3 lg:hidden">
-            {data.items.length === 0 ? (
+          {activeTab === 'summary' ? (
+            <>
+            <div className="space-y-3 lg:hidden">
+            {lineItems.length === 0 ? (
               <div className="rounded-lg border border-gray-200 bg-white px-3 py-10 text-center">
                 <TeamBiLine id="team.settlement.emptyLinesPeriod" koClassName="text-gray-500 text-fluid-sm" />
               </div>
             ) : (
-              data.items.map((it) => (
+              lineItems.map((it) => (
                 <article
                   key={`${it.inquiryId}-${it.isCancelled ? 'C' : 'N'}`}
                   className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
@@ -486,9 +629,9 @@ export function TeamExternalSettlementPage() {
                 </article>
               ))
             )}
-          </div> : null}
+          </div>
 
-          {activeTab === 'summary' ? <div className="hidden overflow-x-auto rounded-lg border border-gray-200 bg-white lg:block">
+          <div className="hidden overflow-x-auto rounded-lg border border-gray-200 bg-white lg:block">
             <table className="w-full min-w-[640px] border-collapse text-fluid-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-100">
@@ -510,14 +653,14 @@ export function TeamExternalSettlementPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.items.length === 0 ? (
+                {lineItems.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-3 py-10 text-center">
                       <TeamBiLine id="team.settlement.emptyLinesPeriod" koClassName="text-gray-500 text-fluid-sm" />
                     </td>
                   </tr>
                 ) : (
-                  data.items.map((it) => (
+                  lineItems.map((it) => (
                     <tr key={`${it.inquiryId}-${it.isCancelled ? 'C' : 'N'}`} className="border-b border-gray-100">
                       <td className="px-3 py-2 text-center text-gray-700 tabular-nums">
                         {it.preferredDate ? formatDateCompactWithWeekday(it.preferredDate) : '-'}
@@ -546,7 +689,18 @@ export function TeamExternalSettlementPage() {
                 )}
               </tbody>
             </table>
-          </div> : null}
+          </div>
+            <ListPaginationBar
+              compact
+              mode="nav"
+              page={listPage}
+              pageSize={listPageSize}
+              total={listTotal}
+              onPageChange={handleListPageChange}
+              onPageSizeChange={handleListPageSizeChange}
+            />
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

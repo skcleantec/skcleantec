@@ -70,11 +70,41 @@ function TeamInquiryStatusBi({ code }: { code: string }) {
 }
 
 /** 목록 카드에서 상세 없이 해피콜 상태 표시 (상태 배지와 동일한 pill 스타일) */
-export function TeamHappyCallBadge({ item, className = '' }: { item: InquiryItem; className?: string }) {
+export function TeamHappyCallBadge({
+  item,
+  className = '',
+  variant = 'default',
+}: {
+  item: InquiryItem;
+  className?: string;
+  /** 배정목록 표 등: 완료/미완료만 표시 */
+  variant?: 'default' | 'list';
+}) {
   const now = new Date();
   const hasAssignment = item.assignments.length > 0;
   if (!isHappyCallEligible(item.status, item.preferredDate)) {
+    if (variant === 'list') {
+      return (
+        <span className={`text-fluid-xs text-gray-400 tabular-nums ${className}`}>
+          {teamBiPlain('team.common.emDash')}
+        </span>
+      );
+    }
     return null;
+  }
+  if (variant === 'list') {
+    if (item.happyCallCompletedAt) {
+      return (
+        <span className={`text-fluid-xs font-medium text-green-700 ${className}`}>
+          {teamBiPlain('team.assign.happyComplete')}
+        </span>
+      );
+    }
+    return (
+      <span className={`text-fluid-xs font-medium text-gray-700 ${className}`}>
+        {teamBiPlain('team.assign.happyIncomplete')}
+      </span>
+    );
   }
   const base = `inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-fluid-2xs font-medium border shrink-0 ${className}`;
 
