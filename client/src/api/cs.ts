@@ -114,17 +114,40 @@ export async function getCsPendingCount(token: string): Promise<{ count: number 
   return res.json();
 }
 
+export type CsListDatePreset = 'last3months' | 'month' | 'day';
+
+function mapCsReportItem(i: CsReport): CsReport {
+  return {
+    ...i,
+    imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [],
+    serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : null,
+  };
+}
+
 /** 관리자: C/S 목록 */
-export async function getCsReports(token: string): Promise<{ items: CsReport[] }> {
-  const res = await fetch(`${API}/cs`, { headers: authHeaders(token) });
+export async function getCsReports(
+  token: string,
+  params?: {
+    datePreset?: CsListDatePreset;
+    month?: string;
+    day?: string;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<{ items: CsReport[]; total: number }> {
+  const q = new URLSearchParams();
+  if (params?.datePreset) q.set('datePreset', params.datePreset);
+  if (params?.month) q.set('month', params.month);
+  if (params?.day) q.set('day', params.day);
+  if (params?.limit != null) q.set('limit', String(params.limit));
+  if (params?.offset != null) q.set('offset', String(params.offset));
+  const qs = q.toString();
+  const res = await fetch(`${API}/cs${qs ? `?${qs}` : ''}`, { headers: authHeaders(token) });
   if (!res.ok) throw new Error('C/S 목록을 불러올 수 없습니다.');
   const json = await res.json();
   return {
-    items: (json.items || []).map((i: CsReport) => ({
-      ...i,
-      imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [],
-      serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : null,
-    })),
+    items: (json.items || []).map((i: CsReport) => mapCsReportItem(i)),
+    total: typeof json.total === 'number' ? json.total : (json.items || []).length,
   };
 }
 

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { getMe } from '../../api/auth';
 import { getUsers } from '../../api/users';
 import {
@@ -161,22 +160,6 @@ export function AdminAdvertisingPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-fluid-xl font-semibold text-gray-800">광고비</h1>
-      <p className="text-fluid-sm text-gray-600">
-        {role === 'ADMIN'
-          ? '마케터별 광고 지출과, 서비스접수 목록 기준 예약완료 실적을 같은 기간으로 맞춰 봅니다. (마케터는 본인만 조회)'
-          : '본인 광고 지출과 예약완료 실적입니다.'}{' '}
-        기간 날짜는 한국시간(KST) 하루 단위입니다.
-      </p>
-      {role === 'ADMIN' && (
-        <p className="text-fluid-sm text-gray-700 rounded-lg border border-blue-100 bg-blue-50/80 px-4 py-3">
-          광고 채널을 <strong className="font-medium text-gray-900">추가할지</strong>, 채널별{' '}
-          <strong className="font-medium text-gray-900">사용함·사용 안 함</strong>은{' '}
-          <Link to="/admin/advertising/settings" className="font-medium text-blue-700 underline hover:text-blue-800">
-            광고비 → 설정
-          </Link>
-          에서 지정할 수 있습니다.
-        </p>
-      )}
 
       {err && (
         <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-fluid-sm">{err}</div>

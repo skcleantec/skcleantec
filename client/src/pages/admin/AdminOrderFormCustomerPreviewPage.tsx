@@ -286,10 +286,6 @@ export function AdminOrderFormCustomerPreviewPage() {
     <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-3">
       <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 sm:px-4">
         <h2 className="text-fluid-base font-semibold text-gray-900">고객 발주서 편집</h2>
-        <p className="mt-1 text-fluid-xs text-gray-600">
-          왼쪽은 실제 고객이 보는 화면과 동일한 페이지(`/order/…`)입니다. 오른쪽에서 저장하면 미리보기 금액·문구가 서버와
-          맞춰집니다.
-        </p>
         {error ? <p className="mt-2 text-fluid-xs text-red-600">{error}</p> : null}
       </div>
 

@@ -78,6 +78,7 @@ alwaysApply: true
 - 버튼·카드·리스트는 단순한 형태 유지
 - **PC와 모바일을 항상 함께 고려**해 구현한다. 목록·상세는 **서식을 맞춘 깔끔한 레이아웃**(표/카드 분기, 섹션 정리, 말줄임·요약)으로 만든다.
 - **표·반응형·금액 표기·목록/상세 서식**: `.cursor/rules/responsive-ui.mdc` 준수
+- **DB 목록 — 기간 필터·페이지당 30건 기본·하단 페이지 분할**: `.cursor/rules/admin-list-filters-pagination.mdc` 준수
 
 ## 8. 팀장 화면·DB 실시간 (WebSocket)
 

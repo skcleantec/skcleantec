@@ -15,6 +15,8 @@ import { buildCsReportUpdateData } from './csReport.patch.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
+import { csCreatedAtRangeFromQuery } from './csListDateRange.js';
+import type { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -91,13 +93,33 @@ router.post('/submit', async (req, res) => {
   void notifyCsReportNavBadges(report.inquiryId);
 });
 
-/** 관리자·마케터: C/S 목록 */
-router.get('/', authMiddleware, adminOrMarketer, async (_req, res) => {
-  const items = await prisma.csReport.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: csReportFullInclude,
+/** 관리자·마케터: C/S 목록 (접수일 필터·페이지네이션) */
+router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
+  const q = req.query as Record<string, string | undefined>;
+  const range = csCreatedAtRangeFromQuery({
+    datePreset: q.datePreset,
+    month: q.month,
+    day: q.day,
   });
-  res.json({ items });
+  const where: Prisma.CsReportWhereInput = {
+    createdAt: { gte: range.gte, lte: range.lte },
+  };
+  const parsedLimit = Number.parseInt(String(q.limit ?? '30'), 10);
+  const parsedOffset = Number.parseInt(String(q.offset ?? '0'), 10);
+  const take = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 30;
+  const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
+
+  const [total, items] = await Promise.all([
+    prisma.csReport.count({ where }),
+    prisma.csReport.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+      include: csReportFullInclude,
+    }),
+  ]);
+  res.json({ items, total });
 });
 
 /** 관리자·마케터: 미처리(접수) C/S 건수 — 상단 메뉴 배지용 */

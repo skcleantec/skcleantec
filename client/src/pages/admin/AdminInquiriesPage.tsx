@@ -1892,20 +1892,23 @@ export function AdminInquiriesPage() {
               />
             </div>
           </div>
-          <div className="border border-gray-200 rounded-lg bg-gray-50 px-3 py-2.5">
-            <div className="text-fluid-xs text-gray-500 mb-2 flex items-center gap-2">
-              마케터별 접수
+          <details className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-fluid-xs hover:bg-gray-100/80">
+              <span className="font-medium text-gray-800">마케터별 접수</span>
               {marketerOverview && (
-                <>
-                  {' '}
+                <span className="min-w-0 truncate text-gray-500">
                   · {formatMonthKeyLabel(marketerOverview.monthKey)} · 오늘 {marketerOverview.todayYmd}
-                </>
+                </span>
               )}
               <HelpTooltip
                 text="행을 누르면 해당 마케터로 접수자 필터가 적용됩니다."
                 className="shrink-0"
               />
-            </div>
+              <span className="ml-auto shrink-0 text-gray-500" aria-hidden>
+                ▾
+              </span>
+            </summary>
+            <div className="border-t border-gray-200 px-3 py-2.5">
             {marketerOverviewLoading ? (
               <p className="text-fluid-sm text-gray-500">집계를 불러오는 중...</p>
             ) : marketerOverviewError ? (
@@ -1968,7 +1971,8 @@ export function AdminInquiriesPage() {
             ) : (
               <p className="text-fluid-sm text-gray-500">집계 데이터가 없습니다.</p>
             )}
-          </div>
+            </div>
+          </details>
           <div className="flex flex-col gap-2 min-w-0">
             <div
               className="flex min-w-0 max-w-full flex-nowrap items-center gap-x-2 gap-y-1.5 overflow-x-auto overscroll-x-contain pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 sm:gap-x-3 sm:gap-y-2"
@@ -2128,10 +2132,6 @@ export function AdminInquiriesPage() {
               >
                 조회
               </button>
-            </div>
-            <div className="flex items-center gap-2 text-fluid-2xs text-gray-500">
-              <span>필터 도움말</span>
-              <HelpTooltip text="검색어는 조회 버튼을 누를 때 적용됩니다. 접수자·팀장·상태·날짜 필터와 함께 조회합니다." />
             </div>
           </div>
         </div>

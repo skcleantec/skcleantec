@@ -1345,47 +1345,46 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       >
         <div className="relative shrink-0 border-b border-gray-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
           <ModalCloseButton onClick={onClose} />
-          <h2
-            id="schedule-detail-title"
-            className="text-lg font-semibold text-gray-800 mb-1 pr-10 sm:pr-12"
-          >
+          <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 pr-10 sm:pr-12">
+            <h2 id="schedule-detail-title" className="text-lg font-semibold text-gray-800">
+              {isCreate ? (
+                '신규 접수'
+              ) : (
+                <>
+                  접수 수정
+                  {item?.inquiryNumber ? (
+                    <span className="ml-2 text-base font-normal text-gray-500 tabular-nums">
+                      · {item.inquiryNumber}
+                      {distanceJuanLabel ? (
+                        <span className="text-gray-500" title="인천 주안 기준 직선거리">
+                          {' '}
+                          · {distanceJuanLabel}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : distanceJuanLabel ? (
+                    <span
+                      className="ml-2 text-base font-normal text-gray-500 tabular-nums"
+                      title="인천 주안 기준 직선거리"
+                    >
+                      · {distanceJuanLabel}
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </h2>
             {isCreate ? (
-              '신규 접수'
-            ) : (
-              <>
-                접수 수정
-                {item?.inquiryNumber ? (
-                  <span className="ml-2 text-base font-normal text-gray-500 tabular-nums">
-                    · {item.inquiryNumber}
-                    {distanceJuanLabel ? (
-                      <span className="text-gray-500" title="인천 주안 기준 직선거리">
-                        {' '}
-                        · {distanceJuanLabel}
-                      </span>
-                    ) : null}
-                  </span>
-                ) : distanceJuanLabel ? (
-                  <span
-                    className="ml-2 text-base font-normal text-gray-500 tabular-nums"
-                    title="인천 주안 기준 직선거리"
-                  >
-                    · {distanceJuanLabel}
-                  </span>
-                ) : null}
-              </>
-            )}
-          </h2>
-          {isCreate && (
-            <label className="mt-2 inline-flex items-center gap-2 text-sm text-gray-700 select-none">
-              <input
-                type="checkbox"
-                checked={externalIntake}
-                onChange={(e) => setExternalIntake(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              수기등록
-            </label>
-          )}
+              <label className="inline-flex items-center gap-2 text-sm text-gray-700 select-none">
+                <input
+                  type="checkbox"
+                  checked={externalIntake}
+                  onChange={(e) => setExternalIntake(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                수기등록
+              </label>
+            ) : null}
+          </div>
           {isExternalIntakeMode && (
             <div className="mt-2">
               <label className="block text-sm text-gray-700 mb-1">수기 제목</label>
@@ -1397,11 +1396,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               />
             </div>
           )}
-          {isCreate ? (
+          {isCreate && externalIntake ? (
             <p className="text-sm text-gray-500 mb-0">
-              {externalIntake
-                ? '수기등록을 선택하면 이름/연락처/주소가 비어 있어도 등록할 수 있습니다.'
-                : '캘린더에서 선택한 날짜로 예약일이 고정됩니다. 나머지 정보를 입력한 뒤 등록하세요.'}
+              수기등록을 선택하면 이름/연락처/주소가 비어 있어도 등록할 수 있습니다.
             </p>
           ) : null}
           {isCreate && (
@@ -1722,11 +1719,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 달력·분배 가능일
               </button>
             </div>
-            {isCreate && preferredDateLocked && (
-              <p className="text-xs text-gray-500 mt-1">
-                스케줄에서 선택한 날짜입니다. 바꾸려면 「날짜 변경」을 누르세요.
-              </p>
-            )}
           </div>
           <div>
             <label className="block text-gray-600 mb-1">희망 시간대</label>
@@ -2201,9 +2193,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             {isCreate ? (
               <p className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-gray-800">
                 {STATUS_LABELS[editForm.status] ?? editForm.status}
-                <span className="mt-1 block text-xs font-normal text-gray-500">
-                  신규 등록 시에는 상단 「이 접수의 첫 단계」에서만 바꿀 수 있습니다.
-                </span>
               </p>
             ) : (
               <select

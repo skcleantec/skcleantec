@@ -1,8 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-import { getCsReports, updateCsReport, deleteCsReport, forwardCsReport, type CsReport } from '../../api/cs';
+import {
+  getCsReports,
+  updateCsReport,
+  deleteCsReport,
+  forwardCsReport,
+  type CsListDatePreset,
+  type CsReport,
+} from '../../api/cs';
 import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
 import { getMe } from '../../api/auth';
 import { getTeamCsReports, patchTeamCsReport } from '../../api/team';
@@ -19,6 +26,15 @@ import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
+import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
+import { ListPaginationBar } from '../ui/ListPaginationBar';
+import {
+  clampListPage,
+  INQUIRY_LIST_DEFAULT_PAGE_SIZE,
+  parseInquiryListPageSize,
+  parseListPage,
+  type InquiryListPageSize,
+} from '../../utils/listPagination';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 import { getAssignableScheduleUsers, formatAssignableUserLabel, type UserItem } from '../../api/users';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
@@ -141,6 +157,10 @@ const CS_AS_DATE_HELP =
 const CS_FORWARD_HELP =
   '수기·미연결 건을 선택한 담당 계정의 팀 C/S 화면에 바로 표시합니다. 저장 후 해당 계정에 실시간 반영됩니다.';
 
+function kstMonthKeyNow(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+}
+
 function CsHelpQuestionButton({
   label,
   expanded,
@@ -179,9 +199,31 @@ type CsWorkdeskProps = {
 
 export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const previewKey = teamPreviewDepsKey(location.search);
   const token = mode === 'admin' ? getToken() : getTeamToken();
+  const isAdmin = mode === 'admin';
   const [items, setItems] = useState<CsReport[]>([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [datePreset, setDatePreset] = useState<CsListDatePreset>(() => {
+    const dp = searchParams.get('datePreset');
+    if (dp === 'month' || dp === 'day' || dp === 'last3months') return dp;
+    return 'last3months';
+  });
+  const [monthKey, setMonthKey] = useState(() => {
+    const m = searchParams.get('month');
+    if (m && /^\d{4}-\d{2}$/.test(m)) return m;
+    return kstMonthKeyNow();
+  });
+  const [dayKey, setDayKey] = useState(() => {
+    const d = searchParams.get('day');
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    return kstTodayYmd();
+  });
+  const [listPage, setListPage] = useState(() => parseListPage(searchParams.get('page')));
+  const [listPageSize, setListPageSize] = useState<InquiryListPageSize>(() =>
+    parseInquiryListPageSize(searchParams.get('pageSize'))
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<CsReport | null>(null);
@@ -228,41 +270,123 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     setEditAsServiceDate(formatPreferredDateInputYmd(selected.asServiceDate));
   }, [selected?.id, selected?.asServiceDate]);
 
+  const syncListUrl = useCallback(
+    (
+      page: number,
+      pageSize: InquiryListPageSize,
+      preset: CsListDatePreset,
+      month: string,
+      day: string
+    ) => {
+      if (!isAdmin) return;
+      const next = new URLSearchParams(searchParams);
+      next.set('datePreset', preset);
+      if (preset === 'month') {
+        next.set('month', month);
+        next.delete('day');
+      } else if (preset === 'day') {
+        next.set('day', day);
+        next.delete('month');
+      } else {
+        next.delete('month');
+        next.delete('day');
+      }
+      if (page > 1) next.set('page', String(page));
+      else next.delete('page');
+      if (pageSize !== INQUIRY_LIST_DEFAULT_PAGE_SIZE) next.set('pageSize', String(pageSize));
+      else next.delete('pageSize');
+      setSearchParams(next, { replace: true });
+    },
+    [isAdmin, searchParams, setSearchParams]
+  );
+
+  const applyDatePreset = useCallback(
+    (preset: CsListDatePreset) => {
+      setDatePreset(preset);
+      setListPage(1);
+      syncListUrl(1, listPageSize, preset, monthKey, dayKey);
+    },
+    [listPageSize, monthKey, dayKey, syncListUrl]
+  );
+
+  const handleListPageChange = useCallback(
+    (page: number) => {
+      setListPage(page);
+      syncListUrl(page, listPageSize, datePreset, monthKey, dayKey);
+    },
+    [listPageSize, datePreset, monthKey, dayKey, syncListUrl]
+  );
+
+  const handleListPageSizeChange = useCallback(
+    (size: InquiryListPageSize) => {
+      setListPageSize(size);
+      setListPage(1);
+      syncListUrl(1, size, datePreset, monthKey, dayKey);
+    },
+    [datePreset, monthKey, dayKey, syncListUrl]
+  );
+
   const fetchList = useCallback(
     (opts?: { withLoading?: boolean }) => {
       if (!token) return;
       const withLoading = opts?.withLoading ?? false;
       if (withLoading) setLoading(true);
-      const req = mode === 'admin' ? getCsReports(token) : getTeamCsReports(token);
-      req
-        .then((r) => {
-          setItems(r.items);
-          if (withLoading) {
-            setSelected((sel) => {
-              if (!sel) return null;
-              const next = r.items.find((i) => i.id === sel.id);
-              return next ?? null;
-            });
-            setError(null);
-          } else {
-            setSelected((sel) => {
-              if (!sel) return null;
-              if (!r.items.some((i) => i.id === sel.id)) return null;
-              return sel;
-            });
-          }
+      const applyRows = (rows: CsReport[]) => {
+        setItems(rows);
+        if (withLoading) {
+          setSelected((sel) => {
+            if (!sel) return null;
+            const next = rows.find((i) => i.id === sel.id);
+            return next ?? null;
+          });
+          setError(null);
+        } else {
+          setSelected((sel) => {
+            if (!sel) return null;
+            if (!rows.some((i) => i.id === sel.id)) return null;
+            return sel;
+          });
+        }
+      };
+      const finish = () => {
+        if (withLoading) setLoading(false);
+      };
+      if (isAdmin) {
+        void getCsReports(token, {
+          datePreset,
+          month: datePreset === 'month' ? monthKey : undefined,
+          day: datePreset === 'day' ? dayKey : undefined,
+          limit: listPageSize,
+          offset: (listPage - 1) * listPageSize,
         })
+          .then((r) => {
+            setListTotal(r.total);
+            applyRows(r.items);
+          })
+          .catch((e) => {
+            if (withLoading) {
+              setError(e instanceof Error ? e.message : '목록을 불러올 수 없습니다.');
+            }
+          })
+          .finally(finish);
+        return;
+      }
+      void getTeamCsReports(token)
+        .then((r) => applyRows(r.items))
         .catch((e) => {
           if (withLoading) {
             setError(e instanceof Error ? e.message : '목록을 불러올 수 없습니다.');
           }
         })
-        .finally(() => {
-          if (withLoading) setLoading(false);
-        });
+        .finally(finish);
     },
-    [token, mode, previewKey]
+    [token, isAdmin, previewKey, datePreset, monthKey, dayKey, listPage, listPageSize]
   );
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    setListPage((p) => clampListPage(p, listTotal, listPageSize));
+  }, [isAdmin, listTotal, listPageSize]);
 
   const { connected: csWsConnected } = useInboxRealtime(
     token,
@@ -423,7 +547,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   return (
     <div className="min-w-0 w-full max-w-full">
       <div
-        className={`flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between min-w-0 ${
+        className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between min-w-0 ${
           isTeam ? 'mb-2 sm:mb-4' : 'mb-4'
         }`}
       >
@@ -435,44 +559,116 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
           {pageTitle}
         </h1>
         {mode === 'admin' ? (
-          <div className="flex flex-col gap-2 sm:items-end min-w-0 w-full sm:w-auto">
-            <a
-              href="/cs"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 min-h-[44px] w-full sm:w-auto px-4 py-2 text-fluid-sm font-medium text-white bg-blue-600 rounded-lg border border-blue-700 hover:bg-blue-700 active:bg-blue-800 touch-manipulation shadow-sm"
-            >
-              <OpenInNewIcon className="h-4 w-4 shrink-0" />
-              고객용 C/S 페이지 미리보기
-            </a>
-            <div className="flex flex-wrap items-center gap-2 text-sm min-w-0">
-              <span className="text-gray-500 shrink-0">고객 링크</span>
-              <code className="text-xs sm:text-sm bg-gray-100 px-2 py-1 rounded truncate max-w-[min(100%,14rem)] sm:max-w-xs">
+          <div className="flex w-full min-w-0 items-center gap-2 sm:ml-4 sm:flex-1 sm:justify-end">
+            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm">
+              <span className="shrink-0 text-gray-500">고객 링크</span>
+              <code className="min-w-0 flex-1 truncate rounded bg-gray-100 px-2 py-1 text-xs sm:max-w-md sm:text-sm">
                 {csLink}
               </code>
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(csLink)}
-                className="text-sm px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 shrink-0 touch-manipulation min-h-[36px]"
+                className="shrink-0 touch-manipulation rounded border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50 min-h-[36px]"
               >
                 복사
               </button>
             </div>
+            <a
+              href="/cs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-fluid-sm font-medium text-white bg-blue-600 rounded-lg border border-blue-700 hover:bg-blue-700 active:bg-blue-800 touch-manipulation shadow-sm"
+            >
+              <OpenInNewIcon className="h-4 w-4 shrink-0" />
+              <span className="whitespace-nowrap">고객용 C/S 페이지 미리보기</span>
+            </a>
           </div>
         ) : null}
       </div>
 
-      {mode === 'admin' ? (
-        <div className="text-fluid-sm text-gray-600 mb-4 bg-gray-50 px-3 py-2 rounded">
-          고객에게 아래와 같이 안내하실 수 있습니다. 링크를 복사해 메시지에 붙여 넣어 주세요.
-          <br />
-          <strong>예시:</strong> "칭찬·불편 사항은 아래 링크에서 접수해 주세요. 사진 첨부·만족도 별점이 가능합니다. [링크]"
-        </div>
-      ) : (
+      {mode !== 'admin' ? (
         <p className="text-fluid-2xs sm:text-fluid-xs text-gray-600 mb-2 sm:mb-3 leading-snug">
           배정 접수와 연결된 C/S 또는 관리자가 본인에게 전달한 C/S가 표시됩니다. 완료 시 처리 방법을 입력해 주세요.
         </p>
-      )}
+      ) : null}
+
+      {isAdmin ? (
+        <div className="mb-4 rounded-lg border border-gray-200 bg-white px-3 py-3 sm:px-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between min-w-0">
+            <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
+              <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">접수일</span>
+              <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm shrink-0">
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('last3months')}
+                  className={`px-3 py-1.5 font-medium ${
+                    datePreset === 'last3months'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  3개월
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('month')}
+                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                    datePreset === 'month'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  월별
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('day')}
+                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                    datePreset === 'day'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  날짜별
+                </button>
+              </div>
+              {datePreset === 'month' ? (
+                <YearMonthSelect
+                  value={monthKey}
+                  onChange={(v) => {
+                    setMonthKey(v);
+                    setListPage(1);
+                    syncListUrl(1, listPageSize, 'month', v, dayKey);
+                  }}
+                  idPrefix="cs-list-month"
+                  className="items-center"
+                />
+              ) : null}
+              {datePreset === 'day' ? (
+                <YmdSelect
+                  value={dayKey}
+                  onChange={(v) => {
+                    setDayKey(v);
+                    setListPage(1);
+                    syncListUrl(1, listPageSize, 'day', monthKey, v);
+                  }}
+                  idPrefix="cs-list-day"
+                  className="items-center"
+                />
+              ) : null}
+            </div>
+            <ListPaginationBar
+              mode="summary"
+              page={listPage}
+              pageSize={listPageSize}
+              total={listTotal}
+              onPageChange={handleListPageChange}
+              onPageSizeChange={handleListPageSizeChange}
+              className="shrink-0"
+            />
+          </div>
+        </div>
+      ) : null}
 
       {error && (
         <p className={`text-fluid-sm text-red-600 ${isTeam ? 'mb-2' : 'mb-4'}`}>{error}</p>
@@ -660,6 +856,16 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               </tbody>
             </table>
           </SyncHorizontalScroll>
+            {isAdmin && !loading ? (
+              <ListPaginationBar
+                mode="nav"
+                page={listPage}
+                pageSize={listPageSize}
+                total={listTotal}
+                onPageChange={handleListPageChange}
+                onPageSizeChange={handleListPageSizeChange}
+              />
+            ) : null}
           </>
         )}
       </div>
