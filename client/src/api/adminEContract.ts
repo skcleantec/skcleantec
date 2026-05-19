@@ -242,6 +242,23 @@ export async function deleteEContractDraft(token: string, versionId: string): Pr
   }
 }
 
+/** 배포(PUBLISHED) 버전 삭제 — 체결 내역이 없을 때만, 본인 비밀번호 확인 */
+export async function deleteEContractPublishedVersion(
+  token: string,
+  versionId: string,
+  password: string
+): Promise<void> {
+  const res = await fetch(`${API}/admin/e-contracts/versions/${versionId}`, {
+    method: 'DELETE',
+    headers: headers(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제하지 못했습니다.');
+  }
+}
+
 export async function listEContractIssuances(
   token: string,
   definitionId: string

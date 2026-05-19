@@ -1,3 +1,4 @@
+import { EContractVersionStatus } from '@prisma/client';
 import { Router, type Request } from 'express';
 import bcrypt from 'bcryptjs';
 import {
@@ -13,6 +14,7 @@ import {
   createIssuance,
   deleteDefinitionHard,
   deleteDraft,
+  deletePublishedVersion,
   ensureDraft,
   getDefinitionWithVersions,
   listDefinitions,
@@ -365,14 +367,68 @@ router.post('/versions/:vid/publish', async (req, res) => {
 
 router.delete('/versions/:vid', async (req, res) => {
   try {
-    await deleteDraft(req.params.vid);
-    res.json({ ok: true });
-  } catch (e: unknown) {
-    if ((e as { code?: string })?.code === 'bad_request') {
-      res.status(400).json({ error: '초안만 삭제할 수 있습니다.' });
+    const vid = req.params.vid;
+    const existing = await prisma.eContractVersion.findUnique({
+      where: { id: vid },
+      select: { status: true },
+    });
+    if (!existing) {
+      res.status(404).json({ error: '없습니다.' });
       return;
     }
-    console.error('[e-contract] delete draft', e);
+
+    if (existing.status === EContractVersionStatus.DRAFT) {
+      await deleteDraft(vid);
+      res.json({ ok: true });
+      return;
+    }
+
+    if (existing.status !== EContractVersionStatus.PUBLISHED) {
+      res.status(400).json({ error: '삭제할 수 없는 버전입니다.' });
+      return;
+    }
+
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!password) {
+      res.status(400).json({ error: '본인 비밀번호를 입력해 주세요.' });
+      return;
+    }
+    const uid = actor(req).userId;
+    const dbUser = await prisma.user.findUnique({ where: { id: uid } });
+    if (!dbUser?.passwordHash) {
+      res.status(403).json({ error: '비밀번호 확인에 실패했습니다.' });
+      return;
+    }
+    const ok = await bcrypt.compare(password, dbUser.passwordHash);
+    if (!ok) {
+      res.status(403).json({ error: '비밀번호가 일치하지 않습니다.' });
+      return;
+    }
+
+    await deletePublishedVersion(uid, vid);
+    res.json({ ok: true });
+  } catch (e: unknown) {
+    const code = (e as { code?: string })?.code;
+    if (code === 'bad_request') {
+      res.status(400).json({
+        error:
+          e instanceof Error && e.message === 'not_published'
+            ? '배포된 버전만 이 경로로 삭제할 수 있습니다.'
+            : '초안은 「초안 폐기」를 사용하세요.',
+      });
+      return;
+    }
+    if (code === 'conflict') {
+      res.status(409).json({
+        error: '이 버전으로 체결된 내역이 있어 삭제할 수 없습니다.',
+      });
+      return;
+    }
+    if (code === 'not_found') {
+      res.status(404).json({ error: '없습니다.' });
+      return;
+    }
+    console.error('[e-contract] delete version', e);
     res.status(500).json({ error: '삭제하지 못했습니다.' });
   }
 });
