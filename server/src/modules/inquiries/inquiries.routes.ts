@@ -294,12 +294,19 @@ router.get('/', async (req, res) => {
     },
   } as const;
 
+  const parsedLimit = parseInt(limit as string, 10);
+  const parsedOffset = parseInt(offset as string, 10);
+  const take = Number.isFinite(parsedLimit)
+    ? Math.min(100, Math.max(1, parsedLimit))
+    : 200;
+  const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
+
   const [itemsRaw, total] = await Promise.all([
     prisma.inquiry.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: parseInt(limit as string, 10),
-      skip: parseInt(offset as string, 10),
+      take,
+      skip,
       include: listInclude,
     }),
     prisma.inquiry.count({ where }),

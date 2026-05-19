@@ -213,14 +213,33 @@ router.get('/', async (req, res) => {
   if (goldDbOnly) {
     where.goldDb = true;
   }
-  const take = missingInquiryLink ? 40 : 500;
-  const rows = await prisma.orderFollowup.findMany({
-    where,
-    include: FOLLOWUP_INCLUDE,
-    orderBy: [{ createdAt: 'desc' }],
-    take,
-  });
-  res.json({ items: rows.map((r) => serializeFollowup(r)) });
+  if (missingInquiryLink) {
+    const rows = await prisma.orderFollowup.findMany({
+      where,
+      include: FOLLOWUP_INCLUDE,
+      orderBy: [{ createdAt: 'desc' }],
+      take: 40,
+    });
+    res.json({ items: rows.map((r) => serializeFollowup(r)), total: rows.length });
+    return;
+  }
+
+  const parsedLimit = Number.parseInt(String(req.query.limit ?? '30'), 10);
+  const parsedOffset = Number.parseInt(String(req.query.offset ?? '0'), 10);
+  const take = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 30;
+  const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
+
+  const [total, rows] = await Promise.all([
+    prisma.orderFollowup.count({ where }),
+    prisma.orderFollowup.findMany({
+      where,
+      include: FOLLOWUP_INCLUDE,
+      orderBy: [{ createdAt: 'desc' }],
+      take,
+      skip,
+    }),
+  ]);
+  res.json({ items: rows.map((r) => serializeFollowup(r)), total });
 });
 
 router.get('/:id/logs', async (req, res) => {

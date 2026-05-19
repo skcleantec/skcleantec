@@ -177,6 +177,8 @@ export type GetOrderFormsFilters = {
   customerName?: string;
   createdById?: string;
   submitStatus?: 'all' | 'pending' | 'submitted';
+  limit?: number;
+  offset?: number;
 };
 
 export interface ForceMatchOrderFormCandidate {
@@ -203,7 +205,7 @@ export interface ForceMatchOrderFormCandidate {
 export async function getOrderForms(
   token: string,
   filters?: GetOrderFormsFilters
-): Promise<{ items: OrderForm[]; issuers?: OrderFormIssuerOption[] }> {
+): Promise<{ items: OrderForm[]; issuers?: OrderFormIssuerOption[]; total: number }> {
   const params = new URLSearchParams();
   if (filters?.datePreset && filters.datePreset !== 'all') {
     params.set('datePreset', filters.datePreset);
@@ -213,6 +215,8 @@ export async function getOrderForms(
   if (filters?.customerName?.trim()) params.set('customerName', filters.customerName.trim());
   if (filters?.createdById?.trim()) params.set('createdById', filters.createdById.trim());
   if (filters?.submitStatus && filters.submitStatus !== 'all') params.set('submitStatus', filters.submitStatus);
+  if (filters?.limit != null) params.set('limit', String(filters.limit));
+  if (filters?.offset != null) params.set('offset', String(filters.offset));
   const qs = params.toString();
   const res = await fetch(`${API}/orderforms${qs ? `?${qs}` : ''}`, { headers: headers(token) });
   if (!res.ok) throw new Error('발주서 목록을 불러올 수 없습니다.');

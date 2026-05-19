@@ -31,6 +31,12 @@ import {
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import {
+  clampListPage,
+  INQUIRY_LIST_DEFAULT_PAGE_SIZE,
+  type InquiryListPageSize,
+} from '../../utils/listPagination';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 
 function toKstYmd(iso: string): string {
@@ -105,6 +111,8 @@ export function TeamAssignmentListPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
+  const [listPage, setListPage] = useState(1);
+  const [listPageSize, setListPageSize] = useState<InquiryListPageSize>(INQUIRY_LIST_DEFAULT_PAGE_SIZE);
 
   const loadList = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -187,6 +195,19 @@ export function TeamAssignmentListPage() {
     });
     return rows;
   }, [items, myId, from, to, dateBasis, statusFilter, appliedSearch]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [from, to, dateBasis, statusFilter, appliedSearch, preset]);
+
+  useEffect(() => {
+    setListPage((p) => clampListPage(p, filteredSorted.length, listPageSize));
+  }, [filteredSorted.length, listPageSize]);
+
+  const paginatedRows = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return filteredSorted.slice(start, start + listPageSize);
+  }, [filteredSorted, listPage, listPageSize]);
 
   const rangeLabelLo = from <= to ? from : to;
   const rangeLabelHi = from <= to ? to : from;
@@ -344,7 +365,7 @@ export function TeamAssignmentListPage() {
             </p>
 
             <div className="flex flex-col gap-3 p-3 lg:hidden">
-              {filteredSorted.map((item) => {
+              {paginatedRows.map((item) => {
                 const mine = myAssignment(item, myId!);
                 const addr = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
                 const mk = marketerInfo(item);
@@ -495,7 +516,7 @@ export function TeamAssignmentListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSorted.map((item) => {
+                  {paginatedRows.map((item) => {
                     const mine = myAssignment(item, myId!);
                     const mk = marketerInfo(item);
                     const primaryLabel = inquiryPrimaryCustomerLabel(item);
@@ -626,11 +647,6 @@ export function TeamAssignmentListPage() {
             </div>
             <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-fluid-xs text-gray-600 sm:px-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
               <TeamBiLine
-                id="team.assign.footerShowing"
-                vars={{ count: String(filteredSorted.length) }}
-                koClassName="text-fluid-xs text-gray-600"
-              />
-              <TeamBiLine
                 id="team.assign.footerRange"
                 vars={{ from: rangeLabelLo, to: rangeLabelHi }}
                 koClassName="text-fluid-xs text-gray-600"
@@ -643,6 +659,16 @@ export function TeamAssignmentListPage() {
                 <TeamBiInline id="team.assign.basisPreferred" />
               )}
             </div>
+            <ListPaginationBar
+              page={listPage}
+              pageSize={listPageSize}
+              total={filteredSorted.length}
+              onPageChange={setListPage}
+              onPageSizeChange={(size) => {
+                setListPageSize(size);
+                setListPage(1);
+              }}
+            />
           </>
         )}
       </div>

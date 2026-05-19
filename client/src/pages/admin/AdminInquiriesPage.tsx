@@ -73,6 +73,14 @@ import {
   effectiveCustomerOrderNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
 import { copyTextToClipboard } from '../../utils/clipboard';
+import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import {
+  clampListPage,
+  INQUIRY_LIST_DEFAULT_PAGE_SIZE,
+  parseInquiryListPageSize,
+  parseListPage,
+  type InquiryListPageSize,
+} from '../../utils/listPagination';
 import {
   buildOrderFormCustomerMessage,
   getOrderFormPublicUrl,
@@ -524,10 +532,14 @@ function sortInquiryItemsForList(rows: InquiryItem[]): InquiryItem[] {
 
 export function AdminInquiriesPage() {
   const token = getToken();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [listPage, setListPage] = useState(() => parseListPage(searchParams.get('page')));
+  const [listPageSize, setListPageSize] = useState<InquiryListPageSize>(() =>
+    parseInquiryListPageSize(searchParams.get('pageSize'))
+  );
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>(() => {
     const st = searchParams.get('status');
@@ -769,13 +781,29 @@ export function AdminInquiriesPage() {
       .catch(() => setMe(null));
   }, [token]);
 
-  /** 대시보드 등에서 ?datePreset=&month=&status= 로 들어올 때 목록 필터 반영 */
+  /** URL의 목록 필터(datePreset·month·status) — page·pageSize 변경만으로는 실행하지 않음 */
+  const urlListFilterSig = useMemo(
+    () =>
+      [
+        searchParams.get('datePreset') ?? '',
+        searchParams.get('month') ?? '',
+        searchParams.get('status') ?? '',
+      ].join('\0'),
+    [searchParams]
+  );
+  const prevUrlListFilterSigRef = useRef<string | null>(null);
   useEffect(() => {
+    if (prevUrlListFilterSigRef.current === urlListFilterSig) return;
+    const isFirst = prevUrlListFilterSigRef.current === null;
+    prevUrlListFilterSigRef.current = urlListFilterSig;
+
     const dp = searchParams.get('datePreset');
     const m = searchParams.get('month');
     const st = searchParams.get('status');
     if (dp === 'today' || dp === 'all' || dp === 'month' || dp === 'day') {
       setDatePreset(dp);
+    } else if (!searchParams.has('datePreset')) {
+      setDatePreset('today');
     }
     if (m && /^\d{4}-\d{2}$/.test(m)) {
       setMonthKey(m);
@@ -783,12 +811,15 @@ export function AdminInquiriesPage() {
     if (st && (STATUS_FILTER_VALUES as readonly string[]).includes(st)) {
       setStatusFilter(st);
     }
-    if (searchParams.has('datePreset') || searchParams.has('month') || searchParams.has('status')) {
+    if (
+      !isFirst &&
+      (searchParams.has('datePreset') || searchParams.has('month') || searchParams.has('status'))
+    ) {
       setSearchInput('');
       setAppliedSearchQuery('');
       if (me?.role === 'ADMIN' || me?.role === 'MARKETER') setMarketerFilterId('');
     }
-  }, [searchParams, me?.role]);
+  }, [urlListFilterSig, searchParams, me?.role]);
 
   useEffect(() => {
     if (!editItem) setInquiryEditPreferredCalOpen(false);
@@ -933,6 +964,8 @@ export function AdminInquiriesPage() {
       teamLeaderId?: string;
       scheduleMonth?: string;
       scheduleDay?: string;
+      limit?: number;
+      offset?: number;
     } = { datePreset: apiDatePreset };
     if (dateBasis === 'createdAt') {
       if (datePreset === 'month') params.month = monthKey;
@@ -950,6 +983,8 @@ export function AdminInquiriesPage() {
     if (teamLeaderFilterId.trim()) {
       params.teamLeaderId = teamLeaderFilterId.trim();
     }
+    params.limit = listPageSize;
+    params.offset = (listPage - 1) * listPageSize;
     getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
         setItems(sortInquiryItemsForList(res.items));
@@ -1025,6 +1060,123 @@ export function AdminInquiriesPage() {
     getAssignableScheduleUsers(token).then(setTeamLeaders).catch(() => setTeamLeaders([]));
   }, [token]);
 
+  const patchInquiryListSearchParams = useCallback(
+    (patch: (next: URLSearchParams) => void) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          patch(next);
+          next.delete('page');
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const applyDatePreset = useCallback(
+    (preset: 'today' | 'all' | 'month' | 'day') => {
+      setDatePreset(preset);
+      patchInquiryListSearchParams((next) => {
+        next.set('datePreset', preset);
+        if (preset === 'month') {
+          next.set('month', monthKey);
+          next.delete('day');
+        } else if (preset === 'day') {
+          next.set('day', dayKey);
+          next.delete('month');
+        } else {
+          next.delete('month');
+          next.delete('day');
+        }
+      });
+    },
+    [patchInquiryListSearchParams, monthKey, dayKey]
+  );
+
+  const syncListPaginationUrl = useCallback(
+    (page: number, pageSize: InquiryListPageSize) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (page <= 1) next.delete('page');
+          else next.set('page', String(page));
+          if (pageSize === INQUIRY_LIST_DEFAULT_PAGE_SIZE) next.delete('pageSize');
+          else next.set('pageSize', String(pageSize));
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const handleListPageChange = useCallback(
+    (page: number) => {
+      setListPage(page);
+      syncListPaginationUrl(page, listPageSize);
+    },
+    [listPageSize, syncListPaginationUrl]
+  );
+
+  const handleListPageSizeChange = useCallback(
+    (pageSize: InquiryListPageSize) => {
+      setListPageSize(pageSize);
+      setListPage(1);
+      syncListPaginationUrl(1, pageSize);
+    },
+    [syncListPaginationUrl]
+  );
+
+  const listFilterKey = useMemo(
+    () =>
+      [
+        statusFilter,
+        appliedSearchQuery,
+        dateBasis,
+        datePreset,
+        monthKey,
+        dayKey,
+        marketerFilterId,
+        teamLeaderFilterId,
+        inquiryListBump,
+      ].join('\0'),
+    [
+      statusFilter,
+      appliedSearchQuery,
+      dateBasis,
+      datePreset,
+      monthKey,
+      dayKey,
+      marketerFilterId,
+      teamLeaderFilterId,
+      inquiryListBump,
+    ]
+  );
+  const prevListFilterKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevListFilterKeyRef.current === null) {
+      prevListFilterKeyRef.current = listFilterKey;
+      return;
+    }
+    if (prevListFilterKeyRef.current === listFilterKey) return;
+    prevListFilterKeyRef.current = listFilterKey;
+    setListPage(1);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('page');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [listFilterKey, setSearchParams]);
+
+  useEffect(() => {
+    setListPage((p) => clampListPage(p, total, listPageSize));
+  }, [total, listPageSize]);
+
   useEffect(() => {
     if (!token) return;
     refresh(true);
@@ -1040,6 +1192,8 @@ export function AdminInquiriesPage() {
     teamLeaderFilterId,
     me?.role,
     inquiryListBump,
+    listPage,
+    listPageSize,
   ]);
 
   const handleAssign = async (inquiryId: string, teamLeaderId: string) => {
@@ -1648,7 +1802,7 @@ export function AdminInquiriesPage() {
           )}
         </div>
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2">
             <span className="text-fluid-sm text-gray-600 shrink-0">날짜 기준</span>
             <select
               value={dateBasis}
@@ -1662,7 +1816,7 @@ export function AdminInquiriesPage() {
             <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm">
               <button
                 type="button"
-                onClick={() => setDatePreset('today')}
+                onClick={() => applyDatePreset('today')}
                 className={`px-3 py-1.5 font-medium ${
                   datePreset === 'today' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
@@ -1671,7 +1825,7 @@ export function AdminInquiriesPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setDatePreset('all')}
+                onClick={() => applyDatePreset('all')}
                 className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
                   datePreset === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
@@ -1680,7 +1834,7 @@ export function AdminInquiriesPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setDatePreset('month')}
+                onClick={() => applyDatePreset('month')}
                 className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
                   datePreset === 'month' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
@@ -1689,7 +1843,7 @@ export function AdminInquiriesPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setDatePreset('day')}
+                onClick={() => applyDatePreset('day')}
                 className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
                   datePreset === 'day' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
@@ -1700,7 +1854,14 @@ export function AdminInquiriesPage() {
             {datePreset === 'month' && (
               <YearMonthSelect
                 value={monthKey}
-                onChange={setMonthKey}
+                onChange={(v) => {
+                  setMonthKey(v);
+                  patchInquiryListSearchParams((next) => {
+                    next.set('datePreset', 'month');
+                    next.set('month', v);
+                    next.delete('day');
+                  });
+                }}
                 idPrefix="inq-created-month"
                 className="px-2 py-1.5 border border-gray-300 rounded bg-white"
               />
@@ -1708,11 +1869,28 @@ export function AdminInquiriesPage() {
             {datePreset === 'day' && (
               <YmdSelect
                 value={dayKey}
-                onChange={setDayKey}
+                onChange={(v) => {
+                  setDayKey(v);
+                  patchInquiryListSearchParams((next) => {
+                    next.set('datePreset', 'day');
+                    next.set('day', v);
+                    next.delete('month');
+                  });
+                }}
                 idPrefix="inq-created-day"
                 className="px-2 py-1.5 border border-gray-300 rounded bg-white"
               />
             )}
+            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end">
+              <ListPaginationBar
+                mode="summary"
+                page={listPage}
+                pageSize={listPageSize}
+                total={total}
+                onPageChange={handleListPageChange}
+                onPageSizeChange={handleListPageSizeChange}
+              />
+            </div>
           </div>
           <div className="border border-gray-200 rounded-lg bg-gray-50 px-3 py-2.5">
             <div className="text-fluid-xs text-gray-500 mb-2 flex items-center gap-2">
@@ -2720,27 +2898,38 @@ export function AdminInquiriesPage() {
             </div>
           </>
         )}
-        {total > 0 && (
-          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-fluid-xs text-gray-600">
-            <span className="lg:hidden">총 {total}건 · 모바일은 카드 요약 · </span>
-            <span className="hidden lg:inline">총 {total}건 · </span>
-            {datePreset === 'today'
-              ? '오늘 접수'
-              : datePreset === 'month'
-                ? `${monthKey}`
-                : datePreset === 'day'
-                  ? `${dayKey}`
-                  : '전체 기간'}
-            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && marketerFilterId ? (
-              <>
-                {' · '}
-                접수자: {labelForMarketerFilter(marketerFilterId, me, marketers)}
-              </>
-            ) : null}
-            <span className="hidden lg:inline"> · 행을 누르면 상세 · 표는 고정 비율(작업 버튼은 줄바꿈)·말줄임 · 좁을 때 하단 가로 스크롤</span>
-            <span className="lg:hidden"> · 카드 위쪽 탭 시 상세</span>
-          </div>
-        )}
+        {!loading ? (
+          <>
+            <div className="border-t border-gray-100 px-4 py-2 text-fluid-xs text-gray-600">
+              {datePreset === 'today'
+                ? '오늘 접수'
+                : datePreset === 'month'
+                  ? `${monthKey}`
+                  : datePreset === 'day'
+                    ? `${dayKey}`
+                    : '전체 기간'}
+              {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && marketerFilterId ? (
+                <>
+                  {' · '}
+                  접수자: {labelForMarketerFilter(marketerFilterId, me, marketers)}
+                </>
+              ) : null}
+              <span className="hidden lg:inline">
+                {' '}
+                · 행을 누르면 상세 · 표는 고정 비율 · 좁을 때 하단 가로 스크롤
+              </span>
+              <span className="lg:hidden"> · 카드 탭 시 상세</span>
+            </div>
+            <ListPaginationBar
+              mode="nav"
+              page={listPage}
+              pageSize={listPageSize}
+              total={total}
+              onPageChange={handleListPageChange}
+              onPageSizeChange={handleListPageSizeChange}
+            />
+          </>
+        ) : null}
       </div>
 
       {createPortal(

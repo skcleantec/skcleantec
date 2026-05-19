@@ -5,6 +5,8 @@ import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
+import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import { usePaginatedListQuery } from '../../hooks/usePaginatedListQuery';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormFollowupPanel } from '../../components/order-followup/AdminOrderFormFollowupPanel';
 import { CustomerOrderSubmissionSnapshotModal } from '../../components/orderform/CustomerOrderSubmissionSnapshotModal';
@@ -145,6 +147,28 @@ export function AdminOrderFormPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const listFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        listDatePreset,
+        listMonthKey,
+        listDayKey,
+        listCustomerName: listCustomerName.trim(),
+        listCreatedById: listCreatedById.trim(),
+        listSubmitStatus,
+      }),
+    [listDatePreset, listMonthKey, listDayKey, listCustomerName, listCreatedById, listSubmitStatus]
+  );
+
+  const {
+    listPage,
+    listPageSize,
+    total,
+    setTotal,
+    handleListPageChange,
+    handleListPageSizeChange,
+  } = usePaginatedListQuery(listFilterKey);
+
   const listFilters = useMemo(
     () => ({
       datePreset: listDatePreset,
@@ -153,8 +177,19 @@ export function AdminOrderFormPage() {
       ...(listCustomerName.trim() ? { customerName: listCustomerName.trim() } : {}),
       ...(listCreatedById.trim() ? { createdById: listCreatedById.trim() } : {}),
       submitStatus: listSubmitStatus,
+      limit: listPageSize,
+      offset: (listPage - 1) * listPageSize,
     }),
-    [listDatePreset, listMonthKey, listDayKey, listCustomerName, listCreatedById, listSubmitStatus]
+    [
+      listDatePreset,
+      listMonthKey,
+      listDayKey,
+      listCustomerName,
+      listCreatedById,
+      listSubmitStatus,
+      listPage,
+      listPageSize,
+    ]
   );
 
   const hasActiveListFilters = useMemo(
@@ -210,10 +245,14 @@ export function AdminOrderFormPage() {
       .then((r) => {
         setOrderForms(r.items);
         if (Array.isArray(r.issuers)) setListIssuers(r.issuers);
+        setTotal(typeof r.total === 'number' ? r.total : r.items.length);
       })
-      .catch(() => setError('발주서 목록을 불러올 수 없습니다.'))
+      .catch(() => {
+        setError('발주서 목록을 불러올 수 없습니다.');
+        setTotal(0);
+      })
       .finally(() => setLoading(false));
-  }, [token, listFilters]);
+  }, [token, listFilters, setTotal]);
 
   const refreshMsgConfig = () => {
     if (!token) return;
@@ -807,7 +846,8 @@ export function AdminOrderFormPage() {
         <div className="min-w-0 w-full max-w-full">
           <div className="rounded-lg border border-gray-200 bg-white">
             <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-3 py-3 sm:px-4">
-              <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
                 <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">발급일</span>
                 <div className="inline-flex flex-wrap items-center gap-2">
                   <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm shrink-0">
@@ -865,6 +905,16 @@ export function AdminOrderFormPage() {
                     />
                   )}
                 </div>
+                </div>
+                <ListPaginationBar
+                  mode="summary"
+                  page={listPage}
+                  pageSize={listPageSize}
+                  total={total}
+                  onPageChange={handleListPageChange}
+                  onPageSizeChange={handleListPageSizeChange}
+                  className="shrink-0"
+                />
               </div>
               <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
                 <div className="min-w-0 w-full lg:max-w-sm">
@@ -1195,18 +1245,27 @@ export function AdminOrderFormPage() {
                 </div>
               </>
             )}
-            {orderForms.length > 0 && !loading && (
-              <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 text-fluid-xs text-gray-600">
-                <span className="lg:hidden">총 {orderForms.length}건 · 모바일은 카드 요약 · </span>
-                <span className="hidden lg:inline">총 {orderForms.length}건 · </span>
-                발주서 목록(최근 발급 순)
-                <span className="hidden lg:inline">
-                  {' '}
-                  · 표는 고정 폭·말줄임으로 한 화면에 맞춤(매우 좁을 때만 하단 막대)
-                </span>
-                <span className="lg:hidden"> · 카드에서 메시지·링크·새 창</span>
+            {!loading && total > 0 ? (
+              <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 space-y-2">
+                <div className="text-fluid-xs text-gray-600">
+                  <span className="lg:hidden">모바일은 카드 요약 · </span>
+                  발주서 목록(최근 발급 순)
+                  <span className="hidden lg:inline">
+                    {' '}
+                    · 표는 고정 폭·말줄임으로 한 화면에 맞춤(매우 좁을 때만 하단 막대)
+                  </span>
+                  <span className="lg:hidden"> · 카드에서 메시지·링크·새 창</span>
+                </div>
+                <ListPaginationBar
+                  mode="nav"
+                  page={listPage}
+                  pageSize={listPageSize}
+                  total={total}
+                  onPageChange={handleListPageChange}
+                  onPageSizeChange={handleListPageSizeChange}
+                />
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}

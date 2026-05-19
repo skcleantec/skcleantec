@@ -487,8 +487,6 @@ router.get('/designer-preview-token', authMiddleware, adminOrMarketer, async (re
  * 발주서 목록 응답 상한 — 운영 DB 누적 시 전량 로드로 첫 페인트가 멈추는 것을 방지.
  * 더 많은 과거가 필요하면 필터(기간·고객명·발급자)로 좁힌다.
  */
-const ORDER_FORM_LIST_HARD_LIMIT = 300;
-
 /** 관리자/마케터: 발주서 목록 (발급일·담당·제출 상태 필터) */
 router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const q = req.query as Record<string, string | undefined>;
@@ -524,11 +522,18 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
     where.submittedAt = { not: null };
   }
 
-  const [list, issuers] = await Promise.all([
+  const parsedLimit = Number.parseInt(String(q.limit ?? '30'), 10);
+  const parsedOffset = Number.parseInt(String(q.offset ?? '0'), 10);
+  const take = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 30;
+  const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
+
+  const [total, list, issuers] = await Promise.all([
+    prisma.orderForm.count({ where }),
     prisma.orderForm.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: ORDER_FORM_LIST_HARD_LIMIT,
+      take,
+      skip,
       include: {
         inquiries: { take: 1 },
         createdBy: orderFormCreatedBySelect,
@@ -550,7 +555,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
         : (u.name?.trim() || u.email || u.id),
   }));
 
-  res.json({ items: list, issuers: issuerOptions });
+  res.json({ items: list, issuers: issuerOptions, total });
 });
 
 /** 관리자/마케터: 고객 제출 원본 스냅샷(제출 시점 저장 JSON). 미제출이거나 레거시면 null */

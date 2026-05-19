@@ -17,6 +17,8 @@ import { AdminListIntakeModal } from '../admin/AdminListIntakeModal';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { HelpTooltip } from '../ui/HelpTooltip';
+import { ListPaginationBar } from '../ui/ListPaginationBar';
+import { usePaginatedListQuery } from '../../hooks/usePaginatedListQuery';
 import {
   ORDER_FOLLOWUP_STATUS_LABEL,
   type OrderFollowupStatus,
@@ -330,6 +332,39 @@ export function AdminOrderFormFollowupPanel({
   const [dateMonthKey, setDateMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
 
+  const listFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        filterGoldDbOnly,
+        filterStatus,
+        filterCustomerName: filterCustomerName.trim(),
+        listDateBasis,
+        datePreset,
+        dateMonthKey,
+        dateDayKey,
+        linkedInquiryId: linkedInquiryId?.trim() ?? '',
+      }),
+    [
+      filterGoldDbOnly,
+      filterStatus,
+      filterCustomerName,
+      listDateBasis,
+      datePreset,
+      dateMonthKey,
+      dateDayKey,
+      linkedInquiryId,
+    ]
+  );
+
+  const {
+    listPage,
+    listPageSize,
+    total,
+    setTotal,
+    handleListPageChange,
+    handleListPageSizeChange,
+  } = usePaginatedListQuery(listFilterKey);
+
   const [logFor, setLogFor] = useState<OrderFollowupItem | null>(null);
   const [logs, setLogs] = useState<OrderFollowupLogItem[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -399,11 +434,15 @@ export function AdminOrderFormFollowupPanel({
                   ...(datePreset === 'day' ? { day: dateDayKey } : {}),
                 }
             : {}),
+          limit: listPageSize,
+          offset: (listPage - 1) * listPageSize,
         });
         setItems(r.items);
+        setTotal(typeof r.total === 'number' ? r.total : r.items.length);
       } catch (e) {
         setError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
         setItems([]);
+        setTotal(0);
       } finally {
         if (!silent) setLoading(false);
       }
@@ -418,6 +457,9 @@ export function AdminOrderFormFollowupPanel({
       dateDayKey,
       linkedInquiryId,
       listDateBasis,
+      listPage,
+      listPageSize,
+      setTotal,
     ]
   );
 
@@ -757,7 +799,17 @@ export function AdminOrderFormFollowupPanel({
                 />
               )}
             </div>
-            <HelpTooltip className="shrink-0 sm:ml-auto" text={FOLLOWUP_PANEL_HELP} />
+            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
+              <ListPaginationBar
+                mode="summary"
+                page={listPage}
+                pageSize={listPageSize}
+                total={total}
+                onPageChange={handleListPageChange}
+                onPageSizeChange={handleListPageSizeChange}
+              />
+              <HelpTooltip className="shrink-0" text={FOLLOWUP_PANEL_HELP} />
+            </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -1019,6 +1071,18 @@ export function AdminOrderFormFollowupPanel({
                 </div>
               ))}
             </div>
+            {!loading && total > 0 ? (
+              <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+                <ListPaginationBar
+                  mode="nav"
+                  page={listPage}
+                  pageSize={listPageSize}
+                  total={total}
+                  onPageChange={handleListPageChange}
+                  onPageSizeChange={handleListPageSizeChange}
+                />
+              </div>
+            ) : null}
           </>
         )}
       </section>

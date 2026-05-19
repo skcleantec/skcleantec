@@ -85,8 +85,10 @@ export async function listOrderFollowups(
     inquiryId?: string;
     /** 접수 미연결 행만 + 고객명(2자 이상) — 기존 행을 접수에 붙일 때 검색 */
     missingInquiryLink?: boolean;
+    limit?: number;
+    offset?: number;
   }
-): Promise<{ items: OrderFollowupItem[] }> {
+): Promise<{ items: OrderFollowupItem[]; total: number }> {
   const q = new URLSearchParams();
   if (opts?.includeFulfilled) q.set('includeFulfilled', '1');
   if (opts?.status) q.set('status', opts.status);
@@ -94,6 +96,8 @@ export async function listOrderFollowups(
   if (opts?.goldDbOnly) q.set('goldDbOnly', '1');
   if (opts?.inquiryId?.trim()) q.set('inquiryId', opts.inquiryId.trim());
   if (opts?.missingInquiryLink) q.set('missingInquiryLink', '1');
+  if (opts?.limit != null) q.set('limit', String(opts.limit));
+  if (opts?.offset != null) q.set('offset', String(opts.offset));
   const prefPreset = opts?.preferredDatePreset;
   const usePreferred = prefPreset && prefPreset !== 'all';
   if (usePreferred) {
