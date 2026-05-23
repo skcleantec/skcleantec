@@ -504,6 +504,7 @@ export function AdminTeamLeadersPage() {
                 if (showForm === 'team') setShowForm(null);
                 else {
                   setForm(emptyRegisterForm());
+                  setShowForm('team');
                 }
               }}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xl font-light leading-none text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
@@ -675,6 +676,7 @@ export function AdminTeamLeadersPage() {
                 if (showForm === 'marketer') setShowForm(null);
                 else {
                   setForm(emptyRegisterForm());
+                  setShowForm('marketer');
                 }
               }}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-xl font-light leading-none text-white shadow-sm hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1"
