@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PLATFORM_NAME, PLATFORM_TAGLINE } from '@shared/platformBrand';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { platformLogin } from '../../api/platformTenants';
 import { setPlatformToken } from '../../stores/platformAuth';
@@ -31,8 +32,8 @@ export function PlatformLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="w-full max-w-sm bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <h1 className="text-fluid-lg font-semibold text-gray-900 text-center mb-1">플랫폼 로그인</h1>
-        <p className="text-fluid-xs text-gray-500 text-center mb-6">업체(SaaS) 운영 콘솔</p>
+        <h1 className="text-fluid-lg font-semibold text-gray-900 text-center mb-1">{PLATFORM_NAME}</h1>
+        <p className="text-fluid-xs text-gray-500 text-center mb-6">{PLATFORM_TAGLINE}</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-fluid-xs text-gray-600 mb-1">이메일</label>

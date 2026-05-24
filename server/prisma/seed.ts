@@ -24,11 +24,11 @@ async function main() {
   const platformEmail = (process.env.PLATFORM_ADMIN_EMAIL ?? 'pyo').trim().toLowerCase();
   const platformUser = await prisma.platformUser.upsert({
     where: { email: platformEmail },
-    update: { passwordHash: hash, isActive: true, name: '플랫폼 관리자', role: 'SUPER_ADMIN' },
+    update: { passwordHash: hash, isActive: true, name: '청소비서 관리자', role: 'SUPER_ADMIN' },
     create: {
       email: platformEmail,
       passwordHash: hash,
-      name: '플랫폼 관리자',
+      name: '청소비서 관리자',
       role: 'SUPER_ADMIN',
     },
   });

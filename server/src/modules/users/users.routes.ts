@@ -9,6 +9,7 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
+import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import {
   clearStaffIdCardForUser,
@@ -184,9 +185,16 @@ router.post('/', adminOnly, async (req, res) => {
     res.status(400).json({ error: '아이디, 비밀번호, 이름을 입력해주세요.' });
     return;
   }
+  let loginId: string;
+  try {
+    loginId = assertValidTenantLoginId(email);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '유효하지 않은 아이디입니다.' });
+    return;
+  }
   const userRole = role === 'MARKETER' ? 'MARKETER' : 'TEAM_LEADER';
   const existing = await prisma.user.findUnique({
-    where: { tenantId_email: { tenantId, email: email.trim().toLowerCase() } },
+    where: { tenantId_email: { tenantId, email: loginId } },
   });
   if (existing) {
     res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
@@ -281,7 +289,7 @@ router.post('/', adminOnly, async (req, res) => {
   const user = await prisma.user.create({
     data: {
       tenantId,
-      email,
+      email: loginId,
       passwordHash,
       name,
       phone: phone || null,
@@ -458,20 +466,22 @@ router.patch('/:id', adminOnly, async (req, res) => {
     data.passwordHash = await bcrypt.hash(String(body.password).trim(), 10);
   }
   if (body.email != null) {
-    const newEmail = String(body.email).trim().toLowerCase();
-    if (!newEmail) {
-      res.status(400).json({ error: '아이디를 입력해주세요.' });
+    let newLoginId: string;
+    try {
+      newLoginId = assertValidTenantLoginId(String(body.email));
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : '유효하지 않은 아이디입니다.' });
       return;
     }
-    if (newEmail !== existing.email.toLowerCase()) {
+    if (newLoginId !== existing.email.toLowerCase()) {
       const taken = await prisma.user.findFirst({
-        where: { tenantId: existing.tenantId, email: newEmail, NOT: { id } },
+        where: { tenantId: existing.tenantId, email: newLoginId, NOT: { id } },
       });
       if (taken) {
         res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
         return;
       }
-      data.email = newEmail;
+      data.email = newLoginId;
     }
   }
 

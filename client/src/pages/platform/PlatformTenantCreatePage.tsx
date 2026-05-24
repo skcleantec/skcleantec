@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createPlatformTenant } from '../../api/platformTenants';
 import { getPlatformToken } from '../../stores/platformAuth';
 import { TENANT_PLANS } from '@shared/tenantFeatureModules';
+import { tenantLoginIdErrorMessage } from '@shared/tenantLoginId';
 
 export function PlatformTenantCreatePage() {
   const navigate = useNavigate();
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
   const [plan, setPlan] = useState<string>('starter');
-  const [adminEmail, setAdminEmail] = useState('admin');
+  const [adminLoginId, setAdminLoginId] = useState('admin');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminName, setAdminName] = useState('관리자');
   const [error, setError] = useState('');
@@ -26,7 +27,7 @@ export function PlatformTenantCreatePage() {
         slug,
         name,
         plan,
-        adminEmail,
+        adminLoginId,
         adminPassword,
         adminName,
       })) as { tenant: { id: string } };
@@ -89,11 +90,13 @@ export function PlatformTenantCreatePage() {
         <div>
           <label className="block text-fluid-xs text-gray-600 mb-1">관리자 아이디</label>
           <input
-            value={adminEmail}
-            onChange={(e) => setAdminEmail(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm"
+            value={adminLoginId}
+            onChange={(e) => setAdminLoginId(e.target.value.toLowerCase())}
+            className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm font-mono"
+            spellCheck={false}
             required
           />
+          <p className="text-fluid-2xs text-gray-500 mt-1">{tenantLoginIdErrorMessage()}</p>
         </div>
         <div>
           <label className="block text-fluid-xs text-gray-600 mb-1">관리자 비밀번호</label>

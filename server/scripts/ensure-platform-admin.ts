@@ -17,13 +17,13 @@ const user = await prisma.platformUser.upsert({
   update: {
     passwordHash: hash,
     isActive: true,
-    name: '플랫폼 관리자',
+    name: '청소비서 관리자',
     role: 'SUPER_ADMIN',
   },
   create: {
     email,
     passwordHash: hash,
-    name: '플랫폼 관리자',
+    name: '청소비서 관리자',
     role: 'SUPER_ADMIN',
   },
   select: { id: true, email: true, role: true },

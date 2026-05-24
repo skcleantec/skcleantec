@@ -2,6 +2,11 @@ import { Router } from 'express';
 import type { TenantStatus } from '@prisma/client';
 import { platformAuthMiddleware, platformSuperAdminOnly } from './platformAuth.middleware.js';
 import {
+  createTenantAdminForPlatform,
+  listTenantAdminsForPlatform,
+  updateTenantAdminForPlatform,
+} from './tenantAdmins.service.js';
+import {
   getTenantDetailForPlatform,
   listTenantsForPlatform,
   provisionTenant,
@@ -27,6 +32,8 @@ router.post('/', platformSuperAdminOnly, async (req, res) => {
       slug?: string;
       name?: string;
       plan?: string;
+      adminLoginId?: string;
+      /** @deprecated adminLoginId 사용 */
       adminEmail?: string;
       adminPassword?: string;
       adminName?: string;
@@ -36,7 +43,7 @@ router.post('/', platformSuperAdminOnly, async (req, res) => {
       slug: String(body.slug ?? ''),
       name: String(body.name ?? ''),
       plan: String(body.plan ?? 'starter'),
-      adminEmail: String(body.adminEmail ?? 'admin'),
+      adminLoginId: String(body.adminLoginId ?? body.adminEmail ?? ''),
       adminPassword: String(body.adminPassword ?? ''),
       adminName: body.adminName,
       status: body.status,
@@ -49,7 +56,11 @@ router.post('/', platformSuperAdminOnly, async (req, res) => {
         plan: result.tenant.plan,
         status: result.tenant.status,
       },
-      admin: result.admin,
+      admin: {
+        id: result.admin.id,
+        loginId: result.admin.email,
+        name: result.admin.name,
+      },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '업체 생성에 실패했습니다.';
@@ -72,7 +83,12 @@ router.get('/:id', async (req, res) => {
 
 router.patch('/:id', platformSuperAdminOnly, async (req, res) => {
   try {
-    const body = req.body as { name?: string; plan?: string; status?: TenantStatus };
+    const body = req.body as {
+      slug?: string;
+      name?: string;
+      plan?: string;
+      status?: TenantStatus;
+    };
     const tenant = await updateTenantBasics(req.params.id, body);
     res.json({ tenant });
   } catch (e) {
@@ -81,6 +97,86 @@ router.patch('/:id', platformSuperAdminOnly, async (req, res) => {
       return;
     }
     const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.patch('/:id/owner', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const admins = await listTenantAdminsForPlatform(req.params.id);
+    const primary = admins[0];
+    if (!primary) {
+      res.status(400).json({ error: '관리자 계정을 찾을 수 없습니다.' });
+      return;
+    }
+    const body = req.body as { loginId?: string; password?: string; name?: string };
+    const admin = await updateTenantAdminForPlatform(req.params.id, primary.id, body);
+    res.json({ owner: admin, admin });
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : '관리자 저장에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.get('/:id/admins', async (req, res) => {
+  try {
+    const items = await listTenantAdminsForPlatform(req.params.id);
+    res.json({ items });
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.post('/:id/admins', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const body = req.body as {
+      loginId?: string;
+      password?: string;
+      name?: string;
+      isTenantOwner?: boolean;
+    };
+    const admin = await createTenantAdminForPlatform(req.params.id, {
+      loginId: String(body.loginId ?? ''),
+      password: String(body.password ?? ''),
+      name: body.name,
+      isTenantOwner: body.isTenantOwner,
+    });
+    res.status(201).json({ admin });
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : '관리자 추가에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.patch('/:id/admins/:adminId', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const body = req.body as {
+      loginId?: string;
+      password?: string;
+      name?: string;
+      isActive?: boolean;
+      isTenantOwner?: boolean;
+    };
+    const admin = await updateTenantAdminForPlatform(req.params.id, req.params.adminId, body);
+    res.json({ admin });
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : '관리자 저장에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });

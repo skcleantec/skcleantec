@@ -5,6 +5,7 @@ import { loginCrew, getCrewMe } from '../api/crew';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
+import { PLATFORM_NAME } from '@shared/platformBrand';
 import { DEFAULT_TENANT_SLUG, loadTenantSlug, saveTenantSlug } from '../utils/tenantSlug';
 import { resolveTenantSlugWithApiFallback } from '../utils/tenantHostResolve';
 
@@ -402,11 +403,11 @@ export function LoginPage() {
 
           <p className="mt-6 text-center text-fluid-2xs text-slate-500">
             <Link to="/platform/login" className="hover:text-slate-700 underline-offset-2 hover:underline">
-              플랫폼(SaaS) 운영 콘솔
+              {PLATFORM_NAME} 운영 콘솔
             </Link>
           </p>
           <p className="mt-4 text-center text-fluid-2xs text-slate-400">
-            © {new Date().getFullYear()} 표마왕
+            © {new Date().getFullYear()} {PLATFORM_NAME}
           </p>
         </div>
       </div>

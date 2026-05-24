@@ -42,6 +42,8 @@ export type PlatformTenantRow = {
   createdAt: string;
   userCount: number;
   inquiryCount: number;
+  ownerLoginId?: string | null;
+  adminLoginIds?: string[];
 };
 
 export async function listPlatformTenants(token: string) {
@@ -57,7 +59,7 @@ export async function createPlatformTenant(
     slug: string;
     name: string;
     plan: string;
-    adminEmail: string;
+    adminLoginId: string;
     adminPassword: string;
     adminName?: string;
   },
@@ -84,6 +86,18 @@ export type PlatformTenantFeatureRow = {
   effective: boolean;
 };
 
+export type PlatformTenantAdmin = {
+  id: string;
+  loginId: string;
+  name: string;
+  isActive: boolean;
+  isTenantOwner: boolean;
+  createdAt?: string;
+};
+
+/** @deprecated 단일 owner — admins 사용 */
+export type PlatformTenantOwner = PlatformTenantAdmin;
+
 export type PlatformTenantDetail = {
   tenant: {
     id: string;
@@ -94,10 +108,27 @@ export type PlatformTenantDetail = {
     createdAt: string;
     timezone?: string;
   };
+  admins?: PlatformTenantAdmin[];
+  /** @deprecated admins[0] */
+  owner?: PlatformTenantAdmin | null;
   features: PlatformTenantFeatureRow[];
   planModules: string[];
   config?: Record<string, unknown>;
 };
+
+export function normalizePlatformTenantAdmins(detail: PlatformTenantDetail): PlatformTenantAdmin[] {
+  if (detail.admins && detail.admins.length > 0) return detail.admins;
+  if (detail.owner) {
+    return [
+      {
+        ...detail.owner,
+        isTenantOwner: detail.owner.isTenantOwner ?? true,
+        isActive: detail.owner.isActive ?? true,
+      },
+    ];
+  }
+  return [];
+}
 
 export async function getPlatformTenant(token: string, id: string) {
   const res = await fetch(`${API}/platform/tenants/${id}`, { headers: authHeaders(token) });
@@ -108,7 +139,7 @@ export async function getPlatformTenant(token: string, id: string) {
 export async function patchPlatformTenant(
   token: string,
   id: string,
-  body: { name?: string; plan?: string; status?: string },
+  body: { slug?: string; name?: string; plan?: string; status?: string },
 ) {
   const res = await fetch(`${API}/platform/tenants/${id}`, {
     method: 'PATCH',
@@ -143,6 +174,64 @@ export async function resetPlatformTenantFeaturesFromPlan(token: string, id: str
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '플랜 재적용 실패'));
   return res.json() as Promise<PlatformTenantDetail>;
+}
+
+export async function patchPlatformTenantOwner(
+  token: string,
+  id: string,
+  body: { loginId?: string; password?: string; name?: string },
+) {
+  const res = await fetch(`${API}/platform/tenants/${id}/owner`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? '관리자 저장 실패');
+  }
+  return res.json() as Promise<{ owner: PlatformTenantAdmin; admin: PlatformTenantAdmin }>;
+}
+
+export async function createPlatformTenantAdmin(
+  token: string,
+  tenantId: string,
+  body: { loginId: string; password: string; name?: string; isTenantOwner?: boolean },
+) {
+  const res = await fetch(`${API}/platform/tenants/${tenantId}/admins`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? '관리자 추가 실패');
+  }
+  return res.json() as Promise<{ admin: PlatformTenantAdmin }>;
+}
+
+export async function patchPlatformTenantAdmin(
+  token: string,
+  tenantId: string,
+  adminId: string,
+  body: {
+    loginId?: string;
+    password?: string;
+    name?: string;
+    isActive?: boolean;
+    isTenantOwner?: boolean;
+  },
+) {
+  const res = await fetch(`${API}/platform/tenants/${tenantId}/admins/${adminId}`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? '관리자 저장 실패');
+  }
+  return res.json() as Promise<{ admin: PlatformTenantAdmin }>;
 }
 
 export async function patchPlatformTenantConfig(token: string, id: string, config: unknown) {

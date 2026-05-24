@@ -50,6 +50,7 @@ export function PlatformTenantListPage() {
                   <tr className="bg-gray-100 border-b border-gray-200">
                     <th className="px-3 py-2 text-center">업체명</th>
                     <th className="px-3 py-2 text-center w-28">코드</th>
+                    <th className="px-3 py-2 text-center w-28">관리자</th>
                     <th className="px-3 py-2 text-center w-24">플랜</th>
                     <th className="px-3 py-2 text-center w-20">상태</th>
                     <th className="px-3 py-2 text-center w-16">사용자</th>
@@ -64,6 +65,11 @@ export function PlatformTenantListPage() {
                         {row.name}
                       </td>
                       <td className="px-3 py-2 text-center font-mono text-fluid-xs">{row.slug}</td>
+                      <td className="px-3 py-2 text-center font-mono text-fluid-xs">
+                        {(row.adminLoginIds && row.adminLoginIds.length > 0
+                          ? row.adminLoginIds.join(', ')
+                          : row.ownerLoginId) ?? '—'}
+                      </td>
                       <td className="px-3 py-2 text-center capitalize">{row.plan}</td>
                       <td className="px-3 py-2 text-center">{STATUS_LABEL[row.status] ?? row.status}</td>
                       <td className="px-3 py-2 text-center tabular-nums">{row.userCount}</td>
@@ -87,7 +93,11 @@ export function PlatformTenantListPage() {
                 >
                   <div className="font-medium text-gray-900">{row.name}</div>
                   <div className="text-fluid-xs text-gray-500 mt-1">
-                    {row.slug} · {row.plan} · {STATUS_LABEL[row.status] ?? row.status}
+                    {row.slug}
+                    {(row.adminLoginIds?.length ? row.adminLoginIds.join(', ') : row.ownerLoginId)
+                      ? ` · ${row.adminLoginIds?.length ? row.adminLoginIds.join(', ') : row.ownerLoginId}`
+                      : ''}{' '}
+                    · {row.plan} · {STATUS_LABEL[row.status] ?? row.status}
                   </div>
                 </Link>
               ))}

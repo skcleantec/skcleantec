@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { PLATFORM_NAME } from '@shared/platformBrand';
 import { clearPlatformToken } from '../../stores/platformAuth';
 
 export function PlatformLayout() {
@@ -17,7 +18,7 @@ export function PlatformLayout() {
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4 min-w-0">
           <div className="flex items-center gap-4 min-w-0">
-            <span className="text-fluid-sm font-semibold text-gray-900 shrink-0">SK 플랫폼</span>
+            <span className="text-fluid-sm font-semibold text-gray-900 shrink-0">{PLATFORM_NAME}</span>
             <nav className="flex gap-1 overflow-x-auto">
               <NavLink to="/platform/tenants" className={navClass}>
                 업체 관리

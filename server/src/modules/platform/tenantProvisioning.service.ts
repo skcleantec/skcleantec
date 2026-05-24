@@ -12,6 +12,11 @@ import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { ensureDefaultAdChannelsForTenant } from '../advertising/defaultAdChannels.js';
 import { customModulesForTenantSlug, isCustomModuleId, isRegisteredCustomModuleId } from '../custom/customModuleCatalog.js';
 import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.service.js';
+import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
+import {
+  adminLoginIdsSummaryForTenants,
+  listTenantAdminsForPlatform,
+} from './tenantAdmins.service.js';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
@@ -29,7 +34,7 @@ export type ProvisionTenantInput = {
   slug: string;
   name: string;
   plan: string;
-  adminEmail: string;
+  adminLoginId: string;
   adminPassword: string;
   adminName?: string;
   status?: TenantStatus;
@@ -38,14 +43,14 @@ export type ProvisionTenantInput = {
 export async function provisionTenant(input: ProvisionTenantInput) {
   const slug = normalizeTenantSlug(input.slug);
   const name = input.name.trim();
-  const adminEmail = input.adminEmail.trim().toLowerCase();
+  const adminLoginId = assertValidTenantLoginId(input.adminLoginId);
   const adminName = (input.adminName?.trim() || '관리자').slice(0, 64);
   const plan = input.plan in { starter: 1, standard: 1, premium: 1 } ? input.plan : 'starter';
   const status = input.status ?? 'TRIAL';
 
   assertValidTenantSlug(slug);
   if (!name) throw new Error('업체명을 입력해주세요.');
-  if (!adminEmail || !input.adminPassword.trim()) {
+  if (!input.adminPassword.trim()) {
     throw new Error('관리자 아이디와 비밀번호를 입력해주세요.');
   }
 
@@ -74,7 +79,7 @@ export async function provisionTenant(input: ProvisionTenantInput) {
     const admin = await tx.user.create({
       data: {
         tenantId: tenant.id,
-        email: adminEmail,
+        email: adminLoginId,
         passwordHash,
         name: adminName,
         role: 'ADMIN',
@@ -120,16 +125,22 @@ export async function listTenantsForPlatform() {
       _count: { select: { users: true, inquiries: true } },
     },
   });
-  return rows.map((r) => ({
-    id: r.id,
-    slug: r.slug,
-    name: r.name,
-    plan: r.plan,
-    status: r.status,
-    createdAt: r.createdAt,
-    userCount: r._count.users,
-    inquiryCount: r._count.inquiries,
-  }));
+  const adminMap = await adminLoginIdsSummaryForTenants(rows.map((r) => r.id));
+  return rows.map((r) => {
+    const adminLoginIds = adminMap.get(r.id) ?? [];
+    return {
+      id: r.id,
+      slug: r.slug,
+      name: r.name,
+      plan: r.plan,
+      status: r.status,
+      createdAt: r.createdAt,
+      userCount: r._count.users,
+      inquiryCount: r._count.inquiries,
+      adminLoginIds,
+      ownerLoginId: adminLoginIds[0] ?? null,
+    };
+  });
 }
 
 export async function getTenantDetailForPlatform(tenantId: string) {
@@ -193,18 +204,43 @@ export async function getTenantDetailForPlatform(tenantId: string) {
   });
 
   const config = await getTenantConfig(tenantId);
+  const admins = await listTenantAdminsForPlatform(tenantId);
 
-  return { tenant, features: [...baseCatalog, ...customCatalog], planModules: [...planModules], config };
+  return {
+    tenant,
+    admins,
+    owner: admins[0] ?? null,
+    features: [...baseCatalog, ...customCatalog],
+    planModules: [...planModules],
+    config,
+  };
 }
 
 export async function updateTenantBasics(
   tenantId: string,
-  data: { name?: string; plan?: string; status?: TenantStatus },
+  data: { slug?: string; name?: string; plan?: string; status?: TenantStatus },
 ) {
   const existing = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!existing) throw new TenantNotFoundError();
 
-  const patch: { name?: string; plan?: string; status?: TenantStatus; suspendedAt?: Date | null } = {};
+  const patch: {
+    slug?: string;
+    name?: string;
+    plan?: string;
+    status?: TenantStatus;
+    suspendedAt?: Date | null;
+  } = {};
+  if (data.slug !== undefined) {
+    const slug = normalizeTenantSlug(data.slug);
+    assertValidTenantSlug(slug);
+    if (slug !== existing.slug) {
+      const slugTaken = await prisma.tenant.findFirst({
+        where: { slug, id: { not: tenantId } },
+      });
+      if (slugTaken) throw new Error('이미 사용 중인 업체 코드입니다.');
+      patch.slug = slug;
+    }
+  }
   if (data.name !== undefined) {
     const name = data.name.trim();
     if (!name) throw new Error('업체명을 입력해주세요.');
