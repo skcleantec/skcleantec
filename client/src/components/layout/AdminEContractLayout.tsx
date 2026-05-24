@@ -10,6 +10,12 @@ export function AdminEContractLayout() {
           계약서
         </NavLink>
         <NavLink
+          to="/admin/team-leaders/e-contracts/field-settings"
+          className={({ isActive }) => adminSubNavTabClassName(isActive)}
+        >
+          매핑 필드
+        </NavLink>
+        <NavLink
           to="/admin/team-leaders/e-contracts/issuer-profile"
           className={({ isActive }) => adminSubNavTabClassName(isActive)}
         >

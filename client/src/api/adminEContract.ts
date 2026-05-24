@@ -425,6 +425,7 @@ export async function createEContractIssuance(
     versionId?: string | null;
     expiresAt?: string | null;
     notes?: string | null;
+    mergeFields?: Record<string, string>;
   }
 ): Promise<{ issuance: unknown }> {
   const res = await fetch(`${API}/admin/e-contracts/issuances`, {
@@ -536,4 +537,138 @@ export function buildEContractPublicSignUrl(token: string): string {
     return `${window.location.origin}${path}`;
   }
   return path;
+}
+
+export type EContractFieldFilledByKind = 'SIGNER' | 'ADMIN' | 'AUTO';
+export type EContractFieldInputTypeKind = 'TEXT' | 'TEXTAREA' | 'DATE' | 'NUMBER' | 'PHONE' | 'RRN';
+
+export type EContractFieldDefinitionDto = {
+  id: string;
+  audience: EContractAudienceKind;
+  token: string;
+  label: string;
+  inputType: EContractFieldInputTypeKind;
+  filledBy: EContractFieldFilledByKind;
+  required: boolean;
+  sortOrder: number;
+  isActive: boolean;
+  inUse: boolean;
+};
+
+export type EContractEditorFieldOption = {
+  token: string;
+  label: string;
+  filledBy: EContractFieldFilledByKind;
+};
+
+export async function listEContractFieldDefinitions(
+  token: string,
+  audience: EContractAudienceKind,
+  activeOnly = false
+): Promise<{ fields: EContractFieldDefinitionDto[] }> {
+  const q = new URLSearchParams({ audience });
+  if (activeOnly) q.set('activeOnly', '1');
+  const res = await fetch(`${API}/admin/e-contracts/field-definitions?${q}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '필드 목록을 불러오지 못했습니다.');
+  }
+  return res.json() as Promise<{ fields: EContractFieldDefinitionDto[] }>;
+}
+
+export async function createEContractFieldDefinition(
+  token: string,
+  body: {
+    audience: EContractAudienceKind;
+    label: string;
+    token?: string;
+    inputType?: EContractFieldInputTypeKind;
+    filledBy: EContractFieldFilledByKind;
+    required?: boolean;
+    sortOrder?: number;
+  }
+): Promise<{ field: EContractFieldDefinitionDto }> {
+  const res = await fetch(`${API}/admin/e-contracts/field-definitions`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '필드를 추가하지 못했습니다.');
+  }
+  return res.json() as Promise<{ field: EContractFieldDefinitionDto }>;
+}
+
+export async function patchEContractFieldDefinition(
+  token: string,
+  id: string,
+  body: Partial<{
+    label: string;
+    inputType: EContractFieldInputTypeKind;
+    filledBy: EContractFieldFilledByKind;
+    required: boolean;
+    sortOrder: number;
+    isActive: boolean;
+  }>
+): Promise<{ field: EContractFieldDefinitionDto }> {
+  const res = await fetch(`${API}/admin/e-contracts/field-definitions/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '저장하지 못했습니다.');
+  }
+  return res.json() as Promise<{ field: EContractFieldDefinitionDto }>;
+}
+
+export async function deleteEContractFieldDefinition(token: string, id: string): Promise<void> {
+  const res = await fetch(`${API}/admin/e-contracts/field-definitions/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제하지 못했습니다.');
+  }
+}
+
+export async function fetchEContractEditorFields(
+  token: string,
+  definitionId: string
+): Promise<{ fields: EContractEditorFieldOption[] }> {
+  const res = await fetch(`${API}/admin/e-contracts/definitions/${encodeURIComponent(definitionId)}/editor-fields`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '필드를 불러오지 못했습니다.');
+  }
+  return res.json() as Promise<{ fields: EContractEditorFieldOption[] }>;
+}
+
+export type EContractMergeFieldForIssuance = {
+  token: string;
+  label: string;
+  inputType: EContractFieldInputTypeKind;
+  required: boolean;
+};
+
+export async function fetchEContractMergeFieldsForIssuance(
+  token: string,
+  definitionId: string,
+  versionId?: string
+): Promise<{ fields: EContractMergeFieldForIssuance[] }> {
+  const q = versionId ? `?versionId=${encodeURIComponent(versionId)}` : '';
+  const res = await fetch(
+    `${API}/admin/e-contracts/definitions/${encodeURIComponent(definitionId)}/merge-fields${q}`,
+    { headers: headers(token) }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '발급 입력 항목을 불러오지 못했습니다.');
+  }
+  return res.json() as Promise<{ fields: EContractMergeFieldForIssuance[] }>;
 }

@@ -8,6 +8,7 @@ import {
 } from '../../api/eContractPublic';
 import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
+import { EContractDynamicFieldInputs, emptyFieldValues } from '../../components/e-contract/EContractDynamicFieldInputs';
 import { SignaturePad } from '../../components/e-contract/SignaturePad';
 import { getTeamToken } from '../../stores/teamAuth';
 
@@ -58,11 +59,7 @@ export function EContractPublicSignPage() {
 
   const [challengeInput, setChallengeInput] = useState('');
   const [agree, setAgree] = useState(false);
-  const [signerName, setSignerName] = useState('');
-  const [signerRrn, setSignerRrn] = useState('');
-  const [signerAddress, setSignerAddress] = useState('');
-  const [signerPhone, setSignerPhone] = useState('');
-  const [signerFreeTextNotes, setSignerFreeTextNotes] = useState('');
+  const [signerFieldValues, setSignerFieldValues] = useState<Record<string, string>>({});
 
   const selfInputRef = useRef<HTMLInputElement | null>(null);
   const lastIssuanceIdRef = useRef('');
@@ -93,11 +90,11 @@ export function EContractPublicSignPage() {
     if (!session || session.alreadySigned) return;
     if (lastIssuanceIdRef.current !== session.issuanceId) {
       lastIssuanceIdRef.current = session.issuanceId;
-      setSignerName(session.signerNameLabel?.trim() ?? '');
-      setSignerRrn('');
-      setSignerAddress('');
-      setSignerPhone('');
-      setSignerFreeTextNotes('');
+      const initial = emptyFieldValues(session.signFields ?? []);
+      for (const f of session.signFields ?? []) {
+        if (f.prefill?.trim()) initial[f.token] = f.prefill.trim();
+      }
+      setSignerFieldValues(initial);
     }
   }, [session]);
 
@@ -138,21 +135,15 @@ export function EContractPublicSignPage() {
 
   const onSubmit = async () => {
     if (!decoded || !session) return;
-    if (!signerName.trim()) {
-      setMsg('을(본인) 성함을 입력해 주세요.');
-      return;
+    const fields = session.signFields ?? [];
+    for (const f of fields) {
+      if (f.required && !(signerFieldValues[f.token] ?? '').trim()) {
+        setMsg(`「${f.label}」을(를) 입력해 주세요.`);
+        return;
+      }
     }
-    const rrnDigits = signerRrn.replace(/\D/g, '');
-    if (rrnDigits.length !== 13) {
-      setMsg('주민등록번호 13자리를 입력해 주세요.');
-      return;
-    }
-    if (!signerAddress.trim()) {
-      setMsg('주소를 입력해 주세요.');
-      return;
-    }
-    if (!signerPhone.trim()) {
-      setMsg('연락처를 입력해 주세요.');
+    if (fields.length === 0) {
+      setMsg('입력할 항목이 없습니다. 관리자에게 문의해 주세요.');
       return;
     }
     if (!selfieUploaded) {
@@ -170,13 +161,15 @@ export function EContractPublicSignPage() {
     setBusy(true);
     setMsg(null);
     try {
-      const notes = signerFreeTextNotes.trim();
       await submitEContractSign(decoded, {
-        signerName: signerName.trim(),
-        signerResidentRegistrationNumber: rrnDigits,
-        signerAddressLine: signerAddress.trim(),
-        signerPhone: signerPhone.trim(),
-        ...(notes ? { signerFreeTextNotes: notes } : {}),
+        signerFields: signerFieldValues,
+        signerName: signerFieldValues['[[EC_SIGNER_NAME]]'] ?? '',
+        signerResidentRegistrationNumber: signerFieldValues['[[EC_SIGNER_RRN]]'] ?? '',
+        signerAddressLine: signerFieldValues['[[EC_SIGNER_ADDRESS]]'] ?? '',
+        signerPhone: signerFieldValues['[[EC_SIGNER_PHONE]]'] ?? '',
+        ...(signerFieldValues['[[EC_SIGNER_FREETEXT]]']?.trim()
+          ? { signerFreeTextNotes: signerFieldValues['[[EC_SIGNER_FREETEXT]]'] }
+          : {}),
         challengeEntered: challengeInput,
         agree,
         selfiePublicId: selfieUploaded.publicId,
@@ -318,82 +311,17 @@ export function EContractPublicSignPage() {
       </section>
 
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="text-fluid-sm font-semibold text-gray-900">을(본인) 정보</div>
+        <div className="text-fluid-sm font-semibold text-gray-900">체결 정보 입력</div>
         <p className="mt-2 text-fluid-2xs text-gray-600">
-          계약 본문에 삽입된 을 정보 칸(이름·주민등록번호·주소 등)에는 아래에 입력하는 내용이 들어갑니다. 제출 전 내용을 다시 확인해 주세요.
+          계약 본문에 삽입된 항목에 아래 내용이 반영됩니다. 제출 전 다시 확인해 주세요.
         </p>
-        <div className="mt-5 min-w-0 space-y-4">
-          <div>
-            <label htmlFor="ec-sign-name" className="block text-fluid-xs font-medium text-gray-800">
-              성함
-            </label>
-            <input
-              id="ec-sign-name"
-              type="text"
-              autoComplete="name"
-              value={signerName}
-              onChange={(ev) => setSignerName(ev.target.value)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
-              maxLength={128}
-            />
-          </div>
-          <div>
-            <label htmlFor="ec-sign-rrn" className="block text-fluid-xs font-medium text-gray-800">
-              주민등록번호 <span className="font-normal text-gray-500">(숫자 13자리)</span>
-            </label>
-            <input
-              id="ec-sign-rrn"
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              value={signerRrn}
-              onChange={(ev) => setSignerRrn(ev.target.value.replace(/\D/g, '').slice(0, 13))}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums tracking-wide"
-              maxLength={13}
-              placeholder="13자리"
-            />
-          </div>
-          <div>
-            <label htmlFor="ec-sign-addr" className="block text-fluid-xs font-medium text-gray-800">
-              주소
-            </label>
-            <textarea
-              id="ec-sign-addr"
-              rows={3}
-              value={signerAddress}
-              onChange={(ev) => setSignerAddress(ev.target.value)}
-              className="mt-1 w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-fluid-xs"
-              maxLength={2000}
-            />
-          </div>
-          <div>
-            <label htmlFor="ec-sign-phone" className="block text-fluid-xs font-medium text-gray-800">
-              연락처
-            </label>
-            <input
-              id="ec-sign-phone"
-              type="text"
-              inputMode="tel"
-              autoComplete="tel"
-              value={signerPhone}
-              onChange={(ev) => setSignerPhone(ev.target.value)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
-              maxLength={32}
-            />
-          </div>
-          <div>
-            <label htmlFor="ec-sign-notes" className="block text-fluid-xs font-medium text-gray-800">
-              추가 기재 <span className="font-normal text-gray-500">(선택, 계약서 [[EC_SIGNER_FREETEXT]] 위치에 반영)</span>
-            </label>
-            <textarea
-              id="ec-sign-notes"
-              rows={2}
-              value={signerFreeTextNotes}
-              onChange={(ev) => setSignerFreeTextNotes(ev.target.value)}
-              className="mt-1 w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-fluid-xs"
-              maxLength={4000}
-            />
-          </div>
+        <div className="mt-5">
+          <EContractDynamicFieldInputs
+            fields={session.signFields ?? []}
+            values={signerFieldValues}
+            onChange={(t, v) => setSignerFieldValues((prev) => ({ ...prev, [t]: v }))}
+            idPrefix="ec-sign"
+          />
         </div>
       </section>
 

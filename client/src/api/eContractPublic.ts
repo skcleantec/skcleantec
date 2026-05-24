@@ -1,12 +1,23 @@
 import { API } from './apiPrefix';
+import type { EContractAudienceKind } from './adminEContract';
+
+export type PublicSignFieldDto = {
+  token: string;
+  label: string;
+  inputType: 'TEXT' | 'TEXTAREA' | 'DATE' | 'NUMBER' | 'PHONE' | 'RRN';
+  required: boolean;
+  prefill?: string;
+};
 
 export type PublicSignSessionDto = {
   issuanceId: string;
   definitionTitle: string;
+  audience: EContractAudienceKind;
   signerNameLabel: string;
   versionOrdinal: number;
   versionTitle: string;
   bodyMarkdown: string;
+  signFields: PublicSignFieldDto[];
   expiresAtIso: string | null;
   challengeDigits: string;
   issuanceStatus: string;
@@ -68,12 +79,12 @@ export async function uploadEContractBlob(
 export async function submitEContractSign(
   token: string,
   body: {
-    signerName: string;
-    /** 숫자 13자리(하이픈 있어도 됨 — 서버에서 정규화) */
-    signerResidentRegistrationNumber: string;
-    signerAddressLine: string;
-    signerPhone: string;
+    signerName?: string;
+    signerResidentRegistrationNumber?: string;
+    signerAddressLine?: string;
+    signerPhone?: string;
     signerFreeTextNotes?: string;
+    signerFields?: Record<string, string>;
     challengeEntered: string;
     agree: boolean;
     selfiePublicId: string;

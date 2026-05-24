@@ -19,3 +19,9 @@ export function eContractRecipientRoleLabel(role: string | undefined): string {
   if (role === 'TEAM_LEADER') return '팀장';
   return role || '—';
 }
+
+export function eContractFieldFilledByLabel(filledBy: string): string {
+  if (filledBy === 'ADMIN') return '발급 시(관리자)';
+  if (filledBy === 'AUTO') return '자동(체결 시)';
+  return '체결 시(수신자)';
+}

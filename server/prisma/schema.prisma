@@ -1207,13 +1207,49 @@ enum EContractAudience {
   MARKETER
 }
 
+/// 체결·매핑 필드 — 값을 채우는 주체
+enum EContractFieldFilledBy {
+  SIGNER
+  ADMIN
+  AUTO
+}
+
+enum EContractFieldInputType {
+  TEXT
+  TEXTAREA
+  DATE
+  NUMBER
+  PHONE
+  RRN
+}
+
+/// 전자계약 본문 치환 필드 정의(팀장/마케터별 설정)
+model EContractFieldDefinition {
+  id         String                   @id @default(uuid())
+  audience   EContractAudience        @map("audience")
+  /// 본문 삽입 토큰 — 예: [[EC_SIGNER_NAME]]
+  token      String                   @db.VarChar(64)
+  label      String                   @db.VarChar(128)
+  inputType  EContractFieldInputType  @default(TEXT) @map("input_type")
+  filledBy   EContractFieldFilledBy   @map("filled_by")
+  required   Boolean                  @default(true)
+  sortOrder  Int                      @default(0) @map("sort_order")
+  isActive   Boolean                  @default(true) @map("is_active")
+  createdAt  DateTime                 @default(now()) @map("created_at")
+  updatedAt  DateTime                 @updatedAt @map("updated_at")
+
+  @@unique([audience, token])
+  @@index([audience, isActive, sortOrder])
+  @@map("e_contract_field_definitions")
+}
+
 model EContractDefinition {
   id           String             @id @default(uuid())
   title        String             @db.VarChar(512)
   description  String?            @db.Text
   /// 수신자 유형 — 발급·체결 대상(팀장 vs 마케터 링크)
   audience     EContractAudience  @default(TEAM_LEADER) @map("audience")
-  /// 보관 종료 등 — 목록에서 기본 숨김 처리에 사용 (체결본은 유지)
+  /// 보관 종료 etc — 목록에서 기본 숨김 처리에 사용 (체결본은 유지)
   isArchived   Boolean            @default(false) @map("is_archived")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
@@ -1269,6 +1305,8 @@ model EContractIssuance {
   status         EContractIssuanceStatus @default(PENDING)
   expiresAt      DateTime?               @map("expires_at")
   notes          String?                 @db.Text
+  /// 발급 시 관리자 입력 치환값 — token → 표시 문자열
+  mergeFields    Json?                   @map("merge_fields")
   createdAt      DateTime                @default(now()) @map("created_at")
   updatedAt      DateTime                @updatedAt @map("updated_at")
 

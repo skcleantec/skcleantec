@@ -11,7 +11,8 @@ import { expandIssuerPlaceholders } from './eContractIssuer.expand.js';
 import { issuerSnapshotBlockForPublish } from './eContractIssuer.profile.service.js';
 import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
 import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
-import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
+import { expandSignerPlaceholders, expandEcTokenValues, type SignerFilledFields } from './eContractSigner.expand.js';
+import { validateAdminMergeFields } from './eContractFieldDefinition.service.js';
 import { newEContractInviteToken } from './eContract.tokens.js';
 import {
   issuanceWhereForTeamLeader,
@@ -282,6 +283,16 @@ async function resolveLatestPublishedVersionId(definitionId: string): Promise<st
   return row?.id ?? null;
 }
 
+export function publishedVersionBodyText(version: {
+  bodyDisplayHtml: string | null;
+  bodyMarkdown: string;
+}): string {
+  if (typeof version.bodyDisplayHtml === 'string' && version.bodyDisplayHtml.trim()) {
+    return version.bodyDisplayHtml.trim();
+  }
+  return version.bodyMarkdown.replace(/\r\n/g, '\n');
+}
+
 export async function createIssuance(input: {
   definitionId: string;
   versionId?: string | null;
@@ -289,6 +300,7 @@ export async function createIssuance(input: {
   recipientUserId: string;
   expiresAt?: Date | null;
   notes?: string | null;
+  mergeFields?: unknown;
 }) {
   const definition = await prisma.eContractDefinition.findUnique({
     where: { id: input.definitionId },
@@ -326,6 +338,13 @@ export async function createIssuance(input: {
     throw Object.assign(new Error('version_mismatch'), { code: 'bad_request' as const });
   }
 
+  const bodyText = publishedVersionBodyText(version);
+  const validatedMerge = await validateAdminMergeFields({
+    audience: definition.audience,
+    bodyText,
+    mergeFields: input.mergeFields ?? {},
+  });
+
   return prisma.eContractIssuance.create({
     data: {
       token: newEContractInviteToken(),
@@ -335,6 +354,7 @@ export async function createIssuance(input: {
       status: EContractIssuanceStatus.PENDING,
       expiresAt: input.expiresAt ?? null,
       notes: input.notes?.trim() || null,
+      mergeFields: Object.keys(validatedMerge).length > 0 ? (validatedMerge as Prisma.InputJsonValue) : undefined,
     },
     include: {
       version: {

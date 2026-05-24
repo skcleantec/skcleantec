@@ -38,9 +38,11 @@ import {
   previewBodyWithIssuerProfile,
 } from './eContractIssuer.profile.service.js';
 import { submissionMergedHtmlToDocxBuffer } from './eContractSubmissionDocx.js';
+import eContractFieldDefinitionRoutes from './eContractFieldDefinition.routes.js';
 
 const router = Router();
 router.use(authMiddleware, adminOnly);
+router.use(eContractFieldDefinitionRoutes);
 
 function actor(req: Request): AuthPayload {
   return (req as Request & { user: AuthPayload }).user;
@@ -578,6 +580,7 @@ router.post('/issuances', async (req, res) => {
       versionId,
       expiresAt,
       notes,
+      mergeFields: b.mergeFields,
     });
     if (row.teamLeader.role) {
       notifyEContractInboxIfTeamLeader(row.teamLeaderId, row.teamLeader.role);
@@ -596,6 +599,8 @@ router.post('/issuances', async (req, res) => {
             ? '먼저 계약 내용을 배포한 뒤 링크를 발급해 주세요.'
             : m === 'version_mismatch'
               ? '선택한 버전이 해당 계약서와 맞지 않습니다.'
+              : m.startsWith('admin_field:')
+                ? '발급 시 입력 항목을 모두 채워 주세요.'
               : '요청을 확인해 주세요.';
       res.status(400).json({ error: msg });
       return;

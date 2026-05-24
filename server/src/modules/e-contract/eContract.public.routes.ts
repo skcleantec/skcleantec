@@ -1,4 +1,5 @@
 import { Router, type Request } from 'express';
+import { EContractFieldFilledBy } from '@prisma/client';
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import {
   completeSubmissionByToken,
@@ -6,7 +7,15 @@ import {
   issuanceFolderForUpload,
   validateIssuanceWritable,
 } from './eContract.public.service.js';
-import { validateSignerSubmissionBody } from './eContractSigner.input.js';
+import {
+  resolveFieldsForBody,
+} from './eContractFieldDefinition.service.js';
+import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
+import {
+  signerFieldErrorMessage,
+  validateDynamicSignerFields,
+  validateSignerSubmissionBody,
+} from './eContractSigner.input.js';
 
 const router = Router();
 
@@ -106,24 +115,25 @@ router.post('/sign/:token/submit', async (req, res) => {
     const b = req.body ?? {};
     const ua = typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined;
 
+    const issuance = await validateIssuanceWritable(req.params.token);
+    const audience = issuance.definition!.audience;
+    const bodyHtml = await composePublishedVersionHtmlWithLiveIssuer(issuance.version);
+    const signFields = await resolveFieldsForBody(bodyHtml, audience, {
+      filledBy: EContractFieldFilledBy.SIGNER,
+    });
+
     let signerEntered;
+    let signerValuesByToken: Record<string, string> = {};
     try {
-      signerEntered = validateSignerSubmissionBody(b as Record<string, unknown>);
+      if (signFields.length > 0) {
+        const validated = validateDynamicSignerFields(b as Record<string, unknown>, signFields);
+        signerEntered = validated.legacy;
+        signerValuesByToken = validated.byToken;
+      } else {
+        signerEntered = validateSignerSubmissionBody(b as Record<string, unknown>);
+      }
     } catch (ev: unknown) {
-      const msg = ev instanceof Error ? ev.message : '';
-      const human =
-        msg === 'signer_name'
-          ? '을(본인) 성함을 입력해 주세요.'
-          : msg === 'signer_rrn'
-            ? '주민등록번호 13자리를 입력해 주세요.'
-            : msg === 'signer_address'
-              ? '주소를 입력해 주세요.'
-              : msg === 'signer_phone'
-                ? '연락처를 입력해 주세요.'
-                : msg === 'signer_notes'
-                  ? '추가 기재 내용 형식이 올바르지 않습니다.'
-                  : '을(본인) 정보를 확인해 주세요.';
-      res.status(400).json({ error: human });
+      res.status(400).json({ error: signerFieldErrorMessage(ev) });
       return;
     }
 
@@ -131,6 +141,7 @@ router.post('/sign/:token/submit', async (req, res) => {
       req.params.token,
       {
         signerEntered,
+        signerValuesByToken,
         challengeEntered: typeof b.challengeEntered === 'string' ? b.challengeEntered : '',
         agree: b.agree === true,
         selfiePublicId: typeof b.selfiePublicId === 'string' ? b.selfiePublicId : '',

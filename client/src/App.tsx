@@ -41,6 +41,7 @@ import { AdminPayrollPage } from './pages/admin/AdminPayrollPage';
 import { AdminEContractLayout } from './components/layout/AdminEContractLayout';
 import { AdminEContractListPage } from './pages/admin/AdminEContractListPage';
 import { AdminEContractDefinitionPage } from './pages/admin/AdminEContractDefinitionPage';
+import { AdminEContractFieldSettingsPage } from './pages/admin/AdminEContractFieldSettingsPage';
 import { AdminEContractIssuerProfilePage } from './pages/admin/AdminEContractIssuerProfilePage';
 import { AdminEContractTeamOverviewPage } from './pages/admin/AdminEContractTeamOverviewPage';
 import { EContractPublicSignPage } from './pages/public/EContractPublicSignPage';
@@ -93,6 +94,7 @@ function App() {
             <Route path="payroll" element={<AdminPayrollPage />} />
             <Route path="e-contracts" element={<AdminEContractLayout />}>
               <Route index element={<AdminEContractListPage />} />
+              <Route path="field-settings" element={<AdminEContractFieldSettingsPage />} />
               <Route path="issuer-profile" element={<AdminEContractIssuerProfilePage />} />
               <Route path="definition/:definitionId" element={<AdminEContractDefinitionPage />} />
               <Route path="overview" element={<AdminEContractTeamOverviewPage />} />

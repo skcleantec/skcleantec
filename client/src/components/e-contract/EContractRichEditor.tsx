@@ -10,7 +10,7 @@ import { Underline } from '@tiptap/extension-underline';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { EC_ISSUER_PLACEHOLDER_OPTIONS } from '../../utils/eContractIssuerPlaceholders';
-import { EC_SIGNER_PLACEHOLDER_OPTIONS } from '../../utils/eContractSignerExpand';
+import { eContractFieldFilledByLabel } from '../../utils/eContractDisplay';
 
 const FONT_SIZES = ['14px', '16px', '18px', '20px', '24px', '28px'];
 const FONT_FACES = ['', 'ui-sans-serif, system-ui, sans-serif', 'Georgia, serif', 'monospace'];
@@ -19,10 +19,12 @@ type Props = {
   value: string;
   onChange: (next: string) => void;
   editorKey: string;
+  /** 설정 기반 치환 필드 — 있으면 +체결/발급 드롭다운에 사용 */
+  mappingFieldOptions?: ReadonlyArray<{ token: string; label: string; filledBy: string }>;
 };
 
 /** React 19 호환 — react-quill(findDOMNode) 미사용 */
-export function EContractRichEditor({ value, onChange, editorKey }: Props) {
+export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOptions }: Props) {
   const editor = useEditor(
     {
       immediatelyRender: false,
@@ -211,8 +213,8 @@ export function EContractRichEditor({ value, onChange, editorKey }: Props) {
         </select>
 
         <select
-          className="max-w-[9.5rem] truncate rounded border border-dashed border-emerald-300 bg-white px-2 py-1 text-fluid-xs text-emerald-900"
-          aria-label="체결측(을) 플레이스홀더 삽입"
+          className="max-w-[11rem] truncate rounded border border-dashed border-emerald-300 bg-white px-2 py-1 text-fluid-xs text-emerald-900"
+          aria-label="매핑 필드 삽입"
           value=""
           onChange={(e) => {
             const v = e.target.value;
@@ -220,12 +222,12 @@ export function EContractRichEditor({ value, onChange, editorKey }: Props) {
             e.target.value = '';
           }}
           onMouseDown={(e) => e.stopPropagation()}
-          title="체결측이 본 페이지에서 입력·제출하면 치환되는 토큰입니다."
+          title="설정된 치환 코드 — 본문에 삽입 후 체결·발급 시 값이 채워집니다."
         >
-          <option value="">+체결측</option>
-          {EC_SIGNER_PLACEHOLDER_OPTIONS.map((o) => (
+          <option value="">+매핑 필드</option>
+          {(mappingFieldOptions ?? []).map((o) => (
             <option key={o.token} value={o.token}>
-              {o.label}
+              [{eContractFieldFilledByLabel(o.filledBy).replace(/\(.*\)/, '').trim()}] {o.label}
             </option>
           ))}
         </select>

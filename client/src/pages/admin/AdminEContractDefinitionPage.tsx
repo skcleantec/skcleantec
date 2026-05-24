@@ -5,6 +5,7 @@ import { AdminEContractSubmissionDetailModal } from '../../components/e-contract
 import { EContractRichEditor } from '../../components/e-contract/EContractRichEditor';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { getToken } from '../../stores/auth';
+import { EContractDynamicFieldInputs } from '../../components/e-contract/EContractDynamicFieldInputs';
 import {
   buildEContractPublicSignUrl,
   createEContractIssuance,
@@ -12,6 +13,8 @@ import {
   deleteEContractDraft,
   deleteEContractPublishedVersion,
   ensureEContractDraft,
+  fetchEContractEditorFields,
+  fetchEContractMergeFieldsForIssuance,
   getEContractDefinition,
   listEContractIssuances,
   patchEContractDefinition,
@@ -21,7 +24,9 @@ import {
   pickerTeamLeaders,
   pickerMarketers,
   type EContractDefinitionDetail,
+  type EContractEditorFieldOption,
   type EContractIssuanceRow,
+  type EContractMergeFieldForIssuance,
   type EContractVersionDetail,
   type TeamLeaderPicker,
 } from '../../api/adminEContract';
@@ -114,6 +119,9 @@ export function AdminEContractDefinitionPage() {
 
   const [issueRecipientId, setIssueRecipientId] = useState('');
   const [issueVersionId, setIssueVersionId] = useState('');
+  const [issueMergeValues, setIssueMergeValues] = useState<Record<string, string>>({});
+  const [mergeFieldsForIssue, setMergeFieldsForIssue] = useState<EContractMergeFieldForIssuance[]>([]);
+  const [editorFields, setEditorFields] = useState<EContractEditorFieldOption[]>([]);
   const [issuing, setIssuing] = useState(false);
   const [lastIssuedSignUrl, setLastIssuedSignUrl] = useState<string | null>(null);
 
@@ -141,6 +149,8 @@ export function AdminEContractDefinitionPage() {
       setDef(d.definition);
       setIssuances(iss.issuances);
       setPickers(pl);
+      const edFields = await fetchEContractEditorFields(token, definitionId);
+      setEditorFields(edFields.fields);
       const draft = d.definition.versions.find((v) => v.status === 'DRAFT');
       if (draft) {
         setDraftId(draft.id);
@@ -162,6 +172,24 @@ export function AdminEContractDefinitionPage() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    if (!token || !definitionId) return;
+    void (async () => {
+      try {
+        const data = await fetchEContractMergeFieldsForIssuance(token, definitionId, issueVersionId || undefined);
+        setMergeFieldsForIssue(data.fields);
+        setIssueMergeValues((prev) => {
+          const next: Record<string, string> = {};
+          for (const f of data.fields) next[f.token] = prev[f.token] ?? '';
+          return next;
+        });
+      } catch {
+        setMergeFieldsForIssue([]);
+        setIssueMergeValues({});
+      }
+    })();
+  }, [token, definitionId, issueVersionId]);
 
   useEffect(() => {
     if (!token || !draftId) {
@@ -285,6 +313,7 @@ export function AdminEContractDefinitionPage() {
         definitionId,
         recipientUserId: issueRecipientId,
         versionId: issueVersionId || null,
+        mergeFields: Object.keys(issueMergeValues).length > 0 ? issueMergeValues : undefined,
       });
       const issuanceToken =
         typeof result.issuance === 'object' &&
@@ -544,7 +573,12 @@ export function AdminEContractDefinitionPage() {
                 </Link>
               </p>
               <div className="mt-2 min-w-0">
-                <EContractRichEditor editorKey={`draft-${draftId}`} value={draftBody} onChange={setDraftBody} />
+                <EContractRichEditor
+                  editorKey={`draft-${draftId}`}
+                  value={draftBody}
+                  onChange={setDraftBody}
+                  mappingFieldOptions={editorFields}
+                />
               </div>
               <div className="mt-6 rounded-lg border border-blue-100 bg-sky-50/50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -644,6 +678,21 @@ export function AdminEContractDefinitionPage() {
               ))}
             </select>
           </div>
+        </div>
+        {mergeFieldsForIssue.length > 0 ? (
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50/80 p-3">
+            <div className="text-fluid-xs font-medium text-amber-950">발급 시 입력 (본문에 사용된 관리자 필드)</div>
+            <div className="mt-3">
+              <EContractDynamicFieldInputs
+                fields={mergeFieldsForIssue}
+                values={issueMergeValues}
+                onChange={(t, v) => setIssueMergeValues((prev) => ({ ...prev, [t]: v }))}
+                idPrefix="issue-merge"
+              />
+            </div>
+          </div>
+        ) : null}
+        <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
             disabled={issuing || !issueRecipientId}

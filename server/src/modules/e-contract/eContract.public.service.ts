@@ -2,22 +2,32 @@ import { EContractIssuanceStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { randomUUID } from 'node:crypto';
 import { deriveChallengeDigitsForToken } from './eContract.challenge.js';
-import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
+import { expandEcTokenMapPreview } from './eContractDynamicExpand.js';
+import {
+  buildExpansionValueMap,
+  resolveFieldsForBody,
+} from './eContractFieldDefinition.service.js';
+import { EContractFieldFilledBy } from '@prisma/client';
 import type { ValidatedSignerSubmissionFields } from './eContractSigner.input.js';
+import { toPublicSignFields, type PublicSignFieldDto } from './eContractSigner.input.js';
 import { dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
 import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
 import { notifyEContractInboxIfTeamLeader } from './eContract.recipientNotify.js';
+import { expandEcTokenValues } from './eContractSigner.expand.js';
+import { publishedVersionBodyText } from './eContract.service.js';
 
 export type PublicSignSession = {
   issuanceId: string;
   definitionTitle: string;
-  /** 체결 대상 명시용(팀장 실명) */
+  audience: 'TEAM_LEADER' | 'MARKETER';
+  /** 체결 대상 명시용(팀장·마케터 실명) */
   signerNameLabel: string;
   versionOrdinal: number;
   versionTitle: string;
   bodyMarkdown: string;
+  /** 체결 시 수신자 입력 필드(본문에 쓰인 SIGNER 토큰 기준) */
+  signFields: PublicSignFieldDto[];
   expiresAtIso: string | null;
-  /** 동일 확인 번호를 손글씨·셀카와 함께 제출 */
   challengeDigits: string;
   issuanceStatus: EContractIssuanceStatus;
   alreadySigned: boolean;
@@ -30,7 +40,7 @@ async function issuanceByToken(rawToken: string) {
   return prisma.eContractIssuance.findUnique({
     where: { token },
     include: {
-      definition: { select: { id: true, title: true, isArchived: true } },
+      definition: { select: { id: true, title: true, isArchived: true, audience: true } },
       version: true,
       teamLeader: { select: { id: true, name: true, isActive: true, role: true } },
       submission: { select: { id: true, signedAt: true, mergedContractHtml: true } },
@@ -131,26 +141,42 @@ export async function getPublicSignSession(rawToken: string): Promise<
     bodyMarkdown = dedupeTrailingPartyAppendices(merged);
   } else if (!alreadySigned) {
     bodyMarkdown = await composePublishedVersionHtmlWithLiveIssuer(row.version);
-    const label = row.teamLeader.name?.trim() || '';
-    bodyMarkdown = expandSignerPlaceholders(bodyMarkdown, {
-      name: label || '(체결 시 입력)',
-      residentRegistrationNumber: '(체결 시 입력)',
-      addressLine: '(체결 시 입력)',
-      phone: '(체결 시 입력)',
-      freeTextNotes: null,
-      signatureSecureUrl: null,
+    const audience = row.definition.audience;
+    const signerFields = await resolveFieldsForBody(bodyMarkdown, audience, {
+      filledBy: EContractFieldFilledBy.SIGNER,
+    });
+    const previewValues = await buildExpansionValueMap({
+      audience,
+      bodyText: bodyMarkdown,
+      mergeFields: row.mergeFields,
+      signerValues: Object.fromEntries(
+        signerFields.map((f) => [f.token, f.token === '[[EC_SIGNER_NAME]]' ? row.teamLeader.name?.trim() || '' : ''])
+      ),
+      signatureUrl: null,
+      previewMode: true,
+    });
+    bodyMarkdown = expandEcTokenMapPreview(bodyMarkdown, previewValues, {
+      emptySignerHint: '(체결 시 입력)',
     });
   } else {
     bodyMarkdown = versionFallback;
   }
 
+  const signFieldsResolved = await resolveFieldsForBody(
+    publishedVersionBodyText(row.version),
+    row.definition.audience,
+    { filledBy: EContractFieldFilledBy.SIGNER }
+  );
+
   return {
     issuanceId: row.id,
     definitionTitle: row.definition.title,
+    audience: row.definition.audience,
     signerNameLabel: row.teamLeader.name,
     versionOrdinal: row.version.publishedOrdinal ?? 0,
     versionTitle: row.version.titleSnapshot,
     bodyMarkdown,
+    signFields: toPublicSignFields(signFieldsResolved, row.teamLeader.name),
     expiresAtIso: row.expiresAt?.toISOString() ?? null,
     challengeDigits,
     issuanceStatus: row.status,
@@ -191,6 +217,7 @@ export async function completeSubmissionByToken(
   rawToken: string,
   input: {
     signerEntered: ValidatedSignerSubmissionFields;
+    signerValuesByToken?: Record<string, string>;
     challengeEntered: string;
     agree: boolean;
     selfiePublicId: string;
@@ -233,12 +260,18 @@ export async function completeSubmissionByToken(
     signedAtIso: signedAtDate.toISOString(),
   });
 
-  const signerForExpand: SignerFilledFields = {
-    ...input.signerEntered,
-    signatureSecureUrl: input.signatureUrl.trim(),
-  };
-
-  const mergedHtml = expandSignerPlaceholders(versionBodyWithAppendix, signerForExpand);
+  const bodyText = versionBodyWithAppendix;
+  const audience = issuance.definition!.audience;
+  const signerValues = input.signerValuesByToken ?? {};
+  const valueMap = await buildExpansionValueMap({
+    audience,
+    bodyText,
+    mergeFields: issuance.mergeFields,
+    signerValues,
+    signedAt: signedAtDate,
+    signatureUrl: input.signatureUrl.trim(),
+  });
+  const mergedHtml = expandEcTokenValues(bodyText, valueMap);
 
   const payloadObj: Record<string, unknown> = {
     agree: true,
@@ -250,6 +283,8 @@ export async function completeSubmissionByToken(
       phone: input.signerEntered.phone,
       freeTextNotes: input.signerEntered.freeTextNotes,
     },
+    signerValuesByToken: signerValues,
+    mergeFields: issuance.mergeFields ?? null,
     ...(typeof input.payloadExtras === 'object' && input.payloadExtras ? input.payloadExtras : {}),
   };
   const payload = payloadObj as Prisma.InputJsonValue;
