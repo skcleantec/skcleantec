@@ -7,6 +7,8 @@ interface AddressSearchProps {
   onChange: (address: string, detail?: string) => void;
   placeholder?: string;
   className?: string;
+  /** 공개·체결 폼 등 모바일 우선 — 전체 화면에 가깝게 우편번호 검색 */
+  mobilePreferred?: boolean;
 }
 
 /**
@@ -29,7 +31,7 @@ function addressLineFromPostcodeData(data: KakaoPostcodeAddress) {
  * 팝업(window.open)은 모바일에서 히스토리/복귀 시 SPA 라우트가 꼬일 수 있어,
  * 같은 문서 내 임베드 레이어로만 연다.
  */
-export function AddressSearch({ value, onChange, placeholder, className = '' }: AddressSearchProps) {
+export function AddressSearch({ value, onChange, placeholder, className = '', mobilePreferred = false }: AddressSearchProps) {
   const [layerOpen, setLayerOpen] = useState(false);
 
   useEffect(() => {
@@ -64,12 +66,12 @@ export function AddressSearch({ value, onChange, placeholder, className = '' }: 
           value={value}
           readOnly
           placeholder={placeholder ?? '주소 검색'}
-          className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50 min-w-0"
+          className={`flex-1 min-w-0 rounded border border-gray-300 bg-gray-50 px-3 py-2 text-sm ${mobilePreferred ? 'text-fluid-sm py-2.5' : ''}`}
         />
         <button
           type="button"
           onClick={() => setLayerOpen(true)}
-          className="shrink-0 px-4 py-2 bg-gray-700 text-white rounded text-sm font-medium hover:bg-gray-800 whitespace-nowrap touch-manipulation"
+          className={`shrink-0 touch-manipulation whitespace-nowrap rounded bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 ${mobilePreferred ? 'min-h-[44px] text-fluid-xs' : ''}`}
         >
           주소 검색
         </button>
@@ -78,31 +80,45 @@ export function AddressSearch({ value, onChange, placeholder, className = '' }: 
       {layerOpen &&
         createPortal(
           <div
-            className="fixed inset-0 z-[600] flex flex-col bg-black/50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+            className={`fixed inset-0 z-[600] flex flex-col bg-black/50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] ${mobilePreferred ? 'bg-black/60' : ''}`}
             role="dialog"
             aria-modal="true"
             aria-label="주소 검색"
           >
             <div
-              className="flex min-h-0 flex-1 flex-col p-3 sm:p-4 sm:items-center sm:justify-center"
+              className={
+                mobilePreferred
+                  ? 'flex min-h-0 flex-1 flex-col'
+                  : 'flex min-h-0 flex-1 flex-col p-3 sm:p-4 sm:items-center sm:justify-center'
+              }
               onClick={() => setLayerOpen(false)}
             >
               <div
-                className="flex max-h-[min(100dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[85vh]"
+                className={
+                  mobilePreferred
+                    ? 'flex min-h-0 flex-1 flex-col overflow-hidden bg-white'
+                    : 'flex max-h-[min(100dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[85vh]'
+                }
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-3 py-2">
-                  <span className="text-sm font-medium text-gray-800">주소 검색</span>
+                <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-3 py-2 sm:px-4">
+                  <span className={`font-medium text-gray-800 ${mobilePreferred ? 'text-fluid-sm' : 'text-sm'}`}>주소 검색</span>
                   <button
                     type="button"
                     onClick={() => setLayerOpen(false)}
-                    className="min-h-[44px] min-w-[44px] touch-manipulation rounded px-2 text-sm text-gray-600 hover:bg-gray-100"
+                    className="min-h-[44px] min-w-[44px] touch-manipulation rounded px-3 text-fluid-sm text-gray-600 hover:bg-gray-100"
                   >
                     닫기
                   </button>
                 </div>
-                <div className="min-h-0 flex-1 overflow-auto p-2 sm:p-3">
-                  <div className="h-[min(420px,55vh)] w-full min-h-[320px] sm:h-[min(480px,60vh)]">
+                <div className={`min-h-0 flex-1 overflow-hidden ${mobilePreferred ? '' : 'overflow-auto p-2 sm:p-3'}`}>
+                  <div
+                    className={
+                      mobilePreferred
+                        ? 'h-full w-full min-h-[320px]'
+                        : 'h-[min(420px,55vh)] w-full min-h-[320px] sm:h-[min(480px,60vh)]'
+                    }
+                  >
                     <KakaoPostcodeEmbed
                       onComplete={handleComplete}
                       className="h-full w-full"

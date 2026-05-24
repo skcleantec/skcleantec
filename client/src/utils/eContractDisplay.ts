@@ -27,10 +27,12 @@ export function eContractFieldFilledByLabel(filledBy: string): string {
 }
 
 /** 체결 폼 상단 기본 필드 토큰 */
+export const EC_SIGNER_ADDRESS_TOKEN = '[[EC_SIGNER_ADDRESS]]';
+
 export const EC_CORE_SIGNER_TOKENS = [
   '[[EC_SIGNER_NAME]]',
   '[[EC_SIGNER_RRN]]',
-  '[[EC_SIGNER_ADDRESS]]',
+  EC_SIGNER_ADDRESS_TOKEN,
   '[[EC_SIGNER_PHONE]]',
 ] as const;
 

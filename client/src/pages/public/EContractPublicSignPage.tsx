@@ -9,7 +9,8 @@ import {
 import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
 import { EContractDynamicFieldInputs, emptyFieldValues } from '../../components/e-contract/EContractDynamicFieldInputs';
-import { isCoreSignerToken } from '../../utils/eContractDisplay';
+import { isCoreSignerToken, EC_SIGNER_ADDRESS_TOKEN } from '../../utils/eContractDisplay';
+import { splitEContractSignerAddressValue } from '../../components/e-contract/eContractSignerAddressValue';
 import { SignaturePad } from '../../components/e-contract/SignaturePad';
 import { getTeamToken } from '../../stores/teamAuth';
 
@@ -138,6 +139,14 @@ export function EContractPublicSignPage() {
     if (!decoded || !session) return;
     const fields = session.signFields ?? [];
     for (const f of fields) {
+      if (f.required && f.token === EC_SIGNER_ADDRESS_TOKEN) {
+        const { base } = splitEContractSignerAddressValue(signerFieldValues[f.token] ?? '');
+        if (!base.trim()) {
+          setMsg('「주소 검색」으로 주소를 선택해 주세요.');
+          return;
+        }
+        continue;
+      }
       if (f.required && !(signerFieldValues[f.token] ?? '').trim()) {
         setMsg(`「${f.label}」을(를) 입력해 주세요.`);
         return;

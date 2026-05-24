@@ -1,5 +1,7 @@
 import type { PublicSignFieldDto } from '../../api/eContractPublic';
 import type { EContractFieldInputTypeKind } from '../../api/adminEContract';
+import { EC_SIGNER_ADDRESS_TOKEN } from '../../utils/eContractDisplay';
+import { EContractSignerAddressInput } from './EContractSignerAddressInput';
 
 type FieldLike = Pick<PublicSignFieldDto, 'token' | 'label' | 'inputType' | 'required'> & { prefill?: string };
 
@@ -28,6 +30,19 @@ export function EContractDynamicFieldInputs({ fields, values, onChange, idPrefix
             {!f.required ? <span className="font-normal text-gray-500"> (선택)</span> : null}
           </>
         );
+
+        if (f.token === EC_SIGNER_ADDRESS_TOKEN) {
+          return (
+            <EContractSignerAddressInput
+              key={f.token}
+              id={id}
+              label={label}
+              value={val}
+              required={f.required}
+              onChange={(next) => onChange(f.token, next)}
+            />
+          );
+        }
 
         if (f.inputType === 'TEXTAREA') {
           return (
