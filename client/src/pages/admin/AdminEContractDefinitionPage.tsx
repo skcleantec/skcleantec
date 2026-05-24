@@ -19,12 +19,13 @@ import {
   publishEContractVersion,
   previewEContractExpandedBody,
   pickerTeamLeaders,
+  pickerMarketers,
   type EContractDefinitionDetail,
   type EContractIssuanceRow,
   type EContractVersionDetail,
   type TeamLeaderPicker,
 } from '../../api/adminEContract';
-import { eContractIssuanceStatusKo } from '../../utils/eContractDisplay';
+import { eContractAudienceLabel, eContractIssuanceStatusKo, eContractRecipientRoleLabel } from '../../utils/eContractDisplay';
 
 function publishedVersionDeleteLabel(v: EContractVersionDetail): string {
   const ord = v.publishedOrdinal != null ? `v${v.publishedOrdinal}` : '배포본';
@@ -111,9 +112,10 @@ export function AdminEContractDefinitionPage() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
-  const [issueLeaderId, setIssueLeaderId] = useState('');
+  const [issueRecipientId, setIssueRecipientId] = useState('');
   const [issueVersionId, setIssueVersionId] = useState('');
   const [issuing, setIssuing] = useState(false);
+  const [lastIssuedSignUrl, setLastIssuedSignUrl] = useState<string | null>(null);
 
   const [issuerPreviewExpanded, setIssuerPreviewExpanded] = useState<string | null>(null);
   const [issuerPreviewAppendix, setIssuerPreviewAppendix] = useState('');
@@ -129,14 +131,16 @@ export function AdminEContractDefinitionPage() {
     setLoading(true);
     setErr(null);
     try {
-      const [d, iss, pl] = await Promise.all([
-        getEContractDefinition(token, definitionId),
-        listEContractIssuances(token, definitionId),
-        pickerTeamLeaders(token),
-      ]);
+      const d = await getEContractDefinition(token, definitionId);
+      const iss = await listEContractIssuances(token, definitionId);
+      const audience = d.definition.audience ?? 'TEAM_LEADER';
+      const pl =
+        audience === 'MARKETER'
+          ? await pickerMarketers(token).then((r) => r.marketers)
+          : await pickerTeamLeaders(token).then((r) => r.teamLeaders);
       setDef(d.definition);
       setIssuances(iss.issuances);
-      setPickers(pl.teamLeaders);
+      setPickers(pl);
       const draft = d.definition.versions.find((v) => v.status === 'DRAFT');
       if (draft) {
         setDraftId(draft.id);
@@ -271,17 +275,36 @@ export function AdminEContractDefinitionPage() {
   };
 
   const issue = async () => {
-    if (!token || !definitionId || !issueLeaderId) return;
+    if (!token || !definitionId || !issueRecipientId) return;
     setIssuing(true);
     setErr(null);
     setMsg(null);
+    setLastIssuedSignUrl(null);
     try {
-      await createEContractIssuance(token, {
+      const result = await createEContractIssuance(token, {
         definitionId,
-        teamLeaderId: issueLeaderId,
+        recipientUserId: issueRecipientId,
         versionId: issueVersionId || null,
       });
-      setMsg('체결 링크를 발급했습니다. 아래 목록에서 복사하세요.');
+      const issuanceToken =
+        typeof result.issuance === 'object' &&
+        result.issuance !== null &&
+        'token' in result.issuance &&
+        typeof (result.issuance as { token?: string }).token === 'string'
+          ? (result.issuance as { token: string }).token
+          : null;
+      const signUrl = issuanceToken ? buildEContractPublicSignUrl(issuanceToken) : null;
+      if (signUrl && def?.audience === 'MARKETER') {
+        setLastIssuedSignUrl(signUrl);
+        try {
+          await navigator.clipboard.writeText(signUrl);
+          setMsg('체결 링크를 발급했고 클립보드에 복사했습니다. 마케터에게 전달해 주세요.');
+        } catch {
+          setMsg('체결 링크를 발급했습니다. 아래 링크를 복사해 마케터에게 전달해 주세요.');
+        }
+      } else {
+        setMsg('체결 링크를 발급했습니다. 아래 목록에서 복사하세요.');
+      }
       const iss = await listEContractIssuances(token, definitionId);
       setIssuances(iss.issuances);
     } catch (e) {
@@ -356,6 +379,13 @@ export function AdminEContractDefinitionPage() {
       <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-fluid-xl font-semibold text-gray-900">{def.title}</h1>
+          <p className="mt-1 text-fluid-xs text-gray-600">
+            수신 대상:{' '}
+            <span className="font-medium text-gray-800">{eContractAudienceLabel(def.audience ?? 'TEAM_LEADER')}</span>
+            {def.audience === 'MARKETER' ? (
+              <span className="text-gray-500"> — 전용 화면 없음, 발급 링크를 직접 전달</span>
+            ) : null}
+          </p>
           {def.description ? (
             <p className="mt-1 text-fluid-sm text-gray-600 whitespace-pre-wrap">{def.description}</p>
           ) : null}
@@ -556,16 +586,38 @@ export function AdminEContractDefinitionPage() {
       </section>
 
       <section className="mb-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <h2 className="text-fluid-md font-semibold text-gray-900">팀장 링크 발급</h2>
+        <h2 className="text-fluid-md font-semibold text-gray-900">
+          {def.audience === 'MARKETER' ? '마케터 체결 링크 발급' : '팀장 링크 발급'}
+        </h2>
         <p className="mt-1 text-fluid-xs text-gray-600">
-          최신 배포 버전으로 발급됩니다. 특정 과거 버전으로 보내려면 아래에서 버전을 고르세요.
+          {def.audience === 'MARKETER'
+            ? '마케터는 별도 로그인 화면이 없습니다. 발급 후 생성된 URL을 카카오·문자 등으로 전달하면 해당 페이지에서 바로 서명할 수 있습니다.'
+            : '최신 배포 버전으로 발급됩니다. 팀장은 팀 메뉴에서도 확인할 수 있습니다. 특정 과거 버전으로 보내려면 아래에서 버전을 고르세요.'}
         </p>
+        {lastIssuedSignUrl ? (
+          <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3">
+            <div className="text-fluid-xs font-medium text-blue-950">방금 발급한 체결 링크</div>
+            <p className="mt-1 break-all font-mono text-fluid-2xs text-blue-900">{lastIssuedSignUrl}</p>
+            <button
+              type="button"
+              className="mt-2 rounded-md border border-blue-300 bg-white px-3 py-1.5 text-fluid-xs text-blue-900"
+              onClick={async () => {
+                await navigator.clipboard.writeText(lastIssuedSignUrl);
+                setMsg('링크를 복사했습니다.');
+              }}
+            >
+              링크 다시 복사
+            </button>
+          </div>
+        ) : null}
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="min-w-[200px]">
-            <label className="block text-fluid-xs font-medium text-gray-700">팀장</label>
+            <label className="block text-fluid-xs font-medium text-gray-700">
+              {def.audience === 'MARKETER' ? '마케터' : '팀장'}
+            </label>
             <select
-              value={issueLeaderId}
-              onChange={(e) => setIssueLeaderId(e.target.value)}
+              value={issueRecipientId}
+              onChange={(e) => setIssueRecipientId(e.target.value)}
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
             >
               <option value="">선택</option>
@@ -594,7 +646,7 @@ export function AdminEContractDefinitionPage() {
           </div>
           <button
             type="button"
-            disabled={issuing || !issueLeaderId}
+            disabled={issuing || !issueRecipientId}
             onClick={() => void issue()}
             className="rounded-lg bg-gray-900 px-4 py-2 text-fluid-sm font-medium text-white disabled:opacity-50"
           >
@@ -611,7 +663,7 @@ export function AdminEContractDefinitionPage() {
             <table className="w-full border border-gray-200 text-fluid-xs">
               <thead>
                 <tr className="bg-gray-100">
-                  <th className="border-b px-2 py-2 text-center">팀장</th>
+                  <th className="border-b px-2 py-2 text-center">수신자</th>
                   <th className="border-b px-2 py-2 text-center">버전</th>
                   <th className="border-b px-2 py-2 text-center">상태</th>
                   <th className="border-b px-2 py-2 text-center">체결</th>
@@ -631,7 +683,14 @@ export function AdminEContractDefinitionPage() {
                     const url = buildEContractPublicSignUrl(row.token);
                     return (
                       <tr key={row.id} className="border-b border-gray-100">
-                        <td className="px-2 py-2 text-center">{row.teamLeader.name}</td>
+                        <td className="px-2 py-2 text-center">
+                          <div>{row.teamLeader.name}</div>
+                          {row.teamLeader.role ? (
+                            <div className="text-fluid-2xs text-gray-500">
+                              {eContractRecipientRoleLabel(row.teamLeader.role)}
+                            </div>
+                          ) : null}
+                        </td>
                         <td className="px-2 py-2 text-center tabular-nums">
                           v{row.version.publishedOrdinal ?? '—'}
                         </td>
@@ -679,7 +738,14 @@ export function AdminEContractDefinitionPage() {
               const url = buildEContractPublicSignUrl(row.token);
               return (
                 <div key={row.id} className="rounded border border-gray-100 p-3 text-fluid-xs">
-                  <div className="font-medium">{row.teamLeader.name}</div>
+                  <div className="font-medium">
+                    {row.teamLeader.name}
+                    {row.teamLeader.role ? (
+                      <span className="ml-1 text-fluid-2xs text-gray-500">
+                        ({eContractRecipientRoleLabel(row.teamLeader.role)})
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="text-gray-600">
                     v{row.version.publishedOrdinal ?? '—'} · {eContractIssuanceStatusKo(row.status, Boolean(row.submission))}
                   </div>

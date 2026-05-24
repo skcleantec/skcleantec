@@ -6,7 +6,7 @@ import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSi
 import type { ValidatedSignerSubmissionFields } from './eContractSigner.input.js';
 import { dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
 import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
-import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyEContractInboxIfTeamLeader } from './eContract.recipientNotify.js';
 
 export type PublicSignSession = {
   issuanceId: string;
@@ -32,7 +32,7 @@ async function issuanceByToken(rawToken: string) {
     include: {
       definition: { select: { id: true, title: true, isArchived: true } },
       version: true,
-      teamLeader: { select: { id: true, name: true, isActive: true } },
+      teamLeader: { select: { id: true, name: true, isActive: true, role: true } },
       submission: { select: { id: true, signedAt: true, mergedContractHtml: true } },
     },
   });
@@ -74,9 +74,11 @@ export async function touchIssuanceOpened(issuanceId: string): Promise<void> {
   if (updated.count > 0) {
     const row = await prisma.eContractIssuance.findUnique({
       where: { id: issuanceId },
-      select: { teamLeaderId: true },
+      select: { teamLeaderId: true, teamLeader: { select: { role: true } } },
     });
-    if (row?.teamLeaderId) notifyInboxRefresh([row.teamLeaderId]);
+    if (row?.teamLeaderId && row.teamLeader) {
+      notifyEContractInboxIfTeamLeader(row.teamLeaderId, row.teamLeader.role);
+    }
   }
 }
 
@@ -220,7 +222,8 @@ export async function completeSubmissionByToken(
   }
 
   const issuance = await validateIssuanceWritable(rawToken);
-  const teamLeaderId = issuance.teamLeaderId;
+  const recipientUserId = issuance.teamLeaderId;
+  const recipientRole = issuance.teamLeader?.role;
 
   const submissionId = randomUUID();
   const signedAtDate = new Date();
@@ -286,7 +289,9 @@ export async function completeSubmissionByToken(
 
       return { signedAt: sub.signedAt.toISOString() };
     });
-    notifyInboxRefresh([teamLeaderId]);
+    if (recipientRole) {
+      notifyEContractInboxIfTeamLeader(recipientUserId, recipientRole);
+    }
     return result;
   } catch (e: unknown) {
     if (

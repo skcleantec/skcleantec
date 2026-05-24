@@ -1,4 +1,4 @@
-import { EContractVersionStatus } from '@prisma/client';
+import { EContractAudience, EContractVersionStatus } from '@prisma/client';
 import { Router, type Request } from 'express';
 import bcrypt from 'bcryptjs';
 import {
@@ -8,7 +8,7 @@ import {
 } from '../auth/auth.middleware.js';
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { prisma } from '../../lib/prisma.js';
-import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyEContractInboxIfTeamLeader } from './eContract.recipientNotify.js';
 import {
   createDefinition,
   createIssuance,
@@ -20,6 +20,8 @@ import {
   listDefinitions,
   listIssuancesForDefinition,
   listTeamLeadersForPicker,
+  listMarketersForPicker,
+  listAllContractRecipientsForPicker,
   listSubmissionsByTeamLeader,
   listAllSubmissionsForAdmin,
   getSubmissionDetailForAdmin,
@@ -216,7 +218,10 @@ router.post('/definitions', async (req, res) => {
     const title = typeof req.body?.title === 'string' ? req.body.title : '';
     const description =
       typeof req.body?.description === 'string' ? req.body.description : undefined;
-    const row = await createDefinition(actor(req).userId, title, description);
+    const audienceRaw = typeof req.body?.audience === 'string' ? req.body.audience.trim() : '';
+    const audience =
+      audienceRaw === 'MARKETER' ? EContractAudience.MARKETER : EContractAudience.TEAM_LEADER;
+    const row = await createDefinition(actor(req).userId, title, description, audience);
     res.status(201).json({ definition: row });
   } catch (e: unknown) {
     if (e instanceof Error && (e as { code?: string }).code === 'bad_request') {
@@ -251,6 +256,10 @@ router.patch('/definitions/:id', async (req, res) => {
       patch.description = typeof b.description === 'string' ? b.description : null;
     }
     if (typeof b.isArchived === 'boolean') patch.isArchived = b.isArchived;
+    if (typeof b.audience === 'string') {
+      patch.audience =
+        b.audience.trim() === 'MARKETER' ? EContractAudience.MARKETER : EContractAudience.TEAM_LEADER;
+    }
     const row = await patchDefinition(req.params.id, patch);
     res.json({ definition: row });
   } catch (e: unknown) {
@@ -258,6 +267,15 @@ router.patch('/definitions/:id', async (req, res) => {
     if (code === 'bad_request') {
       res.status(400).json({
         error: e instanceof Error && e.message === 'nothing_to_patch' ? '변경할 값이 없습니다.' : '제목을 확인해 주세요.',
+      });
+      return;
+    }
+    if (code === 'conflict') {
+      res.status(409).json({
+        error:
+          e instanceof Error && e.message === 'audience_locked'
+            ? '발급 내역이 있어 수신 대상 유형을 바꿀 수 없습니다.'
+            : '처리할 수 없습니다.',
       });
       return;
     }
@@ -434,6 +452,26 @@ router.delete('/versions/:vid', async (req, res) => {
   }
 });
 
+router.get('/pickers/marketers', async (_req, res) => {
+  try {
+    const users = await listMarketersForPicker();
+    res.json({ marketers: users });
+  } catch (e) {
+    console.error('[e-contract] marketers picker', e);
+    res.status(500).json({ error: '목록을 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/pickers/recipients', async (_req, res) => {
+  try {
+    const users = await listAllContractRecipientsForPicker();
+    res.json({ recipients: users });
+  } catch (e) {
+    console.error('[e-contract] recipients picker', e);
+    res.status(500).json({ error: '목록을 불러오지 못했습니다.' });
+  }
+});
+
 router.get('/pickers/team-leaders', async (_req, res) => {
   try {
     const users = await listTeamLeadersForPicker();
@@ -514,10 +552,15 @@ router.post('/issuances', async (req, res) => {
   try {
     const b = req.body ?? {};
     const definitionId = typeof b.definitionId === 'string' ? b.definitionId : '';
-    const teamLeaderId = typeof b.teamLeaderId === 'string' ? b.teamLeaderId : '';
+    const recipientUserId =
+      typeof b.recipientUserId === 'string'
+        ? b.recipientUserId
+        : typeof b.teamLeaderId === 'string'
+          ? b.teamLeaderId
+          : '';
     const versionId = typeof b.versionId === 'string' ? b.versionId : null;
-    if (!definitionId || !teamLeaderId) {
-      res.status(400).json({ error: '계약서와 팀장을 선택해 주세요.' });
+    if (!definitionId || !recipientUserId) {
+      res.status(400).json({ error: '계약서와 수신자를 선택해 주세요.' });
       return;
     }
     const expiresAt =
@@ -531,20 +574,24 @@ router.post('/issuances', async (req, res) => {
     const notes = typeof b.notes === 'string' ? b.notes : null;
     const row = await createIssuance({
       definitionId,
-      teamLeaderId,
+      recipientUserId,
       versionId,
       expiresAt,
       notes,
     });
-    notifyInboxRefresh([teamLeaderId]);
+    if (row.teamLeader.role) {
+      notifyEContractInboxIfTeamLeader(row.teamLeaderId, row.teamLeader.role);
+    }
     res.status(201).json({ issuance: row });
   } catch (e: unknown) {
     const code = (e as { code?: string })?.code;
     if (code === 'bad_request') {
       const m = e instanceof Error ? e.message : '';
       const msg =
-        m === 'team_leader_invalid'
-          ? '팀장 계정만 선택할 수 있습니다.'
+        m === 'recipient_invalid'
+          ? '선택한 수신자가 이 계약서 유형(팀장/마케터)과 맞지 않습니다.'
+          : m === 'team_leader_invalid'
+            ? '팀장 계정만 선택할 수 있습니다.'
           : m === 'no_published_version'
             ? '먼저 계약 내용을 배포한 뒤 링크를 발급해 주세요.'
             : m === 'version_mismatch'

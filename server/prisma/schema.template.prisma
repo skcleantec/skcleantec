@@ -1201,12 +1201,20 @@ enum EContractIssuanceStatus {
   REVOKED
 }
 
+/// 계약서 수신 대상 — 팀장(팀 화면) / 마케터(링크만)
+enum EContractAudience {
+  TEAM_LEADER
+  MARKETER
+}
+
 model EContractDefinition {
-  id           String    @id @default(uuid())
-  title        String    @db.VarChar(512)
-  description  String?   @db.Text
-  /// 보관 종료 등 — 목록에서 기본 숨김 처리에 사용 (체결본은 유지)
-  isArchived   Boolean   @default(false) @map("is_archived")
+  id           String             @id @default(uuid())
+  title        String             @db.VarChar(512)
+  description  String?            @db.Text
+  /// 수신자 유형 — 발급·체결 대상(팀장 vs 마케터 링크)
+  audience     EContractAudience  @default(TEAM_LEADER) @map("audience")
+  /// 보관 종료 etc — 목록에서 기본 숨김 처리에 사용 (체결본은 유지)
+  isArchived   Boolean            @default(false) @map("is_archived")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   createdById  String?   @map("created_by_id")

@@ -1,4 +1,5 @@
 import {
+  EContractAudience,
   EContractIssuanceStatus,
   EContractVersionStatus,
   Prisma,
@@ -26,6 +27,7 @@ export async function listDefinitions() {
       id: true,
       title: true,
       description: true,
+      audience: true,
       isArchived: true,
       createdAt: true,
       updatedAt: true,
@@ -45,15 +47,23 @@ export async function listDefinitions() {
   });
 }
 
-export async function createDefinition(actorId: string, title: string, description?: string | null) {
+export async function createDefinition(
+  actorId: string,
+  title: string,
+  description?: string | null,
+  audience?: EContractAudience
+) {
   const trimmed = title.trim();
   if (!trimmed) {
     throw Object.assign(new Error('title_required'), { code: 'bad_request' as const });
   }
+  const aud =
+    audience === EContractAudience.MARKETER ? EContractAudience.MARKETER : EContractAudience.TEAM_LEADER;
   return prisma.eContractDefinition.create({
     data: {
       title: trimmed,
       description: description?.trim() || null,
+      audience: aud,
       createdById: actorId,
     },
   });
@@ -61,7 +71,7 @@ export async function createDefinition(actorId: string, title: string, descripti
 
 export async function patchDefinition(
   id: string,
-  patch: { title?: string; description?: string | null; isArchived?: boolean }
+  patch: { title?: string; description?: string | null; isArchived?: boolean; audience?: EContractAudience }
 ) {
   const data: Prisma.EContractDefinitionUpdateInput = {};
   if (patch.title !== undefined) {
@@ -75,6 +85,14 @@ export async function patchDefinition(
     data.description = patch.description?.trim() || null;
   }
   if (patch.isArchived !== undefined) data.isArchived = patch.isArchived;
+  if (patch.audience !== undefined) {
+    const issuanceCount = await prisma.eContractIssuance.count({ where: { definitionId: id } });
+    if (issuanceCount > 0) {
+      throw Object.assign(new Error('audience_locked'), { code: 'conflict' as const });
+    }
+    data.audience =
+      patch.audience === EContractAudience.MARKETER ? EContractAudience.MARKETER : EContractAudience.TEAM_LEADER;
+  }
   if (Object.keys(data).length === 0) {
     throw Object.assign(new Error('nothing_to_patch'), { code: 'bad_request' as const });
   }
@@ -267,13 +285,27 @@ async function resolveLatestPublishedVersionId(definitionId: string): Promise<st
 export async function createIssuance(input: {
   definitionId: string;
   versionId?: string | null;
-  teamLeaderId: string;
+  /** DB `team_leader_id` — 팀장 또는 마케터 user.id */
+  recipientUserId: string;
   expiresAt?: Date | null;
   notes?: string | null;
 }) {
-  const leader = await prisma.user.findUnique({ where: { id: input.teamLeaderId }, select: { id: true, role: true } });
-  if (!leader || leader.role !== UserRole.TEAM_LEADER) {
-    throw Object.assign(new Error('team_leader_invalid'), { code: 'bad_request' as const });
+  const definition = await prisma.eContractDefinition.findUnique({
+    where: { id: input.definitionId },
+    select: { id: true, audience: true },
+  });
+  if (!definition) {
+    throw Object.assign(new Error('definition_not_found'), { code: 'not_found' as const });
+  }
+
+  const recipient = await prisma.user.findUnique({
+    where: { id: input.recipientUserId },
+    select: { id: true, role: true, isActive: true },
+  });
+  const expectedRole =
+    definition.audience === EContractAudience.MARKETER ? UserRole.MARKETER : UserRole.TEAM_LEADER;
+  if (!recipient?.isActive || recipient.role !== expectedRole) {
+    throw Object.assign(new Error('recipient_invalid'), { code: 'bad_request' as const });
   }
 
   const versionId =
@@ -299,7 +331,7 @@ export async function createIssuance(input: {
       token: newEContractInviteToken(),
       definitionId: input.definitionId,
       versionId,
-      teamLeaderId: input.teamLeaderId,
+      teamLeaderId: input.recipientUserId,
       status: EContractIssuanceStatus.PENDING,
       expiresAt: input.expiresAt ?? null,
       notes: input.notes?.trim() || null,
@@ -308,17 +340,35 @@ export async function createIssuance(input: {
       version: {
         select: { id: true, publishedOrdinal: true, titleSnapshot: true, contentHash: true },
       },
-      definition: { select: { id: true, title: true } },
-      teamLeader: { select: { id: true, name: true, email: true } },
+      definition: { select: { id: true, title: true, audience: true } },
+      teamLeader: { select: { id: true, name: true, email: true, role: true } },
     },
   });
 }
 
 export async function listTeamLeadersForPicker() {
+  return listRecipientsForPicker(EContractAudience.TEAM_LEADER);
+}
+
+export async function listMarketersForPicker() {
+  return listRecipientsForPicker(EContractAudience.MARKETER);
+}
+
+export async function listRecipientsForPicker(audience: EContractAudience) {
+  const role = audience === EContractAudience.MARKETER ? UserRole.MARKETER : UserRole.TEAM_LEADER;
   return prisma.user.findMany({
-    where: { role: UserRole.TEAM_LEADER, isActive: true },
-    select: { id: true, name: true, email: true, phone: true },
+    where: { role, isActive: true },
+    select: { id: true, name: true, email: true, phone: true, role: true },
     orderBy: [{ name: 'asc' }, { email: 'asc' }],
+  });
+}
+
+/** 체결 기록 필터 — 팀장·마케터 수신자 통합 */
+export async function listAllContractRecipientsForPicker() {
+  return prisma.user.findMany({
+    where: { role: { in: [UserRole.TEAM_LEADER, UserRole.MARKETER] }, isActive: true },
+    select: { id: true, name: true, email: true, phone: true, role: true },
+    orderBy: [{ role: 'asc' }, { name: 'asc' }, { email: 'asc' }],
   });
 }
 
@@ -331,7 +381,7 @@ const submissionListSelect = {
     select: {
       token: true,
       status: true,
-      teamLeader: { select: { id: true, name: true, email: true } },
+      teamLeader: { select: { id: true, name: true, email: true, role: true } },
       definition: { select: { id: true, title: true } },
     },
   },
@@ -347,7 +397,7 @@ function mapSubmissionListRow(s: {
   issuance: {
     token: string;
     status: EContractIssuanceStatus;
-    teamLeader: { id: string; name: string; email: string };
+    teamLeader: { id: string; name: string; email: string; role: string };
     definition: { id: string; title: string };
   };
   version: { id: string; publishedOrdinal: number | null; titleSnapshot: string };
@@ -365,6 +415,7 @@ function mapSubmissionListRow(s: {
     teamLeaderId: s.issuance.teamLeader.id,
     teamLeaderName: s.issuance.teamLeader.name,
     teamLeaderEmail: s.issuance.teamLeader.email,
+    recipientRole: s.issuance.teamLeader.role,
   };
 }
 
@@ -406,7 +457,10 @@ export async function listIssuancesByTeamLeader(
     throw Object.assign(new Error('team_leader_invalid'), { code: 'bad_request' as const });
   }
 
-  const where = issuanceWhereForTeamLeader(teamLeaderId, query);
+  const where = {
+    ...issuanceWhereForTeamLeader(teamLeaderId, query),
+    definition: { audience: EContractAudience.TEAM_LEADER },
+  };
   const [rows, total] = await Promise.all([
     prisma.eContractIssuance.findMany({
       where,
@@ -433,7 +487,7 @@ export async function countPendingIssuancesForTeamLeader(teamLeaderId: string): 
       teamLeaderId,
       submission: null,
       status: { in: [EContractIssuanceStatus.PENDING, EContractIssuanceStatus.OPENED] },
-      definition: { isArchived: false },
+      definition: { isArchived: false, audience: EContractAudience.TEAM_LEADER },
       OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
     },
   });
@@ -445,7 +499,7 @@ export async function listIssuancesForDefinition(definitionId: string, take = 80
     orderBy: { createdAt: 'desc' },
     take,
     include: {
-      teamLeader: { select: { id: true, name: true, email: true } },
+      teamLeader: { select: { id: true, name: true, email: true, role: true } },
       version: { select: { id: true, publishedOrdinal: true, titleSnapshot: true } },
       submission: { select: { id: true, signedAt: true } },
     },
@@ -469,7 +523,7 @@ export async function listSubmissionsByTeamLeader(userId: string) {
         select: {
           token: true,
           status: true,
-          teamLeader: { select: { id: true, name: true, email: true } },
+          teamLeader: { select: { id: true, name: true, email: true, role: true } },
           definition: { select: { id: true, title: true } },
         },
       },
@@ -509,7 +563,7 @@ export async function getSubmissionDetailForAdmin(submissionId: string) {
       issuance: {
         include: {
           definition: { select: { id: true, title: true } },
-          teamLeader: { select: { id: true, name: true, email: true } },
+          teamLeader: { select: { id: true, name: true, email: true, role: true } },
         },
       },
       version: {

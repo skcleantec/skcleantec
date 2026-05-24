@@ -4,8 +4,10 @@ import { getToken } from '../../stores/auth';
 import {
   createEContractDefinition,
   listEContractDefinitions,
+  type EContractAudienceKind,
   type EContractDefinitionListItem,
 } from '../../api/adminEContract';
+import { eContractAudienceLabel } from '../../utils/eContractDisplay';
 
 export function AdminEContractListPage() {
   const token = getToken();
@@ -13,6 +15,7 @@ export function AdminEContractListPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
+  const [newAudience, setNewAudience] = useState<EContractAudienceKind>('TEAM_LEADER');
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -45,7 +48,7 @@ export function AdminEContractListPage() {
     setCreating(true);
     setErr(null);
     try {
-      await createEContractDefinition(token, { title: t });
+      await createEContractDefinition(token, { title: t, audience: newAudience });
       setNewTitle('');
       await load();
     } catch (e) {
@@ -65,22 +68,49 @@ export function AdminEContractListPage() {
 
       <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="text-fluid-sm font-medium text-gray-800">새 계약서</div>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <input
-            type="text"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="예: 팀장 용역 계약"
-            className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
-          />
-          <button
-            type="button"
-            disabled={creating || !newTitle.trim()}
-            onClick={() => void onCreate()}
-            className="rounded-lg bg-gray-900 px-4 py-2 text-fluid-sm font-medium text-white disabled:opacity-50"
-          >
-            등록
-          </button>
+        <div className="mt-3 flex flex-col gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="예: 팀장 용역 계약 / 마케터 위탁 계약"
+              className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
+            />
+            <button
+              type="button"
+              disabled={creating || !newTitle.trim()}
+              onClick={() => void onCreate()}
+              className="rounded-lg bg-gray-900 px-4 py-2 text-fluid-sm font-medium text-white disabled:opacity-50 shrink-0"
+            >
+              등록
+            </button>
+          </div>
+          <div>
+            <span className="text-fluid-xs font-medium text-gray-700">수신 대상</span>
+            <div className="mt-1 inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 p-1">
+              {(
+                [
+                  ['TEAM_LEADER', '팀장'],
+                  ['MARKETER', '마케터(링크 발송)'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setNewAudience(key)}
+                  className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
+                    newAudience === key ? 'bg-gray-800 text-white' : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-fluid-2xs text-gray-500">
+              마케터는 전용 포털이 없어 등록 후 발급한 체결 링크를 직접 전달합니다.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -92,16 +122,20 @@ export function AdminEContractListPage() {
         <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
           <table className="w-full table-fixed border-collapse border border-gray-200 bg-white text-fluid-sm">
             <colgroup>
+              <col style={{ width: '24%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '14%' }} />
               <col style={{ width: '28%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '18%' }} />
-              <col style={{ width: '30%' }} />
             </colgroup>
             <thead>
               <tr className="bg-gray-100">
                 <th className="border-b border-gray-200 px-2 py-2 text-center text-fluid-xs font-medium text-gray-700">
                   제목
+                </th>
+                <th className="border-b border-gray-200 px-2 py-2 text-center text-fluid-xs font-medium text-gray-700">
+                  대상
                 </th>
                 <th className="border-b border-gray-200 px-2 py-2 text-center text-fluid-xs font-medium text-gray-700">
                   최신 배포
@@ -120,13 +154,13 @@ export function AdminEContractListPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-2 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-2 py-8 text-center text-gray-500">
                     불러오는 중…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-2 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-2 py-8 text-center text-gray-500">
                     <div>등록된 계약서가 없습니다.</div>
                   </td>
                 </tr>
@@ -143,6 +177,9 @@ export function AdminEContractListPage() {
                         >
                           {d.title}
                         </Link>
+                      </td>
+                      <td className="px-2 py-2 text-center text-fluid-xs">
+                        {eContractAudienceLabel(d.audience ?? 'TEAM_LEADER')}
                       </td>
                       <td className="px-2 py-2 text-center tabular-nums">
                         {latest?.publishedOrdinal != null ? (
@@ -201,6 +238,9 @@ export function AdminEContractListPage() {
                     <Link to={`/admin/team-leaders/e-contracts/definition/${d.id}`} className="block truncate font-semibold text-blue-800">
                       {d.title}
                     </Link>
+                    <div className="mt-1 text-fluid-2xs text-gray-600">
+                      대상 {eContractAudienceLabel(d.audience ?? 'TEAM_LEADER')}
+                    </div>
                     <div className="mt-2 text-fluid-2xs text-gray-600">
                       최신 배포{' '}
                       {latest?.publishedOrdinal != null ? (

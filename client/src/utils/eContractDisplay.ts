@@ -7,3 +7,15 @@ export function eContractIssuanceStatusKo(status: string, hasSigned?: boolean): 
   if (status === 'PENDING') return '대기';
   return status || '—';
 }
+
+export type EContractAudienceKind = 'TEAM_LEADER' | 'MARKETER';
+
+export function eContractAudienceLabel(audience: EContractAudienceKind): string {
+  return audience === 'MARKETER' ? '마케터' : '팀장';
+}
+
+export function eContractRecipientRoleLabel(role: string | undefined): string {
+  if (role === 'MARKETER') return '마케터';
+  if (role === 'TEAM_LEADER') return '팀장';
+  return role || '—';
+}

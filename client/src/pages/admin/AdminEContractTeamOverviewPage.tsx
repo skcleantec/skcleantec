@@ -7,14 +7,15 @@ import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects
 import { getToken } from '../../stores/auth';
 import {
   listAllEContractSubmissions,
-  pickerTeamLeaders,
+  pickerAllContractRecipients,
   type EContractSubmissionRow,
-  type TeamLeaderPicker,
+  type EContractRecipientPicker,
 } from '../../api/adminEContract';
+import { eContractRecipientRoleLabel } from '../../utils/eContractDisplay';
 import { kstTodayYmd } from '../../utils/dateFormat';
 import {
-  INQUIRY_LIST_DEFAULT_PAGE_SIZE,
   clampListPage,
+  INQUIRY_LIST_DEFAULT_PAGE_SIZE,
   parseInquiryListPageSize,
   parseListPage,
   type InquiryListPageSize,
@@ -78,7 +79,7 @@ export function AdminEContractTeamOverviewPage() {
   const listPage = parseListPage(searchParams.get('page'));
   const listPageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
 
-  const [pickers, setPickers] = useState<TeamLeaderPicker[]>([]);
+  const [pickers, setPickers] = useState<EContractRecipientPicker[]>([]);
   const [rows, setRows] = useState<EContractSubmissionRow[]>([]);
   const [listTotal, setListTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -104,8 +105,8 @@ export function AdminEContractTeamOverviewPage() {
   const loadPickers = useCallback(async () => {
     if (!token) return;
     try {
-      const data = await pickerTeamLeaders(token);
-      setPickers(data.teamLeaders);
+      const data = await pickerAllContractRecipients(token);
+      setPickers(data.recipients);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '팀장 목록을 불러오지 못했습니다.');
     }
@@ -246,7 +247,7 @@ export function AdminEContractTeamOverviewPage() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="min-w-[200px] max-w-md flex-1">
-              <label className="block text-fluid-xs font-medium text-gray-700">팀장 필터(선택)</label>
+              <label className="block text-fluid-xs font-medium text-gray-700">수신자 필터(선택)</label>
               <select
                 value={filterLeaderId}
                 onChange={(e) =>
@@ -262,7 +263,7 @@ export function AdminEContractTeamOverviewPage() {
                 <option value="">전체</option>
                 {pickers.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} ({u.email})
+                    [{eContractRecipientRoleLabel(u.role)}] {u.name} ({u.email})
                   </option>
                 ))}
               </select>
@@ -300,9 +301,12 @@ export function AdminEContractTeamOverviewPage() {
                 </div>
                 <dl className="mt-2 space-y-1 text-fluid-xs text-gray-700">
                   <div className="flex justify-between gap-2">
-                    <dt className="text-gray-500 shrink-0">팀장</dt>
+                    <dt className="text-gray-500 shrink-0">수신자</dt>
                     <dd className="min-w-0 truncate text-right" title={s.teamLeaderName}>
                       {s.teamLeaderName}
+                      {s.recipientRole ? (
+                        <span className="text-gray-500"> · {eContractRecipientRoleLabel(s.recipientRole)}</span>
+                      ) : null}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
@@ -341,7 +345,7 @@ export function AdminEContractTeamOverviewPage() {
                   </colgroup>
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-100">
-                      <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">팀장</th>
+                      <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">수신자</th>
                       <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">이메일</th>
                       <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">계약 종류</th>
                       <th className="px-2 py-2 text-center text-fluid-xs font-medium text-gray-800">버전</th>
@@ -355,6 +359,11 @@ export function AdminEContractTeamOverviewPage() {
                       <tr key={s.id} className="group border-b border-gray-100 hover:bg-gray-50">
                         <td className="truncate px-2 py-2 text-center text-fluid-xs" title={s.teamLeaderName}>
                           {s.teamLeaderName}
+                          {s.recipientRole ? (
+                            <div className="text-fluid-2xs text-gray-500">
+                              {eContractRecipientRoleLabel(s.recipientRole)}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="truncate px-2 py-2 text-center text-fluid-2xs" title={s.teamLeaderEmail}>
                           {s.teamLeaderEmail}
@@ -395,7 +404,7 @@ export function AdminEContractTeamOverviewPage() {
 
           <p className="mt-3 text-center text-fluid-2xs text-gray-500">
             {dateFilterLabel}
-            {filterLeaderId ? ' · 팀장 필터 적용' : ''} · 최신순
+            {filterLeaderId ? ' · 수신자 필터 적용' : ''} · 최신순
           </p>
         </>
       )}
