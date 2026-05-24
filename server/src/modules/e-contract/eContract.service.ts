@@ -249,29 +249,11 @@ export async function deleteDraft(versionId: string) {
   await prisma.eContractVersion.delete({ where: { id: versionId } });
 }
 
-/** 배포(PUBLISHED) 버전 삭제 — 해당 버전에 체결(Submission)이 없을 때만. 연결된 미체결 발급 건은 함께 제거 */
+/** 배포(PUBLISHED) 버전 — 한 번 배포되면 체결 여부와 관계없이 유지(삭제 불가). 수정은 새 초안 배포. */
 export async function deletePublishedVersion(adminUserId: string, versionId: string) {
   void adminUserId;
-  const v = await prisma.eContractVersion.findUnique({
-    where: { id: versionId },
-    select: { id: true, status: true, definitionId: true, publishedOrdinal: true, titleSnapshot: true },
-  });
-  if (!v) {
-    throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
-  }
-  if (v.status !== EContractVersionStatus.PUBLISHED) {
-    throw Object.assign(new Error('not_published'), { code: 'bad_request' as const });
-  }
-
-  const submissionCount = await prisma.eContractSubmission.count({ where: { versionId } });
-  if (submissionCount > 0) {
-    throw Object.assign(new Error('has_submissions'), { code: 'conflict' as const });
-  }
-
-  await prisma.$transaction([
-    prisma.eContractIssuance.deleteMany({ where: { versionId } }),
-    prisma.eContractVersion.delete({ where: { id: versionId } }),
-  ]);
+  void versionId;
+  throw Object.assign(new Error('published_version_permanent'), { code: 'conflict' as const });
 }
 
 async function resolveLatestPublishedVersionId(definitionId: string): Promise<string | null> {
