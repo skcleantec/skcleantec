@@ -75,6 +75,16 @@ function listMigrationNames() {
     .sort();
 }
 
+function isP3018(text) {
+  return /P3018|migration failed to apply|New migrations cannot be applied before the error is recovered/i.test(
+    text
+  );
+}
+
+function failedFieldDefinitionsMigration(text) {
+  return /20260524180000_e_contract_field_definitions/.test(text);
+}
+
 function resolveApplied(name) {
   const r = runCapture('npx', ['prisma', 'migrate', 'resolve', '--applied', name]);
   if (r.ok) return;
@@ -100,6 +110,22 @@ function dbPushAcceptLoss() {
   }
 }
 
+function resolveRolledBack(name) {
+  const r = runCapture('npx', ['prisma', 'migrate', 'resolve', '--rolled-back', name]);
+  if (r.ok) return;
+  console.error(r.out);
+  throw new Error(`migrate resolve --rolled-back ${name} failed`);
+}
+
+/** P3018 — ENUM 등 부분 적용 후 재시도 시 실패한 마이그레이션을 applied로 기록하고 recovery 마이그레이션으로 이어감 */
+function recoverFailedFieldDefinitionsMigration() {
+  const name = '20260524180000_e_contract_field_definitions';
+  console.warn(
+    `[railway-predeploy-migrate] P3018 on ${name} — mark applied, continue with recovery migration`
+  );
+  resolveApplied(name);
+}
+
 function main() {
   const first = migrateDeploy();
   if (first.ok) {
@@ -108,6 +134,18 @@ function main() {
   }
 
   console.error(first.out);
+
+  if (isP3018(first.out) && failedFieldDefinitionsMigration(first.out)) {
+    recoverFailedFieldDefinitionsMigration();
+    const retry = migrateDeploy();
+    if (!retry.ok) {
+      console.error(retry.out);
+      process.exit(1);
+    }
+    console.log('prisma migrate deploy: ok (after field-definitions P3018 recovery)');
+    return;
+  }
+
   if (!isP3005(first.out)) {
     process.exit(1);
   }
