@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
 import { AdminEContractSubmissionDetailModal } from '../../components/e-contract/AdminEContractSubmissionDetailModal';
 import { EContractRichEditor } from '../../components/e-contract/EContractRichEditor';
+import { EContractDraftPreviewModal } from '../../components/e-contract/EContractDraftPreviewModal';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { getToken } from '../../stores/auth';
 import { EContractDynamicFieldInputs } from '../../components/e-contract/EContractDynamicFieldInputs';
@@ -125,9 +126,7 @@ export function AdminEContractDefinitionPage() {
   const [issuing, setIssuing] = useState(false);
   const [lastIssuedSignUrl, setLastIssuedSignUrl] = useState<string | null>(null);
 
-  const [issuerPreviewExpanded, setIssuerPreviewExpanded] = useState<string | null>(null);
-  const [issuerPreviewAppendix, setIssuerPreviewAppendix] = useState('');
-  const [issuerPreviewBusy, setIssuerPreviewBusy] = useState(false);
+  const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [delPwd, setDelPwd] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -191,52 +190,10 @@ export function AdminEContractDefinitionPage() {
     })();
   }, [token, definitionId, issueVersionId]);
 
-  useEffect(() => {
-    if (!token || !draftId) {
-      setIssuerPreviewExpanded(null);
-      setIssuerPreviewAppendix('');
-      setIssuerPreviewBusy(false);
-      return;
-    }
-    let cancelled = false;
-    setIssuerPreviewBusy(true);
-    const tmr = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const { expanded, appendixHtml } = await previewEContractExpandedBody(token, draftBody);
-          if (!cancelled) {
-            setIssuerPreviewExpanded(expanded);
-            setIssuerPreviewAppendix(typeof appendixHtml === 'string' ? appendixHtml : '');
-          }
-        } catch {
-          if (!cancelled) {
-            setIssuerPreviewExpanded(null);
-            setIssuerPreviewAppendix('');
-          }
-        } finally {
-          if (!cancelled) setIssuerPreviewBusy(false);
-        }
-      })();
-    }, 420);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(tmr);
-      setIssuerPreviewBusy(false);
-    };
-  }, [token, draftId, draftBody]);
-
   const publishedVersions = useMemo(
     () => (def?.versions ?? []).filter((v) => v.status === 'PUBLISHED').sort((a, b) => (a.publishedOrdinal ?? 0) - (b.publishedOrdinal ?? 0)),
     [def]
   );
-
-  /** 본문(갑 치환) + 하단 자동 부록(계약주·계약자 표) */
-  const fullIssuerPreviewHtml = useMemo(() => {
-    if (issuerPreviewExpanded !== null) {
-      return issuerPreviewExpanded + (issuerPreviewAppendix || '');
-    }
-    return draftBody;
-  }, [issuerPreviewExpanded, issuerPreviewAppendix, draftBody]);
 
   const ensureDraftLocal = async () => {
     if (!token || !definitionId) return;
@@ -580,18 +537,17 @@ export function AdminEContractDefinitionPage() {
                   mappingFieldOptions={editorFields}
                 />
               </div>
-              <div className="mt-6 rounded-lg border border-blue-100 bg-sky-50/50 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-fluid-xs font-medium text-gray-800">배포·체결 화면 미리보기</div>
-                  {issuerPreviewBusy ? <span className="text-fluid-2xs text-gray-500">갱신 중…</span> : null}
-                </div>
-                <p className="mt-1 text-fluid-2xs text-gray-600">
-                  작성하신 본문에 발행측(갑) 토큰이 치환된 뒤, <span className="font-medium text-gray-800">하단에 계약주·계약자 정보 표</span>가
-                  자동으로 붙은 형태입니다. 배포 후 팀장에게 보이는 문서와 동일합니다(을 항목은 체결 시 입력·치환).
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setDraftPreviewOpen(true)}
+                  className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-fluid-xs font-medium text-blue-900 hover:bg-blue-100"
+                >
+                  배포·체결 화면 미리보기
+                </button>
+                <p className="mt-1 text-fluid-2xs text-gray-500">
+                  편집 속도를 위해 미리보기는 버튼을 눌렀을 때만 불러옵니다.
                 </p>
-                <div className="mt-2 max-h-[min(70vh,720px)] overflow-y-auto rounded border border-gray-200 bg-white p-2">
-                  <EContractBodyDisplay body={fullIssuerPreviewHtml} />
-                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -930,6 +886,13 @@ export function AdminEContractDefinitionPage() {
         submissionId={submissionModalId}
         open={Boolean(submissionModalId)}
         onClose={() => setSubmissionModalId(null)}
+      />
+
+      <EContractDraftPreviewModal
+        open={draftPreviewOpen}
+        onClose={() => setDraftPreviewOpen(false)}
+        token={token}
+        bodyMarkdown={draftBody}
       />
     </div>
   );
