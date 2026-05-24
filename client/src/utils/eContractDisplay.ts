@@ -25,3 +25,15 @@ export function eContractFieldFilledByLabel(filledBy: string): string {
   if (filledBy === 'AUTO') return '자동(체결 시)';
   return '체결 시(수신자)';
 }
+
+/** 체결 폼 상단 기본 필드 토큰 */
+export const EC_CORE_SIGNER_TOKENS = [
+  '[[EC_SIGNER_NAME]]',
+  '[[EC_SIGNER_RRN]]',
+  '[[EC_SIGNER_ADDRESS]]',
+  '[[EC_SIGNER_PHONE]]',
+] as const;
+
+export function isCoreSignerToken(token: string): boolean {
+  return (EC_CORE_SIGNER_TOKENS as readonly string[]).includes(token);
+}

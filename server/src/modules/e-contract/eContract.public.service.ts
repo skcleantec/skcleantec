@@ -6,6 +6,7 @@ import { expandEcTokenMapPreview } from './eContractDynamicExpand.js';
 import {
   buildExpansionValueMap,
   resolveFieldsForBody,
+  resolveSignerFormFields,
 } from './eContractFieldDefinition.service.js';
 import { EContractFieldFilledBy } from '@prisma/client';
 import type { ValidatedSignerSubmissionFields } from './eContractSigner.input.js';
@@ -14,7 +15,6 @@ import { dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
 import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
 import { notifyEContractInboxIfTeamLeader } from './eContract.recipientNotify.js';
 import { expandEcTokenValues } from './eContractSigner.expand.js';
-import { publishedVersionBodyText } from './eContract.service.js';
 
 export type PublicSignSession = {
   issuanceId: string;
@@ -162,11 +162,7 @@ export async function getPublicSignSession(rawToken: string): Promise<
     bodyMarkdown = versionFallback;
   }
 
-  const signFieldsResolved = await resolveFieldsForBody(
-    publishedVersionBodyText(row.version),
-    row.definition.audience,
-    { filledBy: EContractFieldFilledBy.SIGNER }
-  );
+  const signFieldsResolved = await resolveSignerFormFields(row.definition.audience);
 
   return {
     issuanceId: row.id,

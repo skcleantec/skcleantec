@@ -4,6 +4,18 @@ export const EC_TOKEN_REGEX = /\[\[EC_[A-Z0-9_]+\]\]/g;
 export const EC_SIGNATURE_TOKEN = '[[EC_SIGNATURE]]';
 export const EC_CONTRACT_DATE_TOKEN = '[[EC_CONTRACT_DATE]]';
 
+/** 체결 폼 상단 — 항상 표시하는 기본 SIGNER 필드 */
+export const EC_CORE_SIGNER_TOKENS = [
+  '[[EC_SIGNER_NAME]]',
+  '[[EC_SIGNER_RRN]]',
+  '[[EC_SIGNER_ADDRESS]]',
+  '[[EC_SIGNER_PHONE]]',
+] as const;
+
+export function isCoreSignerToken(token: string): boolean {
+  return (EC_CORE_SIGNER_TOKENS as readonly string[]).includes(token);
+}
+
 export function isValidEcToken(token: string): boolean {
   return /^\[\[EC_[A-Z0-9_]+\]\]$/.test(token.trim());
 }

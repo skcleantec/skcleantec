@@ -9,6 +9,7 @@ import {
 import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
 import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
 import { EContractDynamicFieldInputs, emptyFieldValues } from '../../components/e-contract/EContractDynamicFieldInputs';
+import { isCoreSignerToken } from '../../utils/eContractDisplay';
 import { SignaturePad } from '../../components/e-contract/SignaturePad';
 import { getTeamToken } from '../../stores/teamAuth';
 
@@ -206,6 +207,10 @@ export function EContractPublicSignPage() {
     );
   }
 
+  const signFields = session.signFields ?? [];
+  const coreSignFields = signFields.filter((f) => isCoreSignerToken(f.token));
+  const extraSignFields = signFields.filter((f) => !isCoreSignerToken(f.token));
+
   if (session.alreadySigned) {
     return (
       <>
@@ -313,16 +318,33 @@ export function EContractPublicSignPage() {
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="text-fluid-sm font-semibold text-gray-900">체결 정보 입력</div>
         <p className="mt-2 text-fluid-2xs text-gray-600">
-          계약 본문에 삽입된 항목에 아래 내용이 반영됩니다. 제출 전 다시 확인해 주세요.
+          아래 정보는 계약 본문·부록에 반영됩니다. 제출 전 다시 확인해 주세요.
         </p>
-        <div className="mt-5">
-          <EContractDynamicFieldInputs
-            fields={session.signFields ?? []}
-            values={signerFieldValues}
-            onChange={(t, v) => setSignerFieldValues((prev) => ({ ...prev, [t]: v }))}
-            idPrefix="ec-sign"
-          />
-        </div>
+        {coreSignFields.length > 0 ? (
+          <div className="mt-5">
+            <div className="mb-3 text-fluid-xs font-medium text-gray-800">기본 정보</div>
+            <EContractDynamicFieldInputs
+              fields={coreSignFields}
+              values={signerFieldValues}
+              onChange={(t, v) => setSignerFieldValues((prev) => ({ ...prev, [t]: v }))}
+              idPrefix="ec-sign-core"
+            />
+          </div>
+        ) : null}
+        {extraSignFields.length > 0 ? (
+          <div className={coreSignFields.length > 0 ? 'mt-6 border-t border-gray-100 pt-5' : 'mt-5'}>
+            <div className="mb-3 text-fluid-xs font-medium text-gray-800">추가 입력</div>
+            <EContractDynamicFieldInputs
+              fields={extraSignFields}
+              values={signerFieldValues}
+              onChange={(t, v) => setSignerFieldValues((prev) => ({ ...prev, [t]: v }))}
+              idPrefix="ec-sign-extra"
+            />
+          </div>
+        ) : null}
+        {signFields.length === 0 ? (
+          <p className="mt-4 text-fluid-2xs text-amber-800">입력할 항목이 없습니다. 관리자에게 문의해 주세요.</p>
+        ) : null}
       </section>
 
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">

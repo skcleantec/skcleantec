@@ -226,6 +226,28 @@ export async function resolveFieldsForBody(
   }));
 }
 
+/** 체결 페이지 입력 폼 — 설정된 모든 SIGNER 필드(서명 제외). 본문 토큰 유무와 무관 */
+export async function resolveSignerFormFields(audience: EContractAudience): Promise<ResolvedFieldForBody[]> {
+  const rows = await prisma.eContractFieldDefinition.findMany({
+    where: {
+      audience,
+      isActive: true,
+      filledBy: EContractFieldFilledBy.SIGNER,
+      token: { not: EC_SIGNATURE_TOKEN },
+    },
+    orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    token: r.token,
+    label: r.label,
+    inputType: r.inputType,
+    filledBy: r.filledBy,
+    required: r.required,
+    sortOrder: r.sortOrder,
+  }));
+}
+
 export async function buildExpansionValueMap(input: {
   audience: EContractAudience;
   bodyText: string;

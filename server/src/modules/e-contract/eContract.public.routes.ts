@@ -1,5 +1,4 @@
 import { Router, type Request } from 'express';
-import { EContractFieldFilledBy } from '@prisma/client';
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import {
   completeSubmissionByToken,
@@ -8,9 +7,8 @@ import {
   validateIssuanceWritable,
 } from './eContract.public.service.js';
 import {
-  resolveFieldsForBody,
+  resolveSignerFormFields,
 } from './eContractFieldDefinition.service.js';
-import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
 import {
   signerFieldErrorMessage,
   validateDynamicSignerFields,
@@ -117,10 +115,7 @@ router.post('/sign/:token/submit', async (req, res) => {
 
     const issuance = await validateIssuanceWritable(req.params.token);
     const audience = issuance.definition!.audience;
-    const bodyHtml = await composePublishedVersionHtmlWithLiveIssuer(issuance.version);
-    const signFields = await resolveFieldsForBody(bodyHtml, audience, {
-      filledBy: EContractFieldFilledBy.SIGNER,
-    });
+    const signFields = await resolveSignerFormFields(audience);
 
     let signerEntered;
     let signerValuesByToken: Record<string, string> = {};
