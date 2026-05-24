@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AdminEContractSubmissionDetailModal } from '../../components/e-contract/AdminEContractSubmissionDetailModal';
 import { EContractRichEditor } from '../../components/e-contract/EContractRichEditor';
@@ -54,10 +54,8 @@ export function AdminEContractDefinitionPage() {
   const [lastIssuedSignUrl, setLastIssuedSignUrl] = useState<string | null>(null);
 
   const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
-  const [publishedPreview, setPublishedPreview] = useState<{
-    bodyMarkdown: string;
-    directHtml?: string | null;
-  } | null>(null);
+  const [publishedPreviewVersionId, setPublishedPreviewVersionId] = useState<string | null>(null);
+  const draftEditorGetHtmlRef = useRef<(() => string) | null>(null);
   const [delOpen, setDelOpen] = useState(false);
   const [delPwd, setDelPwd] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -89,6 +87,7 @@ export function AdminEContractDefinitionPage() {
         setDraftId(null);
         setDraftTitle(d.definition.title);
         setDraftBody('');
+        draftEditorGetHtmlRef.current = null;
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : '불러오지 못했습니다.');
@@ -138,16 +137,24 @@ export function AdminEContractDefinitionPage() {
     }
   };
 
+  const resolveDraftBodyForSave = () => {
+    const fromEditor = draftEditorGetHtmlRef.current?.();
+    if (typeof fromEditor === 'string') return fromEditor;
+    return draftBody;
+  };
+
   const saveDraft = async () => {
     if (!token || !draftId) return;
+    const bodyMarkdown = resolveDraftBodyForSave();
     setSavingDraft(true);
     setErr(null);
     setMsg(null);
     try {
       await patchEContractVersion(token, draftId, {
         titleSnapshot: draftTitle,
-        bodyMarkdown: draftBody,
+        bodyMarkdown,
       });
+      setDraftBody(bodyMarkdown);
       setMsg('초안을 저장했습니다.');
       await loadAll();
     } catch (e) {
@@ -164,9 +171,10 @@ export function AdminEContractDefinitionPage() {
     setErr(null);
     setMsg(null);
     try {
+      const bodyMarkdown = resolveDraftBodyForSave();
       await patchEContractVersion(token, draftId, {
         titleSnapshot: draftTitle,
-        bodyMarkdown: draftBody,
+        bodyMarkdown,
       });
       await publishEContractVersion(token, draftId);
       setMsg('새 버전을 배포했습니다.');
@@ -425,6 +433,9 @@ export function AdminEContractDefinitionPage() {
                   value={draftBody}
                   onChange={setDraftBody}
                   mappingFieldOptions={editorFields}
+                  onEditorReady={(api) => {
+                    draftEditorGetHtmlRef.current = api.getHtml;
+                  }}
                 />
               </div>
               <div className="mt-3">
@@ -683,17 +694,7 @@ export function AdminEContractDefinitionPage() {
               ) : null}
               <button
                 type="button"
-                onClick={() => {
-                  const md = v.bodyMarkdown?.trim() ?? '';
-                  const html = v.bodyDisplayHtml?.trim() ?? '';
-                  if (md) {
-                    setPublishedPreview({ bodyMarkdown: md });
-                  } else if (html) {
-                    setPublishedPreview({ bodyMarkdown: '', directHtml: html });
-                  } else {
-                    setPublishedPreview({ bodyMarkdown: '' });
-                  }
-                }}
+                onClick={() => setPublishedPreviewVersionId(v.id)}
                 className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-fluid-2xs font-medium text-blue-900 hover:bg-blue-100"
               >
                 배포본 미리보기
@@ -768,11 +769,11 @@ export function AdminEContractDefinitionPage() {
       />
 
       <EContractDraftPreviewModal
-        open={publishedPreview !== null}
-        onClose={() => setPublishedPreview(null)}
+        open={publishedPreviewVersionId !== null}
+        onClose={() => setPublishedPreviewVersionId(null)}
         token={token}
-        bodyMarkdown={publishedPreview?.bodyMarkdown ?? ''}
-        directHtml={publishedPreview?.directHtml}
+        bodyMarkdown=""
+        publishedVersionId={publishedPreviewVersionId}
       />
     </div>
   );

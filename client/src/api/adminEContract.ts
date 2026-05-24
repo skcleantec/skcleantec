@@ -334,6 +334,20 @@ export async function previewEContractExpandedBody(
   return { expanded, appendixHtml };
 }
 
+export async function previewEContractPublishedVersion(
+  token: string,
+  versionId: string
+): Promise<{ html: string; bodyEmpty: boolean }> {
+  const res = await fetch(`${API}/admin/e-contracts/versions/${encodeURIComponent(versionId)}/published-preview`, {
+    headers: headers(token),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string }).error || '미리보기를 불러오지 못했습니다.');
+  const html = (data as { html?: unknown }).html;
+  if (typeof html !== 'string') throw new Error('미리보기 결과가 올바르지 않습니다.');
+  return { html, bodyEmpty: Boolean((data as { bodyEmpty?: unknown }).bodyEmpty) };
+}
+
 export async function getEContractIssuerProfile(token: string): Promise<{
   profile: EContractIssuerProfileDto;
   placeholders: EContractIssuerPlaceholder[];

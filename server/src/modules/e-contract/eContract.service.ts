@@ -9,7 +9,9 @@ import { prisma } from '../../lib/prisma.js';
 import { computeEContractContentHash } from './eContract.contentHash.js';
 import { expandIssuerPlaceholders } from './eContractIssuer.expand.js';
 import { issuerSnapshotBlockForPublish } from './eContractIssuer.profile.service.js';
-import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
+import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices, stripPartyAppendixFromContractHtml } from './eContractPartyAppendix.js';
+import { editorBodyHasMeaningfulContent } from './eContractBodyContent.js';
+import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
 import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
 import { expandSignerPlaceholders, expandEcTokenValues, type SignerFilledFields } from './eContractSigner.expand.js';
 import { validateAdminMergeFields } from './eContractFieldDefinition.service.js';
@@ -204,6 +206,9 @@ export async function publishVersion(actorId: string, versionId: string) {
   if (!titleSnapshot) {
     throw Object.assign(new Error('title_required'), { code: 'bad_request' as const });
   }
+  if (!editorBodyHasMeaningfulContent(v.bodyMarkdown)) {
+    throw Object.assign(new Error('body_required'), { code: 'bad_request' as const });
+  }
 
   const { snapshotJson, plain } = await issuerSnapshotBlockForPublish();
   const mainDisplayHtml = expandIssuerPlaceholders(v.bodyMarkdown, plain);
@@ -273,6 +278,28 @@ export function publishedVersionBodyText(version: {
     return version.bodyDisplayHtml.trim();
   }
   return version.bodyMarkdown.replace(/\r\n/g, '\n');
+}
+
+/** 관리 화면 — 배포본 미리보기(체결 화면과 동일 규칙) */
+export async function getPublishedVersionPreview(versionId: string) {
+  const version = await prisma.eContractVersion.findUnique({
+    where: { id: versionId },
+    select: {
+      id: true,
+      status: true,
+      bodyMarkdown: true,
+      bodyDisplayHtml: true,
+    },
+  });
+  if (!version || version.status !== EContractVersionStatus.PUBLISHED) {
+    throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
+  }
+  const html = await composePublishedVersionHtmlWithLiveIssuer(version);
+  const mainHtml = stripPartyAppendixFromContractHtml(html);
+  return {
+    html,
+    bodyEmpty: !editorBodyHasMeaningfulContent(mainHtml),
+  };
 }
 
 export async function createIssuance(input: {

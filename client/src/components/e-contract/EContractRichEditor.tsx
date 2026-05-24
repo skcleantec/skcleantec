@@ -25,10 +25,12 @@ type Props = {
   editorKey: string;
   /** 설정 기반 치환 필드 — 있으면 +체결/발급 드롭다운에 사용 */
   mappingFieldOptions?: ReadonlyArray<{ token: string; label: string; filledBy: string }>;
+  /** 저장·배포 직전 편집기 HTML을 읽을 때 사용 */
+  onEditorReady?: (api: { getHtml: () => string }) => void;
 };
 
 /** React 19 호환 — react-quill(findDOMNode) 미사용 */
-export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOptions }: Props) {
+export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOptions, onEditorReady }: Props) {
   const editor = useEditor(
     {
       immediatelyRender: false,
@@ -87,6 +89,11 @@ export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOp
     if (incoming === current) return;
     editor.commands.setContent(incoming === '' ? '<p></p>' : incoming, { emitUpdate: false });
   }, [value, editor]);
+
+  useEffect(() => {
+    if (!editor || !onEditorReady) return;
+    onEditorReady({ getHtml: () => editor.getHTML() });
+  }, [editor, onEditorReady]);
 
   const TbBtn = ({
     onClick,

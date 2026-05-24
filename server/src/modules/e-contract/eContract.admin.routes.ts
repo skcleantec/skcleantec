@@ -16,6 +16,7 @@ import {
   deleteDraft,
   ensureDraft,
   getDefinitionWithVersions,
+  getPublishedVersionPreview,
   listDefinitions,
   listIssuancesForDefinition,
   listTeamLeadersForPicker,
@@ -377,11 +378,31 @@ router.post('/versions/:vid/publish', async (req, res) => {
     res.json({ version: row });
   } catch (e: unknown) {
     if ((e as { code?: string })?.code === 'bad_request') {
-      res.status(400).json({ error: '초안만 배포할 수 있습니다.' });
+      const msg =
+        e instanceof Error && e.message === 'body_required'
+          ? '본문을 입력한 뒤 배포해 주세요.'
+          : e instanceof Error && e.message === 'title_required'
+            ? '제목을 입력해 주세요.'
+            : '초안만 배포할 수 있습니다.';
+      res.status(400).json({ error: msg });
       return;
     }
     console.error('[e-contract] publish', e);
     res.status(500).json({ error: '배포하지 못했습니다.' });
+  }
+});
+
+router.get('/versions/:vid/published-preview', async (req, res) => {
+  try {
+    const out = await getPublishedVersionPreview(req.params.vid);
+    res.json(out);
+  } catch (e: unknown) {
+    if ((e as { code?: string })?.code === 'not_found') {
+      res.status(404).json({ error: '배포본이 없습니다.' });
+      return;
+    }
+    console.error('[e-contract] published-preview', e);
+    res.status(500).json({ error: '미리보기를 불러오지 못했습니다.' });
   }
 });
 

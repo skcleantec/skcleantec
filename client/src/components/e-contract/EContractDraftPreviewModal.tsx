@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { previewEContractExpandedBody } from '../../api/adminEContract';
+import { previewEContractExpandedBody, previewEContractPublishedVersion } from '../../api/adminEContract';
 import { EContractBodyDisplay } from './EContractBodyDisplay';
 
 type Props = {
@@ -7,29 +7,29 @@ type Props = {
   onClose: () => void;
   token: string | null;
   bodyMarkdown: string;
-  /** 배포본 `bodyDisplayHtml` 등 — API 치환 없이 그대로 표시(레거시·md 비어 있을 때) */
-  directHtml?: string | null;
+  /** 배포본 미리보기 — DB 버전 ID로 서버에서 체결 화면과 동일하게 조합 */
+  publishedVersionId?: string | null;
 };
 
-/** 초안 편집 — 버튼으로만 호출하는 배포·체결 화면 미리보기 */
-export function EContractDraftPreviewModal({ open, onClose, token, bodyMarkdown, directHtml }: Props) {
+/** 초안·배포본 — 버튼으로만 호출하는 배포·체결 화면 미리보기 */
+export function EContractDraftPreviewModal({
+  open,
+  onClose,
+  token,
+  bodyMarkdown,
+  publishedVersionId,
+}: Props) {
   const [html, setHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [bodyEmpty, setBodyEmpty] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setHtml(null);
       setErr(null);
       setLoading(false);
-      return;
-    }
-
-    const frozenHtml = (directHtml ?? '').trim();
-    if (frozenHtml) {
-      setHtml(frozenHtml);
-      setErr(null);
-      setLoading(false);
+      setBodyEmpty(false);
       return;
     }
 
@@ -37,6 +37,7 @@ export function EContractDraftPreviewModal({ open, onClose, token, bodyMarkdown,
       setHtml(null);
       setErr(null);
       setLoading(false);
+      setBodyEmpty(false);
       return;
     }
 
@@ -44,8 +45,19 @@ export function EContractDraftPreviewModal({ open, onClose, token, bodyMarkdown,
     setLoading(true);
     setErr(null);
     setHtml(null);
+    setBodyEmpty(false);
+
     void (async () => {
       try {
+        if (publishedVersionId) {
+          const out = await previewEContractPublishedVersion(token, publishedVersionId);
+          if (!cancelled) {
+            setHtml(out.html);
+            setBodyEmpty(out.bodyEmpty);
+          }
+          return;
+        }
+
         const { expanded, appendixHtml } = await previewEContractExpandedBody(token, bodyMarkdown);
         if (!cancelled) {
           setHtml(expanded + (typeof appendixHtml === 'string' ? appendixHtml : ''));
@@ -56,10 +68,11 @@ export function EContractDraftPreviewModal({ open, onClose, token, bodyMarkdown,
         if (!cancelled) setLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [open, token, bodyMarkdown, directHtml]);
+  }, [open, token, bodyMarkdown, publishedVersionId]);
 
   if (!open) return null;
 
@@ -77,11 +90,12 @@ export function EContractDraftPreviewModal({ open, onClose, token, bodyMarkdown,
         <div className="flex shrink-0 items-start justify-between gap-2 border-b border-gray-200 px-4 py-3">
           <div className="min-w-0 pr-2">
             <h2 id="ec-draft-preview-title" className="text-fluid-md font-semibold text-gray-900">
-              배포·체결 화면 미리보기
+              {publishedVersionId ? '배포본 미리보기' : '배포·체결 화면 미리보기'}
             </h2>
             <p className="mt-1 text-fluid-2xs text-gray-600">
-              작성하신 본문에 발행측(갑) 토큰이 치환된 뒤, 하단에 계약주·계약자 정보 표가 자동으로 붙은 형태입니다.
-              배포 후 수신자에게 보이는 문서와 동일합니다(을 항목은 체결 시 입력·치환).
+              {publishedVersionId
+                ? '배포된 버전 기준으로 수신자 체결 화면과 동일한 문서를 표시합니다(을 항목은 체결 시 입력·치환).'
+                : '작성하신 본문에 발행측(갑) 토큰이 치환된 뒤, 하단에 계약주·계약자 정보 표가 자동으로 붙은 형태입니다.'}
             </p>
           </div>
           <button
@@ -98,9 +112,17 @@ export function EContractDraftPreviewModal({ open, onClose, token, bodyMarkdown,
           ) : err ? (
             <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-800">{err}</p>
           ) : (
-            <div className="rounded border border-gray-200 bg-white p-2">
-              <EContractBodyDisplay body={html ?? ''} />
-            </div>
+            <>
+              {bodyEmpty ? (
+                <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                  이 배포본에는 계약 본문이 저장되어 있지 않습니다(하단 갑·을 표만 있을 수 있습니다). 「새 초안 준비」에서
+                  본문을 작성·저장한 뒤 다시 배포해 주세요.
+                </p>
+              ) : null}
+              <div className="rounded border border-gray-200 bg-white p-2">
+                <EContractBodyDisplay body={html ?? ''} />
+              </div>
+            </>
           )}
         </div>
       </div>
