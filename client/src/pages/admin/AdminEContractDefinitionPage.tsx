@@ -54,7 +54,10 @@ export function AdminEContractDefinitionPage() {
   const [lastIssuedSignUrl, setLastIssuedSignUrl] = useState<string | null>(null);
 
   const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
-  const [publishedPreviewBody, setPublishedPreviewBody] = useState<string | null>(null);
+  const [publishedPreview, setPublishedPreview] = useState<{
+    bodyMarkdown: string;
+    directHtml?: string | null;
+  } | null>(null);
   const [delOpen, setDelOpen] = useState(false);
   const [delPwd, setDelPwd] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -680,7 +683,17 @@ export function AdminEContractDefinitionPage() {
               ) : null}
               <button
                 type="button"
-                onClick={() => setPublishedPreviewBody(v.bodyMarkdown)}
+                onClick={() => {
+                  const md = v.bodyMarkdown?.trim() ?? '';
+                  const html = v.bodyDisplayHtml?.trim() ?? '';
+                  if (md) {
+                    setPublishedPreview({ bodyMarkdown: md });
+                  } else if (html) {
+                    setPublishedPreview({ bodyMarkdown: '', directHtml: html });
+                  } else {
+                    setPublishedPreview({ bodyMarkdown: '' });
+                  }
+                }}
                 className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-fluid-2xs font-medium text-blue-900 hover:bg-blue-100"
               >
                 배포본 미리보기
@@ -755,10 +768,11 @@ export function AdminEContractDefinitionPage() {
       />
 
       <EContractDraftPreviewModal
-        open={publishedPreviewBody !== null}
-        onClose={() => setPublishedPreviewBody(null)}
+        open={publishedPreview !== null}
+        onClose={() => setPublishedPreview(null)}
         token={token}
-        bodyMarkdown={publishedPreviewBody ?? ''}
+        bodyMarkdown={publishedPreview?.bodyMarkdown ?? ''}
+        directHtml={publishedPreview?.directHtml}
       />
     </div>
   );

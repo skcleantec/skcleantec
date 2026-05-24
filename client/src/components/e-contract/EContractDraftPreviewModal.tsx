@@ -7,21 +7,39 @@ type Props = {
   onClose: () => void;
   token: string | null;
   bodyMarkdown: string;
+  /** 배포본 `bodyDisplayHtml` 등 — API 치환 없이 그대로 표시(레거시·md 비어 있을 때) */
+  directHtml?: string | null;
 };
 
 /** 초안 편집 — 버튼으로만 호출하는 배포·체결 화면 미리보기 */
-export function EContractDraftPreviewModal({ open, onClose, token, bodyMarkdown }: Props) {
+export function EContractDraftPreviewModal({ open, onClose, token, bodyMarkdown, directHtml }: Props) {
   const [html, setHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || !token) {
+    if (!open) {
       setHtml(null);
       setErr(null);
       setLoading(false);
       return;
     }
+
+    const frozenHtml = (directHtml ?? '').trim();
+    if (frozenHtml) {
+      setHtml(frozenHtml);
+      setErr(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!token) {
+      setHtml(null);
+      setErr(null);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setErr(null);
@@ -41,7 +59,7 @@ export function EContractDraftPreviewModal({ open, onClose, token, bodyMarkdown 
     return () => {
       cancelled = true;
     };
-  }, [open, token, bodyMarkdown]);
+  }, [open, token, bodyMarkdown, directHtml]);
 
   if (!open) return null;
 
