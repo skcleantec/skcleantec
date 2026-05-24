@@ -7,6 +7,10 @@ import { Placeholder } from '@tiptap/extension-placeholder';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { FontSize, TextStyle } from '@tiptap/extension-text-style';
 import { Underline } from '@tiptap/extension-underline';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { EC_ISSUER_PLACEHOLDER_OPTIONS } from '../../utils/eContractIssuerPlaceholders';
@@ -47,8 +51,17 @@ export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOp
           types: ['textStyle'],
         }),
         TextAlign.configure({
-          types: ['heading', 'paragraph'],
+          types: ['heading', 'paragraph', 'tableCell', 'tableHeader'],
         }),
+        Table.configure({
+          resizable: false,
+          HTMLAttributes: {
+            class: 'ec-editor-table',
+          },
+        }),
+        TableRow,
+        TableHeader,
+        TableCell,
         Placeholder.configure({
           placeholder: '계약서 본문을 입력하고 툴바로 서식을 적용하세요.',
         }),
@@ -133,6 +146,31 @@ export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOp
 
   return (
     <div className="e-contract-rich-editor min-w-0 [&_.ProseMirror]:min-h-[260px]" data-e-contract-editor-root={editorKey}>
+      <style>{`
+        .e-contract-rich-editor .ProseMirror table.ec-editor-table,
+        .e-contract-rich-editor .ProseMirror table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 0.5em 0;
+          table-layout: fixed;
+        }
+        .e-contract-rich-editor .ProseMirror td,
+        .e-contract-rich-editor .ProseMirror th {
+          border: 1px solid #d1d5db;
+          padding: 6px 8px;
+          min-width: 48px;
+          vertical-align: top;
+          word-break: break-word;
+        }
+        .e-contract-rich-editor .ProseMirror th {
+          background: #f3f4f6;
+          font-weight: 600;
+          text-align: center;
+        }
+        .e-contract-rich-editor .ProseMirror .selectedCell {
+          background: #eff6ff;
+        }
+      `}</style>
       <div className="flex flex-wrap gap-1 rounded-t-md border border-b-0 border-gray-300 bg-gray-50 p-2">
         <TbBtn active={editor.isActive('paragraph')} title="본문" onClick={() => editor.chain().focus().setParagraph().run()}>
           본문
@@ -326,6 +364,33 @@ export function EContractRichEditor({ value, onChange, editorKey, mappingFieldOp
         </TbBtn>
         <TbBtn title="인용" active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
           인용
+        </TbBtn>
+
+        <span className="mx-1 w-px self-stretch bg-gray-300" aria-hidden />
+
+        <TbBtn
+          title="표 삽입(3×3, 헤더 행)"
+          active={editor.isActive('table')}
+          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+        >
+          표
+        </TbBtn>
+        <TbBtn
+          title="아래에 행 추가"
+          active={false}
+          onClick={() => editor.chain().focus().addRowAfter().run()}
+        >
+          행+
+        </TbBtn>
+        <TbBtn
+          title="오른쪽에 열 추가"
+          active={false}
+          onClick={() => editor.chain().focus().addColumnAfter().run()}
+        >
+          열+
+        </TbBtn>
+        <TbBtn title="표 삭제" active={false} onClick={() => editor.chain().focus().deleteTable().run()}>
+          표X
         </TbBtn>
 
         <span className="mx-1 w-px self-stretch bg-gray-300" aria-hidden />

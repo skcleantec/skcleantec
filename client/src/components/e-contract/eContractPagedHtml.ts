@@ -109,7 +109,15 @@ article.e-contract-body-html blockquote {
   border-left: 3px solid #d1d5db;
   color: #4b5563;
 }
-article.e-contract-body-html table { border-collapse: collapse; page-break-inside: auto; }
+article.e-contract-body-html table { border-collapse: collapse; page-break-inside: auto; width: 100%; }
+article.e-contract-body-html th,
+article.e-contract-body-html td {
+  border: 1px solid #d1d5db;
+  padding: 6px 8px;
+  vertical-align: top;
+  word-break: break-word;
+}
+article.e-contract-body-html th { background: #f3f4f6; font-weight: 600; text-align: center; }
 article.e-contract-body-html tr { page-break-inside: avoid; }
 article.e-contract-body-html img { max-width: 100%; height: auto; page-break-inside: avoid; }
 article.e-contract-body-html a { color: #1d4ed8; text-decoration: underline; }
