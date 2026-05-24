@@ -12,6 +12,12 @@ import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices } from './eContra
 import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
 import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSigner.expand.js';
 import { newEContractInviteToken } from './eContract.tokens.js';
+import {
+  issuanceWhereForTeamLeader,
+  parseEContractListQuery,
+  submissionWhereFromListQuery,
+  type EContractListQuery,
+} from './eContractListQuery.js';
 
 export async function listDefinitions() {
   return prisma.eContractDefinition.findMany({
@@ -316,27 +322,64 @@ export async function listTeamLeadersForPicker() {
   });
 }
 
-const MAX_TEAM_ISSUANCE_LIST = 120;
 
-/** 팀장 대시보드·목록용: 해당 팀장에게 발급된 계약 초대 건 */
-export async function listIssuancesByTeamLeader(teamLeaderId: string) {
-  const leader = await prisma.user.findUnique({ where: { id: teamLeaderId }, select: { id: true, role: true } });
-  if (!leader || leader.role !== UserRole.TEAM_LEADER) {
-    throw Object.assign(new Error('team_leader_invalid'), { code: 'bad_request' as const });
-  }
-
-  const rows = await prisma.eContractIssuance.findMany({
-    where: { teamLeaderId },
-    orderBy: { createdAt: 'desc' },
-    take: MAX_TEAM_ISSUANCE_LIST,
-    include: {
-      definition: { select: { id: true, title: true, isArchived: true } },
-      version: { select: { id: true, publishedOrdinal: true, titleSnapshot: true } },
-      submission: { select: { id: true, signedAt: true } },
+const submissionListSelect = {
+  id: true,
+  signedAt: true,
+  versionContentHash: true,
+  issuance: {
+    select: {
+      token: true,
+      status: true,
+      teamLeader: { select: { id: true, name: true, email: true } },
+      definition: { select: { id: true, title: true } },
     },
-  });
+  },
+  version: {
+    select: { id: true, publishedOrdinal: true, titleSnapshot: true },
+  },
+} as const;
 
-  return rows.map((row) => ({
+function mapSubmissionListRow(s: {
+  id: string;
+  signedAt: Date;
+  versionContentHash: string | null;
+  issuance: {
+    token: string;
+    status: EContractIssuanceStatus;
+    teamLeader: { id: string; name: string; email: string };
+    definition: { id: string; title: string };
+  };
+  version: { id: string; publishedOrdinal: number | null; titleSnapshot: string };
+}) {
+  return {
+    id: s.id,
+    signedAt: s.signedAt,
+    definitionId: s.issuance.definition.id,
+    definitionTitle: s.issuance.definition.title,
+    versionOrdinal: s.version.publishedOrdinal,
+    versionTitle: s.version.titleSnapshot,
+    issuanceToken: s.issuance.token,
+    issuanceStatus: s.issuance.status,
+    versionContentHash: s.versionContentHash,
+    teamLeaderId: s.issuance.teamLeader.id,
+    teamLeaderName: s.issuance.teamLeader.name,
+    teamLeaderEmail: s.issuance.teamLeader.email,
+  };
+}
+
+function mapTeamIssuanceRow(row: {
+  id: string;
+  token: string;
+  status: EContractIssuanceStatus;
+  createdAt: Date;
+  expiresAt: Date | null;
+  notes: string | null;
+  definition: { id: string; title: string; isArchived: boolean };
+  version: { id: string; publishedOrdinal: number | null; titleSnapshot: string };
+  submission: { id: string; signedAt: Date } | null;
+}) {
+  return {
     id: row.id,
     token: row.token,
     status: row.status,
@@ -350,7 +393,36 @@ export async function listIssuancesByTeamLeader(teamLeaderId: string) {
     versionTitle: row.version.titleSnapshot,
     signedAt: row.submission?.signedAt?.toISOString() ?? null,
     hasSigned: Boolean(row.submission),
-  }));
+  };
+}
+
+/** 팀장 대시보드·목록용: 해당 팀장에게 발급된 계약 초대 건 */
+export async function listIssuancesByTeamLeader(
+  teamLeaderId: string,
+  query: Pick<EContractListQuery, 'datePreset' | 'month' | 'day' | 'limit' | 'offset'>
+) {
+  const leader = await prisma.user.findUnique({ where: { id: teamLeaderId }, select: { id: true, role: true } });
+  if (!leader || leader.role !== UserRole.TEAM_LEADER) {
+    throw Object.assign(new Error('team_leader_invalid'), { code: 'bad_request' as const });
+  }
+
+  const where = issuanceWhereForTeamLeader(teamLeaderId, query);
+  const [rows, total] = await Promise.all([
+    prisma.eContractIssuance.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: query.offset,
+      take: query.limit,
+      include: {
+        definition: { select: { id: true, title: true, isArchived: true } },
+        version: { select: { id: true, publishedOrdinal: true, titleSnapshot: true } },
+        submission: { select: { id: true, signedAt: true } },
+      },
+    }),
+    prisma.eContractIssuance.count({ where }),
+  ]);
+
+  return { items: rows.map(mapTeamIssuanceRow), total };
 }
 
 /** GNB 배지용: 미체결·유효한 발급 건수(보관되지 않은 정의만) */
@@ -407,63 +479,27 @@ export async function listSubmissionsByTeamLeader(userId: string) {
     },
   });
 
-  return submissions.map((s) => ({
-    id: s.id,
-    signedAt: s.signedAt,
-    definitionId: s.issuance.definition.id,
-    definitionTitle: s.issuance.definition.title,
-    versionOrdinal: s.version.publishedOrdinal,
-    versionTitle: s.version.titleSnapshot,
-    issuanceToken: s.issuance.token,
-    issuanceStatus: s.issuance.status,
-    versionContentHash: s.versionContentHash,
-    teamLeaderId: s.issuance.teamLeader.id,
-    teamLeaderName: s.issuance.teamLeader.name,
-    teamLeaderEmail: s.issuance.teamLeader.email,
-  }));
+  return submissions.map(mapSubmissionListRow);
 }
 
-const ALL_SUBMISSIONS_MAX = 500;
+/** 관리자 — 전체 체결 제출 목록(최신순, 페이지·기간·팀장 필터) */
+export async function listAllSubmissionsForAdmin(query: EContractListQuery) {
+  const where = submissionWhereFromListQuery(query);
+  const [submissions, total] = await Promise.all([
+    prisma.eContractSubmission.findMany({
+      where,
+      orderBy: { signedAt: 'desc' },
+      skip: query.offset,
+      take: query.limit,
+      select: submissionListSelect,
+    }),
+    prisma.eContractSubmission.count({ where }),
+  ]);
 
-/** 관리자 — 전체 체결 제출 목록(최신순) */
-export async function listAllSubmissionsForAdmin(take = 200) {
-  const n = Math.min(Math.max(Number(take) || 200, 1), ALL_SUBMISSIONS_MAX);
-  const submissions = await prisma.eContractSubmission.findMany({
-    orderBy: { signedAt: 'desc' },
-    take: n,
-    select: {
-      id: true,
-      signedAt: true,
-      versionContentHash: true,
-      issuance: {
-        select: {
-          token: true,
-          status: true,
-          teamLeader: { select: { id: true, name: true, email: true } },
-          definition: { select: { id: true, title: true } },
-        },
-      },
-      version: {
-        select: { id: true, publishedOrdinal: true, titleSnapshot: true },
-      },
-    },
-  });
-
-  return submissions.map((s) => ({
-    id: s.id,
-    signedAt: s.signedAt,
-    definitionId: s.issuance.definition.id,
-    definitionTitle: s.issuance.definition.title,
-    versionOrdinal: s.version.publishedOrdinal,
-    versionTitle: s.version.titleSnapshot,
-    issuanceToken: s.issuance.token,
-    issuanceStatus: s.issuance.status,
-    versionContentHash: s.versionContentHash,
-    teamLeaderId: s.issuance.teamLeader.id,
-    teamLeaderName: s.issuance.teamLeader.name,
-    teamLeaderEmail: s.issuance.teamLeader.email,
-  }));
+  return { items: submissions.map(mapSubmissionListRow), total };
 }
+
+export { parseEContractListQuery };
 
 /** 관리자 열람 — 체결 제출본(합본 HTML·본인확인 이미지 등) */
 export async function getSubmissionDetailForAdmin(submissionId: string) {

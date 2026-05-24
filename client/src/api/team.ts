@@ -291,17 +291,37 @@ export type TeamLeaderEContractIssuanceItem = {
   hasSigned: boolean;
 };
 
-export async function listTeamEContractIssuances(token: string): Promise<{ items: TeamLeaderEContractIssuanceItem[] }> {
-  const res = await fetch(withTeamPreviewQuery(`${API}/team/e-contracts/issuances`), { headers: headers(token) });
+export async function listTeamEContractIssuances(
+  token: string,
+  params: {
+    datePreset?: string;
+    month?: string;
+    day?: string;
+    limit?: number;
+    offset?: number;
+  } = {}
+): Promise<{ items: TeamLeaderEContractIssuanceItem[]; total: number }> {
+  const q = new URLSearchParams();
+  if (params.datePreset) q.set('datePreset', params.datePreset);
+  if (params.month) q.set('month', params.month);
+  if (params.day) q.set('day', params.day);
+  if (params.limit != null) q.set('limit', String(params.limit));
+  if (params.offset != null) q.set('offset', String(params.offset));
+  const qs = q.toString();
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/e-contracts/issuances${qs ? `?${qs}` : ''}`),
+    { headers: headers(token) }
+  );
   if (res.status === 403 || res.status === 401) {
     throw new Error('팀장 전용 기능입니다.');
   }
   if (!res.ok) {
     throw new Error('계약 초대 목록을 불러올 수 없습니다.');
   }
-  const j = (await res.json()) as { items?: TeamLeaderEContractIssuanceItem[] };
+  const j = (await res.json()) as { items?: TeamLeaderEContractIssuanceItem[]; total?: number };
   return {
     items: Array.isArray(j.items) ? j.items : [],
+    total: typeof j.total === 'number' ? j.total : 0,
   };
 }
 

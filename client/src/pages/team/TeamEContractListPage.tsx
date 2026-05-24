@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
+import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { fetchEContractPublicSession, type PublicSignSessionDto } from '../../api/eContractPublic';
 import { listTeamEContractIssuances, type TeamLeaderEContractIssuanceItem } from '../../api/team';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
@@ -9,14 +11,29 @@ import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { isAuthSessionExpiredError } from '../../api/auth';
+import { eContractIssuanceStatusKo } from '../../utils/eContractDisplay';
+import { kstTodayYmd } from '../../utils/dateFormat';
+import {
+  INQUIRY_LIST_DEFAULT_PAGE_SIZE,
+  clampListPage,
+  parseInquiryListPageSize,
+  parseListPage,
+  type InquiryListPageSize,
+} from '../../utils/listPagination';
+
+type DatePreset = 'today' | 'all' | 'month' | 'day';
+
+function kstMonthKeyNow(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+}
+
+function parseDatePreset(raw: string | null): DatePreset {
+  if (raw === 'today' || raw === 'all' || raw === 'month' || raw === 'day') return raw;
+  return 'all';
+}
 
 function issuanceStatusKo(row: TeamLeaderEContractIssuanceItem): string {
-  if (row.hasSigned || row.status === 'SIGNED') return '체결 완료';
-  if (row.status === 'REVOKED') return '발급 취소';
-  if (row.status === 'EXPIRED') return '만료됨';
-  if (row.status === 'OPENED') return '열람됨';
-  if (row.status === 'PENDING') return '대기';
-  return row.status || '—';
+  return eContractIssuanceStatusKo(row.status, row.hasSigned);
 }
 
 function issuanceExpired(row: TeamLeaderEContractIssuanceItem): boolean {
@@ -83,15 +100,47 @@ export function TeamEContractListPage() {
   const token = getTeamToken();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const previewKey = teamPreviewDepsKey(location.search);
 
+  const datePreset = parseDatePreset(searchParams.get('datePreset'));
+  const monthKey = useMemo(() => {
+    const m = searchParams.get('month');
+    if (m && /^\d{4}-\d{2}$/.test(m)) return m;
+    return kstMonthKeyNow();
+  }, [searchParams]);
+  const dayKey = useMemo(() => {
+    const d = searchParams.get('day');
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    return kstTodayYmd();
+  }, [searchParams]);
+  const listPage = parseListPage(searchParams.get('page'));
+  const listPageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
+
   const [items, setItems] = useState<TeamLeaderEContractIssuanceItem[]>([]);
+  const [listTotal, setListTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [previewSession, setPreviewSession] = useState<PublicSignSessionDto | null>(null);
   const [pagedPreviewOpen, setPagedPreviewOpen] = useState(false);
   const [pagedAutoPdfDownload, setPagedAutoPdfDownload] = useState(false);
   const [docFetchRowId, setDocFetchRowId] = useState<string | null>(null);
+
+  const effectivePage = clampListPage(listPage, listTotal, listPageSize);
+
+  const patchParams = useCallback(
+    (patch: (next: URLSearchParams) => void) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          patch(next);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   const closeDocPreview = useCallback(() => {
     setPagedPreviewOpen(false);
@@ -140,8 +189,16 @@ export function TeamEContractListPage() {
       if (!opts?.silent) setLoading(true);
       setError(null);
       try {
-        const data = await listTeamEContractIssuances(token);
+        const offset = (effectivePage - 1) * listPageSize;
+        const data = await listTeamEContractIssuances(token, {
+          datePreset: datePreset === 'all' ? undefined : datePreset,
+          month: datePreset === 'month' ? monthKey : undefined,
+          day: datePreset === 'day' ? dayKey : undefined,
+          limit: listPageSize,
+          offset,
+        });
         setItems(data.items);
+        setListTotal(data.total);
       } catch (e) {
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
@@ -149,6 +206,7 @@ export function TeamEContractListPage() {
           return;
         }
         setItems([]);
+        setListTotal(0);
         const msg =
           e instanceof Error
             ? e.message
@@ -160,7 +218,7 @@ export function TeamEContractListPage() {
         if (!opts?.silent) setLoading(false);
       }
     },
-    [token, navigate, previewKey],
+    [token, navigate, previewKey, effectivePage, listPageSize, datePreset, monthKey, dayKey],
   );
 
   useEffect(() => {
@@ -171,6 +229,39 @@ export function TeamEContractListPage() {
 
   const { connected: listWsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !listWsConnected ? 20000 : 0);
+
+  const applyDatePreset = (preset: DatePreset) => {
+    patchParams((next) => {
+      if (preset === 'all') next.delete('datePreset');
+      else next.set('datePreset', preset);
+      if (preset === 'month') {
+        next.set('month', monthKey);
+        next.delete('day');
+      } else if (preset === 'day') {
+        next.set('day', dayKey);
+        next.delete('month');
+      } else {
+        next.delete('month');
+        next.delete('day');
+      }
+      next.delete('page');
+    });
+  };
+
+  const handlePageChange = (page: number) => {
+    patchParams((next) => {
+      if (page <= 1) next.delete('page');
+      else next.set('page', String(page));
+    });
+  };
+
+  const handlePageSizeChange = (size: InquiryListPageSize) => {
+    patchParams((next) => {
+      if (size === INQUIRY_LIST_DEFAULT_PAGE_SIZE) next.delete('pageSize');
+      else next.set('pageSize', String(size));
+      next.delete('page');
+    });
+  };
 
   if (!token) {
     return (
@@ -199,6 +290,66 @@ export function TeamEContractListPage() {
         </p>
       </div>
 
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <span className="text-fluid-xs font-medium text-gray-700">발급일</span>
+        <div className="mt-2 inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 p-1">
+          {(
+            [
+              ['today', '당일'],
+              ['all', '전체'],
+              ['month', '월별'],
+              ['day', '날짜'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => applyDatePreset(key)}
+              className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
+                datePreset === key ? 'bg-gray-800 text-white' : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {datePreset === 'month' ? (
+          <div className="mt-3">
+            <YearMonthSelect
+              value={monthKey}
+              onChange={(ym) =>
+                patchParams((next) => {
+                  next.set('month', ym);
+                  next.delete('page');
+                })
+              }
+            />
+          </div>
+        ) : null}
+        {datePreset === 'day' ? (
+          <div className="mt-3">
+            <YmdSelect
+              value={dayKey}
+              onChange={(ymd) =>
+                patchParams((next) => {
+                  next.set('day', ymd);
+                  next.delete('page');
+                })
+              }
+            />
+          </div>
+        ) : null}
+      </div>
+
+      <ListPaginationBar
+        mode="summary"
+        page={effectivePage}
+        pageSize={listPageSize}
+        total={listTotal}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
+
       {error ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-950">
           {error}
@@ -207,7 +358,7 @@ export function TeamEContractListPage() {
 
       {items.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white px-4 py-10 text-center text-fluid-sm text-gray-600">
-          발급된 계약 초대가 없습니다. 관리자가 링크를 발급하면 여기에서 나타납니다.
+          {listTotal === 0 ? '발급된 계약 초대가 없습니다. 관리자가 링크를 발급하면 여기에서 나타납니다.' : '이 페이지에 표시할 항목이 없습니다.'}
         </div>
       ) : null}
 
@@ -399,6 +550,17 @@ export function TeamEContractListPage() {
           <p className="text-fluid-2xs text-gray-500 lg:block hidden px-2 sm:px-0">
             표가 넓을 때는 좌우로 스크롤하여 볼 수 있습니다.
           </p>
+
+          {!loading ? (
+            <ListPaginationBar
+              mode="nav"
+              page={effectivePage}
+              pageSize={listPageSize}
+              total={listTotal}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          ) : null}
         </>
       ) : null}
 

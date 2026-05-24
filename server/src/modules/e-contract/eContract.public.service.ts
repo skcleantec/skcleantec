@@ -6,6 +6,7 @@ import { expandSignerPlaceholders, type SignerFilledFields } from './eContractSi
 import type { ValidatedSignerSubmissionFields } from './eContractSigner.input.js';
 import { dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
 import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
 export type PublicSignSession = {
   issuanceId: string;
@@ -63,13 +64,20 @@ function isLikelyCloudinaryUrl(urlRaw: unknown, publicIdRaw: unknown): boolean {
 
 /** PENDING 발급 → OPENED (조회 표시만). */
 export async function touchIssuanceOpened(issuanceId: string): Promise<void> {
-  await prisma.eContractIssuance.updateMany({
+  const updated = await prisma.eContractIssuance.updateMany({
     where: {
       id: issuanceId,
       status: EContractIssuanceStatus.PENDING,
     },
     data: { status: EContractIssuanceStatus.OPENED },
   });
+  if (updated.count > 0) {
+    const row = await prisma.eContractIssuance.findUnique({
+      where: { id: issuanceId },
+      select: { teamLeaderId: true },
+    });
+    if (row?.teamLeaderId) notifyInboxRefresh([row.teamLeaderId]);
+  }
 }
 
 export async function getPublicSignSession(rawToken: string): Promise<
@@ -212,6 +220,7 @@ export async function completeSubmissionByToken(
   }
 
   const issuance = await validateIssuanceWritable(rawToken);
+  const teamLeaderId = issuance.teamLeaderId;
 
   const submissionId = randomUUID();
   const signedAtDate = new Date();
@@ -243,7 +252,7 @@ export async function completeSubmissionByToken(
   const payload = payloadObj as Prisma.InputJsonValue;
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.eContractSubmission.findUnique({
         where: { issuanceId: issuance.id },
       });
@@ -277,6 +286,8 @@ export async function completeSubmissionByToken(
 
       return { signedAt: sub.signedAt.toISOString() };
     });
+    notifyInboxRefresh([teamLeaderId]);
+    return result;
   } catch (e: unknown) {
     if (
       typeof e === 'object' &&

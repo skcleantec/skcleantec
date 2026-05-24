@@ -26,6 +26,7 @@ import {
   patchDefinition,
   patchDraftVersion,
   publishVersion,
+  parseEContractListQuery,
 } from './eContract.service.js';
 import { EC_ISSUER_PLACEHOLDER_KEYS } from './eContractIssuer.expand.js';
 import {
@@ -459,10 +460,9 @@ router.get('/team-leaders/:userId/submissions', async (req, res) => {
 
 router.get('/submissions', async (req, res) => {
   try {
-    const raw = req.query.take;
-    const take = typeof raw === 'string' ? Number.parseInt(raw, 10) : typeof raw === 'number' ? raw : 200;
-    const items = await listAllSubmissionsForAdmin(take);
-    res.json({ submissions: items });
+    const query = parseEContractListQuery(req.query as Record<string, unknown>);
+    const result = await listAllSubmissionsForAdmin(query);
+    res.json({ submissions: result.items, total: result.total });
   } catch (e) {
     console.error('[e-contract] submissions list all', e);
     res.status(500).json({ error: '불러오지 못했습니다.' });

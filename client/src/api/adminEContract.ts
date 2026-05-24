@@ -423,15 +423,33 @@ export async function listSubmissionsForTeamLeader(
 
 export async function listAllEContractSubmissions(
   token: string,
-  take = 200
-): Promise<{ submissions: EContractSubmissionRow[] }> {
-  const q = `?take=${encodeURIComponent(String(take))}`;
-  const res = await fetch(`${API}/admin/e-contracts/submissions${q}`, { headers: headers(token) });
+  params: {
+    teamLeaderId?: string;
+    datePreset?: string;
+    month?: string;
+    day?: string;
+    limit?: number;
+    offset?: number;
+  } = {}
+): Promise<{ submissions: EContractSubmissionRow[]; total: number }> {
+  const q = new URLSearchParams();
+  if (params.teamLeaderId) q.set('teamLeaderId', params.teamLeaderId);
+  if (params.datePreset) q.set('datePreset', params.datePreset);
+  if (params.month) q.set('month', params.month);
+  if (params.day) q.set('day', params.day);
+  if (params.limit != null) q.set('limit', String(params.limit));
+  if (params.offset != null) q.set('offset', String(params.offset));
+  const qs = q.toString();
+  const res = await fetch(`${API}/admin/e-contracts/submissions${qs ? `?${qs}` : ''}`, { headers: headers(token) });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '목록을 불러오지 못했습니다.');
   }
-  return res.json() as Promise<{ submissions: EContractSubmissionRow[] }>;
+  const data = (await res.json()) as { submissions?: EContractSubmissionRow[]; total?: number };
+  return {
+    submissions: Array.isArray(data.submissions) ? data.submissions : [],
+    total: typeof data.total === 'number' ? data.total : 0,
+  };
 }
 
 /** 체결 제출본 Word(.docx) — 서버 `html-to-docx` 변환 */

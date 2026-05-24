@@ -24,6 +24,7 @@ import {
   type EContractVersionDetail,
   type TeamLeaderPicker,
 } from '../../api/adminEContract';
+import { eContractIssuanceStatusKo } from '../../utils/eContractDisplay';
 
 function publishedVersionDeleteLabel(v: EContractVersionDetail): string {
   const ord = v.publishedOrdinal != null ? `v${v.publishedOrdinal}` : '배포본';
@@ -634,7 +635,7 @@ export function AdminEContractDefinitionPage() {
                         <td className="px-2 py-2 text-center tabular-nums">
                           v{row.version.publishedOrdinal ?? '—'}
                         </td>
-                        <td className="px-2 py-2 text-center">{row.status}</td>
+                        <td className="px-2 py-2 text-center">{eContractIssuanceStatusKo(row.status, Boolean(row.submission))}</td>
                         <td className="px-2 py-2 text-center">
                           {row.submission?.signedAt
                             ? new Date(row.submission.signedAt).toLocaleString('ko-KR')
@@ -680,7 +681,7 @@ export function AdminEContractDefinitionPage() {
                 <div key={row.id} className="rounded border border-gray-100 p-3 text-fluid-xs">
                   <div className="font-medium">{row.teamLeader.name}</div>
                   <div className="text-gray-600">
-                    v{row.version.publishedOrdinal ?? '—'} · {row.status}
+                    v{row.version.publishedOrdinal ?? '—'} · {eContractIssuanceStatusKo(row.status, Boolean(row.submission))}
                   </div>
                   {row.submission?.id ? (
                     <button

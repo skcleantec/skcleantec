@@ -24,7 +24,7 @@ import {
   validateCrewMeetingTimeForInquiry,
 } from '../inquiries/crewMeetingTime.helpers.js';
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
-import { countPendingIssuancesForTeamLeader, listIssuancesByTeamLeader } from '../e-contract/eContract.service.js';
+import { countPendingIssuancesForTeamLeader, listIssuancesByTeamLeader, parseEContractListQuery } from '../e-contract/eContract.service.js';
 import {
   listTeamAssignmentsPaginated,
   parseTeamAssignmentListQuery,
@@ -222,8 +222,9 @@ router.get('/e-contracts/issuances', async (req, res) => {
     return;
   }
   try {
-    const items = await listIssuancesByTeamLeader(auth.userId);
-    res.json({ items });
+    const query = parseEContractListQuery(req.query as Record<string, unknown>);
+    const result = await listIssuancesByTeamLeader(auth.userId, query);
+    res.json({ items: result.items, total: result.total });
   } catch (e: unknown) {
     const code = (e as { code?: string })?.code;
     if (code === 'bad_request') {
