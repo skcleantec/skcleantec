@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 
 const router = Router();
@@ -48,6 +49,12 @@ router.get('/', async (_req, res) => {
  * body: { name, bizNumber?, phone?, memo?, login: { email, password, contactName, phone? } }
  */
 router.post('/', async (req, res) => {
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(authUser);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const body = req.body as {
     name?: string;
     bizNumber?: string;
@@ -70,7 +77,9 @@ router.post('/', async (req, res) => {
     res.status(400).json({ error: '로그인 아이디·비밀번호·담당자 이름을 입력해주세요.' });
     return;
   }
-  const taken = await prisma.user.findUnique({ where: { email } });
+  const taken = await prisma.user.findUnique({
+    where: { tenantId_email: { tenantId, email } },
+  });
   if (taken) {
     res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
     return;
@@ -79,6 +88,7 @@ router.post('/', async (req, res) => {
   const result = await prisma.$transaction(async (tx) => {
     const company = await tx.externalCompany.create({
       data: {
+        tenantId,
         name,
         bizNumber: body.bizNumber ? String(body.bizNumber).trim() || null : null,
         phone: body.phone ? String(body.phone).trim() || null : null,
@@ -87,6 +97,7 @@ router.post('/', async (req, res) => {
     });
     const user = await tx.user.create({
       data: {
+        tenantId,
         email,
         passwordHash,
         name: contactName,

@@ -31,6 +31,10 @@ import teamCrewGroupsRoutes from './modules/team-crew-groups/teamCrewGroups.rout
 import crewRoutes from './modules/crew/crew.routes.js';
 import eContractAdminRoutes from './modules/e-contract/eContract.admin.routes.js';
 import eContractPublicRoutes from './modules/e-contract/eContract.public.routes.js';
+import tenantRoutes from './modules/tenants/tenant.routes.js';
+import platformAuthRoutes from './modules/platform/platformAuth.routes.js';
+import platformTenantsRoutes from './modules/platform/platformTenants.routes.js';
+import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -45,6 +49,9 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/platform/auth', platformAuthRoutes);
+app.use('/api/platform/tenants', platformTenantsRoutes);
+app.use('/api/tenant', tenantRoutes);
 app.use('/api/inquiries', inquiriesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', usersRoutes);
@@ -71,6 +78,7 @@ app.use('/api/team-crew-groups', teamCrewGroupsRoutes);
 app.use('/api/crew', crewRoutes);
 app.use('/api/admin/e-contracts', eContractAdminRoutes);
 app.use('/api/e-contract', eContractPublicRoutes);
+mountCustomModuleRoutes(app);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙
 const uploadDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(process.cwd(), 'uploads');

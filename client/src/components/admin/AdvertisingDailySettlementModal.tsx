@@ -18,11 +18,19 @@ type Props = {
   token: string;
   marketerId: string;
   marketerName: string;
+  /** 광고비 집계 조회 기간의 시작 월(YYYY-MM). 없으면 KST 당월 */
+  initialMonth?: string;
   onClose: () => void;
 };
 
-export function AdvertisingDailySettlementModal({ token, marketerId, marketerName, onClose }: Props) {
-  const [month, setMonth] = useState(kstYmNow);
+export function AdvertisingDailySettlementModal({
+  token,
+  marketerId,
+  marketerName,
+  initialMonth,
+  onClose,
+}: Props) {
+  const [month, setMonth] = useState(() => initialMonth ?? kstYmNow());
   const [data, setData] = useState<AdvertisingDailySettlementResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -99,7 +107,12 @@ export function AdvertisingDailySettlementModal({ token, marketerId, marketerNam
                     <th className="text-center py-2 px-2 border-b border-gray-200">일자</th>
                     <th className="text-center py-2 px-2 border-b border-gray-200">광고비</th>
                     <th className="text-center py-2 px-2 border-b border-gray-200">예약 건수</th>
-                    <th className="text-center py-2 px-2 border-b border-gray-200">건당 광고비</th>
+                    <th
+                      className="text-center py-2 px-2 border-b border-gray-200"
+                      title="해당 일 광고비 ÷ 예약 건수. 광고비가 0이면 표시하지 않습니다."
+                    >
+                      건당 광고비
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -122,14 +135,21 @@ export function AdvertisingDailySettlementModal({ token, marketerId, marketerNam
                       <td className="py-2 px-2 text-center text-fluid-xs">합계 ({data.month})</td>
                       <td className="py-2 px-2 text-right tabular-nums text-fluid-xs">{won(totals.totalAdSpend)}</td>
                       <td className="py-2 px-2 text-center tabular-nums text-fluid-xs">{totals.reservationCount}</td>
-                      <td className="py-2 px-2 text-right tabular-nums text-fluid-xs">
+                      <td
+                        className="py-2 px-2 text-right tabular-nums text-fluid-xs"
+                        title="총 광고비 ÷ 총 예약 건수 (광고비 집계의 건당 비용과 동일. 일별 건당의 단순 평균과는 다를 수 있습니다)"
+                      >
                         {totals.costPerReservation != null ? won(Math.round(totals.costPerReservation)) : '—'}
                       </td>
                     </tr>
                   </tfoot>
                 )}
               </table>
-              <p className="text-fluid-2xs text-gray-500 mt-2 leading-snug lg:hidden">
+              <p className="text-fluid-2xs text-gray-500 mt-2 leading-snug">
+                합계 건당 광고비는 <strong className="font-medium text-gray-600">총 광고비 ÷ 총 예약 건수</strong>입니다.
+                광고비 집계 화면의 「건당 비용」과 같은 방식이며, 일별 건당 열을 단순 평균한 값과는 다를 수 있습니다.
+              </p>
+              <p className="text-fluid-2xs text-gray-500 mt-1 leading-snug lg:hidden">
                 좁은 화면에서는 표를 좌우로 스크롤할 수 있습니다.
               </p>
             </div>

@@ -8,6 +8,7 @@ import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmp
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { notifyNewAssignmentForInquiry } from '../push/inquiryTeamWebPush.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router();
 
@@ -21,6 +22,11 @@ router.post('/', async (req, res) => {
   };
   const user = (req as unknown as { user: AuthPayload }).user;
   const adminId = user.userId;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
 
   if (!inquiryId || !teamLeaderId) {
     res.status(400).json({ error: '문의 ID와 팀장 ID가 필요합니다.' });
@@ -28,13 +34,14 @@ router.post('/', async (req, res) => {
   }
 
   const [inquiry, teamLeader] = await Promise.all([
-    prisma.inquiry.findUnique({
-      where: { id: inquiryId },
+    prisma.inquiry.findFirst({
+      where: { id: inquiryId, tenantId },
       include: { orderForm: { select: { createdById: true } } },
     }),
-    prisma.user.findUnique({
+    prisma.user.findFirst({
       where: {
         id: teamLeaderId,
+        tenantId,
         isActive: true,
         role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER', 'ADMIN'] },
       },
@@ -104,6 +111,7 @@ router.post('/', async (req, res) => {
     await tx.assignment.deleteMany({ where: { inquiryId } });
     await tx.assignment.create({
       data: {
+        tenantId,
         inquiryId,
         teamLeaderId,
         assignedById: adminId,

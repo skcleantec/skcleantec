@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import {
   consumesAfternoonSlot,
   consumesMorningSlot,
@@ -118,6 +119,11 @@ function toDateKeyFromDb(d: Date): string {
 
 /** 관리자: 팀장·팀원 휴무를 월 캘린더에 표시하기 위한 집계 */
 router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { start, end } = req.query as { start?: string; end?: string };
   const now = new Date();
   const startDate =
@@ -133,7 +139,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
     prisma.userDayOff.findMany({
       where: {
         date: { gte: startDate, lte: endDate },
-        teamLeader: { isActive: true, role: 'TEAM_LEADER' },
+        teamLeader: { tenantId, isActive: true, role: 'TEAM_LEADER' },
       },
       select: {
         date: true,
@@ -144,7 +150,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
     prisma.teamMemberDayOff.findMany({
       where: {
         date: { gte: startDate, lte: endDate },
-        teamMember: { isActive: true },
+        teamMember: { isActive: true, OR: [{ team: { tenantId } }, { crewGroupMembers: { some: { group: { tenantId } } } }] },
       },
       select: {
         date: true,
@@ -152,7 +158,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
       },
     }),
     prisma.user.findMany({
-      where: { isActive: true, role: 'TEAM_LEADER' },
+      where: { tenantId, isActive: true, role: 'TEAM_LEADER' },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
@@ -239,6 +245,11 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
 
 /** 관리자: 날짜별 휴무/근무 현황 */
 router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) => {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { start, end } = req.query as { start?: string; end?: string };
   const now = new Date();
   const startDate =
@@ -267,18 +278,19 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     asCsRows,
   ] = await Promise.all([
     prisma.user.findMany({
-      where: { role: 'TEAM_LEADER', isActive: true },
+      where: { tenantId, role: 'TEAM_LEADER', isActive: true },
       select: { id: true, name: true, hireDate: true, resignationDate: true },
     }),
     prisma.userDayOff.findMany({
       where: {
         date: { gte: startDate, lte: endDate },
-        teamLeader: { isActive: true, role: 'TEAM_LEADER' },
+        teamLeader: { tenantId, isActive: true, role: 'TEAM_LEADER' },
       },
       include: { teamLeader: { select: { id: true, name: true } } },
     }),
     prisma.inquiry.findMany({
       where: {
+        tenantId,
         preferredDate: { gte: startDate, lte: endDate },
         /** 취소·보류는 슬롯·팀원 수요 집계에서 제외(스케줄 목록에는 포함) */
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
@@ -297,17 +309,22 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
         },
       },
     }),
-    prisma.teamMember.count({ where: { isActive: true } }),
+    prisma.teamMember.count({
+      where: {
+        isActive: true,
+        OR: [{ team: { tenantId } }, { crewGroupMembers: { some: { group: { tenantId } } } }],
+      },
+    }),
     prisma.scheduleDayLeaderSlot.findMany({
-      where: { date: { gte: startDate, lte: endDate } },
+      where: { tenantId, date: { gte: startDate, lte: endDate } },
     }),
     countAvailableFieldStaffByDateRange(prisma, rangeStart, rangeEnd),
     prisma.scheduleDayClosure.findMany({
-      where: { date: { gte: rangeStart, lte: rangeEnd } },
+      where: { tenantId, date: { gte: rangeStart, lte: rangeEnd } },
       select: { date: true, scope: true },
     }),
     prisma.scheduleDaySlotToAdjustment.findMany({
-      where: { date: { gte: rangeStart, lte: rangeEnd } },
+      where: { tenantId, date: { gte: rangeStart, lte: rangeEnd } },
       select: { date: true, morningDelta: true, afternoonDelta: true },
     }),
     prisma.csReport.findMany({
@@ -644,6 +661,11 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
 const SLOT_ADJ_LIMIT = 300;
 
 router.put('/schedule-slot-to-adjustment', authMiddleware, adminOrMarketer, async (req, res) => {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const body = req.body as { date?: string; morningDelta?: unknown; afternoonDelta?: unknown };
   const { date } = body;
   if (!date || !YMD.test(date)) {
@@ -663,11 +685,11 @@ router.put('/schedule-slot-to-adjustment', authMiddleware, adminOrMarketer, asyn
 
   const d = new Date(`${date}T12:00:00+09:00`);
   if (nm === 0 && np === 0) {
-    await prisma.scheduleDaySlotToAdjustment.deleteMany({ where: { date: d } });
+    await prisma.scheduleDaySlotToAdjustment.deleteMany({ where: { tenantId, date: d } });
   } else {
     await prisma.scheduleDaySlotToAdjustment.upsert({
-      where: { date: d },
-      create: { date: d, morningDelta: nm, afternoonDelta: np },
+      where: { tenantId_date: { tenantId, date: d } },
+      create: { tenantId, date: d, morningDelta: nm, afternoonDelta: np },
       update: { morningDelta: nm, afternoonDelta: np },
     });
   }

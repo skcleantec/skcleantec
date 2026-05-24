@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { DEFAULT_TENANT_ID } from '../tenants/tenant.constants.js';
 
 /** KST 기준 달력 날짜 YYYYMMDD */
 export function kstYYYYMMDD(d: Date = new Date()): string {
@@ -23,12 +24,15 @@ export function formatInquiryNumber(ymdYYYYMMDD: string, seq: number): string {
 /**
  * PostgreSQL에서 일자별 순번을 원자적으로 증가시키고 접수번호 문자열을 반환합니다.
  */
-export async function allocateNextInquiryNumber(tx: Prisma.TransactionClient): Promise<string> {
+export async function allocateNextInquiryNumber(
+  tx: Prisma.TransactionClient,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<string> {
   const dateKey = kstYYYYMMDD();
   const rows = await tx.$queryRaw<[{ last_seq: number }]>`
-    INSERT INTO daily_inquiry_counters (date_key, last_seq)
-    VALUES (${dateKey}, 1)
-    ON CONFLICT (date_key) DO UPDATE
+    INSERT INTO daily_inquiry_counters (tenant_id, date_key, last_seq)
+    VALUES (${tenantId}, ${dateKey}, 1)
+    ON CONFLICT (tenant_id, date_key) DO UPDATE
     SET last_seq = daily_inquiry_counters.last_seq + 1
     RETURNING last_seq
   `;

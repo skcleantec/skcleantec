@@ -6,6 +6,8 @@ import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inqui
 import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { happyCallDeadlineEnd } from '../inquiries/happyCall.helpers.js';
 import { distanceKmFromJuan } from '../inquiries/inquiryJuanDistance.js';
+import type { AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router();
 
@@ -56,8 +58,13 @@ function kstYmdAddDays(ymd: string, deltaDays: number): string {
   return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
-router.get('/stats', async (_req, res) => {
+router.get('/stats', async (req, res) => {
   try {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   /** 오늘 접수: 서비스접수 `datePreset=today`와 동일 — 접수일(createdAt) KST 하루 */
   const todayYmd = kstTodayYmd();
   const kstTodayRange = kstDayRangeYmd(todayYmd);
@@ -80,18 +87,20 @@ router.get('/stats', async (_req, res) => {
     await Promise.all([
     prisma.inquiry.count({
       where: {
+        tenantId,
         createdAt: { gte: kstTodayRange.gte, lte: kstTodayRange.lte },
       },
     }),
     prisma.inquiry.count({
       where: {
+        tenantId,
         status: { in: ['RECEIVED', 'DEPOSIT_PENDING', 'DEPOSIT_COMPLETED'] },
         createdAt: { gte: kstThisMonth.gte, lte: kstThisMonth.lte },
       },
     }),
     prisma.estimateConfig.findFirst().then((c) => c?.pricePerPyeong ?? 5000),
     prisma.inquiry.findMany({
-      where: { status: { in: [...SALES_AMOUNT_STATUSES] } },
+      where: { tenantId, status: { in: [...SALES_AMOUNT_STATUSES] } },
       include: {
         orderForm: { select: { totalAmount: true } },
         assignments: {
@@ -101,11 +110,12 @@ router.get('/stats', async (_req, res) => {
       },
     }),
     prisma.user.findMany({
-      where: { role: 'TEAM_LEADER', isActive: true },
+      where: { tenantId, role: 'TEAM_LEADER', isActive: true },
       select: { id: true, name: true, hireDate: true, resignationDate: true },
     }),
     prisma.inquiry.findMany({
       where: {
+        tenantId,
         createdAt: { gte: kstThisMonth.gte, lte: kstThisMonth.lte },
         status: { not: 'CANCELLED' },
         assignments: {
@@ -130,7 +140,7 @@ router.get('/stats', async (_req, res) => {
     prisma.userDayOff.findMany({
       where: {
         date: todayOffDbDate,
-        teamLeader: { role: 'TEAM_LEADER', isActive: true },
+        teamLeader: { tenantId, role: 'TEAM_LEADER', isActive: true },
       },
       select: {
         teamLeaderId: true,
@@ -138,13 +148,13 @@ router.get('/stats', async (_req, res) => {
       },
     }),
     prisma.teamCrewGroupMember.findMany({
-      where: { group: { isActive: true, useDailyRosterOnly: true } },
+      where: { group: { tenantId, isActive: true, useDailyRosterOnly: true } },
       select: { teamMemberId: true },
     }),
     prisma.teamCrewGroupDayRoster.findMany({
       where: {
         date: todayOffDbDate,
-        group: { isActive: true, useDailyRosterOnly: true },
+        group: { tenantId, isActive: true, useDailyRosterOnly: true },
       },
       select: { teamMemberId: true },
     }),

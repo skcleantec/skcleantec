@@ -67,9 +67,10 @@ export async function seedMapTest20260416(prisma: PrismaClient): Promise<void> {
 
   for (let i = 0; i < 20; i++) {
     await prisma.$transaction(async (tx) => {
-      const inquiryNumber = await allocateNextInquiryNumber(tx);
+      const inquiryNumber = await allocateNextInquiryNumber(tx, admin.tenantId);
       await tx.inquiry.create({
         data: {
+          tenantId: admin.tenantId,
           inquiryNumber,
           customerName: `맵테스트${String(i + 1).padStart(2, '0')}`,
           customerPhone: `010-9${String(100 + i).padStart(3, '0')}-${String(2000 + i).padStart(4, '0')}`,

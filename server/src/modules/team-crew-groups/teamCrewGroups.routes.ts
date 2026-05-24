@@ -3,12 +3,22 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { notifyCrewGroupsInboxRefresh } from '../crew/crewFieldRealtime.js';
 import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries } from './crewGroupDayRoster.service.js';
 
 const router = Router();
 
 router.use(authMiddleware, adminOnly);
+router.use((req, res, next) => {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  (req as unknown as TenantScopedRequest).tenantId = tenantId;
+  next();
+});
 
 const MAX_CREW_GROUPS = 30;
 /** 공유 로그인 ID — 이메일 형태(@) 허용, 한글·공백 불가 */
@@ -18,9 +28,14 @@ async function verifyAdminPassword(req: Request, password: unknown): Promise<boo
   const p = password != null ? String(password) : '';
   if (!p) return false;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
+  const dbUser = await prisma.user.findFirst({ where: { id: user.userId, tenantId } });
   if (!dbUser) return false;
   return bcrypt.compare(p, dbUser.passwordHash);
+}
+
+async function findGroupForTenant(groupId: string, tenantId: string) {
+  return prisma.teamCrewGroup.findFirst({ where: { id: groupId, tenantId } });
 }
 
 function badPasswordResponse(res: Response, password: unknown) {
@@ -28,8 +43,10 @@ function badPasswordResponse(res: Response, password: unknown) {
   res.status(p ? 401 : 400).json({ error: p ? '관리자 비밀번호가 일치하지 않습니다.' : '관리자 비밀번호를 입력해주세요.' });
 }
 
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const groups = await prisma.teamCrewGroup.findMany({
+    where: { tenantId },
     orderBy: { updatedAt: 'desc' },
     include: {
       members: {
@@ -65,6 +82,7 @@ router.get('/', async (_req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const body = req.body as {
     name?: string;
     loginId?: string;
@@ -99,7 +117,7 @@ router.post('/', async (req, res) => {
     return;
   }
 
-  const count = await prisma.teamCrewGroup.count();
+  const count = await prisma.teamCrewGroup.count({ where: { tenantId } });
   if (count >= MAX_CREW_GROUPS) {
     res.status(400).json({ error: `크루 그룹은 최대 ${MAX_CREW_GROUPS}개까지 만들 수 있습니다.` });
     return;
@@ -122,6 +140,7 @@ router.post('/', async (req, res) => {
   try {
     const created = await prisma.teamCrewGroup.create({
       data: {
+        tenantId,
         name,
         loginId,
         passwordHash: await bcrypt.hash(password, 10),
@@ -161,13 +180,14 @@ router.post('/', async (req, res) => {
 });
 
 router.get('/:groupId/day-roster', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const { groupId } = req.params;
   const { start, end } = req.query as { start?: string; end?: string };
   if (!start || !end || !ROSTER_YMD.test(start) || !ROSTER_YMD.test(end)) {
     res.status(400).json({ error: 'start, end는 YYYY-MM-DD 형식이어야 합니다.' });
     return;
   }
-  const group = await prisma.teamCrewGroup.findUnique({ where: { id: groupId } });
+  const group = await findGroupForTenant(groupId, tenantId);
   if (!group) {
     res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
     return;
@@ -177,6 +197,7 @@ router.get('/:groupId/day-roster', async (req, res) => {
 });
 
 router.put('/:groupId/day-roster', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const { groupId } = req.params;
   const body = req.body as { entries?: { date: string; teamMemberIds: string[] }[] };
   const entries = body.entries;
@@ -190,7 +211,7 @@ router.put('/:groupId/day-roster', async (req, res) => {
       return;
     }
   }
-  const group = await prisma.teamCrewGroup.findUnique({ where: { id: groupId } });
+  const group = await findGroupForTenant(groupId, tenantId);
   if (!group) {
     res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
     return;
@@ -215,6 +236,7 @@ router.put('/:groupId/day-roster', async (req, res) => {
 });
 
 router.patch('/:groupId', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const { groupId } = req.params;
   const body = req.body as {
     name?: string;
@@ -228,7 +250,7 @@ router.patch('/:groupId', async (req, res) => {
     adminPassword?: string;
   };
 
-  const group = await prisma.teamCrewGroup.findUnique({ where: { id: groupId } });
+  const group = await findGroupForTenant(groupId, tenantId);
   if (!group) {
     res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
     return;
@@ -352,13 +374,14 @@ router.patch('/:groupId', async (req, res) => {
 });
 
 router.delete('/:groupId', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const { groupId } = req.params;
   const { password } = req.body as { password?: string };
   if (!(await verifyAdminPassword(req, password))) {
     badPasswordResponse(res, password);
     return;
   }
-  const group = await prisma.teamCrewGroup.findUnique({ where: { id: groupId } });
+  const group = await findGroupForTenant(groupId, tenantId);
   if (!group) {
     res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
     return;
@@ -368,13 +391,14 @@ router.delete('/:groupId', async (req, res) => {
 });
 
 router.post('/:groupId/members', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const { groupId } = req.params;
   const { teamMemberId } = req.body as { teamMemberId?: string };
   if (!teamMemberId || typeof teamMemberId !== 'string') {
     res.status(400).json({ error: 'teamMemberId가 필요합니다.' });
     return;
   }
-  const group = await prisma.teamCrewGroup.findUnique({ where: { id: groupId } });
+  const group = await findGroupForTenant(groupId, tenantId);
   if (!group) {
     res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
     return;
@@ -414,8 +438,9 @@ router.post('/:groupId/members', async (req, res) => {
 });
 
 router.delete('/:groupId/members/:teamMemberId', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const { groupId, teamMemberId } = req.params;
-  const group = await prisma.teamCrewGroup.findUnique({ where: { id: groupId } });
+  const group = await findGroupForTenant(groupId, tenantId);
   if (!group) {
     res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
     return;
@@ -434,10 +459,16 @@ router.delete('/:groupId/members/:teamMemberId', async (req, res) => {
 });
 
 router.patch('/:groupId/members/:teamMemberId', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const { groupId, teamMemberId } = req.params;
   const { isGroupLeader } = req.body as { isGroupLeader?: boolean };
   if (isGroupLeader === undefined) {
     res.status(400).json({ error: 'isGroupLeader가 필요합니다.' });
+    return;
+  }
+  const group = await findGroupForTenant(groupId, tenantId);
+  if (!group) {
+    res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
     return;
   }
   const row = await prisma.teamCrewGroupMember.findFirst({

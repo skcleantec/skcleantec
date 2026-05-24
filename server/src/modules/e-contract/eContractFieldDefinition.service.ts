@@ -56,11 +56,13 @@ async function tokenInUse(token: string): Promise<boolean> {
 }
 
 export async function listFieldDefinitions(
+  tenantId: string,
   audience: EContractAudience,
   opts?: { activeOnly?: boolean }
 ): Promise<EContractFieldDefinitionDto[]> {
   const rows = await prisma.eContractFieldDefinition.findMany({
     where: {
+      tenantId,
       audience,
       ...(opts?.activeOnly ? { isActive: true } : {}),
     },
@@ -70,7 +72,9 @@ export async function listFieldDefinitions(
   return rows.map((r, i) => mapRow(r, usage[i] ?? false));
 }
 
-export async function createFieldDefinition(input: {
+export async function createFieldDefinition(
+  tenantId: string,
+  input: {
   audience: EContractAudience;
   label: string;
   token?: string | null;
@@ -85,7 +89,7 @@ export async function createFieldDefinition(input: {
   }
 
   const existingTokens = await prisma.eContractFieldDefinition.findMany({
-    where: { audience: input.audience },
+    where: { tenantId, audience: input.audience },
     select: { token: true },
   });
   const set = new Set(existingTokens.map((r) => r.token));
@@ -104,7 +108,7 @@ export async function createFieldDefinition(input: {
   }
 
   const maxSort = await prisma.eContractFieldDefinition.aggregate({
-    where: { audience: input.audience },
+    where: { tenantId, audience: input.audience },
     _max: { sortOrder: true },
   });
   const sortOrder =
@@ -114,6 +118,7 @@ export async function createFieldDefinition(input: {
 
   const row = await prisma.eContractFieldDefinition.create({
     data: {
+      tenantId,
       audience: input.audience,
       token,
       label,
@@ -128,6 +133,7 @@ export async function createFieldDefinition(input: {
 }
 
 export async function patchFieldDefinition(
+  tenantId: string,
   id: string,
   patch: {
     label?: string;
@@ -138,7 +144,7 @@ export async function patchFieldDefinition(
     isActive?: boolean;
   }
 ): Promise<EContractFieldDefinitionDto> {
-  const existing = await prisma.eContractFieldDefinition.findUnique({ where: { id } });
+  const existing = await prisma.eContractFieldDefinition.findFirst({ where: { id, tenantId } });
   if (!existing) throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
 
   const data: Prisma.EContractFieldDefinitionUpdateInput = {};
@@ -170,8 +176,8 @@ export async function patchFieldDefinition(
   return mapRow(row, inUse);
 }
 
-export async function deleteFieldDefinition(id: string): Promise<void> {
-  const existing = await prisma.eContractFieldDefinition.findUnique({ where: { id } });
+export async function deleteFieldDefinition(tenantId: string, id: string): Promise<void> {
+  const existing = await prisma.eContractFieldDefinition.findFirst({ where: { id, tenantId } });
   if (!existing) throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
   if (existing.token === EC_SIGNATURE_TOKEN || existing.token === EC_CONTRACT_DATE_TOKEN) {
     throw Object.assign(new Error('system_field'), { code: 'conflict' as const });
@@ -193,6 +199,7 @@ export type ResolvedFieldForBody = {
 };
 
 export async function resolveFieldsForBody(
+  tenantId: string,
   bodyText: string,
   audience: EContractAudience,
   opts?: { filledBy?: EContractFieldFilledBy | EContractFieldFilledBy[] }
@@ -208,6 +215,7 @@ export async function resolveFieldsForBody(
 
   const rows = await prisma.eContractFieldDefinition.findMany({
     where: {
+      tenantId,
       audience,
       isActive: true,
       token: { in: tokens },
@@ -227,9 +235,13 @@ export async function resolveFieldsForBody(
 }
 
 /** 체결 페이지 입력 폼 — 설정된 모든 SIGNER 필드(서명 제외). 본문 토큰 유무와 무관 */
-export async function resolveSignerFormFields(audience: EContractAudience): Promise<ResolvedFieldForBody[]> {
+export async function resolveSignerFormFields(
+  tenantId: string,
+  audience: EContractAudience,
+): Promise<ResolvedFieldForBody[]> {
   const rows = await prisma.eContractFieldDefinition.findMany({
     where: {
+      tenantId,
       audience,
       isActive: true,
       filledBy: EContractFieldFilledBy.SIGNER,
@@ -249,6 +261,7 @@ export async function resolveSignerFormFields(audience: EContractAudience): Prom
 }
 
 export async function buildExpansionValueMap(input: {
+  tenantId: string;
   audience: EContractAudience;
   bodyText: string;
   mergeFields?: unknown;
@@ -258,7 +271,7 @@ export async function buildExpansionValueMap(input: {
   /** true면 AUTO·미입력 SIGNER 는 치환 전 빈값(미리보기용) */
   previewMode?: boolean;
 }): Promise<Record<string, string>> {
-  const fields = await resolveFieldsForBody(input.bodyText, input.audience);
+  const fields = await resolveFieldsForBody(input.tenantId, input.bodyText, input.audience);
   const merge = mergeFieldsFromJson(input.mergeFields);
   const signer = input.signerValues ?? {};
   const signedAt = input.signedAt ?? new Date();
@@ -285,11 +298,12 @@ export async function buildExpansionValueMap(input: {
 }
 
 export async function validateAdminMergeFields(input: {
+  tenantId: string;
   audience: EContractAudience;
   bodyText: string;
   mergeFields: unknown;
 }): Promise<Record<string, string>> {
-  const fields = await resolveFieldsForBody(input.bodyText, input.audience, {
+  const fields = await resolveFieldsForBody(input.tenantId, input.bodyText, input.audience, {
     filledBy: EContractFieldFilledBy.ADMIN,
   });
   const raw = mergeFieldsFromJson(input.mergeFields);

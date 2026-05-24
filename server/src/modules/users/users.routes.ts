@@ -6,7 +6,8 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import { isSuperAdminRoleAndEmail } from '../auth/superAdmin.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import {
@@ -35,6 +36,11 @@ router.use(authMiddleware);
 /** 목록 조회 — 스케줄·접수에서 팀장/마케터 선택용 (기본: 해당일 재직자만) · scope=management 는 전체(관리자) */
 router.get('/', adminOrMarketer, async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(authUser);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const role = (req.query.role as string) || 'TEAM_LEADER';
   const validRoles = ['TEAM_LEADER', 'MARKETER', 'EXTERNAL_PARTNER', 'ADMIN'];
   if (!validRoles.includes(role)) {
@@ -51,7 +57,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
   const employedOn = YMD.test(employedOnRaw) ? employedOnRaw : kstTodayYmd();
 
   const users = await prisma.user.findMany({
-    where: { role: role as 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER' | 'ADMIN', isActive: true },
+    where: { tenantId, role: role as 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER' | 'ADMIN', isActive: true },
     select: {
       id: true,
       email: true,
@@ -155,6 +161,12 @@ router.post('/team-leaders/day-off-self-edit', adminOnly, async (req, res) => {
 });
 
 router.post('/', adminOnly, async (req, res) => {
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(authUser);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const body = req.body as {
     email?: string;
     password?: string;
@@ -173,7 +185,9 @@ router.post('/', adminOnly, async (req, res) => {
     return;
   }
   const userRole = role === 'MARKETER' ? 'MARKETER' : 'TEAM_LEADER';
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({
+    where: { tenantId_email: { tenantId, email: email.trim().toLowerCase() } },
+  });
   if (existing) {
     res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
     return;
@@ -266,6 +280,7 @@ router.post('/', adminOnly, async (req, res) => {
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
+      tenantId,
       email,
       passwordHash,
       name,
@@ -385,7 +400,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
 
   const wantsEmploymentDates =
     body.hireDate !== undefined || body.resignationDate !== undefined;
-  if (wantsEmploymentDates && !isSuperAdminRoleAndEmail(authUser.role, authUser.email)) {
+  if (wantsEmploymentDates && !isTenantOwnerAdmin(authUser)) {
     res.status(403).json({ error: '입사일·퇴사일은 최고 관리자만 변경할 수 있습니다.' });
     return;
   }
@@ -396,6 +411,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
       id: true,
       role: true,
       email: true,
+      tenantId: true,
       hireDate: true,
       resignationDate: true,
       payrollMonthlySalary: true,
@@ -449,7 +465,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     }
     if (newEmail !== existing.email.toLowerCase()) {
       const taken = await prisma.user.findFirst({
-        where: { email: newEmail, NOT: { id } },
+        where: { tenantId: existing.tenantId, email: newEmail, NOT: { id } },
       });
       if (taken) {
         res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });

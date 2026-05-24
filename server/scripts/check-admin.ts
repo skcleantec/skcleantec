@@ -18,7 +18,7 @@ async function main() {
     await prisma.$connect();
     console.log('DB 연결: 성공');
 
-    const admin = await prisma.user.findUnique({
+    const admin = await prisma.user.findFirst({
       where: { email: 'admin' },
       select: { email: true, role: true, isActive: true },
     });

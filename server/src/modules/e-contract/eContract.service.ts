@@ -23,8 +23,9 @@ import {
   type EContractListQuery,
 } from './eContractListQuery.js';
 
-export async function listDefinitions() {
+export async function listDefinitions(tenantId: string) {
   return prisma.eContractDefinition.findMany({
+    where: { tenantId },
     orderBy: { updatedAt: 'desc' },
     select: {
       id: true,
@@ -51,6 +52,7 @@ export async function listDefinitions() {
 }
 
 export async function createDefinition(
+  tenantId: string,
   actorId: string,
   title: string,
   description?: string | null,
@@ -64,6 +66,7 @@ export async function createDefinition(
     audience === EContractAudience.MARKETER ? EContractAudience.MARKETER : EContractAudience.TEAM_LEADER;
   return prisma.eContractDefinition.create({
     data: {
+      tenantId,
       title: trimmed,
       description: description?.trim() || null,
       audience: aud,
@@ -73,9 +76,14 @@ export async function createDefinition(
 }
 
 export async function patchDefinition(
+  tenantId: string,
   id: string,
   patch: { title?: string; description?: string | null; isArchived?: boolean; audience?: EContractAudience }
 ) {
+  const existing = await prisma.eContractDefinition.findFirst({ where: { id, tenantId } });
+  if (!existing) {
+    throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
+  }
   const data: Prisma.EContractDefinitionUpdateInput = {};
   if (patch.title !== undefined) {
     const t = patch.title.trim();
@@ -99,7 +107,7 @@ export async function patchDefinition(
   if (Object.keys(data).length === 0) {
     throw Object.assign(new Error('nothing_to_patch'), { code: 'bad_request' as const });
   }
-  return prisma.eContractDefinition.update({ where: { id }, data });
+  return prisma.eContractDefinition.update({ where: { id: existing.id }, data });
 }
 
 async function submissionCountForDefinition(definitionId: string): Promise<number> {
@@ -109,7 +117,11 @@ async function submissionCountForDefinition(definitionId: string): Promise<numbe
   return n;
 }
 
-export async function deleteDefinitionHard(adminUserId: string, definitionId: string) {
+export async function deleteDefinitionHard(tenantId: string, adminUserId: string, definitionId: string) {
+  const def = await prisma.eContractDefinition.findFirst({ where: { id: definitionId, tenantId } });
+  if (!def) {
+    throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
+  }
   const n = await submissionCountForDefinition(definitionId);
   if (n > 0) {
     throw Object.assign(new Error('has_submissions'), { code: 'conflict' as const });
@@ -122,9 +134,9 @@ export async function deleteDefinitionHard(adminUserId: string, definitionId: st
   void adminUserId;
 }
 
-export async function getDefinitionWithVersions(definitionId: string) {
-  const def = await prisma.eContractDefinition.findUnique({
-    where: { id: definitionId },
+export async function getDefinitionWithVersions(tenantId: string, definitionId: string) {
+  const def = await prisma.eContractDefinition.findFirst({
+    where: { id: definitionId, tenantId },
     include: {
       versions: {
         orderBy: { createdAt: 'desc' },
@@ -150,8 +162,8 @@ export async function getDefinitionWithVersions(definitionId: string) {
 }
 
 /** 정의당 초안 최대 1건 — 서비스 레이어에서 관리 */
-export async function ensureDraft(definitionId: string) {
-  const def = await prisma.eContractDefinition.findUnique({ where: { id: definitionId } });
+export async function ensureDraft(tenantId: string, definitionId: string) {
+  const def = await prisma.eContractDefinition.findFirst({ where: { id: definitionId, tenantId } });
   if (!def) {
     throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
   }
@@ -191,14 +203,14 @@ export async function patchDraftVersion(versionId: string, body: { titleSnapshot
   return prisma.eContractVersion.update({ where: { id: versionId }, data });
 }
 
-export async function publishVersion(actorId: string, versionId: string) {
+export async function publishVersion(tenantId: string, actorId: string, versionId: string) {
   const v = await prisma.eContractVersion.findUnique({
     where: { id: versionId },
     include: {
-      definition: { select: { id: true, title: true } },
+      definition: { select: { id: true, title: true, tenantId: true } },
     },
   });
-  if (!v || v.status !== EContractVersionStatus.DRAFT) {
+  if (!v || v.status !== EContractVersionStatus.DRAFT || v.definition.tenantId !== tenantId) {
     throw Object.assign(new Error('not_draft'), { code: 'bad_request' as const });
   }
 
@@ -210,7 +222,7 @@ export async function publishVersion(actorId: string, versionId: string) {
     throw Object.assign(new Error('body_required'), { code: 'bad_request' as const });
   }
 
-  const { snapshotJson, plain } = await issuerSnapshotBlockForPublish();
+  const { snapshotJson, plain } = await issuerSnapshotBlockForPublish(tenantId);
   const mainDisplayHtml = expandIssuerPlaceholders(v.bodyMarkdown, plain);
   const appendixHtml = buildPartyAppendixHtml(plain);
   const bodyDisplayHtml = mainDisplayHtml + appendixHtml;
@@ -246,22 +258,32 @@ export async function publishVersion(actorId: string, versionId: string) {
   });
 }
 
-export async function deleteDraft(versionId: string) {
-  const v = await prisma.eContractVersion.findUnique({ where: { id: versionId } });
-  if (!v || v.status !== EContractVersionStatus.DRAFT) {
+export async function deleteDraft(tenantId: string, versionId: string) {
+  const v = await prisma.eContractVersion.findUnique({
+    where: { id: versionId },
+    include: { definition: { select: { tenantId: true } } },
+  });
+  if (!v || v.status !== EContractVersionStatus.DRAFT || v.definition.tenantId !== tenantId) {
     throw Object.assign(new Error('not_draft'), { code: 'bad_request' as const });
   }
   await prisma.eContractVersion.delete({ where: { id: versionId } });
 }
 
 /** 배포(PUBLISHED) 버전 삭제 — 해당 버전에 체결(Submission)이 없을 때만. 연결된 미체결 발급 건은 함께 제거 */
-export async function deletePublishedVersion(adminUserId: string, versionId: string) {
+export async function deletePublishedVersion(tenantId: string, adminUserId: string, versionId: string) {
   void adminUserId;
   const v = await prisma.eContractVersion.findUnique({
     where: { id: versionId },
-    select: { id: true, status: true, definitionId: true, publishedOrdinal: true, titleSnapshot: true },
+    select: {
+      id: true,
+      status: true,
+      definitionId: true,
+      publishedOrdinal: true,
+      titleSnapshot: true,
+      definition: { select: { tenantId: true } },
+    },
   });
-  if (!v) {
+  if (!v || v.definition.tenantId !== tenantId) {
     throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
   }
   if (v.status !== EContractVersionStatus.PUBLISHED) {
@@ -299,7 +321,7 @@ export function publishedVersionBodyText(version: {
 }
 
 /** 관리 화면 — 배포본 미리보기(체결 화면과 동일 규칙) */
-export async function getPublishedVersionPreview(versionId: string) {
+export async function getPublishedVersionPreview(tenantId: string, versionId: string) {
   const version = await prisma.eContractVersion.findUnique({
     where: { id: versionId },
     select: {
@@ -307,12 +329,13 @@ export async function getPublishedVersionPreview(versionId: string) {
       status: true,
       bodyMarkdown: true,
       bodyDisplayHtml: true,
+      definition: { select: { tenantId: true } },
     },
   });
-  if (!version || version.status !== EContractVersionStatus.PUBLISHED) {
+  if (!version || version.status !== EContractVersionStatus.PUBLISHED || version.definition.tenantId !== tenantId) {
     throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
   }
-  const html = await composePublishedVersionHtmlWithLiveIssuer(version);
+  const html = await composePublishedVersionHtmlWithLiveIssuer(tenantId, version);
   const mainHtml = stripPartyAppendixFromContractHtml(html);
   return {
     html,
@@ -320,7 +343,9 @@ export async function getPublishedVersionPreview(versionId: string) {
   };
 }
 
-export async function createIssuance(input: {
+export async function createIssuance(
+  tenantId: string,
+  input: {
   definitionId: string;
   versionId?: string | null;
   /** DB `team_leader_id` — 팀장 또는 마케터 user.id */
@@ -329,16 +354,16 @@ export async function createIssuance(input: {
   notes?: string | null;
   mergeFields?: unknown;
 }) {
-  const definition = await prisma.eContractDefinition.findUnique({
-    where: { id: input.definitionId },
+  const definition = await prisma.eContractDefinition.findFirst({
+    where: { id: input.definitionId, tenantId },
     select: { id: true, audience: true },
   });
   if (!definition) {
     throw Object.assign(new Error('definition_not_found'), { code: 'not_found' as const });
   }
 
-  const recipient = await prisma.user.findUnique({
-    where: { id: input.recipientUserId },
+  const recipient = await prisma.user.findFirst({
+    where: { id: input.recipientUserId, tenantId },
     select: { id: true, role: true, isActive: true },
   });
   const expectedRole =
@@ -367,6 +392,7 @@ export async function createIssuance(input: {
 
   const bodyText = publishedVersionBodyText(version);
   const validatedMerge = await validateAdminMergeFields({
+    tenantId,
     audience: definition.audience,
     bodyText,
     mergeFields: input.mergeFields ?? {},
@@ -393,27 +419,27 @@ export async function createIssuance(input: {
   });
 }
 
-export async function listTeamLeadersForPicker() {
-  return listRecipientsForPicker(EContractAudience.TEAM_LEADER);
+export async function listTeamLeadersForPicker(tenantId: string) {
+  return listRecipientsForPicker(tenantId, EContractAudience.TEAM_LEADER);
 }
 
-export async function listMarketersForPicker() {
-  return listRecipientsForPicker(EContractAudience.MARKETER);
+export async function listMarketersForPicker(tenantId: string) {
+  return listRecipientsForPicker(tenantId, EContractAudience.MARKETER);
 }
 
-export async function listRecipientsForPicker(audience: EContractAudience) {
+export async function listRecipientsForPicker(tenantId: string, audience: EContractAudience) {
   const role = audience === EContractAudience.MARKETER ? UserRole.MARKETER : UserRole.TEAM_LEADER;
   return prisma.user.findMany({
-    where: { role, isActive: true },
+    where: { tenantId, role, isActive: true },
     select: { id: true, name: true, email: true, phone: true, role: true },
     orderBy: [{ name: 'asc' }, { email: 'asc' }],
   });
 }
 
 /** 체결 기록 필터 — 팀장·마케터 수신자 통합 */
-export async function listAllContractRecipientsForPicker() {
+export async function listAllContractRecipientsForPicker(tenantId: string) {
   return prisma.user.findMany({
-    where: { role: { in: [UserRole.TEAM_LEADER, UserRole.MARKETER] }, isActive: true },
+    where: { tenantId, role: { in: [UserRole.TEAM_LEADER, UserRole.MARKETER] }, isActive: true },
     select: { id: true, name: true, email: true, phone: true, role: true },
     orderBy: [{ role: 'asc' }, { name: 'asc' }, { email: 'asc' }],
   });
@@ -540,9 +566,11 @@ export async function countPendingIssuancesForTeamLeader(teamLeaderId: string): 
   });
 }
 
-export async function listIssuancesForDefinition(definitionId: string, take = 80) {
+export async function listIssuancesForDefinition(tenantId: string, definitionId: string, take = 80) {
+  const def = await prisma.eContractDefinition.findFirst({ where: { id: definitionId, tenantId } });
+  if (!def) return [];
   return prisma.eContractIssuance.findMany({
-    where: { definitionId },
+    where: { definitionId: def.id },
     orderBy: { createdAt: 'desc' },
     take,
     include: {
@@ -584,8 +612,11 @@ export async function listSubmissionsByTeamLeader(userId: string) {
 }
 
 /** 관리자 — 전체 체결 제출 목록(최신순, 페이지·기간·팀장 필터) */
-export async function listAllSubmissionsForAdmin(query: EContractListQuery) {
-  const where = submissionWhereFromListQuery(query);
+export async function listAllSubmissionsForAdmin(tenantId: string, query: EContractListQuery) {
+  const where = {
+    ...submissionWhereFromListQuery(query),
+    issuance: { definition: { tenantId } },
+  };
   const [submissions, total] = await Promise.all([
     prisma.eContractSubmission.findMany({
       where,
@@ -603,9 +634,9 @@ export async function listAllSubmissionsForAdmin(query: EContractListQuery) {
 export { parseEContractListQuery };
 
 /** 관리자 열람 — 체결 제출본(합본 HTML·본인확인 이미지 등) */
-export async function getSubmissionDetailForAdmin(submissionId: string) {
-  const s = await prisma.eContractSubmission.findUnique({
-    where: { id: submissionId },
+export async function getSubmissionDetailForAdmin(tenantId: string, submissionId: string) {
+  const s = await prisma.eContractSubmission.findFirst({
+    where: { id: submissionId, issuance: { definition: { tenantId } } },
     include: {
       issuance: {
         include: {
@@ -641,7 +672,7 @@ export async function getSubmissionDetailForAdmin(submissionId: string) {
   }
 
   if (bodyHtml && !bodyHtml.includes('ec-party-appendix')) {
-    const issuerSnap = await getIssuerSnapshot();
+    const issuerSnap = await getIssuerSnapshot(tenantId);
     const appendixHtml = buildPartyAppendixHtml(issuerSnap, {
       submissionId: s.id,
       signedAtIso: s.signedAt.toISOString(),

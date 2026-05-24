@@ -4,17 +4,31 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../../lib/prisma.js';
 import { config } from '../../config/index.js';
 import { authMiddleware, type AuthPayload, type CrewViewerRole } from './auth.middleware.js';
-import { isSuperAdminRoleAndEmail } from './superAdmin.js';
+import { isTenantOwnerAdmin } from './tenantOwner.js';
 import { isTeamPreviewAdminEmail } from './teamPreview.helpers.js';
 import { userMayUseStagingDbImport } from '../admin/stagingDbImport.helpers.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
+import {
+  assertTenantLoginAllowed,
+  normalizeTenantSlugInput,
+  resolveTenantBySlug,
+  tenantSummary,
+  TenantNotFoundError,
+  TenantSuspendedError,
+} from '../tenants/tenant.service.js';
+import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
+import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 
-/** 활성 크루 그룹 — 로그인·미리보기 공통 조회 */
-async function findActiveCrewGroupByLoginId(loginId: string) {
+/** 활성 크루 그룹 — 로그인·미리보기 공통 조회 (tenantId 있으면 해당 업체로 한정) */
+async function findActiveCrewGroupByLoginId(loginId: string, tenantId?: string) {
   const lid = loginId.trim();
   if (!lid) return null;
   return prisma.teamCrewGroup.findFirst({
-    where: { loginId: lid, isActive: true },
+    where: {
+      loginId: lid,
+      isActive: true,
+      ...(tenantId ? { tenantId } : {}),
+    },
     include: {
       members: { select: { isGroupLeader: true } },
     },
@@ -31,6 +45,7 @@ function issueCrewJwtPayload(
     userId: `crew:${group.id}`,
     email: group.loginId,
     role: 'TEAM_CREW_GROUP',
+    tenantId: group.tenantId,
     crewGroupId: group.id,
     crewViewerRole,
     crewJwtSource,
@@ -44,7 +59,11 @@ function issueCrewJwtPayload(
 const router = Router();
 
 async function loginWithPassword(req: Request, res: Response) {
-  const { email, password } = req.body as { email?: string; password?: string };
+  const { email, password, tenantSlug } = req.body as {
+    email?: string;
+    password?: string;
+    tenantSlug?: string;
+  };
   const loginId = String(email ?? '')
     .trim()
     .toLowerCase();
@@ -52,8 +71,25 @@ async function loginWithPassword(req: Request, res: Response) {
     res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요.' });
     return;
   }
+
+  let tenant;
+  try {
+    tenant = await resolveTenantBySlug(normalizeTenantSlugInput(tenantSlug));
+    await assertTenantLoginAllowed(tenant.status);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    if (e instanceof TenantSuspendedError) {
+      res.status(403).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+
   const user = await prisma.user.findUnique({
-    where: { email: loginId },
+    where: { tenantId_email: { tenantId: tenant.id, email: loginId } },
   });
   if (!user || !user.isActive) {
     res.status(401).json({ error: '계정을 찾을 수 없거나 비활성입니다.' });
@@ -86,6 +122,8 @@ async function loginWithPassword(req: Request, res: Response) {
     userId: user.id,
     email: user.email,
     role: user.role,
+    tenantId: tenant.id,
+    isTenantOwner: user.role === 'ADMIN' ? user.isTenantOwner : undefined,
   };
   const token = jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
@@ -93,6 +131,7 @@ async function loginWithPassword(req: Request, res: Response) {
   res.json({
     token,
     user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    tenant: tenantSummary(tenant),
   });
 }
 
@@ -103,9 +142,10 @@ router.post('/login', loginWithPassword);
 router.post('/team-login', loginWithPassword);
 
 router.get('/me', authMiddleware, async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const { userId, tenantId } = auth;
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...(tenantId ? { tenantId } : {}) },
     select: {
       id: true,
       email: true,
@@ -117,12 +157,22 @@ router.get('/me', authMiddleware, async (req, res) => {
       allowSelfDayOffEdit: true,
       staffIdCardUrl: true,
       hireDate: true,
+      isTenantOwner: true,
+      tenantId: true,
     },
   });
   if (!user) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { id: true, slug: true, name: true, plan: true, status: true },
+      })
+    : null;
+  const features = tenantId ? await getEffectiveEnabledModules(tenantId) : [];
+  const config = tenantId ? await getTenantConfig(tenantId) : {};
   const r =
     user.role === 'TEAM_LEADER' || user.role === 'EXTERNAL_PARTNER' || user.role === 'MARKETER'
       ? {
@@ -135,8 +185,12 @@ router.get('/me', authMiddleware, async (req, res) => {
     staffIdCardUrl: r.staffIdCardUrl,
     hireDate: r.hireDate,
     allowSelfDayOffEdit: user.role === 'TEAM_LEADER' ? user.allowSelfDayOffEdit : true,
-    isSuperAdmin: isSuperAdminRoleAndEmail(user.role, user.email),
+    isSuperAdmin: isTenantOwnerAdmin({ ...auth, isTenantOwner: user.isTenantOwner }),
+    isTenantOwner: user.isTenantOwner,
     showStagingDbImport: userMayUseStagingDbImport(user.role, user.email),
+    tenant: tenant ? tenantSummary(tenant) : null,
+    features,
+    config,
   });
 });
 
@@ -257,14 +311,33 @@ router.patch('/me', authMiddleware, async (req, res) => {
 
 /** 크루 공유 계정 (TeamCrewGroup.loginId / passwordHash) */
 router.post('/crew-login', async (req, res) => {
-  const { loginId, password } = req.body as { loginId?: string; password?: string };
+  const { loginId, password, tenantSlug } = req.body as {
+    loginId?: string;
+    password?: string;
+    tenantSlug?: string;
+  };
   const lid = loginId != null ? String(loginId).trim() : '';
   const pw = password != null ? String(password) : '';
   if (!lid || !pw) {
     res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요.' });
     return;
   }
-  const group = await findActiveCrewGroupByLoginId(lid);
+  let tenant;
+  try {
+    tenant = await resolveTenantBySlug(normalizeTenantSlugInput(tenantSlug));
+    await assertTenantLoginAllowed(tenant.status);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    if (e instanceof TenantSuspendedError) {
+      res.status(403).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+  const group = await findActiveCrewGroupByLoginId(lid, tenant.id);
   if (!group) {
     res.status(401).json({ error: '계정을 찾을 수 없거나 비활성입니다.' });
     return;

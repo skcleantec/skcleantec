@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
-import { isSuperAdminRoleAndEmail } from './superAdmin.js';
+import { isTenantOwnerAdmin } from './tenantOwner.js';
 
 export type CrewViewerRole = 'LEADER' | 'MEMBER';
 
@@ -11,6 +11,10 @@ export interface AuthPayload {
   userId: string;
   email: string;
   role: string;
+  /** 테넌트 업무 JWT — ADMIN/MARKETER/TEAM_LEADER/EXTERNAL_PARTNER */
+  tenantId?: string;
+  /** ADMIN 전용 — 업체 소유자(히스토리 삭제·광고 채널 설정 등) */
+  isTenantOwner?: boolean;
   /** TEAM_CREW_GROUP 전용 — JWT에 포함 */
   crewGroupId?: string;
   crewViewerRole?: CrewViewerRole;
@@ -84,14 +88,19 @@ export function adminOrMarketerOrTeamLeader(req: Request, res: Response, next: N
   res.status(403).json({ error: '권한이 필요합니다.' });
 }
 
-/** 최고 관리자(기본: 이메일 admin) 전용 — 히스토리 삭제 등 */
-export function superAdminOnly(req: Request, res: Response, next: NextFunction) {
+/** 업체 소유 ADMIN 전용 — 히스토리 삭제·광고 채널 reorder 등 */
+export function tenantOwnerOnly(req: Request, res: Response, next: NextFunction) {
   const user = (req as Request & { user?: AuthPayload }).user;
-  if (!user || !isSuperAdminRoleAndEmail(user.role, user.email)) {
-    res.status(403).json({ error: '최고 관리자만 할 수 있습니다.' });
+  if (!isTenantOwnerAdmin(user)) {
+    res.status(403).json({ error: '업체 관리자(소유자)만 할 수 있습니다.' });
     return;
   }
   next();
+}
+
+/** @deprecated `tenantOwnerOnly` — 하위 호환 alias */
+export function superAdminOnly(req: Request, res: Response, next: NextFunction) {
+  tenantOwnerOnly(req, res, next);
 }
 
 export function crewGroupOnly(req: Request, res: Response, next: NextFunction) {

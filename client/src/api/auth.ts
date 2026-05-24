@@ -19,13 +19,13 @@ function apiUnreachableMessage(): Error {
   );
 }
 
-export async function login(email: string, password: string) {
+export async function login(tenantSlug: string, email: string, password: string) {
   let res: Response;
   try {
     res = await fetch(`${API}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ tenantSlug, email, password }),
     });
   } catch (e) {
     if (isLikelyNetworkFailure(e)) {

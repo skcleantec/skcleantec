@@ -1,6 +1,7 @@
 # 입주청소업체 고객관리 프로그램 - 프로젝트 가이드
 
-> **코딩 규칙**: `CODING_RULES.md` 참고. `.cursor/rules/` 에 프로젝트 룰 적용됨.
+> **코딩 규칙**: `CODING_RULES.md` 참고. `.cursor/rules/` 에 프로젝트 룰 적용됨.  
+> **멀티 테넌트(SaaS)**: [docs/MULTI_TENANT_PLATFORM.md](docs/MULTI_TENANT_PLATFORM.md) — 플랫폼·업체별 기능 on/off·단계별 PR 기준.
 
 ## 🚀 실행 방법 (필수)
 

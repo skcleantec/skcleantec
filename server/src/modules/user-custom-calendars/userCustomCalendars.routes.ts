@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { sanitizeCustomCalendarColorKey } from '../../constants/customCalendarColorKeys.js';
 
 /** 비동기 핸들러 에러를 JSON 500으로 내려주는 래퍼 */
@@ -32,6 +33,15 @@ function asyncHandler(
 const router = Router();
 
 router.use(authMiddleware);
+router.use((req, res, next) => {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  (req as unknown as TenantScopedRequest).tenantId = tenantId;
+  next();
+});
 
 function authUser(req: import('express').Request): AuthPayload {
   return (req as unknown as { user: AuthPayload }).user;
@@ -58,8 +68,9 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const { userId } = authUser(req);
+    const tenantId = (req as unknown as TenantScopedRequest).tenantId;
     const list = await prisma.userCustomCalendar.findMany({
-      where: { userId },
+      where: { tenantId, userId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
     res.json({ items: list });
@@ -70,6 +81,7 @@ router.post(
   '/',
   asyncHandler(async (req, res) => {
     const { userId } = authUser(req);
+    const tenantId = (req as unknown as TenantScopedRequest).tenantId;
     const body = (req.body ?? {}) as { name?: unknown; regions?: unknown; colorKey?: unknown };
 
     const rawName = typeof body.name === 'string' ? body.name.trim() : '';
@@ -91,13 +103,13 @@ router.post(
     const colorKey = sanitizeCustomCalendarColorKey(body.colorKey);
 
     const last = await prisma.userCustomCalendar.findFirst({
-      where: { userId },
+      where: { tenantId, userId },
       orderBy: { sortOrder: 'desc' },
     });
     const sortOrder = (last?.sortOrder ?? -1) + 1;
 
     const created = await prisma.userCustomCalendar.create({
-      data: { userId, name: rawName, regions, colorKey, sortOrder },
+      data: { tenantId, userId, name: rawName, regions, colorKey, sortOrder },
     });
     res.json({ item: created });
   })
@@ -107,9 +119,10 @@ router.patch(
   '/:id',
   asyncHandler(async (req, res) => {
     const { userId } = authUser(req);
+    const tenantId = (req as unknown as TenantScopedRequest).tenantId;
     const { id } = req.params;
-    const existing = await prisma.userCustomCalendar.findUnique({ where: { id } });
-    if (!existing || existing.userId !== userId) {
+    const existing = await prisma.userCustomCalendar.findFirst({ where: { id, tenantId, userId } });
+    if (!existing) {
       res.status(404).json({ error: '캘린더를 찾을 수 없습니다.' });
       return;
     }
@@ -169,6 +182,7 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const { userId } = authUser(req);
+    const tenantId = (req as unknown as TenantScopedRequest).tenantId;
     const { id } = req.params;
 
     const body = (req.body ?? {}) as { password?: unknown };
@@ -178,13 +192,13 @@ router.delete(
       return;
     }
 
-    const existing = await prisma.userCustomCalendar.findUnique({ where: { id } });
-    if (!existing || existing.userId !== userId) {
+    const existing = await prisma.userCustomCalendar.findFirst({ where: { id, tenantId, userId } });
+    if (!existing) {
       res.status(404).json({ error: '캘린더를 찾을 수 없습니다.' });
       return;
     }
 
-    const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+    const dbUser = await prisma.user.findFirst({ where: { id: userId, tenantId } });
     if (!dbUser) {
       res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
       return;

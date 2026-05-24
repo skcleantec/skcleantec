@@ -23,6 +23,7 @@ RUN cd client && npm ci --no-audit --no-fund
 # lockfile 단계와 분리: 소스 변경 시 위 npm ci 레이어는 그대로 캐시됨
 COPY server ./server
 COPY client ./client
+COPY shared ./shared
 
 WORKDIR /app/server
 RUN npm run build && npm prune --omit=dev

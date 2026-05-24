@@ -15,6 +15,7 @@ import { dedupeTrailingPartyAppendices } from './eContractPartyAppendix.js';
 import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
 import { notifyEContractInboxIfTeamLeader } from './eContract.recipientNotify.js';
 import { expandEcTokenValues } from './eContractSigner.expand.js';
+import { assertTenantAllowsPublicService, PublicTenantAccessError } from '../tenants/publicTenantAccess.js';
 
 export type PublicSignSession = {
   issuanceId: string;
@@ -40,7 +41,7 @@ async function issuanceByToken(rawToken: string) {
   return prisma.eContractIssuance.findUnique({
     where: { token },
     include: {
-      definition: { select: { id: true, title: true, isArchived: true, audience: true } },
+      definition: { select: { id: true, title: true, isArchived: true, audience: true, tenantId: true } },
       version: true,
       teamLeader: { select: { id: true, name: true, isActive: true, role: true } },
       submission: { select: { id: true, signedAt: true, mergedContractHtml: true } },
@@ -93,10 +94,19 @@ export async function touchIssuanceOpened(issuanceId: string): Promise<void> {
 }
 
 export async function getPublicSignSession(rawToken: string): Promise<
-  PublicSignSession | { error: 'not_found' | 'expired' | 'revoked' | 'archived_definition' | 'inactive_signer' }
+  PublicSignSession | { error: 'not_found' | 'expired' | 'revoked' | 'archived_definition' | 'inactive_signer' | 'tenant_suspended' }
 > {
   let row = await issuanceByToken(rawToken);
   if (!row || !row.definition) return { error: 'not_found' };
+
+  try {
+    await assertTenantAllowsPublicService(row.definition.tenantId);
+  } catch (e) {
+    if (e instanceof PublicTenantAccessError && e.code === 'tenant_suspended') {
+      return { error: 'tenant_suspended' };
+    }
+    return { error: 'not_found' };
+  }
 
   await maybeMarkExpired(row.id, row.expiresAt ?? null, row.status, Boolean(row.submission?.id));
 
@@ -140,12 +150,13 @@ export async function getPublicSignSession(rawToken: string): Promise<
   if (merged) {
     bodyMarkdown = dedupeTrailingPartyAppendices(merged);
   } else if (!alreadySigned) {
-    bodyMarkdown = await composePublishedVersionHtmlWithLiveIssuer(row.version);
+    bodyMarkdown = await composePublishedVersionHtmlWithLiveIssuer(row.definition.tenantId, row.version);
     const audience = row.definition.audience;
-    const signerFields = await resolveFieldsForBody(bodyMarkdown, audience, {
+    const signerFields = await resolveFieldsForBody(row.definition.tenantId, bodyMarkdown, audience, {
       filledBy: EContractFieldFilledBy.SIGNER,
     });
     const previewValues = await buildExpansionValueMap({
+      tenantId: row.definition.tenantId,
       audience,
       bodyText: bodyMarkdown,
       mergeFields: row.mergeFields,
@@ -162,7 +173,7 @@ export async function getPublicSignSession(rawToken: string): Promise<
     bodyMarkdown = versionFallback;
   }
 
-  const signFieldsResolved = await resolveSignerFormFields(row.definition.audience);
+  const signFieldsResolved = await resolveSignerFormFields(row.definition.tenantId, row.definition.audience);
 
   return {
     issuanceId: row.id,
@@ -197,6 +208,14 @@ export async function validateIssuanceWritable(rawToken: string) {
   if (!again?.definition) throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
 
   if (again.definition.isArchived) throw Object.assign(new Error('archived'), { code: 'forbidden' as const });
+  try {
+    await assertTenantAllowsPublicService(again.definition.tenantId);
+  } catch (e) {
+    if (e instanceof PublicTenantAccessError) {
+      throw Object.assign(new Error(e.message), { code: 'forbidden' as const });
+    }
+    throw e;
+  }
   if (!again.teamLeader?.isActive) throw Object.assign(new Error('inactive_signer'), { code: 'forbidden' as const });
   if (again.status === EContractIssuanceStatus.REVOKED)
     throw Object.assign(new Error('closed'), { code: 'gone' as const });
@@ -251,15 +270,20 @@ export async function completeSubmissionByToken(
   const submissionId = randomUUID();
   const signedAtDate = new Date();
 
-  const versionBodyWithAppendix = await composePublishedVersionHtmlWithLiveIssuer(issuance.version, {
-    submissionId,
-    signedAtIso: signedAtDate.toISOString(),
-  });
+  const versionBodyWithAppendix = await composePublishedVersionHtmlWithLiveIssuer(
+    issuance.definition!.tenantId,
+    issuance.version,
+    {
+      submissionId,
+      signedAtIso: signedAtDate.toISOString(),
+    },
+  );
 
   const bodyText = versionBodyWithAppendix;
   const audience = issuance.definition!.audience;
   const signerValues = input.signerValuesByToken ?? {};
   const valueMap = await buildExpansionValueMap({
+    tenantId: issuance.definition!.tenantId,
     audience,
     bodyText,
     mergeFields: issuance.mergeFields,

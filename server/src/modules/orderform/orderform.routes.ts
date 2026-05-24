@@ -29,11 +29,40 @@ import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { tenantIdForUserId } from '../tenants/tenant.service.js';
 import { createdAtRangeFromQuery, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
+import {
+  assertTenantAllowsPublicService,
+  PublicTenantAccessError,
+  publicTenantAccessHttpStatus,
+  validateOptionalPublicTenantSlug,
+} from '../tenants/publicTenantAccess.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
 
 const router = Router();
+
+function publicTenantSlugFromQuery(req: { query: Record<string, unknown> }): string | undefined {
+  const raw = req.query.tenant ?? req.query.tenantSlug;
+  return typeof raw === 'string' ? raw : undefined;
+}
+
+async function assertPublicOrderFormAccess(
+  tenantId: string,
+  req: { query: Record<string, unknown> },
+): Promise<void> {
+  await assertTenantAllowsPublicService(tenantId);
+  await validateOptionalPublicTenantSlug(tenantId, publicTenantSlugFromQuery(req));
+}
+
+function respondPublicTenantAccessError(res: import('express').Response, e: unknown): boolean {
+  if (e instanceof PublicTenantAccessError) {
+    res.status(publicTenantAccessHttpStatus(e.code)).json({ error: e.message });
+    return true;
+  }
+  return false;
+}
 
 const VALID_ORDER_TIME_SLOTS = new Set(['오전', '오후', '사이청소']);
 
@@ -436,7 +465,7 @@ const orderFormCreatedBySelect = {
 export const DESIGNER_PREVIEW_ORDER_TOKEN = 'skct_designer_preview_v1';
 
 /** 견적 설정·추가 옵션 반영해 미리보기 발주서 금액 동기화 (32평 기준) */
-async function upsertDesignerPreviewOrderForm(createdById: string) {
+async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: string) {
   const DEMO_PYEONG = 32;
   const ec = await prisma.estimateConfig.findFirst();
   const pricePer = ec?.pricePerPyeong ?? 8000;
@@ -455,6 +484,7 @@ async function upsertDesignerPreviewOrderForm(createdById: string) {
   if (!existing) {
     return prisma.orderForm.create({
       data: {
+        tenantId,
         token: DESIGNER_PREVIEW_ORDER_TOKEN,
         customerName: '미리보기(고객용)',
         customerPhone: '010-0000-0000',
@@ -473,9 +503,12 @@ async function upsertDesignerPreviewOrderForm(createdById: string) {
 
 /** 관리자/마케터: 고객 발주서 편집 화면용 고정 미리보기 토큰 (없으면 생성, 호출 시 금액 동기화) */
 router.get('/designer-preview-token', authMiddleware, adminOrMarketer, async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const { userId } = user;
   try {
-    const form = await upsertDesignerPreviewOrderForm(userId);
+    const form = await upsertDesignerPreviewOrderForm(userId, tenantId);
     res.json({ token: form.token });
   } catch (e) {
     console.error('[designer-preview-token]', e);
@@ -489,6 +522,9 @@ router.get('/designer-preview-token', authMiddleware, adminOrMarketer, async (re
  */
 /** 관리자/마케터: 발주서 목록 (발급일·담당·제출 상태 필터) */
 router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
   const q = req.query as Record<string, string | undefined>;
   const dateRange = createdAtRangeFromQuery({
     datePreset: q.datePreset,
@@ -505,6 +541,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
     submitStatusRaw === 'pending' || submitStatusRaw === 'submitted' ? submitStatusRaw : 'all';
 
   const where: Prisma.OrderFormWhereInput = {
+    tenantId,
     token: { not: DESIGNER_PREVIEW_ORDER_TOKEN },
   };
   if (dateRange) {
@@ -540,7 +577,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
       },
     }),
     prisma.user.findMany({
-      where: { isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
+      where: { tenantId, isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
       select: { id: true, name: true, email: true, role: true },
       orderBy: [{ role: 'asc' }, { name: 'asc' }],
     }),
@@ -560,13 +597,16 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
 
 /** 관리자/마케터: 고객 제출 원본 스냅샷(제출 시점 저장 JSON). 미제출이거나 레거시면 null */
 router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
   const rawId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
   if (!/^[0-9a-f-]{36}$/i.test(rawId)) {
     res.status(400).json({ error: '유효한 발주서 id가 필요합니다.' });
     return;
   }
   const row = await prisma.orderForm.findFirst({
-    where: { id: rawId, token: { not: DESIGNER_PREVIEW_ORDER_TOKEN } },
+    where: { id: rawId, tenantId, token: { not: DESIGNER_PREVIEW_ORDER_TOKEN } },
     select: { customerSubmissionSnapshot: true, submittedAt: true },
   });
   if (!row) {
@@ -581,12 +621,16 @@ router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (r
 
 /** 관리자/마케터: 접수 강제 매칭 후보(고객 제출 완료 발주서) */
 router.get('/force-match-candidates', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
   const q = req.query as Record<string, string | undefined>;
   const query = typeof q.query === 'string' ? q.query.trim() : '';
   const limitRaw = Number.parseInt(String(q.limit ?? '20'), 10);
   const limit = Number.isFinite(limitRaw) ? Math.min(60, Math.max(1, limitRaw)) : 20;
 
   const where: Prisma.OrderFormWhereInput = {
+    tenantId,
     submittedAt: { not: null },
   };
   if (query) {
@@ -642,7 +686,11 @@ router.get('/force-match-candidates', authMiddleware, adminOrMarketer, async (re
 /** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성). `pendingInquiryId` 있으면 대기 접수에 발주서 연결  
  * `POST /` 는 `POST /:id/delete` 보다 **먼저** 등록해야 루트 경로가 잘못 매칭되지 않습니다. */
 router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
-  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  const { userId, role, tenantId: authTenantId } = (req as unknown as { user: AuthPayload }).user;
+  if (!authTenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const {
     customerName,
     customerPhone: customerPhoneRaw,
@@ -715,6 +763,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
       const orderForm = await prisma.$transaction(async (tx) => {
         const created = await tx.orderForm.create({
           data: {
+            tenantId: authTenantId,
             token,
             customerName: customerName.trim(),
             customerPhone: customerPhoneOpt,
@@ -763,6 +812,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     const orderForm = await prisma.$transaction(async (tx) => {
       const created = await tx.orderForm.create({
         data: {
+          tenantId: authTenantId,
           token,
           customerName: customerName.trim(),
           customerPhone: customerPhoneOpt,
@@ -778,6 +828,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
       });
       await tx.inquiry.create({
         data: {
+          tenantId: authTenantId,
           customerName: customerName.trim(),
           customerPhone: customerPhoneOpt ?? '',
           address: STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER,
@@ -828,7 +879,10 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
 
 /** 관리자/마케터: 제출 완료 발주서를 기존 접수에 강제 매칭하고 접수 정보를 덮어쓴다. */
 router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (req, res) => {
-  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const { userId, role } = user;
   const { id: orderFormId } = req.params;
   const body = req.body as { inquiryId?: string };
   const inquiryId = typeof body.inquiryId === 'string' ? body.inquiryId.trim() : '';
@@ -838,8 +892,8 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
   }
 
   const [form, targetInquiry] = await Promise.all([
-    prisma.orderForm.findUnique({
-      where: { id: orderFormId },
+    prisma.orderForm.findFirst({
+      where: { id: orderFormId, tenantId },
       select: {
         id: true,
         token: true,
@@ -852,8 +906,8 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
         createdById: true,
       },
     }),
-    prisma.inquiry.findUnique({
-      where: { id: inquiryId },
+    prisma.inquiry.findFirst({
+      where: { id: inquiryId, tenantId },
       select: {
         id: true,
         customerPhone: true,
@@ -990,7 +1044,10 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
  *   (InquiryCleaningPhoto·Assignment 는 FK Cascade, InquiryChangeLog·CsReport 는 inquiryId SetNull)
  */
 router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => {
-  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const { userId, role } = user;
   const { id } = req.params;
   const body = req.body as { password?: string };
   const password = body.password != null ? String(body.password).trim() : '';
@@ -1013,8 +1070,8 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
     return;
   }
 
-  const form = await prisma.orderForm.findUnique({
-    where: { id },
+  const form = await prisma.orderForm.findFirst({
+    where: { id, tenantId },
     select: { id: true, createdById: true, submittedAt: true },
   });
   if (!form) {
@@ -1222,6 +1279,12 @@ router.get('/by-token/:token', async (req, res) => {
     res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
     return;
   }
+  try {
+    await assertPublicOrderFormAccess(form.tenantId, req);
+  } catch (e) {
+    if (respondPublicTenantAccessError(res, e)) return;
+    throw e;
+  }
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서입니다.' });
     return;
@@ -1342,6 +1405,13 @@ router.post('/submit/:token', async (req, res) => {
     res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
     return;
   }
+  try {
+    await assertPublicOrderFormAccess(form.tenantId, req);
+  } catch (e) {
+    if (respondPublicTenantAccessError(res, e)) return;
+    throw e;
+  }
+  const submitTenantId = form.tenantId;
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서입니다.' });
     return;
@@ -1547,7 +1617,7 @@ router.post('/submit/:token', async (req, res) => {
   if (existingPending) {
     await prisma.$transaction(async (tx) => {
       const inquiryNumber =
-        existingPending.inquiryNumber ?? (await allocateNextInquiryNumber(tx));
+        existingPending.inquiryNumber ?? (await allocateNextInquiryNumber(tx, submitTenantId));
       await tx.inquiry.update({
         where: { id: existingPending.id },
         data: {
@@ -1595,9 +1665,10 @@ router.post('/submit/:token', async (req, res) => {
     changedInquiryId = existingPending.id;
   } else {
     await prisma.$transaction(async (tx) => {
-      const inquiryNumber = await allocateNextInquiryNumber(tx);
+      const inquiryNumber = await allocateNextInquiryNumber(tx, submitTenantId);
       const createdInquiry = await tx.inquiry.create({
         data: {
+          tenantId: submitTenantId,
           inquiryNumber,
           createdById: form.createdById,
           customerName: body.customerName || form.customerName,
@@ -1663,6 +1734,7 @@ router.post('/submit/:token', async (req, res) => {
   });
   if (celebrateRow) {
     void notifyInquiryCelebrate({
+      tenantId: submitTenantId,
       createdById: celebrateRow.createdById,
       customerName: celebrateRow.customerName,
       inquiryNumber: celebrateRow.inquiryNumber,
@@ -1699,11 +1771,17 @@ router.get('/by-token/:token/photos', async (req, res) => {
   const { token } = req.params;
   const form = await prisma.orderForm.findUnique({
     where: { token },
-    select: { id: true },
+    select: { id: true, tenantId: true },
   });
   if (!form) {
     res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
     return;
+  }
+  try {
+    await assertPublicOrderFormAccess(form.tenantId, req);
+  } catch (e) {
+    if (respondPublicTenantAccessError(res, e)) return;
+    throw e;
   }
   const rows = await listOrderFormPhotos(form.id);
   res.json({ items: rows.map(serializeOrderFormPhoto) });
@@ -1721,11 +1799,17 @@ router.post('/by-token/:token/photos', photoUploadFields, async (req, res) => {
   const { token } = req.params;
   const form = await prisma.orderForm.findUnique({
     where: { token },
-    select: { id: true, submittedAt: true },
+    select: { id: true, tenantId: true, submittedAt: true },
   });
   if (!form) {
     res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
     return;
+  }
+  try {
+    await assertPublicOrderFormAccess(form.tenantId, req);
+  } catch (e) {
+    if (respondPublicTenantAccessError(res, e)) return;
+    throw e;
   }
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서는 사진을 변경할 수 없습니다.' });
@@ -1776,11 +1860,17 @@ router.delete('/by-token/:token/photos/:photoId', async (req, res) => {
   const { token, photoId } = req.params;
   const form = await prisma.orderForm.findUnique({
     where: { token },
-    select: { id: true, submittedAt: true },
+    select: { id: true, tenantId: true, submittedAt: true },
   });
   if (!form) {
     res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
     return;
+  }
+  try {
+    await assertPublicOrderFormAccess(form.tenantId, req);
+  } catch (e) {
+    if (respondPublicTenantAccessError(res, e)) return;
+    throw e;
   }
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서는 사진을 변경할 수 없습니다.' });

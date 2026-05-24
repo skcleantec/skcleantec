@@ -116,7 +116,7 @@ function emptyEditForm(): EditFormState {
 
 export function AdminTeamLeadersPage() {
   const token = getToken();
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isTenantOwner, setIsTenantOwner] = useState(false);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,11 +156,11 @@ export function AdminTeamLeadersPage() {
   useEffect(() => {
     if (!token) return;
     getMe(token)
-      .then((u: { isSuperAdmin?: boolean }) => {
-        setIsSuperAdmin(Boolean(u.isSuperAdmin));
+      .then((u: { isTenantOwner?: boolean; isSuperAdmin?: boolean }) => {
+        setIsTenantOwner(Boolean(u.isTenantOwner ?? u.isSuperAdmin));
       })
       .catch(() => {
-        setIsSuperAdmin(false);
+        setIsTenantOwner(false);
       });
   }, [token]);
 
@@ -323,7 +323,7 @@ export function AdminTeamLeadersPage() {
       if (editForm.password.trim()) {
         payload.password = editForm.password.trim();
       }
-      if (isSuperAdmin) {
+      if (isTenantOwner) {
         payload.hireDate = editForm.hireDate.trim() || null;
         payload.resignationDate = editForm.resignationDate.trim() || null;
       }
@@ -1286,7 +1286,7 @@ export function AdminTeamLeadersPage() {
                     </div>
                   </div>
                 )}
-                {isSuperAdmin && (
+                {isTenantOwner && (
                   <>
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">입사일 (포함)</label>

@@ -19,6 +19,7 @@ import {
   payrollCyclePreferredDateWhere,
 } from './teamMemberPayrollCycle.js';
 import { computeCrewSpacingByPoolMemberName } from './crewLeaderMemberSpacing.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router();
 
@@ -186,13 +187,19 @@ router.get('/', async (_req, res) => {
 
 /** 팀 생성 (팀장당 1팀) */
 router.post('/', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { teamLeaderId, memo } = req.body as { teamLeaderId?: string; memo?: string | null };
   if (!teamLeaderId || typeof teamLeaderId !== 'string') {
     res.status(400).json({ error: 'teamLeaderId가 필요합니다.' });
     return;
   }
   const leader = await prisma.user.findFirst({
-    where: { id: teamLeaderId, role: 'TEAM_LEADER' },
+    where: { id: teamLeaderId, tenantId, role: 'TEAM_LEADER' },
     select: { id: true, hireDate: true, resignationDate: true },
   });
   if (!leader) {
@@ -203,13 +210,14 @@ router.post('/', async (req, res) => {
     res.status(400).json({ error: '입사·퇴사 기간에 해당하지 않는 팀장은 팀에 할당할 수 없습니다.' });
     return;
   }
-  const existing = await prisma.team.findUnique({ where: { teamLeaderId } });
+  const existing = await prisma.team.findFirst({ where: { teamLeaderId, tenantId } });
   if (existing) {
     res.status(409).json({ error: '이 팀장에게 이미 팀이 등록되어 있습니다.' });
     return;
   }
   const team = await prisma.team.create({
     data: {
+      tenantId,
       teamLeaderId,
       memo: memo != null && memo !== '' ? String(memo) : null,
     },

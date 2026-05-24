@@ -44,6 +44,7 @@ type LineDraft = Omit<PayrollAccountLedgerLine, 'runningAll' | 'runningCash'>;
 
 export async function buildPayrollAccountLedger(
   prisma: PrismaClient,
+  tenantId: string,
   monthKey: string,
 ): Promise<{
   month: string;
@@ -63,6 +64,7 @@ export async function buildPayrollAccountLedger(
   }
 
   const statusWhere = {
+    tenantId,
     preferredDate: { gte: range.gte, lte: range.lte },
     status: { notIn: [InquiryStatus.CANCELLED, InquiryStatus.ON_HOLD] },
   };
@@ -80,24 +82,27 @@ export async function buildPayrollAccountLedger(
     manualLedgerEntries,
   ] = await Promise.all([
     prisma.payrollIncomeDeposit.findMany({
-      where: { monthKey },
+      where: { tenantId, monthKey },
       orderBy: [{ depositedOn: 'asc' }, { createdAt: 'asc' }],
     }),
     prisma.externalCompanySettlementPayment.findMany({
-      where: { paidAt: { gte: range.gte, lte: range.lte } },
+      where: {
+        paidAt: { gte: range.gte, lte: range.lte },
+        externalCompany: { tenantId },
+      },
       orderBy: [{ paidAt: 'asc' }, { id: 'asc' }],
       include: { externalCompany: { select: { name: true } } },
     }),
     prisma.payrollAdminPersonalExpense.findMany({
-      where: { monthKey },
+      where: { tenantId, monthKey },
       orderBy: [{ createdAt: 'asc' }],
     }),
     prisma.payrollAdminSharedExpense.findMany({
-      where: { monthKey },
+      where: { tenantId, monthKey },
       orderBy: [{ createdAt: 'asc' }],
     }),
     prisma.teamCrewGroupExpense.findMany({
-      where: { monthKey },
+      where: { monthKey, group: { tenantId } },
       orderBy: [{ createdAt: 'asc' }],
       include: {
         teamMember: { select: { name: true } },
@@ -105,17 +110,23 @@ export async function buildPayrollAccountLedger(
       },
     }),
     prisma.teamLeaderPayrollPayment.findMany({
-      where: { monthKey },
+      where: { monthKey, user: { tenantId } },
       orderBy: [{ paidOn: 'asc' }, { createdAt: 'asc' }],
       include: { user: { select: { name: true } } },
     }),
     prisma.teamMemberPayrollSettlement.findMany({
-      where: { monthKey },
+      where: {
+        monthKey,
+        OR: [
+          { teamMember: { team: { tenantId } } },
+          { teamMember: { crewGroupMembers: { some: { group: { tenantId } } } } },
+        ],
+      },
       orderBy: [{ settledAt: 'asc' }],
       include: { teamMember: { select: { name: true } } },
     }),
     prisma.marketerPayrollSettlement.findMany({
-      where: { monthKey },
+      where: { monthKey, user: { tenantId } },
       orderBy: [{ settledAt: 'asc' }],
       include: { user: { select: { name: true } } },
     }),
@@ -127,7 +138,7 @@ export async function buildPayrollAccountLedger(
       select: { preferredDate: true, serviceTotalAmount: true },
     }),
     prisma.payrollAccountLedgerManualEntry.findMany({
-      where: { monthKey },
+      where: { tenantId, monthKey },
       orderBy: [{ occurredOn: 'asc' }, { createdAt: 'asc' }],
       include: {
         linkTeamMember: { select: { name: true } },

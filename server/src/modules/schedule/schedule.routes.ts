@@ -11,8 +11,19 @@ import {
   mergeRefreshedInquiryGeoFields,
 } from '../inquiries/inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from '../inquiries/inquiryJuanDistance.js';
+import type { AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router();
+
+function tenantFromReq(req: import('express').Request, res: import('express').Response): string | null {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return null;
+  }
+  return tenantId;
+}
 
 router.use(authMiddleware);
 router.use(adminOrMarketer);
@@ -104,6 +115,8 @@ function rangeFromQuery(start?: string, end?: string) {
 }
 
 router.get('/', async (req, res) => {
+  const tenantId = tenantFromReq(req, res);
+  if (!tenantId) return;
   const { start, end, lite } = req.query as { start?: string; end?: string; lite?: string };
   const useLite = lite === '1' || lite === 'true';
   const { startDate, endDate } = rangeFromQuery(
@@ -113,6 +126,7 @@ router.get('/', async (req, res) => {
 
   const baseArgs = {
     where: {
+      tenantId,
       preferredDate: { gte: startDate, lte: endDate },
       /** 취소·보류·대기 포함 — 화면에서 배지로 구분(가용 집계는 schedule-stats에서 취소·보류 제외) */
     },
@@ -166,6 +180,8 @@ router.get('/', async (req, res) => {
 
 /** 관리자: 해당일 일정 마감(범위별 잔여 슬롯·TO 조정) */
 router.post('/closures', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = tenantFromReq(req, res);
+  if (!tenantId) return;
   const { date, scope } = req.body as {
     date?: string;
     scope?: 'FULL' | 'MORNING' | 'AFTERNOON';
@@ -178,26 +194,30 @@ router.post('/closures', authMiddleware, adminOnly, async (req, res) => {
     scope === 'MORNING' || scope === 'AFTERNOON' || scope === 'FULL' ? scope : 'FULL';
   const d = new Date(`${date}T12:00:00+09:00`);
   await prisma.scheduleDayClosure.upsert({
-    where: { date: d },
-    create: { date: d, scope: scopeVal },
+    where: { tenantId_date: { tenantId, date: d } },
+    create: { tenantId, date: d, scope: scopeVal },
     update: { scope: scopeVal },
   });
   res.json({ ok: true });
 });
 
 router.delete('/closures', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = tenantFromReq(req, res);
+  if (!tenantId) return;
   const { date } = req.query as { date?: string };
   if (!date || !YMD.test(date)) {
     res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)가 필요합니다.' });
     return;
   }
   const d = new Date(`${date}T12:00:00+09:00`);
-  await prisma.scheduleDayClosure.deleteMany({ where: { date: d } });
+  await prisma.scheduleDayClosure.deleteMany({ where: { tenantId, date: d } });
   res.json({ ok: true });
 });
 
 /** 관리자: 해당일 가용 팀장·팀원 편집용 데이터 */
 router.get('/day-availability', async (req, res) => {
+  const tenantId = tenantFromReq(req, res);
+  if (!tenantId) return;
   const { date } = req.query as { date?: string };
   if (!date || !YMD.test(date)) {
     res.status(400).json({ error: 'date(yyyy-mm-dd)가 필요합니다.' });
@@ -207,22 +227,25 @@ router.get('/day-availability', async (req, res) => {
 
   const [teamLeadersRaw, members, leaderDayOffs, leaderSlots, memberSlots, closure] = await Promise.all([
     prisma.user.findMany({
-      where: { role: 'TEAM_LEADER', isActive: true },
+      where: { tenantId, role: 'TEAM_LEADER', isActive: true },
       select: { id: true, name: true, hireDate: true, resignationDate: true },
       orderBy: { name: 'asc' },
     }),
     prisma.teamMember.findMany({
-      where: { isActive: true },
+      where: { isActive: true, team: { tenantId } },
       select: { id: true, name: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     }),
     prisma.userDayOff.findMany({
-      where: { date: d },
+      where: { date: d, teamLeader: { tenantId } },
       select: { teamLeaderId: true },
     }),
-    prisma.scheduleDayLeaderSlot.findMany({ where: { date: d } }),
-    prisma.scheduleDayTeamMemberSlot.findMany({ where: { date: d } }),
-    prisma.scheduleDayClosure.findUnique({ where: { date: d }, select: { scope: true } }),
+    prisma.scheduleDayLeaderSlot.findMany({ where: { tenantId, date: d } }),
+    prisma.scheduleDayTeamMemberSlot.findMany({ where: { tenantId, date: d } }),
+    prisma.scheduleDayClosure.findUnique({
+      where: { tenantId_date: { tenantId, date: d } },
+      select: { scope: true },
+    }),
   ]);
 
   const ymdForDay = dateToYmdKst(d);
@@ -297,6 +320,8 @@ router.get('/day-availability', async (req, res) => {
 
 /** 관리자: 해당일 가용 팀장·팀원 수동 설정(전체 교체) */
 router.put('/day-availability', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = tenantFromReq(req, res);
+  if (!tenantId) return;
   const body = req.body as {
     date?: string;
     leaders?: Array<{
@@ -327,11 +352,12 @@ router.put('/day-availability', authMiddleware, adminOnly, async (req, res) => {
   };
 
   await prisma.$transaction(async (tx) => {
-    await tx.scheduleDayLeaderSlot.deleteMany({ where: { date: d } });
-    await tx.scheduleDayTeamMemberSlot.deleteMany({ where: { date: d } });
+    await tx.scheduleDayLeaderSlot.deleteMany({ where: { tenantId, date: d } });
+    await tx.scheduleDayTeamMemberSlot.deleteMany({ where: { tenantId, date: d } });
     if (leaders.length > 0) {
       await tx.scheduleDayLeaderSlot.createMany({
         data: leaders.map((l) => ({
+          tenantId,
           date: d,
           teamLeaderId: l.teamLeaderId,
           morningAvailable: l.morningAvailable,
@@ -343,6 +369,7 @@ router.put('/day-availability', authMiddleware, adminOnly, async (req, res) => {
     if (members.length > 0) {
       await tx.scheduleDayTeamMemberSlot.createMany({
         data: members.map((m) => ({
+          tenantId,
           date: d,
           teamMemberId: m.teamMemberId,
           available: m.available,

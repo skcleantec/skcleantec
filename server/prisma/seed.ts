@@ -1,11 +1,39 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { seedProfessionalDefaults } from '../src/modules/orderform/defaultProfessionalOptions.js';
+import { DEFAULT_TENANT_ID, DEFAULT_TENANT_SLUG } from '../src/modules/tenants/tenant.constants.js';
 
 const prisma = new PrismaClient();
 
 async function main() {
   const hash = await bcrypt.hash('1234', 10);
+
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: DEFAULT_TENANT_SLUG },
+    update: { name: 'SK클린텍', status: 'ACTIVE', plan: 'premium' },
+    create: {
+      id: DEFAULT_TENANT_ID,
+      slug: DEFAULT_TENANT_SLUG,
+      name: 'SK클린텍',
+      status: 'ACTIVE',
+      plan: 'premium',
+    },
+  });
+  console.log('Tenant:', tenant.slug);
+
+  const platformEmail = (process.env.PLATFORM_ADMIN_EMAIL ?? 'pyo').trim().toLowerCase();
+  const platformUser = await prisma.platformUser.upsert({
+    where: { email: platformEmail },
+    update: { passwordHash: hash, isActive: true, name: '플랫폼 관리자', role: 'SUPER_ADMIN' },
+    create: {
+      email: platformEmail,
+      passwordHash: hash,
+      name: '플랫폼 관리자',
+      role: 'SUPER_ADMIN',
+    },
+  });
+  console.log('PlatformUser:', platformUser.email);
+
   /**
    * 데모/테스트 데이터는 명시적으로 켠 환경에서만 주입한다.
    * (배포 환경에서 NODE_ENV 미설정 시 재생성되는 문제 방지)
@@ -14,26 +42,30 @@ async function main() {
 
   // 관리자 (항상 생성/업데이트)
   const admin = await prisma.user.upsert({
-    where: { email: 'admin' },
-    update: { passwordHash: hash, isActive: true },
+    where: { tenantId_email: { tenantId: tenant.id, email: 'admin' } },
+    update: { passwordHash: hash, isActive: true, isTenantOwner: true },
     create: {
+      tenantId: tenant.id,
       email: 'admin',
       passwordHash: hash,
       name: '관리자',
       role: 'ADMIN',
+      isTenantOwner: true,
     },
   });
   console.log('Admin:', admin.email);
 
   /** 보조 관리자 계정 — 팀장 화면 미리보기 등 (TEAM_PREVIEW_ADMIN_EMAILS 기본값과 맞출 것) */
   const adminPyo = await prisma.user.upsert({
-    where: { email: 'pyo' },
-    update: { passwordHash: hash, isActive: true, role: 'ADMIN', name: '표마왕' },
+    where: { tenantId_email: { tenantId: tenant.id, email: 'pyo' } },
+    update: { passwordHash: hash, isActive: true, role: 'ADMIN', name: '표마왕', isTenantOwner: true },
     create: {
+      tenantId: tenant.id,
       email: 'pyo',
       passwordHash: hash,
       name: '표마왕',
       role: 'ADMIN',
+      isTenantOwner: true,
     },
   });
   console.log('관리자(표마왕·팀장 미리보기):', adminPyo.email);
@@ -41,7 +73,10 @@ async function main() {
   /** 레거시 admin2 계정 제거 — 발주서·로그 등 참조는 pyo 로 이전 */
   try {
     await prisma.$transaction(async (tx) => {
-      const legacy = await tx.user.findUnique({ where: { email: 'admin2' }, select: { id: true } });
+      const legacy = await tx.user.findFirst({
+        where: { tenantId: tenant.id, email: 'admin2' },
+        select: { id: true },
+      });
       if (!legacy) return;
       const fromId = legacy.id;
       const toId = adminPyo.id;
@@ -94,9 +129,10 @@ async function main() {
     ];
     for (const t of teamLeaders) {
       const created = await prisma.user.upsert({
-        where: { email: t.email },
+        where: { tenantId_email: { tenantId: tenant.id, email: t.email } },
         update: { name: t.name, phone: t.phone, isActive: true, role: 'TEAM_LEADER' },
         create: {
+          tenantId: tenant.id,
           email: t.email,
           passwordHash: hash,
           name: t.name,
@@ -141,9 +177,10 @@ async function main() {
     const marketers = [{ email: 'marketer@skcleanteck.com', name: '홍마케터', phone: '010-5555-6666' }];
     for (const m of marketers) {
       const created = await prisma.user.upsert({
-        where: { email: m.email },
+        where: { tenantId_email: { tenantId: tenant.id, email: m.email } },
         update: {},
         create: {
+          tenantId: tenant.id,
           email: m.email,
           passwordHash: hash,
           name: m.name,
@@ -288,14 +325,11 @@ async function main() {
   }
 
   try {
-    const defaults = ['네이버', '인스타그램', '배너', '기타'];
-    let order = 0;
-    for (const name of defaults) {
-      const existing = await prisma.adChannel.findFirst({ where: { name } });
-      if (!existing) {
-        await prisma.adChannel.create({ data: { name, sortOrder: order++ } });
-      }
-    }
+    const { ensureDefaultAdChannelsForTenant } = await import(
+      '../src/modules/advertising/defaultAdChannels.js'
+    );
+    const { DEFAULT_TENANT_ID } = await import('../src/modules/tenants/tenant.constants.js');
+    await ensureDefaultAdChannelsForTenant(prisma, DEFAULT_TENANT_ID);
     console.log('AdChannel: default channels ensured');
   } catch {
     console.log('AdChannel: skip (run db:push first)');

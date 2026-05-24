@@ -36,7 +36,7 @@ export function DashboardChangeHistory({ token }: Props) {
   const [fullTotal, setFullTotal] = useState(0);
   const [filterName, setFilterName] = useState('');
   const [fullLoading, setFullLoading] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isTenantOwner, setIsTenantOwner] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ChangeHistoryItem | null>(null);
   const [pwdOpen, setPwdOpen] = useState(false);
 
@@ -55,8 +55,10 @@ export function DashboardChangeHistory({ token }: Props) {
 
   useEffect(() => {
     getMe(token)
-      .then((u: { isSuperAdmin?: boolean }) => setIsSuperAdmin(Boolean(u.isSuperAdmin)))
-      .catch(() => setIsSuperAdmin(false));
+      .then((u: { isTenantOwner?: boolean; isSuperAdmin?: boolean }) =>
+        setIsTenantOwner(Boolean(u.isTenantOwner ?? u.isSuperAdmin)),
+      )
+      .catch(() => setIsTenantOwner(false));
   }, [token]);
 
   async function openModal() {
@@ -129,7 +131,7 @@ export function DashboardChangeHistory({ token }: Props) {
             <li key={row.id} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
               <div className="flex items-start justify-between gap-2">
                 <span className="flex-1 break-words">{oneLineSummary(row)}</span>
-                {isSuperAdmin && (
+                {isTenantOwner && (
                   <button
                     type="button"
                     className="shrink-0 text-fluid-xs text-red-600 hover:underline"
@@ -199,7 +201,7 @@ export function DashboardChangeHistory({ token }: Props) {
                           ))}
                         </ul>
                       </div>
-                      {isSuperAdmin && (
+                      {isTenantOwner && (
                         <button
                           type="button"
                           className="shrink-0 text-fluid-xs text-red-600 hover:underline"

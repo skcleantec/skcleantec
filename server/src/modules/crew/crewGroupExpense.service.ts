@@ -155,9 +155,9 @@ export async function deleteCrewGroupExpense(crewGroupId: string, expenseId: str
   return true;
 }
 
-export async function listAdminCrewExpensesForMonth(monthKey: string) {
+export async function listAdminCrewExpensesForMonth(tenantId: string, monthKey: string) {
   return prisma.teamCrewGroupExpense.findMany({
-    where: { monthKey },
+    where: { monthKey, group: { tenantId } },
     orderBy: [{ createdAt: 'desc' }],
     select: {
       id: true,
@@ -176,9 +176,9 @@ export async function listAdminCrewExpensesForMonth(monthKey: string) {
   });
 }
 
-export async function getAdminCrewExpenseDetail(expenseId: string) {
-  return prisma.teamCrewGroupExpense.findUnique({
-    where: { id: expenseId },
+export async function getAdminCrewExpenseDetail(tenantId: string, expenseId: string) {
+  return prisma.teamCrewGroupExpense.findFirst({
+    where: { id: expenseId, group: { tenantId } },
     include: {
       group: { select: { id: true, name: true } },
       teamMember: { select: { id: true, name: true, nameTh: true } },

@@ -17,6 +17,8 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { csCreatedAtRangeFromQuery } from './csListDateRange.js';
 import type { Prisma } from '@prisma/client';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { DEFAULT_TENANT_ID } from '../tenants/tenant.constants.js';
 
 const router = Router();
 
@@ -75,8 +77,17 @@ router.post('/submit', async (req, res) => {
   }
   const urls = Array.isArray(imageUrls) ? imageUrls : [];
   const inquiryId = await findInquiryIdForCsReport(customerName.trim(), customerPhone.trim());
+  let tenantId = DEFAULT_TENANT_ID;
+  if (inquiryId) {
+    const inv = await prisma.inquiry.findUnique({
+      where: { id: inquiryId },
+      select: { tenantId: true },
+    });
+    if (inv?.tenantId) tenantId = inv.tenantId;
+  }
   const report = await prisma.csReport.create({
     data: {
+      tenantId,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       content: content.trim(),
@@ -95,6 +106,12 @@ router.post('/submit', async (req, res) => {
 
 /** 관리자·마케터: C/S 목록 (접수일 필터·페이지네이션) */
 router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const q = req.query as Record<string, string | undefined>;
   const range = csCreatedAtRangeFromQuery({
     datePreset: q.datePreset,
@@ -102,6 +119,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
     day: q.day,
   });
   const where: Prisma.CsReportWhereInput = {
+    tenantId,
     createdAt: { gte: range.gte, lte: range.lte },
   };
   const parsedLimit = Number.parseInt(String(q.limit ?? '30'), 10);
@@ -123,21 +141,33 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자·마케터: 미처리(접수) C/S 건수 — 상단 메뉴 배지용 */
-router.get('/pending-count', authMiddleware, adminOrMarketer, async (_req, res) => {
-  const count = await prisma.csReport.count({ where: { status: 'RECEIVED' } });
+router.get('/pending-count', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const count = await prisma.csReport.count({ where: { tenantId, status: 'RECEIVED' } });
   res.json({ count });
 });
 
 /** 관리자·마케터: C/S를 팀장/타업체 계정에 전달(또는 전달 해제). 접수 미연결·미배정 건 대응 */
 router.post('/:id/forward', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
   const body = req.body as { userId?: unknown };
   const raw = body.userId;
   const nextId =
     raw === null || raw === undefined || raw === '' ? null : String(raw).trim() || null;
 
-  const existing = await prisma.csReport.findUnique({
-    where: { id },
+  const existing = await prisma.csReport.findFirst({
+    where: { id, tenantId },
     select: { id: true, inquiryId: true, forwardedToUserId: true },
   });
   if (!existing) {
@@ -149,6 +179,7 @@ router.post('/:id/forward', authMiddleware, adminOrMarketer, async (req, res) =>
     const u = await prisma.user.findFirst({
       where: {
         id: nextId,
+        tenantId,
         isActive: true,
         role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER'] },
       },
@@ -179,9 +210,15 @@ router.post('/:id/forward', authMiddleware, adminOrMarketer, async (req, res) =>
 
 /** 관리자·마케터: C/S 상세 */
 router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
-  const item = await prisma.csReport.findUnique({
-    where: { id },
+  const item = await prisma.csReport.findFirst({
+    where: { id, tenantId },
     include: csReportFullInclude,
   });
   if (!item) {
@@ -195,13 +232,18 @@ router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
 router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const { id } = req.params;
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const body = req.body as {
     status?: string;
     memo?: string | null;
     completionMethod?: string | null;
     asServiceDate?: string | null;
   };
-  const item = await prisma.csReport.findUnique({ where: { id } });
+  const item = await prisma.csReport.findFirst({ where: { id, tenantId } });
   if (!item) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
     return;

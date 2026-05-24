@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 import type { InquiryStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import {
   createdAtRangeFromQuery,
@@ -118,6 +119,11 @@ router.get('/marketer-overview', async (_req, res) => {
 
 router.get('/', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const {
     status,
     limit = '200',
@@ -137,7 +143,7 @@ router.get('/', async (req, res) => {
     day: typeof day === 'string' ? day : undefined,
   });
 
-  const andClauses: Prisma.InquiryWhereInput[] = [];
+  const andClauses: Prisma.InquiryWhereInput[] = [{ tenantId }];
   /** 접수일 구간 + 「미제출」은 발주서 발급일이 구간 안이면 포함(예: 예전 접수에 오늘 링크 발급 시 목록에 보이게) */
   if (range) {
     andClauses.push({
@@ -323,6 +329,12 @@ router.get('/', async (req, res) => {
 
 /** 관리자만 — 접수일(createdAt) KST 하루 단위 영구 삭제 (배정·이력·현장사진 연쇄 삭제) */
 router.post('/admin/bulk-delete-by-day', adminOrMarketer, async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(auth);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const body = req.body as { day?: string; password?: unknown };
   const day = typeof body.day === 'string' ? body.day.trim() : '';
   const range = kstDayRangeYmd(day);
@@ -332,13 +344,19 @@ router.post('/admin/bulk-delete-by-day', adminOrMarketer, async (req, res) => {
   }
   if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
   const del = await prisma.inquiry.deleteMany({
-    where: { createdAt: { gte: range.gte, lte: range.lte } },
+    where: { tenantId, createdAt: { gte: range.gte, lte: range.lte } },
   });
   res.json({ deleted: del.count });
 });
 
 /** 관리자만 — 접수일(createdAt) KST 해당 월 영구 삭제 */
 router.post('/admin/bulk-delete-by-month', adminOrMarketer, async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(auth);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const body = req.body as { month?: string; password?: unknown };
   const month = typeof body.month === 'string' ? body.month.trim() : '';
   const range = kstMonthRangeYm(month);
@@ -348,16 +366,22 @@ router.post('/admin/bulk-delete-by-month', adminOrMarketer, async (req, res) => 
   }
   if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
   const del = await prisma.inquiry.deleteMany({
-    where: { createdAt: { gte: range.gte, lte: range.lte } },
+    where: { tenantId, createdAt: { gte: range.gte, lte: range.lte } },
   });
   res.json({ deleted: del.count });
 });
 
 /** 단일 접수 상세 (목록 항목과 동일 include — 딥링크·C/S 연결 등) */
 router.get('/:id', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
-  const inquiry = await prisma.inquiry.findUnique({
-    where: { id },
+  const inquiry = await prisma.inquiry.findFirst({
+    where: { id, tenantId },
     include: inquiryDetailInclude,
   });
   if (!inquiry) {
@@ -365,8 +389,8 @@ router.get('/:id', async (req, res) => {
     return;
   }
   await syncInquiryAddressGeo(prisma, id);
-  const inquiryFresh = await prisma.inquiry.findUnique({
-    where: { id },
+  const inquiryFresh = await prisma.inquiry.findFirst({
+    where: { id, tenantId },
     include: inquiryDetailInclude,
   });
   if (!inquiryFresh) {
@@ -387,11 +411,17 @@ router.post('/:id/swap-crew-with-partner', handlePostSwapCrewWithPartner);
 
 /** 관리자만 — 비밀번호 확인 후 접수 영구 삭제 */
 router.delete('/:id', adminOrMarketer, async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(auth);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
   const body = req.body as { password?: string };
   if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
 
-  const existing = await prisma.inquiry.findUnique({ where: { id } });
+  const existing = await prisma.inquiry.findFirst({ where: { id, tenantId } });
   if (!existing) {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
@@ -416,8 +446,13 @@ router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const body = req.body as Record<string, unknown>;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const inquiry = await prisma.inquiry.findUnique({
-    where: { id },
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const inquiry = await prisma.inquiry.findFirst({
+    where: { id, tenantId },
     include: {
       orderForm: {
         select: { id: true, createdById: true, submittedAt: true, customerSpecialNotes: true },
@@ -786,7 +821,7 @@ router.patch('/:id', async (req, res) => {
       const statusAfterPatch =
         updateData.status !== undefined ? (updateData.status as InquiryStatus) : inquiry.status;
       if (statusAfterPatch === 'DEPOSIT_PENDING' && inquiry.inquiryNumber == null) {
-        updateData.inquiryNumber = await allocateNextInquiryNumber(tx);
+        updateData.inquiryNumber = await allocateNextInquiryNumber(tx, tenantId);
       }
       /** 구데이터: 제출 발주서인데 고객 특이사항이 접수 specialNotes에만 있음 → 관리자가 팀 공유 메모를 처음 저장할 때 발주서 customer_special_notes로 옮김 */
       if (updateData.specialNotes !== undefined && inquiry.orderForm?.id && inquiry.orderForm.submittedAt) {
@@ -810,6 +845,7 @@ router.patch('/:id', async (req, res) => {
         if (teamLeaderIds.length > 0) {
           await tx.assignment.createMany({
             data: teamLeaderIds.map((teamLeaderId, sortOrder) => ({
+              tenantId,
               inquiryId: id,
               teamLeaderId,
               assignedById: user.userId,
@@ -843,6 +879,7 @@ router.patch('/:id', async (req, res) => {
         if (openCsCount === 0) {
           await tx.csReport.create({
             data: {
+              tenantId,
               inquiryId: id,
               customerName: mergedCustomerName || inquiry.customerName,
               customerPhone: mergedCustomerPhone || inquiry.customerPhone,
@@ -936,6 +973,11 @@ const CREATE_STATUSES: InquiryStatus[] = [
 router.post('/', async (req, res) => {
   const body = req.body as Record<string, unknown>;
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const rawStatus = body.status != null ? String(body.status) : '';
   const status: InquiryStatus =
     rawStatus && CREATE_STATUSES.includes(rawStatus as InquiryStatus)
@@ -956,9 +998,10 @@ router.post('/', async (req, res) => {
 
   const inquiry = await prisma.$transaction(async (tx) => {
     const inquiryNumber =
-      status === 'DEPOSIT_PENDING' ? await allocateNextInquiryNumber(tx) : null;
+      status === 'DEPOSIT_PENDING' ? await allocateNextInquiryNumber(tx, tenantId) : null;
     return tx.inquiry.create({
       data: {
+        tenantId,
         inquiryNumber,
         createdById: user?.userId ?? null,
         customerName: String(body.customerName ?? ''),
@@ -991,6 +1034,7 @@ router.post('/', async (req, res) => {
     });
   });
   void notifyInquiryCelebrate({
+    tenantId,
     createdById: inquiry.createdById,
     customerName: inquiry.customerName,
     inquiryNumber: inquiry.inquiryNumber,

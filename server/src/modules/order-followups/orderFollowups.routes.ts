@@ -18,6 +18,8 @@ import {
 import { canAdminOrMarketerViewInquiry } from '../inquiry-cleaning-photos/inquiryCleaningPhotos.access.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
+import { tenantIdForUserId } from '../tenants/tenant.service.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router();
 
@@ -42,7 +44,7 @@ async function syncInquiryWhenFollowupDepositPending(inquiryId: string): Promise
   await prisma.$transaction(async (tx) => {
     const inv = await tx.inquiry.findUnique({
       where: { id: inquiryId },
-      select: { status: true, inquiryNumber: true },
+      select: { status: true, inquiryNumber: true, tenantId: true },
     });
     if (!inv || inv.status === 'CANCELLED') return;
     if (
@@ -59,7 +61,7 @@ async function syncInquiryWhenFollowupDepositPending(inquiryId: string): Promise
       status: 'DEPOSIT_PENDING',
     };
     if (inv.inquiryNumber == null) {
-      data.inquiryNumber = await allocateNextInquiryNumber(tx);
+      data.inquiryNumber = await allocateNextInquiryNumber(tx, inv.tenantId);
     }
     await tx.inquiry.update({ where: { id: inquiryId }, data });
   });
@@ -99,13 +101,18 @@ async function createInquiryForDepositFlow(params: {
   memo: string | null;
   followupStatus: DepositFlowStatus;
 }): Promise<string> {
+  const tenantId = await tenantIdForUserId(params.actorId);
+  if (!tenantId) {
+    throw new Error('접수 생성에 필요한 업체 정보를 찾을 수 없습니다.');
+  }
   return prisma.$transaction(async (tx) => {
     const inquiryStatus =
       params.followupStatus === 'DEPOSIT_PENDING' ? 'DEPOSIT_PENDING' : 'DEPOSIT_COMPLETED';
     const inquiryNumber =
-      inquiryStatus === 'DEPOSIT_PENDING' ? await allocateNextInquiryNumber(tx) : null;
+      inquiryStatus === 'DEPOSIT_PENDING' ? await allocateNextInquiryNumber(tx, tenantId) : null;
     const created = await tx.inquiry.create({
       data: {
+        tenantId,
         inquiryNumber,
         createdById: params.actorId,
         customerName: params.customerName,
@@ -129,6 +136,11 @@ async function createInquiryForDepositFlow(params: {
 
 router.get('/', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const includeFulfilled = req.query.includeFulfilled === '1' || req.query.includeFulfilled === 'true';
   const statusFilter = parseStatus(req.query.status);
   const customerName =
@@ -152,7 +164,7 @@ router.get('/', async (req, res) => {
       return;
     }
   }
-  const where: import('@prisma/client').Prisma.OrderFollowupWhereInput = {};
+  const where: import('@prisma/client').Prisma.OrderFollowupWhereInput = { tenantId };
   /** 부재·보류 화면은 항상 부재/보류 상태만 조회한다. */
   const absHoldOnly: import('@prisma/client').Prisma.OrderFollowupWhereInput = {
     status: { in: ['REQUESTED', 'ABSENT', 'ON_HOLD'] },
@@ -260,6 +272,11 @@ router.get('/:id/logs', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const body = req.body as Record<string, unknown>;
   const customerName = typeof body.customerName === 'string' ? body.customerName.trim() : '';
   const nickname = typeof body.nickname === 'string' ? body.nickname.trim() || null : null;
@@ -308,6 +325,7 @@ router.post('/', async (req, res) => {
   }
   const row = await prisma.orderFollowup.create({
     data: {
+      tenantId,
       customerName,
       nickname,
       customerPhone,

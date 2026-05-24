@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { InquiryStatus, PayrollAccountLedgerManualDirection, PayrollLedgerManualPayrollLinkKind, Prisma, TeamLeaderPayrollPaymentBucket, TeamLeaderGeneralSettlementMode } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
   payYmdInMonth,
@@ -53,6 +54,15 @@ import {
 const router = Router();
 
 router.use(authMiddleware, adminOnly);
+router.use((req, res, next) => {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  (req as unknown as TenantScopedRequest).tenantId = tenantId;
+  next();
+});
 
 const MONTH_KEY = /^\d{4}-\d{2}$/;
 
@@ -69,6 +79,7 @@ router.get('/expense-forward', async (_req, res) => {
 /** 접수 예약일(KST 월)·상태 기준 서비스 총액 합계 — 급여표 「수입」 탭용 */
 router.get('/income-summary', async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as unknown as TenantScopedRequest).tenantId;
     const monthKey = typeof req.query.month === 'string' ? req.query.month.trim() : '';
     if (!MONTH_KEY.test(monthKey)) {
       res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
@@ -81,6 +92,7 @@ router.get('/income-summary', async (req: Request, res: Response) => {
     }
 
     const statusWhere = {
+      tenantId,
       preferredDate: { gte: range.gte, lte: range.lte },
       status: { notIn: [InquiryStatus.CANCELLED, InquiryStatus.ON_HOLD] },
     };
@@ -117,6 +129,7 @@ router.get('/income-summary', async (req: Request, res: Response) => {
 /** 타업체 정산 메뉴에서 등록한 정산완료 금액 — 급여표 「정산」수입 카드용 (정산일 paidAt 기준 KST 월) */
 router.get('/external-settlement-received', async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as unknown as TenantScopedRequest).tenantId;
     const monthKey = typeof req.query.month === 'string' ? req.query.month.trim() : '';
     if (!MONTH_KEY.test(monthKey)) {
       res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
@@ -129,7 +142,10 @@ router.get('/external-settlement-received', async (req: Request, res: Response) 
     }
 
     const rows = await prisma.externalCompanySettlementPayment.findMany({
-      where: { paidAt: { gte: range.gte, lte: range.lte } },
+      where: {
+        paidAt: { gte: range.gte, lte: range.lte },
+        externalCompany: { tenantId },
+      },
       orderBy: [{ paidAt: 'desc' }, { id: 'desc' }],
       select: {
         id: true,
@@ -166,12 +182,13 @@ router.get('/external-settlement-received', async (req: Request, res: Response) 
 /** 귀속 월별 계정 수입·지출 타임라인 — 현금성(입금·지급)과 접수 매출(예약일 총액) 구분 */
 router.get('/account-ledger', async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as unknown as TenantScopedRequest).tenantId;
     const monthKey = typeof req.query.month === 'string' ? req.query.month.trim() : '';
     if (!MONTH_KEY.test(monthKey)) {
       res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
       return;
     }
-    const payload = await buildPayrollAccountLedger(prisma, monthKey);
+    const payload = await buildPayrollAccountLedger(prisma, tenantId, monthKey);
     res.json(payload);
   } catch (e) {
     if (e instanceof Error && e.message === 'INVALID_MONTH') {
@@ -186,6 +203,7 @@ router.get('/account-ledger', async (req: Request, res: Response) => {
 /** 계정 수입·지출 표 — 수기 수입·지출 행 추가 */
 router.post('/account-ledger/manual', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -298,7 +316,7 @@ router.post('/account-ledger/manual', async (req: Request, res: Response) => {
         return;
       }
       const u = await prisma.user.findFirst({
-        where: { id: uid, isActive: true, role: 'TEAM_LEADER' },
+        where: { id: uid, tenantId, isActive: true, role: 'TEAM_LEADER' },
         select: { id: true, hireDate: true, resignationDate: true },
       });
       if (!u) {
@@ -322,7 +340,7 @@ router.post('/account-ledger/manual', async (req: Request, res: Response) => {
         return;
       }
       const u = await prisma.user.findFirst({
-        where: { id: uid, isActive: true, role: 'MARKETER' },
+        where: { id: uid, tenantId, isActive: true, role: 'MARKETER' },
         select: { id: true, hireDate: true, resignationDate: true },
       });
       if (!u) {
@@ -347,7 +365,7 @@ router.post('/account-ledger/manual', async (req: Request, res: Response) => {
         return;
       }
       const ec = await prisma.externalCompany.findFirst({
-        where: { id: cid, isActive: true },
+        where: { id: cid, tenantId, isActive: true },
         select: { id: true },
       });
       if (!ec) {
@@ -362,6 +380,7 @@ router.post('/account-ledger/manual', async (req: Request, res: Response) => {
   }
 
   const row = await createPayrollAccountLedgerManualEntry(prisma, {
+    tenantId,
     monthKey,
     direction,
     occurredOn: occurredDt,
@@ -407,6 +426,7 @@ router.post('/account-ledger/manual', async (req: Request, res: Response) => {
 
 router.delete('/account-ledger/manual/:entryId', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -425,8 +445,8 @@ router.delete('/account-ledger/manual/:entryId', async (req: Request, res: Respo
     return;
   }
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: authUser.userId },
+  const dbUser = await prisma.user.findFirst({
+    where: { id: authUser.userId, tenantId },
     select: { id: true, passwordHash: true },
   });
   if (!dbUser) {
@@ -439,7 +459,7 @@ router.delete('/account-ledger/manual/:entryId', async (req: Request, res: Respo
     return;
   }
 
-  const deleted = await deletePayrollAccountLedgerManualEntryById(prisma, entryId);
+  const deleted = await deletePayrollAccountLedgerManualEntryById(prisma, tenantId, entryId);
   if (!deleted) {
     res.status(404).json({ error: '내역을 찾을 수 없습니다.' });
     return;
@@ -481,6 +501,7 @@ function payrollMonthLabelFromKey(monthKey: string): string {
 
 async function loadTeamLeaderPayrollSubject(
   prismaClient: typeof prisma,
+  tenantId: string,
   userId: string,
   monthKey: string,
 ): Promise<{
@@ -496,7 +517,7 @@ async function loadTeamLeaderPayrollSubject(
   const monthStartYmd = dateToYmdKst(range.gte);
   const monthEndYmd = dateToYmdKst(range.lte);
   const u = await prismaClient.user.findFirst({
-    where: { id: userId, role: 'TEAM_LEADER', isActive: true },
+    where: { id: userId, tenantId, role: 'TEAM_LEADER', isActive: true },
     select: {
       id: true,
       name: true,
@@ -524,6 +545,7 @@ async function loadTeamLeaderPayrollSubject(
 
 async function loadMarketerPayrollSubject(
   prismaClient: typeof prisma,
+  tenantId: string,
   userId: string,
   monthKey: string,
 ): Promise<{
@@ -539,7 +561,7 @@ async function loadMarketerPayrollSubject(
   const monthStartYmd = dateToYmdKst(range.gte);
   const monthEndYmd = dateToYmdKst(range.lte);
   const u = await prismaClient.user.findFirst({
-    where: { id: userId, role: 'MARKETER', isActive: true },
+    where: { id: userId, tenantId, role: 'MARKETER', isActive: true },
     select: {
       id: true,
       name: true,
@@ -559,6 +581,7 @@ async function loadMarketerPayrollSubject(
 type PayrollSheetRowKind = 'POOL_MEMBER' | 'TEAM_LEADER' | 'MARKETER';
 
 router.get('/sheet', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   const monthKey =
     raw && MONTH_KEY.test(raw)
@@ -658,6 +681,7 @@ router.get('/sheet', async (req, res) => {
 
   const staffUsers = await prisma.user.findMany({
     where: {
+      tenantId,
       role: { in: ['TEAM_LEADER', 'MARKETER'] },
       isActive: true,
     },
@@ -1148,6 +1172,7 @@ router.post('/pool-member/:teamMemberId/settle', async (req: Request, res: Respo
 });
 
 router.get('/team-leader/:userId/payments', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const userId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
   const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   const monthKey =
@@ -1160,7 +1185,7 @@ router.get('/team-leader/:userId/payments', async (req, res) => {
     return;
   }
 
-  const subject = await loadTeamLeaderPayrollSubject(prisma, userId, monthKey);
+  const subject = await loadTeamLeaderPayrollSubject(prisma, tenantId, userId, monthKey);
   if (!subject) {
     res.status(404).json({ error: '팀장 급여 대상을 찾을 수 없습니다.' });
     return;
@@ -1234,6 +1259,7 @@ router.get('/team-leader/:userId/payments', async (req, res) => {
 
 router.post('/team-leader/:userId/payments', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -1251,7 +1277,7 @@ router.post('/team-leader/:userId/payments', async (req: Request, res: Response)
     return;
   }
 
-  const subject = await loadTeamLeaderPayrollSubject(prisma, userId, monthKey);
+  const subject = await loadTeamLeaderPayrollSubject(prisma, tenantId, userId, monthKey);
   if (!subject) {
     res.status(404).json({ error: '팀장 급여 대상을 찾을 수 없습니다.' });
     return;
@@ -1328,6 +1354,7 @@ router.post('/team-leader/:userId/payments', async (req: Request, res: Response)
 
 router.delete('/team-leader/payment/:paymentId', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -1347,8 +1374,8 @@ router.delete('/team-leader/payment/:paymentId', async (req: Request, res: Respo
     return;
   }
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: authUser.userId },
+  const dbUser = await prisma.user.findFirst({
+    where: { id: authUser.userId, tenantId },
     select: { id: true, passwordHash: true },
   });
   if (!dbUser) {
@@ -1361,15 +1388,12 @@ router.delete('/team-leader/payment/:paymentId', async (req: Request, res: Respo
     return;
   }
 
-  const existing = await prisma.teamLeaderPayrollPayment.findUnique({
-    where: { id: paymentId },
-    select: {
-      id: true,
-      user: { select: { role: true } },
-    },
+  const existing = await prisma.teamLeaderPayrollPayment.findFirst({
+    where: { id: paymentId, user: { tenantId, role: 'TEAM_LEADER' } },
+    select: { id: true },
   });
 
-  if (!existing || existing.user.role !== 'TEAM_LEADER') {
+  if (!existing) {
     res.status(404).json({ error: '지급 내역을 찾을 수 없습니다.' });
     return;
   }
@@ -1379,6 +1403,7 @@ router.delete('/team-leader/payment/:paymentId', async (req: Request, res: Respo
 });
 
 router.get('/marketer/:userId/detail', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const userId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
   if (!userId) {
     res.status(400).json({ error: 'userId가 필요합니다.' });
@@ -1396,7 +1421,7 @@ router.get('/marketer/:userId/detail', async (req, res) => {
     return;
   }
 
-  const subject = await loadMarketerPayrollSubject(prisma, userId, monthKey);
+  const subject = await loadMarketerPayrollSubject(prisma, tenantId, userId, monthKey);
   if (!subject) {
     res.status(404).json({ error: '마케터 급여 대상을 찾을 수 없습니다.' });
     return;
@@ -1505,6 +1530,7 @@ router.get('/marketer/:userId/detail', async (req, res) => {
 
 router.post('/marketer/:userId/settle', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -1527,7 +1553,7 @@ router.post('/marketer/:userId/settle', async (req: Request, res: Response) => {
     return;
   }
 
-  const subject = await loadMarketerPayrollSubject(prisma, userId, monthKey);
+  const subject = await loadMarketerPayrollSubject(prisma, tenantId, userId, monthKey);
   if (!subject) {
     res.status(404).json({ error: '마케터 급여 대상을 찾을 수 없습니다.' });
     return;
@@ -1694,6 +1720,7 @@ router.patch('/pool-member/:teamMemberId/month-adjust', async (req, res) => {
 
 /** 크루 그룹장 등록 지출 — 귀속 월별 목록 (관리자) */
 router.get('/crew-expenses', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   const monthKey =
     raw && MONTH_KEY.test(raw)
@@ -1705,7 +1732,7 @@ router.get('/crew-expenses', async (req, res) => {
     return;
   }
 
-  const rows = await listAdminCrewExpensesForMonth(monthKey);
+  const rows = await listAdminCrewExpensesForMonth(tenantId, monthKey);
   res.json({
     month: monthKey,
     items: rows.map((row) => ({
@@ -1725,12 +1752,13 @@ router.get('/crew-expenses', async (req, res) => {
 
 /** 크루 지출 단건 상세 (영수증 URL 포함) */
 router.get('/crew-expenses/:expenseId', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const expenseId = typeof req.params.expenseId === 'string' ? req.params.expenseId.trim() : '';
   if (!expenseId) {
     res.status(400).json({ error: 'expenseId가 필요합니다.' });
     return;
   }
-  const row = await getAdminCrewExpenseDetail(expenseId);
+  const row = await getAdminCrewExpenseDetail(tenantId, expenseId);
   if (!row) {
     res.status(404).json({ error: '지출 내역을 찾을 수 없습니다.' });
     return;
@@ -1756,6 +1784,7 @@ router.get('/crew-expenses/:expenseId', async (req, res) => {
 
 /** 급여표 지출 탭 — 관리자 개인·업무 지출(귀속 월별, 참고용) */
 router.get('/admin-personal-expenses', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   const monthKey =
     raw && MONTH_KEY.test(raw)
@@ -1767,7 +1796,7 @@ router.get('/admin-personal-expenses', async (req, res) => {
     return;
   }
 
-  const rows = await listPayrollAdminPersonalExpensesForMonth(prisma, monthKey);
+  const rows = await listPayrollAdminPersonalExpensesForMonth(prisma, tenantId, monthKey);
   res.json({
     month: monthKey,
     items: rows.map((row) => ({
@@ -1782,6 +1811,7 @@ router.get('/admin-personal-expenses', async (req, res) => {
 
 router.post('/admin-personal-expenses', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -1818,6 +1848,7 @@ router.post('/admin-personal-expenses', async (req: Request, res: Response) => {
   }
 
   const row = await createPayrollAdminPersonalExpense(prisma, {
+    tenantId,
     monthKey,
     amount,
     memo,
@@ -1838,6 +1869,7 @@ router.post('/admin-personal-expenses', async (req: Request, res: Response) => {
 
 router.delete('/admin-personal-expenses/:expenseId', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -1857,8 +1889,8 @@ router.delete('/admin-personal-expenses/:expenseId', async (req: Request, res: R
     return;
   }
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: authUser.userId },
+  const dbUser = await prisma.user.findFirst({
+    where: { id: authUser.userId, tenantId },
     select: { id: true, passwordHash: true },
   });
   if (!dbUser) {
@@ -1871,7 +1903,7 @@ router.delete('/admin-personal-expenses/:expenseId', async (req: Request, res: R
     return;
   }
 
-  const deleted = await deletePayrollAdminPersonalExpenseById(prisma, expenseId);
+  const deleted = await deletePayrollAdminPersonalExpenseById(prisma, tenantId, expenseId);
   if (!deleted) {
     res.status(404).json({ error: '지출 내역을 찾을 수 없습니다.' });
     return;
@@ -1882,6 +1914,7 @@ router.delete('/admin-personal-expenses/:expenseId', async (req: Request, res: R
 
 /** 급여표 정산 탭 — 관리자 공용 지출(귀속 월별, 참고용) */
 router.get('/admin-shared-expenses', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   const monthKey =
     raw && MONTH_KEY.test(raw)
@@ -1893,7 +1926,7 @@ router.get('/admin-shared-expenses', async (req, res) => {
     return;
   }
 
-  const rows = await listPayrollAdminSharedExpensesForMonth(prisma, monthKey);
+  const rows = await listPayrollAdminSharedExpensesForMonth(prisma, tenantId, monthKey);
   res.json({
     month: monthKey,
     items: rows.map((row) => ({
@@ -1908,6 +1941,7 @@ router.get('/admin-shared-expenses', async (req, res) => {
 
 router.post('/admin-shared-expenses', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -1944,6 +1978,7 @@ router.post('/admin-shared-expenses', async (req: Request, res: Response) => {
   }
 
   const row = await createPayrollAdminSharedExpense(prisma, {
+    tenantId,
     monthKey,
     amount,
     memo,
@@ -1964,6 +1999,7 @@ router.post('/admin-shared-expenses', async (req: Request, res: Response) => {
 
 router.delete('/admin-shared-expenses/:expenseId', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -1983,8 +2019,8 @@ router.delete('/admin-shared-expenses/:expenseId', async (req: Request, res: Res
     return;
   }
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: authUser.userId },
+  const dbUser = await prisma.user.findFirst({
+    where: { id: authUser.userId, tenantId },
     select: { id: true, passwordHash: true },
   });
   if (!dbUser) {
@@ -1997,7 +2033,7 @@ router.delete('/admin-shared-expenses/:expenseId', async (req: Request, res: Res
     return;
   }
 
-  const deleted = await deletePayrollAdminSharedExpenseById(prisma, expenseId);
+  const deleted = await deletePayrollAdminSharedExpenseById(prisma, tenantId, expenseId);
   if (!deleted) {
     res.status(404).json({ error: '지출 내역을 찾을 수 없습니다.' });
     return;
@@ -2008,6 +2044,7 @@ router.delete('/admin-shared-expenses/:expenseId', async (req: Request, res: Res
 
 /** 급여표 정산 탭 수입 — 귀속 월별 입금 기록(참고용) */
 router.get('/income-deposits', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const raw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   const monthKey =
     raw && MONTH_KEY.test(raw)
@@ -2019,7 +2056,7 @@ router.get('/income-deposits', async (req, res) => {
     return;
   }
 
-  const rows = await listPayrollIncomeDepositsForMonth(prisma, monthKey);
+  const rows = await listPayrollIncomeDepositsForMonth(prisma, tenantId, monthKey);
   res.json({
     month: monthKey,
     items: rows.map((row) => ({
@@ -2035,6 +2072,7 @@ router.get('/income-deposits', async (req, res) => {
 
 router.post('/income-deposits', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -2078,6 +2116,7 @@ router.post('/income-deposits', async (req: Request, res: Response) => {
   }
 
   const row = await createPayrollIncomeDeposit(prisma, {
+    tenantId,
     monthKey,
     depositedOn: depDt,
     amount,
@@ -2100,6 +2139,7 @@ router.post('/income-deposits', async (req: Request, res: Response) => {
 
 router.delete('/income-deposits/:depositId', async (req: Request, res: Response) => {
   const authUser = (req as Request & { user?: AuthPayload }).user;
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
     return;
@@ -2118,8 +2158,8 @@ router.delete('/income-deposits/:depositId', async (req: Request, res: Response)
     return;
   }
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: authUser.userId },
+  const dbUser = await prisma.user.findFirst({
+    where: { id: authUser.userId, tenantId },
     select: { id: true, passwordHash: true },
   });
   if (!dbUser) {
@@ -2132,7 +2172,7 @@ router.delete('/income-deposits/:depositId', async (req: Request, res: Response)
     return;
   }
 
-  const deleted = await deletePayrollIncomeDepositById(prisma, depositId);
+  const deleted = await deletePayrollIncomeDepositById(prisma, tenantId, depositId);
   if (!deleted) {
     res.status(404).json({ error: '입금 내역을 찾을 수 없습니다.' });
     return;

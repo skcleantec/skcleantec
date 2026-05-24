@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, type Location as RouterLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link, type Location as RouterLocation } from 'react-router-dom';
 import { login, getMe, isAuthSessionExpiredError } from '../api/auth';
 import { loginCrew, getCrewMe } from '../api/crew';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
+import { DEFAULT_TENANT_SLUG, loadTenantSlug, saveTenantSlug } from '../utils/tenantSlug';
+import { resolveTenantSlugWithApiFallback } from '../utils/tenantHostResolve';
 
 /** ProtectedRoute / TeamProtectedRoute 가 넘긴 `state.from` 만 안전하게 읽기 */
 function readResumeLocation(state: unknown): RouterLocation | undefined {
@@ -69,6 +71,19 @@ export function LoginPage() {
   const sessionProbeGen = useRef(0);
   const devCrewInitRef = useRef(false);
 
+  const [tenantSlug, setTenantSlug] = useState(loadTenantSlug);
+
+  useEffect(() => {
+    let cancelled = false;
+    void resolveTenantSlugWithApiFallback().then((slug) => {
+      if (cancelled) return;
+      setTenantSlug(slug);
+      saveTenantSlug(slug);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [crewLoginMode, setCrewLoginMode] = useState(false);
@@ -191,7 +206,8 @@ export function LoginPage() {
         return;
       }
 
-      const data = await login(email, password);
+      const data = await login(tenantSlug, email, password);
+      saveTenantSlug(tenantSlug);
       const token = data.token as string;
       const user = data.user as { role?: string; email?: string };
       const role = user?.role;
@@ -289,6 +305,25 @@ export function LoginPage() {
                 </button>
               </div>
 
+              {!crewLoginMode && (
+                <div className="space-y-1.5">
+                  <label htmlFor="login-tenant" className="block text-fluid-xs font-medium text-slate-600">
+                    업체 코드
+                  </label>
+                  <input
+                    id="login-tenant"
+                    type="text"
+                    value={tenantSlug}
+                    onChange={(e) => setTenantSlug(e.target.value.toLowerCase())}
+                    className={inputClass}
+                    placeholder={DEFAULT_TENANT_SLUG}
+                    autoComplete="organization"
+                    required
+                  />
+                  <p className="text-fluid-2xs text-slate-500">소속 업체 식별 코드 (예: {DEFAULT_TENANT_SLUG})</p>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <label htmlFor="login-id" className="block text-fluid-xs font-medium text-slate-600">
                   {crewLoginMode ? '크루 로그인 ID' : '아이디'}
@@ -365,7 +400,12 @@ export function LoginPage() {
             </form>
           </div>
 
-          <p className="mt-8 text-center text-fluid-2xs text-slate-400">
+          <p className="mt-6 text-center text-fluid-2xs text-slate-500">
+            <Link to="/platform/login" className="hover:text-slate-700 underline-offset-2 hover:underline">
+              플랫폼(SaaS) 운영 콘솔
+            </Link>
+          </p>
+          <p className="mt-4 text-center text-fluid-2xs text-slate-400">
             © {new Date().getFullYear()} 표마왕
           </p>
         </div>

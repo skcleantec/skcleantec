@@ -35,34 +35,44 @@ function rowToIssuerSnapshot(row: EContractIssuerProfile): EContractIssuerSnapsh
 }
 
 /** 없으 기본 행을 만듭니다(상호 등은 빈 문자열 허용). */
-export async function getIssuerProfile(profileKey = DEFAULT_PROFILE_KEY): Promise<EContractIssuerProfile> {
+export async function getIssuerProfile(
+  tenantId: string,
+  profileKey = DEFAULT_PROFILE_KEY,
+): Promise<EContractIssuerProfile> {
   let row = await prisma.eContractIssuerProfile.findUnique({
-    where: { profileKey },
+    where: { tenantId_profileKey: { tenantId, profileKey } },
   });
   if (!row) {
     row = await prisma.eContractIssuerProfile.create({
-      data: { profileKey },
+      data: { tenantId, profileKey },
     });
   }
   return row;
 }
 
-export async function getIssuerProfilePayload(profileKey = DEFAULT_PROFILE_KEY) {
-  const row = await getIssuerProfile(profileKey);
+export async function getIssuerProfilePayload(tenantId: string, profileKey = DEFAULT_PROFILE_KEY) {
+  const row = await getIssuerProfile(tenantId, profileKey);
   return {
     profile: mapProfileResponse(row),
     placeholders: [...EC_ISSUER_PLACEHOLDER_KEYS],
   };
 }
 
-export async function getIssuerSnapshot(profileKey = DEFAULT_PROFILE_KEY): Promise<EContractIssuerSnapshot> {
-  const row = await getIssuerProfile(profileKey);
+export async function getIssuerSnapshot(
+  tenantId: string,
+  profileKey = DEFAULT_PROFILE_KEY,
+): Promise<EContractIssuerSnapshot> {
+  const row = await getIssuerProfile(tenantId, profileKey);
   return rowToIssuerSnapshot(row);
 }
 
 /** 관리 초안 미리보기 — 본문 갑 치환 + 하단 계약주·계약자 부록 HTML */
-export async function previewBodyWithIssuerProfile(profileKey: string | undefined, bodyMarkdown: string) {
-  const row = await getIssuerProfile(profileKey?.trim() || DEFAULT_PROFILE_KEY);
+export async function previewBodyWithIssuerProfile(
+  tenantId: string,
+  profileKey: string | undefined,
+  bodyMarkdown: string,
+) {
+  const row = await getIssuerProfile(tenantId, profileKey?.trim() || DEFAULT_PROFILE_KEY);
   const snap = rowToIssuerSnapshot(row);
   const expanded = expandIssuerPlaceholders(bodyMarkdown, snap);
   const appendixHtml = buildPartyAppendixHtml(snap);
@@ -110,9 +120,14 @@ type PatchIssuer = Partial<{
   clearSignature: boolean;
 }>;
 
-export async function patchIssuerProfile(actorId: string, profileKey: string | undefined, patch: PatchIssuer) {
+export async function patchIssuerProfile(
+  tenantId: string,
+  actorId: string,
+  profileKey: string | undefined,
+  patch: PatchIssuer,
+) {
   const key = (profileKey?.trim() || DEFAULT_PROFILE_KEY).slice(0, 64);
-  await getIssuerProfile(key);
+  await getIssuerProfile(tenantId, key);
 
   const data: Prisma.EContractIssuerProfileUncheckedUpdateInput = {};
 
@@ -230,21 +245,22 @@ export async function patchIssuerProfile(actorId: string, profileKey: string | u
   data.updatedById = actorId;
 
   await prisma.eContractIssuerProfile.update({
-    where: { profileKey: key },
+    where: { tenantId_profileKey: { tenantId, profileKey: key } },
     data,
   });
 
   const row = await prisma.eContractIssuerProfile.findUniqueOrThrow({
-    where: { profileKey: key },
+    where: { tenantId_profileKey: { tenantId, profileKey: key } },
   });
   return mapProfileResponse(row);
 }
 
 /** 배포 시 저장할 JSON 및 치환용 스냅샷 */
 export async function issuerSnapshotBlockForPublish(
-  profileKey = DEFAULT_PROFILE_KEY
+  tenantId: string,
+  profileKey = DEFAULT_PROFILE_KEY,
 ): Promise<{ snapshotJson: Record<string, string | number | null>; plain: EContractIssuerSnapshot }> {
-  const row = await getIssuerProfile(profileKey);
+  const row = await getIssuerProfile(tenantId, profileKey);
   const plain = rowToIssuerSnapshot(row);
   const snapshotJson = issuerSnapshotJsonFromPlain(plain);
   return { snapshotJson, plain };

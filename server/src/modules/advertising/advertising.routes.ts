@@ -9,7 +9,7 @@ import {
   type AuthPayload,
   superAdminOnly,
 } from '../auth/auth.middleware.js';
-import { isSuperAdminRoleAndEmail } from '../auth/superAdmin.js';
+import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
 import {
   inclusiveDayCount,
   parseRange,
@@ -28,8 +28,13 @@ import {
   sumReservationCountsFromWorkSessionsInPeriod,
 } from './advertising.bookingDenominator.js';
 import { advertisingDailySettlementForMonthKey } from './advertising.dailySettlement.js';
+import { requireFeature } from '../tenants/requireTenantFeature.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router();
+
+/** 모든 광고비 API — mod_advertising 활성 테넌트만 */
+router.use(authMiddleware, requireFeature('mod_advertising'));
 
 /**
  * 광고비 분석 ROAS·건당 비용 분모 — 서비스접수 목록과 동일한 「예약완료」개념.
@@ -48,13 +53,27 @@ function authUser(req: unknown): AuthPayload {
   return (req as { user: AuthPayload }).user;
 }
 
+function requireTenantFromReq(req: unknown, res: import('express').Response): string | null {
+  const tenantId = getTenantIdFromAuth(authUser(req));
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return null;
+  }
+  return tenantId;
+}
+
 /** 활성 채널 목록 (종료 시 금액 입력용). ?all=1 이면 최고 관리자만 비활성 포함. 과목(lineItems) 포함 */
 router.get('/channels', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const all = req.query.all === '1' || req.query.all === 'true';
-  const includeInactive = all && isSuperAdminRoleAndEmail(user.role, user.email);
+  const includeInactive = all && isTenantOwnerAdmin(user);
   const channels = await prisma.adChannel.findMany({
-    where: includeInactive ? {} : { isActive: true },
+    where: {
+      tenantId,
+      ...(includeInactive ? {} : { isActive: true }),
+    },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: { lineItems: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
   });
@@ -62,8 +81,11 @@ router.get('/channels', authMiddleware, adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자 전용: 모든 채널·과목 설정 조회 (비활성 포함) */
-router.get('/settlement-config', authMiddleware, adminOnly, async (_req, res) => {
+router.get('/settlement-config', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const items = await prisma.adChannel.findMany({
+    where: { tenantId },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: { lineItems: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
   });
@@ -71,6 +93,8 @@ router.get('/settlement-config', authMiddleware, adminOnly, async (_req, res) =>
 });
 
 router.patch('/channels/:id/settlement-mode', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const { id } = req.params;
   const mode = (req.body as { settlementMode?: string }).settlementMode;
   if (mode !== 'DIRECT_AMOUNT' && mode !== 'COUNT_LINES') {
@@ -79,6 +103,11 @@ router.patch('/channels/:id/settlement-mode', authMiddleware, adminOnly, async (
   }
   /** 과목 0건이어도 건수 방식으로 전환 허용 → 설정 화면에서 과목 추가 후 사용 */
   try {
+    const owned = await prisma.adChannel.findFirst({ where: { id, tenantId } });
+    if (!owned) {
+      res.status(404).json({ error: '채널을 찾을 수 없습니다.' });
+      return;
+    }
     const row = await prisma.adChannel.update({
       where: { id },
       data: { settlementMode: mode },
@@ -91,6 +120,8 @@ router.patch('/channels/:id/settlement-mode', authMiddleware, adminOnly, async (
 });
 
 router.post('/channels/:channelId/line-items', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const { channelId } = req.params;
   const body = req.body as {
     label?: string;
@@ -108,7 +139,7 @@ router.post('/channels/:channelId/line-items', authMiddleware, adminOnly, async 
     res.status(400).json({ error: '건당 금액은 0 이상 정수로 입력해 주세요.' });
     return;
   }
-  const ch = await prisma.adChannel.findUnique({ where: { id: channelId } });
+  const ch = await prisma.adChannel.findFirst({ where: { id: channelId, tenantId } });
   if (!ch) {
     res.status(404).json({ error: '채널을 찾을 수 없습니다.' });
     return;
@@ -196,6 +227,8 @@ router.delete('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, 
 });
 
 router.post('/channels', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const { name, sortOrder } = req.body as { name?: string; sortOrder?: number };
   const n = String(name ?? '').trim();
   if (!n) {
@@ -204,6 +237,7 @@ router.post('/channels', authMiddleware, adminOnly, async (req, res) => {
   }
   const row = await prisma.adChannel.create({
     data: {
+      tenantId,
       name: n,
       sortOrder: typeof sortOrder === 'number' && Number.isFinite(sortOrder) ? sortOrder : 0,
     },
@@ -213,6 +247,8 @@ router.post('/channels', authMiddleware, adminOnly, async (req, res) => {
 
 /** 채널 표시 순서 일괄 저장 (배열 순서 = 위에서 아래) */
 router.put('/channels/reorder', authMiddleware, superAdminOnly, async (req, res) => {
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const body = req.body as { orderedIds?: string[] };
   const orderedIds = Array.isArray(body.orderedIds) ? body.orderedIds.filter((x) => typeof x === 'string' && x.trim()) : [];
   if (orderedIds.length === 0) {
@@ -225,7 +261,7 @@ router.put('/channels/reorder', authMiddleware, superAdminOnly, async (req, res)
     return;
   }
   const existing = await prisma.adChannel.findMany({
-    where: { id: { in: orderedIds } },
+    where: { tenantId, id: { in: orderedIds } },
     select: { id: true },
   });
   if (existing.length !== orderedIds.length) {
@@ -242,6 +278,8 @@ router.put('/channels/reorder', authMiddleware, superAdminOnly, async (req, res)
 
 /** 광고비 입력 이력이 없는 채널만 삭제. 본인 비밀번호 확인 필수 */
 router.delete('/channels/:id', authMiddleware, superAdminOnly, async (req, res) => {
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const { id } = req.params;
   const body = req.body as { password?: string };
   const password = body.password != null ? String(body.password) : '';
@@ -259,6 +297,12 @@ router.delete('/channels/:id', authMiddleware, superAdminOnly, async (req, res) 
   const valid = await bcrypt.compare(password, dbUser.passwordHash);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const owned = await prisma.adChannel.findFirst({ where: { id, tenantId } });
+  if (!owned) {
+    res.status(404).json({ error: '채널을 찾을 수 없습니다.' });
     return;
   }
 
@@ -280,9 +324,11 @@ router.delete('/channels/:id', authMiddleware, superAdminOnly, async (req, res) 
 
 router.patch('/channels/:id', authMiddleware, adminOnly, async (req, res) => {
   const user = authUser(req);
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const { id } = req.params;
   const body = req.body as { name?: string; isActive?: boolean; sortOrder?: number };
-  const isSuper = isSuperAdminRoleAndEmail(user.role, user.email);
+  const isSuper = isTenantOwnerAdmin(user);
 
   const data: { name?: string; isActive?: boolean; sortOrder?: number } = {};
   if (isSuper) {
@@ -306,6 +352,11 @@ router.patch('/channels/:id', authMiddleware, adminOnly, async (req, res) => {
     return;
   }
   try {
+    const owned = await prisma.adChannel.findFirst({ where: { id, tenantId } });
+    if (!owned) {
+      res.status(404).json({ error: '채널을 찾을 수 없습니다.' });
+      return;
+    }
     const row = await prisma.adChannel.update({ where: { id }, data });
     res.json(row);
   } catch {
@@ -315,8 +366,10 @@ router.patch('/channels/:id', authMiddleware, adminOnly, async (req, res) => {
 
 router.post('/sessions/start', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const existing = await prisma.adWorkSession.findFirst({
-    where: { userId: user.userId, endedAt: null },
+    where: { tenantId, userId: user.userId, endedAt: null },
     orderBy: { startedAt: 'desc' },
   });
   if (existing) {
@@ -324,15 +377,17 @@ router.post('/sessions/start', authMiddleware, adminOrMarketer, async (req, res)
     return;
   }
   const session = await prisma.adWorkSession.create({
-    data: { userId: user.userId, startedAt: new Date() },
+    data: { tenantId, userId: user.userId, startedAt: new Date() },
   });
   res.json(session);
 });
 
 router.get('/sessions/active', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const session = await prisma.adWorkSession.findFirst({
-    where: { userId: user.userId, endedAt: null },
+    where: { tenantId, userId: user.userId, endedAt: null },
     orderBy: { startedAt: 'desc' },
   });
   res.json({ session });
@@ -341,8 +396,10 @@ router.get('/sessions/active', authMiddleware, adminOrMarketer, async (req, res)
 /** 종료 입력 모달 — 예약(발주서) 분모 자동 집계 미리보기: 제출 완료 + 구간 내 신규 미제출 발급 */
 router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const session = await prisma.adWorkSession.findFirst({
-    where: { userId: user.userId, endedAt: null },
+    where: { tenantId, userId: user.userId, endedAt: null },
     orderBy: { startedAt: 'desc' },
   });
   if (!session) {
@@ -350,7 +407,7 @@ router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarke
     return;
   }
   const prevEnded = await prisma.adWorkSession.findFirst({
-    where: { userId: user.userId, endedAt: { not: null } },
+    where: { tenantId, userId: user.userId, endedAt: { not: null } },
     orderBy: { endedAt: 'desc' },
   });
   const rangeStart = prevEnded?.endedAt ?? session.startedAt;
@@ -365,13 +422,15 @@ router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarke
 
 router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const body = req.body as {
     lines?: RawAdSessionEndLine[];
     bookingDenominator?: { manual?: boolean; manualCount?: number };
   };
   const rawLines = Array.isArray(body.lines) ? body.lines : [];
   const session = await prisma.adWorkSession.findFirst({
-    where: { userId: user.userId, endedAt: null },
+    where: { tenantId, userId: user.userId, endedAt: null },
     orderBy: { startedAt: 'desc' },
   });
   if (!session) {
@@ -380,12 +439,12 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
   }
 
   const prevEnded = await prisma.adWorkSession.findFirst({
-    where: { userId: user.userId, endedAt: { not: null } },
+    where: { tenantId, userId: user.userId, endedAt: { not: null } },
     orderBy: { endedAt: 'desc' },
   });
 
   const activeChannels = await prisma.adChannel.findMany({
-    where: { isActive: true },
+    where: { tenantId, isActive: true },
     include: { lineItems: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
   });
 
@@ -499,6 +558,8 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
 /** 마케터별 당월(또는 지정 월) KST 일자별 광고비·예약 분모·건당 비용 */
 router.get('/analytics/daily', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const monthKey = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   if (!/^\d{4}-\d{2}$/.test(monthKey)) {
     res.status(400).json({ error: 'month (YYYY-MM)를 지정해 주세요.' });
@@ -521,8 +582,8 @@ router.get('/analytics/daily', authMiddleware, adminOrMarketer, async (req, res)
     return;
   }
 
-  const target = await prisma.user.findUnique({
-    where: { id: marketerId },
+  const target = await prisma.user.findFirst({
+    where: { id: marketerId, tenantId },
     select: { id: true, name: true, email: true, role: true },
   });
   if (!target) {
@@ -555,6 +616,8 @@ router.get('/analytics/daily', authMiddleware, adminOrMarketer, async (req, res)
 
 router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const range = parseRange(
     typeof req.query.from === 'string' ? req.query.from : undefined,
     typeof req.query.to === 'string' ? req.query.to : undefined
@@ -573,9 +636,11 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
   const days = inclusiveDayCount(range.fromYmd, range.toYmd);
 
   const sessionWhere: {
+    tenantId: string;
     endedAt: { not: null; gte: Date; lte: Date };
     userId?: { in: string[] };
   } = {
+    tenantId,
     endedAt: { not: null, gte: range.from, lte: range.to },
   };
   if (scope.marketerIds !== 'ALL_MARKETERS') {
@@ -595,6 +660,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
   };
 
   const inquiryWhere: Prisma.InquiryWhereInput = {
+    tenantId,
     orderFormId: { not: null },
     status: { in: ADVERTISING_ANALYTICS_RESERVATION_STATUSES },
     orderForm: {
@@ -730,6 +796,8 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
 
 router.get('/sessions/history', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const range = parseRange(
     typeof req.query.from === 'string' ? req.query.from : undefined,
     typeof req.query.to === 'string' ? req.query.to : undefined
@@ -746,9 +814,11 @@ router.get('/sessions/history', authMiddleware, adminOrMarketer, async (req, res
   }
 
   const where: {
+    tenantId: string;
     endedAt: { not: null; gte: Date; lte: Date };
     userId?: { in: string[] };
   } = {
+    tenantId,
     endedAt: { not: null, gte: range.from, lte: range.to },
   };
   if (scope.marketerIds !== 'ALL_MARKETERS') {

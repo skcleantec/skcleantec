@@ -1,5 +1,11 @@
 /** 관리자 GNB 항목 — 드래그 순서 저장용 id */
 
+import {
+  ADMIN_NAV_MODULE_MAP,
+  hasFeature,
+  type TenantFeatureModuleId,
+} from '@shared/tenantFeatureModules';
+
 export type AdminNavId =
   | 'dashboard'
   | 'inquiries'
@@ -8,6 +14,23 @@ export type AdminNavId =
   | 'cs'
   | 'advertising'
   | 'messages';
+
+export type AdminNavContext = {
+  isAdmin: boolean;
+  /** null = /auth/me features 로드 전 — 기존처럼 모듈 필터 생략 */
+  enabledModules: readonly string[] | null;
+};
+
+export function canShowAdminNavItem(id: AdminNavId, ctx: AdminNavContext | boolean): boolean {
+  const isAdmin = typeof ctx === 'boolean' ? ctx : ctx.isAdmin;
+  const enabledModules = typeof ctx === 'boolean' ? null : ctx.enabledModules;
+  const d = ADMIN_NAV_DEF[id];
+  if (d.adminOnly && !isAdmin) return false;
+  if (!enabledModules) return true;
+  const mod = ADMIN_NAV_MODULE_MAP[id as keyof typeof ADMIN_NAV_MODULE_MAP];
+  if (!mod) return true;
+  return hasFeature(enabledModules, mod as TenantFeatureModuleId);
+}
 
 export const ADMIN_NAV_DEF: Record<
   AdminNavId,
@@ -47,9 +70,9 @@ export const DEFAULT_NON_ADMIN_NAV_ORDER: AdminNavId[] = [
   'messages',
 ];
 
-export function canShowAdminNavItem(id: AdminNavId, isAdmin: boolean): boolean {
-  const d = ADMIN_NAV_DEF[id];
-  return !d.adminOnly || isAdmin;
+
+function navContext(isAdmin: boolean, enabledModules: readonly string[] | null): AdminNavContext {
+  return { isAdmin, enabledModules };
 }
 
 function mergeWithDefaults(saved: string[], defaults: AdminNavId[]): AdminNavId[] {
@@ -68,21 +91,22 @@ function mergeWithDefaults(saved: string[], defaults: AdminNavId[]): AdminNavId[
   return out;
 }
 
-export function loadAdminNavOrder(isAdmin: boolean): AdminNavId[] {
+export function loadAdminNavOrder(isAdmin: boolean, enabledModules: readonly string[] | null = null): AdminNavId[] {
   const defaults = isAdmin ? DEFAULT_ADMIN_NAV_ORDER : DEFAULT_NON_ADMIN_NAV_ORDER;
   const key = isAdmin ? STORAGE_ADMIN : STORAGE_NON_ADMIN;
+  const ctx = navContext(isAdmin, enabledModules);
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return defaults;
+    if (!raw) return defaults.filter((id) => canShowAdminNavItem(id, ctx));
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return defaults;
+    if (!Array.isArray(parsed)) return defaults.filter((id) => canShowAdminNavItem(id, ctx));
     const merged = mergeWithDefaults(
       parsed.filter((x): x is string => typeof x === 'string'),
       defaults
     );
-    return merged.filter((id) => canShowAdminNavItem(id, isAdmin));
+    return merged.filter((id) => canShowAdminNavItem(id, ctx));
   } catch {
-    return defaults;
+    return defaults.filter((id) => canShowAdminNavItem(id, ctx));
   }
 }
 

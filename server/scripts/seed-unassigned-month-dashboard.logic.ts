@@ -97,9 +97,10 @@ export async function runUnassignedMonthDashboardSeed(
     const createdById = pickCreatedByIdForSeed(admin.id, marketers);
 
     await prisma.$transaction(async (tx) => {
-      const inquiryNumber = await allocateNextInquiryNumber(tx);
+      const inquiryNumber = await allocateNextInquiryNumber(tx, admin.tenantId);
       await tx.inquiry.create({
         data: {
+          tenantId: admin.tenantId,
           inquiryNumber,
           customerName: name,
           customerPhone: phone,

@@ -6,6 +6,7 @@ import {
   adminOnly,
   type AuthPayload,
 } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { prisma } from '../../lib/prisma.js';
 import { notifyEContractInboxIfTeamLeader } from './eContract.recipientNotify.js';
@@ -43,15 +44,28 @@ import eContractFieldDefinitionRoutes from './eContractFieldDefinition.routes.js
 
 const router = Router();
 router.use(authMiddleware, adminOnly);
+router.use((req, res, next) => {
+  const tenantId = getTenantIdFromAuth((req as Request & { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  (req as TenantScopedRequest).tenantId = tenantId;
+  next();
+});
 router.use(eContractFieldDefinitionRoutes);
 
 function actor(req: Request): AuthPayload {
   return (req as Request & { user: AuthPayload }).user;
 }
 
-router.get('/issuer-profile', async (_req, res) => {
+function reqTenantId(req: Request): string {
+  return (req as TenantScopedRequest).tenantId;
+}
+
+router.get('/issuer-profile', async (req, res) => {
   try {
-    const payload = await getIssuerProfilePayload();
+    const payload = await getIssuerProfilePayload(reqTenantId(req));
     res.json(payload);
   } catch (e) {
     console.error('[e-contract] issuer profile GET', e);
@@ -62,7 +76,7 @@ router.get('/issuer-profile', async (_req, res) => {
 router.patch('/issuer-profile', async (req, res) => {
   try {
     const b = req.body ?? {};
-    const profile = await patchIssuerProfile(actor(req).userId, typeof b.profileKey === 'string' ? b.profileKey : undefined, {
+    const profile = await patchIssuerProfile(reqTenantId(req), actor(req).userId, typeof b.profileKey === 'string' ? b.profileKey : undefined, {
       companyName: typeof b.companyName === 'string' ? b.companyName : undefined,
       representativeName:
         'representativeName' in b
@@ -198,7 +212,7 @@ router.post('/preview-body', async (req, res) => {
     const bodyMarkdown =
       typeof req.body?.bodyMarkdown === 'string' ? req.body.bodyMarkdown.replace(/\r\n/g, '\n') : '';
     const pk = typeof req.body?.profileKey === 'string' ? req.body.profileKey : undefined;
-    const out = await previewBodyWithIssuerProfile(pk, bodyMarkdown);
+    const out = await previewBodyWithIssuerProfile(reqTenantId(req), pk, bodyMarkdown);
     res.json(out);
   } catch (e) {
     console.error('[e-contract] preview-body', e);
@@ -206,9 +220,9 @@ router.post('/preview-body', async (req, res) => {
   }
 });
 
-router.get('/definitions', async (_req, res) => {
+router.get('/definitions', async (req, res) => {
   try {
-    const rows = await listDefinitions();
+    const rows = await listDefinitions(reqTenantId(req));
     res.json({ definitions: rows });
   } catch (e) {
     console.error('[e-contract] list definitions', e);
@@ -224,7 +238,7 @@ router.post('/definitions', async (req, res) => {
     const audienceRaw = typeof req.body?.audience === 'string' ? req.body.audience.trim() : '';
     const audience =
       audienceRaw === 'MARKETER' ? EContractAudience.MARKETER : EContractAudience.TEAM_LEADER;
-    const row = await createDefinition(actor(req).userId, title, description, audience);
+    const row = await createDefinition(reqTenantId(req), actor(req).userId, title, description, audience);
     res.status(201).json({ definition: row });
   } catch (e: unknown) {
     if (e instanceof Error && (e as { code?: string }).code === 'bad_request') {
@@ -238,7 +252,7 @@ router.post('/definitions', async (req, res) => {
 
 router.get('/definitions/:id', async (req, res) => {
   try {
-    const row = await getDefinitionWithVersions(req.params.id);
+    const row = await getDefinitionWithVersions(reqTenantId(req), req.params.id);
     if (!row) {
       res.status(404).json({ error: '없습니다.' });
       return;
@@ -253,7 +267,7 @@ router.get('/definitions/:id', async (req, res) => {
 router.patch('/definitions/:id', async (req, res) => {
   try {
     const b = req.body ?? {};
-    const patch: Parameters<typeof patchDefinition>[1] = {};
+    const patch: Parameters<typeof patchDefinition>[2] = {};
     if (typeof b.title === 'string') patch.title = b.title;
     if ('description' in b) {
       patch.description = typeof b.description === 'string' ? b.description : null;
@@ -263,7 +277,7 @@ router.patch('/definitions/:id', async (req, res) => {
       patch.audience =
         b.audience.trim() === 'MARKETER' ? EContractAudience.MARKETER : EContractAudience.TEAM_LEADER;
     }
-    const row = await patchDefinition(req.params.id, patch);
+    const row = await patchDefinition(reqTenantId(req), req.params.id, patch);
     res.json({ definition: row });
   } catch (e: unknown) {
     const code = (e as { code?: string })?.code;
@@ -299,7 +313,7 @@ router.delete('/definitions/:id', async (req, res) => {
       return;
     }
     const uid = actor(req).userId;
-    const dbUser = await prisma.user.findUnique({ where: { id: uid } });
+    const dbUser = await prisma.user.findFirst({ where: { id: uid, tenantId: reqTenantId(req) } });
     if (!dbUser?.passwordHash) {
       res.status(403).json({ error: '비밀번호 확인에 실패했습니다.' });
       return;
@@ -309,7 +323,7 @@ router.delete('/definitions/:id', async (req, res) => {
       res.status(403).json({ error: '비밀번호가 일치하지 않습니다.' });
       return;
     }
-    await deleteDefinitionHard(uid, req.params.id);
+    await deleteDefinitionHard(reqTenantId(req), uid, req.params.id);
     res.json({ ok: true });
   } catch (e: unknown) {
     if ((e as { code?: string })?.code === 'conflict') {
@@ -323,7 +337,7 @@ router.delete('/definitions/:id', async (req, res) => {
 
 router.get('/definitions/:id/issuances', async (req, res) => {
   try {
-    const rows = await listIssuancesForDefinition(req.params.id, 120);
+    const rows = await listIssuancesForDefinition(reqTenantId(req), req.params.id, 120);
     res.json({ issuances: rows });
   } catch (e) {
     console.error('[e-contract] list issuances', e);
@@ -331,9 +345,9 @@ router.get('/definitions/:id/issuances', async (req, res) => {
   }
 });
 
-router.post('/definitions/:id/draft', async (_req, res) => {
+router.post('/definitions/:id/draft', async (req, res) => {
   try {
-    const draft = await ensureDraft(_req.params.id);
+    const draft = await ensureDraft(reqTenantId(req), req.params.id);
     res.status(201).json({ draft });
   } catch (e: unknown) {
     if ((e as { code?: string })?.code === 'not_found') {
@@ -375,7 +389,7 @@ router.patch('/versions/:vid', async (req, res) => {
 
 router.post('/versions/:vid/publish', async (req, res) => {
   try {
-    const row = await publishVersion(actor(req).userId, req.params.vid);
+    const row = await publishVersion(reqTenantId(req), actor(req).userId, req.params.vid);
     res.json({ version: row });
   } catch (e: unknown) {
     if ((e as { code?: string })?.code === 'bad_request') {
@@ -395,7 +409,7 @@ router.post('/versions/:vid/publish', async (req, res) => {
 
 router.get('/versions/:vid/published-preview', async (req, res) => {
   try {
-    const out = await getPublishedVersionPreview(req.params.vid);
+    const out = await getPublishedVersionPreview(reqTenantId(req), req.params.vid);
     res.json(out);
   } catch (e: unknown) {
     if ((e as { code?: string })?.code === 'not_found') {
@@ -420,7 +434,7 @@ router.delete('/versions/:vid', async (req, res) => {
     }
 
     if (existing.status === EContractVersionStatus.DRAFT) {
-      await deleteDraft(vid);
+      await deleteDraft(reqTenantId(req), vid);
       res.json({ ok: true });
       return;
     }
@@ -436,7 +450,7 @@ router.delete('/versions/:vid', async (req, res) => {
       return;
     }
     const uid = actor(req).userId;
-    const dbUser = await prisma.user.findUnique({ where: { id: uid } });
+    const dbUser = await prisma.user.findFirst({ where: { id: uid, tenantId: reqTenantId(req) } });
     if (!dbUser?.passwordHash) {
       res.status(403).json({ error: '비밀번호 확인에 실패했습니다.' });
       return;
@@ -447,7 +461,7 @@ router.delete('/versions/:vid', async (req, res) => {
       return;
     }
 
-    await deletePublishedVersion(uid, vid);
+    await deletePublishedVersion(reqTenantId(req), uid, vid);
     res.json({ ok: true });
   } catch (e: unknown) {
     const code = (e as { code?: string })?.code;
@@ -475,9 +489,9 @@ router.delete('/versions/:vid', async (req, res) => {
   }
 });
 
-router.get('/pickers/marketers', async (_req, res) => {
+router.get('/pickers/marketers', async (req, res) => {
   try {
-    const users = await listMarketersForPicker();
+    const users = await listMarketersForPicker(reqTenantId(req));
     res.json({ marketers: users });
   } catch (e) {
     console.error('[e-contract] marketers picker', e);
@@ -485,9 +499,9 @@ router.get('/pickers/marketers', async (_req, res) => {
   }
 });
 
-router.get('/pickers/recipients', async (_req, res) => {
+router.get('/pickers/recipients', async (req, res) => {
   try {
-    const users = await listAllContractRecipientsForPicker();
+    const users = await listAllContractRecipientsForPicker(reqTenantId(req));
     res.json({ recipients: users });
   } catch (e) {
     console.error('[e-contract] recipients picker', e);
@@ -495,9 +509,9 @@ router.get('/pickers/recipients', async (_req, res) => {
   }
 });
 
-router.get('/pickers/team-leaders', async (_req, res) => {
+router.get('/pickers/team-leaders', async (req, res) => {
   try {
-    const users = await listTeamLeadersForPicker();
+    const users = await listTeamLeadersForPicker(reqTenantId(req));
     res.json({ teamLeaders: users });
   } catch (e) {
     console.error('[e-contract] team leaders picker', e);
@@ -522,7 +536,7 @@ router.get('/team-leaders/:userId/submissions', async (req, res) => {
 router.get('/submissions', async (req, res) => {
   try {
     const query = parseEContractListQuery(req.query as Record<string, unknown>);
-    const result = await listAllSubmissionsForAdmin(query);
+    const result = await listAllSubmissionsForAdmin(reqTenantId(req), query);
     res.json({ submissions: result.items, total: result.total });
   } catch (e) {
     console.error('[e-contract] submissions list all', e);
@@ -532,7 +546,7 @@ router.get('/submissions', async (req, res) => {
 
 router.get('/submissions/:submissionId/docx', async (req, res) => {
   try {
-    const detail = await getSubmissionDetailForAdmin(req.params.submissionId);
+    const detail = await getSubmissionDetailForAdmin(reqTenantId(req), req.params.submissionId);
     const buf = await submissionMergedHtmlToDocxBuffer({
       definitionTitle: detail.definitionTitle,
       metaLinePlain: `${detail.teamLeader.name} (${detail.teamLeader.email}) · ${new Date(detail.signedAt).toLocaleString('ko-KR')}`,
@@ -559,7 +573,7 @@ router.get('/submissions/:submissionId/docx', async (req, res) => {
 
 router.get('/submissions/:submissionId', async (req, res) => {
   try {
-    const detail = await getSubmissionDetailForAdmin(req.params.submissionId);
+    const detail = await getSubmissionDetailForAdmin(reqTenantId(req), req.params.submissionId);
     res.json({ submission: detail });
   } catch (e: unknown) {
     if ((e as { code?: string })?.code === 'not_found') {
@@ -595,7 +609,7 @@ router.post('/issuances', async (req, res) => {
       return;
     }
     const notes = typeof b.notes === 'string' ? b.notes : null;
-    const row = await createIssuance({
+    const row = await createIssuance(reqTenantId(req), {
       definitionId,
       recipientUserId,
       versionId,

@@ -19,9 +19,88 @@ enum TeamLeaderPayrollPaymentBucket {
   ADDITIONAL_RECEIPT_SETTLEMENT
 }
 
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+}
+
+enum PlatformRole {
+  SUPER_ADMIN
+  SUPPORT
+}
+
+model Tenant {
+  id          String       @id @default(uuid())
+  slug        String       @unique @db.VarChar(48)
+  name        String       @db.VarChar(128)
+  status      TenantStatus @default(ACTIVE)
+  plan        String       @default("premium") @db.VarChar(32)
+  timezone    String       @default("Asia/Seoul") @db.VarChar(64)
+  config      Json         @default("{}")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  suspendedAt DateTime?    @map("suspended_at")
+
+  users     User[]
+  inquiries Inquiry[]
+  features  TenantFeature[]
+  orderForms OrderForm[]
+  externalCompanies ExternalCompany[]
+  adChannels AdChannel[]
+  teams Team[]
+  orderFollowups OrderFollowup[]
+  csReports CsReport[]
+  messages Message[]
+  assignments Assignment[]
+  adWorkSessions AdWorkSession[]
+  dailyInquiryCounters DailyInquiryCounter[]
+  scheduleDayClosures ScheduleDayClosure[]
+  scheduleDaySlotAdjustments ScheduleDaySlotToAdjustment[]
+  scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
+  scheduleDayTeamMemberSlots ScheduleDayTeamMemberSlot[]
+  teamCrewGroups TeamCrewGroup[]
+  payrollAdminPersonalExpenses PayrollAdminPersonalExpense[]
+  payrollAdminSharedExpenses PayrollAdminSharedExpense[]
+  payrollIncomeDeposits PayrollIncomeDeposit[]
+  payrollAccountLedgerManualEntries PayrollAccountLedgerManualEntry[]
+  userCustomCalendars UserCustomCalendar[]
+  eContractIssuerProfiles EContractIssuerProfile[]
+  eContractFieldDefinitions EContractFieldDefinition[]
+  eContractDefinitions EContractDefinition[]
+
+  @@map("tenants")
+}
+
+/// 플랜 대비 per-tenant 모듈 on/off 오버라이드
+model TenantFeature {
+  tenantId String  @map("tenant_id")
+  moduleId String  @map("module_id") @db.VarChar(64)
+  enabled  Boolean
+  meta     Json    @default("{}")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, moduleId])
+  @@map("tenant_features")
+}
+
+model PlatformUser {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  name         String
+  role         PlatformRole @default(SUPER_ADMIN)
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@map("platform_users")
+}
+
 /// 자사가 고객 정보를 넘기는 외부 협력 업체 (타업체)
 model ExternalCompany {
   id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   bizNumber String?  @map("biz_number") @db.VarChar(64)
   phone     String?  @db.VarChar(64)
@@ -36,6 +115,7 @@ model ExternalCompany {
   inquiriesCancelFeeFor Inquiry[] @relation("InquiryCancelFeeExternalCompany")
   payrollLedgerManualExpenseTargets PayrollAccountLedgerManualEntry[]
 
+  @@index([tenantId, isActive])
   @@map("external_companies")
 }
 
@@ -71,7 +151,9 @@ model ExternalCompanySettlementReset {
 
 model User {
   id           String   @id @default(uuid())
-  email        String   @unique
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String
   passwordHash String   @map("password_hash")
   name         String
   /// 크루 현장 일정 등 표시용 로마자 이름 (선택)
@@ -80,6 +162,8 @@ model User {
   phone        String?
   vehicleNumber String? @map("vehicle_number") @db.VarChar(64)
   isActive     Boolean  @default(true) @map("is_active")
+  /// 테넌트 내 최고 관리자 (플랫폼 SUPER_ADMIN 과 별개)
+  isTenantOwner Boolean @default(false) @map("is_tenant_owner")
   /// 타업체 로그인 계정(EXTERNAL_PARTNER)이 소속된 업체
   externalCompanyId String? @map("external_company_id")
   externalCompany   ExternalCompany? @relation(fields: [externalCompanyId], references: [id], onDelete: SetNull)
@@ -148,6 +232,8 @@ model User {
   /// 팀장에게 발급·체결된 전자계약(수신측 사용자)
   eContractIssuancesAsTeamLeader EContractIssuance[] @relation("EContractIssuanceTeamLeader")
 
+  @@unique([tenantId, email])
+  @@index([tenantId, role, isActive])
   @@map("users")
 }
 
@@ -191,6 +277,8 @@ model TeamLeaderWebPushSubscription {
 /// 팀장당 1팀 (팀원은 로그인 없음, 마스터·휴무만 관리)
 model Team {
   id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   teamLeaderId String   @unique @map("team_leader_id")
   memo         String?
   createdAt    DateTime @default(now()) @map("created_at")
@@ -199,6 +287,7 @@ model Team {
   teamLeader User         @relation("TeamLeaderTeam", fields: [teamLeaderId], references: [id], onDelete: Cascade)
   members    TeamMember[]
 
+  @@index([tenantId])
   @@map("teams")
 }
 
@@ -289,9 +378,11 @@ model TeamMemberPayrollMonthAdjust {
 /// 태국인 팀원 등 공유 로그인으로 같은 화면을 보는 크루 그룹(팀원 관리에서 생성·설정)
 model TeamCrewGroup {
   id     String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name   String
-  /// 공유 로그인 아이디(고유)
-  loginId String @unique @map("login_id") @db.VarChar(64)
+  /// 공유 로그인 아이디(테넌트 내 고유)
+  loginId String @map("login_id") @db.VarChar(64)
   passwordHash String @map("password_hash")
   phone   String? @db.VarChar(32)
   /// true: 스케줄 집계·접수 팀원 선택 시 그룹장이 해당일 지정한 명단만 사용. false: 그룹 소속 활성 팀원 전원
@@ -307,6 +398,8 @@ model TeamCrewGroup {
   staffNotices CrewStaffNotice[]
   expenses  TeamCrewGroupExpense[]
 
+  @@unique([tenantId, loginId])
+  @@index([tenantId, isActive])
   @@map("team_crew_groups")
 }
 
@@ -396,6 +489,8 @@ model TeamCrewGroupExpenseAttachment {
 /// 급여표 「지출」탭 — 관리자가 귀속 월별로 기록하는 개인·업무 지출(참고용, 인건비 산정과 무관)
 model PayrollAdminPersonalExpense {
   id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   monthKey    String   @map("month_key") @db.VarChar(7)
   amount      Int
   memo        String?  @db.Text
@@ -405,13 +500,15 @@ model PayrollAdminPersonalExpense {
 
   createdBy User @relation("PayrollAdminPersonalExpenseCreator", fields: [createdById], references: [id], onDelete: Restrict)
 
-  @@index([monthKey, createdAt(sort: Desc)])
+  @@index([tenantId, monthKey, createdAt(sort: Desc)])
   @@map("payroll_admin_personal_expenses")
 }
 
 /// 급여표 「정산」탭 — 관리자가 귀속 월별로 기록하는 공용·부서 지출(참고용, 인건비 산정과 무관)
 model PayrollAdminSharedExpense {
   id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   monthKey    String   @map("month_key") @db.VarChar(7)
   amount      Int
   memo        String?  @db.Text
@@ -421,13 +518,15 @@ model PayrollAdminSharedExpense {
 
   createdBy User @relation("PayrollAdminSharedExpenseCreator", fields: [createdById], references: [id], onDelete: Restrict)
 
-  @@index([monthKey, createdAt(sort: Desc)])
+  @@index([tenantId, monthKey, createdAt(sort: Desc)])
   @@map("payroll_admin_shared_expenses")
 }
 
 /// 급여표 「정산」탭 수입 영역 — 귀속 월별 실제 입금 기록(참고용, 접수 매출 자동 집계와 별개)
 model PayrollIncomeDeposit {
   id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   monthKey     String   @map("month_key") @db.VarChar(7)
   depositedOn  DateTime @map("deposited_on") @db.Date
   amount       Int
@@ -438,7 +537,7 @@ model PayrollIncomeDeposit {
 
   createdBy User @relation("PayrollIncomeDepositCreator", fields: [createdById], references: [id], onDelete: Restrict)
 
-  @@index([monthKey, depositedOn(sort: Desc)])
+  @@index([tenantId, monthKey, depositedOn(sort: Desc)])
   @@map("payroll_income_deposits")
 }
 
@@ -459,6 +558,8 @@ enum PayrollLedgerManualPayrollLinkKind {
 /// 월정산표 「계정 수입·지출 표」— 관리자 수기 수입·지출(현금성 장부 반영)
 model PayrollAccountLedgerManualEntry {
   id           String                          @id @default(uuid())
+  tenantId     String                          @map("tenant_id")
+  tenant       Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   monthKey     String                          @map("month_key") @db.VarChar(7)
   direction    PayrollAccountLedgerManualDirection @map("direction")
   occurredOn   DateTime                        @map("occurred_on") @db.Date
@@ -479,9 +580,9 @@ model PayrollAccountLedgerManualEntry {
   linkUser User? @relation("PayrollLedgerManualLinkedUser", fields: [linkUserId], references: [id], onDelete: Restrict)
   linkExternalCompany ExternalCompany? @relation(fields: [linkExternalCompanyId], references: [id], onDelete: Restrict)
 
-  @@index([monthKey, payrollLinkKind, linkTeamMemberId], map: "pld_manual_month_pool_idx")
-  @@index([monthKey, payrollLinkKind, linkUserId], map: "pld_manual_month_user_idx")
-  @@index([monthKey, occurredOn(sort: Asc), createdAt(sort: Asc)])
+  @@index([tenantId, monthKey, payrollLinkKind, linkTeamMemberId], map: "pld_manual_month_pool_idx")
+  @@index([tenantId, monthKey, payrollLinkKind, linkUserId], map: "pld_manual_month_user_idx")
+  @@index([tenantId, monthKey, occurredOn(sort: Asc), createdAt(sort: Asc)])
   @@map("payroll_account_ledger_manual_entries")
 }
 
@@ -519,16 +620,21 @@ enum UserRole {
 
 /// KST 일자별 접수 순번 (YYMMDD + 4자리 = 10자리 `inquiry_number` 발급용)
 model DailyInquiryCounter {
-  dateKey String @id @map("date_key") @db.VarChar(8)
-  lastSeq Int    @map("last_seq")
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dateKey  String @map("date_key") @db.VarChar(8)
+  lastSeq  Int    @map("last_seq")
 
+  @@id([tenantId, dateKey])
   @@map("daily_inquiry_counters")
 }
 
 model Inquiry {
   id              String       @id @default(uuid())
-  /// 고객·검색용 짧은 접수번호 (KST 기준 YYMMDD + 일 4자리 순번, 10자리 숫자, 전역 유일)
-  inquiryNumber   String?      @unique @map("inquiry_number") @db.VarChar(12)
+  tenantId        String       @map("tenant_id")
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// 고객·검색용 짧은 접수번호 (KST 기준 YYMMDD + 일 4자리 순번, 10자리 숫자)
+  inquiryNumber   String?      @map("inquiry_number") @db.VarChar(12)
   customerName    String       @map("customer_name")
   /// 선택 입력: 고객 호칭·별칭(예: 어머님, 관리실)
   nickname        String?      @map("nickname")
@@ -611,6 +717,8 @@ model Inquiry {
   @@index([preferredDate])
   @@index([status, createdAt])
   @@index([createdById])
+  @@index([tenantId, createdAt])
+  @@unique([tenantId, inquiryNumber])
   @@map("inquiries")
 }
 
@@ -716,27 +824,35 @@ enum ScheduleClosureScope {
 /// 관리자 수동 일정 마감(범위별 잔여 슬롯·TO 조정)
 model ScheduleDayClosure {
   id        String               @id @default(uuid())
-  date      DateTime             @unique @db.Date @map("date")
+  tenantId  String               @map("tenant_id")
+  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  date      DateTime             @db.Date @map("date")
   scope     ScheduleClosureScope @default(FULL) @map("scope")
   createdAt DateTime             @default(now()) @map("created_at")
 
+  @@unique([tenantId, date])
   @@map("schedule_day_closures")
 }
 
 /// 스케줄표·캘린더에 표시되는 오전·오후 잔여 슬롯(TO) 숫자 보정(가산)
 model ScheduleDaySlotToAdjustment {
   id             String   @id @default(uuid())
-  date           DateTime @unique @db.Date @map("date")
+  tenantId       String   @map("tenant_id")
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  date           DateTime @db.Date @map("date")
   morningDelta   Int      @default(0) @map("morning_delta")
   afternoonDelta Int      @default(0) @map("afternoon_delta")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
+  @@unique([tenantId, date])
   @@map("schedule_day_slot_to_adjustments")
 }
 
 /// 일자별 팀장 오전·오후 가용(관리자 수동, 없으면 휴무일 기준)
 model ScheduleDayLeaderSlot {
   id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   date               DateTime @db.Date @map("date")
   teamLeaderId       String   @map("team_leader_id")
   morningAvailable   Boolean  @map("morning_available")
@@ -745,13 +861,15 @@ model ScheduleDayLeaderSlot {
 
   teamLeader User @relation(fields: [teamLeaderId], references: [id], onDelete: Cascade)
 
-  @@unique([date, teamLeaderId])
+  @@unique([tenantId, date, teamLeaderId])
   @@map("schedule_day_leader_slots")
 }
 
 /// 일자별 팀원 가용(관리자 수동, 없으면 휴무일 기준)
 model ScheduleDayTeamMemberSlot {
   id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   date         DateTime @db.Date @map("date")
   teamMemberId String   @map("team_member_id")
   available    Boolean
@@ -759,7 +877,7 @@ model ScheduleDayTeamMemberSlot {
 
   teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
 
-  @@unique([date, teamMemberId])
+  @@unique([tenantId, date, teamMemberId])
   @@map("schedule_day_team_member_slots")
 }
 
@@ -848,6 +966,8 @@ model OrderFormConfig {
 
 model CsReport {
   id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customerName  String   @map("customer_name")
   customerPhone String   @map("customer_phone")
   content       String
@@ -872,6 +992,7 @@ model CsReport {
   /// A/S(재방문 등) 예정일 — 관리 스케줄에만 표시, 일반 예약일·팀 캘린더 슬롯에는 반영하지 않음
   asServiceDate     DateTime? @map("as_service_date") @db.Date
 
+  @@index([tenantId, createdAt])
   @@index([inquiryId])
   @@index([completedById])
   @@index([status])
@@ -890,6 +1011,8 @@ enum AdChannelSettlementMode {
 
 model AdChannel {
   id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   sortOrder Int      @default(0) @map("sort_order")
   isActive  Boolean  @default(true) @map("is_active")
@@ -900,6 +1023,7 @@ model AdChannel {
   spendLines AdSpendLine[]
   lineItems  AdChannelLineItem[]
 
+  @@index([tenantId, sortOrder])
   @@map("ad_channels")
 }
 
@@ -924,6 +1048,8 @@ model AdChannelLineItem {
 
 model AdWorkSession {
   id        String    @id @default(uuid())
+  tenantId  String    @map("tenant_id")
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId    String    @map("user_id")
   startedAt DateTime  @map("started_at")
   endedAt   DateTime? @map("ended_at")
@@ -935,7 +1061,7 @@ model AdWorkSession {
   user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   spendLines AdSpendLine[]
 
-  @@index([userId, startedAt])
+  @@index([tenantId, userId, startedAt])
   @@index([userId, endedAt])
   @@map("ad_work_sessions")
 }
@@ -960,6 +1086,8 @@ model AdSpendLine {
 
 model OrderForm {
   id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   token           String   @unique
   customerName    String   @map("customer_name")
   /// 발급 시 관리자가 넣는 대표 연락처(선택) — 고객 발주서 전화란에 자동 반영
@@ -982,6 +1110,7 @@ model OrderForm {
   inquiries  Inquiry[]
   photos     OrderFormPhoto[]
 
+  @@index([tenantId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
   @@map("order_forms")
 }
@@ -1033,6 +1162,8 @@ enum OrderFollowupStatus {
 
 model OrderFollowup {
   id                 String               @id @default(uuid())
+  tenantId           String               @map("tenant_id")
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   inquiryId          String?              @map("inquiry_id")
   customerName       String               @map("customer_name")
   nickname           String?              @map("nickname")
@@ -1055,6 +1186,7 @@ model OrderFollowup {
   handledBy       User?      @relation("OrderFollowupHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
   logs              OrderFollowupLog[]
 
+  @@index([tenantId, status, updatedAt])
   @@index([status, updatedAt])
   @@index([status, createdAt(sort: Desc)])
   @@index([handledById])
@@ -1096,6 +1228,8 @@ enum InquiryStatus {
 
 model Assignment {
   id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   inquiryId     String   @map("inquiry_id")
   teamLeaderId  String   @map("team_leader_id")
   assignedById  String   @map("assigned_by_id")
@@ -1109,6 +1243,7 @@ model Assignment {
   teamLeader  User    @relation("TeamLeaderAssignments", fields: [teamLeaderId], references: [id])
   assignedBy  User    @relation("AdminAssignments", fields: [assignedById], references: [id])
 
+  @@index([tenantId, inquiryId])
   @@index([inquiryId])
   @@index([teamLeaderId])
   @@map("assignments")
@@ -1116,6 +1251,8 @@ model Assignment {
 
 model Message {
   id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   senderId   String    @map("sender_id")
   receiverId String    @map("receiver_id")
   content    String
@@ -1126,6 +1263,7 @@ model Message {
   sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId, receiverId, readAt])
   @@index([batchId])
   @@index([receiverId, readAt])
   @@index([senderId, receiverId, createdAt])
@@ -1138,6 +1276,8 @@ model Message {
 /// 접수 address 문자열에 시 단위 이름이 단어 경계로 포함되면 일치로 간주(클라이언트 필터).
 model UserCustomCalendar {
   id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId    String   @map("user_id")
   name      String   @db.VarChar(64)
   regions   Json
@@ -1149,7 +1289,7 @@ model UserCustomCalendar {
 
   user User @relation("UserCustomCalendars", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, sortOrder])
+  @@index([tenantId, userId, sortOrder])
   @@map("user_custom_calendars")
 }
 
@@ -1163,7 +1303,9 @@ enum EContractIssuerStampKind {
 /// 다법인 시 `profile_key`로 확장 가능(단일테넌트는 `default`).
 model EContractIssuerProfile {
   id                       String                     @id @default(uuid())
-  profileKey               String                     @unique @default("default") @map("profile_key") @db.VarChar(64)
+  tenantId                 String                     @map("tenant_id")
+  tenant                   Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profileKey               String                     @default("default") @map("profile_key") @db.VarChar(64)
   companyName              String                     @default("") @map("company_name") @db.VarChar(512)
   representativeName       String?                    @map("representative_name") @db.VarChar(128)
   businessRegistrationNo   String?                  @map("business_registration_no") @db.VarChar(32)
@@ -1183,6 +1325,7 @@ model EContractIssuerProfile {
   updatedById              String?  @map("updated_by_id")
   updatedBy                User?    @relation("EContractIssuerProfileUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
 
+  @@unique([tenantId, profileKey])
   @@map("e_contract_issuer_profiles")
 }
 
@@ -1226,6 +1369,8 @@ enum EContractFieldInputType {
 /// 전자계약 본문 치환 필드 정의(팀장/마케터별 설정)
 model EContractFieldDefinition {
   id         String                   @id @default(uuid())
+  tenantId   String                   @map("tenant_id")
+  tenant     Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   audience   EContractAudience        @map("audience")
   /// 본문 삽입 토큰 — 예: [[EC_SIGNER_NAME]]
   token      String                   @db.VarChar(64)
@@ -1238,13 +1383,15 @@ model EContractFieldDefinition {
   createdAt  DateTime                 @default(now()) @map("created_at")
   updatedAt  DateTime                 @updatedAt @map("updated_at")
 
-  @@unique([audience, token])
-  @@index([audience, isActive, sortOrder])
+  @@unique([tenantId, audience, token])
+  @@index([tenantId, audience, isActive, sortOrder])
   @@map("e_contract_field_definitions")
 }
 
 model EContractDefinition {
   id           String             @id @default(uuid())
+  tenantId     String             @map("tenant_id")
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title        String             @db.VarChar(512)
   description  String?            @db.Text
   /// 수신자 유형 — 발급·체결 대상(팀장 vs 마케터 링크)
@@ -1259,7 +1406,7 @@ model EContractDefinition {
   versions  EContractVersion[]
   issuances EContractIssuance[]
 
-  @@index([isArchived, updatedAt(sort: Desc)])
+  @@index([tenantId, isArchived, updatedAt(sort: Desc)])
   @@map("e_contract_definitions")
 }
 

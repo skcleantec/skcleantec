@@ -147,10 +147,11 @@ async function main() {
   await prisma.$transaction(async (tx) => {
     for (let i = 0; i < samples.length; i++) {
       const s = samples[i]!;
-      const inquiryNumber = await allocateNextInquiryNumber(tx);
+      const inquiryNumber = await allocateNextInquiryNumber(tx, admin.tenantId);
       await tx.inquiry.create({
         data: {
           id: s.id,
+          tenantId: admin.tenantId,
           inquiryNumber,
           customerName: s.customerName,
           customerPhone: s.customerPhone,

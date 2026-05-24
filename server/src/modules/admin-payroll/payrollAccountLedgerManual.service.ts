@@ -7,6 +7,7 @@ import type {
 export async function createPayrollAccountLedgerManualEntry(
   prismaClient: PrismaClient,
   params: {
+    tenantId: string;
     monthKey: string;
     direction: PayrollAccountLedgerManualDirection;
     occurredOn: Date;
@@ -22,6 +23,7 @@ export async function createPayrollAccountLedgerManualEntry(
 ) {
   return prismaClient.payrollAccountLedgerManualEntry.create({
     data: {
+      tenantId: params.tenantId,
       monthKey: params.monthKey,
       direction: params.direction,
       occurredOn: params.occurredOn,
@@ -57,11 +59,14 @@ export async function createPayrollAccountLedgerManualEntry(
 
 export async function deletePayrollAccountLedgerManualEntryById(
   prismaClient: PrismaClient,
+  tenantId: string,
   entryId: string,
 ): Promise<boolean> {
   try {
-    await prismaClient.payrollAccountLedgerManualEntry.delete({ where: { id: entryId } });
-    return true;
+    const result = await prismaClient.payrollAccountLedgerManualEntry.deleteMany({
+      where: { id: entryId, tenantId },
+    });
+    return result.count > 0;
   } catch {
     return false;
   }

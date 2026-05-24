@@ -1,0 +1,290 @@
+import bcrypt from 'bcryptjs';
+import type { Prisma, TenantStatus } from '@prisma/client';
+import { prisma } from '../../lib/prisma.js';
+import { ensureMissingProfessionalDefaults } from '../orderform/defaultProfessionalOptions.js';
+import {
+  isKnownFeatureModuleId,
+  modulesForPlan,
+  TENANT_FEATURE_MODULES,
+  type TenantFeatureModuleId,
+} from '../tenants/tenantFeatureCatalog.js';
+import { TenantNotFoundError } from '../tenants/tenant.service.js';
+import { ensureDefaultAdChannelsForTenant } from '../advertising/defaultAdChannels.js';
+import { customModulesForTenantSlug, isCustomModuleId, isRegisteredCustomModuleId } from '../custom/customModuleCatalog.js';
+import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.service.js';
+
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
+
+export function normalizeTenantSlug(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+export function assertValidTenantSlug(slug: string): void {
+  if (!slug || !SLUG_RE.test(slug)) {
+    throw new Error('업체 코드는 영문 소문자·숫자·하이픈(2~48자)만 사용할 수 있습니다.');
+  }
+}
+
+export type ProvisionTenantInput = {
+  slug: string;
+  name: string;
+  plan: string;
+  adminEmail: string;
+  adminPassword: string;
+  adminName?: string;
+  status?: TenantStatus;
+};
+
+export async function provisionTenant(input: ProvisionTenantInput) {
+  const slug = normalizeTenantSlug(input.slug);
+  const name = input.name.trim();
+  const adminEmail = input.adminEmail.trim().toLowerCase();
+  const adminName = (input.adminName?.trim() || '관리자').slice(0, 64);
+  const plan = input.plan in { starter: 1, standard: 1, premium: 1 } ? input.plan : 'starter';
+  const status = input.status ?? 'TRIAL';
+
+  assertValidTenantSlug(slug);
+  if (!name) throw new Error('업체명을 입력해주세요.');
+  if (!adminEmail || !input.adminPassword.trim()) {
+    throw new Error('관리자 아이디와 비밀번호를 입력해주세요.');
+  }
+
+  const slugTaken = await prisma.tenant.findUnique({ where: { slug } });
+  if (slugTaken) throw new Error('이미 사용 중인 업체 코드입니다.');
+
+  const passwordHash = await bcrypt.hash(input.adminPassword.trim(), 10);
+  const planModules = modulesForPlan(plan);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const tenant = await tx.tenant.create({
+      data: {
+        slug,
+        name,
+        plan,
+        status,
+      },
+    });
+
+    for (const moduleId of planModules) {
+      await tx.tenantFeature.create({
+        data: { tenantId: tenant.id, moduleId, enabled: true },
+      });
+    }
+
+    const admin = await tx.user.create({
+      data: {
+        tenantId: tenant.id,
+        email: adminEmail,
+        passwordHash,
+        name: adminName,
+        role: 'ADMIN',
+        isTenantOwner: true,
+      },
+      select: { id: true, email: true, name: true },
+    });
+
+    await seedSharedConfigsIfEmpty(tx);
+    await ensureDefaultAdChannelsForTenant(tx, tenant.id);
+
+    return { tenant, admin };
+  });
+
+  await ensureMissingProfessionalDefaults(prisma);
+
+  return result;
+}
+
+async function seedSharedConfigsIfEmpty(tx: Prisma.TransactionClient) {
+  const formConfig = await tx.orderFormConfig.findFirst();
+  if (!formConfig) {
+    await tx.orderFormConfig.create({ data: {} });
+  }
+  const estimateConfig = await tx.estimateConfig.findFirst();
+  if (!estimateConfig) {
+    await tx.estimateConfig.create({
+      data: { pricePerPyeong: 15000, depositAmount: 20000 },
+    });
+  }
+}
+
+export async function listTenantsForPlatform() {
+  const rows = await prisma.tenant.findMany({
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      plan: true,
+      status: true,
+      createdAt: true,
+      _count: { select: { users: true, inquiries: true } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    name: r.name,
+    plan: r.plan,
+    status: r.status,
+    createdAt: r.createdAt,
+    userCount: r._count.users,
+    inquiryCount: r._count.inquiries,
+  }));
+}
+
+export async function getTenantDetailForPlatform(tenantId: string) {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      plan: true,
+      status: true,
+      timezone: true,
+      config: true,
+      createdAt: true,
+      suspendedAt: true,
+    },
+  });
+  if (!tenant) throw new TenantNotFoundError();
+
+  const overrides = await prisma.tenantFeature.findMany({
+    where: { tenantId },
+    select: { moduleId: true, enabled: true },
+  });
+  const overrideMap = new Map(overrides.map((o) => [o.moduleId, o.enabled]));
+  const planModules = new Set(modulesForPlan(tenant.plan));
+  const customDefs = customModulesForTenantSlug(tenant.slug);
+
+  const baseCatalog = Object.entries(TENANT_FEATURE_MODULES).map(([moduleId, meta]) => {
+    const id = moduleId as TenantFeatureModuleId;
+    const inPlan = planModules.has(id);
+    const override = overrideMap.get(moduleId);
+    const locked = meta.tier === 'core';
+    let effective = inPlan;
+    if (override !== undefined && !locked) {
+      effective = override;
+    }
+    if (locked) effective = true;
+    return {
+      moduleId: id,
+      label: meta.label,
+      tier: meta.tier,
+      locked,
+      inPlan,
+      enabled: override ?? inPlan,
+      effective,
+    };
+  });
+
+  const customCatalog = customDefs.map((def) => {
+    const override = overrideMap.get(def.moduleId);
+    const enabled = override ?? false;
+    return {
+      moduleId: def.moduleId,
+      label: def.label,
+      tier: 'custom' as const,
+      locked: false,
+      inPlan: false,
+      enabled,
+      effective: enabled,
+    };
+  });
+
+  const config = await getTenantConfig(tenantId);
+
+  return { tenant, features: [...baseCatalog, ...customCatalog], planModules: [...planModules], config };
+}
+
+export async function updateTenantBasics(
+  tenantId: string,
+  data: { name?: string; plan?: string; status?: TenantStatus },
+) {
+  const existing = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (!existing) throw new TenantNotFoundError();
+
+  const patch: { name?: string; plan?: string; status?: TenantStatus; suspendedAt?: Date | null } = {};
+  if (data.name !== undefined) {
+    const name = data.name.trim();
+    if (!name) throw new Error('업체명을 입력해주세요.');
+    patch.name = name;
+  }
+  if (data.plan !== undefined) {
+    if (!(data.plan in { starter: 1, standard: 1, premium: 1 })) {
+      throw new Error('유효하지 않은 플랜입니다.');
+    }
+    patch.plan = data.plan;
+  }
+  if (data.status !== undefined) {
+    patch.status = data.status;
+    patch.suspendedAt = data.status === 'SUSPENDED' ? new Date() : null;
+  }
+
+  return prisma.tenant.update({
+    where: { id: tenantId },
+    data: patch,
+    select: { id: true, slug: true, name: true, plan: true, status: true },
+  });
+}
+
+export async function replaceTenantFeatureOverrides(
+  tenantId: string,
+  items: { moduleId: string; enabled: boolean }[],
+) {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (!tenant) throw new TenantNotFoundError();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tenantFeature.deleteMany({ where: { tenantId } });
+    const planModules = new Set(modulesForPlan(tenant.plan));
+
+    for (const item of items) {
+      if (isCustomModuleId(item.moduleId)) {
+        if (!isRegisteredCustomModuleId(item.moduleId)) continue;
+        await tx.tenantFeature.create({
+          data: { tenantId, moduleId: item.moduleId, enabled: item.enabled },
+        });
+        continue;
+      }
+      if (!isKnownFeatureModuleId(item.moduleId)) continue;
+      const meta = TENANT_FEATURE_MODULES[item.moduleId];
+      if (meta.tier === 'core') continue;
+      await tx.tenantFeature.create({
+        data: { tenantId, moduleId: item.moduleId, enabled: item.enabled },
+      });
+    }
+
+    for (const moduleId of planModules) {
+      const meta = TENANT_FEATURE_MODULES[moduleId];
+      if (meta.tier === 'core') continue;
+      const hasRow = items.some((i) => i.moduleId === moduleId);
+      if (!hasRow) {
+        await tx.tenantFeature.create({
+          data: { tenantId, moduleId, enabled: true },
+        });
+      }
+    }
+  });
+}
+
+export async function resetTenantFeaturesFromPlan(tenantId: string) {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (!tenant) throw new TenantNotFoundError();
+
+  const planModules = modulesForPlan(tenant.plan);
+  await prisma.$transaction(async (tx) => {
+    await tx.tenantFeature.deleteMany({ where: { tenantId } });
+    for (const moduleId of planModules) {
+      await tx.tenantFeature.create({
+        data: { tenantId, moduleId, enabled: true },
+      });
+    }
+  });
+}
+
+export async function updateTenantConfigForPlatform(tenantId: string, body: unknown) {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (!tenant) throw new TenantNotFoundError();
+  return updateTenantConfig(tenantId, body);
+}

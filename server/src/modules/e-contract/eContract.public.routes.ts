@@ -30,9 +30,11 @@ router.get('/sign/:token', async (req, res) => {
     if ('error' in sessionOrErr) {
       const code = sessionOrErr.error;
       const status =
-        code === 'not_found' ? 404 : code === 'expired' ? 410 : 403;
+        code === 'not_found' ? 404 : code === 'expired' ? 410 : code === 'tenant_suspended' ? 403 : 403;
       const msg =
-        code === 'expired'
+        code === 'tenant_suspended'
+          ? '서비스가 중지된 업체입니다.'
+          : code === 'expired'
           ? '만료된 링크입니다.'
           : code === 'not_found'
             ? '링크를 찾을 수 없습니다.'
@@ -115,7 +117,7 @@ router.post('/sign/:token/submit', async (req, res) => {
 
     const issuance = await validateIssuanceWritable(req.params.token);
     const audience = issuance.definition!.audience;
-    const signFields = await resolveSignerFormFields(audience);
+    const signFields = await resolveSignerFormFields(issuance.definition!.tenantId, audience);
 
     let signerEntered;
     let signerValuesByToken: Record<string, string> = {};

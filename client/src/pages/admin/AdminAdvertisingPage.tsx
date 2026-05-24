@@ -62,7 +62,7 @@ function RoasHelpIcon() {
 export function AdminAdvertisingPage() {
   const token = getToken();
   const [role, setRole] = useState<string | null>(null);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isTenantOwner, setIsTenantOwner] = useState(false);
   const [marketers, setMarketers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [marketerFilter, setMarketerFilter] = useState<string>('');
 
@@ -92,7 +92,7 @@ export function AdminAdvertisingPage() {
     try {
       const me = await getMe(token);
       setRole(me.role);
-      setIsSuperAdmin(Boolean(me.isSuperAdmin));
+      setIsTenantOwner(Boolean(me.isTenantOwner ?? me.isSuperAdmin));
 
       if (me.role === 'ADMIN') {
         const list = await getUsers(token, 'MARKETER');
@@ -103,7 +103,7 @@ export function AdminAdvertisingPage() {
       const [an, hi, ch] = await Promise.all([
         getAdvertisingAnalytics(token, from, to, mid ?? null),
         getAdSessionHistory(token, from, to, mid ?? null),
-        getAdChannels(token, me.isSuperAdmin),
+        getAdChannels(token, Boolean(me.isTenantOwner ?? me.isSuperAdmin)),
       ]);
       setAnalytics(an);
       setHistory(hi.items);
@@ -239,19 +239,29 @@ export function AdminAdvertisingPage() {
         <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
       ) : (
         <>
-          <div>
+          <div className="min-w-0 w-full max-w-full">
             <h2 className="text-fluid-base font-medium text-gray-800 mb-3">기간 요약</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <SummaryCard label="총 광고비" value={s ? won(s.totalAdSpend) : '—'} />
-              <SummaryCard label="예약완료 건수" value={s ? String(s.orderInquiryCount) : '—'} sub="작업 종료 시 수동·자동 분모 합" />
-              <SummaryCard label="접수 매출 합계" value={s ? won(s.totalRevenue) : '—'} />
-              <SummaryCard label="ROAS" value={s?.roas != null ? numOrDash(s.roas) : '—'} sub="매출÷광고비" />
-              <SummaryCard label="건당 비용" value={s?.costPerInquiry != null ? won(Math.round(s.costPerInquiry)) : '—'} sub="광고비÷예약완료 건수" />
-              <SummaryCard
-                label="일평균 광고비"
-                value={s ? won(Math.round(s.avgDailySpend)) : '—'}
-                sub={`${analytics?.period.days ?? '—'}일 기준`}
-              />
+            <div className="overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0 lg:overflow-visible [scrollbar-width:thin]" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="flex min-w-max flex-nowrap items-stretch gap-2.5 sm:gap-3 lg:min-w-0 lg:grid lg:grid-cols-6 lg:w-full">
+                <SummaryCard label="총 광고비" value={s ? won(s.totalAdSpend) : '—'} />
+                <SummaryCard
+                  label="예약완료 건수"
+                  value={s ? String(s.orderInquiryCount) : '—'}
+                  sub="작업 종료 시 수동·자동 분모 합"
+                />
+                <SummaryCard label="접수 매출 합계" value={s ? won(s.totalRevenue) : '—'} />
+                <SummaryCard label="ROAS" value={s?.roas != null ? numOrDash(s.roas) : '—'} sub="매출÷광고비" />
+                <SummaryCard
+                  label="건당 비용"
+                  value={s?.costPerInquiry != null ? won(Math.round(s.costPerInquiry)) : '—'}
+                  sub="광고비÷예약완료 건수"
+                />
+                <SummaryCard
+                  label="일평균 광고비"
+                  value={s ? won(Math.round(s.avgDailySpend)) : '—'}
+                  sub={`${analytics?.period.days ?? '—'}일 기준`}
+                />
+              </div>
             </div>
           </div>
 
@@ -372,9 +382,9 @@ export function AdminAdvertisingPage() {
         </>
       )}
 
-      {isSuperAdmin && (
+      {isTenantOwner && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-fluid-base font-medium text-gray-800 mb-2">광고 채널 표시 순서·삭제 (최고 관리자)</h2>
+          <h2 className="text-fluid-base font-medium text-gray-800 mb-2">광고 채널 표시 순서·삭제 (업체 소유자)</h2>
           <p className="text-fluid-sm text-gray-600 mb-4">
             채널 추가·사용 여부는 「설정」 탭에서 관리합니다. 여기서는 목록 순서만 바꾸거나, 이력이 없는 채널만 삭제할 수 있습니다.
           </p>
@@ -481,6 +491,7 @@ export function AdminAdvertisingPage() {
           token={token}
           marketerId={dailySettlement.userId}
           marketerName={dailySettlement.name}
+          initialMonth={from.slice(0, 7)}
           onClose={() => setDailySettlement(null)}
         />
       )}
@@ -490,10 +501,12 @@ export function AdminAdvertisingPage() {
 
 function SummaryCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="bg-white border border-gray-200 rounded p-3">
-      <p className="text-fluid-xs text-gray-600">{label}</p>
-      <p className="text-fluid-lg font-semibold text-gray-900 mt-1 tabular-nums">{value}</p>
-      {sub && <p className="text-fluid-2xs text-gray-500 mt-0.5">{sub}</p>}
+    <div className="shrink-0 lg:min-w-0 bg-white border border-gray-200 rounded px-2.5 py-2 sm:px-3 sm:py-2.5 text-fluid-2xs sm:text-fluid-xs lg:[font-size:clamp(0.5rem,0.78vw,0.6875rem)]">
+      <p className="text-[1em] leading-tight text-gray-600 whitespace-nowrap">{label}</p>
+      <p className="text-[1.45em] leading-tight font-semibold text-gray-900 mt-0.5 tabular-nums whitespace-nowrap">
+        {value}
+      </p>
+      {sub && <p className="text-[0.92em] leading-tight text-gray-500 mt-0.5 whitespace-nowrap">{sub}</p>}
     </div>
   );
 }

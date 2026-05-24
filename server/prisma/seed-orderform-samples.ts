@@ -357,8 +357,8 @@ function buildMemo(
 
 async function main() {
   const marketer =
-    (await prisma.user.findUnique({ where: { email: 'marketer@skcleanteck.com' } })) ??
-    (await prisma.user.findUnique({ where: { email: 'admin' } }));
+    (await prisma.user.findFirst({ where: { email: 'marketer@skcleanteck.com' } })) ??
+    (await prisma.user.findFirst({ where: { email: 'admin' } }));
   if (!marketer) {
     throw new Error('마케터 또는 관리자 계정이 없습니다. 먼저 npm run db:seed 를 실행하세요.');
   }
@@ -422,6 +422,7 @@ async function main() {
 
       await tx.inquiry.create({
         data: {
+          tenantId: marketer.tenantId,
           createdById: marketer.id,
           customerName: row.customerName,
           customerPhone: row.customerPhone,

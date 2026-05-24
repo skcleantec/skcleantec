@@ -1,5 +1,8 @@
 # 아키텍처 상세 가이드
 
+> **멀티 테넌트(SaaS) 전환** 설계·단계별 구현은 **[docs/MULTI_TENANT_PLATFORM.md](docs/MULTI_TENANT_PLATFORM.md)** 를 따른다.  
+> (플랫폼 `/platform`, 테넌트 `/admin`, 업체별 기능 on/off·커스터마이징)
+
 ## 로그인 URL 분리
 
 | 역할 | 로그인 URL | 설명 |

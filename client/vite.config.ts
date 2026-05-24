@@ -36,11 +36,18 @@ export default defineConfig(({ command, mode }) => {
     console.info(`[vite] dev proxy /api, /ws → ${proxyTarget}`);
   }
 
+  const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+
   return {
     define: {
       'import.meta.env.VITE_INTERNAL_API_BASE': JSON.stringify(devInternalApiBase),
     },
     plugins: [react()],
+    resolve: {
+      alias: {
+        '@shared': path.join(repoRoot, 'shared'),
+      },
+    },
     base: '/',
     build: {
       target: 'es2020',

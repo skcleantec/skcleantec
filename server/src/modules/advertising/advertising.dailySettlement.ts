@@ -123,7 +123,7 @@ export async function advertisingDailySettlementForMonthKey(
       ymd,
       totalAdSpend: agg.spend,
       reservationCount: agg.count,
-      costPerReservation: agg.count > 0 ? agg.spend / agg.count : null,
+      costPerReservation: agg.spend > 0 && agg.count > 0 ? agg.spend / agg.count : null,
     };
   });
 

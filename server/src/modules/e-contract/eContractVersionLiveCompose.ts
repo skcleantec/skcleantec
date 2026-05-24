@@ -13,10 +13,11 @@ export type EContractVersionBodySource = {
  * `bodyMarkdown`이 비어 있으면 `bodyDisplayHtml` 폴백(레거시).
  */
 export async function composePublishedVersionHtmlWithLiveIssuer(
+  tenantId: string,
   version: EContractVersionBodySource,
   appendixOpts?: { submissionId?: string; signedAtIso?: string }
 ): Promise<string> {
-  const snap = await getIssuerSnapshot();
+  const snap = await getIssuerSnapshot(tenantId);
   const raw = (version.bodyMarkdown ?? '').replace(/\r\n/g, '\n').trim();
   if (!raw) {
     const fb =

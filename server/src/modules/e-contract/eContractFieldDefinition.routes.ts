@@ -9,8 +9,13 @@ import {
 } from './eContractFieldDefinition.service.js';
 import { getDefinitionWithVersions, publishedVersionBodyText } from './eContract.service.js';
 import { prisma } from '../../lib/prisma.js';
+import type { TenantScopedRequest } from '../tenants/tenant.middleware.js';
 
 const router = Router();
+
+function reqTenantId(req: Request): string {
+  return (req as TenantScopedRequest).tenantId;
+}
 
 function parseAudience(raw: unknown): EContractAudience | null {
   if (raw === 'MARKETER' || raw === 'TEAM_LEADER') return raw;
@@ -25,7 +30,7 @@ router.get('/field-definitions', async (req, res) => {
       return;
     }
     const activeOnly = req.query.activeOnly === '1' || req.query.activeOnly === 'true';
-    const fields = await listFieldDefinitions(audience, { activeOnly });
+    const fields = await listFieldDefinitions(reqTenantId(req), audience, { activeOnly });
     res.json({ fields });
   } catch (e) {
     console.error('[e-contract] field-definitions GET', e);
@@ -54,7 +59,7 @@ router.post('/field-definitions', async (req, res) => {
       inputTypeRaw in EContractFieldInputType
         ? (inputTypeRaw as EContractFieldInputType)
         : EContractFieldInputType.TEXT;
-    const row = await createFieldDefinition({
+    const row = await createFieldDefinition(reqTenantId(req), {
       audience,
       label,
       token: typeof b.token === 'string' ? b.token : null,
@@ -84,7 +89,7 @@ router.post('/field-definitions', async (req, res) => {
 router.patch('/field-definitions/:id', async (req, res) => {
   try {
     const b = req.body ?? {};
-    const patch: Parameters<typeof patchFieldDefinition>[1] = {};
+    const patch: Parameters<typeof patchFieldDefinition>[2] = {};
     if (typeof b.label === 'string') patch.label = b.label;
     if (typeof b.inputType === 'string' && b.inputType in EContractFieldInputType) {
       patch.inputType = b.inputType as EContractFieldInputType;
@@ -100,7 +105,7 @@ router.patch('/field-definitions/:id', async (req, res) => {
     if (typeof b.required === 'boolean') patch.required = b.required;
     if (typeof b.sortOrder === 'number') patch.sortOrder = b.sortOrder;
     if (typeof b.isActive === 'boolean') patch.isActive = b.isActive;
-    const row = await patchFieldDefinition(req.params.id, patch);
+    const row = await patchFieldDefinition(reqTenantId(req), req.params.id, patch);
     res.json({ field: row });
   } catch (e: unknown) {
     const code = (e as { code?: string })?.code;
@@ -119,7 +124,7 @@ router.patch('/field-definitions/:id', async (req, res) => {
 
 router.delete('/field-definitions/:id', async (req, res) => {
   try {
-    await deleteFieldDefinition(req.params.id);
+    await deleteFieldDefinition(reqTenantId(req), req.params.id);
     res.json({ ok: true });
   } catch (e: unknown) {
     const code = (e as { code?: string })?.code;
@@ -139,7 +144,7 @@ router.delete('/field-definitions/:id', async (req, res) => {
 /** 발급 시 관리자 입력이 필요한 필드(본문·버전 기준) */
 router.get('/definitions/:definitionId/merge-fields', async (req, res) => {
   try {
-    const def = await getDefinitionWithVersions(req.params.definitionId);
+    const def = await getDefinitionWithVersions(reqTenantId(req), req.params.definitionId);
     if (!def) {
       res.status(404).json({ error: '없습니다.' });
       return;
@@ -154,7 +159,7 @@ router.get('/definitions/:definitionId/merge-fields', async (req, res) => {
       return;
     }
     const bodyText = publishedVersionBodyText(version);
-    const fields = await resolveFieldsForBody(bodyText, def.audience, {
+    const fields = await resolveFieldsForBody(reqTenantId(req), bodyText, def.audience, {
       filledBy: EContractFieldFilledBy.ADMIN,
     });
     res.json({ fields });
@@ -167,15 +172,15 @@ router.get('/definitions/:definitionId/merge-fields', async (req, res) => {
 /** 초안 편집 드롭다운 — audience별 활성 필드(SIGNER·ADMIN·AUTO) */
 router.get('/definitions/:definitionId/editor-fields', async (req, res) => {
   try {
-    const row = await prisma.eContractDefinition.findUnique({
-      where: { id: req.params.definitionId },
+    const row = await prisma.eContractDefinition.findFirst({
+      where: { id: req.params.definitionId, tenantId: reqTenantId(req) },
       select: { audience: true },
     });
     if (!row) {
       res.status(404).json({ error: '없습니다.' });
       return;
     }
-    const fields = await listFieldDefinitions(row.audience, { activeOnly: true });
+    const fields = await listFieldDefinitions(reqTenantId(req), row.audience, { activeOnly: true });
     res.json({
       fields: fields.map((f) => ({
         token: f.token,

@@ -16,6 +16,7 @@ const DEFAULT_CUSTOMER = '\uACE0\uAC1D';
 
 /** Push celebration toast to connected ADMIN·MARKETER clients. */
 export async function notifyInquiryCelebrate(params: {
+  tenantId: string;
   createdById: string | null;
   customerName: string;
   inquiryNumber?: string | null;
@@ -36,5 +37,5 @@ export async function notifyInquiryCelebrate(params: {
     inquiryNumber: params.inquiryNumber ?? null,
     source: params.source ?? null,
   });
-  broadcastJsonToStaff(payload);
+  broadcastJsonToStaff(payload, params.tenantId);
 }

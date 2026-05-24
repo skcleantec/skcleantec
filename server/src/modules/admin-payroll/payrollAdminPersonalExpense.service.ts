@@ -2,10 +2,11 @@ import type { PrismaClient } from '@prisma/client';
 
 export async function listPayrollAdminPersonalExpensesForMonth(
   prismaClient: PrismaClient,
+  tenantId: string,
   monthKey: string,
 ) {
   return prismaClient.payrollAdminPersonalExpense.findMany({
-    where: { monthKey },
+    where: { tenantId, monthKey },
     orderBy: [{ createdAt: 'desc' }],
     select: {
       id: true,
@@ -20,10 +21,11 @@ export async function listPayrollAdminPersonalExpensesForMonth(
 
 export async function createPayrollAdminPersonalExpense(
   prismaClient: PrismaClient,
-  params: { monthKey: string; amount: number; memo: string | null; createdById: string },
+  params: { tenantId: string; monthKey: string; amount: number; memo: string | null; createdById: string },
 ) {
   return prismaClient.payrollAdminPersonalExpense.create({
     data: {
+      tenantId: params.tenantId,
       monthKey: params.monthKey,
       amount: params.amount,
       memo: params.memo,
@@ -42,11 +44,14 @@ export async function createPayrollAdminPersonalExpense(
 
 export async function deletePayrollAdminPersonalExpenseById(
   prismaClient: PrismaClient,
+  tenantId: string,
   expenseId: string,
 ): Promise<boolean> {
   try {
-    await prismaClient.payrollAdminPersonalExpense.delete({ where: { id: expenseId } });
-    return true;
+    const result = await prismaClient.payrollAdminPersonalExpense.deleteMany({
+      where: { id: expenseId, tenantId },
+    });
+    return result.count > 0;
   } catch {
     return false;
   }

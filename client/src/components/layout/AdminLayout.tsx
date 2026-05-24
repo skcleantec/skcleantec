@@ -28,6 +28,7 @@ import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
+import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -121,6 +122,8 @@ export function AdminLayout() {
   const [fabTop, setFabTop] = useState<number | null>(null);
   const fabTopRef = useRef<number | null>(null);
   const [showStagingDbImportMenu, setShowStagingDbImportMenu] = useState(false);
+  const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
+  const [tenantPlan, setTenantPlan] = useState<string | null>(null);
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
   const [fabDragging, setFabDragging] = useState(false);
   const fabPointerIdRef = useRef<number | null>(null);
@@ -179,6 +182,8 @@ export function AdminLayout() {
       setMeVehicleNumber(null);
       setTeamPreviewLink(false);
       setShowStagingDbImportMenu(false);
+      setTenantFeatures(null);
+      setTenantPlan(null);
       setMeProfileLoading(false);
       return;
     }
@@ -192,6 +197,8 @@ export function AdminLayout() {
         phone?: string | null;
         vehicleNumber?: string | null;
         showStagingDbImport?: boolean;
+        features?: string[];
+        tenant?: { plan?: string } | null;
       }) => {
         if (cancelled) return;
         const role = typeof u.role === 'string' ? u.role : null;
@@ -200,6 +207,8 @@ export function AdminLayout() {
         setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
         setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
         setShowStagingDbImportMenu(Boolean(u.showStagingDbImport));
+        setTenantFeatures(Array.isArray(u.features) ? u.features : []);
+        setTenantPlan(typeof u.tenant?.plan === 'string' ? u.tenant.plan : null);
         /** 팀·크루 미리보기: 업무 관리자(ADMIN) + 개발용 이메일 화이트리스트만. 일반 마케터는 제외 */
         const email = typeof u.email === 'string' ? u.email : '';
         const preview = role === 'ADMIN' || isTeamPreviewAdminEmail(email);
@@ -217,6 +226,8 @@ export function AdminLayout() {
           setMeVehicleNumber(null);
           setTeamPreviewLink(false);
           setShowStagingDbImportMenu(false);
+          setTenantFeatures(null);
+          setTenantPlan(null);
           clearToken();
           navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
           return;
@@ -232,8 +243,11 @@ export function AdminLayout() {
 
   useEffect(() => {
     if (!meRole) return;
-    setNavOrder(loadAdminNavOrder(meRole === 'ADMIN'));
-  }, [meRole]);
+    const isAdmin = meRole === 'ADMIN';
+    setNavOrder(loadAdminNavOrder(isAdmin, tenantFeatures));
+  }, [meRole, tenantFeatures]);
+
+  const navCtx = { isAdmin: meRole === 'ADMIN', enabledModules: tenantFeatures };
 
   const handleNavDragStart = (e: React.DragEvent, id: AdminNavId) => {
     setDraggingNavId(id);
@@ -257,7 +271,7 @@ export function AdminLayout() {
     const dragId = raw as AdminNavId;
     if (dragId === targetId) return;
     const isAdmin = meRole === 'ADMIN';
-    if (!canShowAdminNavItem(dragId, isAdmin) || !canShowAdminNavItem(targetId, isAdmin)) return;
+    if (!canShowAdminNavItem(dragId, navCtx) || !canShowAdminNavItem(targetId, navCtx)) return;
     setNavOrder((prev) => {
       const next = insertBefore(prev, dragId, targetId);
       saveAdminNavOrder(isAdmin, next);
@@ -573,9 +587,8 @@ export function AdminLayout() {
               </button>
               <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {
-                  const isAdmin = meRole === 'ADMIN';
                   if (id === 'dashboard') return null;
-                  if (!canShowAdminNavItem(id, isAdmin)) return null;
+                  if (!canShowAdminNavItem(id, navCtx)) return null;
                   const def = ADMIN_NAV_DEF[id];
                   const dragging = draggingNavId === id;
                   const dragHandle = (
@@ -746,7 +759,9 @@ export function AdminLayout() {
         </div>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
-        <Outlet />
+        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan }}>
+          <Outlet />
+        </TenantCapabilitiesProvider>
       </main>
       {showOrderIssueFab && (
         <button
