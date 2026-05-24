@@ -14,6 +14,7 @@ import {
   createIssuance,
   deleteDefinitionHard,
   deleteDraft,
+  deletePublishedVersion,
   ensureDraft,
   getDefinitionWithVersions,
   getPublishedVersionPreview,
@@ -424,26 +425,44 @@ router.delete('/versions/:vid', async (req, res) => {
       return;
     }
 
-    if (existing.status === EContractVersionStatus.PUBLISHED) {
-      res.status(409).json({
-        error: '배포된 버전은 삭제할 수 없습니다. 수정이 필요하면 새 초안을 배포하세요.',
-      });
+    if (existing.status !== EContractVersionStatus.PUBLISHED) {
+      res.status(400).json({ error: '삭제할 수 없는 버전입니다.' });
       return;
     }
 
-    res.status(400).json({ error: '삭제할 수 없는 버전입니다.' });
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!password) {
+      res.status(400).json({ error: '본인 비밀번호를 입력해 주세요.' });
+      return;
+    }
+    const uid = actor(req).userId;
+    const dbUser = await prisma.user.findUnique({ where: { id: uid } });
+    if (!dbUser?.passwordHash) {
+      res.status(403).json({ error: '비밀번호 확인에 실패했습니다.' });
+      return;
+    }
+    const ok = await bcrypt.compare(password, dbUser.passwordHash);
+    if (!ok) {
+      res.status(403).json({ error: '비밀번호가 일치하지 않습니다.' });
+      return;
+    }
+
+    await deletePublishedVersion(uid, vid);
+    res.json({ ok: true });
   } catch (e: unknown) {
     const code = (e as { code?: string })?.code;
     if (code === 'bad_request') {
-      res.status(400).json({ error: '초안은 「초안 폐기」를 사용하세요.' });
+      res.status(400).json({
+        error:
+          e instanceof Error && e.message === 'not_published'
+            ? '배포된 버전만 이 경로로 삭제할 수 있습니다.'
+            : '초안은 「초안 폐기」를 사용하세요.',
+      });
       return;
     }
     if (code === 'conflict') {
       res.status(409).json({
-        error:
-          e instanceof Error && e.message === 'published_version_permanent'
-            ? '배포된 버전은 삭제할 수 없습니다. 수정이 필요하면 새 초안을 배포하세요.'
-            : '삭제할 수 없습니다.',
+        error: '이 버전으로 체결된 내역이 있어 삭제할 수 없습니다.',
       });
       return;
     }

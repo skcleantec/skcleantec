@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AdminEContractSubmissionDetailModal } from '../../components/e-contract/AdminEContractSubmissionDetailModal';
 import { EContractRichEditor } from '../../components/e-contract/EContractRichEditor';
 import { EContractDraftPreviewModal } from '../../components/e-contract/EContractDraftPreviewModal';
+import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { getToken } from '../../stores/auth';
 import { EContractDynamicFieldInputs } from '../../components/e-contract/EContractDynamicFieldInputs';
 import {
@@ -10,6 +11,7 @@ import {
   createEContractIssuance,
   deleteEContractDefinition,
   deleteEContractDraft,
+  deleteEContractPublishedVersion,
   ensureEContractDraft,
   fetchEContractEditorFields,
   fetchEContractMergeFieldsForIssuance,
@@ -24,9 +26,15 @@ import {
   type EContractEditorFieldOption,
   type EContractIssuanceRow,
   type EContractMergeFieldForIssuance,
+  type EContractVersionDetail,
   type TeamLeaderPicker,
 } from '../../api/adminEContract';
 import { eContractAudienceLabel, eContractIssuanceStatusKo, eContractRecipientRoleLabel } from '../../utils/eContractDisplay';
+
+function publishedVersionDeleteLabel(v: EContractVersionDetail): string {
+  const ord = v.publishedOrdinal != null ? `v${v.publishedOrdinal}` : '배포본';
+  return `${ord} · ${v.titleSnapshot}`;
+}
 
 export function AdminEContractDefinitionPage() {
   const { definitionId } = useParams<{ definitionId: string }>();
@@ -55,6 +63,7 @@ export function AdminEContractDefinitionPage() {
 
   const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
   const [publishedPreviewVersionId, setPublishedPreviewVersionId] = useState<string | null>(null);
+  const [deletePublishedTarget, setDeletePublishedTarget] = useState<EContractVersionDetail | null>(null);
   const draftEditorGetHtmlRef = useRef<(() => string) | null>(null);
   const [delOpen, setDelOpen] = useState(false);
   const [delPwd, setDelPwd] = useState('');
@@ -254,6 +263,16 @@ export function AdminEContractDefinitionPage() {
     }
   };
 
+  const confirmDeletePublishedVersion = async (password: string) => {
+    if (!token || !deletePublishedTarget) return;
+    await deleteEContractPublishedVersion(token, deletePublishedTarget.id, password);
+    setMsg(`배포 버전(${publishedVersionDeleteLabel(deletePublishedTarget)})을 삭제했습니다.`);
+    setDeletePublishedTarget(null);
+    if (issueVersionId === deletePublishedTarget.id) setIssueVersionId('');
+    if (publishedPreviewVersionId === deletePublishedTarget.id) setPublishedPreviewVersionId(null);
+    await loadAll();
+  };
+
   const hardDelete = async () => {
     if (!token || !def) return;
     setDeleting(true);
@@ -337,17 +356,18 @@ export function AdminEContractDefinitionPage() {
       <section className="mb-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-fluid-md font-semibold text-gray-900">버전 히스토리</h2>
         <p className="mt-1 text-fluid-xs text-gray-600">
-          배포된 버전은 체결 여부와 관계없이 <span className="font-medium text-gray-800">영구 보관</span>됩니다. 수정이 필요하면
-          「새 초안 준비」 후 다시 배포하세요(v1, v2… 누적).
+          배포된 버전 본문은 변경되지 않습니다. 수정이 필요하면 새 초안을 만든 뒤 다시 배포하세요. 체결 내역이 없는 배포 버전만
+          본인 비밀번호 확인 후 삭제할 수 있습니다(연결된 미체결 발급 링크도 함께 제거됩니다).
         </p>
         <div className="mt-4 hidden lg:block overflow-x-auto">
           <table className="w-full table-fixed border border-gray-200 text-fluid-xs">
             <colgroup>
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '18%' }} />
               <col style={{ width: '14%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '20%' }} />
+              <col style={{ width: '28%' }} />
               <col style={{ width: '16%' }} />
-              <col style={{ width: '36%' }} />
             </colgroup>
             <thead>
               <tr className="bg-gray-100">
@@ -356,6 +376,7 @@ export function AdminEContractDefinitionPage() {
                 <th className="border-b border-gray-200 px-2 py-2 text-center">배포 시각</th>
                 <th className="border-b border-gray-200 px-2 py-2 text-center">발급/체결 건수</th>
                 <th className="border-b border-gray-200 px-2 py-2 text-center">제목 스냅샷</th>
+                <th className="border-b border-gray-200 px-2 py-2 text-center">관리</th>
               </tr>
             </thead>
             <tbody>
@@ -370,6 +391,25 @@ export function AdminEContractDefinitionPage() {
                   <td className="truncate px-2 py-2 text-center" title={v.titleSnapshot}>
                     {v.titleSnapshot}
                   </td>
+                  <td className="px-2 py-2 text-center">
+                    {v.status === 'PUBLISHED' ? (
+                      v._count.submissions > 0 ? (
+                        <span className="text-fluid-2xs text-gray-400" title="체결 이력이 있어 삭제 불가">
+                          삭제 불가
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDeletePublishedTarget(v)}
+                          className="text-fluid-2xs font-medium text-red-700 hover:underline"
+                        >
+                          배포 삭제
+                        </button>
+                      )
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -378,13 +418,27 @@ export function AdminEContractDefinitionPage() {
         <div className="mt-4 space-y-2 lg:hidden">
           {def.versions.map((v) => (
             <div key={v.id} className="rounded border border-gray-100 bg-gray-50 p-3">
-              <div className="font-medium">
-                {v.status === 'PUBLISHED' ? '배포' : '초안'}
-                {v.publishedOrdinal != null ? ` · v${v.publishedOrdinal}` : ''}
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="font-medium">
+                  {v.status === 'PUBLISHED' ? '배포' : '초안'}
+                  {v.publishedOrdinal != null ? ` · v${v.publishedOrdinal}` : ''}
+                </div>
+                {v.status === 'PUBLISHED' && v._count.submissions === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setDeletePublishedTarget(v)}
+                    className="shrink-0 rounded border border-red-200 bg-white px-2 py-1 text-fluid-2xs font-medium text-red-700"
+                  >
+                    배포 삭제
+                  </button>
+                ) : null}
               </div>
               <div className="text-fluid-2xs text-gray-600 mt-1">
                 발급 {v._count.issuances} · 체결 {v._count.submissions}
                 {v.publishedAt ? ` · ${new Date(v.publishedAt).toLocaleString('ko-KR')}` : ''}
+                {v.status === 'PUBLISHED' && v._count.submissions > 0 ? (
+                  <span className="block text-gray-500">체결 이력이 있어 삭제할 수 없습니다.</span>
+                ) : null}
               </div>
               <div className="text-fluid-xs mt-2">{v.titleSnapshot}</div>
             </div>
@@ -686,8 +740,21 @@ export function AdminEContractDefinitionPage() {
         <div className="mt-3 space-y-4">
           {publishedVersions.slice().reverse().map((v) => (
             <div key={v.id} className="rounded border border-gray-200 p-3">
-              <div className="min-w-0 font-semibold">
-                v{v.publishedOrdinal} · {v.titleSnapshot}
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 font-semibold">
+                  v{v.publishedOrdinal} · {v.titleSnapshot}
+                </div>
+                {v._count.submissions > 0 ? (
+                  <span className="shrink-0 text-fluid-2xs text-gray-500">체결 이력 있음 · 삭제 불가</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setDeletePublishedTarget(v)}
+                    className="shrink-0 rounded border border-red-200 bg-white px-2 py-1 text-fluid-2xs font-medium text-red-700"
+                  >
+                    이 배포 버전 삭제
+                  </button>
+                )}
               </div>
               {v.contentHash ? (
                 <div className="mt-1 break-all font-mono text-fluid-2xs text-gray-500">{v.contentHash}</div>
@@ -753,6 +820,22 @@ export function AdminEContractDefinitionPage() {
           </div>
         )}
       </section>
+
+      <ConfirmPasswordModal
+        open={Boolean(deletePublishedTarget)}
+        title="배포 버전 삭제"
+        description={
+          deletePublishedTarget ? (
+            <p className="text-fluid-sm text-gray-700">
+              <span className="font-medium">{publishedVersionDeleteLabel(deletePublishedTarget)}</span>
+              을(를) 영구 삭제합니다. 연결된 미체결 발급 링크도 함께 제거됩니다.
+            </p>
+          ) : null
+        }
+        confirmLabel="삭제"
+        onClose={() => setDeletePublishedTarget(null)}
+        onConfirm={confirmDeletePublishedVersion}
+      />
 
       <AdminEContractSubmissionDetailModal
         token={token}
