@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { EContractBodyDisplay } from '../../components/e-contract/EContractBodyDisplay';
 import { AdminEContractSubmissionDetailModal } from '../../components/e-contract/AdminEContractSubmissionDetailModal';
 import { EContractRichEditor } from '../../components/e-contract/EContractRichEditor';
 import { EContractDraftPreviewModal } from '../../components/e-contract/EContractDraftPreviewModal';
@@ -21,7 +20,6 @@ import {
   patchEContractDefinition,
   patchEContractVersion,
   publishEContractVersion,
-  previewEContractExpandedBody,
   pickerTeamLeaders,
   pickerMarketers,
   type EContractDefinitionDetail,
@@ -36,69 +34,6 @@ import { eContractAudienceLabel, eContractIssuanceStatusKo, eContractRecipientRo
 function publishedVersionDeleteLabel(v: EContractVersionDetail): string {
   const ord = v.publishedOrdinal != null ? `v${v.publishedOrdinal}` : '배포본';
   return `${ord} · ${v.titleSnapshot}`;
-}
-
-/** 배포된 버전 — 원문 + 현재 발행측 프로필로 갑·부록 미리보기(API 동일 규칙) */
-function PublishedVersionLiveBodyPreview(props: {
-  adminToken: string;
-  versionId: string;
-  bodyMarkdown: string;
-  frozenFallback: string;
-}) {
-  const { adminToken, versionId, bodyMarkdown, frozenFallback } = props;
-  const [liveHtml, setLiveHtml] = useState<string | null>(null);
-  const [liveErr, setLiveErr] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!adminToken.trim()) {
-      setLiveHtml(null);
-      setLiveErr(false);
-      setBusy(false);
-      return;
-    }
-    const raw = (bodyMarkdown ?? '').trim();
-    if (!raw) {
-      setLiveHtml(null);
-      setLiveErr(false);
-      setBusy(false);
-      return;
-    }
-    let cancelled = false;
-    setBusy(true);
-    setLiveErr(false);
-    void (async () => {
-      try {
-        const { expanded, appendixHtml } = await previewEContractExpandedBody(adminToken, raw);
-        const combined = `${expanded}\n\n${typeof appendixHtml === 'string' ? appendixHtml : ''}`;
-        if (!cancelled) setLiveHtml(combined);
-      } catch {
-        if (!cancelled) {
-          setLiveErr(true);
-          setLiveHtml(null);
-        }
-      } finally {
-        if (!cancelled) setBusy(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [adminToken, versionId, bodyMarkdown]);
-
-  const body = liveHtml ?? frozenFallback;
-
-  return (
-    <div className="mt-2">
-      {busy && !liveHtml ? (
-        <p className="mb-2 text-fluid-2xs text-gray-500">현재 발행측 정보를 반영해 미리보기를 준비합니다…</p>
-      ) : null}
-      {liveErr && !liveHtml ? (
-        <p className="mb-2 text-fluid-2xs text-amber-800">실시간 미리보기에 실패해 배포 시점 본문을 표시합니다.</p>
-      ) : null}
-      <EContractBodyDisplay body={body} maxHeightClass="max-h-64" />
-    </div>
-  );
 }
 
 export function AdminEContractDefinitionPage() {
@@ -127,6 +62,7 @@ export function AdminEContractDefinitionPage() {
   const [lastIssuedSignUrl, setLastIssuedSignUrl] = useState<string | null>(null);
 
   const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
+  const [publishedPreviewBody, setPublishedPreviewBody] = useState<string | null>(null);
   const [delOpen, setDelOpen] = useState(false);
   const [delPwd, setDelPwd] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -804,12 +740,13 @@ export function AdminEContractDefinitionPage() {
               {v.contentHash ? (
                 <div className="mt-1 break-all font-mono text-fluid-2xs text-gray-500">{v.contentHash}</div>
               ) : null}
-              <PublishedVersionLiveBodyPreview
-                adminToken={token ?? ''}
-                versionId={v.id}
-                bodyMarkdown={v.bodyMarkdown}
-                frozenFallback={v.bodyDisplayHtml?.trim() ? v.bodyDisplayHtml : v.bodyMarkdown}
-              />
+              <button
+                type="button"
+                onClick={() => setPublishedPreviewBody(v.bodyMarkdown)}
+                className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-fluid-2xs font-medium text-blue-900 hover:bg-blue-100"
+              >
+                배포본 미리보기
+              </button>
             </div>
           ))}
           {publishedVersions.length === 0 ? (
@@ -893,6 +830,13 @@ export function AdminEContractDefinitionPage() {
         onClose={() => setDraftPreviewOpen(false)}
         token={token}
         bodyMarkdown={draftBody}
+      />
+
+      <EContractDraftPreviewModal
+        open={publishedPreviewBody !== null}
+        onClose={() => setPublishedPreviewBody(null)}
+        token={token}
+        bodyMarkdown={publishedPreviewBody ?? ''}
       />
     </div>
   );
