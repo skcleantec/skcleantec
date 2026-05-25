@@ -4,6 +4,7 @@ import { config } from './config/index.js';
 import app from './app.js';
 import { prisma } from './lib/prisma.js';
 import { connectPrismaWithRetry } from './lib/dbConnectWithRetry.js';
+import { ensurePlatformBootstrapUsers } from './lib/ensurePlatformBootstrap.js';
 import { ensureInquiryStatusEnumForDeploy } from './lib/ensureInquiryStatusEnumForDeploy.js';
 import { ensureMissingProfessionalDefaults } from './modules/orderform/defaultProfessionalOptions.js';
 import { attachInboxWebSocket } from './modules/realtime/index.js';
@@ -12,6 +13,7 @@ async function bootstrap() {
   try {
     await connectPrismaWithRetry(prisma);
     console.log('[db] PostgreSQL 연결됨');
+    await ensurePlatformBootstrapUsers(prisma);
   } catch (err) {
     console.error(
       '[db] 연결 실패 — Docker 로컬이면 `npm run db:up` 후 `npm run db:setup`, 원격(Neon 등)이면 server/.env의 DATABASE_URL·SSL(sslmode=require)을 확인하세요.'
