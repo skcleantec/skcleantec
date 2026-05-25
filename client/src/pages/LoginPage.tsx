@@ -321,7 +321,9 @@ export function LoginPage() {
                     autoComplete="organization"
                     required
                   />
-                  <p className="text-fluid-2xs text-slate-500">소속 업체 식별 코드 (예: {DEFAULT_TENANT_SLUG})</p>
+                  <p className="text-fluid-2xs text-slate-500">
+                    SK클린텍 운영: <span className="font-medium text-slate-700">{DEFAULT_TENANT_SLUG}</span>
+                  </p>
                 </div>
               )}
 

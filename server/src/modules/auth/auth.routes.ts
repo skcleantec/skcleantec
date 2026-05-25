@@ -16,6 +16,7 @@ import {
   TenantNotFoundError,
   TenantSuspendedError,
 } from '../tenants/tenant.service.js';
+import { DEFAULT_TENANT_SLUG } from '../tenants/tenant.constants.js';
 import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 
@@ -92,6 +93,24 @@ async function loginWithPassword(req: Request, res: Response) {
     where: { tenantId_email: { tenantId: tenant.id, email: loginId } },
   });
   if (!user || !user.isActive) {
+    if (tenant.slug !== DEFAULT_TENANT_SLUG) {
+      const defaultTenant = await prisma.tenant.findUnique({
+        where: { slug: DEFAULT_TENANT_SLUG },
+        select: { id: true },
+      });
+      if (defaultTenant) {
+        const onDefault = await prisma.user.findUnique({
+          where: { tenantId_email: { tenantId: defaultTenant.id, email: loginId } },
+          select: { isActive: true },
+        });
+        if (onDefault?.isActive) {
+          res.status(401).json({
+            error: `이 아이디는 업체 코드「${DEFAULT_TENANT_SLUG}」에서 로그인합니다. 업체 코드를 확인해 주세요.`,
+          });
+          return;
+        }
+      }
+    }
     res.status(401).json({ error: '계정을 찾을 수 없거나 비활성입니다.' });
     return;
   }
