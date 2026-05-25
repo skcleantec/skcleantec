@@ -4,13 +4,17 @@ import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { config } from '../../config/index.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
 import { ensureDatabaseUrlSslMode, userMayUseStagingDbImport } from './stagingDbImport.helpers.js';
 
-type JobStatus = 'queued' | 'dumping' | 'restoring' | 'done' | 'failed';
+type JobStatus = 'queued' | 'dumping' | 'restoring' | 'migrating' | 'done' | 'failed';
+
+/** Docker·로컬 공통 server 루트 (dist/modules/admin 기준 ../../) */
+const SERVER_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 type ImportJob = {
   status: JobStatus;
@@ -21,9 +25,13 @@ type ImportJob = {
 
 const jobs = new Map<string, ImportJob>();
 
-function runCmd(exe: string, args: string[]): Promise<{ code: number; stderr: string; stdout: string }> {
+function runCmd(
+  exe: string,
+  args: string[],
+  cwd: string = SERVER_ROOT,
+): Promise<{ code: number; stderr: string; stdout: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(exe, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(exe, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
     let stderr = '';
     let stdout = '';
     child.stderr?.on('data', (chunk: Buffer) => {
@@ -47,9 +55,30 @@ function formatToolFailure(tool: string, code: number, stderr: string, stdout: s
 
 function anyJobRunning(): boolean {
   for (const j of jobs.values()) {
-    if (j.status === 'queued' || j.status === 'dumping' || j.status === 'restoring') return true;
+    if (j.status === 'queued' || j.status === 'dumping' || j.status === 'restoring' || j.status === 'migrating') {
+      return true;
+    }
   }
   return false;
+}
+
+/** 운영 DB 복원 뒤 스테이징 코드(멀티테넌트)와 스키마를 맞춤 */
+async function runPostRestoreSchemaSync(job: ImportJob): Promise<string | null> {
+  job.status = 'migrating';
+  job.message = '복원 후 스키마 마이그레이션 적용 중…';
+
+  const migrate = await runCmd('node', ['scripts/railway-predeploy-migrate.mjs']);
+  if (migrate.code !== 0) {
+    return formatToolFailure('migrate deploy', migrate.code, migrate.stderr, migrate.stdout);
+  }
+
+  job.message = '접수번호·카운터 보정 중…';
+  const backfill = await runCmd('npx', ['tsx', 'scripts/backfill-inquiry-numbers.ts']);
+  if (backfill.code !== 0) {
+    return formatToolFailure('backfill-inquiry-numbers', backfill.code, backfill.stderr, backfill.stdout);
+  }
+
+  return null;
 }
 
 async function executeImportJob(jobId: string): Promise<void> {
@@ -107,11 +136,17 @@ async function executeImportJob(jobId: string): Promise<void> {
         job.status = 'failed';
         job.message = formatToolFailure('pg_restore', restore.code, restore.stderr, restore.stdout);
       } else {
-        job.status = 'done';
-        job.message =
-          restore.code === 1
-            ? '복원 완료(일부 경고가 있었을 수 있습니다). 스테이징 앱을 새로고침·재배포 후 확인하세요.'
-            : '복원이 완료되었습니다. 스테이징 앱을 새로고침해 확인하세요.';
+        const syncErr = await runPostRestoreSchemaSync(job);
+        if (syncErr) {
+          job.status = 'failed';
+          job.message = syncErr;
+        } else {
+          job.status = 'done';
+          job.message =
+            restore.code === 1
+              ? '복원·마이그레이션 완료(복원 중 일부 경고). 페이지를 새로고침해 확인하세요.'
+              : '복원·마이그레이션 완료. 페이지를 새로고침해 확인하세요.';
+        }
       }
     } finally {
       await prisma.$connect().catch(() => {});
