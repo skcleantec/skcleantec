@@ -3,13 +3,14 @@ import './env.js';
 import { config } from './config/index.js';
 import app from './app.js';
 import { prisma } from './lib/prisma.js';
+import { connectPrismaWithRetry } from './lib/dbConnectWithRetry.js';
 import { ensureInquiryStatusEnumForDeploy } from './lib/ensureInquiryStatusEnumForDeploy.js';
 import { ensureMissingProfessionalDefaults } from './modules/orderform/defaultProfessionalOptions.js';
 import { attachInboxWebSocket } from './modules/realtime/index.js';
 
 async function bootstrap() {
   try {
-    await prisma.$connect();
+    await connectPrismaWithRetry(prisma);
     console.log('[db] PostgreSQL 연결됨');
   } catch (err) {
     console.error(
@@ -64,5 +65,10 @@ async function bootstrap() {
     keepAlive.unref();
   }
 }
+
+/** Express 4 async 라우트의 DB 일시 오류(P1001 등)가 프로세스 전체를 죽이지 않도록 */
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
 
 void bootstrap();
