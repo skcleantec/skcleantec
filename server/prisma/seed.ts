@@ -2,8 +2,12 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { seedProfessionalDefaults } from '../src/modules/orderform/defaultProfessionalOptions.js';
 import { DEFAULT_TENANT_ID, DEFAULT_TENANT_SLUG } from '../src/modules/tenants/tenant.constants.js';
+import { modulesForPlan } from '../src/modules/tenants/tenantFeatureCatalog.js';
 
 const prisma = new PrismaClient();
+
+/** true 일 때만 upsert update 에서 비밀번호를 1234 로 덮어씀 (로컬 초기화용). 배포 기본값 false */
+const resetPasswordsOnUpdate = process.env.SEED_RESET_PASSWORDS === 'true';
 
 async function main() {
   const hash = await bcrypt.hash('1234', 10);
@@ -21,10 +25,25 @@ async function main() {
   });
   console.log('Tenant:', tenant.slug);
 
+  const featureCount = await prisma.tenantFeature.count({ where: { tenantId: tenant.id } });
+  if (featureCount === 0) {
+    for (const moduleId of modulesForPlan(tenant.plan)) {
+      await prisma.tenantFeature.create({
+        data: { tenantId: tenant.id, moduleId, enabled: true },
+      });
+    }
+    console.log('TenantFeature: plan defaults seeded');
+  }
+
   const platformEmail = (process.env.PLATFORM_ADMIN_EMAIL ?? 'pyo').trim().toLowerCase();
   const platformUser = await prisma.platformUser.upsert({
     where: { email: platformEmail },
-    update: { passwordHash: hash, isActive: true, name: '청소비서 관리자', role: 'SUPER_ADMIN' },
+    update: {
+      ...(resetPasswordsOnUpdate ? { passwordHash: hash } : {}),
+      isActive: true,
+      name: '청소비서 관리자',
+      role: 'SUPER_ADMIN',
+    },
     create: {
       email: platformEmail,
       passwordHash: hash,
@@ -40,10 +59,14 @@ async function main() {
    */
   const seedDemoData = process.env.SEED_DEMO_DATA === 'true';
 
-  // 관리자 (항상 생성/업데이트)
+  // 관리자 (항상 생성/업데이트 — 비밀번호는 create 시 또는 SEED_RESET_PASSWORDS=true 일 때만)
   const admin = await prisma.user.upsert({
     where: { tenantId_email: { tenantId: tenant.id, email: 'admin' } },
-    update: { passwordHash: hash, isActive: true, isTenantOwner: true },
+    update: {
+      ...(resetPasswordsOnUpdate ? { passwordHash: hash } : {}),
+      isActive: true,
+      isTenantOwner: true,
+    },
     create: {
       tenantId: tenant.id,
       email: 'admin',
@@ -58,7 +81,13 @@ async function main() {
   /** 보조 관리자 계정 — 팀장 화면 미리보기 등 (TEAM_PREVIEW_ADMIN_EMAILS 기본값과 맞출 것) */
   const adminPyo = await prisma.user.upsert({
     where: { tenantId_email: { tenantId: tenant.id, email: 'pyo' } },
-    update: { passwordHash: hash, isActive: true, role: 'ADMIN', name: '표마왕', isTenantOwner: true },
+    update: {
+      ...(resetPasswordsOnUpdate ? { passwordHash: hash } : {}),
+      isActive: true,
+      role: 'ADMIN',
+      name: '표마왕',
+      isTenantOwner: true,
+    },
     create: {
       tenantId: tenant.id,
       email: 'pyo',
