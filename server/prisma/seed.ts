@@ -36,22 +36,26 @@ async function main() {
   }
 
   const platformEmail = (process.env.PLATFORM_ADMIN_EMAIL ?? 'pyo').trim().toLowerCase();
-  const platformUser = await prisma.platformUser.upsert({
-    where: { email: platformEmail },
-    update: {
-      ...(resetPasswordsOnUpdate ? { passwordHash: hash } : {}),
-      isActive: true,
-      name: '청소비서 관리자',
-      role: 'SUPER_ADMIN',
-    },
-    create: {
-      email: platformEmail,
-      passwordHash: hash,
-      name: '청소비서 관리자',
-      role: 'SUPER_ADMIN',
-    },
-  });
-  console.log('PlatformUser:', platformUser.email);
+  const platformLoginIds = [...new Set(['pyo', platformEmail])];
+
+  for (const loginId of platformLoginIds) {
+    const platformUser = await prisma.platformUser.upsert({
+      where: { email: loginId },
+      update: {
+        ...(resetPasswordsOnUpdate ? { passwordHash: hash } : {}),
+        isActive: true,
+        name: '청소비서 관리자',
+        role: 'SUPER_ADMIN',
+      },
+      create: {
+        email: loginId,
+        passwordHash: hash,
+        name: '청소비서 관리자',
+        role: 'SUPER_ADMIN',
+      },
+    });
+    console.log('PlatformUser:', platformUser.email);
+  }
 
   /**
    * 데모/테스트 데이터는 명시적으로 켠 환경에서만 주입한다.
