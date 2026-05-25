@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "preDeployCommand": "node scripts/railway-predeploy-migrate.mjs && npm run db:backfill-inquiry-numbers && npx prisma db seed && npm run deploy:ensure-tenant-admins && npm run deploy:seed-from-config",
+    "preDeployCommand": "node scripts/railway-predeploy-migrate.mjs && npm run db:backfill-inquiry-numbers && npx prisma db seed && npm run deploy:ensure-tenant-admins && npm run deploy:ensure-platform-admin && npm run deploy:seed-from-config",
     "startCommand": "npm run start",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 120

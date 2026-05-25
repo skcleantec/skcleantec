@@ -36,15 +36,17 @@ export function PlatformLoginPage() {
         <p className="text-fluid-xs text-gray-500 text-center mb-6">{PLATFORM_TAGLINE}</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-fluid-xs text-gray-600 mb-1">이메일</label>
+            <label className="block text-fluid-xs text-gray-600 mb-1">아이디</label>
             <input
               type="text"
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm"
+              placeholder="pyo"
               required
             />
+            <p className="mt-1 text-fluid-2xs text-gray-500">플랫폼 운영자 계정 (업무 /login 과 별도)</p>
           </div>
           <div>
             <label className="block text-fluid-xs text-gray-600 mb-1">비밀번호</label>
