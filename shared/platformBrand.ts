@@ -1,5 +1,8 @@
 /** SaaS 플랫폼(최상위 `/platform`) 브랜드명 */
 export const PLATFORM_NAME = '청소비서';
 
+/** 브랜드 영문명 — 로그인·마케팅 표기 */
+export const PLATFORM_NAME_EN = 'Clean Assistant';
+
 /** 로그인·헤더 부제 */
 export const PLATFORM_TAGLINE = '청소업 SaaS 운영 콘솔';

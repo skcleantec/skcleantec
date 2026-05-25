@@ -70,10 +70,9 @@ export function resolveInitialTenantSlug(): string {
 
 function loadTenantSlugFromStorage(): string {
   try {
-    const v = localStorage.getItem('sk_tenant_slug')?.trim().toLowerCase();
-    return v || DEFAULT_TENANT_SLUG;
+    return localStorage.getItem('sk_tenant_slug')?.trim().toLowerCase() ?? '';
   } catch {
-    return DEFAULT_TENANT_SLUG;
+    return '';
   }
 }
 

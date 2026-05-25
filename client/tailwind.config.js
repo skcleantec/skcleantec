@@ -21,13 +21,37 @@ export default {
           '0%': { backgroundPosition: '100% 50%' },
           '100%': { backgroundPosition: '0% 50%' },
         },
+        /** 왕복 sheen — linear 리셋 없이 alternate 로 부드럽게 */
+        loginTitleSheen: {
+          '0%': { backgroundPosition: '0% 50%' },
+          '100%': { backgroundPosition: '100% 50%' },
+        },
+        /** 은빛 하이라이트 — 짧은 간격으로 은은하게 반짝 */
+        loginSilverSparkle: {
+          '0%, 100%': { opacity: '0.3' },
+          '20%': { opacity: '0.5' },
+          '45%': { opacity: '0.38' },
+          '70%': { opacity: '0.58' },
+        },
         loginMistDrift: {
-          '0%, 100%': { transform: 'translateX(-10%) scale(1)' },
-          '50%': { transform: 'translateX(10%) scale(1.1)' },
+          '0%, 100%': { transform: 'translate(-50%, -50%) translateX(-6%) scale(1)' },
+          '50%': { transform: 'translate(-50%, -50%) translateX(6%) scale(1.06)' },
         },
         loginSublineShine: {
           '0%, 100%': { opacity: '0.45' },
           '50%': { opacity: '1' },
+        },
+        loginLineGrow: {
+          '0%, 100%': { transform: 'scaleX(0.55)', opacity: '0.35' },
+          '50%': { transform: 'scaleX(1)', opacity: '1' },
+        },
+        loginBrandGlow: {
+          '0%, 100%': { opacity: '0.35', transform: 'scale(0.92)' },
+          '50%': { opacity: '0.7', transform: 'scale(1.05)' },
+        },
+        loginLogoGlow: {
+          '0%, 100%': { opacity: '0.45', transform: 'scale(0.96)' },
+          '50%': { opacity: '0.9', transform: 'scale(1.04)' },
         },
         staffIdCardShine: {
           '0%': { backgroundPosition: '0% 50%' },
@@ -48,8 +72,13 @@ export default {
       },
       animation: {
         'login-title-shimmer': 'loginTitleShimmer 5.5s linear infinite',
-        'login-mist-drift': 'loginMistDrift 12s ease-in-out infinite',
+        'login-title-sheen': 'loginTitleSheen 11s ease-in-out infinite alternate',
+        'login-silver-sparkle': 'loginSilverSparkle 5.5s ease-in-out infinite',
+        'login-mist-drift': 'loginMistDrift 14s ease-in-out infinite',
         'login-subline-shine': 'loginSublineShine 4.5s ease-in-out infinite',
+        'login-line-grow': 'loginLineGrow 5s ease-in-out infinite',
+        'login-brand-glow': 'loginBrandGlow 6s ease-in-out infinite',
+        'login-logo-glow': 'loginLogoGlow 7s ease-in-out infinite',
         'staff-id-shine': 'staffIdCardShine 4s ease-in-out infinite',
         'staff-id-vignette': 'staffIdCardVignette 6s ease-in-out infinite',
         'honorific-cert-blink': 'honorificCertBlink 1.45s ease-in-out infinite',
