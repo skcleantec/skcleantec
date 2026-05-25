@@ -1,9 +1,9 @@
 /**
- * Railway preDeploy: `prisma migrate deploy` + P3005(기존 DB에 마이그레이션 이력 없음) 복구.
+ * Railway preDeploy: `prisma migrate deploy` + 복구 경로.
  *
- * - 예전에는 `db push`만 쓴 운영 DB는 `_prisma_migrations`가 비어 있어 `migrate deploy`가 P3005로 중단될 수 있음.
- * - deploy 실패가 P3005면 스키마 차이를 diff로 보고 필요 시 `db push` 후
- *   모든 마이그레이션을 `migrate resolve --applied`로 기록한 뒤 다시 `migrate deploy` 한다.
+ * - P3005: 예전 `db push`만 쓴 DB — diff 후 필요 시 push + baseline.
+ * - P3018 / P3009: 부분 적용·실패 기록된 마이그레이션 — 이름을 파싱해 `resolve --applied` 후 재시도
+ *   (직후 idempotent recovery 마이그레이션이 있으면 deploy가 이어서 적용).
  *
  * Node 전용(.mjs): Railway production에서 devDependency(tsx) 없이 동작.
  */
@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const serverRoot = join(__dirname, '..');
+const MAX_P3018_RETRIES = 20;
 
 function runCapture(cmd, args) {
   const r = spawnSync(cmd, args, {
@@ -38,6 +39,30 @@ function isP3005(text) {
 
 function isAlreadyResolved(text) {
   return /P3008|already recorded|already applied|already been applied/i.test(text);
+}
+
+function isP3018(text) {
+  return isFailedMigrationBlock(text);
+}
+
+function isFailedMigrationBlock(text) {
+  return /P3018|P3009|migration failed to apply|failed migrations in the target database|New migrations cannot be applied before the error is recovered/i.test(
+    text
+  );
+}
+
+/** deploy stderr/stdout에서 실패한 마이그레이션 폴더명 추출 */
+function parseFailedMigrationName(text) {
+  const patterns = [
+    /Migration name:\s*(\d{14}_[^\s\r\n]+)/i,
+    /Applying migration [`'](\d{14}_[^`']+)[`']/i,
+    /The [`'](\d{14}_[^`']+)[`'] migration/i,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m?.[1]) return m[1].trim();
+  }
+  return null;
 }
 
 /** DB(데이터소스) → schema.prisma: stdout만 SQL로 사용 */
@@ -75,16 +100,6 @@ function listMigrationNames() {
     .sort();
 }
 
-function isP3018(text) {
-  return /P3018|migration failed to apply|New migrations cannot be applied before the error is recovered/i.test(
-    text
-  );
-}
-
-function failedFieldDefinitionsMigration(text) {
-  return /20260524180000_e_contract_field_definitions/.test(text);
-}
-
 function resolveApplied(name) {
   const r = runCapture('npx', ['prisma', 'migrate', 'resolve', '--applied', name]);
   if (r.ok) return;
@@ -110,46 +125,46 @@ function dbPushAcceptLoss() {
   }
 }
 
-function resolveRolledBack(name) {
-  const r = runCapture('npx', ['prisma', 'migrate', 'resolve', '--rolled-back', name]);
-  if (r.ok) return;
-  console.error(r.out);
-  throw new Error(`migrate resolve --rolled-back ${name} failed`);
-}
-
-/** P3018 — ENUM 등 부분 적용 후 재시도 시 실패한 마이그레이션을 applied로 기록하고 recovery 마이그레이션으로 이어감 */
-function recoverFailedFieldDefinitionsMigration() {
-  const name = '20260524180000_e_contract_field_definitions';
+/** P3018/P3009 — 실패·부분 적용 마이그레이션을 applied로 기록하고 deploy 재시도 */
+function recoverFromFailedMigration(text) {
+  const name = parseFailedMigrationName(text);
+  if (!name) {
+    console.error('[railway-predeploy-migrate] failed migration detected but could not parse migration name');
+    return false;
+  }
   console.warn(
-    `[railway-predeploy-migrate] P3018 on ${name} — mark applied, continue with recovery migration`
+    `[railway-predeploy-migrate] failed migration ${name} — mark applied, retry deploy (recovery migration may follow)`
   );
   resolveApplied(name);
+  return true;
 }
 
-function main() {
-  const first = migrateDeploy();
-  if (first.ok) {
-    console.log('prisma migrate deploy: ok');
-    return;
-  }
-
-  console.error(first.out);
-
-  if (isP3018(first.out) && failedFieldDefinitionsMigration(first.out)) {
-    recoverFailedFieldDefinitionsMigration();
-    const retry = migrateDeploy();
-    if (!retry.ok) {
-      console.error(retry.out);
-      process.exit(1);
+function runMigrateDeployWithP3018Recovery() {
+  for (let attempt = 0; attempt <= MAX_P3018_RETRIES; attempt++) {
+    const r = migrateDeploy();
+    if (r.ok) {
+      if (attempt === 0) {
+        console.log('prisma migrate deploy: ok');
+      } else {
+        console.log(`prisma migrate deploy: ok (after ${attempt} P3018 recovery step(s))`);
+      }
+      return true;
     }
-    console.log('prisma migrate deploy: ok (after field-definitions P3018 recovery)');
-    return;
+
+    console.error(r.out);
+
+    if (isFailedMigrationBlock(r.out) && attempt < MAX_P3018_RETRIES && recoverFromFailedMigration(r.out)) {
+      continue;
+    }
+
+    return false;
   }
 
-  if (!isP3005(first.out)) {
-    process.exit(1);
-  }
+  console.error(`[railway-predeploy-migrate] exceeded ${MAX_P3018_RETRIES} P3018 recovery attempts`);
+  return false;
+}
 
+function handleP3005Baseline() {
   console.warn('[railway-predeploy-migrate] P3005 — attempting baseline for DB without migrate history');
 
   const drift = schemaDriftSql();
@@ -167,12 +182,37 @@ function main() {
 
   baselineAllMigrations();
 
-  const second = migrateDeploy();
-  if (!second.ok) {
-    console.error(second.out);
+  if (runMigrateDeployWithP3018Recovery()) {
+    console.log('prisma migrate deploy: ok (after baseline)');
+  } else {
     process.exit(1);
   }
-  console.log('prisma migrate deploy: ok (after baseline)');
+}
+
+function main() {
+  const first = migrateDeploy();
+  if (first.ok) {
+    console.log('prisma migrate deploy: ok');
+    return;
+  }
+
+  console.error(first.out);
+
+  if (isFailedMigrationBlock(first.out)) {
+    if (!recoverFromFailedMigration(first.out)) {
+      process.exit(1);
+    }
+    if (runMigrateDeployWithP3018Recovery()) {
+      return;
+    }
+    process.exit(1);
+  }
+
+  if (!isP3005(first.out)) {
+    process.exit(1);
+  }
+
+  handleP3005Baseline();
 }
 
 main();
