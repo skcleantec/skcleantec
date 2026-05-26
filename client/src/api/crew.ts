@@ -15,13 +15,13 @@ function apiUnreachableMessage(): Error {
   );
 }
 
-export async function loginCrew(loginId: string, password: string) {
+export async function loginCrew(tenantSlug: string, loginId: string, password: string) {
   let res: Response;
   try {
     res = await fetch(`${API}/auth/crew-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ loginId, password }),
+      body: JSON.stringify({ tenantSlug, loginId, password }),
     });
   } catch (e) {
     if (isLikelyNetworkFailure(e)) {

@@ -96,12 +96,8 @@ export function LoginPage() {
       setRememberLogin(true);
       setEmail(saved.loginId);
       setPassword(saved.password);
-      if (saved.crewMode) {
-        setCrewLoginMode(true);
-        if (slugFromEnv) setTenantSlug(slugFromEnv);
-      } else {
-        setTenantSlug(saved.tenantSlug || slugFromEnv);
-      }
+      if (saved.crewMode) setCrewLoginMode(true);
+      setTenantSlug(saved.tenantSlug || slugFromEnv);
     } else {
       setTenantSlug(slugFromEnv);
     }
@@ -114,9 +110,7 @@ export function LoginPage() {
       if (saved?.remember && saved.crewMode === next) {
         setEmail(saved.loginId);
         setPassword(saved.password);
-        if (!next) {
-          setTenantSlug(saved.tenantSlug || resolveTenantSlugForLoginForm());
-        }
+        setTenantSlug(saved.tenantSlug || resolveTenantSlugForLoginForm());
       }
       return next;
     });
@@ -125,7 +119,7 @@ export function LoginPage() {
   const persistLoginCredentials = (crewMode: boolean) => {
     if (rememberLogin) {
       saveLoginCredentials({
-        tenantSlug: crewMode ? '' : tenantSlug.trim(),
+        tenantSlug: tenantSlug.trim(),
         loginId: email.trim(),
         password,
         crewMode,
@@ -238,12 +232,17 @@ export function LoginPage() {
       const resumeFrom = readResumeLocation(location.state);
 
       if (crewLoginMode) {
+        const slug = tenantSlug.trim();
         const lid = email.trim();
+        if (!slug) {
+          setError('업체 코드를 입력해주세요.');
+          return;
+        }
         if (!lid) {
           setError('크루 로그인 아이디를 입력해주세요.');
           return;
         }
-        const data = await loginCrew(lid, password);
+        const data = await loginCrew(slug, lid, password);
         clearToken();
         clearTeamToken();
         setCrewToken(data.token);
@@ -374,23 +373,21 @@ export function LoginPage() {
                 </button>
               </div>
 
-              {!crewLoginMode && (
-                <div className="space-y-1.5">
-                  <label htmlFor="login-tenant" className="block text-fluid-xs font-medium text-slate-600">
-                    업체 코드
-                  </label>
-                  <input
-                    id="login-tenant"
-                    type="text"
-                    value={tenantSlug}
-                    onChange={(e) => setTenantSlug(e.target.value.toLowerCase())}
-                    className={inputClass}
-                    placeholder="업체코드를 넣어주세요"
-                    autoComplete="organization"
-                    required
-                  />
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label htmlFor="login-tenant" className="block text-fluid-xs font-medium text-slate-600">
+                  업체 코드
+                </label>
+                <input
+                  id="login-tenant"
+                  type="text"
+                  value={tenantSlug}
+                  onChange={(e) => setTenantSlug(e.target.value.toLowerCase())}
+                  className={inputClass}
+                  placeholder="업체코드를 넣어주세요"
+                  autoComplete="organization"
+                  required
+                />
+              </div>
 
               <div className="space-y-1.5">
                 <label htmlFor="login-id" className="block text-fluid-xs font-medium text-slate-600">
