@@ -3673,11 +3673,11 @@ export function AdminInquiriesPage() {
                       ))}
                     </select>
                     <p id="inq-edit-settlement-external-hint" className="text-[11px] text-gray-500 mt-1">
-                      타업체를 선택하면 자사 팀장과 동시 분배가 되지 않습니다. 타업체 수수료는 아래 입력란에만 해당합니다.
+                      타업체를 선택하면 자사 팀장과 동시 분배가 되지 않습니다. 수수료는 아래 입력란에만 해당합니다.
                     </p>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-fluid-sm text-gray-600 mb-1">타업체 수수료 (원)</label>
+                    <label className="block text-fluid-sm text-gray-600 mb-1">수수료 (원)</label>
                     <input
                       value={editForm.externalTransferFee}
                       onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}

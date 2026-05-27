@@ -505,7 +505,7 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
   const hasExternalAssignment = item.assignments.some((a) => !!a.teamLeader.externalCompany);
   if (hasExternalAssignment) {
     const externalFee = parseWonText(editForm.externalTransferFee) ?? item.externalTransferFee ?? null;
-    addRow('타업체 수수료', externalFee != null ? formatWonText(externalFee) : '미입력');
+    addRow('수수료', externalFee != null ? formatWonText(externalFee) : '미입력');
   }
   endSection();
 
@@ -1913,11 +1913,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               ))}
             </select>
             <p id="sched-settlement-external-hint" className="text-[11px] text-gray-500 mt-1">
-              타업체를 선택하면 자사 팀장과 동시 분배가 되지 않습니다. 타업체 수수료는 아래 입력란에만 해당합니다.
+              타업체를 선택하면 자사 팀장과 동시 분배가 되지 않습니다. 수수료는 아래 입력란에만 해당합니다.
             </p>
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">타업체 수수료 (원)</label>
+            <label className="block text-gray-600 mb-1">수수료 (원)</label>
             <input
               value={editForm.externalTransferFee}
               onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
@@ -2413,13 +2413,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           )}
           <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">특이사항 (팀장·타업체 공유)</label>
+            <label className="block text-gray-600 mb-1">특이사항</label>
             <textarea
               value={editForm.memo}
               onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
               rows={6}
               className="w-full px-3 py-2 border border-gray-300 rounded"
-              placeholder="현장·일정 전달, 팀장·타업체와 공유할 내용을 입력하세요. (접수 목록의 관리자 특이사항과 함께 팀 화면에 표시됩니다.)"
+              placeholder="현장·일정 전달, 팀장·타업체와 공유할 내용을 입력하세요."
             />
           </div>
         </div>
