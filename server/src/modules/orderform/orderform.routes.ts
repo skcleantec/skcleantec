@@ -1101,7 +1101,14 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
   await prisma.$transaction(async (tx) => {
     const fullForm = await tx.orderForm.findUnique({
       where: { id },
-      select: { id: true, customerName: true, totalAmount: true },
+      select: {
+        id: true,
+        customerName: true,
+        totalAmount: true,
+        createdById: true,
+        submittedAt: true,
+        createdAt: true,
+      },
     });
     if (!fullForm) {
       throw new Error('order_form_not_found');
@@ -1111,8 +1118,11 @@ router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => 
         orderFormId: fullForm.id,
         actorId: userId,
         actorRole: role,
+        createdById: fullForm.createdById,
         customerName: fullForm.customerName,
         totalAmount: fullForm.totalAmount,
+        submittedAt: fullForm.submittedAt,
+        orderFormCreatedAt: fullForm.createdAt,
       },
     });
     if (isSubmitted) {

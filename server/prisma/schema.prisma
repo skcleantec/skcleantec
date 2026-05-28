@@ -208,6 +208,7 @@ model User {
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
   orderFollowupLogsAsActor      OrderFollowupLog[]     @relation("OrderFollowupLogActor")
   orderFormDeleteLogsAsActor    OrderFormDeleteLog[]   @relation("OrderFormDeleteLogActor")
+  orderFormDeleteLogsAsCreator  OrderFormDeleteLog[]   @relation("OrderFormDeleteLogCreator")
   externalCompanySettlementResetsAsActor ExternalCompanySettlementReset[] @relation("ExternalCompanySettlementResetActor")
   externalCompanySettlementPaymentsAsActor ExternalCompanySettlementPayment[] @relation("ExternalCompanySettlementPaymentActor")
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
@@ -1138,14 +1139,23 @@ model OrderFormDeleteLog {
   orderFormId  String   @map("order_form_id")
   actorId      String   @map("actor_id")
   actorRole    String   @map("actor_role") @db.VarChar(32)
+  /// 발급 마케터 — 광고 예약 분모 삭제 건수 귀속
+  createdById  String   @map("created_by_id")
   customerName String   @map("customer_name")
   totalAmount  Int      @map("total_amount")
+  /// 삭제 시점 발주서 제출 여부(미제출이면 null)
+  submittedAt  DateTime? @map("submitted_at")
+  /// 삭제 시점 발주서 발급 시각 — 미제출 분모 구간 판별
+  orderFormCreatedAt DateTime @map("order_form_created_at")
   deletedAt    DateTime @default(now()) @map("deleted_at")
 
-  actor User @relation("OrderFormDeleteLogActor", fields: [actorId], references: [id], onDelete: Restrict)
+  actor     User @relation("OrderFormDeleteLogActor", fields: [actorId], references: [id], onDelete: Restrict)
+  createdBy User @relation("OrderFormDeleteLogCreator", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([orderFormId, deletedAt])
   @@index([actorId, deletedAt])
+  @@index([createdById, submittedAt])
+  @@index([createdById, orderFormCreatedAt])
   @@map("order_form_delete_logs")
 }
 

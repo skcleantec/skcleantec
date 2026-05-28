@@ -80,6 +80,8 @@ export function TelemarketingSessionBlock() {
   const [bookingManual, setBookingManual] = useState(false);
   const [bookingManualStr, setBookingManualStr] = useState('');
   const [autoBookingPreview, setAutoBookingPreview] = useState<number | null>(null);
+  const [cancelledBookingPreview, setCancelledBookingPreview] = useState<number | null>(null);
+  const [deletedBookingPreview, setDeletedBookingPreview] = useState<number | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const autoStartAttempted = useRef(false);
   const prevHadSession = useRef(false);
@@ -147,6 +149,8 @@ export function TelemarketingSessionBlock() {
       setBookingManual(false);
       setBookingManualStr('');
       setAutoBookingPreview(null);
+      setCancelledBookingPreview(null);
+      setDeletedBookingPreview(null);
       setPreviewLoading(false);
       return;
     }
@@ -154,8 +158,14 @@ export function TelemarketingSessionBlock() {
     if (!channels.some(channelNeedsUnifiedBooking)) return;
     setPreviewLoading(true);
     setAutoBookingPreview(null);
+    setCancelledBookingPreview(null);
+    setDeletedBookingPreview(null);
     void getBookingDenominatorPreview(token)
-      .then((p) => setAutoBookingPreview(p.autoCount))
+      .then((p) => {
+        setAutoBookingPreview(p.autoCount);
+        setCancelledBookingPreview(p.cancelledCount);
+        setDeletedBookingPreview(p.deletedCount);
+      })
       .catch(() => setAutoBookingPreview(null))
       .finally(() => setPreviewLoading(false));
   }, [modalOpen, token, channels]);
@@ -265,7 +275,7 @@ export function TelemarketingSessionBlock() {
             <ModalCloseButton onClick={() => setModalOpen(false)} disabled={submitting} />
             <h3 className="text-lg font-medium text-gray-900 mb-2 pr-10">당일 광고비 입력</h3>
             <p className="text-fluid-xs text-gray-600 mb-3 leading-snug">
-              건수 채널은 과목별 건수만 입력합니다. 예약 분모가 있는 채널은 카드 안 한 줄에서 자동/수동을 고릅니다. 자동 건수는「직전 종료~지금」구간에서 본인이 발급한 발주서 중 고객 제출 완료 건 + 같은 구간에 새로 낸 미제출 발급 건을 합친 값입니다.
+              건수 채널은 과목별 건수만 입력합니다. 예약 분모가 있는 채널은 카드 안 한 줄에서 자동/수동을 고릅니다. 자동 건수는「직전 종료~지금」구간에서 본인이 발급한 발주서 중 고객 제출 완료 건 + 같은 구간에 새로 낸 미제출 발급 건을 합친 값이며, 접수 취소·삭제 건은 제외합니다.
             </p>
             <div className="space-y-2 mb-4">
               {channels.map((c) =>
@@ -315,7 +325,15 @@ export function TelemarketingSessionBlock() {
                               {previewLoading ? (
                                 '…'
                               ) : autoBookingPreview !== null ? (
-                                <>자동 {autoBookingPreview}건</>
+                                <>
+                                  자동 {autoBookingPreview}건
+                                  {cancelledBookingPreview != null && cancelledBookingPreview > 0 ? (
+                                    <span className="text-rose-700 ml-1">· 취소 {cancelledBookingPreview}건</span>
+                                  ) : null}
+                                  {deletedBookingPreview != null && deletedBookingPreview > 0 ? (
+                                    <span className="text-gray-600 ml-1">· 삭제 {deletedBookingPreview}건</span>
+                                  ) : null}
+                                </>
                               ) : (
                                 <span className="text-amber-700">자동 불러오기 실패 · 수동 권장</span>
                               )}

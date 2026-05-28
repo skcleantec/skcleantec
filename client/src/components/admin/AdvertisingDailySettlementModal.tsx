@@ -95,18 +95,22 @@ export function AdvertisingDailySettlementModal({
             <p className="text-fluid-sm text-gray-500 py-6 text-center">불러오는 중…</p>
           ) : data ? (
             <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain -mx-5 px-5 sm:mx-0 sm:px-0">
-              <table className="w-full text-fluid-sm min-w-[520px] border-collapse table-fixed">
+              <table className="w-full text-fluid-sm min-w-[700px] border-collapse table-fixed">
                 <colgroup>
-                  <col className="w-[34%]" />
-                  <col className="w-[22%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[30%]" />
+                  <col className="w-[24%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[27%]" />
                 </colgroup>
                 <thead className="bg-gray-50 sticky top-0 z-[1]">
                   <tr>
                     <th className="text-center py-2 px-2 border-b border-gray-200">일자</th>
                     <th className="text-center py-2 px-2 border-b border-gray-200">광고비</th>
                     <th className="text-center py-2 px-2 border-b border-gray-200">예약 건수</th>
+                    <th className="text-center py-2 px-2 border-b border-gray-200">취소</th>
+                    <th className="text-center py-2 px-2 border-b border-gray-200">삭제</th>
                     <th
                       className="text-center py-2 px-2 border-b border-gray-200"
                       title="해당 일 광고비 ÷ 예약 건수. 광고비가 0이면 표시하지 않습니다."
@@ -123,6 +127,12 @@ export function AdvertisingDailySettlementModal({
                       </td>
                       <td className="py-1.5 px-2 text-right tabular-nums text-fluid-xs">{won(d.totalAdSpend)}</td>
                       <td className="py-1.5 px-2 text-center tabular-nums text-fluid-xs">{d.reservationCount}</td>
+                      <td className="py-1.5 px-2 text-center tabular-nums text-fluid-xs text-rose-700">
+                        {d.cancelledReservationCount > 0 ? d.cancelledReservationCount : '—'}
+                      </td>
+                      <td className="py-1.5 px-2 text-center tabular-nums text-fluid-xs text-gray-600">
+                        {d.deletedReservationCount > 0 ? d.deletedReservationCount : '—'}
+                      </td>
                       <td className="py-1.5 px-2 text-right tabular-nums text-fluid-xs">
                         {d.costPerReservation != null ? won(Math.round(d.costPerReservation)) : '—'}
                       </td>
@@ -135,6 +145,12 @@ export function AdvertisingDailySettlementModal({
                       <td className="py-2 px-2 text-center text-fluid-xs">합계 ({data.month})</td>
                       <td className="py-2 px-2 text-right tabular-nums text-fluid-xs">{won(totals.totalAdSpend)}</td>
                       <td className="py-2 px-2 text-center tabular-nums text-fluid-xs">{totals.reservationCount}</td>
+                      <td className="py-2 px-2 text-center tabular-nums text-fluid-xs text-rose-700">
+                        {totals.cancelledReservationCount > 0 ? totals.cancelledReservationCount : '—'}
+                      </td>
+                      <td className="py-2 px-2 text-center tabular-nums text-fluid-xs text-gray-600">
+                        {totals.deletedReservationCount > 0 ? totals.deletedReservationCount : '—'}
+                      </td>
                       <td
                         className="py-2 px-2 text-right tabular-nums text-fluid-xs"
                         title="총 광고비 ÷ 총 예약 건수 (광고비 집계의 건당 비용과 동일. 일별 건당의 단순 평균과는 다를 수 있습니다)"
@@ -146,6 +162,9 @@ export function AdvertisingDailySettlementModal({
                 )}
               </table>
               <p className="text-fluid-2xs text-gray-500 mt-2 leading-snug">
+                예약 건수는 취소·삭제를 제외한 분모입니다. 취소·삭제 열은 같은 세션 구간에서 빠진 건수(참고용)입니다.
+              </p>
+              <p className="text-fluid-2xs text-gray-500 mt-1 leading-snug">
                 합계 건당 광고비는 <strong className="font-medium text-gray-600">총 광고비 ÷ 총 예약 건수</strong>입니다.
                 광고비 집계 화면의 「건당 비용」과 같은 방식이며, 일별 건당 열을 단순 평균한 값과는 다를 수 있습니다.
               </p>

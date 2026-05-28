@@ -403,7 +403,13 @@ router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarke
     orderBy: { startedAt: 'desc' },
   });
   if (!session) {
-    res.json({ session: null, autoCount: 0, rangeStartIso: null as string | null });
+    res.json({
+      session: null,
+      autoCount: 0,
+      cancelledCount: 0,
+      deletedCount: 0,
+      rangeStartIso: null as string | null,
+    });
     return;
   }
   const prevEnded = await prisma.adWorkSession.findFirst({
@@ -412,11 +418,13 @@ router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarke
   });
   const rangeStart = prevEnded?.endedAt ?? session.startedAt;
   const now = new Date();
-  const autoCount = await countBookingDenominatorAuto(prisma, user.userId, rangeStart, now);
+  const breakdown = await countBookingDenominatorAuto(prisma, user.userId, rangeStart, now);
   res.json({
     sessionId: session.id,
     rangeStartIso: rangeStart.toISOString(),
-    autoCount,
+    autoCount: breakdown.activeCount,
+    cancelledCount: breakdown.cancelledCount,
+    deletedCount: breakdown.deletedCount,
   });
 });
 
@@ -490,12 +498,13 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
       bookingDenominatorManual = true;
     } else {
       const rangeStart = prevEnded?.endedAt ?? session.startedAt;
-      bookingDenominatorCount = await countBookingDenominatorAuto(
+      const breakdown = await countBookingDenominatorAuto(
         prisma,
         user.userId,
         rangeStart,
         endedAt,
       );
+      bookingDenominatorCount = breakdown.activeCount;
       bookingDenominatorManual = false;
     }
     applyResolvedBookingDenominator(normalized, bookingDenominatorCount);
@@ -649,7 +658,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
 
   /**
    * 접수 매출 집계용: 발주서 고객 제출일이 기간 안이고 상태가 예약완료·분배·진행 등.
-   * (예약완료 「건수」는 작업 종료 세션 분모 합 — `sumReservationCountsFromWorkSessionsInPeriod`)
+   * (예약완료 「건수」는 작업 종료 세션 분모 합 — 취소 제외, `sumReservationCountsFromWorkSessionsInPeriod`)
    */
   const orderFormSubmittedInPeriod = {
     submittedAt: {
@@ -703,7 +712,11 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
   ]);
 
   const reservationByUser = reservationAgg.byUser;
+  const cancelledReservationByUser = reservationAgg.cancelledByUser;
+  const deletedReservationByUser = reservationAgg.deletedByUser;
   const inquiryCount = reservationAgg.total;
+  const cancelledInquiryCount = reservationAgg.cancelledTotal;
+  const deletedInquiryCount = reservationAgg.deletedTotal;
 
   const totalSpend = sumSpendFromSessions(sessions);
   let totalRevenue = 0;
@@ -741,6 +754,12 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     for (const uid of reservationByUser.keys()) {
       if (!mIds.has(uid)) extraIds.add(uid);
     }
+    for (const uid of cancelledReservationByUser.keys()) {
+      if (!mIds.has(uid)) extraIds.add(uid);
+    }
+    for (const uid of deletedReservationByUser.keys()) {
+      if (!mIds.has(uid)) extraIds.add(uid);
+    }
     const extras =
       extraIds.size > 0
         ? await prisma.user.findMany({
@@ -764,6 +783,8 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     const spend = spendByUser.get(u.id) ?? 0;
     const rev = revenueByUser.get(u.id) ?? 0;
     const ic = reservationByUser.get(u.id) ?? 0;
+    const cc = cancelledReservationByUser.get(u.id) ?? 0;
+    const dc = deletedReservationByUser.get(u.id) ?? 0;
     return {
       userId: u.id,
       name: u.name,
@@ -771,6 +792,8 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
       role: u.role,
       totalAdSpend: spend,
       orderInquiryCount: ic,
+      cancelledInquiryCount: cc,
+      deletedInquiryCount: dc,
       totalRevenue: rev,
       roas: spend > 0 ? rev / spend : null,
       costPerInquiry: ic > 0 ? spend / ic : null,
@@ -785,6 +808,8 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     summary: {
       totalAdSpend: totalSpend,
       orderInquiryCount: inquiryCount,
+      cancelledInquiryCount,
+      deletedInquiryCount,
       totalRevenue,
       roas,
       costPerInquiry,

@@ -242,12 +242,22 @@ export function AdminAdvertisingPage() {
           <div className="min-w-0 w-full max-w-full">
             <h2 className="text-fluid-base font-medium text-gray-800 mb-3">기간 요약</h2>
             <div className="overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0 lg:overflow-visible [scrollbar-width:thin]" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <div className="flex min-w-max flex-nowrap items-stretch gap-2.5 sm:gap-3 lg:min-w-0 lg:grid lg:grid-cols-6 lg:w-full">
+              <div className="flex min-w-max flex-nowrap items-stretch gap-2.5 sm:gap-3 lg:min-w-0 lg:grid lg:grid-cols-8 lg:w-full">
                 <SummaryCard label="총 광고비" value={s ? won(s.totalAdSpend) : '—'} />
                 <SummaryCard
                   label="예약완료 건수"
                   value={s ? String(s.orderInquiryCount) : '—'}
-                  sub="작업 종료 시 수동·자동 분모 합"
+                  sub="취소·삭제 제외 · 세션 구간"
+                />
+                <SummaryCard
+                  label="취소 건수"
+                  value={s ? String(s.cancelledInquiryCount) : '—'}
+                  sub="같은 구간 발주서·접수 취소"
+                />
+                <SummaryCard
+                  label="삭제 건수"
+                  value={s ? String(s.deletedInquiryCount) : '—'}
+                  sub="발주서 삭제·접수만 삭제"
                 />
                 <SummaryCard label="접수 매출 합계" value={s ? won(s.totalRevenue) : '—'} />
                 <SummaryCard label="ROAS" value={s?.roas != null ? numOrDash(s.roas) : '—'} sub="매출÷광고비" />
@@ -268,7 +278,7 @@ export function AdminAdvertisingPage() {
           <div>
             <h2 className="text-fluid-base font-medium text-gray-800 mb-3">사용자별 집계</h2>
             <div className="border border-gray-200 rounded overflow-x-auto bg-white">
-              <table className="w-full text-fluid-sm min-w-[800px]">
+              <table className="w-full text-fluid-sm min-w-[1000px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-center py-2 px-3">이름</th>
@@ -276,9 +286,21 @@ export function AdminAdvertisingPage() {
                     <th className="text-center py-2 px-3">광고비</th>
                     <th
                       className="text-center py-2 px-3"
-                      title="조회 기간 안 종료된 작업 세션별 예약 분모(수동 우선·없으면 직전 종료~이번 종료 자동) 합계"
+                      title="조회 기간 안 종료된 작업 세션별 예약 분모(취소 제외) 합계"
                     >
                       예약완료 건수
+                    </th>
+                    <th
+                      className="text-center py-2 px-3"
+                      title="같은 세션 구간에서 취소된 발주서·접수 건"
+                    >
+                      취소 건수
+                    </th>
+                    <th
+                      className="text-center py-2 px-3"
+                      title="발주서 영구 삭제·접수만 삭제된 고아 발주서"
+                    >
+                      삭제 건수
                     </th>
                     <th className="text-center py-2 px-3">매출</th>
                     <th className="text-center py-2 px-3">
@@ -299,6 +321,12 @@ export function AdminAdvertisingPage() {
                       <td className="py-2 px-3 text-gray-600">{row.role}</td>
                       <td className="py-2 px-3 text-right">{won(row.totalAdSpend)}</td>
                       <td className="py-2 px-3 text-right">{row.orderInquiryCount}</td>
+                      <td className="py-2 px-3 text-right text-rose-700">
+                        {row.cancelledInquiryCount > 0 ? row.cancelledInquiryCount : '—'}
+                      </td>
+                      <td className="py-2 px-3 text-right text-gray-600">
+                        {row.deletedInquiryCount > 0 ? row.deletedInquiryCount : '—'}
+                      </td>
                       <td className="py-2 px-3 text-right">{won(row.totalRevenue)}</td>
                       <td className="py-2 px-3 text-right">{row.roas != null ? numOrDash(row.roas) : '—'}</td>
                       <td className="py-2 px-3 text-right">

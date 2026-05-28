@@ -205,7 +205,12 @@ export async function startAdSession(token: string): Promise<ActiveSession> {
 export interface BookingDenominatorPreview {
   sessionId?: string | null;
   rangeStartIso: string | null;
+  /** 취소 제외 예약 분모 */
   autoCount: number;
+  /** 구간 내 취소된 발주서/접수 건 */
+  cancelledCount: number;
+  /** 구간 내 삭제(발주서 삭제·접수만 삭제) */
+  deletedCount: number;
 }
 
 export async function getBookingDenominatorPreview(token: string): Promise<BookingDenominatorPreview> {
@@ -243,8 +248,12 @@ export interface AdvertisingAnalytics {
   period: { from: string; to: string; days: number };
   summary: {
     totalAdSpend: number;
-    /** 조회 기간 내 작업 종료 세션별 예약 분모(수동·자동) 합 — ROAS·건당 비용 분모 */
+    /** 조회 기간 내 작업 종료 세션별 예약 분모(취소 제외) 합 — ROAS·건당 비용 분모 */
     orderInquiryCount: number;
+    /** 같은 구간에서 취소된 발주서/접수 건 합 */
+    cancelledInquiryCount: number;
+    /** 같은 구간에서 삭제된 발주서/고아 발주서 합 */
+    deletedInquiryCount: number;
     totalRevenue: number;
     roas: number | null;
     costPerInquiry: number | null;
@@ -256,8 +265,10 @@ export interface AdvertisingAnalytics {
     email: string;
     role: string;
     totalAdSpend: number;
-    /** 동일: 기간 내 종료 세션 분모 합 */
+    /** 동일: 기간 내 종료 세션 분모 합(취소 제외) */
     orderInquiryCount: number;
+    cancelledInquiryCount: number;
+    deletedInquiryCount: number;
     totalRevenue: number;
     roas: number | null;
     costPerInquiry: number | null;
@@ -285,6 +296,8 @@ export type AdvertisingDailySettlementDay = {
   ymd: string;
   totalAdSpend: number;
   reservationCount: number;
+  cancelledReservationCount: number;
+  deletedReservationCount: number;
   costPerReservation: number | null;
 };
 
@@ -295,6 +308,8 @@ export type AdvertisingDailySettlementResponse = {
   monthTotals: {
     totalAdSpend: number;
     reservationCount: number;
+    cancelledReservationCount: number;
+    deletedReservationCount: number;
     costPerReservation: number | null;
   };
 };

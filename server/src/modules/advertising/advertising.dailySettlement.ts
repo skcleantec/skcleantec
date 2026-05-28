@@ -24,12 +24,14 @@ export type AdvertisingDailySettlementDay = {
   ymd: string;
   totalAdSpend: number;
   reservationCount: number;
+  cancelledReservationCount: number;
+  deletedReservationCount: number;
   costPerReservation: number | null;
 };
 
 /**
  * 한 사용자·한 달(KST): 작업 종료 세션을 `endedAt`의 KST 일자로 묶어 광고비·예약 분모·건당 비용.
- * 분모는 세션에 저장된 값 우선, 없으면 직전 종료~이번 종료 자동 집계(광고 분석과 동일).
+ * 분모는 세션 구간별 자동 집계(취소·삭제 제외, 현재 상태 기준).
  */
 export async function advertisingDailySettlementForMonthKey(
   prisma: PrismaClient,
@@ -40,6 +42,8 @@ export async function advertisingDailySettlementForMonthKey(
   monthTotals: {
     totalAdSpend: number;
     reservationCount: number;
+    cancelledReservationCount: number;
+    deletedReservationCount: number;
     costPerReservation: number | null;
   };
 }> {
@@ -57,7 +61,6 @@ export async function advertisingDailySettlementForMonthKey(
     select: {
       startedAt: true,
       endedAt: true,
-      bookingDenominatorCount: true,
       spendLines: { select: { amount: true } },
     },
     orderBy: { endedAt: 'asc' },
@@ -67,7 +70,6 @@ export async function advertisingDailySettlementForMonthKey(
   const pending: Array<{
     ymd: string;
     spend: number;
-    stored: number | null;
     rangeStartExclusive: Date;
     endedAt: Date;
   }> = [];
@@ -81,7 +83,6 @@ export async function advertisingDailySettlementForMonthKey(
       pending.push({
         ymd: endedAtToYmdKst(endedAt),
         spend,
-        stored: row.bookingDenominatorCount,
         rangeStartExclusive,
         endedAt,
       });
@@ -91,20 +92,18 @@ export async function advertisingDailySettlementForMonthKey(
   }
 
   const resolved = await Promise.all(
-    pending.map((p) =>
-      p.stored != null
-        ? Promise.resolve(p.stored)
-        : countBookingDenominatorAuto(prisma, marketerUserId, p.rangeStartExclusive, p.endedAt),
-    ),
+    pending.map((p) => countBookingDenominatorAuto(prisma, marketerUserId, p.rangeStartExclusive, p.endedAt)),
   );
 
-  const byDay = new Map<string, { spend: number; count: number }>();
+  const byDay = new Map<string, { spend: number; count: number; cancelled: number; deleted: number }>();
   for (let i = 0; i < pending.length; i++) {
     const p = pending[i]!;
-    const c = resolved[i]!;
-    const cur = byDay.get(p.ymd) ?? { spend: 0, count: 0 };
+    const b = resolved[i]!;
+    const cur = byDay.get(p.ymd) ?? { spend: 0, count: 0, cancelled: 0, deleted: 0 };
     cur.spend += p.spend;
-    cur.count += c;
+    cur.count += b.activeCount;
+    cur.cancelled += b.cancelledCount;
+    cur.deleted += b.deletedCount;
     byDay.set(p.ymd, cur);
   }
 
@@ -115,14 +114,20 @@ export async function advertisingDailySettlementForMonthKey(
 
   let totalSpend = 0;
   let totalCount = 0;
+  let totalCancelled = 0;
+  let totalDeleted = 0;
   const days: AdvertisingDailySettlementDay[] = ymds.map((ymd) => {
-    const agg = byDay.get(ymd) ?? { spend: 0, count: 0 };
+    const agg = byDay.get(ymd) ?? { spend: 0, count: 0, cancelled: 0, deleted: 0 };
     totalSpend += agg.spend;
     totalCount += agg.count;
+    totalCancelled += agg.cancelled;
+    totalDeleted += agg.deleted;
     return {
       ymd,
       totalAdSpend: agg.spend,
       reservationCount: agg.count,
+      cancelledReservationCount: agg.cancelled,
+      deletedReservationCount: agg.deleted,
       costPerReservation: agg.spend > 0 && agg.count > 0 ? agg.spend / agg.count : null,
     };
   });
@@ -132,6 +137,8 @@ export async function advertisingDailySettlementForMonthKey(
     monthTotals: {
       totalAdSpend: totalSpend,
       reservationCount: totalCount,
+      cancelledReservationCount: totalCancelled,
+      deletedReservationCount: totalDeleted,
       costPerReservation: totalCount > 0 ? totalSpend / totalCount : null,
     },
   };
