@@ -32,6 +32,36 @@ export async function getMarketerOverview(token: string): Promise<MarketerOvervi
   return res.json() as Promise<MarketerOverviewResponse>;
 }
 
+export type MarketerDailyOverviewResponse = {
+  marketerId: string;
+  marketerName: string;
+  monthKey: string;
+  daysInMonth: number;
+  dailyCounts: number[];
+  monthTotal: number;
+};
+
+/** 마케터별 월간 일별 접수 건수 (접수일 KST) */
+export async function getMarketerDailyOverview(
+  token: string,
+  params: { marketerId: string; month: string }
+): Promise<MarketerDailyOverviewResponse> {
+  const q = new URLSearchParams({
+    marketerId: params.marketerId,
+    month: params.month,
+  });
+  const res = await fetch(`${API}/inquiries/marketer-daily-overview?${q}`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    const fromServer = typeof body.error === 'string' && body.error.trim() ? body.error.trim() : null;
+    if (fromServer) throw new Error(fromServer);
+    throw new Error(`일별 접수 집계를 불러올 수 없습니다. (HTTP ${res.status})`);
+  }
+  return res.json() as Promise<MarketerDailyOverviewResponse>;
+}
+
 export async function getInquiries(
   token: string,
   params?: {

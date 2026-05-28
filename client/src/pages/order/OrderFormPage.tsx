@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   getOrderFormByToken,
   getPublicProfessionalOptions,
@@ -43,6 +43,7 @@ import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadca
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
 import { OrderFormSubmissionReceiptView } from '../../components/orderform/OrderFormSubmissionReceiptView';
+import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -137,8 +138,7 @@ export function OrderFormPage() {
   const [timeSlotAckOpen, setTimeSlotAckOpen] = useState(false);
   const [pendingTimeSlot, setPendingTimeSlot] = useState<OrderTimeSlot | null>(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
-  /** 안내 동의 체크 시 통화 특이사항 안내 모달 */
-  const [termsCounselNoticeOpen, setTermsCounselNoticeOpen] = useState(false);
+  const [guideAgreeModalOpen, setGuideAgreeModalOpen] = useState(false);
   const [professionalOptionIds, setProfessionalOptionIds] = useState<string[]>([]);
   const [professionalOptions, setProfessionalOptions] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   /** 대분류(하위 있음) — 체크 시에만 세부 항목 표시 */
@@ -186,15 +186,6 @@ export function OrderFormPage() {
     setTimeSlotAckOpen(false);
   }, []);
 
-  const dismissTermsCounselNotice = useCallback(() => {
-    setTermsCounselNoticeOpen(false);
-  }, []);
-
-  const confirmTermsCounselNotice = useCallback(() => {
-    setAgreeToTerms(true);
-    setTermsCounselNoticeOpen(false);
-  }, []);
-
   const confirmAreaBasisAck = useCallback(() => {
     const b = pendingAreaBasisAckRef.current;
     pendingAreaBasisAckRef.current = null;
@@ -227,15 +218,6 @@ export function OrderFormPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [timeSlotAckOpen, cancelTimeSlotAck]);
-
-  useEffect(() => {
-    if (!termsCounselNoticeOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') dismissTermsCounselNotice();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [termsCounselNoticeOpen, dismissTermsCounselNotice]);
 
   const toggleProfessionalOption = (id: string) => {
     setProfessionalOptionIds((prev) =>
@@ -1144,50 +1126,39 @@ export function OrderFormPage() {
 
           <div className="py-4">
             <div className="mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-gradient-to-b from-gray-50/95 to-white px-4 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.03]">
-              <label
-                htmlFor="agreeTerms"
-                className="flex w-full cursor-pointer flex-row items-start gap-3"
-              >
-                <input
-                  type="checkbox"
-                  id="agreeTerms"
-                  checked={agreeToTerms}
-                  onChange={(e) => {
-                    const next = e.target.checked;
-                    if (!next) {
-                      setAgreeToTerms(false);
-                      setTermsCounselNoticeOpen(false);
-                      return;
-                    }
-                    setTermsCounselNoticeOpen(true);
-                  }}
-                  className="mt-1 h-5 w-5 shrink-0 rounded border-2 border-gray-400 text-gray-900 accent-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-800"
-                  aria-describedby="agreeTerms-hint"
-                />
-                <span
-                  id="agreeTerms-hint"
-                  className="min-w-0 flex-1 text-left text-fluid-base font-semibold leading-snug tracking-tight text-gray-900"
-                >
-                  <Link
-                    to="/info"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-bold text-blue-700 underline decoration-2 underline-offset-[3px] transition hover:text-blue-900"
-                    onClick={(e) => e.stopPropagation()}
+              {agreeToTerms ? (
+                <div className="space-y-3 text-center">
+                  <p className="text-fluid-base font-semibold text-emerald-800">모든사항에 동의하였습니다.</p>
+                  <button
+                    type="button"
+                    onClick={() => setGuideAgreeModalOpen(true)}
+                    className="text-fluid-xs font-medium text-gray-600 underline underline-offset-2 hover:text-gray-900"
                   >
-                    {orderFormConfigLine(
-                      order?.formConfig?.infoLinkText,
-                      ORDER_FORM_CONFIG_DEFAULTS.infoLinkText
-                    )}
-                  </Link>
-                  <span className="font-semibold text-gray-900"> 에 동의합니다.</span>{' '}
-                  <span className="text-fluid-xs font-medium text-gray-500">
-                    (클릭 시 전체 내용 보기)
-                  </span>
-                </span>
-              </label>
+                    안내사항 다시 보기
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setGuideAgreeModalOpen(true)}
+                    className="w-full rounded-lg border border-gray-800 bg-white px-4 py-3 text-fluid-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50"
+                  >
+                    안내사항 보기 및 동의하기
+                  </button>
+                  <p id="agreeTerms-hint" className="text-fluid-xs text-gray-500">
+                    제출 전 안내사항 전체 확인 및 동의가 필요합니다.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
+
+          <OrderFormGuideAgreeModal
+            open={guideAgreeModalOpen}
+            onClose={() => setGuideAgreeModalOpen(false)}
+            onAgree={() => setAgreeToTerms(true)}
+          />
 
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
             <button
@@ -1251,45 +1222,6 @@ export function OrderFormPage() {
                   autoFocus
                 >
                   확인했어요
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {termsCounselNoticeOpen ? (
-          <div
-            className="fixed inset-0 z-[1003] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-[fadeIn_150ms_ease-out]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="terms-counsel-notice-title"
-            onClick={dismissTermsCounselNotice}
-          >
-            <div
-              className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
-              onClick={(e) => e.stopPropagation()}
-              role="presentation"
-            >
-              <div className="px-6 pb-4 pt-7 text-center">
-                <h2
-                  id="terms-counsel-notice-title"
-                  className="text-base font-semibold tracking-tight text-gray-900"
-                >
-                  안내
-                </h2>
-                <div className="mt-4 space-y-3 text-left text-[15px] leading-relaxed text-gray-800">
-                  <p>상담사와의 통화 내용에 특이사항이 있는 경우 꼭 적어주세요.</p>
-                  <p className="font-semibold text-gray-900">기재 누락 시 본사에서 책임지지 않습니다.</p>
-                </div>
-              </div>
-              <div className="flex justify-center border-t border-gray-100 bg-gray-50/60 px-4 py-3">
-                <button
-                  type="button"
-                  onClick={confirmTermsCounselNotice}
-                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
-                  autoFocus
-                >
-                  확인
                 </button>
               </div>
             </div>

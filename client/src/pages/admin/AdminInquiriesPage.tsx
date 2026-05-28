@@ -22,6 +22,7 @@ import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInqui
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
 import { AdminListIntakeModal, type AdminListIntakeResult } from '../../components/admin/AdminListIntakeModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { MarketerDailyInquiryModal } from '../../components/admin/MarketerDailyInquiryModal';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
@@ -645,6 +646,10 @@ export function AdminInquiriesPage() {
   const [marketerOverview, setMarketerOverview] = useState<MarketerOverviewResponse | null>(null);
   const [marketerOverviewLoading, setMarketerOverviewLoading] = useState(() => Boolean(getToken()));
   const [marketerOverviewError, setMarketerOverviewError] = useState<string | null>(null);
+  const [marketerDailyModal, setMarketerDailyModal] = useState<{
+    marketerId: string;
+    marketerName: string;
+  } | null>(null);
   const [me, setMe] = useState<{
     id: string;
     role: string;
@@ -1924,12 +1929,13 @@ export function AdminInquiriesPage() {
               </div>
             ) : marketerOverview ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-fluid-sm border-collapse min-w-[280px]">
+                <table className="w-full text-fluid-sm border-collapse min-w-[320px]">
                   <thead>
                     <tr className="border-b border-gray-200 text-gray-600">
                       <th className="text-center py-1.5 pr-3 font-medium">이름</th>
                       <th className="text-center py-1.5 px-2 font-medium whitespace-nowrap">이번 달</th>
-                      <th className="text-center py-1.5 pl-2 font-medium whitespace-nowrap">오늘</th>
+                      <th className="text-center py-1.5 px-2 font-medium whitespace-nowrap">오늘</th>
+                      <th className="text-center py-1.5 pl-2 font-medium whitespace-nowrap w-16">일별</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-800">
@@ -1962,7 +1968,23 @@ export function AdminInquiriesPage() {
                       >
                         <td className="py-1.5 pr-3">{m.name}</td>
                         <td className="py-1.5 px-2 text-right tabular-nums">{m.monthCount}건</td>
-                        <td className="py-1.5 pl-2 text-right tabular-nums">{m.todayCount}건</td>
+                        <td className="py-1.5 px-2 text-right tabular-nums">{m.todayCount}건</td>
+                        <td className="py-1.5 pl-2 text-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMarketerDailyModal({
+                                marketerId: m.marketerId,
+                                marketerName: m.name,
+                              });
+                            }}
+                            className="rounded border border-gray-300 bg-white px-2 py-0.5 text-fluid-2xs font-medium text-gray-800 hover:bg-gray-50"
+                            title={`${m.name} 일별 접수 건수`}
+                          >
+                            내역
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -4007,6 +4029,15 @@ export function AdminInquiriesPage() {
           }}
         />
       )}
+
+      <MarketerDailyInquiryModal
+        open={marketerDailyModal != null}
+        onClose={() => setMarketerDailyModal(null)}
+        authToken={token}
+        marketerId={marketerDailyModal?.marketerId ?? null}
+        marketerName={marketerDailyModal?.marketerName ?? ''}
+        initialMonthKey={marketerOverview?.monthKey ?? kstTodayYmd().slice(0, 7)}
+      />
 
       {marketerQuickOpen &&
         editItem &&

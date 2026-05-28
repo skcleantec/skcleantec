@@ -14,6 +14,7 @@ import {
 } from './inquiryListDateRange.js';
 import {
   buildMarketerOverview,
+  buildMarketerDailyOverview,
   whereInquiryAttributedToMarketer,
 } from './inquiryMarketerOverview.js';
 import {
@@ -113,6 +114,32 @@ router.get('/marketer-overview', async (_req, res) => {
       process.env.NODE_ENV !== 'production'
         ? `${msg}`
         : '마케터별 집계를 불러올 수 없습니다.';
+    res.status(500).json({ error: hint });
+  }
+});
+
+/** 마케터별 월간 일별 접수 건수 (접수일 KST) */
+router.get('/marketer-daily-overview', async (req, res) => {
+  const marketerId = typeof req.query.marketerId === 'string' ? req.query.marketerId.trim() : '';
+  const month = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  if (!marketerId || !/^\d{4}-\d{2}$/.test(month)) {
+    res.status(400).json({ error: 'marketerId와 month(YYYY-MM)가 필요합니다.' });
+    return;
+  }
+  try {
+    const data = await buildMarketerDailyOverview(marketerId, month);
+    if (!data) {
+      res.status(404).json({ error: '마케터를 찾을 수 없거나 집계할 수 없습니다.' });
+      return;
+    }
+    res.json(data);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('marketer-daily-overview error:', msg, err);
+    const hint =
+      process.env.NODE_ENV !== 'production'
+        ? `${msg}`
+        : '일별 접수 집계를 불러올 수 없습니다.';
     res.status(500).json({ error: hint });
   }
 });
