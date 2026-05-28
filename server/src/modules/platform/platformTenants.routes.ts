@@ -19,6 +19,11 @@ import { TenantNotFoundError } from '../tenants/tenant.service.js';
 
 const router = Router();
 
+function isDbSchemaMismatchError(e: unknown): boolean {
+  const s = e instanceof Error ? e.message : String(e);
+  return /does not exist in the current database|Unknown column|P2022|column `.+\.tenant_id`/i.test(s);
+}
+
 router.use(platformAuthMiddleware);
 
 router.get('/', async (_req, res) => {
@@ -63,6 +68,13 @@ router.post('/', platformSuperAdminOnly, async (req, res) => {
       },
     });
   } catch (e) {
+    if (isDbSchemaMismatchError(e)) {
+      res.status(503).json({
+        error:
+          'DB 스키마가 코드와 맞지 않습니다. 스테이징/운영 서버에서 prisma migrate deploy(또는 railway-predeploy-migrate)를 실행한 뒤 다시 시도해 주세요.',
+      });
+      return;
+    }
     const msg = e instanceof Error ? e.message : '업체 생성에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
