@@ -20,6 +20,7 @@ import {
 } from './teamMemberPayrollCycle.js';
 import { computeCrewSpacingByPoolMemberName } from './crewLeaderMemberSpacing.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 
 const router = Router();
 
@@ -32,6 +33,29 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/;
 /** 활성 팀원 기준 최대 인원 (표준 구성: 팀장 1 + 팀원 2) */
 const MAX_ACTIVE_TEAM_MEMBERS = 2;
 
+function poolMemberInTenantWhere(tenantId: string) {
+  return {
+    teamId: null as null,
+    crewGroupMembers: { some: { group: { tenantId } } },
+  };
+}
+
+async function findTeamInTenant(tenantId: string, teamId: string) {
+  return prisma.team.findFirst({ where: { id: teamId, tenantId } });
+}
+
+async function findPoolMemberInTenant(tenantId: string, memberId: string) {
+  return prisma.teamMember.findFirst({
+    where: { id: memberId, ...poolMemberInTenantWhere(tenantId) },
+  });
+}
+
+async function findTeamMemberInTenantTeam(tenantId: string, teamId: string, memberId: string) {
+  return prisma.teamMember.findFirst({
+    where: { id: memberId, teamId, team: { tenantId } },
+  });
+}
+
 router.use(authMiddleware, adminOnly);
 
 /**
@@ -40,6 +64,9 @@ router.use(authMiddleware, adminOnly);
  * - 배정: 해당 팀장에게 Assignment가 있는 건(행) 수
  */
 router.get('/leader-monthly-stats', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   const monthKey =
     monthRaw || new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -53,7 +80,7 @@ router.get('/leader-monthly-stats', async (req, res) => {
   const monthEndYmd = dateToYmdKst(range.lte);
 
   const leadersAll = await prisma.user.findMany({
-    where: { role: 'TEAM_LEADER', isActive: true },
+    where: { tenantId, role: 'TEAM_LEADER', isActive: true },
     select: { id: true, name: true, hireDate: true, resignationDate: true },
     orderBy: { name: 'asc' },
   });
@@ -64,6 +91,7 @@ router.get('/leader-monthly-stats', async (req, res) => {
   const assignments = await prisma.assignment.findMany({
     where: {
       inquiry: {
+        tenantId,
         preferredDate: { gte: range.gte, lte: range.lte },
       },
     },
@@ -112,6 +140,9 @@ router.get('/leader-monthly-stats', async (req, res) => {
  * 현재 편집 중 예약일까지 몇 칸의 날짜 차이인지(정보 표시만, 선택 제한 없음).
  */
 router.get('/crew-leader-member-spacing', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const teamLeaderId = typeof req.query.teamLeaderId === 'string' ? req.query.teamLeaderId.trim() : '';
   const ymdRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
   if (!teamLeaderId) {
@@ -123,8 +154,20 @@ router.get('/crew-leader-member-spacing', async (req, res) => {
     return;
   }
 
+  const leader = await prisma.user.findFirst({
+    where: { id: teamLeaderId, tenantId, role: 'TEAM_LEADER', isActive: true },
+    select: { id: true },
+  });
+  if (!leader) {
+    res.status(404).json({ error: '팀장을 찾을 수 없습니다.' });
+    return;
+  }
+
   const members = await prisma.teamMember.findMany({
-    where: { teamId: null },
+    where: {
+      teamId: null,
+      crewGroupMembers: { some: { group: { tenantId } } },
+    },
     select: { name: true, nameTh: true },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
@@ -148,8 +191,12 @@ async function verifyAdminPassword(req: Request, password: unknown): Promise<boo
 }
 
 /** 팀 목록 (팀장·팀원·휴무 일부 메타는 별도 조회) */
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const teams = await prisma.team.findMany({
+    where: { tenantId },
     orderBy: { updatedAt: 'desc' },
     include: {
       teamLeader: { select: { id: true, name: true, email: true, phone: true, isActive: true } },
@@ -274,11 +321,14 @@ function parseTeamMemberPayFields(body: Record<string, unknown>): {
 }
 
 router.get('/members', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const dateRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
   const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
 
   const members = await prisma.teamMember.findMany({
-    where: { teamId: null },
+    where: poolMemberInTenantWhere(tenantId),
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: { _count: { select: { dayOffs: true } } },
   });
@@ -298,6 +348,7 @@ router.get('/members', async (req, res) => {
     const bounds = payrollCyclePreferredDateWhere(startYmd, endYmd);
     const inquiries = await prisma.inquiry.findMany({
       where: {
+        tenantId,
         preferredDate: { gte: bounds.gte, lte: bounds.lte },
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       },
@@ -341,10 +392,12 @@ router.get('/members', async (req, res) => {
   if (preferredDate) {
     const hasDailyRosterAgg =
       (await prisma.teamCrewGroupMember.count({
-        where: { group: { isActive: true, useDailyRosterOnly: true } },
+        where: { group: { tenantId, isActive: true, useDailyRosterOnly: true } },
       })) > 0;
     if (hasDailyRosterAgg) {
-      const pickable = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate);
+      const crewMemberIds = new Set(members.map((m) => m.id));
+      const pickableRaw = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate);
+      const pickable = new Set([...pickableRaw].filter((id) => crewMemberIds.has(id)));
       items = items.filter((row) => pickable.has(row.id));
     }
   }
@@ -353,6 +406,9 @@ router.get('/members', async (req, res) => {
 });
 
 router.post('/members', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const body = req.body as { name?: string; nameTh?: string | null; phone?: string | null; sortOrder?: number };
   if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
     res.status(400).json({ error: '이름을 입력해주세요.' });
@@ -360,7 +416,7 @@ router.post('/members', async (req, res) => {
   }
   try {
     const activePool = await prisma.teamMember.count({
-      where: { teamId: null, isActive: true },
+      where: { ...poolMemberInTenantWhere(tenantId), isActive: true },
     });
     if (activePool >= MAX_POOL_MEMBERS) {
       res.status(400).json({
@@ -397,6 +453,9 @@ router.post('/members', async (req, res) => {
 });
 
 router.patch('/members/:memberId', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { memberId } = req.params;
   const body = req.body as Record<string, unknown> & {
     name?: string;
@@ -410,16 +469,14 @@ router.patch('/members/:memberId', async (req, res) => {
     res.status(400).json({ error: payParsed.error });
     return;
   }
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId: null },
-  });
+  const member = await findPoolMemberInTenant(tenantId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
   }
   if (body.isActive === true && !member.isActive) {
     const activePool = await prisma.teamMember.count({
-      where: { teamId: null, isActive: true },
+      where: { ...poolMemberInTenantWhere(tenantId), isActive: true },
     });
     if (activePool >= MAX_POOL_MEMBERS) {
       res.status(400).json({
@@ -467,6 +524,9 @@ router.patch('/members/:memberId', async (req, res) => {
 
 /** 관리자: 현장 팀원 사원증 이미지 업로드 (Cloudinary) */
 router.post('/members/:memberId/staff-id-card', staffIdCardUpload.single('image'), async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   if (!isCloudinaryConfigured()) {
     res.status(503).json({
       error:
@@ -485,6 +545,11 @@ router.post('/members/:memberId/staff-id-card', staffIdCardUpload.single('image'
     res.status(400).json({ error: '이미지 파일만 업로드할 수 있습니다.' });
     return;
   }
+  const member = await findPoolMemberInTenant(tenantId, memberId);
+  if (!member) {
+    res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
+    return;
+  }
   try {
     const { staffIdCardUrl } = await replaceStaffIdCardForTeamMember(memberId, file.buffer, mime);
     res.json({ staffIdCardUrl });
@@ -500,7 +565,15 @@ router.post('/members/:memberId/staff-id-card', staffIdCardUpload.single('image'
 });
 
 router.delete('/members/:memberId/staff-id-card', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { memberId } = req.params;
+  const member = await findPoolMemberInTenant(tenantId, memberId);
+  if (!member) {
+    res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
+    return;
+  }
   try {
     await clearStaffIdCardForTeamMember(memberId);
     res.json({ ok: true, staffIdCardUrl: null });
@@ -516,6 +589,9 @@ router.delete('/members/:memberId/staff-id-card', async (req, res) => {
 });
 
 router.delete('/members/:memberId', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { memberId } = req.params;
   const { password } = req.body as { password?: string };
   if (!(await verifyAdminPassword(req, password))) {
@@ -523,9 +599,7 @@ router.delete('/members/:memberId', async (req, res) => {
     res.status(p ? 401 : 400).json({ error: p ? '비밀번호가 일치하지 않습니다.' : '비밀번호를 입력해주세요.' });
     return;
   }
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId: null },
-  });
+  const member = await findPoolMemberInTenant(tenantId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
@@ -536,11 +610,12 @@ router.delete('/members/:memberId', async (req, res) => {
 });
 
 router.get('/members/:memberId/day-offs', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { memberId } = req.params;
   const { start, end } = req.query as { start?: string; end?: string };
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId: null },
-  });
+  const member = await findPoolMemberInTenant(tenantId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
@@ -564,15 +639,16 @@ router.get('/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.post('/members/:memberId/day-offs', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { memberId } = req.params;
   const { date } = req.body as { date?: string };
   if (!date || !YMD.test(date)) {
     res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
     return;
   }
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId: null },
-  });
+  const member = await findPoolMemberInTenant(tenantId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
@@ -589,15 +665,16 @@ router.post('/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.delete('/members/:memberId/day-offs', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { memberId } = req.params;
   const { date } = req.query as { date?: string };
   if (!date || !YMD.test(date)) {
     res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
     return;
   }
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId: null },
-  });
+  const member = await findPoolMemberInTenant(tenantId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
@@ -610,9 +687,12 @@ router.delete('/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.patch('/:teamId', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { teamId } = req.params;
   const { memo } = req.body as { memo?: string | null };
-  const team = await prisma.team.findUnique({ where: { id: teamId } });
+  const team = await findTeamInTenant(tenantId, teamId);
   if (!team) {
     res.status(404).json({ error: '팀을 찾을 수 없습니다.' });
     return;
@@ -625,6 +705,9 @@ router.patch('/:teamId', async (req, res) => {
 });
 
 router.delete('/:teamId', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { teamId } = req.params;
   const { password } = req.body as { password?: string };
   if (!(await verifyAdminPassword(req, password))) {
@@ -632,7 +715,7 @@ router.delete('/:teamId', async (req, res) => {
     res.status(p ? 401 : 400).json({ error: p ? '비밀번호가 일치하지 않습니다.' : '비밀번호를 입력해주세요.' });
     return;
   }
-  const team = await prisma.team.findUnique({ where: { id: teamId } });
+  const team = await findTeamInTenant(tenantId, teamId);
   if (!team) {
     res.status(404).json({ error: '팀을 찾을 수 없습니다.' });
     return;
@@ -642,13 +725,16 @@ router.delete('/:teamId', async (req, res) => {
 });
 
 router.post('/:teamId/members', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { teamId } = req.params;
   const body = req.body as { name?: string; nameTh?: string | null; phone?: string | null; sortOrder?: number };
   if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
     res.status(400).json({ error: '이름을 입력해주세요.' });
     return;
   }
-  const team = await prisma.team.findUnique({ where: { id: teamId } });
+  const team = await findTeamInTenant(tenantId, teamId);
   if (!team) {
     res.status(404).json({ error: '팀을 찾을 수 없습니다.' });
     return;
@@ -682,6 +768,9 @@ router.post('/:teamId/members', async (req, res) => {
 });
 
 router.patch('/:teamId/members/:memberId', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { teamId, memberId } = req.params;
   const body = req.body as Record<string, unknown> & {
     name?: string;
@@ -695,9 +784,7 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
     res.status(400).json({ error: payParsed.error });
     return;
   }
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId },
-  });
+  const member = await findTeamMemberInTenantTeam(tenantId, teamId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
@@ -749,6 +836,9 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
 });
 
 router.delete('/:teamId/members/:memberId', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { teamId, memberId } = req.params;
   const { password } = req.body as { password?: string };
   if (!(await verifyAdminPassword(req, password))) {
@@ -756,9 +846,7 @@ router.delete('/:teamId/members/:memberId', async (req, res) => {
     res.status(p ? 401 : 400).json({ error: p ? '비밀번호가 일치하지 않습니다.' : '비밀번호를 입력해주세요.' });
     return;
   }
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId },
-  });
+  const member = await findTeamMemberInTenantTeam(tenantId, teamId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
@@ -770,11 +858,12 @@ router.delete('/:teamId/members/:memberId', async (req, res) => {
 
 /** 팀원 휴무 목록 */
 router.get('/:teamId/members/:memberId/day-offs', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { teamId, memberId } = req.params;
   const { start, end } = req.query as { start?: string; end?: string };
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId },
-  });
+  const member = await findTeamMemberInTenantTeam(tenantId, teamId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
@@ -798,15 +887,16 @@ router.get('/:teamId/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.post('/:teamId/members/:memberId/day-offs', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { teamId, memberId } = req.params;
   const { date } = req.body as { date?: string };
   if (!date || !YMD.test(date)) {
     res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
     return;
   }
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId },
-  });
+  const member = await findTeamMemberInTenantTeam(tenantId, teamId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
@@ -823,15 +913,16 @@ router.post('/:teamId/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.delete('/:teamId/members/:memberId/day-offs', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { teamId, memberId } = req.params;
   const { date } = req.query as { date?: string };
   if (!date || !YMD.test(date)) {
     res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
     return;
   }
-  const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, teamId },
-  });
+  const member = await findTeamMemberInTenantTeam(tenantId, teamId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;

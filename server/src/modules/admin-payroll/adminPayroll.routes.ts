@@ -661,7 +661,11 @@ router.get('/sheet', async (req, res) => {
   const rows: SheetRow[] = [];
 
   const poolMembers = await prisma.teamMember.findMany({
-    where: { teamId: null, isActive: true },
+    where: {
+      teamId: null,
+      isActive: true,
+      crewGroupMembers: { some: { group: { tenantId } } },
+    },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     select: {
       id: true,

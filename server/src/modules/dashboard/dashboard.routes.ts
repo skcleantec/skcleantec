@@ -257,6 +257,7 @@ router.get('/stats', async (req, res) => {
 
   const happyCallRows = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       preferredDate: { not: null },
       happyCallCompletedAt: null,
       status: { in: [...HAPPY_CALL_STATS_STATUSES] },

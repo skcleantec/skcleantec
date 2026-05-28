@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 
 const router = Router();
@@ -14,14 +15,32 @@ router.use(adminOrMarketer);
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const YM = /^\d{4}-\d{2}$/;
 
+async function requireActiveExternalCompanyInTenant(
+  res: import('express').Response,
+  tenantId: string,
+  id: string,
+) {
+  const co = await prisma.externalCompany.findFirst({
+    where: { id, tenantId, isActive: true },
+  });
+  if (!co) {
+    res.status(404).json({ error: '타업체를 찾을 수 없습니다.' });
+    return null;
+  }
+  return co;
+}
+
 function kstYmd(d: Date): string {
   return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
 /** 타업체 목록 + 소속 로그인 계정 수 */
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const rows = await prisma.externalCompany.findMany({
-    where: { isActive: true },
+    where: { tenantId, isActive: true },
     orderBy: { name: 'asc' },
     include: {
       _count: { select: { partnerUsers: true } },
@@ -122,6 +141,9 @@ router.post('/', async (req, res) => {
 });
 
 router.patch('/:id', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { id } = req.params;
   const body = req.body as {
     name?: string;
@@ -129,11 +151,8 @@ router.patch('/:id', async (req, res) => {
     phone?: string | null;
     memo?: string | null;
   };
-  const existing = await prisma.externalCompany.findFirst({ where: { id, isActive: true } });
-  if (!existing) {
-    res.status(404).json({ error: '타업체를 찾을 수 없습니다.' });
-    return;
-  }
+  const existing = await requireActiveExternalCompanyInTenant(res, tenantId, id);
+  if (!existing) return;
   const data: {
     name?: string;
     bizNumber?: string | null;
@@ -182,12 +201,12 @@ router.patch('/:id', async (req, res) => {
 
 /** 타업체 비활성 + 소속 계정 비활성 */
 router.post('/:id/deactivate', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { id } = req.params;
-  const existing = await prisma.externalCompany.findFirst({ where: { id, isActive: true } });
-  if (!existing) {
-    res.status(404).json({ error: '타업체를 찾을 수 없습니다.' });
-    return;
-  }
+  const existing = await requireActiveExternalCompanyInTenant(res, tenantId, id);
+  if (!existing) return;
   await prisma.$transaction(async (tx) => {
     await tx.externalCompany.update({ where: { id }, data: { isActive: false } });
     await tx.user.updateMany({
@@ -199,9 +218,12 @@ router.post('/:id/deactivate', async (req, res) => {
 });
 
 /** 업체별 누적 정산 요약 목록 (전체 기간) */
-router.get('/settlement/company-overview-list', async (_req, res) => {
+router.get('/settlement/company-overview-list', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const companies = await prisma.externalCompany.findMany({
-    where: { isActive: true },
+    where: { tenantId, isActive: true },
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
@@ -210,6 +232,7 @@ router.get('/settlement/company-overview-list', async (_req, res) => {
 
   const activeRows = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       externalTransferFee: { not: null },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       assignments: {
@@ -233,6 +256,7 @@ router.get('/settlement/company-overview-list', async (_req, res) => {
 
   const cancelledRows = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       status: 'CANCELLED',
       externalTransferFee: { not: null },
       OR: [
@@ -262,6 +286,7 @@ router.get('/settlement/company-overview-list', async (_req, res) => {
 
   const paidRows = await prisma.externalCompanySettlementPayment.groupBy({
     by: ['externalCompanyId'],
+    where: { externalCompany: { tenantId } },
     _sum: { amount: true },
   });
   const paidByCompany = new Map<string, number>();
@@ -287,6 +312,9 @@ router.get('/settlement/company-overview-list', async (_req, res) => {
  * query: from, to (yyyy-mm-dd)
  */
 router.get('/settlement/summary', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const from = typeof req.query.from === 'string' ? req.query.from.trim() : '';
   const to = typeof req.query.to === 'string' ? req.query.to.trim() : '';
   if (!YMD.test(from) || !YMD.test(to)) {
@@ -298,6 +326,7 @@ router.get('/settlement/summary', async (req, res) => {
 
   const inquiries = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       preferredDate: { gte: startDate, lte: endDate },
       externalTransferFee: { not: null },
       /** 보류는 수수료 집계 제외(취소는 마이너스 반영) */
@@ -396,6 +425,9 @@ router.get('/settlement/summary', async (req, res) => {
 
 /** 월별/업체별/전체 정산 요약 */
 router.get('/settlement/monthly-overview', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const fromMonthRaw = typeof req.query.fromMonth === 'string' ? req.query.fromMonth.trim() : '';
   const toMonthRaw = typeof req.query.toMonth === 'string' ? req.query.toMonth.trim() : '';
   const now = new Date();
@@ -410,6 +442,7 @@ router.get('/settlement/monthly-overview', async (req, res) => {
 
   const inquiries = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       preferredDate: { gte: startDate, lte: endDate },
       externalTransferFee: { not: null },
       status: { not: 'ON_HOLD' },
@@ -436,7 +469,10 @@ router.get('/settlement/monthly-overview', async (req, res) => {
   });
 
   const payments = await prisma.externalCompanySettlementPayment.findMany({
-    where: { paidAt: { gte: startDate, lte: endDate } },
+    where: {
+      paidAt: { gte: startDate, lte: endDate },
+      externalCompany: { tenantId },
+    },
     select: {
       externalCompanyId: true,
       amount: true,
@@ -540,20 +576,17 @@ router.get('/settlement/monthly-overview', async (req, res) => {
 
 /** 관리자: 특정 타업체 정산 상세(결제대상/정산완료/남은금액/히스토리) */
 router.get('/settlement/company-detail', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const externalCompanyId =
     typeof req.query.externalCompanyId === 'string' ? req.query.externalCompanyId.trim() : '';
   if (!externalCompanyId) {
     res.status(400).json({ error: 'externalCompanyId가 필요합니다.' });
     return;
   }
-  const company = await prisma.externalCompany.findFirst({
-    where: { id: externalCompanyId, isActive: true },
-    select: { id: true, name: true },
-  });
-  if (!company) {
-    res.status(404).json({ error: '타업체를 찾을 수 없습니다.' });
-    return;
-  }
+  const company = await requireActiveExternalCompanyInTenant(res, tenantId, externalCompanyId);
+  if (!company) return;
   const fromRaw = typeof req.query.from === 'string' ? req.query.from.trim() : '';
   const toRaw = typeof req.query.to === 'string' ? req.query.to.trim() : '';
   const now = new Date();
@@ -574,6 +607,7 @@ router.get('/settlement/company-detail', async (req, res) => {
 
   const activeRows = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       externalTransferFee: { not: null },
       preferredDate: { gte: from, lte: to },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
@@ -597,6 +631,7 @@ router.get('/settlement/company-detail', async (req, res) => {
   });
   const cancelledRows = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       status: 'CANCELLED',
       externalTransferFee: { not: null },
       preferredDate: { gte: from, lte: to },
@@ -655,6 +690,7 @@ router.get('/settlement/company-detail', async (req, res) => {
 
   const activeBeforeAgg = await prisma.inquiry.aggregate({
     where: {
+      tenantId,
       externalTransferFee: { not: null },
       preferredDate: { lt: from },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
@@ -668,6 +704,7 @@ router.get('/settlement/company-detail', async (req, res) => {
   });
   const cancelledBeforeAgg = await prisma.inquiry.aggregate({
     where: {
+      tenantId,
       status: 'CANCELLED',
       externalTransferFee: { not: null },
       preferredDate: { lt: from },
@@ -742,19 +779,23 @@ router.get('/settlement/company-detail', async (req, res) => {
  * 업체별 수수료 누계(마지막 「정산완료」 이후 구간 + 예약일 기준 일·월·년)
  * 타업체(EXTERNAL_PARTNER) 배정 접수만, 수수료 입력 건만 합산
  */
-router.get('/settlement/accruals', async (_req, res) => {
+router.get('/settlement/accruals', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const now = new Date();
   const todayYmd = kstYmd(now);
   const monthKey = todayYmd.slice(0, 7);
   const yearPrefix = todayYmd.slice(0, 4);
 
   const companies = await prisma.externalCompany.findMany({
-    where: { isActive: true },
+    where: { tenantId, isActive: true },
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
 
   const resets = await prisma.externalCompanySettlementReset.findMany({
+    where: { externalCompany: { tenantId } },
     orderBy: { resetAt: 'desc' },
     select: { externalCompanyId: true, resetAt: true },
   });
@@ -783,6 +824,7 @@ router.get('/settlement/accruals', async (_req, res) => {
 
   const activeInquiries = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       externalTransferFee: { not: null },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       assignments: {
@@ -796,6 +838,7 @@ router.get('/settlement/accruals', async (_req, res) => {
 
   const cancelledInquiries = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       status: 'CANCELLED',
       externalTransferFee: { not: null },
       OR: [
@@ -878,6 +921,9 @@ router.get('/settlement/accruals', async (_req, res) => {
 
 /** 정산 완료 후 누계 초기화(해당 업체만) */
 router.post('/settlement/reset-accrual', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const actorId = (req as unknown as { user: AuthPayload }).user.userId;
   const body = req.body as { externalCompanyId?: string };
   const id = typeof body.externalCompanyId === 'string' ? body.externalCompanyId.trim() : '';
@@ -885,11 +931,8 @@ router.post('/settlement/reset-accrual', async (req, res) => {
     res.status(400).json({ error: 'externalCompanyId가 필요합니다.' });
     return;
   }
-  const co = await prisma.externalCompany.findFirst({ where: { id, isActive: true } });
-  if (!co) {
-    res.status(404).json({ error: '타업체를 찾을 수 없습니다.' });
-    return;
-  }
+  const co = await requireActiveExternalCompanyInTenant(res, tenantId, id);
+  if (!co) return;
   await prisma.externalCompanySettlementReset.create({
     data: {
       externalCompanyId: id,
@@ -901,6 +944,9 @@ router.post('/settlement/reset-accrual', async (req, res) => {
 
 /** 관리자: 타업체 정산완료(부분/전체) 금액 기록 */
 router.post('/settlement/payments', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const actorId = (req as unknown as { user: AuthPayload }).user.userId;
   const body = req.body as { externalCompanyId?: string; amount?: number; memo?: string; paidDate?: string };
   const externalCompanyId = typeof body.externalCompanyId === 'string' ? body.externalCompanyId.trim() : '';
@@ -924,7 +970,7 @@ router.post('/settlement/payments', async (req, res) => {
   }
   const amountInt = Math.trunc(amount);
   const co = await prisma.externalCompany.findFirst({
-    where: { id: externalCompanyId, isActive: true },
+    where: { id: externalCompanyId, tenantId, isActive: true },
     select: { id: true },
   });
   if (!co) {

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOrMarketer, superAdminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
   toChangeHistoryItemDto,
 } from './inquiryChangeLogs.helpers.js';
@@ -16,6 +18,15 @@ router.use(adminOrMarketer);
 const logInclude = {
   inquiry: { select: { customerName: true } },
 } as const;
+
+function tenantChangeLogWhere(tenantId: string): Prisma.InquiryChangeLogWhereInput {
+  return {
+    OR: [
+      { inquiry: { tenantId } },
+      { inquiryId: null, actor: { tenantId } },
+    ],
+  };
+}
 
 async function attachActorNames<T extends { actorId: string | null }>(
   rows: T[]
@@ -31,9 +42,13 @@ async function attachActorNames<T extends { actorId: string | null }>(
 
 /** 대시보드 최근 N건 */
 router.get('/recent', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { limit = '10' } = req.query;
   const take = Math.min(50, Math.max(1, parseInt(String(limit), 10) || 10));
   const rows = await prisma.inquiryChangeLog.findMany({
+    where: tenantChangeLogWhere(tenantId),
     orderBy: { createdAt: 'desc' },
     take,
     include: logInclude,
@@ -47,24 +62,31 @@ router.get('/recent', async (req, res) => {
 
 /** 전체 목록 (필터·페이지) */
 router.get('/', async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { customerName, limit = '100', offset = '0' } = req.query;
   const take = Math.min(500, Math.max(1, parseInt(String(limit), 10) || 100));
   const skip = Math.max(0, parseInt(String(offset), 10) || 0);
 
   const nameFilter =
     typeof customerName === 'string' && customerName.trim()
-      ? { inquiry: { customerName: { contains: customerName.trim() } } }
+      ? { inquiry: { customerName: { contains: customerName.trim() }, tenantId } }
       : {};
+
+  const where: Prisma.InquiryChangeLogWhereInput = {
+    AND: [tenantChangeLogWhere(tenantId), nameFilter],
+  };
 
   const [rows, total] = await Promise.all([
     prisma.inquiryChangeLog.findMany({
-      where: nameFilter,
+      where,
       orderBy: { createdAt: 'desc' },
       take,
       skip,
       include: logInclude,
     }),
-    prisma.inquiryChangeLog.count({ where: nameFilter }),
+    prisma.inquiryChangeLog.count({ where }),
   ]);
 
   const actorMap = await attachActorNames(rows);
@@ -76,6 +98,9 @@ router.get('/', async (req, res) => {
 
 /** 최고 관리자만 — 비밀번호 확인 후 삭제 */
 router.delete('/:id', superAdminOnly, async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { id } = req.params;
   const body = req.body as { password?: string };
   const password = body.password != null ? String(body.password) : '';
@@ -96,7 +121,9 @@ router.delete('/:id', superAdminOnly, async (req, res) => {
     return;
   }
 
-  const existing = await prisma.inquiryChangeLog.findUnique({ where: { id } });
+  const existing = await prisma.inquiryChangeLog.findFirst({
+    where: { id, ...tenantChangeLogWhere(tenantId) },
+  });
   if (!existing) {
     res.status(404).json({ error: '히스토리를 찾을 수 없습니다.' });
     return;
