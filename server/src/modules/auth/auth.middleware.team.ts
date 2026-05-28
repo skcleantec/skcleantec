@@ -26,6 +26,7 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
     const q = req.query as {
       previewRole?: string;
       previewExternalName?: string;
+      previewExternalUserId?: string;
       externalCompanyId?: string;
       previewTeamLeaderId?: string;
     };
@@ -41,21 +42,30 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
         typeof q.previewExternalName === 'string' && q.previewExternalName.trim()
           ? q.previewExternalName.trim()
           : '클린느';
+      const queryUserId =
+        typeof q.previewExternalUserId === 'string' && q.previewExternalUserId.trim()
+          ? q.previewExternalUserId.trim()
+          : '';
       const queryCompanyId =
         typeof q.externalCompanyId === 'string' && q.externalCompanyId.trim()
           ? q.externalCompanyId.trim()
           : '';
-      const target = await prisma.user.findFirst({
-        where: {
-          role: 'EXTERNAL_PARTNER',
-          isActive: true,
-          ...(queryCompanyId
-            ? { externalCompanyId: queryCompanyId }
-            : { externalCompany: { is: { name: previewExternalName } } }),
-        },
-        orderBy: { createdAt: 'asc' },
-        select: { id: true, email: true },
-      });
+      const target = queryUserId
+        ? await prisma.user.findFirst({
+            where: { id: queryUserId, role: 'EXTERNAL_PARTNER', isActive: true },
+            select: { id: true, email: true },
+          })
+        : await prisma.user.findFirst({
+            where: {
+              role: 'EXTERNAL_PARTNER',
+              isActive: true,
+              ...(queryCompanyId
+                ? { externalCompanyId: queryCompanyId }
+                : { externalCompany: { is: { name: previewExternalName } } }),
+            },
+            orderBy: { createdAt: 'asc' },
+            select: { id: true, email: true },
+          });
       if (!target) {
         res.status(400).json({ error: `타업체 프리뷰 계정을 찾을 수 없습니다: ${previewExternalName}` });
         return;

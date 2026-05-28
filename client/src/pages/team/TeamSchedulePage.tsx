@@ -7,7 +7,7 @@ import {
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
-import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { isPublicHoliday } from '../../utils/holidays';
@@ -67,6 +67,7 @@ export function TeamSchedulePage() {
   const token = getTeamToken();
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
+  const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const now = new Date();
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,21 +83,24 @@ export function TeamSchedulePage() {
     async (opts?: { silent?: boolean }) => {
       if (!token) return;
       if (!opts?.silent) setLoading(true);
+      const startedKey = capturePreviewKey();
       try {
         const { start, end } = getMonthRange(year, month);
         const [inv, hc] = await Promise.all([
           getTeamSchedule(token, start, end) as Promise<{ items: InquiryItem[] }>,
           getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
         ]);
+        if (isPreviewFetchStale(startedKey)) return;
         setItems(inv.items);
         setHappyStats(hc);
       } catch {
+        if (isPreviewFetchStale(startedKey)) return;
         setItems([]);
       } finally {
-        if (!opts?.silent) setLoading(false);
+        if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
       }
     },
-    [token, year, month, previewKey],
+    [token, year, month, previewKey, capturePreviewKey, isPreviewFetchStale],
   );
 
   useEffect(() => {

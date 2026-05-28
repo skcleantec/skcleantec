@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { getMyDayOffs, addDayOff, removeDayOff } from '../../api/dayoffs';
 import { getTeamMe } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
-import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import {
   TEAM_WEEKDAY_HEADERS,
   TeamBiLine,
@@ -59,6 +59,7 @@ export function TeamDayOffsPage() {
   const token = getTeamToken();
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
+  const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -77,16 +78,21 @@ export function TeamDayOffsPage() {
       return;
     }
     setProfileReady(false);
+    const startedKey = capturePreviewKey();
     getTeamMe(token)
       .then((me: { role?: string; allowSelfDayOffEdit?: boolean }) => {
+        if (isPreviewFetchStale(startedKey)) return;
         if (me.role === 'TEAM_LEADER') setSelfEditAllowed(me.allowSelfDayOffEdit !== false);
         else setSelfEditAllowed(true);
       })
       .catch(() => {
+        if (isPreviewFetchStale(startedKey)) return;
         setSelfEditAllowed(false);
       })
-      .finally(() => setProfileReady(true));
-  }, [token, previewKey]);
+      .finally(() => {
+        if (!isPreviewFetchStale(startedKey)) setProfileReady(true);
+      });
+  }, [token, previewKey, capturePreviewKey, isPreviewFetchStale]);
 
   useEffect(() => {
     if (!token) return;

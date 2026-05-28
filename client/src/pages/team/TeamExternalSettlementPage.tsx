@@ -18,7 +18,7 @@ import {
   parseListPage,
   type InquiryListPageSize,
 } from '../../utils/listPagination';
-import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { TeamBiInline, TeamBiLine, teamBiPlain, teamInquiryStatus } from '../../i18n/team/teamI18n';
 
 function kstMonthKeyNow(): string {
@@ -56,6 +56,7 @@ export function TeamExternalSettlementPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const previewKey = teamPreviewDepsKey(location.search);
+  const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
 
   const datePreset = parseDatePreset(searchParams.get('datePreset'));
   const monthKey = useMemo(() => {
@@ -141,8 +142,10 @@ export function TeamExternalSettlementPage() {
         setLoading(true);
         setError(null);
       }
+      const startedKey = capturePreviewKey();
       try {
         const me = await getTeamMe(token);
+        if (isPreviewFetchStale(startedKey)) return;
         const viewerRole = me.viewerRole ?? me.role;
         const isPreviewStaff =
           (viewerRole === 'ADMIN' || viewerRole === 'MARKETER') && previewMode;
@@ -164,9 +167,11 @@ export function TeamExternalSettlementPage() {
           externalCompanyId: isPreviewStaff && previewCompanyId ? previewCompanyId : undefined,
           externalCompanyName: isPreviewStaff && previewCompanyName ? previewCompanyName : undefined,
         });
+        if (isPreviewFetchStale(startedKey)) return;
         setData(res);
         setError(null);
       } catch (e) {
+        if (isPreviewFetchStale(startedKey)) return;
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
@@ -175,10 +180,10 @@ export function TeamExternalSettlementPage() {
         setData(null);
         setError(e instanceof Error ? e.message : teamBiPlain('team.settlement.loadFail'));
       } finally {
-        if (!opts?.silent) setLoading(false);
+        if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
       }
     },
-    [listQueryKey, datePreset, monthKey, dayKey, itemsPage, payPage, listPageSize, navigate, previewCompanyId, previewCompanyName, previewMode, token]
+    [listQueryKey, datePreset, monthKey, dayKey, itemsPage, payPage, listPageSize, navigate, previewCompanyId, previewCompanyName, previewMode, token, capturePreviewKey, isPreviewFetchStale]
   );
 
   useEffect(() => {

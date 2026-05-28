@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { getTeamOfficeMessages, sendTeamToManagement } from '../../api/messages';
 import { getTeamMe } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
-import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -28,6 +28,7 @@ export function TeamMessagesPage() {
   const token = getTeamToken();
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
+  const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const [myId, setMyId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -40,30 +41,40 @@ export function TeamMessagesPage() {
 
   useEffect(() => {
     if (!token) return;
+    const startedKey = capturePreviewKey();
     getTeamMe(token)
-      .then((u: { id?: string }) => setMyId(typeof u.id === 'string' ? u.id : null))
-      .catch(() => setMyId(null));
-  }, [token, previewKey]);
+      .then((u: { id?: string }) => {
+        if (isPreviewFetchStale(startedKey)) return;
+        setMyId(typeof u.id === 'string' ? u.id : null);
+      })
+      .catch(() => {
+        if (isPreviewFetchStale(startedKey)) return;
+        setMyId(null);
+      });
+  }, [token, previewKey, capturePreviewKey, isPreviewFetchStale]);
 
   const loadMessages = useCallback(
     (opts?: { silent?: boolean }) => {
       if (!token) return;
       if (!opts?.silent) setLoadError(null);
+      const startedKey = capturePreviewKey();
       getTeamOfficeMessages(token)
         .then((list) => {
+          if (isPreviewFetchStale(startedKey)) return;
           setMessages(Array.isArray(list) ? list : []);
           (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
           if (!opts?.silent) scrollToEnd(messagesEndRef, 'auto');
         })
         .catch(() => {
+          if (isPreviewFetchStale(startedKey)) return;
           setMessages([]);
           setLoadError(teamBiPlain('team.messages.loadFail'));
         })
         .finally(() => {
-          if (!opts?.silent) setLoading(false);
+          if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
         });
     },
-    [token, previewKey]
+    [token, previewKey, capturePreviewKey, isPreviewFetchStale]
   );
 
   useEffect(() => {
@@ -73,16 +84,18 @@ export function TeamMessagesPage() {
 
   const pollMessages = useCallback(() => {
     if (!token) return;
+    const startedKey = capturePreviewKey();
     const el = chatScrollRef.current;
     const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 120;
     getTeamOfficeMessages(token)
       .then((list) => {
+        if (isPreviewFetchStale(startedKey)) return;
         setMessages(Array.isArray(list) ? list : []);
         (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
         if (nearBottom) scrollToEnd(messagesEndRef, 'smooth');
       })
       .catch(() => {});
-  }, [token, previewKey]);
+  }, [token, previewKey, capturePreviewKey, isPreviewFetchStale]);
 
   const { connected: wsConnected } = useInboxRealtime(token, pollMessages, Boolean(token));
   useMessageThreadPoll(Boolean(token) && !wsConnected, pollMessages);

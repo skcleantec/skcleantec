@@ -7,7 +7,7 @@ import {
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
-import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
@@ -28,6 +28,7 @@ export function TeamDashboardPage() {
   const token = getTeamToken();
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
+  const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
@@ -37,20 +38,23 @@ export function TeamDashboardPage() {
     async (opts?: { silent?: boolean }) => {
       if (!token) return;
       if (!opts?.silent) setLoading(true);
+      const startedKey = capturePreviewKey();
       try {
         const [inv, hc] = await Promise.all([
           getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
           getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
         ]);
+        if (isPreviewFetchStale(startedKey)) return;
         setItems(inv.items);
         setHappyStats(hc);
       } catch {
+        if (isPreviewFetchStale(startedKey)) return;
         setItems([]);
       } finally {
-        if (!opts?.silent) setLoading(false);
+        if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
       }
     },
-    [token, previewKey],
+    [token, previewKey, capturePreviewKey, isPreviewFetchStale],
   );
 
   useEffect(() => {

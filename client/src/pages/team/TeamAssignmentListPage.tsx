@@ -26,7 +26,7 @@ import {
   formatTeamInquiryAreaSummary,
 } from './teamInquiryShared';
 import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
-import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import {
   INQUIRY_LIST_DEFAULT_PAGE_SIZE,
@@ -85,6 +85,7 @@ export function TeamAssignmentListPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const previewKey = teamPreviewDepsKey(location.search);
+  const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
 
   const datePreset = parseDatePreset(searchParams.get('datePreset'));
   const monthKey = useMemo(() => {
@@ -149,6 +150,7 @@ export function TeamAssignmentListPage() {
         setLoading(true);
         setLoadError(null);
       }
+      const startedKey = capturePreviewKey();
       try {
         const offset = (listPage - 1) * listPageSize;
         const [me, inv, hc] = await Promise.all([
@@ -165,12 +167,14 @@ export function TeamAssignmentListPage() {
           }) as Promise<{ items: InquiryItem[]; total: number }>,
           getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
         ]);
+        if (isPreviewFetchStale(startedKey)) return;
         setMyId(me.id);
         setItems(inv.items);
         setListTotal(typeof inv.total === 'number' ? inv.total : inv.items.length);
         setHappyStats(hc);
         if (!opts?.silent) setLoadError(null);
       } catch (e) {
+        if (isPreviewFetchStale(startedKey)) return;
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
@@ -181,7 +185,7 @@ export function TeamAssignmentListPage() {
         setMyId(null);
         setLoadError(e instanceof Error ? e.message : teamBiPlain('team.assign.loadFail'));
       } finally {
-        if (!opts?.silent) setLoading(false);
+        if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
       }
     },
     [
@@ -196,6 +200,8 @@ export function TeamAssignmentListPage() {
       appliedSearch,
       listPage,
       listPageSize,
+      capturePreviewKey,
+      isPreviewFetchStale,
     ],
   );
 

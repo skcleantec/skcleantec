@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { crewDevPreviewLogin } from '../../api/crew';
 import { clearToken } from '../../stores/auth';
@@ -17,6 +17,9 @@ type Panel = 'tl' | 'ext' | 'crew' | null;
 const btn =
   'rounded px-1.5 py-0.5 font-medium text-[clamp(0.6rem,1.4vw,0.75rem)] transition-colors hover:bg-gray-200/80';
 
+const listBtn =
+  'w-full min-h-[44px] touch-manipulation rounded border border-transparent px-2 py-2 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50 active:bg-gray-100 disabled:pointer-events-none disabled:opacity-50';
+
 export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null }) {
   const navigate = useNavigate();
   const [panel, setPanel] = useState<Panel>(null);
@@ -26,52 +29,74 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
   const [crews, setCrews] = useState<TeamCrewGroupItem[]>([]);
   const [err, setErr] = useState('');
   const [crewNavBusy, setCrewNavBusy] = useState(false);
+  const [navBusy, setNavBusy] = useState(false);
+  const panelFetchSeqRef = useRef(0);
+
+  const closePanel = () => {
+    panelFetchSeqRef.current += 1;
+    setPanel(null);
+    setLoading(false);
+    setErr('');
+  };
 
   const openPanel = async (p: Exclude<Panel, null>) => {
     if (!adminToken) return;
+    const seq = ++panelFetchSeqRef.current;
     setPanel(p);
     setErr('');
+    setTeamLeaders([]);
+    setExternals([]);
+    setCrews([]);
     setLoading(true);
     try {
       if (p === 'tl') {
         const items = await getUsers(adminToken, 'TEAM_LEADER', { employedOn: kstTodayYmd() });
+        if (seq !== panelFetchSeqRef.current) return;
         setTeamLeaders(items);
       } else if (p === 'ext') {
         const items = await getUsers(adminToken, 'EXTERNAL_PARTNER', { employedOn: kstTodayYmd() });
+        if (seq !== panelFetchSeqRef.current) return;
         setExternals(items);
       } else {
         const r = await getTeamCrewGroups(adminToken);
+        if (seq !== panelFetchSeqRef.current) return;
         setCrews(r.items.filter((g) => g.isActive));
       }
     } catch (e) {
+      if (seq !== panelFetchSeqRef.current) return;
       setErr(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
     } finally {
-      setLoading(false);
+      if (seq === panelFetchSeqRef.current) setLoading(false);
     }
   };
 
   const goTeamLeader = (id: string) => {
-    if (!adminToken) return;
+    if (!adminToken || navBusy) return;
+    setNavBusy(true);
     setTeamToken(adminToken);
     navigate(
       `/team/dashboard?previewRole=team_leader&previewTeamLeaderId=${encodeURIComponent(id)}`,
+      { replace: true },
     );
-    setPanel(null);
+    closePanel();
+    setNavBusy(false);
   };
 
   const goExternal = (u: UserItem) => {
-    if (!adminToken) return;
+    if (!adminToken || navBusy) return;
+    setNavBusy(true);
     setTeamToken(adminToken);
-    const q = new URLSearchParams({ previewRole: 'external' });
+    const q = new URLSearchParams({ previewRole: 'external', previewExternalUserId: u.id });
     if (u.externalCompanyId) q.set('externalCompanyId', u.externalCompanyId);
     const name = u.externalCompanyName?.trim() || u.name;
     q.set('previewExternalName', name);
-    navigate(`/team/dashboard?${q.toString()}`);
-    setPanel(null);
+    navigate(`/team/dashboard?${q.toString()}`, { replace: true });
+    closePanel();
+    setNavBusy(false);
   };
 
   const goCrew = async (loginId: string) => {
-    if (!adminToken) return;
+    if (!adminToken || crewNavBusy) return;
     setErr('');
     setCrewNavBusy(true);
     try {
@@ -90,7 +115,7 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
           from: { pathname: '/crew', search: '', hash: '', state: null },
         },
       });
-      setPanel(null);
+      closePanel();
     } catch (e) {
       setErr(e instanceof Error ? e.message : '크루 화면으로 이동하지 못했습니다.');
     } finally {
@@ -128,10 +153,10 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
           className="fixed inset-0 z-[200] flex items-end justify-center bg-black/35 p-2 sm:items-center"
           role="dialog"
           aria-modal="true"
-          onClick={() => setPanel(null)}
+          onClick={closePanel}
         >
           <div
-            className="flex max-h-[min(70vh,420px)] w-full max-w-sm flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl"
+            className="flex max-h-[min(70vh,420px)] w-full max-w-sm flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
@@ -142,12 +167,12 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
                 type="button"
                 className="rounded p-1 text-gray-500 hover:bg-gray-100"
                 aria-label="닫기"
-                onClick={() => setPanel(null)}
+                onClick={closePanel}
               >
                 ×
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-2">
               {err ? (
                 <p className="text-fluid-xs text-red-600">{err}</p>
               ) : loading ? (
@@ -163,7 +188,8 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
                       <li key={u.id}>
                         <button
                           type="button"
-                          className="w-full rounded border border-transparent px-2 py-1.5 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50"
+                          disabled={navBusy}
+                          className={listBtn}
                           onClick={() => goTeamLeader(u.id)}
                         >
                           {u.name}
@@ -182,7 +208,8 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
                       <li key={u.id}>
                         <button
                           type="button"
-                          className="w-full rounded border border-transparent px-2 py-1.5 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50"
+                          disabled={navBusy}
+                          className={listBtn}
                           onClick={() => goExternal(u)}
                         >
                           {formatAssignableUserLabel(u)}
@@ -201,7 +228,7 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
                         <button
                           type="button"
                           disabled={crewNavBusy}
-                          className="w-full rounded border border-transparent px-2 py-1.5 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                          className={listBtn}
                           onClick={() => void goCrew(g.loginId)}
                         >
                           <span className="font-medium">{g.name}</span>

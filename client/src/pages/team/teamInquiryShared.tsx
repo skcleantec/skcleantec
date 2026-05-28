@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
@@ -24,6 +25,7 @@ import {
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
+import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import {
   formatMeetingTimeKoLabel,
   isValidCrewMeetingHhmm,
@@ -561,6 +563,8 @@ export function TeamInquiryDetailModal({
   viewerTeamLeaderId?: string | null;
 }) {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
+  const location = useLocation();
+  const previewKey = teamPreviewDepsKey(location.search);
   const [happySaving, setHappySaving] = useState(false);
   const [viewerMe, setViewerMe] = useState<TeamViewerMe | null>(null);
   const [shareCopyHint, setShareCopyHint] = useState<string | null>(null);
@@ -588,7 +592,7 @@ export function TeamInquiryDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [teamToken, item.id]);
+  }, [teamToken, item.id, previewKey]);
   const [preferredDateInput, setPreferredDateInput] = useState(item.preferredDate?.slice(0, 10) ?? '');
   const [preferredDateSaving, setPreferredDateSaving] = useState(false);
   /** 서버 저장값과 별도 — 시간 입력 중 경고·PATCH 방지 */

@@ -6,7 +6,7 @@ import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects
 import { fetchEContractPublicSession, type PublicSignSessionDto } from '../../api/eContractPublic';
 import { listTeamEContractIssuances, type TeamLeaderEContractIssuanceItem } from '../../api/team';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
-import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
@@ -102,6 +102,7 @@ export function TeamEContractListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const previewKey = teamPreviewDepsKey(location.search);
+  const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
 
   const datePreset = parseDatePreset(searchParams.get('datePreset'));
   const monthKey = useMemo(() => {
@@ -188,6 +189,7 @@ export function TeamEContractListPage() {
       if (!token) return;
       if (!opts?.silent) setLoading(true);
       setError(null);
+      const startedKey = capturePreviewKey();
       try {
         const offset = (effectivePage - 1) * listPageSize;
         const data = await listTeamEContractIssuances(token, {
@@ -197,9 +199,11 @@ export function TeamEContractListPage() {
           limit: listPageSize,
           offset,
         });
+        if (isPreviewFetchStale(startedKey)) return;
         setItems(data.items);
         setListTotal(data.total);
       } catch (e) {
+        if (isPreviewFetchStale(startedKey)) return;
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
@@ -215,10 +219,10 @@ export function TeamEContractListPage() {
               : '목록을 불러오지 못했습니다.';
         setError(msg);
       } finally {
-        if (!opts?.silent) setLoading(false);
+        if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
       }
     },
-    [token, navigate, previewKey, effectivePage, listPageSize, datePreset, monthKey, dayKey],
+    [token, navigate, previewKey, effectivePage, listPageSize, datePreset, monthKey, dayKey, capturePreviewKey, isPreviewFetchStale],
   );
 
   useEffect(() => {

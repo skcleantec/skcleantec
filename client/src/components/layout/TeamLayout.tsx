@@ -8,7 +8,7 @@ import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime, useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { RosterAckBanner } from '../common/RosterAckBanner';
-import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { TeamBiInline, TeamBiLine, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 
@@ -37,6 +37,7 @@ export function TeamLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
+  const { capturePreviewKey, isPreviewFetchStale } = useTeamPreviewStaleGuard(previewKey);
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
@@ -66,8 +67,10 @@ export function TeamLayout() {
       setViewerUserId(null);
       return;
     }
+    const startedKey = capturePreviewKey();
     getTeamMe(token)
       .then((u: TeamViewerMe) => {
+        if (isPreviewFetchStale(startedKey)) return;
         setUserName(u.name ?? null);
         setUserRole(u.role ?? null);
         setUserPhone(u.phone ?? null);
@@ -78,6 +81,7 @@ export function TeamLayout() {
         setViewerUserId(u.id ?? null);
       })
       .catch((e) => {
+        if (isPreviewFetchStale(startedKey)) return;
         setUserName(null);
         setUserRole(null);
         setUserPhone(null);
@@ -91,20 +95,22 @@ export function TeamLayout() {
           navigate('/login', { replace: true, state: { sessionExpired: true } });
         }
       });
-  }, [teamToken, navigate, location.search]);
+  }, [teamToken, navigate, location.search, capturePreviewKey, isPreviewFetchStale]);
 
   const fetchTeamBadges = useCallback(() => {
     const token = getTeamToken();
     if (!token) return;
+    const startedKey = capturePreviewKey();
     getTeamNavBadges(token)
       .then((r) => {
+        if (isPreviewFetchStale(startedKey)) return;
         setUnreadCount(r.unreadCount);
         setCsPendingCount(r.csPendingCount);
         setNewAssignmentCount(r.newAssignmentCount ?? 0);
         setEContractPendingCount(r.eContractPendingCount ?? 0);
       })
       .catch(() => {});
-  }, [previewKey]);
+  }, [previewKey, capturePreviewKey, isPreviewFetchStale]);
 
   useEffect(() => {
     const token = getTeamToken();
@@ -172,6 +178,8 @@ export function TeamLayout() {
       previewRole: 'external',
       previewExternalName: previewExternalName,
     });
+    const uid = searchParams.get('previewExternalUserId');
+    if (uid) q.set('previewExternalUserId', uid);
     const cid = searchParams.get('externalCompanyId');
     if (cid) q.set('externalCompanyId', cid);
     previewQuery = `?${q.toString()}`;
@@ -296,7 +304,11 @@ export function TeamLayout() {
             ) : (
               <>
                 {previewTeamLeader ? (
-                  <span className="hidden sm:inline rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-[clamp(0.6rem,1.4vw,0.75rem)] font-medium text-teal-900 whitespace-nowrap">
+                  <span
+                    className="max-w-[9rem] truncate rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-[clamp(0.6rem,1.4vw,0.75rem)] font-medium text-teal-900 whitespace-nowrap"
+                    title={userName ?? undefined}
+                  >
+                    {userName ? `${userName} · ` : ''}
                     <TeamBiInline id="team.layout.previewTeamLeader" />
                   </span>
                 ) : null}
