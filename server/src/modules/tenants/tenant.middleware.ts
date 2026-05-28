@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
+import { tenantIdForUserId } from './tenant.service.js';
 
 export type TenantScopedRequest = Request & {
   user: AuthPayload;
@@ -10,6 +11,13 @@ export type TenantScopedRequest = Request & {
 export function getTenantIdFromAuth(user: AuthPayload | undefined): string | null {
   if (!user?.tenantId) return null;
   return user.tenantId;
+}
+
+/** JWT tenantId 우선, 없으면 users.tenant_id (레거시 토큰·재로그인 전 세션) */
+export async function resolveTenantIdFromAuth(user: AuthPayload | undefined): Promise<string | null> {
+  if (user?.tenantId) return user.tenantId;
+  if (!user?.userId || user.userId.startsWith('crew:')) return null;
+  return tenantIdForUserId(user.userId);
 }
 
 /** 테넌트 JWT 필수 — 플랫폼·크루(미부착) 세션 거부 */

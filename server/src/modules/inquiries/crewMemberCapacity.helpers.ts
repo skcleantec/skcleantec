@@ -1,6 +1,8 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { parseYmdToDate } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
+import { kstYmdKeysInRange } from './inquiryListDateRange.js';
+import { dateToYmdKst } from '../users/userEmployment.js';
 
 export { DEFAULT_CREW_UNITS_PER_INQUIRY };
 
@@ -50,11 +52,8 @@ function preferredDateDayBounds(ymd: string): { gte: Date; lte: Date } {
   };
 }
 
-function toDateKeyLocal(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+function dateToKstYmdKey(d: Date): string {
+  return dateToYmdKst(d);
 }
 
 /** 집계 모드(useDailyRosterOnly) 크루 그룹 소속 팀원 — 해당일 명단에 있어야 가용으로 친다 */
@@ -91,7 +90,7 @@ async function loadDailyRosterOnlyRestriction(
     select: { teamMemberId: true, date: true },
   });
   for (const row of rosterRows) {
-    const key = toDateKeyLocal(row.date);
+    const key = dateToKstYmdKey(row.date);
     if (!rosterByDay.has(key)) rosterByDay.set(key, new Set());
     rosterByDay.get(key)!.add(row.teamMemberId);
   }
@@ -109,17 +108,21 @@ export async function countAvailableFieldStaffByDateRange(
   tenantId: string
 ): Promise<Map<string, number>> {
   const result = new Map<string, number>();
+  const startYmd = dateToKstYmdKey(rangeStart);
+  const endYmd = dateToKstYmdKey(rangeEnd);
+  const dayKeys = kstYmdKeysInRange(startYmd, endYmd);
   const members = await prisma.teamMember.findMany({
     where: tenantActiveTeamMemberWhere(tenantId),
     select: { id: true },
   });
-  const memberIdSet = new Set(members.map((m) => m.id));
   if (members.length === 0) {
-    for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
-      result.set(toDateKeyLocal(d), 0);
+    for (const key of dayKeys) {
+      result.set(key, 0);
     }
     return result;
   }
+
+  const memberIdSet = new Set(members.map((m) => m.id));
 
   const [{ restrictedIds, rosterByDay }, dayOffRows, slotRows] = await Promise.all([
     loadDailyRosterOnlyRestriction(prisma, { rangeStart, rangeEnd, tenantId }),
@@ -137,7 +140,7 @@ export async function countAvailableFieldStaffByDateRange(
 
   const offByDay = new Map<string, Set<string>>();
   for (const row of dayOffRows) {
-    const key = toDateKeyLocal(row.date);
+    const key = dateToKstYmdKey(row.date);
     if (!offByDay.has(key)) offByDay.set(key, new Set());
     offByDay.get(key)!.add(row.teamMemberId);
   }
@@ -145,13 +148,12 @@ export async function countAvailableFieldStaffByDateRange(
   const slotByDay = new Map<string, Map<string, boolean>>();
   for (const row of slotRows) {
     if (!memberIdSet.has(row.teamMemberId)) continue;
-    const key = toDateKeyLocal(row.date);
+    const key = dateToKstYmdKey(row.date);
     if (!slotByDay.has(key)) slotByDay.set(key, new Map());
     slotByDay.get(key)!.set(row.teamMemberId, row.available);
   }
 
-  for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
-    const key = toDateKeyLocal(d);
+  for (const key of dayKeys) {
     const offSet = offByDay.get(key) ?? new Set<string>();
     const slotMap = slotByDay.get(key) ?? new Map<string, boolean>();
     const rosterForDay = rosterByDay.get(key) ?? new Set<string>();

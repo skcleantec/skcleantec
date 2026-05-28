@@ -12,12 +12,13 @@ import {
 } from '../inquiries/inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from '../inquiries/inquiryJuanDistance.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router();
 
-function tenantFromReq(req: import('express').Request, res: import('express').Response): string | null {
-  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+async function tenantFromReq(req: import('express').Request, res: import('express').Response): Promise<string | null> {
+  const tenantId = await resolveTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return null;
@@ -101,21 +102,23 @@ const scheduleListSelectLite = {
 
 /** preferredDate 조회 — 하루 단위는 KST(Asia/Seoul)와 동일하게 맞춤 (말일 일정 누락 방지) */
 function rangeFromQuery(start?: string, end?: string) {
-  const now = new Date();
   if (start && YMD.test(start) && end && YMD.test(end)) {
+    const startBounds = kstDayRangeYmd(start)!;
+    const endBounds = kstDayRangeYmd(end)!;
     return {
-      startDate: new Date(`${start}T00:00:00+09:00`),
-      endDate: new Date(`${end}T23:59:59.999+09:00`),
+      startDate: startBounds.gte,
+      endDate: endBounds.lte,
     };
   }
+  const monthRange = kstMonthRangeYm(kstTodayYmd().slice(0, 7))!;
   return {
-    startDate: new Date(now.getFullYear(), now.getMonth(), 1),
-    endDate: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+    startDate: monthRange.gte,
+    endDate: monthRange.lte,
   };
 }
 
 router.get('/', async (req, res) => {
-  const tenantId = tenantFromReq(req, res);
+  const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const { start, end, lite } = req.query as { start?: string; end?: string; lite?: string };
   const useLite = lite === '1' || lite === 'true';
@@ -180,7 +183,7 @@ router.get('/', async (req, res) => {
 
 /** 관리자: 해당일 일정 마감(범위별 잔여 슬롯·TO 조정) */
 router.post('/closures', authMiddleware, adminOnly, async (req, res) => {
-  const tenantId = tenantFromReq(req, res);
+  const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const { date, scope } = req.body as {
     date?: string;
@@ -202,7 +205,7 @@ router.post('/closures', authMiddleware, adminOnly, async (req, res) => {
 });
 
 router.delete('/closures', authMiddleware, adminOnly, async (req, res) => {
-  const tenantId = tenantFromReq(req, res);
+  const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const { date } = req.query as { date?: string };
   if (!date || !YMD.test(date)) {
@@ -216,7 +219,7 @@ router.delete('/closures', authMiddleware, adminOnly, async (req, res) => {
 
 /** 관리자: 해당일 가용 팀장·팀원 편집용 데이터 */
 router.get('/day-availability', async (req, res) => {
-  const tenantId = tenantFromReq(req, res);
+  const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const { date } = req.query as { date?: string };
   if (!date || !YMD.test(date)) {
@@ -324,7 +327,7 @@ router.get('/day-availability', async (req, res) => {
 
 /** 관리자: 해당일 가용 팀장·팀원 수동 설정(전체 교체) */
 router.put('/day-availability', authMiddleware, adminOnly, async (req, res) => {
-  const tenantId = tenantFromReq(req, res);
+  const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const body = req.body as {
     date?: string;

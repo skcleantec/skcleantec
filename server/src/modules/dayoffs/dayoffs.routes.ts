@@ -3,7 +3,14 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
+import { getTenantIdFromAuth, resolveTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
+import {
+  kstDayRangeYmd,
+  kstMonthRangeYm,
+  kstTodayYmd,
+  kstYmdKeysInRange,
+} from '../inquiries/inquiryListDateRange.js';
+import { dateToYmdKst } from '../users/userEmployment.js';
 import {
   consumesAfternoonSlot,
   consumesMorningSlot,
@@ -111,11 +118,23 @@ router.delete('/me', teamAuthMiddleware, async (req, res) => {
   res.json({ ok: true });
 });
 
-function toDateKeyFromDb(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+function kstDateKey(d: Date): string {
+  return dateToYmdKst(d);
+}
+
+function resolveScheduleRangeYmd(start?: string, end?: string): { startYmd: string; endYmd: string; startDate: Date; endDate: Date } {
+  if (start && YMD.test(start) && end && YMD.test(end)) {
+    const startBounds = kstDayRangeYmd(start)!;
+    const endBounds = kstDayRangeYmd(end)!;
+    return { startYmd: start, endYmd: end, startDate: startBounds.gte, endDate: endBounds.lte };
+  }
+  const monthRange = kstMonthRangeYm(kstTodayYmd().slice(0, 7))!;
+  return {
+    startYmd: dateToYmdKst(monthRange.gte),
+    endYmd: dateToYmdKst(monthRange.lte),
+    startDate: monthRange.gte,
+    endDate: monthRange.lte,
+  };
 }
 
 /** 관리자: 팀장·팀원 휴무를 월 캘린더에 표시하기 위한 집계 */
@@ -126,15 +145,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
     return;
   }
   const { start, end } = req.query as { start?: string; end?: string };
-  const now = new Date();
-  const startDate =
-    start && YMD.test(start)
-      ? new Date(`${start}T00:00:00+09:00`)
-      : new Date(now.getFullYear(), now.getMonth(), 1);
-  const endDate =
-    end && YMD.test(end)
-      ? new Date(`${end}T23:59:59.999+09:00`)
-      : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const { startYmd, endYmd, startDate, endDate } = resolveScheduleRangeYmd(start, end);
 
   const [userDayOffRows, memberDayOffRows, activeTeamLeaders] = await Promise.all([
     prisma.userDayOff.findMany({
@@ -165,24 +176,18 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
     }),
   ]);
 
-  const rangeStart = new Date(startDate);
-  rangeStart.setHours(0, 0, 0, 0);
-  const rangeEnd = new Date(endDate);
-  rangeEnd.setHours(23, 59, 59, 999);
-
   const byDate: Record<
     string,
     { teamLeaderOffs: { id: string; name: string }[]; teamMemberOffs: { id: string; name: string }[] }
   > = {};
 
-  for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
-    const key = toDateKeyFromDb(d);
+  for (const key of kstYmdKeysInRange(startYmd, endYmd)) {
     byDate[key] = { teamLeaderOffs: [], teamMemberOffs: [] };
   }
 
   const leaderByDay = new Map<string, Map<string, { id: string; name: string }>>();
   for (const row of userDayOffRows) {
-    const key = toDateKeyFromDb(row.date);
+    const key = kstDateKey(row.date);
     if (!byDate[key]) continue;
     if (!leaderByDay.has(key)) leaderByDay.set(key, new Map());
     leaderByDay.get(key)!.set(row.teamLeader.id, {
@@ -197,7 +202,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
 
   const memberByDay = new Map<string, Map<string, { id: string; name: string }>>();
   for (const row of memberDayOffRows) {
-    const key = toDateKeyFromDb(row.date);
+    const key = kstDateKey(row.date);
     if (!byDate[key]) continue;
     if (!memberByDay.has(key)) memberByDay.set(key, new Map());
     memberByDay.get(key)!.set(row.teamMember.id, {
@@ -220,7 +225,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
       leaderMonthMap.set(id, { id, name: row.teamLeader.name, entries: [] });
     }
     leaderMonthMap.get(id)!.entries.push({
-      date: toDateKeyFromDb(row.date),
+      date: kstDateKey(row.date),
       registeredAt: row.createdAt.toISOString(),
     });
   }
@@ -246,26 +251,13 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
 
 /** 관리자: 날짜별 휴무/근무 현황 */
 router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) => {
-  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  const tenantId = await resolveTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
   const { start, end } = req.query as { start?: string; end?: string };
-  const now = new Date();
-  const startDate =
-    start && YMD.test(start)
-      ? new Date(`${start}T00:00:00+09:00`)
-      : new Date(now.getFullYear(), now.getMonth(), 1);
-  const endDate = end && YMD.test(end)
-    ? new Date(`${end}T23:59:59.999+09:00`)
-    : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-  /** 성능: 서로 독립인 조회들은 한 번에 병렬로 묶어 네트워크 왕복을 줄인다. */
-  const rangeStart = new Date(startDate);
-  rangeStart.setHours(0, 0, 0, 0);
-  const rangeEnd = new Date(endDate);
-  rangeEnd.setHours(23, 59, 59, 999);
+  const { startYmd, endYmd, startDate, endDate } = resolveScheduleRangeYmd(start, end);
 
   const [
     teamLeaders,
@@ -314,19 +306,19 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     prisma.scheduleDayLeaderSlot.findMany({
       where: { tenantId, date: { gte: startDate, lte: endDate } },
     }),
-    countAvailableFieldStaffByDateRange(prisma, rangeStart, rangeEnd, tenantId),
+    countAvailableFieldStaffByDateRange(prisma, startDate, endDate, tenantId),
     prisma.scheduleDayClosure.findMany({
-      where: { tenantId, date: { gte: rangeStart, lte: rangeEnd } },
+      where: { tenantId, date: { gte: startDate, lte: endDate } },
       select: { date: true, scope: true },
     }),
     prisma.scheduleDaySlotToAdjustment.findMany({
-      where: { tenantId, date: { gte: rangeStart, lte: rangeEnd } },
+      where: { tenantId, date: { gte: startDate, lte: endDate } },
       select: { date: true, morningDelta: true, afternoonDelta: true },
     }),
     prisma.csReport.findMany({
       where: {
         tenantId,
-        asServiceDate: { gte: rangeStart, lte: rangeEnd },
+        asServiceDate: { gte: startDate, lte: endDate },
       },
       select: {
         id: true,
@@ -341,12 +333,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     }),
   ]);
 
-  function toDateKey(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
+  const toDateKey = kstDateKey;
 
   const byDate: Record<
     string,
@@ -412,8 +399,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     });
   }
 
-  for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
-    const key = toDateKey(d);
+  for (const key of kstYmdKeysInRange(startYmd, endYmd)) {
     const dayLeaders = teamLeaders.filter((t) =>
       isUserEmployedOnYmd(t.hireDate, t.resignationDate, key)
     );

@@ -7,6 +7,26 @@ export function kstTodayYmd(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
+/** KST 달력 YYYY-MM-DD에 일 수를 더함 */
+export function addDaysToKstYmd(ymd: string, deltaDays: number): string {
+  const t = new Date(`${ymd}T12:00:00+09:00`).getTime() + deltaDays * 86400000;
+  return new Date(t).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+/** startYmd ~ endYmd 포함, KST 달력 키 나열 */
+export function kstYmdKeysInRange(startYmd: string, endYmd: string): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startYmd) || !/^\d{4}-\d{2}-\d{2}$/.test(endYmd)) return [];
+  if (startYmd > endYmd) return [];
+  const out: string[] = [];
+  let cur = startYmd;
+  for (;;) {
+    out.push(cur);
+    if (cur === endYmd) break;
+    cur = addDaysToKstYmd(cur, 1);
+  }
+  return out;
+}
+
 export function kstDayRangeYmd(ymd: string): { gte: Date; lte: Date } | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
   const gte = new Date(`${ymd}T00:00:00+09:00`);
