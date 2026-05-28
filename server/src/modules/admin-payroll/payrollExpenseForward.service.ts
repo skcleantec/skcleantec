@@ -334,7 +334,7 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
   poolOut.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 
   const marketers = await prismaClient.user.findMany({
-    where: { role: 'MARKETER', isActive: true },
+    where: { role: { in: ['MARKETER', 'OFFICE_STAFF'] }, isActive: true },
     select: {
       id: true,
       name: true,

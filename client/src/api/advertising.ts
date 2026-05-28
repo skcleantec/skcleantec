@@ -205,8 +205,10 @@ export async function startAdSession(token: string): Promise<ActiveSession> {
 export interface BookingDenominatorPreview {
   sessionId?: string | null;
   rangeStartIso: string | null;
-  /** 취소 제외 예약 분모 */
+  /** 확정 예약완료 — 고객 제출(submittedAt), 취소·삭제 제외 */
   autoCount: number;
+  /** 미제출 발급(링크만) — 참고, 분모 제외 */
+  issuedPendingCount: number;
   /** 구간 내 취소된 발주서/접수 건 */
   cancelledCount: number;
   /** 구간 내 삭제(발주서 삭제·접수만 삭제) */
@@ -248,11 +250,13 @@ export interface AdvertisingAnalytics {
   period: { from: string; to: string; days: number };
   summary: {
     totalAdSpend: number;
-    /** 조회 기간 내 작업 종료 세션별 예약 분모(취소 제외) 합 — ROAS·건당 비용 분모 */
+    /** 조회 기간 내 발주서 submittedAt(KST) 확정 예약완료 — ROAS·건당 비용 분모 */
     orderInquiryCount: number;
-    /** 같은 구간에서 취소된 발주서/접수 건 합 */
+    /** 같은 기간 미제출 발급(링크만) — 참고, 분모 제외 */
+    issuedPendingInquiryCount: number;
+    /** 같은 기간 고객 제출 후 접수 취소 */
     cancelledInquiryCount: number;
-    /** 같은 구간에서 삭제된 발주서/고아 발주서 합 */
+    /** 같은 기간 제출분 삭제(고아·발주서 삭제) */
     deletedInquiryCount: number;
     totalRevenue: number;
     roas: number | null;
@@ -265,8 +269,9 @@ export interface AdvertisingAnalytics {
     email: string;
     role: string;
     totalAdSpend: number;
-    /** 동일: 기간 내 종료 세션 분모 합(취소 제외) */
+    /** 동일: submittedAt(KST) 확정 예약완료 */
     orderInquiryCount: number;
+    issuedPendingInquiryCount: number;
     cancelledInquiryCount: number;
     deletedInquiryCount: number;
     totalRevenue: number;
@@ -295,7 +300,10 @@ export async function getAdvertisingAnalytics(
 export type AdvertisingDailySettlementDay = {
   ymd: string;
   totalAdSpend: number;
+  /** submittedAt(KST) 확정 예약완료 */
   reservationCount: number;
+  /** createdAt(KST) 미제출 발급 — 참고 */
+  issuedPendingCount: number;
   cancelledReservationCount: number;
   deletedReservationCount: number;
   costPerReservation: number | null;
@@ -308,6 +316,7 @@ export type AdvertisingDailySettlementResponse = {
   monthTotals: {
     totalAdSpend: number;
     reservationCount: number;
+    issuedPendingCount: number;
     cancelledReservationCount: number;
     deletedReservationCount: number;
     costPerReservation: number | null;

@@ -1899,14 +1899,14 @@ export function AdminInquiriesPage() {
           </div>
           <details className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
             <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-fluid-xs hover:bg-gray-100/80">
-              <span className="font-medium text-gray-800">마케터별 접수</span>
+              <span className="font-medium text-gray-800">마케터별 확정 예약</span>
               {marketerOverview && (
                 <span className="min-w-0 truncate text-gray-500">
                   · {formatMonthKeyLabel(marketerOverview.monthKey)} · 오늘 {marketerOverview.todayYmd}
                 </span>
               )}
               <HelpTooltip
-                text="행을 누르면 해당 마케터로 접수자 필터가 적용됩니다."
+                text="고객 발주서 제출일(submittedAt) 기준 확정 예약완료 건수입니다. 링크만 발급한 미제출 건은 포함하지 않습니다."
                 className="shrink-0"
               />
               <span className="ml-auto shrink-0 text-gray-500" aria-hidden>

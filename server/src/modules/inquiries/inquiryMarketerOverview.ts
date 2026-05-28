@@ -1,8 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
-import { dateToYmdKst } from '../users/userEmployment.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from './inquiryListDateRange.js';
+import {
+  countMarketerConfirmedSubmissionsInRange,
+  submittedAtYmdKst,
+} from '../advertising/advertising.bookingDenominator.js';
 
 export type MarketerOverviewRow = {
   marketerId: string;
@@ -41,8 +44,8 @@ export function whereInquiryAttributedToMarketer(marketerId: string): Prisma.Inq
   };
 }
 
-/** 마케터별 이번 달·오늘 접수 건수 (접수일 createdAt, KST) */
-export async function buildMarketerOverview(): Promise<MarketerOverviewResult> {
+/** 마케터별 이번 달·오늘 **확정 예약완료**(발주서 submittedAt, KST) */
+export async function buildMarketerOverview(tenantId: string): Promise<MarketerOverviewResult> {
   const todayYmd = kstTodayYmd();
   const monthKey = todayYmd.slice(0, 7);
   const monthRange = kstMonthRangeYm(monthKey);
@@ -56,7 +59,7 @@ export async function buildMarketerOverview(): Promise<MarketerOverviewResult> {
   }
 
   const staff = await prisma.user.findMany({
-    where: { role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
+    where: { tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
     select: { id: true, name: true, email: true },
     orderBy: { name: 'asc' },
   });
@@ -65,23 +68,29 @@ export async function buildMarketerOverview(): Promise<MarketerOverviewResult> {
 
   const rows: MarketerOverviewRow[] = await Promise.all(
     marketers.map(async (m) => {
-      const attr = whereInquiryAttributedToMarketer(m.id);
-      const [monthCount, todayCount] = await Promise.all([
-        prisma.inquiry.count({
-          where: {
-            createdAt: { gte: monthRange.gte, lte: monthRange.lte },
-            ...attr,
-          },
-        }),
-        prisma.inquiry.count({
-          where: {
-            createdAt: { gte: todayRange.gte, lte: todayRange.lte },
-            ...attr,
-          },
-        }),
+      const [monthBreakdown, todayBreakdown] = await Promise.all([
+        countMarketerConfirmedSubmissionsInRange(
+          prisma,
+          tenantId,
+          m.id,
+          monthRange.gte,
+          monthRange.lte,
+        ),
+        countMarketerConfirmedSubmissionsInRange(
+          prisma,
+          tenantId,
+          m.id,
+          todayRange.gte,
+          todayRange.lte,
+        ),
       ]);
-      return { marketerId: m.id, name: m.name, monthCount, todayCount };
-    })
+      return {
+        marketerId: m.id,
+        name: m.name,
+        monthCount: monthBreakdown.activeCount,
+        todayCount: todayBreakdown.activeCount,
+      };
+    }),
   );
 
   return {
@@ -96,21 +105,22 @@ export type MarketerDailyOverviewResult = {
   marketerName: string;
   monthKey: string;
   daysInMonth: number;
-  /** index 0 = 1일 */
+  /** index 0 = 1일 — 확정 예약완료(submittedAt KST) */
   dailyCounts: number[];
   monthTotal: number;
 };
 
-/** 마케터별 월간 일별 접수 건수 (접수일 createdAt, KST) */
+/** 마케터별 월간 일별 **확정 예약완료** (발주서 submittedAt, KST) */
 export async function buildMarketerDailyOverview(
+  tenantId: string,
   marketerId: string,
-  monthKey: string
+  monthKey: string,
 ): Promise<MarketerDailyOverviewResult | null> {
   const monthRange = kstMonthRangeYm(monthKey);
   if (!monthRange) return null;
 
   const user = await prisma.user.findFirst({
-    where: { id: marketerId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
+    where: { id: marketerId, tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
     select: { id: true, name: true, email: true },
   });
   if (!user || isTeamPreviewAdminEmail(user.email)) return null;
@@ -118,21 +128,36 @@ export async function buildMarketerDailyOverview(
   const y = Number(monthKey.slice(0, 4));
   const mo = Number(monthKey.slice(5, 7));
   const daysInMonth = new Date(y, mo, 0).getDate();
-  const dailyCounts = new Array<number>(daysInMonth).fill(0);
 
-  const rows = await prisma.inquiry.findMany({
+  const forms = await prisma.orderForm.findMany({
     where: {
-      createdAt: { gte: monthRange.gte, lte: monthRange.lte },
-      ...whereInquiryAttributedToMarketer(marketerId),
+      tenantId,
+      createdById: marketerId,
+      submittedAt: { gte: monthRange.gte, lte: monthRange.lte },
     },
-    select: { createdAt: true },
+    select: {
+      submittedAt: true,
+      inquiries: {
+        select: { status: true },
+        orderBy: { createdAt: 'desc' as const },
+        take: 1,
+      },
+    },
   });
 
-  for (const row of rows) {
-    const ymd = dateToYmdKst(row.createdAt);
+  const dailyCounts = Array.from({ length: daysInMonth }, () => 0);
+  let monthTotal = 0;
+
+  for (const row of forms) {
+    if (!row.submittedAt) continue;
+    if (row.inquiries.length > 0 && row.inquiries[0]!.status === 'CANCELLED') continue;
+    if (row.inquiries.length === 0) continue;
+    const ymd = submittedAtYmdKst(row.submittedAt);
     if (!ymd.startsWith(monthKey)) continue;
-    const day = Number(ymd.slice(8, 10));
-    if (day >= 1 && day <= daysInMonth) dailyCounts[day - 1] += 1;
+    const dom = Number(ymd.slice(8, 10));
+    if (dom < 1 || dom > daysInMonth) continue;
+    dailyCounts[dom - 1]! += 1;
+    monthTotal += 1;
   }
 
   return {
@@ -141,6 +166,6 @@ export async function buildMarketerDailyOverview(
     monthKey,
     daysInMonth,
     dailyCounts,
-    monthTotal: dailyCounts.reduce((sum, n) => sum + n, 0),
+    monthTotal,
   };
 }

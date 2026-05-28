@@ -615,6 +615,8 @@ enum UserRole {
   ADMIN
   TEAM_LEADER
   MARKETER
+  /// 일반 사무직 — 급여표·정산 인건비만(관리 업무 로그인 없음)
+  OFFICE_STAFF
   /// 타업체 담당자 — 팀장과 동일하게 /team 로그인·담당 접수 조회
   EXTERNAL_PARTNER
 }

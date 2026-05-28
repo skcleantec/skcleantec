@@ -37,8 +37,8 @@ const router = Router();
 router.use(authMiddleware, requireFeature('mod_advertising'));
 
 /**
- * 광고비 분석 ROAS·건당 비용 분모 — 서비스접수 목록과 동일한 「예약완료」개념.
- * 고객 발주서 제출 이후 상태(RECEIVED~). 미제출·대기·입금 단계·취소는 제외.
+ * 광고비 분석 ROAS·건당 비용 분모 — **고객 발주서 제출(submittedAt) 확정 건**.
+ * 미제출 발급·접수 취소·삭제는 분모 제외(별도 집계).
  */
 const ADVERTISING_ANALYTICS_RESERVATION_STATUSES: InquiryStatus[] = [
   'RECEIVED',
@@ -393,7 +393,7 @@ router.get('/sessions/active', authMiddleware, adminOrMarketer, async (req, res)
   res.json({ session });
 });
 
-/** 종료 입력 모달 — 예약(발주서) 분모 자동 집계 미리보기: 제출 완료 + 구간 내 신규 미제출 발급 */
+/** 종료 입력 모달 — 확정 예약(고객 제출) 분모 미리보기 + 미제출 발급 참고 */
 router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
@@ -406,6 +406,7 @@ router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarke
     res.json({
       session: null,
       autoCount: 0,
+      issuedPendingCount: 0,
       cancelledCount: 0,
       deletedCount: 0,
       rangeStartIso: null as string | null,
@@ -418,11 +419,12 @@ router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarke
   });
   const rangeStart = prevEnded?.endedAt ?? session.startedAt;
   const now = new Date();
-  const breakdown = await countBookingDenominatorAuto(prisma, user.userId, rangeStart, now);
+  const breakdown = await countBookingDenominatorAuto(prisma, tenantId, user.userId, rangeStart, now);
   res.json({
     sessionId: session.id,
     rangeStartIso: rangeStart.toISOString(),
     autoCount: breakdown.activeCount,
+    issuedPendingCount: breakdown.issuedPendingCount,
     cancelledCount: breakdown.cancelledCount,
     deletedCount: breakdown.deletedCount,
   });
@@ -500,6 +502,7 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
       const rangeStart = prevEnded?.endedAt ?? session.startedAt;
       const breakdown = await countBookingDenominatorAuto(
         prisma,
+        tenantId,
         user.userId,
         rangeStart,
         endedAt,
@@ -601,7 +604,7 @@ router.get('/analytics/daily', authMiddleware, adminOrMarketer, async (req, res)
   }
 
   try {
-    const payload = await advertisingDailySettlementForMonthKey(prisma, marketerId, monthKey);
+    const payload = await advertisingDailySettlementForMonthKey(prisma, tenantId, marketerId, monthKey);
     res.json({
       marketer: {
         id: target.id,
@@ -658,7 +661,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
 
   /**
    * 접수 매출 집계용: 발주서 고객 제출일이 기간 안이고 상태가 예약완료·분배·진행 등.
-   * (예약완료 「건수」는 작업 종료 세션 분모 합 — 취소 제외, `sumReservationCountsFromWorkSessionsInPeriod`)
+   * 예약완료 「건수」는 submittedAt·tenantId 기준 확정 제출 — `sumReservationCountsFromWorkSessionsInPeriod`
    */
   const orderFormSubmittedInPeriod = {
     submittedAt: {
@@ -677,18 +680,12 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     },
   };
   if (scope.marketerIds !== 'ALL_MARKETERS') {
-    inquiryWhere.OR = [
-      { createdById: { in: scope.marketerIds } },
-      {
-        createdById: null,
-        orderForm: {
-          is: {
-            ...orderFormSubmittedInPeriod,
-            createdById: { in: scope.marketerIds },
-          },
-        },
+    inquiryWhere.orderForm = {
+      is: {
+        ...orderFormSubmittedInPeriod,
+        createdById: { in: scope.marketerIds },
       },
-    ];
+    };
   }
 
   /** 세션·지출: user 객체 없이 최소 필드만 (메모리 절약) */
@@ -700,7 +697,13 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
         spendLines: { select: { amount: true } },
       },
     }),
-    sumReservationCountsFromWorkSessionsInPeriod(prisma, range.from, range.to, scope.marketerIds),
+    sumReservationCountsFromWorkSessionsInPeriod(
+      prisma,
+      tenantId,
+      range.from,
+      range.to,
+      scope.marketerIds,
+    ),
     prisma.inquiry.findMany({
       where: inquiryWhere,
       select: {
@@ -717,6 +720,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
   const inquiryCount = reservationAgg.total;
   const cancelledInquiryCount = reservationAgg.cancelledTotal;
   const deletedInquiryCount = reservationAgg.deletedTotal;
+  const issuedPendingInquiryCount = reservationAgg.issuedPendingTotal;
 
   const totalSpend = sumSpendFromSessions(sessions);
   let totalRevenue = 0;
@@ -724,7 +728,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
   for (const row of inquiryRows) {
     const amt = row.serviceTotalAmount ?? 0;
     totalRevenue += amt;
-    const uid = row.createdById ?? row.orderForm?.createdById ?? null;
+    const uid = row.orderForm?.createdById ?? row.createdById ?? null;
     if (!uid) continue;
     revenueByUser.set(uid, (revenueByUser.get(uid) ?? 0) + amt);
   }
@@ -760,6 +764,9 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     for (const uid of deletedReservationByUser.keys()) {
       if (!mIds.has(uid)) extraIds.add(uid);
     }
+    for (const uid of reservationAgg.issuedPendingByUser.keys()) {
+      if (!mIds.has(uid)) extraIds.add(uid);
+    }
     const extras =
       extraIds.size > 0
         ? await prisma.user.findMany({
@@ -785,6 +792,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     const ic = reservationByUser.get(u.id) ?? 0;
     const cc = cancelledReservationByUser.get(u.id) ?? 0;
     const dc = deletedReservationByUser.get(u.id) ?? 0;
+    const ipc = reservationAgg.issuedPendingByUser.get(u.id) ?? 0;
     return {
       userId: u.id,
       name: u.name,
@@ -792,6 +800,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
       role: u.role,
       totalAdSpend: spend,
       orderInquiryCount: ic,
+      issuedPendingInquiryCount: ipc,
       cancelledInquiryCount: cc,
       deletedInquiryCount: dc,
       totalRevenue: rev,
@@ -808,6 +817,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     summary: {
       totalAdSpend: totalSpend,
       orderInquiryCount: inquiryCount,
+      issuedPendingInquiryCount,
       cancelledInquiryCount,
       deletedInquiryCount,
       totalRevenue,

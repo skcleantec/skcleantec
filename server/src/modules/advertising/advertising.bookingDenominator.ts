@@ -1,65 +1,130 @@
-import type { InquiryStatus, PrismaClient } from '@prisma/client';
+import type { InquiryStatus, Prisma, PrismaClient } from '@prisma/client';
 import type { NormalizedAdSpendRow } from './advertising.sessionEndNormalize.js';
 
 export type BookingDenominatorBreakdown = {
-  /** 취소·삭제 제외 — ROAS·건당 비용 분모 */
+  /** 확정 예약완료 — 고객 제출(submittedAt) 완료·접수 취소·삭제 제외. 광고 ROI·수당·세션 분모 */
   activeCount: number;
-  /** 구간 내 발주서 중 접수가 취소된 건 */
+  /** 미제출 발급(링크만) — 활동 참고용, 금액 분모·예약완료 건수 제외 */
+  issuedPendingCount: number;
+  /** 고객 제출 후 접수 CANCELLED */
   cancelledCount: number;
-  /** 구간 내 삭제(발주서 삭제·접수만 삭제된 고아 발주서) */
+  /** 제출 후 접수만 삭제(고아) · 발주서 영구 삭제 로그(제출분) */
   deletedCount: number;
 };
 
 type DenominatorClass = 'active' | 'cancelled' | 'deleted';
 
-function classifyOrderFormForDenominator(row: {
+const orderFormDenominatorSelect = {
+  id: true,
+  submittedAt: true,
+  inquiries: {
+    select: { status: true },
+    orderBy: { createdAt: 'desc' as const },
+    take: 1,
+  },
+} as const;
+
+function emptyBreakdown(): BookingDenominatorBreakdown {
+  return { activeCount: 0, issuedPendingCount: 0, cancelledCount: 0, deletedCount: 0 };
+}
+
+function addBreakdown(a: BookingDenominatorBreakdown, b: BookingDenominatorBreakdown): BookingDenominatorBreakdown {
+  return {
+    activeCount: a.activeCount + b.activeCount,
+    issuedPendingCount: a.issuedPendingCount + b.issuedPendingCount,
+    cancelledCount: a.cancelledCount + b.cancelledCount,
+    deletedCount: a.deletedCount + b.deletedCount,
+  };
+}
+
+/** KST yyyy-mm-dd */
+export function submittedAtYmdKst(d: Date): string {
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+function classifySubmittedOrderForm(row: {
   submittedAt: Date | null;
   inquiries: { status: InquiryStatus }[];
 }): DenominatorClass {
+  if (row.submittedAt == null) return 'deleted';
   if (row.inquiries.length > 0) {
     return row.inquiries[0]!.status === 'CANCELLED' ? 'cancelled' : 'active';
   }
-  /** 고객 제출 후 접수만 삭제된 발주서 — 분모에서 제외 */
-  if (row.submittedAt != null) return 'deleted';
-  /** 미제출 발급(링크만) — 접수 행 없어도 유효 */
-  return 'active';
+  /** 고객 제출 후 접수만 삭제된 발주서 */
+  return 'deleted';
+}
+
+function tallySubmittedRows(rows: { submittedAt: Date | null; inquiries: { status: InquiryStatus }[] }[]): Omit<
+  BookingDenominatorBreakdown,
+  'issuedPendingCount'
+> {
+  let activeCount = 0;
+  let cancelledCount = 0;
+  let deletedCount = 0;
+  for (const row of rows) {
+    const cls = classifySubmittedOrderForm(row);
+    if (cls === 'cancelled') cancelledCount += 1;
+    else if (cls === 'deleted') deletedCount += 1;
+    else activeCount += 1;
+  }
+  return { activeCount, cancelledCount, deletedCount };
+}
+
+function marketerCreatedByFilter(marketerIds: string[] | 'ALL_MARKETERS'): Prisma.OrderFormWhereInput {
+  if (marketerIds === 'ALL_MARKETERS') return {};
+  return { createdById: { in: marketerIds } };
+}
+
+function marketerDeleteLogFilter(
+  tenantId: string,
+  marketerIds: string[] | 'ALL_MARKETERS',
+): Prisma.OrderFormDeleteLogWhereInput {
+  const base: Prisma.OrderFormDeleteLogWhereInput = {
+    createdBy: { tenantId },
+  };
+  if (marketerIds === 'ALL_MARKETERS') return base;
+  return { ...base, createdById: { in: marketerIds } };
+}
+
+/** DB에 남은 고아 발주서와 삭제 로그가 겹치면 삭제 로그 쪽은 제외(이중 집계 방지) */
+function orphanSubmittedOrderFormIds(
+  rows: { id: string; submittedAt: Date | null; inquiries: { status: InquiryStatus }[] }[],
+): Set<string> {
+  const out = new Set<string>();
+  for (const row of rows) {
+    if (row.submittedAt != null && row.inquiries.length === 0) {
+      out.add(row.id);
+    }
+  }
+  return out;
 }
 
 /**
- * 세션 구간 내 마케터 발주서 실적 자동 분모.
- * - 고객 제출 완료: submittedAt 이 구간 안
- * - 미제출 신규 발급: 본인 발급·아직 미제출이며 createdAt 이 구간 안 (링크만 낸 건 반영)
- * - 연결 접수 CANCELLED → cancelledCount
- * - 제출 후 접수만 삭제(고아 발주서) · 발주서 영구 삭제 로그 → deletedCount
+ * 세션 구간(직전 종료~이번 종료/지금) — 텔레마 세션 종료 시 채널 건당 분모.
+ * 확정(active)은 고객 제출(submittedAt)만. 미제출 발급은 issuedPendingCount.
  */
 export async function countBookingDenominatorAuto(
   prisma: PrismaClient,
+  tenantId: string,
   marketerUserId: string,
   rangeStartExclusive: Date,
   rangeEndInclusive: Date,
 ): Promise<BookingDenominatorBreakdown> {
-  const orderFormSelect = {
-    submittedAt: true,
-    inquiries: {
-      select: { status: true },
-      orderBy: { createdAt: 'desc' as const },
-      take: 1,
-    },
-  };
-
-  const [submittedInRange, pendingIssuedInRange, deletedLogCount] = await Promise.all([
+  const [submittedInRange, pendingIssuedInRange, deletedSubmittedLogs] = await Promise.all([
     prisma.orderForm.findMany({
       where: {
+        tenantId,
         createdById: marketerUserId,
         submittedAt: {
           gt: rangeStartExclusive,
           lte: rangeEndInclusive,
         },
       },
-      select: orderFormSelect,
+      select: orderFormDenominatorSelect,
     }),
     prisma.orderForm.findMany({
       where: {
+        tenantId,
         createdById: marketerUserId,
         submittedAt: null,
         createdAt: {
@@ -67,41 +132,188 @@ export async function countBookingDenominatorAuto(
           lte: rangeEndInclusive,
         },
       },
-      select: orderFormSelect,
+      select: { id: true },
     }),
-    prisma.orderFormDeleteLog.count({
+    prisma.orderFormDeleteLog.findMany({
       where: {
         createdById: marketerUserId,
-        OR: [
-          {
-            submittedAt: {
-              gt: rangeStartExclusive,
-              lte: rangeEndInclusive,
-            },
-          },
-          {
-            submittedAt: null,
-            orderFormCreatedAt: {
-              gt: rangeStartExclusive,
-              lte: rangeEndInclusive,
-            },
-          },
-        ],
+        createdBy: { tenantId },
+        submittedAt: {
+          not: null,
+          gt: rangeStartExclusive,
+          lte: rangeEndInclusive,
+        },
       },
+      select: { orderFormId: true },
     }),
   ]);
 
-  let activeCount = 0;
-  let cancelledCount = 0;
-  let deletedCount = deletedLogCount;
-  for (const row of [...submittedInRange, ...pendingIssuedInRange]) {
-    const cls = classifyOrderFormForDenominator(row);
-    if (cls === 'cancelled') cancelledCount += 1;
-    else if (cls === 'deleted') deletedCount += 1;
-    else activeCount += 1;
+  const orphanIds = orphanSubmittedOrderFormIds(submittedInRange);
+  const tallied = tallySubmittedRows(submittedInRange);
+  const deletedLogCount = deletedSubmittedLogs.filter((l) => !orphanIds.has(l.orderFormId)).length;
+  return {
+    activeCount: tallied.activeCount,
+    issuedPendingCount: pendingIssuedInRange.length,
+    cancelledCount: tallied.cancelledCount,
+    deletedCount: tallied.deletedCount + deletedLogCount,
+  };
+}
+
+/**
+ * 조회 기간(KST from~to) 내 `submittedAt` 기준 확정·취소·삭제 집계.
+ * 광고 분석 「예약완료 건수」·건당 비용·마케터 수당 일자 귀속에 사용.
+ */
+export async function sumConfirmedReservationCountsInPeriod(
+  prisma: PrismaClient,
+  tenantId: string,
+  rangeFrom: Date,
+  rangeTo: Date,
+  marketerIds: string[] | 'ALL_MARKETERS',
+): Promise<BookingDenominatorBreakdown & { byUser: Map<string, BookingDenominatorBreakdown> }> {
+  const marketerFilter = marketerCreatedByFilter(marketerIds);
+  const logMarketerFilter = marketerDeleteLogFilter(tenantId, marketerIds);
+
+  const [submittedInRange, pendingIssuedInRange, deletedSubmittedLogs] = await Promise.all([
+    prisma.orderForm.findMany({
+      where: {
+        tenantId,
+        ...marketerFilter,
+        submittedAt: { gte: rangeFrom, lte: rangeTo },
+      },
+      select: {
+        ...orderFormDenominatorSelect,
+        createdById: true,
+      },
+    }),
+    prisma.orderForm.findMany({
+      where: {
+        tenantId,
+        ...marketerFilter,
+        submittedAt: null,
+        createdAt: { gte: rangeFrom, lte: rangeTo },
+      },
+      select: { createdById: true },
+    }),
+    prisma.orderFormDeleteLog.findMany({
+      where: {
+        ...logMarketerFilter,
+        submittedAt: { not: null, gte: rangeFrom, lte: rangeTo },
+      },
+      select: { createdById: true, orderFormId: true },
+    }),
+  ]);
+
+  const byUser = new Map<string, BookingDenominatorBreakdown>();
+  const orphanIds = orphanSubmittedOrderFormIds(submittedInRange);
+
+  const ensure = (uid: string): BookingDenominatorBreakdown => {
+    let b = byUser.get(uid);
+    if (!b) {
+      b = emptyBreakdown();
+      byUser.set(uid, b);
+    }
+    return b;
+  };
+
+  for (const row of submittedInRange) {
+    const uid = row.createdById;
+    const b = ensure(uid);
+    const cls = classifySubmittedOrderForm(row);
+    if (cls === 'cancelled') b.cancelledCount += 1;
+    else if (cls === 'deleted') b.deletedCount += 1;
+    else b.activeCount += 1;
   }
 
-  return { activeCount, cancelledCount, deletedCount };
+  for (const row of pendingIssuedInRange) {
+    ensure(row.createdById).issuedPendingCount += 1;
+  }
+
+  for (const row of deletedSubmittedLogs) {
+    if (orphanIds.has(row.orderFormId)) continue;
+    ensure(row.createdById).deletedCount += 1;
+  }
+
+  let total = emptyBreakdown();
+  for (const b of byUser.values()) {
+    total = addBreakdown(total, b);
+  }
+
+  return { ...total, byUser };
+}
+
+/** @deprecated — `sumConfirmedReservationCountsInPeriod` 사용 */
+export type ReservationCountPeriodAgg = {
+  total: number;
+  cancelledTotal: number;
+  deletedTotal: number;
+  issuedPendingTotal: number;
+  byUser: Map<string, number>;
+  cancelledByUser: Map<string, number>;
+  deletedByUser: Map<string, number>;
+  issuedPendingByUser: Map<string, number>;
+};
+
+/** 광고 분석 API 호환 래퍼 — submittedAt·tenantId 기준 */
+export async function sumReservationCountsFromWorkSessionsInPeriod(
+  prisma: PrismaClient,
+  tenantId: string,
+  rangeFrom: Date,
+  rangeTo: Date,
+  marketerIds: string[] | 'ALL_MARKETERS',
+): Promise<ReservationCountPeriodAgg> {
+  const agg = await sumConfirmedReservationCountsInPeriod(
+    prisma,
+    tenantId,
+    rangeFrom,
+    rangeTo,
+    marketerIds,
+  );
+
+  const byUser = new Map<string, number>();
+  const cancelledByUser = new Map<string, number>();
+  const deletedByUser = new Map<string, number>();
+  const issuedPendingByUser = new Map<string, number>();
+
+  for (const [uid, b] of agg.byUser) {
+    byUser.set(uid, b.activeCount);
+    cancelledByUser.set(uid, b.cancelledCount);
+    deletedByUser.set(uid, b.deletedCount);
+    issuedPendingByUser.set(uid, b.issuedPendingCount);
+  }
+
+  return {
+    total: agg.activeCount,
+    cancelledTotal: agg.cancelledCount,
+    deletedTotal: agg.deletedCount,
+    issuedPendingTotal: agg.issuedPendingCount,
+    byUser,
+    cancelledByUser,
+    deletedByUser,
+    issuedPendingByUser,
+  };
+}
+
+/** 마케터 1명 · 기간 내 확정 제출 건수 (수당·접수 집계) */
+export async function countMarketerConfirmedSubmissionsInRange(
+  prisma: PrismaClient,
+  tenantId: string,
+  marketerUserId: string,
+  rangeGte: Date,
+  rangeLte: Date,
+): Promise<BookingDenominatorBreakdown> {
+  const agg = await sumConfirmedReservationCountsInPeriod(
+    prisma,
+    tenantId,
+    rangeGte,
+    rangeLte,
+    [marketerUserId],
+  );
+  return {
+    activeCount: agg.activeCount,
+    issuedPendingCount: agg.issuedPendingCount,
+    cancelledCount: agg.cancelledCount,
+    deletedCount: agg.deletedCount,
+  };
 }
 
 /**
@@ -130,95 +342,4 @@ export function applyResolvedBookingDenominator(
       cell.useAsAvgDenominator = true;
     }
   }
-}
-
-export type ReservationCountPeriodAgg = {
-  total: number;
-  cancelledTotal: number;
-  deletedTotal: number;
-  byUser: Map<string, number>;
-  cancelledByUser: Map<string, number>;
-  deletedByUser: Map<string, number>;
-};
-
-/**
- * 광고 분석 「예약완료 건수」.
- * 조회 기간 안에 `endedAt`이 들어간 작업 세션마다 직전 종료~이번 종료 구간을
- * `countBookingDenominatorAuto`로 재계산한다(취소·삭제 반영·현재 상태 기준).
- *
- * 사용자별 세션 타임라인을 맞추기 위해 `endedAt <= rangeTo` 인 종료 세션을 사용자·시간순으로 한 번 스캔한다.
- */
-export async function sumReservationCountsFromWorkSessionsInPeriod(
-  prisma: PrismaClient,
-  rangeFrom: Date,
-  rangeTo: Date,
-  marketerIds: string[] | 'ALL_MARKETERS',
-): Promise<ReservationCountPeriodAgg> {
-  const userWhere = marketerIds === 'ALL_MARKETERS' ? {} : { userId: { in: marketerIds } };
-
-  const chain = await prisma.adWorkSession.findMany({
-    where: {
-      endedAt: { not: null, lte: rangeTo },
-      ...userWhere,
-    },
-    select: {
-      userId: true,
-      startedAt: true,
-      endedAt: true,
-    },
-    orderBy: [{ userId: 'asc' }, { endedAt: 'asc' }],
-  });
-
-  type Pending = {
-    userId: string;
-    rangeStartExclusive: Date;
-    endedAt: Date;
-  };
-  const pending: Pending[] = [];
-
-  let prevUserId: string | null = null;
-  let prevEndedAt: Date | null = null;
-
-  for (const row of chain) {
-    const uid = row.userId;
-    const endedAt = row.endedAt!;
-    if (uid !== prevUserId) {
-      prevUserId = uid;
-      prevEndedAt = null;
-    }
-    const rangeStartExclusive = prevEndedAt ?? row.startedAt;
-
-    if (endedAt >= rangeFrom && endedAt <= rangeTo) {
-      pending.push({
-        userId: uid,
-        rangeStartExclusive,
-        endedAt,
-      });
-    }
-
-    prevEndedAt = endedAt;
-  }
-
-  const resolved = await Promise.all(
-    pending.map((p) => countBookingDenominatorAuto(prisma, p.userId, p.rangeStartExclusive, p.endedAt)),
-  );
-
-  const byUser = new Map<string, number>();
-  const cancelledByUser = new Map<string, number>();
-  const deletedByUser = new Map<string, number>();
-  for (let i = 0; i < pending.length; i++) {
-    const p = pending[i]!;
-    const b = resolved[i]!;
-    byUser.set(p.userId, (byUser.get(p.userId) ?? 0) + b.activeCount);
-    cancelledByUser.set(p.userId, (cancelledByUser.get(p.userId) ?? 0) + b.cancelledCount);
-    deletedByUser.set(p.userId, (deletedByUser.get(p.userId) ?? 0) + b.deletedCount);
-  }
-
-  let total = 0;
-  let cancelledTotal = 0;
-  let deletedTotal = 0;
-  for (const v of byUser.values()) total += v;
-  for (const v of cancelledByUser.values()) cancelledTotal += v;
-  for (const v of deletedByUser.values()) deletedTotal += v;
-  return { total, cancelledTotal, deletedTotal, byUser, cancelledByUser, deletedByUser };
 }

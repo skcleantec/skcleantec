@@ -8,7 +8,7 @@ function headers(token: string) {
 }
 
 export type PayrollSheetRow = {
-  kind: 'POOL_MEMBER' | 'TEAM_LEADER' | 'MARKETER';
+  kind: 'POOL_MEMBER' | 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
   id: string;
   name: string;
   roleLabel: string;

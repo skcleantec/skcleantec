@@ -442,7 +442,20 @@ function fmtShortDateTimeKst(iso: string): string {
 function roleBadgeClass(kind: PayrollSheetRow['kind']): string {
   if (kind === 'POOL_MEMBER') return 'bg-slate-100 text-slate-800 border-slate-200';
   if (kind === 'TEAM_LEADER') return 'bg-blue-50 text-blue-900 border-blue-200';
+  if (kind === 'OFFICE_STAFF') return 'bg-amber-50 text-amber-900 border-amber-200';
   return 'bg-violet-50 text-violet-900 border-violet-200';
+}
+
+function isFixedMonthlyPayrollKind(kind: PayrollSheetRow['kind']): boolean {
+  return kind === 'MARKETER' || kind === 'OFFICE_STAFF';
+}
+
+function isFixedMonthlyPayrollTab(tab: PayrollTabId): boolean {
+  return tab === 'marketer' || tab === 'office';
+}
+
+function isPayrollInoutRowKind(kind: PayrollSheetRow['kind']): boolean {
+  return kind === 'POOL_MEMBER' || isFixedMonthlyPayrollKind(kind);
 }
 
 function customerLineLabel(line: { customerName: string; nickname: string | null }): string {
@@ -464,7 +477,7 @@ function payrollInoutEffectivePayDay(r: PayrollSheetRow): number | null {
     const d = r.monthlyPayDay;
     return d != null && d >= 1 && d <= 31 ? d : null;
   }
-  if (r.kind === 'MARKETER') {
+  if (isFixedMonthlyPayrollKind(r.kind)) {
     const d = r.payrollPayDay;
     if (d != null && d >= 1 && d <= 31) return d;
     if (r.payDateYmd && /^\d{4}-\d{2}-\d{2}$/.test(r.payDateYmd)) {
@@ -478,7 +491,7 @@ function payrollInoutEffectivePayDay(r: PayrollSheetRow): number | null {
 
 /** 수입·지출 탭: 열 payDay(1~31)가 해당 행의 급여일과 일치하는지 */
 function payrollInoutCellMatches(r: PayrollSheetRow, payDay: number): boolean {
-  if (r.kind !== 'POOL_MEMBER' && r.kind !== 'MARKETER') return false;
+  if (!isPayrollInoutRowKind(r.kind)) return false;
   const eff = payrollInoutEffectivePayDay(r);
   return eff === payDay;
 }
@@ -496,7 +509,7 @@ function payrollInoutDisplayedAmount(r: PayrollSheetRow): number | null {
     const v = r.amountNet ?? r.amount;
     return typeof v === 'number' && Number.isFinite(v) ? v : null;
   }
-  if (r.kind === 'MARKETER') {
+  if (isFixedMonthlyPayrollKind(r.kind)) {
     if (
       r.marketerSettlementComplete &&
       r.marketerSettledAmount != null &&
@@ -524,7 +537,7 @@ function payrollInoutShowSettledBadge(r: PayrollSheetRow): boolean {
         Number.isFinite(r.poolSettledAmount),
     );
   }
-  if (r.kind === 'MARKETER') {
+  if (isFixedMonthlyPayrollKind(r.kind)) {
     return Boolean(
       r.marketerSettlementComplete &&
         r.marketerSettledAmount != null &&
@@ -541,7 +554,7 @@ function inoutBulkUnsettledTargetsForPayDay(rows: PayrollSheetRow[], payDay: num
     if (r.kind === 'POOL_MEMBER') {
       return !r.poolSettlementComplete && r.amountNet != null && Number.isFinite(r.amountNet);
     }
-    if (r.kind === 'MARKETER') {
+    if (isFixedMonthlyPayrollKind(r.kind)) {
       if (r.marketerSettlementComplete) return false;
       const due = r.marketerTotalDue ?? r.amount;
       return typeof due === 'number' && Number.isFinite(due) && due >= 1;
@@ -558,7 +571,7 @@ function inoutBulkSkippedInColumn(rows: PayrollSheetRow[], payDay: number): Payr
   });
 }
 
-const PAYROLL_TABS = ['pool', 'inout', 'leader', 'marketer', 'settlement', 'unsettled'] as const;
+const PAYROLL_TABS = ['pool', 'inout', 'leader', 'marketer', 'office', 'settlement', 'unsettled'] as const;
 type PayrollTabId = (typeof PAYROLL_TABS)[number];
 
 function parsePayrollTab(raw: string | null): PayrollTabId | null {
@@ -567,6 +580,7 @@ function parsePayrollTab(raw: string | null): PayrollTabId | null {
     raw === 'inout' ||
     raw === 'leader' ||
     raw === 'marketer' ||
+    raw === 'office' ||
     raw === 'settlement' ||
     raw === 'unsettled'
   )
@@ -586,6 +600,8 @@ function payrollTabLabel(id: PayrollTabId): string {
       return '팀장';
     case 'marketer':
       return '마케터';
+    case 'office':
+      return '사무직';
     case 'settlement':
       return '정산';
     case 'unsettled':
@@ -599,6 +615,7 @@ function rowsForPayrollTab(rows: PayrollSheetRow[], tab: PayrollTabId): PayrollS
   if (tab === 'settlement' || tab === 'unsettled' || tab === 'inout') return [];
   if (tab === 'pool') return rows.filter((r) => r.kind === 'POOL_MEMBER');
   if (tab === 'leader') return rows.filter((r) => r.kind === 'TEAM_LEADER');
+  if (tab === 'office') return rows.filter((r) => r.kind === 'OFFICE_STAFF');
   return rows.filter((r) => r.kind === 'MARKETER');
 }
 
@@ -606,6 +623,7 @@ function payrollExpenseSummary(rows: PayrollSheetRow[]) {
   const pool = rows.filter((r) => r.kind === 'POOL_MEMBER');
   const leaders = rows.filter((r) => r.kind === 'TEAM_LEADER');
   const marketers = rows.filter((r) => r.kind === 'MARKETER');
+  const officeStaff = rows.filter((r) => r.kind === 'OFFICE_STAFF');
   const poolSum = pool.reduce((acc, r) => {
     const net = r.amountNet;
     const gross = r.amount;
@@ -626,8 +644,10 @@ function payrollExpenseSummary(rows: PayrollSheetRow[]) {
     leaderSum: sumAmount(leaders),
     marketerCount: marketers.length,
     marketerSum: sumAmount(marketers),
+    officeStaffCount: officeStaff.length,
+    officeStaffSum: sumAmount(officeStaff),
     totalCount: rows.length,
-    totalSum: poolSum + sumAmount(leaders) + sumAmount(marketers),
+    totalSum: poolSum + sumAmount(leaders) + sumAmount(marketers) + sumAmount(officeStaff),
   };
 }
 
@@ -958,7 +978,7 @@ export function AdminPayrollPage() {
   }, [leaderDetail, leaderOpenFocusAddPayment]);
 
   useEffect(() => {
-    if (!token || !marketerDetailForRow || marketerDetailForRow.kind !== 'MARKETER') return;
+    if (!token || !marketerDetailForRow || !isFixedMonthlyPayrollKind(marketerDetailForRow.kind)) return;
     let cancelled = false;
     setMarketerDetailLoading(true);
     setMarketerDetailError(null);
@@ -1316,7 +1336,7 @@ export function AdminPayrollPage() {
   );
 
   const submitMarketerSettle = useCallback(async () => {
-    if (!token || !marketerSettleRow || marketerSettleRow.kind !== 'MARKETER') return;
+    if (!token || !marketerSettleRow || !isFixedMonthlyPayrollKind(marketerSettleRow.kind)) return;
     const raw = marketerSettleAmountInput.replace(/,/g, '').trim();
     const amt = raw === '' ? NaN : Number.parseInt(raw, 10);
     if (!Number.isInteger(amt) || amt < 1) {
@@ -1594,7 +1614,7 @@ export function AdminPayrollPage() {
     [filteredRows]
   );
 
-  /** 수입·지출 탭: 급여일이 설정된 현장 팀원·마케터만, 열은 급여일 종류(1~31) */
+  /** 수입·지출 탭: 급여일이 설정된 현장 팀원·마케터·사무직만, 열은 급여일 종류(1~31) */
   const payrollIncomeExpenseMatrix = useMemo(() => {
     if (!data) {
       return {
@@ -1603,7 +1623,7 @@ export function AdminPayrollPage() {
       };
     }
     const poolOrMarketer = data.rows.filter(
-      (r): r is PayrollSheetRow => r.kind === 'POOL_MEMBER' || r.kind === 'MARKETER',
+      (r): r is PayrollSheetRow => isPayrollInoutRowKind(r.kind),
     );
     const inoutRows = poolOrMarketer.filter((r) => payrollInoutEffectivePayDay(r) != null);
     const daysSet = new Set<number>();
@@ -1613,9 +1633,9 @@ export function AdminPayrollPage() {
     }
     const columns = [...daysSet].sort((a, b) => a - b);
 
-    /** 표시 순서: 현장 팀원 → 마케터 → 그 외 종류 */
+    /** 표시 순서: 현장 팀원 → 마케터 → 사무직 → 그 외 종류 */
     const inoutKindTier = (k: PayrollSheetRow['kind']) =>
-      k === 'POOL_MEMBER' ? 0 : k === 'MARKETER' ? 1 : 2;
+      k === 'POOL_MEMBER' ? 0 : k === 'MARKETER' ? 1 : k === 'OFFICE_STAFF' ? 2 : 3;
 
     const sorted = [...inoutRows].sort((a, b) => {
       const ta = inoutKindTier(a.kind);
@@ -1660,7 +1680,7 @@ export function AdminPayrollPage() {
   const runInoutBulkSettleForPayDay = useCallback(async () => {
     if (!token || inoutBulkSettlePayDay == null || !data) return;
     const poolOrMarketer = data.rows.filter(
-      (r): r is PayrollSheetRow => r.kind === 'POOL_MEMBER' || r.kind === 'MARKETER',
+      (r): r is PayrollSheetRow => isPayrollInoutRowKind(r.kind),
     );
     const inoutRows = poolOrMarketer.filter((r) => payrollInoutEffectivePayDay(r) != null);
     const targets = inoutBulkUnsettledTargetsForPayDay(inoutRows, inoutBulkSettlePayDay);
@@ -1696,7 +1716,7 @@ export function AdminPayrollPage() {
   const handleInoutMatrixCellActivate = useCallback(
     (r: PayrollSheetRow, payDay: number) => {
       if (!payrollInoutCellMatches(r, payDay)) return;
-      if (r.kind === 'MARKETER' && !payrollInoutShowSettledBadge(r)) {
+      if (isFixedMonthlyPayrollKind(r.kind) && !payrollInoutShowSettledBadge(r)) {
         openMarketerSettleModal(r);
         return;
       }
@@ -1748,7 +1768,7 @@ export function AdminPayrollPage() {
   const amountColumnLabel =
     payrollTab === 'leader'
       ? '당월 지급합'
-      : payrollTab === 'marketer'
+      : isFixedMonthlyPayrollTab(payrollTab)
         ? '합계'
         : payrollTab === 'pool'
           ? '실지급 예상'
@@ -1868,6 +1888,12 @@ export function AdminPayrollPage() {
                         badgeClass: 'bg-violet-50 text-violet-900 border-violet-200',
                         count: expenseSummary.marketerCount,
                         sum: expenseSummary.marketerSum,
+                      },
+                      {
+                        title: '사무직',
+                        badgeClass: 'bg-amber-50 text-amber-900 border-amber-200',
+                        count: expenseSummary.officeStaffCount,
+                        sum: expenseSummary.officeStaffSum,
                       },
                     ].map((row) => (
                       <li key={row.title} className="flex items-center justify-between gap-3 px-3 py-3 text-fluid-sm">
@@ -2841,7 +2867,7 @@ export function AdminPayrollPage() {
                                             parts.push(`일당 ${Number(r.unitAmount).toLocaleString('ko-KR')}원`);
                                           if (settled) parts.push('정산완료 확정');
                                           cellTitle = parts.length ? parts.join(' · ') : undefined;
-                                        } else if (hit && r.kind === 'MARKETER') {
+                                        } else if (hit && isFixedMonthlyPayrollKind(r.kind)) {
                                           const parts: string[] = [];
                                           if (r.marketerMonthlySalary != null)
                                             parts.push(`등록 월급 ${Number(r.marketerMonthlySalary).toLocaleString('ko-KR')}원`);
@@ -2975,7 +3001,7 @@ export function AdminPayrollPage() {
                                 {r.kind === 'POOL_MEMBER' && r.jobCount != null && !settled
                                   ? ` · 산정 ${r.jobCount}일`
                                   : null}
-                                {r.kind === 'MARKETER' && !settled ? ' · 일할 누적+이월' : null}
+                                {isFixedMonthlyPayrollKind(r.kind) && !settled ? ' · 일할 누적+이월' : null}
                                 {settled ? ' · 정산완료(확정액)' : null}
                               </div>
                               </button>
@@ -3602,10 +3628,10 @@ export function AdminPayrollPage() {
                 ) : (
                   <table
                     className={`w-full table-fixed border-collapse border border-gray-200 rounded-lg overflow-hidden text-fluid-2xs xl:text-fluid-xs bg-white ${
-                      payrollTab === 'marketer' ? 'min-w-[640px]' : 'min-w-[800px]'
+                      isFixedMonthlyPayrollTab(payrollTab) ? 'min-w-[640px]' : 'min-w-[800px]'
                     }`}
                   >
-                    {payrollTab === 'marketer' ? (
+                    {isFixedMonthlyPayrollTab(payrollTab) ? (
                       <colgroup>
                         <col className="w-[24%]" />
                         <col className="w-[9%]" />
@@ -3633,7 +3659,7 @@ export function AdminPayrollPage() {
                         </th>
                         <th className="border-b border-gray-200 px-1.5 py-2 text-center">지급</th>
                         <th className="border-b border-gray-200 px-1.5 py-2 text-center">산정기간</th>
-                        {payrollTab !== 'marketer' ? (
+                        {payrollTab !== 'marketer' && payrollTab !== 'office' ? (
                           <>
                             <th className="border-b border-gray-200 px-1.5 py-2 text-center">근무일</th>
                             <th className="border-b border-gray-200 px-1.5 py-2 text-center">일당</th>
@@ -3682,7 +3708,7 @@ export function AdminPayrollPage() {
                                 <span className="inline-flex rounded px-1 py-0.5 text-[9px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200 leading-none">
                                   정산완료
                                 </span>
-                              ) : r.kind === 'MARKETER' && r.marketerSettlementComplete ? (
+                              ) : isFixedMonthlyPayrollKind(r.kind) && r.marketerSettlementComplete ? (
                                 <span className="inline-flex rounded px-1 py-0.5 text-[9px] font-semibold border bg-emerald-50 text-emerald-900 border-emerald-200 leading-none">
                                   정산완료
                                 </span>
@@ -3702,7 +3728,7 @@ export function AdminPayrollPage() {
                           >
                             {compactPeriod(r.accrualStartYmd, r.accrualEndYmd)}
                           </td>
-                          {payrollTab !== 'marketer' ? (
+                          {payrollTab !== 'marketer' && payrollTab !== 'office' ? (
                             <>
                               <td
                                 className="border-b border-gray-100 px-0.5 py-1.5 text-center tabular-nums align-middle max-w-[4.5rem]"
@@ -3762,7 +3788,7 @@ export function AdminPayrollPage() {
                                       : '정산완료'}
                                 </button>
                               </div>
-                            ) : r.kind === 'MARKETER' ? (
+                            ) : isFixedMonthlyPayrollKind(r.kind) ? (
                               <div className="flex flex-wrap items-center justify-center gap-1">
                                 <button
                                   type="button"
@@ -3816,11 +3842,11 @@ export function AdminPayrollPage() {
                 숫자는 예약일이 선택 귀속 월인 배정 접수만 집계합니다. 「팀장정산금」은 사용자 등록 규칙·추가결재 회사 몫으로 계산한 이번 달 지급
                 예정액입니다. 「팀장미정산·누적」은 입사월부터 해당 월까지 각 달 (예상 − 등록 입금)을 더한 값입니다. 「정산」에서 입금을 등록합니다.
               </>
-            ) : (
+            ) : isFixedMonthlyPayrollTab(payrollTab) ? (
               <>
-                마케터 「합계」는 미정산 이월과 등록 월급을 더한 지급 예정액입니다. 급여상세에서 확정 내역을 확인하고, 정산완료에서 실제 지급 금액·메모를 저장합니다. 월급보다 적게 지급하면 차월 합계에 자동 반영됩니다.
+                마케터·사무직 「합계」는 미정산 이월과 등록 월급을 더한 지급 예정액입니다. 급여상세에서 확정 내역을 확인하고, 정산완료에서 실제 지급 금액·메모를 저장합니다. 월급보다 적게 지급하면 차월 합계에 자동 반영됩니다.
               </>
-            )}
+            ) : null}
           </div>
                     </>
                   )}
@@ -4651,7 +4677,7 @@ export function AdminPayrollPage() {
                   <div className="block space-y-2 rounded-lg border border-gray-100 bg-gray-50/90 px-2 py-2">
                     <span className="text-fluid-xs text-gray-700 font-medium">급여·정산 연결(선택)</span>
                     <p className="text-fluid-2xs text-gray-500 leading-snug">
-                      현장 팀원을 선택하면 해당 귀속 월 「실지급 예상」에서 금액을 차감합니다. 팀장·마케터·타업체는 장부
+                      현장 팀원을 선택하면 해당 귀속 월 「실지급 예상」에서 금액을 차감합니다. 팀장·마케터·사무직·타업체는 장부
                       요약에 이름으로 묶어 표시합니다.
                     </p>
                     <select
@@ -4669,7 +4695,7 @@ export function AdminPayrollPage() {
                       <option value="none">연결 없음</option>
                       <option value="pool_member">현장 팀원 (실지급 예상 차감)</option>
                       <option value="team_leader">팀장</option>
-                      <option value="marketer">마케터</option>
+                      <option value="marketer">마케터·사무직</option>
                       <option value="external_company">타업체</option>
                     </select>
                     {ledgerManualPayrollLinkKind === 'pool_member' ? (
@@ -4713,12 +4739,12 @@ export function AdminPayrollPage() {
                         className="w-full px-2 py-2 border border-gray-300 rounded text-sm min-h-[44px]"
                         disabled={ledgerManualSaving}
                       >
-                        <option value="">마케터 선택…</option>
+                        <option value="">마케터·사무직 선택…</option>
                         {(data?.rows ?? [])
-                          .filter((row): row is PayrollSheetRow => row.kind === 'MARKETER')
+                          .filter((row): row is PayrollSheetRow => isFixedMonthlyPayrollKind(row.kind))
                           .map((row) => (
                             <option key={row.id} value={row.id}>
-                              {row.name}
+                              {row.roleLabel} · {row.name}
                             </option>
                           ))}
                       </select>
@@ -4945,7 +4971,7 @@ export function AdminPayrollPage() {
       )}
 
       {marketerDetailForRow &&
-        marketerDetailForRow.kind === 'MARKETER' &&
+        isFixedMonthlyPayrollKind(marketerDetailForRow.kind) &&
         createPortal(
           <div
             className="fixed inset-0 z-[212] overflow-y-auto overscroll-y-contain bg-black/45 px-3 py-6 sm:py-10"
@@ -4965,9 +4991,9 @@ export function AdminPayrollPage() {
                 <ModalCloseButton onClick={closeMarketerDetail} />
                 <div className="pr-10 flex flex-wrap items-center gap-2 gap-y-1">
                   <span
-                    className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass('MARKETER')}`}
+                    className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border ${roleBadgeClass(marketerDetailForRow.kind)}`}
                   >
-                    마케터
+                    {marketerDetailForRow.roleLabel}
                   </span>
                   <h2 id="payroll-marketer-detail-title" className="text-lg font-semibold text-gray-900">
                     {marketerDetail?.member.name ?? marketerDetailForRow.name}
@@ -5371,7 +5397,7 @@ export function AdminPayrollPage() {
         )}
 
       {marketerSettleRow &&
-        marketerSettleRow.kind === 'MARKETER' &&
+        isFixedMonthlyPayrollKind(marketerSettleRow.kind) &&
         createPortal(
           <div
             className="fixed inset-0 z-[225] overflow-y-auto overscroll-y-contain bg-black/45 px-3 py-10"
@@ -5389,7 +5415,7 @@ export function AdminPayrollPage() {
             >
               <ModalCloseButton onClick={closeMarketerSettleModal} />
               <h2 id="payroll-marketer-settle-title" className="pr-10 text-lg font-semibold text-gray-900">
-                마케터 정산 완료
+                {marketerSettleRow.roleLabel} 정산 완료
               </h2>
               <p className="mt-1 text-fluid-xs text-gray-600">
                 {marketerSettleRow.name} · {data?.monthLabel ?? month}

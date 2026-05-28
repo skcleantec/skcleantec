@@ -9,8 +9,8 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
       {
         to: '/admin/team-leaders',
         end: true,
-        label: '팀장,마케터',
-        title: '팀장·마케터 등록',
+        label: '사용자 등록',
+        title: '팀장·마케터·사무직 등록',
       },
       {
         to: '/admin/team-leaders/external-companies',

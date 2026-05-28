@@ -43,7 +43,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
     return;
   }
   const role = (req.query.role as string) || 'TEAM_LEADER';
-  const validRoles = ['TEAM_LEADER', 'MARKETER', 'EXTERNAL_PARTNER', 'ADMIN'];
+  const validRoles = ['TEAM_LEADER', 'MARKETER', 'OFFICE_STAFF', 'EXTERNAL_PARTNER', 'ADMIN'];
   if (!validRoles.includes(role)) {
     res.status(400).json({ error: '유효하지 않은 역할입니다.' });
     return;
@@ -58,7 +58,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
   const employedOn = YMD.test(employedOnRaw) ? employedOnRaw : kstTodayYmd();
 
   const users = await prisma.user.findMany({
-    where: { tenantId, role: role as 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER' | 'ADMIN', isActive: true },
+    where: { tenantId, role: role as 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF' | 'EXTERNAL_PARTNER' | 'ADMIN', isActive: true },
     select: {
       id: true,
       email: true,
@@ -173,7 +173,7 @@ router.post('/', adminOnly, async (req, res) => {
     password?: string;
     name?: string;
     phone?: string;
-    role?: 'TEAM_LEADER' | 'MARKETER';
+    role?: 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
     payrollMonthlySalary?: unknown;
     payrollPayDay?: unknown;
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null | string;
@@ -192,7 +192,8 @@ router.post('/', adminOnly, async (req, res) => {
     res.status(400).json({ error: e instanceof Error ? e.message : '유효하지 않은 아이디입니다.' });
     return;
   }
-  const userRole = role === 'MARKETER' ? 'MARKETER' : 'TEAM_LEADER';
+  const userRole =
+    role === 'MARKETER' ? 'MARKETER' : role === 'OFFICE_STAFF' ? 'OFFICE_STAFF' : 'TEAM_LEADER';
   const existing = await prisma.user.findUnique({
     where: { tenantId_email: { tenantId, email: loginId } },
   });
@@ -204,7 +205,7 @@ router.post('/', adminOnly, async (req, res) => {
   let payrollMonthlySalary: number | null | undefined;
   let payrollPayDay: number | null | undefined;
 
-  if (userRole === 'TEAM_LEADER' || userRole === 'MARKETER') {
+  if (userRole === 'TEAM_LEADER' || userRole === 'MARKETER' || userRole === 'OFFICE_STAFF') {
     if (body.payrollMonthlySalary !== undefined) {
       const v = body.payrollMonthlySalary;
       if (v === null || v === '') {
@@ -430,6 +431,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     !existing ||
     (existing.role !== 'TEAM_LEADER' &&
       existing.role !== 'MARKETER' &&
+      existing.role !== 'OFFICE_STAFF' &&
       existing.role !== 'EXTERNAL_PARTNER')
   ) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
@@ -532,11 +534,14 @@ router.patch('/:id', adminOnly, async (req, res) => {
     data.allowSelfDayOffEdit = Boolean(body.allowSelfDayOffEdit);
   }
 
-  const payrollRoleOk = existing.role === 'TEAM_LEADER' || existing.role === 'MARKETER';
+  const payrollRoleOk =
+    existing.role === 'TEAM_LEADER' ||
+    existing.role === 'MARKETER' ||
+    existing.role === 'OFFICE_STAFF';
 
   if (body.payrollMonthlySalary !== undefined) {
     if (!payrollRoleOk) {
-      res.status(400).json({ error: '급여 설정은 팀장·마케터 계정만 변경할 수 있습니다.' });
+      res.status(400).json({ error: '급여 설정은 팀장·마케터·사무직 계정만 변경할 수 있습니다.' });
       return;
     }
     const v = body.payrollMonthlySalary;
@@ -554,7 +559,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
 
   if (body.payrollPayDay !== undefined) {
     if (!payrollRoleOk) {
-      res.status(400).json({ error: '급여 설정은 팀장·마케터 계정만 변경할 수 있습니다.' });
+      res.status(400).json({ error: '급여 설정은 팀장·마케터·사무직 계정만 변경할 수 있습니다.' });
       return;
     }
     const v = body.payrollPayDay;
@@ -704,7 +709,10 @@ router.delete('/:id', adminOnly, async (req, res) => {
   });
   if (
     !user ||
-    (user.role !== 'TEAM_LEADER' && user.role !== 'MARKETER' && user.role !== 'EXTERNAL_PARTNER')
+    (user.role !== 'TEAM_LEADER' &&
+      user.role !== 'MARKETER' &&
+      user.role !== 'OFFICE_STAFF' &&
+      user.role !== 'EXTERNAL_PARTNER')
   ) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;

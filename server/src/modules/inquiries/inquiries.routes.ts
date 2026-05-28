@@ -102,10 +102,16 @@ const router = Router();
 router.use(authMiddleware);
 router.use(adminOrMarketer);
 
-/** 마케터별 이번 달·오늘 접수 건수 (목록 필터와 무관, 접수일 KST) */
-router.get('/marketer-overview', async (_req, res) => {
+/** 마케터별 이번 달·오늘 확정 예약완료 (발주서 submittedAt, KST) */
+router.get('/marketer-overview', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   try {
-    const data = await buildMarketerOverview();
+    const data = await buildMarketerOverview(tenantId);
     res.json(data);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -118,8 +124,14 @@ router.get('/marketer-overview', async (_req, res) => {
   }
 });
 
-/** 마케터별 월간 일별 접수 건수 (접수일 KST) */
+/** 마케터별 월간 일별 확정 예약완료 (발주서 submittedAt, KST) */
 router.get('/marketer-daily-overview', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const marketerId = typeof req.query.marketerId === 'string' ? req.query.marketerId.trim() : '';
   const month = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   if (!marketerId || !/^\d{4}-\d{2}$/.test(month)) {
@@ -127,7 +139,7 @@ router.get('/marketer-daily-overview', async (req, res) => {
     return;
   }
   try {
-    const data = await buildMarketerDailyOverview(marketerId, month);
+    const data = await buildMarketerDailyOverview(tenantId, marketerId, month);
     if (!data) {
       res.status(404).json({ error: '마케터를 찾을 수 없거나 집계할 수 없습니다.' });
       return;

@@ -21,9 +21,9 @@ export interface UserItem {
   resignationDate?: string | null;
   /** 팀장만: 본인 휴무일 등록·삭제 허용(관리자 설정) */
   allowSelfDayOffEdit?: boolean;
-  /** 팀장·마케터: 월 급여표용 고정 월급(원). 미설정 시 표에서 제외 또는 0 처리는 서버·화면 규칙 따름 */
+  /** 팀장·마케터·사무직: 월 급여표용 고정 월급(원). 미설정 시 표에서 제외 또는 0 처리는 서버·화면 규칙 따름 */
   payrollMonthlySalary?: number | null;
-  /** 팀장·마케터: 매월 급여 지급일(1–31). 미설정 시 월 급여표에서 말일 등 기본 규칙 */
+  /** 팀장·마케터·사무직: 매월 급여 지급일(1–31). 미설정 시 월 급여표에서 말일 등 기본 규칙 */
   payrollPayDay?: number | null;
   /** 고객 대면용 사원증 이미지 URL (관리자 Cloudinary 업로드) */
   staffIdCardUrl?: string | null;
@@ -73,7 +73,7 @@ export async function getAssignableScheduleUsers(
 
 export async function getUsers(
   token: string,
-  role: 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER' | 'ADMIN' = 'TEAM_LEADER',
+  role: 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF' | 'EXTERNAL_PARTNER' | 'ADMIN' = 'TEAM_LEADER',
   opts?: GetUsersOptions
 ): Promise<UserItem[]> {
   const params = new URLSearchParams({ role });
@@ -106,7 +106,7 @@ export async function createUser(
     password: string;
     name: string;
     phone?: string;
-    role: 'TEAM_LEADER' | 'MARKETER';
+    role: 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
     /** 등록 시 선택 — 마케터·팀장 월 급여표 반영 */
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;

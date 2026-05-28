@@ -62,8 +62,8 @@ export function AdvertisingDailySettlementModal({
         <div className="px-5 pt-4 pb-3 border-b border-gray-100 pr-14 shrink-0">
           <h3 className="text-fluid-lg font-semibold text-gray-900">일별 정산 내역</h3>
           <p className="text-fluid-sm text-gray-600 mt-1">
-            <span className="font-medium text-gray-800">{marketerName}</span> — 작업 종료일(KST) 기준으로 채널 입력 광고비와 예약
-            분모를 일자별로 묶었습니다.
+            <span className="font-medium text-gray-800">{marketerName}</span> — 광고비는 작업 종료일(KST), 예약 건수는
+            고객 제출일(submittedAt, KST) 기준입니다.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <label htmlFor="ad-daily-month" className="text-fluid-xs text-gray-600">
@@ -95,25 +95,31 @@ export function AdvertisingDailySettlementModal({
             <p className="text-fluid-sm text-gray-500 py-6 text-center">불러오는 중…</p>
           ) : data ? (
             <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain -mx-5 px-5 sm:mx-0 sm:px-0">
-              <table className="w-full text-fluid-sm min-w-[700px] border-collapse table-fixed">
+              <table className="w-full text-fluid-sm min-w-[820px] border-collapse table-fixed">
                 <colgroup>
-                  <col className="w-[24%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[11%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[16%]" />
                   <col className="w-[10%]" />
                   <col className="w-[10%]" />
-                  <col className="w-[27%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[28%]" />
                 </colgroup>
                 <thead className="bg-gray-50 sticky top-0 z-[1]">
                   <tr>
                     <th className="text-center py-2 px-2 border-b border-gray-200">일자</th>
                     <th className="text-center py-2 px-2 border-b border-gray-200">광고비</th>
-                    <th className="text-center py-2 px-2 border-b border-gray-200">예약 건수</th>
+                    <th className="text-center py-2 px-2 border-b border-gray-200" title="submittedAt 확정">
+                      예약
+                    </th>
+                    <th className="text-center py-2 px-2 border-b border-gray-200" title="미제출 발급">
+                      미제출
+                    </th>
                     <th className="text-center py-2 px-2 border-b border-gray-200">취소</th>
                     <th className="text-center py-2 px-2 border-b border-gray-200">삭제</th>
                     <th
                       className="text-center py-2 px-2 border-b border-gray-200"
-                      title="해당 일 광고비 ÷ 예약 건수. 광고비가 0이면 표시하지 않습니다."
+                      title="해당 일 광고비 ÷ 해당 일 확정 예약 건수"
                     >
                       건당 광고비
                     </th>
@@ -127,6 +133,9 @@ export function AdvertisingDailySettlementModal({
                       </td>
                       <td className="py-1.5 px-2 text-right tabular-nums text-fluid-xs">{won(d.totalAdSpend)}</td>
                       <td className="py-1.5 px-2 text-center tabular-nums text-fluid-xs">{d.reservationCount}</td>
+                      <td className="py-1.5 px-2 text-center tabular-nums text-fluid-xs text-amber-800">
+                        {d.issuedPendingCount > 0 ? d.issuedPendingCount : '—'}
+                      </td>
                       <td className="py-1.5 px-2 text-center tabular-nums text-fluid-xs text-rose-700">
                         {d.cancelledReservationCount > 0 ? d.cancelledReservationCount : '—'}
                       </td>
@@ -145,6 +154,9 @@ export function AdvertisingDailySettlementModal({
                       <td className="py-2 px-2 text-center text-fluid-xs">합계 ({data.month})</td>
                       <td className="py-2 px-2 text-right tabular-nums text-fluid-xs">{won(totals.totalAdSpend)}</td>
                       <td className="py-2 px-2 text-center tabular-nums text-fluid-xs">{totals.reservationCount}</td>
+                      <td className="py-2 px-2 text-center tabular-nums text-fluid-xs text-amber-800">
+                        {totals.issuedPendingCount > 0 ? totals.issuedPendingCount : '—'}
+                      </td>
                       <td className="py-2 px-2 text-center tabular-nums text-fluid-xs text-rose-700">
                         {totals.cancelledReservationCount > 0 ? totals.cancelledReservationCount : '—'}
                       </td>
@@ -162,7 +174,8 @@ export function AdvertisingDailySettlementModal({
                 )}
               </table>
               <p className="text-fluid-2xs text-gray-500 mt-2 leading-snug">
-                예약 건수는 취소·삭제를 제외한 분모입니다. 취소·삭제 열은 같은 세션 구간에서 빠진 건수(참고용)입니다.
+                「예약」은 고객 제출일(submittedAt) 확정 건만(취소·삭제 제외)입니다. 「미제출」은 링크만 발급한 건(참고)이며
+                건당 비용 분모에 넣지 않습니다.
               </p>
               <p className="text-fluid-2xs text-gray-500 mt-1 leading-snug">
                 합계 건당 광고비는 <strong className="font-medium text-gray-600">총 광고비 ÷ 총 예약 건수</strong>입니다.

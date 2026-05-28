@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
-import { countBookingDenominatorAuto } from './advertising.bookingDenominator.js';
+import { submittedAtYmdKst, sumConfirmedReservationCountsInPeriod } from './advertising.bookingDenominator.js';
 
 function endedAtToYmdKst(d: Date): string {
   return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
@@ -24,17 +24,20 @@ export type AdvertisingDailySettlementDay = {
   ymd: string;
   totalAdSpend: number;
   reservationCount: number;
+  issuedPendingCount: number;
   cancelledReservationCount: number;
   deletedReservationCount: number;
   costPerReservation: number | null;
 };
 
 /**
- * 한 사용자·한 달(KST): 작업 종료 세션을 `endedAt`의 KST 일자로 묶어 광고비·예약 분모·건당 비용.
- * 분모는 세션 구간별 자동 집계(취소·삭제 제외, 현재 상태 기준).
+ * 한 사용자·한 달(KST):
+ * - 광고비: 작업 종료 세션 `endedAt` KST 일자
+ * - 예약완료·취소·삭제: 발주서 `submittedAt` KST 일자 (확정 제출 기준)
  */
 export async function advertisingDailySettlementForMonthKey(
   prisma: PrismaClient,
+  tenantId: string,
   marketerUserId: string,
   monthKey: string,
 ): Promise<{
@@ -42,6 +45,7 @@ export async function advertisingDailySettlementForMonthKey(
   monthTotals: {
     totalAdSpend: number;
     reservationCount: number;
+    issuedPendingCount: number;
     cancelledReservationCount: number;
     deletedReservationCount: number;
     costPerReservation: number | null;
@@ -55,56 +59,100 @@ export async function advertisingDailySettlementForMonthKey(
 
   const chain = await prisma.adWorkSession.findMany({
     where: {
+      tenantId,
       userId: marketerUserId,
       endedAt: { not: null, lte: monthLte },
     },
     select: {
-      startedAt: true,
       endedAt: true,
       spendLines: { select: { amount: true } },
     },
     orderBy: { endedAt: 'asc' },
   });
 
-  let prevEndedAt: Date | null = null;
-  const pending: Array<{
-    ymd: string;
-    spend: number;
-    rangeStartExclusive: Date;
-    endedAt: Date;
-  }> = [];
-
+  const spendByDay = new Map<string, number>();
   for (const row of chain) {
     const endedAt = row.endedAt!;
-    const rangeStartExclusive = prevEndedAt ?? row.startedAt;
+    if (endedAt < monthGte || endedAt > monthLte) continue;
+    const ymd = endedAtToYmdKst(endedAt);
     const spend = row.spendLines.reduce((s, l) => s + l.amount, 0);
-
-    if (endedAt >= monthGte && endedAt <= monthLte) {
-      pending.push({
-        ymd: endedAtToYmdKst(endedAt),
-        spend,
-        rangeStartExclusive,
-        endedAt,
-      });
-    }
-
-    prevEndedAt = endedAt;
+    spendByDay.set(ymd, (spendByDay.get(ymd) ?? 0) + spend);
   }
 
-  const resolved = await Promise.all(
-    pending.map((p) => countBookingDenominatorAuto(prisma, marketerUserId, p.rangeStartExclusive, p.endedAt)),
+  const [submittedInMonth, pendingIssuedInMonth, deletedSubmittedLogs] = await Promise.all([
+    prisma.orderForm.findMany({
+      where: {
+        tenantId,
+        createdById: marketerUserId,
+        submittedAt: { gte: monthGte, lte: monthLte },
+      },
+      select: {
+        id: true,
+        submittedAt: true,
+        inquiries: {
+          select: { status: true },
+          orderBy: { createdAt: 'desc' as const },
+          take: 1,
+        },
+      },
+    }),
+    prisma.orderForm.findMany({
+      where: {
+        tenantId,
+        createdById: marketerUserId,
+        submittedAt: null,
+        createdAt: { gte: monthGte, lte: monthLte },
+      },
+      select: { createdAt: true },
+    }),
+    prisma.orderFormDeleteLog.findMany({
+      where: {
+        createdById: marketerUserId,
+        createdBy: { tenantId },
+        submittedAt: { not: null, gte: monthGte, lte: monthLte },
+      },
+      select: { submittedAt: true, orderFormId: true },
+    }),
+  ]);
+
+  const orphanIds = new Set(
+    submittedInMonth.filter((row) => row.submittedAt != null && row.inquiries.length === 0).map((row) => row.id),
   );
 
-  const byDay = new Map<string, { spend: number; count: number; cancelled: number; deleted: number }>();
-  for (let i = 0; i < pending.length; i++) {
-    const p = pending[i]!;
-    const b = resolved[i]!;
-    const cur = byDay.get(p.ymd) ?? { spend: 0, count: 0, cancelled: 0, deleted: 0 };
-    cur.spend += p.spend;
-    cur.count += b.activeCount;
-    cur.cancelled += b.cancelledCount;
-    cur.deleted += b.deletedCount;
-    byDay.set(p.ymd, cur);
+  type DayCounts = { count: number; issued: number; cancelled: number; deleted: number };
+  const countsByDay = new Map<string, DayCounts>();
+
+  const ensureDay = (ymd: string): DayCounts => {
+    let cur = countsByDay.get(ymd);
+    if (!cur) {
+      cur = { count: 0, issued: 0, cancelled: 0, deleted: 0 };
+      countsByDay.set(ymd, cur);
+    }
+    return cur;
+  };
+
+  for (const row of submittedInMonth) {
+    if (!row.submittedAt) continue;
+    const ymd = submittedAtYmdKst(row.submittedAt);
+    const cur = ensureDay(ymd);
+    if (row.inquiries.length > 0 && row.inquiries[0]!.status === 'CANCELLED') {
+      cur.cancelled += 1;
+    } else if (row.inquiries.length === 0) {
+      cur.deleted += 1;
+    } else {
+      cur.count += 1;
+    }
+  }
+
+  for (const row of pendingIssuedInMonth) {
+    const ymd = submittedAtYmdKst(row.createdAt);
+    ensureDay(ymd).issued += 1;
+  }
+
+  for (const row of deletedSubmittedLogs) {
+    if (!row.submittedAt || orphanIds.has(row.orderFormId)) continue;
+    const ymd = submittedAtYmdKst(row.submittedAt);
+    ensureDay(ymd).deleted += 1;
   }
 
   const ymds = kstMonthDayYmds(monthKey);
@@ -114,32 +162,46 @@ export async function advertisingDailySettlementForMonthKey(
 
   let totalSpend = 0;
   let totalCount = 0;
+  let totalIssued = 0;
   let totalCancelled = 0;
   let totalDeleted = 0;
+
   const days: AdvertisingDailySettlementDay[] = ymds.map((ymd) => {
-    const agg = byDay.get(ymd) ?? { spend: 0, count: 0, cancelled: 0, deleted: 0 };
-    totalSpend += agg.spend;
+    const spend = spendByDay.get(ymd) ?? 0;
+    const agg = countsByDay.get(ymd) ?? { count: 0, issued: 0, cancelled: 0, deleted: 0 };
+    totalSpend += spend;
     totalCount += agg.count;
+    totalIssued += agg.issued;
     totalCancelled += agg.cancelled;
     totalDeleted += agg.deleted;
     return {
       ymd,
-      totalAdSpend: agg.spend,
+      totalAdSpend: spend,
       reservationCount: agg.count,
+      issuedPendingCount: agg.issued,
       cancelledReservationCount: agg.cancelled,
       deletedReservationCount: agg.deleted,
-      costPerReservation: agg.spend > 0 && agg.count > 0 ? agg.spend / agg.count : null,
+      costPerReservation: spend > 0 && agg.count > 0 ? spend / agg.count : null,
     };
   });
+
+  const monthAgg = await sumConfirmedReservationCountsInPeriod(
+    prisma,
+    tenantId,
+    monthGte,
+    monthLte,
+    [marketerUserId],
+  );
 
   return {
     days,
     monthTotals: {
       totalAdSpend: totalSpend,
-      reservationCount: totalCount,
-      cancelledReservationCount: totalCancelled,
-      deletedReservationCount: totalDeleted,
-      costPerReservation: totalCount > 0 ? totalSpend / totalCount : null,
+      reservationCount: monthAgg.activeCount,
+      issuedPendingCount: monthAgg.issuedPendingCount,
+      cancelledReservationCount: monthAgg.cancelledCount,
+      deletedReservationCount: monthAgg.deletedCount,
+      costPerReservation: monthAgg.activeCount > 0 ? totalSpend / monthAgg.activeCount : null,
     },
   };
 }

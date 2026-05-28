@@ -340,7 +340,7 @@ router.post('/account-ledger/manual', async (req: Request, res: Response) => {
         return;
       }
       const u = await prisma.user.findFirst({
-        where: { id: uid, tenantId, isActive: true, role: 'MARKETER' },
+        where: { id: uid, tenantId, isActive: true, role: { in: ['MARKETER', 'OFFICE_STAFF'] } },
         select: { id: true, hireDate: true, resignationDate: true },
       });
       if (!u) {
@@ -561,7 +561,7 @@ async function loadMarketerPayrollSubject(
   const monthStartYmd = dateToYmdKst(range.gte);
   const monthEndYmd = dateToYmdKst(range.lte);
   const u = await prismaClient.user.findFirst({
-    where: { id: userId, tenantId, role: 'MARKETER', isActive: true },
+    where: { id: userId, tenantId, role: { in: ['MARKETER', 'OFFICE_STAFF'] }, isActive: true },
     select: {
       id: true,
       name: true,
@@ -578,7 +578,7 @@ async function loadMarketerPayrollSubject(
   return u;
 }
 
-type PayrollSheetRowKind = 'POOL_MEMBER' | 'TEAM_LEADER' | 'MARKETER';
+type PayrollSheetRowKind = 'POOL_MEMBER' | 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
 
 router.get('/sheet', async (req, res) => {
   const tenantId = (req as unknown as TenantScopedRequest).tenantId;
@@ -682,7 +682,7 @@ router.get('/sheet', async (req, res) => {
   const staffUsers = await prisma.user.findMany({
     where: {
       tenantId,
-      role: { in: ['TEAM_LEADER', 'MARKETER'] },
+      role: { in: ['TEAM_LEADER', 'MARKETER', 'OFFICE_STAFF'] },
       isActive: true,
     },
     select: {
@@ -762,12 +762,14 @@ router.get('/sheet', async (req, res) => {
           })),
         );
 
-  const marketerIdsForSheet = staffUsers.filter((u) => u.role === 'MARKETER').map((u) => u.id);
+  const fixedSalaryUserIdsForSheet = staffUsers
+    .filter((u) => u.role === 'MARKETER' || u.role === 'OFFICE_STAFF')
+    .map((u) => u.id);
   const marketerAllSettleRows =
-    marketerIdsForSheet.length === 0
+    fixedSalaryUserIdsForSheet.length === 0
       ? []
       : await prisma.marketerPayrollSettlement.findMany({
-          where: { userId: { in: marketerIdsForSheet } },
+          where: { userId: { in: fixedSalaryUserIdsForSheet } },
           select: {
             userId: true,
             monthKey: true,
@@ -884,6 +886,9 @@ router.get('/sheet', async (req, res) => {
       continue;
     }
 
+    if (u.role === 'MARKETER' || u.role === 'OFFICE_STAFF') {
+    const sheetKind: PayrollSheetRowKind = u.role === 'OFFICE_STAFF' ? 'OFFICE_STAFF' : 'MARKETER';
+    const roleLabel = u.role === 'OFFICE_STAFF' ? '사무직' : '마케터';
     const notes: string[] = [];
     const payDayStaff =
       u.payrollPayDay != null && u.payrollPayDay >= 1 && u.payrollPayDay <= 31 ? u.payrollPayDay : 31;
@@ -944,10 +949,10 @@ router.get('/sheet', async (req, res) => {
     }
 
     rows.push({
-      kind: 'MARKETER',
+      kind: sheetKind,
       id: u.id,
       name: u.name,
-      roleLabel: '마케터',
+      roleLabel,
       payrollPayDay: payDayStaff,
       payDateYmd,
       accrualStartYmd: marketerAccrual?.startYmd ?? null,
@@ -970,6 +975,7 @@ router.get('/sheet', async (req, res) => {
         : null,
       marketerAccruedSalaryEstimateAsOfToday,
     });
+    }
   }
 
   rows.sort((a, b) => {
@@ -977,7 +983,7 @@ router.get('/sheet', async (req, res) => {
     const db = b.payDateYmd ?? '9999-12-31';
     if (da !== db) return da.localeCompare(db);
     const orderKind = (k: PayrollSheetRowKind) =>
-      k === 'TEAM_LEADER' ? 0 : k === 'MARKETER' ? 1 : 2;
+      k === 'TEAM_LEADER' ? 0 : k === 'MARKETER' ? 1 : k === 'OFFICE_STAFF' ? 2 : 3;
     const ka = orderKind(a.kind);
     const kb = orderKind(b.kind);
     if (ka !== kb) return ka - kb;
@@ -1423,7 +1429,7 @@ router.get('/marketer/:userId/detail', async (req, res) => {
 
   const subject = await loadMarketerPayrollSubject(prisma, tenantId, userId, monthKey);
   if (!subject) {
-    res.status(404).json({ error: '마케터 급여 대상을 찾을 수 없습니다.' });
+    res.status(404).json({ error: '고정 월급 급여 대상(마케터·사무직)을 찾을 수 없습니다.' });
     return;
   }
 
@@ -1555,7 +1561,7 @@ router.post('/marketer/:userId/settle', async (req: Request, res: Response) => {
 
   const subject = await loadMarketerPayrollSubject(prisma, tenantId, userId, monthKey);
   if (!subject) {
-    res.status(404).json({ error: '마케터 급여 대상을 찾을 수 없습니다.' });
+    res.status(404).json({ error: '고정 월급 급여 대상(마케터·사무직)을 찾을 수 없습니다.' });
     return;
   }
 
