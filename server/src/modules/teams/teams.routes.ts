@@ -10,7 +10,10 @@ import {
   removeTeamMemberStaffIdCardAsset,
   replaceStaffIdCardForTeamMember,
 } from '../staff-id-card/staffIdCard.service.js';
-import { getAvailableFieldStaffMemberIdsOnDate } from '../inquiries/crewMemberCapacity.helpers.js';
+import {
+  getAvailableFieldStaffMemberIdsOnDate,
+  poolMemberInTenantWhere,
+} from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import {
@@ -32,13 +35,6 @@ const staffIdCardUpload = multer({
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 /** 활성 팀원 기준 최대 인원 (표준 구성: 팀장 1 + 팀원 2) */
 const MAX_ACTIVE_TEAM_MEMBERS = 2;
-
-function poolMemberInTenantWhere(tenantId: string) {
-  return {
-    tenantId,
-    teamId: null as null,
-  };
-}
 
 async function findTeamInTenant(tenantId: string, teamId: string) {
   return prisma.team.findFirst({ where: { id: teamId, tenantId } });

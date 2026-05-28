@@ -13,6 +13,7 @@ import {
 import {
   countAvailableFieldStaffByDateRange,
   crewUnitsForInquiry,
+  tenantActiveTeamMemberWhere,
 } from '../inquiries/crewMemberCapacity.helpers.js';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 import { resolveLeaderMorningAfternoon } from '../schedule/scheduleDayAvailability.helpers.js';
@@ -309,12 +310,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
         },
       },
     }),
-    prisma.teamMember.count({
-      where: {
-        isActive: true,
-        OR: [{ team: { tenantId } }, { crewGroupMembers: { some: { group: { tenantId } } } }],
-      },
-    }),
+    prisma.teamMember.count({ where: tenantActiveTeamMemberWhere(tenantId) }),
     prisma.scheduleDayLeaderSlot.findMany({
       where: { tenantId, date: { gte: startDate, lte: endDate } },
     }),

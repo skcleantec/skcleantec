@@ -4,11 +4,24 @@ import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constan
 
 export { DEFAULT_CREW_UNITS_PER_INQUIRY };
 
-/** 테넌트 소속 활성 팀원 — 팀 소속 또는 크루 그룹 풀 */
+/** 테넌트 소속 활성 팀원 — direct tenant_id + 팀/크루 join (백필 누락·레거시 호환) */
 export function tenantActiveTeamMemberWhere(tenantId: string): Prisma.TeamMemberWhereInput {
   return {
-    tenantId,
     isActive: true,
+    OR: [
+      { tenantId },
+      { team: { tenantId } },
+      { crewGroupMembers: { some: { group: { tenantId } } } },
+    ],
+  };
+}
+
+/** 팀장 소속 없는 풀 팀원 — 해당 테넌트 크루 그룹 소속 또는 tenant_id 일치 */
+export function poolMemberInTenantWhere(tenantId: string): Prisma.TeamMemberWhereInput {
+  return {
+    teamId: null,
+    isActive: true,
+    OR: [{ tenantId }, { crewGroupMembers: { some: { group: { tenantId } } } }],
   };
 }
 

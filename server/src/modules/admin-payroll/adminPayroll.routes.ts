@@ -13,6 +13,7 @@ import { dateToYmdKst, employmentOverlapsMonthKst } from '../users/userEmploymen
 
 import { computePoolMemberPayrollDetail } from './poolMemberPayrollCompute.js';
 import { buildPoolMemberPayrollSheetRows } from './payrollSheetPoolShared.js';
+import { poolMemberInTenantWhere as basePoolMemberInTenantWhere } from '../inquiries/crewMemberCapacity.helpers.js';
 import {
   attachPaidAndUnsettled,
   computeLeaderCumulativeUnsettledThroughMonth,
@@ -68,10 +69,8 @@ const MONTH_KEY = /^\d{4}-\d{2}$/;
 
 function poolMemberInTenantWhere(tenantId: string, teamMemberId?: string) {
   return {
+    ...basePoolMemberInTenantWhere(tenantId),
     ...(teamMemberId ? { id: teamMemberId } : {}),
-    tenantId,
-    teamId: null as null,
-    isActive: true,
   };
 }
 
