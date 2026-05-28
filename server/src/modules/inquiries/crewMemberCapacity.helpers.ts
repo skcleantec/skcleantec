@@ -1,8 +1,19 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { parseYmdToDate } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 
 export { DEFAULT_CREW_UNITS_PER_INQUIRY };
+
+/** 테넌트 소속 활성 팀원 — 팀 소속 또는 크루 그룹 풀 */
+export function tenantActiveTeamMemberWhere(tenantId: string): Prisma.TeamMemberWhereInput {
+  return {
+    isActive: true,
+    OR: [
+      { team: { tenantId } },
+      { crewGroupMembers: { some: { group: { tenantId } } } },
+    ],
+  };
+}
 
 /** 접수 1건이 소모하는 팀원 투입 단위 (미설정/null 기본 0명) */
 export function crewUnitsForInquiry(crewMemberCount: number | null): number {
@@ -39,11 +50,12 @@ function toDateKeyLocal(d: Date): string {
 /** 집계 모드(useDailyRosterOnly) 크루 그룹 소속 팀원 — 해당일 명단에 있어야 가용으로 친다 */
 async function loadDailyRosterOnlyRestriction(
   prisma: PrismaClient,
-  params: { rosterYmd?: string; date?: Date; rangeStart?: Date; rangeEnd?: Date }
+  params: { rosterYmd?: string; date?: Date; rangeStart?: Date; rangeEnd?: Date; tenantId: string }
 ): Promise<{ restrictedIds: Set<string>; rosterByDay: Map<string, Set<string>> }> {
+  const groupWhere = { tenantId: params.tenantId, isActive: true, useDailyRosterOnly: true };
   const restrictedRows = await prisma.teamCrewGroupMember.findMany({
     where: {
-      group: { isActive: true, useDailyRosterOnly: true },
+      group: groupWhere,
     },
     select: { teamMemberId: true },
   });
@@ -64,7 +76,7 @@ async function loadDailyRosterOnlyRestriction(
   const rosterRows = await prisma.teamCrewGroupDayRoster.findMany({
     where: {
       date: dateFilter,
-      group: { isActive: true, useDailyRosterOnly: true },
+      group: groupWhere,
     },
     select: { teamMemberId: true, date: true },
   });
@@ -83,11 +95,12 @@ async function loadDailyRosterOnlyRestriction(
 export async function countAvailableFieldStaffByDateRange(
   prisma: PrismaClient,
   rangeStart: Date,
-  rangeEnd: Date
+  rangeEnd: Date,
+  tenantId: string
 ): Promise<Map<string, number>> {
   const result = new Map<string, number>();
   const members = await prisma.teamMember.findMany({
-    where: { isActive: true },
+    where: tenantActiveTeamMemberWhere(tenantId),
     select: { id: true },
   });
   const memberIdSet = new Set(members.map((m) => m.id));
@@ -99,7 +112,7 @@ export async function countAvailableFieldStaffByDateRange(
   }
 
   const [{ restrictedIds, rosterByDay }, dayOffRows, slotRows] = await Promise.all([
-    loadDailyRosterOnlyRestriction(prisma, { rangeStart, rangeEnd }),
+    loadDailyRosterOnlyRestriction(prisma, { rangeStart, rangeEnd, tenantId }),
     prisma.teamMemberDayOff.findMany({
       where: {
         date: { gte: rangeStart, lte: rangeEnd },
@@ -108,7 +121,7 @@ export async function countAvailableFieldStaffByDateRange(
       select: { teamMemberId: true, date: true },
     }),
     prisma.scheduleDayTeamMemberSlot.findMany({
-      where: { date: { gte: rangeStart, lte: rangeEnd } },
+      where: { tenantId, date: { gte: rangeStart, lte: rangeEnd } },
     }),
   ]);
 
@@ -154,21 +167,22 @@ export async function countAvailableFieldStaffByDateRange(
  */
 export async function getAvailableFieldStaffMemberIdsOnDate(
   prisma: PrismaClient,
-  ymd: string
+  ymd: string,
+  tenantId: string
 ): Promise<Set<string>> {
   const dateOnly = new Date(`${ymd}T12:00:00+09:00`);
   const [members, overrides, { restrictedIds, rosterByDay }] = await Promise.all([
     prisma.teamMember.findMany({
-      where: { isActive: true },
+      where: tenantActiveTeamMemberWhere(tenantId),
       select: {
         id: true,
         dayOffs: { where: { date: dateOnly }, select: { id: true } },
       },
     }),
     prisma.scheduleDayTeamMemberSlot.findMany({
-      where: { date: dateOnly },
+      where: { tenantId, date: dateOnly },
     }),
-    loadDailyRosterOnlyRestriction(prisma, { rosterYmd: ymd }),
+    loadDailyRosterOnlyRestriction(prisma, { rosterYmd: ymd, tenantId }),
   ]);
   const rosterForDay = new Set<string>();
   for (const ids of rosterByDay.values()) {
@@ -190,8 +204,12 @@ export async function getAvailableFieldStaffMemberIdsOnDate(
 }
 
 /** 팀원 휴무 + 일자별 관리자 수동 가용(ScheduleDayTeamMemberSlot) 병합 후 당일 투입 가능 인원 */
-export async function countAvailableFieldStaffOnDate(prisma: PrismaClient, ymd: string): Promise<number> {
-  const ids = await getAvailableFieldStaffMemberIdsOnDate(prisma, ymd);
+export async function countAvailableFieldStaffOnDate(
+  prisma: PrismaClient,
+  ymd: string,
+  tenantId: string
+): Promise<number> {
+  const ids = await getAvailableFieldStaffMemberIdsOnDate(prisma, ymd, tenantId);
   return ids.size;
 }
 
@@ -236,20 +254,21 @@ export async function sumCrewDemandForPreferredDate(
 
 export async function assertCrewCapacityForInquiry(params: {
   prisma: PrismaClient;
+  tenantId: string;
   preferredDate: Date | null;
   crewMemberCount: number | null;
   excludeInquiryId?: string;
   /** 분배 저장 직전: 이 배열로 타업체 전배 여부 판단(DB 미반영 시) */
   assigneeUserIdsPreview?: string[];
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { prisma, preferredDate, crewMemberCount, excludeInquiryId, assigneeUserIdsPreview } = params;
+  const { prisma, tenantId, preferredDate, crewMemberCount, excludeInquiryId, assigneeUserIdsPreview } = params;
   if (!preferredDate) return { ok: true };
 
   const ymd = ymdKst(preferredDate);
-  const activeStaff = await prisma.teamMember.count({ where: { isActive: true } });
+  const activeStaff = await prisma.teamMember.count({ where: tenantActiveTeamMemberWhere(tenantId) });
   if (activeStaff === 0) return { ok: true };
 
-  const available = await countAvailableFieldStaffOnDate(prisma, ymd);
+  const available = await countAvailableFieldStaffOnDate(prisma, ymd, tenantId);
   const demandExcluding = await sumCrewDemandForPreferredDate(prisma, ymd, excludeInquiryId);
 
   let previewUsesInternalCrew = true;

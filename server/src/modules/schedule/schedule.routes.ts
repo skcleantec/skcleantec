@@ -3,7 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
 import { adminOrMarketer } from '../auth/auth.middleware.js';
 import { resolveLeaderMorningAfternoon, resolveMemberAvailable } from './scheduleDayAvailability.helpers.js';
-import { countAvailableFieldStaffOnDate } from '../inquiries/crewMemberCapacity.helpers.js';
+import { countAvailableFieldStaffOnDate, tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import {
@@ -232,7 +232,7 @@ router.get('/day-availability', async (req, res) => {
       orderBy: { name: 'asc' },
     }),
     prisma.teamMember.findMany({
-      where: { isActive: true, team: { tenantId } },
+      where: tenantActiveTeamMemberWhere(tenantId),
       select: { id: true, name: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     }),
@@ -257,10 +257,14 @@ router.get('/day-availability', async (req, res) => {
   const leaderSlotMap = new Map(leaderSlots.map((r) => [r.teamLeaderId, r]));
   const memberSlotMap = new Map(memberSlots.map((r) => [r.teamMemberId, r]));
 
-  const memberDayOffRows = await prisma.teamMemberDayOff.findMany({
-    where: { date: d },
-    select: { teamMemberId: true },
-  });
+  const memberIds = members.map((m) => m.id);
+  const memberDayOffRows =
+    memberIds.length > 0
+      ? await prisma.teamMemberDayOff.findMany({
+          where: { date: d, teamMemberId: { in: memberIds } },
+          select: { teamMemberId: true },
+        })
+      : [];
   const memberOffSet = new Set(memberDayOffRows.map((x) => x.teamMemberId));
 
   const teamLeadersOut = teamLeaders.map((u) => {
@@ -303,7 +307,7 @@ router.get('/day-availability', async (req, res) => {
   }
 
   const ymd = date;
-  const crewAvailable = await countAvailableFieldStaffOnDate(prisma, ymd);
+  const crewAvailable = await countAvailableFieldStaffOnDate(prisma, ymd, tenantId);
 
   res.json({
     date: ymd,

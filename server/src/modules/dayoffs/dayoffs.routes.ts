@@ -318,7 +318,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     prisma.scheduleDayLeaderSlot.findMany({
       where: { tenantId, date: { gte: startDate, lte: endDate } },
     }),
-    countAvailableFieldStaffByDateRange(prisma, rangeStart, rangeEnd),
+    countAvailableFieldStaffByDateRange(prisma, rangeStart, rangeEnd, tenantId),
     prisma.scheduleDayClosure.findMany({
       where: { tenantId, date: { gte: rangeStart, lte: rangeEnd } },
       select: { date: true, scope: true },
@@ -329,6 +329,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     }),
     prisma.csReport.findMany({
       where: {
+        tenantId,
         asServiceDate: { gte: rangeStart, lte: rangeEnd },
       },
       select: {

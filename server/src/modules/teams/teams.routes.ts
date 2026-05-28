@@ -396,7 +396,7 @@ router.get('/members', async (req, res) => {
       })) > 0;
     if (hasDailyRosterAgg) {
       const crewMemberIds = new Set(members.map((m) => m.id));
-      const pickableRaw = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate);
+      const pickableRaw = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate, tenantId);
       const pickable = new Set([...pickableRaw].filter((id) => crewMemberIds.has(id)));
       items = items.filter((row) => pickable.has(row.id));
     }
