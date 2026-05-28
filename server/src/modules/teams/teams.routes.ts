@@ -13,7 +13,6 @@ import {
 import {
   getAvailableFieldStaffMemberIdsOnDate,
   poolMemberInTenantWhere,
-  poolMemberListInTenantWhere,
 } from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
@@ -23,6 +22,7 @@ import {
   payrollCyclePreferredDateWhere,
 } from './teamMemberPayrollCycle.js';
 import { computeCrewSpacingByPoolMemberName } from './crewLeaderMemberSpacing.js';
+import { findPoolMembersForAdminList } from './poolTeamMembers.service.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 
@@ -326,11 +326,7 @@ router.get('/members', async (req, res) => {
     const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
     const lite = req.query.lite === '1' || req.query.lite === 'true';
 
-    const members = await prisma.teamMember.findMany({
-      where: poolMemberListInTenantWhere(tenantId),
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-      include: { _count: { select: { dayOffs: true } } },
-    });
+    const members = await findPoolMembersForAdminList(prisma, tenantId);
 
     type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
     const inquiriesByPayDay = new Map<number, CycleCache>();
@@ -409,7 +405,11 @@ router.get('/members', async (req, res) => {
     res.json({ items });
   } catch (e) {
     console.error('[GET /teams/members]', e);
-    res.status(500).json({ error: '팀원 목록을 불러오지 못했습니다. DB 마이그레이션이 필요할 수 있습니다.' });
+    const detail = e instanceof Error ? e.message : String(e);
+    const hint = /tenant_id|does not exist|42703/i.test(detail)
+      ? ' DB 마이그레이션(prisma migrate deploy)이 필요합니다.'
+      : '';
+    res.status(500).json({ error: `팀원 목록을 불러오지 못했습니다.${hint}` });
   }
 });
 
