@@ -860,17 +860,26 @@ router.get('/sessions/history', authMiddleware, adminOrMarketer, async (req, res
     where.userId = { in: scope.marketerIds };
   }
 
-  const sessions = await prisma.adWorkSession.findMany({
-    where,
-    include: {
-      spendLines: { include: { channel: true } },
-      user: { select: { id: true, name: true, email: true, role: true } },
-    },
-    orderBy: { endedAt: 'desc' },
-    take: 200,
-  });
+  const limitRaw = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : NaN;
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(1, Math.floor(limitRaw)), 100) : 5;
+  const offsetRaw = typeof req.query.offset === 'string' ? parseInt(req.query.offset, 10) : 0;
+  const offset = Number.isFinite(offsetRaw) ? Math.max(0, Math.floor(offsetRaw)) : 0;
 
-  res.json({ items: sessions });
+  const [total, sessions] = await Promise.all([
+    prisma.adWorkSession.count({ where }),
+    prisma.adWorkSession.findMany({
+      where,
+      include: {
+        spendLines: { include: { channel: true } },
+        user: { select: { id: true, name: true, email: true, role: true } },
+      },
+      orderBy: { endedAt: 'desc' },
+      take: limit,
+      skip: offset,
+    }),
+  ]);
+
+  res.json({ items: sessions, total });
 });
 
 export default router;

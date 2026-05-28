@@ -2,33 +2,36 @@ import {
   buildPageTokens,
   INQUIRY_LIST_PAGE_SIZE_OPTIONS,
   totalPages,
-  type InquiryListPageSize,
 } from '../../utils/listPagination';
 
-type ListPaginationBarProps = {
+type ListPaginationBarProps<TPageSize extends number = number> = {
   page: number;
-  pageSize: InquiryListPageSize;
+  pageSize: TPageSize;
   total: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (size: InquiryListPageSize) => void;
+  onPageSizeChange: (size: TPageSize) => void;
+  /** 미지정 시 접수 목록 기본 `[30, 50, 80, 100]` */
+  pageSizeOptions?: readonly number[];
   mode?: 'full' | 'summary' | 'nav';
   className?: string;
   compact?: boolean;
 };
 
-function ListPaginationSummary({
+function ListPaginationSummary<TPageSize extends number>({
   total,
   pageSize,
   from,
   to,
   onPageSizeChange,
+  pageSizeOptions = INQUIRY_LIST_PAGE_SIZE_OPTIONS,
   compact = false,
 }: {
   total: number;
-  pageSize: InquiryListPageSize;
+  pageSize: TPageSize;
   from: number;
   to: number;
-  onPageSizeChange: (size: InquiryListPageSize) => void;
+  onPageSizeChange: (size: TPageSize) => void;
+  pageSizeOptions?: readonly number[];
   compact?: boolean;
 }) {
   const textCls = compact ? 'text-fluid-2xs' : 'text-fluid-xs';
@@ -54,11 +57,11 @@ function ListPaginationSummary({
         <span className="text-gray-500">페이지당</span>
         <select
           value={pageSize}
-          onChange={(e) => onPageSizeChange(parseInt(e.target.value, 10) as InquiryListPageSize)}
+          onChange={(e) => onPageSizeChange(parseInt(e.target.value, 10) as TPageSize)}
           className={selectCls}
           aria-label="페이지당 표시 건수"
         >
-          {INQUIRY_LIST_PAGE_SIZE_OPTIONS.map((n) => (
+          {pageSizeOptions.map((n) => (
             <option key={n} value={n}>
               {n}개
             </option>
@@ -125,16 +128,17 @@ function ListPaginationNav({
   );
 }
 
-export function ListPaginationBar({
+export function ListPaginationBar<TPageSize extends number = number>({
   page,
   pageSize,
   total,
   onPageChange,
   onPageSizeChange,
+  pageSizeOptions,
   mode = 'full',
   className = '',
   compact = false,
-}: ListPaginationBarProps) {
+}: ListPaginationBarProps<TPageSize>) {
   const tp = totalPages(total, pageSize);
   const safePage = Math.min(Math.max(1, page), tp);
   const tokens = buildPageTokens(safePage, tp);
@@ -149,6 +153,7 @@ export function ListPaginationBar({
         from={from}
         to={to}
         onPageSizeChange={onPageSizeChange}
+        pageSizeOptions={pageSizeOptions}
         compact={compact}
       />
     );
@@ -174,6 +179,7 @@ export function ListPaginationBar({
         from={from}
         to={to}
         onPageSizeChange={onPageSizeChange}
+        pageSizeOptions={pageSizeOptions}
         compact={compact}
       />
       <ListPaginationNav safePage={safePage} tp={tp} tokens={tokens} onPageChange={onPageChange} />

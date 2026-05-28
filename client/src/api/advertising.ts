@@ -368,10 +368,12 @@ export async function getAdSessionHistory(
   token: string,
   from: string,
   to: string,
-  marketerId?: string | null
-): Promise<{ items: HistorySession[] }> {
+  opts?: { marketerId?: string | null; limit?: number; offset?: number }
+): Promise<{ items: HistorySession[]; total: number }> {
   const q = new URLSearchParams({ from, to });
-  if (marketerId) q.set('marketerId', marketerId);
+  if (opts?.marketerId) q.set('marketerId', opts.marketerId);
+  if (opts?.limit != null) q.set('limit', String(opts.limit));
+  if (opts?.offset != null) q.set('offset', String(opts.offset));
   const res = await fetch(`${API}/advertising/sessions/history?${q}`, { headers: headers(token) });
   if (!res.ok) throw new Error('이력을 불러올 수 없습니다.');
   return res.json();

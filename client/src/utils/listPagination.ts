@@ -4,6 +4,19 @@ export type InquiryListPageSize = (typeof INQUIRY_LIST_PAGE_SIZE_OPTIONS)[number
 
 export const INQUIRY_LIST_DEFAULT_PAGE_SIZE: InquiryListPageSize = 30;
 
+/** 광고비 작업 종료 이력 — 기본 5건, 페이지당 선택 */
+export const AD_SESSION_HISTORY_PAGE_SIZE_OPTIONS = [5, 10, 30, 50] as const;
+export type AdSessionHistoryPageSize = (typeof AD_SESSION_HISTORY_PAGE_SIZE_OPTIONS)[number];
+export const AD_SESSION_HISTORY_DEFAULT_PAGE_SIZE: AdSessionHistoryPageSize = 5;
+
+export function parseAdSessionHistoryPageSize(raw: string | null | undefined): AdSessionHistoryPageSize {
+  const n = raw ? parseInt(raw, 10) : NaN;
+  if (AD_SESSION_HISTORY_PAGE_SIZE_OPTIONS.includes(n as AdSessionHistoryPageSize)) {
+    return n as AdSessionHistoryPageSize;
+  }
+  return AD_SESSION_HISTORY_DEFAULT_PAGE_SIZE;
+}
+
 export function parseInquiryListPageSize(raw: string | null | undefined): InquiryListPageSize {
   const n = raw ? parseInt(raw, 10) : NaN;
   if (INQUIRY_LIST_PAGE_SIZE_OPTIONS.includes(n as InquiryListPageSize)) {

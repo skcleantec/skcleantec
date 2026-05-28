@@ -1,13 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getMe } from '../../api/auth';
 import { getUsers } from '../../api/users';
 import {
-  getAdChannels,
-  reorderAdChannels,
-  deleteAdChannel,
   getAdvertisingAnalytics,
   getAdSessionHistory,
-  type AdChannel,
   type AdvertisingAnalytics,
   type HistorySession,
 } from '../../api/advertising';
@@ -19,7 +16,16 @@ import {
 } from '../../utils/dateRangePresets';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
+import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { AdvertisingDailySettlementModal } from '../../components/admin/AdvertisingDailySettlementModal';
+import {
+  AD_SESSION_HISTORY_DEFAULT_PAGE_SIZE,
+  AD_SESSION_HISTORY_PAGE_SIZE_OPTIONS,
+  clampListPage,
+  parseAdSessionHistoryPageSize,
+  parseListPage,
+  type AdSessionHistoryPageSize,
+} from '../../utils/listPagination';
 
 function won(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -59,10 +65,19 @@ function RoasHelpIcon() {
   );
 }
 
+function roleLabel(role: string): string {
+  if (role === 'MARKETER') return '마케터';
+  if (role === 'ADMIN') return '관리';
+  return role;
+}
+
+const BY_USER_TH = 'text-center py-1 px-1.5 text-fluid-2xs font-medium text-gray-700 whitespace-nowrap';
+const BY_USER_TD = 'py-1 px-1.5 text-fluid-2xs whitespace-nowrap tabular-nums';
+
 export function AdminAdvertisingPage() {
   const token = getToken();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [role, setRole] = useState<string | null>(null);
-  const [isTenantOwner, setIsTenantOwner] = useState(false);
   const [marketers, setMarketers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [marketerFilter, setMarketerFilter] = useState<string>('');
 
@@ -70,29 +85,65 @@ export function AdminAdvertisingPage() {
   const [{ from, to }, setRange] = useState(() => computeDateRangeFromPreset('thisMonth')!);
   const [analytics, setAnalytics] = useState<AdvertisingAnalytics | null>(null);
   const [history, setHistory] = useState<HistorySession[]>([]);
-  const [channels, setChannels] = useState<AdChannel[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const [deleteTarget, setDeleteTarget] = useState<AdChannel | null>(null);
-  const [deletePassword, setDeletePassword] = useState('');
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const listPage = parseListPage(searchParams.get('page'));
+  const listPageSize = parseAdSessionHistoryPageSize(searchParams.get('pageSize'));
+  const effectiveHistoryPage = clampListPage(listPage, historyTotal, listPageSize);
+
+  const patchParams = useCallback(
+    (patch: (next: URLSearchParams) => void) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          patch(next);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const resetHistoryPageInUrl = useCallback(() => {
+    patchParams((next) => {
+      next.delete('page');
+    });
+  }, [patchParams]);
+
+  const handleHistoryPageChange = useCallback(
+    (page: number) => {
+      patchParams((next) => {
+        if (page <= 1) next.delete('page');
+        else next.set('page', String(page));
+      });
+    },
+    [patchParams],
+  );
+
+  const handleHistoryPageSizeChange = useCallback(
+    (size: AdSessionHistoryPageSize) => {
+      patchParams((next) => {
+        if (size === AD_SESSION_HISTORY_DEFAULT_PAGE_SIZE) next.delete('pageSize');
+        else next.set('pageSize', String(size));
+        next.delete('page');
+      });
+    },
+    [patchParams],
+  );
 
   const [dailySettlement, setDailySettlement] = useState<{ userId: string; name: string } | null>(null);
 
-  const sortedChannels = useMemo(
-    () => [...channels].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
-    [channels]
-  );
-
-  const load = useCallback(async () => {
+  const loadMain = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setErr(null);
     try {
       const me = await getMe(token);
       setRole(me.role);
-      setIsTenantOwner(Boolean(me.isTenantOwner ?? me.isSuperAdmin));
 
       if (me.role === 'ADMIN') {
         const list = await getUsers(token, 'MARKETER');
@@ -100,14 +151,8 @@ export function AdminAdvertisingPage() {
       }
 
       const mid = me.role === 'ADMIN' ? (marketerFilter || undefined) : undefined;
-      const [an, hi, ch] = await Promise.all([
-        getAdvertisingAnalytics(token, from, to, mid ?? null),
-        getAdSessionHistory(token, from, to, mid ?? null),
-        getAdChannels(token, Boolean(me.isTenantOwner ?? me.isSuperAdmin)),
-      ]);
+      const an = await getAdvertisingAnalytics(token, from, to, mid ?? null);
       setAnalytics(an);
-      setHistory(hi.items);
-      setChannels(ch.items);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -115,47 +160,80 @@ export function AdminAdvertisingPage() {
     }
   }, [token, from, to, marketerFilter]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const moveChannel = async (id: string, direction: 'up' | 'down') => {
-    if (!token) return;
-    const sorted = sortedChannels;
-    const i = sorted.findIndex((c) => c.id === id);
-    if (i < 0) return;
-    const j = direction === 'up' ? i - 1 : i + 1;
-    if (j < 0 || j >= sorted.length) return;
-    const next = [...sorted];
-    [next[i], next[j]] = [next[j], next[i]];
+  const loadHistory = useCallback(async () => {
+    if (!token || !role) return;
+    setHistoryLoading(true);
     try {
-      await reorderAdChannels(
-        token,
-        next.map((c) => c.id)
-      );
-      await load();
+      const mid = role === 'ADMIN' ? (marketerFilter || undefined) : undefined;
+      const offset = (effectiveHistoryPage - 1) * listPageSize;
+      const hi = await getAdSessionHistory(token, from, to, {
+        marketerId: mid ?? null,
+        limit: listPageSize,
+        offset,
+      });
+      setHistory(hi.items);
+      setHistoryTotal(hi.total);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : '순서 변경 실패');
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!token || !deleteTarget) return;
-    setDeleteSubmitting(true);
-    setErr(null);
-    try {
-      await deleteAdChannel(token, deleteTarget.id, deletePassword);
-      setDeleteTarget(null);
-      setDeletePassword('');
-      await load();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : '삭제 실패');
+      setErr(e instanceof Error ? e.message : '이력을 불러올 수 없습니다.');
+      setHistory([]);
+      setHistoryTotal(0);
     } finally {
-      setDeleteSubmitting(false);
+      setHistoryLoading(false);
     }
-  };
+  }, [token, role, from, to, marketerFilter, effectiveHistoryPage, listPageSize]);
+
+  useEffect(() => {
+    void loadMain();
+  }, [loadMain]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
 
   const s = analytics?.summary;
+
+  const summaryItems = useMemo(
+    () => [
+      { label: '총 광고비', value: s ? won(s.totalAdSpend) : '—' },
+      {
+        label: '예약완료 건수',
+        value: s ? String(s.orderInquiryCount) : '—',
+        sub: '고객 제출일(submittedAt) · 취소·삭제·미제출 제외',
+      },
+      {
+        label: '미제출 발급',
+        value: s ? String(s.issuedPendingInquiryCount) : '—',
+        sub: '링크만 발급 · 건당 비용 분모 제외',
+      },
+      {
+        label: '취소 건수',
+        value: s ? String(s.cancelledInquiryCount) : '—',
+        sub: '같은 구간 발주서·접수 취소',
+      },
+      {
+        label: '삭제 건수',
+        value: s ? String(s.deletedInquiryCount) : '—',
+        sub: '발주서 삭제·접수만 삭제',
+      },
+      { label: '접수 매출 합계', value: s ? won(s.totalRevenue) : '—' },
+      {
+        label: 'ROAS',
+        value: s?.roas != null ? numOrDash(s.roas) : '—',
+        sub: '매출÷광고비',
+      },
+      {
+        label: '건당 비용',
+        value: s?.costPerInquiry != null ? won(Math.round(s.costPerInquiry)) : '—',
+        sub: '광고비÷예약완료 건수',
+      },
+      {
+        label: '일평균 광고비',
+        value: s ? won(Math.round(s.avgDailySpend)) : '—',
+        sub: `${analytics?.period.days ?? '—'}일 기준`,
+      },
+    ],
+    [analytics?.period.days, s],
+  );
 
   return (
     <div className="space-y-8">
@@ -176,6 +254,7 @@ export function AdminAdvertisingPage() {
               setPeriodPreset(v);
               const r = computeDateRangeFromPreset(v);
               if (r) setRange(r);
+              resetHistoryPageInUrl();
             }}
           >
             {DATE_RANGE_PRESET_LABELS.map(({ id, label }) => (
@@ -192,6 +271,7 @@ export function AdminAdvertisingPage() {
             onChange={(v) => {
               setPeriodPreset('custom');
               setRange((r) => ({ ...r, from: v }));
+              resetHistoryPageInUrl();
             }}
             idPrefix="ad-from"
             className="border border-gray-300 rounded px-2 py-1 bg-white"
@@ -204,6 +284,7 @@ export function AdminAdvertisingPage() {
             onChange={(v) => {
               setPeriodPreset('custom');
               setRange((r) => ({ ...r, to: v }));
+              resetHistoryPageInUrl();
             }}
             idPrefix="ad-to"
             className="border border-gray-300 rounded px-2 py-1 bg-white"
@@ -215,7 +296,10 @@ export function AdminAdvertisingPage() {
             <select
               className="border border-gray-300 rounded px-2 py-1 text-fluid-sm min-w-[10rem]"
               value={marketerFilter}
-              onChange={(e) => setMarketerFilter(e.target.value)}
+              onChange={(e) => {
+                setMarketerFilter(e.target.value);
+                resetHistoryPageInUrl();
+              }}
             >
               <option value="">전체</option>
               {marketers.map((m) => (
@@ -228,7 +312,11 @@ export function AdminAdvertisingPage() {
         )}
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={() => {
+            resetHistoryPageInUrl();
+            void loadMain();
+            void loadHistory();
+          }}
           className="px-3 py-1.5 bg-blue-600 text-white text-fluid-sm rounded hover:bg-blue-700"
         >
           조회
@@ -241,41 +329,20 @@ export function AdminAdvertisingPage() {
         <>
           <div className="min-w-0 w-full max-w-full">
             <h2 className="text-fluid-base font-medium text-gray-800 mb-3">기간 요약</h2>
-            <div className="overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0 lg:overflow-visible [scrollbar-width:thin]" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <div className="flex min-w-max flex-nowrap items-stretch gap-2.5 sm:gap-3 lg:min-w-0 lg:grid lg:grid-cols-9 lg:w-full">
-                <SummaryCard label="총 광고비" value={s ? won(s.totalAdSpend) : '—'} />
-                <SummaryCard
-                  label="예약완료 건수"
-                  value={s ? String(s.orderInquiryCount) : '—'}
-                  sub="고객 제출일(submittedAt) · 취소·삭제·미제출 제외"
-                />
-                <SummaryCard
-                  label="미제출 발급"
-                  value={s ? String(s.issuedPendingInquiryCount) : '—'}
-                  sub="링크만 발급 · 건당 비용 분모 제외"
-                />
-                <SummaryCard
-                  label="취소 건수"
-                  value={s ? String(s.cancelledInquiryCount) : '—'}
-                  sub="같은 구간 발주서·접수 취소"
-                />
-                <SummaryCard
-                  label="삭제 건수"
-                  value={s ? String(s.deletedInquiryCount) : '—'}
-                  sub="발주서 삭제·접수만 삭제"
-                />
-                <SummaryCard label="접수 매출 합계" value={s ? won(s.totalRevenue) : '—'} />
-                <SummaryCard label="ROAS" value={s?.roas != null ? numOrDash(s.roas) : '—'} sub="매출÷광고비" />
-                <SummaryCard
-                  label="건당 비용"
-                  value={s?.costPerInquiry != null ? won(Math.round(s.costPerInquiry)) : '—'}
-                  sub="광고비÷예약완료 건수"
-                />
-                <SummaryCard
-                  label="일평균 광고비"
-                  value={s ? won(Math.round(s.avgDailySpend)) : '—'}
-                  sub={`${analytics?.period.days ?? '—'}일 기준`}
-                />
+
+            {/* 모바일 — 항목별 한 줄(라벨·설명 | 값) */}
+            <div className="md:hidden overflow-hidden rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+              {summaryItems.map((item) => (
+                <SummaryRowMobile key={item.label} {...item} />
+              ))}
+            </div>
+
+            {/* 태블릿·데스크톱 — 9칸 한 줄, 영역 너비에 맞춰 글자만 축소 */}
+            <div className="hidden md:block min-w-0 w-full [container-type:inline-size]">
+              <div className="flex w-full min-w-0 flex-nowrap items-stretch gap-[0.35rem] md:gap-1 lg:gap-1.5 [font-size:clamp(0.4375rem,1.05cqw,0.6875rem)]">
+                {summaryItems.map((item) => (
+                  <SummaryCardDesktop key={item.label} {...item} />
+                ))}
               </div>
             </div>
           </div>
@@ -283,74 +350,74 @@ export function AdminAdvertisingPage() {
           <div>
             <h2 className="text-fluid-base font-medium text-gray-800 mb-3">사용자별 집계</h2>
             <div className="border border-gray-200 rounded overflow-x-auto bg-white">
-              <table className="w-full text-fluid-sm min-w-[1120px]">
+              <table className="w-full text-fluid-2xs min-w-[920px]">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-center py-2 px-3">이름</th>
-                    <th className="text-center py-2 px-3">역할</th>
-                    <th className="text-center py-2 px-3">광고비</th>
+                    <th className={`${BY_USER_TH} text-left`}>이름</th>
+                    <th className={`${BY_USER_TH} w-[3.25rem]`}>역할</th>
+                    <th className={BY_USER_TH}>광고비</th>
                     <th
-                      className="text-center py-2 px-3"
+                      className={BY_USER_TH}
                       title="조회 기간 내 발주서 고객 제출일(submittedAt) 확정 예약"
                     >
                       예약완료
                     </th>
                     <th
-                      className="text-center py-2 px-3"
+                      className={BY_USER_TH}
                       title="같은 기간 링크만 발급(미제출) — 건당 비용 분모 제외"
                     >
                       미제출
                     </th>
                     <th
-                      className="text-center py-2 px-3"
+                      className={BY_USER_TH}
                       title="고객 제출 후 접수 취소"
                     >
                       취소
                     </th>
                     <th
-                      className="text-center py-2 px-3"
+                      className={BY_USER_TH}
                       title="제출분 삭제(고아·발주서 삭제)"
                     >
                       삭제
                     </th>
-                    <th className="text-center py-2 px-3">매출</th>
-                    <th className="text-center py-2 px-3">
+                    <th className={BY_USER_TH}>매출</th>
+                    <th className={BY_USER_TH}>
                       <span className="inline-flex items-center justify-center gap-0.5">
                         ROAS
                         <RoasHelpIcon />
                       </span>
                     </th>
-                    <th className="text-center py-2 px-3">건당 비용</th>
-                    <th className="text-center py-2 px-3">일평균 광고비</th>
-                    <th className="text-center py-2 px-3 w-[7.5rem]">일별 정산</th>
+                    <th className={BY_USER_TH}>건당 비용</th>
+                    <th className={BY_USER_TH}>일평균 광고비</th>
+                    <th className={`${BY_USER_TH} w-[4.5rem]`}>일별 정산</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(analytics?.byUser ?? []).map((row) => (
                     <tr key={row.userId} className="border-t border-gray-100">
-                      <td className="py-2 px-3 text-gray-900">{row.name}</td>
-                      <td className="py-2 px-3 text-gray-600">{row.role}</td>
-                      <td className="py-2 px-3 text-right">{won(row.totalAdSpend)}</td>
-                      <td className="py-2 px-3 text-right">{row.orderInquiryCount}</td>
-                      <td className="py-2 px-3 text-right text-amber-800">
+                      <td className={`${BY_USER_TD} text-left text-gray-900`}>{row.name}</td>
+                      <td className={`${BY_USER_TD} text-center text-gray-600`}>{roleLabel(row.role)}</td>
+                      <td className={`${BY_USER_TD} text-right`}>{won(row.totalAdSpend)}</td>
+                      <td className={`${BY_USER_TD} text-right`}>{row.orderInquiryCount}</td>
+                      <td className={`${BY_USER_TD} text-right text-amber-800`}>
                         {row.issuedPendingInquiryCount > 0 ? row.issuedPendingInquiryCount : '—'}
                       </td>
-                      <td className="py-2 px-3 text-right text-rose-700">
+                      <td className={`${BY_USER_TD} text-right text-rose-700`}>
                         {row.cancelledInquiryCount > 0 ? row.cancelledInquiryCount : '—'}
                       </td>
-                      <td className="py-2 px-3 text-right text-gray-600">
+                      <td className={`${BY_USER_TD} text-right text-gray-600`}>
                         {row.deletedInquiryCount > 0 ? row.deletedInquiryCount : '—'}
                       </td>
-                      <td className="py-2 px-3 text-right">{won(row.totalRevenue)}</td>
-                      <td className="py-2 px-3 text-right">{row.roas != null ? numOrDash(row.roas) : '—'}</td>
-                      <td className="py-2 px-3 text-right">
+                      <td className={`${BY_USER_TD} text-right`}>{won(row.totalRevenue)}</td>
+                      <td className={`${BY_USER_TD} text-right`}>{row.roas != null ? numOrDash(row.roas) : '—'}</td>
+                      <td className={`${BY_USER_TD} text-right`}>
                         {row.costPerInquiry != null ? won(Math.round(row.costPerInquiry)) : '—'}
                       </td>
-                      <td className="py-2 px-3 text-right">{won(Math.round(row.avgDailySpend))}</td>
-                      <td className="py-2 px-3 text-center">
+                      <td className={`${BY_USER_TD} text-right`}>{won(Math.round(row.avgDailySpend))}</td>
+                      <td className={`${BY_USER_TD} text-center`}>
                         <button
                           type="button"
-                          className="text-fluid-xs px-2 py-1 rounded border border-teal-600 text-teal-800 hover:bg-teal-50 whitespace-nowrap"
+                          className="rounded border border-teal-600 px-1 py-0.5 text-[0.625rem] leading-tight text-teal-800 hover:bg-teal-50 whitespace-nowrap"
                           onClick={() => setDailySettlement({ userId: row.userId, name: row.name?.trim() || row.email })}
                         >
                           일별 보기
@@ -365,24 +432,42 @@ export function AdminAdvertisingPage() {
 
           <div>
             <h2 className="text-fluid-base font-medium text-gray-800 mb-3">작업 종료 이력 (광고비 입력)</h2>
-            <div className="border border-gray-200 rounded overflow-x-auto bg-white">
-              <table className="w-full text-fluid-sm min-w-[640px]">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-center py-2 px-3">종료 시각</th>
-                    {role === 'ADMIN' && <th className="text-center py-2 px-3">담당</th>}
-                    <th className="text-center py-2 px-3">채널별 금액</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.length === 0 ? (
+            <div className="border border-gray-200 rounded overflow-hidden bg-white">
+              <div className="border-b border-gray-100 px-3 py-2.5">
+                <ListPaginationBar
+                  mode="summary"
+                  page={effectiveHistoryPage}
+                  pageSize={listPageSize}
+                  total={historyTotal}
+                  pageSizeOptions={AD_SESSION_HISTORY_PAGE_SIZE_OPTIONS}
+                  onPageChange={handleHistoryPageChange}
+                  onPageSizeChange={handleHistoryPageSizeChange}
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-fluid-sm min-w-[640px]">
+                  <thead className="bg-gray-50">
                     <tr>
-                      <td colSpan={role === 'ADMIN' ? 3 : 2} className="py-4 px-3 text-gray-500 text-center">
-                        데이터가 없습니다.
-                      </td>
+                      <th className="text-center py-2 px-3">종료 시각</th>
+                      {role === 'ADMIN' && <th className="text-center py-2 px-3">담당</th>}
+                      <th className="text-center py-2 px-3">채널별 금액</th>
                     </tr>
-                  ) : (
-                    history.map((h) => (
+                  </thead>
+                  <tbody>
+                    {historyLoading ? (
+                      <tr>
+                        <td colSpan={role === 'ADMIN' ? 3 : 2} className="py-4 px-3 text-gray-500 text-center">
+                          불러오는 중…
+                        </td>
+                      </tr>
+                    ) : history.length === 0 ? (
+                      <tr>
+                        <td colSpan={role === 'ADMIN' ? 3 : 2} className="py-4 px-3 text-gray-500 text-center">
+                          데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      history.map((h) => (
                       <tr key={h.id} className="border-t border-gray-100">
                         <td className="py-2 px-3 whitespace-nowrap text-gray-800 text-fluid-xs tabular-nums">
                           {h.endedAt ? formatDateTimeCompactWithWeekday(h.endedAt) : '—'}
@@ -417,115 +502,23 @@ export function AdminAdvertisingPage() {
                       </tr>
                     ))
                   )}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
+              {!historyLoading ? (
+                <ListPaginationBar
+                  mode="nav"
+                  page={effectiveHistoryPage}
+                  pageSize={listPageSize}
+                  total={historyTotal}
+                  pageSizeOptions={AD_SESSION_HISTORY_PAGE_SIZE_OPTIONS}
+                  onPageChange={handleHistoryPageChange}
+                  onPageSizeChange={handleHistoryPageSizeChange}
+                />
+              ) : null}
             </div>
           </div>
         </>
-      )}
-
-      {isTenantOwner && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-fluid-base font-medium text-gray-800 mb-2">광고 채널 표시 순서·삭제 (업체 소유자)</h2>
-          <p className="text-fluid-sm text-gray-600 mb-4">
-            채널 추가·사용 여부는 「설정」 탭에서 관리합니다. 여기서는 목록 순서만 바꾸거나, 이력이 없는 채널만 삭제할 수 있습니다.
-          </p>
-          <div className="border border-gray-200 rounded overflow-x-auto">
-            <table className="w-full text-fluid-sm min-w-[520px]">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-center py-2 px-3 w-28">순서</th>
-                  <th className="text-center py-2 px-3">채널명</th>
-                  <th className="text-center py-2 px-3 w-40">관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedChannels.map((c, idx) => (
-                  <tr key={c.id} className="border-t border-gray-100">
-                    <td className="py-2 px-3 whitespace-nowrap">
-                      <button
-                        type="button"
-                        className="px-1.5 py-0.5 border border-gray-300 rounded text-fluid-xs mr-1 disabled:opacity-40"
-                        disabled={idx === 0}
-                        onClick={() => void moveChannel(c.id, 'up')}
-                        title="위로"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="px-1.5 py-0.5 border border-gray-300 rounded text-fluid-xs disabled:opacity-40"
-                        disabled={idx === sortedChannels.length - 1}
-                        onClick={() => void moveChannel(c.id, 'down')}
-                        title="아래로"
-                      >
-                        ↓
-                      </button>
-                    </td>
-                    <td className={`py-2 px-3 ${c.isActive ? 'text-gray-900' : 'text-gray-500'}`}>
-                      {c.name}
-                      {!c.isActive && (
-                        <span className="block text-fluid-xs text-amber-700 mt-0.5">(설정에서 사용 안 함)</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-3 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeleteTarget(c);
-                          setDeletePassword('');
-                        }}
-                        className="text-fluid-xs text-red-600 hover:underline"
-                      >
-                        삭제
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-white rounded-lg shadow-lg max-w-sm w-full p-6">
-            <h3 className="text-fluid-base font-medium text-gray-900 mb-2">채널 삭제</h3>
-            <p className="text-fluid-sm text-gray-600 mb-3">
-              「{deleteTarget.name}」을(를) 삭제합니다. 본인 계정 비밀번호를 입력하세요.
-            </p>
-            <input
-              type="password"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm mb-4"
-              placeholder="비밀번호"
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-              autoComplete="current-password"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="px-3 py-1.5 text-fluid-sm border border-gray-300 rounded hover:bg-gray-50"
-                onClick={() => {
-                  setDeleteTarget(null);
-                  setDeletePassword('');
-                }}
-                disabled={deleteSubmitting}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                className="px-3 py-1.5 text-fluid-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                onClick={() => void handleConfirmDelete()}
-                disabled={deleteSubmitting}
-              >
-                {deleteSubmitting ? '처리 중…' : '삭제'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {token && dailySettlement && (
@@ -541,14 +534,40 @@ export function AdminAdvertisingPage() {
   );
 }
 
-function SummaryCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function SummaryRowMobile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="shrink-0 lg:min-w-0 bg-white border border-gray-200 rounded px-2.5 py-2 sm:px-3 sm:py-2.5 text-fluid-2xs sm:text-fluid-xs lg:[font-size:clamp(0.5rem,0.78vw,0.6875rem)]">
-      <p className="text-[1em] leading-tight text-gray-600 whitespace-nowrap">{label}</p>
-      <p className="text-[1.45em] leading-tight font-semibold text-gray-900 mt-0.5 tabular-nums whitespace-nowrap">
+    <div className="flex items-start justify-between gap-3 px-3 py-2.5 min-w-0">
+      <div className="min-w-0 flex-1">
+        <p className="text-fluid-xs font-medium leading-snug text-gray-700">{label}</p>
+        {sub && <p className="mt-0.5 text-fluid-2xs leading-snug text-gray-500">{sub}</p>}
+      </div>
+      <p className="max-w-[52%] shrink-0 break-all text-right text-fluid-sm font-semibold tabular-nums leading-snug text-gray-900">
         {value}
       </p>
-      {sub && <p className="text-[0.92em] leading-tight text-gray-500 mt-0.5 whitespace-nowrap">{sub}</p>}
+    </div>
+  );
+}
+
+function SummaryCardDesktop({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="min-w-0 flex-1 basis-0 overflow-hidden rounded border border-gray-200 bg-white px-[0.45em] py-[0.55em]">
+      <p className="truncate whitespace-nowrap leading-[1.15] text-gray-600" title={label}>
+        {label}
+      </p>
+      <p
+        className="mt-[0.18em] truncate whitespace-nowrap text-[1.32em] font-semibold tabular-nums leading-[1.1] text-gray-900"
+        title={value}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p
+          className="mt-[0.12em] truncate whitespace-nowrap text-[0.82em] leading-[1.1] text-gray-500"
+          title={sub}
+        >
+          {sub}
+        </p>
+      )}
     </div>
   );
 }

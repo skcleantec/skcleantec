@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getMe } from '../../api/auth';
 import {
   getAdvertisingSettlementConfig,
   patchAdChannelSettlementMode,
@@ -7,6 +8,8 @@ import {
   deleteAdChannelLineItem,
   createAdChannel,
   updateAdChannel,
+  reorderAdChannels,
+  deleteAdChannel,
   type AdChannel,
   type AdChannelLineItem,
   type AdChannelSettlementMode,
@@ -43,6 +46,11 @@ export function AdminAdvertisingSettingsPage() {
     Record<string, { label: string; unitAmountWon: string; countsForSpend: boolean }>
   >({});
 
+  const [isTenantOwner, setIsTenantOwner] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AdChannel | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -60,6 +68,13 @@ export function AdminAdvertisingSettingsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!token) return;
+    void getMe(token).then((me) => {
+      setIsTenantOwner(Boolean(me.isTenantOwner ?? me.isSuperAdmin));
+    });
+  }, [token]);
 
   const sortedChannels = useMemo(
     () => [...items].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
@@ -203,6 +218,46 @@ export function AdminAdvertisingSettingsPage() {
     }
   };
 
+  const moveChannel = async (id: string, direction: 'up' | 'down') => {
+    if (!token) return;
+    const sorted = sortedChannels;
+    const i = sorted.findIndex((c) => c.id === id);
+    if (i < 0) return;
+    const j = direction === 'up' ? i - 1 : i + 1;
+    if (j < 0 || j >= sorted.length) return;
+    const next = [...sorted];
+    [next[i], next[j]] = [next[j], next[i]];
+    setBusyChannelId(id);
+    setErr(null);
+    try {
+      await reorderAdChannels(
+        token,
+        next.map((c) => c.id),
+      );
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '순서 변경 실패');
+    } finally {
+      setBusyChannelId(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!token || !deleteTarget) return;
+    setDeleteSubmitting(true);
+    setErr(null);
+    try {
+      await deleteAdChannel(token, deleteTarget.id, deletePassword);
+      setDeleteTarget(null);
+      setDeletePassword('');
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '삭제 실패');
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
   if (!token) return null;
 
   return (
@@ -211,9 +266,8 @@ export function AdminAdvertisingSettingsPage() {
         <h1 className="text-fluid-xl font-semibold text-gray-800">광고비 정산 설정</h1>
         <p className="mt-1 text-fluid-sm text-gray-600">
           아래에서 <strong className="font-medium text-gray-800">채널을 새로 추가할지</strong> 정하고, 채널마다{' '}
-          <strong className="font-medium text-gray-800">사용함·사용 안 함</strong>을 고릅니다. 사용 안 함이면 정산 입력·활성
-          목록에서 제외됩니다. 정산 방식은 채널마다 <strong className="font-medium text-gray-800">직접 금액</strong> 또는{' '}
-          <strong className="font-medium text-gray-800">건수 × 건당 금액</strong>으로 설정합니다.
+          <strong className="font-medium text-gray-800">사용함·사용 안 함</strong>·표시 순서·정산 방식을 설정합니다. 사용
+          안 함이면 정산 입력·활성 목록에서 제외됩니다.
         </p>
       </div>
 
@@ -260,7 +314,7 @@ export function AdminAdvertisingSettingsPage() {
             ) : null}
           </section>
 
-          {sortedChannels.map((ch) => {
+          {sortedChannels.map((ch, idx) => {
             const mode: AdChannelSettlementMode = ch.settlementMode ?? 'DIRECT_AMOUNT';
             const lines = sortItems(ch.lineItems ?? []);
             const add = addDraft[ch.id] ?? {
@@ -275,13 +329,52 @@ export function AdminAdvertisingSettingsPage() {
               >
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-fluid-base font-medium text-gray-900">{ch.name}</h2>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <h2 className="text-fluid-base font-medium text-gray-900">{ch.name}</h2>
+                      {isTenantOwner ? (
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-fluid-2xs text-gray-500">표시 순서</span>
+                          <button
+                            type="button"
+                            className="rounded border border-gray-300 px-1.5 py-0.5 text-fluid-xs disabled:opacity-40"
+                            disabled={idx === 0 || busyChannelId === ch.id}
+                            onClick={() => void moveChannel(ch.id, 'up')}
+                            title="위로"
+                            aria-label="표시 순서 위로"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded border border-gray-300 px-1.5 py-0.5 text-fluid-xs disabled:opacity-40"
+                            disabled={idx === sortedChannels.length - 1 || busyChannelId === ch.id}
+                            onClick={() => void moveChannel(ch.id, 'down')}
+                            title="아래로"
+                            aria-label="표시 순서 아래로"
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                     {!ch.isActive && (
                       <p className="mt-0.5 text-fluid-xs text-amber-800">
                         사용 안 함 — 종료 정산·활성 채널 목록에 나오지 않습니다.
                       </p>
                     )}
                   </div>
+                  {isTenantOwner ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteTarget(ch);
+                        setDeletePassword('');
+                      }}
+                      className="shrink-0 text-fluid-xs text-red-600 hover:underline"
+                    >
+                      채널 삭제
+                    </button>
+                  ) : null}
                   <div className="flex shrink-0 flex-col items-center gap-1.5 sm:items-end">
                     <span className="text-fluid-xs font-medium text-gray-700">사용ON/OFF</span>
                     <button
@@ -506,6 +599,46 @@ export function AdminAdvertisingSettingsPage() {
               </section>
             );
           })}
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
+            <h3 className="mb-2 text-fluid-base font-medium text-gray-900">채널 삭제</h3>
+            <p className="mb-3 text-fluid-sm text-gray-600">
+              「{deleteTarget.name}」을(를) 삭제합니다. 본인 계정 비밀번호를 입력하세요.
+            </p>
+            <input
+              type="password"
+              className="mb-4 w-full rounded border border-gray-300 px-3 py-2 text-fluid-sm"
+              placeholder="비밀번호"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              autoComplete="current-password"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded border border-gray-300 px-3 py-1.5 text-fluid-sm hover:bg-gray-50"
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeletePassword('');
+                }}
+                disabled={deleteSubmitting}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="rounded bg-red-600 px-3 py-1.5 text-fluid-sm text-white hover:bg-red-700 disabled:opacity-50"
+                onClick={() => void handleConfirmDelete()}
+                disabled={deleteSubmitting}
+              >
+                {deleteSubmitting ? '처리 중…' : '삭제'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
