@@ -13,6 +13,7 @@ import {
 import {
   getAvailableFieldStaffMemberIdsOnDate,
   poolMemberInTenantWhere,
+  poolMemberListInTenantWhere,
 } from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
@@ -22,7 +23,7 @@ import {
   payrollCyclePreferredDateWhere,
 } from './teamMemberPayrollCycle.js';
 import { computeCrewSpacingByPoolMemberName } from './crewLeaderMemberSpacing.js';
-import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 
 const router = Router();
@@ -60,7 +61,7 @@ router.use(authMiddleware, adminOnly);
  * - 배정: 해당 팀장에게 Assignment가 있는 건(행) 수
  */
 router.get('/leader-monthly-stats', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
@@ -136,7 +137,7 @@ router.get('/leader-monthly-stats', async (req, res) => {
  * 현재 편집 중 예약일까지 몇 칸의 날짜 차이인지(정보 표시만, 선택 제한 없음).
  */
 router.get('/crew-leader-member-spacing', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const teamLeaderId = typeof req.query.teamLeaderId === 'string' ? req.query.teamLeaderId.trim() : '';
@@ -188,7 +189,7 @@ async function verifyAdminPassword(req: Request, password: unknown): Promise<boo
 
 /** 팀 목록 (팀장·팀원·휴무 일부 메타는 별도 조회) */
 router.get('/', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const teams = await prisma.team.findMany({
@@ -231,7 +232,7 @@ router.get('/', async (req, res) => {
 /** 팀 생성 (팀장당 1팀) */
 router.post('/', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = getTenantIdFromAuth(user);
+  const tenantId = await resolveTenantIdFromAuth(user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
@@ -317,14 +318,14 @@ function parseTeamMemberPayFields(body: Record<string, unknown>): {
 }
 
 router.get('/members', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const dateRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
   const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
 
   const members = await prisma.teamMember.findMany({
-    where: poolMemberInTenantWhere(tenantId),
+    where: poolMemberListInTenantWhere(tenantId),
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: { _count: { select: { dayOffs: true } } },
   });
@@ -339,19 +340,21 @@ router.get('/members', async (req, res) => {
 
   type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
   const inquiriesByPayDay = new Map<number, CycleCache>();
-  for (const payDay of distinctPayDays) {
-    const { startYmd, endYmd } = payrollCycleBoundsKst(payDay);
-    const bounds = payrollCyclePreferredDateWhere(startYmd, endYmd);
-    const inquiries = await prisma.inquiry.findMany({
-      where: {
-        tenantId,
-        preferredDate: { gte: bounds.gte, lte: bounds.lte },
-        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-      },
-      select: { crewMemberNote: true },
-    });
-    inquiriesByPayDay.set(payDay, { startYmd, endYmd, inquiries });
-  }
+  await Promise.all(
+    distinctPayDays.map(async (payDay) => {
+      const { startYmd, endYmd } = payrollCycleBoundsKst(payDay);
+      const bounds = payrollCyclePreferredDateWhere(startYmd, endYmd);
+      const inquiries = await prisma.inquiry.findMany({
+        where: {
+          tenantId,
+          preferredDate: { gte: bounds.gte, lte: bounds.lte },
+          status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+        },
+        select: { crewMemberNote: true },
+      });
+      inquiriesByPayDay.set(payDay, { startYmd, endYmd, inquiries });
+    }),
+  );
 
   let items = members.map((m) => {
     let payCycleJobCount: number | null = null;
@@ -402,7 +405,7 @@ router.get('/members', async (req, res) => {
 });
 
 router.post('/members', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const body = req.body as { name?: string; nameTh?: string | null; phone?: string | null; sortOrder?: number };
@@ -450,7 +453,7 @@ router.post('/members', async (req, res) => {
 });
 
 router.patch('/members/:memberId', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { memberId } = req.params;
@@ -521,7 +524,7 @@ router.patch('/members/:memberId', async (req, res) => {
 
 /** 관리자: 현장 팀원 사원증 이미지 업로드 (Cloudinary) */
 router.post('/members/:memberId/staff-id-card', staffIdCardUpload.single('image'), async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   if (!isCloudinaryConfigured()) {
@@ -562,7 +565,7 @@ router.post('/members/:memberId/staff-id-card', staffIdCardUpload.single('image'
 });
 
 router.delete('/members/:memberId/staff-id-card', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { memberId } = req.params;
@@ -586,7 +589,7 @@ router.delete('/members/:memberId/staff-id-card', async (req, res) => {
 });
 
 router.delete('/members/:memberId', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { memberId } = req.params;
@@ -607,7 +610,7 @@ router.delete('/members/:memberId', async (req, res) => {
 });
 
 router.get('/members/:memberId/day-offs', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { memberId } = req.params;
@@ -636,7 +639,7 @@ router.get('/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.post('/members/:memberId/day-offs', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { memberId } = req.params;
@@ -662,7 +665,7 @@ router.post('/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.delete('/members/:memberId/day-offs', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { memberId } = req.params;
@@ -684,7 +687,7 @@ router.delete('/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.patch('/:teamId', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { teamId } = req.params;
@@ -702,7 +705,7 @@ router.patch('/:teamId', async (req, res) => {
 });
 
 router.delete('/:teamId', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { teamId } = req.params;
@@ -722,7 +725,7 @@ router.delete('/:teamId', async (req, res) => {
 });
 
 router.post('/:teamId/members', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { teamId } = req.params;
@@ -766,7 +769,7 @@ router.post('/:teamId/members', async (req, res) => {
 });
 
 router.patch('/:teamId/members/:memberId', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { teamId, memberId } = req.params;
@@ -834,7 +837,7 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
 });
 
 router.delete('/:teamId/members/:memberId', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { teamId, memberId } = req.params;
@@ -856,7 +859,7 @@ router.delete('/:teamId/members/:memberId', async (req, res) => {
 
 /** 팀원 휴무 목록 */
 router.get('/:teamId/members/:memberId/day-offs', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { teamId, memberId } = req.params;
@@ -885,7 +888,7 @@ router.get('/:teamId/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.post('/:teamId/members/:memberId/day-offs', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { teamId, memberId } = req.params;
@@ -911,7 +914,7 @@ router.post('/:teamId/members/:memberId/day-offs', async (req, res) => {
 });
 
 router.delete('/:teamId/members/:memberId/day-offs', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { teamId, memberId } = req.params;

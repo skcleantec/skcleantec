@@ -42,7 +42,7 @@ async function attachActorNames<T extends { actorId: string | null }>(
 
 /** 대시보드 최근 N건 */
 router.get('/recent', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { limit = '10' } = req.query;
@@ -62,7 +62,7 @@ router.get('/recent', async (req, res) => {
 
 /** 전체 목록 (필터·페이지) */
 router.get('/', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { customerName, limit = '100', offset = '0' } = req.query;
@@ -98,7 +98,7 @@ router.get('/', async (req, res) => {
 
 /** 최고 관리자만 — 비밀번호 확인 후 삭제 */
 router.delete('/:id', superAdminOnly, async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { id } = req.params;

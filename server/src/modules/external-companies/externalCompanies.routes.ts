@@ -36,7 +36,7 @@ function kstYmd(d: Date): string {
 
 /** 타업체 목록 + 소속 로그인 계정 수 */
 router.get('/', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const rows = await prisma.externalCompany.findMany({
@@ -141,7 +141,7 @@ router.post('/', async (req, res) => {
 });
 
 router.patch('/:id', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { id } = req.params;
@@ -201,7 +201,7 @@ router.patch('/:id', async (req, res) => {
 
 /** 타업체 비활성 + 소속 계정 비활성 */
 router.post('/:id/deactivate', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { id } = req.params;
@@ -219,7 +219,7 @@ router.post('/:id/deactivate', async (req, res) => {
 
 /** 업체별 누적 정산 요약 목록 (전체 기간) */
 router.get('/settlement/company-overview-list', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const companies = await prisma.externalCompany.findMany({
@@ -312,7 +312,7 @@ router.get('/settlement/company-overview-list', async (req, res) => {
  * query: from, to (yyyy-mm-dd)
  */
 router.get('/settlement/summary', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const from = typeof req.query.from === 'string' ? req.query.from.trim() : '';
@@ -425,7 +425,7 @@ router.get('/settlement/summary', async (req, res) => {
 
 /** 월별/업체별/전체 정산 요약 */
 router.get('/settlement/monthly-overview', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const fromMonthRaw = typeof req.query.fromMonth === 'string' ? req.query.fromMonth.trim() : '';
@@ -576,7 +576,7 @@ router.get('/settlement/monthly-overview', async (req, res) => {
 
 /** 관리자: 특정 타업체 정산 상세(결제대상/정산완료/남은금액/히스토리) */
 router.get('/settlement/company-detail', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const externalCompanyId =
@@ -780,7 +780,7 @@ router.get('/settlement/company-detail', async (req, res) => {
  * 타업체(EXTERNAL_PARTNER) 배정 접수만, 수수료 입력 건만 합산
  */
 router.get('/settlement/accruals', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const now = new Date();
@@ -921,7 +921,7 @@ router.get('/settlement/accruals', async (req, res) => {
 
 /** 정산 완료 후 누계 초기화(해당 업체만) */
 router.post('/settlement/reset-accrual', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const actorId = (req as unknown as { user: AuthPayload }).user.userId;
@@ -944,7 +944,7 @@ router.post('/settlement/reset-accrual', async (req, res) => {
 
 /** 관리자: 타업체 정산완료(부분/전체) 금액 기록 */
 router.post('/settlement/payments', async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const actorId = (req as unknown as { user: AuthPayload }).user.userId;

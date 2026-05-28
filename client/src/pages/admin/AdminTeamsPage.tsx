@@ -213,12 +213,19 @@ export function AdminTeamsPage() {
   };
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      setCrewLoading(false);
+      return;
+    }
     refresh();
   }, [token]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setCrewLoading(false);
+      return;
+    }
     refreshCrew();
   }, [token]);
 

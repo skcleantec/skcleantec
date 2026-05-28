@@ -3,15 +3,15 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
+import { resolveTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { notifyCrewGroupsInboxRefresh } from '../crew/crewFieldRealtime.js';
 import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries } from './crewGroupDayRoster.service.js';
 
 const router = Router();
 
 router.use(authMiddleware, adminOnly);
-router.use((req, res, next) => {
-  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+router.use(async (req, res, next) => {
+  const tenantId = await resolveTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;

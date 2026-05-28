@@ -153,7 +153,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
 
 /** 활성 팀장 전원의 본인 휴무일 등록 허용 일괄 변경 */
 router.post('/team-leaders/day-off-self-edit', adminOnly, async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const body = req.body as { enabled?: unknown };
@@ -347,7 +347,7 @@ router.post('/', adminOnly, async (req, res) => {
 
 /** 관리자: 팀장·마케터 사원증 이미지 업로드 (Cloudinary) */
 router.post('/:id/staff-id-card', adminOnly, staffIdCardUpload.single('image'), async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   if (!isCloudinaryConfigured()) {
@@ -392,7 +392,7 @@ router.post('/:id/staff-id-card', adminOnly, staffIdCardUpload.single('image'), 
 
 /** 관리자: 팀장·마케터 사원증 이미지 삭제 */
 router.delete('/:id/staff-id-card', adminOnly, async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { id } = req.params;
@@ -435,7 +435,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     teamLeaderAdditionalReceiptCompanyShareBps?: number | string | null;
   };
   const authUser = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, authUser);
+  const tenantId = await requireTenantIdFromAuth(res, authUser);
   if (!tenantId) return;
 
   const wantsEmploymentDates =
@@ -734,7 +734,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
 });
 
 router.delete('/:id', adminOnly, async (req, res) => {
-  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
   const { id } = req.params;

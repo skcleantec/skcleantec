@@ -18,12 +18,19 @@ export function tenantActiveTeamMemberWhere(tenantId: string): Prisma.TeamMember
   };
 }
 
-/** 팀장 소속 없는 풀 팀원 — 해당 테넌트 크루 그룹 소속 또는 tenant_id 일치 */
-export function poolMemberInTenantWhere(tenantId: string): Prisma.TeamMemberWhereInput {
+/** 팀장 소속 없는 풀 팀원(관리 목록) — 활성/비활성 모두 */
+export function poolMemberListInTenantWhere(tenantId: string): Prisma.TeamMemberWhereInput {
   return {
     teamId: null,
-    isActive: true,
     OR: [{ tenantId }, { crewGroupMembers: { some: { group: { tenantId } } } }],
+  };
+}
+
+/** 활성 풀 팀원만 — 용량·급여 집계 */
+export function poolMemberInTenantWhere(tenantId: string): Prisma.TeamMemberWhereInput {
+  return {
+    ...poolMemberListInTenantWhere(tenantId),
+    isActive: true,
   };
 }
 

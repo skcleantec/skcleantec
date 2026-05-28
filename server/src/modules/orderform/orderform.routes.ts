@@ -267,7 +267,7 @@ router.get('/professional-options', async (req, res) => {
 router.get('/professional-options/all', authMiddleware, adminOrMarketer, async (req, res) => {
   try {
     const user = (req as unknown as { user: AuthPayload }).user;
-    const tenantId = requireTenantIdFromAuth(res, user);
+    const tenantId = await requireTenantIdFromAuth(res, user);
     if (!tenantId) return;
     const items = await prisma.professionalSpecialtyOption.findMany({
       where: { tenantId },
@@ -314,7 +314,7 @@ router.post('/professional-options', authMiddleware, adminOrMarketer, async (req
   const sortOrder = body.sortOrder != null && Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0;
   const isActive = body.isActive !== false;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, user);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const providedId = typeof body.id === 'string' ? body.id.trim() : '';
   const optionId = providedId || randomUUID();
@@ -392,7 +392,7 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
     isActive?: boolean;
   };
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, user);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const existing = await prisma.professionalSpecialtyOption.findUnique({
     where: profOptionKey(tenantId, id),
@@ -500,7 +500,7 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
 router.delete('/professional-options/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const { id } = req.params;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, user);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   try {
     const row = await prisma.professionalSpecialtyOption.findUnique({
@@ -579,7 +579,7 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
 /** 관리자/마케터: 고객 발주서 편집 화면용 고정 미리보기 토큰 (없으면 생성, 호출 시 금액 동기화) */
 router.get('/designer-preview-token', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, user);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const { userId } = user;
   try {
@@ -598,7 +598,7 @@ router.get('/designer-preview-token', authMiddleware, adminOrMarketer, async (re
 /** 관리자/마케터: 발주서 목록 (발급일·담당·제출 상태 필터) */
 router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, user);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const q = req.query as Record<string, string | undefined>;
   const dateRange = createdAtRangeFromQuery({
@@ -673,7 +673,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
 /** 관리자/마케터: 고객 제출 원본 스냅샷(제출 시점 저장 JSON). 미제출이거나 레거시면 null */
 router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, user);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const rawId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
   if (!/^[0-9a-f-]{36}$/i.test(rawId)) {
@@ -697,7 +697,7 @@ router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (r
 /** 관리자/마케터: 접수 강제 매칭 후보(고객 제출 완료 발주서) */
 router.get('/force-match-candidates', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, user);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const q = req.query as Record<string, string | undefined>;
   const query = typeof q.query === 'string' ? q.query.trim() : '';
@@ -978,7 +978,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
 /** 관리자/마케터: 제출 완료 발주서를 기존 접수에 강제 매칭하고 접수 정보를 덮어쓴다. */
 router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, user);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const { userId, role } = user;
   const { id: orderFormId } = req.params;
@@ -1143,7 +1143,7 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
  */
 router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = requireTenantIdFromAuth(res, user);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const { userId, role } = user;
   const { id } = req.params;
@@ -1311,7 +1311,7 @@ function resolvedPublicFormConfig(row: FormConfigRow) {
 router.get('/form-config', authMiddleware, adminOrMarketer, async (req, res) => {
   try {
     const user = (req as unknown as { user: AuthPayload }).user;
-    const tenantId = requireTenantIdFromAuth(res, user);
+    const tenantId = await requireTenantIdFromAuth(res, user);
     if (!tenantId) return;
     const config = await getOrCreateOrderFormConfig(prisma, tenantId);
     res.json(config);
@@ -1326,7 +1326,7 @@ router.put('/form-config', authMiddleware, adminOnly, async (req, res) => {
   const body = req.body as Record<string, unknown>;
   try {
     const user = (req as unknown as { user: AuthPayload }).user;
-    const tenantId = requireTenantIdFromAuth(res, user);
+    const tenantId = await requireTenantIdFromAuth(res, user);
     if (!tenantId) return;
     await getOrCreateOrderFormConfig(prisma, tenantId);
     const updated = await prisma.orderFormConfig.update({
