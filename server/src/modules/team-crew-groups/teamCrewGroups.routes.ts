@@ -404,7 +404,7 @@ router.post('/:groupId/members', async (req, res) => {
     return;
   }
   const member = await prisma.teamMember.findFirst({
-    where: { id: teamMemberId, teamId: null },
+    where: { id: teamMemberId, teamId: null, tenantId },
   });
   if (!member) {
     res.status(400).json({ error: '전사 팀원 풀에서만 멤버를 추가할 수 있습니다.' });

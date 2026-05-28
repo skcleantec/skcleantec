@@ -24,7 +24,6 @@ import {
   parseProfessionalOptionIdsRaw,
   professionalOptionDepthFromRoot,
 } from './specialtyOptions.js';
-import { ensureMissingProfessionalDefaults } from './defaultProfessionalOptions.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
@@ -38,6 +37,13 @@ import {
   publicTenantAccessHttpStatus,
   validateOptionalPublicTenantSlug,
 } from '../tenants/publicTenantAccess.js';
+import { resolvePublicTenantIdFromRequest } from '../tenants/publicRequestTenant.js';
+import {
+  getOrCreateEstimateConfig,
+  getOrCreateOrderFormConfig,
+  profOptionKey,
+  seedProfessionalDefaultsForTenant,
+} from '../tenants/tenantConfigSeed.service.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
 
@@ -220,12 +226,10 @@ const profOptionSelectListRow = {
 } as const;
 
 /** 공개: 고객 안내사항 페이지(`/info`)용 — 인증 없음 */
-router.get('/public-guide', async (_req, res) => {
+router.get('/public-guide', async (req, res) => {
   try {
-    let cfg = await prisma.orderFormConfig.findFirst();
-    if (!cfg) {
-      cfg = await prisma.orderFormConfig.create({ data: {} });
-    }
+    const tenantId = await resolvePublicTenantIdFromRequest(req);
+    const cfg = await getOrCreateOrderFormConfig(prisma, tenantId);
     const sections = parseGuideSectionsFromDb(cfg.infoContent);
     const infoLinkText =
       cfg.infoLinkText?.trim() || '고객 정보처리 동의 및 안내사항';
@@ -240,10 +244,12 @@ router.get('/public-guide', async (_req, res) => {
 });
 
 /** 공개: 고객 발주서 — 전문 시공 옵션 목록 (활성만, 정렬) */
-router.get('/professional-options', async (_req, res) => {
+router.get('/professional-options', async (req, res) => {
   try {
+    const tenantId = await resolvePublicTenantIdFromRequest(req);
     const items = await prisma.professionalSpecialtyOption.findMany({
       where: {
+        tenantId,
         isActive: true,
         OR: [{ parentId: null }, { parent: { isActive: true } }],
       },
@@ -258,9 +264,13 @@ router.get('/professional-options', async (_req, res) => {
 });
 
 /** 관리자/마케터: 전문 시공 옵션 전체 (비활성 포함) */
-router.get('/professional-options/all', authMiddleware, adminOrMarketer, async (_req, res) => {
+router.get('/professional-options/all', authMiddleware, adminOrMarketer, async (req, res) => {
   try {
+    const user = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = requireTenantIdFromAuth(res, user);
+    if (!tenantId) return;
     const items = await prisma.professionalSpecialtyOption.findMany({
+      where: { tenantId },
       orderBy: profOptionOrderBy,
       select: profOptionSelectListRow,
     });
@@ -274,6 +284,7 @@ router.get('/professional-options/all', authMiddleware, adminOrMarketer, async (
 /** 관리자/마케터: 전문 시공 옵션 추가 */
 router.post('/professional-options', authMiddleware, adminOrMarketer, async (req, res) => {
   const body = req.body as {
+    id?: string;
     label?: string;
     parentId?: string | null;
     isGroup?: boolean;
@@ -302,15 +313,22 @@ router.post('/professional-options', authMiddleware, adminOrMarketer, async (req
   const emoji = body.emoji != null ? String(body.emoji).trim().slice(0, 8) : '';
   const sortOrder = body.sortOrder != null && Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0;
   const isActive = body.isActive !== false;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const providedId = typeof body.id === 'string' ? body.id.trim() : '';
+  const optionId = providedId || randomUUID();
 
   try {
     if (parentId) {
-      const p = await prisma.professionalSpecialtyOption.findUnique({ where: { id: parentId } });
+      const p = await prisma.professionalSpecialtyOption.findUnique({
+        where: profOptionKey(tenantId, parentId),
+      });
       if (!p) {
         res.status(400).json({ error: '상위 항목을 찾을 수 없습니다.' });
         return;
       }
-      const parentDepth = await professionalOptionDepthFromRoot(prisma, parentId);
+      const parentDepth = await professionalOptionDepthFromRoot(prisma, tenantId, parentId);
       if (parentDepth > 1) {
         res.status(400).json({
           error: '하위는 최대 2단계까지입니다. (대분류 → 중간 항목 → 세부 금액)',
@@ -319,7 +337,7 @@ router.post('/professional-options', authMiddleware, adminOrMarketer, async (req
       }
       if (!p.parentId && !p.isGroup) {
         await prisma.professionalSpecialtyOption.update({
-          where: { id: parentId },
+          where: profOptionKey(tenantId, parentId),
           data: { isGroup: true },
         });
       }
@@ -339,7 +357,8 @@ router.post('/professional-options', authMiddleware, adminOrMarketer, async (req
 
     const created = await prisma.professionalSpecialtyOption.create({
       data: {
-        id: randomUUID(),
+        tenantId,
+        id: optionId,
         parentId,
         isGroup,
         label,
@@ -372,7 +391,12 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
     sortOrder?: number;
     isActive?: boolean;
   };
-  const existing = await prisma.professionalSpecialtyOption.findUnique({ where: { id } });
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const existing = await prisma.professionalSpecialtyOption.findUnique({
+    where: profOptionKey(tenantId, id),
+  });
   if (!existing) {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
@@ -394,19 +418,21 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
         res.status(400).json({ error: '자기 자신을 상위로 둘 수 없습니다.' });
         return;
       }
-      const p = await prisma.professionalSpecialtyOption.findUnique({ where: { id: pId } });
+      const p = await prisma.professionalSpecialtyOption.findUnique({
+        where: profOptionKey(tenantId, pId),
+      });
       if (!p) {
         res.status(400).json({ error: '상위 항목을 찾을 수 없습니다.' });
         return;
       }
-      const parentDepth = await professionalOptionDepthFromRoot(prisma, pId);
+      const parentDepth = await professionalOptionDepthFromRoot(prisma, tenantId, pId);
       if (parentDepth > 1) {
         res.status(400).json({
           error: '하위는 최대 2단계까지입니다. (대분류 → 중간 항목 → 세부 금액)',
         });
         return;
       }
-      data.parent = { connect: { id: pId } };
+      data.parent = { connect: profOptionKey(tenantId, pId) };
       data.isGroup = false;
     } else {
       data.parent = { disconnect: true };
@@ -459,7 +485,10 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
     }
   }
   try {
-    const updated = await prisma.professionalSpecialtyOption.update({ where: { id }, data });
+    const updated = await prisma.professionalSpecialtyOption.update({
+      where: profOptionKey(tenantId, id),
+      data,
+    });
     res.json(updated);
   } catch (err) {
     console.error('professional-options patch error:', err);
@@ -470,23 +499,28 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
 /** 관리자/마케터: 전문 시공 옵션 삭제 */
 router.delete('/professional-options/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const { id } = req.params;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
   try {
     const row = await prisma.professionalSpecialtyOption.findUnique({
-      where: { id },
+      where: profOptionKey(tenantId, id),
       select: { parentId: true },
     });
     const pId = row?.parentId;
-    await prisma.professionalSpecialtyOption.delete({ where: { id } });
+    await prisma.professionalSpecialtyOption.delete({ where: profOptionKey(tenantId, id) });
     if (pId) {
-      const remain = await prisma.professionalSpecialtyOption.count({ where: { parentId: pId } });
+      const remain = await prisma.professionalSpecialtyOption.count({
+        where: { tenantId, parentId: pId },
+      });
       if (remain === 0) {
         const parent = await prisma.professionalSpecialtyOption.findUnique({
-          where: { id: pId },
+          where: profOptionKey(tenantId, pId),
           select: { parentId: true, isGroup: true },
         });
         if (parent && !parent.parentId) {
           await prisma.professionalSpecialtyOption.update({
-            where: { id: pId },
+            where: profOptionKey(tenantId, pId),
             data: { isGroup: false },
           });
         }
@@ -508,11 +542,11 @@ export const DESIGNER_PREVIEW_ORDER_TOKEN = 'skct_designer_preview_v1';
 /** 견적 설정·추가 옵션 반영해 미리보기 발주서 금액 동기화 (32평 기준) */
 async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: string) {
   const DEMO_PYEONG = 32;
-  const ec = await prisma.estimateConfig.findFirst();
+  const ec = await getOrCreateEstimateConfig(prisma, tenantId);
   const pricePer = ec?.pricePerPyeong ?? 8000;
   const deposit = ec?.depositAmount ?? 20000;
   const extras = await prisma.estimateOption.aggregate({
-    where: { isActive: true },
+    where: { tenantId, isActive: true },
     _sum: { extraAmount: true },
   });
   const extraSum = extras._sum.extraAmount ?? 0;
@@ -1274,19 +1308,12 @@ function resolvedPublicFormConfig(row: FormConfigRow) {
 }
 
 /** 관리자/마케터: 폼 메시지 설정 조회 (by-token보다 먼저 선언) */
-router.get('/form-config', authMiddleware, adminOrMarketer, async (_req, res) => {
+router.get('/form-config', authMiddleware, adminOrMarketer, async (req, res) => {
   try {
-    let config = await prisma.orderFormConfig.findFirst();
-    if (!config) {
-      try {
-        config = await prisma.orderFormConfig.create({
-          data: {},
-        });
-      } catch (createErr) {
-        console.error('form-config create error:', createErr);
-        return res.json(DEFAULT_FORM_CONFIG);
-      }
-    }
+    const user = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = requireTenantIdFromAuth(res, user);
+    if (!tenantId) return;
+    const config = await getOrCreateOrderFormConfig(prisma, tenantId);
     res.json(config);
   } catch (err) {
     console.error('form-config get error:', err);
@@ -1298,14 +1325,12 @@ router.get('/form-config', authMiddleware, adminOrMarketer, async (_req, res) =>
 router.put('/form-config', authMiddleware, adminOnly, async (req, res) => {
   const body = req.body as Record<string, unknown>;
   try {
-    let config = await prisma.orderFormConfig.findFirst();
-    if (!config) {
-      config = await prisma.orderFormConfig.create({
-        data: {},
-      });
-    }
+    const user = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = requireTenantIdFromAuth(res, user);
+    if (!tenantId) return;
+    await getOrCreateOrderFormConfig(prisma, tenantId);
     const updated = await prisma.orderFormConfig.update({
-      where: { id: config.id },
+      where: { tenantId },
       data: {
         ...(body.formTitle != null && { formTitle: String(body.formTitle) }),
         ...(body.priceLabel != null && { priceLabel: body.priceLabel ? String(body.priceLabel) : null }),
@@ -1365,10 +1390,7 @@ router.get('/by-token/:token', async (req, res) => {
       orderBy: { createdAt: 'desc' },
       select: { inquiryNumber: true },
     });
-    let formConfig = await prisma.orderFormConfig.findFirst();
-    if (!formConfig) {
-      formConfig = await prisma.orderFormConfig.create({ data: {} });
-    }
+    const formConfig = await getOrCreateOrderFormConfig(prisma, form.tenantId);
     res.json({
       id: form.id,
       token: form.token,
@@ -1381,7 +1403,7 @@ router.get('/by-token/:token', async (req, res) => {
     return;
   }
   try {
-    await ensureMissingProfessionalDefaults(prisma);
+    await seedProfessionalDefaultsForTenant(prisma, form.tenantId);
   } catch (err) {
     console.error('by-token ensure professional defaults:', err);
   }
@@ -1416,11 +1438,12 @@ router.get('/by-token/:token', async (req, res) => {
 
   const [options, professionalOptions] = await Promise.all([
     prisma.estimateOption.findMany({
-      where: { isActive: true },
+      where: { tenantId: form.tenantId, isActive: true },
       orderBy: { sortOrder: 'asc' },
     }),
     prisma.professionalSpecialtyOption.findMany({
       where: {
+        tenantId: form.tenantId,
         isActive: true,
         OR: [{ parentId: null }, { parent: { isActive: true } }],
       },
@@ -1428,12 +1451,7 @@ router.get('/by-token/:token', async (req, res) => {
       select: profOptionSelectPublic,
     }),
   ]);
-  let formConfig = await prisma.orderFormConfig.findFirst();
-  if (!formConfig) {
-    formConfig = await prisma.orderFormConfig.create({
-      data: {},
-    });
-  }
+  const formConfig = await getOrCreateOrderFormConfig(prisma, form.tenantId);
   res.json({
     id: form.id,
     token: form.token,
@@ -1486,13 +1504,6 @@ router.post('/submit/:token', async (req, res) => {
     professionalOptionIds?: unknown;
   };
 
-  const rawIds = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
-  const professionalIds = await filterActiveProfessionalOptionIds(prisma, rawIds);
-  const customerSpecialNotes =
-    body.specialNotes != null && String(body.specialNotes).trim()
-      ? String(body.specialNotes).trim()
-      : null;
-
   const form = await prisma.orderForm.findUnique({ where: { token } });
   if (!form) {
     res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
@@ -1505,6 +1516,12 @@ router.post('/submit/:token', async (req, res) => {
     throw e;
   }
   const submitTenantId = form.tenantId;
+  const rawIds = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
+  const professionalIds = await filterActiveProfessionalOptionIds(prisma, submitTenantId, rawIds);
+  const customerSpecialNotes =
+    body.specialNotes != null && String(body.specialNotes).trim()
+      ? String(body.specialNotes).trim()
+      : null;
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서입니다.' });
     return;
@@ -1662,7 +1679,7 @@ router.post('/submit/:token', async (req, res) => {
   const profLabelRows =
     professionalIds.length > 0
       ? await prisma.professionalSpecialtyOption.findMany({
-          where: { id: { in: professionalIds } },
+          where: { tenantId: submitTenantId, id: { in: professionalIds } },
           select: { id: true, label: true },
         })
       : [];

@@ -1,4 +1,5 @@
 import { API } from './apiPrefix';
+import { resolveInitialTenantSlug } from '../utils/tenantHostResolve';
 
 function authHeaders(token: string) {
   return {
@@ -95,10 +96,11 @@ export async function submitCsReport(data: {
   serviceRating: number;
   imageUrls?: string[];
 }): Promise<{ ok: boolean; id: string; inquiryId?: string }> {
+  const tenantSlug = resolveInitialTenantSlug();
   const res = await fetch(`${API}/cs/submit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, ...(tenantSlug ? { tenantSlug } : {}) }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

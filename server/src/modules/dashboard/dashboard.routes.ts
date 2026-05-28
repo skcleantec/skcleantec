@@ -98,7 +98,7 @@ router.get('/stats', async (req, res) => {
         createdAt: { gte: kstThisMonth.gte, lte: kstThisMonth.lte },
       },
     }),
-    prisma.estimateConfig.findFirst().then((c) => c?.pricePerPyeong ?? 5000),
+    prisma.estimateConfig.findUnique({ where: { tenantId } }).then((c) => c?.pricePerPyeong ?? 5000),
     prisma.inquiry.findMany({
       where: { tenantId, status: { in: [...SALES_AMOUNT_STATUSES] } },
       include: {

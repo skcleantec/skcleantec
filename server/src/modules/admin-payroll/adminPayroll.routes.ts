@@ -69,9 +69,9 @@ const MONTH_KEY = /^\d{4}-\d{2}$/;
 function poolMemberInTenantWhere(tenantId: string, teamMemberId?: string) {
   return {
     ...(teamMemberId ? { id: teamMemberId } : {}),
+    tenantId,
     teamId: null as null,
     isActive: true,
-    crewGroupMembers: { some: { group: { tenantId } } },
   };
 }
 
@@ -688,7 +688,7 @@ router.get('/sheet', async (req, res) => {
     },
   });
 
-  const poolRows = await buildPoolMemberPayrollSheetRows(prisma, monthKey, poolMembers);
+  const poolRows = await buildPoolMemberPayrollSheetRows(prisma, tenantId, monthKey, poolMembers);
   for (const r of poolRows) {
     rows.push(r);
   }

@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import { profOptionKey } from '../tenants/tenantConfigSeed.service.js';
 
 /** body에서 문자열 id 배열 추출 (중복 제거) */
 export function parseProfessionalOptionIdsRaw(body: unknown): string[] {
@@ -15,7 +16,8 @@ export function parseProfessionalOptionIdsRaw(body: unknown): string[] {
 /** 루트에서의 깊이: 루트=0, 직계=1, 손자=2 … */
 export async function professionalOptionDepthFromRoot(
   prisma: PrismaClient,
-  nodeId: string
+  tenantId: string,
+  nodeId: string,
 ): Promise<number> {
   let depth = 0;
   let cur: string | null = nodeId;
@@ -24,7 +26,7 @@ export async function professionalOptionDepthFromRoot(
     const id: string = cur;
     const row: { parentId: string | null } | null =
       await prisma.professionalSpecialtyOption.findUnique({
-        where: { id },
+        where: profOptionKey(tenantId, id),
         select: { parentId: true },
       });
     const parentId: string | null = row?.parentId ?? null;
@@ -34,14 +36,15 @@ export async function professionalOptionDepthFromRoot(
   }
 }
 
-/** 고객 발주서 제출: 활성이면서 '선택 가능'한 옵션 id만 (자식이 있는 노드·대분류 루트·비활성 부모의 자식 제외) */
+/** 고객 발주서 제출: 활성이면서 '선택 가능'한 옵션 id만 */
 export async function filterActiveProfessionalOptionIds(
   prisma: PrismaClient,
-  ids: string[]
+  tenantId: string,
+  ids: string[],
 ): Promise<string[]> {
   if (!ids.length) return [];
   const rows = await prisma.professionalSpecialtyOption.findMany({
-    where: { id: { in: ids }, isActive: true },
+    where: { tenantId, id: { in: ids }, isActive: true },
     select: {
       id: true,
       parentId: true,
@@ -59,7 +62,7 @@ export async function filterActiveProfessionalOptionIds(
         }
         return !r.isGroup;
       })
-      .map((r) => r.id)
+      .map((r) => r.id),
   );
   return ids.filter((id) => allowed.has(id));
 }
@@ -67,11 +70,12 @@ export async function filterActiveProfessionalOptionIds(
 /** 관리자 접수 수정: DB에 존재하는 id만 (비활성 포함) */
 export async function filterExistingProfessionalOptionIds(
   prisma: PrismaClient,
-  ids: string[]
+  tenantId: string,
+  ids: string[],
 ): Promise<string[]> {
   if (!ids.length) return [];
   const rows = await prisma.professionalSpecialtyOption.findMany({
-    where: { id: { in: ids } },
+    where: { tenantId, id: { in: ids } },
     select: { id: true },
   });
   const allowed = new Set(rows.map((r) => r.id));
@@ -80,11 +84,12 @@ export async function filterExistingProfessionalOptionIds(
 
 export async function formatProfessionalOptionsMemoLine(
   prisma: PrismaClient,
-  ids: string[]
+  tenantId: string,
+  ids: string[],
 ): Promise<string | null> {
   if (!ids.length) return null;
   const rows = await prisma.professionalSpecialtyOption.findMany({
-    where: { id: { in: ids } },
+    where: { tenantId, id: { in: ids } },
     select: { id: true, label: true, priceAmount: true, priceHint: true },
   });
   const labelById = new Map(rows.map((r) => [r.id, r] as const));

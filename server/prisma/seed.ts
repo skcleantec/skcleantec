@@ -333,15 +333,12 @@ async function main() {
 
   // 폼 메시지 설정 (없으면 생성, 클린벨→SK클린텍 보정)
   try {
-    const formConfig = await prisma.orderFormConfig.findFirst();
-    if (!formConfig) {
-      await prisma.orderFormConfig.create({
-        data: {},
-      });
-      console.log('OrderFormConfig: created');
-    } else if (formConfig.formTitle.includes('클린벨')) {
+    const { DEFAULT_TENANT_ID } = await import('../src/modules/tenants/tenant.constants.js');
+    const { getOrCreateOrderFormConfig } = await import('../src/modules/tenants/tenantConfigSeed.service.js');
+    const formConfig = await getOrCreateOrderFormConfig(prisma, DEFAULT_TENANT_ID);
+    if (formConfig.formTitle.includes('클린벨')) {
       await prisma.orderFormConfig.update({
-        where: { id: formConfig.id },
+        where: { tenantId: DEFAULT_TENANT_ID },
         data: { formTitle: formConfig.formTitle.replace('클린벨', 'SK클린텍') },
       });
       console.log('OrderFormConfig: formTitle corrected to SK클린텍');
@@ -351,7 +348,8 @@ async function main() {
   }
 
   try {
-    await seedProfessionalDefaults(prisma);
+    const { DEFAULT_TENANT_ID } = await import('../src/modules/tenants/tenant.constants.js');
+    await seedProfessionalDefaults(prisma, DEFAULT_TENANT_ID);
     console.log('ProfessionalSpecialtyOption: seeded (default 8)');
   } catch {
     console.log('ProfessionalSpecialtyOption: skip (run db:push first)');

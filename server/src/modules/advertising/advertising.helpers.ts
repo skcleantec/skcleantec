@@ -37,12 +37,13 @@ export function resolveMarketerScope(
 
 export async function loadMarketerUsers(
   prisma: PrismaClient,
+  tenantId: string,
   scope: { marketerIds: string[] | 'ALL_MARKETERS' }
 ): Promise<{ id: string; name: string; email: string }[]> {
   const ymd = kstTodayYmd();
   if (scope.marketerIds === 'ALL_MARKETERS') {
     const rows = await prisma.user.findMany({
-      where: { role: 'MARKETER', isActive: true },
+      where: { tenantId, role: 'MARKETER', isActive: true },
       select: { id: true, name: true, email: true, hireDate: true, resignationDate: true },
       orderBy: { name: 'asc' },
     });
@@ -51,7 +52,7 @@ export async function loadMarketerUsers(
       .map(({ id, name, email }) => ({ id, name, email }));
   }
   const rows = await prisma.user.findMany({
-    where: { id: { in: scope.marketerIds }, role: 'MARKETER', isActive: true },
+    where: { tenantId, id: { in: scope.marketerIds }, role: 'MARKETER', isActive: true },
     select: { id: true, name: true, email: true, hireDate: true, resignationDate: true },
     orderBy: { name: 'asc' },
   });

@@ -331,7 +331,16 @@ router.get('/settlement/payroll-sheet', crewSettlementPayrollSheetAccess, async 
       },
     });
 
-    const rows = await buildPoolMemberPayrollSheetRows(prisma, monthKey, poolMembers);
+    const group = await prisma.teamCrewGroup.findUnique({
+      where: { id: gid },
+      select: { tenantId: true },
+    });
+    if (!group) {
+      res.status(404).json({ error: '크루 그룹을 찾을 수 없습니다.' });
+      return;
+    }
+
+    const rows = await buildPoolMemberPayrollSheetRows(prisma, group.tenantId, monthKey, poolMembers);
     res.json({ crewGroupId: gid, month: monthKey, rows });
   } catch (e) {
     console.error('GET /crew/settlement/payroll-sheet', e);
@@ -485,6 +494,7 @@ router.get('/expenses', async (req, res) => {
  * CLOUDINARY 미설정 시 이미지 없는 등록만 가능합니다.
  */
 router.post('/expenses', crewGroupLeaderFromDb, crewLeaderJwtOnly, expenseUploadFields, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
   const gid = crewGroupId(req as unknown as { user: AuthPayload });
   const body = req.body as { monthKey?: string; teamMemberId?: string; amount?: string; memo?: string };
   const monthKey =
@@ -526,9 +536,16 @@ router.post('/expenses', crewGroupLeaderFromDb, crewLeaderJwtOnly, expenseUpload
       memo,
       imageBuffers: files.map((f) => ({ buffer: f.buffer, mimetype: f.mimetype })),
     });
-    void getEmployedStaffUserIds()
-      .then((ids) => notifyInboxRefresh(ids))
-      .catch((e) => console.error('[crew-expense POST] notify', e));
+    const notifyTenantId =
+      user.tenantId ??
+      (
+        await prisma.teamCrewGroup.findUnique({ where: { id: gid }, select: { tenantId: true } })
+      )?.tenantId;
+    if (notifyTenantId) {
+      void getEmployedStaffUserIds(notifyTenantId)
+        .then((ids) => notifyInboxRefresh(ids))
+        .catch((e) => console.error('[crew-expense POST] notify', e));
+    }
     notifyCrewGroupsInboxRefresh([gid]);
     res.status(201).json({
       item: {
@@ -556,6 +573,7 @@ router.post('/expenses', crewGroupLeaderFromDb, crewLeaderJwtOnly, expenseUpload
 });
 
 router.delete('/expenses/:expenseId', crewGroupLeaderFromDb, crewLeaderJwtOnly, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
   const gid = crewGroupId(req as unknown as { user: AuthPayload });
   const expenseId = typeof req.params.expenseId === 'string' ? req.params.expenseId.trim() : '';
   if (!expenseId) {
@@ -568,9 +586,16 @@ router.delete('/expenses/:expenseId', crewGroupLeaderFromDb, crewLeaderJwtOnly, 
       res.status(404).json({ error: '지출 내역을 찾을 수 없습니다.' });
       return;
     }
-    void getEmployedStaffUserIds()
-      .then((ids) => notifyInboxRefresh(ids))
-      .catch((e) => console.error('[crew-expense DELETE] notify', e));
+    const notifyTenantId =
+      user.tenantId ??
+      (
+        await prisma.teamCrewGroup.findUnique({ where: { id: gid }, select: { tenantId: true } })
+      )?.tenantId;
+    if (notifyTenantId) {
+      void getEmployedStaffUserIds(notifyTenantId)
+        .then((ids) => notifyInboxRefresh(ids))
+        .catch((e) => console.error('[crew-expense DELETE] notify', e));
+    }
     notifyCrewGroupsInboxRefresh([gid]);
     res.json({ ok: true });
   } catch (e) {

@@ -35,8 +35,8 @@ const MAX_ACTIVE_TEAM_MEMBERS = 2;
 
 function poolMemberInTenantWhere(tenantId: string) {
   return {
+    tenantId,
     teamId: null as null,
-    crewGroupMembers: { some: { group: { tenantId } } },
   };
 }
 
@@ -426,6 +426,7 @@ router.post('/members', async (req, res) => {
     }
     const member = await prisma.teamMember.create({
       data: {
+        tenantId,
         teamId: null,
         name: body.name.trim(),
         phone: body.phone != null && String(body.phone).trim() ? String(body.phone).trim() : null,
@@ -749,6 +750,7 @@ router.post('/:teamId/members', async (req, res) => {
   const nameThTeamRaw = body.nameTh != null ? String(body.nameTh).trim() : '';
   const member = await prisma.teamMember.create({
     data: {
+      tenantId,
       teamId,
       name: body.name.trim(),
       nameTh: nameThTeamRaw ? nameThTeamRaw.slice(0, 128) : null,

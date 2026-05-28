@@ -746,7 +746,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
 
   let rowUsers: { id: string; name: string; email: string; role: string }[] = [];
   if (scope.marketerIds === 'ALL_MARKETERS') {
-    const marketers = await loadMarketerUsers(prisma, scope);
+    const marketers = await loadMarketerUsers(prisma, tenantId, scope);
     const mIds = new Set(marketers.map((m) => m.id));
     const extraIds = new Set<string>();
     for (const uid of spendByUser.keys()) {
@@ -770,7 +770,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
     const extras =
       extraIds.size > 0
         ? await prisma.user.findMany({
-            where: { id: { in: [...extraIds] }, role: 'ADMIN', isActive: true },
+            where: { tenantId, id: { in: [...extraIds] }, role: 'ADMIN', isActive: true },
             select: { id: true, name: true, email: true, role: true },
           })
         : [];

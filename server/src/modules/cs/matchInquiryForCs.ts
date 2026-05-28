@@ -34,13 +34,18 @@ function phonesMatch(a: string, b: string): boolean {
 /**
  * 이름 + 연락처(또는 보조 연락처)가 일치하는 접수 중 최신(createdAt desc) 1건의 id.
  */
-export async function findInquiryIdForCsReport(customerName: string, customerPhone: string): Promise<string | null> {
+export async function findInquiryIdForCsReport(
+  customerName: string,
+  customerPhone: string,
+  tenantId?: string | null,
+): Promise<string | null> {
   const nameNorm = normalizeCustomerName(customerName);
   const phoneDigits = normalizeKrPhoneDigits(customerPhone);
   if (!nameNorm || phoneDigits.length < 4) return null;
 
   const last4 = phoneDigits.slice(-4);
   const where: Prisma.InquiryWhereInput = {
+    ...(tenantId ? { tenantId } : {}),
     OR: [{ customerPhone: { endsWith: last4 } }, { customerPhone2: { endsWith: last4 } }],
   };
 

@@ -1,76 +1,86 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
+import type { AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { getOrCreateEstimateConfig } from '../tenants/tenantConfigSeed.service.js';
 
 const router = Router();
 router.use(authMiddleware);
 
-/** Read estimate defaults (order form UI for admin + marketer) */
-router.get('/config', adminOrMarketer, async (_req, res) => {
-  let config = await prisma.estimateConfig.findFirst();
-  if (!config) {
-    config = await prisma.estimateConfig.create({
-      data: { pricePerPyeong: 5000, depositAmount: 20000 },
-    });
+function requireTenant(req: import('express').Request, res: import('express').Response): string | null {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return null;
   }
+  return tenantId;
+}
+
+/** Read estimate defaults (order form UI for admin + marketer) */
+router.get('/config', adminOrMarketer, async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
+  const config = await getOrCreateEstimateConfig(prisma, tenantId);
   res.json(config);
 });
 
 /** Update estimate defaults — admin only */
 router.put('/config', adminOnly, async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
   const { pricePerPyeong, depositAmount } = req.body as {
     pricePerPyeong?: number;
     depositAmount?: number;
   };
-  let config = await prisma.estimateConfig.findFirst();
-  if (!config) {
-    config = await prisma.estimateConfig.create({
-      data: {
-        pricePerPyeong: pricePerPyeong ?? 5000,
-        depositAmount: depositAmount ?? 20000,
-      },
-    });
-  } else {
-    config = await prisma.estimateConfig.update({
-      where: { id: config.id },
-      data: {
-        ...(pricePerPyeong != null && { pricePerPyeong }),
-        ...(depositAmount != null && { depositAmount }),
-      },
-    });
-  }
+  const existing = await getOrCreateEstimateConfig(prisma, tenantId);
+  const config = await prisma.estimateConfig.update({
+    where: { id: existing.id },
+    data: {
+      ...(pricePerPyeong != null && { pricePerPyeong }),
+      ...(depositAmount != null && { depositAmount }),
+    },
+  });
   res.json(config);
 });
 
 /** Active add-on options only */
-router.get('/options', adminOrMarketer, async (_req, res) => {
+router.get('/options', adminOrMarketer, async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
   const list = await prisma.estimateOption.findMany({
-    where: { isActive: true },
+    where: { tenantId, isActive: true },
     orderBy: { sortOrder: 'asc' },
   });
   res.json({ items: list });
 });
 
 /** All add-on options including inactive */
-router.get('/options/all', adminOrMarketer, async (_req, res) => {
+router.get('/options/all', adminOrMarketer, async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
   const list = await prisma.estimateOption.findMany({
+    where: { tenantId },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
   res.json({ items: list });
 });
 
 router.post('/options', adminOnly, async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
   const { name, extraAmount, sortOrder } = req.body as {
     name: string;
     extraAmount?: number;
     sortOrder?: number;
   };
   if (!name || name.trim() === '') {
-    res.status(400).json({ error: '\uC635\uC158\uBA85\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694.' });
+    res.status(400).json({ error: '옵션명을 입력해주세요.' });
     return;
   }
   const created = await prisma.estimateOption.create({
     data: {
+      tenantId,
       name: name.trim(),
       extraAmount: extraAmount ?? 0,
       sortOrder: sortOrder ?? 0,
@@ -80,8 +90,15 @@ router.post('/options', adminOnly, async (req, res) => {
 });
 
 router.patch('/options/:id', adminOnly, async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
   const { id } = req.params;
   const { name, extraAmount, sortOrder, isActive } = req.body;
+  const existing = await prisma.estimateOption.findFirst({ where: { id, tenantId } });
+  if (!existing) {
+    res.status(404).json({ error: '옵션을 찾을 수 없습니다.' });
+    return;
+  }
   const updated = await prisma.estimateOption.update({
     where: { id },
     data: {
@@ -95,7 +112,14 @@ router.patch('/options/:id', adminOnly, async (req, res) => {
 });
 
 router.delete('/options/:id', adminOnly, async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
   const { id } = req.params;
+  const existing = await prisma.estimateOption.findFirst({ where: { id, tenantId } });
+  if (!existing) {
+    res.status(404).json({ error: '옵션을 찾을 수 없습니다.' });
+    return;
+  }
   await prisma.estimateOption.update({
     where: { id },
     data: { isActive: false },

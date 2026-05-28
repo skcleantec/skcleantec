@@ -7,11 +7,8 @@ export { DEFAULT_CREW_UNITS_PER_INQUIRY };
 /** 테넌트 소속 활성 팀원 — 팀 소속 또는 크루 그룹 풀 */
 export function tenantActiveTeamMemberWhere(tenantId: string): Prisma.TeamMemberWhereInput {
   return {
+    tenantId,
     isActive: true,
-    OR: [
-      { team: { tenantId } },
-      { crewGroupMembers: { some: { group: { tenantId } } } },
-    ],
   };
 }
 

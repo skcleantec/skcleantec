@@ -40,6 +40,7 @@ export type PoolPayrollSheetRowOut = {
  */
 export async function buildPoolMemberPayrollSheetRows(
   prismaClient: PrismaClient,
+  tenantId: string,
   monthKey: string,
   poolMembers: {
     id: string;
@@ -91,6 +92,7 @@ export async function buildPoolMemberPayrollSheetRows(
     for (;;) {
       const batch = await prismaClient.inquiry.findMany({
         where: {
+          tenantId,
           preferredDate: { gte: envBounds.gte, lte: envBounds.lte },
           status: { notIn: ['CANCELLED', 'ON_HOLD'] },
         },

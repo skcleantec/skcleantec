@@ -18,7 +18,8 @@ import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import { csCreatedAtRangeFromQuery } from './csListDateRange.js';
 import type { Prisma } from '@prisma/client';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
-import { DEFAULT_TENANT_ID } from '../tenants/tenant.constants.js';
+import { resolvePublicTenantIdFromRequest } from '../tenants/publicRequestTenant.js';
+import { assertTenantAllowsPublicService, PublicTenantAccessError, publicTenantAccessHttpStatus } from '../tenants/publicTenantAccess.js';
 
 const router = Router();
 
@@ -76,8 +77,23 @@ router.post('/submit', async (req, res) => {
     return;
   }
   const urls = Array.isArray(imageUrls) ? imageUrls : [];
-  const inquiryId = await findInquiryIdForCsReport(customerName.trim(), customerPhone.trim());
-  let tenantId = DEFAULT_TENANT_ID;
+  let submitTenantId: string;
+  try {
+    submitTenantId = await resolvePublicTenantIdFromRequest(req);
+    await assertTenantAllowsPublicService(submitTenantId);
+  } catch (e) {
+    if (e instanceof PublicTenantAccessError) {
+      res.status(publicTenantAccessHttpStatus(e.code)).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+  const inquiryId = await findInquiryIdForCsReport(
+    customerName.trim(),
+    customerPhone.trim(),
+    submitTenantId,
+  );
+  let tenantId = submitTenantId;
   if (inquiryId) {
     const inv = await prisma.inquiry.findUnique({
       where: { id: inquiryId },
@@ -101,7 +117,7 @@ router.post('/submit', async (req, res) => {
     id: report.id,
     ...(inquiryId ? { inquiryId } : {}),
   });
-  void notifyCsReportNavBadges(report.inquiryId);
+  void notifyCsReportNavBadges(report.inquiryId, undefined, report.tenantId);
 });
 
 /** 관리자·마케터: C/S 목록 (접수일 필터·페이지네이션) */
@@ -205,7 +221,7 @@ router.post('/:id/forward', authMiddleware, adminOrMarketer, async (req, res) =>
   void notifyCsReportNavBadges(updated.inquiryId, [
     prevForward,
     updated.forwardedToUserId,
-  ]);
+  ], tenantId);
 });
 
 /** 관리자·마케터: C/S 상세 열람 — 접수(RECEIVED)면 처리중(PROCESSING)으로 자동 전환(미확인 배지 해제) */
@@ -235,7 +251,11 @@ router.post('/:id/acknowledge', authMiddleware, adminOrMarketer, async (req, res
     include: csReportFullInclude,
   });
   res.json(updated);
-  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : []);
+  void notifyCsReportNavBadges(
+    updated.inquiryId,
+    updated.forwardedToUserId ? [updated.forwardedToUserId] : [],
+    tenantId,
+  );
 });
 
 /** 관리자·마케터: C/S 상세 */
@@ -289,9 +309,13 @@ router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
     include: csReportFullInclude,
   });
   res.json(updated);
-  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : []);
+  void notifyCsReportNavBadges(
+    updated.inquiryId,
+    updated.forwardedToUserId ? [updated.forwardedToUserId] : [],
+    tenantId,
+  );
   if (Object.prototype.hasOwnProperty.call(built.data, 'asServiceDate')) {
-    void getEmployedStaffUserIds().then((ids) => notifyInboxRefresh(ids));
+    void getEmployedStaffUserIds(tenantId).then((ids) => notifyInboxRefresh(ids));
   }
 });
 
@@ -305,6 +329,11 @@ router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
     return;
   }
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
   if (!dbUser) {
     res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
@@ -316,9 +345,9 @@ router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
     return;
   }
 
-  const existing = await prisma.csReport.findUnique({
-    where: { id },
-    select: { id: true, inquiryId: true, forwardedToUserId: true },
+  const existing = await prisma.csReport.findFirst({
+    where: { id, tenantId },
+    select: { id: true, inquiryId: true, forwardedToUserId: true, tenantId: true },
   });
   if (!existing) {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
@@ -326,7 +355,11 @@ router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
   }
 
   await prisma.csReport.delete({ where: { id } });
-  void notifyCsReportNavBadges(existing.inquiryId, existing.forwardedToUserId ? [existing.forwardedToUserId] : []);
+  void notifyCsReportNavBadges(
+    existing.inquiryId,
+    existing.forwardedToUserId ? [existing.forwardedToUserId] : [],
+    existing.tenantId,
+  );
   res.json({ ok: true });
 });
 

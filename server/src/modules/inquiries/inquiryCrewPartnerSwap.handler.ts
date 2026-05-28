@@ -235,7 +235,7 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
   for (const x of b.assignments) leaderIds.add(x.teamLeaderId);
   notifyInboxRefresh([...leaderIds]);
 
-  void notifyAllActiveCrewGroupsRefresh().catch((e) => console.error('[crew-field-notify]', e));
+  void notifyAllActiveCrewGroupsRefresh(a.tenantId).catch((e) => console.error('[crew-field-notify]', e));
 
   const swapPairMsg =
     (aChanged || bChanged)
@@ -243,7 +243,7 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
       : null;
 
   if (swapPairMsg) {
-    void notifyAllActiveCrewRosterAck(swapPairMsg).catch((e) => console.error('[crew-roster-ack]', e));
+    void notifyAllActiveCrewRosterAck(a.tenantId, swapPairMsg).catch((e) => console.error('[crew-roster-ack]', e));
   }
   if (aChanged && swapPairMsg) {
     notifyTeamLeaderUsersRosterAck(

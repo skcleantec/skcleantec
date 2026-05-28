@@ -24,6 +24,8 @@ import {
   validateCrewMeetingTimeForInquiry,
 } from '../inquiries/crewMeetingTime.helpers.js';
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
+import { tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { countPendingIssuancesForTeamLeader, listIssuancesByTeamLeader, parseEContractListQuery } from '../e-contract/eContract.service.js';
 import {
   listTeamAssignmentsPaginated,
@@ -144,8 +146,18 @@ function parseCrewNames(note: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
+async function resolveTeamContextTenantId(user: AuthPayload): Promise<string | null> {
+  if (user.tenantId) return user.tenantId;
+  const row = await prisma.user.findUnique({
+    where: { id: user.userId },
+    select: { tenantId: true },
+  });
+  return row?.tenantId ?? null;
+}
+
 async function attachCrewMembers<T extends { crewMemberNote: string | null }>(
   items: T[],
+  tenantId: string,
 ): Promise<Array<T & { crewMembers: Array<{ name: string; phone: string | null }> }>> {
   const allNames = new Set<string>();
   for (const it of items) {
@@ -155,7 +167,10 @@ async function attachCrewMembers<T extends { crewMemberNote: string | null }>(
     return items.map((it) => ({ ...it, crewMembers: [] }));
   }
   const members = await prisma.teamMember.findMany({
-    where: { name: { in: Array.from(allNames) }, isActive: true },
+    where: {
+      name: { in: Array.from(allNames) },
+      ...tenantActiveTeamMemberWhere(tenantId),
+    },
     select: { name: true, phone: true, sortOrder: true, createdAt: true },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
@@ -177,12 +192,13 @@ async function attachCrewMembers<T extends { crewMemberNote: string | null }>(
 
 async function attachCrewMembersOne<T extends { crewMemberNote: string | null } | null>(
   item: T,
+  tenantId: string,
 ): Promise<
   | (Exclude<T, null> & { crewMembers: Array<{ name: string; phone: string | null }> })
   | null
 > {
   if (!item) return null;
-  const [enriched] = await attachCrewMembers([item]);
+  const [enriched] = await attachCrewMembers([item], tenantId);
   return enriched as Exclude<T, null> & {
     crewMembers: Array<{ name: string; phone: string | null }>;
   };
@@ -305,7 +321,7 @@ router.post('/cs/:id/acknowledge', async (req, res) => {
     include: csReportFullInclude,
   });
   res.json(updated);
-  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : []);
+  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : [], report.tenantId);
 });
 
 /** 담당 C/S 수정 — 접수·처리중·완료만 (RECEIVED로는 변경 불가) */
@@ -352,9 +368,9 @@ router.patch('/cs/:id', async (req, res) => {
     include: csReportFullInclude,
   });
   res.json(updated);
-  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : []);
+  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : [], updated.tenantId);
   if (Object.prototype.hasOwnProperty.call(built.data, 'asServiceDate')) {
-    void getEmployedStaffUserIds().then((ids) => notifyInboxRefresh(ids));
+    void getEmployedStaffUserIds(updated.tenantId).then((ids) => notifyInboxRefresh(ids));
   }
 });
 
@@ -448,7 +464,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       where: { id },
       include: teamInquiryInclude,
     });
-    res.json(await attachCrewMembersOne(unchanged));
+    res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId));
     return;
   }
 
@@ -470,7 +486,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       include: teamInquiryInclude,
     });
   });
-  res.json(await attachCrewMembersOne(updated));
+  res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
 });
 
 /** 팀장: 오전 희망 접수일 때만 크루 현장 일정에 노출할 미팅 시각(KST, HH:mm) */
@@ -490,6 +506,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
       },
       select: {
         id: true,
+        tenantId: true,
         customerName: true,
         status: true,
         preferredTime: true,
@@ -521,7 +538,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         where: { id },
         include: teamInquiryInclude,
       });
-      res.json(await attachCrewMembersOne(unchanged));
+      res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId));
       return;
     }
     const fmt = (v: string | null) => v ?? '(미지정)';
@@ -546,11 +563,11 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         include: teamInquiryInclude,
       });
     });
-    void notifyAllActiveCrewGroupsRefresh().catch((e) => console.error('[crew-meeting-time] crew refresh', e));
-    void notifyCsReportNavBadges(id).catch((e) =>
+    void notifyAllActiveCrewGroupsRefresh(inquiry.tenantId).catch((e) => console.error('[crew-meeting-time] crew refresh', e));
+    void notifyCsReportNavBadges(id, undefined, inquiry.tenantId).catch((e) =>
       console.error('[crew-meeting-time] staff/leaders nav refresh', e),
     );
-    res.json(await attachCrewMembersOne(updated));
+    res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
   } catch (e: unknown) {
     console.error('[PATCH /team/inquiries/:id/crew-meeting-time]', e);
     const msg = e instanceof Error ? e.message : String(e);
@@ -642,7 +659,13 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
 });
 
 router.get('/inquiries', async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId } = user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const hasPaging = typeof req.query.limit === 'string';
   if (!hasPaging) {
     const rows = await prisma.inquiry.findMany({
@@ -654,7 +677,7 @@ router.get('/inquiries', async (req, res) => {
       orderBy: { preferredDate: 'asc' },
       include: teamInquiryInclude,
     });
-    const items = await attachCrewMembers(rows);
+    const items = await attachCrewMembers(rows, tenantId);
     res.json({ items });
     return;
   }
@@ -662,7 +685,7 @@ router.get('/inquiries', async (req, res) => {
     const parsed = parseTeamAssignmentListQuery(req.query as Record<string, unknown>);
     const { items, total } = await listTeamAssignmentsPaginated(prisma, userId, parsed, {
       teamInquiryInclude,
-      attachCrewMembers,
+      attachCrewMembers: (rows) => attachCrewMembers(rows, tenantId),
     });
     res.json({ items, total });
   } catch (e) {
@@ -672,7 +695,13 @@ router.get('/inquiries', async (req, res) => {
 });
 
 router.get('/schedule', async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId } = user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { start, end } = req.query as { start?: string; end?: string };
   const now = new Date();
   let startDate: Date;
@@ -701,7 +730,7 @@ router.get('/schedule', async (req, res) => {
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     include: teamInquiryInclude,
   });
-  const items = await attachCrewMembers(rows);
+  const items = await attachCrewMembers(rows, tenantId);
   res.json({ items });
 });
 
@@ -716,6 +745,13 @@ router.get('/external-settlement', async (req, res) => {
   const previewStaff = user.role === 'ADMIN' || user.role === 'MARKETER';
   if (user.role !== 'EXTERNAL_PARTNER' && !previewStaff) {
     res.status(403).json({ error: '타업체 계정(또는 개발자 프리뷰)만 접근할 수 있습니다.' });
+    return;
+  }
+  const routeTenantId = previewStaff
+    ? getTenantIdFromAuth(user) ?? (await resolveTeamContextTenantId(user))
+    : await resolveTeamContextTenantId(user);
+  if (!routeTenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
   const queryCompanyId = typeof req.query.externalCompanyId === 'string'
@@ -739,25 +775,25 @@ router.get('/external-settlement', async (req, res) => {
   } else if (previewStaff) {
     let company = queryCompanyId
       ? await prisma.externalCompany.findFirst({
-          where: { id: queryCompanyId, isActive: true },
+          where: { id: queryCompanyId, isActive: true, tenantId: routeTenantId },
           select: { id: true, name: true },
         })
       : null;
     if (!company && queryCompanyName) {
       company = await prisma.externalCompany.findFirst({
-        where: { isActive: true, name: queryCompanyName },
+        where: { isActive: true, name: queryCompanyName, tenantId: routeTenantId },
         select: { id: true, name: true },
       });
     }
     if (!company && !queryCompanyName) {
       company = await prisma.externalCompany.findFirst({
-        where: { isActive: true, name: '클린느' },
+        where: { isActive: true, name: '클린느', tenantId: routeTenantId },
         select: { id: true, name: true },
       });
     }
     if (!company) {
       company = await prisma.externalCompany.findFirst({
-        where: { isActive: true },
+        where: { isActive: true, tenantId: routeTenantId },
         orderBy: { name: 'asc' },
         select: { id: true, name: true },
       });
@@ -782,6 +818,7 @@ router.get('/external-settlement', async (req, res) => {
 
   const activeRows = await prisma.inquiry.findMany({
     where: {
+      tenantId: routeTenantId,
       externalTransferFee: { not: null },
       preferredDate: { gte: from, lte: to },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
@@ -820,6 +857,7 @@ router.get('/external-settlement', async (req, res) => {
 
   const cancelledRows = await prisma.inquiry.findMany({
     where: {
+      tenantId: routeTenantId,
       status: 'CANCELLED',
       externalTransferFee: { not: null },
       preferredDate: { gte: from, lte: to },

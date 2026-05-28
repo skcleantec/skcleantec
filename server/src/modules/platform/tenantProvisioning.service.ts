@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import type { Prisma, TenantStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { ensureMissingProfessionalDefaults } from '../orderform/defaultProfessionalOptions.js';
+import { seedTenantDefaults } from '../tenants/tenantConfigSeed.service.js';
 import {
   isKnownFeatureModuleId,
   modulesForPlan,
@@ -88,28 +88,13 @@ export async function provisionTenant(input: ProvisionTenantInput) {
       select: { id: true, email: true, name: true },
     });
 
-    await seedSharedConfigsIfEmpty(tx);
+    await seedTenantDefaults(tx, tenant.id, tenant.name);
     await ensureDefaultAdChannelsForTenant(tx, tenant.id);
 
     return { tenant, admin };
   });
 
-  await ensureMissingProfessionalDefaults(prisma);
-
   return result;
-}
-
-async function seedSharedConfigsIfEmpty(tx: Prisma.TransactionClient) {
-  const formConfig = await tx.orderFormConfig.findFirst();
-  if (!formConfig) {
-    await tx.orderFormConfig.create({ data: {} });
-  }
-  const estimateConfig = await tx.estimateConfig.findFirst();
-  if (!estimateConfig) {
-    await tx.estimateConfig.create({
-      data: { pricePerPyeong: 15000, depositAmount: 20000 },
-    });
-  }
 }
 
 export async function listTenantsForPlatform() {

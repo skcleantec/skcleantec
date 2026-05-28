@@ -17,22 +17,25 @@ export function notifyCrewGroupsInboxRefresh(crewGroupIds: string[]): void {
   notifyInboxRefresh(ids.map((id) => `crew:${id}`));
 }
 
-/** 접수·배정·명단 변경 시 크루 화면이 GET을 다시 하도록 — 활성 크루 그룹 전부에 신호 */
-export async function notifyAllActiveCrewGroupsRefresh(): Promise<void> {
+/** 접수·배정·명단 변경 시 크루 화면이 GET을 다시 하도록 — 해당 테넌트 활성 크루 그룹에 신호 */
+export async function notifyAllActiveCrewGroupsRefresh(tenantId: string): Promise<void> {
   const rows = await prisma.teamCrewGroup.findMany({
-    where: { isActive: true },
+    where: { tenantId, isActive: true },
     select: { id: true },
   });
   notifyCrewGroupsInboxRefresh(rows.map((r) => r.id));
 }
 
-/** 현장 팀원 구성 변경(미팅 시각 초기화 등) — 활성 크루 그룹 상단 확인 팝업 */
-export async function notifyAllActiveCrewRosterAck(messages: {
-  messageKo: string;
-  messageTh: string;
-}): Promise<void> {
+/** 현장 팀원 구성 변경(미팅 시각 초기화 등) — 해당 테넌트 활성 크루 그룹 상단 확인 팝업 */
+export async function notifyAllActiveCrewRosterAck(
+  tenantId: string,
+  messages: {
+    messageKo: string;
+    messageTh: string;
+  },
+): Promise<void> {
   const rows = await prisma.teamCrewGroup.findMany({
-    where: { isActive: true },
+    where: { tenantId, isActive: true },
     select: { id: true },
   });
   const payload: RosterAckPayload = { type: 'inquiry:rosterAck', ...messages };

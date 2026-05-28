@@ -67,6 +67,11 @@ model Tenant {
   eContractIssuerProfiles EContractIssuerProfile[]
   eContractFieldDefinitions EContractFieldDefinition[]
   eContractDefinitions EContractDefinition[]
+  teamMembers TeamMember[]
+  orderFormConfigs OrderFormConfig[]
+  estimateConfigs EstimateConfig[]
+  estimateOptions EstimateOption[]
+  professionalSpecialtyOptions ProfessionalSpecialtyOption[]
 
   @@map("tenants")
 }
@@ -294,6 +299,8 @@ model Team {
 
 model TeamMember {
   id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   /// null이면 팀장 소속 없이 전사 풀 팀원
   teamId    String?  @map("team_id")
   name      String
@@ -320,6 +327,7 @@ model TeamMember {
   payrollSettlements TeamMemberPayrollSettlement[]
   payrollLedgerManualExpenseTargets PayrollAccountLedgerManualEntry[]
 
+  @@index([tenantId, isActive])
   @@map("team_members")
 }
 
@@ -889,9 +897,11 @@ model ScheduleDayTeamMemberSlot {
 /// - 루트+!`isGroup`+자식 없음: 기존 단일 옵션과 동일(고객이 직접 체크)
 /// - `parentId`가 있으면 상세 옵션이며 `priceAmount`로 가격(원) 설정 가능
 model ProfessionalSpecialtyOption {
-  id        String  @id
+  tenantId  String  @map("tenant_id")
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id        String
   parentId  String? @map("parent_id")
-  parent    ProfessionalSpecialtyOption?  @relation("ProfSpecTree", fields: [parentId], references: [id], onDelete: Cascade)
+  parent    ProfessionalSpecialtyOption?  @relation("ProfSpecTree", fields: [tenantId, parentId], references: [tenantId, id], onDelete: Cascade)
   children  ProfessionalSpecialtyOption[]  @relation("ProfSpecTree")
   /// 루트(`parentId` null)에서만 사용. true면 대분류(섹션), 고객은 하위 항목만 선택
   isGroup   Boolean @default(false) @map("is_group")
@@ -905,7 +915,8 @@ model ProfessionalSpecialtyOption {
   isActive  Boolean @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@index([parentId, sortOrder])
+  @@id([tenantId, id])
+  @@index([tenantId, parentId, sortOrder])
   @@map("professional_specialty_options")
 }
 
@@ -927,6 +938,8 @@ model InquiryChangeLog {
 
 model EstimateConfig {
   id             String   @id @default(uuid())
+  tenantId       String   @unique @map("tenant_id")
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   pricePerPyeong Int      @map("price_per_pyeong")
   depositAmount  Int      @default(20000) @map("deposit_amount")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -936,17 +949,22 @@ model EstimateConfig {
 
 model EstimateOption {
   id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   extraAmount Int      @map("extra_amount")
   sortOrder   Int      @default(0) @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  @@index([tenantId, isActive])
   @@map("estimate_options")
 }
 
 model OrderFormConfig {
   id                  String   @id @default(uuid())
+  tenantId            String   @unique @map("tenant_id")
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   formTitle           String   @default("SK클린텍 입주청소 발주서") @map("form_title")
   priceLabel          String?  @default("(특가)") @map("price_label")
   reviewEventText     String?  @map("review_event_text")

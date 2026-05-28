@@ -632,7 +632,7 @@ router.patch('/:id', async (req, res) => {
 
   if (body.professionalOptionIds !== undefined) {
     const raw = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
-    data.professionalOptionIds = await filterExistingProfessionalOptionIds(prisma, raw);
+    data.professionalOptionIds = await filterExistingProfessionalOptionIds(prisma, tenantId, raw);
   }
   if (data.crewMemberCount !== undefined && data.crewMemberCount !== null) {
     const n = Number(data.crewMemberCount);
@@ -932,7 +932,7 @@ router.patch('/:id', async (req, res) => {
       }
     });
     if (createdCsReport) {
-      void notifyCsReportNavBadges(id);
+      void notifyCsReportNavBadges(id, undefined, tenantId);
     }
     if (wantsTeamSync) {
       const leaderIds = new Set<string>();
@@ -982,10 +982,10 @@ router.patch('/:id', async (req, res) => {
     data.status !== undefined ||
     wantsTeamSync;
   if (crewFieldNotify) {
-    void notifyAllActiveCrewGroupsRefresh().catch((e) => console.error('[crew-field-notify]', e));
+    void notifyAllActiveCrewGroupsRefresh(tenantId).catch((e) => console.error('[crew-field-notify]', e));
   }
   if (crewRosterAckMessages) {
-    void notifyAllActiveCrewRosterAck(crewRosterAckMessages).catch((e) =>
+    void notifyAllActiveCrewRosterAck(tenantId, crewRosterAckMessages).catch((e) =>
       console.error('[crew-roster-ack]', e),
     );
     const rosterLeaderIds = updated.assignments.map((a) => a.teamLeaderId);

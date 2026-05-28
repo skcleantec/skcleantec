@@ -135,7 +135,7 @@ router.post('/', async (req, res) => {
   void notifyNewAssignmentForInquiry(inquiryId, [teamLeaderId], [...prevLeaderSet]).catch((e) =>
     console.error('[assignment-notify] notifyNewAssignmentForInquiry', e)
   );
-  void notifyAllActiveCrewGroupsRefresh().catch((e) =>
+  void notifyAllActiveCrewGroupsRefresh(tenantId).catch((e) =>
     console.error('[assignment-notify] notifyAllActiveCrewGroupsRefresh', e)
   );
 

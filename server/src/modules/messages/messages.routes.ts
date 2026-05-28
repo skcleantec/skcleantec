@@ -22,6 +22,7 @@ async function resolveTeamPreviewExternalActor(
     req.query.previewRole === 'external' && (user.role === 'ADMIN' || user.role === 'MARKETER');
   if (!previewExternal) return user;
 
+  const tenantId = user.tenantId ?? null;
   const externalCompanyId =
     typeof req.query.externalCompanyId === 'string' ? req.query.externalCompanyId.trim() : '';
   const externalNameRaw =
@@ -31,9 +32,10 @@ async function resolveTeamPreviewExternalActor(
     where: {
       role: 'EXTERNAL_PARTNER',
       isActive: true,
+      ...(tenantId ? { tenantId } : {}),
       ...(externalCompanyId
         ? { externalCompanyId }
-        : { externalCompany: { is: { name: externalName } } }),
+        : { externalCompany: { is: { name: externalName, ...(tenantId ? { tenantId } : {}) } } }),
     },
     orderBy: { createdAt: 'asc' },
     select: { id: true, email: true },
