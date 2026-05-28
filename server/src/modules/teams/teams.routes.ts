@@ -318,90 +318,99 @@ function parseTeamMemberPayFields(body: Record<string, unknown>): {
 }
 
 router.get('/members', async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
-  if (!tenantId) return;
+  try {
+    const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+    if (!tenantId) return;
 
-  const dateRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
-  const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
+    const dateRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
+    const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
+    const lite = req.query.lite === '1' || req.query.lite === 'true';
 
-  const members = await prisma.teamMember.findMany({
-    where: poolMemberListInTenantWhere(tenantId),
-    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    include: { _count: { select: { dayOffs: true } } },
-  });
+    const members = await prisma.teamMember.findMany({
+      where: poolMemberListInTenantWhere(tenantId),
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      include: { _count: { select: { dayOffs: true } } },
+    });
 
-  const distinctPayDays = [
-    ...new Set(
-      members
-        .map((x) => x.monthlyPayDay)
-        .filter((d): d is number => d != null && d >= 1 && d <= 31),
-    ),
-  ].sort((a, b) => a - b);
+    type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
+    const inquiriesByPayDay = new Map<number, CycleCache>();
 
-  type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
-  const inquiriesByPayDay = new Map<number, CycleCache>();
-  await Promise.all(
-    distinctPayDays.map(async (payDay) => {
-      const { startYmd, endYmd } = payrollCycleBoundsKst(payDay);
-      const bounds = payrollCyclePreferredDateWhere(startYmd, endYmd);
-      const inquiries = await prisma.inquiry.findMany({
-        where: {
-          tenantId,
-          preferredDate: { gte: bounds.gte, lte: bounds.lte },
-          status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-        },
-        select: { crewMemberNote: true },
-      });
-      inquiriesByPayDay.set(payDay, { startYmd, endYmd, inquiries });
-    }),
-  );
+    if (!lite) {
+      const distinctPayDays = [
+        ...new Set(
+          members
+            .map((x) => x.monthlyPayDay)
+            .filter((d): d is number => d != null && d >= 1 && d <= 31),
+        ),
+      ].sort((a, b) => a - b);
 
-  let items = members.map((m) => {
-    let payCycleJobCount: number | null = null;
-    let payCycleStartYmd: string | null = null;
-    let payCycleEndYmd: string | null = null;
-    if (m.monthlyPayDay != null) {
-      const cached = inquiriesByPayDay.get(m.monthlyPayDay);
-      if (cached) {
-        payCycleStartYmd = cached.startYmd;
-        payCycleEndYmd = cached.endYmd;
-        payCycleJobCount = cached.inquiries.filter((inq) =>
-          crewMemberNoteIncludesTeamMember(inq.crewMemberNote, m),
-        ).length;
+      await Promise.all(
+        distinctPayDays.map(async (payDay) => {
+          const { startYmd, endYmd } = payrollCycleBoundsKst(payDay);
+          const bounds = payrollCyclePreferredDateWhere(startYmd, endYmd);
+          const inquiries = await prisma.inquiry.findMany({
+            where: {
+              tenantId,
+              preferredDate: { gte: bounds.gte, lte: bounds.lte },
+              status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+            },
+            select: { crewMemberNote: true },
+          });
+          inquiriesByPayDay.set(payDay, { startYmd, endYmd, inquiries });
+        }),
+      );
+    }
+
+    let items = members.map((m) => {
+      let payCycleJobCount: number | null = null;
+      let payCycleStartYmd: string | null = null;
+      let payCycleEndYmd: string | null = null;
+      if (!lite && m.monthlyPayDay != null) {
+        const cached = inquiriesByPayDay.get(m.monthlyPayDay);
+        if (cached) {
+          payCycleStartYmd = cached.startYmd;
+          payCycleEndYmd = cached.endYmd;
+          payCycleJobCount = cached.inquiries.filter((inq) =>
+            crewMemberNoteIncludesTeamMember(inq.crewMemberNote, m),
+          ).length;
+        }
+      }
+      return {
+        id: m.id,
+        name: m.name,
+        nameTh: m.nameTh,
+        phone: m.phone,
+        sortOrder: m.sortOrder,
+        isActive: m.isActive,
+        monthlyPayDay: m.monthlyPayDay,
+        payAmountPerJob: m.payAmountPerJob,
+        createdAt: m.createdAt.toISOString(),
+        dayOffCount: m._count.dayOffs,
+        staffIdCardUrl: m.staffIdCardUrl ?? null,
+        payCycleJobCount,
+        payCycleStartYmd,
+        payCycleEndYmd,
+      };
+    });
+
+    if (preferredDate) {
+      const hasDailyRosterAgg =
+        (await prisma.teamCrewGroupMember.count({
+          where: { group: { tenantId, isActive: true, useDailyRosterOnly: true } },
+        })) > 0;
+      if (hasDailyRosterAgg) {
+        const crewMemberIds = new Set(members.map((m) => m.id));
+        const pickableRaw = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate, tenantId);
+        const pickable = new Set([...pickableRaw].filter((id) => crewMemberIds.has(id)));
+        items = items.filter((row) => pickable.has(row.id));
       }
     }
-    return {
-      id: m.id,
-      name: m.name,
-      nameTh: m.nameTh,
-      phone: m.phone,
-      sortOrder: m.sortOrder,
-      isActive: m.isActive,
-      monthlyPayDay: m.monthlyPayDay,
-      payAmountPerJob: m.payAmountPerJob,
-      createdAt: m.createdAt.toISOString(),
-      dayOffCount: m._count.dayOffs,
-      staffIdCardUrl: m.staffIdCardUrl ?? null,
-      payCycleJobCount,
-      payCycleStartYmd,
-      payCycleEndYmd,
-    };
-  });
 
-  if (preferredDate) {
-    const hasDailyRosterAgg =
-      (await prisma.teamCrewGroupMember.count({
-        where: { group: { tenantId, isActive: true, useDailyRosterOnly: true } },
-      })) > 0;
-    if (hasDailyRosterAgg) {
-      const crewMemberIds = new Set(members.map((m) => m.id));
-      const pickableRaw = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate, tenantId);
-      const pickable = new Set([...pickableRaw].filter((id) => crewMemberIds.has(id)));
-      items = items.filter((row) => pickable.has(row.id));
-    }
+    res.json({ items });
+  } catch (e) {
+    console.error('[GET /teams/members]', e);
+    res.status(500).json({ error: '팀원 목록을 불러오지 못했습니다. DB 마이그레이션이 필요할 수 있습니다.' });
   }
-
-  res.json({ items });
 });
 
 router.post('/members', async (req, res) => {

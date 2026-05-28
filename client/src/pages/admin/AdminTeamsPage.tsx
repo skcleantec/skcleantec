@@ -155,12 +155,16 @@ export function AdminTeamsPage() {
     if (!token) return;
     setApiError(null);
     try {
-      const pool = await getPoolTeamMembers(token);
+      const pool = await getPoolTeamMembers(token, null, { lite: true });
       setMembers(pool.items);
+      setLoading(false);
+      void getPoolTeamMembers(token, null, { lite: false })
+        .then((full) => setMembers(full.items))
+        .catch(() => {
+          /* 급여주기 집계만 실패 — 목록은 lite로 이미 표시 */
+        });
     } catch (e) {
-      /* 목록을 비우지 않음: 직전 등록 성공 후 새로고침만 실패해도 데이터가 사라지지 않게 */
       setApiError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
-    } finally {
       setLoading(false);
     }
   };

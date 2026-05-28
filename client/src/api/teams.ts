@@ -76,15 +76,40 @@ export async function getCrewLeaderMemberSpacing(
   return res.json();
 }
 
+export type GetPoolTeamMembersOptions = {
+  /** true(기본): 급여주기 접수 집계 생략 — 목록·드롭다운용 빠른 응답 */
+  lite?: boolean;
+};
+
 export async function getPoolTeamMembers(
   token: string,
-  preferredDate?: string | null
+  preferredDate?: string | null,
+  opts?: GetPoolTeamMembersOptions,
 ): Promise<{ items: TeamMemberItem[] }> {
-  const q =
-    preferredDate && /^\d{4}-\d{2}-\d{2}$/.test(preferredDate.trim())
-      ? `?preferredDate=${encodeURIComponent(preferredDate.trim())}`
-      : '';
-  const res = await fetch(`${API}/teams/members${q}`, { headers: headers(token) });
+  const params = new URLSearchParams();
+  if (preferredDate && /^\d{4}-\d{2}-\d{2}$/.test(preferredDate.trim())) {
+    params.set('preferredDate', preferredDate.trim());
+  }
+  if (opts?.lite !== false) {
+    params.set('lite', '1');
+  }
+  const q = params.toString() ? `?${params.toString()}` : '';
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 45_000);
+  let res: Response;
+  try {
+    res = await fetch(`${API}/teams/members${q}`, {
+      headers: headers(token),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new Error('팀원 목록 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
+    }
+    throw e;
+  } finally {
+    window.clearTimeout(timer);
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '팀 미배정 팀원 목록을 불러올 수 없습니다.');
