@@ -39,6 +39,7 @@ import {
   requiresMoveInDateOrUndecided,
 } from '../../constants/orderFormBuilding';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
+import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
@@ -55,6 +56,16 @@ const PROPERTY_TYPE_OPTIONS = [
 
 const AREA_BASIS_COST_WARNING =
   '잘못된 평수기입으로 인한 서비스비용변동은 책임지지 않습니다.';
+
+function isOrderFormAreaLockedFromOrder(order: {
+  areaBasis?: string | null;
+  areaPyeong?: number | null;
+} | null): boolean {
+  if (!order) return false;
+  const basis = order.areaBasis?.trim();
+  if (basis !== '공급' && basis !== '전용') return false;
+  return order.areaPyeong != null && Number.isFinite(order.areaPyeong) && order.areaPyeong > 0;
+}
 
 export function OrderFormPage() {
   const { token } = useParams<{ token: string }>();
@@ -114,6 +125,8 @@ export function OrderFormPage() {
     preferredDate: string | null;
     preferredTime: string | null;
     preferredTimeDetail: string | null;
+    areaPyeong?: number | null;
+    areaBasis?: string | null;
     formConfig?: {
       formTitle?: string;
       priceLabel?: string | null;
@@ -245,9 +258,15 @@ export function OrderFormPage() {
           preferredDate: data.preferredDate ?? null,
           preferredTime: data.preferredTime ?? null,
           preferredTimeDetail: data.preferredTimeDetail ?? null,
+          areaPyeong: data.areaPyeong ?? null,
+          areaBasis: data.areaBasis ?? null,
           formConfig: data.formConfig,
         });
         const p = data.pendingInquiry;
+        const areaLockedOnIssue = isOrderFormAreaLockedFromOrder({
+          areaBasis: data.areaBasis,
+          areaPyeong: data.areaPyeong,
+        });
         const issuedPhone = (data.customerPhone ?? '').trim();
         setForm((f) => ({
           ...f,
@@ -257,22 +276,26 @@ export function OrderFormPage() {
           address: p?.address ?? '',
           addressDetail: p?.addressDetail ?? '',
           propertyType: p?.propertyType ?? '',
-          areaBasis: p?.areaBasis ?? '',
-          areaPyeong: (() => {
-            const basis = (p?.areaBasis ?? '').trim();
-            if (basis === '공급') {
-              return p?.areaPyeong != null && Number.isFinite(p.areaPyeong) ? String(p.areaPyeong) : '';
-            }
-            if (basis === '전용') {
-              if (p?.areaPyeong != null && Number.isFinite(p.areaPyeong)) return String(p.areaPyeong);
-              if (p?.exclusiveAreaSqm != null && Number.isFinite(p.exclusiveAreaSqm)) {
-                const py = p.exclusiveAreaSqm / 3.305785;
-                return String(Math.round(py * 100) / 100);
-              }
-              return '';
-            }
-            return p?.areaPyeong != null ? String(p.areaPyeong) : '';
-          })(),
+          areaBasis: areaLockedOnIssue
+            ? String(data.areaBasis).trim()
+            : (p?.areaBasis ?? ''),
+          areaPyeong: areaLockedOnIssue
+            ? String(data.areaPyeong)
+            : (() => {
+                const basis = (p?.areaBasis ?? '').trim();
+                if (basis === '공급') {
+                  return p?.areaPyeong != null && Number.isFinite(p.areaPyeong) ? String(p.areaPyeong) : '';
+                }
+                if (basis === '전용') {
+                  if (p?.areaPyeong != null && Number.isFinite(p.areaPyeong)) return String(p.areaPyeong);
+                  if (p?.exclusiveAreaSqm != null && Number.isFinite(p.exclusiveAreaSqm)) {
+                    const py = p.exclusiveAreaSqm / 3.305785;
+                    return String(Math.round(py * 100) / 100);
+                  }
+                  return '';
+                }
+                return p?.areaPyeong != null ? String(p.areaPyeong) : '';
+              })(),
           exclusiveAreaSqm: '',
           preferredDate: p?.preferredDate ?? data.preferredDate ?? kstTodayYmd(),
           preferredTime: p?.preferredTime ?? data.preferredTime ?? '',
@@ -333,12 +356,16 @@ export function OrderFormPage() {
       if (!form.customerPhone?.trim()) throw new Error('대표 전화번호를 입력해주세요.');
       if (!form.customerPhoneSecondary?.trim()) throw new Error('보조 전화번호를 입력해주세요.');
       if (!form.propertyType) throw new Error('건축물 유형을 선택해주세요.');
-      if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
-        throw new Error('면적 기준으로 공급면적 또는 전용면적을 선택해주세요.');
-      }
+      const areaLockedByAdmin = isOrderFormAreaLockedFromOrder(order);
       let submitAreaPyeong: number | null = null;
       let submitExclusiveSqm: number | null = null;
-      if (form.areaBasis === '공급') {
+      let submitAreaBasis = form.areaBasis;
+      if (areaLockedByAdmin) {
+        submitAreaPyeong = order!.areaPyeong!;
+        submitAreaBasis = String(order!.areaBasis).trim();
+      } else if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
+        throw new Error('면적 기준으로 공급면적 또는 전용면적을 선택해주세요.');
+      } else if (form.areaBasis === '공급') {
         const area = parseFloat(form.areaPyeong.replace(/,/g, '').trim());
         if (Number.isNaN(area) || area <= 0) {
           throw new Error('공급면적(분양평수)을 평 단위로 입력해 주세요.');
@@ -399,7 +426,7 @@ export function OrderFormPage() {
         customerPhone: form.customerPhone.trim(),
         customerPhone2: form.customerPhoneSecondary.trim(),
         areaPyeong: submitAreaPyeong,
-        areaBasis: form.areaBasis,
+        areaBasis: submitAreaBasis,
         exclusiveAreaSqm: submitExclusiveSqm,
         propertyType: form.propertyType,
         preferredDate: useDate,
@@ -477,6 +504,7 @@ export function OrderFormPage() {
   const radioLabelCls = 'inline-flex items-center gap-2 cursor-pointer';
   const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
   const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
+  const areaLockedByAdmin = isOrderFormAreaLockedFromOrder(order);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -602,6 +630,15 @@ export function OrderFormPage() {
               ))}
             </div>
             <p className="text-xs font-medium text-gray-700 mt-4 mb-2">면적 기준 (하나 선택) *</p>
+            {areaLockedByAdmin ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
+                {formatInquiryAreaKoLine({
+                  areaBasis: order!.areaBasis,
+                  areaPyeong: order!.areaPyeong,
+                })}{' '}
+                <span className="text-xs text-gray-500">(관리자 지정·수정 불가)</span>
+              </div>
+            ) : (
             <div className="flex flex-col gap-3" role="radiogroup" aria-label="면적 기준">
               <div
                 className={`rounded-lg border px-3 py-3 ${
@@ -682,10 +719,13 @@ export function OrderFormPage() {
                 </div>
               </div>
             </div>
+            )}
+            {!areaLockedByAdmin ? (
             <p className="text-xs text-gray-600 mt-2 leading-relaxed">
               공급·전용 모두 <span className="font-medium text-gray-800">평</span> 단위로 적어 주세요. 등기·계약서가 ㎡만
               표기된 경우에는 평으로 환산한 뒤 입력해 주세요. 복층은 층별로 기재해 주세요.
             </p>
+            ) : null}
           </div>
 
           <div>

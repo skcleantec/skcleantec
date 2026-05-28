@@ -34,6 +34,10 @@ import {
   withDefaultText,
 } from '../../utils/orderFormCustomerCopy';
 import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
+import {
+  formatInquiryAreaKoLine,
+  inquiryAreaEditFormStringsFromItem,
+} from '../../utils/inquiryAreaDisplay';
 
 type Tab = 'issue' | 'followup' | 'list';
 
@@ -212,6 +216,8 @@ export function AdminOrderFormPage() {
     preferredDate: '',
     preferredTime: '오전',
     preferredTimeDetail: '',
+    areaBasis: '',
+    areaPyeong: '',
   }));
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   const [issueLoading, setIssueLoading] = useState(false);
@@ -314,12 +320,16 @@ export function AdminOrderFormPage() {
           preferredDate?: string | null;
           preferredTime?: string | null;
           preferredTimeDetail?: string | null;
+          areaBasis?: string | null;
+          areaPyeong?: number | null;
+          exclusiveAreaSqm?: number | null;
         };
         const nm = row.customerName?.trim() ?? '';
         const ph = row.customerPhone?.trim() ?? '';
         const prefillDate = (row.preferredDate ?? '').trim().slice(0, 10);
         const prefillTime = (row.preferredTime ?? '').trim();
         const prefillTimeDetail = (row.preferredTimeDetail ?? '').trim();
+        const areaStrings = inquiryAreaEditFormStringsFromItem(row);
         setIssueForm((f) => ({
           ...f,
           customerName: nm || f.customerName,
@@ -331,6 +341,8 @@ export function AdminOrderFormPage() {
           preferredTimeDetail: f.preferredTimeDetail.trim()
             ? f.preferredTimeDetail
             : prefillTimeDetail,
+          areaBasis: f.areaBasis.trim() ? f.areaBasis : (row.areaBasis?.trim() ?? ''),
+          areaPyeong: f.areaPyeong.trim() ? f.areaPyeong : areaStrings.areaPyeong,
         }));
       })
       .catch(() => {
@@ -396,6 +408,25 @@ export function AdminOrderFormPage() {
       setError('고객명과 총 금액을 입력해주세요.');
       return;
     }
+    const basisTrim = issueForm.areaBasis.trim();
+    const pyTrim = issueForm.areaPyeong.trim();
+    if ((basisTrim && !pyTrim) || (!basisTrim && pyTrim)) {
+      setError('면적을 지정할 때는 기준(공급/전용)과 평수를 모두 입력해주세요.');
+      return;
+    }
+    let areaPayload: { areaPyeong?: number; areaBasis?: string } = {};
+    if (basisTrim && pyTrim) {
+      if (basisTrim !== '공급' && basisTrim !== '전용') {
+        setError('면적 기준은 공급 또는 전용으로 선택해주세요.');
+        return;
+      }
+      const py = parseFloat(pyTrim.replace(/,/g, ''));
+      if (!Number.isFinite(py) || py <= 0) {
+        setError('평수는 양수 숫자로 입력해 주세요.');
+        return;
+      }
+      areaPayload = { areaPyeong: py, areaBasis: basisTrim };
+    }
     setIssueLoading(true);
     setError(null);
     try {
@@ -416,6 +447,7 @@ export function AdminOrderFormPage() {
         preferredTime: issueForm.preferredDate.trim() ? issueForm.preferredTime : undefined,
         preferredTimeDetail: issueForm.preferredTimeDetail.trim() || undefined,
         pendingInquiryId: pendingLinkId || undefined,
+        ...areaPayload,
       });
       setNewOrder(order);
       setPendingLinkId('');
@@ -429,6 +461,8 @@ export function AdminOrderFormPage() {
         preferredDate: '',
         preferredTime: '오전',
         preferredTimeDetail: '',
+        areaBasis: '',
+        areaPyeong: '',
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : '발급 실패');
@@ -611,6 +645,59 @@ export function AdminOrderFormPage() {
                   <p className="mt-1 text-fluid-2xs text-gray-500">
                     대기 접수 연결 시 접수 연락처로 채워지며, 필요하면 수정할 수 있습니다.
                   </p>
+                </div>
+                <div className="md:col-span-2 lg:col-span-12">
+                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <label className="text-fluid-sm font-medium text-gray-700">
+                      청소 면적 <span className="font-normal text-gray-500">(선택)</span>
+                    </label>
+                    <HelpTooltip text="입력하면 고객 발주서에서 면적은 읽기 전용으로 고정됩니다. 상담 중 확인한 공급/전용 평수를 넣어 주세요. 비워 두면 고객이 직접 입력합니다." />
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+                    <div className="min-w-[10rem] flex-1 sm:max-w-[14rem]">
+                      <label className="mb-1 block text-fluid-2xs text-gray-600">면적 기준</label>
+                      <select
+                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80"
+                        value={issueForm.areaBasis}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setIssueForm((f) => ({
+                            ...f,
+                            areaBasis: v,
+                            areaPyeong: v === '공급' || v === '전용' ? (v === f.areaBasis ? f.areaPyeong : '') : '',
+                          }));
+                        }}
+                      >
+                        <option value="">미지정 (고객 입력)</option>
+                        <option value="공급">공급면적 (분양평수)</option>
+                        <option value="전용">전용면적 (실제 내 집 공간)</option>
+                      </select>
+                    </div>
+                    {issueForm.areaBasis === '공급' || issueForm.areaBasis === '전용' ? (
+                      <div className="min-w-[8rem] flex-1 sm:max-w-[10rem]">
+                        <label className="mb-1 block text-fluid-2xs text-gray-600">평수 (평)</label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-fluid-sm text-gray-900 shadow-sm tabular-nums focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80"
+                          placeholder="예: 32"
+                          value={issueForm.areaPyeong}
+                          onChange={(e) => setIssueForm((f) => ({ ...f, areaPyeong: e.target.value }))}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  {(issueForm.areaBasis === '공급' || issueForm.areaBasis === '전용') &&
+                  issueForm.areaPyeong.trim() ? (
+                    <p className="mt-1.5 text-fluid-2xs text-amber-800">
+                      발급 시 고객 발주서 면적:{' '}
+                      {formatInquiryAreaKoLine({
+                        areaBasis: issueForm.areaBasis,
+                        areaPyeong: parseFloat(issueForm.areaPyeong.replace(/,/g, '')),
+                      })}{' '}
+                      (고객 수정 불가)
+                    </p>
+                  ) : null}
                 </div>
                 <div className="md:col-span-2 lg:col-span-12">
                   <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">총 금액 (원) *</label>
@@ -1285,6 +1372,17 @@ export function AdminOrderFormPage() {
             const customerName = issueForm.customerName.trim();
             const dateLocked = Boolean(issueForm.preferredDate.trim());
             const detailLocked = Boolean(issueForm.preferredTimeDetail.trim());
+            const areaLocked = Boolean(
+              issueForm.areaBasis.trim() &&
+                (issueForm.areaBasis === '공급' || issueForm.areaBasis === '전용') &&
+                issueForm.areaPyeong.trim()
+            );
+            const areaLockedLabel = areaLocked
+              ? formatInquiryAreaKoLine({
+                  areaBasis: issueForm.areaBasis,
+                  areaPyeong: parseFloat(issueForm.areaPyeong.replace(/,/g, '')),
+                })
+              : '';
             const slotLabel =
               ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === issueForm.preferredTime)?.label ??
               issueForm.preferredTime;
@@ -1345,6 +1443,17 @@ export function AdminOrderFormPage() {
                             <span className="text-gray-400">미입력 — 고객이 발주서에서 직접 입력</span>
                           )}
                         </p>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs font-medium text-gray-500">청소 면적</p>
+                        {areaLocked ? (
+                          <div className="rounded bg-gray-100 px-3 py-2 text-xs text-gray-700">
+                            {areaLockedLabel}{' '}
+                            <span className="text-gray-500">(관리자 지정·수정 불가)</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500">고객이 발주서에서 직접 입력합니다.</p>
+                        )}
                       </div>
                       <div>
                         <p className="mb-1 text-xs font-medium text-gray-500">청소 날짜</p>

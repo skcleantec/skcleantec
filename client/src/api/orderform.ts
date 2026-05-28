@@ -27,6 +27,9 @@ export interface OrderForm {
   preferredDate: string | null;
   preferredTime: string | null;
   preferredTimeDetail: string | null;
+  /** 발급 시 지정 — 있으면 고객 발주서 면적 수정 불가 */
+  areaPyeong?: number | null;
+  areaBasis?: string | null;
   createdAt: string;
   submittedAt: string | null;
   /** 발급한 사용자(마케터·관리자) */
@@ -157,6 +160,9 @@ export interface OrderFormPublicEditable {
   preferredDate: string | null;
   preferredTime: string | null;
   preferredTimeDetail: string | null;
+  /** 발급 시 마케터 지정 면적 — 있으면 고객 수정 불가 */
+  areaPyeong?: number | null;
+  areaBasis?: string | null;
   options: Array<{ name: string; extraAmount: number }>;
   /** 전문 시공 옵션 — 발주서와 동일 응답에 포함(별도 API 없이 표시) */
   professionalOptions?: ProfessionalSpecialtyOptionDto[];
@@ -309,6 +315,9 @@ export async function createOrderForm(
     preferredDate?: string;
     preferredTime?: string;
     preferredTimeDetail?: string;
+    /** 공급/전용 + 평 — 둘 다 있을 때만 저장·고객 잠금 */
+    areaPyeong?: number;
+    areaBasis?: string;
     /** 대기 접수 건 id — 연결 시 고객 제출로 동일 건이 접수로 전환 */
     pendingInquiryId?: string;
   }

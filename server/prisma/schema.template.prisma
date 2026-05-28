@@ -1102,6 +1102,9 @@ model OrderForm {
   preferredDate       String?  @map("preferred_date")   // YYYY-MM-DD, 관리자 설정
   preferredTime       String?  @map("preferred_time")    // 오전/오후/사이청소
   preferredTimeDetail String?  @map("preferred_time_detail") // 구체적 시각 (선택)
+  /// 발급 시 마케터가 지정한 청소 면적(평) — 있으면 고객 발주서에서 수정 불가
+  areaPyeong      Float?   @map("area_pyeong")
+  areaBasis       String?  @map("area_basis")
   createdById     String   @map("created_by_id")
   createdAt       DateTime @default(now()) @map("created_at")
   submittedAt     DateTime? @map("submitted_at")

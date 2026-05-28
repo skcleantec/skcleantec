@@ -116,6 +116,47 @@ function parseBodyInt(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function parseBodyAreaFloat(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const n = Number(String(value).replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 발급 시 선택 입력 — 둘 다 있을 때만 저장·고객 잠금 */
+function parseOptionalIssueArea(body: {
+  areaPyeong?: unknown;
+  areaBasis?: unknown;
+}): { areaPyeong: number | null; areaBasis: string | null } | { error: string } {
+  const basisRaw = body.areaBasis != null ? String(body.areaBasis).trim() : '';
+  const pyRaw = body.areaPyeong;
+  const pyEmpty = pyRaw == null || (typeof pyRaw === 'string' && pyRaw.trim() === '');
+
+  if (!basisRaw && pyEmpty) {
+    return { areaPyeong: null, areaBasis: null };
+  }
+  if (basisRaw !== '공급' && basisRaw !== '전용') {
+    return { error: '면적 기준은 공급 또는 전용으로 선택해주세요.' };
+  }
+  if (pyEmpty) {
+    return { error: '면적 기준을 선택했으면 평수도 입력해주세요.' };
+  }
+  const n = parseBodyAreaFloat(pyRaw);
+  if (n == null || n <= 0 || n > 100_000) {
+    return { error: '평수는 양수 숫자로 입력해 주세요.' };
+  }
+  return { areaPyeong: n, areaBasis: basisRaw };
+}
+
+function isOrderFormAreaLocked(form: {
+  areaBasis: string | null;
+  areaPyeong: number | null;
+}): boolean {
+  const basis = form.areaBasis?.trim();
+  if (basis !== '공급' && basis !== '전용') return false;
+  return form.areaPyeong != null && Number.isFinite(form.areaPyeong) && form.areaPyeong > 0;
+}
+
 function parseGuideSectionsFromDb(raw: string | null | undefined): GuideSection[] {
   if (!raw?.trim()) return DEFAULT_GUIDE_SECTIONS;
   const t = raw.trim();
@@ -702,6 +743,8 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     preferredTime,
     preferredTimeDetail,
     pendingInquiryId,
+    areaPyeong: areaPyeongRaw,
+    areaBasis: areaBasisRaw,
   } = req.body as {
     customerName: string;
     customerPhone?: string | null;
@@ -713,7 +756,15 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     preferredTime?: string;
     preferredTimeDetail?: string;
     pendingInquiryId?: string;
+    areaPyeong?: unknown;
+    areaBasis?: unknown;
   };
+  const areaParsed = parseOptionalIssueArea({ areaPyeong: areaPyeongRaw, areaBasis: areaBasisRaw });
+  if ('error' in areaParsed) {
+    res.status(400).json({ error: areaParsed.error });
+    return;
+  }
+  const { areaPyeong: issueAreaPyeong, areaBasis: issueAreaBasis } = areaParsed;
   const customerPhoneOpt =
     customerPhoneRaw != null && String(customerPhoneRaw).trim()
       ? String(customerPhoneRaw).trim()
@@ -774,12 +825,21 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
             preferredDate: preferredDate?.trim() || null,
             preferredTime: preferredTime?.trim() || null,
             preferredTimeDetail: preferredTimeDetail?.trim() || null,
+            areaPyeong: issueAreaPyeong,
+            areaBasis: issueAreaBasis,
             createdById: userId,
           },
         });
         await tx.inquiry.update({
           where: { id: pid },
-          data: { orderFormId: created.id, status: 'ORDER_FORM_PENDING', source: '발주서' },
+          data: {
+            orderFormId: created.id,
+            status: 'ORDER_FORM_PENDING',
+            source: '발주서',
+            ...(issueAreaPyeong != null && issueAreaBasis
+              ? { areaPyeong: issueAreaPyeong, areaBasis: issueAreaBasis, exclusiveAreaSqm: null }
+              : {}),
+          },
         });
         return tx.orderForm.findUniqueOrThrow({
           where: { id: created.id },
@@ -823,6 +883,8 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
           preferredDate: prefDateStr,
           preferredTime: preferredTime?.trim() || null,
           preferredTimeDetail: preferredTimeDetail?.trim() || null,
+          areaPyeong: issueAreaPyeong,
+          areaBasis: issueAreaBasis,
           createdById: userId,
         },
       });
@@ -843,6 +905,8 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
           serviceTotalAmount: totalAmount,
           serviceDepositAmount: deposit,
           serviceBalanceAmount: balance,
+          areaPyeong: issueAreaPyeong,
+          areaBasis: issueAreaBasis,
         },
       });
       return tx.orderForm.findUniqueOrThrow({
@@ -1382,6 +1446,8 @@ router.get('/by-token/:token', async (req, res) => {
     preferredDate: form.preferredDate,
     preferredTime: form.preferredTime,
     preferredTimeDetail: form.preferredTimeDetail,
+    areaPyeong: form.areaPyeong,
+    areaBasis: form.areaBasis,
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
     professionalOptions,
     formConfig: resolvedPublicFormConfig(formConfig),
@@ -1448,50 +1514,59 @@ router.post('/submit/:token', async (req, res) => {
     res.status(400).json({ error: '보조 전화번호를 입력해주세요.' });
     return;
   }
-  const areaBasisNorm = String(body.areaBasis || '').trim();
-  if (areaBasisNorm !== '공급' && areaBasisNorm !== '전용') {
-    res.status(400).json({ error: '면적 기준으로 공급면적 또는 전용면적을 선택해주세요.' });
-    return;
+
+  const adminAreaLocked = isOrderFormAreaLocked(form);
+  let areaBasisNorm: string;
+  let areaPyeongOut: number | null;
+  let exclusiveAreaSqm: number | null = null;
+
+  if (adminAreaLocked) {
+    areaBasisNorm = String(form.areaBasis).trim();
+    areaPyeongOut = form.areaPyeong!;
+  } else {
+    areaBasisNorm = String(body.areaBasis || '').trim();
+    if (areaBasisNorm !== '공급' && areaBasisNorm !== '전용') {
+      res.status(400).json({ error: '면적 기준으로 공급면적 또는 전용면적을 선택해주세요.' });
+      return;
+    }
+    if (areaBasisNorm === '공급') {
+      const rawPy = body.areaPyeong;
+      if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
+        res.status(400).json({ error: '공급면적(분양평수)을 평 단위로 입력해 주세요.' });
+        return;
+      }
+      const n =
+        typeof rawPy === 'number'
+          ? rawPy
+          : Number(String(rawPy).replace(/,/g, '').trim());
+      if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
+        res.status(400).json({ error: '분양평수(평)는 양수 숫자로 입력해 주세요.' });
+        return;
+      }
+      areaPyeongOut = n;
+    } else {
+      const rawPy = body.areaPyeong;
+      if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
+        res.status(400).json({ error: '전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.' });
+        return;
+      }
+      const n =
+        typeof rawPy === 'number'
+          ? rawPy
+          : Number(String(rawPy).replace(/,/g, '').trim());
+      if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
+        res.status(400).json({ error: '전용면적(평)은 양수 숫자로 입력해 주세요.' });
+        return;
+      }
+      areaPyeongOut = n;
+      exclusiveAreaSqm = null;
+    }
   }
+
   const propertyTypeNorm = String(body.propertyType || '').trim();
   if (!propertyTypeNorm) {
     res.status(400).json({ error: '아파트·오피스텔 등 건축물 유형을 선택해주세요.' });
     return;
-  }
-
-  let exclusiveAreaSqm: number | null = null;
-  let areaPyeongOut: number | null = null;
-  if (areaBasisNorm === '공급') {
-    const rawPy = body.areaPyeong;
-    if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
-      res.status(400).json({ error: '공급면적(분양평수)을 평 단위로 입력해 주세요.' });
-      return;
-    }
-    const n =
-      typeof rawPy === 'number'
-        ? rawPy
-        : Number(String(rawPy).replace(/,/g, '').trim());
-    if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
-      res.status(400).json({ error: '분양평수(평)는 양수 숫자로 입력해 주세요.' });
-      return;
-    }
-    areaPyeongOut = n;
-  } else {
-    const rawPy = body.areaPyeong;
-    if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
-      res.status(400).json({ error: '전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.' });
-      return;
-    }
-    const n =
-      typeof rawPy === 'number'
-        ? rawPy
-        : Number(String(rawPy).replace(/,/g, '').trim());
-    if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
-      res.status(400).json({ error: '전용면적(평)은 양수 숫자로 입력해 주세요.' });
-      return;
-    }
-    areaPyeongOut = n;
-    exclusiveAreaSqm = null;
   }
 
   // 관리자가 발급 시 날짜를 넣었으면 그 날짜는 고객이 바꿀 수 없음(본문 무시). 미지정이면 고객 입력 사용.
