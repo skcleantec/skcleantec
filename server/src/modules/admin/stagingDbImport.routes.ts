@@ -13,8 +13,8 @@ import { ensureDatabaseUrlSslMode, userMayUseStagingDbImport } from './stagingDb
 
 type JobStatus = 'queued' | 'dumping' | 'restoring' | 'migrating' | 'done' | 'failed';
 
-/** Docker·로컬 공통 server 루트 (dist/modules/admin 기준 ../../) */
-const SERVER_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
+/** Docker(dist/modules) · 로컬(src/modules) 공통 server 루트 (…/modules/admin 기준 ../../..) */
+const SERVER_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 type ImportJob = {
   status: JobStatus;
