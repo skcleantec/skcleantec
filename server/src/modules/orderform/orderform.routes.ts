@@ -1286,7 +1286,24 @@ router.get('/by-token/:token', async (req, res) => {
     throw e;
   }
   if (form.submittedAt) {
-    res.status(410).json({ error: '이미 제출된 발주서입니다.' });
+    const linkedInquiry = await prisma.inquiry.findFirst({
+      where: { orderFormId: form.id },
+      orderBy: { createdAt: 'desc' },
+      select: { inquiryNumber: true },
+    });
+    let formConfig = await prisma.orderFormConfig.findFirst();
+    if (!formConfig) {
+      formConfig = await prisma.orderFormConfig.create({ data: {} });
+    }
+    res.json({
+      id: form.id,
+      token: form.token,
+      customerName: form.customerName,
+      submittedAt: form.submittedAt.toISOString(),
+      inquiryNumber: linkedInquiry?.inquiryNumber ?? null,
+      customerSubmissionSnapshot: form.customerSubmissionSnapshot ?? null,
+      formConfig: resolvedPublicFormConfig(formConfig),
+    });
     return;
   }
   try {

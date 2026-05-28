@@ -143,7 +143,8 @@ export interface PendingInquiryPrefill {
   memo: string | null;
 }
 
-export interface OrderFormPublic {
+/** 미제출 — 고객 작성 폼 */
+export interface OrderFormPublicEditable {
   id: string;
   token: string;
   customerName: string;
@@ -164,6 +165,24 @@ export interface OrderFormPublic {
   draftCustomerSpecialNotes?: string | null;
   /** 발주서가 대기 접수에 연결된 경우 고객 입력 폼에 반영 */
   pendingInquiry?: PendingInquiryPrefill | null;
+  submittedAt?: null;
+}
+
+/** 제출 완료 — 같은 링크로 확인서 조회 */
+export interface OrderFormPublicSubmitted {
+  id: string;
+  token: string;
+  customerName: string;
+  submittedAt: string;
+  inquiryNumber: string | null;
+  customerSubmissionSnapshot: unknown | null;
+  formConfig?: OrderFormConfigPublic;
+}
+
+export type OrderFormPublic = OrderFormPublicEditable | OrderFormPublicSubmitted;
+
+export function isOrderFormPublicSubmitted(data: OrderFormPublic): data is OrderFormPublicSubmitted {
+  return typeof data.submittedAt === 'string' && data.submittedAt.length > 0;
 }
 
 export type OrderFormListDatePreset = 'today' | 'all' | 'month' | 'day';

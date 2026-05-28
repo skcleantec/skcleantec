@@ -3,7 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import {
   getOrderFormByToken,
   getPublicProfessionalOptions,
+  isOrderFormPublicSubmitted,
   submitOrderForm,
+  type OrderFormPublicSubmitted,
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { AddressSearch } from '../../components/forms/AddressSearch';
@@ -40,6 +42,7 @@ import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateForma
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
+import { OrderFormSubmissionReceiptView } from '../../components/orderform/OrderFormSubmissionReceiptView';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -126,7 +129,7 @@ export function OrderFormPage() {
     };
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedReceipt, setSubmittedReceipt] = useState<OrderFormPublicSubmitted | null>(null);
   const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
   /** 면적 기준 선택 전 안내·확인 */
   const [areaBasisAckModal, setAreaBasisAckModal] = useState<null | '공급' | '전용'>(null);
@@ -244,6 +247,13 @@ export function OrderFormPage() {
     if (!token) return;
     getOrderFormByToken(token)
       .then((data) => {
+        if (isOrderFormPublicSubmitted(data)) {
+          setSubmittedReceipt(data);
+          setOrder(null);
+          setError(null);
+          return;
+        }
+        setSubmittedReceipt(null);
         setOrder({
           customerName: data.customerName,
           totalAmount: data.totalAmount,
@@ -423,7 +433,10 @@ export function OrderFormPage() {
         specialNotes: form.specialNotes.trim() || undefined,
         professionalOptionIds: professionalOptionIds.length ? professionalOptionIds : undefined,
       });
-      setSubmitted(true);
+      const receipt = await getOrderFormByToken(token);
+      if (isOrderFormPublicSubmitted(receipt)) {
+        setSubmittedReceipt(receipt);
+      }
     } catch (e) {
       setSubmitErrorModal(e instanceof Error ? e.message : '제출에 실패했습니다.');
     } finally {
@@ -450,6 +463,20 @@ export function OrderFormPage() {
     );
   }
 
+  if (submittedReceipt && token) {
+    return (
+      <OrderFormSubmissionReceiptView
+        token={token}
+        customerName={submittedReceipt.customerName}
+        submittedAt={submittedReceipt.submittedAt}
+        inquiryNumber={submittedReceipt.inquiryNumber}
+        snapshot={submittedReceipt.customerSubmissionSnapshot}
+        formConfig={submittedReceipt.formConfig}
+        headerRight={<CloseButton />}
+      />
+    );
+  }
+
   if (error && !order) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative">
@@ -457,26 +484,6 @@ export function OrderFormPage() {
         <div className="text-center">
           <p className="text-red-600">{error}</p>
           <p className="text-sm text-gray-500 mt-2">링크가 만료되었거나 잘못된 주소일 수 있습니다.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (submitted) {
-    const successTitle = orderFormConfigLine(
-      order?.formConfig?.submitSuccessTitle,
-      ORDER_FORM_CONFIG_DEFAULTS.submitSuccessTitle
-    );
-    const successBody = orderFormConfigLine(
-      order?.formConfig?.submitSuccessBody,
-      ORDER_FORM_CONFIG_DEFAULTS.submitSuccessBody
-    );
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative">
-        <div className="absolute top-4 right-4"><CloseButton /></div>
-        <div className="text-center max-w-sm">
-          <p className="text-lg font-medium text-gray-900 whitespace-pre-line">{successTitle}</p>
-          <p className="text-gray-600 mt-2 whitespace-pre-line">{successBody}</p>
         </div>
       </div>
     );
