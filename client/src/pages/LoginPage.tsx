@@ -7,6 +7,7 @@ import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
 import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
 import { resolveTenantSlugForLoginForm } from '../utils/loginTenantSlug';
+import { saveTenantSlug } from '../utils/tenantSlug';
 import {
   loadSavedLoginCredentials,
   saveLoginCredentials,
@@ -117,6 +118,8 @@ export function LoginPage() {
   };
 
   const persistLoginCredentials = (crewMode: boolean) => {
+    const slug = tenantSlug.trim().toLowerCase();
+    if (slug) saveTenantSlug(slug);
     if (rememberLogin) {
       saveLoginCredentials({
         tenantSlug: tenantSlug.trim(),

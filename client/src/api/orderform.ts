@@ -1,4 +1,5 @@
 import { API } from './apiPrefix';
+import { appendPublicTenantQuery } from '../utils/publicTenantQuery';
 
 function headers(token: string) {
   return {
@@ -354,14 +355,14 @@ export interface PublicOrderGuideResponse {
 
 /** 공개: 고객 안내사항 (`/info`) — 인증 없음 */
 export async function getPublicOrderGuide(): Promise<PublicOrderGuideResponse> {
-  const res = await fetch(`${API}/orderforms/public-guide`);
+  const res = await fetch(appendPublicTenantQuery(`${API}/orderforms/public-guide`));
   if (!res.ok) throw new Error('안내를 불러올 수 없습니다.');
   return res.json();
 }
 
 /** 공개: 토큰으로 발주서 조회 (인증 없음) */
 export async function getOrderFormByToken(token: string): Promise<OrderFormPublic> {
-  const res = await fetch(`${API}/orderforms/by-token/${token}`);
+  const res = await fetch(appendPublicTenantQuery(`${API}/orderforms/by-token/${encodeURIComponent(token)}`));
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '발주서를 찾을 수 없습니다.');
@@ -421,7 +422,7 @@ export async function submitOrderForm(
     exclusiveAreaSqm?: number | null;
   }
 ): Promise<void> {
-  const res = await fetch(`${API}/orderforms/submit/${token}`, {
+  const res = await fetch(appendPublicTenantQuery(`${API}/orderforms/submit/${encodeURIComponent(token)}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -434,7 +435,7 @@ export async function submitOrderForm(
 
 /** 공개: 고객 발주서 — 전문 시공 옵션 (활성만) */
 export async function getPublicProfessionalOptions(): Promise<{ items: ProfessionalSpecialtyOptionDto[] }> {
-  const res = await fetch(`${API}/orderforms/professional-options`);
+  const res = await fetch(appendPublicTenantQuery(`${API}/orderforms/professional-options`));
   if (!res.ok) throw new Error('전문 시공 옵션을 불러올 수 없습니다.');
   return res.json();
 }
@@ -533,7 +534,7 @@ export interface OrderFormPhotoItem {
 export async function listOrderFormPhotosByToken(
   token: string
 ): Promise<{ items: OrderFormPhotoItem[] }> {
-  const res = await fetch(`${API}/orderforms/by-token/${token}/photos`);
+  const res = await fetch(appendPublicTenantQuery(`${API}/orderforms/by-token/${encodeURIComponent(token)}/photos`));
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '사진을 불러올 수 없습니다.');
@@ -548,7 +549,7 @@ export async function uploadOrderFormPhotosByToken(
 ): Promise<{ items: OrderFormPhotoItem[] }> {
   const fd = new FormData();
   for (const f of files) fd.append('images', f);
-  const res = await fetch(`${API}/orderforms/by-token/${token}/photos`, {
+  const res = await fetch(appendPublicTenantQuery(`${API}/orderforms/by-token/${encodeURIComponent(token)}/photos`), {
     method: 'POST',
     body: fd,
   });
@@ -565,7 +566,7 @@ export async function deleteOrderFormPhotoByToken(
   photoId: string
 ): Promise<void> {
   const res = await fetch(
-    `${API}/orderforms/by-token/${token}/photos/${photoId}`,
+    appendPublicTenantQuery(`${API}/orderforms/by-token/${encodeURIComponent(token)}/photos/${encodeURIComponent(photoId)}`),
     { method: 'DELETE' }
   );
   if (!res.ok) {

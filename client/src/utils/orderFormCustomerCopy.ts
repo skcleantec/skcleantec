@@ -4,6 +4,7 @@ import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
 } from '../constants/orderFormConfigDefaults';
+import { appendPublicTenantQuery } from './publicTenantQuery';
 
 type FormMsgDefaultKey = keyof typeof ORDER_FORM_CONFIG_DEFAULTS;
 
@@ -50,18 +51,18 @@ export function labelOrderFormIssuer(user: OrderFormCreatedBy | null | undefined
   return user.name.trim();
 }
 
-export function getOrderFormPublicUrl(orderToken: string, origin?: string): string {
+export function getOrderFormPublicUrl(orderToken: string, origin?: string, tenantSlug?: string | null): string {
   const base =
     origin ??
     (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
-  return `${base}/order/${orderToken}`;
+  return appendPublicTenantQuery(`${base}/order/${encodeURIComponent(orderToken)}`, tenantSlug);
 }
 
-export function getCsPublicUrl(origin?: string): string {
+export function getCsPublicUrl(origin?: string, tenantSlug?: string | null): string {
   const base =
     origin ??
     (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
-  return `${base}/cs`;
+  return appendPublicTenantQuery(`${base}/cs`, tenantSlug);
 }
 
 /** 고객에게 보낼 안내 메시지 (발주서 목록·접수 목록 공통) */
