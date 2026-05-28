@@ -74,6 +74,17 @@ function roleLabel(role: string): string {
 const BY_USER_TH = 'text-center py-1 px-1.5 text-fluid-2xs font-medium text-gray-700 whitespace-nowrap';
 const BY_USER_TD = 'py-1 px-1.5 text-fluid-2xs whitespace-nowrap tabular-nums';
 
+const AD_FILTER_LABEL = 'shrink-0 whitespace-nowrap text-fluid-2xs text-gray-500';
+const AD_FILTER_SELECT =
+  'h-7 shrink-0 rounded border border-gray-300 bg-white px-1.5 text-fluid-2xs text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-400';
+
+function adPeriodSegmentLabel(id: DateRangePresetId, label: string): string {
+  if (id === 'custom') return '직접';
+  if (id === 'thisMonth') return '이번달';
+  if (id === 'lastMonth') return '지난달';
+  return label;
+}
+
 export function AdminAdvertisingPage() {
   const token = getToken();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -113,6 +124,18 @@ export function AdminAdvertisingPage() {
       next.delete('page');
     });
   }, [patchParams]);
+
+  const applyPeriodPreset = useCallback(
+    (preset: DateRangePresetId) => {
+      setPeriodPreset(preset);
+      if (preset !== 'custom') {
+        const r = computeDateRangeFromPreset(preset);
+        if (r) setRange(r);
+      }
+      resetHistoryPageInUrl();
+    },
+    [resetHistoryPageInUrl],
+  );
 
   const handleHistoryPageChange = useCallback(
     (page: number) => {
@@ -243,84 +266,95 @@ export function AdminAdvertisingPage() {
         <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-fluid-sm">{err}</div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="block text-fluid-xs text-gray-600 mb-1">기간 빠른 선택</label>
-          <select
-            className="border border-gray-300 rounded px-2 py-1 text-fluid-sm min-w-[8.5rem]"
-            value={periodPreset}
-            onChange={(e) => {
-              const v = e.target.value as DateRangePresetId;
-              setPeriodPreset(v);
-              const r = computeDateRangeFromPreset(v);
-              if (r) setRange(r);
-              resetHistoryPageInUrl();
-            }}
-          >
-            {DATE_RANGE_PRESET_LABELS.map(({ id, label }) => (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-fluid-xs text-gray-600 mb-1">시작일</label>
-          <YmdSelect
-            value={from}
-            onChange={(v) => {
-              setPeriodPreset('custom');
-              setRange((r) => ({ ...r, from: v }));
-              resetHistoryPageInUrl();
-            }}
-            idPrefix="ad-from"
-            className="border border-gray-300 rounded px-2 py-1 bg-white"
-          />
-        </div>
-        <div>
-          <label className="block text-fluid-xs text-gray-600 mb-1">종료일</label>
-          <YmdSelect
-            value={to}
-            onChange={(v) => {
-              setPeriodPreset('custom');
-              setRange((r) => ({ ...r, to: v }));
-              resetHistoryPageInUrl();
-            }}
-            idPrefix="ad-to"
-            className="border border-gray-300 rounded px-2 py-1 bg-white"
-          />
-        </div>
-        {role === 'ADMIN' && (
-          <div>
-            <label className="block text-fluid-xs text-gray-600 mb-1">마케터</label>
-            <select
-              className="border border-gray-300 rounded px-2 py-1 text-fluid-sm min-w-[10rem]"
-              value={marketerFilter}
-              onChange={(e) => {
-                setMarketerFilter(e.target.value);
-                resetHistoryPageInUrl();
-              }}
-            >
-              <option value="">전체</option>
-              {marketers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.email})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            resetHistoryPageInUrl();
-            void loadMain();
-            void loadHistory();
-          }}
-          className="px-3 py-1.5 bg-blue-600 text-white text-fluid-sm rounded hover:bg-blue-700"
+      <div className="rounded-lg border border-gray-200 bg-white px-2 py-1.5">
+        <div
+          className="flex min-w-0 flex-nowrap items-center gap-x-1.5 gap-y-0 overflow-x-auto overscroll-x-contain [scrollbar-width:thin]"
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          조회
-        </button>
+          <span className={AD_FILTER_LABEL}>기간</span>
+          <div className="inline-flex h-7 shrink-0 overflow-hidden rounded border border-gray-300 text-fluid-2xs">
+            {DATE_RANGE_PRESET_LABELS.map(({ id, label }, i) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => applyPeriodPreset(id)}
+                className={`inline-flex h-full items-center px-2 font-medium ${i > 0 ? 'border-l border-gray-300' : ''} ${
+                  periodPreset === id ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {adPeriodSegmentLabel(id, label)}
+              </button>
+            ))}
+          </div>
+          {periodPreset === 'custom' && (
+            <>
+              <YmdSelect
+                compact
+                value={from}
+                onChange={(v) => {
+                  setPeriodPreset('custom');
+                  setRange((r) => ({ ...r, from: v }));
+                  resetHistoryPageInUrl();
+                }}
+                idPrefix="ad-from"
+              />
+              <span className="shrink-0 text-fluid-2xs text-gray-400" aria-hidden>
+                ~
+              </span>
+              <YmdSelect
+                compact
+                value={to}
+                onChange={(v) => {
+                  setPeriodPreset('custom');
+                  setRange((r) => ({ ...r, to: v }));
+                  resetHistoryPageInUrl();
+                }}
+                idPrefix="ad-to"
+              />
+            </>
+          )}
+          {role === 'ADMIN' && (
+            <>
+              <span className="mx-0.5 shrink-0 text-fluid-2xs text-gray-300" aria-hidden>
+                |
+              </span>
+              <label htmlFor="ad-marketer-filter" className={AD_FILTER_LABEL}>
+                마케터
+              </label>
+              <select
+                id="ad-marketer-filter"
+                value={marketerFilter}
+                title={
+                  marketerFilter ? marketers.find((m) => m.id === marketerFilter)?.name ?? '' : '전체'
+                }
+                onChange={(e) => {
+                  setMarketerFilter(e.target.value);
+                  resetHistoryPageInUrl();
+                }}
+                className={`${AD_FILTER_SELECT} min-w-[5.5rem] max-w-[7.5rem] truncate`}
+              >
+                <option value="">전체</option>
+                {marketers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              {marketerFilter ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMarketerFilter('');
+                    resetHistoryPageInUrl();
+                  }}
+                  className="shrink-0 whitespace-nowrap text-[10px] text-gray-600 underline hover:text-gray-900"
+                >
+                  해제
+                </button>
+              ) : null}
+            </>
+          )}
+        </div>
       </div>
 
       {loading ? (
