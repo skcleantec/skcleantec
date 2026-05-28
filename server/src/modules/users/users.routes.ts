@@ -7,6 +7,7 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
@@ -31,6 +32,9 @@ const staffIdCardUpload = multer({
 });
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+const MANAGEABLE_STAFF_ROLES = ['TEAM_LEADER', 'MARKETER', 'OFFICE_STAFF', 'EXTERNAL_PARTNER'] as const;
+const STAFF_ID_CARD_ROLES = ['TEAM_LEADER', 'MARKETER'] as const;
 
 router.use(authMiddleware);
 
@@ -149,13 +153,16 @@ router.get('/', adminOrMarketer, async (req, res) => {
 
 /** 활성 팀장 전원의 본인 휴무일 등록 허용 일괄 변경 */
 router.post('/team-leaders/day-off-self-edit', adminOnly, async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const body = req.body as { enabled?: unknown };
   if (typeof body.enabled !== 'boolean') {
     res.status(400).json({ error: 'enabled(boolean)가 필요합니다.' });
     return;
   }
   const r = await prisma.user.updateMany({
-    where: { role: 'TEAM_LEADER', isActive: true },
+    where: { tenantId, role: 'TEAM_LEADER', isActive: true },
     data: { allowSelfDayOffEdit: body.enabled },
   });
   res.json({ ok: true, updated: r.count });
@@ -340,6 +347,9 @@ router.post('/', adminOnly, async (req, res) => {
 
 /** 관리자: 팀장·마케터 사원증 이미지 업로드 (Cloudinary) */
 router.post('/:id/staff-id-card', adminOnly, staffIdCardUpload.single('image'), async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   if (!isCloudinaryConfigured()) {
     res.status(503).json({
       error:
@@ -358,6 +368,14 @@ router.post('/:id/staff-id-card', adminOnly, staffIdCardUpload.single('image'), 
     res.status(400).json({ error: '이미지 파일만 업로드할 수 있습니다.' });
     return;
   }
+  const owned = await prisma.user.findFirst({
+    where: { id, tenantId, role: { in: [...STAFF_ID_CARD_ROLES] } },
+    select: { id: true },
+  });
+  if (!owned) {
+    res.status(404).json({ error: '사용자를 찾을 수 없거나 사원증을 등록할 수 있는 역할이 아닙니다.' });
+    return;
+  }
   try {
     const { staffIdCardUrl } = await replaceStaffIdCardForUser(id, file.buffer, mime);
     res.json({ staffIdCardUrl });
@@ -374,7 +392,18 @@ router.post('/:id/staff-id-card', adminOnly, staffIdCardUpload.single('image'), 
 
 /** 관리자: 팀장·마케터 사원증 이미지 삭제 */
 router.delete('/:id/staff-id-card', adminOnly, async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { id } = req.params;
+  const owned = await prisma.user.findFirst({
+    where: { id, tenantId, role: { in: [...STAFF_ID_CARD_ROLES] } },
+    select: { id: true },
+  });
+  if (!owned) {
+    res.status(404).json({ error: '사용자를 찾을 수 없거나 사원증을 등록할 수 있는 역할이 아닙니다.' });
+    return;
+  }
   try {
     await clearStaffIdCardForUser(id);
     res.json({ ok: true, staffIdCardUrl: null });
@@ -406,6 +435,8 @@ router.patch('/:id', adminOnly, async (req, res) => {
     teamLeaderAdditionalReceiptCompanyShareBps?: number | string | null;
   };
   const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = requireTenantIdFromAuth(res, authUser);
+  if (!tenantId) return;
 
   const wantsEmploymentDates =
     body.hireDate !== undefined || body.resignationDate !== undefined;
@@ -429,6 +460,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
   });
   if (
     !existing ||
+    existing.tenantId !== tenantId ||
     (existing.role !== 'TEAM_LEADER' &&
       existing.role !== 'MARKETER' &&
       existing.role !== 'OFFICE_STAFF' &&
@@ -702,18 +734,19 @@ router.patch('/:id', adminOnly, async (req, res) => {
 });
 
 router.delete('/:id', adminOnly, async (req, res) => {
+  const tenantId = requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
   const { id } = req.params;
-  const user = await prisma.user.findUnique({
-    where: { id },
+  const user = await prisma.user.findFirst({
+    where: {
+      id,
+      tenantId,
+      role: { in: [...MANAGEABLE_STAFF_ROLES] },
+    },
     select: { role: true },
   });
-  if (
-    !user ||
-    (user.role !== 'TEAM_LEADER' &&
-      user.role !== 'MARKETER' &&
-      user.role !== 'OFFICE_STAFF' &&
-      user.role !== 'EXTERNAL_PARTNER')
-  ) {
+  if (!user) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }

@@ -66,9 +66,19 @@ router.use((req, res, next) => {
 
 const MONTH_KEY = /^\d{4}-\d{2}$/;
 
-router.get('/expense-forward', async (_req, res) => {
+function poolMemberInTenantWhere(tenantId: string, teamMemberId?: string) {
+  return {
+    ...(teamMemberId ? { id: teamMemberId } : {}),
+    teamId: null as null,
+    isActive: true,
+    crewGroupMembers: { some: { group: { tenantId } } },
+  };
+}
+
+router.get('/expense-forward', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   try {
-    const payload = await computePayrollExpenseForward(prisma);
+    const payload = await computePayrollExpenseForward(prisma, tenantId);
     res.json(payload);
   } catch (e) {
     console.error('[admin/payroll/expense-forward]', e);
@@ -300,7 +310,7 @@ router.post('/account-ledger/manual', async (req: Request, res: Response) => {
         return;
       }
       const tm = await prisma.teamMember.findFirst({
-        where: { id: tid, teamId: null, isActive: true },
+        where: poolMemberInTenantWhere(tenantId, tid),
         select: { id: true },
       });
       if (!tm) {
@@ -1023,6 +1033,7 @@ router.get('/sheet', async (req, res) => {
 
 /** 풀 팀원: 해당 월 급여 산정 구간에 포함된 접수 건별 상세 + 정산·지급 이력 */
 router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const teamMemberId =
     typeof req.params.teamMemberId === 'string' ? req.params.teamMemberId.trim() : '';
   if (!teamMemberId) {
@@ -1043,7 +1054,7 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
 
   let computation: Awaited<ReturnType<typeof computePoolMemberPayrollDetail>>;
   try {
-    const result = await computePoolMemberPayrollDetail(prisma, teamMemberId, monthKey);
+    const result = await computePoolMemberPayrollDetail(prisma, tenantId, teamMemberId, monthKey);
     if (!result) {
       res.status(404).json({ error: '풀 팀원을 찾을 수 없습니다.' });
       return;
@@ -1108,6 +1119,7 @@ router.get('/pool-member/:teamMemberId/detail', async (req, res) => {
 });
 
 router.post('/pool-member/:teamMemberId/settle', async (req: Request, res: Response) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const authUser = (req as Request & { user?: AuthPayload }).user;
   if (!authUser?.userId) {
     res.status(401).json({ error: '인증이 필요합니다.' });
@@ -1134,7 +1146,7 @@ router.post('/pool-member/:teamMemberId/settle', async (req: Request, res: Respo
 
   let computation: NonNullable<Awaited<ReturnType<typeof computePoolMemberPayrollDetail>>>;
   try {
-    const result = await computePoolMemberPayrollDetail(prisma, teamMemberId, monthKey);
+    const result = await computePoolMemberPayrollDetail(prisma, tenantId, teamMemberId, monthKey);
     if (!result) {
       res.status(404).json({ error: '풀 팀원을 찾을 수 없습니다.' });
       return;
@@ -1666,6 +1678,7 @@ router.post('/marketer/:userId/settle', async (req: Request, res: Response) => {
 });
 
 router.patch('/pool-member/:teamMemberId/month-adjust', async (req, res) => {
+  const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const teamMemberId =
     typeof req.params.teamMemberId === 'string' ? req.params.teamMemberId.trim() : '';
   if (!teamMemberId) {
@@ -1702,7 +1715,7 @@ router.patch('/pool-member/:teamMemberId/month-adjust', async (req, res) => {
   }
 
   const exists = await prisma.teamMember.findFirst({
-    where: { id: teamMemberId, teamId: null, isActive: true },
+    where: poolMemberInTenantWhere(tenantId, teamMemberId),
     select: { id: true },
   });
   if (!exists) {

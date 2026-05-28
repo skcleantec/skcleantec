@@ -56,6 +56,7 @@ const MONTH_KEY = /^\d{4}-\d{2}$/;
 
 export async function computePoolMemberPayrollDetail(
   prisma: PrismaClient,
+  tenantId: string,
   teamMemberId: string,
   monthKey: string,
 ): Promise<PoolMemberPayrollComputation | null> {
@@ -70,7 +71,12 @@ export async function computePoolMemberPayrollDetail(
   const monthLabel = `${calYear}년 ${calMonthNum}월`;
 
   const m = await prisma.teamMember.findFirst({
-    where: { id: teamMemberId, teamId: null, isActive: true },
+    where: {
+      id: teamMemberId,
+      teamId: null,
+      isActive: true,
+      crewGroupMembers: { some: { group: { tenantId } } },
+    },
     select: {
       id: true,
       name: true,
@@ -125,6 +131,7 @@ export async function computePoolMemberPayrollDetail(
     const bounds = payrollCyclePreferredDateWhere(accrualStartYmd, accrualEndYmd);
     const inquiries = await prisma.inquiry.findMany({
       where: {
+        tenantId,
         preferredDate: { gte: bounds.gte, lte: bounds.lte },
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       },

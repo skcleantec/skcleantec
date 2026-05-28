@@ -7,6 +7,7 @@ import {
 import { dateToYmdKst, employmentOverlapsMonthKst } from '../users/userEmployment.js';
 import { sumCrewExpensesByMemberIdsForMonth } from '../crew/crewGroupExpense.service.js';
 import { sumLedgerManualPoolMemberDeductionsByMonth } from './payrollLedgerManualPayrollDeductions.js';
+import { tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
 
 const PAYROLL_INQUIRY_BATCH = 2000;
 
@@ -136,11 +137,17 @@ export type PayrollExpenseForwardPayload = {
   };
 };
 
-export async function computePayrollExpenseForward(prismaClient: PrismaClient): Promise<PayrollExpenseForwardPayload> {
+export async function computePayrollExpenseForward(
+  prismaClient: PrismaClient,
+  tenantId: string,
+): Promise<PayrollExpenseForwardPayload> {
   const todayYmd = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 
   const poolMembers = await prismaClient.teamMember.findMany({
-    where: { teamId: null, isActive: true },
+    where: {
+      teamId: null,
+      ...tenantActiveTeamMemberWhere(tenantId),
+    },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     select: {
       id: true,
@@ -203,6 +210,7 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
     for (;;) {
       const batch = await prismaClient.inquiry.findMany({
         where: {
+          tenantId,
           preferredDate: { gte: env.gte, lte: env.lte },
           status: { notIn: ['CANCELLED', 'ON_HOLD'] },
         },
@@ -334,7 +342,7 @@ export async function computePayrollExpenseForward(prismaClient: PrismaClient): 
   poolOut.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 
   const marketers = await prismaClient.user.findMany({
-    where: { role: { in: ['MARKETER', 'OFFICE_STAFF'] }, isActive: true },
+    where: { tenantId, role: { in: ['MARKETER', 'OFFICE_STAFF'] }, isActive: true },
     select: {
       id: true,
       name: true,

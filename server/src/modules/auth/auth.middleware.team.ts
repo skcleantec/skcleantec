@@ -36,6 +36,12 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
       q.previewRole === 'team_leader' &&
       typeof q.previewTeamLeaderId === 'string' &&
       q.previewTeamLeaderId.trim().length > 0;
+    const sessionTenantId = payload.tenantId;
+
+    if ((previewExternal || previewTeamLeaderFlag) && !sessionTenantId) {
+      res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+      return;
+    }
 
     if (previewExternal) {
       const previewExternalName =
@@ -52,16 +58,22 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
           : '';
       const target = queryUserId
         ? await prisma.user.findFirst({
-            where: { id: queryUserId, role: 'EXTERNAL_PARTNER', isActive: true },
+            where: {
+              id: queryUserId,
+              tenantId: sessionTenantId,
+              role: 'EXTERNAL_PARTNER',
+              isActive: true,
+            },
             select: { id: true, email: true },
           })
         : await prisma.user.findFirst({
             where: {
+              tenantId: sessionTenantId,
               role: 'EXTERNAL_PARTNER',
               isActive: true,
               ...(queryCompanyId
                 ? { externalCompanyId: queryCompanyId }
-                : { externalCompany: { is: { name: previewExternalName } } }),
+                : { externalCompany: { is: { name: previewExternalName, tenantId: sessionTenantId } } }),
             },
             orderBy: { createdAt: 'asc' },
             select: { id: true, email: true },
@@ -78,7 +90,12 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
     } else if (previewTeamLeaderFlag) {
       const tlId = q.previewTeamLeaderId!.trim();
       const target = await prisma.user.findFirst({
-        where: { id: tlId, role: 'TEAM_LEADER', isActive: true },
+        where: {
+          id: tlId,
+          tenantId: sessionTenantId,
+          role: 'TEAM_LEADER',
+          isActive: true,
+        },
         select: { id: true, email: true },
       });
       if (!target) {

@@ -71,9 +71,9 @@ async function getEmployedExternalPartnerIds(tenantId: string): Promise<string[]
   return usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd)).map((u) => u.id);
 }
 
-async function getActiveCrewGroupIds(): Promise<string[]> {
+async function getActiveCrewGroupIds(tenantId: string): Promise<string[]> {
   const rows = await prisma.teamCrewGroup.findMany({
-    where: { isActive: true },
+    where: { tenantId, isActive: true },
     select: { id: true },
   });
   return rows.map((r) => r.id);
@@ -398,7 +398,7 @@ router.post('/broadcast-to-leaders', async (req, res) => {
   if (toExternalPartners) receiverIds.push(...(await getEmployedExternalPartnerIds(tenantId)));
   const uniqueReceivers = [...new Set(receiverIds)];
 
-  const crewGroupIds = toCrew ? await getActiveCrewGroupIds() : [];
+  const crewGroupIds = toCrew ? await getActiveCrewGroupIds(tenantId) : [];
 
   if (uniqueReceivers.length === 0 && crewGroupIds.length === 0) {
     res.status(400).json({ error: '선택한 대상에 보낼 수 있는 계정·크루 그룹이 없습니다.' });

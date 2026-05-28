@@ -362,7 +362,7 @@ router.get('/settlement/pool-member/:teamMemberId/detail', crewSettlementPayroll
 
   const inGroup = await prisma.teamCrewGroupMember.findFirst({
     where: { groupId: gid, teamMemberId },
-    select: { teamMemberId: true },
+    select: { teamMemberId: true, group: { select: { tenantId: true } } },
   });
   if (!inGroup) {
     res.status(403).json({ error: '이 크루 그룹 소속 팀원만 조회할 수 있습니다.' });
@@ -371,7 +371,12 @@ router.get('/settlement/pool-member/:teamMemberId/detail', crewSettlementPayroll
 
   let computation: Awaited<ReturnType<typeof computePoolMemberPayrollDetail>>;
   try {
-    const result = await computePoolMemberPayrollDetail(prisma, teamMemberId, monthKey);
+    const result = await computePoolMemberPayrollDetail(
+      prisma,
+      inGroup.group.tenantId,
+      teamMemberId,
+      monthKey,
+    );
     if (!result) {
       res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
       return;
