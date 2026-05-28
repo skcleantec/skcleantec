@@ -65,6 +65,12 @@ alwaysApply: true
 - 공통 인터페이스/타입 변경 시 사용처 전체 검토
 - 새 기능 추가 시 기존 API·컴포넌트 시그니처 유지
 
+### 5.1 멀티테넌트 격리 (**server·Prisma 수정 시 필수**)
+
+- 업체는 **DB가 분리되지 않음** — **`tenant_id` 누락 = 타 업체 데이터 유출** 가능.
+- **`server/`·`prisma/`** 를 건드릴 때는 **`.cursor/rules/multitenant-safety.mdc`** 를 따른다: `requireTenantAuth`, 모든 쿼리 `tenantId`, id-only mutate 금지, 공개 API slug 필수, 마이그레이션 동반.
+- PR·배포 전: 가능하면 **`verify:multitenant:*`** 및 **타 테넌트 ID 접근 403/404** 확인.
+
 ## 6. 접수 수정 · 양면 UI 동기화 (**같은 접수 = 같은 동작**)
 
 - **관리 스케줄의 접수 수정**과 **서비스접수 목록의 접수 수정**은 **동일 `Inquiry`를 다루므로**, UI·클라이언트 검증·배정/정산 필드 전송 규칙을 바꿀 때 **둘 다 동일하게** 적용한다. 한쪽만 수정 금지.

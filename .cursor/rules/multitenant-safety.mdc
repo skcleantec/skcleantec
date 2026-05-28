@@ -1,0 +1,154 @@
+---
+description: 멀티테넌트 데이터 격리·API·마이그레이션 수정 시 필수 안전 규칙
+globs: "server/**/*.{ts,tsx,js,prisma,sql}"
+alwaysApply: true
+---
+
+# 멀티테넌트 안전 코딩 규칙 (필수)
+
+> **배경**: 업체(테넌트)마다 DB가 분리되지 않는다. **PostgreSQL 1개 + `tenant_id` 행 격리**이며, DB RLS는 없다.  
+> **격리는 100% 애플리케이션 코드**가 책임진다. `where` 한 줄 누락 = 타 업체 데이터 유출 가능.
+
+설계 기준: **`docs/MULTI_TENANT_PLATFORM.md`**
+
+---
+
+## 1. API 계층 구분 (혼동 금지)
+
+| 계층 | 경로 | 규칙 |
+|------|------|------|
+| **플랫폼** | `/api/platform/*` | `PlatformUser`만. 테넌트 업무 데이터 **직접 조회·수정 금지**(프로비저닝·상태·기능 설정만). |
+| **테넌트 업무** | `/api/*` (대부분) | JWT `tenantId` 필수. 모든 DB 쿼리에 **`tenantId` 스코프**. |
+| **공개** | `/order`, `/e-contract`, C/S 제출 등 | 토큰·slug·Host로 테넌트 역조회. **SUSPENDED** 차단. |
+
+---
+
+## 2. 서버 라우트 — 테넌트 ID 얻기
+
+- 업무 API는 **`authMiddleware` + `requireTenantAuth`**(또는 동등한 tenant 스코프)를 거친 뒤 `req.tenantId` 사용.
+- `req.tenantId`가 없을 때 **`requireTenantIdFromAuth`** (`tenantScope.helpers.ts`) — 없으면 **403**, 절대 DEFAULT로 추측하지 않는다.
+- JWT `tenantId` 우선, 레거시는 `users.tenant_id` 폴백 (`resolveTenantIdFromAuth`) — **새 코드는 JWT만 가정하지 말고** helper 경유.
+
+```typescript
+// ✅
+const tenantId = await requireTenantIdFromAuth(res, req.user);
+if (!tenantId) return;
+await prisma.inquiry.findMany({ where: { tenantId, ... } });
+
+// ❌ id만으로 조회·수정
+await prisma.inquiry.findUnique({ where: { id: inquiryId } });
+```
+
+---
+
+## 3. Prisma 쿼리 — 절대 원칙
+
+### 3.1 읽기·쓰기·삭제
+
+- **`findMany` / `findFirst` / `update` / `delete` / `count`** → `where`에 **`tenantId`** (또는 tenant를 거치는 FK 경로) 필수.
+- **`findUnique({ where: { id } })`만** 쓰는 업무 코드 **금지**. 복합 unique `(tenantId, …)` 또는 **조회 후 `row.tenantId === tenantId` 검증**.
+- **`updateMany` / `deleteMany`** → 반드시 `tenantId` in where. id 배열만으로 bulk 처리 금지.
+- **하위 리소스**(사진·청구·배정 등) → 부모 `Inquiry`/`OrderForm` 등 **tenant 소유 검증** 후 처리 (`findInquiryForTenant` 패턴 재사용).
+
+### 3.2 생성(create)
+
+- 업무 테이블 **`create` / `createMany`** 시 **`tenantId`를 data에 명시**. relation만 믿고 빼먹지 않는다.
+- **`User`**: `@@unique([tenantId, email])` — 이메일만으로 upsert 금지.
+
+### 3.3 트랜잭션·raw SQL
+
+- `$queryRaw` / `$executeRaw` → SQL에 **`tenant_id = $n`** 조건. legacy 폴백 SQL 추가 시 **DEFAULT 테넌트만** 대상인지 주석·코드로 명확히.
+- **`DEFAULT_TENANT_ID`** (`tenant.constants.ts`)는 **SK 레거시·시드·마이그레이션 백필** 용도. **새 업무 API에서 기본값으로 쓰지 않는다.**
+
+### 3.4 리뷰 red flag (검색 키워드)
+
+수정·PR 전 아래 패턴이 **업무 모듈**에 새로 생기지 않았는지 확인:
+
+- `findMany({` without `tenantId`
+- `findUnique({ where: { id:`
+- `update({ where: { id:`
+- `delete({ where: { id:`
+- `DEFAULT_TENANT_ID` in routes (공개 resolver 제외)
+
+---
+
+## 4. 기능 모듈(Feature) 게이트
+
+- 선택 모듈 API·라우트 → **`requireFeature('mod_*')`** (`tenantFeatures.service.ts`).
+- 클라이언트: **`FeatureGate`** + GNB는 `useTenantCapabilities` / `shared/tenantFeatureModules.ts` 와 **동일 moduleId**.
+- **새 기능** 추가 시 §15 체크리스트 (`MULTI_TENANT_PLATFORM.md`): 카탈로그 → PLAN → 서버 `requireFeature` + `tenantId` → 클라 GNB.
+
+---
+
+## 5. 공개 API·URL
+
+- 테넌트 결정: **`resolvePublicTenantIdFromRequest`** (`publicRequestTenant.ts`) — `?tenant=slug`, body `tenantSlug`, Host 순.
+- **신규 공개 엔드포인트**는 slug/토큰 없이 **`DEFAULT_TENANT_ID`로 떨어지게 만들지 않는다.** (레거시 C/S만 예외, 점진 제거 대상)
+- 공개 발주서·전자계약·C/S → **slug 일치·SUSPENDED 거부** 유지.
+- 클라이언트 공개 링크에 **`?tenant=`** 또는 Host 기반 slug 전달.
+
+---
+
+## 6. WebSocket·실시간
+
+- 스태프/팀장 키: **`${tenantId}:${userId}`** — tenant 없이 userId만 키로 쓰지 않는다.
+- 브로드캐스트·`inbox:refresh` → 수신자·대상 조회 시 **tenant 스코프**.
+- 상세: **`.cursor/rules/team-realtime-websocket.mdc`**
+
+---
+
+## 7. Prisma 스키마·마이그레이션
+
+- **새 업무 테이블** → `tenantId` + `Tenant` FK + **`@@index([tenantId, …])`** (목록·조인용).
+- 유니크는 가능하면 **`@@unique([tenantId, businessKey])`** (접수번호·로그인 id 등).
+- 마이그레이션: 기존 행 **`DEFAULT_TENANT_ID` 백필** → NOT NULL → FK. **idempotent recovery** 패턴 참고 (`20260528150000_*`, `20260528160000_*`).
+- **`prisma db push`로 공유 DB 반영 금지** — **`.cursor/rules/prisma-migrate-and-deploy.mdc`**
+- `schema.prisma` 변경 시 **`migrations/**` SQL 동반** 필수.
+
+---
+
+## 8. 클라이언트
+
+- 테넌트 업무 API 호출 시 JWT에 **`tenantId`** 포함(로그인·`/me`).
+- 로그인: **업체 코드(`tenantSlug`) + 아이디** — `LoginPage` 패턴 유지.
+- 플랫폼 UI(`/platform/*`)와 테넌트 UI(`/admin/*`) **API·토큰 혼용 금지**.
+- 다른 테넌트 id를 URL·state에 넣어도 **서버가 403/404** — 클라이언트만 믿지 않는다.
+
+---
+
+## 9. 수정·PR 마무리 체크리스트
+
+코드 변경 완료 전 **해당 항목** 확인:
+
+- [ ] 추가·수정한 **모든** Prisma 쿼리에 `tenantId`(또는 부모 tenant 검증) 있음
+- [ ] URL `:id` 파라미터로 받은 리소스 → **tenant 소유 확인** 후 mutate
+- [ ] 새 라우트에 `requireFeature` / `requireTenantAuth` 적절히 적용
+- [ ] 공개 API가 slug/토큰 없이 SK default로 붙지 않음
+- [ ] `schema.prisma` 변경 시 마이그레이션 + (가능 시) **`npm run verify:multitenant:phase4`** 또는 phase7 스크립트
+- [ ] **`npx tsc`** server/client 통과
+- [ ] staging 배포 전: **신규 테넌트 프로비저닝·로그인·타 테넌트 ID 접근 403/404** 스모크
+
+검증 스크립트: `server/scripts/verify-multitenant-phase*.ts`, `npm run verify:multitenant:*` (package.json 참고).
+
+---
+
+## 10. 자주 하는 실수 (금지)
+
+| 실수 | 결과 |
+|------|------|
+| ADMIN이 `inquiryId`만으로 PATCH | 다른 업체 접수 수정 |
+| `teamMemberId`만으로 attach/swap | 다른 업체 팀원 배정 |
+| 목록 API pagination 없이 전 테이블 scan | 성능 + tenant 누락 시 전체 노출 |
+| 플랫폼 API에서 `prisma.inquiry.findMany` | 설계 위반 + 사고 |
+| 마이그레이션 없이 `tenant_id` 컬럼만 schema에 추가 | 배포 후 P2022·프로비저닝 400 |
+
+---
+
+## 11. 참고 파일
+
+- `server/src/modules/tenants/tenant.middleware.ts`
+- `server/src/modules/tenants/tenantScope.helpers.ts`
+- `server/src/modules/tenants/publicRequestTenant.ts`
+- `server/src/modules/platform/tenantProvisioning.service.ts`
+- `shared/tenantFeatureModules.ts`
+- `docs/MULTI_TENANT_PLATFORM.md` §6.3, §11, §15

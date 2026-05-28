@@ -90,11 +90,28 @@
 
 ---
 
+## 10. 멀티테넌트 안전 (업체 증가 대비)
+
+> 상세·체크리스트: **`.cursor/rules/multitenant-safety.mdc`**, 설계: **`docs/MULTI_TENANT_PLATFORM.md`**
+
+| 규칙 | 설명 |
+|------|------|
+| **DB 1개 + `tenant_id`** | 업체별 DB가 생기지 않음. 모든 업무 쿼리에 **`tenantId` 스코프** 필수 |
+| **업무 API** | `requireTenantAuth` / `requireTenantIdFromAuth` 후 `where: { tenantId }` |
+| **id만 조회 금지** | `findUnique({ id })`만으로 접수·팀원·배정 수정하지 않음 — tenant 소유 검증 |
+| **공개 API** | slug·토큰·Host로 테넌트 결정. **새 코드에서 SK DEFAULT 폴백 금지** |
+| **기능 모듈** | `requireFeature` + 클라 `FeatureGate` 동일 moduleId |
+| **스키마 변경** | 새 테이블·컬럼 → 마이그레이션 + 백필. 공유 DB는 **`migrate`만** |
+| **PR 전** | 크로스 테넌트 접근 403/404, `verify:multitenant:*` (가능 시) |
+
+---
+
 ## 요약 체크리스트
 
 - [ ] PROJECT_GUIDE.md 확인했는가?
 - [ ] 한 파일에 코드를 몰아 넣지 않았는가?
 - [ ] DB는 마이그레이션으로 외부 서버 적용 가능한가?
+- [ ] **서버 업무 코드에 `tenantId` 스코프·소유 검증이 있는가?** (`.cursor/rules/multitenant-safety.mdc`)
 - [ ] 다른 기능에 영향이 없는가?
 - [ ] 디자인이 심플한가?
 - [ ] 삭제 기능에 비밀번호 확인이 있는가?
