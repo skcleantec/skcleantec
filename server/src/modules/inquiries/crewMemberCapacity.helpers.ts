@@ -251,12 +251,14 @@ async function inquiryUsesInternalCrew(
 /** 해당일 예약(취소 제외) 투입 인원 합 — 타업체 전배 건은 제외 */
 export async function sumCrewDemandForPreferredDate(
   prisma: PrismaClient | { inquiry: PrismaClient['inquiry'] },
+  tenantId: string,
   ymd: string,
   excludeInquiryId?: string
 ): Promise<number> {
   const { gte, lte } = preferredDateDayBounds(ymd);
   const rows = await prisma.inquiry.findMany({
     where: {
+      tenantId,
       preferredDate: { gte, lte },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       ...(excludeInquiryId ? { id: { not: excludeInquiryId } } : {}),
@@ -288,7 +290,7 @@ export async function assertCrewCapacityForInquiry(params: {
   if (activeStaff === 0) return { ok: true };
 
   const available = await countAvailableFieldStaffOnDate(prisma, ymd, tenantId);
-  const demandExcluding = await sumCrewDemandForPreferredDate(prisma, ymd, excludeInquiryId);
+  const demandExcluding = await sumCrewDemandForPreferredDate(prisma, tenantId, ymd, excludeInquiryId);
 
   let previewUsesInternalCrew = true;
   if (assigneeUserIdsPreview !== undefined) {
@@ -296,7 +298,7 @@ export async function assertCrewCapacityForInquiry(params: {
       previewUsesInternalCrew = true;
     } else {
       const users = await prisma.user.findMany({
-        where: { id: { in: assigneeUserIdsPreview } },
+        where: { id: { in: assigneeUserIdsPreview }, tenantId },
         select: { role: true },
       });
       previewUsesInternalCrew = users.some((u) => u.role === 'TEAM_LEADER');
@@ -309,7 +311,7 @@ export async function assertCrewCapacityForInquiry(params: {
   const totalAfter = demandExcluding + thisUnits;
 
   if (totalAfter > available) {
-    const demandOnly = await sumCrewDemandForPreferredDate(prisma, ymd, excludeInquiryId);
+    const demandOnly = await sumCrewDemandForPreferredDate(prisma, tenantId, ymd, excludeInquiryId);
     return {
       ok: false,
       error: `해당일(${ymd}) 투입 가능한 팀원은 ${available}명입니다. 기존 접수 투입 합 ${demandOnly}명 + 이번 ${thisUnits}명으로 가용 인원을 초과합니다.`,

@@ -540,8 +540,8 @@ router.patch('/:id', async (req, res) => {
     const rawCb = body.createdById;
     const nextCreatedById = rawCb == null || rawCb === '' ? null : String(rawCb);
     if (nextCreatedById) {
-      const owner = await prisma.user.findUnique({
-        where: { id: String(nextCreatedById) },
+      const owner = await prisma.user.findFirst({
+        where: { id: String(nextCreatedById), tenantId },
         select: { id: true, role: true, isActive: true },
       });
       if (!owner || !owner.isActive || (owner.role !== 'ADMIN' && owner.role !== 'MARKETER')) {
@@ -581,6 +581,7 @@ router.patch('/:id', async (req, res) => {
       const assignees = await prisma.user.findMany({
         where: {
           id: { in: teamLeaderIds },
+          tenantId,
           isActive: true,
           role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER', 'ADMIN'] },
         },

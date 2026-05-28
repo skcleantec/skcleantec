@@ -600,6 +600,12 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
     res.status(403).json({ error: '취소는 관리자/마케터만 처리할 수 있습니다.' });
     return;
   }
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await resolveTeamContextTenantId(authUser);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
   const body = req.body as { password?: string };
   const password = typeof body.password === 'string' ? body.password : '';
@@ -616,7 +622,7 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
     return;
   }
   const inquiry = await prisma.inquiry.findFirst({
-    where: { id },
+    where: { id, tenantId },
     include: {
       assignments: {
         include: { teamLeader: { select: assignmentTeamLeaderSelect } },
@@ -650,7 +656,7 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
     },
   });
   const staff = await prisma.user.findMany({
-    where: { isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
+    where: { tenantId, isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
     select: { id: true },
   });
   const assignees = inquiry.assignments.map((a) => a.teamLeaderId);

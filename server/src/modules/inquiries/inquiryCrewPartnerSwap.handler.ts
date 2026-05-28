@@ -6,6 +6,7 @@ import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import {
   notifyAllActiveCrewGroupsRefresh,
   notifyAllActiveCrewRosterAck,
@@ -66,6 +67,11 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
   const myCrewNameRaw = typeof body.myCrewName === 'string' ? body.myCrewName.trim() : '';
   const partnerCrewNameRaw = typeof body.partnerCrewName === 'string' ? body.partnerCrewName.trim() : '';
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await resolveTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
 
   if (!partnerInquiryId || partnerInquiryId === id) {
     res.status(400).json({ error: '맞바꿀 상대 접수를 선택해주세요.' });
@@ -73,8 +79,8 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
   }
 
   const [a, b] = await Promise.all([
-    prisma.inquiry.findUnique({ where: { id }, include: swapInclude }),
-    prisma.inquiry.findUnique({ where: { id: partnerInquiryId }, include: swapInclude }),
+    prisma.inquiry.findFirst({ where: { id, tenantId }, include: swapInclude }),
+    prisma.inquiry.findFirst({ where: { id: partnerInquiryId, tenantId }, include: swapInclude }),
   ]);
 
   if (!a || !b) {
@@ -258,8 +264,8 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
     );
   }
 
-  const updated = await prisma.inquiry.findUnique({
-    where: { id: a.id },
+  const updated = await prisma.inquiry.findFirst({
+    where: { id: a.id, tenantId },
     include: inquiryDetailInclude,
   });
   if (!updated) {
