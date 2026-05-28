@@ -166,6 +166,20 @@ export async function getCsReport(token: string, id: string): Promise<CsReport> 
   };
 }
 
+/** 관리자·마케터: C/S 상세 확인 — 접수 건은 처리중으로 전환(미확인 배지 해제) */
+export async function acknowledgeCsReport(token: string, id: string): Promise<CsReport> {
+  const res = await fetch(`${API}/cs/${encodeURIComponent(id)}/acknowledge`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'C/S 확인에 실패했습니다.');
+  }
+  const i = await res.json();
+  return mapCsReportItem(i);
+}
+
 /** 관리자·마케터: C/S 상태/메모/처리완료 */
 export async function updateCsReport(
   token: string,

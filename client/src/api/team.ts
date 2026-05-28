@@ -358,6 +358,24 @@ export async function getTeamCsReports(token: string): Promise<{ items: CsReport
   };
 }
 
+/** 팀장/타업체: C/S 상세 확인 — 접수 건은 처리중으로 전환(미확인 배지 해제) */
+export async function acknowledgeTeamCsReport(token: string, id: string): Promise<CsReport> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/cs/${encodeURIComponent(id)}/acknowledge`), {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || 'C/S 확인에 실패했습니다.');
+  }
+  const i = await res.json();
+  return {
+    ...i,
+    imageUrls: Array.isArray(i.imageUrls) ? i.imageUrls : [],
+    serviceRating: typeof i.serviceRating === 'number' ? i.serviceRating : null,
+  };
+}
+
 /** 팀장: 담당 C/S 수정 */
 export async function patchTeamCsReport(
   token: string,

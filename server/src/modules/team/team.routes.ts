@@ -283,6 +283,31 @@ router.get('/cs', async (req, res) => {
   res.json({ items });
 });
 
+/** 팀장/타업체: C/S 상세 열람 — 접수(RECEIVED)면 처리중(PROCESSING)으로 자동 전환(미확인 배지 해제) */
+router.post('/cs/:id/acknowledge', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const { id } = req.params;
+  const report = await prisma.csReport.findFirst({
+    where: { id, ...teamCsAccessWhere(userId) },
+    include: csReportFullInclude,
+  });
+  if (!report) {
+    res.status(404).json({ error: '담당 C/S를 찾을 수 없습니다.' });
+    return;
+  }
+  if (report.status !== 'RECEIVED') {
+    res.json(report);
+    return;
+  }
+  const updated = await prisma.csReport.update({
+    where: { id },
+    data: { status: 'PROCESSING' },
+    include: csReportFullInclude,
+  });
+  res.json(updated);
+  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : []);
+});
+
 /** 담당 C/S 수정 — 접수·처리중·완료만 (RECEIVED로는 변경 불가) */
 router.patch('/cs/:id', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;

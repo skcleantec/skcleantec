@@ -208,6 +208,36 @@ router.post('/:id/forward', authMiddleware, adminOrMarketer, async (req, res) =>
   ]);
 });
 
+/** 관리자·마케터: C/S 상세 열람 — 접수(RECEIVED)면 처리중(PROCESSING)으로 자동 전환(미확인 배지 해제) */
+router.post('/:id/acknowledge', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const { id } = req.params;
+  const item = await prisma.csReport.findFirst({
+    where: { id, tenantId },
+    include: csReportFullInclude,
+  });
+  if (!item) {
+    res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
+    return;
+  }
+  if (item.status !== 'RECEIVED') {
+    res.json(item);
+    return;
+  }
+  const updated = await prisma.csReport.update({
+    where: { id },
+    data: { status: 'PROCESSING' },
+    include: csReportFullInclude,
+  });
+  res.json(updated);
+  void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : []);
+});
+
 /** 관리자·마케터: C/S 상세 */
 router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;

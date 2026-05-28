@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router();
 
@@ -12,13 +13,19 @@ function isDbUnavailable(err: unknown): boolean {
 
 /** 관리자 GNB: 미읽 메시지 + 미처리(접수) C/S — 한 요청으로 병렬 COUNT */
 router.get('/nav-badges', authMiddleware, adminOrMarketer, async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId } = user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   try {
     const [unreadCount, csPendingCount] = await Promise.all([
       prisma.message.count({
         where: { receiverId: userId, readAt: null },
       }),
-      prisma.csReport.count({ where: { status: 'RECEIVED' } }),
+      prisma.csReport.count({ where: { tenantId, status: 'RECEIVED' } }),
     ]);
     res.json({ unreadCount, csPendingCount });
   } catch (err) {

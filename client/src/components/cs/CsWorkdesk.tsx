@@ -4,6 +4,7 @@ import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import {
   getCsReports,
+  acknowledgeCsReport,
   updateCsReport,
   deleteCsReport,
   forwardCsReport,
@@ -12,7 +13,7 @@ import {
 } from '../../api/cs';
 import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
 import { getMe } from '../../api/auth';
-import { getTeamCsReports, patchTeamCsReport } from '../../api/team';
+import { acknowledgeTeamCsReport, getTeamCsReports, patchTeamCsReport } from '../../api/team';
 import { getToken } from '../../stores/auth';
 import { getTeamToken } from '../../stores/teamAuth';
 import {
@@ -430,6 +431,19 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     setEditAsServiceDate(formatPreferredDateInputYmd(item.asServiceDate));
     setAsDateHelpOpen(false);
     setForwardHelpOpen(false);
+
+    if (item.status !== 'RECEIVED' || !token) return;
+    const ack = mode === 'admin' ? acknowledgeCsReport(token, item.id) : acknowledgeTeamCsReport(token, item.id);
+    void ack
+      .then((updated) => {
+        setSelected((sel) => (sel?.id === item.id ? updated : sel));
+        setEditStatus(updated.status);
+        setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+        (window as { __refreshCsPendingCount?: () => void }).__refreshCsPendingCount?.();
+      })
+      .catch(() => {
+        /* 상세는 이미 열림 — 확인 API 실패 시 배지만 유지 */
+      });
   };
 
   const closeDetail = () => {
