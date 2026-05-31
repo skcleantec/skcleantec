@@ -159,6 +159,8 @@ export interface InquiryItem {
   /** 전용면적 기준 시 참고 제곱미터 */
   exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
+  /** 고객/마케터가 발주서에서 선택한 전문 시공 옵션 — 서버가 테넌트 카탈로그 라벨로 해석해 첨부 */
+  professionalOptions?: Array<{ id: string; label: string; emoji?: string | null; color?: string | null }>;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
@@ -365,6 +367,14 @@ export function buildTeamInquiryShareClipText(item: InquiryItem): string {
   }
   const structure = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount);
   if (structure && structure !== teamBiPlain('team.common.emDash')) addRow('구조', structure);
+  if (item.professionalOptions && item.professionalOptions.length > 0) {
+    addRow(
+      '전문 시공',
+      item.professionalOptions
+        .map((opt) => `${opt.emoji ? `${opt.emoji} ` : ''}${opt.label}`)
+        .join(', '),
+    );
+  }
   addRow('현장 작업자', formatCrewInfo(item));
   if (isMorningBucketForTeamMeeting(item)) {
     const cm = (item.crewMeetingTime ?? '').trim();
@@ -901,6 +911,32 @@ export function TeamInquiryDetailModal({
                   label={<TeamBiLine id="team.modal.row.buildingType" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
                   <span className="text-gray-800">{item.propertyType}</span>
+                </TeamModalRow>
+              ) : null}
+              {item.professionalOptions && item.professionalOptions.length > 0 ? (
+                <TeamModalRow
+                  label={<TeamBiLine id="team.modal.row.professional" koClassName="text-fluid-xs font-medium text-gray-500" />}
+                >
+                  <ul className="flex flex-wrap items-center gap-1.5">
+                    {item.professionalOptions.map((opt) => (
+                      <li
+                        key={opt.id}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-fluid-xs font-medium text-gray-800"
+                      >
+                        {opt.color ? (
+                          <span
+                            aria-hidden
+                            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-gray-300/80"
+                            style={{ backgroundColor: opt.color }}
+                          />
+                        ) : null}
+                        <span>
+                          {opt.emoji ? `${opt.emoji} ` : ''}
+                          {opt.label}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 </TeamModalRow>
               ) : null}
               <TeamModalRow

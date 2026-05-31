@@ -101,6 +101,7 @@ export const teamMessages = {
   'team.modal.row.area': { ko: '평수'},
   'team.modal.row.rooms': { ko: '방 · 화 · 베'},
   'team.modal.row.buildingType': { ko: '건축물 유형'},
+  'team.modal.row.professional': { ko: '전문 시공'},
   'team.modal.row.crew': { ko: '투입 팀원'},
   'team.modal.crewCount': { ko: '팀원{count}명'},
   'team.modal.row.meetingTime': { ko: '미팅시간'},

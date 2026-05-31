@@ -207,6 +207,63 @@ async function attachCrewMembersOne<T extends { crewMemberNote: string | null } 
   };
 }
 
+type TeamProfessionalOption = {
+  id: string;
+  label: string;
+  emoji: string | null;
+  color: string | null;
+};
+
+/** `Inquiry.professionalOptionIds`(JSON 배열) → 문자열 id 목록(중복 제거) */
+function parseProfessionalOptionIdList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const v of raw) {
+    const s = typeof v === 'string' ? v.trim() : '';
+    if (s && !seen.has(s)) {
+      seen.add(s);
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+/**
+ * 접수의 `professionalOptionIds`(고객/마케터가 발주서에서 선택한 전문 시공)를
+ * **테넌트 카탈로그 라벨**로 해석해 `professionalOptions`로 첨부한다.
+ * - 팀장/타업체 상세 모달에서 라벨을 그대로 보여 줄 수 있게 한다.
+ * - 카탈로그 조회는 `tenantId`로 스코프(멀티테넌트 안전).
+ */
+async function attachProfessionalOptions<T extends object>(
+  items: T[],
+  tenantId: string,
+): Promise<Array<T & { professionalOptions: TeamProfessionalOption[] }>> {
+  const idsOf = (it: T) =>
+    parseProfessionalOptionIdList((it as { professionalOptionIds?: unknown }).professionalOptionIds);
+  const allIds = new Set<string>();
+  for (const it of items) {
+    for (const id of idsOf(it)) allIds.add(id);
+  }
+  if (allIds.size === 0) {
+    return items.map((it) => ({ ...it, professionalOptions: [] }));
+  }
+  const rows = await prisma.professionalSpecialtyOption.findMany({
+    where: { tenantId, id: { in: Array.from(allIds) } },
+    select: { id: true, label: true, emoji: true, color: true },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return items.map((it) => ({
+    ...it,
+    professionalOptions: idsOf(it)
+      .map((id): TeamProfessionalOption | null => {
+        const o = byId.get(id);
+        return o ? { id: o.id, label: o.label, emoji: o.emoji ?? null, color: o.color ?? null } : null;
+      })
+      .filter((x): x is TeamProfessionalOption => x != null),
+  }));
+}
+
 /** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S + 미확인 배정(상세 미조회) — 한 요청으로 병렬 COUNT */
 router.get('/nav-badges', async (req, res) => {
   const { userId, role } = (req as unknown as { user: AuthPayload }).user;
@@ -686,7 +743,7 @@ router.get('/inquiries', async (req, res) => {
       orderBy: { preferredDate: 'asc' },
       include: teamInquiryInclude,
     });
-    const items = await attachCrewMembers(rows, tenantId);
+    const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
     res.json({ items });
     return;
   }
@@ -694,7 +751,8 @@ router.get('/inquiries', async (req, res) => {
     const parsed = parseTeamAssignmentListQuery(req.query as Record<string, unknown>);
     const { items, total } = await listTeamAssignmentsPaginated(prisma, userId, parsed, {
       teamInquiryInclude,
-      attachCrewMembers: (rows) => attachCrewMembers(rows, tenantId),
+      attachCrewMembers: async (rows) =>
+        attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId),
     });
     res.json({ items, total });
   } catch (e) {
@@ -739,7 +797,7 @@ router.get('/schedule', async (req, res) => {
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     include: teamInquiryInclude,
   });
-  const items = await attachCrewMembers(rows, tenantId);
+  const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
   res.json({ items });
 });
 
