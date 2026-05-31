@@ -822,8 +822,8 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
   try {
     if (pid) {
-      const pending = await prisma.inquiry.findUnique({
-        where: { id: pid },
+      const pending = await prisma.inquiry.findFirst({
+        where: { id: pid, tenantId: authTenantId },
         select: { id: true, status: true, orderFormId: true, createdById: true },
       });
       if (!pending) {
@@ -2009,8 +2009,11 @@ router.delete('/by-token/:token/photos/:photoId', async (req, res) => {
 
 /** 관리자·마케터: 발주서에 첨부된 사진 목록 조회 (orderFormId 기준). */
 router.get('/:id/photos', authMiddleware, adminOrMarketerOrTeamLeader, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
   const { id } = req.params;
-  const form = await prisma.orderForm.findUnique({ where: { id }, select: { id: true } });
+  const form = await prisma.orderForm.findFirst({ where: { id, tenantId }, select: { id: true } });
   if (!form) {
     res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
     return;

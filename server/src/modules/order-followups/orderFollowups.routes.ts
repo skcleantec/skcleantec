@@ -24,14 +24,14 @@ import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 const router = Router();
 
 /** 부재현황이 입금 완료(RESERVED)일 때, 연결 접수가 입금대기면 접수 목록용 입금완료(DEPOSIT_COMPLETED)로 맞춤 */
-async function syncInquiryWhenFollowupDepositComplete(inquiryId: string): Promise<void> {
+async function syncInquiryWhenFollowupDepositComplete(inquiryId: string, tenantId: string): Promise<void> {
   const updated = await prisma.inquiry.updateMany({
-    where: { id: inquiryId, status: 'DEPOSIT_PENDING' },
+    where: { id: inquiryId, tenantId, status: 'DEPOSIT_PENDING' },
     data: { status: 'DEPOSIT_COMPLETED' },
   });
   if (updated.count === 0) return;
   const assigns = await prisma.assignment.findMany({
-    where: { inquiryId },
+    where: { inquiryId, tenantId },
     select: { teamLeaderId: true },
   });
   if (assigns.length > 0) {
@@ -40,10 +40,10 @@ async function syncInquiryWhenFollowupDepositComplete(inquiryId: string): Promis
 }
 
 /** 부재현황이 예약금 대기(DEPOSIT_PENDING)일 때, 연결 접수를 접수 목록 입금대기로 맞춤(접수번호 없으면 발급) */
-async function syncInquiryWhenFollowupDepositPending(inquiryId: string): Promise<void> {
+async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    const inv = await tx.inquiry.findUnique({
-      where: { id: inquiryId },
+    const inv = await tx.inquiry.findFirst({
+      where: { id: inquiryId, tenantId },
       select: { status: true, inquiryNumber: true, tenantId: true },
     });
     if (!inv || inv.status === 'CANCELLED') return;
@@ -255,8 +255,14 @@ router.get('/', async (req, res) => {
 });
 
 router.get('/:id/logs', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
-  const exists = await prisma.orderFollowup.findUnique({ where: { id }, select: { id: true } });
+  const exists = await prisma.orderFollowup.findFirst({ where: { id, tenantId }, select: { id: true } });
   if (!exists) {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
@@ -364,9 +370,9 @@ router.post('/', async (req, res) => {
   });
   if (connectInquiryId) {
     if (status === 'DEPOSIT_PENDING') {
-      await syncInquiryWhenFollowupDepositPending(connectInquiryId);
+      await syncInquiryWhenFollowupDepositPending(connectInquiryId, tenantId);
     } else if (status === 'RESERVED') {
-      await syncInquiryWhenFollowupDepositComplete(connectInquiryId);
+      await syncInquiryWhenFollowupDepositComplete(connectInquiryId, tenantId);
     }
   }
   res.status(201).json({ item: serializeFollowup(full) });
@@ -374,9 +380,14 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
   const body = req.body as Record<string, unknown>;
-  const prev = await prisma.orderFollowup.findUnique({ where: { id } });
+  const prev = await prisma.orderFollowup.findFirst({ where: { id, tenantId } });
   if (!prev) {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
@@ -584,9 +595,9 @@ router.patch('/:id', async (req, res) => {
   });
   if (full.inquiryId) {
     if (full.status === 'DEPOSIT_PENDING') {
-      await syncInquiryWhenFollowupDepositPending(full.inquiryId);
+      await syncInquiryWhenFollowupDepositPending(full.inquiryId, tenantId);
     } else if (full.status === 'RESERVED') {
-      await syncInquiryWhenFollowupDepositComplete(full.inquiryId);
+      await syncInquiryWhenFollowupDepositComplete(full.inquiryId, tenantId);
     }
   }
   res.json({ item: serializeFollowup(full) });
@@ -595,9 +606,14 @@ router.patch('/:id', async (req, res) => {
 /** 재연락 후에도 부재·보류 유지 시 보류 횟수 +1 */
 router.post('/:id/defer', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
   const body = req.body as { note?: string };
-  const prev = await prisma.orderFollowup.findUnique({ where: { id } });
+  const prev = await prisma.orderFollowup.findFirst({ where: { id, tenantId } });
   if (!prev) {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
@@ -630,6 +646,11 @@ router.post('/:id/defer', async (req, res) => {
 /** 부재현황 삭제 — 관리자/마케터 + 본인 비밀번호 확인 필수 */
 router.delete('/:id', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
   const { id } = req.params;
   const body = req.body as { password?: string };
   const password = body.password != null ? String(body.password).trim() : '';
@@ -652,8 +673,8 @@ router.delete('/:id', async (req, res) => {
     return;
   }
 
-  const exists = await prisma.orderFollowup.findUnique({
-    where: { id },
+  const exists = await prisma.orderFollowup.findFirst({
+    where: { id, tenantId },
     select: { id: true },
   });
   if (!exists) {

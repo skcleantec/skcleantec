@@ -362,7 +362,7 @@ router.post('/definitions/:id/draft', async (req, res) => {
 router.patch('/versions/:vid', async (req, res) => {
   try {
     const body = req.body ?? {};
-    const row = await patchDraftVersion(req.params.vid, {
+    const row = await patchDraftVersion(reqTenantId(req), req.params.vid, {
       titleSnapshot: typeof body.titleSnapshot === 'string' ? body.titleSnapshot : undefined,
       bodyMarkdown:
         typeof body.bodyMarkdown === 'string' ? body.bodyMarkdown.replace(/\r\n/g, '\n') : undefined,

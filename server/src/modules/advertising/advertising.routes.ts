@@ -164,6 +164,8 @@ router.post('/channels/:channelId/line-items', authMiddleware, adminOnly, async 
 });
 
 router.patch('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const { lineItemId } = req.params;
   const body = req.body as {
     label?: string;
@@ -171,8 +173,8 @@ router.patch('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, r
     countsForSpend?: boolean;
     sortOrder?: number;
   };
-  const existingFull = await prisma.adChannelLineItem.findUnique({
-    where: { id: lineItemId },
+  const existingFull = await prisma.adChannelLineItem.findFirst({
+    where: { id: lineItemId, channel: { tenantId } },
   });
   if (!existingFull) {
     res.status(404).json({ error: '과목을 찾을 수 없습니다.' });
@@ -217,7 +219,17 @@ router.patch('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, r
 });
 
 router.delete('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, res) => {
+  const tenantId = requireTenantFromReq(req, res);
+  if (!tenantId) return;
   const { lineItemId } = req.params;
+  const owned = await prisma.adChannelLineItem.findFirst({
+    where: { id: lineItemId, channel: { tenantId } },
+    select: { id: true },
+  });
+  if (!owned) {
+    res.status(404).json({ error: '과목을 찾을 수 없습니다.' });
+    return;
+  }
   try {
     await prisma.adChannelLineItem.delete({ where: { id: lineItemId } });
     res.json({ ok: true });

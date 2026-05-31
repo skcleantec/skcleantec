@@ -181,9 +181,16 @@ export async function ensureDraft(tenantId: string, definitionId: string) {
   });
 }
 
-export async function patchDraftVersion(versionId: string, body: { titleSnapshot?: string; bodyMarkdown?: string }) {
-  const v = await prisma.eContractVersion.findUnique({ where: { id: versionId } });
-  if (!v || v.status !== EContractVersionStatus.DRAFT) {
+export async function patchDraftVersion(
+  tenantId: string,
+  versionId: string,
+  body: { titleSnapshot?: string; bodyMarkdown?: string },
+) {
+  const v = await prisma.eContractVersion.findUnique({
+    where: { id: versionId },
+    include: { definition: { select: { tenantId: true } } },
+  });
+  if (!v || v.status !== EContractVersionStatus.DRAFT || v.definition.tenantId !== tenantId) {
     throw Object.assign(new Error('not_draft'), { code: 'bad_request' as const });
   }
   const data: Prisma.EContractVersionUpdateInput = {};
