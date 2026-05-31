@@ -173,12 +173,24 @@ export interface OrderFormPublicTemplateField {
   fillMode: string;
 }
 
+/** 표준(시스템) 항목의 공개 폼 구성 — 표준 폼 섹션 표시/숨김·라벨 제어용 */
+export interface OrderFormPublicSystemField {
+  systemField: string;
+  label: string;
+  required: boolean;
+  sortOrder: number;
+}
+
 /** 발주서가 사용하는 양식(템플릿) — 제목·아이콘·추가 항목 */
 export interface OrderFormPublicTemplate {
   id: string;
   title: string;
   icon: string | null;
   description: string | null;
+  /** 기본 발주서면 제목은 formConfig.formTitle을 따른다(레거시 편집 호환) */
+  isDefault?: boolean;
+  /** 표준 항목 구성(있으면 선택 표준 섹션 표시/숨김에 사용). 없거나 레거시면 전부 표시 */
+  systemFields?: OrderFormPublicSystemField[];
   customFields: OrderFormPublicTemplateField[];
 }
 

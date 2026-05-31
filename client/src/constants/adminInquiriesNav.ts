@@ -13,12 +13,12 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
       {
         to: '/admin/inquiries/order-templates',
         label: '발주서 양식',
-        title: '발주서 양식(템플릿) 직접 만들기',
+        title: '발주서별 제목·아이콘·항목 직접 만들기(구글폼식)',
       },
       {
         to: '/admin/inquiries/order-customer-preview',
         label: '발주서설정',
-        title: '발주서 폼 설정·미리보기',
+        title: '공통 메시지·견적/전문시공 옵션 설정·미리보기',
       },
     ],
   },

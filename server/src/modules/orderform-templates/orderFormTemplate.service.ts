@@ -12,11 +12,22 @@ export interface PublicTemplateCustomField {
   fillMode: string;
 }
 
+export interface PublicSystemField {
+  systemField: string;
+  label: string;
+  required: boolean;
+  sortOrder: number;
+}
+
 export interface PublicOrderTemplate {
   id: string;
   title: string;
   icon: string | null;
   description: string | null;
+  /** 테넌트 기본 발주서 여부 — 공개 페이지 제목은 기본 템플릿일 때 formConfig.formTitle을 따른다 */
+  isDefault: boolean;
+  /** systemField 연결 항목 — 공개 폼의 선택 표준 섹션 표시/숨김 제어용 */
+  systemFields: PublicSystemField[];
   /** systemField 미연결(추가 정보) 항목 — 공개 폼에서 동적 렌더 */
   customFields: PublicTemplateCustomField[];
 }
@@ -70,11 +81,21 @@ export async function getPublicTemplateForForm(
       required: f.required,
       fillMode: f.fillMode,
     }));
+  const systemFields: PublicSystemField[] = t.fields
+    .filter((f) => !!f.systemField)
+    .map((f) => ({
+      systemField: f.systemField as string,
+      label: f.label,
+      required: f.required,
+      sortOrder: f.sortOrder,
+    }));
   return {
     id: t.id,
     title: t.title,
     icon: t.icon,
     description: t.description,
+    isDefault: t.isDefault,
+    systemFields,
     customFields,
   };
 }

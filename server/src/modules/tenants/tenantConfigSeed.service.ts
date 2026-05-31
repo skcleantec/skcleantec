@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { DEFAULT_PROFESSIONAL_OPTIONS } from '../orderform/defaultProfessionalOptions.data.js';
+import { DEFAULT_ORDER_FORM_TEMPLATE_FIELDS } from '../orderform-templates/systemFields.js';
 import { DEFAULT_TENANT_ID } from './tenant.constants.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -78,7 +79,7 @@ export async function ensureDefaultOrderFormTemplate(
     select: { id: true },
   });
   if (existing) return;
-  await db.orderFormTemplate.create({
+  const created = await db.orderFormTemplate.create({
     data: {
       tenantId,
       title: title.trim() || '기본 발주서',
@@ -87,6 +88,21 @@ export async function ensureDefaultOrderFormTemplate(
       isDefault: true,
       sortOrder: 0,
     },
+  });
+  // 기본 발주서(1번)에 기존 표준 항목 공통 적용
+  await db.orderFormTemplateField.createMany({
+    data: DEFAULT_ORDER_FORM_TEMPLATE_FIELDS.map((f) => ({
+      tenantId,
+      templateId: created.id,
+      fieldKey: f.fieldKey,
+      label: f.label,
+      inputType: f.inputType as Prisma.OrderFormTemplateFieldCreateManyInput['inputType'],
+      options: f.options,
+      required: true,
+      sortOrder: f.sortOrder,
+      systemField: f.systemField,
+      fillMode: 'CUSTOMER' as Prisma.OrderFormTemplateFieldCreateManyInput['fillMode'],
+    })),
   });
 }
 

@@ -286,6 +286,13 @@ export function AdminOrderFormCustomerPreviewPage() {
     <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-3">
       <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 sm:px-4">
         <h2 className="text-fluid-base font-semibold text-gray-900">고객 발주서 편집</h2>
+        <p className="mt-1 text-fluid-xs text-gray-400">
+          여기서는 <b>모든 발주서에 공통으로 쓰는 메시지·옵션</b>(가격 라벨·하단 안내·제출완료 문구·시간대 안내·견적/전문시공 옵션)을 설정합니다. 발주서별 <b>제목·아이콘·추가 항목</b>은{' '}
+          <Link to="/admin/inquiries/order-templates" className="text-blue-700 underline hover:text-blue-800">
+            발주서 양식
+          </Link>
+          에서 만듭니다.
+        </p>
         {error ? <p className="mt-2 text-fluid-xs text-red-600">{error}</p> : null}
       </div>
 
@@ -366,6 +373,9 @@ export function AdminOrderFormCustomerPreviewPage() {
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-4 sm:py-4">
             {activePanel === 'title' && (
               <div className="space-y-3">
+                <p className="rounded border border-blue-100 bg-blue-50 px-2.5 py-2 text-[11px] leading-relaxed text-blue-900">
+                  이 제목은 <b>기본 발주서</b>의 제목입니다. 「발주서 양식」에서 만든 다른 발주서로 발급하면, 그 양식에 지정한 <b>제목·아이콘이 우선</b> 표시됩니다.
+                </p>
                 <label className="block text-fluid-xs font-medium text-gray-700">폼 제목</label>
                 <textarea
                   rows={4}

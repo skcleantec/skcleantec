@@ -164,6 +164,17 @@ export function OrderFormPage() {
   const formRef = useRef(form);
   formRef.current = form;
 
+  // 선택 표준 항목 표시/숨김 — 템플릿 systemFields에 있으면 표시.
+  // 레거시(템플릿 없음)·systemFields 미제공이면 전부 표시(회귀 방지).
+  const stdFieldOn = useCallback(
+    (key: string): boolean => {
+      const sys = order?.template?.systemFields;
+      if (!sys) return true;
+      return sys.some((f) => f.systemField === key);
+    },
+    [order],
+  );
+
   /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
   const profSelectionSummary = useMemo(() => {
     const rows: { key: string; text: string }[] = [];
@@ -532,11 +543,11 @@ export function OrderFormPage() {
           <CloseButton />
         </div>
         <h1 className="text-lg font-semibold text-gray-900 mb-1 whitespace-pre-line">
-          {order?.template?.title
+          {order?.template?.title && !order.template.isDefault
             ? `${order.template.icon ? `${order.template.icon} ` : ''}${order.template.title}`
             : orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle)}
         </h1>
-        {order?.template?.description ? (
+        {order?.template?.description && !order.template.isDefault ? (
           <p className="mb-1 text-xs text-gray-500 whitespace-pre-line">{order.template.description}</p>
         ) : null}
         {order && (
@@ -804,6 +815,7 @@ export function OrderFormPage() {
             <p className="text-xs text-gray-500 mt-1">* 청소 중 이사 들어오는 스케줄, 서비스 불가</p>
           </div>
 
+          {stdFieldOn('preferredTimeDetail') && (
           <div>
             <label className={labelCls}>7. 구체적 시각 (선택)</label>
             {detailLockedByAdmin ? (
@@ -836,7 +848,9 @@ export function OrderFormPage() {
               </>
             )}
           </div>
+          )}
 
+          {stdFieldOn('roomCount') && (
           <div>
             <p className={`${labelCls} mb-2`}>8. 방·베란다·화장실·주방</p>
             <div className="grid grid-cols-4 gap-2">
@@ -889,6 +903,7 @@ export function OrderFormPage() {
               * 최초 견적요청 상이 시 요금 추가 또는 해당 구조 구역 청소 불가
             </p>
           </div>
+          )}
 
           <div>
             <label className={labelCls}>9. 신축/구축/인테리어/거주 선택 *</label>
@@ -963,6 +978,7 @@ export function OrderFormPage() {
             </p>
           </div>
 
+          {stdFieldOn('specialNotes') && (
           <div>
             <label className={labelCls}>11. 특이사항</label>
             <textarea
@@ -975,6 +991,7 @@ export function OrderFormPage() {
             />
             <p className="text-xs text-gray-500 mt-1">* 미작성 시 전달 누락</p>
           </div>
+          )}
 
           {(order?.template?.customFields?.length ?? 0) > 0 ? (
             <div className="rounded border border-gray-200 bg-white p-3 space-y-3">
