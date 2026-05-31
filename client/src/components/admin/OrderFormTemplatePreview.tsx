@@ -166,6 +166,14 @@ export function OrderFormTemplatePreview({
             ))}
           </div>
         )}
+
+        {/* 동의 블록 — 어느 발주서든 항상 맨 아래에 표시(실제 폼과 동일) */}
+        <div className="mt-4 rounded-xl border border-gray-200 bg-gradient-to-b from-gray-50/95 to-white px-4 py-4 text-center">
+          <div className="w-full rounded-lg border border-gray-800 bg-white px-4 py-2.5 text-fluid-sm font-semibold text-gray-900">
+            안내사항 보기 및 동의하기
+          </div>
+          <p className="mt-1.5 text-fluid-2xs text-gray-400">제출 전 안내사항 전체 확인 및 동의가 필요합니다.</p>
+        </div>
       </div>
     </div>
   );
