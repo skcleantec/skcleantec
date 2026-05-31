@@ -926,12 +926,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               잔금 {(order.balanceAmount ?? 0).toLocaleString()}원, 예약금{' '}
               {(order.depositAmount ?? 0).toLocaleString()}원
             </p>
-            <p className="text-gray-600 text-xs mt-1 whitespace-pre-line">
-              {orderFormConfigLine(
-                order.formConfig?.reviewEventText,
-                ORDER_FORM_CONFIG_DEFAULTS.reviewEventText
-              )}
-            </p>
+            {order.formConfig?.reviewEventText?.trim() ? (
+              <p className="text-gray-600 text-xs mt-1 whitespace-pre-line">
+                {order.formConfig.reviewEventText.trim()}
+              </p>
+            ) : null}
             {order.optionNote && (
               <p className="text-gray-600 mt-2">추가: {order.optionNote}</p>
             )}

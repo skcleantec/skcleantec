@@ -568,11 +568,14 @@ function mapPendingInquiry(row: {
   moveInDateUndecided: boolean;
   memo: string | null;
 }) {
+  // 일반 발급으로 자동 생성된 플레이스홀더 주소는 고객에게 빈 값으로 노출(주소 검색 가능하게)
+  const addressForForm =
+    row.address?.trim() === STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER ? '' : row.address;
   return {
     customerName: row.customerName,
     customerPhone: row.customerPhone,
     customerPhone2: row.customerPhone2,
-    address: row.address,
+    address: addressForForm,
     addressDetail: row.addressDetail,
     areaPyeong: row.areaPyeong,
     areaBasis: row.areaBasis,
@@ -1619,7 +1622,8 @@ function resolvedPublicFormConfig(row: FormConfigRow) {
   return {
     formTitle: line(row.formTitle, d.formTitle),
     priceLabel: line(row.priceLabel, d.priceLabel),
-    reviewEventText: line(row.reviewEventText, d.reviewEventText),
+    // 리뷰 문구: null(미설정)만 기본 문구, ''(명시적 비움)은 숨김으로 그대로 둠
+    reviewEventText: row.reviewEventText == null ? d.reviewEventText : String(row.reviewEventText).trim(),
     footerNotice1: line(row.footerNotice1, d.footerNotice1),
     footerNotice2: line(row.footerNotice2, d.footerNotice2),
     infoContent: infoTrimmed || null,
@@ -1659,7 +1663,10 @@ router.put('/form-config', authMiddleware, adminOnly, async (req, res) => {
       data: {
         ...(body.formTitle != null && { formTitle: String(body.formTitle) }),
         ...(body.priceLabel != null && { priceLabel: body.priceLabel ? String(body.priceLabel) : null }),
-        ...(body.reviewEventText != null && { reviewEventText: body.reviewEventText ? String(body.reviewEventText) : null }),
+        // 리뷰 문구는 "비우면 숨김" 가능 — ''(빈 문자열)은 그대로 저장(숨김), null만 미설정(기본문구). undefined면 변경 안 함
+        ...(body.reviewEventText !== undefined && {
+          reviewEventText: body.reviewEventText == null ? null : String(body.reviewEventText),
+        }),
         ...(body.footerNotice1 != null && { footerNotice1: body.footerNotice1 ? String(body.footerNotice1) : null }),
         ...(body.footerNotice2 != null && { footerNotice2: body.footerNotice2 ? String(body.footerNotice2) : null }),
         ...(body.infoContent != null && { infoContent: body.infoContent ? String(body.infoContent) : null }),

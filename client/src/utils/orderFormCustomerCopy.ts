@@ -32,7 +32,11 @@ export function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessa
   return {
     formTitle: withDefaultText(c.formTitle, 'formTitle'),
     priceLabel: withDefaultText(c.priceLabel, 'priceLabel'),
-    reviewEventText: withDefaultText(c.reviewEventText, 'reviewEventText'),
+    // 리뷰 문구는 "비우면 숨김" 가능 — null/undefined(미설정)만 기본 문구, ''(명시적 비움)은 그대로 둠
+    reviewEventText:
+      c.reviewEventText == null
+        ? ORDER_FORM_CONFIG_DEFAULTS.reviewEventText
+        : c.reviewEventText,
     footerNotice1: withDefaultText(c.footerNotice1, 'footerNotice1'),
     footerNotice2: withDefaultText(c.footerNotice2, 'footerNotice2'),
     submitSuccessTitle: withDefaultText(c.submitSuccessTitle, 'submitSuccessTitle'),
@@ -84,15 +88,16 @@ export function buildOrderFormCustomerMessage(
   const csLink = getCsPublicUrl(origin);
   const title = withDefaultText(msgConfig.formTitle, 'formTitle');
   const priceLabel = withDefaultText(msgConfig.priceLabel, 'priceLabel');
-  const reviewText = withDefaultText(msgConfig.reviewEventText, 'reviewEventText');
+  // 리뷰 문구는 비우면 숨김 (normalizeMsgConfigForEditor에서 ''는 그대로 유지)
+  const reviewText = (msgConfig.reviewEventText ?? '').trim();
   const footer1 = withDefaultText(msgConfig.footerNotice1, 'footerNotice1');
   const footer2 = withDefaultText(msgConfig.footerNotice2, 'footerNotice2');
 
   let msg = `${title}
 
 총 금액 ${order.totalAmount.toLocaleString('ko-KR')}원 ${priceLabel}
-잔금 ${order.balanceAmount.toLocaleString('ko-KR')}원, 예약금 ${order.depositAmount.toLocaleString('ko-KR')}원
-${reviewText}`;
+잔금 ${order.balanceAmount.toLocaleString('ko-KR')}원, 예약금 ${order.depositAmount.toLocaleString('ko-KR')}원`;
+  if (reviewText) msg += `\n${reviewText}`;
 
   if (order.preferredDate && order.preferredTime) {
     const slotLabel =

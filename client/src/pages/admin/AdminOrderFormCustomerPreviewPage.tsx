@@ -194,7 +194,8 @@ export function AdminOrderFormCustomerPreviewPage() {
       await updateFormConfig(token, {
         formTitle: msgConfig.formTitle || undefined,
         priceLabel: msgConfig.priceLabel || undefined,
-        reviewEventText: msgConfig.reviewEventText || undefined,
+        // 리뷰 문구는 빈 값('')도 그대로 전송해 "숨김"을 저장 (undefined로 바꾸면 서버가 무시 → 기본문구 복귀)
+        reviewEventText: msgConfig.reviewEventText ?? '',
         footerNotice1: msgConfig.footerNotice1 || undefined,
         footerNotice2: msgConfig.footerNotice2 || undefined,
         submitSuccessTitle: msgConfig.submitSuccessTitle || undefined,
@@ -506,7 +507,11 @@ export function AdminOrderFormCustomerPreviewPage() {
                   className={`${MSG_TEXTAREA_CLS} min-h-[6rem]`}
                   value={msgConfig.reviewEventText ?? ''}
                   onChange={(e) => setMsgConfig((c) => ({ ...c, reviewEventText: e.target.value }))}
+                  placeholder="비워 두면 발주서에서 리뷰 문구가 표시되지 않습니다."
                 />
+                <p className="text-fluid-2xs text-gray-500">
+                  내용을 모두 지우고 저장하면 고객 발주서에서 리뷰 문구가 숨겨집니다.
+                </p>
                 <button
                   type="button"
                   onClick={() => void handleSaveMsg()}
