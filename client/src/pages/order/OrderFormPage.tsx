@@ -1032,9 +1032,25 @@ export function OrderFormPage() {
                     {cf.inputType === 'TEXTAREA' ? (
                       <textarea
                         className={`${inputCls} min-h-[80px]`}
+                        placeholder={cf.placeholder && cf.placeholder.trim() ? cf.placeholder : undefined}
                         value={typeof value === 'string' ? value : ''}
                         onChange={(e) => setVal(e.target.value)}
                       />
+                    ) : cf.inputType === 'SELECT' && cf.optionStyle === 'RADIO' ? (
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        {opts.map((o) => (
+                          <label key={o} className="flex items-center gap-1.5 text-sm text-gray-700">
+                            <input
+                              type="radio"
+                              name={`cf-${cf.fieldKey}`}
+                              className="h-4 w-4 border-gray-300"
+                              checked={value === o}
+                              onChange={() => setVal(o)}
+                            />
+                            {o}
+                          </label>
+                        ))}
+                      </div>
                     ) : cf.inputType === 'SELECT' ? (
                       <select className={inputCls} value={typeof value === 'string' ? value : ''} onChange={(e) => setVal(e.target.value)}>
                         <option value="">선택</option>

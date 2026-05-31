@@ -1065,6 +1065,10 @@ model OrderFormTemplateField {
   inputType   OrderFormFieldInputType @default(TEXT) @map("input_type")
   /// SELECT/MULTISELECT 보기 옵션 등(JSON 배열)
   options     Json                    @default("[]")
+  /// 입력란 안에 흐리게 표시할 부연설명(주로 TEXTAREA/TEXT). null이면 미표시
+  placeholder String?                 @db.VarChar(300)
+  /// 단일 선택(SELECT) 표시 방식 — 'RADIO' | 'DROPDOWN'. null이면 드롭다운(기본)
+  optionStyle String?                 @map("option_style") @db.VarChar(16)
   required    Boolean                 @default(false)
   sortOrder   Int                     @default(0) @map("sort_order")
   /// 코어 매핑 키(없으면 자유 필드). 예: customerName, customerPhone, address, totalAmount, areaPyeong, preferredDate, preferredTime

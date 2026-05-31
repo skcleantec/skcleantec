@@ -169,6 +169,10 @@ export interface OrderFormPublicTemplateField {
   helpText: string | null;
   inputType: string;
   options: unknown;
+  /** 입력란 안 흐린 부연설명(TEXTAREA/TEXT) */
+  placeholder?: string | null;
+  /** 단일 선택 표시 방식 — 'RADIO'면 라디오, 그 외/없으면 드롭다운 */
+  optionStyle?: string | null;
   required: boolean;
   fillMode: string;
 }

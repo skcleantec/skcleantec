@@ -8,6 +8,10 @@ export interface PublicTemplateCustomField {
   helpText: string | null;
   inputType: string;
   options: unknown;
+  /** 입력란 안 흐린 부연설명(TEXTAREA/TEXT) */
+  placeholder: string | null;
+  /** 단일 선택 표시 방식 — 'RADIO' | 'DROPDOWN'(기본) */
+  optionStyle: string | null;
   required: boolean;
   fillMode: string;
 }
@@ -82,6 +86,8 @@ export async function getPublicTemplateForForm(
       helpText: f.helpText,
       inputType: f.inputType,
       options: f.options,
+      placeholder: f.placeholder,
+      optionStyle: f.optionStyle,
       required: f.required,
       fillMode: f.fillMode,
     }));

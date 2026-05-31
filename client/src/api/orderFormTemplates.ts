@@ -27,6 +27,9 @@ export type OrderFormFieldInputType =
 
 export type OrderFormFieldFillMode = 'CUSTOMER' | 'ADMIN_LOCKED' | 'ADMIN_PREFILL';
 
+/** 단일 선택(SELECT) 표시 방식 — 라디오 버튼 / 드롭다운 */
+export type OrderFormFieldOptionStyle = 'RADIO' | 'DROPDOWN';
+
 export interface OrderFormTemplateField {
   id?: string;
   fieldKey: string;
@@ -34,6 +37,10 @@ export interface OrderFormTemplateField {
   helpText: string | null;
   inputType: OrderFormFieldInputType;
   options: unknown;
+  /** 입력란 안 흐린 부연설명(TEXTAREA/TEXT) */
+  placeholder?: string | null;
+  /** 단일 선택 표시 방식 — null이면 드롭다운(기본) */
+  optionStyle?: OrderFormFieldOptionStyle | null;
   required: boolean;
   sortOrder: number;
   systemField: string | null;

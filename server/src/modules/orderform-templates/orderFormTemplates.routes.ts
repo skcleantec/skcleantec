@@ -33,6 +33,7 @@ const FIELD_INPUT_TYPES = new Set([
   'PHOTO',
 ]);
 const FILL_MODES = new Set(['CUSTOMER', 'ADMIN_LOCKED', 'ADMIN_PREFILL']);
+const OPTION_STYLES = new Set(['RADIO', 'DROPDOWN']);
 
 type FieldInput = {
   fieldKey?: unknown;
@@ -40,6 +41,8 @@ type FieldInput = {
   helpText?: unknown;
   inputType?: unknown;
   options?: unknown;
+  placeholder?: unknown;
+  optionStyle?: unknown;
   required?: unknown;
   sortOrder?: unknown;
   systemField?: unknown;
@@ -70,6 +73,8 @@ function serializeTemplate(
         helpText: f.helpText,
         inputType: f.inputType,
         options: f.options,
+        placeholder: f.placeholder,
+        optionStyle: f.optionStyle,
         required: f.required,
         sortOrder: f.sortOrder,
         systemField: f.systemField,
@@ -219,6 +224,8 @@ router.put('/:id/fields', async (req, res) => {
     helpText: string | null;
     inputType: string;
     options: Prisma.InputJsonValue;
+    placeholder: string | null;
+    optionStyle: string | null;
     required: boolean;
     sortOrder: number;
     systemField: string | null;
@@ -261,6 +268,12 @@ router.put('/:id/fields', async (req, res) => {
       systemField = sf;
     }
     const options = Array.isArray(f.options) ? (f.options as Prisma.InputJsonValue) : [];
+    const placeholder =
+      typeof f.placeholder === 'string' && f.placeholder.trim()
+        ? f.placeholder.trim().slice(0, 300)
+        : null;
+    const optionStyle =
+      typeof f.optionStyle === 'string' && OPTION_STYLES.has(f.optionStyle) ? f.optionStyle : null;
 
     prepared.push({
       fieldKey,
@@ -268,6 +281,8 @@ router.put('/:id/fields', async (req, res) => {
       helpText: typeof f.helpText === 'string' && f.helpText.trim() ? f.helpText.trim() : null,
       inputType,
       options,
+      placeholder,
+      optionStyle,
       required: typeof f.required === 'boolean' ? f.required : false,
       sortOrder: i,
       systemField,
@@ -287,6 +302,8 @@ router.put('/:id/fields', async (req, res) => {
           helpText: p.helpText,
           inputType: p.inputType as Prisma.OrderFormTemplateFieldCreateInput['inputType'],
           options: p.options,
+          placeholder: p.placeholder,
+          optionStyle: p.optionStyle,
           required: p.required,
           sortOrder: p.sortOrder,
           systemField: p.systemField,
@@ -398,6 +415,8 @@ router.post('/:id/duplicate', async (req, res) => {
           helpText: f.helpText,
           inputType: f.inputType,
           options: f.options as Prisma.InputJsonValue,
+          placeholder: f.placeholder,
+          optionStyle: f.optionStyle,
           required: f.required,
           sortOrder: f.sortOrder,
           systemField: f.systemField,

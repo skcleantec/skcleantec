@@ -17,15 +17,19 @@ import {
   updateOrderFormTemplateMeta,
   type OrderFormFieldFillMode,
   type OrderFormFieldInputType,
+  type OrderFormFieldOptionStyle,
   type OrderFormSystemFieldDef,
   type OrderFormTemplate,
   type OrderFormTemplateField,
   type OrderFormTemplateRenderMode,
 } from '../../api/orderFormTemplates';
 
-type DraftField = Omit<OrderFormTemplateField, 'id' | 'options'> & {
+type DraftField = Omit<OrderFormTemplateField, 'id' | 'options' | 'placeholder' | 'optionStyle'> & {
   id?: string;
-  optionsText: string;
+  /** 선택지 목록(편집 중 빈 항목 허용, 저장 시 빈 값 제거) */
+  options: string[];
+  placeholder: string | null;
+  optionStyle: OrderFormFieldOptionStyle | null;
 };
 
 const INPUT_TYPE_OPTIONS: Array<{ value: OrderFormFieldInputType; label: string }> = [
@@ -51,6 +55,34 @@ const FILL_MODE_OPTIONS: Array<{ value: OrderFormFieldFillMode; label: string; h
 
 const OPTION_INPUT_TYPES = new Set<OrderFormFieldInputType>(['SELECT', 'MULTISELECT', 'CHECKBOX']);
 
+/** 발주서 아이콘 프리셋 (청소·서비스 관련) */
+const ICON_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '🧹', label: '빗자루' },
+  { value: '🧽', label: '스펀지' },
+  { value: '🧼', label: '비누' },
+  { value: '🧴', label: '세제' },
+  { value: '🪣', label: '양동이' },
+  { value: '🧺', label: '바구니' },
+  { value: '🚿', label: '샤워' },
+  { value: '🛁', label: '욕실' },
+  { value: '🚽', label: '화장실' },
+  { value: '🪟', label: '창문' },
+  { value: '🛋️', label: '소파' },
+  { value: '🛏️', label: '침대' },
+  { value: '🍳', label: '주방' },
+  { value: '🚪', label: '현관' },
+  { value: '🏠', label: '집' },
+  { value: '🏢', label: '오피스텔' },
+  { value: '❄️', label: '에어컨' },
+  { value: '🌬️', label: '환기' },
+  { value: '🪜', label: '사다리·계단' },
+  { value: '✨', label: '광택' },
+  { value: '🐜', label: '방역' },
+  { value: '💧', label: '물때' },
+  { value: '🧤', label: '장갑' },
+  { value: '🚗', label: '차량' },
+];
+
 function fieldToDraft(f: OrderFormTemplateField): DraftField {
   const opts = Array.isArray(f.options) ? (f.options as unknown[]).map((o) => String(o)) : [];
   return {
@@ -63,7 +95,9 @@ function fieldToDraft(f: OrderFormTemplateField): DraftField {
     sortOrder: f.sortOrder,
     systemField: f.systemField,
     fillMode: f.fillMode,
-    optionsText: opts.join('\n'),
+    options: opts,
+    placeholder: f.placeholder ?? null,
+    optionStyle: f.optionStyle ?? null,
   };
 }
 
@@ -74,11 +108,15 @@ function draftsToPayload(drafts: DraftField[]): Array<Omit<OrderFormTemplateFiel
     helpText: d.helpText && d.helpText.trim() ? d.helpText.trim() : null,
     inputType: d.inputType,
     options: OPTION_INPUT_TYPES.has(d.inputType)
-      ? d.optionsText
-          .split('\n')
-          .map((s) => s.trim())
-          .filter(Boolean)
+      ? d.options.map((s) => s.trim()).filter(Boolean)
       : [],
+    placeholder:
+      d.inputType === 'TEXTAREA' || d.inputType === 'TEXT'
+        ? d.placeholder && d.placeholder.trim()
+          ? d.placeholder.trim()
+          : null
+        : null,
+    optionStyle: d.inputType === 'SELECT' ? d.optionStyle ?? 'DROPDOWN' : null,
     required: d.required,
     sortOrder: i,
     systemField: d.systemField && d.systemField.trim() ? d.systemField : null,
@@ -124,7 +162,9 @@ function coreFieldToDraft(f: OrderFormSystemFieldDef, sortOrder: number): DraftF
     sortOrder,
     systemField: f.key,
     fillMode: 'CUSTOMER' as OrderFormFieldFillMode,
-    optionsText: defaultOptions ? defaultOptions.join('\n') : '',
+    options: defaultOptions ? [...defaultOptions] : [],
+    placeholder: null,
+    optionStyle: defaultOptions ? 'DROPDOWN' : null,
   };
 }
 
@@ -174,6 +214,7 @@ export function AdminOrderFormTemplatesPage() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [iconOpen, setIconOpen] = useState(false);
 
   const selected = useMemo(() => templates.find((t) => t.id === selectedId) ?? null, [templates, selectedId]);
 
@@ -247,6 +288,27 @@ export function AdminOrderFormTemplatesPage() {
     setDirty(true);
   }
 
+  function addOption(idx: number) {
+    setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, options: [...d.options, ''] } : d)));
+    setDirty(true);
+  }
+
+  function updateOption(idx: number, optIdx: number, value: string) {
+    setDrafts((prev) =>
+      prev.map((d, i) =>
+        i === idx ? { ...d, options: d.options.map((o, oi) => (oi === optIdx ? value : o)) } : d,
+      ),
+    );
+    setDirty(true);
+  }
+
+  function removeOption(idx: number, optIdx: number) {
+    setDrafts((prev) =>
+      prev.map((d, i) => (i === idx ? { ...d, options: d.options.filter((_, oi) => oi !== optIdx) } : d)),
+    );
+    setDirty(true);
+  }
+
   function addField() {
     setDrafts((prev) => [
       ...prev,
@@ -259,7 +321,9 @@ export function AdminOrderFormTemplatesPage() {
         sortOrder: prev.length,
         systemField: null,
         fillMode: 'CUSTOMER',
-        optionsText: '',
+        options: [],
+        placeholder: null,
+        optionStyle: null,
       },
     ]);
     setDirty(true);
@@ -504,21 +568,72 @@ export function AdminOrderFormTemplatesPage() {
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[80px_minmax(0,1fr)]">
-                  <label className="block">
+                <div className="flex items-end gap-2">
+                  <div className="shrink-0">
                     <span className="mb-1 block text-fluid-xs font-medium text-gray-600">아이콘</span>
-                    <input
-                      value={meta.icon}
-                      onChange={(e) => {
-                        setMeta((m) => ({ ...m, icon: e.target.value }));
-                        setDirty(true);
-                      }}
-                      placeholder="🧹"
-                      maxLength={32}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-center text-fluid-sm"
-                    />
-                  </label>
-                  <label className="block">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIconOpen((o) => !o)}
+                        title={meta.icon ? ICON_OPTIONS.find((o) => o.value === meta.icon)?.label ?? '선택됨' : '아이콘 선택'}
+                        aria-label="아이콘 선택"
+                        className="flex h-10 items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 text-fluid-sm hover:bg-gray-50"
+                      >
+                        <span className="text-lg leading-none">{meta.icon || '🗂️'}</span>
+                        <span className="text-fluid-2xs text-gray-400" aria-hidden>▾</span>
+                      </button>
+                      {iconOpen && (
+                        <>
+                          <button
+                            type="button"
+                            aria-label="닫기"
+                            className="fixed inset-0 z-20 cursor-default"
+                            onClick={() => setIconOpen(false)}
+                          />
+                          <div className="absolute left-0 top-full z-30 mt-1 w-[16.5rem] rounded-md border border-gray-200 bg-white p-2 shadow-lg">
+                            <div className="grid grid-cols-6 gap-1">
+                              <button
+                                type="button"
+                                title="없음"
+                                aria-label="아이콘 없음"
+                                onClick={() => {
+                                  setMeta((m) => ({ ...m, icon: '' }));
+                                  setDirty(true);
+                                  setIconOpen(false);
+                                }}
+                                className={`flex h-9 items-center justify-center rounded-md border text-fluid-2xs font-medium transition ${
+                                  !meta.icon ? 'border-gray-800 bg-gray-100 text-gray-800 ring-1 ring-gray-800' : 'border-gray-300 bg-white text-gray-400 hover:bg-gray-50'
+                                }`}
+                              >
+                                없음
+                              </button>
+                              {ICON_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  title={opt.label}
+                                  aria-label={opt.label}
+                                  onClick={() => {
+                                    setMeta((m) => ({ ...m, icon: opt.value }));
+                                    setDirty(true);
+                                    setIconOpen(false);
+                                  }}
+                                  className={`flex h-9 w-9 items-center justify-center rounded-md border text-lg leading-none transition ${
+                                    meta.icon === opt.value
+                                      ? 'border-gray-800 bg-gray-100 ring-1 ring-gray-800'
+                                      : 'border-gray-300 bg-white hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {opt.value}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <label className="block min-w-0 flex-1">
                     <span className="mb-1 block text-fluid-xs font-medium text-gray-600">발주서 이름</span>
                     <input
                       value={meta.title}
@@ -584,7 +699,7 @@ export function AdminOrderFormTemplatesPage() {
 
               {/* 필드 빌더 */}
               <div className="rounded-lg border border-gray-200 bg-white">
-                <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-lg border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur">
                   <span className="text-fluid-sm font-medium text-gray-700">항목 구성 ({drafts.length})</span>
                   <button type="button" onClick={addField} className="rounded-md border border-gray-300 px-3 py-1.5 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50">
                     + 항목 추가
@@ -669,11 +784,87 @@ export function AdminOrderFormTemplatesPage() {
                             <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">도움말 (선택)</span>
                             <input value={d.helpText ?? ''} onChange={(e) => updateDraft(idx, { helpText: e.target.value || null })} className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm" />
                           </label>
+                          {d.inputType === 'TEXTAREA' && (
+                            <div className="sm:col-span-2 rounded-md border border-gray-200 bg-gray-50/60 p-2.5">
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={d.placeholder != null}
+                                  onChange={(e) => updateDraft(idx, { placeholder: e.target.checked ? '' : null })}
+                                  className="h-4 w-4 rounded border-gray-300"
+                                />
+                                <span className="text-fluid-xs text-gray-600">입력란 안에 부연설명(흐린 안내문) 표시</span>
+                              </label>
+                              {d.placeholder != null && (
+                                <input
+                                  value={d.placeholder}
+                                  onChange={(e) => updateDraft(idx, { placeholder: e.target.value })}
+                                  maxLength={300}
+                                  placeholder="예: 전화 상담 시 언급 내용, 층수로 나눠진 건물은 정확히 적어주세요"
+                                  className="mt-2 w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                                />
+                              )}
+                            </div>
+                          )}
+                          {d.inputType === 'SELECT' && (
+                            <div className="sm:col-span-2">
+                              <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">표시 방식</span>
+                              <div className="inline-flex overflow-hidden rounded-md border border-gray-300">
+                                {([
+                                  { v: 'RADIO' as const, label: '라디오 버튼' },
+                                  { v: 'DROPDOWN' as const, label: '드롭다운' },
+                                ]).map((o) => {
+                                  const active = (d.optionStyle ?? 'DROPDOWN') === o.v;
+                                  return (
+                                    <button
+                                      key={o.v}
+                                      type="button"
+                                      onClick={() => updateDraft(idx, { optionStyle: o.v })}
+                                      className={`px-3 py-1.5 text-fluid-xs ${active ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                    >
+                                      {o.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                           {OPTION_INPUT_TYPES.has(d.inputType) && (
-                            <label className="block sm:col-span-2">
-                              <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">선택지 (한 줄에 하나)</span>
-                              <textarea value={d.optionsText} onChange={(e) => updateDraft(idx, { optionsText: e.target.value })} rows={3} className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm" />
-                            </label>
+                            <div className="block sm:col-span-2">
+                              <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">선택지</span>
+                              <div className="space-y-1.5">
+                                {d.options.length === 0 ? (
+                                  <p className="text-fluid-2xs text-gray-400">아래 버튼으로 선택지를 한 개씩 추가하세요.</p>
+                                ) : (
+                                  d.options.map((opt, optIdx) => (
+                                    <div key={optIdx} className="flex items-center gap-2">
+                                      <span className="text-fluid-2xs text-gray-400 w-5 text-right">{optIdx + 1}</span>
+                                      <input
+                                        value={opt}
+                                        onChange={(e) => updateOption(idx, optIdx, e.target.value)}
+                                        maxLength={128}
+                                        placeholder={`선택지 ${optIdx + 1}`}
+                                        className="min-w-0 flex-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => removeOption(idx, optIdx)}
+                                        className="shrink-0 rounded border border-red-200 px-2 py-1 text-fluid-2xs text-red-500 hover:bg-red-50"
+                                      >
+                                        삭제
+                                      </button>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => addOption(idx)}
+                                className="mt-2 rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50"
+                              >
+                                + 선택지 추가
+                              </button>
+                            </div>
                           )}
                           <label className="flex items-center gap-2 sm:col-span-2">
                             <input type="checkbox" checked={d.required} onChange={(e) => updateDraft(idx, { required: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
@@ -688,8 +879,15 @@ export function AdminOrderFormTemplatesPage() {
               </div>
 
               {/* 저장 바 */}
-              <div className="sticky bottom-0 flex items-center justify-end gap-2 rounded-lg border border-gray-200 bg-white/95 p-3 backdrop-blur">
-                {dirty ? <span className="mr-auto text-fluid-xs text-amber-600">저장하지 않은 변경사항이 있습니다.</span> : <span className="mr-auto text-fluid-xs text-gray-400">최신 상태</span>}
+              <div className="sticky bottom-0 flex items-center gap-2 rounded-lg border border-gray-200 bg-white/95 p-3 backdrop-blur">
+                {dirty ? <span className="text-fluid-xs text-amber-600">저장하지 않은 변경사항이 있습니다.</span> : <span className="text-fluid-xs text-gray-400">최신 상태</span>}
+                <button
+                  type="button"
+                  onClick={addField}
+                  className="ml-auto rounded-md border border-gray-300 px-3 py-2 text-fluid-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  + 항목 추가
+                </button>
                 <button type="button" onClick={handleSave} disabled={saving || !dirty} className="rounded-md bg-gray-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-gray-800 disabled:opacity-40">
                   {saving ? '저장 중…' : '저장'}
                 </button>

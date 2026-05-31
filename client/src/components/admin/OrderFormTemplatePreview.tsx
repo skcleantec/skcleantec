@@ -1,4 +1,8 @@
-import type { OrderFormFieldFillMode, OrderFormFieldInputType } from '../../api/orderFormTemplates';
+import type {
+  OrderFormFieldFillMode,
+  OrderFormFieldInputType,
+  OrderFormFieldOptionStyle,
+} from '../../api/orderFormTemplates';
 
 export interface TemplatePreviewField {
   label: string;
@@ -7,7 +11,9 @@ export interface TemplatePreviewField {
   required: boolean;
   fillMode: OrderFormFieldFillMode;
   systemField: string | null;
-  optionsText: string;
+  options: string[];
+  placeholder?: string | null;
+  optionStyle?: OrderFormFieldOptionStyle | null;
 }
 
 export interface TemplatePreviewMeta {
@@ -18,11 +24,8 @@ export interface TemplatePreviewMeta {
 
 const CONTROL_CLS = 'w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-fluid-sm text-gray-400';
 
-function parseOptions(optionsText: string): string[] {
-  return optionsText
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
+function cleanOptions(options: string[]): string[] {
+  return options.map((s) => s.trim()).filter(Boolean);
 }
 
 /** 시스템 필드는 실제 발주서에서 표준 입력 화면으로 렌더되므로, 미리보기도 그 모양을 보여 준다. */
@@ -77,7 +80,7 @@ function PreviewControl({ field }: { field: TemplatePreviewField }) {
   if (field.systemField === 'customerPhone' || field.systemField === 'address' || field.systemField === 'areaPyeong') {
     return <SystemFieldControl systemField={field.systemField} />;
   }
-  const options = parseOptions(field.optionsText);
+  const options = cleanOptions(field.options);
   // 건축물 유형: 실제 발주서처럼 라디오 버튼으로 표시
   if (field.systemField === 'propertyType') {
     return (
@@ -93,8 +96,27 @@ function PreviewControl({ field }: { field: TemplatePreviewField }) {
   }
   switch (field.inputType) {
     case 'TEXTAREA':
-      return <textarea disabled rows={3} className={CONTROL_CLS} placeholder="고객 입력란" />;
+      return (
+        <textarea
+          disabled
+          rows={3}
+          className={CONTROL_CLS}
+          placeholder={field.placeholder && field.placeholder.trim() ? field.placeholder : '고객 입력란'}
+        />
+      );
     case 'SELECT':
+      if (field.optionStyle === 'RADIO') {
+        return (
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {(options.length ? options : ['선택지 1', '선택지 2']).map((o, i) => (
+              <label key={i} className="flex items-center gap-1.5 text-fluid-sm text-gray-400">
+                <input type="radio" disabled className="h-4 w-4 border-gray-300" />
+                {o}
+              </label>
+            ))}
+          </div>
+        );
+      }
       return (
         <select disabled className={CONTROL_CLS}>
           {(options.length ? options : ['선택해 주세요']).map((o, i) => (
