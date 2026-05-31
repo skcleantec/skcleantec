@@ -1016,6 +1016,12 @@ enum OrderFormTemplateStatus {
   ARCHIVED
 }
 
+/// 공개 발주서 렌더 방식 — STANDARD: 표준 폼 전체(레거시) / TEMPLATE: 템플릿에 넣은 항목만(필수 코어 강제 포함)
+enum OrderFormTemplateRenderMode {
+  STANDARD
+  TEMPLATE
+}
+
 /// 동적 발주서 템플릿 (구글폼식). 테넌트별로 여러 종(기본·에어컨·특수청소 등)을 만들어 고객에 맞게 발송.
 model OrderFormTemplate {
   id          String                  @id @default(uuid())
@@ -1026,6 +1032,8 @@ model OrderFormTemplate {
   icon        String?                 @db.VarChar(32)
   description String?                 @db.Text
   status      OrderFormTemplateStatus @default(DRAFT)
+  /// 공개 폼 렌더 방식 — STANDARD: 표준 폼 전체 / TEMPLATE: 템플릿 항목만
+  renderMode  OrderFormTemplateRenderMode @default(STANDARD) @map("render_mode")
   /// 발행 버전 — 발행 시 +1, 제출 스냅샷에 박제
   version     Int                     @default(1)
   /// 테넌트 기본 발주서 여부(레거시 단일 발주서 이식분)

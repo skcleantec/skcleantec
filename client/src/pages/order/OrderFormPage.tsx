@@ -164,16 +164,38 @@ export function OrderFormPage() {
   const formRef = useRef(form);
   formRef.current = form;
 
-  // 선택 표준 항목 표시/숨김 — 템플릿 systemFields에 있으면 표시.
-  // 레거시(템플릿 없음)·systemFields 미제공이면 전부 표시(회귀 방지).
+  // 선택 표준 항목 표시/숨김 — 규칙은 하나:
+  // - 기본 발주서 / 레거시(템플릿 없음): 표준 폼 전체 표시.
+  // - 내가 만든 발주서: 템플릿에 넣은 선택 항목만 표시(필수 코어 섹션은 항상 표시).
   const stdFieldOn = useCallback(
     (key: string): boolean => {
-      const sys = order?.template?.systemFields;
+      const tpl = order?.template;
+      if (!tpl || tpl.isDefault) return true;
+      const sys = tpl.systemFields;
       if (!sys) return true;
       return sys.some((f) => f.systemField === key);
     },
     [order],
   );
+
+  // 시스템 필드의 빌더 편집 선택지(건축물유형·신축구축 옵션 추가 반영). 없으면 표준 기본값 사용.
+  const sysOptions = useCallback(
+    (key: string): string[] => {
+      const f = order?.template?.systemFields?.find((x) => x.systemField === key);
+      return Array.isArray(f?.options) ? (f!.options as string[]).filter(Boolean) : [];
+    },
+    [order],
+  );
+  const propertyTypeOptions = useMemo(() => {
+    const custom = sysOptions('propertyType');
+    return custom.length
+      ? custom.map((v) => ({ value: v, label: v }))
+      : PROPERTY_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
+  }, [sysOptions]);
+  const buildingTypeOptions = useMemo(() => {
+    const custom = sysOptions('buildingType');
+    return custom.length ? custom.map((v) => ({ value: v, label: v })) : ORDER_BUILDING_TYPE_OPTIONS;
+  }, [sysOptions]);
 
   /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
   const profSelectionSummary = useMemo(() => {
@@ -650,7 +672,7 @@ export function OrderFormPage() {
             <label className={labelCls}>4. 건축물 유형 및 면적 *</label>
             <p className="text-xs font-medium text-gray-700 mb-2">건축물 유형 (하나 선택) *</p>
             <div className={radioGroupCls} role="radiogroup" aria-label="건축물 유형">
-              {PROPERTY_TYPE_OPTIONS.map((o) => (
+              {propertyTypeOptions.map((o) => (
                 <label key={o.value} className={radioLabelCls}>
                   <input
                     type="radio"
@@ -920,7 +942,7 @@ export function OrderFormPage() {
               }}
             >
               <option value="">선택</option>
-              {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
+              {buildingTypeOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
@@ -1058,13 +1080,16 @@ export function OrderFormPage() {
             </div>
           ) : null}
 
+          {stdFieldOn('photos') && (
           <div>
             <p className={`${labelCls} mb-2`}>12. 현장 사진 첨부 (선택)</p>
             {token ? (
               <OrderFormPhotoSection token={token} disabled={submitting} />
             ) : null}
           </div>
+          )}
 
+          {stdFieldOn('professionalOptions') && (
           <div>
             <p className={`${labelCls} mb-2`}>13. 전문 시공 옵션 (선택)</p>
             <div className="space-y-2.5 pl-0.5">
@@ -1269,6 +1294,7 @@ export function OrderFormPage() {
               )}
             </div>
           </div>
+          )}
 
           <div className="py-4">
             <div className="mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-gradient-to-b from-gray-50/95 to-white px-4 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.03]">

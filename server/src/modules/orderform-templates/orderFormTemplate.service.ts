@@ -17,6 +17,8 @@ export interface PublicSystemField {
   label: string;
   required: boolean;
   sortOrder: number;
+  /** 선택지(건축물유형·신축구축 등 — 표준 컨트롤 옵션을 빌더에서 편집 가능) */
+  options: string[];
 }
 
 export interface PublicOrderTemplate {
@@ -26,6 +28,8 @@ export interface PublicOrderTemplate {
   description: string | null;
   /** 테넌트 기본 발주서 여부 — 공개 페이지 제목은 기본 템플릿일 때 formConfig.formTitle을 따른다 */
   isDefault: boolean;
+  /** 렌더 방식 — STANDARD: 표준 폼 전체 / TEMPLATE: 템플릿 항목만 */
+  renderMode: 'STANDARD' | 'TEMPLATE';
   /** systemField 연결 항목 — 공개 폼의 선택 표준 섹션 표시/숨김 제어용 */
   systemFields: PublicSystemField[];
   /** systemField 미연결(추가 정보) 항목 — 공개 폼에서 동적 렌더 */
@@ -88,6 +92,7 @@ export async function getPublicTemplateForForm(
       label: f.label,
       required: f.required,
       sortOrder: f.sortOrder,
+      options: Array.isArray(f.options) ? (f.options as unknown[]).map((o) => String(o)) : [],
     }));
   return {
     id: t.id,
@@ -95,6 +100,7 @@ export async function getPublicTemplateForForm(
     icon: t.icon,
     description: t.description,
     isDefault: t.isDefault,
+    renderMode: t.renderMode,
     systemFields,
     customFields,
   };

@@ -179,6 +179,8 @@ export interface OrderFormPublicSystemField {
   label: string;
   required: boolean;
   sortOrder: number;
+  /** 선택지(건축물유형·신축구축 등 표준 컨트롤 옵션) */
+  options?: string[];
 }
 
 /** 발주서가 사용하는 양식(템플릿) — 제목·아이콘·추가 항목 */
@@ -189,6 +191,8 @@ export interface OrderFormPublicTemplate {
   description: string | null;
   /** 기본 발주서면 제목은 formConfig.formTitle을 따른다(레거시 편집 호환) */
   isDefault?: boolean;
+  /** 렌더 방식 — STANDARD: 표준 폼 전체 / TEMPLATE: 템플릿 항목만 */
+  renderMode?: 'STANDARD' | 'TEMPLATE';
   /** 표준 항목 구성(있으면 선택 표준 섹션 표시/숨김에 사용). 없거나 레거시면 전부 표시 */
   systemFields?: OrderFormPublicSystemField[];
   customFields: OrderFormPublicTemplateField[];

@@ -55,6 +55,7 @@ function serializeTemplate(
     icon: t.icon,
     description: t.description,
     status: t.status,
+    renderMode: t.renderMode,
     version: t.version,
     isDefault: t.isDefault,
     sortOrder: t.sortOrder,
@@ -119,6 +120,7 @@ router.post('/', async (req, res) => {
     res.status(400).json({ error: '템플릿 이름을 입력해 주세요. (128자 이내)' });
     return;
   }
+  // 새로 만드는 발주서는 항상 '항목 구동(TEMPLATE)' — 기본 발주서만 STANDARD(표준 폼 전체)
   const maxSort = await prisma.orderFormTemplate.aggregate({
     where: { tenantId },
     _max: { sortOrder: true },
@@ -133,6 +135,7 @@ router.post('/', async (req, res) => {
           ? body.description.trim()
           : null,
       status: 'DRAFT',
+      renderMode: 'TEMPLATE',
       version: 1,
       isDefault: false,
       sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
@@ -306,13 +309,16 @@ router.post('/:id/publish', async (req, res) => {
   if (!tenantId) return;
   const row = await prisma.orderFormTemplate.findFirst({
     where: { id: req.params.id, tenantId },
-    include: { fields: { select: { systemField: true } } },
+    select: { id: true, isDefault: true, fields: { select: { systemField: true } } },
   });
   if (!row) {
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
     return;
   }
-  const missing = missingRequiredCoreFields(row.fields.map((f) => f.systemField));
+  const missing = missingRequiredCoreFields(
+    row.fields.map((f) => f.systemField),
+    row.isDefault ? 'STANDARD' : 'TEMPLATE',
+  );
   if (missing.length > 0) {
     res.status(400).json({
       error: `발행하려면 필수 항목을 폼에 추가하고 시스템 필드로 연결해야 합니다: ${missing.join(', ')}`,
@@ -375,6 +381,7 @@ router.post('/:id/duplicate', async (req, res) => {
         icon: src.icon,
         description: src.description,
         status: 'DRAFT',
+        renderMode: src.renderMode,
         version: 1,
         isDefault: false,
         sortOrder: (maxSort._max.sortOrder ?? 0) + 1,

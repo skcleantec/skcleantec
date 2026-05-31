@@ -27,6 +27,21 @@ function parseOptions(optionsText: string): string[] {
 
 /** 시스템 필드는 실제 발주서에서 표준 입력 화면으로 렌더되므로, 미리보기도 그 모양을 보여 준다. */
 function SystemFieldControl({ systemField }: { systemField: string }) {
+  if (systemField === 'customerPhone') {
+    return (
+      <div className="space-y-1.5">
+        <div>
+          <p className="mb-0.5 text-fluid-2xs text-gray-400">대표 연락처 *</p>
+          <div className={CONTROL_CLS}>010-0000-0000</div>
+        </div>
+        <div>
+          <p className="mb-0.5 text-fluid-2xs text-gray-400">보조 연락처 (필수) *</p>
+          <div className={CONTROL_CLS}>예: 배우자·가족 연락처</div>
+        </div>
+        <p className="text-fluid-2xs text-gray-400">보조 전화번호는 전화번호 섹션에 함께 고정됩니다.</p>
+      </div>
+    );
+  }
   if (systemField === 'address') {
     return (
       <div className="space-y-2">
@@ -59,10 +74,23 @@ function SystemFieldControl({ systemField }: { systemField: string }) {
 }
 
 function PreviewControl({ field }: { field: TemplatePreviewField }) {
-  if (field.systemField === 'address' || field.systemField === 'areaPyeong') {
+  if (field.systemField === 'customerPhone' || field.systemField === 'address' || field.systemField === 'areaPyeong') {
     return <SystemFieldControl systemField={field.systemField} />;
   }
   const options = parseOptions(field.optionsText);
+  // 건축물 유형: 실제 발주서처럼 라디오 버튼으로 표시
+  if (field.systemField === 'propertyType') {
+    return (
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
+        {(options.length ? options : ['아파트', '오피스텔', '빌라(연립)', '상가', '기타']).map((o, i) => (
+          <label key={i} className="flex items-center gap-1.5 text-fluid-sm text-gray-400">
+            <input type="radio" disabled className="h-4 w-4 border-gray-300" />
+            {o}
+          </label>
+        ))}
+      </div>
+    );
+  }
   switch (field.inputType) {
     case 'TEXTAREA':
       return <textarea disabled rows={3} className={CONTROL_CLS} placeholder="고객 입력란" />;
