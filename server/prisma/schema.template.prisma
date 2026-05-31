@@ -1228,6 +1228,9 @@ model OrderForm {
   customerSubmissionSnapshot Json? @map("customer_submission_snapshot")
   /// 동적 템플릿 추가 항목(systemField 미연결)의 고객 답변 {fieldKey: value}
   customerAnswers Json? @map("customer_answers")
+  /// 마케터가 발급/수정 시 미리 채운 값 {key: value} — 표준 항목 키(customerName 등) + 커스텀 fieldKey 통합.
+  /// 값이 들어간 키는 고객 화면에서 읽기전용(확인 전용)으로 잠긴다. 제출 시 잠금 키는 이 값이 우선.
+  prefillAnswers Json? @map("prefill_answers")
   /// 이 발급이 사용하는 동적 발주서 템플릿(레거시 발급은 테넌트 기본 템플릿)
   templateId      String?  @map("template_id")
   template        OrderFormTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)

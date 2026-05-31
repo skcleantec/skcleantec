@@ -1,10 +1,18 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getToken } from '../../stores/auth';
 import {
+  createOrderForm,
   getOrderFormByToken,
+  getOrderFormIssueForm,
+  getOrderFormPrefillForm,
   getPublicProfessionalOptions,
   isOrderFormPublicSubmitted,
+  saveOrderFormPrefill,
   submitOrderForm,
+  type OrderForm,
+  type OrderFormPrefillPayload,
+  type OrderFormPublic,
   type OrderFormPublicSubmitted,
   type OrderFormPublicTemplate,
   type ProfessionalSpecialtyOptionDto,
@@ -68,8 +76,37 @@ function isOrderFormAreaLockedFromOrder(order: {
   return order.areaPyeong != null && Number.isFinite(order.areaPyeong) && order.areaPyeong > 0;
 }
 
-export function OrderFormPage() {
+/** 마케터 선입력 편집/발급 모드 — 지정 시 고객 폼과 동일 화면을 재사용 */
+export interface OrderFormEditorContext {
+  authToken: string;
+  /** 저장/닫기 시 호출 (목록 등으로 복귀) */
+  onClose?: () => void;
+  /** 기존 발주서 선입력(잠금) 편집 — 발급 후 재작성 */
+  orderFormId?: string;
+  /** 발급(생성)+작성 동시 — 발급 화면 인라인 */
+  create?: {
+    templateId?: string;
+    pendingInquiryId?: string;
+    onCreated: (order: OrderForm) => void;
+  };
+  /** 관리자 화면 임베드(크롬리스: 전체화면·고정바·푸터 제거) */
+  inline?: boolean;
+}
+
+export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = {}) {
   const { token } = useParams<{ token: string }>();
+  const isEditor = Boolean(editor);
+  const isCreate = Boolean(editor?.create);
+  const isInline = Boolean(editor?.inline);
+  const [prefillSaving, setPrefillSaving] = useState(false);
+  const [prefillSavedOpen, setPrefillSavedOpen] = useState(false);
+  /** 발급(create) 모드 금액 입력 */
+  const [issueAmounts, setIssueAmounts] = useState({
+    totalAmount: '',
+    depositAmount: '',
+    balanceAmount: '',
+    optionNote: '',
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<{
@@ -143,6 +180,8 @@ export function OrderFormPage() {
       timeSlotAckConsentHint?: string | null;
     };
     template?: OrderFormPublicTemplate | null;
+    /** 마케터 선입력 값 {key: value} — 있는 키는 고객 화면에서 읽기전용(잠금) */
+    prefillAnswers?: Record<string, unknown> | null;
   } | null>(null);
   /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
   const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
@@ -155,6 +194,8 @@ export function OrderFormPage() {
   const [timeSlotAckOpen, setTimeSlotAckOpen] = useState(false);
   const [pendingTimeSlot, setPendingTimeSlot] = useState<OrderTimeSlot | null>(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  /** 마케터 작성 시 "특이사항 없음" 체크(필수 항목 충족) */
+  const [noSpecialNotes, setNoSpecialNotes] = useState(false);
   const [guideAgreeModalOpen, setGuideAgreeModalOpen] = useState(false);
   const [professionalOptionIds, setProfessionalOptionIds] = useState<string[]>([]);
   const [professionalOptions, setProfessionalOptions] = useState<ProfessionalSpecialtyOptionDto[]>([]);
@@ -246,11 +287,19 @@ export function OrderFormPage() {
       setForm((f) => ({ ...f, areaBasis: '전용', areaPyeong: '', exclusiveAreaSqm: '' }));
   }, []);
 
-  const requestAreaBasisSelection = useCallback((basis: '공급' | '전용') => {
-    if (formRef.current.areaBasis === basis) return;
-    pendingAreaBasisAckRef.current = basis;
-    setAreaBasisAckModal(basis);
-  }, []);
+  const requestAreaBasisSelection = useCallback(
+    (basis: '공급' | '전용') => {
+      if (formRef.current.areaBasis === basis) return;
+      // 마케터 작성(발급·편집) 시에는 안내 팝업 없이 바로 선택
+      if (isEditor) {
+        setForm((f) => ({ ...f, areaBasis: basis, areaPyeong: '', exclusiveAreaSqm: '' }));
+        return;
+      }
+      pendingAreaBasisAckRef.current = basis;
+      setAreaBasisAckModal(basis);
+    },
+    [isEditor],
+  );
 
   const confirmTimeSlotAck = useCallback(() => {
     if (pendingTimeSlot) {
@@ -275,10 +324,53 @@ export function OrderFormPage() {
     );
   };
 
+  const editorAuthToken = editor?.authToken;
+  const editorOrderFormId = editor?.orderFormId;
+  const createTemplateId = editor?.create?.templateId;
+  const createPendingInquiryId = editor?.create?.pendingInquiryId;
   useEffect(() => {
-    if (!token) return;
-    getOrderFormByToken(token)
+    let loader: Promise<OrderFormPublic | null> | null = null;
+    if (isCreate && editorAuthToken) {
+      loader = getOrderFormIssueForm(editorAuthToken, {
+        templateId: createTemplateId,
+        pendingInquiryId: createPendingInquiryId,
+      }).then(
+        (r) =>
+          ({
+            id: '',
+            token: '',
+            customerName: '',
+            customerPhone: null,
+            totalAmount: 0,
+            depositAmount: 0,
+            balanceAmount: 0,
+            optionNote: null,
+            preferredDate: null,
+            preferredTime: null,
+            preferredTimeDetail: null,
+            areaPyeong: null,
+            areaBasis: null,
+            options: [],
+            professionalOptions: r.professionalOptions,
+            formConfig: r.formConfig,
+            template: r.template,
+            customAnswers: null,
+            prefillAnswers: null,
+            draftCustomerSpecialNotes: null,
+            pendingInquiry: r.pendingInquiry ?? null,
+            submittedAt: null,
+          }) as unknown as OrderFormPublic,
+      );
+    } else if (editorOrderFormId && editorAuthToken) {
+      loader = getOrderFormPrefillForm(editorAuthToken, editorOrderFormId);
+    } else if (token) {
+      loader = getOrderFormByToken(token);
+    }
+    if (!loader) return;
+    setLoading(true);
+    loader
       .then((data) => {
+        if (!data) return;
         if (isOrderFormPublicSubmitted(data)) {
           setSubmittedReceipt(data);
           setOrder(null);
@@ -286,6 +378,18 @@ export function OrderFormPage() {
           return;
         }
         setSubmittedReceipt(null);
+        const pf =
+          data.prefillAnswers && typeof data.prefillAnswers === 'object'
+            ? (data.prefillAnswers as Record<string, unknown>)
+            : {};
+        // 마케터 선입력 우선(문자/숫자). 편집 모드에서도 선입력을 초기값으로 보여 줌.
+        const pfStr = (k: string): string | undefined => {
+          const v = pf[k];
+          if (v == null) return undefined;
+          if (typeof v === 'number') return String(v);
+          const s = String(v).trim();
+          return s ? s : undefined;
+        };
         setOrder({
           customerName: data.customerName,
           totalAmount: data.totalAmount,
@@ -299,12 +403,24 @@ export function OrderFormPage() {
           areaBasis: data.areaBasis ?? null,
           formConfig: data.formConfig,
           template: data.template ?? null,
+          prefillAnswers: data.prefillAnswers ?? null,
         });
-        setCustomAnswers(
+        const baseCustom =
           data.customAnswers && typeof data.customAnswers === 'object'
             ? { ...(data.customAnswers as Record<string, unknown>) }
-            : {},
-        );
+            : {};
+        // 커스텀 항목 선입력 오버레이(표준 키 제외)
+        const STD = new Set([
+          'customerName', 'customerPhone', 'customerPhone2', 'address', 'addressDetail',
+          'propertyType', 'buildingType', 'moveInDate', 'moveInDateUndecided',
+          'roomCount', 'balconyCount', 'bathroomCount', 'kitchenCount', 'specialNotes',
+          'professionalOptionIds',
+        ]);
+        for (const [k, v] of Object.entries(pf)) {
+          if (STD.has(k)) continue;
+          if (v != null) baseCustom[k] = v;
+        }
+        setCustomAnswers(baseCustom);
         const p = data.pendingInquiry;
         const areaLockedOnIssue = isOrderFormAreaLockedFromOrder({
           areaBasis: data.areaBasis,
@@ -313,12 +429,12 @@ export function OrderFormPage() {
         const issuedPhone = (data.customerPhone ?? '').trim();
         setForm((f) => ({
           ...f,
-          customerName: p?.customerName || data.customerName,
-          customerPhone: issuedPhone || (p?.customerPhone ?? '').trim() || '',
-          customerPhoneSecondary: p?.customerPhone2 ?? '',
-          address: p?.address ?? '',
-          addressDetail: p?.addressDetail ?? '',
-          propertyType: p?.propertyType ?? '',
+          customerName: pfStr('customerName') ?? (p?.customerName || data.customerName),
+          customerPhone: pfStr('customerPhone') ?? (issuedPhone || (p?.customerPhone ?? '').trim() || ''),
+          customerPhoneSecondary: pfStr('customerPhone2') ?? p?.customerPhone2 ?? '',
+          address: pfStr('address') ?? p?.address ?? '',
+          addressDetail: pfStr('addressDetail') ?? p?.addressDetail ?? '',
+          propertyType: pfStr('propertyType') ?? p?.propertyType ?? '',
           areaBasis: areaLockedOnIssue
             ? String(data.areaBasis).trim()
             : (p?.areaBasis ?? ''),
@@ -343,21 +459,28 @@ export function OrderFormPage() {
           preferredDate: p?.preferredDate ?? data.preferredDate ?? kstTodayYmd(),
           preferredTime: p?.preferredTime ?? data.preferredTime ?? '',
           preferredTimeDetail: p?.preferredTimeDetail ?? data.preferredTimeDetail ?? '',
-          roomCount: p?.roomCount != null ? String(p.roomCount) : '',
-          bathroomCount: p?.bathroomCount != null ? String(p.bathroomCount) : '',
-          balconyCount: p?.balconyCount != null ? String(p.balconyCount) : '',
-          kitchenCount: p?.kitchenCount != null ? String(p.kitchenCount) : '',
-          buildingType: p?.buildingType ?? '',
+          roomCount: pfStr('roomCount') ?? (p?.roomCount != null ? String(p.roomCount) : ''),
+          bathroomCount: pfStr('bathroomCount') ?? (p?.bathroomCount != null ? String(p.bathroomCount) : ''),
+          balconyCount: pfStr('balconyCount') ?? (p?.balconyCount != null ? String(p.balconyCount) : ''),
+          kitchenCount: pfStr('kitchenCount') ?? (p?.kitchenCount != null ? String(p.kitchenCount) : ''),
+          buildingType: pfStr('buildingType') ?? p?.buildingType ?? '',
           moveInDate: (() => {
+            const pfMove = pfStr('moveInDate');
+            if (pf['moveInDateUndecided'] === true) return '';
+            if (pfMove) return pfMove;
             if (p?.moveInDateUndecided) return '';
             const raw = p?.moveInDate ?? '';
             if (!raw) return '';
             const t = kstTodayYmd();
             return raw < t ? '' : raw;
           })(),
-          moveInDateUndecided: Boolean(p?.moveInDateUndecided),
-          specialNotes: data.draftCustomerSpecialNotes ?? '',
+          moveInDateUndecided: pf['moveInDateUndecided'] === true || Boolean(p?.moveInDateUndecided),
+          specialNotes: pfStr('specialNotes') ?? data.draftCustomerSpecialNotes ?? '',
         }));
+        const pfProf = pf['professionalOptionIds'];
+        if (Array.isArray(pfProf) && pfProf.length > 0) {
+          setProfessionalOptionIds(pfProf.map((x) => String(x)));
+        }
         const fromForm = data.professionalOptions;
         if (fromForm && fromForm.length > 0) {
           setProfessionalOptions(fromForm);
@@ -370,7 +493,7 @@ export function OrderFormPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : '발주서를 불러올 수 없습니다.'))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, isCreate, editorAuthToken, editorOrderFormId, createTemplateId, createPendingInquiryId]);
 
   useEffect(() => subscribeOrderGuideAgreeTerms(() => setAgreeToTerms(true)), []);
 
@@ -505,10 +628,116 @@ export function OrderFormPage() {
     }
   };
 
+  /** 현재 폼 값 → 선입력(잠금) payload. 빈 칸은 잠그지 않음(고객이 채움). */
+  const buildPrefillPayload = (): OrderFormPrefillPayload => {
+    const basisOk = form.areaBasis === '공급' || form.areaBasis === '전용';
+    return {
+      customerName: form.customerName.trim() || undefined,
+      customerPhone: form.customerPhone.trim() || undefined,
+      customerPhone2: form.customerPhoneSecondary.trim() || undefined,
+      address: form.address.trim() || undefined,
+      addressDetail: form.addressDetail.trim() || undefined,
+      propertyType: form.propertyType || undefined,
+      areaBasis: basisOk ? form.areaBasis : undefined,
+      areaPyeong: basisOk && form.areaPyeong.trim() ? form.areaPyeong.trim() : undefined,
+      preferredDate: form.preferredDate.trim() || undefined,
+      preferredTime: form.preferredDate.trim() ? form.preferredTime || undefined : undefined,
+      preferredTimeDetail: form.preferredTimeDetail.trim() || undefined,
+      roomCount: form.roomCount.trim() || undefined,
+      balconyCount: form.balconyCount.trim() || undefined,
+      bathroomCount: form.bathroomCount.trim() || undefined,
+      kitchenCount: form.kitchenCount.trim() || undefined,
+      buildingType: form.buildingType || undefined,
+      moveInDate: form.moveInDateUndecided ? undefined : form.moveInDate.trim() || undefined,
+      moveInDateUndecided: form.moveInDateUndecided || undefined,
+      specialNotes: form.specialNotes.trim() || undefined,
+      professionalOptionIds: professionalOptionIds.length ? professionalOptionIds : undefined,
+      answers: Object.keys(customAnswers).length ? customAnswers : undefined,
+    };
+  };
+
+  /** 마케터 선입력 저장(고객 화면 잠금). */
+  const handleSavePrefill = async () => {
+    if (!editor?.orderFormId) return;
+    setPrefillSaving(true);
+    try {
+      await saveOrderFormPrefill(editor.authToken, editor.orderFormId, buildPrefillPayload());
+      setPrefillSavedOpen(true);
+    } catch (e) {
+      setSubmitErrorModal(e instanceof Error ? e.message : '저장에 실패했습니다.');
+    } finally {
+      setPrefillSaving(false);
+    }
+  };
+
+  /** 발급(생성)+작성 동시: 금액·식별정보로 발주서 생성 후, 입력 항목을 선입력(잠금) 저장. */
+  const handleCreateAndPrefill = async () => {
+    if (!editor?.create || !editor.authToken) return;
+    const name = form.customerName.trim();
+    if (!name) {
+      setSubmitErrorModal('고객명을 입력해주세요.');
+      return;
+    }
+    const total = parseInt(issueAmounts.totalAmount.replace(/,/g, ''), 10);
+    if (Number.isNaN(total) || total < 0) {
+      setSubmitErrorModal('총 금액을 입력해주세요.');
+      return;
+    }
+    const basisOk = form.areaBasis === '공급' || form.areaBasis === '전용';
+    if (!basisOk) {
+      setSubmitErrorModal('면적 기준(공급/전용)을 선택하고 평수를 입력해 주세요.');
+      return;
+    }
+    const py = parseFloat(form.areaPyeong.replace(/,/g, ''));
+    if (!form.areaPyeong.trim() || !Number.isFinite(py) || py <= 0) {
+      setSubmitErrorModal('평수를 양수 숫자로 입력해 주세요.');
+      return;
+    }
+    const areaPyeongNum = py;
+    if (!noSpecialNotes && !form.specialNotes.trim()) {
+      setSubmitErrorModal('특이사항을 입력하거나 "특이사항 없음"을 체크해 주세요.');
+      return;
+    }
+    setPrefillSaving(true);
+    try {
+      const deposit = issueAmounts.depositAmount
+        ? parseInt(issueAmounts.depositAmount.replace(/,/g, ''), 10)
+        : 20000;
+      const balance = issueAmounts.balanceAmount
+        ? parseInt(issueAmounts.balanceAmount.replace(/,/g, ''), 10)
+        : Math.max(0, total - deposit);
+      const hasDate = Boolean(form.preferredDate.trim());
+      const order = await createOrderForm(editor.authToken, {
+        customerName: name,
+        customerPhone: form.customerPhone.trim() || undefined,
+        totalAmount: total,
+        depositAmount: deposit,
+        balanceAmount: balance,
+        optionNote: issueAmounts.optionNote.trim() || undefined,
+        preferredDate: hasDate ? form.preferredDate.trim() : undefined,
+        preferredTime: hasDate ? form.preferredTime || undefined : undefined,
+        preferredTimeDetail: form.preferredTimeDetail.trim() || undefined,
+        ...(areaPyeongNum != null ? { areaPyeong: areaPyeongNum, areaBasis: form.areaBasis } : {}),
+        pendingInquiryId: editor.create.pendingInquiryId || undefined,
+        templateId: editor.create.templateId || undefined,
+      });
+      await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());
+      editor.create.onCreated(order);
+    } catch (e) {
+      setSubmitErrorModal(e instanceof Error ? e.message : '발급에 실패했습니다.');
+    } finally {
+      setPrefillSaving(false);
+    }
+  };
+
   const CloseButton = () => (
     <button
       type="button"
-      onClick={() => (window.opener ? window.close() : window.history.back())}
+      onClick={() => {
+        if (editor?.onClose) editor.onClose();
+        else if (window.opener) window.close();
+        else window.history.back();
+      }}
       className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-300 rounded"
     >
       닫기
@@ -554,16 +783,36 @@ export function OrderFormPage() {
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
   const radioGroupCls = 'flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-800';
   const radioLabelCls = 'inline-flex items-center gap-2 cursor-pointer';
-  const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
-  const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
-  const areaLockedByAdmin = isOrderFormAreaLockedFromOrder(order);
+  const scheduleLockedByAdmin = !isEditor && Boolean(order?.preferredDate?.trim());
+  const detailLockedByAdmin = !isEditor && Boolean(order?.preferredTimeDetail?.trim());
+  const areaLockedByAdmin = !isEditor && isOrderFormAreaLockedFromOrder(order);
+
+  // 마케터 선입력 잠금 — 값이 있는 키는 고객 화면에서 읽기전용. 편집(마케터) 모드는 항상 편집 가능.
+  const prefillMap = order?.prefillAnswers ?? null;
+  const lockKey = (key: string): boolean => {
+    if (isEditor || !prefillMap) return false;
+    const v = (prefillMap as Record<string, unknown>)[key];
+    if (v == null) return false;
+    if (typeof v === 'string') return v.trim().length > 0;
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === 'boolean') return v === true;
+    if (typeof v === 'number') return Number.isFinite(v);
+    return false;
+  };
+  const lockedInputCls = 'bg-gray-100 text-gray-500 cursor-not-allowed';
+  const clsWithLock = (key: string, base: string): string =>
+    lockKey(key) ? `${base} ${lockedInputCls}` : base;
+  const profLocked = lockKey('professionalOptionIds');
+  const moveLocked = lockKey('moveInDate') || lockKey('moveInDateUndecided');
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="max-w-lg mx-auto px-4 py-6 relative">
-        <div className="absolute top-4 right-4">
-          <CloseButton />
-        </div>
+    <div className={isInline ? '' : 'min-h-screen bg-gray-50 pb-20'}>
+      <div className={isInline ? 'relative w-full' : 'max-w-lg mx-auto px-4 py-6 relative'}>
+        {!isInline && (
+          <div className="absolute top-4 right-4">
+            <CloseButton />
+          </div>
+        )}
         <h1 className="text-lg font-semibold text-gray-900 mb-1 whitespace-pre-line">
           {order?.template?.title && !order.template.isDefault
             ? `${order.template.icon ? `${order.template.icon} ` : ''}${order.template.title}`
@@ -572,7 +821,84 @@ export function OrderFormPage() {
         {order?.template?.description && !order.template.isDefault ? (
           <p className="mb-1 text-xs text-gray-500 whitespace-pre-line">{order.template.description}</p>
         ) : null}
-        {order && (
+        {isEditor ? (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
+            <span className="font-semibold">마케터 작성</span> — 상담 내용을 미리 채워 넣으세요. 채운 항목은 고객 화면에서 수정 불가(잠금)로 표시되고, 비워 둔 항목은 고객이 직접 작성합니다.
+          </div>
+        ) : null}
+        {isCreate && (
+          <div className="mb-5 rounded-lg border border-gray-200 bg-gray-50/70 p-3 sm:p-4">
+            <p className="mb-3 text-sm font-semibold text-gray-900">발급 금액</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-gray-700">총 금액 (원) *</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className={inputCls}
+                  placeholder="150000"
+                  value={issueAmounts.totalAmount}
+                  onChange={(e) => setIssueAmounts((a) => ({ ...a, totalAmount: e.target.value }))}
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {[
+                    { label: '+천원', v: 1000 },
+                    { label: '+만원', v: 10000 },
+                    { label: '+십만원', v: 100000 },
+                  ].map((b) => (
+                    <button
+                      key={b.v}
+                      type="button"
+                      onClick={() =>
+                        setIssueAmounts((a) => {
+                          const cur = parseInt(a.totalAmount.replace(/,/g, ''), 10);
+                          const next = (Number.isNaN(cur) ? 0 : cur) + b.v;
+                          return { ...a, totalAmount: String(next) };
+                        })
+                      }
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-800 shadow-sm hover:bg-gray-50"
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">예약금 (원)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className={inputCls}
+                  placeholder="20000"
+                  value={issueAmounts.depositAmount}
+                  onChange={(e) => setIssueAmounts((a) => ({ ...a, depositAmount: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">잔금 (원)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className={inputCls}
+                  placeholder="비어 있으면 자동 계산"
+                  value={issueAmounts.balanceAmount}
+                  onChange={(e) => setIssueAmounts((a) => ({ ...a, balanceAmount: e.target.value }))}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-gray-700">추가 사항</label>
+                <input
+                  type="text"
+                  className={inputCls}
+                  placeholder="견적 포함 추가, 현장 선택 추가 등"
+                  value={issueAmounts.optionNote}
+                  onChange={(e) => setIssueAmounts((a) => ({ ...a, optionNote: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {order && !isCreate && (
           <div className="mb-6 p-4 bg-white border border-gray-200 rounded text-sm">
             <p className="font-medium text-gray-900">
               총 금액 {(order.totalAmount ?? 0).toLocaleString()}원{' '}
@@ -621,10 +947,11 @@ export function OrderFormPage() {
             <label className={labelCls}>1. 성함 *</label>
             <input
               type="text"
-              className={inputCls}
+              className={clsWithLock('customerName', inputCls)}
               value={form.customerName}
               onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
               placeholder="이름"
+              disabled={lockKey('customerName')}
             />
           </div>
 
@@ -635,13 +962,15 @@ export function OrderFormPage() {
               onChange={(addr) => setForm((f) => ({ ...f, address: addr }))}
               placeholder="주소 검색"
               className="mb-2"
+              disabled={lockKey('address')}
             />
             <input
               type="text"
-              className={inputCls}
+              className={clsWithLock('addressDetail', inputCls)}
               value={form.addressDetail}
               onChange={(e) => setForm((f) => ({ ...f, addressDetail: e.target.value }))}
               placeholder="상세주소 (동, 호수 등)"
+              disabled={lockKey('addressDetail')}
             />
           </div>
 
@@ -653,18 +982,20 @@ export function OrderFormPage() {
             <label className="block text-xs text-gray-600 mb-1">대표 연락처 *</label>
             <input
               type="tel"
-              className={`${inputCls} mb-3`}
+              className={`${clsWithLock('customerPhone', inputCls)} mb-3`}
               value={form.customerPhone}
               onChange={(e) => setForm((f) => ({ ...f, customerPhone: e.target.value }))}
               placeholder="010-0000-0000"
+              disabled={lockKey('customerPhone')}
             />
             <label className="block text-xs text-gray-600 mb-1">보조 연락처 (필수) *</label>
             <input
               type="tel"
-              className={inputCls}
+              className={clsWithLock('customerPhone2', inputCls)}
               value={form.customerPhoneSecondary}
               onChange={(e) => setForm((f) => ({ ...f, customerPhoneSecondary: e.target.value }))}
               placeholder="예: 배우자, 가족 연락처"
+              disabled={lockKey('customerPhone2')}
             />
           </div>
 
@@ -680,7 +1011,8 @@ export function OrderFormPage() {
                     value={o.value}
                     checked={form.propertyType === o.value}
                     onChange={() => setForm((f) => ({ ...f, propertyType: o.value }))}
-                    className="w-4 h-4 border-gray-300 text-gray-800"
+                    disabled={lockKey('propertyType')}
+                    className="w-4 h-4 border-gray-300 text-gray-800 disabled:cursor-not-allowed"
                   />
                   {o.label}
                 </label>
@@ -881,10 +1213,11 @@ export function OrderFormPage() {
               <input
                 type="number"
                 min={0}
-                className={inputCls}
+                className={clsWithLock('roomCount', inputCls)}
                 value={form.roomCount}
                 onChange={(e) => setForm((f) => ({ ...f, roomCount: e.target.value }))}
                 placeholder="0"
+                disabled={lockKey('roomCount')}
               />
             </div>
             <div>
@@ -892,10 +1225,11 @@ export function OrderFormPage() {
               <input
                 type="number"
                 min={0}
-                className={inputCls}
+                className={clsWithLock('balconyCount', inputCls)}
                 value={form.balconyCount}
                 onChange={(e) => setForm((f) => ({ ...f, balconyCount: e.target.value }))}
                 placeholder="0"
+                disabled={lockKey('balconyCount')}
               />
             </div>
             <div>
@@ -903,10 +1237,11 @@ export function OrderFormPage() {
               <input
                 type="number"
                 min={0}
-                className={inputCls}
+                className={clsWithLock('bathroomCount', inputCls)}
                 value={form.bathroomCount}
                 onChange={(e) => setForm((f) => ({ ...f, bathroomCount: e.target.value }))}
                 placeholder="0"
+                disabled={lockKey('bathroomCount')}
               />
             </div>
             <div>
@@ -914,10 +1249,11 @@ export function OrderFormPage() {
               <input
                 type="number"
                 min={0}
-                className={inputCls}
+                className={clsWithLock('kitchenCount', inputCls)}
                 value={form.kitchenCount}
                 onChange={(e) => setForm((f) => ({ ...f, kitchenCount: e.target.value }))}
                 placeholder="0"
+                disabled={lockKey('kitchenCount')}
               />
             </div>
           </div>
@@ -930,8 +1266,9 @@ export function OrderFormPage() {
           <div>
             <label className={labelCls}>9. 신축/구축/인테리어/거주 선택 *</label>
             <select
-              className={inputCls}
+              className={clsWithLock('buildingType', inputCls)}
               value={form.buildingType}
+              disabled={lockKey('buildingType')}
               onChange={(e) => {
                 const v = e.target.value;
                 setForm((f) => ({
@@ -970,7 +1307,7 @@ export function OrderFormPage() {
                   moveInDateUndecided: v.trim() ? false : f.moveInDateUndecided,
                 }))
               }
-              disabled={form.moveInDateUndecided}
+              disabled={form.moveInDateUndecided || moveLocked}
               minYmd={kstTodayYmd()}
               allowEmpty
               emitOnCompleteOnly
@@ -982,6 +1319,7 @@ export function OrderFormPage() {
                   type="checkbox"
                   className="rounded border-gray-300"
                   checked={form.moveInDateUndecided}
+                  disabled={moveLocked}
                   onChange={(e) => {
                     const c = e.target.checked;
                     setForm((f) => ({
@@ -1002,11 +1340,26 @@ export function OrderFormPage() {
 
           {stdFieldOn('specialNotes') && (
           <div>
-            <label className={labelCls}>11. 특이사항</label>
+            <label className={labelCls}>11. 특이사항{isCreate ? ' *' : ''}</label>
+            {isEditor && (
+              <label className="mb-2 flex w-fit items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={noSpecialNotes}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setNoSpecialNotes(on);
+                    if (on) setForm((f) => ({ ...f, specialNotes: '' }));
+                  }}
+                />
+                특이사항 없음
+              </label>
+            )}
             <textarea
-              className={`${inputCls} min-h-[96px]`}
+              className={`${clsWithLock('specialNotes', inputCls)} min-h-[96px]`}
               value={form.specialNotes}
               onChange={(e) => setForm((f) => ({ ...f, specialNotes: e.target.value }))}
+              disabled={lockKey('specialNotes') || (isEditor && noSpecialNotes)}
               placeholder={
                 '전화 상담 시 언급 내용, 꼭 재 작성\n타운하우스, 주택 등 층수로 나눠진 건물은 반드시 정확히 적어주세요.'
               }
@@ -1022,6 +1375,7 @@ export function OrderFormPage() {
                 const opts = Array.isArray(cf.options) ? (cf.options as unknown[]).map((o) => String(o)) : [];
                 const value = customAnswers[cf.fieldKey];
                 const setVal = (v: unknown) => setCustomAnswers((prev) => ({ ...prev, [cf.fieldKey]: v }));
+                const cfLocked = lockKey(cf.fieldKey);
                 return (
                   <div key={cf.fieldKey}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1031,10 +1385,11 @@ export function OrderFormPage() {
                     {cf.helpText ? <p className="text-xs text-gray-500 mb-1">{cf.helpText}</p> : null}
                     {cf.inputType === 'TEXTAREA' ? (
                       <textarea
-                        className={`${inputCls} min-h-[80px]`}
+                        className={`${cfLocked ? `${inputCls} ${lockedInputCls}` : inputCls} min-h-[80px]`}
                         placeholder={cf.placeholder && cf.placeholder.trim() ? cf.placeholder : undefined}
                         value={typeof value === 'string' ? value : ''}
                         onChange={(e) => setVal(e.target.value)}
+                        disabled={cfLocked}
                       />
                     ) : cf.inputType === 'SELECT' && cf.optionStyle === 'RADIO' ? (
                       <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -1043,16 +1398,17 @@ export function OrderFormPage() {
                             <input
                               type="radio"
                               name={`cf-${cf.fieldKey}`}
-                              className="h-4 w-4 border-gray-300"
+                              className="h-4 w-4 border-gray-300 disabled:cursor-not-allowed"
                               checked={value === o}
                               onChange={() => setVal(o)}
+                              disabled={cfLocked}
                             />
                             {o}
                           </label>
                         ))}
                       </div>
                     ) : cf.inputType === 'SELECT' ? (
-                      <select className={inputCls} value={typeof value === 'string' ? value : ''} onChange={(e) => setVal(e.target.value)}>
+                      <select className={clsWithLock(cf.fieldKey, inputCls)} value={typeof value === 'string' ? value : ''} onChange={(e) => setVal(e.target.value)} disabled={cfLocked}>
                         <option value="">선택</option>
                         {opts.map((o) => (
                           <option key={o} value={o}>
@@ -1069,12 +1425,13 @@ export function OrderFormPage() {
                             <label key={o} className="flex items-center gap-2 text-sm text-gray-700">
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 rounded border-gray-300"
+                                className="h-4 w-4 rounded border-gray-300 disabled:cursor-not-allowed"
                                 checked={checked}
                                 onChange={(e) => {
                                   const next = e.target.checked ? [...arr, o] : arr.filter((x) => x !== o);
                                   setVal(next);
                                 }}
+                                disabled={cfLocked}
                               />
                               {o}
                             </label>
@@ -1085,9 +1442,10 @@ export function OrderFormPage() {
                       <input
                         type={cf.inputType === 'DATE' ? 'date' : cf.inputType === 'NUMBER' || cf.inputType === 'MONEY' ? 'number' : cf.inputType === 'PHONE' ? 'tel' : 'text'}
                         inputMode={cf.inputType === 'NUMBER' || cf.inputType === 'MONEY' ? 'numeric' : cf.inputType === 'PHONE' ? 'tel' : undefined}
-                        className={inputCls}
+                        className={clsWithLock(cf.fieldKey, inputCls)}
                         value={typeof value === 'string' ? value : value == null ? '' : String(value)}
                         onChange={(e) => setVal(e.target.value)}
+                        disabled={cfLocked}
                       />
                     )}
                   </div>
@@ -1096,7 +1454,7 @@ export function OrderFormPage() {
             </div>
           ) : null}
 
-          {stdFieldOn('photos') && (
+          {stdFieldOn('photos') && !isEditor && (
           <div>
             <p className={`${labelCls} mb-2`}>12. 현장 사진 첨부 (선택)</p>
             {token ? (
@@ -1108,6 +1466,22 @@ export function OrderFormPage() {
           {stdFieldOn('professionalOptions') && (
           <div>
             <p className={`${labelCls} mb-2`}>13. 전문 시공 옵션 (선택)</p>
+            {profLocked ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
+                {profSelectionSummary.rows.length > 0 ? (
+                  <ul className="space-y-1 leading-snug">
+                    {profSelectionSummary.rows.map((r) => (
+                      <li key={r.key} className="flex gap-1.5">
+                        <span className="text-gray-400 shrink-0" aria-hidden>·</span>
+                        <span>{r.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span className="text-gray-500">선택된 전문 시공 옵션이 없습니다.</span>
+                )}
+              </div>
+            ) : (
             <div className="space-y-2.5 pl-0.5">
               {professionalOptions.length === 0 ? (
                 <p className="text-sm text-gray-500">등록된 전문 시공 옵션이 없습니다.</p>
@@ -1309,9 +1683,11 @@ export function OrderFormPage() {
                 })
               )}
             </div>
+            )}
           </div>
           )}
 
+          {!isEditor && (
           <div className="py-4">
             <div className="mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-gradient-to-b from-gray-50/95 to-white px-4 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.03]">
               {agreeToTerms ? (
@@ -1341,23 +1717,83 @@ export function OrderFormPage() {
               )}
             </div>
           </div>
+          )}
 
+          {!isEditor && (
           <OrderFormGuideAgreeModal
             open={guideAgreeModalOpen}
             onClose={() => setGuideAgreeModalOpen(false)}
             onAgree={() => setAgreeToTerms(true)}
           />
+          )}
 
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3 bg-gray-800 text-white font-medium rounded disabled:opacity-50"
-            >
-              {submitting ? '제출 중...' : '제출하기'}
-            </button>
+          <div
+            className={
+              isInline
+                ? 'mt-4'
+                : 'fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200'
+            }
+          >
+            {isCreate ? (
+              <button
+                type="button"
+                onClick={handleCreateAndPrefill}
+                disabled={prefillSaving}
+                className="w-full py-3 bg-gray-800 text-white font-medium rounded disabled:opacity-50"
+              >
+                {prefillSaving ? '발급 중...' : '발급 및 링크 생성'}
+              </button>
+            ) : isEditor ? (
+              <button
+                type="button"
+                onClick={handleSavePrefill}
+                disabled={prefillSaving}
+                className="w-full py-3 bg-gray-800 text-white font-medium rounded disabled:opacity-50"
+              >
+                {prefillSaving ? '저장 중...' : '선저장 (입력한 항목을 고객에게 잠금)'}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3 bg-gray-800 text-white font-medium rounded disabled:opacity-50"
+              >
+                {submitting ? '제출 중...' : '제출하기'}
+              </button>
+            )}
           </div>
         </form>
+
+        {prefillSavedOpen ? (
+          <div
+            className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+              <div className="flex flex-col items-center px-6 pb-5 pt-7 text-center">
+                <h2 className="text-base font-semibold tracking-tight text-gray-900">저장했습니다</h2>
+                <p className="mt-2 text-[15px] leading-relaxed text-gray-700">
+                  입력하신 항목은 고객 발주서에서 <span className="font-medium">읽기전용으로 잠깁니다.</span> 비워 둔 항목은 고객이 직접 작성합니다.
+                </p>
+                <p className="mt-2 text-xs text-gray-500">같은 링크로 언제든 다시 수정할 수 있습니다(고객 제출 전).</p>
+              </div>
+              <div className="flex justify-center border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrefillSavedOpen(false);
+                    if (editor?.onClose) editor.onClose();
+                  }}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
+                  autoFocus
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {submitErrorModal ? (
           <div
@@ -1636,5 +2072,28 @@ export function OrderFormPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** 관리자/마케터: 발주서 선입력(마케터 작성) 편집 화면 — 고객 폼과 동일 UI를 잠금 저장 용도로 재사용 */
+export function OrderFormPrefillEditorPage() {
+  const { orderFormId } = useParams<{ orderFormId: string }>();
+  const navigate = useNavigate();
+  const authToken = getToken();
+  if (!orderFormId || !authToken) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <p className="text-gray-600">잘못된 접근입니다.</p>
+      </div>
+    );
+  }
+  return (
+    <OrderFormPage
+      editor={{
+        orderFormId,
+        authToken,
+        onClose: () => navigate('/admin/inquiries/order-issue'),
+      }}
+    />
   );
 }

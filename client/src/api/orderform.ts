@@ -227,6 +227,8 @@ export interface OrderFormPublicEditable {
   template?: OrderFormPublicTemplate | null;
   /** 추가 항목 고객 답변 임시 저장(미제출) */
   customAnswers?: Record<string, unknown> | null;
+  /** 마케터 선입력 값 {key: value} — 있는 키는 고객 화면에서 읽기전용(잠금) */
+  prefillAnswers?: Record<string, unknown> | null;
   /** 미제출 상태에서 고객 특이사항 임시 저장(발주서 컬럼). 접수 `specialNotes`와 무관 */
   draftCustomerSpecialNotes?: string | null;
   /** 발주서가 대기 접수에 연결된 경우 고객 입력 폼에 반영 */
@@ -392,6 +394,91 @@ export async function createOrderForm(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '발주서 발급에 실패했습니다.');
+  }
+  return res.json();
+}
+
+/** 마케터 선입력 편집기 저장 payload (제출 form 과 동일 + 답변·전문옵션) */
+export interface OrderFormPrefillPayload {
+  customerName?: string;
+  customerPhone?: string;
+  customerPhone2?: string;
+  address?: string;
+  addressDetail?: string;
+  propertyType?: string;
+  areaBasis?: string;
+  areaPyeong?: number | string | null;
+  preferredDate?: string;
+  preferredTime?: string;
+  preferredTimeDetail?: string | null;
+  roomCount?: number | string;
+  balconyCount?: number | string;
+  bathroomCount?: number | string;
+  kitchenCount?: number | string;
+  buildingType?: string;
+  moveInDate?: string;
+  moveInDateUndecided?: boolean;
+  specialNotes?: string;
+  professionalOptionIds?: string[];
+  answers?: Record<string, unknown>;
+}
+
+/** 발급 화면 인라인 폼 데이터 — 선택 양식의 폼/옵션/설정(+선택 대기접수 프리필) */
+export interface OrderFormIssueFormData {
+  template: OrderFormPublicTemplate | null;
+  professionalOptions: ProfessionalSpecialtyOptionDto[];
+  formConfig?: OrderFormConfigPublic;
+  pendingInquiry?: PendingInquiryPrefill | null;
+}
+
+/** 관리자/마케터: 발급 화면에 인라인으로 띄울 선택 양식의 폼 데이터(주문 생성 전) */
+export async function getOrderFormIssueForm(
+  authToken: string,
+  params?: { templateId?: string; pendingInquiryId?: string }
+): Promise<OrderFormIssueFormData> {
+  const qs = new URLSearchParams();
+  if (params?.templateId?.trim()) qs.set('templateId', params.templateId.trim());
+  if (params?.pendingInquiryId?.trim()) qs.set('pendingInquiryId', params.pendingInquiryId.trim());
+  const q = qs.toString();
+  const res = await fetch(`${API}/orderforms/issue-form${q ? `?${q}` : ''}`, {
+    headers: headers(authToken),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '발주서 양식을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+/** 관리자/마케터: 마케터 선입력 편집 화면용 데이터(제출 전만) */
+export async function getOrderFormPrefillForm(
+  authToken: string,
+  orderFormId: string
+): Promise<OrderFormPublicEditable> {
+  const res = await fetch(`${API}/orderforms/${encodeURIComponent(orderFormId)}/prefill-form`, {
+    headers: headers(authToken),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '발주서를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+/** 관리자/마케터: 마케터 선입력 값 저장(고객 화면 잠금). 토큰 유지 */
+export async function saveOrderFormPrefill(
+  authToken: string,
+  orderFormId: string,
+  payload: OrderFormPrefillPayload
+): Promise<{ ok: boolean; prefillAnswers: Record<string, unknown> | null }> {
+  const res = await fetch(`${API}/orderforms/${encodeURIComponent(orderFormId)}/prefill`, {
+    method: 'POST',
+    headers: headers(authToken),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '선입력 저장에 실패했습니다.');
   }
   return res.json();
 }

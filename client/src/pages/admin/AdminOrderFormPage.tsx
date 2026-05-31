@@ -12,7 +12,6 @@ import { AdminOrderFormFollowupPanel } from '../../components/order-followup/Adm
 import { CustomerOrderSubmissionSnapshotModal } from '../../components/orderform/CustomerOrderSubmissionSnapshotModal';
 import {
   getOrderForms,
-  createOrderForm,
   deleteOrderForm,
   getFormConfig,
   getAdminOrderFormPhotos,
@@ -21,7 +20,7 @@ import {
   type OrderFormListDatePreset,
   type OrderFormPhotoItem,
 } from '../../api/orderform';
-import { getInquiries, getInquiry } from '../../api/inquiries';
+import { getInquiries } from '../../api/inquiries';
 import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
 import { getToken } from '../../stores/auth';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
@@ -32,13 +31,9 @@ import {
   getOrderFormPublicUrl,
   labelOrderFormIssuer,
   normalizeMsgConfigForEditor,
-  withDefaultText,
 } from '../../utils/orderFormCustomerCopy';
 import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
-import {
-  formatInquiryAreaKoLine,
-  inquiryAreaEditFormStringsFromItem,
-} from '../../utils/inquiryAreaDisplay';
+import { OrderFormPage } from '../order/OrderFormPage';
 
 type Tab = 'issue' | 'followup' | 'list';
 
@@ -98,7 +93,6 @@ export function AdminOrderFormPage() {
     items: OrderFormPhotoItem[];
     lightbox: OrderFormPhotoItem | null;
   }>(null);
-  const [issuePreviewOpen, setIssuePreviewOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OrderForm | null>(null);
   useEffect(() => {
     if (inquiriesEmbed === 'list') {
@@ -206,22 +200,10 @@ export function AdminOrderFormPage() {
     [listDatePreset, listCustomerName, listCreatedById, listSubmitStatus]
   );
 
-  // 발급 폼
-  const [issueForm, setIssueForm] = useState(() => ({
-    customerName: '',
-    customerPhone: '',
-    totalAmount: '',
-    depositAmount: '20000',
-    balanceAmount: '',
-    optionNote: '',
-    preferredDate: '',
-    preferredTime: '오전',
-    preferredTimeDetail: '',
-    areaBasis: '',
-    areaPyeong: '',
-  }));
+  // 발급 폼 — 선택 양식의 폼을 인라인으로 렌더(OrderFormPage create 모드)
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
-  const [issueLoading, setIssueLoading] = useState(false);
+  /** 발급 완료 후 인라인 폼을 초기화하기 위한 remount 키 */
+  const [issueFormKey, setIssueFormKey] = useState(0);
   const [pendingLinkOptions, setPendingLinkOptions] = useState<
     Array<{ id: string; customerName: string; customerPhone: string }>
   >([]);
@@ -311,51 +293,6 @@ export function AdminOrderFormPage() {
       .catch(() => setPendingLinkOptions([]));
   }, [token, tab]);
 
-  useEffect(() => {
-    if (!token || tab !== 'issue' || !pendingLinkId) return;
-    let cancelled = false;
-    void getInquiry(token, pendingLinkId)
-      .then((raw) => {
-        if (cancelled) return;
-        const row = raw as {
-          customerName?: string | null;
-          customerPhone?: string | null;
-          preferredDate?: string | null;
-          preferredTime?: string | null;
-          preferredTimeDetail?: string | null;
-          areaBasis?: string | null;
-          areaPyeong?: number | null;
-          exclusiveAreaSqm?: number | null;
-        };
-        const nm = row.customerName?.trim() ?? '';
-        const ph = row.customerPhone?.trim() ?? '';
-        const prefillDate = (row.preferredDate ?? '').trim().slice(0, 10);
-        const prefillTime = (row.preferredTime ?? '').trim();
-        const prefillTimeDetail = (row.preferredTimeDetail ?? '').trim();
-        const areaStrings = inquiryAreaEditFormStringsFromItem(row);
-        setIssueForm((f) => ({
-          ...f,
-          customerName: nm || f.customerName,
-          customerPhone: ph || f.customerPhone,
-          preferredDate: f.preferredDate.trim() ? f.preferredDate : prefillDate,
-          preferredTime: f.preferredDate.trim()
-            ? f.preferredTime
-            : prefillTime || f.preferredTime,
-          preferredTimeDetail: f.preferredTimeDetail.trim()
-            ? f.preferredTimeDetail
-            : prefillTimeDetail,
-          areaBasis: f.areaBasis.trim() ? f.areaBasis : (row.areaBasis?.trim() ?? ''),
-          areaPyeong: f.areaPyeong.trim() ? f.areaPyeong : areaStrings.areaPyeong,
-        }));
-      })
-      .catch(() => {
-        /* ignore prefill failure */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, tab, pendingLinkId]);
-
   // 발급 탭 — 발행된 발주서 양식 목록 로드(템플릿 선택용)
   useEffect(() => {
     if (!token || tab !== 'issue') return;
@@ -418,84 +355,11 @@ export function AdminOrderFormPage() {
   }, [token, inquiriesEmbed, searchParams, setSearchParams]);
 
 
-  const addToTotalAmount = (delta: number) => {
-    setIssueForm((f) => {
-      const raw = f.totalAmount.replace(/,/g, '').trim();
-      const n = parseInt(raw, 10);
-      const base = Number.isFinite(n) && !Number.isNaN(n) ? n : 0;
-      return { ...f, totalAmount: String(base + delta) };
-    });
-  };
-
-  const handleIssue = async () => {
-    if (!token) return;
-    const total = parseInt(issueForm.totalAmount.replace(/,/g, ''), 10);
-    if (!issueForm.customerName.trim() || isNaN(total) || total < 0) {
-      setError('고객명과 총 금액을 입력해주세요.');
-      return;
-    }
-    const basisTrim = issueForm.areaBasis.trim();
-    const pyTrim = issueForm.areaPyeong.trim();
-    if ((basisTrim && !pyTrim) || (!basisTrim && pyTrim)) {
-      setError('면적을 지정할 때는 기준(공급/전용)과 평수를 모두 입력해주세요.');
-      return;
-    }
-    let areaPayload: { areaPyeong?: number; areaBasis?: string } = {};
-    if (basisTrim && pyTrim) {
-      if (basisTrim !== '공급' && basisTrim !== '전용') {
-        setError('면적 기준은 공급 또는 전용으로 선택해주세요.');
-        return;
-      }
-      const py = parseFloat(pyTrim.replace(/,/g, ''));
-      if (!Number.isFinite(py) || py <= 0) {
-        setError('평수는 양수 숫자로 입력해 주세요.');
-        return;
-      }
-      areaPayload = { areaPyeong: py, areaBasis: basisTrim };
-    }
-    setIssueLoading(true);
-    setError(null);
-    try {
-      const deposit = issueForm.depositAmount
-        ? parseInt(issueForm.depositAmount.replace(/,/g, ''), 10)
-        : 20000;
-      const balance = issueForm.balanceAmount
-        ? parseInt(issueForm.balanceAmount.replace(/,/g, ''), 10)
-        : Math.max(0, total - deposit);
-      const order = await createOrderForm(token, {
-        customerName: issueForm.customerName.trim(),
-        customerPhone: issueForm.customerPhone.trim() || undefined,
-        totalAmount: total,
-        depositAmount: deposit,
-        balanceAmount: balance,
-        optionNote: issueForm.optionNote.trim() || undefined,
-        preferredDate: issueForm.preferredDate.trim() || undefined,
-        preferredTime: issueForm.preferredDate.trim() ? issueForm.preferredTime : undefined,
-        preferredTimeDetail: issueForm.preferredTimeDetail.trim() || undefined,
-        pendingInquiryId: pendingLinkId || undefined,
-        templateId: issueTemplateId || undefined,
-        ...areaPayload,
-      });
-      setNewOrder(order);
-      setPendingLinkId('');
-      setIssueForm({
-        ...issueForm,
-        customerName: '',
-        customerPhone: '',
-        totalAmount: '',
-        balanceAmount: '',
-        optionNote: '',
-        preferredDate: '',
-        preferredTime: '오전',
-        preferredTimeDetail: '',
-        areaBasis: '',
-        areaPyeong: '',
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '발급 실패');
-    } finally {
-      setIssueLoading(false);
-    }
+  /** 인라인 발급 폼에서 발주서가 생성되면 호출 — 완료 카드 표시 + 폼 초기화 */
+  const handleOrderCreated = (order: OrderForm) => {
+    setNewOrder(order);
+    setPendingLinkId('');
+    setIssueFormKey((k) => k + 1);
   };
 
   const getOrderLink = (orderToken: string) => getOrderFormPublicUrl(orderToken);
@@ -649,18 +513,7 @@ export function AdminOrderFormPage() {
                   <select
                     className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
                     value={pendingLinkId}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setPendingLinkId(v);
-                      const row = pendingLinkOptions.find((x) => x.id === v);
-                      if (row) {
-                        setIssueForm((f) => ({
-                          ...f,
-                          customerName: row.customerName,
-                          customerPhone: row.customerPhone || f.customerPhone,
-                        }));
-                      }
-                    }}
+                    onChange={(e) => setPendingLinkId(e.target.value)}
                   >
                     <option value="">없음 (일반 발급)</option>
                     {pendingLinkOptions.map((o) => (
@@ -670,261 +523,26 @@ export function AdminOrderFormPage() {
                     ))}
                   </select>
                 </div>
-                <div className="md:col-span-2 lg:col-span-7">
-                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">고객명 *</label>
-                  <input
-                    type="text"
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
-                    placeholder="홍길동"
-                    value={issueForm.customerName}
-                    onChange={(e) => setIssueForm((f) => ({ ...f, customerName: e.target.value }))}
-                  />
-                </div>
-                <div className="md:col-span-2 lg:col-span-5">
-                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
-                    고객 전화번호 <span className="font-normal text-gray-500">(선택)</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="tel"
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm tabular-nums focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
-                    placeholder="비워도 발급 가능 · 입력 시 고객 발주서에 자동 반영"
-                    value={issueForm.customerPhone}
-                    onChange={(e) => setIssueForm((f) => ({ ...f, customerPhone: e.target.value }))}
-                  />
-                  <p className="mt-1 text-fluid-2xs text-gray-500">
-                    대기 접수 연결 시 접수 연락처로 채워지며, 필요하면 수정할 수 있습니다.
-                  </p>
-                </div>
-                <div className="md:col-span-2 lg:col-span-12">
-                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    <label className="text-fluid-sm font-medium text-gray-700">
-                      청소 면적 <span className="font-normal text-gray-500">(선택)</span>
-                    </label>
-                    <HelpTooltip text="입력하면 고객 발주서에서 면적은 읽기 전용으로 고정됩니다. 상담 중 확인한 공급/전용 평수를 넣어 주세요. 비워 두면 고객이 직접 입력합니다." />
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-                    <div className="min-w-[10rem] flex-1 sm:max-w-[14rem]">
-                      <label className="mb-1 block text-fluid-2xs text-gray-600">면적 기준</label>
-                      <select
-                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80"
-                        value={issueForm.areaBasis}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setIssueForm((f) => ({
-                            ...f,
-                            areaBasis: v,
-                            areaPyeong: v === '공급' || v === '전용' ? (v === f.areaBasis ? f.areaPyeong : '') : '',
-                          }));
-                        }}
-                      >
-                        <option value="">미지정 (고객 입력)</option>
-                        <option value="공급">공급면적 (분양평수)</option>
-                        <option value="전용">전용면적 (실제 내 집 공간)</option>
-                      </select>
-                    </div>
-                    {issueForm.areaBasis === '공급' || issueForm.areaBasis === '전용' ? (
-                      <div className="min-w-[8rem] flex-1 sm:max-w-[10rem]">
-                        <label className="mb-1 block text-fluid-2xs text-gray-600">평수 (평)</label>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-fluid-sm text-gray-900 shadow-sm tabular-nums focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80"
-                          placeholder="예: 32"
-                          value={issueForm.areaPyeong}
-                          onChange={(e) => setIssueForm((f) => ({ ...f, areaPyeong: e.target.value }))}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                  {(issueForm.areaBasis === '공급' || issueForm.areaBasis === '전용') &&
-                  issueForm.areaPyeong.trim() ? (
-                    <p className="mt-1.5 text-fluid-2xs text-amber-800">
-                      발급 시 고객 발주서 면적:{' '}
-                      {formatInquiryAreaKoLine({
-                        areaBasis: issueForm.areaBasis,
-                        areaPyeong: parseFloat(issueForm.areaPyeong.replace(/,/g, '')),
-                      })}{' '}
-                      (고객 수정 불가)
-                    </p>
-                  ) : null}
-                </div>
-                <div className="md:col-span-2 lg:col-span-12">
-                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">총 금액 (원) *</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
-                    placeholder="150000"
-                    value={issueForm.totalAmount}
-                    onChange={(e) => setIssueForm((f) => ({ ...f, totalAmount: e.target.value }))}
-                  />
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => addToTotalAmount(1_000)}
-                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
-                    >
-                      +천원
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addToTotalAmount(10_000)}
-                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
-                    >
-                      +만원
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addToTotalAmount(100_000)}
-                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
-                    >
-                      +십만원
-                    </button>
-                  </div>
-                </div>
-                <div className="lg:col-span-6">
-                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">예약금 (원)</label>
-                  <input
-                    type="text"
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
-                    placeholder="20000"
-                    value={issueForm.depositAmount}
-                    onChange={(e) => setIssueForm((f) => ({ ...f, depositAmount: e.target.value }))}
-                  />
-                </div>
-                <div className="lg:col-span-6">
-                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">잔금 (원)</label>
-                  <input
-                    type="text"
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
-                    placeholder="비어 있으면 자동 계산"
-                    value={issueForm.balanceAmount}
-                    onChange={(e) => setIssueForm((f) => ({ ...f, balanceAmount: e.target.value }))}
-                  />
-                </div>
-                <div className="lg:col-span-6">
-                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="text-fluid-sm font-medium text-gray-700">청소 날짜</span>
-                    <div className="flex items-center gap-2 text-fluid-sm text-gray-700">
-                      <label className="inline-flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="order-issue-date-mode"
-                          checked={!issueForm.preferredDate.trim()}
-                          onChange={() =>
-                            setIssueForm((f) => ({ ...f, preferredDate: '' }))
-                          }
-                        />
-                        <span>미지정</span>
-                      </label>
-                      <label className="inline-flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="order-issue-date-mode"
-                          checked={Boolean(issueForm.preferredDate.trim())}
-                          onChange={() =>
-                            setIssueForm((f) => ({
-                              ...f,
-                              preferredDate: f.preferredDate.trim() || kstTodayYmd(),
-                            }))
-                          }
-                        />
-                        <span>지정</span>
-                      </label>
-                    </div>
-                    <HelpTooltip
-                      className="shrink-0"
-                      text="「미지정」이면 고객이 발주서에서 날짜·오전/오후를 직접 선택합니다. 「지정」으로 바꾸면 관리자가 정한 날짜로 고정되고 고객은 수정할 수 없습니다."
-                    />
-                  </div>
-                  {issueForm.preferredDate.trim() ? (
-                    <YmdSelect
-                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm shadow-sm focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-200/80 sm:py-2"
-                      value={issueForm.preferredDate}
-                      onChange={(v) => setIssueForm((f) => ({ ...f, preferredDate: v }))}
-                      allowEmpty
-                      emitOnCompleteOnly
-                      minYmd={kstTodayYmd()}
-                      idPrefix="order-issue-pref"
-                    />
-                  ) : (
-                    <div className="w-full rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2.5 text-fluid-sm text-gray-500 sm:py-2">
-                      고객이 발주서에서 직접 선택합니다.
-                    </div>
-                  )}
-                </div>
-                <div className="lg:col-span-6">
-                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
-                    <label htmlFor="order-issue-preferred-time" className="text-fluid-sm font-medium text-gray-700">
-                      시간대
-                    </label>
-                    <HelpTooltip
-                      className="shrink-0"
-                      text="날짜를 먼저 선택하면 시간대가 함께 저장됩니다. 날짜를 비워 두면 고객이 발주서에서 날짜와 시간대를 선택합니다."
-                    />
-                  </div>
-                  <select
-                    id="order-issue-preferred-time"
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 disabled:cursor-not-allowed disabled:bg-gray-50 sm:py-2"
-                    value={issueForm.preferredTime}
-                    onChange={(e) => setIssueForm((f) => ({ ...f, preferredTime: e.target.value }))}
-                    disabled={!issueForm.preferredDate.trim()}
-                  >
-                    {ORDER_TIME_SLOT_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="md:col-span-2 lg:col-span-12">
-                  <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
-                    <label htmlFor="order-issue-preferred-time-detail" className="text-fluid-sm font-medium text-gray-700">
-                      구체적 시각 (선택)
-                    </label>
-                    <HelpTooltip
-                      className="shrink-0"
-                      text="입력 시 고객 발주서에서 수정할 수 없습니다. 비우면 고객이 직접 적을 수 있습니다."
-                    />
-                  </div>
-                  <input
-                    id="order-issue-preferred-time-detail"
-                    type="text"
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
-                    placeholder="예: 10:30, 오전 10시"
-                    value={issueForm.preferredTimeDetail}
-                    onChange={(e) => setIssueForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))}
-                  />
-                </div>
-                <div className="md:col-span-2 lg:col-span-12">
-                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">추가 사항</label>
-                  <input
-                    type="text"
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
-                    placeholder="견적 포함 추가, 현장 선택 추가 등"
-                    value={issueForm.optionNote}
-                    onChange={(e) => setIssueForm((f) => ({ ...f, optionNote: e.target.value }))}
-                  />
-                </div>
-                <div className="md:col-span-2 lg:col-span-12 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3 lg:justify-start">
-                  <button
-                    type="button"
-                    onClick={() => setIssuePreviewOpen(true)}
-                    className="w-full rounded-md border border-gray-300 bg-white py-3 text-fluid-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 sm:w-auto sm:min-w-[10rem] sm:px-6 sm:py-2.5"
-                  >
-                    발주서 미리보기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleIssue}
-                    disabled={issueLoading}
-                    className="w-full rounded-md bg-gray-800 py-3 text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-900 disabled:opacity-50 sm:w-auto sm:min-w-[14rem] sm:px-8 sm:py-2.5"
-                  >
-                    발급 및 링크 생성
-                  </button>
-                </div>
               </div>
+              {token ? (
+                <div className="mt-5 border-t border-gray-100 pt-5">
+                  <p className="mb-3 text-fluid-2xs leading-relaxed text-gray-500">
+                    선택한 양식이 그대로 아래에 표시됩니다. 상담 내용을 미리 채우면 그 항목은 고객 화면에서 잠겨(수정 불가) 보이고, 비워 둔 항목은 고객이 직접 작성합니다.
+                  </p>
+                  <OrderFormPage
+                    key={`issue-${issueTemplateId}-${pendingLinkId}-${issueFormKey}`}
+                    editor={{
+                      authToken: token,
+                      inline: true,
+                      create: {
+                        templateId: issueTemplateId || undefined,
+                        pendingInquiryId: pendingLinkId || undefined,
+                        onCreated: handleOrderCreated,
+                      },
+                    }}
+                  />
+                </div>
+              ) : null}
             </div>
 
             {newOrder && (
@@ -959,7 +577,17 @@ export function AdminOrderFormPage() {
                       >
                         새 창에서 열기
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/order-prefill/${newOrder.id}`)}
+                        className="rounded-md bg-emerald-600 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-emerald-700"
+                      >
+                        미리 작성
+                      </button>
                     </div>
+                    <p className="mt-2 text-fluid-2xs text-gray-600">
+                      「미리 작성」에서 상담 내용을 채우면 고객 화면에서 해당 항목이 잠깁니다(고객 제출 전까지 다시 수정 가능).
+                    </p>
                     <p className="mt-3 text-fluid-2xs text-gray-600">
                       메시지 복사 후 카카오톡·문자로 고객에게 보내세요.
                     </p>
@@ -1204,6 +832,15 @@ export function AdminOrderFormPage() {
                           >
                             새 창
                           </button>
+                          {!o.submittedAt ? (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/admin/order-prefill/${o.id}`)}
+                              className="text-fluid-xs font-medium text-emerald-700 hover:underline"
+                            >
+                              작성
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => void openPhotosModal(o)}
@@ -1346,6 +983,15 @@ export function AdminOrderFormPage() {
                                   >
                                     새 창
                                   </button>
+                                  {!o.submittedAt ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate(`/admin/order-prefill/${o.id}`)}
+                                      className="shrink-0 text-fluid-2xs font-medium text-emerald-700 hover:underline xl:text-fluid-xs"
+                                    >
+                                      작성
+                                    </button>
+                                  ) : null}
                                   <button
                                     type="button"
                                     onClick={() => void openPhotosModal(o)}
@@ -1406,161 +1052,6 @@ export function AdminOrderFormPage() {
           </div>
         </div>
       )}
-
-      {issuePreviewOpen &&
-        createPortal(
-          (() => {
-            const parsedTotal = parseInt(issueForm.totalAmount.replace(/,/g, ''), 10);
-            const total = Number.isFinite(parsedTotal) && parsedTotal >= 0 ? parsedTotal : 0;
-            const parsedDeposit = parseInt(issueForm.depositAmount.replace(/,/g, ''), 10);
-            const deposit = Number.isFinite(parsedDeposit) && parsedDeposit >= 0 ? parsedDeposit : 20000;
-            const parsedBalance = parseInt(issueForm.balanceAmount.replace(/,/g, ''), 10);
-            const balance =
-              Number.isFinite(parsedBalance) && parsedBalance >= 0
-                ? parsedBalance
-                : Math.max(0, total - deposit);
-            const customerName = issueForm.customerName.trim();
-            const dateLocked = Boolean(issueForm.preferredDate.trim());
-            const detailLocked = Boolean(issueForm.preferredTimeDetail.trim());
-            const areaLocked = Boolean(
-              issueForm.areaBasis.trim() &&
-                (issueForm.areaBasis === '공급' || issueForm.areaBasis === '전용') &&
-                issueForm.areaPyeong.trim()
-            );
-            const areaLockedLabel = areaLocked
-              ? formatInquiryAreaKoLine({
-                  areaBasis: issueForm.areaBasis,
-                  areaPyeong: parseFloat(issueForm.areaPyeong.replace(/,/g, '')),
-                })
-              : '';
-            const slotLabel =
-              ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === issueForm.preferredTime)?.label ??
-              issueForm.preferredTime;
-            const footer1 = withDefaultText(msgConfig.footerNotice1, 'footerNotice1');
-            const footer2 = withDefaultText(msgConfig.footerNotice2, 'footerNotice2');
-            const formTitleText = withDefaultText(msgConfig.formTitle, 'formTitle');
-            const priceLabelText = withDefaultText(msgConfig.priceLabel, 'priceLabel');
-            const reviewText = withDefaultText(msgConfig.reviewEventText, 'reviewEventText');
-            return (
-              <div
-                className="fixed inset-0 z-[210] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
-                role="presentation"
-                onClick={() => setIssuePreviewOpen(false)}
-              >
-                <div
-                  className="relative flex max-h-[min(92dvh,720px)] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="issue-preview-title"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <ModalCloseButton onClick={() => setIssuePreviewOpen(false)} />
-                  <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12">
-                    <h2 id="issue-preview-title" className="text-fluid-base font-semibold text-gray-900">
-                      발주서 미리보기
-                    </h2>
-                    <p className="mt-0.5 text-fluid-2xs text-gray-500">
-                      고객이 받는 발주서 상단에 이렇게 보입니다. 아직 발급 전이며, 저장되지 않았습니다.
-                    </p>
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-gray-50 p-4 space-y-4">
-                    <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm">
-                      <h3 className="mb-2 text-base font-semibold text-gray-900 whitespace-pre-line">{formTitleText}</h3>
-                      <p className="font-medium text-gray-900 tabular-nums">
-                        총 금액 {total.toLocaleString('ko-KR')}원{' '}
-                        <span className="whitespace-pre-line align-top">{priceLabelText}</span>
-                      </p>
-                      <p className="mt-1 text-gray-600 tabular-nums">
-                        잔금 {balance.toLocaleString('ko-KR')}원, 예약금 {deposit.toLocaleString('ko-KR')}원
-                      </p>
-                      <p className="mt-1 text-xs text-gray-600 whitespace-pre-line">{reviewText}</p>
-                      {issueForm.optionNote.trim() ? (
-                        <p className="mt-2 text-gray-700">추가: {issueForm.optionNote.trim()}</p>
-                      ) : null}
-                    </div>
-
-                    <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm space-y-3">
-                      <div>
-                        <p className="mb-1 text-xs font-medium text-gray-500">고객명</p>
-                        <p className="text-gray-900">{customerName || <span className="text-gray-400">(미입력)</span>}</p>
-                      </div>
-                      <div>
-                        <p className="mb-1 text-xs font-medium text-gray-500">고객 전화번호 (선택)</p>
-                        <p className="tabular-nums text-gray-900">
-                          {issueForm.customerPhone.trim() ? (
-                            issueForm.customerPhone.trim()
-                          ) : (
-                            <span className="text-gray-400">미입력 — 고객이 발주서에서 직접 입력</span>
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="mb-1 text-xs font-medium text-gray-500">청소 면적</p>
-                        {areaLocked ? (
-                          <div className="rounded bg-gray-100 px-3 py-2 text-xs text-gray-700">
-                            {areaLockedLabel}{' '}
-                            <span className="text-gray-500">(관리자 지정·수정 불가)</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500">고객이 발주서에서 직접 입력합니다.</p>
-                        )}
-                      </div>
-                      <div>
-                        <p className="mb-1 text-xs font-medium text-gray-500">청소 날짜</p>
-                        {dateLocked ? (
-                          <div className="rounded bg-gray-100 px-3 py-2 text-xs tabular-nums text-gray-700">
-                            {formatDateCompactWithWeekday(issueForm.preferredDate)}{' '}
-                            <span className="text-gray-500">(관리자 지정·수정 불가)</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500">고객이 발주서에서 직접 선택합니다.</p>
-                        )}
-                      </div>
-                      <div>
-                        <p className="mb-1 text-xs font-medium text-gray-500">시간대</p>
-                        {dateLocked ? (
-                          <div className="rounded bg-gray-100 px-3 py-2 text-xs text-gray-700">
-                            {slotLabel} <span className="text-gray-500">(관리자 지정·수정 불가)</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500">
-                            고객이 날짜와 함께 시간대를 선택합니다.
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <p className="mb-1 text-xs font-medium text-gray-500">구체적 시각</p>
-                        {detailLocked ? (
-                          <div className="rounded bg-gray-100 px-3 py-2 text-xs text-gray-700">
-                            {issueForm.preferredTimeDetail.trim()}{' '}
-                            <span className="text-gray-500">(관리자 지정·수정 불가)</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500">고객이 직접 입력할 수 있습니다.</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded-lg border border-gray-200 bg-white p-4 text-xs text-gray-600 space-y-1 whitespace-pre-wrap break-words">
-                      <p>{footer1}</p>
-                      <p>{footer2}</p>
-                    </div>
-                  </div>
-                  <div className="shrink-0 flex justify-end gap-2 border-t border-gray-200 bg-white px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => setIssuePreviewOpen(false)}
-                      className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-                    >
-                      닫기
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })(),
-          document.body
-        )}
 
       {previewModal &&
         createPortal(

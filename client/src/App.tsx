@@ -26,7 +26,7 @@ import { TeamCsPage } from './pages/team/TeamCsPage';
 import { TeamAssignmentListPage } from './pages/team/TeamAssignmentListPage';
 import { TeamExternalSettlementPage } from './pages/team/TeamExternalSettlementPage';
 import { TeamEContractListPage } from './pages/team/TeamEContractListPage';
-import { OrderFormPage } from './pages/order/OrderFormPage';
+import { OrderFormPage, OrderFormPrefillEditorPage } from './pages/order/OrderFormPage';
 import { OrderInfoPage } from './pages/order/OrderInfoPage';
 import { CsReportPage } from './pages/cs/CsReportPage';
 import { AdminCsPage } from './pages/admin/AdminCsPage';
@@ -138,6 +138,14 @@ function App() {
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
         <Route path="/e-contract/sign/:token" element={<EContractPublicSignPage />} />
+        <Route
+          path="/admin/order-prefill/:orderFormId"
+          element={
+            <ProtectedRoute>
+              <OrderFormPrefillEditorPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/order/:token" element={<OrderFormPage />} />
         <Route path="/info" element={<OrderInfoPage />} />
         <Route path="/cs" element={<CsReportPage />} />

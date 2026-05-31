@@ -9,6 +9,8 @@ interface AddressSearchProps {
   className?: string;
   /** 공개·체결 폼 등 모바일 우선 — 전체 화면에 가깝게 우편번호 검색 */
   mobilePreferred?: boolean;
+  /** 잠금(읽기전용) — 검색 버튼·레이어 비활성, 값만 표시 */
+  disabled?: boolean;
 }
 
 /**
@@ -31,7 +33,7 @@ function addressLineFromPostcodeData(data: KakaoPostcodeAddress) {
  * 팝업(window.open)은 모바일에서 히스토리/복귀 시 SPA 라우트가 꼬일 수 있어,
  * 같은 문서 내 임베드 레이어로만 연다.
  */
-export function AddressSearch({ value, onChange, placeholder, className = '', mobilePreferred = false }: AddressSearchProps) {
+export function AddressSearch({ value, onChange, placeholder, className = '', mobilePreferred = false, disabled = false }: AddressSearchProps) {
   const [layerOpen, setLayerOpen] = useState(false);
 
   useEffect(() => {
@@ -71,13 +73,14 @@ export function AddressSearch({ value, onChange, placeholder, className = '', mo
         <button
           type="button"
           onClick={() => setLayerOpen(true)}
-          className={`shrink-0 touch-manipulation whitespace-nowrap rounded bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 ${mobilePreferred ? 'min-h-[44px] text-fluid-xs' : ''}`}
+          disabled={disabled}
+          className={`shrink-0 touch-manipulation whitespace-nowrap rounded bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 ${mobilePreferred ? 'min-h-[44px] text-fluid-xs' : ''}`}
         >
           주소 검색
         </button>
       </div>
 
-      {layerOpen &&
+      {!disabled && layerOpen &&
         createPortal(
           <div
             className={`fixed inset-0 z-[600] flex flex-col bg-black/50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] ${mobilePreferred ? 'bg-black/60' : ''}`}

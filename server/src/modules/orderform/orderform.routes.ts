@@ -51,6 +51,10 @@ import {
   resolveIssueTemplate,
   sanitizeCustomAnswers,
 } from '../orderform-templates/orderFormTemplate.service.js';
+import {
+  buildPrefillFromPayload,
+  overlayPrefillOntoSubmitBody,
+} from './orderFormPrefill.js';
 
 const router = Router();
 
@@ -541,6 +545,107 @@ const orderFormCreatedBySelect = {
   select: { id: true, name: true, role: true },
 } as const;
 
+/** Inquiry 행 → 고객 폼 프리필용 형태 */
+function mapPendingInquiry(row: {
+  customerName: string;
+  customerPhone: string;
+  customerPhone2: string | null;
+  address: string;
+  addressDetail: string | null;
+  areaPyeong: number | null;
+  areaBasis: string | null;
+  exclusiveAreaSqm: number | null;
+  propertyType: string | null;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
+  kitchenCount: number | null;
+  preferredDate: Date | null;
+  preferredTime: string | null;
+  preferredTimeDetail: string | null;
+  buildingType: string | null;
+  moveInDate: Date | null;
+  moveInDateUndecided: boolean;
+  memo: string | null;
+}) {
+  return {
+    customerName: row.customerName,
+    customerPhone: row.customerPhone,
+    customerPhone2: row.customerPhone2,
+    address: row.address,
+    addressDetail: row.addressDetail,
+    areaPyeong: row.areaPyeong,
+    areaBasis: row.areaBasis,
+    exclusiveAreaSqm: row.exclusiveAreaSqm ?? null,
+    propertyType: row.propertyType,
+    roomCount: row.roomCount,
+    bathroomCount: row.bathroomCount,
+    balconyCount: row.balconyCount,
+    kitchenCount: row.kitchenCount,
+    preferredDate: row.preferredDate ? row.preferredDate.toISOString().slice(0, 10) : null,
+    preferredTime: row.preferredTime,
+    preferredTimeDetail: row.preferredTimeDetail,
+    buildingType: row.buildingType,
+    moveInDate: row.moveInDate ? row.moveInDate.toISOString().slice(0, 10) : null,
+    moveInDateUndecided: row.moveInDateUndecided,
+    memo: row.memo,
+  };
+}
+
+/** 미제출 발주서 편집 가능 페이로드(고객 `/order/:token`·마케터 편집기 공용) */
+async function buildEditableOrderPayload(
+  form: Prisma.OrderFormGetPayload<{ include: { inquiries: true } }>,
+) {
+  try {
+    await seedProfessionalDefaultsForTenant(prisma, form.tenantId);
+  } catch (err) {
+    console.error('buildEditableOrderPayload ensure professional defaults:', err);
+  }
+  const pendingRow = form.inquiries[0];
+  const pendingInquiry = pendingRow ? mapPendingInquiry(pendingRow) : null;
+
+  const [options, professionalOptions] = await Promise.all([
+    prisma.estimateOption.findMany({
+      where: { tenantId: form.tenantId, isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    }),
+    prisma.professionalSpecialtyOption.findMany({
+      where: {
+        tenantId: form.tenantId,
+        isActive: true,
+        OR: [{ parentId: null }, { parent: { isActive: true } }],
+      },
+      orderBy: profOptionOrderBy,
+      select: profOptionSelectPublic,
+    }),
+  ]);
+  const formConfig = await getOrCreateOrderFormConfig(prisma, form.tenantId);
+  const template = await getPublicTemplateForForm(prisma, form.tenantId, form.templateId);
+  return {
+    id: form.id,
+    token: form.token,
+    customerName: form.customerName,
+    customerPhone: form.customerPhone,
+    totalAmount: form.totalAmount,
+    depositAmount: form.depositAmount,
+    balanceAmount: form.balanceAmount,
+    optionNote: form.optionNote,
+    preferredDate: form.preferredDate,
+    preferredTime: form.preferredTime,
+    preferredTimeDetail: form.preferredTimeDetail,
+    areaPyeong: form.areaPyeong,
+    areaBasis: form.areaBasis,
+    options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
+    professionalOptions,
+    formConfig: resolvedPublicFormConfig(formConfig),
+    template,
+    customAnswers: (form.customerAnswers as Record<string, unknown> | null) ?? null,
+    prefillAnswers: (form.prefillAnswers as Record<string, unknown> | null) ?? null,
+    draftCustomerSpecialNotes: form.customerSpecialNotes,
+    pendingInquiry,
+  };
+}
+
 /** 편집기 왼쪽 iframe용 — 실제 `/order/:token` 과 동일 렌더. 목록에서는 숨김 */
 export const DESIGNER_PREVIEW_ORDER_TOKEN = 'skct_designer_preview_v1';
 
@@ -993,6 +1098,208 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
   }
 });
 
+/** 관리자/마케터: 발급 화면 인라인 폼 데이터 — 선택 양식의 폼/옵션/설정(+선택 대기접수 프리필). 주문 생성 전 */
+router.get('/issue-form', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const templateIdRaw = typeof req.query.templateId === 'string' ? req.query.templateId : undefined;
+  const pendingInquiryId =
+    typeof req.query.pendingInquiryId === 'string' ? req.query.pendingInquiryId.trim() : '';
+
+  const resolved = await resolveIssueTemplate(prisma, tenantId, templateIdRaw);
+  if (resolved === 'invalid') {
+    res.status(400).json({ error: '선택한 발주서 양식을 찾을 수 없거나 발행되지 않았습니다.' });
+    return;
+  }
+  try {
+    await seedProfessionalDefaultsForTenant(prisma, tenantId);
+  } catch (err) {
+    console.error('issue-form ensure professional defaults:', err);
+  }
+  const [professionalOptions, formConfig, template] = await Promise.all([
+    prisma.professionalSpecialtyOption.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        OR: [{ parentId: null }, { parent: { isActive: true } }],
+      },
+      orderBy: profOptionOrderBy,
+      select: profOptionSelectPublic,
+    }),
+    getOrCreateOrderFormConfig(prisma, tenantId),
+    getPublicTemplateForForm(prisma, tenantId, resolved ? resolved.id : null),
+  ]);
+
+  let pendingInquiry: ReturnType<typeof mapPendingInquiry> | null = null;
+  if (pendingInquiryId) {
+    const row = await prisma.inquiry.findFirst({
+      where: {
+        id: pendingInquiryId,
+        tenantId,
+        status: { in: ['PENDING', 'DEPOSIT_COMPLETED'] },
+      },
+    });
+    if (row) pendingInquiry = mapPendingInquiry(row);
+  }
+
+  res.json({
+    template,
+    professionalOptions,
+    formConfig: resolvedPublicFormConfig(formConfig),
+    pendingInquiry,
+  });
+});
+
+/** 관리자/마케터: 발주서 선입력(마케터 작성) 편집 화면용 데이터 — 제출 전만 */
+router.get('/:id/prefill-form', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const { id } = req.params;
+  const form = await prisma.orderForm.findFirst({
+    where: { id, tenantId },
+    include: {
+      inquiries: {
+        where: { status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
+        take: 1,
+      },
+    },
+  });
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  if (form.submittedAt) {
+    res.status(409).json({ error: '이미 제출된 발주서입니다. 수정은 접수 상세에서 진행해 주세요.' });
+    return;
+  }
+  const payload = await buildEditableOrderPayload(form);
+  res.json(payload);
+});
+
+/** 관리자/마케터: 발주서에 마케터 선입력 값 저장(고객 화면 잠금). 토큰 유지·제출 전만. */
+router.post('/:id/prefill', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const { id } = req.params;
+  const form = await prisma.orderForm.findFirst({ where: { id, tenantId } });
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  if (form.submittedAt) {
+    res.status(409).json({ error: '이미 제출된 발주서입니다. 수정은 접수 상세에서 진행해 주세요.' });
+    return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+
+  // 면적·날짜·시간은 기존 typed 컬럼 잠금 사용
+  const areaParsed = parseOptionalIssueArea({
+    areaPyeong: body.areaPyeong,
+    areaBasis: body.areaBasis,
+  });
+  if ('error' in areaParsed) {
+    res.status(400).json({ error: areaParsed.error });
+    return;
+  }
+  const { areaPyeong: lockAreaPyeong, areaBasis: lockAreaBasis } = areaParsed;
+
+  const prefDate =
+    typeof body.preferredDate === 'string' && body.preferredDate.trim()
+      ? body.preferredDate.trim()
+      : null;
+  const prefTime =
+    typeof body.preferredTime === 'string' && body.preferredTime.trim()
+      ? body.preferredTime.trim()
+      : null;
+  const prefTimeDetail =
+    typeof body.preferredTimeDetail === 'string' && body.preferredTimeDetail.trim()
+      ? body.preferredTimeDetail.trim()
+      : null;
+  if (prefTime && !VALID_ORDER_TIME_SLOTS.has(prefTime)) {
+    res.status(400).json({ error: '시간대를 선택해주세요.' });
+    return;
+  }
+  if (prefTime && prefTimeDetail && !isAllowedPreferredTimeDetail(prefTime, prefTimeDetail)) {
+    res.status(400).json({ error: '구체적 시각을 해당 시간대 범위에서 선택해 주세요.' });
+    return;
+  }
+
+  const phone =
+    typeof body.customerPhone === 'string' && body.customerPhone.trim()
+      ? body.customerPhone.trim()
+      : null;
+  const name =
+    typeof body.customerName === 'string' && body.customerName.trim()
+      ? body.customerName.trim()
+      : form.customerName;
+
+  const template = await getPublicTemplateForForm(prisma, tenantId, form.templateId);
+  const customFieldKeys = template ? template.customFields.map((f) => f.fieldKey) : [];
+  const prefill = buildPrefillFromPayload(body, customFieldKeys);
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const o = await tx.orderForm.update({
+        where: { id: form.id },
+        data: {
+          customerName: name,
+          customerPhone: phone,
+          preferredDate: prefDate,
+          preferredTime: prefTime,
+          preferredTimeDetail: prefTimeDetail,
+          areaPyeong: lockAreaPyeong,
+          areaBasis: lockAreaBasis,
+          prefillAnswers: prefill as Prisma.InputJsonValue,
+        },
+      });
+      const pending = await tx.inquiry.findFirst({
+        where: {
+          orderFormId: form.id,
+          status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] },
+        },
+        select: { id: true },
+      });
+      if (pending) {
+        await tx.inquiry.update({
+          where: { id: pending.id },
+          data: {
+            customerName: name,
+            ...(phone ? { customerPhone: phone } : {}),
+            preferredDate: preferredDateYmdToKstNoon(prefDate ?? undefined),
+            preferredTime: prefTime,
+            preferredTimeDetail: prefTimeDetail,
+            ...(lockAreaPyeong != null && lockAreaBasis
+              ? { areaPyeong: lockAreaPyeong, areaBasis: lockAreaBasis, exclusiveAreaSqm: null }
+              : {}),
+          },
+        });
+      }
+      return o;
+    });
+    res.json({ ok: true, prefillAnswers: updated.prefillAnswers ?? null });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/prefill_answers|column .* does not exist/i.test(msg)) {
+      res.status(503).json({
+        error:
+          'DB에 최신 컬럼이 반영되지 않았습니다. 배포 서버에서 `npx prisma migrate deploy` 실행 후 재시작해 주세요. (order_forms.prefill_answers)',
+      });
+      return;
+    }
+    console.error('[orderforms POST /:id/prefill]', e);
+    res.status(500).json({
+      error:
+        process.env.NODE_ENV !== 'production'
+          ? msg
+          : '발주서 선입력 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+    });
+  }
+});
+
 /** 관리자/마케터: 제출 완료 발주서를 기존 접수에 강제 매칭하고 접수 정보를 덮어쓴다. */
 router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
@@ -1420,80 +1727,8 @@ router.get('/by-token/:token', async (req, res) => {
     });
     return;
   }
-  try {
-    await seedProfessionalDefaultsForTenant(prisma, form.tenantId);
-  } catch (err) {
-    console.error('by-token ensure professional defaults:', err);
-  }
-
-  const pendingRow = form.inquiries[0];
-  const pendingInquiry = pendingRow
-    ? {
-        customerName: pendingRow.customerName,
-        customerPhone: pendingRow.customerPhone,
-        customerPhone2: pendingRow.customerPhone2,
-        address: pendingRow.address,
-        addressDetail: pendingRow.addressDetail,
-        areaPyeong: pendingRow.areaPyeong,
-        areaBasis: pendingRow.areaBasis,
-        exclusiveAreaSqm: pendingRow.exclusiveAreaSqm ?? null,
-        propertyType: pendingRow.propertyType,
-        roomCount: pendingRow.roomCount,
-        bathroomCount: pendingRow.bathroomCount,
-        balconyCount: pendingRow.balconyCount,
-        kitchenCount: pendingRow.kitchenCount,
-        preferredDate: pendingRow.preferredDate
-          ? pendingRow.preferredDate.toISOString().slice(0, 10)
-          : null,
-        preferredTime: pendingRow.preferredTime,
-        preferredTimeDetail: pendingRow.preferredTimeDetail,
-        buildingType: pendingRow.buildingType,
-        moveInDate: pendingRow.moveInDate ? pendingRow.moveInDate.toISOString().slice(0, 10) : null,
-        moveInDateUndecided: pendingRow.moveInDateUndecided,
-        memo: pendingRow.memo,
-      }
-    : null;
-
-  const [options, professionalOptions] = await Promise.all([
-    prisma.estimateOption.findMany({
-      where: { tenantId: form.tenantId, isActive: true },
-      orderBy: { sortOrder: 'asc' },
-    }),
-    prisma.professionalSpecialtyOption.findMany({
-      where: {
-        tenantId: form.tenantId,
-        isActive: true,
-        OR: [{ parentId: null }, { parent: { isActive: true } }],
-      },
-      orderBy: profOptionOrderBy,
-      select: profOptionSelectPublic,
-    }),
-  ]);
-  const formConfig = await getOrCreateOrderFormConfig(prisma, form.tenantId);
-  const template = await getPublicTemplateForForm(prisma, form.tenantId, form.templateId);
-  res.json({
-    id: form.id,
-    token: form.token,
-    customerName: form.customerName,
-    customerPhone: form.customerPhone,
-    totalAmount: form.totalAmount,
-    depositAmount: form.depositAmount,
-    balanceAmount: form.balanceAmount,
-    optionNote: form.optionNote,
-    preferredDate: form.preferredDate,
-    preferredTime: form.preferredTime,
-    preferredTimeDetail: form.preferredTimeDetail,
-    areaPyeong: form.areaPyeong,
-    areaBasis: form.areaBasis,
-    options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
-    professionalOptions,
-    formConfig: resolvedPublicFormConfig(formConfig),
-    template,
-    customAnswers: (form.customerAnswers as Record<string, unknown> | null) ?? null,
-    /** 미제출 발주서에 고객이 이어 쓰는 특이사항(접수 `specialNotes`와 별도) */
-    draftCustomerSpecialNotes: form.customerSpecialNotes,
-    pendingInquiry,
-  });
+  const payload = await buildEditableOrderPayload(form);
+  res.json(payload);
 });
 
 /** 공개: 발주서 제출 (고객이 작성 후 제출 → 문의로 등록) */
@@ -1538,6 +1773,8 @@ router.post('/submit/:token', async (req, res) => {
     throw e;
   }
   const submitTenantId = form.tenantId;
+  // 마케터가 선입력(잠금)한 값은 고객 제출 본문보다 우선 — 변조 방지
+  overlayPrefillOntoSubmitBody(body as unknown as Record<string, unknown>, form.prefillAnswers);
   const rawIds = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
   const professionalIds = await filterActiveProfessionalOptionIds(prisma, submitTenantId, rawIds);
   const customerSpecialNotes =
