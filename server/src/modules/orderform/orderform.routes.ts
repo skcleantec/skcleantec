@@ -1708,9 +1708,37 @@ router.post('/submit/:token', async (req, res) => {
   const profLabelById = new Map(profLabelRows.map((r) => [r.id, r.label]));
   const professionalOptionLabels = professionalIds.map((id) => profLabelById.get(id) ?? id);
 
+  // 동적 템플릿 추가 항목 — 답변 정규화 + 라벨 부여(스냅샷 보존, 템플릿 변경에 안전)
+  const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
+  const customAnswers = submitTemplate
+    ? sanitizeCustomAnswers(body.answers, submitTemplate.customFields)
+    : {};
+  const customAnswersData =
+    Object.keys(customAnswers).length > 0
+      ? { customerAnswers: customAnswers as Prisma.InputJsonValue }
+      : {};
+  const templateAnswers: Prisma.InputJsonValue[] = submitTemplate
+    ? submitTemplate.customFields
+        .filter((cf) => customAnswers[cf.fieldKey] != null)
+        .map((cf) => ({
+          fieldKey: cf.fieldKey,
+          label: cf.label,
+          value: customAnswers[cf.fieldKey] as Prisma.InputJsonValue,
+        }))
+    : [];
+
   const customerSubmissionSnapshot = {
     version: 1,
     capturedAt: new Date().toISOString(),
+    template: submitTemplate
+      ? {
+          id: submitTemplate.id,
+          title: submitTemplate.title,
+          icon: submitTemplate.icon,
+          version: form.templateVersion ?? null,
+        }
+      : null,
+    templateAnswers,
     fields: {
       customerName: String(body.customerName || form.customerName || '').trim() || form.customerName,
       address: String(body.address ?? ''),
@@ -1748,15 +1776,6 @@ router.post('/submit/:token', async (req, res) => {
       optionNote: form.optionNote,
     },
   };
-
-  const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
-  const customAnswers = submitTemplate
-    ? sanitizeCustomAnswers(body.answers, submitTemplate.customFields)
-    : {};
-  const customAnswersData =
-    Object.keys(customAnswers).length > 0
-      ? { customerAnswers: customAnswers as Prisma.InputJsonValue }
-      : {};
 
   const existingPending = await prisma.inquiry.findFirst({
     where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },

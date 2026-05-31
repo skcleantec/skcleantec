@@ -6,6 +6,13 @@ export function slotLabelForOrderForm(v: string): string {
   return ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === v)?.label ?? v;
 }
 
+function renderSnapshotAnswerValue(v: unknown): string {
+  if (v == null) return '';
+  if (Array.isArray(v)) return v.map((x) => String(x)).join(', ');
+  if (typeof v === 'boolean') return v ? '예' : '아니오';
+  return String(v);
+}
+
 export function isOrderFormSubmissionSnapshotV1(x: unknown): x is OrderFormCustomerSubmissionSnapshotV1 {
   if (typeof x !== 'object' || x === null) return false;
   const o = x as Record<string, unknown>;
@@ -42,8 +49,36 @@ export function OrderFormSubmissionSnapshotContent(props: {
     );
   }
 
+  const tpl = snapshot.template ?? null;
+  const tplAnswers = (snapshot.templateAnswers ?? []).filter(
+    (a) => a && String(renderSnapshotAnswerValue(a.value)).trim() !== ''
+  );
+
   return (
     <div className="space-y-4">
+      {tpl ? (
+        <section className="rounded-lg border border-gray-100 bg-gray-50/80 p-3">
+          <h3 className="mb-1 text-fluid-xs font-semibold uppercase tracking-wide text-gray-500">발주서 양식</h3>
+          <p className="text-fluid-sm font-medium text-gray-900">
+            {tpl.icon ? `${tpl.icon} ` : ''}
+            {tpl.title}
+          </p>
+        </section>
+      ) : null}
+
+      {tplAnswers.length > 0 ? (
+        <section>
+          <h3 className="mb-1 text-fluid-sm font-semibold text-gray-900">추가 정보</h3>
+          <div className="rounded-lg border border-gray-200 bg-white px-3">
+            {tplAnswers.map((a, i) => (
+              <OrderFormSnapshotRow key={`${a.fieldKey}-${i}`} label={a.label}>
+                {renderSnapshotAnswerValue(a.value)}
+              </OrderFormSnapshotRow>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-lg border border-gray-100 bg-gray-50/80 p-3">
         <h3 className="mb-2 text-fluid-xs font-semibold uppercase tracking-wide text-gray-500">제출 시각</h3>
         <p className="text-fluid-sm text-gray-800 tabular-nums">

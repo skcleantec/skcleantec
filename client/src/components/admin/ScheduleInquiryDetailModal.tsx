@@ -14,6 +14,7 @@ import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../.
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
+import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../orderform/OrderFormTemplateInfo';
 import { AddressSearch } from '../forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 import {
@@ -1445,6 +1446,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex items-center gap-2">
                 <p className="min-w-0 truncate text-base font-semibold text-gray-900">{item.customerName}</p>
+                {item.orderForm?.template && !item.orderForm.template.isDefault ? (
+                  <OrderFormTemplateBadge template={item.orderForm.template} className="shrink-0" />
+                ) : null}
                 <span className="shrink-0 text-fluid-2xs font-medium text-gray-500">해피콜</span>
                 {item.happyCallCompletedAt ? (
                   <span className="shrink-0 inline-flex items-center rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-fluid-2xs font-semibold text-green-800">
@@ -1503,6 +1507,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6 [scrollbar-gutter:stable]"
         >
         <div className="space-y-4">
+        {item?.orderForm?.customerAnswers ? (
+          <OrderFormCustomAnswers template={item.orderForm.template} answers={item.orderForm.customerAnswers} />
+        ) : null}
         <AdminScheduleDetailSection title="고객 · 주소" sectionAnchor="customer">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>

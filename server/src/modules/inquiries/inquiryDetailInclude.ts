@@ -1,5 +1,18 @@
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 
+/** 발주서 양식(템플릿) 정체성 + 추가 항목 라벨 — 접수 상세 배지·추가정보 표시용 */
+export const orderFormTemplateSelect = {
+  id: true,
+  title: true,
+  icon: true,
+  isDefault: true,
+  fields: {
+    where: { systemField: null },
+    orderBy: { sortOrder: 'asc' as const },
+    select: { fieldKey: true, label: true },
+  },
+} as const;
+
 /** 단일 접수 상세(GET /:id, PATCH 응답 등) 공통 include */
 export const inquiryDetailInclude = {
   createdBy: { select: { id: true, name: true } },
@@ -16,6 +29,8 @@ export const inquiryDetailInclude = {
       balanceAmount: true,
       submittedAt: true,
       customerSpecialNotes: true,
+      customerAnswers: true,
+      template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true } },
     },
   },

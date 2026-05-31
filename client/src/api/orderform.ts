@@ -38,9 +38,24 @@ export interface OrderForm {
 }
 
 /** 고객 제출 확정 시 서버가 저장하는 스냅샷(JSON). 버전 확장 시 필드 추가 */
+export interface OrderFormSnapshotTemplateAnswer {
+  fieldKey: string;
+  label: string;
+  value: unknown;
+}
+
 export interface OrderFormCustomerSubmissionSnapshotV1 {
   version: 1;
   capturedAt: string;
+  /** 제출 시점 사용 양식(템플릿) 정체성 — 이후 변경/삭제와 무관하게 보존 */
+  template?: {
+    id: string;
+    title: string;
+    icon: string | null;
+    version: number | null;
+  } | null;
+  /** 동적 추가 항목 답변(라벨 포함) */
+  templateAnswers?: OrderFormSnapshotTemplateAnswer[];
   fields: {
     customerName: string;
     address: string;

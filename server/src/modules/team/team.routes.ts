@@ -14,6 +14,7 @@ import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
+import { orderFormTemplateSelect } from '../inquiries/inquiryDetailInclude.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 import {
   parseSettlementListPaging,
@@ -96,6 +97,8 @@ const teamInquiryInclude = {
       id: true,
       submittedAt: true,
       customerSpecialNotes: true,
+      customerAnswers: true,
+      template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true, phone: true } },
     },
   },

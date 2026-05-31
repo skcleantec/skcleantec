@@ -12,6 +12,7 @@ import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { InquiryConsultationPhotosPanel } from '../../components/inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
+import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../../components/orderform/OrderFormTemplateInfo';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
@@ -189,6 +190,14 @@ export interface InquiryItem {
     id?: string;
     submittedAt?: string | null;
     customerSpecialNotes?: string | null;
+    customerAnswers?: Record<string, unknown> | null;
+    template?: {
+      id: string;
+      title: string;
+      icon: string | null;
+      isDefault?: boolean;
+      fields?: Array<{ fieldKey: string; label: string }>;
+    } | null;
     createdBy?: { id: string; name: string; phone?: string | null } | null;
   } | null;
   /** ISO — 팀장 해피콜 완료 시각 */
@@ -749,6 +758,9 @@ export function TeamInquiryDetailModal({
                 ) : null}
                 <TeamInquiryStatusBi code={item.status} />
                 {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
+                {item.orderForm?.template && !item.orderForm.template.isDefault ? (
+                  <OrderFormTemplateBadge template={item.orderForm.template} />
+                ) : null}
               </div>
             </div>
           </div>
@@ -1149,6 +1161,10 @@ export function TeamInquiryDetailModal({
                   )}
                 </div>
               </TeamModalSection>
+            ) : null}
+
+            {item.orderForm?.customerAnswers ? (
+              <OrderFormCustomAnswers template={item.orderForm.template} answers={item.orderForm.customerAnswers} />
             ) : null}
 
             {item.orderForm?.id ? (
