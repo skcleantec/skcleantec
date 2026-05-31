@@ -447,21 +447,6 @@ export function AdminOrderFormTemplatesPage() {
           ) : (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
               <div className="min-w-0 space-y-4">
-              {selected.isDefault ? (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4">
-                  <p className="text-fluid-sm font-semibold text-blue-900">기존에 쓰던 표준 발주서입니다</p>
-                  <p className="mt-1 text-fluid-xs leading-relaxed text-blue-900/80">
-                    이 <b>기본 발주서</b>는 「발주서설정」에 나오는 발주서와 <b>100% 동일하게</b> 고객에게 표시됩니다 — 주소 카카오검색·공급/전용 평수·금액/견적·전문 시공·방/화장실·신축/이사일·특이사항·시간대 안내까지 모두 포함됩니다(오른쪽 미리보기가 실제 고객 화면).
-                  </p>
-                  <p className="mt-1 text-fluid-xs leading-relaxed text-blue-900/80">
-                    제목·문구·견적·전문 시공 등 세부 설정은{' '}
-                    <Link to="/admin/inquiries/order-customer-preview" className="font-medium underline hover:text-blue-700">
-                      발주서설정
-                    </Link>
-                    에서 관리합니다. 아래 항목 목록은 접수목록·스케줄로 들어가는 <b>데이터 매핑</b>을 보여줍니다.
-                  </p>
-                </div>
-              ) : null}
               {/* 메타 */}
               <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -573,9 +558,6 @@ export function AdminOrderFormTemplatesPage() {
                     + 항목 추가
                   </button>
                 </div>
-                <p className="border-b border-gray-100 bg-gray-50/70 px-4 py-2 text-fluid-2xs leading-relaxed text-gray-500">
-                  <b>구체적 시각·방/베란다/화장실/주방·특이사항</b> 같은 <b>선택 표준 항목</b>은 삭제하면 고객 발주서에서 <b>숨겨집니다</b>(다시 추가해 「시스템 필드」를 연결하면 표시). 주소(카카오검색)·평수(공급/전용)·시간대 등은 고객 화면에서 <b>전용 입력</b>으로 나타나며, <b>필수 항목</b>(고객명·전화·주소·금액·평수·희망일·시간대)은 유지해야 발행됩니다.
-                </p>
                 {drafts.length === 0 ? (
                   <div className="space-y-3 p-6 text-center">
                     <p className="text-fluid-sm text-gray-400">항목이 없습니다. 공통 필수 항목부터 넣고 시작하세요.</p>
@@ -640,17 +622,6 @@ export function AdminOrderFormTemplatesPage() {
                                 );
                               })}
                             </select>
-                            {d.systemField ? (
-                              <p className="mt-1 text-fluid-2xs text-green-700">
-                                실제 발주서에서는 표준 입력으로 표시됩니다
-                                {d.systemField === 'address'
-                                  ? ' — 카카오 주소검색 + 상세주소'
-                                  : d.systemField === 'areaPyeong'
-                                    ? ' — 공급/전용 선택 + 평 입력'
-                                    : ''}
-                                . 접수목록·스케줄에 동일하게 반영됩니다.
-                              </p>
-                            ) : null}
                           </label>
                           <label className="block">
                             <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">입력 주체</span>

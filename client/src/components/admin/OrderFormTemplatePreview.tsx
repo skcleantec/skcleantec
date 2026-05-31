@@ -126,9 +126,6 @@ export function OrderFormTemplatePreview({
       <div className="border-b border-gray-100 bg-gray-50 px-3 py-2 text-fluid-2xs font-medium uppercase tracking-wide text-gray-400">
         고객 화면 미리보기 (실시간)
       </div>
-      <p className="border-b border-gray-100 bg-blue-50/60 px-3 py-1.5 text-fluid-2xs leading-relaxed text-blue-900">
-        「시스템」으로 표시된 항목(주소·평수·전화 등)은 실제 발주서에서 <b>표준 입력 화면</b>(카카오 주소검색·공급/전용 평수 등)으로 나타나며, 접수목록·스케줄에 동일하게 들어갑니다.
-      </p>
       <div className="max-h-[70vh] overflow-y-auto overscroll-y-contain p-4">
         <div className="mb-4 text-center">
           <h3 className="text-fluid-base font-semibold text-gray-900">
