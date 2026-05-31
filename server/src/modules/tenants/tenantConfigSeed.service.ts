@@ -67,6 +67,29 @@ export async function seedProfessionalDefaultsForTenant(db: Db, tenantId: string
   }
 }
 
+/** 신규 테넌트의 기본 발주서 템플릿(없을 때만 1개 생성). 동적 발주서 빌더의 시작점. */
+export async function ensureDefaultOrderFormTemplate(
+  db: Db,
+  tenantId: string,
+  title: string,
+): Promise<void> {
+  const existing = await db.orderFormTemplate.findFirst({
+    where: { tenantId, isDefault: true },
+    select: { id: true },
+  });
+  if (existing) return;
+  await db.orderFormTemplate.create({
+    data: {
+      tenantId,
+      title: title.trim() || '기본 발주서',
+      status: 'PUBLISHED',
+      version: 1,
+      isDefault: true,
+      sortOrder: 0,
+    },
+  });
+}
+
 /** 신규 테넌트 프로비저닝 — 발주서·견적·전문 시공 기본값 */
 export async function seedTenantDefaults(
   tx: Prisma.TransactionClient,
@@ -78,6 +101,7 @@ export async function seedTenantDefaults(
   });
   await getOrCreateEstimateConfig(tx, tenantId);
   await seedProfessionalDefaultsForTenant(tx, tenantId);
+  await ensureDefaultOrderFormTemplate(tx, tenantId, `${tenantName} 입주청소 발주서`);
 }
 
 /** 서버 기동·레거시 SK 테넌트 — 기본 전문 시공 옵션만 보강 */

@@ -11,6 +11,11 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
       { to: '/admin/inquiries/order-forms', label: '발주서 목록' },
       { to: '/admin/inquiries/order-issue', label: '발주서 발급' },
       {
+        to: '/admin/inquiries/order-templates',
+        label: '발주서 양식',
+        title: '발주서 양식(템플릿) 직접 만들기',
+      },
+      {
         to: '/admin/inquiries/order-customer-preview',
         label: '발주서설정',
         title: '발주서 폼 설정·미리보기',

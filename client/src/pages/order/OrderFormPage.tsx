@@ -6,6 +6,7 @@ import {
   isOrderFormPublicSubmitted,
   submitOrderForm,
   type OrderFormPublicSubmitted,
+  type OrderFormPublicTemplate,
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { AddressSearch } from '../../components/forms/AddressSearch';
@@ -141,7 +142,10 @@ export function OrderFormPage() {
       timeSlotAckBody?: string | null;
       timeSlotAckConsentHint?: string | null;
     };
+    template?: OrderFormPublicTemplate | null;
   } | null>(null);
+  /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
+  const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submittedReceipt, setSubmittedReceipt] = useState<OrderFormPublicSubmitted | null>(null);
   const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
@@ -261,7 +265,13 @@ export function OrderFormPage() {
           areaPyeong: data.areaPyeong ?? null,
           areaBasis: data.areaBasis ?? null,
           formConfig: data.formConfig,
+          template: data.template ?? null,
         });
+        setCustomAnswers(
+          data.customAnswers && typeof data.customAnswers === 'object'
+            ? { ...(data.customAnswers as Record<string, unknown>) }
+            : {},
+        );
         const p = data.pendingInquiry;
         const areaLockedOnIssue = isOrderFormAreaLockedFromOrder({
           areaBasis: data.areaBasis,
@@ -419,6 +429,14 @@ export function OrderFormPage() {
       }
       if (!agreeToTerms) throw new Error('고객 정보처리 동의 및 안내사항에 동의해 주세요.');
 
+      const templateCustomFields = order?.template?.customFields ?? [];
+      for (const cf of templateCustomFields) {
+        if (!cf.required) continue;
+        const v = customAnswers[cf.fieldKey];
+        const empty = v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && v.length === 0);
+        if (empty) throw new Error(`「${cf.label}」 항목을 입력해 주세요.`);
+      }
+
       await submitOrderForm(token, {
         customerName: form.customerName.trim(),
         address: form.address.trim(),
@@ -441,6 +459,7 @@ export function OrderFormPage() {
         moveInDateUndecided: form.moveInDateUndecided,
         specialNotes: form.specialNotes.trim() || undefined,
         professionalOptionIds: professionalOptionIds.length ? professionalOptionIds : undefined,
+        answers: Object.keys(customAnswers).length ? customAnswers : undefined,
       });
       const receipt = await getOrderFormByToken(token);
       if (isOrderFormPublicSubmitted(receipt)) {
@@ -513,8 +532,13 @@ export function OrderFormPage() {
           <CloseButton />
         </div>
         <h1 className="text-lg font-semibold text-gray-900 mb-1 whitespace-pre-line">
-          {orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle)}
+          {order?.template?.title
+            ? `${order.template.icon ? `${order.template.icon} ` : ''}${order.template.title}`
+            : orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle)}
         </h1>
+        {order?.template?.description ? (
+          <p className="mb-1 text-xs text-gray-500 whitespace-pre-line">{order.template.description}</p>
+        ) : null}
         {order && (
           <div className="mb-6 p-4 bg-white border border-gray-200 rounded text-sm">
             <p className="font-medium text-gray-900">
@@ -951,6 +975,71 @@ export function OrderFormPage() {
             />
             <p className="text-xs text-gray-500 mt-1">* 미작성 시 전달 누락</p>
           </div>
+
+          {(order?.template?.customFields?.length ?? 0) > 0 ? (
+            <div className="rounded border border-gray-200 bg-white p-3 space-y-3">
+              <p className={labelCls}>추가 정보</p>
+              {order!.template!.customFields.map((cf) => {
+                const opts = Array.isArray(cf.options) ? (cf.options as unknown[]).map((o) => String(o)) : [];
+                const value = customAnswers[cf.fieldKey];
+                const setVal = (v: unknown) => setCustomAnswers((prev) => ({ ...prev, [cf.fieldKey]: v }));
+                return (
+                  <div key={cf.fieldKey}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {cf.label}
+                      {cf.required ? <span className="text-red-500"> *</span> : null}
+                    </label>
+                    {cf.helpText ? <p className="text-xs text-gray-500 mb-1">{cf.helpText}</p> : null}
+                    {cf.inputType === 'TEXTAREA' ? (
+                      <textarea
+                        className={`${inputCls} min-h-[80px]`}
+                        value={typeof value === 'string' ? value : ''}
+                        onChange={(e) => setVal(e.target.value)}
+                      />
+                    ) : cf.inputType === 'SELECT' ? (
+                      <select className={inputCls} value={typeof value === 'string' ? value : ''} onChange={(e) => setVal(e.target.value)}>
+                        <option value="">선택</option>
+                        {opts.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </select>
+                    ) : cf.inputType === 'MULTISELECT' || cf.inputType === 'CHECKBOX' ? (
+                      <div className="space-y-1.5">
+                        {opts.map((o) => {
+                          const arr = Array.isArray(value) ? (value as string[]) : [];
+                          const checked = arr.includes(o);
+                          return (
+                            <label key={o} className="flex items-center gap-2 text-sm text-gray-700">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const next = e.target.checked ? [...arr, o] : arr.filter((x) => x !== o);
+                                  setVal(next);
+                                }}
+                              />
+                              {o}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <input
+                        type={cf.inputType === 'DATE' ? 'date' : cf.inputType === 'NUMBER' || cf.inputType === 'MONEY' ? 'number' : cf.inputType === 'PHONE' ? 'tel' : 'text'}
+                        inputMode={cf.inputType === 'NUMBER' || cf.inputType === 'MONEY' ? 'numeric' : cf.inputType === 'PHONE' ? 'tel' : undefined}
+                        className={inputCls}
+                        value={typeof value === 'string' ? value : value == null ? '' : String(value)}
+                        onChange={(e) => setVal(e.target.value)}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
 
           <div>
             <p className={`${labelCls} mb-2`}>12. 현장 사진 첨부 (선택)</p>

@@ -17,6 +17,7 @@ import { AdminInquiryBulkDeletePage } from './pages/admin/AdminInquiryBulkDelete
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
 import { AdminOrderFormPage } from './pages/admin/AdminOrderFormPage';
 import { AdminOrderFormCustomerPreviewPage } from './pages/admin/AdminOrderFormCustomerPreviewPage';
+import { AdminOrderFormTemplatesPage } from './pages/admin/AdminOrderFormTemplatesPage';
 import { TeamDashboardPage } from './pages/team/TeamDashboardPage';
 import { TeamSchedulePage } from './pages/team/TeamSchedulePage';
 import { TeamMessagesPage } from './pages/team/TeamMessagesPage';
@@ -100,6 +101,7 @@ function App() {
               path="order-settings"
               element={<Navigate to="/admin/inquiries/order-customer-preview" replace />}
             />
+            <Route path="order-templates" element={<AdminOrderFormTemplatesPage />} />
             <Route path="order-customer-preview" element={<AdminOrderFormCustomerPreviewPage />} />
           </Route>
           <Route path="schedule" element={<AdminSchedulePage />} />

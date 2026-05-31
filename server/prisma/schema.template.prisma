@@ -72,6 +72,8 @@ model Tenant {
   estimateConfigs EstimateConfig[]
   estimateOptions EstimateOption[]
   professionalSpecialtyOptions ProfessionalSpecialtyOption[]
+  orderFormTemplates OrderFormTemplate[]
+  orderFormTemplateFields OrderFormTemplateField[]
 
   @@map("tenants")
 }
@@ -985,6 +987,89 @@ model OrderFormConfig {
   @@map("order_form_config")
 }
 
+/// 발주서 입력 필드 타입 (동적 발주서 빌더)
+enum OrderFormFieldInputType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  MONEY
+  DATE
+  TIME
+  PHONE
+  ADDRESS
+  SELECT
+  MULTISELECT
+  CHECKBOX
+  PHOTO
+}
+
+/// 필드 값을 채우는 주체 — 고객 입력 / 관리자 발급 시 고정 / 관리자 선입력(고객 수정 가능)
+enum OrderFormFieldFillMode {
+  CUSTOMER
+  ADMIN_LOCKED
+  ADMIN_PREFILL
+}
+
+enum OrderFormTemplateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// 동적 발주서 템플릿 (구글폼식). 테넌트별로 여러 종(기본·에어컨·특수청소 등)을 만들어 고객에 맞게 발송.
+model OrderFormTemplate {
+  id          String                  @id @default(uuid())
+  tenantId    String                  @map("tenant_id")
+  tenant      Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String                  @db.VarChar(128)
+  /// 목록·접수 배지용 아이콘 키(선택)
+  icon        String?                 @db.VarChar(32)
+  description String?                 @db.Text
+  status      OrderFormTemplateStatus @default(DRAFT)
+  /// 발행 버전 — 발행 시 +1, 제출 스냅샷에 박제
+  version     Int                     @default(1)
+  /// 테넌트 기본 발주서 여부(레거시 단일 발주서 이식분)
+  isDefault   Boolean                 @default(false) @map("is_default")
+  sortOrder   Int                     @default(0) @map("sort_order")
+  createdById String?                 @map("created_by_id")
+  createdAt   DateTime                @default(now()) @map("created_at")
+  updatedAt   DateTime                @updatedAt @map("updated_at")
+
+  fields     OrderFormTemplateField[]
+  orderForms OrderForm[]
+
+  @@index([tenantId, status, sortOrder])
+  @@index([tenantId, isDefault])
+  @@map("order_form_templates")
+}
+
+/// 발주서 템플릿의 질문(필드) 1개. systemField 가 지정되면 제출 시 Inquiry 정형 컬럼으로 투영된다.
+model OrderFormTemplateField {
+  id          String                  @id @default(uuid())
+  tenantId    String                  @map("tenant_id")
+  tenant      Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateId  String                  @map("template_id")
+  template    OrderFormTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  /// 폼 내 고유 키(answers JSON 키). 예: customerName, airconCount
+  fieldKey    String                  @map("field_key") @db.VarChar(64)
+  label       String                  @db.VarChar(128)
+  helpText    String?                 @map("help_text") @db.Text
+  inputType   OrderFormFieldInputType @default(TEXT) @map("input_type")
+  /// SELECT/MULTISELECT 보기 옵션 등(JSON 배열)
+  options     Json                    @default("[]")
+  required    Boolean                 @default(false)
+  sortOrder   Int                     @default(0) @map("sort_order")
+  /// 코어 매핑 키(없으면 자유 필드). 예: customerName, customerPhone, address, totalAmount, areaPyeong, preferredDate, preferredTime
+  systemField String?                 @map("system_field") @db.VarChar(48)
+  fillMode    OrderFormFieldFillMode  @default(CUSTOMER) @map("fill_mode")
+  createdAt   DateTime                @default(now()) @map("created_at")
+  updatedAt   DateTime                @updatedAt @map("updated_at")
+
+  @@unique([templateId, fieldKey])
+  @@index([tenantId, templateId, sortOrder])
+  @@map("order_form_template_fields")
+}
+
 model CsReport {
   id            String   @id @default(uuid())
   tenantId      String   @map("tenant_id")
@@ -1129,6 +1214,13 @@ model OrderForm {
   /// 고객 발주서 「특이사항」 자유 입력 — 접수 `specialNotes`(관리자·팀 공유)와 분리
   customerSpecialNotes String? @map("customer_special_notes") @db.Text
   customerSubmissionSnapshot Json? @map("customer_submission_snapshot")
+  /// 동적 템플릿 추가 항목(systemField 미연결)의 고객 답변 {fieldKey: value}
+  customerAnswers Json? @map("customer_answers")
+  /// 이 발급이 사용하는 동적 발주서 템플릿(레거시 발급은 테넌트 기본 템플릿)
+  templateId      String?  @map("template_id")
+  template        OrderFormTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  /// 발급 시점 템플릿 버전(스냅샷)
+  templateVersion Int?     @map("template_version")
 
   createdBy  User      @relation("OrderFormCreatedBy", fields: [createdById], references: [id])
   inquiries  Inquiry[]
@@ -1136,6 +1228,7 @@ model OrderForm {
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
+  @@index([tenantId, templateId])
   @@map("order_forms")
 }
 

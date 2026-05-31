@@ -147,6 +147,26 @@ export interface PendingInquiryPrefill {
   memo: string | null;
 }
 
+/** 동적 템플릿 추가 항목(공개 폼 렌더용) */
+export interface OrderFormPublicTemplateField {
+  fieldKey: string;
+  label: string;
+  helpText: string | null;
+  inputType: string;
+  options: unknown;
+  required: boolean;
+  fillMode: string;
+}
+
+/** 발주서가 사용하는 양식(템플릿) — 제목·아이콘·추가 항목 */
+export interface OrderFormPublicTemplate {
+  id: string;
+  title: string;
+  icon: string | null;
+  description: string | null;
+  customFields: OrderFormPublicTemplateField[];
+}
+
 /** 미제출 — 고객 작성 폼 */
 export interface OrderFormPublicEditable {
   id: string;
@@ -168,6 +188,10 @@ export interface OrderFormPublicEditable {
   /** 전문 시공 옵션 — 발주서와 동일 응답에 포함(별도 API 없이 표시) */
   professionalOptions?: ProfessionalSpecialtyOptionDto[];
   formConfig?: OrderFormConfigPublic;
+  /** 동적 발주서 양식(있으면 제목·아이콘·추가 항목 렌더) */
+  template?: OrderFormPublicTemplate | null;
+  /** 추가 항목 고객 답변 임시 저장(미제출) */
+  customAnswers?: Record<string, unknown> | null;
   /** 미제출 상태에서 고객 특이사항 임시 저장(발주서 컬럼). 접수 `specialNotes`와 무관 */
   draftCustomerSpecialNotes?: string | null;
   /** 발주서가 대기 접수에 연결된 경우 고객 입력 폼에 반영 */
@@ -321,6 +345,8 @@ export async function createOrderForm(
     areaBasis?: string;
     /** 대기 접수 건 id — 연결 시 고객 제출로 동일 건이 접수로 전환 */
     pendingInquiryId?: string;
+    /** 사용할 발주서 양식(템플릿) id — 미지정 시 테넌트 기본 양식 */
+    templateId?: string;
   }
 ): Promise<OrderForm> {
   const res = await fetch(`${API}/orderforms`, {
@@ -420,6 +446,8 @@ export async function submitOrderForm(
     /** 전문 시공 옵션 id 목록 */
     professionalOptionIds?: string[];
     exclusiveAreaSqm?: number | null;
+    /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
+    answers?: Record<string, unknown>;
   }
 ): Promise<void> {
   const res = await fetch(appendPublicTenantQuery(`${API}/orderforms/submit/${encodeURIComponent(token)}`), {

@@ -46,6 +46,11 @@ import {
 } from '../tenants/tenantConfigSeed.service.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
+import {
+  getPublicTemplateForForm,
+  resolveIssueTemplate,
+  sanitizeCustomAnswers,
+} from '../orderform-templates/orderFormTemplate.service.js';
 
 const router = Router();
 
@@ -779,6 +784,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     pendingInquiryId,
     areaPyeong: areaPyeongRaw,
     areaBasis: areaBasisRaw,
+    templateId: templateIdRaw,
   } = req.body as {
     customerName: string;
     customerPhone?: string | null;
@@ -792,6 +798,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     pendingInquiryId?: string;
     areaPyeong?: unknown;
     areaBasis?: unknown;
+    templateId?: string;
   };
   const areaParsed = parseOptionalIssueArea({ areaPyeong: areaPyeongRaw, areaBasis: areaBasisRaw });
   if ('error' in areaParsed) {
@@ -818,6 +825,15 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const balance =
     balanceParsed != null && balanceParsed >= 0 ? balanceParsed : Math.max(0, totalAmount - deposit);
   const token = randomBytes(12).toString('hex');
+
+  const resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, templateIdRaw);
+  if (resolvedTemplate === 'invalid') {
+    res.status(400).json({ error: '선택한 발주서 양식을 찾을 수 없거나 발행되지 않았습니다.' });
+    return;
+  }
+  const templateData = resolvedTemplate
+    ? { templateId: resolvedTemplate.id, templateVersion: resolvedTemplate.version }
+    : {};
 
   const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
   try {
@@ -862,6 +878,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
             areaPyeong: issueAreaPyeong,
             areaBasis: issueAreaBasis,
             createdById: userId,
+            ...templateData,
           },
         });
         await tx.inquiry.update({
@@ -920,6 +937,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
           areaPyeong: issueAreaPyeong,
           areaBasis: issueAreaBasis,
           createdById: userId,
+          ...templateData,
         },
       });
       await tx.inquiry.create({
@@ -1452,6 +1470,7 @@ router.get('/by-token/:token', async (req, res) => {
     }),
   ]);
   const formConfig = await getOrCreateOrderFormConfig(prisma, form.tenantId);
+  const template = await getPublicTemplateForForm(prisma, form.tenantId, form.templateId);
   res.json({
     id: form.id,
     token: form.token,
@@ -1469,6 +1488,8 @@ router.get('/by-token/:token', async (req, res) => {
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
     professionalOptions,
     formConfig: resolvedPublicFormConfig(formConfig),
+    template,
+    customAnswers: (form.customerAnswers as Record<string, unknown> | null) ?? null,
     /** 미제출 발주서에 고객이 이어 쓰는 특이사항(접수 `specialNotes`와 별도) */
     draftCustomerSpecialNotes: form.customerSpecialNotes,
     pendingInquiry,
@@ -1502,6 +1523,7 @@ router.post('/submit/:token', async (req, res) => {
     moveInDateUndecided?: boolean | string;
     specialNotes?: string;
     professionalOptionIds?: unknown;
+    answers?: unknown;
   };
 
   const form = await prisma.orderForm.findUnique({ where: { token } });
@@ -1727,6 +1749,15 @@ router.post('/submit/:token', async (req, res) => {
     },
   };
 
+  const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
+  const customAnswers = submitTemplate
+    ? sanitizeCustomAnswers(body.answers, submitTemplate.customFields)
+    : {};
+  const customAnswersData =
+    Object.keys(customAnswers).length > 0
+      ? { customerAnswers: customAnswers as Prisma.InputJsonValue }
+      : {};
+
   const existingPending = await prisma.inquiry.findFirst({
     where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
     select: { id: true, inquiryNumber: true },
@@ -1778,6 +1809,7 @@ router.post('/submit/:token', async (req, res) => {
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
           customerSubmissionSnapshot,
+          ...customAnswersData,
         },
       });
     });
@@ -1828,6 +1860,7 @@ router.post('/submit/:token', async (req, res) => {
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
           customerSubmissionSnapshot,
+          ...customAnswersData,
         },
       });
       changedInquiryId = createdInquiry.id;

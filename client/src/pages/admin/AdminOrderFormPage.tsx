@@ -22,6 +22,7 @@ import {
   type OrderFormPhotoItem,
 } from '../../api/orderform';
 import { getInquiries, getInquiry } from '../../api/inquiries';
+import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
 import { getToken } from '../../stores/auth';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
@@ -225,6 +226,8 @@ export function AdminOrderFormPage() {
     Array<{ id: string; customerName: string; customerPhone: string }>
   >([]);
   const [pendingLinkId, setPendingLinkId] = useState('');
+  const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
+  const [issueTemplateId, setIssueTemplateId] = useState('');
   const [scheduleFabUnlinkedHint, setScheduleFabUnlinkedHint] = useState(false);
   const pendingInquiryFromUrlConsumed = useRef<string | null>(null);
 
@@ -353,6 +356,29 @@ export function AdminOrderFormPage() {
     };
   }, [token, tab, pendingLinkId]);
 
+  // 발급 탭 — 발행된 발주서 양식 목록 로드(템플릿 선택용)
+  useEffect(() => {
+    if (!token || tab !== 'issue') return;
+    let cancelled = false;
+    void listOrderFormTemplates(token)
+      .then((items) => {
+        if (cancelled) return;
+        const published = items.filter((t) => t.status === 'PUBLISHED');
+        setOrderTemplates(published);
+        setIssueTemplateId((prev) => {
+          if (prev && published.some((t) => t.id === prev)) return prev;
+          const def = published.find((t) => t.isDefault) ?? published[0];
+          return def?.id ?? '';
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setOrderTemplates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, tab]);
+
   useEffect(() => {
     if (!token) return;
     const hint = searchParams.get('fabHint')?.trim();
@@ -447,6 +473,7 @@ export function AdminOrderFormPage() {
         preferredTime: issueForm.preferredDate.trim() ? issueForm.preferredTime : undefined,
         preferredTimeDetail: issueForm.preferredTimeDetail.trim() || undefined,
         pendingInquiryId: pendingLinkId || undefined,
+        templateId: issueTemplateId || undefined,
         ...areaPayload,
       });
       setNewOrder(order);
@@ -592,6 +619,29 @@ export function AdminOrderFormPage() {
             ) : null}
             <div className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-none">
               <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 md:gap-x-8 lg:grid-cols-12 lg:gap-x-8 lg:gap-y-5">
+                {orderTemplates.length > 0 ? (
+                  <div className="md:col-span-2 lg:col-span-12">
+                    <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
+                      발주서 양식
+                    </label>
+                    <select
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                      value={issueTemplateId}
+                      onChange={(e) => setIssueTemplateId(e.target.value)}
+                    >
+                      {orderTemplates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.icon ? `${t.icon} ` : ''}
+                          {t.title}
+                          {t.isDefault ? ' (기본)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-fluid-2xs text-gray-500">
+                      고객에게 보낼 발주서 양식을 선택합니다. 「발주서 양식」 메뉴에서 직접 만들 수 있습니다.
+                    </p>
+                  </div>
+                ) : null}
                 <div className="md:col-span-2 lg:col-span-12">
                   <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
                     대기 접수 연결 (선택)
