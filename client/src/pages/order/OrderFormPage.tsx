@@ -196,6 +196,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   /** 마케터 작성 시 "특이사항 없음" 체크(필수 항목 충족) */
   const [noSpecialNotes, setNoSpecialNotes] = useState(false);
+  /** 마케터 작성 시 "청소 날짜 고객 작성" 체크(비워 두면 고객이 직접 선택) */
+  const [dateByCustomer, setDateByCustomer] = useState(false);
   const [guideAgreeModalOpen, setGuideAgreeModalOpen] = useState(false);
   const [professionalOptionIds, setProfessionalOptionIds] = useState<string[]>([]);
   const [professionalOptions, setProfessionalOptions] = useState<ProfessionalSpecialtyOptionDto[]>([]);
@@ -659,6 +661,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   /** 마케터 선입력 저장(고객 화면 잠금). */
   const handleSavePrefill = async () => {
     if (!editor?.orderFormId) return;
+    // 날짜를 지정했다면 시간대도 반드시 선택해야 함(날짜만 잠그고 시간 비는 상태 방지)
+    if (form.preferredDate.trim() && !isValidOrderTimeSlot(form.preferredTime)) {
+      setSubmitErrorModal('청소 날짜를 선택했다면 시간대도 선택해 주세요.');
+      return;
+    }
     setPrefillSaving(true);
     try {
       await saveOrderFormPrefill(editor.authToken, editor.orderFormId, buildPrefillPayload());
@@ -696,6 +703,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     const areaPyeongNum = py;
     if (!noSpecialNotes && !form.specialNotes.trim()) {
       setSubmitErrorModal('특이사항을 입력하거나 "특이사항 없음"을 체크해 주세요.');
+      return;
+    }
+    if (!dateByCustomer && !form.preferredDate.trim()) {
+      setSubmitErrorModal('청소 날짜를 선택하거나 "고객 작성"을 체크해 주세요.');
+      return;
+    }
+    // 날짜를 선택했다면 시간대도 반드시 선택
+    if (form.preferredDate.trim() && !isValidOrderTimeSlot(form.preferredTime)) {
+      setSubmitErrorModal('청소 날짜를 선택했다면 시간대도 선택해 주세요.');
       return;
     }
     setPrefillSaving(true);
@@ -1118,11 +1134,29 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
 
           <div>
-            <label className={labelCls}>5. 청소 날짜 *</label>
+            <label className={labelCls}>5. 청소 날짜{isCreate ? ' *' : ''}</label>
+            {isEditor && (
+              <label className="mb-2 flex w-fit items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={dateByCustomer}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setDateByCustomer(on);
+                    if (on) setForm((f) => ({ ...f, preferredDate: '', preferredTime: '' }));
+                  }}
+                />
+                고객 작성 (비워 두면 고객이 직접 선택)
+              </label>
+            )}
             {scheduleLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-xs tabular-nums">
                 {formatDateCompactWithWeekday(order!.preferredDate)}{' '}
                 <span className="text-gray-500">(관리자 지정·수정 불가)</span>
+              </div>
+            ) : isEditor && dateByCustomer ? (
+              <div className="px-3 py-2 bg-gray-50 border border-dashed border-gray-300 rounded text-gray-500 text-xs">
+                고객이 발주서에서 직접 선택합니다.
               </div>
             ) : (
               <YmdSelect
@@ -1136,11 +1170,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
 
           <div>
-            <label className={labelCls}>6. 시간대 선택 *</label>
+            <label className={labelCls}>6. 시간대 선택{isCreate ? ' *' : ''}</label>
             {scheduleLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
                 {labelForTimeSlot(order!.preferredTime)}{' '}
                 <span className="text-gray-500">(관리자 지정·수정 불가)</span>
+              </div>
+            ) : isEditor && dateByCustomer ? (
+              <div className="px-3 py-2 bg-gray-50 border border-dashed border-gray-300 rounded text-gray-500 text-sm">
+                고객이 날짜와 함께 시간대를 선택합니다.
               </div>
             ) : (
               <select
