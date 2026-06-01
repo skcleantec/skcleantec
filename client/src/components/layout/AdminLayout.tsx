@@ -25,6 +25,8 @@ import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
+import { ChangeLogBell } from '../admin/ChangeLogBell';
+import { getUnseenChangeCount, getChangeHistoryList, markChangeSeen } from '../../api/inquiryChangeLogs';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
@@ -814,6 +816,17 @@ export function AdminLayout() {
           navigate('/login', { replace: true, state: { sessionExpired: true } });
         }}
       />
+      {adminToken && (
+        <ChangeLogBell
+          token={adminToken}
+          fetchUnseen={getUnseenChangeCount}
+          fetchList={(t, opts) => getChangeHistoryList(t, opts)}
+          markSeen={markChangeSeen}
+          onOpenInquiry={(inquiryId) =>
+            navigate(`/admin/inquiries?openInquiry=${encodeURIComponent(inquiryId)}`)
+          }
+        />
+      )}
     </div>
   );
 }

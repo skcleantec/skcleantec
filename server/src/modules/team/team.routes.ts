@@ -13,6 +13,8 @@ import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
+import { toChangeHistoryItemDto } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { orderFormTemplateSelect } from '../inquiries/inquiryDetailInclude.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
@@ -546,6 +548,12 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       include: teamInquiryInclude,
     });
   });
+  notifyChangeLogToStaff({
+    tenantId: inquiry.tenantId,
+    customerName: inquiry.customerName,
+    inquiryId: id,
+    lines: [`청소 희망일: ${beforeYmd ?? '(없음)'} → ${ymd}`],
+  });
   res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
 });
 
@@ -627,6 +635,12 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
     void notifyCsReportNavBadges(id, undefined, inquiry.tenantId).catch((e) =>
       console.error('[crew-meeting-time] staff/leaders nav refresh', e),
     );
+    notifyChangeLogToStaff({
+      tenantId: inquiry.tenantId,
+      customerName: inquiry.customerName,
+      inquiryId: id,
+      lines: [`현장 미팅(크루): ${fmt(before)} → ${fmt(next)}`],
+    });
     res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
   } catch (e: unknown) {
     console.error('[PATCH /team/inquiries/:id/crew-meeting-time]', e);
@@ -715,6 +729,12 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
       lines: ['관리자/마케터 취소 처리'],
     },
   });
+  notifyChangeLogToStaff({
+    tenantId,
+    customerName: inquiry.customerName,
+    inquiryId: inquiry.id,
+    lines: ['관리자/마케터 취소 처리'],
+  });
   const staff = await prisma.user.findMany({
     where: { tenantId, isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
     select: { id: true },
@@ -722,6 +742,106 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
   const assignees = inquiry.assignments.map((a) => a.teamLeaderId);
   notifyInboxRefresh([...new Set([...staff.map((s) => s.id), ...assignees])]);
   res.json({ ok: true });
+});
+
+/** 팀장 본인 담당 접수의 변경 이력 — 미확인 수(종 아이콘 배지) */
+router.get('/inquiry-change-logs/unseen-count', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId } = user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { changeLogSeenAt: true },
+  });
+  const seenAt = dbUser?.changeLogSeenAt ?? null;
+  const baseWhere: Prisma.InquiryChangeLogWhereInput = {
+    inquiry: { tenantId, assignments: { some: { teamLeaderId: userId } } },
+  };
+  const [count, latest] = await Promise.all([
+    prisma.inquiryChangeLog.count({
+      where: { AND: [baseWhere, seenAt ? { createdAt: { gt: seenAt } } : {}] },
+    }),
+    prisma.inquiryChangeLog.findFirst({
+      where: baseWhere,
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    }),
+  ]);
+  res.json({
+    count,
+    seenAt: seenAt ? seenAt.toISOString() : null,
+    latestAt: latest?.createdAt ? latest.createdAt.toISOString() : null,
+  });
+});
+
+/** 팀장: 변경 이력 확인(읽음) 처리 */
+router.post('/inquiry-change-logs/mark-seen', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const now = new Date();
+  await prisma.user.update({ where: { id: user.userId }, data: { changeLogSeenAt: now } });
+  res.json({ ok: true, seenAt: now.toISOString() });
+});
+
+/** 팀장: 본인 담당 접수 변경 이력 목록(페이지) */
+router.get('/inquiry-change-logs', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId } = user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const take = Math.min(500, Math.max(1, parseInt(String(req.query.limit ?? '50'), 10) || 50));
+  const skip = Math.max(0, parseInt(String(req.query.offset ?? '0'), 10) || 0);
+  const where: Prisma.InquiryChangeLogWhereInput = {
+    inquiry: { tenantId, assignments: { some: { teamLeaderId: userId } } },
+  };
+  const [rows, total] = await Promise.all([
+    prisma.inquiryChangeLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+      include: {
+        inquiry: { select: { customerName: true } },
+        actor: { select: { name: true } },
+      },
+    }),
+    prisma.inquiryChangeLog.count({ where }),
+  ]);
+  const items = rows.map((r) => toChangeHistoryItemDto(r, r.actor?.name ?? null));
+  res.json({ items, total });
+});
+
+/** 팀장: 본인 담당 단일 접수 상세 (변경 이력 종 → 접수 이동용 딥링크) */
+router.get('/inquiries/:id', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId } = user;
+  const { id } = req.params;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const row = await prisma.inquiry.findFirst({
+    where: { id, tenantId, assignments: { some: { teamLeaderId: userId } } },
+    include: teamInquiryInclude,
+  });
+  if (!row) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  const [item] = await attachProfessionalOptions(await attachCrewMembers([row], tenantId), tenantId);
+  res.json(item);
 });
 
 router.get('/inquiries', async (req, res) => {

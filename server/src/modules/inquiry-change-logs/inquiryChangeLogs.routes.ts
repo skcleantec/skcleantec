@@ -40,6 +40,53 @@ async function attachActorNames<T extends { actorId: string | null }>(
   return new Map(users.map((u) => [u.id, u.name]));
 }
 
+/** 미확인 변경 이력 수 (마지막 확인 시각 이후 생성분) — 알림 종 아이콘용 */
+router.get('/unseen-count', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.userId },
+    select: { changeLogSeenAt: true },
+  });
+  const seenAt = dbUser?.changeLogSeenAt ?? null;
+
+  const where: Prisma.InquiryChangeLogWhereInput = {
+    AND: [
+      tenantChangeLogWhere(tenantId),
+      seenAt ? { createdAt: { gt: seenAt } } : {},
+    ],
+  };
+  const [count, latest] = await Promise.all([
+    prisma.inquiryChangeLog.count({ where }),
+    prisma.inquiryChangeLog.findFirst({
+      where: tenantChangeLogWhere(tenantId),
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    }),
+  ]);
+  res.json({
+    count,
+    seenAt: seenAt ? seenAt.toISOString() : null,
+    latestAt: latest?.createdAt ? latest.createdAt.toISOString() : null,
+  });
+});
+
+/** 변경 이력 확인(읽음) 처리 — 마지막 확인 시각을 현재로 갱신 */
+router.post('/mark-seen', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+
+  const now = new Date();
+  await prisma.user.update({
+    where: { id: user.userId },
+    data: { changeLogSeenAt: now },
+  });
+  res.json({ ok: true, seenAt: now.toISOString() });
+});
+
 /** 대시보드 최근 N건 */
 router.get('/recent', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);

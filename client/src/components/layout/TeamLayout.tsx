@@ -8,6 +8,12 @@ import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useInboxRealtime, useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { RosterAckBanner } from '../common/RosterAckBanner';
+import { ChangeLogBell } from '../admin/ChangeLogBell';
+import {
+  getTeamUnseenChangeCount,
+  markTeamChangeSeen,
+  getTeamChangeHistoryList,
+} from '../../api/inquiryChangeLogs';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { TeamBiInline, TeamBiLine, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
@@ -427,6 +433,17 @@ export function TeamLayout() {
         viewerName={userName}
         show={showStaffIdCardDrawer}
       />
+      {teamToken && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') && (
+        <ChangeLogBell
+          token={teamToken}
+          fetchUnseen={getTeamUnseenChangeCount}
+          fetchList={(t, opts) => getTeamChangeHistoryList(t, opts)}
+          markSeen={markTeamChangeSeen}
+          onOpenInquiry={(inquiryId) =>
+            navigate(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`)
+          }
+        />
+      )}
     </div>
   );
 }

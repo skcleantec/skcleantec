@@ -68,6 +68,29 @@ function parseRosterAckPayload(d: unknown): RosterAckPayload | null {
   return { type: 'inquiry:rosterAck', messageKo: o.messageKo, messageTh: o.messageTh };
 }
 
+export type ChangeLogCategory = 'date' | 'cost' | 'extra' | 'team' | 'status' | 'etc';
+
+export type ChangeLogRtPayload = {
+  type: 'changelog:new';
+  customerName: string;
+  inquiryId: string | null;
+  summary: string;
+  categories: ChangeLogCategory[];
+};
+
+function parseChangeLogPayload(d: unknown): ChangeLogRtPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.type !== 'changelog:new') return null;
+  return {
+    type: 'changelog:new',
+    customerName: typeof o.customerName === 'string' ? o.customerName : '',
+    inquiryId: typeof o.inquiryId === 'string' ? o.inquiryId : null,
+    summary: typeof o.summary === 'string' ? o.summary : '',
+    categories: Array.isArray(o.categories) ? (o.categories as ChangeLogCategory[]) : [],
+  };
+}
+
 type Bucket = {
   token: string;
   ws: WebSocket | null;
@@ -77,6 +100,7 @@ type Bucket = {
   connectionListeners: Set<(connected: boolean) => void>;
   celebrationListeners: Set<(p: InquiryCelebratePayload) => void>;
   rosterAckListeners: Set<(p: RosterAckPayload) => void>;
+  changeLogListeners: Set<(p: ChangeLogRtPayload) => void>;
 };
 
 const buckets = new Map<string, Bucket>();
@@ -85,7 +109,8 @@ function bucketHasSubscribers(bucket: Bucket): boolean {
   return (
     bucket.refreshListeners.size > 0 ||
     bucket.celebrationListeners.size > 0 ||
-    bucket.rosterAckListeners.size > 0
+    bucket.rosterAckListeners.size > 0 ||
+    bucket.changeLogListeners.size > 0
   );
 }
 
@@ -147,6 +172,16 @@ function connectBucket(bucket: Bucket) {
           }
         }
       }
+      const changeLog = parseChangeLogPayload(data);
+      if (changeLog) {
+        for (const fn of bucket.changeLogListeners) {
+          try {
+            fn(changeLog);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -193,7 +228,8 @@ function destroyBucketIfIdle(token: string) {
     bucket.refreshListeners.size > 0 ||
     bucket.connectionListeners.size > 0 ||
     bucket.celebrationListeners.size > 0 ||
-    bucket.rosterAckListeners.size > 0
+    bucket.rosterAckListeners.size > 0 ||
+    bucket.changeLogListeners.size > 0
   )
     return;
   bucket.tearDown = true;
@@ -241,6 +277,7 @@ export function useInboxRealtime(
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -323,6 +360,7 @@ export function useInquiryCelebrateRealtime(
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -398,6 +436,7 @@ export function useRosterAckRealtime(
         connectionListeners: new Set(),
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -423,3 +462,55 @@ export function useRosterAckRealtime(
 
 /** @deprecated `useRosterAckRealtime` 사용 */
 export const useCrewRosterAckRealtime = useRosterAckRealtime;
+
+/**
+ * 스태프(관리자·마케터) 전용: 접수 변경 이력이 생기면 알림.
+ * 종 아이콘 미확인 수 재조회 + (중요 변경) 토스트에 사용. 단일 소켓 공유.
+ */
+export function useChangeLogRealtime(
+  token: string | null,
+  onChangeLog: (p: ChangeLogRtPayload) => void,
+  enabled: boolean
+): void {
+  const onChangeLogRef = useRef(onChangeLog);
+  useEffect(() => {
+    onChangeLogRef.current = onChangeLog;
+  });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: ChangeLogRtPayload) => onChangeLogRef.current(p);
+    b.changeLogListeners.add(listener);
+    const noopConn = () => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.changeLogListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}

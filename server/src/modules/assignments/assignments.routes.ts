@@ -8,6 +8,7 @@ import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmp
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { notifyNewAssignmentForInquiry } from '../push/inquiryTeamWebPush.js';
+import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router();
@@ -138,6 +139,28 @@ router.post('/', async (req, res) => {
   void notifyAllActiveCrewGroupsRefresh(tenantId).catch((e) =>
     console.error('[assignment-notify] notifyAllActiveCrewGroupsRefresh', e)
   );
+
+  // 단독 배정도 변경 이력으로 남겨 알림(종 아이콘)에 잡히게 한다.
+  try {
+    const nameIds = [...new Set([...prevLeaderSet, teamLeaderId])];
+    const named = await prisma.user.findMany({
+      where: { id: { in: nameIds }, tenantId },
+      select: { id: true, name: true },
+    });
+    const nameOf = (uid: string) => named.find((u) => u.id === uid)?.name ?? '(이전 담당)';
+    const beforeTxt =
+      prevLeaderSet.size > 0 ? [...prevLeaderSet].map(nameOf).join(', ') : '(없음)';
+    const afterTxt = nameOf(teamLeaderId);
+    if (beforeTxt !== afterTxt) {
+      const line = `팀장 배정: ${beforeTxt} → ${afterTxt}`;
+      await prisma.inquiryChangeLog.create({
+        data: { inquiryId, customerName: inquiry.customerName, actorId: adminId, lines: [line] },
+      });
+      notifyChangeLogToStaff({ tenantId, customerName: inquiry.customerName, inquiryId, lines: [line] });
+    }
+  } catch (e) {
+    console.error('[assignment-notify] changeLog', e);
+  }
 
   res.status(201).json(assignment);
 });

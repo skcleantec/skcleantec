@@ -51,6 +51,7 @@ import {
   notifyTeamLeaderUsersRosterAck,
 } from '../crew/crewFieldRealtime.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { inquiryDetailInclude } from './inquiryDetailInclude.js';
 import { handlePostSwapCrewWithPartner } from './inquiryCrewPartnerSwap.handler.js';
 
@@ -477,6 +478,12 @@ router.delete('/:id', adminOrMarketer, async (req, res) => {
       },
     });
     await tx.inquiry.delete({ where: { id } });
+  });
+  notifyChangeLogToStaff({
+    tenantId,
+    customerName: existing.customerName,
+    inquiryId: null,
+    lines: [`접수 삭제: ${existing.customerName} (${existing.inquiryNumber ?? existing.id})`],
   });
   res.json({ ok: true });
 });
@@ -940,6 +947,9 @@ router.patch('/:id', async (req, res) => {
       for (const a of inquiry.assignments) leaderIds.add(a.teamLeaderId);
       for (const tid of teamLeaderIds) leaderIds.add(tid);
       notifyInboxRefresh([...leaderIds]);
+    }
+    if (lines.length > 0) {
+      notifyChangeLogToStaff({ tenantId, customerName: inquiry.customerName, inquiryId: id, lines });
     }
   } catch (e) {
     console.error('PATCH inquiry transaction:', e);

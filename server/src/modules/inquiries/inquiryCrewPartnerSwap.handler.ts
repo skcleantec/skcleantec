@@ -6,6 +6,7 @@ import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import {
   notifyAllActiveCrewGroupsRefresh,
@@ -240,6 +241,13 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
   for (const x of a.assignments) leaderIds.add(x.teamLeaderId);
   for (const x of b.assignments) leaderIds.add(x.teamLeaderId);
   notifyInboxRefresh([...leaderIds]);
+
+  if (linesA.length > 0) {
+    notifyChangeLogToStaff({ tenantId: a.tenantId, customerName: a.customerName, inquiryId: a.id, lines: linesA });
+  }
+  if (linesB.length > 0) {
+    notifyChangeLogToStaff({ tenantId: b.tenantId, customerName: b.customerName, inquiryId: b.id, lines: linesB });
+  }
 
   void notifyAllActiveCrewGroupsRefresh(a.tenantId).catch((e) => console.error('[crew-field-notify]', e));
 

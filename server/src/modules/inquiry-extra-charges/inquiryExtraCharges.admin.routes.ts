@@ -6,6 +6,10 @@ import {
   notifyExtraChargeChanged,
   serializeExtraCharge,
   validateExtraChargeInput,
+  recordExtraChargeChangeLog,
+  extraChargeAddLine,
+  extraChargeUpdateLine,
+  extraChargeDeleteLine,
 } from './inquiryExtraCharges.service.js';
 import { canAdminOrMarketerViewInquiry } from '../inquiry-cleaning-photos/inquiryCleaningPhotos.access.js';
 
@@ -62,6 +66,11 @@ router.post('/', async (req, res) => {
     include: { createdBy: { select: { id: true, name: true } } },
   });
   void notifyExtraChargeChanged(inquiryId);
+  void recordExtraChargeChangeLog({
+    inquiryId,
+    actorId: user.userId,
+    line: extraChargeAddLine(created.description, created.amount),
+  }).catch((e) => console.error('[extra-charge] changeLog add', e));
   res.status(201).json({ item: serializeExtraCharge(created) });
 });
 
@@ -97,6 +106,13 @@ router.patch('/:chargeId', async (req, res) => {
     include: { createdBy: { select: { id: true, name: true } } },
   });
   void notifyExtraChargeChanged(inquiryId);
+  if (existing.description !== updated.description || existing.amount !== updated.amount) {
+    void recordExtraChargeChangeLog({
+      inquiryId,
+      actorId: user.userId,
+      line: extraChargeUpdateLine(existing, { description: updated.description, amount: updated.amount }),
+    }).catch((e) => console.error('[extra-charge] changeLog update', e));
+  }
   res.json({ item: serializeExtraCharge(updated) });
 });
 
@@ -110,7 +126,7 @@ router.delete('/:chargeId', async (req, res) => {
   }
   const existing = await prisma.inquiryExtraCharge.findFirst({
     where: { id: chargeId, inquiryId },
-    select: { id: true },
+    select: { id: true, description: true, amount: true },
   });
   if (!existing) {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
@@ -118,6 +134,11 @@ router.delete('/:chargeId', async (req, res) => {
   }
   await prisma.inquiryExtraCharge.delete({ where: { id: chargeId } });
   void notifyExtraChargeChanged(inquiryId);
+  void recordExtraChargeChangeLog({
+    inquiryId,
+    actorId: user.userId,
+    line: extraChargeDeleteLine(existing.description, existing.amount),
+  }).catch((e) => console.error('[extra-charge] changeLog delete', e));
   res.json({ ok: true });
 });
 

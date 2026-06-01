@@ -41,6 +41,16 @@ export async function getTeamInquiries(token: string, params?: TeamInquiriesList
   return res.json() as Promise<{ items: unknown[]; total?: number }>;
 }
 
+/** 단일 담당 접수 상세 (변경 이력 종 → 접수 이동용 딥링크) */
+export async function getTeamInquiry(token: string, inquiryId: string): Promise<unknown> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}`),
+    { headers: headers(token) },
+  );
+  if (!res.ok) throw new Error('담당 접수를 불러올 수 없습니다.');
+  return res.json();
+}
+
 export interface TeamViewerMe {
   id: string;
   email?: string | null;
