@@ -104,7 +104,9 @@ export function AdminLayout() {
   const adminToken = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
-  navigateRef.current = navigate;
+  useEffect(() => {
+    navigateRef.current = navigate;
+  });
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
@@ -373,7 +375,9 @@ export function AdminLayout() {
         ? Math.max(8, fabTop - ADMIN_MOBILE_FAB_ISSUE_TOP_OFFSET)
         : fabTop;
 
-  fabBothStackedRef.current = showScheduleFab && showOrderIssueFab;
+  useEffect(() => {
+    fabBothStackedRef.current = showScheduleFab && showOrderIssueFab;
+  });
 
   /** FAB는 항상 오른쪽 여백에 붙이고, 저장·드래그는 세로(스케줄 버튼 top)만 사용 */
   const clampFabTop = useCallback((scheduleTop: number) => {
@@ -476,7 +480,9 @@ export function AdminLayout() {
         if (y != null) {
           try {
             window.localStorage.setItem(fabStorageKey, JSON.stringify({ y }));
-          } catch {}
+          } catch {
+            /* localStorage 사용 불가 환경 무시 */
+          }
         }
         return;
       }

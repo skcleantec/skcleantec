@@ -1065,8 +1065,7 @@ export function AdminPayrollPage() {
           setAccountLedgerError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
         }
       } finally {
-        if (stale?.()) return;
-        if (!silent) setAccountLedgerLoading(false);
+        if (!stale?.() && !silent) setAccountLedgerLoading(false);
       }
     },
     [token, month],

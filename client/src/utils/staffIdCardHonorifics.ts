@@ -41,7 +41,7 @@ export function pickStaffHonorificsForUserId(userId: string | null | undefined):
   const id = userId?.trim();
   if (!id) return [];
 
-  let seed = fnv1a32(`skct:honor:${id}`) || 1;
+  const seed = fnv1a32(`skct:honor:${id}`) || 1;
   const seedRef = { v: seed };
 
   const count = 3 + (nextRand(seedRef) < 0.42 ? 1 : 0);

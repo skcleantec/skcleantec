@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 /**
  * 관리자·마케터가 동일 팀 JWT로 미리보기할 때 `previewTeamLeaderId`·타업체 쿼리만 바뀌고
@@ -21,7 +21,9 @@ export function teamPreviewDepsKey(search: string): string {
 /** 프리뷰 대상 전환 시 이전 in-flight fetch가 state를 덮어쓰지 않도록 */
 export function useTeamPreviewStaleGuard(previewKey: string) {
   const keyRef = useRef(previewKey);
-  keyRef.current = previewKey;
+  useEffect(() => {
+    keyRef.current = previewKey;
+  });
   const capturePreviewKey = useCallback(() => keyRef.current, []);
   const isPreviewFetchStale = useCallback((startedKey: string) => startedKey !== keyRef.current, []);
   return { capturePreviewKey, isPreviewFetchStale };

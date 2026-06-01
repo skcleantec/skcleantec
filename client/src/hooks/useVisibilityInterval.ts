@@ -7,7 +7,9 @@ import { useEffect, useRef } from 'react';
  */
 export function useVisibilityInterval(callback: () => void, intervalMs: number) {
   const cbRef = useRef(callback);
-  cbRef.current = callback;
+  useEffect(() => {
+    cbRef.current = callback;
+  });
 
   useEffect(() => {
     const tick = () => {

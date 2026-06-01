@@ -152,8 +152,8 @@ export function LoginPage() {
     const sp = new URLSearchParams(location.search);
     if (sp.get('devCrew') === '1') return;
     let cancelled = false;
-    let a = getToken();
-    let t = getTeamToken();
+    const a = getToken();
+    const t = getTeamToken();
     let c = getCrewToken();
     if (c && (a || t)) {
       clearCrewToken();

@@ -14,7 +14,7 @@ function won(n: number): string {
 
 /** 정산 금액 입력 — 맨 앞 마이너스·숫자·콤마만 허용 (과납·오기입 보정용 음수) */
 function sanitizeExternalPayAmountInput(raw: string): string {
-  let s = raw.replace(/[^\d,\-]/g, '');
+  let s = raw.replace(/[^\d,-]/g, '');
   if (!s) return '';
   const neg = s.charAt(0) === '-';
   s = s.replace(/-/g, '');

@@ -8,7 +8,7 @@
  * 우선순위: `VITE_API_PREFIX` > `VITE_USE_VITE_PROXY=1` 이면 `/api` > LAN 호스트면 `/api` > `VITE_INTERNAL_API_BASE` > `/api`
  */
 function normalizeViteApiPrefix(raw: string): string {
-  let v = raw.trim().replace(/\/$/, '');
+  const v = raw.trim().replace(/\/$/, '');
   if (v.startsWith('/') && !v.startsWith('//')) return v;
   try {
     const u = new URL(v);

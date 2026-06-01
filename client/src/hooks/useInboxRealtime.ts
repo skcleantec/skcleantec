@@ -219,7 +219,9 @@ export function useInboxRealtime(
   enabled: boolean
 ): { connected: boolean } {
   const onRefreshRef = useRef(onRefresh);
-  onRefreshRef.current = onRefresh;
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  });
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -280,7 +282,9 @@ export function useInquiryCelebrateRealtime(
   enabled: boolean
 ): void {
   const onCelebrateRef = useRef(onCelebrate);
-  onCelebrateRef.current = onCelebrate;
+  useEffect(() => {
+    onCelebrateRef.current = onCelebrate;
+  });
   const lastEventIdRef = useRef(0);
   const bootstrappedRef = useRef(false);
   const seenIdsRef = useRef(new Set<number>());
@@ -376,7 +380,9 @@ export function useRosterAckRealtime(
   enabled: boolean
 ): void {
   const onRosterAckRef = useRef(onRosterAck);
-  onRosterAckRef.current = onRosterAck;
+  useEffect(() => {
+    onRosterAckRef.current = onRosterAck;
+  });
 
   useEffect(() => {
     if (!enabled || !token) return;
@@ -400,7 +406,7 @@ export function useRosterAckRealtime(
 
     const listener = (p: RosterAckPayload) => onRosterAckRef.current(p);
     b.rosterAckListeners.add(listener);
-    const noopConn = (_c: boolean) => {};
+    const noopConn = () => {};
     b.connectionListeners.add(noopConn);
     connectBucket(b);
 

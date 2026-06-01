@@ -361,7 +361,7 @@ export const teamMessages = {
     ko: '{month} 기준 · 결제대상 {payable} / 정산완료 {paid} / 남은 금액 {remaining}',
 },
   'team.settlement.historyNote': {
-    ko: '아래 \"처리 후(누적)\"는 조회 기간이 아닌 전체 누적 수수료·정산(관리자 정산·미수와 동일한 귀속) 기준입니다. 위 \"남은 금액\"은 이번 조회 기간 기준입니다.',
+    ko: '아래 "처리 후(누적)"는 조회 기간이 아닌 전체 누적 수수료·정산(관리자 정산·미수와 동일한 귀속) 기준입니다. 위 "남은 금액"은 이번 조회 기간 기준입니다.',
 },
   'team.settlement.emptyPaidPeriod': {
     ko: '해당 기간 정산완료 내역이 없습니다.',

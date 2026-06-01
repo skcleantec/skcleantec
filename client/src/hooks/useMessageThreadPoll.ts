@@ -7,7 +7,9 @@ const POLL_MS = 3000;
  */
 export function useMessageThreadPoll(enabled: boolean, tick: () => void) {
   const tickRef = useRef(tick);
-  tickRef.current = tick;
+  useEffect(() => {
+    tickRef.current = tick;
+  });
 
   useEffect(() => {
     if (!enabled) return;
