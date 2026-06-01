@@ -140,7 +140,8 @@ router.post('/', async (req, res) => {
     console.error('[assignment-notify] notifyAllActiveCrewGroupsRefresh', e)
   );
 
-  // 단독 배정도 변경 이력으로 남겨 알림(종 아이콘)에 잡히게 한다.
+  // 첫 배정(미배정 → 배정)은 "배정"일 뿐 변경 이력으로 보지 않는다.
+  // 이미 배정된 건에 한해, 이후 담당이 바뀐 경우만 종 아이콘에 잡히게 한다.
   try {
     const nameIds = [...new Set([...prevLeaderSet, teamLeaderId])];
     const named = await prisma.user.findMany({
@@ -151,7 +152,7 @@ router.post('/', async (req, res) => {
     const beforeTxt =
       prevLeaderSet.size > 0 ? [...prevLeaderSet].map(nameOf).join(', ') : '(없음)';
     const afterTxt = nameOf(teamLeaderId);
-    if (beforeTxt !== afterTxt) {
+    if (prevLeaderSet.size > 0 && beforeTxt !== afterTxt) {
       const line = `팀장 배정: ${beforeTxt} → ${afterTxt}`;
       await prisma.inquiryChangeLog.create({
         data: { inquiryId, customerName: inquiry.customerName, actorId: adminId, lines: [line] },

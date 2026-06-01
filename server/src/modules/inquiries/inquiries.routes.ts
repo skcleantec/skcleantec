@@ -858,7 +858,10 @@ router.patch('/:id', async (req, res) => {
       .map((u) => toLeaderLabel(u));
     const beforeTxt = beforeTeam.length > 0 ? beforeTeam.join(' · ') : '미배정';
     const afterTxt = afterTeam.length > 0 ? afterTeam.join(' · ') : '미배정';
-    if (beforeTxt !== afterTxt) lines.push(`팀장 배정: ${beforeTxt} → ${afterTxt}`);
+    // 첫 배정(미배정 → 배정)은 변경 이력으로 보지 않는다. 이미 배정된 뒤 바뀐 경우(교체·해제)만 기록.
+    if (beforeTeam.length > 0 && beforeTxt !== afterTxt) {
+      lines.push(`팀장 배정: ${beforeTxt} → ${afterTxt}`);
+    }
   }
 
   try {
