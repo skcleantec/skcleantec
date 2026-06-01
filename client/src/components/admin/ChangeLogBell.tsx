@@ -9,6 +9,7 @@ import { ModalCloseButton } from './ModalCloseButton';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 
 const PAGE_SIZE = 50;
+const BELL_POS_STORAGE_KEY = 'changeLogBellTopPx';
 
 type CategoryMeta = { label: string; chip: string; dot: string };
 
@@ -83,6 +84,89 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
   const [loading, setLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<ChangeLogCategory>>(new Set());
 
+  // 길게 눌러 위아래로만 위치 조정 (드래그). 위치는 localStorage에 기억.
+  const [posTop, setPosTop] = useState<number | null>(() => {
+    try {
+      const raw = localStorage.getItem(BELL_POS_STORAGE_KEY);
+      if (raw == null) return null;
+      const n = parseFloat(raw);
+      return Number.isFinite(n) ? n : null;
+    } catch {
+      return null;
+    }
+  });
+  const [dragging, setDragging] = useState(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const longPressRef = useRef(false);
+  const suppressClickRef = useRef(false);
+  const startYRef = useRef(0);
+  const latestTopRef = useRef<number | null>(posTop);
+
+  const clampTop = (y: number) => {
+    const margin = 56;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 800;
+    return Math.min(Math.max(y, margin), Math.max(margin, h - margin));
+  };
+
+  const onBellPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    longPressRef.current = false;
+    startYRef.current = e.clientY;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* setPointerCapture 미지원 무시 */
+    }
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = setTimeout(() => {
+      longPressRef.current = true;
+      setDragging(true);
+      try {
+        navigator.vibrate?.(15);
+      } catch {
+        /* 진동 미지원 무시 */
+      }
+    }, 350);
+  };
+
+  const onBellPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!longPressRef.current) {
+      // 롱프레스 전 큰 움직임이면 우발 방지로 취소
+      if (Math.abs(e.clientY - startYRef.current) > 12 && pressTimer.current) {
+        clearTimeout(pressTimer.current);
+      }
+      return;
+    }
+    const v = clampTop(e.clientY);
+    latestTopRef.current = v;
+    setPosTop(v);
+    e.preventDefault();
+  };
+
+  const onBellPointerEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* releasePointerCapture 미지원 무시 */
+    }
+    if (longPressRef.current) {
+      // 롱프레스(이동) 직후의 click 은 모달 열기로 처리하지 않는다
+      suppressClickRef.current = true;
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+      setDragging(false);
+      if (latestTopRef.current != null) {
+        try {
+          localStorage.setItem(BELL_POS_STORAGE_KEY, String(latestTopRef.current));
+        } catch {
+          /* 저장 불가 환경 무시 */
+        }
+      }
+    }
+    longPressRef.current = false;
+  };
+
   const refreshUnseen = useCallback(() => {
     fetchUnseen(token)
       .then((r) => {
@@ -111,6 +195,7 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
   useEffect(() => {
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
+      if (pressTimer.current) clearTimeout(pressTimer.current);
     };
   }, []);
 
@@ -169,8 +254,11 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
 
   return (
     <>
-      {/* 우측 고정 종 아이콘 */}
-      <div className="fixed right-2 top-1/2 z-[100] -translate-y-1/2">
+      {/* 우측 고정 종 아이콘 — 길게 눌러 위아래로 위치 조정 */}
+      <div
+        className={`fixed right-2 z-[100] -translate-y-1/2 ${posTop == null ? 'top-1/2' : ''}`}
+        style={posTop == null ? undefined : { top: `${posTop}px` }}
+      >
         {toast && (
           <button
             type="button"
@@ -188,13 +276,26 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
         )}
         <button
           type="button"
-          onClick={() => void openModal()}
-          aria-label={`접수 변경 이력${unseen > 0 ? ` (미확인 ${unseen}건)` : ''}`}
-          className={`relative flex h-11 w-11 items-center justify-center rounded-full border shadow-md transition-colors ${
+          onClick={(e) => {
+            if (suppressClickRef.current || dragging) {
+              e.preventDefault();
+              return;
+            }
+            void openModal();
+          }}
+          onPointerDown={onBellPointerDown}
+          onPointerMove={onBellPointerMove}
+          onPointerUp={onBellPointerEnd}
+          onPointerCancel={onBellPointerEnd}
+          title="길게 눌러 위아래로 이동"
+          aria-label={`접수 변경 이력${unseen > 0 ? ` (미확인 ${unseen}건)` : ''} · 길게 눌러 위아래로 이동`}
+          className={`relative flex h-11 w-11 touch-none items-center justify-center rounded-full border shadow-md transition-colors ${
             unseen > 0
               ? 'border-amber-500 bg-amber-400 text-amber-950 hover:bg-amber-300'
               : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
-          } ${blink && unseen > 0 ? 'animate-pulse' : ''}`}
+          } ${dragging ? 'scale-110 cursor-grabbing ring-2 ring-blue-400' : ''} ${
+            blink && unseen > 0 && !dragging ? 'animate-pulse' : ''
+          }`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

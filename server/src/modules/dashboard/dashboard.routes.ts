@@ -14,13 +14,15 @@ const router = Router();
 router.use(authMiddleware);
 router.use(adminOrMarketer);
 
-/** 대시보드 매출 금액·그래프 — 취소만 제외 (접수만 된 건도 평수·발주금액 반영) */
+/**
+ * 대시보드 매출 금액·그래프 대상 상태.
+ * - 고객이 확정한(접수 완료된) 건만 매출로 본다.
+ * - PENDING(대기·마케터 선접수, 고객 미제출)·ORDER_FORM_PENDING(발급 후 미제출)은 제외 → 미확정 발주금액이 매출에 섞이지 않게 한다.
+ */
 const SALES_AMOUNT_STATUSES = [
-  'PENDING',
   'RECEIVED',
   'DEPOSIT_PENDING',
   'DEPOSIT_COMPLETED',
-  'ORDER_FORM_PENDING',
   'ASSIGNED',
   'IN_PROGRESS',
   'COMPLETED',
@@ -37,17 +39,30 @@ const HAPPY_CALL_STATS_STATUSES = [
   'CS_PROCESSING',
 ] as const;
 
-function getInquiryAmount(inq: { orderForm?: { totalAmount: number } | null; areaPyeong: number | null }, pricePerPyeong: number): number {
-  if (inq.orderForm?.totalAmount != null) return inq.orderForm.totalAmount;
-  if (inq.areaPyeong != null && inq.areaPyeong > 0) return Math.round(inq.areaPyeong * pricePerPyeong);
-  return 0;
+/**
+ * 접수 1건의 매출 금액 = 발주총액(없으면 평수×단가) + 추가청소(extraCharges) 합.
+ * extraCharges.amount 는 음수면 할인 — 스케줄·정산과 동일 기준.
+ */
+function getInquiryAmount(
+  inq: {
+    orderForm?: { totalAmount: number } | null;
+    areaPyeong: number | null;
+    extraCharges?: { amount: number }[] | null;
+  },
+  pricePerPyeong: number,
+): number {
+  const base =
+    inq.orderForm?.totalAmount != null
+      ? inq.orderForm.totalAmount
+      : inq.areaPyeong != null && inq.areaPyeong > 0
+        ? Math.round(inq.areaPyeong * pricePerPyeong)
+        : 0;
+  const extra = inq.extraCharges?.reduce((sum, c) => sum + (c.amount ?? 0), 0) ?? 0;
+  return base + extra;
 }
 
-/** 매출 차트 기준일(KST): 예정일 있으면 예정일, 없으면 접수일 */
-function effectiveSalesDateYmd(inquiry: { preferredDate: Date | null; createdAt: Date }): string {
-  if (inquiry.preferredDate != null) {
-    return new Date(inquiry.preferredDate).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
-  }
+/** 매출 기준일(KST): 접수일(createdAt) 기준으로 통일 */
+function effectiveSalesDateYmd(inquiry: { createdAt: Date }): string {
   return inquiry.createdAt.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
@@ -103,6 +118,7 @@ router.get('/stats', async (req, res) => {
       where: { tenantId, status: { in: [...SALES_AMOUNT_STATUSES] } },
       include: {
         orderForm: { select: { totalAmount: true } },
+        extraCharges: { select: { amount: true } },
         assignments: {
           orderBy: { sortOrder: 'asc' },
           include: { teamLeader: { select: { id: true, name: true } } },
@@ -218,12 +234,12 @@ router.get('/stats', async (req, res) => {
   }
   const dailyRosterModeActive = rosterRestrictedIds.size > 0;
 
-  /** 오늘 매출: 기준일(KST)이 오늘인 건 — 예정일 없으면 접수일 */
+  /** 오늘 매출: 접수일(KST)이 오늘인 건 */
   const todaySales = inquiriesForSales
     .filter((i) => effectiveSalesDateYmd(i) === todayYmd)
     .reduce((sum, i) => sum + getInquiryAmount(i, pricePerPyeong), 0);
 
-  /** 이번 달 매출: 기준일(KST)이 이번 달인 건 */
+  /** 이번 달 매출: 접수일(KST)이 이번 달인 건 */
   const monthSales = inquiriesForSales
     .filter((i) => effectiveSalesDateYmd(i).startsWith(kstMonthKey))
     .reduce((sum, i) => sum + getInquiryAmount(i, pricePerPyeong), 0);
@@ -245,7 +261,7 @@ router.get('/stats', async (req, res) => {
   }
   salesByTeamLeader.sort((a, b) => b.amount - a.amount);
 
-  /** 최근 7일 일별 매출 (그래프용, KST 일자 · 예정일 없으면 접수일) */
+  /** 최근 7일 일별 매출 (그래프용, 접수일 KST 일자 기준) */
   const dailySales: { date: string; amount: number }[] = [];
   for (let d = 6; d >= 0; d--) {
     const dateStr = kstYmdAddDays(todayYmd, -d);
