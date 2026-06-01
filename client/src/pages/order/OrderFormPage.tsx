@@ -797,6 +797,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
   const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded text-sm';
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
+  // 마케터 발급(작성) 시 마케터가 반드시 채워야 하는 항목은 굵은 빨강으로 강조
+  const reqLabelCls = isCreate ? 'block text-sm font-bold text-red-600 mb-1' : labelCls;
   const radioGroupCls = 'flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-800';
   const radioLabelCls = 'inline-flex items-center gap-2 cursor-pointer';
   const scheduleLockedByAdmin = !isEditor && Boolean(order?.preferredDate?.trim());
@@ -847,7 +849,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <p className="mb-3 text-sm font-semibold text-gray-900">발급 금액</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-gray-700">총 금액 (원) *</label>
+                <label className="mb-1 block text-xs font-bold text-red-600">총 금액 (원) *</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -959,7 +961,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
         <form onSubmit={handleSubmit} className="space-y-4 pb-20">
           <div>
-            <label className={labelCls}>1. 성함 *</label>
+            <label className={reqLabelCls}>1. 성함 *</label>
             <input
               type="text"
               className={clsWithLock('customerName', inputCls)}
@@ -1033,7 +1035,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 </label>
               ))}
             </div>
-            <p className="text-xs font-medium text-gray-700 mt-4 mb-2">면적 기준 (하나 선택) *</p>
+            <p className={`text-xs mt-4 mb-2 ${isCreate ? 'font-bold text-red-600' : 'font-medium text-gray-700'}`}>면적 기준 (하나 선택) *</p>
             {areaLockedByAdmin ? (
               <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
                 {formatInquiryAreaKoLine({
@@ -1133,7 +1135,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
 
           <div>
-            <label className={labelCls}>5. 청소 날짜{isCreate ? ' *' : ''}</label>
+            <label className={reqLabelCls}>5. 청소 날짜{isCreate ? ' *' : ''}</label>
             {isEditor && (
               <label className="mb-2 flex w-fit items-center gap-2 text-sm text-gray-700">
                 <input
@@ -1169,7 +1171,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
 
           <div>
-            <label className={labelCls}>6. 시간대 선택{isCreate ? ' *' : ''}</label>
+            <label className={reqLabelCls}>6. 시간대 선택{isCreate ? ' *' : ''}</label>
             {scheduleLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
                 {labelForTimeSlot(order!.preferredTime)}{' '}
@@ -1377,7 +1379,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('specialNotes') && (
           <div>
-            <label className={labelCls}>11. 특이사항{isCreate ? ' *' : ''}</label>
+            <label className={reqLabelCls}>11. 특이사항{isCreate ? ' *' : ''}</label>
             {isEditor && (
               <label className="mb-2 flex w-fit items-center gap-2 text-sm text-gray-700">
                 <input
