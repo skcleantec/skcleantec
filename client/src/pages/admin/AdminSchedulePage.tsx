@@ -32,7 +32,7 @@ import {
   type UserItem,
 } from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
-import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryListAreaLabel } from '../../utils/inquiryAreaDisplay';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
@@ -517,10 +517,11 @@ function ScheduleDayListItem({
         >
           {shortSiGuFromAddress(item.address)}
           {(() => {
-            const areaStr = formatInquiryAreaKoShort({
+            const areaStr = formatInquiryListAreaLabel({
               areaBasis: item.areaBasis,
               areaPyeong: item.areaPyeong,
               exclusiveAreaSqm: item.exclusiveAreaSqm,
+              isOneRoom: item.isOneRoom,
             });
             return areaStr !== '—' ? ` / ${areaStr}` : '';
           })()}

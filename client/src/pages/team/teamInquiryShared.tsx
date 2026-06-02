@@ -24,7 +24,7 @@ import {
   type TeamViewerMe,
 } from '../../api/team';
 import { copyTextToClipboard } from '../../utils/clipboard';
-import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryListAreaLabel } from '../../utils/inquiryAreaDisplay';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import {
@@ -159,6 +159,7 @@ export interface InquiryItem {
   /** 전용면적 기준 시 참고 제곱미터 */
   exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
+  isOneRoom?: boolean | null;
   /** 고객/마케터가 발주서에서 선택한 전문 시공 옵션 — 서버가 테넌트 카탈로그 라벨로 해석해 첨부 */
   professionalOptions?: Array<{ id: string; label: string; emoji?: string | null; color?: string | null }>;
   roomCount: number | null;
@@ -256,8 +257,9 @@ export function formatTeamInquiryAreaSummary(item: {
   areaBasis?: string | null;
   areaPyeong?: number | null;
   exclusiveAreaSqm?: number | null;
+  isOneRoom?: boolean | null;
 }): string {
-  const s = formatInquiryAreaKoShort(item);
+  const s = formatInquiryListAreaLabel(item);
   return s === '—' ? teamT('team.common.emDash') : s;
 }
 

@@ -39,6 +39,10 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   if (body.propertyType != null) {
     data.propertyType = body.propertyType ? String(body.propertyType) : null;
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'isOneRoom')) {
+    data.isOneRoom =
+      body.isOneRoom === true || body.isOneRoom === 'true' || body.isOneRoom === 1 || body.isOneRoom === '1';
+  }
   if (body.roomCount !== undefined) {
     data.roomCount =
       body.roomCount === null || body.roomCount === '' ? null : Number(body.roomCount);

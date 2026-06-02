@@ -11,7 +11,7 @@ import {
   type CsListDatePreset,
   type CsReport,
 } from '../../api/cs';
-import { formatInquiryAreaKoShort } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryListAreaLabel } from '../../utils/inquiryAreaDisplay';
 import { getMe } from '../../api/auth';
 import { acknowledgeTeamCsReport, getTeamCsReports, patchTeamCsReport } from '../../api/team';
 import { getToken } from '../../stores/auth';
@@ -122,10 +122,11 @@ function processorNameLabel(item: CsReport): string {
 }
 
 function formatAreaLine(inquiry: NonNullable<CsReport['inquiry']>): string {
-  return formatInquiryAreaKoShort({
+  return formatInquiryListAreaLabel({
     areaBasis: inquiry.areaBasis,
     areaPyeong: inquiry.areaPyeong,
     exclusiveAreaSqm: inquiry.exclusiveAreaSqm,
+    isOneRoom: inquiry.isOneRoom,
   });
 }
 

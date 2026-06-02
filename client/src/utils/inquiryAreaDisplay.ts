@@ -63,6 +63,19 @@ export function formatInquiryAreaKoShort(item: {
   return '—';
 }
 
+/** 목록·스케줄 카드용 — 면적 + 원룸 표시 */
+export function formatInquiryListAreaLabel(item: {
+  areaBasis?: string | null;
+  areaPyeong?: number | null;
+  exclusiveAreaSqm?: number | null;
+  isOneRoom?: boolean | null;
+}): string {
+  const base = formatInquiryAreaKoShort(item);
+  if (!item.isOneRoom) return base;
+  if (base === '—') return '원룸';
+  return `${base}·원룸`;
+}
+
 /** 편집 폼 문자열 → `formatInquiryAreaKoShort` (복사 텍스트 등) */
 export function formatInquiryAreaKoShortFromEditStrings(input: {
   areaBasis: string;

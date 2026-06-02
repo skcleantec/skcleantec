@@ -55,6 +55,7 @@ import {
   buildPrefillFromPayload,
   overlayPrefillOntoSubmitBody,
 } from './orderFormPrefill.js';
+import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes } from './orderFormOneRoom.js';
 
 const router = Router();
 
@@ -1764,6 +1765,7 @@ router.post('/submit/:token', async (req, res) => {
     /** 거주 외일 때 날짜 대신 미정 선택 */
     moveInDateUndecided?: boolean | string;
     specialNotes?: string;
+    isOneRoom?: boolean | string;
     professionalOptionIds?: unknown;
     answers?: unknown;
   };
@@ -1784,10 +1786,11 @@ router.post('/submit/:token', async (req, res) => {
   overlayPrefillOntoSubmitBody(body as unknown as Record<string, unknown>, form.prefillAnswers);
   const rawIds = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
   const professionalIds = await filterActiveProfessionalOptionIds(prisma, submitTenantId, rawIds);
-  const customerSpecialNotes =
-    body.specialNotes != null && String(body.specialNotes).trim()
-      ? String(body.specialNotes).trim()
-      : null;
+  const isOneRoom = parseIsOneRoomFlag(body.isOneRoom);
+  const customerSpecialNotes = resolveOneRoomSpecialNotes(
+    body.specialNotes != null ? String(body.specialNotes) : null,
+    isOneRoom,
+  );
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서입니다.' });
     return;
@@ -2044,6 +2047,7 @@ router.post('/submit/:token', async (req, res) => {
           areaBasis: areaBasisNorm,
           exclusiveAreaSqm,
           propertyType: propertyTypeNorm,
+          isOneRoom,
           roomCount: body.roomCount ?? null,
           bathroomCount: body.bathroomCount ?? null,
           balconyCount: body.balconyCount ?? null,
@@ -2094,6 +2098,7 @@ router.post('/submit/:token', async (req, res) => {
           areaBasis: areaBasisNorm,
           exclusiveAreaSqm,
           propertyType: propertyTypeNorm,
+          isOneRoom,
           roomCount: body.roomCount ?? null,
           bathroomCount: body.bathroomCount ?? null,
           balconyCount: body.balconyCount ?? null,

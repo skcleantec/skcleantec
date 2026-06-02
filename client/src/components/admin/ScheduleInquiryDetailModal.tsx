@@ -39,6 +39,7 @@ import {
   formatInquiryAreaKoShortFromEditStrings,
   inquiryAreaEditFormStringsFromItem,
 } from '../../utils/inquiryAreaDisplay';
+import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import { scheduleItemHasLeaderWithSingleAssignmentOnDay } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
@@ -183,6 +184,7 @@ type EditFormFields = {
   createdById: string;
   customerPhone2: string;
   propertyType: string;
+  isOneRoom: boolean;
   areaBasis: string;
   areaPyeong: string;
   /** 면적 기준 미선택·레거시 시 참고 ㎡ (공급·전용은 `areaPyeong` 평만 사용) */
@@ -227,6 +229,7 @@ function buildPatchFromEditForm(
     status: editForm.status || undefined,
     customerPhone2: editForm.customerPhone2.trim(),
     propertyType: editForm.propertyType.trim(),
+    isOneRoom: editForm.isOneRoom,
     areaBasis: editForm.areaBasis.trim(),
     buildingType: editForm.buildingType.trim(),
     moveInDateUndecided: editForm.moveInDateUndecided,
@@ -459,6 +462,7 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
 
   // 현장 정보
   addRow('건축물', editForm.propertyType);
+  if (editForm.isOneRoom) addRow('원룸', '예');
   const areaCopy = formatInquiryAreaKoShortFromEditStrings({
     areaBasis: editForm.areaBasis,
     areaPyeong: editForm.areaPyeong,
@@ -670,6 +674,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         createdById: '',
         customerPhone2: '',
         propertyType: '',
+        isOneRoom: false,
         areaBasis: '',
         areaPyeong: '',
         exclusiveAreaSqm: '',
@@ -709,6 +714,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       createdById: it.createdBy?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
+      isOneRoom:
+        Boolean(it.isOneRoom) ||
+        detectOneRoomFromNotes(
+          effectiveCustomerOrderNotes({ specialNotes: it.specialNotes, orderForm: it.orderForm }),
+        ),
       areaBasis: it.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
@@ -847,6 +857,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       createdById: it.createdBy?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
+      isOneRoom:
+        Boolean(it.isOneRoom) ||
+        detectOneRoomFromNotes(
+          effectiveCustomerOrderNotes({ specialNotes: it.specialNotes, orderForm: it.orderForm }),
+        ),
       areaBasis: it.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
@@ -1582,6 +1597,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 </option>
               ))}
             </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+              <input
+                type="checkbox"
+                className="rounded border-gray-300"
+                checked={editForm.isOneRoom}
+                onChange={(e) => setEditForm((p) => ({ ...p, isOneRoom: e.target.checked }))}
+              />
+              원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)
+            </label>
           </div>
           <div>
             <label className="block text-gray-600 mb-1">면적 기준</label>

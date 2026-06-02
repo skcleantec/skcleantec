@@ -50,6 +50,7 @@ import {
 } from '../../constants/orderFormBuilding';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
+import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
@@ -132,6 +133,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     moveInDate: string;
     /** 신축·구축·인테리어 시 이사일 대신 */
     moveInDateUndecided: boolean;
+    isOneRoom: boolean;
     specialNotes: string;
   }>({
     customerName: '',
@@ -153,6 +155,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     buildingType: '',
     moveInDate: '',
     moveInDateUndecided: false,
+    isOneRoom: false,
     specialNotes: '',
   });
   const [order, setOrder] = useState<{
@@ -416,7 +419,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         const STD = new Set([
           'customerName', 'customerPhone', 'customerPhone2', 'address', 'addressDetail',
           'propertyType', 'buildingType', 'moveInDate', 'moveInDateUndecided',
-          'roomCount', 'balconyCount', 'bathroomCount', 'kitchenCount', 'specialNotes',
+          'roomCount', 'balconyCount', 'bathroomCount', 'kitchenCount', 'specialNotes', 'isOneRoom',
           'professionalOptionIds',
         ]);
         for (const [k, v] of Object.entries(pf)) {
@@ -479,6 +482,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           })(),
           moveInDateUndecided: pf['moveInDateUndecided'] === true || Boolean(p?.moveInDateUndecided),
           specialNotes: pfStr('specialNotes') ?? data.draftCustomerSpecialNotes ?? '',
+          isOneRoom:
+            pf['isOneRoom'] === true ||
+            detectOneRoomFromNotes(pfStr('specialNotes') ?? data.draftCustomerSpecialNotes ?? ''),
         }));
         const pfProf = pf['professionalOptionIds'];
         if (Array.isArray(pfProf) && pfProf.length > 0) {
@@ -616,6 +622,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         buildingType: form.buildingType,
         moveInDate: form.moveInDateUndecided ? undefined : form.moveInDate || undefined,
         moveInDateUndecided: form.moveInDateUndecided,
+        isOneRoom: form.isOneRoom || undefined,
         specialNotes: form.specialNotes.trim() || undefined,
         professionalOptionIds: professionalOptionIds.length ? professionalOptionIds : undefined,
         answers: Object.keys(customAnswers).length ? customAnswers : undefined,
@@ -653,6 +660,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       buildingType: form.buildingType || undefined,
       moveInDate: form.moveInDateUndecided ? undefined : form.moveInDate.trim() || undefined,
       moveInDateUndecided: form.moveInDateUndecided || undefined,
+      isOneRoom: form.isOneRoom || undefined,
       specialNotes: form.specialNotes.trim() || undefined,
       professionalOptionIds: professionalOptionIds.length ? professionalOptionIds : undefined,
       answers: Object.keys(customAnswers).length ? customAnswers : undefined,
@@ -1036,6 +1044,24 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 </label>
               ))}
             </div>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+              <input
+                type="checkbox"
+                checked={form.isOneRoom}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setForm((f) => ({
+                    ...f,
+                    isOneRoom: checked,
+                    specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, checked),
+                  }));
+                  if (checked) setNoSpecialNotes(false);
+                }}
+                disabled={lockKey('isOneRoom')}
+                className="w-4 h-4 rounded border-gray-300 text-gray-800 disabled:cursor-not-allowed"
+              />
+              원룸
+            </label>
             <p className={`text-xs mt-4 mb-2 ${isCreate ? 'font-bold text-red-600' : 'font-medium text-gray-700'}`}>면적 기준 (하나 선택) *</p>
             {areaLockedByAdmin ? (
               <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">

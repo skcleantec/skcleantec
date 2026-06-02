@@ -47,6 +47,7 @@ export interface CsReport {
     areaBasis?: string | null;
     exclusiveAreaSqm?: number | null;
     propertyType?: string | null;
+    isOneRoom?: boolean | null;
     roomCount?: number | null;
     bathroomCount?: number | null;
     balconyCount?: number | null;

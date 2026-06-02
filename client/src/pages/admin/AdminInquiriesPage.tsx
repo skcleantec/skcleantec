@@ -65,10 +65,11 @@ import {
 } from '../../utils/inquiryListDisplay';
 import {
   formatInquiryAreaKoLine,
-  formatInquiryAreaKoShort,
+  formatInquiryListAreaLabel,
   inquiryAreaEditFormStringsFromItem,
 } from '../../utils/inquiryAreaDisplay';
 import { happyCallRowTone } from '../../utils/happyCall';
+import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
   effectiveAdminTeamSpecialNotes,
   effectiveCustomerOrderNotes,
@@ -294,6 +295,7 @@ interface InquiryItem {
   areaBasis?: string | null;
   exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
+  isOneRoom?: boolean | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;
@@ -467,8 +469,8 @@ function formatInquiryTeamSummary(item: InquiryItem): string {
 /** 모바일 카드: 면적·방(값 있을 때만) + 팀 요약, `- · -` 방지 */
 function formatInquiryMobileSpecsTail(item: InquiryItem): string {
   const segs: string[] = [];
-  const area = formatInquiryAreaKoShort(item);
-  if (area !== '-') segs.push(area);
+  const area = formatInquiryListAreaLabel(item);
+  if (area !== '—' && area !== '-') segs.push(area);
   const rooms = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount);
   if (rooms !== '-') segs.push(rooms);
   segs.push(formatInquiryTeamSummary(item));
@@ -573,6 +575,7 @@ export function AdminInquiriesPage() {
     status: '',
     customerPhone2: '',
     propertyType: '',
+    isOneRoom: false,
     areaBasis: '',
     areaPyeong: '',
     exclusiveAreaSqm: '',
@@ -1254,6 +1257,9 @@ export function AdminInquiriesPage() {
       status: item.status,
       customerPhone2: item.customerPhone2 || '',
       propertyType: item.propertyType || '',
+      isOneRoom: Boolean(item.isOneRoom) || detectOneRoomFromNotes(
+        effectiveCustomerOrderNotes({ specialNotes: item.specialNotes, orderForm: item.orderForm }),
+      ),
       areaBasis: item.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(item),
       buildingType: item.buildingType || '',
@@ -1602,6 +1608,7 @@ export function AdminInquiriesPage() {
         status: editForm.status || undefined,
         customerPhone2: editForm.customerPhone2.trim(),
         propertyType: editForm.propertyType.trim(),
+        isOneRoom: editForm.isOneRoom,
         areaBasis: editForm.areaBasis.trim(),
         buildingType: editForm.buildingType.trim(),
         moveInDateUndecided: editForm.moveInDateUndecided,
@@ -2651,7 +2658,7 @@ export function AdminInquiriesPage() {
                       className={`min-w-0 px-0.5 py-1 align-middle text-center text-[10px] leading-tight tabular-nums text-gray-600 xl:px-1 xl:py-1.5 2xl:text-[11px] ${pBorder}`}
                       title={formatInquiryAreaKoLine(item)}
                     >
-                      <span className="line-clamp-2 break-words">{formatInquiryAreaKoShort(item)}</span>
+                      <span className="line-clamp-2 break-words">{formatInquiryListAreaLabel(item)}</span>
                     </td>
                     <td className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}>
                       <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
@@ -3361,6 +3368,20 @@ export function AdminInquiriesPage() {
                     <option key={v} value={v}>{v}</option>
                   ))}
                 </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="flex cursor-pointer items-center gap-2 text-fluid-sm text-gray-800">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={editForm.isOneRoom}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setEditForm((p) => ({ ...p, isOneRoom: checked }));
+                    }}
+                  />
+                  원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)
+                </label>
               </div>
               <div>
                 <label className="block text-fluid-sm text-gray-600 mb-1">면적 기준</label>

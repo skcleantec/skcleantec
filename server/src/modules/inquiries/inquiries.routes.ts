@@ -27,6 +27,7 @@ import {
   filterExistingProfessionalOptionIds,
   parseProfessionalOptionIdsRaw,
 } from '../orderform/specialtyOptions.js';
+import { resolveOneRoomSpecialNotes } from '../orderform/orderFormOneRoom.js';
 import { allocateNextInquiryNumber } from './inquiryNumber.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
@@ -773,6 +774,10 @@ router.patch('/:id', async (req, res) => {
   if (data.exclusiveAreaSqm !== undefined)
     pushIfChanged('참고 전용면적(㎡)', inquiry.exclusiveAreaSqm, data.exclusiveAreaSqm, fmtNum);
   if (data.propertyType !== undefined) pushIfChanged('건물 유형', inquiry.propertyType, data.propertyType);
+  if (data.isOneRoom !== undefined) {
+    const fmtOneRoom = (v: unknown) => (v ? '원룸' : '(아님)');
+    pushIfChanged('원룸', inquiry.isOneRoom, data.isOneRoom, fmtOneRoom);
+  }
   if (data.roomCount !== undefined) pushIfChanged('방', inquiry.roomCount, data.roomCount, fmtNum);
   if (data.bathroomCount !== undefined) pushIfChanged('화장실', inquiry.bathroomCount, data.bathroomCount, fmtNum);
   if (data.balconyCount !== undefined) pushIfChanged('베란다', inquiry.balconyCount, data.balconyCount, fmtNum);
@@ -886,6 +891,18 @@ router.patch('/:id', async (req, res) => {
             data: { customerSpecialNotes: prevSn },
           });
         }
+      }
+      if (updateData.isOneRoom !== undefined && inquiry.orderForm?.id) {
+        const nextOneRoom = Boolean(updateData.isOneRoom);
+        const currentNotes =
+          inquiry.orderForm.customerSpecialNotes?.trim() ||
+          inquiry.specialNotes?.trim() ||
+          '';
+        const syncedNotes = resolveOneRoomSpecialNotes(currentNotes, nextOneRoom);
+        await tx.orderForm.update({
+          where: { id: inquiry.orderForm.id },
+          data: { customerSpecialNotes: syncedNotes },
+        });
       }
       if (Object.keys(updateData).length > 0) {
         await tx.inquiry.update({ where: { id }, data: updateData });

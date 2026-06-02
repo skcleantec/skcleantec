@@ -33,6 +33,7 @@ export interface ScheduleItem {
   /** 전용면적 기준 시 참고 제곱미터 */
   exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
+  isOneRoom?: boolean | null;
   roomCount: number | null;
   bathroomCount: number | null;
   balconyCount: number | null;

@@ -670,6 +670,8 @@ model Inquiry {
   /// 전용면적 기준 시 고객·관리자 참고용 제곱미터(㎡). 평수와 별도.
   exclusiveAreaSqm Float?      @map("exclusive_area_sqm")
   propertyType    String?      @map("property_type")
+  /// 발주서·접수 편집에서 원룸 체크 시 true — 목록·스케줄 표시용
+  isOneRoom       Boolean      @default(false) @map("is_one_room")
   roomCount       Int?         @map("room_count")
   bathroomCount   Int?         @map("bathroom_count")
   balconyCount    Int?         @map("balcony_count")

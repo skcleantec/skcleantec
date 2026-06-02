@@ -418,6 +418,7 @@ export interface OrderFormPrefillPayload {
   buildingType?: string;
   moveInDate?: string;
   moveInDateUndecided?: boolean;
+  isOneRoom?: boolean;
   specialNotes?: string;
   professionalOptionIds?: string[];
   answers?: Record<string, unknown>;
@@ -564,6 +565,7 @@ export async function submitOrderForm(
     buildingType: string;
     moveInDate?: string;
     moveInDateUndecided?: boolean;
+    isOneRoom?: boolean;
     specialNotes?: string;
     /** 전문 시공 옵션 id 목록 */
     professionalOptionIds?: string[];

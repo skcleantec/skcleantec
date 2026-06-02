@@ -20,6 +20,7 @@ export const csReportInquiryInclude = {
     areaBasis: true,
     exclusiveAreaSqm: true,
     propertyType: true,
+    isOneRoom: true,
     roomCount: true,
     bathroomCount: true,
     balconyCount: true,

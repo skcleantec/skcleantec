@@ -23,6 +23,7 @@ export const PREFILL_STANDARD_KEYS = [
   'bathroomCount',
   'kitchenCount',
   'specialNotes',
+  'isOneRoom',
   'professionalOptionIds',
 ] as const;
 
@@ -65,6 +66,11 @@ export function buildPrefillFromPayload(
   for (const key of PREFILL_STANDARD_KEYS) {
     const raw = body[key];
     if (key === 'moveInDateUndecided') {
+      const truthy = raw === true || raw === 'true' || String(raw ?? '') === '1';
+      if (truthy) out[key] = true;
+      continue;
+    }
+    if (key === 'isOneRoom') {
       const truthy = raw === true || raw === 'true' || String(raw ?? '') === '1';
       if (truthy) out[key] = true;
       continue;
