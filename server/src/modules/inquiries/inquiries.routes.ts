@@ -40,10 +40,7 @@ import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { syncInquiryAddressGeo } from './inquiryAddressGeoSync.js';
-import {
-  hydrateMissingGeoForInquiryListItems,
-  mergeRefreshedInquiryGeoFields,
-} from './inquiryAddressGeoHydrate.js';
+import { scheduleBackgroundGeoHydrate } from './inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
 import { notifyAfterInquiryPatch } from '../push/inquiryTeamWebPush.js';
 import {
@@ -320,25 +317,8 @@ router.get('/', async (req, res) => {
         createdBy: { select: { id: true, name: true, role: true } },
       },
     },
-    changeLogs: {
-      orderBy: { createdAt: 'desc' as const },
-      take: 10,
-      select: {
-        id: true,
-        createdAt: true,
-        lines: true,
-        actorId: true,
-        actor: { select: { id: true, name: true } },
-      },
-    },
-    extraCharges: {
-      orderBy: { sortOrder: 'asc' as const },
-      include: { createdBy: { select: { id: true, name: true } } },
-    },
-    additionalReceipts: {
-      orderBy: { sortOrder: 'asc' as const },
-      include: { createdBy: { select: { id: true, name: true } } },
-    },
+    // changeLogs·extraCharges·additionalReceipts 는 편집 모달에서만 쓰므로 목록에서 제외(경량화).
+    // 편집 진입 시 GET /:id (inquiryDetailInclude) 로 보강한다.
   } as const;
 
   const parsedLimit = parseInt(limit as string, 10);
@@ -358,14 +338,13 @@ router.get('/', async (req, res) => {
     }),
     prisma.inquiry.count({ where }),
   ]);
-  const touched = await hydrateMissingGeoForInquiryListItems(prisma, itemsRaw, {
-    maxUniqueQueries: 18,
-  });
-  const items = await mergeRefreshedInquiryGeoFields(prisma, itemsRaw, touched);
+  // 좌표 캐시가 있는 건 즉시 반환(빠름). 신규(미좌표) 건만 백그라운드에서 카카오로 채워
+  // DB에 저장 → 다음 로드부터 저장된 좌표가 즉시 표시된다.
   res.json({
-    items: items.map((row) => attachDistanceFromJuanForInquiry(row)),
+    items: itemsRaw.map((row) => attachDistanceFromJuanForInquiry(row)),
     total,
   });
+  scheduleBackgroundGeoHydrate(prisma, itemsRaw, { maxUniqueQueries: 18 });
 });
 
 /** 관리자만 — 접수일(createdAt) KST 하루 단위 영구 삭제 (배정·이력·현장사진 연쇄 삭제) */

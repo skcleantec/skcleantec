@@ -1,6 +1,6 @@
 import type { TenantStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { DEFAULT_TENANT_SLUG } from './tenant.constants.js';
+import { DEFAULT_TENANT_SLUG, LEGACY_SK_TENANT_SLUG } from './tenant.constants.js';
 
 export class TenantNotFoundError extends Error {
   constructor(message = '업체를 찾을 수 없습니다.') {
@@ -21,7 +21,10 @@ export async function resolveTenantBySlug(slugRaw: string) {
   if (!slug || !/^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/.test(slug)) {
     throw new TenantNotFoundError('업체 코드 형식이 올바르지 않습니다.');
   }
-  const tenant = await prisma.tenant.findUnique({ where: { slug } });
+  let tenant = await prisma.tenant.findUnique({ where: { slug } });
+  if (!tenant && slug === DEFAULT_TENANT_SLUG) {
+    tenant = await prisma.tenant.findUnique({ where: { slug: LEGACY_SK_TENANT_SLUG } });
+  }
   if (!tenant) throw new TenantNotFoundError('업체를 찾을 수 없습니다.');
   return tenant;
 }

@@ -79,6 +79,40 @@ export async function hydrateMissingGeoForInquiryListItems(
   return [...new Set(touchedIds)];
 }
 
+/** 백그라운드 지오코딩 진행 중인 접수 id — 같은 건의 중복 동시 호출 방지 */
+const inFlightGeoIds = new Set<string>();
+
+/**
+ * 목록 응답을 막지 않고 신규(미좌표) 접수만 백그라운드에서 카카오로 채운다.
+ * - 이미 좌표가 캐시된 건은 건너뜀(다음 로드부터 즉시 표시)
+ * - 진행 중인 id는 다시 호출하지 않음
+ * 호출 즉시 반환하며, 결과는 `hydrateMissingGeoForInquiryListItems`가 DB에 저장.
+ */
+export function scheduleBackgroundGeoHydrate(
+  prisma: PrismaClient,
+  items: ListInquiryRow[],
+  opts?: { maxUniqueQueries?: number }
+): void {
+  if (!getKakaoRestApiKey()) return;
+  if (opts?.maxUniqueQueries === 0) return;
+
+  const pending = items.filter((it) => {
+    const q = inquiryGeocodeQueryLine(it.address, it.addressDetail);
+    if (!q) return false;
+    const needs =
+      it.addressGeoLat == null || it.addressGeoLng == null || it.addressGeoQuery !== q;
+    return needs && !inFlightGeoIds.has(it.id);
+  });
+  if (pending.length === 0) return;
+
+  for (const it of pending) inFlightGeoIds.add(it.id);
+  void hydrateMissingGeoForInquiryListItems(prisma, pending, opts)
+    .catch((e) => console.warn('[geo-hydrate] background 실패:', e))
+    .finally(() => {
+      for (const it of pending) inFlightGeoIds.delete(it.id);
+    });
+}
+
 /** hydrate 후 목록 행에 좌표 필드만 최신으로 합친다 */
 export async function mergeRefreshedInquiryGeoFields<T extends ListInquiryRow>(
   prisma: PrismaClient,

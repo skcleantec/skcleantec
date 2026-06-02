@@ -1006,7 +1006,6 @@ export function AdminInquiriesPage() {
       })
       .finally(() => {
         setLoading(false);
-        void loadMarketerOverview({ silent: true });
       });
   };
 
@@ -1015,8 +1014,20 @@ export function AdminInquiriesPage() {
   const refreshInquiriesSilent = useCallback(() => {
     refreshRef.current(false);
   }, []);
+  /** 마케터 집계는 비용이 커서 목록 새로고침마다 돌리지 않고, WS 수신 시 최대 30초에 한 번만 무음 갱신 */
+  const lastOverviewRefreshRef = useRef(0);
+  const refreshMarketerOverviewThrottled = useCallback(() => {
+    const now = Date.now();
+    if (now - lastOverviewRefreshRef.current < 30000) return;
+    lastOverviewRefreshRef.current = now;
+    void loadMarketerOverview({ silent: true });
+  }, [loadMarketerOverview]);
   /** 팀 미팅 시각 등 접수 변경 WS → 목록 무음 재조회 (AdminLayout 배지와 별개 리스너) */
-  const { connected: inquiriesListWsConnected } = useInboxRealtime(token, refreshInquiriesSilent, Boolean(token));
+  const handleInboxRefresh = useCallback(() => {
+    refreshInquiriesSilent();
+    refreshMarketerOverviewThrottled();
+  }, [refreshInquiriesSilent, refreshMarketerOverviewThrottled]);
+  const { connected: inquiriesListWsConnected } = useInboxRealtime(token, handleInboxRefresh, Boolean(token));
   useVisibilityInterval(refreshInquiriesSilent, token && !inquiriesListWsConnected ? 25000 : 0);
 
   const openListIntakeModal = useCallback(() => {
@@ -1274,6 +1285,27 @@ export function AdminInquiriesPage() {
         item.externalTransferFee != null ? String(item.externalTransferFee) : '',
       createdById: item.createdBy?.id ?? '',
     });
+    // 목록은 경량화되어 changeLogs·extraCharges·additionalReceipts 를 싣지 않는다.
+    // 편집 모달의 변경이력·추가청구·추가결재 패널은 상세 API로 보강(목록에서 진입한 경우만).
+    if (token && item.changeLogs === undefined) {
+      void getInquiry(token, item.id)
+        .then((raw) => {
+          const d = raw as Partial<InquiryItem>;
+          setEditItem((prev) =>
+            prev && prev.id === item.id
+              ? {
+                  ...prev,
+                  changeLogs: d.changeLogs ?? [],
+                  extraCharges: d.extraCharges ?? [],
+                  additionalReceipts: d.additionalReceipts ?? [],
+                }
+              : prev,
+          );
+        })
+        .catch(() => {
+          /* 보강 실패해도 편집 기본 정보는 표시 */
+        });
+    }
   };
 
   useEffect(() => {
