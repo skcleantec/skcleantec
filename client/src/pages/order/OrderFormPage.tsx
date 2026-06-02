@@ -1029,39 +1029,67 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <label className={labelCls}>4. 건축물 유형 및 면적 *</label>
             <p className="text-xs font-medium text-gray-700 mb-2">건축물 유형 (하나 선택) *</p>
             <div className={radioGroupCls} role="radiogroup" aria-label="건축물 유형">
-              {propertyTypeOptions.map((o) => (
-                <label key={o.value} className={radioLabelCls}>
-                  <input
-                    type="radio"
-                    name="propertyType"
-                    value={o.value}
-                    checked={form.propertyType === o.value}
-                    onChange={() => setForm((f) => ({ ...f, propertyType: o.value }))}
-                    disabled={lockKey('propertyType')}
-                    className="w-4 h-4 border-gray-300 text-gray-800 disabled:cursor-not-allowed"
-                  />
-                  {o.label}
-                </label>
-              ))}
+              {(() => {
+                const oneRoomRadio = (
+                  <label key="isOneRoom" className={radioLabelCls}>
+                    <input
+                      type="radio"
+                      name="isOneRoom"
+                      checked={form.isOneRoom}
+                      onChange={() => {
+                        setForm((f) => ({
+                          ...f,
+                          isOneRoom: true,
+                          specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, true),
+                        }));
+                        setNoSpecialNotes(false);
+                      }}
+                      onClick={(e) => {
+                        if (form.isOneRoom) {
+                          e.preventDefault();
+                          setForm((f) => ({
+                            ...f,
+                            isOneRoom: false,
+                            specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, false),
+                          }));
+                        }
+                      }}
+                      disabled={lockKey('isOneRoom')}
+                      className="w-4 h-4 border-gray-300 text-gray-800 disabled:cursor-not-allowed"
+                    />
+                    원룸
+                  </label>
+                );
+                const nodes: React.ReactNode[] = [];
+                let oneRoomInserted = false;
+                for (const o of propertyTypeOptions) {
+                  nodes.push(
+                    <label key={o.value} className={radioLabelCls}>
+                      <input
+                        type="radio"
+                        name="propertyType"
+                        value={o.value}
+                        checked={form.propertyType === o.value}
+                        onChange={() => setForm((f) => ({ ...f, propertyType: o.value }))}
+                        disabled={lockKey('propertyType')}
+                        className="w-4 h-4 border-gray-300 text-gray-800 disabled:cursor-not-allowed"
+                      />
+                      {o.label}
+                    </label>,
+                  );
+                  if (o.value === '상가') {
+                    nodes.push(oneRoomRadio);
+                    oneRoomInserted = true;
+                  }
+                }
+                if (!oneRoomInserted) {
+                  const etcIdx = propertyTypeOptions.findIndex((o) => o.value === '기타');
+                  if (etcIdx >= 0) nodes.splice(etcIdx, 0, oneRoomRadio);
+                  else nodes.push(oneRoomRadio);
+                }
+                return nodes;
+              })()}
             </div>
-            <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-              <input
-                type="checkbox"
-                checked={form.isOneRoom}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setForm((f) => ({
-                    ...f,
-                    isOneRoom: checked,
-                    specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, checked),
-                  }));
-                  if (checked) setNoSpecialNotes(false);
-                }}
-                disabled={lockKey('isOneRoom')}
-                className="w-4 h-4 rounded border-gray-300 text-gray-800 disabled:cursor-not-allowed"
-              />
-              원룸
-            </label>
             <p className={`text-xs mt-4 mb-2 ${isCreate ? 'font-bold text-red-600' : 'font-medium text-gray-700'}`}>면적 기준 (하나 선택) *</p>
             {areaLockedByAdmin ? (
               <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
