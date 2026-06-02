@@ -1,5 +1,6 @@
 import type { OrderFormCustomerSubmissionSnapshotV1 } from '../../api/orderform';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { ORDER_FORM_PROFESSIONAL_OPTIONS_SHORT_LABEL } from '../../constants/orderFormProfessionalOptions';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 
 export function slotLabelForOrderForm(v: string): string {
@@ -155,7 +156,9 @@ export function OrderFormSubmissionSnapshotContent(props: {
             {snapshot.fields.specialNotes?.trim() ? snapshot.fields.specialNotes : '—'}
           </OrderFormSnapshotRow>
           <div className="border-b border-gray-100 py-2">
-            <div className="text-fluid-xs font-medium text-gray-500 sm:mb-1">전문 시공 옵션</div>
+            <div className="text-fluid-xs font-medium text-gray-500 sm:mb-1">
+              {ORDER_FORM_PROFESSIONAL_OPTIONS_SHORT_LABEL}
+            </div>
             {snapshot.fields.professionalOptionLabels.length === 0 ? (
               <span className="text-fluid-sm text-gray-700">선택 없음</span>
             ) : (

@@ -23,6 +23,10 @@ export interface TeamMemberItem {
   phone: string | null;
   sortOrder: number;
   isActive: boolean;
+  /** yyyy-mm-dd — 입사일(포함) */
+  hireDate?: string | null;
+  /** yyyy-mm-dd — 퇴사일(미포함) */
+  resignationDate?: string | null;
   /** 매월 급여 지급일(1~31). 미설정 시 null */
   monthlyPayDay?: number | null;
   /** 1일 급여·일당(원). 미설정 시 null — 월 급여표에서 근무일 수×일당 계산 */
@@ -79,6 +83,8 @@ export async function getCrewLeaderMemberSpacing(
 export type GetPoolTeamMembersOptions = {
   /** true(기본): 급여주기 접수 집계 생략 — 목록·드롭다운용 빠른 응답 */
   lite?: boolean;
+  /** active(기본) | resigned | all — 관리자 팀원 목록 */
+  employmentStatus?: 'active' | 'resigned' | 'all';
 };
 
 export async function getPoolTeamMembers(
@@ -92,6 +98,9 @@ export async function getPoolTeamMembers(
   }
   if (opts?.lite !== false) {
     params.set('lite', '1');
+  }
+  if (opts?.employmentStatus) {
+    params.set('employmentStatus', opts.employmentStatus);
   }
   const q = params.toString() ? `?${params.toString()}` : '';
   const controller = new AbortController();
@@ -152,6 +161,8 @@ export async function updatePoolTeamMember(
     phone?: string | null;
     sortOrder?: number;
     isActive?: boolean;
+    hireDate?: string | null;
+    resignationDate?: string | null;
     monthlyPayDay?: number | null;
     payAmountPerJob?: number | null;
   }

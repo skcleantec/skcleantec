@@ -312,6 +312,10 @@ model TeamMember {
   phone     String?
   sortOrder Int      @default(0) @map("sort_order")
   isActive  Boolean  @default(true) @map("is_active")
+  /// 입사일(포함) — 해당일부터 스케줄·배정 대상. null이면 제한 없음
+  hireDate     DateTime? @map("hire_date") @db.Date
+  /// 퇴사일(미포함) — 해당일부터 근무·배정 제외. null이면 재직 중
+  resignationDate DateTime? @map("resignation_date") @db.Date
   /// 매월 급여 지급일(1~31). null이면 미설정 — 팀원 월급 정산(근무일 수)용
   monthlyPayDay   Int? @map("monthly_pay_day")
   /// 1일 급여(일당, 원). null이면 미설정 — 정산 시 근무일 수×일당 계산에 사용(같은 날 여러 현장도 1일로 집계)

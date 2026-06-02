@@ -120,18 +120,19 @@ function emptyEditForm(): EditFormState {
   };
 }
 
-const USER_REGISTER_TABS = ['leader', 'marketer', 'office'] as const;
+const USER_REGISTER_TABS = ['leader', 'marketer', 'office', 'resigned'] as const;
 type UserRegisterTabId = (typeof USER_REGISTER_TABS)[number];
 
 function parseUserRegisterTab(raw: string | null): UserRegisterTabId | null {
-  if (raw === 'leader' || raw === 'marketer' || raw === 'office') return raw;
+  if (raw === 'leader' || raw === 'marketer' || raw === 'office' || raw === 'resigned') return raw;
   return null;
 }
 
 function userRegisterTabLabel(id: UserRegisterTabId): string {
   if (id === 'leader') return '팀장';
   if (id === 'marketer') return '마케터';
-  return '사무직';
+  if (id === 'office') return '사무직';
+  return '퇴사자';
 }
 
 export function AdminTeamLeadersPage() {
@@ -159,6 +160,7 @@ export function AdminTeamLeadersPage() {
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [officeStaff, setOfficeStaff] = useState<UserItem[]>([]);
+  const [resignedUsers, setResignedUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState<'team' | 'marketer' | 'office' | null>(null);
@@ -177,20 +179,31 @@ export function AdminTeamLeadersPage() {
     if (!token) return Promise.resolve();
     setApiError(null);
     return Promise.all([
-      getUsers(token, 'TEAM_LEADER', { scope: 'management' }),
-      getUsers(token, 'MARKETER', { scope: 'management' }),
-      getUsers(token, 'OFFICE_STAFF', { scope: 'management' }),
+      getUsers(token, 'TEAM_LEADER', { scope: 'management', employmentStatus: 'active' }),
+      getUsers(token, 'MARKETER', { scope: 'management', employmentStatus: 'active' }),
+      getUsers(token, 'OFFICE_STAFF', { scope: 'management', employmentStatus: 'active' }),
+      getUsers(token, 'TEAM_LEADER', { scope: 'management', employmentStatus: 'resigned' }),
+      getUsers(token, 'MARKETER', { scope: 'management', employmentStatus: 'resigned' }),
+      getUsers(token, 'OFFICE_STAFF', { scope: 'management', employmentStatus: 'resigned' }),
     ])
-      .then(([teamRes, marketerRes, officeRes]) => {
+      .then(([teamRes, marketerRes, officeRes, resignedTl, resignedMk, resignedOf]) => {
         setTeamLeaders(teamRes);
         setMarketers(marketerRes);
         setOfficeStaff(officeRes);
+        const merged = [...resignedTl, ...resignedMk, ...resignedOf].sort((a, b) => {
+          const da = a.resignationDate ?? '';
+          const db = b.resignationDate ?? '';
+          if (da !== db) return db.localeCompare(da);
+          return a.name.localeCompare(b.name, 'ko');
+        });
+        setResignedUsers(merged);
         setApiError(null);
       })
       .catch((err) => {
         setTeamLeaders([]);
         setMarketers([]);
         setOfficeStaff([]);
+        setResignedUsers([]);
         setApiError(err instanceof Error ? err.message : '서버에 연결할 수 없습니다.');
       })
       .finally(() => setLoading(false));
@@ -532,7 +545,13 @@ export function AdminTeamLeadersPage() {
         >
           {USER_REGISTER_TABS.map((id) => {
             const count =
-              id === 'leader' ? teamLeaders.length : id === 'marketer' ? marketers.length : officeStaff.length;
+              id === 'leader'
+                ? teamLeaders.length
+                : id === 'marketer'
+                  ? marketers.length
+                  : id === 'office'
+                    ? officeStaff.length
+                    : resignedUsers.length;
             return (
               <button
                 key={id}
@@ -1008,6 +1027,99 @@ export function AdminTeamLeadersPage() {
                               className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
                             >
                               {deletingId === item.id ? '처리 중…' : '삭제'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </SyncHorizontalScroll>
+              </div>
+            </>
+          )}
+        </div>
+        ) : null}
+
+        {userTab === 'resigned' ? (
+        <div className="min-w-0 text-left">
+          <div className="px-4 py-3 bg-gray-50/80 border-b border-gray-100">
+            <h3 className="font-medium text-gray-800">퇴사자 ({resignedUsers.length}명)</h3>
+            <p className="mt-1 text-fluid-xs text-gray-500">
+              퇴사일(해당일 미포함)이 지난 팀장·마케터·사무직입니다. 과거 스케줄·접수 기록은 그대로 유지됩니다.
+              복직 시 수정에서 퇴사일을 비우세요.
+            </p>
+          </div>
+          {loading ? (
+            <div className="p-8 text-left text-gray-500 lg:text-center">로딩 중...</div>
+          ) : resignedUsers.length === 0 && !apiError ? (
+            <div className="p-8 text-left text-gray-500 lg:text-center">퇴사 처리된 사용자가 없습니다.</div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-3 p-3 text-left lg:hidden">
+                {resignedUsers.map((item) => (
+                  <div key={item.id} className={userMobileCardShell}>
+                    <button
+                      type="button"
+                      className="w-full px-3 py-3 text-left"
+                      onClick={() => openEdit(item)}
+                    >
+                      <p className="text-fluid-xs text-gray-500">{userRoleLabel(item.role as UserRole)}</p>
+                      <p className="font-semibold text-gray-900">{item.name}</p>
+                      <p className="text-fluid-xs text-gray-600 mt-0.5">{item.email}</p>
+                      <p className="text-fluid-xs text-gray-500 mt-1 tabular-nums">
+                        퇴사일 {item.resignationDate ?? '—'}
+                        {item.hireDate ? ` · 입사 ${item.hireDate}` : ''}
+                      </p>
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden lg:block">
+                <SyncHorizontalScroll>
+                  <table className="w-full min-w-[640px] table-fixed border-collapse text-fluid-sm">
+                    <colgroup>
+                      <col className="w-[72px]" />
+                      <col className="w-[100px]" />
+                      <col />
+                      <col className="w-[110px]" />
+                      <col className="w-[110px]" />
+                      <col className="w-[88px]" />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-700">
+                        <th className="px-2 py-2 text-center font-medium">구분</th>
+                        <th className="px-2 py-2 text-center font-medium">이름</th>
+                        <th className="px-2 py-2 text-center font-medium">아이디</th>
+                        <th className="px-2 py-2 text-center font-medium">입사일</th>
+                        <th className="px-2 py-2 text-center font-medium">퇴사일</th>
+                        <th className="px-2 py-2 text-center font-medium">관리</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resignedUsers.map((item) => (
+                        <tr key={item.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-2 py-2 text-center text-gray-600">
+                            {userRoleLabel(item.role as UserRole)}
+                          </td>
+                          <td className="px-2 py-2 text-center font-medium text-gray-900 truncate" title={item.name}>
+                            {item.name}
+                          </td>
+                          <td className="px-2 py-2 text-center text-gray-600 truncate" title={item.email}>
+                            {item.email}
+                          </td>
+                          <td className="px-2 py-2 text-center tabular-nums text-gray-600">
+                            {item.hireDate ?? '—'}
+                          </td>
+                          <td className="px-2 py-2 text-center tabular-nums text-gray-800">
+                            {item.resignationDate ?? '—'}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50"
+                            >
+                              수정
                             </button>
                           </td>
                         </tr>

@@ -68,3 +68,26 @@ export function serializeUserDates(u: {
     resignationDate: u.resignationDate ? dateToYmdKst(u.resignationDate) : null,
   };
 }
+
+/** 관리자 목록 — 재직 / 퇴사 / 전체 */
+export type EmploymentStatusFilter = 'active' | 'resigned' | 'all';
+
+/** 퇴사일(미포함) 기준 — 해당 일자에 퇴사 처리된 상태 */
+export function isResignedAsOfYmd(
+  hireDate: Date | null,
+  resignationDate: Date | null,
+  ymd: string
+): boolean {
+  if (!resignationDate) return false;
+  return !isUserEmployedOnYmd(hireDate, resignationDate, ymd);
+}
+
+export function filterByEmploymentStatus<
+  T extends { hireDate: Date | null; resignationDate: Date | null },
+>(users: T[], status: EmploymentStatusFilter, ymd: string = kstTodayYmd()): T[] {
+  if (status === 'all') return users;
+  if (status === 'active') {
+    return users.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, ymd));
+  }
+  return users.filter((u) => isResignedAsOfYmd(u.hireDate, u.resignationDate, ymd));
+}

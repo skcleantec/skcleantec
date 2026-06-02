@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { getToken } from '../../stores/auth';
+import { getMe } from '../../api/auth';
 import {
   getPoolTeamMembers,
   addPoolTeamMember,
@@ -70,9 +71,37 @@ function formatPayCycleRangeShort(startYmd: string, endYmd: string): string {
   return `${sy.slice(2)}.${a}~${ey.slice(2)}.${b}`;
 }
 
+const MEMBER_LIST_TABS = ['active', 'resigned'] as const;
+type MemberListTabId = (typeof MEMBER_LIST_TABS)[number];
+
+function memberListTabLabel(id: MemberListTabId): string {
+  return id === 'active' ? '재직' : '퇴사자';
+}
+
 export function AdminTeamsPage() {
   const token = getToken();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const memberListTab: MemberListTabId = useMemo(() => {
+    const raw = searchParams.get('memberTab');
+    return raw === 'resigned' ? 'resigned' : 'active';
+  }, [searchParams]);
+  const setMemberListTab = useCallback(
+    (tab: MemberListTabId) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (tab === 'active') next.delete('memberTab');
+          else next.set('memberTab', tab);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+  const [isTenantOwner, setIsTenantOwner] = useState(false);
   const [members, setMembers] = useState<TeamMemberItem[]>([]);
+  const [activePoolMembers, setActivePoolMembers] = useState<TeamMemberItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -96,6 +125,8 @@ export function AdminTeamsPage() {
     name: string;
     nameTh: string;
     phone: string;
+    hireDate: string;
+    resignationDate: string;
     monthlyPayDayInput: string;
     payAmountPerJobInput: string;
     staffIdCardUrl: string | null;
@@ -154,15 +185,18 @@ export function AdminTeamsPage() {
   const refresh = async () => {
     if (!token) return;
     setApiError(null);
+    const employmentStatus = memberListTab === 'resigned' ? 'resigned' : 'active';
     try {
-      const pool = await getPoolTeamMembers(token, null, { lite: true });
+      const pool = await getPoolTeamMembers(token, null, { lite: true, employmentStatus });
       setMembers(pool.items);
       setLoading(false);
-      void getPoolTeamMembers(token, null, { lite: false })
+      void getPoolTeamMembers(token, null, { lite: false, employmentStatus })
         .then((full) => setMembers(full.items))
         .catch(() => {
           /* 급여주기 집계만 실패 — 목록은 lite로 이미 표시 */
         });
+      const activePool = await getPoolTeamMembers(token, null, { lite: true, employmentStatus: 'active' });
+      setActivePoolMembers(activePool.items);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
       setLoading(false);
@@ -223,6 +257,15 @@ export function AdminTeamsPage() {
       return;
     }
     refresh();
+  }, [token, memberListTab]);
+
+  useEffect(() => {
+    if (!token) return;
+    getMe(token)
+      .then((u: { isTenantOwner?: boolean; isSuperAdmin?: boolean }) => {
+        setIsTenantOwner(Boolean(u.isTenantOwner ?? u.isSuperAdmin));
+      })
+      .catch(() => setIsTenantOwner(false));
   }, [token]);
 
   useEffect(() => {
@@ -332,6 +375,12 @@ export function AdminTeamsPage() {
         nameTh,
         monthlyPayDay,
         payAmountPerJob,
+        ...(isTenantOwner
+          ? {
+              hireDate: editMemberModal.hireDate.trim() || null,
+              resignationDate: editMemberModal.resignationDate.trim() || null,
+            }
+          : {}),
       });
       setEditMemberModal(null);
       await refresh();
@@ -700,10 +749,35 @@ export function AdminTeamsPage() {
         <div className="text-sm text-gray-500 py-8">불러오는 중…</div>
       ) : (
         <section className="bg-white border border-gray-200 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-gray-800 mb-1">팀원 목록</h2>
-          <p className="text-xs text-gray-500 mb-3">
-            등록한 팀원이 아래에 표시됩니다. 각 행에서 순서(위로·아래로)·휴무일·정보 수정·사용 중지·삭제를 할 수 있습니다.
-            월 급여표 산정용으로 「정보 수정」에서 매월 지급일·일당(1일 급여)을 설정할 수 있습니다. 같은 날 현장을 여러 번 나가도 급여 산정에서는 1일로 집계됩니다.
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-800">팀원 목록</h2>
+              <p className="text-xs text-gray-500 mt-1">
+                {memberListTab === 'active'
+                  ? '재직 중인 현장 팀원입니다. 퇴사일을 지정하면 해당일부터 스케줄·배정에서 제외되고 퇴사자 탭으로 이동합니다.'
+                  : '퇴사일이 지난 팀원입니다. 과거 스케줄·접수 기록은 유지됩니다. 복직 시 정보 수정에서 퇴사일을 비우세요.'}
+              </p>
+            </div>
+            <nav className="inline-flex shrink-0 rounded border border-gray-200 bg-gray-50 p-0.5" role="tablist" aria-label="팀원 재직 구분">
+              {MEMBER_LIST_TABS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={memberListTab === id}
+                  onClick={() => setMemberListTab(id)}
+                  className={`rounded px-2.5 py-1.5 text-xs font-medium min-h-[36px] ${
+                    memberListTab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {memberListTabLabel(id)}
+                </button>
+              ))}
+            </nav>
+          </div>
+          <p className="text-xs text-gray-500 mb-3 hidden sm:block">
+            각 행에서 순서(위로·아래로)·휴무일·정보 수정·사용 중지·삭제를 할 수 있습니다.
+            월 급여표 산정용으로 「정보 수정」에서 매월 지급일·일당(1일 급여)을 설정할 수 있습니다.
           </p>
           {members.length === 0 ? (
             <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-md px-3 py-4 text-center mb-3">
@@ -745,6 +819,11 @@ export function AdminTeamsPage() {
                           ) : (
                             <span className="text-xs text-gray-400">연락처 없음</span>
                           )}
+                          {m.resignationDate ? (
+                            <span className="text-xs text-amber-800 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded tabular-nums">
+                              퇴사 예정 {m.resignationDate}
+                            </span>
+                          ) : null}
                           {!m.isActive && (
                             <span className="text-xs text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
                               사용 안 함
@@ -796,6 +875,8 @@ export function AdminTeamsPage() {
                             name: m.name,
                             nameTh: (m.nameTh ?? '').trim(),
                             phone: m.phone ?? '',
+                            hireDate: m.hireDate ?? '',
+                            resignationDate: m.resignationDate ?? '',
                             monthlyPayDayInput: m.monthlyPayDay != null ? String(m.monthlyPayDay) : '',
                             payAmountPerJobInput:
                               m.payAmountPerJob != null ? String(m.payAmountPerJob) : '',
@@ -838,7 +919,7 @@ export function AdminTeamsPage() {
               ))}
             </ul>
           )}
-          {members.filter((m) => m.isActive).length < 100 && (
+          {memberListTab === 'active' && members.filter((m) => m.isActive).length < 100 && (
             <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-2 items-end">
               <input
@@ -905,7 +986,7 @@ export function AdminTeamsPage() {
             {registerOk && <p className="text-sm text-green-700">{registerOk}</p>}
             </div>
           )}
-          {members.filter((m) => m.isActive).length >= 100 && (
+          {memberListTab === 'active' && members.filter((m) => m.isActive).length >= 100 && (
             <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded px-3 py-2">
               활성 팀원이 상한(100명)에 도달했습니다. 사용 중지 후 추가하거나 관리자에게 문의하세요.
             </p>
@@ -1053,6 +1134,37 @@ export function AdminTeamsPage() {
                   <p className="text-xs text-gray-600 mb-2">
                     월 급여표: 근무일 수 × 일당 (같은 날 여러 현장은 1일로 집계)
                   </p>
+                  {isTenantOwner ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">입사일 (포함)</label>
+                        <input
+                          type="date"
+                          value={editMemberModal.hireDate}
+                          onChange={(e) =>
+                            setEditMemberModal((prev) =>
+                              prev ? { ...prev, hireDate: e.target.value } : null
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">퇴사일 (해당일 미포함)</label>
+                        <input
+                          type="date"
+                          value={editMemberModal.resignationDate}
+                          onChange={(e) =>
+                            setEditMemberModal((prev) =>
+                              prev ? { ...prev, resignationDate: e.target.value } : null
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">해당일부터 스케줄·배정에서 제외됩니다.</p>
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-gray-500 block mb-1">매월 지급일 (1~31, 비우면 미설정)</label>
@@ -1519,7 +1631,7 @@ export function AdminTeamsPage() {
                     className="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
                   >
                     <option value="">추가할 팀원 선택…</option>
-                    {members
+                    {activePoolMembers
                       .filter((m) => !crewEdit.members.some((cm) => cm.teamMemberId === m.id))
                       .map((m) => (
                         <option key={m.id} value={m.id}>

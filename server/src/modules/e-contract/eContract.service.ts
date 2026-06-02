@@ -16,6 +16,7 @@ import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
 import { expandSignerPlaceholders, expandEcTokenValues, type SignerFilledFields } from './eContractSigner.expand.js';
 import { validateAdminMergeFields } from './eContractFieldDefinition.service.js';
 import { newEContractInviteToken } from './eContract.tokens.js';
+import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import {
   issuanceWhereForTeamLeader,
   parseEContractListQuery,
@@ -436,20 +437,44 @@ export async function listMarketersForPicker(tenantId: string) {
 
 export async function listRecipientsForPicker(tenantId: string, audience: EContractAudience) {
   const role = audience === EContractAudience.MARKETER ? UserRole.MARKETER : UserRole.TEAM_LEADER;
-  return prisma.user.findMany({
+  const todayYmd = kstTodayYmd();
+  const rows = await prisma.user.findMany({
     where: { tenantId, role, isActive: true },
-    select: { id: true, name: true, email: true, phone: true, role: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      hireDate: true,
+      resignationDate: true,
+    },
     orderBy: [{ name: 'asc' }, { email: 'asc' }],
   });
+  return rows
+    .filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd))
+    .map(({ hireDate: _h, resignationDate: _r, ...rest }) => rest);
 }
 
 /** 체결 기록 필터 — 팀장·마케터 수신자 통합 */
 export async function listAllContractRecipientsForPicker(tenantId: string) {
-  return prisma.user.findMany({
+  const todayYmd = kstTodayYmd();
+  const rows = await prisma.user.findMany({
     where: { tenantId, role: { in: [UserRole.TEAM_LEADER, UserRole.MARKETER] }, isActive: true },
-    select: { id: true, name: true, email: true, phone: true, role: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      hireDate: true,
+      resignationDate: true,
+    },
     orderBy: [{ role: 'asc' }, { name: 'asc' }, { email: 'asc' }],
   });
+  return rows
+    .filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd))
+    .map(({ hireDate: _h, resignationDate: _r, ...rest }) => rest);
 }
 
 

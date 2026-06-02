@@ -47,6 +47,8 @@ export type GetUsersOptions = {
   scope?: 'management';
   /** 드롭다운용: 해당 KST 날짜에 재직 중인 사람만 (기본: 오늘) */
   employedOn?: string;
+  /** scope=management 일 때 — active(기본) | resigned | all */
+  employmentStatus?: 'active' | 'resigned' | 'all';
 };
 
 export function formatAssignableUserLabel(u: UserItem): string {
@@ -79,6 +81,7 @@ export async function getUsers(
   const params = new URLSearchParams({ role });
   if (opts?.scope === 'management') params.set('scope', 'management');
   if (opts?.employedOn) params.set('employedOn', opts.employedOn);
+  if (opts?.employmentStatus) params.set('employmentStatus', opts.employmentStatus);
   const res = await fetch(`${API}/users?${params}`, { headers: headers(token) });
   if (!res.ok) throw new Error('목록을 불러올 수 없습니다.');
   return res.json();

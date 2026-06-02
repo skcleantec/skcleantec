@@ -36,6 +36,7 @@ import {
   listProfRootNodes,
   collectSubtreeOptionIds,
 } from '../../constants/professionalSpecialtyOptions';
+import { ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL } from '../../constants/orderFormProfessionalOptions';
 
 const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o) => o.value));
 
@@ -1504,7 +1505,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('professionalOptions') && (
           <div>
-            <p className={`${labelCls} mb-2`}>13. 전문 시공 옵션 (선택)</p>
+            <p className={`${labelCls} mb-2`}>{ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL}</p>
             {profLocked ? (
               <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
                 {profSelectionSummary.rows.length > 0 ? (

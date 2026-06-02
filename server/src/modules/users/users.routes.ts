@@ -18,10 +18,12 @@ import {
 } from '../staff-id-card/staffIdCard.service.js';
 import {
   dateToYmdKst,
+  filterByEmploymentStatus,
   isUserEmployedOnYmd,
   kstTodayYmd,
   parseYmdToUtcDate,
   serializeUserDates,
+  type EmploymentStatusFilter,
 } from './userEmployment.js';
 
 const router = Router();
@@ -60,6 +62,12 @@ router.get('/', adminOrMarketer, async (req, res) => {
   }
   const employedOnRaw = typeof req.query.employedOn === 'string' ? req.query.employedOn.trim() : '';
   const employedOn = YMD.test(employedOnRaw) ? employedOnRaw : kstTodayYmd();
+  const employmentStatusRaw =
+    typeof req.query.employmentStatus === 'string' ? req.query.employmentStatus.trim() : '';
+  const employmentStatus: EmploymentStatusFilter =
+    employmentStatusRaw === 'resigned' || employmentStatusRaw === 'all'
+      ? employmentStatusRaw
+      : 'active';
 
   const users = await prisma.user.findMany({
     where: { tenantId, role: role as 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF' | 'EXTERNAL_PARTNER' | 'ADMIN', isActive: true },
@@ -84,7 +92,9 @@ router.get('/', adminOrMarketer, async (req, res) => {
   });
 
   let out = users;
-  if (!management) {
+  if (management) {
+    out = filterByEmploymentStatus(users, employmentStatus, kstTodayYmd());
+  } else {
     out = users.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, employedOn));
   }
 

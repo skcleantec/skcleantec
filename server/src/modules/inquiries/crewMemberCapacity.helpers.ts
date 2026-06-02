@@ -2,13 +2,28 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { parseYmdToDate } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 import { kstYmdKeysInRange } from './inquiryListDateRange.js';
-import { dateToYmdKst } from '../users/userEmployment.js';
+import { dateToYmdKst, isUserEmployedOnYmd, parseYmdToUtcDate } from '../users/userEmployment.js';
 
 export { DEFAULT_CREW_UNITS_PER_INQUIRY };
 
-/** 테넌트 소속 활성 팀원 — direct tenant_id + 팀/크루 join (백필 누락·레거시 호환) */
-export function tenantActiveTeamMemberWhere(tenantId: string): Prisma.TeamMemberWhereInput {
+/** 입사일 포함·퇴사일 미포함 — 해당 KST 일자에 근무 중인 팀원만 */
+export function teamMemberEmployedOnYmdWhere(ymd: string): Prisma.TeamMemberWhereInput {
+  const dateOnly = parseYmdToUtcDate(ymd);
+  if (!dateOnly) return {};
   return {
+    AND: [
+      { OR: [{ hireDate: null }, { hireDate: { lte: dateOnly } }] },
+      { OR: [{ resignationDate: null }, { resignationDate: { gt: dateOnly } }] },
+    ],
+  };
+}
+
+/** 테넌트 소속 활성 팀원 — direct tenant_id + 팀/크루 join (백필 누락·레거시 호환) */
+export function tenantActiveTeamMemberWhere(
+  tenantId: string,
+  employedOnYmd?: string
+): Prisma.TeamMemberWhereInput {
+  const base: Prisma.TeamMemberWhereInput = {
     isActive: true,
     OR: [
       { tenantId },
@@ -16,6 +31,8 @@ export function tenantActiveTeamMemberWhere(tenantId: string): Prisma.TeamMember
       { crewGroupMembers: { some: { group: { tenantId } } } },
     ],
   };
+  if (!employedOnYmd) return base;
+  return { AND: [base, teamMemberEmployedOnYmdWhere(employedOnYmd)] };
 }
 
 /** 팀장 소속 없는 풀 팀원(관리 목록) — 활성/비활성 모두 */
@@ -120,7 +137,7 @@ export async function countAvailableFieldStaffByDateRange(
   const dayKeys = kstYmdKeysInRange(startYmd, endYmd);
   const members = await prisma.teamMember.findMany({
     where: tenantActiveTeamMemberWhere(tenantId),
-    select: { id: true },
+    select: { id: true, hireDate: true, resignationDate: true },
   });
   if (members.length === 0) {
     for (const key of dayKeys) {
@@ -161,11 +178,17 @@ export async function countAvailableFieldStaffByDateRange(
   }
 
   for (const key of dayKeys) {
+    const employedIds = new Set(
+      members
+        .filter((m) => isUserEmployedOnYmd(m.hireDate, m.resignationDate, key))
+        .map((m) => m.id)
+    );
     const offSet = offByDay.get(key) ?? new Set<string>();
     const slotMap = slotByDay.get(key) ?? new Map<string, boolean>();
     const rosterForDay = rosterByDay.get(key) ?? new Set<string>();
     let n = 0;
     for (const m of members) {
+      if (!employedIds.has(m.id)) continue;
       if (restrictedIds.has(m.id) && !rosterForDay.has(m.id)) {
         continue;
       }
@@ -192,7 +215,7 @@ export async function getAvailableFieldStaffMemberIdsOnDate(
   const dateOnly = new Date(`${ymd}T12:00:00+09:00`);
   const [members, overrides, { restrictedIds, rosterByDay }] = await Promise.all([
     prisma.teamMember.findMany({
-      where: tenantActiveTeamMemberWhere(tenantId),
+      where: tenantActiveTeamMemberWhere(tenantId, ymd),
       select: {
         id: true,
         dayOffs: { where: { date: dateOnly }, select: { id: true } },

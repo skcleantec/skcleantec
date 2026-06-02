@@ -15,7 +15,7 @@ import {
   poolMemberInTenantWhere,
 } from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
-import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
+import { dateToYmdKst, employmentOverlapsMonthKst, filterByEmploymentStatus, isUserEmployedOnYmd, kstTodayYmd, parseYmdToUtcDate, serializeUserDates, type EmploymentStatusFilter } from '../users/userEmployment.js';
 import {
   crewMemberNoteIncludesTeamMember,
   payrollCycleBoundsKst,
@@ -25,6 +25,7 @@ import { computeCrewSpacingByPoolMemberName } from './crewLeaderMemberSpacing.js
 import { findPoolMembersForAdminList } from './poolTeamMembers.service.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
+import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
 
 const router = Router();
 
@@ -325,8 +326,16 @@ router.get('/members', async (req, res) => {
     const dateRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
     const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
     const lite = req.query.lite === '1' || req.query.lite === 'true';
+    const employmentStatusRaw =
+      typeof req.query.employmentStatus === 'string' ? req.query.employmentStatus.trim() : '';
+    const employmentStatus: EmploymentStatusFilter =
+      employmentStatusRaw === 'resigned' || employmentStatusRaw === 'all'
+        ? employmentStatusRaw
+        : 'active';
 
     const members = await findPoolMembersForAdminList(prisma, tenantId);
+    const todayYmd = kstTodayYmd();
+    const filteredMembers = filterByEmploymentStatus(members, employmentStatus, todayYmd);
 
     type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
     const inquiriesByPayDay = new Map<number, CycleCache>();
@@ -334,7 +343,7 @@ router.get('/members', async (req, res) => {
     if (!lite) {
       const distinctPayDays = [
         ...new Set(
-          members
+          filteredMembers
             .map((x) => x.monthlyPayDay)
             .filter((d): d is number => d != null && d >= 1 && d <= 31),
         ),
@@ -357,7 +366,7 @@ router.get('/members', async (req, res) => {
       );
     }
 
-    let items = members.map((m) => {
+    let items = filteredMembers.map((m) => {
       let payCycleJobCount: number | null = null;
       let payCycleStartYmd: string | null = null;
       let payCycleEndYmd: string | null = null;
@@ -378,6 +387,7 @@ router.get('/members', async (req, res) => {
         phone: m.phone,
         sortOrder: m.sortOrder,
         isActive: m.isActive,
+        ...serializeUserDates(m),
         monthlyPayDay: m.monthlyPayDay,
         payAmountPerJob: m.payAmountPerJob,
         createdAt: m.createdAt.toISOString(),
@@ -395,7 +405,7 @@ router.get('/members', async (req, res) => {
           where: { group: { tenantId, isActive: true, useDailyRosterOnly: true } },
         })) > 0;
       if (hasDailyRosterAgg) {
-        const crewMemberIds = new Set(members.map((m) => m.id));
+        const crewMemberIds = new Set(filteredMembers.map((m) => m.id));
         const pickableRaw = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate, tenantId);
         const pickable = new Set([...pickableRaw].filter((id) => crewMemberIds.has(id)));
         items = items.filter((row) => pickable.has(row.id));
@@ -462,7 +472,8 @@ router.post('/members', async (req, res) => {
 });
 
 router.patch('/members/:memberId', async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, authUser);
   if (!tenantId) return;
 
   const { memberId } = req.params;
@@ -472,11 +483,20 @@ router.patch('/members/:memberId', async (req, res) => {
     phone?: string | null;
     sortOrder?: number;
     isActive?: boolean;
+    hireDate?: string | null;
+    resignationDate?: string | null;
   };
   const payParsed = parseTeamMemberPayFields(body);
   if (payParsed.error) {
     res.status(400).json({ error: payParsed.error });
     return;
+  }
+  const wantsEmploymentDates = body.hireDate !== undefined || body.resignationDate !== undefined;
+  if (wantsEmploymentDates) {
+    if (!isTenantOwnerAdmin(authUser)) {
+      res.status(403).json({ error: '입사일·퇴사일은 최고 관리자만 변경할 수 있습니다.' });
+      return;
+    }
   }
   const member = await findPoolMemberInTenant(tenantId, memberId);
   if (!member) {
@@ -494,6 +514,46 @@ router.patch('/members/:memberId', async (req, res) => {
       return;
     }
   }
+
+  let hire: Date | null | undefined;
+  let resign: Date | null | undefined;
+  if (wantsEmploymentDates) {
+    hire = member.hireDate;
+    resign = member.resignationDate;
+    if (body.hireDate !== undefined) {
+      if (body.hireDate === null || String(body.hireDate).trim() === '') {
+        hire = null;
+      } else {
+        const d = parseYmdToUtcDate(String(body.hireDate).trim());
+        if (!d) {
+          res.status(400).json({ error: '입사일은 YYYY-MM-DD 형식이어야 합니다.' });
+          return;
+        }
+        hire = d;
+      }
+    }
+    if (body.resignationDate !== undefined) {
+      if (body.resignationDate === null || String(body.resignationDate).trim() === '') {
+        resign = null;
+      } else {
+        const d = parseYmdToUtcDate(String(body.resignationDate).trim());
+        if (!d) {
+          res.status(400).json({ error: '퇴사일은 YYYY-MM-DD 형식이어야 합니다.' });
+          return;
+        }
+        resign = d;
+      }
+    }
+    if (hire && resign) {
+      const hy = dateToYmdKst(hire);
+      const ry = dateToYmdKst(resign);
+      if (hy >= ry) {
+        res.status(400).json({ error: '퇴사일은 입사일보다 늦어야 합니다.' });
+        return;
+      }
+    }
+  }
+
   const updated = await prisma.teamMember.update({
     where: { id: memberId },
     data: {
@@ -516,6 +576,8 @@ router.patch('/members/:memberId', async (req, res) => {
         payParsed.monthlyPayDay === undefined ? undefined : payParsed.monthlyPayDay,
       payAmountPerJob:
         payParsed.payAmountPerJob === undefined ? undefined : payParsed.payAmountPerJob,
+      hireDate: wantsEmploymentDates ? hire! : undefined,
+      resignationDate: wantsEmploymentDates ? resign! : undefined,
     },
   });
   res.json({
@@ -525,6 +587,7 @@ router.patch('/members/:memberId', async (req, res) => {
     phone: updated.phone,
     sortOrder: updated.sortOrder,
     isActive: updated.isActive,
+    ...serializeUserDates(updated),
     monthlyPayDay: updated.monthlyPayDay,
     payAmountPerJob: updated.payAmountPerJob,
     staffIdCardUrl: updated.staffIdCardUrl ?? null,

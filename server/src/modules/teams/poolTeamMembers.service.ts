@@ -9,6 +9,8 @@ export type PoolMemberAdminRow = {
   phone: string | null;
   sortOrder: number;
   isActive: boolean;
+  hireDate: Date | null;
+  resignationDate: Date | null;
   monthlyPayDay: number | null;
   payAmountPerJob: number | null;
   staffIdCardUrl: string | null;
@@ -49,6 +51,8 @@ async function findPoolMembersLegacySql(
       phone: r.phone,
       sortOrder: r.sort_order,
       isActive: r.is_active,
+      hireDate: null,
+      resignationDate: null,
       monthlyPayDay: r.monthly_pay_day,
       payAmountPerJob: r.pay_amount_per_job,
       staffIdCardUrl: r.staff_id_card_url,
