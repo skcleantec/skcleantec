@@ -96,6 +96,16 @@ router.get('/stats', async (req, res) => {
     return;
   }
 
+  /**
+   * 매출 집계용 접수 조회 구간(KST 접수일 기준) — 전체 스캔 방지.
+   * 오늘·이번 달·최근 7일·팀장별(이번 달)을 모두 덮으려면
+   * 「이번 달 1일」과 「오늘 -6일」 중 더 이른 날부터 조회하면 충분하다.
+   */
+  const monthStartYmd = `${kstMonthKey}-01`;
+  const sevenDaysAgoYmd = kstYmdAddDays(todayYmd, -6);
+  const salesWindowStartYmd = sevenDaysAgoYmd < monthStartYmd ? sevenDaysAgoYmd : monthStartYmd;
+  const salesWindowGte = new Date(`${salesWindowStartYmd}T00:00:00+09:00`);
+
   const todayOffDbDate = new Date(`${todayYmd}T12:00:00+09:00`);
 
   const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeadersRaw, monthWorkloadInquiries, todayLeaderDayOffRows, rosterRestrictedMembers, rosterOnTodayRows] =
@@ -115,13 +125,20 @@ router.get('/stats', async (req, res) => {
     }),
     prisma.estimateConfig.findUnique({ where: { tenantId } }).then((c) => c?.pricePerPyeong ?? 5000),
     prisma.inquiry.findMany({
-      where: { tenantId, status: { in: [...SALES_AMOUNT_STATUSES] } },
-      include: {
+      where: {
+        tenantId,
+        status: { in: [...SALES_AMOUNT_STATUSES] },
+        createdAt: { gte: salesWindowGte },
+      },
+      select: {
+        createdAt: true,
+        areaPyeong: true,
         orderForm: { select: { totalAmount: true } },
         extraCharges: { select: { amount: true } },
         assignments: {
           orderBy: { sortOrder: 'asc' },
-          include: { teamLeader: { select: { id: true, name: true } } },
+          take: 1,
+          select: { teamLeader: { select: { id: true, name: true } } },
         },
       },
     }),
@@ -244,32 +261,32 @@ router.get('/stats', async (req, res) => {
     .filter((i) => effectiveSalesDateYmd(i).startsWith(kstMonthKey))
     .reduce((sum, i) => sum + getInquiryAmount(i, pricePerPyeong), 0);
 
-  /** 팀장별 매출 */
-  const salesByTeamLeader: { teamLeaderId: string; name: string; amount: number }[] = teamLeaders.map((tl) => ({
-    teamLeaderId: tl.id,
-    name: tl.name,
-    amount: 0,
-  }));
+  /** 팀장별 매출: 접수일(KST)이 이번 달인 건만 — 1차 배정 팀장에 합산 */
+  const salesByTeamLeaderMap = new Map<string, { teamLeaderId: string; name: string; amount: number }>(
+    teamLeaders.map((tl) => [tl.id, { teamLeaderId: tl.id, name: tl.name, amount: 0 }])
+  );
   for (const inq of inquiriesForSales) {
+    if (!effectiveSalesDateYmd(inq).startsWith(kstMonthKey)) continue;
     const amt = getInquiryAmount(inq, pricePerPyeong);
     if (amt <= 0) continue;
     const assigned = (inq as { assignments?: { teamLeader: { id: string; name: string } }[] }).assignments?.[0]?.teamLeader;
-    if (assigned) {
-      const entry = salesByTeamLeader.find((s) => s.teamLeaderId === assigned.id);
-      if (entry) entry.amount += amt;
-    }
+    if (!assigned) continue;
+    const entry = salesByTeamLeaderMap.get(assigned.id);
+    if (entry) entry.amount += amt;
   }
-  salesByTeamLeader.sort((a, b) => b.amount - a.amount);
+  const salesByTeamLeader = [...salesByTeamLeaderMap.values()].sort((a, b) => b.amount - a.amount);
 
-  /** 최근 7일 일별 매출 (그래프용, 접수일 KST 일자 기준) */
-  const dailySales: { date: string; amount: number }[] = [];
-  for (let d = 6; d >= 0; d--) {
-    const dateStr = kstYmdAddDays(todayYmd, -d);
-    const amt = inquiriesForSales
-      .filter((i) => effectiveSalesDateYmd(i) === dateStr)
-      .reduce((sum, i) => sum + getInquiryAmount(i, pricePerPyeong), 0);
-    dailySales.push({ date: dateStr, amount: amt });
+  /** 최근 7일 일별 매출 (그래프용, 접수일 KST 일자 기준) — 단일 패스로 누적 */
+  const dailyAmountByYmd = new Map<string, number>();
+  for (let d = 6; d >= 0; d--) dailyAmountByYmd.set(kstYmdAddDays(todayYmd, -d), 0);
+  for (const inq of inquiriesForSales) {
+    const ymd = effectiveSalesDateYmd(inq);
+    if (!dailyAmountByYmd.has(ymd)) continue;
+    dailyAmountByYmd.set(ymd, (dailyAmountByYmd.get(ymd) ?? 0) + getInquiryAmount(inq, pricePerPyeong));
   }
+  const dailySales: { date: string; amount: number }[] = [...dailyAmountByYmd.entries()]
+    .map(([date, amount]) => ({ date, amount }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   const happyCallRows = await prisma.inquiry.findMany({
     where: {

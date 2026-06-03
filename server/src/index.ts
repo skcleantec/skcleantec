@@ -46,8 +46,10 @@ async function bootstrap() {
       console.error(
         `[서버] 포트 ${config.port}이(가) 이미 사용 중입니다. 다른 터미널의 node/tsx를 종료하거나 PORT를 변경하세요.`
       );
+      process.exit(1);
     }
-    throw err;
+    // 그 외 HTTP 서버 오류는 로그만 — 프로세스를 throw로 죽여 재시작 루프에 빠지지 않게 한다.
+    console.error('[서버] HTTP 서버 오류:', err);
   });
 
   /**
@@ -71,6 +73,15 @@ async function bootstrap() {
 /** Express 4 async 라우트의 DB 일시 오류(P1001 등)가 프로세스 전체를 죽이지 않도록 */
 process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason);
+});
+
+/**
+ * WebSocket·타이머 등 비동기 콜백의 미처리 동기 예외가 프로세스를 죽여
+ * 504(게이트웨이 타임아웃)·재시작 루프를 만들지 않도록 마지막 방어선.
+ * (요청 핸들러 오류는 각 라우트 try/catch + Express에서 처리됨)
+ */
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
 });
 
 void bootstrap();
