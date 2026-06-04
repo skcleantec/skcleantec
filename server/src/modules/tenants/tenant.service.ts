@@ -41,11 +41,16 @@ export function normalizeTenantSlugInput(raw: unknown): string {
   return DEFAULT_TENANT_SLUG;
 }
 
-export function tenantSummary(t: { id: string; slug: string; name: string; plan: string; status: TenantStatus }) {
+export function tenantSummary(
+  t: { id: string; slug: string; name: string; plan: string; status: TenantStatus },
+  displayNameRaw?: string | null,
+) {
+  const displayName = (typeof displayNameRaw === 'string' && displayNameRaw.trim()) || t.name;
   return {
     id: t.id,
     slug: t.slug,
     name: t.name,
+    displayName,
     plan: t.plan,
     status: t.status,
   };

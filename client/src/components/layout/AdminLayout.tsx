@@ -11,6 +11,7 @@ import { clearToken, getToken, subscribeAdminAuth } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAuth';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useInboxRealtime, useInquiryCelebrateRealtime, type InquiryCelebratePayload } from '../../hooks/useInboxRealtime';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import {
@@ -130,6 +131,8 @@ export function AdminLayout() {
   const [showVolumeStatsMenu, setShowVolumeStatsMenu] = useState(false);
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
   const [tenantPlan, setTenantPlan] = useState<string | null>(null);
+  const [tenantName, setTenantName] = useState<string | null>(null);
+  useDocumentTitle(tenantName);
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
   const [fabDragging, setFabDragging] = useState(false);
   const fabPointerIdRef = useRef<number | null>(null);
@@ -190,6 +193,7 @@ export function AdminLayout() {
       setShowStagingDbImportMenu(false);
       setTenantFeatures(null);
       setTenantPlan(null);
+      setTenantName(null);
       setMeProfileLoading(false);
       return;
     }
@@ -205,7 +209,7 @@ export function AdminLayout() {
         showStagingDbImport?: boolean;
         showVolumeStats?: boolean;
         features?: string[];
-        tenant?: { plan?: string } | null;
+        tenant?: { plan?: string; name?: string; displayName?: string } | null;
       }) => {
         if (cancelled) return;
         const role = typeof u.role === 'string' ? u.role : null;
@@ -217,6 +221,11 @@ export function AdminLayout() {
         setShowVolumeStatsMenu(Boolean(u.showVolumeStats));
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
         setTenantPlan(typeof u.tenant?.plan === 'string' ? u.tenant.plan : null);
+        setTenantName(
+          (typeof u.tenant?.displayName === 'string' && u.tenant.displayName.trim()) ||
+            (typeof u.tenant?.name === 'string' && u.tenant.name.trim()) ||
+            null,
+        );
         /** 팀·크루 미리보기: 업무 관리자(ADMIN) + 개발용 이메일 화이트리스트만. 일반 마케터는 제외 */
         const email = typeof u.email === 'string' ? u.email : '';
         const preview = role === 'ADMIN' || isTeamPreviewAdminEmail(email);
@@ -237,6 +246,7 @@ export function AdminLayout() {
           setShowVolumeStatsMenu(false);
           setTenantFeatures(null);
           setTenantPlan(null);
+          setTenantName(null);
           clearToken();
           navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
           return;
@@ -557,7 +567,7 @@ export function AdminLayout() {
               aria-label="대시보드로 이동"
               title="대시보드로 이동"
             >
-              SK클린텍 솔루션
+              {tenantName ?? '관리 콘솔'}
             </button>
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
               {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
@@ -597,7 +607,7 @@ export function AdminLayout() {
                 aria-label="대시보드로 이동"
                 title="대시보드로 이동"
               >
-                SK클린텍 솔루션
+                {tenantName ?? '관리 콘솔'}
               </button>
               <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {

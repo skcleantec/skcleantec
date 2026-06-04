@@ -975,7 +975,7 @@ model OrderFormConfig {
   id                  String   @id @default(uuid())
   tenantId            String   @unique @map("tenant_id")
   tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  formTitle           String   @default("SK클린텍 입주청소 발주서") @map("form_title")
+  formTitle           String   @default("입주청소 발주서") @map("form_title")
   priceLabel          String?  @default("(특가)") @map("price_label")
   reviewEventText     String?  @map("review_event_text")
   footerNotice1       String?  @map("footer_notice_1")

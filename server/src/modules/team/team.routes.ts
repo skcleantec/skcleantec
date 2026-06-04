@@ -29,6 +29,7 @@ import {
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 import { countPendingIssuancesForTeamLeader, listIssuancesByTeamLeader, parseEContractListQuery } from '../e-contract/eContract.service.js';
 import {
   listTeamAssignmentsPaginated,
@@ -59,7 +60,8 @@ router.use(teamAuthMiddleware);
 
 /** 팀 화면 기준 현재 사용자(프리뷰 매핑 반영) */
 router.get('/me', async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const { userId } = auth;
   const viewer = (req as unknown as {
     teamViewer?: { role?: string; previewExternal?: boolean; previewTeamLeader?: boolean };
   }).teamViewer;
@@ -78,17 +80,29 @@ router.get('/me', async (req, res) => {
       externalCompany: { select: { id: true, name: true } },
       staffIdCardUrl: true,
       hireDate: true,
+      tenantId: true,
     },
   });
   if (!me) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
+  const tenantId = getTenantIdFromAuth(auth) ?? me.tenantId ?? null;
+  let tenant: { id: string; name: string; displayName: string } | null = null;
+  if (tenantId) {
+    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, name: true } });
+    if (t) {
+      const cfg = await getTenantConfig(tenantId);
+      tenant = { id: t.id, name: t.name, displayName: cfg.branding?.displayName?.trim() || t.name };
+    }
+  }
+  const { tenantId: _omitTenantId, ...meRest } = me;
   res.json({
-    ...me,
+    ...meRest,
     viewerRole: viewer?.role ?? me.role,
     previewExternal: Boolean(viewer?.previewExternal),
     previewTeamLeader: Boolean(viewer?.previewTeamLeader),
+    tenant,
   });
 });
 

@@ -52,7 +52,8 @@ router.get('/public-info', async (req, res) => {
     await assertTenantLoginAllowed(tenant.status);
     const config = await getTenantConfig(tenant.id);
     const displayName = config.branding?.displayName?.trim() || tenant.name;
-    res.json({ slug: tenant.slug, name: tenant.name, displayName });
+    const loginSubtitle = config.branding?.loginSubtitle?.trim() || null;
+    res.json({ slug: tenant.slug, name: tenant.name, displayName, loginSubtitle });
   } catch (e) {
     if (e instanceof TenantNotFoundError) {
       res.status(404).json({ error: e.message });

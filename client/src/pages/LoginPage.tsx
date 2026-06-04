@@ -85,6 +85,36 @@ export function LoginPage() {
   const [crewLoginMode, setCrewLoginMode] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tenantBrand, setTenantBrand] = useState<{ displayName: string; loginSubtitle: string | null } | null>(null);
+
+  /** 업체 코드가 채워지면 해당 업체 표시명·로그인 부제를 공개 정보에서 조회 */
+  useEffect(() => {
+    const slug = tenantSlug.trim().toLowerCase();
+    if (!slug || !/^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/.test(slug)) {
+      setTenantBrand(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void fetch(`/api/tenant/public-info?slug=${encodeURIComponent(slug)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((body: { displayName?: string; loginSubtitle?: string | null } | null) => {
+          if (cancelled) return;
+          if (body?.displayName?.trim()) {
+            setTenantBrand({ displayName: body.displayName.trim(), loginSubtitle: body.loginSubtitle ?? null });
+          } else {
+            setTenantBrand(null);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setTenantBrand(null);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [tenantSlug]);
 
   useEffect(() => {
     if (loginFormInitRef.current) return;
@@ -331,9 +361,14 @@ export function LoginPage() {
 
           <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/[0.04] backdrop-blur-md sm:p-8">
             <div className="mb-6 border-b border-slate-100 pb-5 text-center">
+              {tenantBrand ? (
+                <p className="mb-1.5 inline-flex max-w-full items-center justify-center truncate rounded-full bg-slate-100 px-3 py-1 text-fluid-2xs font-semibold text-slate-700">
+                  {tenantBrand.displayName}
+                </p>
+              ) : null}
               <h2 className="text-fluid-base font-semibold tracking-tight text-slate-900">로그인</h2>
               <p className="mt-1.5 text-fluid-2xs leading-relaxed text-slate-500">
-                업무 계정으로 안전하게 접속하세요.
+                {tenantBrand?.loginSubtitle?.trim() || '업무 계정으로 안전하게 접속하세요.'}
               </p>
             </div>
             {sessionExpired && (

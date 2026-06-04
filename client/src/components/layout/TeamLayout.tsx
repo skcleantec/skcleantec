@@ -5,6 +5,7 @@ import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/te
 import { getTeamMe, getTeamNavBadges, type TeamViewerMe } from '../../api/team';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useInboxRealtime, useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { RosterAckBanner } from '../common/RosterAckBanner';
@@ -57,6 +58,9 @@ export function TeamLayout() {
   const [staffIdCardUrl, setStaffIdCardUrl] = useState<string | null>(null);
   const [hireDateIso, setHireDateIso] = useState<string | null>(null);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+  const [tenantName, setTenantName] = useState<string | null>(null);
+
+  useDocumentTitle(tenantName);
 
   const dismissRosterAckBanner = useCallback(() => setRosterAckBanner(null), []);
 
@@ -71,6 +75,7 @@ export function TeamLayout() {
       setStaffIdCardUrl(null);
       setHireDateIso(null);
       setViewerUserId(null);
+      setTenantName(null);
       return;
     }
     const startedKey = capturePreviewKey();
@@ -85,6 +90,7 @@ export function TeamLayout() {
         setStaffIdCardUrl(u.staffIdCardUrl ?? null);
         setHireDateIso(u.hireDate ?? null);
         setViewerUserId(u.id ?? null);
+        setTenantName(u.tenant?.displayName?.trim() || u.tenant?.name?.trim() || null);
       })
       .catch((e) => {
         if (isPreviewFetchStale(startedKey)) return;
@@ -96,6 +102,7 @@ export function TeamLayout() {
         setStaffIdCardUrl(null);
         setHireDateIso(null);
         setViewerUserId(null);
+        setTenantName(null);
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
@@ -216,6 +223,8 @@ export function TeamLayout() {
                   vars={{ name: previewExternalName }}
                   koClassName="text-lg font-semibold text-gray-800"
                 />
+              ) : tenantName ? (
+                <span className="text-lg font-semibold text-gray-800">{tenantName}</span>
               ) : (
                 <TeamBiLine id="team.layout.brand" koClassName="text-lg font-semibold text-gray-800" />
               )}

@@ -5,7 +5,7 @@ import {
 
 /** 서버 `orderform.routes` DEFAULT_FORM_CONFIG와 동일 — DB·API에 빈 문자열이 있어도 화면에 기본 문구 표시 */
 export const ORDER_FORM_CONFIG_DEFAULTS = {
-  formTitle: 'SK클린텍 입주청소 발주서',
+  formTitle: '입주청소 발주서',
   priceLabel: '(특가)',
   reviewEventText: '* 리뷰 별5점 이벤트 참여, 1만원 입금',
   footerNotice1: '‼️ 청소 전일 저녁, 담당 팀장 연락 드림',

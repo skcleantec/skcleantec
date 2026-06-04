@@ -546,12 +546,15 @@ router.get('/submissions', async (req, res) => {
 
 router.get('/submissions/:submissionId/docx', async (req, res) => {
   try {
-    const detail = await getSubmissionDetailForAdmin(reqTenantId(req), req.params.submissionId);
+    const tid = reqTenantId(req);
+    const detail = await getSubmissionDetailForAdmin(tid, req.params.submissionId);
+    const tenantRow = await prisma.tenant.findUnique({ where: { id: tid }, select: { name: true } });
     const buf = await submissionMergedHtmlToDocxBuffer({
       definitionTitle: detail.definitionTitle,
       metaLinePlain: `${detail.teamLeader.name} (${detail.teamLeader.email}) · ${new Date(detail.signedAt).toLocaleString('ko-KR')}`,
       bodyHtml: detail.bodyHtml,
       submissionId: detail.id,
+      creatorName: tenantRow?.name ?? undefined,
     });
     const ascii = `e-contract-${req.params.submissionId.slice(0, 8)}.docx`;
     const utf8Name = `${detail.definitionTitle.replace(/["\r\n]/g, ' ').slice(0, 80)}_체결.docx`;

@@ -3,9 +3,11 @@ import { submitCsReport, uploadCsImage } from '../../api/cs';
 import { ImageThumbLightbox } from '../../components/ui/ImageThumbLightbox';
 import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
 import { resolveInitialTenantSlug } from '../../utils/tenantHostResolve';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 const STAR_VALUES = [1, 2, 3, 4, 5] as const;
-const DEFAULT_BRAND = 'SK클린텍';
+/** slug 미확정·조회 실패 시 표시할 중립 헤더 (테넌트 확정되면 displayName으로 교체) */
+const DEFAULT_BRAND = '고객만족센터';
 
 export function CsReportPage() {
   const [brandName, setBrandName] = useState(DEFAULT_BRAND);
@@ -20,6 +22,8 @@ export function CsReportPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useDocumentTitle(brandName);
 
   const formTextOk =
     customerName.trim().length > 0 &&

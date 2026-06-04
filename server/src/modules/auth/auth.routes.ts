@@ -147,10 +147,11 @@ async function loginWithPassword(req: Request, res: Response) {
   const token = jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
   } as jwt.SignOptions);
+  const tenantConfig = await getTenantConfig(tenant.id);
   res.json({
     token,
     user: { id: user.id, email: user.email, name: user.name, role: user.role },
-    tenant: tenantSummary(tenant),
+    tenant: tenantSummary(tenant, tenantConfig.branding?.displayName),
   });
 }
 
@@ -208,7 +209,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     isTenantOwner: user.isTenantOwner,
     showStagingDbImport: userMayUseStagingDbImport(user.role, user.email),
     showVolumeStats: userIsPlatformOperator(user.role, user.email),
-    tenant: tenant ? tenantSummary(tenant) : null,
+    tenant: tenant ? tenantSummary(tenant, (config as { branding?: { displayName?: string } }).branding?.displayName) : null,
     features,
     config,
   });

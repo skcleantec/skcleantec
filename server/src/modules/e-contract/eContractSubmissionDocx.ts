@@ -21,6 +21,8 @@ export async function submissionMergedHtmlToDocxBuffer(opts: {
   metaLinePlain: string;
   bodyHtml: string;
   submissionId?: string;
+  /** Word 문서 속성 작성자(테넌트 표시명 등). 미지정 시 중립 문구. */
+  creatorName?: string;
 }): Promise<Buffer> {
   const body = stripScripts(opts.bodyHtml ?? '');
   const titleEsc = escapeXmlText(opts.definitionTitle);
@@ -55,7 +57,7 @@ ${body}
     font: 'Malgun Gothic',
     fontSize: 22,
     margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
-    creator: 'SK클린텍 전자계약',
+    creator: (opts.creatorName && opts.creatorName.trim() ? `${opts.creatorName.trim()} ` : '') + '전자계약',
     footer: true,
     pageNumber: true,
   });

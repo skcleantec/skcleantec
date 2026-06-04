@@ -70,6 +70,8 @@ export interface TeamViewerMe {
   staffIdCardUrl?: string | null;
   /** 입사일 — 사원증 하단 인증 문구용 */
   hireDate?: string | null;
+  /** 소속 업체(테넌트) 표시명 — 헤더·탭 제목용 */
+  tenant?: { id: string; name: string; displayName: string } | null;
 }
 
 export async function getTeamMe(token: string): Promise<TeamViewerMe> {
