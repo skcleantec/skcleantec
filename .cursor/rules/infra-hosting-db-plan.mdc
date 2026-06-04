@@ -1,0 +1,48 @@
+---
+description: 인프라 현황·호스팅/DB 방향 — Railway(싱가포르 이전 예정)·Supabase 서울 보조 백업·향후 한국 근접 리전
+alwaysApply: true
+---
+
+# 인프라 현황 & 앞으로의 방향 (호스팅·DB)
+
+에이전트·개발자가 배포·DB·속도 관련 작업을 할 때 **현재 결정된 방향**을 따르도록 정리한 문서.
+세부 절차는 링크된 가이드를 본다. 운영 단일 소스(빌드/배포 방식)는 여전히 `.cursor/rules/railway-docker-deploy.mdc` + `railway.json` + `Dockerfile`.
+
+## 배경 (왜 이렇게 가는가)
+
+- 제품: **여러 청소 업체가 쓰는 멀티테넌트 SaaS**(단일 PostgreSQL + `tenant_id` 행 격리). 이 구조는 초기~중기 SaaS 표준이며 당분간 유지한다.
+- 운영 중 Railway 에서 **간헐적 지연·페이지 미표시** 이슈를 겪음. 원인은 (1) 호스팅 리전 거리, (2) 코드 병목(예: 과거 대시보드 unbounded 쿼리 504 — 해결됨), (3) 앱·DB 결합 중 복합.
+- 현재 Railway 리전은 **US 계열**. 한국 사용자 기준으로 느리다.
+
+## 현재 결정된 방향
+
+1. **DB 보존·독립성 (적용 완료)**
+   - 한국 리전 **Supabase(서울)** 에 **보조 DB**를 두고 **1시간마다 자동 백업**(단방향: Railway → Supabase).
+   - Railway 가 다운되면 `DATABASE_URL` 만 Supabase 로 바꿔 전환. 자동화: `.github/workflows/db-sync-supabase.yml`. 가이드: `docs/DB_BACKUP_SUPABASE.md`.
+   - DB 는 항상 **표준 PostgreSQL + `DATABASE_URL` 한 줄**로만 접속 → 어디로든 `pg_dump`/`pg_restore` 로 이전 가능하게 유지(벤더 종속 회피). 복사 스크립트: `scripts/copy-prod-db-to-staging.ps1`.
+
+2. **속도 개선 — 1차: Railway 싱가포르 이전 (예정)**
+   - 앱 + Postgres 를 **둘 다** Railway **싱가포르(Southeast Asia)** 로 옮긴다(앱↔DB 같은 리전 필수, 한쪽만 옮기면 역효과).
+   - 싱가포르가 Railway 리전 중 한국에 가장 가깝다(한국 왕복 ~70~90ms vs US ~130~180ms). 절차: `docs/RAILWAY_SINGAPORE_MIGRATION.md`.
+
+3. **속도 개선 — 2차: 더 빠르게 필요 시 (검토)**
+   - Railway 에는 한국·일본 리전이 없다. 더 빠르게 하려면 Railway 를 떠난다:
+     - **Fly.io 도쿄(nrt)** ~30~40ms, Docker 네이티브 + WebSocket 지원(현 구조 이전 쉬움).
+     - **NCP / AWS 서울** ~5~20ms, 국내 결제·데이터 국내 보관(운영 손 많이 감 — IaaS).
+   - **원칙**: 한 번에 IaaS 로 점프하지 않는다. 측정(모니터링)·단계적 이전으로 운영 부담을 관리한다.
+
+## 작업 시 지켜야 할 것
+
+- **앱과 DB 리전은 항상 같은(또는 인접) 리전**에 둔다. "DB만 다른 리전" 구성을 만들지 않는다(쿼리 왕복으로 느려짐).
+- DB 마이그레이션·배포 일관성은 기존대로 `.cursor/rules/prisma-migrate-and-deploy.mdc`(공유 DB 는 `migrate` 만, `db push` 금지).
+- 호스팅/리전을 바꿔도 **빌드·배포 방식(Dockerfile 멀티스테이지)** 은 `.cursor/rules/railway-docker-deploy.mdc` 를 따른다. 다른 호스팅으로 이전 시에도 같은 Docker 이미지를 재사용하는 것을 우선한다.
+- 연결 문자열·비밀번호는 **환경변수·시크릿에만** 둔다(코드·문서·채팅 금지).
+- "느리다/안 뜬다" 이슈는 **리전(거리) 문제와 불안정(리소스·코드) 문제를 구분**해 진단한다. 리전 이전은 거리 지연만 줄인다.
+
+## 관련 파일
+
+- `docs/DB_BACKUP_SUPABASE.md` — 한국 보조 DB 자동 백업·장애 전환
+- `docs/RAILWAY_SINGAPORE_MIGRATION.md` — US → 싱가포르 이전 절차
+- `.github/workflows/db-sync-supabase.yml` — 자동 백업 워크플로
+- `scripts/copy-prod-db-to-staging.ps1` — pg_dump/pg_restore 복사(이전·역방향)
+- `.cursor/rules/railway-docker-deploy.mdc`, `.cursor/rules/prisma-migrate-and-deploy.mdc`, `.cursor/rules/local-dev-remote-db.mdc`

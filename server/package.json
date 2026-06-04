@@ -32,6 +32,7 @@
     "db:backfill-inquiry-numbers": "tsx scripts/backfill-inquiry-numbers.ts",
     "db:backfill-seed-inquiries-created-by": "tsx scripts/backfill-seed-inquiries-created-by.ts",
     "db:backfill-inquiry-address-geo": "tsx scripts/backfill-inquiry-address-geo.ts",
+    "db:migrate-cs-images": "tsx scripts/migrate-cs-images-to-cloudinary.ts",
     "db:purge:inquiries": "tsx scripts/purge-all-inquiries.ts"
   },
   "dependencies": {

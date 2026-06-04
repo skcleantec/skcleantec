@@ -1,0 +1,55 @@
+# Railway(운영 주 DB) → Supabase 서울(보조 DB) 자동 동기화
+#
+# 목적: Railway 가 다운돼도 한국 리전 Supabase 보조 DB 로 즉시 전환할 수 있게,
+#       1시간마다 운영 DB 를 통째로 보조 DB 로 복제한다. (단방향: Railway -> Supabase)
+#
+# 동작: pg_dump(-Fc) 로 Railway 덤프 -> pg_restore(--clean --if-exists) 로 Supabase 에 복원.
+#       기존 scripts/copy-prod-db-to-staging.ps1 과 동일한 플래그(--no-owner --no-acl).
+#
+# 필요한 GitHub Secrets (Settings > Secrets and variables > Actions):
+#   - RAILWAY_DATABASE_URL : Railway 운영 Postgres 공개 Proxy URL (sslmode=require 포함)
+#   - SUPABASE_DATABASE_URL: Supabase 서울 프로젝트의 Session pooler(IPv4) 연결 문자열 (비밀번호 포함)
+#
+# 주의:
+#   - 보조 DB(Supabase)의 데이터는 매 실행마다 운영본으로 덮어쓰기 된다. 보조 DB 에 직접 쓰지 말 것.
+#   - GitHub 예약(cron) 작업은 부하에 따라 수분 지연될 수 있고, 저장소가 60일 비활성이면 중단될 수 있다.
+
+name: DB sync (Railway -> Supabase Seoul)
+
+on:
+  schedule:
+    - cron: '0 * * * *' # 매시 정각(UTC). 1시간 주기.
+  workflow_dispatch: {} # 수동 실행 버튼
+
+concurrency:
+  group: db-sync-supabase
+  cancel-in-progress: false # 이전 동기화가 끝날 때까지 겹치지 않게 대기
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: postgres:18-bookworm # Railway/Supabase 보다 같거나 높은 pg_dump/pg_restore 버전
+    steps:
+      - name: Dump Railway and restore into Supabase (Seoul)
+        env:
+          SOURCE_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+          TARGET_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SOURCE_DATABASE_URL:-}" ] || [ -z "${TARGET_DATABASE_URL:-}" ]; then
+            echo "RAILWAY_DATABASE_URL / SUPABASE_DATABASE_URL secret 이 비어 있습니다." >&2
+            exit 1
+          fi
+
+          DUMP_FILE="/tmp/skcleanteck-$(date -u +%Y%m%dT%H%M%SZ).dump"
+
+          echo "[1/2] pg_dump (Railway 운영 DB)"
+          pg_dump --dbname="$SOURCE_DATABASE_URL" -Fc --no-owner --no-acl -f "$DUMP_FILE"
+
+          echo "[2/2] pg_restore (Supabase 보조 DB, --clean --if-exists)"
+          pg_restore --dbname="$TARGET_DATABASE_URL" --clean --if-exists --no-owner --no-acl "$DUMP_FILE"
+
+          echo "동기화 완료: $(date -u +%Y-%m-%dT%H:%M:%SZ) (UTC)"

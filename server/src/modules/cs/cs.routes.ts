@@ -12,6 +12,8 @@ import { adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { csReportFullInclude } from './csReport.include.js';
 import { buildCsReportUpdateData } from './csReport.patch.js';
+import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { uploadCsImageBuffer } from './csImageUpload.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
@@ -23,39 +25,42 @@ import { assertTenantAllowsPublicService, PublicTenantAccessError, publicTenantA
 
 const router = Router();
 
-// Railway Volume 마운트 경로 또는 로컬 uploads 폴더
+// C/S 사진은 Cloudinary(웹하드)에 저장. 미설정(로컬 개발) 시에만 로컬 uploads 폴더로 폴백.
 const uploadDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(process.cwd(), 'uploads');
 const csDir = path.join(uploadDir, 'cs');
-try {
-  fs.mkdirSync(csDir, { recursive: true });
-} catch {}
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, csDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.jpg';
-    const name = `${Date.now()}-${randomBytes(8).toString('hex')}${ext}`;
-    cb(null, name);
-  },
-});
-/** 클라이언트에서 리사이즈·압축 후 전송. 여유 있게 상한만 둠 */
-const upload = multer({ storage, limits: { fileSize: 12 * 1024 * 1024 } }); // 12MB
+/** 클라이언트에서 리사이즈·압축 후 전송. 메모리 버퍼로 받아 Cloudinary 업로드(미설정 시 디스크 폴백) */
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } }); // 12MB
 
-/** 서버 공개 URL (Railway: RAILWAY_PUBLIC_DOMAIN, 로컬: PUBLIC_URL) */
+/** 서버 공개 URL (Railway: RAILWAY_PUBLIC_DOMAIN, 로컬: PUBLIC_URL) — 로컬 폴백 URL용 */
 function getBaseUrl(): string {
   const domain = process.env.RAILWAY_PUBLIC_DOMAIN;
   if (domain) return `https://${domain}`;
   return process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
 }
 
-/** 공개: 이미지 업로드 (C/S 제출용) - Railway Volume에 저장 */
+/** 공개: 이미지 업로드 (C/S 제출용) — Cloudinary 우선, 미설정 시 로컬 폴백 */
 router.post('/upload', upload.single('image'), async (req, res) => {
   if (!req.file) {
     res.status(400).json({ error: '이미지를 선택해 주세요.' });
     return;
   }
-  const url = `${getBaseUrl()}/uploads/cs/${req.file.filename}`;
-  res.json({ url });
+  try {
+    if (isCloudinaryConfigured()) {
+      const { secureUrl } = await uploadCsImageBuffer(req.file.buffer);
+      res.json({ url: secureUrl });
+      return;
+    }
+    // 로컬 개발 폴백: Cloudinary 미설정 시에만 디스크에 저장
+    fs.mkdirSync(csDir, { recursive: true });
+    const ext = path.extname(req.file.originalname) || '.jpg';
+    const name = `${Date.now()}-${randomBytes(8).toString('hex')}${ext}`;
+    fs.writeFileSync(path.join(csDir, name), req.file.buffer);
+    res.json({ url: `${getBaseUrl()}/uploads/cs/${name}` });
+  } catch (e) {
+    console.error('[cs-upload]', e);
+    res.status(500).json({ error: '이미지 업로드에 실패했습니다.' });
+  }
 });
 
 /** 공개: C/S 제출 */
