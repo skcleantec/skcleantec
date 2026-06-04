@@ -6,7 +6,7 @@ import { config } from '../../config/index.js';
 import { authMiddleware, type AuthPayload, type CrewViewerRole } from './auth.middleware.js';
 import { isTenantOwnerAdmin } from './tenantOwner.js';
 import { isTeamPreviewAdminEmail } from './teamPreview.helpers.js';
-import { userMayUseStagingDbImport } from '../admin/stagingDbImport.helpers.js';
+import { userMayUseStagingDbImport, userIsPlatformOperator } from '../admin/stagingDbImport.helpers.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import {
   assertTenantLoginAllowed,
@@ -207,6 +207,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     isSuperAdmin: isTenantOwnerAdmin({ ...auth, isTenantOwner: user.isTenantOwner }),
     isTenantOwner: user.isTenantOwner,
     showStagingDbImport: userMayUseStagingDbImport(user.role, user.email),
+    showVolumeStats: userIsPlatformOperator(user.role, user.email),
     tenant: tenant ? tenantSummary(tenant) : null,
     features,
     config,

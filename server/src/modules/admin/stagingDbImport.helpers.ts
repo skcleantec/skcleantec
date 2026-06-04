@@ -15,3 +15,14 @@ export function userMayUseStagingDbImport(role: string | undefined, email: strin
   const sub = config.stagingDbImport.operatorEmailSubstring.toLowerCase();
   return sub.length > 0 && em.includes(sub);
 }
+
+/**
+ * 플랫폼 운영자(소유자) 판별 — 스테이징 import 활성화 여부와 무관(운영에서도 true).
+ * 인프라 진단(볼륨 상태 등) 노출 게이트로 사용. ADMIN + 운영자 이메일 substring.
+ */
+export function userIsPlatformOperator(role: string | undefined, email: string | undefined): boolean {
+  if (role !== 'ADMIN') return false;
+  const em = (email ?? '').toLowerCase();
+  const sub = config.stagingDbImport.operatorEmailSubstring.toLowerCase();
+  return sub.length > 0 && em.includes(sub);
+}

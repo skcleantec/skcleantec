@@ -127,6 +127,7 @@ export function AdminLayout() {
   const [fabTop, setFabTop] = useState<number | null>(null);
   const fabTopRef = useRef<number | null>(null);
   const [showStagingDbImportMenu, setShowStagingDbImportMenu] = useState(false);
+  const [showVolumeStatsMenu, setShowVolumeStatsMenu] = useState(false);
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
   const [tenantPlan, setTenantPlan] = useState<string | null>(null);
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
@@ -202,6 +203,7 @@ export function AdminLayout() {
         phone?: string | null;
         vehicleNumber?: string | null;
         showStagingDbImport?: boolean;
+        showVolumeStats?: boolean;
         features?: string[];
         tenant?: { plan?: string } | null;
       }) => {
@@ -212,6 +214,7 @@ export function AdminLayout() {
         setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
         setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
         setShowStagingDbImportMenu(Boolean(u.showStagingDbImport));
+        setShowVolumeStatsMenu(Boolean(u.showVolumeStats));
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
         setTenantPlan(typeof u.tenant?.plan === 'string' ? u.tenant.plan : null);
         /** 팀·크루 미리보기: 업무 관리자(ADMIN) + 개발용 이메일 화이트리스트만. 일반 마케터는 제외 */
@@ -231,6 +234,7 @@ export function AdminLayout() {
           setMeVehicleNumber(null);
           setTeamPreviewLink(false);
           setShowStagingDbImportMenu(false);
+          setShowVolumeStatsMenu(false);
           setTenantFeatures(null);
           setTenantPlan(null);
           clearToken();
@@ -557,7 +561,7 @@ export function AdminLayout() {
             </button>
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
               {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
-              {showStagingDbImportMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
+              {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
               <UserProfileMenu
                 token={adminToken}
                 me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
@@ -746,7 +750,7 @@ export function AdminLayout() {
           </div>
           <div className="hidden md:flex items-center gap-2 sm:gap-3 shrink-0">
             {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
-            {showStagingDbImportMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
+            {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
             <UserProfileMenu
               token={adminToken}
               me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}

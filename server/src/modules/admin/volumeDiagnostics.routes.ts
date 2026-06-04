@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
+import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { userIsPlatformOperator } from './stagingDbImport.helpers.js';
 
 const router = Router();
 
@@ -25,7 +26,12 @@ function pct(used: number, total: number): number {
 }
 
 /** 관리자 전용: 앱 볼륨(업로드 경로) 용량·inode(파일 개수) 사용률 진단. 테넌트 데이터 미노출. */
-router.get('/volume-stats', authMiddleware, adminOnly, (_req: Request, res: Response) => {
+router.get('/volume-stats', authMiddleware, adminOnly, (req: Request, res: Response) => {
+  const user = (req as Request & { user?: AuthPayload }).user;
+  if (!userIsPlatformOperator(user?.role, user?.email)) {
+    res.status(403).json({ error: '이 기능을 사용할 수 없습니다.' });
+    return;
+  }
   const result: Record<string, unknown> = {
     mountPath: uploadDir,
     railwayVolumeMountPath: process.env.RAILWAY_VOLUME_MOUNT_PATH ?? null,
