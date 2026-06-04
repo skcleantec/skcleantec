@@ -28,6 +28,7 @@ import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
 import { ChangeLogBell } from '../admin/ChangeLogBell';
 import { getUnseenChangeCount, getChangeHistoryList, markChangeSeen } from '../../api/inquiryChangeLogs';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
+import { AdminVolumeStatsButton } from '../admin/AdminVolumeStatsButton';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
@@ -556,6 +557,7 @@ export function AdminLayout() {
             </button>
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
               {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
+              {showStagingDbImportMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
               <UserProfileMenu
                 token={adminToken}
                 me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
@@ -744,6 +746,7 @@ export function AdminLayout() {
           </div>
           <div className="hidden md:flex items-center gap-2 sm:gap-3 shrink-0">
             {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
+            {showStagingDbImportMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
             <UserProfileMenu
               token={adminToken}
               me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
