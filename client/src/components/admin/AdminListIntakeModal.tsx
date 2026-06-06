@@ -49,6 +49,7 @@ export function AdminListIntakeModal({
   const [memo, setMemo] = useState('');
   const [preferredMoveInCleanYmd, setPreferredMoveInCleanYmd] = useState('');
   const [kind, setKind] = useState<Kind>('deposit');
+  const [goldDb, setGoldDb] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export function AdminListIntakeModal({
       setMemo(editSeed.memo ?? '');
       setPreferredMoveInCleanYmd('');
       setKind(editSeed.depositPending ? 'deposit' : 'reserved');
+      setGoldDb(false);
       return;
     }
     const z = emptyForm();
@@ -69,6 +71,7 @@ export function AdminListIntakeModal({
     setMemo(z.memo);
     setPreferredMoveInCleanYmd(z.preferredMoveInCleanYmd);
     setKind(z.kind);
+    setGoldDb(false);
   }, [open, editMode, editInquiryId, editSeed]);
 
   const submit = async () => {
@@ -91,6 +94,7 @@ export function AdminListIntakeModal({
           customerPhone: phone.trim(),
           status,
           memo: memo.trim() || null,
+          goldDb,
           ...pmdBody,
         });
         onCommitted({ kind: 'absent_or_hold' });
@@ -128,6 +132,7 @@ export function AdminListIntakeModal({
         customerPhone: phone.trim(),
         status: fuSt,
         memo: memo.trim() || null,
+        goldDb,
         inquiryId: created.id,
         ...pmdBody,
       });
@@ -290,6 +295,21 @@ export function AdminListIntakeModal({
               </label>
             </div>
           </fieldset>
+          {!editMode && (
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 p-2 hover:bg-amber-50">
+              <input
+                type="checkbox"
+                checked={goldDb}
+                onChange={(e) => setGoldDb(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-amber-500"
+                disabled={saving}
+              />
+              <span className="text-fluid-2xs sm:text-fluid-xs">
+                <span className="font-medium text-gray-900">골드DB</span>
+                <span className="mt-0.5 block text-gray-500">부재현황에서 노란 배경으로 강조됩니다.</span>
+              </span>
+            </label>
+          )}
           <div>
             <label className="mb-1 block text-fluid-xs font-medium text-gray-700">메모</label>
             <textarea
