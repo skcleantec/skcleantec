@@ -47,6 +47,7 @@ function OperatingCompanyBadges({ items }: { items?: UserItem['operatingCompanie
             name: oc.name,
             slug: oc.slug,
             isActive: oc.isActive,
+            badgeColorKey: oc.config?.branding?.badgeColorKey ?? null,
           }}
           suffix={oc.isPrimary ? ' ·기본' : null}
         />

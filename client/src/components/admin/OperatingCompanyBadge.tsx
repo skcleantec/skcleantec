@@ -6,6 +6,7 @@ export type OperatingCompanyBadgeData = {
   name: string;
   slug?: string;
   isActive?: boolean;
+  badgeColorKey?: string | null;
 };
 
 export function OperatingCompanyBadge({
@@ -24,6 +25,7 @@ export function OperatingCompanyBadge({
     id: company.id,
     slug: company.slug,
     name: company.name,
+    badgeColorKey: company.badgeColorKey,
     inactive,
   });
   return (

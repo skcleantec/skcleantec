@@ -81,7 +81,13 @@ const scheduleListSelectLite = {
   externalTransferFee: true,
   operatingCompanyId: true,
   operatingCompany: {
-    select: { id: true, name: true, slug: true, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      isActive: true,
+      config: true,
+    },
   },
   createdBy: { select: { id: true, name: true } },
   orderForm: {
@@ -150,7 +156,7 @@ router.get('/', async (req, res) => {
         ...baseArgs,
         include: {
           operatingCompany: {
-            select: { id: true, name: true, slug: true, isActive: true },
+            select: { id: true, name: true, slug: true, isActive: true, config: true },
           },
           createdBy: { select: { id: true, name: true } },
           assignments: {

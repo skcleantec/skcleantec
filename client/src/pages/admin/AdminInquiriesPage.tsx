@@ -325,6 +325,7 @@ interface InquiryItem {
     name: string;
     slug: string;
     isActive?: boolean;
+    badgeColorKey?: string | null;
   } | null;
   assignments: Array<{
     teamLeader: {

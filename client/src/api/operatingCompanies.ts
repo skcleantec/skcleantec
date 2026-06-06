@@ -7,8 +7,14 @@ function headers(token: string) {
   };
 }
 
+import type { OperatingCompanyBadgeColorKey } from '../../../shared/operatingCompanyConfig';
+
 export type OperatingCompanyConfig = {
-  branding?: { displayName?: string; loginSubtitle?: string };
+  branding?: {
+    displayName?: string;
+    loginSubtitle?: string;
+    badgeColorKey?: OperatingCompanyBadgeColorKey;
+  };
   orderForm?: { publicSubtitle?: string };
   inquiry?: { numberPrefix?: string };
 };
@@ -37,6 +43,7 @@ export type UserOperatingCompanySummary = {
   slug: string;
   isPrimary: boolean;
   isActive: boolean;
+  config?: OperatingCompanyConfig;
 };
 
 export async function listOperatingCompanies(token: string): Promise<{ items: OperatingCompanyItem[] }> {

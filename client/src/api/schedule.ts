@@ -76,6 +76,7 @@ export interface ScheduleItem {
     name: string;
     slug: string;
     isActive?: boolean;
+    badgeColorKey?: string | null;
   } | null;
   createdBy?: { id: string; name: string } | null;
   orderForm?: {

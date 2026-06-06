@@ -2,9 +2,26 @@
  * OperatingCompany.config 파싱 — shared/operatingCompanyConfig.ts 와 동기화
  */
 
+/** shared/operatingCompanyConfig.ts OPERATING_COMPANY_BADGE_COLOR_KEYS 와 동기화 */
+export const OPERATING_COMPANY_BADGE_COLOR_KEYS = [
+  'indigo',
+  'emerald',
+  'amber',
+  'rose',
+  'sky',
+  'violet',
+  'teal',
+  'orange',
+  'fuchsia',
+  'cyan',
+] as const;
+
+export type OperatingCompanyBadgeColorKey = (typeof OPERATING_COMPANY_BADGE_COLOR_KEYS)[number];
+
 export type OperatingCompanyBrandingConfig = {
   displayName?: string;
   loginSubtitle?: string;
+  badgeColorKey?: OperatingCompanyBadgeColorKey;
 };
 
 export type OperatingCompanyOrderFormConfig = {
@@ -32,13 +49,24 @@ function trimOptionalString(raw: unknown, maxLen: number): string | undefined {
   return v.slice(0, maxLen);
 }
 
+function parseBadgeColorKey(raw: unknown): OperatingCompanyBadgeColorKey | undefined {
+  if (raw == null) return undefined;
+  if (typeof raw !== 'string') return undefined;
+  const key = raw.trim() as OperatingCompanyBadgeColorKey;
+  if (!OPERATING_COMPANY_BADGE_COLOR_KEYS.includes(key)) {
+    throw new Error('branding.badgeColorKey가 올바르지 않습니다.');
+  }
+  return key;
+}
+
 function parseBranding(raw: unknown): OperatingCompanyConfig['branding'] | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const o = raw as Record<string, unknown>;
   const displayName = trimOptionalString(o.displayName, MAX_STRING);
   const loginSubtitle = trimOptionalString(o.loginSubtitle, MAX_STRING);
-  if (!displayName && !loginSubtitle) return undefined;
-  return { displayName, loginSubtitle };
+  const badgeColorKey = parseBadgeColorKey(o.badgeColorKey);
+  if (!displayName && !loginSubtitle && !badgeColorKey) return undefined;
+  return { displayName, loginSubtitle, badgeColorKey };
 }
 
 function parseOrderForm(raw: unknown): OperatingCompanyConfig['orderForm'] | undefined {

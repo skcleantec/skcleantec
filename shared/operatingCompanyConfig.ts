@@ -2,9 +2,26 @@
  * 영업 업체(OperatingCompany) L2 설정 — `OperatingCompany.config`
  */
 
+/** 배지 팔레트 키 — `client/src/utils/operatingCompanyBadgeColors.ts` 와 동기화 */
+export const OPERATING_COMPANY_BADGE_COLOR_KEYS = [
+  'indigo',
+  'emerald',
+  'amber',
+  'rose',
+  'sky',
+  'violet',
+  'teal',
+  'orange',
+  'fuchsia',
+  'cyan',
+] as const;
+
+export type OperatingCompanyBadgeColorKey = (typeof OPERATING_COMPANY_BADGE_COLOR_KEYS)[number];
+
 export type OperatingCompanyBrandingConfig = {
   displayName?: string;
   loginSubtitle?: string;
+  badgeColorKey?: OperatingCompanyBadgeColorKey;
 };
 
 export type OperatingCompanyOrderFormConfig = {

@@ -1,3 +1,5 @@
+import { toOperatingCompanyPublicSummary } from '../operating-companies/operatingCompanyPublicSummary.js';
+
 /**
  * 인천 미추홀구 주안(주안역 인근) 기준 직선거리(km).
  * 좌표는 공개 지도 기준 대표점으로 고정한다.
@@ -27,11 +29,26 @@ export function distanceKmFromJuan(lat: number | null | undefined, lon: number |
   return Math.round(km * 10) / 10;
 }
 
+type InquiryOperatingCompanyRow = {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  config?: unknown;
+};
+
 export function attachDistanceFromJuanForInquiry<
-  T extends { addressGeoLat: number | null; addressGeoLng: number | null },
+  T extends {
+    addressGeoLat: number | null;
+    addressGeoLng: number | null;
+    operatingCompany?: InquiryOperatingCompanyRow | null;
+  },
 >(row: T): T & { distanceFromJuanKm: number | null } {
+  const operatingCompany =
+    row.operatingCompany != null ? toOperatingCompanyPublicSummary(row.operatingCompany) : row.operatingCompany;
   return {
     ...row,
+    operatingCompany,
     distanceFromJuanKm: distanceKmFromJuan(row.addressGeoLat, row.addressGeoLng),
   };
 }

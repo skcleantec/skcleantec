@@ -66,7 +66,13 @@ export function UserOperatingCompanyFields({ companies, value, onChange, disable
                   className="rounded border-gray-300"
                 />
                 <OperatingCompanyBadge
-                  company={{ id: c.id, name: c.displayName, slug: c.slug, isActive: c.isActive }}
+                  company={{
+                    id: c.id,
+                    name: c.displayName,
+                    slug: c.slug,
+                    isActive: c.isActive,
+                    badgeColorKey: c.config.branding?.badgeColorKey ?? null,
+                  }}
                 />
               </label>
               {checked ? (

@@ -8,14 +8,27 @@ import {
 } from '../../api/operatingCompanies';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
+import { OperatingCompanyBadgeColorPicker } from '../../components/admin/OperatingCompanyBadgeColorPicker';
+import type { OperatingCompanyBadgeColorKey } from '../../utils/operatingCompanyBadgeColors';
+import type { OperatingCompanyConfig } from '../../api/operatingCompanies';
 
-function emptyCreateForm() {
+type BrandForm = {
+  name: string;
+  slug: string;
+  displayName: string;
+  numberPrefix: string;
+  publicSubtitle: string;
+  badgeColorKey: OperatingCompanyBadgeColorKey | '';
+};
+
+function emptyCreateForm(): BrandForm {
   return {
     name: '',
     slug: '',
     displayName: '',
     numberPrefix: '',
     publicSubtitle: '',
+    badgeColorKey: '',
   };
 }
 
@@ -62,14 +75,20 @@ export function AdminOperatingCompaniesPage() {
       displayName: row.config.branding?.displayName ?? '',
       numberPrefix: row.config.inquiry?.numberPrefix ?? '',
       publicSubtitle: row.config.orderForm?.publicSubtitle ?? '',
+      badgeColorKey: row.config.branding?.badgeColorKey ?? '',
     });
   };
 
-  const buildConfig = (f: typeof form) => ({
-    branding: f.displayName.trim() ? { displayName: f.displayName.trim() } : undefined,
-    orderForm: f.publicSubtitle.trim() ? { publicSubtitle: f.publicSubtitle.trim() } : undefined,
-    inquiry: f.numberPrefix.trim() ? { numberPrefix: f.numberPrefix.trim() } : undefined,
-  });
+  const buildConfig = (f: BrandForm): OperatingCompanyConfig => {
+    const branding: NonNullable<OperatingCompanyConfig['branding']> = {};
+    if (f.displayName.trim()) branding.displayName = f.displayName.trim();
+    if (f.badgeColorKey) branding.badgeColorKey = f.badgeColorKey;
+    return {
+      branding: Object.keys(branding).length > 0 ? branding : undefined,
+      orderForm: f.publicSubtitle.trim() ? { publicSubtitle: f.publicSubtitle.trim() } : undefined,
+      inquiry: f.numberPrefix.trim() ? { numberPrefix: f.numberPrefix.trim() } : undefined,
+    };
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,7 +209,7 @@ export function AdminOperatingCompaniesPage() {
                 <thead>
                   <tr className="bg-gray-100 text-gray-600">
                     <th className="px-3 py-2 text-center font-medium">표시명</th>
-                    <th className="px-3 py-2 text-center font-medium">영문 slug</th>
+                    <th className="px-3 py-2 text-center font-medium">영문 표시명</th>
                     <th className="px-3 py-2 text-center font-medium">접수 접두</th>
                     <th className="px-3 py-2 text-center font-medium">상태</th>
                     <th className="px-3 py-2 text-center font-medium">기본</th>
@@ -207,6 +226,7 @@ export function AdminOperatingCompaniesPage() {
                             name: row.displayName,
                             slug: row.slug,
                             isActive: row.isActive,
+                            badgeColorKey: row.config.branding?.badgeColorKey ?? null,
                           }}
                           suffix={row.isDefault ? ' ·기본' : null}
                         />
@@ -269,6 +289,7 @@ export function AdminOperatingCompaniesPage() {
                           name: row.displayName,
                           slug: row.slug,
                           isActive: row.isActive,
+                          badgeColorKey: row.config.branding?.badgeColorKey ?? null,
                         }}
                         suffix={row.isDefault ? ' ·기본' : null}
                       />
@@ -331,18 +352,15 @@ export function AdminOperatingCompaniesPage() {
                     }));
                   }}
                   className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  placeholder="예: 타나클린"
                 />
               </label>
               <label className="block text-sm">
-                <span className="font-medium text-gray-800">영문 slug</span>
-                <span className="block text-xs text-gray-500 mt-0.5">고객 링크 ?brand= 값</span>
+                <span className="font-medium text-gray-800">영문 표시명</span>
                 <input
                   required
                   value={form.slug}
                   onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value.toLowerCase() }))}
                   className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono"
-                  placeholder="tanaclean"
                 />
               </label>
               <label className="block text-sm">
@@ -351,7 +369,6 @@ export function AdminOperatingCompaniesPage() {
                   value={form.displayName}
                   onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
                   className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  placeholder="비우면 표시명과 동일"
                 />
               </label>
               <label className="block text-sm">
@@ -360,7 +377,6 @@ export function AdminOperatingCompaniesPage() {
                   value={form.numberPrefix}
                   onChange={(e) => setForm((f) => ({ ...f, numberPrefix: e.target.value }))}
                   className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono"
-                  placeholder="예: TN-"
                 />
               </label>
               <label className="block text-sm">
@@ -371,6 +387,17 @@ export function AdminOperatingCompaniesPage() {
                   className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm"
                 />
               </label>
+              <div className="block text-sm">
+                <span className="font-medium text-gray-800">브랜드 표시 색상 (선택)</span>
+                <div className="mt-2">
+                  <OperatingCompanyBadgeColorPicker
+                    value={form.badgeColorKey}
+                    onChange={(badgeColorKey) => setForm((f) => ({ ...f, badgeColorKey }))}
+                    previewName={form.displayName.trim() || form.name.trim()}
+                    previewSlug={form.slug.trim() || undefined}
+                  />
+                </div>
+              </div>
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
@@ -410,7 +437,7 @@ export function AdminOperatingCompaniesPage() {
                 />
               </label>
               <label className="block text-sm">
-                <span className="font-medium text-gray-800">영문 slug</span>
+                <span className="font-medium text-gray-800">영문 표시명</span>
                 <input
                   required
                   value={editForm.slug}
@@ -446,6 +473,18 @@ export function AdminOperatingCompaniesPage() {
                   className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm"
                 />
               </label>
+              <div className="block text-sm">
+                <span className="font-medium text-gray-800">브랜드 표시 색상 (선택)</span>
+                <div className="mt-2">
+                  <OperatingCompanyBadgeColorPicker
+                    value={editForm.badgeColorKey}
+                    onChange={(badgeColorKey) => setEditForm((f) => ({ ...f, badgeColorKey }))}
+                    previewName={editForm.displayName.trim() || editForm.name.trim()}
+                    previewSlug={editForm.slug.trim() || undefined}
+                    previewId={editing.id}
+                  />
+                </div>
+              </div>
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"

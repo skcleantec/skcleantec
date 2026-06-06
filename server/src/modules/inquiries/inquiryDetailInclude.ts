@@ -1,3 +1,4 @@
+import { operatingCompanySummarySelect } from '../operating-companies/operatingCompanyPublicSummary.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 
 /** 발주서 양식(템플릿) 정체성 + 추가 항목 라벨 — 접수 상세 배지·추가정보 표시용 */
@@ -13,13 +14,7 @@ export const orderFormTemplateSelect = {
   },
 } as const;
 
-/** 목록·상세 공통 — 영업 브랜드 요약 */
-export const operatingCompanySummarySelect = {
-  id: true,
-  name: true,
-  slug: true,
-  isActive: true,
-} as const;
+export { operatingCompanySummarySelect };
 
 /** 단일 접수 상세(GET /:id, PATCH 응답 등) 공통 include */
 export const inquiryDetailInclude = {
