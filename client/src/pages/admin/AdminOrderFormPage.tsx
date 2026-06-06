@@ -362,16 +362,20 @@ export function AdminOrderFormPage() {
     setIssueFormKey((k) => k + 1);
   };
 
-  const getOrderLink = (orderToken: string) => getOrderFormPublicUrl(orderToken);
+  const brandSlugForOrder = (order: OrderForm) => order.operatingCompany?.slug ?? null;
 
-  const getOrderMessage = (order: OrderForm) => buildOrderFormCustomerMessage(msgConfig, order);
+  const getOrderLink = (orderToken: string, brandSlug?: string | null) =>
+    getOrderFormPublicUrl(orderToken, undefined, undefined, brandSlug);
+
+  const getOrderMessage = (order: OrderForm) =>
+    buildOrderFormCustomerMessage(msgConfig, order, undefined, undefined, brandSlugForOrder(order));
 
   const handleCopyPreviewModal = async () => {
     if (!previewModal) return;
     const text =
       previewModal.kind === 'message'
         ? getOrderMessage(previewModal.order)
-        : getOrderLink(previewModal.order.token);
+        : getOrderLink(previewModal.order.token, brandSlugForOrder(previewModal.order));
     const ok = await copyTextToClipboard(text);
     alert(
       ok
@@ -380,8 +384,8 @@ export function AdminOrderFormPage() {
     );
   };
 
-  const openInNewTab = (orderToken: string) => {
-    window.open(getOrderLink(orderToken), '_blank', 'noopener');
+  const openInNewTab = (order: OrderForm) => {
+    window.open(getOrderLink(order.token, brandSlugForOrder(order)), '_blank', 'noopener');
   };
 
   const openPhotosModal = useCallback(async (order: OrderForm) => {
@@ -572,7 +576,7 @@ export function AdminOrderFormPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => openInNewTab(newOrder.token)}
+                        onClick={() => openInNewTab(newOrder)}
                         className="rounded-md border border-gray-300 bg-white px-4 py-2 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
                       >
                         새 창에서 열기
@@ -827,7 +831,7 @@ export function AdminOrderFormPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => openInNewTab(o.token)}
+                            onClick={() => openInNewTab(o)}
                             className="text-fluid-xs text-gray-600 hover:underline"
                           >
                             새 창
@@ -978,7 +982,7 @@ export function AdminOrderFormPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => openInNewTab(o.token)}
+                                    onClick={() => openInNewTab(o)}
                                     className="shrink-0 text-fluid-2xs text-gray-600 hover:underline xl:text-fluid-xs"
                                   >
                                     새 창
@@ -1093,7 +1097,7 @@ export function AdminOrderFormPage() {
                       readOnly
                       rows={4}
                       className="w-full resize-none rounded border border-gray-300 bg-white px-3 py-2 font-mono text-sm text-gray-900"
-                      value={getOrderLink(previewModal.order.token)}
+                      value={getOrderLink(previewModal.order.token, brandSlugForOrder(previewModal.order))}
                       onFocus={(e) => e.target.select()}
                     />
                   </label>

@@ -1601,7 +1601,11 @@ export function AdminInquiriesPage() {
       alert('발주서 토큰이 없어 새 창을 열 수 없습니다. 접수 상세에서 발주서 연결을 확인해 주세요.');
       return;
     }
-    window.open(getOrderFormPublicUrl(tk), '_blank', 'noopener');
+    window.open(
+      getOrderFormPublicUrl(tk, undefined, undefined, item.operatingCompany?.slug ?? null),
+      '_blank',
+      'noopener',
+    );
   };
 
   const handleCopyOrderCustomerPreview = async () => {
@@ -1613,7 +1617,10 @@ export function AdminInquiriesPage() {
       }
       const text = buildOrderFormCustomerMessage(
         orderCustomerPreviewMsgConfig,
-        orderCustomerPreview.order
+        orderCustomerPreview.order,
+        undefined,
+        undefined,
+        orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
       );
       const ok = await copyTextToClipboard(text);
       alert(
@@ -1623,7 +1630,14 @@ export function AdminInquiriesPage() {
       );
       return;
     }
-    const ok = await copyTextToClipboard(getOrderFormPublicUrl(orderCustomerPreview.order.token));
+    const ok = await copyTextToClipboard(
+      getOrderFormPublicUrl(
+        orderCustomerPreview.order.token,
+        undefined,
+        undefined,
+        orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
+      ),
+    );
     alert(
       ok
         ? '클립보드에 복사했습니다.'
@@ -3143,7 +3157,10 @@ export function AdminInquiriesPage() {
                     <pre className="whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-3 font-sans text-sm text-gray-800">
                       {buildOrderFormCustomerMessage(
                         orderCustomerPreviewMsgConfig,
-                        orderCustomerPreview.order
+                        orderCustomerPreview.order,
+                        undefined,
+                        undefined,
+                        orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
                       )}
                     </pre>
                   )
@@ -3154,7 +3171,12 @@ export function AdminInquiriesPage() {
                       readOnly
                       rows={4}
                       className="w-full resize-none rounded border border-gray-300 bg-white px-3 py-2 font-mono text-sm text-gray-900"
-                      value={getOrderFormPublicUrl(orderCustomerPreview.order.token)}
+                      value={getOrderFormPublicUrl(
+                        orderCustomerPreview.order.token,
+                        undefined,
+                        undefined,
+                        orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
+                      )}
                       onFocus={(e) => e.target.select()}
                     />
                   </label>

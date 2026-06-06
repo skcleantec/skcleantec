@@ -1,5 +1,5 @@
 import { API } from './apiPrefix';
-import { appendPublicTenantQuery } from '../utils/publicTenantQuery';
+import { appendPublicQuery } from '../utils/publicTenantQuery';
 import { resolveInitialTenantSlug } from '../utils/tenantHostResolve';
 
 function authHeaders(token: string) {
@@ -78,7 +78,7 @@ export interface CsReport {
 export async function uploadCsImage(file: File): Promise<{ url: string }> {
   const form = new FormData();
   form.append('image', file);
-  const res = await fetch(appendPublicTenantQuery(`${API}/cs/upload`), {
+  const res = await fetch(appendPublicQuery(`${API}/cs/upload`), {
     method: 'POST',
     body: form,
   });

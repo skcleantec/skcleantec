@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../auth/auth.middleware.js';
+import { prisma } from '../../lib/prisma.js';
+import { resolvePublicBrandingBySlug } from '../operating-companies/publicOperatingCompanyBranding.js';
 import { requireTenantAuth, type TenantScopedRequest } from './tenant.middleware.js';
 import { getTenantCapabilities } from './tenantFeatures.service.js';
 import { readRequestHost, resolveTenantSlugFromHost } from './tenantHostResolve.js';
@@ -40,20 +42,38 @@ router.get('/resolve-host', async (req, res) => {
   }
 });
 
-/** 공개 — C/S·발주서 등 고객 화면용 업체 표시명 */
+/** 공개 — C/S·발주서 등 고객 화면용 업체 표시명 (`?brand=` 시 영업 브랜드 표시명) */
 router.get('/public-info', async (req, res) => {
   const slugRaw = typeof req.query.slug === 'string' ? req.query.slug.trim() : '';
   if (!slugRaw) {
     res.status(400).json({ error: 'slug가 필요합니다.' });
     return;
   }
+  const brandRaw = typeof req.query.brand === 'string' ? req.query.brand.trim() : '';
   try {
     const tenant = await resolveTenantBySlug(slugRaw);
     await assertTenantLoginAllowed(tenant.status);
     const config = await getTenantConfig(tenant.id);
-    const displayName = config.branding?.displayName?.trim() || tenant.name;
-    const loginSubtitle = config.branding?.loginSubtitle?.trim() || null;
-    res.json({ slug: tenant.slug, name: tenant.name, displayName, loginSubtitle });
+    let displayName = config.branding?.displayName?.trim() || tenant.name;
+    let loginSubtitle = config.branding?.loginSubtitle?.trim() || null;
+    let brandSlug: string | null = null;
+    let publicSubtitle: string | null = null;
+    if (brandRaw) {
+      const branding = await resolvePublicBrandingBySlug(prisma, tenant.id, brandRaw);
+      if (branding) {
+        displayName = branding.displayName;
+        publicSubtitle = branding.publicSubtitle;
+        brandSlug = branding.slug;
+      }
+    }
+    res.json({
+      slug: tenant.slug,
+      name: tenant.name,
+      displayName,
+      loginSubtitle,
+      brandSlug,
+      publicSubtitle,
+    });
   } catch (e) {
     if (e instanceof TenantNotFoundError) {
       res.status(404).json({ error: e.message });

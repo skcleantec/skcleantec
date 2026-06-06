@@ -123,6 +123,7 @@ model OperatingCompany {
 
   userMemberships   UserOperatingCompany[]
   inquiries         Inquiry[]
+  orderForms        OrderForm[]
   dailyCounters     DailyInquiryCounter[]
 
   @@unique([tenantId, slug])
@@ -1264,6 +1265,9 @@ model OrderForm {
   id              String   @id @default(uuid())
   tenantId        String   @map("tenant_id")
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// 발급 시 고정 — 고객 링크·제출 시 브랜드 귀속
+  operatingCompanyId String? @map("operating_company_id")
+  operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
   token           String   @unique
   customerName    String   @map("customer_name")
   /// 발급 시 관리자가 넣는 대표 연락처(선택) — 고객 발주서 전화란에 자동 반영
@@ -1302,6 +1306,7 @@ model OrderForm {
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
   @@index([tenantId, templateId])
+  @@index([tenantId, operatingCompanyId])
   @@map("order_forms")
 }
 

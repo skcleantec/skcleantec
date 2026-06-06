@@ -56,6 +56,8 @@ import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
 import { OrderFormSubmissionReceiptView } from '../../components/orderform/OrderFormSubmissionReceiptView';
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import type { PublicOperatingCompanyBranding } from '../../api/orderform';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -187,10 +189,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     /** 마케터 선입력 값 {key: value} — 있는 키는 고객 화면에서 읽기전용(잠금) */
     prefillAnswers?: Record<string, unknown> | null;
   } | null>(null);
+  const [publicBranding, setPublicBranding] = useState<PublicOperatingCompanyBranding | null>(null);
   /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
   const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submittedReceipt, setSubmittedReceipt] = useState<OrderFormPublicSubmitted | null>(null);
+  useDocumentTitle(
+    publicBranding?.displayName ||
+      submittedReceipt?.publicBranding?.displayName ||
+      orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle),
+  );
   const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
   /** 면적 기준 선택 전 안내·확인 */
   const [areaBasisAckModal, setAreaBasisAckModal] = useState<null | '공급' | '전용'>(null);
@@ -379,11 +387,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         if (!data) return;
         if (isOrderFormPublicSubmitted(data)) {
           setSubmittedReceipt(data);
+          setPublicBranding(data.publicBranding ?? null);
           setOrder(null);
           setError(null);
           return;
         }
         setSubmittedReceipt(null);
+        setPublicBranding(data.publicBranding ?? null);
         const pf =
           data.prefillAnswers && typeof data.prefillAnswers === 'object'
             ? (data.prefillAnswers as Record<string, unknown>)
@@ -841,10 +851,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
         )}
         <h1 className="text-lg font-semibold text-gray-900 mb-1 whitespace-pre-line">
-          {order?.template?.title && !order.template.isDefault
-            ? `${order.template.icon ? `${order.template.icon} ` : ''}${order.template.title}`
-            : orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle)}
+          {publicBranding?.displayName ||
+            (order?.template?.title && !order.template.isDefault
+              ? `${order.template.icon ? `${order.template.icon} ` : ''}${order.template.title}`
+              : orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle))}
         </h1>
+        {publicBranding?.publicSubtitle ? (
+          <p className="mb-1 text-xs text-gray-500 whitespace-pre-line">{publicBranding.publicSubtitle}</p>
+        ) : null}
         {order?.template?.description && !order.template.isDefault ? (
           <p className="mb-1 text-xs text-gray-500 whitespace-pre-line">{order.template.description}</p>
         ) : null}

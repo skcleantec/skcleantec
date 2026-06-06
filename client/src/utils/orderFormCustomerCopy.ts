@@ -4,7 +4,7 @@ import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
 } from '../constants/orderFormConfigDefaults';
-import { appendPublicTenantQuery } from './publicTenantQuery';
+import { appendPublicQuery } from './publicTenantQuery';
 
 type FormMsgDefaultKey = keyof typeof ORDER_FORM_CONFIG_DEFAULTS;
 
@@ -55,18 +55,30 @@ export function labelOrderFormIssuer(user: OrderFormCreatedBy | null | undefined
   return user.name.trim();
 }
 
-export function getOrderFormPublicUrl(orderToken: string, origin?: string, tenantSlug?: string | null): string {
+export function getOrderFormPublicUrl(
+  orderToken: string,
+  origin?: string,
+  tenantSlug?: string | null,
+  brandSlug?: string | null,
+): string {
   const base =
     origin ??
     (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
-  return appendPublicTenantQuery(`${base}/order/${encodeURIComponent(orderToken)}`, tenantSlug);
+  return appendPublicQuery(`${base}/order/${encodeURIComponent(orderToken)}`, {
+    tenantSlug,
+    brandSlug,
+  });
 }
 
-export function getCsPublicUrl(origin?: string, tenantSlug?: string | null): string {
+export function getCsPublicUrl(
+  origin?: string,
+  tenantSlug?: string | null,
+  brandSlug?: string | null,
+): string {
   const base =
     origin ??
     (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
-  return appendPublicTenantQuery(`${base}/cs`, tenantSlug);
+  return appendPublicQuery(`${base}/cs`, { tenantSlug, brandSlug });
 }
 
 /** 고객에게 보낼 안내 메시지 (발주서 목록·접수 목록 공통) */
@@ -82,10 +94,12 @@ export function buildOrderFormCustomerMessage(
     preferredTimeDetail?: string | null;
     optionNote?: string | null;
   },
-  origin?: string
+  origin?: string,
+  tenantSlug?: string | null,
+  brandSlug?: string | null,
 ): string {
-  const link = getOrderFormPublicUrl(order.token, origin);
-  const csLink = getCsPublicUrl(origin);
+  const link = getOrderFormPublicUrl(order.token, origin, tenantSlug, brandSlug);
+  const csLink = getCsPublicUrl(origin, tenantSlug, brandSlug);
   const title = withDefaultText(msgConfig.formTitle, 'formTitle');
   const priceLabel = withDefaultText(msgConfig.priceLabel, 'priceLabel');
   // 리뷰 문구는 비우면 숨김 (normalizeMsgConfigForEditor에서 ''는 그대로 유지)
