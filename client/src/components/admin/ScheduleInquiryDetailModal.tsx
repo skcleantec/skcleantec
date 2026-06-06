@@ -43,6 +43,7 @@ import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import { scheduleItemHasLeaderWithSingleAssignmentOnDay } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
+import { PropertyTypeSticker } from '../ui/PropertyTypeSticker';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
 import { InquiryConsultationPhotosPanel } from '../inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../inquiry/AdminOrderFormPhotosPanel';
@@ -1461,6 +1462,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex items-center gap-2">
                 <p className="min-w-0 truncate text-base font-semibold text-gray-900">{item.customerName}</p>
+                <PropertyTypeSticker
+                  propertyType={editForm.propertyType?.trim() || item.propertyType}
+                  isOneRoom={editForm.isOneRoom}
+                  className="shrink-0"
+                />
                 {item.orderForm?.template && !item.orderForm.template.isDefault ? (
                   <OrderFormTemplateBadge template={item.orderForm.template} className="shrink-0" />
                 ) : null}

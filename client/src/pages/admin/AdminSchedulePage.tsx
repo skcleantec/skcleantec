@@ -43,6 +43,7 @@ import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminSchedule
 import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
+import { PropertyTypeSticker } from '../../components/ui/PropertyTypeSticker';
 import {
   formatDateCompactWithWeekday,
   formatPreferredDateInputYmd,
@@ -398,8 +399,15 @@ function ScheduleDayListItem({
             className="min-w-0 flex-1 text-left font-medium text-gray-900 inline-flex items-center gap-1.5 flex-wrap"
           >
             <span className="min-w-0 inline-flex flex-col items-start gap-0 leading-tight">
-              <span className="truncate max-w-full font-medium" title={primaryCustomerLabel}>
-                {primaryCustomerLabel}
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                <span className="truncate font-medium" title={primaryCustomerLabel}>
+                  {primaryCustomerLabel}
+                </span>
+                <PropertyTypeSticker
+                  propertyType={item.propertyType}
+                  isOneRoom={item.isOneRoom}
+                  className="shrink-0"
+                />
               </span>
               {phoneForExtra ? (
                 <span className="text-fluid-2xs text-gray-600 tabular-nums truncate max-w-[min(100%,14rem)]">
