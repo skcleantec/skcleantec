@@ -10,6 +10,10 @@ import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { notifyNewAssignmentForInquiry } from '../push/inquiryTeamWebPush.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import {
+  assertTeamLeadersMatchInquiryBrand,
+  OperatingCompanyAssignmentError,
+} from '../operating-companies/operatingCompanyAssignment.js';
 
 const router = Router();
 
@@ -46,7 +50,15 @@ router.post('/', async (req, res) => {
         isActive: true,
         role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER', 'ADMIN'] },
       },
-      select: { id: true, role: true, email: true, hireDate: true, resignationDate: true, externalCompanyId: true },
+      select: {
+        id: true,
+        role: true,
+        email: true,
+        name: true,
+        hireDate: true,
+        resignationDate: true,
+        externalCompanyId: true,
+      },
     }),
   ]);
 
@@ -75,6 +87,21 @@ router.post('/', async (req, res) => {
       res.status(400).json({ error: '해당 예약일에 배정할 수 없는 팀장 계정입니다.' });
       return;
     }
+  }
+
+  try {
+    await assertTeamLeadersMatchInquiryBrand({
+      db: prisma,
+      tenantId,
+      inquiryOperatingCompanyId: inquiry.operatingCompanyId,
+      assignees: [teamLeader],
+    });
+  } catch (e) {
+    if (e instanceof OperatingCompanyAssignmentError) {
+      res.status(400).json({ error: e.message });
+      return;
+    }
+    throw e;
   }
 
   if (inquiry.status === 'CANCELLED' || inquiry.status === 'ON_HOLD') {

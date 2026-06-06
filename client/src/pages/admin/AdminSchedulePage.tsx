@@ -816,7 +816,9 @@ export function AdminSchedulePage() {
   useEffect(() => {
     if (!token) return;
     const ymd = createInquiryModalDate ?? selectedDate ?? kstTodayYmd();
-    getAssignableScheduleUsers(token, ymd).then(setTeamLeaders).catch(() => setTeamLeaders([]));
+    getAssignableScheduleUsers(token, { employedOn: ymd })
+      .then((r) => setTeamLeaders(r.items))
+      .catch(() => setTeamLeaders([]));
   }, [token, selectedDate, createInquiryModalDate]);
 
   useEffect(() => {

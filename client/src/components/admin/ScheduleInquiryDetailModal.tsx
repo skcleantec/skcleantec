@@ -8,7 +8,12 @@ import {
   updateInquiry,
 } from '../../api/inquiries';
 import { createOrderFollowup } from '../../api/orderFollowups';
-import { formatAssignableUserLabel, type UserItem } from '../../api/users';
+import {
+  formatAssignableUserLabel,
+  getAssignableScheduleUsers,
+  type AssignableScheduleUsersResponse,
+  type UserItem,
+} from '../../api/users';
 import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } from '../../api/teams';
 import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../../api/schedule';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
@@ -609,6 +614,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [marketerQuickValue, setMarketerQuickValue] = useState('');
   const [copyHint, setCopyHint] = useState<string | null>(null);
   const [operatingCompanyOptions, setOperatingCompanyOptions] = useState<OperatingCompanyItem[]>([]);
+  const [assignableTeamLeaders, setAssignableTeamLeaders] = useState<UserItem[]>(teamLeaders);
+  const [assignmentPolicy, setAssignmentPolicy] = useState<
+    AssignableScheduleUsersResponse['policy']
+  >({ assignmentMode: 'relaxed', teamLeaderListMode: 'tenant_all_read' });
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
@@ -841,39 +850,78 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       /** 팀장 드롭다운에는 타업체 계정 제외 — 타업체는 「정산」의 타업체 담당에서만 지정 */
       const base =
         ids == null
-          ? teamLeaders.filter((t) => t.role !== 'EXTERNAL_PARTNER')
-          : teamLeaders.filter(
+          ? assignableTeamLeaders.filter((t) => t.role !== 'EXTERNAL_PARTNER')
+          : assignableTeamLeaders.filter(
               (t) =>
                 t.role !== 'EXTERNAL_PARTNER' &&
                 (ids.includes(t.id) || (t.role === 'ADMIN' && meUser != null && t.id === meUser.id))
             );
       const allowed = base.filter((t) => !otherSelected.has(t.id) || t.id === curId);
-      const cur = teamLeaders.find((t) => t.id === curId);
+      const cur = assignableTeamLeaders.find((t) => t.id === curId);
       if (curId && cur && !allowed.some((t) => t.id === curId)) {
         if (cur.role === 'EXTERNAL_PARTNER') return allowed;
         return [...allowed, cur];
       }
       return allowed;
     };
-  }, [teamLeaders, assignableLeaderIdsForSlot, editForm.teamLeaderIds, meUser]);
+  }, [assignableTeamLeaders, assignableLeaderIdsForSlot, editForm.teamLeaderIds, meUser]);
 
   /** 배정 타업체 계정 하나만 — 정산의 타업체 담당 드롭다운과 동기화 */
   const resolvedExternalLeadId = useMemo(() => {
     for (const id of editForm.teamLeaderIds) {
-      const u = teamLeaders.find((t) => t.id === id);
+      const u = assignableTeamLeaders.find((t) => t.id === id);
       if (!id.trim()) continue;
       if (u?.role === 'EXTERNAL_PARTNER') return id;
     }
     return '';
-  }, [editForm.teamLeaderIds, teamLeaders]);
+  }, [editForm.teamLeaderIds, assignableTeamLeaders]);
 
   const externalPartnerOptions = useMemo(
     () =>
-      teamLeaders
+      assignableTeamLeaders
         .filter((t) => t.role === 'EXTERNAL_PARTNER')
         .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko')),
-    [teamLeaders]
+    [assignableTeamLeaders]
   );
+
+  const inquiryOperatingCompanyIdForAssign = useMemo(
+    () =>
+      editForm.operatingCompanyId.trim() ||
+      item?.operatingCompanyId ||
+      item?.operatingCompany?.id ||
+      '',
+    [editForm.operatingCompanyId, item?.operatingCompanyId, item?.operatingCompany?.id],
+  );
+
+  useEffect(() => {
+    setAssignableTeamLeaders(teamLeaders);
+  }, [teamLeaders]);
+
+  useEffect(() => {
+    if (!token) return;
+    const ymd = editForm.preferredDate?.trim().slice(0, 10);
+    let cancelled = false;
+    void getAssignableScheduleUsers(token, {
+      employedOn: ymd || undefined,
+      operatingCompanyId: inquiryOperatingCompanyIdForAssign || undefined,
+    })
+      .then((r) => {
+        if (cancelled) return;
+        setAssignableTeamLeaders(r.items);
+        setAssignmentPolicy(r.policy);
+      })
+      .catch(() => {
+        if (!cancelled) setAssignableTeamLeaders(teamLeaders);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    token,
+    editForm.preferredDate,
+    inquiryOperatingCompanyIdForAssign,
+    teamLeaders,
+  ]);
 
   useEffect(() => {
     if (!item) return;
@@ -939,7 +987,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
   useEffect(() => {
     const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';
-    const leaderId = resolveTeamLeaderIdForCrewSpacing(editForm.teamLeaderIds, teamLeaders);
+    const leaderId = resolveTeamLeaderIdForCrewSpacing(editForm.teamLeaderIds, assignableTeamLeaders);
     if (!token || !leaderId || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
       setCrewSpacingByMemberName({});
       return;
@@ -956,7 +1004,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return () => {
       cancelled = true;
     };
-  }, [token, editForm.preferredDate, editForm.teamLeaderIds, teamLeaders]);
+  }, [token, editForm.preferredDate, editForm.teamLeaderIds, assignableTeamLeaders]);
 
   const crewPickOptions = useMemo(
     () => mergeCrewPickPoolWithSelections(poolTeamMembers, editForm.crewMemberNames),
@@ -1984,7 +2032,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 setEditForm((p) => {
                   if (v === '') {
                     const keep = p.teamLeaderIds.filter((id) => {
-                      const u = teamLeaders.find((x) => x.id === id);
+                      const u = assignableTeamLeaders.find((x) => x.id === id);
                       return id.trim() !== '' && u?.role !== 'EXTERNAL_PARTNER';
                     });
                     return { ...p, teamLeaderIds: keep.length > 0 ? keep : [''] };
@@ -2348,6 +2396,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           ) : null}
           <div className="sm:col-span-2 space-y-2">
             <label className="block text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
+            {assignmentPolicy.assignmentMode === 'strict' && inquiryOperatingCompanyIdForAssign ? (
+              <p className="text-fluid-xs text-indigo-900 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 leading-snug">
+                엄격 배정: 이 접수 영업 브랜드에 소속된 팀장만 선택할 수 있습니다.
+              </p>
+            ) : null}
             {resolvedExternalLeadId ? (
               <div
                 className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-sm text-amber-950"
@@ -2356,7 +2409,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 <span className="font-medium">타업체 담당 지정됨</span> — 자사 팀장은 함께 지정할 수
                 없습니다. 담당 변경은 위 「정산 · 옵션」의 《타업체 담당》에서 하세요.
                 {(() => {
-                  const u = teamLeaders.find((t) => t.id === resolvedExternalLeadId);
+                  const u = assignableTeamLeaders.find((t) => t.id === resolvedExternalLeadId);
                   return u ? (
                     <span className="mt-1 block text-xs text-amber-900/95">
                       선택: {formatAssignableUserLabel(u)}

@@ -35,6 +35,10 @@ import {
   listTeamAssignmentsPaginated,
   parseTeamAssignmentListQuery,
 } from './teamAssignmentList.js';
+import {
+  buildTeamLeaderInquiryBrandFilter,
+  mergeInquiryWhere,
+} from '../operating-companies/operatingCompanyAssignment.js';
 
 const router = Router();
 
@@ -866,14 +870,19 @@ router.get('/inquiries', async (req, res) => {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
+  const brandScope = await buildTeamLeaderInquiryBrandFilter(prisma, tenantId, userId);
   const hasPaging = typeof req.query.limit === 'string';
   if (!hasPaging) {
     const rows = await prisma.inquiry.findMany({
-      where: {
-        assignments: {
-          some: { teamLeaderId: userId },
+      where: mergeInquiryWhere(
+        {
+          tenantId,
+          assignments: {
+            some: { teamLeaderId: userId },
+          },
         },
-      },
+        brandScope,
+      ),
       orderBy: { preferredDate: 'asc' },
       include: teamInquiryInclude,
     });
@@ -883,11 +892,17 @@ router.get('/inquiries', async (req, res) => {
   }
   try {
     const parsed = parseTeamAssignmentListQuery(req.query as Record<string, unknown>);
-    const { items, total } = await listTeamAssignmentsPaginated(prisma, userId, parsed, {
-      teamInquiryInclude,
-      attachCrewMembers: async (rows) =>
-        attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId),
-    });
+    const { items, total } = await listTeamAssignmentsPaginated(
+      prisma,
+      userId,
+      parsed,
+      {
+        teamInquiryInclude,
+        attachCrewMembers: async (rows) =>
+          attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId),
+      },
+      brandScope ? { AND: [{ tenantId }, brandScope] } : { tenantId },
+    );
     res.json({ items, total });
   } catch (e) {
     console.error('[GET /team/inquiries]', e);
@@ -920,14 +935,19 @@ router.get('/schedule', async (req, res) => {
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   }
 
+  const brandScope = await buildTeamLeaderInquiryBrandFilter(prisma, tenantId, userId);
   const rows = await prisma.inquiry.findMany({
-    where: {
-      preferredDate: { gte: startDate, lte: endDate },
-      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-      assignments: {
-        some: { teamLeaderId: userId },
+    where: mergeInquiryWhere(
+      {
+        tenantId,
+        preferredDate: { gte: startDate, lte: endDate },
+        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+        assignments: {
+          some: { teamLeaderId: userId },
+        },
       },
-    },
+      brandScope,
+    ),
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     include: teamInquiryInclude,
   });

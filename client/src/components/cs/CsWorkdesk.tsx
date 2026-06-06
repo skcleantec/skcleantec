@@ -252,7 +252,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       return;
     }
     getAssignableScheduleUsers(token)
-      .then(setForwardOptions)
+      .then((r) => setForwardOptions(r.items))
       .catch(() => setForwardOptions([]));
   }, [mode, token]);
 

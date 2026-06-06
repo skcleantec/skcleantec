@@ -1116,7 +1116,9 @@ export function AdminInquiriesPage() {
 
   useEffect(() => {
     if (!token) return;
-    getAssignableScheduleUsers(token).then(setTeamLeaders).catch(() => setTeamLeaders([]));
+    getAssignableScheduleUsers(token)
+      .then((r) => setTeamLeaders(r.items))
+      .catch(() => setTeamLeaders([]));
   }, [token]);
 
   const patchInquiryListSearchParams = useCallback(

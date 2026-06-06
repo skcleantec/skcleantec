@@ -76,10 +76,12 @@ function inquiryListWhere(
   range: { gte: Date; lte: Date } | null,
   status?: string,
   q?: string,
+  extraInquiryWhere?: Prisma.InquiryWhereInput | null,
 ): Prisma.InquiryWhereInput {
   const parts: Prisma.InquiryWhereInput[] = [
     { assignments: { some: { teamLeaderId: userId } } },
   ];
+  if (extraInquiryWhere) parts.push(extraInquiryWhere);
   if (status && VALID_STATUS.has(status)) {
     parts.push({ status: status as InquiryStatus });
   }
@@ -113,6 +115,7 @@ export async function listTeamAssignmentsPaginated(
   userId: string,
   rawQuery: TeamAssignmentListQuery,
   deps: TeamAssignmentListDeps,
+  extraInquiryWhere?: Prisma.InquiryWhereInput | null,
 ): Promise<{ items: Awaited<ReturnType<PrismaClient['inquiry']['findMany']>>; total: number }> {
   const basis = parseTeamAssignmentDateBasis(rawQuery.dateBasis);
   const preset = parseDatePreset(rawQuery.datePreset);
@@ -139,6 +142,11 @@ export async function listTeamAssignmentsPaginated(
     if (q) {
       assignmentWhere = {
         AND: [assignmentWhere, { inquiry: searchWhere(q) }],
+      };
+    }
+    if (extraInquiryWhere) {
+      assignmentWhere = {
+        AND: [assignmentWhere, { inquiry: extraInquiryWhere }],
       };
     }
 
@@ -168,7 +176,7 @@ export async function listTeamAssignmentsPaginated(
     return { items, total };
   }
 
-  const where = inquiryListWhere(userId, basis, range, status, q);
+  const where = inquiryListWhere(userId, basis, range, status, q, extraInquiryWhere);
   const orderBy: Prisma.InquiryOrderByWithRelationInput[] =
     basis === 'preferredDate'
       ? [{ preferredDate: 'asc' }, { preferredTime: 'asc' }, { id: 'asc' }]

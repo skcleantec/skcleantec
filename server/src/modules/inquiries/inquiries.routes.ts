@@ -34,6 +34,10 @@ import {
   resolveInquiryOperatingCompanyId,
   validateInquiryOperatingCompanyChange,
 } from '../operating-companies/operatingCompanyResolve.service.js';
+import {
+  assertTeamLeadersMatchInquiryBrand,
+  OperatingCompanyAssignmentError,
+} from '../operating-companies/operatingCompanyAssignment.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 import inquiryConsultationPhotosAdminRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.admin.routes.js';
@@ -642,6 +646,24 @@ router.patch('/:id', async (req, res) => {
           res.status(400).json({ error: '타업체 계정에 소속 업체가 없습니다. 관리자에게 문의하세요.' });
           return;
         }
+      }
+      const inquiryOcId =
+        data.operatingCompany && 'connect' in data.operatingCompany
+          ? String((data.operatingCompany as { connect: { id: string } }).connect.id)
+          : inquiry.operatingCompanyId;
+      try {
+        await assertTeamLeadersMatchInquiryBrand({
+          db: prisma,
+          tenantId,
+          inquiryOperatingCompanyId: inquiryOcId,
+          assignees,
+        });
+      } catch (e) {
+        if (e instanceof OperatingCompanyAssignmentError) {
+          res.status(400).json({ error: e.message });
+          return;
+        }
+        throw e;
       }
       const mergedPd =
         data.preferredDate !== undefined

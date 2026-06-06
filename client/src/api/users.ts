@@ -60,20 +60,35 @@ export function formatAssignableUserLabel(u: UserItem): string {
       ? `[타업체] ${u.externalCompanyName} (${u.name})`
       : `[타업체] ${u.name}`;
   }
+  if (u.role === 'TEAM_LEADER' && u.operatingCompanies?.length) {
+    const primary = u.operatingCompanies.find((oc) => oc.isPrimary) ?? u.operatingCompanies[0];
+    if (primary?.name) return `${u.name} · ${primary.name}`;
+  }
   return u.name;
 }
 
-/** 스케줄·접수 분배 드롭다운: 팀장 + 타업체 담당 */
+export type AssignableScheduleUsersResponse = {
+  items: UserItem[];
+  policy: {
+    assignmentMode: 'strict' | 'relaxed';
+    teamLeaderListMode: 'own_brands_only' | 'tenant_all_read';
+  };
+};
+
+/** 스케줄·접수 분배 드롭다운: 팀장 + 타업체 (strict 시 operatingCompanyId 로 팀장 필터) */
 export async function getAssignableScheduleUsers(
   token: string,
-  employedOn?: string
-): Promise<UserItem[]> {
-  const [leaders, partners] = await Promise.all([
-    getUsers(token, 'TEAM_LEADER', employedOn ? { employedOn } : undefined),
-    getUsers(token, 'EXTERNAL_PARTNER', employedOn ? { employedOn } : undefined),
-  ]);
-  const byName = (a: UserItem, b: UserItem) => a.name.localeCompare(b.name, 'ko');
-  return [...leaders.sort(byName), ...partners.sort(byName)];
+  opts?: { employedOn?: string; operatingCompanyId?: string },
+): Promise<AssignableScheduleUsersResponse> {
+  const q = new URLSearchParams();
+  if (opts?.employedOn) q.set('employedOn', opts.employedOn);
+  if (opts?.operatingCompanyId?.trim()) q.set('operatingCompanyId', opts.operatingCompanyId.trim());
+  const qs = q.toString();
+  const res = await fetch(`${API}/users/assignable-schedule${qs ? `?${qs}` : ''}`, {
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error('배정 가능 목록을 불러올 수 없습니다.');
+  return res.json() as Promise<AssignableScheduleUsersResponse>;
 }
 
 export async function getUsers(

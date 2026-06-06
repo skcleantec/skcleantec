@@ -33,6 +33,8 @@ import {
   userRoleSupportsOperatingMembership,
   UserOperatingCompanyValidationError,
 } from '../operating-companies/userOperatingCompany.service.js';
+import { allowedTeamLeaderIdsForInquiryBrand } from '../operating-companies/operatingCompanyAssignment.js';
+import { getOperatingCompanyPolicyFromService } from '../operating-companies/operatingCompanyPolicy.js';
 
 const router = Router();
 
@@ -47,6 +49,138 @@ const MANAGEABLE_STAFF_ROLES = ['TEAM_LEADER', 'MARKETER', 'OFFICE_STAFF', 'EXTE
 const STAFF_ID_CARD_ROLES = ['TEAM_LEADER', 'MARKETER'] as const;
 
 router.use(authMiddleware);
+
+const assignableUserSelect = {
+  id: true,
+  email: true,
+  name: true,
+  phone: true,
+  role: true,
+  hireDate: true,
+  resignationDate: true,
+  allowSelfDayOffEdit: true,
+  payrollMonthlySalary: true,
+  payrollPayDay: true,
+  teamLeaderGeneralSettlementMode: true,
+  teamLeaderGeneralSettlementValue: true,
+  teamLeaderAdditionalReceiptCompanyShareBps: true,
+  staffIdCardUrl: true,
+  externalCompany: { select: { id: true, name: true } },
+} as const;
+
+function mapAssignableUserRow(
+  u: {
+    id: string;
+    email: string;
+    name: string;
+    phone: string | null;
+    role: string;
+    allowSelfDayOffEdit: boolean;
+    payrollMonthlySalary: number | null;
+    payrollPayDay: number | null;
+    teamLeaderGeneralSettlementMode: TeamLeaderGeneralSettlementMode | null;
+    teamLeaderGeneralSettlementValue: number | null;
+    teamLeaderAdditionalReceiptCompanyShareBps: number | null;
+    staffIdCardUrl: string | null;
+    externalCompany: { id: string; name: string } | null;
+    hireDate: Date | null;
+    resignationDate: Date | null;
+  },
+  operatingCompanies?: Awaited<ReturnType<typeof listOperatingCompaniesByUserIds>> extends Map<string, infer V>
+    ? V
+    : never,
+) {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    phone: u.phone,
+    role: u.role,
+    externalCompanyId: u.externalCompany?.id ?? null,
+    externalCompanyName: u.externalCompany?.name ?? null,
+    allowSelfDayOffEdit: u.role === 'TEAM_LEADER' ? u.allowSelfDayOffEdit : true,
+    payrollMonthlySalary: u.payrollMonthlySalary ?? null,
+    payrollPayDay: u.payrollPayDay ?? null,
+    teamLeaderGeneralSettlementMode: u.teamLeaderGeneralSettlementMode ?? null,
+    teamLeaderGeneralSettlementValue: u.teamLeaderGeneralSettlementValue ?? null,
+    teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
+    staffIdCardUrl: u.staffIdCardUrl ?? null,
+    operatingCompanies,
+    ...serializeUserDates(u),
+  };
+}
+
+/** 스케줄·접수 분배 드롭다운 — 팀장+타업체, strict 정책 시 operatingCompanyId 로 팀장 필터 */
+router.get('/assignable-schedule', adminOrMarketer, async (req, res) => {
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(authUser);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const employedOnRaw = typeof req.query.employedOn === 'string' ? req.query.employedOn.trim() : '';
+  const employedOn = YMD.test(employedOnRaw) ? employedOnRaw : kstTodayYmd();
+  const operatingCompanyId =
+    typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId.trim() : '';
+
+  const [leaders, partners, policy] = await Promise.all([
+    prisma.user.findMany({
+      where: { tenantId, role: 'TEAM_LEADER', isActive: true },
+      select: assignableUserSelect,
+      orderBy: { name: 'asc' },
+    }),
+    prisma.user.findMany({
+      where: { tenantId, role: 'EXTERNAL_PARTNER', isActive: true },
+      select: assignableUserSelect,
+      orderBy: { name: 'asc' },
+    }),
+    getOperatingCompanyPolicyFromService(tenantId),
+  ]);
+
+  let leaderOut = leaders.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, employedOn));
+  if (isTeamPreviewAdminEmail(authUser.email)) {
+    const selfAdmin = await prisma.user.findUnique({
+      where: { id: authUser.userId },
+      select: assignableUserSelect,
+    });
+    if (
+      selfAdmin &&
+      selfAdmin.role === 'ADMIN' &&
+      isTeamPreviewAdminEmail(selfAdmin.email) &&
+      !leaderOut.some((u) => u.id === selfAdmin.id)
+    ) {
+      leaderOut = [...leaderOut, selfAdmin].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    }
+  }
+
+  const allowedLeaderIds = await allowedTeamLeaderIdsForInquiryBrand(
+    prisma,
+    tenantId,
+    operatingCompanyId || null,
+    leaderOut.map((u) => u.id),
+  );
+  leaderOut = leaderOut.filter((u) => allowedLeaderIds.has(u.id));
+
+  const partnerOut = partners.filter((u) =>
+    isUserEmployedOnYmd(u.hireDate, u.resignationDate, employedOn),
+  );
+
+  const ocByUser = await listOperatingCompaniesByUserIds(prisma, tenantId, [
+    ...leaderOut.map((u) => u.id),
+    ...partnerOut.map((u) => u.id),
+  ]);
+
+  res.json({
+    items: [
+      ...leaderOut.map((u) => mapAssignableUserRow(u, ocByUser.get(u.id))),
+      ...partnerOut.map((u) => mapAssignableUserRow(u, ocByUser.get(u.id))),
+    ],
+    policy: {
+      assignmentMode: policy.assignmentMode,
+      teamLeaderListMode: policy.teamLeaderListMode,
+    },
+  });
+});
 
 /** 목록 조회 — 스케줄·접수에서 팀장/마케터 선택용 (기본: 해당일 재직자만) · scope=management 는 전체(관리자) */
 router.get('/', adminOrMarketer, async (req, res) => {
