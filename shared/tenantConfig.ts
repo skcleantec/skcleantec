@@ -21,21 +21,36 @@ export type TenantInquiryConfig = {
 
 import type { OperatingCompanyPolicy } from './operatingCompanyConfig.js';
 
+export type { OperatingCompanyPolicy } from './operatingCompanyConfig.js';
+export { DEFAULT_OPERATING_COMPANY_POLICY } from './operatingCompanyConfig.js';
+
 export type TenantConfig = {
   branding?: TenantBrandingConfig;
   orderForm?: TenantOrderFormConfig;
   inquiry?: TenantInquiryConfig;
+  /** 테넌트 전역 영업 브랜드 정책(배정·팀장 목록·접수 기본 귀속). 브랜딩 JSON은 OperatingCompany.config */
   operatingCompanyPolicy?: OperatingCompanyPolicy;
 };
 
 export const EMPTY_TENANT_CONFIG: TenantConfig = {};
 
-/** 플랫폼 UI·문서용 L1 필드 힌트 */
+/** 영업 브랜드 정책 필드 힌트 — `Tenant.config.operatingCompanyPolicy` */
+export const OPERATING_COMPANY_POLICY_FIELD_HINTS = {
+  'operatingCompanyPolicy.assignmentMode':
+    '배정 모드 — strict: 접수 브랜드 소속 팀장만 / relaxed: 테넌트 전체 팀장 허용',
+  'operatingCompanyPolicy.teamLeaderListMode':
+    '팀장 목록 — own_brands_only: 소속 브랜드 접수만 / tenant_all_read: 테넌트 전체 조회',
+  'operatingCompanyPolicy.inquiryDefaultMode':
+    '접수 기본 귀속 — user_primary·creator_primary·from_intake_url(?brand=)',
+} as const;
+
+/** 플랫폼 UI·문서용 L1 필드 힌트 (L1 branding은 프로비저닝 시 기본 영업 브랜드로 복사됨) */
 export const TENANT_CONFIG_FIELD_HINTS = {
-  'branding.displayName': '로그인·헤더 표시명',
+  'branding.displayName': '로그인·헤더 표시명 (기본 영업 브랜드 초기값)',
   'branding.loginSubtitle': '로그인 화면 부제',
-  'orderForm.publicSubtitle': '고객 발주서 부제',
-  'inquiry.numberPrefix': '접수번호 접두 (예: SK-)',
+  'orderForm.publicSubtitle': '고객 발주서 부제 (기본 영업 브랜드 초기값)',
+  'inquiry.numberPrefix': '접수번호 접두 (예: SK-, 브랜드별 prefix는 OperatingCompany.config)',
+  ...OPERATING_COMPANY_POLICY_FIELD_HINTS,
 } as const;
 
 /** 플랫폼 L1 설정 폼 — JSON 없이 편집 */

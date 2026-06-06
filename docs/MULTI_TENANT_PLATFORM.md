@@ -63,6 +63,8 @@
 | `/admin/*` | **현재 메인** — 테넌트 관리자 업무 |
 | `/team/*`, `/crew/*` | 테넌트 팀장·크루 |
 | `/order/:token`, `/e-contract/sign/:token` | 공개 (토큰 → tenant 역조회) |
+| `/order/:token?tenant=&brand=` | 공개 발주서 — **영업 브랜드** 표시명·부제 (`brand` = OperatingCompany.slug) |
+| `/cs?tenant=&brand=` | C/S·고객만족센터 — 동일 브랜딩 |
 
 ### 3.2 2차 (선택 — 서브도메인)
 
@@ -510,9 +512,10 @@ export function canShowAdminNavItem(id: AdminNavId, ctx: NavContext): boolean {
 1. `Tenant` insert (slug, name, plan, status=TRIAL)
 2. `TenantFeature` — plan 기본 모듈 insert
 3. `User` ADMIN (`isTenantOwner=true`)
-4. `EstimateConfig`, `OrderFormConfig`, `ProfessionalSpecialtyOption` 시드
-5. `AdChannel` 기본 채널(네이버·인스타그램·배너·기타) — `ensureDefaultAdChannelsForTenant`
-6. (선택) `EContractFieldDefinition` 시드
+4. `seedTenantDefaults` — **기본 영업 브랜드(OperatingCompany)** 1개 생성, `Tenant.config` L1 branding을 `OperatingCompany.config`로 복사, ADMIN 등 초기 사용자 `UserOperatingCompany` primary 소속
+5. `EstimateConfig`, `OrderFormConfig`, `ProfessionalSpecialtyOption` 시드
+6. `AdChannel` 기본 채널(네이버·인스타그램·배너·기타) — `ensureDefaultAdChannelsForTenant`
+7. (선택) `EContractFieldDefinition` 시드
 
 플랫폼 UI **업체 개설** 폼 → 위 서비스 1회 호출.
 
@@ -570,8 +573,60 @@ Plan 적용: [Standard ▾]  [플랜 기본값으로 재설정]
 
 ---
 
-## 17. 변경 이력
+## 17. 영업 브랜드 (Operating Company, L2)
+
+테넌트 **안**에서 SK클린텍·타나클린 등 **영업 브랜드 N개**를 둔다. `Tenant` = 로그인 업체 코드, `OperatingCompany` = 고객·접수·배정 스코프의 브랜드 단위.
+
+### 17.1 Tenant vs OperatingCompany vs ExternalCompany
+
+| 개념 | DB | 용도 |
+|------|-----|------|
+| **테넌트** | `Tenant` | 플랫폼 업체 계정 (`/login?tenant=slug`) |
+| **영업 브랜드** | `OperatingCompany` | 접수 귀속·고객 UI 브랜딩·접수번호 prefix |
+| **타업체 협력** | `ExternalCompany` | `EXTERNAL_PARTNER` 배정 — **별개** (혼동 금지) |
+
+### 17.2 데이터
+
+- `OperatingCompany` — `(tenantId, slug)` unique, `isDefault` 1개, `config` JSON (`shared/operatingCompanyConfig.ts`)
+- `UserOperatingCompany` — 마케터·팀장 **다중 소속** + `isPrimary`
+- `Inquiry.operatingCompanyId` — 접수 귀속 (자동 + 관리자 수동 변경)
+- `OrderForm.operatingCompanyId` — 발급 시 고정 → 고객 링크·제출 접수에 사용
+- `Tenant.config.operatingCompanyPolicy` — 테넌트 **전역 1세트** (`assignmentMode`, `teamLeaderListMode`, `inquiryDefaultMode`)
+
+`OrderFormConfig`는 현재 **테넌트당 1행**(`tenantId @unique`). 고객 문구의 브랜드별 분기는 `OperatingCompany.config.branding`·`orderForm.publicSubtitle` + `publicBranding` API로 처리한다.
+
+### 17.3 정책 (`operatingCompanyPolicy`)
+
+| 키 | 값 | 의미 |
+|----|-----|------|
+| `assignmentMode` | `strict` / `relaxed` | strict 시 접수 브랜드 소속 팀장만 배정 |
+| `teamLeaderListMode` | `own_brands_only` / `tenant_all_read` | 팀장 앱 목록·스케줄 스코프 |
+| `inquiryDefaultMode` | `user_primary` / `creator_primary` / `from_intake_url` | 신규 접수 기본 브랜드 (`from_intake_url` → `?brand=`) |
+
+기본값: `shared/operatingCompanyConfig.ts` 의 `DEFAULT_OPERATING_COMPANY_POLICY`.
+
+### 17.4 접수·배정·고객 URL
+
+1. **접수 생성** — `resolveInquiryOperatingCompanyId` (body id → URL brand → 등록자 primary → default)
+2. **배정** — `assertTeamLeadersMatchInquiryBrand` (strict)
+3. **팀장 목록** — `buildTeamLeaderInquiryBrandFilter` (own_brands_only)
+4. **고객 공개** — `?tenant=` + `?brand=` (`client/src/utils/publicTenantQuery.ts`), `GET /api/tenant/public-info?slug=&brand=`, 발주서 `publicBranding`
+
+서버 모듈: `server/src/modules/operating-companies/` (`operatingCompany.routes`, `operatingCompanyResolve.service`, `publicOperatingCompanyBranding`, `operatingCompanyAssignment`).
+
+관리 UI: 영업 브랜드·사용자 소속·정책(설정), 접수·스케줄 배지·필터 (`OperatingCompanyBadge`).
+
+### 17.5 프로비저닝·레거시
+
+- **신규 테넌트**: `seedTenantDefaults` 가 default `OperatingCompany` + 사용자 primary 소속 생성 (§12).
+- **레거시 SK**: 마이그레이션으로 default company 백필, 기존 `Inquiry`·`OrderForm` 에 `operatingCompanyId` 연결.
+- **비활성 브랜드**: 신규 유입(접수·발급)만 차단, 기존 건 조회·수정은 유지.
+
+---
+
+## 18. 변경 이력
 
 | 날짜 | 내용 |
 |------|------|
+| 2026-06-06 | §17 영업 브랜드(Operating Company) — L2 브랜딩·정책·고객 `?brand=` |
 | 2026-05-24 | 초안 — 플랫폼/테넌트 분리, FeatureModule, 6 Phase 로드맵 |
