@@ -19,6 +19,8 @@ import {
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
+import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
 import { AdminListIntakeModal, type AdminListIntakeResult } from '../../components/admin/AdminListIntakeModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
@@ -317,6 +319,13 @@ interface InquiryItem {
   specialNotes: string | null;
   callAttempt?: number | null;
   createdAt: string;
+  operatingCompanyId?: string | null;
+  operatingCompany?: {
+    id: string;
+    name: string;
+    slug: string;
+    isActive?: boolean;
+  } | null;
   assignments: Array<{
     teamLeader: {
       id: string;
@@ -665,6 +674,10 @@ export function AdminInquiriesPage() {
   const [marketerFilterId, setMarketerFilterId] = useState('');
   /** 빈 값이면 전체, 미배정·특정 팀장 */
   const [teamLeaderFilterId, setTeamLeaderFilterId] = useState('');
+  const [operatingCompanyFilterId, setOperatingCompanyFilterId] = useState(
+    () => searchParams.get('operatingCompanyId') ?? ''
+  );
+  const [operatingCompanies, setOperatingCompanies] = useState<OperatingCompanyItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<InquiryItem | null>(null);
   /** 미제출 행 — 고객 메시지·링크 미리보기(접수 목록에 모달, 발주서 목록으로 이동하지 않음) */
   const [orderCustomerPreview, setOrderCustomerPreview] = useState<null | {
@@ -919,6 +932,29 @@ export function AdminInquiriesPage() {
       .then(setMarketers)
       .catch(() => setMarketers([]));
   }, [token, me?.role]);
+
+  useEffect(() => {
+    if (!token) {
+      setOperatingCompanies([]);
+      return;
+    }
+    listOperatingCompanies(token)
+      .then((res) => setOperatingCompanies(res.items))
+      .catch(() => setOperatingCompanies([]));
+  }, [token]);
+
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const v = operatingCompanyFilterId.trim();
+        if (v) next.set('operatingCompanyId', v);
+        else next.delete('operatingCompanyId');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [operatingCompanyFilterId, setSearchParams]);
   const loadMarketerOverview = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent === true;
@@ -970,6 +1006,7 @@ export function AdminInquiriesPage() {
       day?: string;
       createdById?: string;
       teamLeaderId?: string;
+      operatingCompanyId?: string;
       scheduleMonth?: string;
       scheduleDay?: string;
       limit?: number;
@@ -990,6 +1027,9 @@ export function AdminInquiriesPage() {
     }
     if (teamLeaderFilterId.trim()) {
       params.teamLeaderId = teamLeaderFilterId.trim();
+    }
+    if (operatingCompanyFilterId.trim()) {
+      params.operatingCompanyId = operatingCompanyFilterId.trim();
     }
     params.limit = listPageSize;
     params.offset = (listPage - 1) * listPageSize;
@@ -1159,6 +1199,7 @@ export function AdminInquiriesPage() {
         dayKey,
         marketerFilterId,
         teamLeaderFilterId,
+        operatingCompanyFilterId,
         inquiryListBump,
       ].join('\0'),
     [
@@ -1170,6 +1211,7 @@ export function AdminInquiriesPage() {
       dayKey,
       marketerFilterId,
       teamLeaderFilterId,
+      operatingCompanyFilterId,
       inquiryListBump,
     ]
   );
@@ -1209,6 +1251,7 @@ export function AdminInquiriesPage() {
     dayKey,
     marketerFilterId,
     teamLeaderFilterId,
+    operatingCompanyFilterId,
     me?.role,
     inquiryListBump,
     listPage,
@@ -2114,6 +2157,39 @@ export function AdminInquiriesPage() {
                   </button>
                 ) : null}
               </div>
+              {operatingCompanies.length > 0 ? (
+                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                  <label
+                    htmlFor="inquiry-operating-company-filter"
+                    className="text-fluid-xs text-gray-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                  >
+                    브랜드
+                  </label>
+                  <select
+                    id="inquiry-operating-company-filter"
+                    value={operatingCompanyFilterId}
+                    onChange={(e) => setOperatingCompanyFilterId(e.target.value)}
+                    className="min-w-[8.5rem] max-w-[11rem] rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-xs text-gray-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
+                  >
+                    <option value="">전체</option>
+                    {operatingCompanies.map((oc) => (
+                      <option key={oc.id} value={oc.id}>
+                        {oc.name}
+                        {!oc.isActive ? ' (비활성)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {operatingCompanyFilterId ? (
+                    <button
+                      type="button"
+                      onClick={() => setOperatingCompanyFilterId('')}
+                      className="shrink-0 whitespace-nowrap text-[11px] text-gray-600 underline hover:text-gray-900 sm:text-fluid-xs"
+                    >
+                      브랜드 필터 해제
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
@@ -2250,6 +2326,7 @@ export function AdminInquiriesPage() {
                                 {item.inquiryNumber}
                               </span>
                             ) : null}
+                            <OperatingCompanyBadge company={item.operatingCompany} />
                           </div>
                           {item.scheduleMemo?.trim() ? (
                             <p
@@ -2637,6 +2714,11 @@ export function AdminInquiriesPage() {
                           {item.inquiryNumber}
                         </span>
                       ) : null}
+                      {item.operatingCompany ? (
+                        <span className="mt-0.5 block">
+                          <OperatingCompanyBadge company={item.operatingCompany} />
+                        </span>
+                      ) : null}
                     </td>
                     <td
                       className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
@@ -2973,6 +3055,14 @@ export function AdminInquiriesPage() {
                 <>
                   {' · '}
                   접수자: {labelForMarketerFilter(marketerFilterId, me, marketers)}
+                </>
+              ) : null}
+              {operatingCompanyFilterId ? (
+                <>
+                  {' · '}
+                  브랜드:{' '}
+                  {operatingCompanies.find((oc) => oc.id === operatingCompanyFilterId)?.name ??
+                    operatingCompanyFilterId}
                 </>
               ) : null}
               <span className="hidden lg:inline">

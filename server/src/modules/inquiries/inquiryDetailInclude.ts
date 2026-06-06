@@ -13,8 +13,17 @@ export const orderFormTemplateSelect = {
   },
 } as const;
 
+/** 목록·상세 공통 — 영업 브랜드 요약 */
+export const operatingCompanySummarySelect = {
+  id: true,
+  name: true,
+  slug: true,
+  isActive: true,
+} as const;
+
 /** 단일 접수 상세(GET /:id, PATCH 응답 등) 공통 include */
 export const inquiryDetailInclude = {
+  operatingCompany: { select: operatingCompanySummarySelect },
   createdBy: { select: { id: true, name: true } },
   assignments: {
     orderBy: { sortOrder: 'asc' as const },

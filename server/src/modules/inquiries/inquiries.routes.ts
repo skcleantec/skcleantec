@@ -55,7 +55,7 @@ import {
 } from '../crew/crewFieldRealtime.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
-import { inquiryDetailInclude } from './inquiryDetailInclude.js';
+import { inquiryDetailInclude, operatingCompanySummarySelect } from './inquiryDetailInclude.js';
 import { handlePostSwapCrewWithPartner } from './inquiryCrewPartnerSwap.handler.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
@@ -177,6 +177,7 @@ router.get('/', async (req, res) => {
     day,
     createdById,
     teamLeaderId,
+    operatingCompanyId,
     scheduleMonth,
     scheduleDay,
   } = req.query;
@@ -259,6 +260,10 @@ router.get('/', async (req, res) => {
     }
   }
 
+  if (typeof operatingCompanyId === 'string' && operatingCompanyId.trim()) {
+    andClauses.push({ operatingCompanyId: operatingCompanyId.trim() });
+  }
+
   /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선.
    * 미제출(링크만 발급)은 고객 예약일과 무관하게 같은 날·같은 달에 발급된 발주서면 목록에 포함(발주서 목록과 동일하게 보이게). */
   if (typeof scheduleDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(scheduleDay.trim())) {
@@ -305,6 +310,7 @@ router.get('/', async (req, res) => {
 
   const where: Prisma.InquiryWhereInput = andClauses.length > 0 ? { AND: andClauses } : {};
   const listInclude = {
+    operatingCompany: { select: operatingCompanySummarySelect },
     createdBy: { select: { id: true, name: true } },
     assignments: {
       orderBy: { sortOrder: 'asc' as const },
@@ -543,6 +549,7 @@ router.patch('/:id', async (req, res) => {
     }
   }
 
+  let operatingCompanyChanged = false;
   if (Object.prototype.hasOwnProperty.call(body, 'operatingCompanyId')) {
     const nextOcId =
       body.operatingCompanyId == null || body.operatingCompanyId === ''
@@ -570,6 +577,7 @@ router.patch('/:id', async (req, res) => {
         throw e;
       }
       data.operatingCompany = { connect: { id: nextOcId } };
+      operatingCompanyChanged = true;
     }
   }
 
@@ -833,6 +841,23 @@ router.patch('/:id', async (req, res) => {
       `현장 미팅(크루): 팀원 구성 변경으로 미팅 시각 초기화 (이전: ${(inquiry.crewMeetingTime ?? '').trim()})`,
     );
   }
+  if (operatingCompanyChanged && data.operatingCompany && 'connect' in data.operatingCompany) {
+    const nextOcId = String((data.operatingCompany as { connect: { id: string } }).connect.id);
+    const ocIds = [inquiry.operatingCompanyId, nextOcId].filter(Boolean) as string[];
+    const ocRows =
+      ocIds.length > 0
+        ? await prisma.operatingCompany.findMany({
+            where: { tenantId, id: { in: ocIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+    const ocNameById = new Map(ocRows.map((r) => [r.id, r.name] as const));
+    const beforeLabel = ocNameById.get(inquiry.operatingCompanyId) ?? inquiry.operatingCompanyId;
+    const afterLabel = ocNameById.get(nextOcId) ?? nextOcId;
+    if (beforeLabel !== afterLabel) {
+      lines.push(`영업 브랜드: ${beforeLabel} → ${afterLabel}`);
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(body, 'createdById')) {
     const rawCb = body.createdById;
     const nextCreatedByIdForLog = rawCb == null || rawCb === '' ? null : String(rawCb);
@@ -980,11 +1005,13 @@ router.patch('/:id', async (req, res) => {
     if (createdCsReport) {
       void notifyCsReportNavBadges(id, undefined, tenantId);
     }
-    if (wantsTeamSync) {
+    if (wantsTeamSync || operatingCompanyChanged) {
       const leaderIds = new Set<string>();
       for (const a of inquiry.assignments) leaderIds.add(a.teamLeaderId);
-      for (const tid of teamLeaderIds) leaderIds.add(tid);
-      notifyInboxRefresh([...leaderIds]);
+      if (wantsTeamSync) {
+        for (const tid of teamLeaderIds) leaderIds.add(tid);
+      }
+      if (leaderIds.size > 0) notifyInboxRefresh([...leaderIds]);
     }
     if (lines.length > 0) {
       notifyChangeLogToStaff({ tenantId, customerName: inquiry.customerName, inquiryId: id, lines });

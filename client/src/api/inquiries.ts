@@ -75,6 +75,8 @@ export async function getInquiries(
     createdById?: string;
     /** 배정 팀장. `__unassigned__`는 미배정만 */
     teamLeaderId?: string;
+    /** 영업 브랜드(Operating Company) UUID */
+    operatingCompanyId?: string;
     /** 예약일(희망일) 월 단위 YYYY-MM, KST */
     scheduleMonth?: string;
     /** 예약일(희망일) 하루 YYYY-MM-DD, KST (scheduleMonth보다 우선) */
@@ -94,6 +96,7 @@ export async function getInquiries(
   if (params?.offset != null) q.set('offset', String(params.offset));
   if (params?.createdById) q.set('createdById', params.createdById);
   if (params?.teamLeaderId) q.set('teamLeaderId', params.teamLeaderId);
+  if (params?.operatingCompanyId) q.set('operatingCompanyId', params.operatingCompanyId);
   if (params?.scheduleMonth) q.set('scheduleMonth', params.scheduleMonth);
   if (params?.scheduleDay) q.set('scheduleDay', params.scheduleDay);
   const qs = q.toString();

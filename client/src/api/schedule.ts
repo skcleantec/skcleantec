@@ -70,6 +70,13 @@ export interface ScheduleItem {
   externalTransferFee?: number | null;
   /** 팀장 해피콜 완료 시각 (ISO) */
   happyCallCompletedAt?: string | null;
+  operatingCompanyId?: string | null;
+  operatingCompany?: {
+    id: string;
+    name: string;
+    slug: string;
+    isActive?: boolean;
+  } | null;
   createdBy?: { id: string; name: string } | null;
   orderForm?: {
     id: string;

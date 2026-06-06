@@ -11,6 +11,9 @@ import { createOrderFollowup } from '../../api/orderFollowups';
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
 import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } from '../../api/teams';
 import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../../api/schedule';
+import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
+import { getMe } from '../../api/auth';
+import { OperatingCompanyBadge } from './OperatingCompanyBadge';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
@@ -183,6 +186,7 @@ type EditFormFields = {
   crewMemberNames: string[];
   status: string;
   createdById: string;
+  operatingCompanyId: string;
   customerPhone2: string;
   propertyType: string;
   isOneRoom: boolean;
@@ -346,6 +350,9 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
     source: '전화',
     status: p.status ?? 'RECEIVED',
     crewMemberCount: p.crewMemberCount,
+    ...(editForm.operatingCompanyId.trim()
+      ? { operatingCompanyId: editForm.operatingCompanyId.trim() }
+      : {}),
   };
 }
 
@@ -601,6 +608,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
   const [marketerQuickValue, setMarketerQuickValue] = useState('');
   const [copyHint, setCopyHint] = useState<string | null>(null);
+  const [operatingCompanyOptions, setOperatingCompanyOptions] = useState<OperatingCompanyItem[]>([]);
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
@@ -617,6 +625,38 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         detailHasAssignment
       )
     : 'none';
+
+  useEffect(() => {
+    if (!token) {
+      setOperatingCompanyOptions([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { items } = await listOperatingCompanies(token);
+        if (cancelled) return;
+        const active = items.filter((oc) => oc.isActive);
+        if (currentUserRole === 'ADMIN') {
+          setOperatingCompanyOptions(active);
+          return;
+        }
+        const me = (await getMe(token)) as {
+          operatingCompanies?: Array<{ operatingCompanyId: string }>;
+        };
+        if (cancelled) return;
+        const allowed = new Set(
+          (me.operatingCompanies ?? []).map((oc) => oc.operatingCompanyId),
+        );
+        setOperatingCompanyOptions(active.filter((oc) => allowed.has(oc.id)));
+      } catch {
+        if (!cancelled) setOperatingCompanyOptions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, currentUserRole]);
 
   useEffect(() => {
     if (!token || !item) {
@@ -673,6 +713,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         crewMemberNames: [],
         status: 'RECEIVED',
         createdById: '',
+        operatingCompanyId: '',
         customerPhone2: '',
         propertyType: '',
         isOneRoom: false,
@@ -713,6 +754,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
+      operatingCompanyId: it.operatingCompanyId ?? it.operatingCompany?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
       isOneRoom:
@@ -856,6 +898,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
+      operatingCompanyId: it.operatingCompanyId ?? it.operatingCompany?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
       isOneRoom:
@@ -1255,6 +1298,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           ? null
           : undefined;
       patch.teamLeaderIds = leaderIdsForSave;
+      const ocId = editForm.operatingCompanyId.trim();
+      if (ocId) {
+        const curOcId = item?.operatingCompanyId ?? item?.operatingCompany?.id ?? '';
+        if (isCreate || ocId !== curOcId) {
+          patch.operatingCompanyId = ocId;
+        }
+      }
       if (isCreate) {
         const created = (await createInquiry(
           token,
@@ -1510,6 +1560,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   ? ` · 출처: ${formatInquirySourceLabel(item.source)}`
                   : null}
                 {` · 담당 마케터: ${item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}`}
+                {item.operatingCompany?.name ? ` · 브랜드: ${item.operatingCompany.name}` : null}
                 {item.callAttempt != null ? ` · 통화 시도: ${item.callAttempt}` : null}
                 {item.claimMemo?.trim() ? ' · 클레임 등록됨' : null}
               </p>
@@ -2265,6 +2316,36 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </select>
             </div>
           )}
+          {operatingCompanyOptions.length > 0 ? (
+            <div>
+              <label className="block text-gray-600 mb-1">영업 브랜드</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={editForm.operatingCompanyId}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, operatingCompanyId: e.target.value }))
+                  }
+                  className="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded"
+                >
+                  {isCreate ? <option value="">(자동 귀속)</option> : null}
+                  {operatingCompanyOptions.map((oc) => (
+                    <option key={oc.id} value={oc.id}>
+                      {oc.name}
+                      {oc.isDefault ? ' · 기본' : ''}
+                    </option>
+                  ))}
+                </select>
+                {item?.operatingCompany ? (
+                  <OperatingCompanyBadge company={item.operatingCompany} />
+                ) : null}
+              </div>
+            </div>
+          ) : item?.operatingCompany ? (
+            <div>
+              <label className="block text-gray-600 mb-1">영업 브랜드</label>
+              <OperatingCompanyBadge company={item.operatingCompany} />
+            </div>
+          ) : null}
           <div className="sm:col-span-2 space-y-2">
             <label className="block text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
             {resolvedExternalLeadId ? (

@@ -39,6 +39,7 @@ import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
@@ -415,6 +416,9 @@ function ScheduleDayListItem({
                 </span>
               ) : null}
             </span>
+            {item.operatingCompany ? (
+              <OperatingCompanyBadge company={item.operatingCompany} className="shrink-0" />
+            ) : null}
             {isExternalIntake && (
               <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[10px] font-semibold text-fuchsia-800">
                 수기

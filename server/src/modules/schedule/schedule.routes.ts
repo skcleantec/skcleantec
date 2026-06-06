@@ -79,6 +79,10 @@ const scheduleListSelectLite = {
   serviceDepositAmount: true,
   serviceBalanceAmount: true,
   externalTransferFee: true,
+  operatingCompanyId: true,
+  operatingCompany: {
+    select: { id: true, name: true, slug: true, isActive: true },
+  },
   createdBy: { select: { id: true, name: true } },
   orderForm: {
     select: {
@@ -145,6 +149,9 @@ router.get('/', async (req, res) => {
     : await prisma.inquiry.findMany({
         ...baseArgs,
         include: {
+          operatingCompany: {
+            select: { id: true, name: true, slug: true, isActive: true },
+          },
           createdBy: { select: { id: true, name: true } },
           assignments: {
             orderBy: { sortOrder: 'asc' },
