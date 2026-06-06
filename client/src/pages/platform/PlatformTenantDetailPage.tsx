@@ -13,21 +13,38 @@ import {
 } from '../../api/platformTenants';
 import { PlatformTenantAdminsSection } from './PlatformTenantAdminsSection';
 import { getPlatformToken } from '../../stores/platformAuth';
-import { TENANT_PLANS } from '@shared/tenantFeatureModules';
 import {
   EMPTY_TENANT_CONFIG_FORM,
   formFieldsFromTenantConfig,
   tenantConfigFromFormFields,
   type TenantConfigFormFields,
 } from '@shared/tenantConfig';
+import {
+  BTN_DANGER,
+  BTN_DANGER_SOLID,
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  CARD_SECTION,
+  INPUT_BASE,
+  PlanBadge,
+  PlatformAlert,
+  PlatformToggle,
+  StatusBadge,
+} from '../../utils/platformUi';
 
-const STATUS_OPTIONS = [
-  { value: 'TRIAL', label: '체험' },
-  { value: 'ACTIVE', label: '운영' },
-  { value: 'SUSPENDED', label: '중지' },
-];
+const PLAN_DESCRIPTIONS: Record<string, { features: string[] }> = {
+  starter: {
+    features: ['서비스접수·발주서', '스케줄', '배정', '메시지'],
+  },
+  standard: {
+    features: ['Starter 전체 포함', 'C/S 관리', '타업체·외부정산', '크루(현장)', '팀장 통계'],
+  },
+  premium: {
+    features: ['Standard 전체 포함', '광고비 관리', '급여·정산', '전자계약'],
+  },
+};
 
-const L1_FORM_ROWS: {
+const SETTINGS_FIELDS: {
   key: keyof TenantConfigFormFields;
   label: string;
   hint: string;
@@ -36,42 +53,61 @@ const L1_FORM_ROWS: {
   {
     key: 'displayName',
     label: '표시명',
-    hint: '로그인·헤더에 보이는 이름. 비우면 업체명을 씁니다.',
+    hint: '로그인·헤더에 표시되는 업체 이름',
     placeholder: '예: A청소',
+  },
+  {
+    key: 'inquiryNumberPrefix',
+    label: '접수번호 접두',
+    hint: '영문·숫자·_- 만 허용 (예: SK-)',
+    placeholder: '예: SK-',
   },
   {
     key: 'loginSubtitle',
     label: '로그인 부제',
-    hint: '업체 로그인 화면 한 줄 안내',
+    hint: '업체 로그인 화면 한 줄 안내 문구',
     placeholder: '예: 환영합니다',
   },
   {
     key: 'orderFormPublicSubtitle',
     label: '고객 발주서 부제',
-    hint: '고객이 여는 발주서 링크 상단 문구',
+    hint: '고객이 여는 발주서 상단 안내 문구',
     placeholder: '예: 아래 내용을 확인 후 작성해 주세요',
-  },
-  {
-    key: 'inquiryNumberPrefix',
-    label: '접수번호 접두',
-    hint: '영문·숫자·_- 만 (예: SK-)',
-    placeholder: '예: SK-',
   },
 ];
 
+const TABS = [
+  { id: 'overview', label: '개요' },
+  { id: 'plan', label: '플랜 · 기능' },
+  { id: 'settings', label: '설정' },
+  { id: 'admins', label: '관리자 계정' },
+  { id: 'danger', label: '위험 구역' },
+] as const;
+
+type TabId = (typeof TABS)[number]['id'];
+
+type TenantWithStats = PlatformTenantDetail['tenant'] & {
+  userCount?: number;
+  inquiryCount?: number;
+};
+
+type DetailWithStats = PlatformTenantDetail & {
+  stats?: { monthInquiryCount?: number };
+};
+
 export function PlatformTenantDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [detail, setDetail] = useState<PlatformTenantDetail | null>(null);
+  const [detail, setDetail] = useState<DetailWithStats | null>(null);
   const [features, setFeatures] = useState<PlatformTenantFeatureRow[]>([]);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [plan, setPlan] = useState('starter');
-  const [status, setStatus] = useState('TRIAL');
   const [admins, setAdmins] = useState<PlatformTenantAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [configForm, setConfigForm] = useState<TenantConfigFormFields>(EMPTY_TENANT_CONFIG_FORM);
   const [configJson, setConfigJson] = useState('{}');
   const [configErr, setConfigErr] = useState('');
@@ -82,13 +118,12 @@ export function PlatformTenantDetailPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await getPlatformTenant(token, id);
+      const data = (await getPlatformTenant(token, id)) as DetailWithStats;
       setDetail(data);
       setFeatures(data.features.map((f) => ({ ...f })));
       setName(data.tenant.name);
       setSlug(data.tenant.slug);
       setPlan(data.tenant.plan);
-      setStatus(data.tenant.status);
       setAdmins(normalizePlatformTenantAdmins(data));
       setConfigForm(formFieldsFromTenantConfig(data.config));
       setConfigJson(JSON.stringify(data.config ?? {}, null, 2));
@@ -104,27 +139,60 @@ export function PlatformTenantDetailPage() {
     void load();
   }, [load]);
 
-  const toggleFeature = (moduleId: string) => {
-    setFeatures((prev) =>
-      prev.map((f) => (f.moduleId === moduleId && !f.locked ? { ...f, enabled: !f.enabled } : f)),
-    );
-  };
-
-  const handleSaveBasics = async () => {
+  const saveBasics = async (overrides?: Partial<{ slug: string; name: string; plan: string; status: string }>) => {
     const token = getPlatformToken();
     if (!token || !id) return;
     setSaving(true);
     setMessage('');
     setError('');
     try {
-      await patchPlatformTenant(token, id, { slug, name, plan, status });
-      setMessage('기본 정보를 저장했습니다.');
+      const payload = {
+        slug: overrides?.slug ?? slug,
+        name: overrides?.name ?? name,
+        plan: overrides?.plan ?? plan,
+        ...(overrides?.status !== undefined ? { status: overrides.status } : {}),
+      };
+      await patchPlatformTenant(token, id, payload);
+      setSlug(payload.slug);
+      setName(payload.name);
+      setPlan(payload.plan);
+      setMessage('저장했습니다.');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handlePlanSelect = async (pid: 'starter' | 'standard' | 'premium') => {
+    const token = getPlatformToken();
+    if (!token || !id || saving) return;
+    setPlan(pid);
+    if (pid === detail?.tenant.plan) return;
+    setSaving(true);
+    setMessage('');
+    setError('');
+    try {
+      await patchPlatformTenant(token, id, { plan: pid });
+      const data = await resetPlatformTenantFeaturesFromPlan(token, id);
+      setDetail(data);
+      setAdmins(normalizePlatformTenantAdmins(data));
+      setFeatures(data.features.map((f) => ({ ...f })));
+      setPlan(data.tenant.plan);
+      setMessage('플랜을 변경하고 기능 모듈을 재설정했습니다.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '플랜 변경 실패');
+      if (detail) setPlan(detail.tenant.plan);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleFeature = (moduleId: string) => {
+    setFeatures((prev) =>
+      prev.map((f) => (f.moduleId === moduleId && !f.locked ? { ...f, enabled: !f.enabled } : f)),
+    );
   };
 
   const handleSaveFeatures = async () => {
@@ -184,7 +252,7 @@ export function PlatformTenantDetailPage() {
       const payload = tenantConfigFromFormFields(configForm);
       const { config } = await patchPlatformTenantConfig(token, id, payload);
       applyConfigResponse(config);
-      setMessage('L1 설정을 저장했습니다.');
+      setMessage('설정을 저장했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '설정 저장 실패');
     } finally {
@@ -210,7 +278,7 @@ export function PlatformTenantDetailPage() {
     try {
       const { config } = await patchPlatformTenantConfig(token, id, parsed);
       applyConfigResponse(config);
-      setMessage('L1 설정(JSON)을 저장했습니다.');
+      setMessage('JSON 설정을 저장했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '설정 저장 실패');
     } finally {
@@ -218,212 +286,444 @@ export function PlatformTenantDetailPage() {
     }
   };
 
+  const handleProxyLogin = () => {
+    if (!detail) return;
+    const url = `/login?tenant=${encodeURIComponent(detail.tenant.slug)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   if (loading) {
-    return <p className="text-fluid-sm text-gray-500 p-8 text-center">불러오는 중…</p>;
+    return <p className="p-8 text-center text-sm text-gray-500">불러오는 중…</p>;
   }
   if (!detail) {
-    return <p className="text-fluid-sm text-red-600 p-8 text-center">{error || '업체를 찾을 수 없습니다.'}</p>;
+    return <p className="p-8 text-center text-sm text-red-600">{error || '업체를 찾을 수 없습니다.'}</p>;
   }
 
+  const tenant = detail.tenant as TenantWithStats;
+  const monthInquiry = detail.stats?.monthInquiryCount;
+  const userCountLabel =
+    tenant.userCount !== undefined ? `${tenant.userCount.toLocaleString()}명` : '—';
+  const inquiryCountLabel =
+    tenant.inquiryCount !== undefined ? `${tenant.inquiryCount.toLocaleString()}건` : '—';
+  const monthInquiryLabel =
+    monthInquiry !== undefined ? `${monthInquiry.toLocaleString()}건` : '—';
+
   return (
-    <div className="space-y-6 min-w-0">
-      <div className="flex flex-wrap items-center gap-2 text-fluid-sm text-gray-500">
-        <Link to="/platform/tenants" className="hover:text-gray-800">
-          업체 목록
+    <div className="min-w-0 space-y-5">
+      <nav className="mb-2 flex items-center gap-2 text-sm text-gray-500">
+        <Link to="/platform/tenants" className="hover:text-gray-900">
+          업체 관리
         </Link>
-        <span>/</span>
-        <span className="text-gray-900">{detail.tenant.name}</span>
-      </div>
+        <span className="text-gray-300">/</span>
+        <span className="font-medium text-gray-900">{detail.tenant.name}</span>
+      </nav>
 
-      <div>
-        <h1 className="text-fluid-lg font-semibold text-gray-900">{detail.tenant.name}</h1>
-        <p className="text-fluid-xs text-gray-500 mt-1 font-mono">{detail.tenant.slug}</p>
-        {admins.length > 0 ? (
-          <p className="text-fluid-xs text-gray-600 mt-1">
-            관리자 {admins.length}명:{' '}
-            <span className="font-mono">{admins.map((a) => a.loginId).join(', ')}</span>
-          </p>
-        ) : null}
-      </div>
-
-      {message ? <p className="text-fluid-xs text-green-700 bg-green-50 border border-green-100 rounded px-3 py-2">{message}</p> : null}
-      {error ? <p className="text-fluid-xs text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2">{error}</p> : null}
-
-      <section className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-        <h2 className="text-fluid-sm font-semibold text-gray-800">기본 정보</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-fluid-xs text-gray-600 mb-1">업체 코드 (slug)</label>
-            <input
-              value={slug}
-              onChange={(e) => setSlug(e.target.value.toLowerCase())}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm font-mono"
-              spellCheck={false}
-            />
-            <p className="text-fluid-2xs text-amber-700 mt-1">
-              변경 시 로그인 URL(?tenant=), 서브도메인·북마크가 바뀝니다. 영문 소문자·숫자·하이픈만.
-            </p>
-          </div>
-          <div>
-            <label className="block text-fluid-xs text-gray-600 mb-1">업체명</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-fluid-xs text-gray-600 mb-1">플랜</label>
-            <select
-              value={plan}
-              onChange={(e) => setPlan(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm"
-            >
-              {Object.entries(TENANT_PLANS).map(([pid, p]) => (
-                <option key={pid} value={pid}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-fluid-xs text-gray-600 mb-1">상태</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm"
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => void handleSaveBasics()}
-          disabled={saving}
-          className="px-4 py-2 bg-gray-800 text-white text-fluid-sm rounded hover:bg-gray-900 disabled:opacity-50"
-        >
-          기본 정보 저장
-        </button>
-      </section>
-
-      {id ? (
-        <PlatformTenantAdminsSection
-          tenantId={id}
-          admins={admins}
-          onChanged={load}
-          saving={saving}
-          setSaving={setSaving}
-          setMessage={setMessage}
-          setError={setError}
-        />
-      ) : null}
-
-      <section className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-fluid-sm font-semibold text-gray-800">기능 모듈</h2>
-          <button
-            type="button"
-            onClick={() => void handleResetFromPlan()}
-            disabled={saving}
-            className="text-fluid-xs text-gray-600 border border-gray-300 rounded px-2 py-1 hover:bg-gray-50"
-          >
-            플랜 기본값으로 재설정
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-xl font-bold text-gray-900">{detail.tenant.name}</h1>
+        <PlanBadge plan={detail.tenant.plan} />
+        <StatusBadge status={detail.tenant.status} />
+        <div className="ml-auto flex flex-wrap gap-2">
+          <button type="button" onClick={handleProxyLogin} className={BTN_SECONDARY} disabled={saving}>
+            대리 로그인
           </button>
+          {detail.tenant.status !== 'SUSPENDED' ? (
+            <button
+              type="button"
+              className={BTN_DANGER}
+              disabled={saving}
+              onClick={() => {
+                if (!window.confirm(`${detail.tenant.name} 서비스를 중지할까요?`)) return;
+                void saveBasics({ status: 'SUSPENDED' });
+              }}
+            >
+              서비스 중지
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={BTN_SECONDARY}
+              disabled={saving}
+              onClick={() => void saveBasics({ status: 'ACTIVE' })}
+            >
+              서비스 재개
+            </button>
+          )}
         </div>
-        <ul className="divide-y divide-gray-100">
-          {features.map((f) => (
-            <li key={f.moduleId} className="py-3 flex items-center justify-between gap-3 min-w-0">
-              <div className="min-w-0">
-                <div className="text-fluid-sm text-gray-900 truncate">{f.label}</div>
-                <div className="text-fluid-2xs text-gray-500">
-                  {f.moduleId}
-                  {f.locked ? ' · core(잠금)' : ''}
-                  {!f.inPlan ? ' · 플랜 외' : ''}
+      </div>
+
+      {message ? <PlatformAlert message={message} variant="success" /> : null}
+      {error ? <PlatformAlert message={error} variant="error" /> : null}
+
+      <div className="flex gap-0 overflow-x-auto border-b border-gray-200">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={[
+              '-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+              activeTab === tab.id
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
+              tab.id === 'danger' && activeTab !== 'danger'
+                ? 'text-red-400 hover:border-red-300 hover:text-red-600'
+                : '',
+            ].join(' ')}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'overview' ? (
+        <div className="space-y-5">
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: '사용자', value: userCountLabel },
+              { label: '총 접수', value: inquiryCountLabel },
+              { label: '이달 접수', value: monthInquiryLabel },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-xl bg-gray-50 p-4 text-center">
+                <div className="text-2xl font-bold text-gray-900">{value}</div>
+                <div className="mt-1 text-xs text-gray-500">{label}</div>
+              </div>
+            ))}
+          </div>
+
+          <section className={CARD_SECTION}>
+            <h2 className="text-base font-semibold text-gray-900">기본 정보</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">업체명</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={INPUT_BASE}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">업체 코드 (slug)</label>
+                <input
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value.toLowerCase())}
+                  className={`${INPUT_BASE} font-mono`}
+                  spellCheck={false}
+                />
+                <p className="mt-1 text-[10px] text-amber-700">
+                  변경 시 로그인 URL·서브도메인·북마크가 바뀝니다.
+                </p>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">가입일</label>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                  {detail.tenant.createdAt
+                    ? new Date(detail.tenant.createdAt).toLocaleDateString('ko-KR')
+                    : '—'}
                 </div>
               </div>
-              <label className="flex items-center gap-2 shrink-0 text-fluid-xs text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={f.enabled}
-                  disabled={f.locked}
-                  onChange={() => toggleFeature(f.moduleId)}
-                />
-                {f.effective ? 'ON' : 'OFF'}
-              </label>
-            </li>
-          ))}
-        </ul>
-        <button
-          type="button"
-          onClick={() => void handleSaveFeatures()}
-          disabled={saving}
-          className="px-4 py-2 bg-gray-800 text-white text-fluid-sm rounded hover:bg-gray-900 disabled:opacity-50"
-        >
-          기능 모듈 저장
-        </button>
-      </section>
-
-      <section className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-        <div>
-          <h2 className="text-fluid-sm font-semibold text-gray-800">L1 설정</h2>
-          <p className="text-fluid-xs text-gray-500 mt-1">
-            업체별 문구·기본값 — 코드 없이 입력만 하면 됩니다.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {L1_FORM_ROWS.map((row) => (
-            <div key={row.key} className={row.key === 'loginSubtitle' || row.key === 'orderFormPublicSubtitle' ? 'sm:col-span-2' : ''}>
-              <label className="block text-fluid-xs font-medium text-gray-700 mb-1">{row.label}</label>
-              <input
-                type="text"
-                value={configForm[row.key]}
-                onChange={(e) => setConfigForm((prev) => ({ ...prev, [row.key]: e.target.value }))}
-                placeholder={row.placeholder}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm"
-              />
-              <p className="text-fluid-2xs text-gray-500 mt-1">{row.hint}</p>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">현재 플랜</label>
+                <div className="pt-0.5">
+                  <PlanBadge plan={detail.tenant.plan} />
+                </div>
+              </div>
             </div>
-          ))}
+            <div className="flex justify-end border-t border-gray-100 pt-2">
+              <button
+                type="button"
+                onClick={() => void saveBasics()}
+                disabled={saving}
+                className={BTN_PRIMARY}
+              >
+                {saving ? '저장 중…' : '저장'}
+              </button>
+            </div>
+          </section>
         </div>
-        <button
-          type="button"
-          onClick={() => void handleSaveConfigForm()}
-          disabled={saving}
-          className="px-4 py-2 bg-gray-800 text-white text-fluid-sm rounded hover:bg-gray-900 disabled:opacity-50"
-        >
-          L1 설정 저장
-        </button>
+      ) : null}
 
-        <details className="border border-gray-100 rounded-lg p-3 bg-gray-50">
-          <summary className="text-fluid-xs text-gray-600 cursor-pointer select-none">
-            고급 · JSON 직접 편집
-          </summary>
-          <div className="mt-3 space-y-2">
+      {activeTab === 'plan' ? (
+        <div className="space-y-5">
+          <section className={CARD_SECTION}>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold text-gray-900">플랜 선택</h2>
+              <p className="text-xs text-gray-400">변경 시 기능 모듈이 자동 재설정됩니다</p>
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {(['starter', 'standard', 'premium'] as const).map((pid) => {
+                const isSelected = plan === pid;
+                const desc = PLAN_DESCRIPTIONS[pid];
+                return (
+                  <button
+                    key={pid}
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void handlePlanSelect(pid)}
+                    className={[
+                      'rounded-xl border-2 p-4 text-left transition-all',
+                      pid === 'premium' && isSelected
+                        ? 'border-purple-500 bg-purple-50'
+                        : pid === 'standard' && isSelected
+                          ? 'border-blue-500 bg-blue-50'
+                          : isSelected
+                            ? 'border-gray-900 bg-gray-50'
+                            : 'border-gray-200 hover:border-gray-300',
+                    ].join(' ')}
+                  >
+                    <div
+                      className={[
+                        'mb-2 text-sm font-bold capitalize',
+                        pid === 'premium' && isSelected
+                          ? 'text-purple-700'
+                          : pid === 'standard' && isSelected
+                            ? 'text-blue-700'
+                            : 'text-gray-900',
+                      ].join(' ')}
+                    >
+                      {pid.charAt(0).toUpperCase() + pid.slice(1)}
+                      {isSelected ? ' ✓' : ''}
+                    </div>
+                    <ul className="space-y-1">
+                      {desc.features.map((f) => (
+                        <li key={f} className="text-xs text-gray-500">
+                          · {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex justify-end border-t border-gray-100 pt-3">
+              <button
+                type="button"
+                onClick={() => void saveBasics()}
+                disabled={saving}
+                className={BTN_PRIMARY}
+              >
+                플랜 저장
+              </button>
+            </div>
+          </section>
+
+          <section className={CARD_SECTION}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">기능 모듈 개별 설정</h2>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  플랜 외 개별 기능을 on/off 할 수 있습니다. core 모듈은 잠겨 있습니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleResetFromPlan()}
+                disabled={saving}
+                className={`${BTN_SECONDARY} px-3 py-1.5 text-xs`}
+              >
+                플랜 기본값으로 재설정
+              </button>
+            </div>
+            <ul className="mt-3 divide-y divide-gray-100">
+              {features.map((f) => (
+                <li key={f.moduleId} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm text-gray-900">{f.label}</div>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-400">
+                      <span className="font-mono">{f.moduleId}</span>
+                      {f.locked ? (
+                        <span className="inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+                          core · 잠금
+                        </span>
+                      ) : null}
+                      {!f.inPlan ? (
+                        <span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600">
+                          플랜 외
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <PlatformToggle
+                    checked={f.enabled}
+                    disabled={f.locked}
+                    onChange={() => toggleFeature(f.moduleId)}
+                  />
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end border-t border-gray-100 pt-3">
+              <button
+                type="button"
+                onClick={() => void handleSaveFeatures()}
+                disabled={saving}
+                className={BTN_PRIMARY}
+              >
+                {saving ? '저장 중…' : '기능 저장'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {activeTab === 'settings' ? (
+        <div className="space-y-5">
+          <section className={CARD_SECTION}>
+            <h2 className="text-base font-semibold text-gray-900">화면 표시 설정</h2>
+            <p className="mb-4 mt-0.5 text-xs text-gray-500">
+              코드 없이 입력만으로 업체별 표시 문구와 기본값을 설정합니다.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {SETTINGS_FIELDS.map((row) => (
+                <div key={row.key}>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">{row.label}</label>
+                  <input
+                    type="text"
+                    value={configForm[row.key]}
+                    onChange={(e) => setConfigForm((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                    placeholder={row.placeholder}
+                    className={INPUT_BASE}
+                  />
+                  <p className="mt-1 text-[10px] text-gray-400">{row.hint}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex justify-end border-t border-gray-100 pt-3">
+              <button
+                type="button"
+                onClick={() => void handleSaveConfigForm()}
+                disabled={saving}
+                className={BTN_PRIMARY}
+              >
+                {saving ? '저장 중…' : '설정 저장'}
+              </button>
+            </div>
+          </section>
+
+          <details className={`${CARD_SECTION} group`}>
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-gray-500">
+              <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+              고급 · JSON 직접 편집
+            </summary>
+            <p className="mb-3 mt-2 text-xs text-gray-400">
+              JSON으로 전체 설정을 직접 수정합니다. 잘못된 값은 서비스에 영향을 줄 수 있습니다.
+            </p>
             <textarea
               value={configJson}
               onChange={(e) => setConfigJson(e.target.value)}
               rows={8}
               spellCheck={false}
-              className="w-full font-mono text-fluid-xs border border-gray-300 rounded px-3 py-2 bg-white"
+              className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-gray-900/20"
             />
-            {configErr ? <p className="text-fluid-xs text-red-600">{configErr}</p> : null}
+            {configErr ? <p className="mt-2 text-xs text-red-600">{configErr}</p> : null}
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => void handleSaveConfigJson()}
+                disabled={saving}
+                className={`${BTN_SECONDARY} px-3 py-1.5 text-xs`}
+              >
+                JSON으로 저장
+              </button>
+            </div>
+          </details>
+        </div>
+      ) : null}
+
+      {activeTab === 'admins' ? (
+        <section className={CARD_SECTION}>
+          <h2 className="text-base font-semibold text-gray-900">관리자 계정</h2>
+          <p className="mb-4 text-xs text-gray-500">
+            이 업체에 관리자 권한으로 로그인할 수 있는 계정 목록입니다.
+          </p>
+          {id ? (
+            <PlatformTenantAdminsSection
+              tenantId={id}
+              admins={admins}
+              onChanged={load}
+              saving={saving}
+              setSaving={setSaving}
+              setMessage={setMessage}
+              setError={setError}
+            />
+          ) : null}
+        </section>
+      ) : null}
+
+      {activeTab === 'danger' ? (
+        <div className="space-y-0 rounded-xl border border-red-100 bg-white p-6">
+          <h2 className="mb-1 text-base font-semibold text-red-600">⚠ 위험 구역</h2>
+          <p className="mb-5 text-xs text-gray-500">아래 작업은 되돌리기 어렵습니다. 신중하게 사용하세요.</p>
+
+          <div className="flex items-start justify-between gap-4 border-b border-red-50 py-4">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">서비스 일시 중지</div>
+              <div className="mt-1 text-xs text-gray-400">
+                이 업체의 모든 로그인을 즉시 차단합니다. 재개 시 정상 복원됩니다.
+              </div>
+            </div>
+            {detail.tenant.status !== 'SUSPENDED' ? (
+              <button
+                type="button"
+                className={`${BTN_DANGER} shrink-0`}
+                disabled={saving}
+                onClick={() => {
+                  if (!window.confirm(`${detail.tenant.name} 서비스를 중지할까요?`)) return;
+                  void saveBasics({ status: 'SUSPENDED' });
+                }}
+              >
+                서비스 중지
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`${BTN_SECONDARY} shrink-0`}
+                disabled={saving}
+                onClick={() => void saveBasics({ status: 'ACTIVE' })}
+              >
+                서비스 재개
+              </button>
+            )}
+          </div>
+
+          {detail.tenant.status === 'TRIAL' ? (
+            <div className="flex items-start justify-between gap-4 border-b border-red-50 py-4">
+              <div>
+                <div className="text-sm font-semibold text-gray-900">체험 → 운영 전환</div>
+                <div className="mt-1 text-xs text-gray-400">
+                  체험 기간을 종료하고 정식 운영 상태로 변경합니다.
+                </div>
+              </div>
+              <button
+                type="button"
+                className={`${BTN_SECONDARY} shrink-0`}
+                disabled={saving}
+                onClick={() => {
+                  if (!window.confirm('체험을 종료하고 운영으로 전환할까요?')) return;
+                  void saveBasics({ status: 'ACTIVE' });
+                }}
+              >
+                운영으로 전환
+              </button>
+            </div>
+          ) : null}
+
+          <div className="flex items-start justify-between gap-4 pt-4">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">테넌트 삭제</div>
+              <div className="mt-1 text-xs text-gray-400">
+                업체와 모든 데이터를 영구 삭제합니다. 복구가 불가능합니다.
+              </div>
+            </div>
             <button
               type="button"
-              onClick={() => void handleSaveConfigJson()}
-              disabled={saving}
-              className="px-3 py-1.5 text-fluid-xs border border-gray-300 rounded bg-white hover:bg-gray-50 disabled:opacity-50"
+              disabled
+              title="추후 구현 예정"
+              className={`${BTN_DANGER_SOLID} shrink-0 cursor-not-allowed opacity-40`}
             >
-              JSON으로 저장
+              삭제
             </button>
           </div>
-        </details>
-      </section>
+        </div>
+      ) : null}
     </div>
   );
 }
-

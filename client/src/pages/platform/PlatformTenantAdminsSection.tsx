@@ -5,6 +5,11 @@ import {
   type PlatformTenantAdmin,
 } from '../../api/platformTenants';
 import { getPlatformToken } from '../../stores/platformAuth';
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  BTN_LINK,
+} from '../../utils/platformUi';
 import { tenantLoginIdErrorMessage } from '@shared/tenantLoginId';
 
 type Props = {
@@ -112,13 +117,10 @@ export function PlatformTenantAdminsSection({
   };
 
   return (
-    <section className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-      <div>
-        <h2 className="text-fluid-sm font-semibold text-gray-800">업체 관리자</h2>
-        <p className="text-fluid-2xs text-gray-500 mt-1">
-          업체 로그인(/login?tenant=…)에 쓰는 ADMIN 계정입니다. 여러 개를 등록할 수 있습니다.
-        </p>
-      </div>
+    <div className="space-y-4">
+      <p className="text-xs text-gray-500">
+        업체 로그인(/login?tenant=…)에 쓰는 ADMIN 계정입니다. 여러 개를 등록할 수 있습니다.
+      </p>
 
       {admins.length === 0 ? (
         <p className="text-fluid-xs text-amber-700 bg-amber-50 border border-amber-100 rounded px-3 py-2">
@@ -157,7 +159,7 @@ export function PlatformTenantAdminsSection({
                         type="button"
                         onClick={() => startEdit(admin)}
                         disabled={saving}
-                        className="text-fluid-xs text-blue-600 hover:underline disabled:opacity-50"
+                        className={`${BTN_LINK} text-xs disabled:opacity-50`}
                       >
                         수정
                       </button>
@@ -182,7 +184,7 @@ export function PlatformTenantAdminsSection({
                   type="button"
                   onClick={() => startEdit(admin)}
                   disabled={saving}
-                  className="text-fluid-xs text-blue-600 shrink-0"
+                  className={`${BTN_LINK} shrink-0 text-xs`}
                 >
                   수정
                 </button>
@@ -246,7 +248,7 @@ export function PlatformTenantAdminsSection({
               type="button"
               onClick={() => void handleSaveEdit()}
               disabled={saving}
-              className="px-3 py-1.5 bg-gray-800 text-white text-fluid-xs rounded hover:bg-gray-900 disabled:opacity-50"
+              className={`${BTN_PRIMARY} px-3 py-1.5 text-xs`}
             >
               저장
             </button>
@@ -254,7 +256,7 @@ export function PlatformTenantAdminsSection({
               type="button"
               onClick={cancelEdit}
               disabled={saving}
-              className="px-3 py-1.5 border border-gray-300 text-fluid-xs rounded bg-white hover:bg-gray-50"
+              className={`${BTN_SECONDARY} px-3 py-1.5 text-xs`}
             >
               취소
             </button>
@@ -306,11 +308,11 @@ export function PlatformTenantAdminsSection({
           type="button"
           onClick={() => void handleAdd()}
           disabled={saving || !addForm.loginId.trim() || !addForm.password.trim()}
-          className="px-4 py-2 bg-gray-800 text-white text-fluid-sm rounded hover:bg-gray-900 disabled:opacity-50"
+          className={`${BTN_PRIMARY} w-full sm:w-auto`}
         >
           관리자 추가
         </button>
       </div>
-    </section>
+    </div>
   );
 }
