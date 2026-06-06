@@ -16,6 +16,7 @@ import {
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
+import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import {
   UserOperatingCompanyFields,
   defaultUserOperatingCompanyForm,
@@ -39,14 +40,16 @@ function OperatingCompanyBadges({ items }: { items?: UserItem['operatingCompanie
   return (
     <span className="flex flex-wrap gap-1">
       {items.map((oc) => (
-        <span
+        <OperatingCompanyBadge
           key={oc.operatingCompanyId}
-          className="text-fluid-2xs px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-900"
-          title={oc.slug}
-        >
-          {oc.name}
-          {oc.isPrimary ? ' ·기본' : ''}
-        </span>
+          company={{
+            id: oc.operatingCompanyId,
+            name: oc.name,
+            slug: oc.slug,
+            isActive: oc.isActive,
+          }}
+          suffix={oc.isPrimary ? ' ·기본' : null}
+        />
       ))}
     </span>
   );

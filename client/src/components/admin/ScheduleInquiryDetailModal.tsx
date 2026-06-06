@@ -1599,18 +1599,25 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   {copyHint ?? '정보 복사'}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                {item.inquiryNumber ? `접수번호 ${item.inquiryNumber}` : null}
-                {distanceJuanLabel ? `${item.inquiryNumber ? ' · ' : ''}주안 기준 ${distanceJuanLabel}` : null}
-                {detailHeaderAreaShort !== '—' ? ` · ${detailHeaderAreaShort}` : null}
-                {isManualIntakeInquiry(item.source) ? ' · 수기' : null}
-                {!isInquirySourceHiddenFromUi(item.source)
-                  ? ` · 출처: ${formatInquirySourceLabel(item.source)}`
-                  : null}
-                {` · 담당 마케터: ${item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}`}
-                {item.operatingCompany?.name ? ` · 브랜드: ${item.operatingCompany.name}` : null}
-                {item.callAttempt != null ? ` · 통화 시도: ${item.callAttempt}` : null}
-                {item.claimMemo?.trim() ? ' · 클레임 등록됨' : null}
+              <p className="text-xs text-gray-500 leading-relaxed flex flex-wrap items-center gap-x-1 gap-y-1">
+                {item.inquiryNumber ? <span>접수번호 {item.inquiryNumber}</span> : null}
+                {distanceJuanLabel ? <span>· 주안 기준 {distanceJuanLabel}</span> : null}
+                {detailHeaderAreaShort !== '—' ? <span>· {detailHeaderAreaShort}</span> : null}
+                {isManualIntakeInquiry(item.source) ? <span>· 수기</span> : null}
+                {!isInquirySourceHiddenFromUi(item.source) ? (
+                  <span>· 출처: {formatInquirySourceLabel(item.source)}</span>
+                ) : null}
+                <span>
+                  · 담당 마케터: {item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}
+                </span>
+                {item.operatingCompany ? (
+                  <>
+                    <span>·</span>
+                    <OperatingCompanyBadge company={item.operatingCompany} />
+                  </>
+                ) : null}
+                {item.callAttempt != null ? <span>· 통화 시도: {item.callAttempt}</span> : null}
+                {item.claimMemo?.trim() ? <span>· 클레임 등록됨</span> : null}
               </p>
               {detailLeaderAssignmentUnderfilled ? (
                 <p className="text-[11px] font-semibold text-rose-900 leading-snug">

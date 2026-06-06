@@ -1,0 +1,38 @@
+/** 영업 브랜드 배지 — id/slug 기준 고정 색 (테넌트·세션마다 동일 브랜드 = 동일 색) */
+const PALETTE = [
+  { bg: 'bg-indigo-50', text: 'text-indigo-900', ring: 'ring-indigo-200/80' },
+  { bg: 'bg-emerald-50', text: 'text-emerald-900', ring: 'ring-emerald-200/80' },
+  { bg: 'bg-amber-50', text: 'text-amber-900', ring: 'ring-amber-200/80' },
+  { bg: 'bg-rose-50', text: 'text-rose-900', ring: 'ring-rose-200/80' },
+  { bg: 'bg-sky-50', text: 'text-sky-900', ring: 'ring-sky-200/80' },
+  { bg: 'bg-violet-50', text: 'text-violet-900', ring: 'ring-violet-200/80' },
+  { bg: 'bg-teal-50', text: 'text-teal-900', ring: 'ring-teal-200/80' },
+  { bg: 'bg-orange-50', text: 'text-orange-900', ring: 'ring-orange-200/80' },
+  { bg: 'bg-fuchsia-50', text: 'text-fuchsia-900', ring: 'ring-fuchsia-200/80' },
+  { bg: 'bg-cyan-50', text: 'text-cyan-900', ring: 'ring-cyan-200/80' },
+] as const;
+
+function stablePaletteIndex(key: string): number {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) {
+    h = (Math.imul(31, h) + key.charCodeAt(i)) >>> 0;
+  }
+  return h % PALETTE.length;
+}
+
+export function operatingCompanyBadgeColorClasses(input: {
+  id?: string | null;
+  slug?: string | null;
+  name?: string | null;
+  inactive?: boolean;
+}): string {
+  if (input.inactive) {
+    return 'bg-gray-100 text-gray-500 line-through ring-1 ring-inset ring-gray-200/80';
+  }
+  const key = (input.id ?? input.slug ?? input.name ?? '').trim().toLowerCase();
+  if (!key) {
+    return 'bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-200/80';
+  }
+  const { bg, text, ring } = PALETTE[stablePaletteIndex(key)];
+  return `${bg} ${text} ring-1 ring-inset ${ring}`;
+}

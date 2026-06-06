@@ -1,4 +1,5 @@
 import type { OperatingCompanyItem } from '../../api/operatingCompanies';
+import { OperatingCompanyBadge } from './OperatingCompanyBadge';
 
 export type UserOperatingCompanyFormValue = {
   operatingCompanyIds: string[];
@@ -64,10 +65,9 @@ export function UserOperatingCompanyFields({ companies, value, onChange, disable
                   onChange={() => toggle(c.id)}
                   className="rounded border-gray-300"
                 />
-                <span className="font-medium text-gray-900 truncate" title={c.displayName}>
-                  {c.displayName}
-                </span>
-                <span className="text-gray-400 text-xs font-mono">{c.slug}</span>
+                <OperatingCompanyBadge
+                  company={{ id: c.id, name: c.displayName, slug: c.slug, isActive: c.isActive }}
+                />
               </label>
               {checked ? (
                 <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 ml-auto">

@@ -7,6 +7,7 @@ import {
   type OperatingCompanyItem,
 } from '../../api/operatingCompanies';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 
 function emptyCreateForm() {
   return {
@@ -199,8 +200,16 @@ export function AdminOperatingCompaniesPage() {
                 <tbody>
                   {items.map((row) => (
                     <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50">
-                      <td className="px-3 py-2 text-center truncate" title={row.displayName}>
-                        {row.displayName}
+                      <td className="px-3 py-2 text-center">
+                        <OperatingCompanyBadge
+                          company={{
+                            id: row.id,
+                            name: row.displayName,
+                            slug: row.slug,
+                            isActive: row.isActive,
+                          }}
+                          suffix={row.isDefault ? ' ·기본' : null}
+                        />
                       </td>
                       <td className="px-3 py-2 text-center font-mono text-xs text-gray-600">{row.slug}</td>
                       <td className="px-3 py-2 text-center text-gray-600">
@@ -253,9 +262,17 @@ export function AdminOperatingCompaniesPage() {
               {items.map((row) => (
                 <div key={row.id} className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900 truncate">{row.displayName}</p>
-                      <p className="text-xs font-mono text-gray-500">{row.slug}</p>
+                    <div className="min-w-0 flex flex-wrap items-center gap-2">
+                      <OperatingCompanyBadge
+                        company={{
+                          id: row.id,
+                          name: row.displayName,
+                          slug: row.slug,
+                          isActive: row.isActive,
+                        }}
+                        suffix={row.isDefault ? ' ·기본' : null}
+                      />
+                      <span className="text-xs font-mono text-gray-500">{row.slug}</span>
                     </div>
                     <span
                       className={`shrink-0 text-xs px-2 py-0.5 rounded ${

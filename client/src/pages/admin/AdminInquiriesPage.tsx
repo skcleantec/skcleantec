@@ -3076,9 +3076,21 @@ export function AdminInquiriesPage() {
               {operatingCompanyFilterId ? (
                 <>
                   {' · '}
-                  브랜드:{' '}
-                  {operatingCompanies.find((oc) => oc.id === operatingCompanyFilterId)?.name ??
-                    operatingCompanyFilterId}
+                  {(() => {
+                    const oc = operatingCompanies.find((o) => o.id === operatingCompanyFilterId);
+                    return oc ? (
+                      <OperatingCompanyBadge
+                        company={{
+                          id: oc.id,
+                          name: oc.name,
+                          slug: oc.slug,
+                          isActive: oc.isActive,
+                        }}
+                      />
+                    ) : (
+                      <span>브랜드: {operatingCompanyFilterId}</span>
+                    );
+                  })()}
                 </>
               ) : null}
               <span className="hidden lg:inline">
