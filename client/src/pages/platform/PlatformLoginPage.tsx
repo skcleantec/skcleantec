@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { PLATFORM_NAME, PLATFORM_TAGLINE } from '@shared/platformBrand';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { platformLogin } from '../../api/platformTenants';
 import { setPlatformToken } from '../../stores/platformAuth';
 
@@ -43,10 +43,8 @@ export function PlatformLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-fluid-sm"
-              placeholder="pyo"
               required
             />
-            <p className="mt-1 text-fluid-2xs text-gray-500">플랫폼 운영자 계정 (업무 /login 과 별도)</p>
           </div>
           <div>
             <label className="block text-fluid-xs text-gray-600 mb-1">비밀번호</label>
@@ -68,6 +66,11 @@ export function PlatformLoginPage() {
             {loading ? '로그인 중…' : '로그인'}
           </button>
         </form>
+        <p className="mt-6 text-center text-fluid-2xs text-gray-500">
+          <Link to="/login" className="hover:text-gray-700 underline-offset-2 hover:underline">
+            업무 로그인
+          </Link>
+        </p>
       </div>
     </div>
   );

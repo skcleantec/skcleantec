@@ -5,4 +5,4 @@ export const PLATFORM_NAME = '청소비서';
 export const PLATFORM_NAME_EN = 'Clean Assistant';
 
 /** 로그인·헤더 부제 */
-export const PLATFORM_TAGLINE = '청소업 SaaS 운영 콘솔';
+export const PLATFORM_TAGLINE = '운영콘솔';
