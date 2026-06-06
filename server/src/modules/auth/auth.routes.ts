@@ -19,6 +19,10 @@ import {
 import { DEFAULT_TENANT_SLUG } from '../tenants/tenant.constants.js';
 import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
+import {
+  listOperatingCompanies,
+  listUserOperatingCompanies,
+} from '../operating-companies/operatingCompany.service.js';
 
 /** 활성 크루 그룹 — 로그인·미리보기 공통 조회 (tenantId 있으면 해당 업체로 한정) */
 async function findActiveCrewGroupByLoginId(loginId: string, tenantId?: string) {
@@ -193,6 +197,14 @@ router.get('/me', authMiddleware, async (req, res) => {
     : null;
   const features = tenantId ? await getEffectiveEnabledModules(tenantId) : [];
   const config = tenantId ? await getTenantConfig(tenantId) : {};
+  const operatingCompaniesResolved = tenantId
+    ? user.role === 'ADMIN'
+      ? (await listOperatingCompanies(prisma, tenantId)).map((oc) => ({
+          ...oc,
+          isPrimary: oc.isDefault,
+        }))
+      : await listUserOperatingCompanies(prisma, tenantId, userId)
+    : [];
   const r =
     user.role === 'TEAM_LEADER' || user.role === 'EXTERNAL_PARTNER' || user.role === 'MARKETER'
       ? {
@@ -212,6 +224,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     tenant: tenant ? tenantSummary(tenant, (config as { branding?: { displayName?: string } }).branding?.displayName) : null,
     features,
     config,
+    operatingCompanies: operatingCompaniesResolved,
   });
 });
 

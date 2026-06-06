@@ -74,6 +74,8 @@ model Tenant {
   professionalSpecialtyOptions ProfessionalSpecialtyOption[]
   orderFormTemplates OrderFormTemplate[]
   orderFormTemplateFields OrderFormTemplateField[]
+  operatingCompanies OperatingCompany[]
+  userOperatingCompanies UserOperatingCompany[]
 
   @@map("tenants")
 }
@@ -101,6 +103,48 @@ model PlatformUser {
   createdAt    DateTime     @default(now()) @map("created_at")
 
   @@map("platform_users")
+}
+
+/// 테넌트 내 영업 브랜드(운영 업체) — SK클린텍·타나클린 등. 타업체(ExternalCompany)와 별개.
+model OperatingCompany {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(128)
+  /// 고객 URL `?brand=` 및 테넌트 내 식별용 영문 slug
+  slug      String   @db.VarChar(48)
+  isDefault Boolean  @default(false) @map("is_default")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  /// branding·orderForm·inquiry.numberPrefix 등
+  config    Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userMemberships   UserOperatingCompany[]
+  inquiries         Inquiry[]
+  dailyCounters     DailyInquiryCounter[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, isActive, sortOrder])
+  @@map("operating_companies")
+}
+
+/// 마케터·팀장의 영업 업체 소속(다중). isPrimary 1개 권장.
+model UserOperatingCompany {
+  tenantId           String @map("tenant_id")
+  userId             String @map("user_id")
+  operatingCompanyId String @map("operating_company_id")
+  isPrimary          Boolean @default(false) @map("is_primary")
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operatingCompany OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, operatingCompanyId])
+  @@index([tenantId, userId])
+  @@index([tenantId, operatingCompanyId])
+  @@map("user_operating_companies")
 }
 
 /// 자사가 고객 정보를 넘기는 외부 협력 업체 (타업체)
@@ -220,6 +264,7 @@ model User {
   orderFormDeleteLogsAsCreator  OrderFormDeleteLog[]   @relation("OrderFormDeleteLogCreator")
   externalCompanySettlementResetsAsActor ExternalCompanySettlementReset[] @relation("ExternalCompanySettlementResetActor")
   externalCompanySettlementPaymentsAsActor ExternalCompanySettlementPayment[] @relation("ExternalCompanySettlementPaymentActor")
+  operatingCompanyMemberships UserOperatingCompany[]
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
   crewStaffNoticesSent          CrewStaffNotice[]     @relation("CrewStaffNoticeSender")
   teamMemberPayrollSettlementsAsActor TeamMemberPayrollSettlement[] @relation("TeamMemberPayrollSettlementActor")
@@ -637,14 +682,16 @@ enum UserRole {
   EXTERNAL_PARTNER
 }
 
-/// KST 일자별 접수 순번 (YYMMDD + 4자리 = 10자리 `inquiry_number` 발급용)
+/// KST 일자별 접수 순번 (YYMMDD + 4자리 = 10자리 `inquiry_number` 발급용, 영업 업체별)
 model DailyInquiryCounter {
-  tenantId String @map("tenant_id")
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  dateKey  String @map("date_key") @db.VarChar(8)
-  lastSeq  Int    @map("last_seq")
+  tenantId           String @map("tenant_id")
+  tenant             Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String @map("operating_company_id")
+  operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  dateKey            String @map("date_key") @db.VarChar(8)
+  lastSeq            Int    @map("last_seq")
 
-  @@id([tenantId, dateKey])
+  @@id([tenantId, operatingCompanyId, dateKey])
   @@map("daily_inquiry_counters")
 }
 
@@ -652,8 +699,10 @@ model Inquiry {
   id              String       @id @default(uuid())
   tenantId        String       @map("tenant_id")
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  /// 고객·검색용 짧은 접수번호 (KST 기준 YYMMDD + 일 4자리 순번, 10자리 숫자)
-  inquiryNumber   String?      @map("inquiry_number") @db.VarChar(12)
+  operatingCompanyId String    @map("operating_company_id")
+  operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  /// 고객·검색용 접수번호 (KST YYMMDD + 4자리 + 선택 접두)
+  inquiryNumber   String?      @map("inquiry_number") @db.VarChar(24)
   customerName    String       @map("customer_name")
   /// 선택 입력: 고객 호칭·별칭(예: 어머님, 관리실)
   nickname        String?      @map("nickname")
@@ -739,6 +788,7 @@ model Inquiry {
   @@index([status, createdAt])
   @@index([createdById])
   @@index([tenantId, createdAt])
+  @@index([tenantId, operatingCompanyId, createdAt])
   @@unique([tenantId, inquiryNumber])
   @@map("inquiries")
 }

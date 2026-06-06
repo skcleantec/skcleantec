@@ -13,6 +13,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '팀장·마케터·사무직 등록',
       },
       {
+        to: '/admin/team-leaders/operating-companies',
+        label: '영업브랜드',
+        title: '영업 브랜드 등록',
+      },
+      {
         to: '/admin/team-leaders/external-companies',
         label: '타업체등록',
         title: '타업체 등록',
@@ -68,6 +73,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         to: '/admin/team-leaders/page-settings',
         label: '페이지설정',
         title: '페이지 설정',
+      },
+      {
+        to: '/admin/team-leaders/operating-policy',
+        label: '브랜드정책',
+        title: '영업 브랜드 운영 정책',
       },
     ],
   },

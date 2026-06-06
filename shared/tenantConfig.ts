@@ -19,10 +19,13 @@ export type TenantInquiryConfig = {
   numberPrefix?: string;
 };
 
+import type { OperatingCompanyPolicy } from './operatingCompanyConfig.js';
+
 export type TenantConfig = {
   branding?: TenantBrandingConfig;
   orderForm?: TenantOrderFormConfig;
   inquiry?: TenantInquiryConfig;
+  operatingCompanyPolicy?: OperatingCompanyPolicy;
 };
 
 export const EMPTY_TENANT_CONFIG: TenantConfig = {};

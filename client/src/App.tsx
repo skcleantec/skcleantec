@@ -37,6 +37,8 @@ import { AdminTeamsPage } from './pages/admin/AdminTeamsPage';
 import { AdminTeamHolidayCalendarPage } from './pages/admin/AdminTeamHolidayCalendarPage';
 import { AdminTeamLeaderStatsPage } from './pages/admin/AdminTeamLeaderStatsPage';
 import { AdminExternalCompaniesPage } from './pages/admin/AdminExternalCompaniesPage';
+import { AdminOperatingCompaniesPage } from './pages/admin/AdminOperatingCompaniesPage';
+import { AdminOperatingCompanyPolicyPage } from './pages/admin/AdminOperatingCompanyPolicyPage';
 import { AdminExternalSettlementPage } from './pages/admin/AdminExternalSettlementPage';
 import { AdminPageSettingsPage } from './pages/admin/AdminPageSettingsPage';
 import { AdminPayrollPage } from './pages/admin/AdminPayrollPage';
@@ -112,6 +114,8 @@ function App() {
             <Route path="leader-stats" element={<AdminTeamLeaderStatsPage />} />
             <Route path="page-settings" element={<AdminPageSettingsPage />} />
             <Route path="inquiry-delete" element={<AdminInquiryBulkDeletePage />} />
+            <Route path="operating-companies" element={<AdminOperatingCompaniesPage />} />
+            <Route path="operating-policy" element={<AdminOperatingCompanyPolicyPage />} />
             <Route path="external-companies" element={<AdminExternalCompaniesPage />} />
             <Route path="external-settlement" element={<AdminExternalSettlementPage />} />
             <Route path="payroll" element={<FeatureGate module="mod_payroll"><AdminPayrollPage /></FeatureGate>} />

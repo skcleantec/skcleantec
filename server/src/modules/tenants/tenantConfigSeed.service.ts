@@ -2,6 +2,8 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { DEFAULT_PROFESSIONAL_OPTIONS } from '../orderform/defaultProfessionalOptions.data.js';
 import { DEFAULT_ORDER_FORM_TEMPLATE_FIELDS } from '../orderform-templates/systemFields.js';
 import { DEFAULT_TENANT_ID } from './tenant.constants.js';
+import { createDefaultOperatingCompanyForTenant } from '../operating-companies/operatingCompany.service.js';
+import { parseTenantConfig } from './tenantConfig.schema.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -111,7 +113,40 @@ export async function seedTenantDefaults(
   tx: Prisma.TransactionClient,
   tenantId: string,
   tenantName: string,
+  tenantSlug?: string,
 ): Promise<void> {
+  const tenantRow = await tx.tenant.findUnique({
+    where: { id: tenantId },
+    select: { slug: true, config: true },
+  });
+  const slug = tenantSlug ?? tenantRow?.slug ?? tenantName;
+  const tenantConfig = parseTenantConfig(tenantRow?.config);
+  const defaultOcId = await createDefaultOperatingCompanyForTenant(tx, tenantId, {
+    name: tenantName,
+    slug,
+    config: {
+      branding: tenantConfig.branding,
+      orderForm: tenantConfig.orderForm,
+      inquiry: tenantConfig.inquiry,
+    },
+  });
+
+  const staffUsers = await tx.user.findMany({
+    where: { tenantId },
+    select: { id: true },
+  });
+  if (staffUsers.length > 0) {
+    await tx.userOperatingCompany.createMany({
+      data: staffUsers.map((u) => ({
+        tenantId,
+        userId: u.id,
+        operatingCompanyId: defaultOcId,
+        isPrimary: true,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
   await getOrCreateOrderFormConfig(tx, tenantId, {
     formTitle: `${tenantName} 입주청소 발주서`,
   });

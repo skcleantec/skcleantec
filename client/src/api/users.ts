@@ -1,4 +1,5 @@
 import { API } from './apiPrefix';
+import type { UserOperatingCompanySummary } from './operatingCompanies';
 
 function headers(token: string) {
   return {
@@ -33,6 +34,8 @@ export interface UserItem {
   teamLeaderGeneralSettlementValue?: number | null;
   /** 팀장만: 추가결재 정산 시 회사 몫 만분율(0~10000). null이면 운영 기본값으로 해석 가능 */
   teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
+  /** scope=management · 팀장·마케터 */
+  operatingCompanies?: UserOperatingCompanySummary[];
 }
 
 export type TeamLeaderGeneralSettlementModeApi =
@@ -117,6 +120,8 @@ export async function createUser(
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
     teamLeaderGeneralSettlementValue?: number | null;
     teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
+    operatingCompanyIds?: string[];
+    primaryOperatingCompanyId?: string;
   }
 ): Promise<UserItem> {
   const res = await fetch(`${API}/users`, {
@@ -157,6 +162,8 @@ export async function updateUser(
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
     teamLeaderGeneralSettlementValue?: number | null;
     teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
+    operatingCompanyIds?: string[];
+    primaryOperatingCompanyId?: string;
   }
 ): Promise<UserItem> {
   const res = await fetch(`${API}/users/${encodeURIComponent(id)}`, {

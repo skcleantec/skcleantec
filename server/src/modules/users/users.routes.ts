@@ -25,6 +25,14 @@ import {
   serializeUserDates,
   type EmploymentStatusFilter,
 } from './userEmployment.js';
+import {
+  ensureDefaultMembershipForUser,
+  listOperatingCompaniesByUserIds,
+  parseUserOperatingCompanyMembershipInput,
+  syncUserOperatingCompanies,
+  userRoleSupportsOperatingMembership,
+  UserOperatingCompanyValidationError,
+} from '../operating-companies/userOperatingCompany.service.js';
 
 const router = Router();
 
@@ -140,6 +148,15 @@ router.get('/', adminOrMarketer, async (req, res) => {
     }
   }
 
+  const ocByUser =
+    management && (role === 'TEAM_LEADER' || role === 'MARKETER')
+      ? await listOperatingCompaniesByUserIds(
+          prisma,
+          tenantId,
+          out.map((u) => u.id),
+        )
+      : null;
+
   res.json(
     out.map((u) => ({
       id: u.id,
@@ -156,6 +173,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
       teamLeaderGeneralSettlementValue: u.teamLeaderGeneralSettlementValue ?? null,
       teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
       staffIdCardUrl: u.staffIdCardUrl ?? null,
+      operatingCompanies: ocByUser?.get(u.id) ?? undefined,
       ...serializeUserDates(u),
     }))
   );
@@ -196,6 +214,8 @@ router.post('/', adminOnly, async (req, res) => {
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null | string;
     teamLeaderGeneralSettlementValue?: unknown;
     teamLeaderAdditionalReceiptCompanyShareBps?: unknown;
+    operatingCompanyIds?: unknown;
+    primaryOperatingCompanyId?: unknown;
   };
   const { email, password, name, phone, role } = body;
   if (!email || !password || !name) {
@@ -303,43 +323,64 @@ router.post('/', adminOnly, async (req, res) => {
     }
   }
 
+  let membershipInput = null;
+  if (userRoleSupportsOperatingMembership(userRole)) {
+    try {
+      membershipInput = parseUserOperatingCompanyMembershipInput(body);
+    } catch (e) {
+      if (e instanceof UserOperatingCompanyValidationError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+      throw e;
+    }
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      tenantId,
-      email: loginId,
-      passwordHash,
-      name,
-      phone: phone || null,
-      role: userRole,
-      ...(payrollMonthlySalary !== undefined ? { payrollMonthlySalary } : {}),
-      ...(payrollPayDay !== undefined ? { payrollPayDay } : {}),
-      ...(userRole === 'TEAM_LEADER' && teamLeaderGeneralSettlementMode !== undefined
-        ? { teamLeaderGeneralSettlementMode }
-        : {}),
-      ...(userRole === 'TEAM_LEADER' && teamLeaderGeneralSettlementValue !== undefined
-        ? { teamLeaderGeneralSettlementValue }
-        : {}),
-      ...(userRole === 'TEAM_LEADER' && teamLeaderAdditionalReceiptCompanyShareBps !== undefined
-        ? { teamLeaderAdditionalReceiptCompanyShareBps }
-        : {}),
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      phone: true,
-      role: true,
-      hireDate: true,
-      resignationDate: true,
-      allowSelfDayOffEdit: true,
-      payrollMonthlySalary: true,
-      payrollPayDay: true,
-      teamLeaderGeneralSettlementMode: true,
-      teamLeaderGeneralSettlementValue: true,
-      teamLeaderAdditionalReceiptCompanyShareBps: true,
-      staffIdCardUrl: true,
-    },
+  const user = await prisma.$transaction(async (tx) => {
+    const created = await tx.user.create({
+      data: {
+        tenantId,
+        email: loginId,
+        passwordHash,
+        name,
+        phone: phone || null,
+        role: userRole,
+        ...(payrollMonthlySalary !== undefined ? { payrollMonthlySalary } : {}),
+        ...(payrollPayDay !== undefined ? { payrollPayDay } : {}),
+        ...(userRole === 'TEAM_LEADER' && teamLeaderGeneralSettlementMode !== undefined
+          ? { teamLeaderGeneralSettlementMode }
+          : {}),
+        ...(userRole === 'TEAM_LEADER' && teamLeaderGeneralSettlementValue !== undefined
+          ? { teamLeaderGeneralSettlementValue }
+          : {}),
+        ...(userRole === 'TEAM_LEADER' && teamLeaderAdditionalReceiptCompanyShareBps !== undefined
+          ? { teamLeaderAdditionalReceiptCompanyShareBps }
+          : {}),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        hireDate: true,
+        resignationDate: true,
+        allowSelfDayOffEdit: true,
+        payrollMonthlySalary: true,
+        payrollPayDay: true,
+        teamLeaderGeneralSettlementMode: true,
+        teamLeaderGeneralSettlementValue: true,
+        teamLeaderAdditionalReceiptCompanyShareBps: true,
+        staffIdCardUrl: true,
+      },
+    });
+    if (membershipInput) {
+      await syncUserOperatingCompanies(tx, tenantId, created.id, membershipInput);
+    } else {
+      await ensureDefaultMembershipForUser(tx, tenantId, created.id, userRole);
+    }
+    return created;
   });
   res.status(201).json({
     ...user,
@@ -353,6 +394,39 @@ router.post('/', adminOnly, async (req, res) => {
     staffIdCardUrl: user.staffIdCardUrl ?? null,
     ...serializeUserDates(user),
   });
+});
+
+/** 관리자: 팀장·마케터 영업 업체 다중 소속 */
+router.put('/:id/operating-companies', adminOnly, async (req, res) => {
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, authUser);
+  if (!tenantId) return;
+
+  const existing = await prisma.user.findFirst({
+    where: { id: req.params.id, tenantId },
+    select: { id: true, role: true },
+  });
+  if (!existing || !userRoleSupportsOperatingMembership(existing.role)) {
+    res.status(404).json({ error: '영업 업체 소속을 설정할 사용자를 찾을 수 없습니다.' });
+    return;
+  }
+
+  try {
+    const input = parseUserOperatingCompanyMembershipInput(req.body as Record<string, unknown>);
+    if (!input) {
+      res.status(400).json({ error: 'operatingCompanyIds와 primaryOperatingCompanyId가 필요합니다.' });
+      return;
+    }
+    await syncUserOperatingCompanies(prisma, tenantId, existing.id, input);
+    const map = await listOperatingCompaniesByUserIds(prisma, tenantId, [existing.id]);
+    res.json({ operatingCompanies: map.get(existing.id) ?? [] });
+  } catch (e) {
+    if (e instanceof UserOperatingCompanyValidationError) {
+      res.status(400).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
 });
 
 /** 관리자: 팀장·마케터 사원증 이미지 업로드 (Cloudinary) */
@@ -443,10 +517,25 @@ router.patch('/:id', adminOnly, async (req, res) => {
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null | string;
     teamLeaderGeneralSettlementValue?: number | null | string;
     teamLeaderAdditionalReceiptCompanyShareBps?: number | string | null;
+    operatingCompanyIds?: unknown;
+    primaryOperatingCompanyId?: unknown;
   };
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, authUser);
   if (!tenantId) return;
+
+  let membershipInput: ReturnType<typeof parseUserOperatingCompanyMembershipInput> = null;
+  if (body.operatingCompanyIds !== undefined || body.primaryOperatingCompanyId !== undefined) {
+    try {
+      membershipInput = parseUserOperatingCompanyMembershipInput(body);
+    } catch (e) {
+      if (e instanceof UserOperatingCompanyValidationError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+      throw e;
+    }
+  }
 
   const wantsEmploymentDates =
     body.hireDate !== undefined || body.resignationDate !== undefined;
@@ -674,61 +763,64 @@ router.patch('/:id', adminOnly, async (req, res) => {
     }
   }
 
-  if (Object.keys(data).length === 0) {
-    const u = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        role: true,
-        hireDate: true,
-        resignationDate: true,
-        allowSelfDayOffEdit: true,
-        payrollMonthlySalary: true,
-        payrollPayDay: true,
-        teamLeaderGeneralSettlementMode: true,
-        teamLeaderGeneralSettlementValue: true,
-        teamLeaderAdditionalReceiptCompanyShareBps: true,
-        staffIdCardUrl: true,
-      },
-    });
+  if (membershipInput && !userRoleSupportsOperatingMembership(existing.role)) {
+    res.status(400).json({ error: '팀장·마케터만 영업 업체 소속을 설정할 수 있습니다.' });
+    return;
+  }
+
+  const userSelect = {
+    id: true,
+    email: true,
+    name: true,
+    phone: true,
+    role: true,
+    hireDate: true,
+    resignationDate: true,
+    allowSelfDayOffEdit: true,
+    payrollMonthlySalary: true,
+    payrollPayDay: true,
+    teamLeaderGeneralSettlementMode: true,
+    teamLeaderGeneralSettlementValue: true,
+    teamLeaderAdditionalReceiptCompanyShareBps: true,
+    staffIdCardUrl: true,
+  } as const;
+
+  if (Object.keys(data).length === 0 && !membershipInput) {
+    const u = await prisma.user.findUnique({ where: { id }, select: userSelect });
+    if (!u) {
+      res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+      return;
+    }
     res.json({
-      ...u!,
-      allowSelfDayOffEdit: u!.role === 'TEAM_LEADER' ? u!.allowSelfDayOffEdit : true,
-      payrollMonthlySalary: u!.payrollMonthlySalary ?? null,
-      payrollPayDay: u!.payrollPayDay ?? null,
-      teamLeaderGeneralSettlementMode: u!.teamLeaderGeneralSettlementMode ?? null,
-      teamLeaderGeneralSettlementValue: u!.teamLeaderGeneralSettlementValue ?? null,
-      teamLeaderAdditionalReceiptCompanyShareBps:
-        u!.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
-      staffIdCardUrl: u!.staffIdCardUrl ?? null,
-      ...serializeUserDates(u!),
+      ...u,
+      allowSelfDayOffEdit: u.role === 'TEAM_LEADER' ? u.allowSelfDayOffEdit : true,
+      payrollMonthlySalary: u.payrollMonthlySalary ?? null,
+      payrollPayDay: u.payrollPayDay ?? null,
+      teamLeaderGeneralSettlementMode: u.teamLeaderGeneralSettlementMode ?? null,
+      teamLeaderGeneralSettlementValue: u.teamLeaderGeneralSettlementValue ?? null,
+      teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
+      staffIdCardUrl: u.staffIdCardUrl ?? null,
+      ...serializeUserDates(u),
     });
     return;
   }
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data,
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      phone: true,
-      role: true,
-      hireDate: true,
-      resignationDate: true,
-      allowSelfDayOffEdit: true,
-      payrollMonthlySalary: true,
-      payrollPayDay: true,
-      teamLeaderGeneralSettlementMode: true,
-      teamLeaderGeneralSettlementValue: true,
-      teamLeaderAdditionalReceiptCompanyShareBps: true,
-      staffIdCardUrl: true,
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const u =
+      Object.keys(data).length > 0
+        ? await tx.user.update({ where: { id }, data, select: userSelect })
+        : await tx.user.findUniqueOrThrow({ where: { id }, select: userSelect });
+    if (membershipInput && userRoleSupportsOperatingMembership(u.role)) {
+      await syncUserOperatingCompanies(tx, tenantId, id, membershipInput);
+    }
+    return u;
   });
+
+  const ocMap =
+    userRoleSupportsOperatingMembership(updated.role)
+      ? await listOperatingCompaniesByUserIds(prisma, tenantId, [updated.id])
+      : null;
+
   res.json({
     ...updated,
     allowSelfDayOffEdit: updated.role === 'TEAM_LEADER' ? updated.allowSelfDayOffEdit : true,
@@ -739,6 +831,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     teamLeaderAdditionalReceiptCompanyShareBps:
       updated.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
     staffIdCardUrl: updated.staffIdCardUrl ?? null,
+    operatingCompanies: ocMap?.get(updated.id),
     ...serializeUserDates(updated),
   });
 });

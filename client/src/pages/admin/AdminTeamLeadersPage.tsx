@@ -15,6 +15,13 @@ import {
 } from '../../api/users';
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
+import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
+import {
+  UserOperatingCompanyFields,
+  defaultUserOperatingCompanyForm,
+  userOperatingCompanyFormFromUser,
+  type UserOperatingCompanyFormValue,
+} from '../../components/admin/UserOperatingCompanyFields';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 
 type UserRole = 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
@@ -23,6 +30,26 @@ function userRoleLabel(role: UserItem['role']): string {
   if (role === 'MARKETER') return '마케터';
   if (role === 'OFFICE_STAFF') return '사무직';
   return '팀장';
+}
+
+function OperatingCompanyBadges({ items }: { items?: UserItem['operatingCompanies'] }) {
+  if (!items?.length) {
+    return <span className="text-fluid-2xs text-gray-400">브랜드 —</span>;
+  }
+  return (
+    <span className="flex flex-wrap gap-1">
+      {items.map((oc) => (
+        <span
+          key={oc.operatingCompanyId}
+          className="text-fluid-2xs px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-900"
+          title={oc.slug}
+        >
+          {oc.name}
+          {oc.isPrimary ? ' ·기본' : ''}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 /** 접수목록과 동일 톤 — 모바일 카드 외곽 */
@@ -174,6 +201,15 @@ export function AdminTeamLeadersPage() {
   const [dayOffSwitchId, setDayOffSwitchId] = useState<string | null>(null);
   const [bulkDayOffLoading, setBulkDayOffLoading] = useState(false);
   const [form, setForm] = useState<RegisterFormState>(() => emptyRegisterForm());
+  const [operatingCompanies, setOperatingCompanies] = useState<OperatingCompanyItem[]>([]);
+  const [ocForm, setOcForm] = useState<UserOperatingCompanyFormValue>({
+    operatingCompanyIds: [],
+    primaryOperatingCompanyId: '',
+  });
+  const [editOcForm, setEditOcForm] = useState<UserOperatingCompanyFormValue>({
+    operatingCompanyIds: [],
+    primaryOperatingCompanyId: '',
+  });
 
   const refresh = (): Promise<void> => {
     if (!token) return Promise.resolve();
@@ -226,6 +262,16 @@ export function AdminTeamLeadersPage() {
   }, [token]);
 
   useEffect(() => {
+    if (!token) return;
+    listOperatingCompanies(token)
+      .then((r) => {
+        setOperatingCompanies(r.items);
+        setOcForm(defaultUserOperatingCompanyForm(r.items));
+      })
+      .catch(() => setOperatingCompanies([]));
+  }, [token]);
+
+  useEffect(() => {
     setShowForm(null);
   }, [userTab]);
 
@@ -245,6 +291,8 @@ export function AdminTeamLeadersPage() {
         teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
         teamLeaderGeneralSettlementValue?: number | null;
         teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
+        operatingCompanyIds?: string[];
+        primaryOperatingCompanyId?: string;
       } = {
         email: form.email.trim().toLowerCase(),
         password: form.password,
@@ -319,8 +367,19 @@ export function AdminTeamLeadersPage() {
         payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
       }
 
+      if (role === 'TEAM_LEADER' || role === 'MARKETER') {
+        if (ocForm.operatingCompanyIds.length === 0) {
+          alert('소속 영업 브랜드를 1개 이상 선택해 주세요.');
+          setSubmitLoading(false);
+          return;
+        }
+        payload.operatingCompanyIds = ocForm.operatingCompanyIds;
+        payload.primaryOperatingCompanyId = ocForm.primaryOperatingCompanyId;
+      }
+
       await createUser(token, payload);
       setForm(emptyRegisterForm());
+      setOcForm(defaultUserOperatingCompanyForm(operatingCompanies));
       setShowForm(null);
       refresh();
     } catch (err) {
@@ -356,6 +415,7 @@ export function AdminTeamLeadersPage() {
           ? companyShareBpsToPercentInput(item.teamLeaderAdditionalReceiptCompanyShareBps)
           : '',
     });
+    setEditOcForm(userOperatingCompanyFormFromUser(operatingCompanies, item.operatingCompanies));
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -375,6 +435,8 @@ export function AdminTeamLeadersPage() {
         teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
         teamLeaderGeneralSettlementValue?: number | null;
         teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
+        operatingCompanyIds?: string[];
+        primaryOperatingCompanyId?: string;
       } = {
         email: editForm.email.trim().toLowerCase(),
         name: editForm.name.trim(),
@@ -459,6 +521,16 @@ export function AdminTeamLeadersPage() {
           return;
         }
         payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
+      }
+
+      if (editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER') {
+        if (editOcForm.operatingCompanyIds.length === 0) {
+          alert('소속 영업 브랜드를 1개 이상 선택해 주세요.');
+          setEditLoading(false);
+          return;
+        }
+        payload.operatingCompanyIds = editOcForm.operatingCompanyIds;
+        payload.primaryOperatingCompanyId = editOcForm.primaryOperatingCompanyId;
       }
 
       await updateUser(token, editingUser.id, payload);
@@ -604,6 +676,7 @@ export function AdminTeamLeadersPage() {
                 if (showForm === 'team') setShowForm(null);
                 else {
                   setForm(emptyRegisterForm());
+                  setOcForm(defaultUserOperatingCompanyForm(operatingCompanies));
                   setShowForm('team');
                 }
               }}
@@ -645,6 +718,9 @@ export function AdminTeamLeadersPage() {
                             <span className="mx-1 text-gray-400">·</span>
                             <span className="tabular-nums">{item.phone || '연락처 없음'}</span>
                           </p>
+                          <div className="mt-1.5">
+                            <OperatingCompanyBadges items={item.operatingCompanies} />
+                          </div>
                         </div>
                       </div>
                       <div
@@ -700,6 +776,7 @@ export function AdminTeamLeadersPage() {
                       <tr>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">브랜드</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
                         <th className="px-2 py-3 text-center font-medium text-gray-700 w-[7.5rem] whitespace-nowrap">
                           본인 휴무
@@ -714,6 +791,9 @@ export function AdminTeamLeadersPage() {
                         <tr key={item.id} className="border-b border-gray-100">
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.email}</td>
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.name}</td>
+                          <td className="px-4 py-3 text-center">
+                            <OperatingCompanyBadges items={item.operatingCompanies} />
+                          </td>
                           <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap tabular-nums">
                             {item.phone || '-'}
                           </td>
@@ -778,6 +858,7 @@ export function AdminTeamLeadersPage() {
                 if (showForm === 'marketer') setShowForm(null);
                 else {
                   setForm(emptyRegisterForm());
+                  setOcForm(defaultUserOperatingCompanyForm(operatingCompanies));
                   setShowForm('marketer');
                 }
               }}
@@ -821,6 +902,9 @@ export function AdminTeamLeadersPage() {
                           월급 {formatUserPayrollSalaryCell(item.payrollMonthlySalary)} · 급여일{' '}
                           {formatUserPayrollPayDayCell(item.payrollPayDay)}
                         </p>
+                        <div className="mt-1.5">
+                          <OperatingCompanyBadges items={item.operatingCompanies} />
+                        </div>
                       </div>
                     </div>
                     <div
@@ -856,6 +940,7 @@ export function AdminTeamLeadersPage() {
                       <tr>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">브랜드</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">월 급여</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">급여일</th>
@@ -867,6 +952,9 @@ export function AdminTeamLeadersPage() {
                         <tr key={item.id} className="border-b border-gray-100">
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.email}</td>
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.name}</td>
+                          <td className="px-4 py-3 text-center">
+                            <OperatingCompanyBadges items={item.operatingCompanies} />
+                          </td>
                           <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap tabular-nums">
                             {item.phone || '-'}
                           </td>
@@ -1235,6 +1323,15 @@ export function AdminTeamLeadersPage() {
                     placeholder="010-0000-0000"
                   />
                 </div>
+                {showForm === 'team' || showForm === 'marketer' ? (
+                  <div className="sm:col-span-2">
+                    <UserOperatingCompanyFields
+                      companies={operatingCompanies}
+                      value={ocForm}
+                      onChange={setOcForm}
+                    />
+                  </div>
+                ) : null}
                 {showForm === 'team' ? (
                   <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-3">
                     <p className="text-fluid-xs font-medium text-gray-800">일반 정산 · 추가결재</p>
@@ -1517,6 +1614,13 @@ export function AdminTeamLeadersPage() {
                     autoComplete="new-password"
                   />
                 </div>
+                {editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER' ? (
+                  <UserOperatingCompanyFields
+                    companies={operatingCompanies}
+                    value={editOcForm}
+                    onChange={setEditOcForm}
+                  />
+                ) : null}
                 {editingUser.role === 'TEAM_LEADER' && (
                   <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-3">
                     <p className="text-fluid-xs font-medium text-gray-800">일반 정산 · 추가결재</p>

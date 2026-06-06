@@ -20,6 +20,7 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { tenantIdForUserId } from '../tenants/tenant.service.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { resolveInquiryOperatingCompanyId } from '../operating-companies/operatingCompanyResolve.service.js';
 
 const router = Router();
 
@@ -44,7 +45,7 @@ async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId
   await prisma.$transaction(async (tx) => {
     const inv = await tx.inquiry.findFirst({
       where: { id: inquiryId, tenantId },
-      select: { status: true, inquiryNumber: true, tenantId: true },
+      select: { status: true, inquiryNumber: true, tenantId: true, operatingCompanyId: true },
     });
     if (!inv || inv.status === 'CANCELLED') return;
     if (
@@ -61,7 +62,7 @@ async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId
       status: 'DEPOSIT_PENDING',
     };
     if (inv.inquiryNumber == null) {
-      data.inquiryNumber = await allocateNextInquiryNumber(tx, inv.tenantId);
+      data.inquiryNumber = await allocateNextInquiryNumber(tx, inv.tenantId, inv.operatingCompanyId);
     }
     await tx.inquiry.update({ where: { id: inquiryId }, data });
   });
@@ -106,13 +107,26 @@ async function createInquiryForDepositFlow(params: {
     throw new Error('접수 생성에 필요한 업체 정보를 찾을 수 없습니다.');
   }
   return prisma.$transaction(async (tx) => {
+    const actor = await tx.user.findFirst({
+      where: { id: params.actorId, tenantId },
+      select: { role: true },
+    });
+    const operatingCompanyId = await resolveInquiryOperatingCompanyId({
+      tx,
+      tenantId,
+      userId: params.actorId,
+      userRole: actor?.role,
+    });
     const inquiryStatus =
       params.followupStatus === 'DEPOSIT_PENDING' ? 'DEPOSIT_PENDING' : 'DEPOSIT_COMPLETED';
     const inquiryNumber =
-      inquiryStatus === 'DEPOSIT_PENDING' ? await allocateNextInquiryNumber(tx, tenantId) : null;
+      inquiryStatus === 'DEPOSIT_PENDING'
+        ? await allocateNextInquiryNumber(tx, tenantId, operatingCompanyId)
+        : null;
     const created = await tx.inquiry.create({
       data: {
         tenantId,
+        operatingCompanyId,
         inquiryNumber,
         createdById: params.actorId,
         customerName: params.customerName,

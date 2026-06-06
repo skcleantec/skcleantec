@@ -1,28 +1,24 @@
 /**
- * L1 Tenant.config 파싱 — shared/tenantConfig.ts 와 타입 동기화
- * @see docs/MULTI_TENANT_PLATFORM.md
+ * OperatingCompany.config 파싱 — shared/operatingCompanyConfig.ts 와 동기화
  */
 
-export type TenantBrandingConfig = {
+export type OperatingCompanyBrandingConfig = {
   displayName?: string;
   loginSubtitle?: string;
 };
 
-export type TenantOrderFormConfig = {
+export type OperatingCompanyOrderFormConfig = {
   publicSubtitle?: string;
 };
 
-export type TenantInquiryConfig = {
+export type OperatingCompanyInquiryConfig = {
   numberPrefix?: string;
 };
 
-import type { OperatingCompanyPolicy } from '../operating-companies/operatingCompanyPolicy.js';
-
-export type TenantConfig = {
-  branding?: TenantBrandingConfig;
-  orderForm?: TenantOrderFormConfig;
-  inquiry?: TenantInquiryConfig;
-  operatingCompanyPolicy?: OperatingCompanyPolicy;
+export type OperatingCompanyConfig = {
+  branding?: OperatingCompanyBrandingConfig;
+  orderForm?: OperatingCompanyOrderFormConfig;
+  inquiry?: OperatingCompanyInquiryConfig;
 };
 
 const MAX_STRING = 512;
@@ -36,7 +32,7 @@ function trimOptionalString(raw: unknown, maxLen: number): string | undefined {
   return v.slice(0, maxLen);
 }
 
-function parseBranding(raw: unknown): TenantConfig['branding'] | undefined {
+function parseBranding(raw: unknown): OperatingCompanyConfig['branding'] | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const o = raw as Record<string, unknown>;
   const displayName = trimOptionalString(o.displayName, MAX_STRING);
@@ -45,7 +41,7 @@ function parseBranding(raw: unknown): TenantConfig['branding'] | undefined {
   return { displayName, loginSubtitle };
 }
 
-function parseOrderForm(raw: unknown): TenantConfig['orderForm'] | undefined {
+function parseOrderForm(raw: unknown): OperatingCompanyConfig['orderForm'] | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const o = raw as Record<string, unknown>;
   const publicSubtitle = trimOptionalString(o.publicSubtitle, MAX_STRING);
@@ -53,7 +49,7 @@ function parseOrderForm(raw: unknown): TenantConfig['orderForm'] | undefined {
   return { publicSubtitle };
 }
 
-function parseInquiry(raw: unknown): TenantConfig['inquiry'] | undefined {
+function parseInquiry(raw: unknown): OperatingCompanyConfig['inquiry'] | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const o = raw as Record<string, unknown>;
   const numberPrefix = trimOptionalString(o.numberPrefix, MAX_PREFIX);
@@ -64,29 +60,7 @@ function parseInquiry(raw: unknown): TenantConfig['inquiry'] | undefined {
   return { numberPrefix };
 }
 
-function parseOperatingCompanyPolicySection(raw: unknown): TenantConfig['operatingCompanyPolicy'] | undefined {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
-  const po = raw as Record<string, unknown>;
-  const out: OperatingCompanyPolicy = {};
-  if (po.assignmentMode === 'strict' || po.assignmentMode === 'relaxed') {
-    out.assignmentMode = po.assignmentMode;
-  }
-  if (po.teamLeaderListMode === 'own_brands_only' || po.teamLeaderListMode === 'tenant_all_read') {
-    out.teamLeaderListMode = po.teamLeaderListMode;
-  }
-  if (
-    po.inquiryDefaultMode === 'user_primary' ||
-    po.inquiryDefaultMode === 'from_intake_url' ||
-    po.inquiryDefaultMode === 'creator_primary'
-  ) {
-    out.inquiryDefaultMode = po.inquiryDefaultMode;
-  }
-  if (Object.keys(out).length === 0) return undefined;
-  return out;
-}
-
-/** DB JSON → 검증된 TenantConfig (알 수 없는 키는 무시) */
-export function parseTenantConfig(raw: unknown): TenantConfig {
+export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfig {
   if (raw == null) return {};
   if (typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('config는 JSON 객체여야 합니다.');
@@ -95,35 +69,39 @@ export function parseTenantConfig(raw: unknown): TenantConfig {
   const branding = parseBranding(o.branding);
   const orderForm = parseOrderForm(o.orderForm);
   const inquiry = parseInquiry(o.inquiry);
-  const operatingCompanyPolicy = parseOperatingCompanyPolicySection(o.operatingCompanyPolicy);
-  const out: TenantConfig = {};
+  const out: OperatingCompanyConfig = {};
   if (branding) out.branding = branding;
   if (orderForm) out.orderForm = orderForm;
   if (inquiry) out.inquiry = inquiry;
-  if (operatingCompanyPolicy) out.operatingCompanyPolicy = operatingCompanyPolicy;
   return out;
 }
 
-/** PATCH body — 부분 병합 (최상위 섹션 단위) */
-export function mergeTenantConfig(existing: TenantConfig, patch: TenantConfig): TenantConfig {
+export function mergeOperatingCompanyConfig(
+  existing: OperatingCompanyConfig,
+  patch: OperatingCompanyConfig,
+): OperatingCompanyConfig {
   return {
     branding: patch.branding !== undefined ? patch.branding : existing.branding,
     orderForm: patch.orderForm !== undefined ? patch.orderForm : existing.orderForm,
     inquiry: patch.inquiry !== undefined ? patch.inquiry : existing.inquiry,
-    operatingCompanyPolicy:
-      patch.operatingCompanyPolicy !== undefined
-        ? patch.operatingCompanyPolicy
-        : existing.operatingCompanyPolicy,
   };
 }
 
-export function tenantConfigToJson(config: TenantConfig): Record<string, unknown> {
+export function operatingCompanyConfigToJson(config: OperatingCompanyConfig): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (config.branding && Object.keys(config.branding).length > 0) out.branding = config.branding;
   if (config.orderForm && Object.keys(config.orderForm).length > 0) out.orderForm = config.orderForm;
   if (config.inquiry && Object.keys(config.inquiry).length > 0) out.inquiry = config.inquiry;
-  if (config.operatingCompanyPolicy) out.operatingCompanyPolicy = config.operatingCompanyPolicy;
   return out;
 }
 
-export type { TenantConfig as TenantConfigParsed };
+export const OPERATING_COMPANY_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
+
+export function normalizeOperatingCompanySlug(raw: unknown): string {
+  if (typeof raw !== 'string') throw new Error('slug는 문자열이어야 합니다.');
+  const slug = raw.trim().toLowerCase();
+  if (!slug || !OPERATING_COMPANY_SLUG_RE.test(slug)) {
+    throw new Error('slug는 영문 소문자·숫자·하이픈(2~48자)만 사용할 수 있습니다.');
+  }
+  return slug;
+}

@@ -29,6 +29,11 @@ import {
 } from '../orderform/specialtyOptions.js';
 import { resolveOneRoomSpecialNotes } from '../orderform/orderFormOneRoom.js';
 import { allocateNextInquiryNumber } from './inquiryNumber.js';
+import {
+  mapOperatingCompanyResolveError,
+  resolveInquiryOperatingCompanyId,
+  validateInquiryOperatingCompanyChange,
+} from '../operating-companies/operatingCompanyResolve.service.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 import inquiryConsultationPhotosAdminRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.admin.routes.js';
@@ -538,6 +543,36 @@ router.patch('/:id', async (req, res) => {
     }
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, 'operatingCompanyId')) {
+    const nextOcId =
+      body.operatingCompanyId == null || body.operatingCompanyId === ''
+        ? null
+        : String(body.operatingCompanyId);
+    if (!nextOcId) {
+      res.status(400).json({ error: '영업 업체는 비울 수 없습니다.' });
+      return;
+    }
+    if (nextOcId !== inquiry.operatingCompanyId) {
+      try {
+        await validateInquiryOperatingCompanyChange({
+          tx: prisma,
+          tenantId,
+          userId: user.userId,
+          userRole: user.role as import('@prisma/client').UserRole,
+          nextOperatingCompanyId: nextOcId,
+        });
+      } catch (e) {
+        const mapped = mapOperatingCompanyResolveError(e);
+        if (mapped) {
+          res.status(mapped.status).json({ error: mapped.message });
+          return;
+        }
+        throw e;
+      }
+      data.operatingCompany = { connect: { id: nextOcId } };
+    }
+  }
+
   let assigneesForLog: Array<{
     id: string;
     role: string;
@@ -855,7 +890,11 @@ router.patch('/:id', async (req, res) => {
       const statusAfterPatch =
         updateData.status !== undefined ? (updateData.status as InquiryStatus) : inquiry.status;
       if (statusAfterPatch === 'DEPOSIT_PENDING' && inquiry.inquiryNumber == null) {
-        updateData.inquiryNumber = await allocateNextInquiryNumber(tx, tenantId);
+        updateData.inquiryNumber = await allocateNextInquiryNumber(
+          tx,
+          tenantId,
+          inquiry.operatingCompanyId,
+        );
       }
       /** 구데이터: 제출 발주서인데 고객 특이사항이 접수 specialNotes에만 있음 → 관리자가 팀 공유 메모를 처음 저장할 때 발주서 customer_special_notes로 옮김 */
       if (updateData.specialNotes !== undefined && inquiry.orderForm?.id && inquiry.orderForm.submittedAt) {
@@ -1045,12 +1084,35 @@ router.post('/', async (req, res) => {
 
   const preferredDate = body.preferredDate ? new Date(body.preferredDate as string) : null;
 
+  let operatingCompanyId: string;
+  try {
+    operatingCompanyId = await prisma.$transaction(async (tx) =>
+      resolveInquiryOperatingCompanyId({
+        tx,
+        tenantId,
+        userId: user?.userId,
+        userRole: user?.role as import('@prisma/client').UserRole | undefined,
+        bodyOperatingCompanyId: body.operatingCompanyId,
+      }),
+    );
+  } catch (e) {
+    const mapped = mapOperatingCompanyResolveError(e);
+    if (mapped) {
+      res.status(mapped.status).json({ error: mapped.message });
+      return;
+    }
+    throw e;
+  }
+
   const inquiry = await prisma.$transaction(async (tx) => {
     const inquiryNumber =
-      status === 'DEPOSIT_PENDING' ? await allocateNextInquiryNumber(tx, tenantId) : null;
+      status === 'DEPOSIT_PENDING'
+        ? await allocateNextInquiryNumber(tx, tenantId, operatingCompanyId)
+        : null;
     return tx.inquiry.create({
       data: {
         tenantId,
+        operatingCompanyId,
         inquiryNumber,
         createdById: user?.userId ?? null,
         customerName: String(body.customerName ?? ''),

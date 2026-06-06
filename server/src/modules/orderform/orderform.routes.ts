@@ -25,6 +25,7 @@ import {
   professionalOptionDepthFromRoot,
 } from './specialtyOptions.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
+import { resolveInquiryOperatingCompanyId } from '../operating-companies/operatingCompanyResolve.service.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
@@ -1030,6 +1031,12 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     const inquiryPreferredDate = preferredDateYmdToKstNoon(prefDateStr ?? undefined);
 
     const orderForm = await prisma.$transaction(async (tx) => {
+      const operatingCompanyId = await resolveInquiryOperatingCompanyId({
+        tx,
+        tenantId: authTenantId,
+        userId,
+        userRole: role as import('@prisma/client').UserRole,
+      });
       const created = await tx.orderForm.create({
         data: {
           tenantId: authTenantId,
@@ -1052,6 +1059,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
       await tx.inquiry.create({
         data: {
           tenantId: authTenantId,
+          operatingCompanyId,
           customerName: customerName.trim(),
           customerPhone: customerPhoneOpt ?? '',
           address: STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER,
@@ -2024,16 +2032,19 @@ router.post('/submit/:token', async (req, res) => {
     },
   };
 
+  const brandSlug = typeof req.query.brand === 'string' ? req.query.brand : null;
+
   const existingPending = await prisma.inquiry.findFirst({
     where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
-    select: { id: true, inquiryNumber: true },
+    select: { id: true, inquiryNumber: true, operatingCompanyId: true },
   });
 
   let changedInquiryId: string | null = null;
   if (existingPending) {
     await prisma.$transaction(async (tx) => {
       const inquiryNumber =
-        existingPending.inquiryNumber ?? (await allocateNextInquiryNumber(tx, submitTenantId));
+        existingPending.inquiryNumber ??
+        (await allocateNextInquiryNumber(tx, submitTenantId, existingPending.operatingCompanyId));
       await tx.inquiry.update({
         where: { id: existingPending.id },
         data: {
@@ -2083,10 +2094,24 @@ router.post('/submit/:token', async (req, res) => {
     changedInquiryId = existingPending.id;
   } else {
     await prisma.$transaction(async (tx) => {
-      const inquiryNumber = await allocateNextInquiryNumber(tx, submitTenantId);
+      const creator = form.createdById
+        ? await tx.user.findFirst({
+            where: { id: form.createdById, tenantId: submitTenantId },
+            select: { role: true },
+          })
+        : null;
+      const operatingCompanyId = await resolveInquiryOperatingCompanyId({
+        tx,
+        tenantId: submitTenantId,
+        userId: form.createdById,
+        userRole: creator?.role,
+        brandSlug,
+      });
+      const inquiryNumber = await allocateNextInquiryNumber(tx, submitTenantId, operatingCompanyId);
       const createdInquiry = await tx.inquiry.create({
         data: {
           tenantId: submitTenantId,
+          operatingCompanyId,
           inquiryNumber,
           createdById: form.createdById,
           customerName: body.customerName || form.customerName,
