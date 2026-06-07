@@ -1151,7 +1151,7 @@ export function AdminInquiriesPage() {
         setDateBasis('createdAt');
         setDatePreset('day');
         setDayKey(dayYmd);
-        setStatusFilter('');
+        setStatusFilter('RECEIVED');
         setSearchInput('');
         setAppliedSearchQuery('');
         setInquiryListBump((n) => n + 1);
@@ -1159,8 +1159,8 @@ export function AdminInquiriesPage() {
       patchInquiryListSearchParams((next) => {
         next.set('datePreset', 'day');
         next.set('day', dayYmd);
+        next.set('status', 'RECEIVED');
         next.delete('month');
-        next.delete('status');
       });
     },
     [patchInquiryListSearchParams]
@@ -2043,7 +2043,7 @@ export function AdminInquiriesPage() {
                 </span>
               )}
               <HelpTooltip
-                text="발주서 고객 제출일(submittedAt) + 전화·수기로 당일 예약완료(RECEIVED) 등록한 접수(접수일 createdAt)를 합산합니다. 링크만 발급한 미제출 건은 제외됩니다."
+                text="서비스접수 목록과 동일합니다. 접수일(createdAt)·상태 예약완료(RECEIVED)·접수자 기준 건수입니다. 분배완료·진행중 등 다른 상태는 포함하지 않습니다."
                 className="shrink-0"
               />
               <span className="ml-auto shrink-0 text-gray-500" aria-hidden>
@@ -3125,8 +3125,8 @@ export function AdminInquiriesPage() {
             <div className="border-t border-gray-100 px-4 py-2 text-fluid-xs text-gray-600">
               {marketerStatsDay ? (
                 <>
-                  집계 기준 {marketerStatsDay}
-                  <span className="text-gray-500"> (발주서 제출일·전화·수기 접수일)</span>
+                  예약완료 · 집계 기준 {marketerStatsDay}
+                  <span className="text-gray-500"> (접수일·서비스접수와 동일)</span>
                 </>
               ) : datePreset === 'today' ? (
                 '오늘 접수'

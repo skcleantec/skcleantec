@@ -134,7 +134,7 @@ export function MarketerDailyInquiryModal(props: {
           ) : data ? (
             <div className="space-y-3">
               <p className="text-fluid-xs text-gray-600">
-                발주서 제출일·전화·수기 접수일(한국 시간) 기준 · 월 합계{' '}
+                예약완료(RECEIVED) · 접수일(한국 시간) 기준 · 월 합계{' '}
                 <span className="font-semibold tabular-nums text-gray-900">{data.monthTotal}건</span>
                 {onDayClick ? (
                   <span className="block mt-1 text-gray-500">건수가 있는 날짜를 누르면 아래 목록과 맞춰 필터됩니다.</span>

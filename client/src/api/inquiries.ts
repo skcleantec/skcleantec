@@ -18,7 +18,7 @@ export type MarketerOverviewResponse = {
   }>;
 };
 
-/** 마케터별 이번 달·오늘 접수 건수 (접수일 KST, 목록 필터와 무관) */
+/** 마케터별 이번 달·오늘 예약완료(RECEIVED) 건수 — 서비스접수 목록과 동일(접수일 KST) */
 export async function getMarketerOverview(token: string): Promise<MarketerOverviewResponse> {
   const res = await fetch(`${API}/inquiries/marketer-overview`, {
     headers: headers(token),
@@ -41,7 +41,7 @@ export type MarketerDailyOverviewResponse = {
   monthTotal: number;
 };
 
-/** 마케터별 월간 일별 접수 건수 (접수일 KST) */
+/** 마케터별 월간 일별 예약완료 건수 (접수일 KST, 서비스접수와 동일) */
 export async function getMarketerDailyOverview(
   token: string,
   params: { marketerId: string; month: string }

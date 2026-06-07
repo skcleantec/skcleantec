@@ -111,7 +111,7 @@ const router = Router();
 router.use(authMiddleware);
 router.use(adminOrMarketer);
 
-/** 마케터별 이번 달·오늘 확정 예약완료 (발주서 submittedAt + 전화·수기 RECEIVED createdAt, KST) */
+/** 마케터별 이번 달·오늘 예약완료(RECEIVED) — 서비스접수와 동일(접수일·접수자, KST) */
 router.get('/marketer-overview', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
@@ -133,7 +133,7 @@ router.get('/marketer-overview', async (req, res) => {
   }
 });
 
-/** 마케터별 월간 일별 확정 예약완료 (발주서 submittedAt + 전화·수기 createdAt, KST) */
+/** 마케터별 월간 일별 예약완료(RECEIVED) — 서비스접수와 동일(접수일, KST) */
 router.get('/marketer-daily-overview', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
