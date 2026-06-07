@@ -1008,6 +1008,7 @@ export function AdminInquiriesPage() {
       month?: string;
       day?: string;
       createdById?: string;
+      marketerStatsDay?: string;
       teamLeaderId?: string;
       operatingCompanyId?: string;
       scheduleMonth?: string;
