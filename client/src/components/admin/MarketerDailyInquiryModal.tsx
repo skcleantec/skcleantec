@@ -132,7 +132,7 @@ export function MarketerDailyInquiryModal(props: {
           ) : data ? (
             <div className="space-y-3">
               <p className="text-fluid-xs text-gray-600">
-                접수일(한국 시간) 기준 · 월 합계{' '}
+                발주서 제출일·전화·수기 접수일(한국 시간) 기준 · 월 합계{' '}
                 <span className="font-semibold tabular-nums text-gray-900">{data.monthTotal}건</span>
               </p>
               <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">

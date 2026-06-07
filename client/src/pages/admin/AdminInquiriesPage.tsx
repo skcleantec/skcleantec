@@ -2005,7 +2005,7 @@ export function AdminInquiriesPage() {
                 </span>
               )}
               <HelpTooltip
-                text="고객 발주서 제출일(submittedAt) 기준 확정 예약완료 건수입니다. 링크만 발급한 미제출 건은 포함하지 않습니다."
+                text="발주서 고객 제출일(submittedAt) + 전화·수기로 당일 예약완료(RECEIVED) 등록한 접수(접수일 createdAt)를 합산합니다. 링크만 발급한 미제출 건은 제외됩니다."
                 className="shrink-0"
               />
               <span className="ml-auto shrink-0 text-gray-500" aria-hidden>
