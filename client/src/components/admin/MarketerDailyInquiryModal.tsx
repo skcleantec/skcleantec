@@ -23,8 +23,10 @@ export function MarketerDailyInquiryModal(props: {
   marketerId: string | null;
   marketerName: string;
   initialMonthKey: string;
+  /** 건수가 1건 이상인 날짜 클릭 시 — 집계와 동일 조건으로 목록 필터 */
+  onDayClick?: (dayYmd: string) => void;
 }) {
-  const { open, onClose, authToken, marketerId, marketerName, initialMonthKey } = props;
+  const { open, onClose, authToken, marketerId, marketerName, initialMonthKey, onDayClick } = props;
   const [monthKey, setMonthKey] = useState(initialMonthKey);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,6 +136,9 @@ export function MarketerDailyInquiryModal(props: {
               <p className="text-fluid-xs text-gray-600">
                 발주서 제출일·전화·수기 접수일(한국 시간) 기준 · 월 합계{' '}
                 <span className="font-semibold tabular-nums text-gray-900">{data.monthTotal}건</span>
+                {onDayClick ? (
+                  <span className="block mt-1 text-gray-500">건수가 있는 날짜를 누르면 아래 목록과 맞춰 필터됩니다.</span>
+                ) : null}
               </p>
               <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
                 <table className="w-full border-collapse text-fluid-sm">
@@ -144,23 +149,44 @@ export function MarketerDailyInquiryModal(props: {
                     </tr>
                   </thead>
                   <tbody className="text-gray-900">
-                    {data.dailyCounts.map((count, i) => (
-                      <tr
-                        key={i}
-                        className={`border-b border-gray-100 last:border-0 ${
-                          count > 0 ? 'bg-blue-50/50' : ''
-                        }`}
-                      >
-                        <td className="py-1.5 px-3 text-center tabular-nums">{i + 1}일</td>
-                        <td
-                          className={`py-1.5 px-3 text-right tabular-nums ${
-                            count > 0 ? 'font-medium' : 'text-gray-500'
-                          }`}
+                    {data.dailyCounts.map((count, i) => {
+                      const dayYmd = `${data.monthKey}-${String(i + 1).padStart(2, '0')}`;
+                      const clickable = count > 0 && Boolean(onDayClick);
+                      return (
+                        <tr
+                          key={i}
+                          role={clickable ? 'button' : undefined}
+                          tabIndex={clickable ? 0 : undefined}
+                          onClick={
+                            clickable
+                              ? () => onDayClick!(dayYmd)
+                              : undefined
+                          }
+                          onKeyDown={
+                            clickable
+                              ? (e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    onDayClick!(dayYmd);
+                                  }
+                                }
+                              : undefined
+                          }
+                          className={`border-b border-gray-100 last:border-0 ${
+                            count > 0 ? 'bg-blue-50/50' : ''
+                          } ${clickable ? 'cursor-pointer hover:bg-blue-100/60 focus-visible:outline focus-visible:ring-2 focus-visible:ring-gray-400' : ''}`}
                         >
-                          {count}건
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="py-1.5 px-3 text-center tabular-nums">{i + 1}일</td>
+                          <td
+                            className={`py-1.5 px-3 text-right tabular-nums ${
+                              count > 0 ? 'font-medium' : 'text-gray-500'
+                            }`}
+                          >
+                            {count}건
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

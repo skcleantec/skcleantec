@@ -61,6 +61,38 @@ async function countManualReceivedByMarketerInRange(
   return out;
 }
 
+/**
+ * 마케터 일별·오늘 집계와 동일한 접수 목록 필터 (KST 하루).
+ * - 발주서 고객 제출: orderForm.createdById + submittedAt
+ * - 전화·수기 예약완료: inquiry.createdById + createdAt, 발주서 미제출
+ */
+export function whereMarketerStatsInquiriesOnDay(
+  marketerId: string,
+  dayYmd: string,
+): Prisma.InquiryWhereInput | null {
+  const dayRange = kstDayRangeYmd(dayYmd);
+  if (!dayRange) return null;
+  return {
+    OR: [
+      {
+        createdById: marketerId,
+        status: 'RECEIVED',
+        createdAt: { gte: dayRange.gte, lte: dayRange.lte },
+        OR: [{ orderFormId: null }, { orderForm: { is: { submittedAt: null } } }],
+      },
+      {
+        status: { not: 'CANCELLED' },
+        orderForm: {
+          is: {
+            createdById: marketerId,
+            submittedAt: { gte: dayRange.gte, lte: dayRange.lte },
+          },
+        },
+      },
+    ],
+  };
+}
+
 /** 접수 등록자(createdById) 기준. 과거 데이터는 orderForm.createdById로 보조. 미제출(링크만 발급)은 발주서 작성자도 동일 건으로 본다 */
 export function whereInquiryAttributedToMarketer(marketerId: string): Prisma.InquiryWhereInput {
   return {

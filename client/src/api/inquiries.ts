@@ -73,6 +73,8 @@ export async function getInquiries(
     day?: string;
     /** 관리자만: 해당 사용자 기준 접수(또는 발주서 작성자). `__unassigned__`는 미지정만 */
     createdById?: string;
+    /** 마케터 일별 집계와 동일 기준(KST 하루). createdById와 함께 사용 */
+    marketerStatsDay?: string;
     /** 배정 팀장. `__unassigned__`는 미배정만 */
     teamLeaderId?: string;
     /** 영업 브랜드(Operating Company) UUID */
@@ -95,6 +97,7 @@ export async function getInquiries(
   if (params?.limit != null) q.set('limit', String(params.limit));
   if (params?.offset != null) q.set('offset', String(params.offset));
   if (params?.createdById) q.set('createdById', params.createdById);
+  if (params?.marketerStatsDay) q.set('marketerStatsDay', params.marketerStatsDay);
   if (params?.teamLeaderId) q.set('teamLeaderId', params.teamLeaderId);
   if (params?.operatingCompanyId) q.set('operatingCompanyId', params.operatingCompanyId);
   if (params?.scheduleMonth) q.set('scheduleMonth', params.scheduleMonth);

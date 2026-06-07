@@ -16,6 +16,7 @@ import {
   buildMarketerOverview,
   buildMarketerDailyOverview,
   whereInquiryAttributedToMarketer,
+  whereMarketerStatsInquiriesOnDay,
 } from './inquiryMarketerOverview.js';
 import {
   buildAmountDateChangeLines,
@@ -180,20 +181,39 @@ router.get('/', async (req, res) => {
     month,
     day,
     createdById,
+    marketerStatsDay,
     teamLeaderId,
     operatingCompanyId,
     scheduleMonth,
     scheduleDay,
   } = req.query;
-  const range = createdAtRangeFromQuery({
-    datePreset: typeof datePreset === 'string' ? datePreset : undefined,
-    month: typeof month === 'string' ? month : undefined,
-    day: typeof day === 'string' ? day : undefined,
-  });
+  const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
+  const statsDayRaw =
+    typeof marketerStatsDay === 'string' ? marketerStatsDay.trim() : '';
+  const statsMarketerId =
+    typeof createdById === 'string' ? createdById.trim() : '';
+  const useMarketerStatsDay =
+    /^\d{4}-\d{2}-\d{2}$/.test(statsDayRaw) &&
+    Boolean(statsMarketerId) &&
+    statsMarketerId !== CREATED_BY_FILTER_UNASSIGNED &&
+    (user.role === 'ADMIN' || user.role === 'MARKETER');
+
+  const range = useMarketerStatsDay
+    ? null
+    : createdAtRangeFromQuery({
+        datePreset: typeof datePreset === 'string' ? datePreset : undefined,
+        month: typeof month === 'string' ? month : undefined,
+        day: typeof day === 'string' ? day : undefined,
+      });
 
   const andClauses: Prisma.InquiryWhereInput[] = [{ tenantId }];
-  /** 접수일 구간 + 「미제출」은 발주서 발급일이 구간 안이면 포함(예: 예전 접수에 오늘 링크 발급 시 목록에 보이게) */
-  if (range) {
+  if (useMarketerStatsDay) {
+    const statsWhere = whereMarketerStatsInquiriesOnDay(statsMarketerId, statsDayRaw);
+    if (statsWhere) {
+      andClauses.push(statsWhere);
+    }
+  } else if (range) {
+    /** 접수일 구간 + 「미제출」은 발주서 발급일이 구간 안이면 포함(예: 예전 접수에 오늘 링크 발급 시 목록에 보이게) */
     andClauses.push({
       OR: [
         { createdAt: { gte: range.gte, lte: range.lte } },
@@ -209,7 +229,7 @@ router.get('/', async (req, res) => {
       ],
     });
   }
-  if (status && typeof status === 'string') {
+  if (!useMarketerStatsDay && status && typeof status === 'string') {
     const raw = status.trim();
     if (raw.includes(',')) {
       const parts = raw
@@ -236,21 +256,22 @@ router.get('/', async (req, res) => {
     });
   }
   /** 마케터: 본인 접수(또는 구 데이터 발주서 작성자)만. 관리자: 선택 시 해당 사용자 기준 또는 미지정 */
-  const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
-  if (
-    (user.role === 'ADMIN' || user.role === 'MARKETER') &&
-    typeof createdById === 'string' &&
-    createdById.trim()
-  ) {
-    const cid = createdById.trim();
-    if (cid === CREATED_BY_FILTER_UNASSIGNED) {
-      /** 접수 등록자 없음·발주서 미연결(화면상 접수자 '-') */
-      andClauses.push({
-        createdById: null,
-        orderFormId: null,
-      });
-    } else {
-      andClauses.push(whereInquiryAttributedToMarketer(cid));
+  if (!useMarketerStatsDay) {
+    if (
+      (user.role === 'ADMIN' || user.role === 'MARKETER') &&
+      typeof createdById === 'string' &&
+      createdById.trim()
+    ) {
+      const cid = createdById.trim();
+      if (cid === CREATED_BY_FILTER_UNASSIGNED) {
+        /** 접수 등록자 없음·발주서 미연결(화면상 접수자 '-') */
+        andClauses.push({
+          createdById: null,
+          orderFormId: null,
+        });
+      } else {
+        andClauses.push(whereInquiryAttributedToMarketer(cid));
+      }
     }
   }
 
@@ -270,7 +291,11 @@ router.get('/', async (req, res) => {
 
   /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선.
    * 미제출(링크만 발급)은 고객 예약일과 무관하게 같은 날·같은 달에 발급된 발주서면 목록에 포함(발주서 목록과 동일하게 보이게). */
-  if (typeof scheduleDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(scheduleDay.trim())) {
+  if (
+    !useMarketerStatsDay &&
+    typeof scheduleDay === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(scheduleDay.trim())
+  ) {
     const r = kstDayRangeYmd(scheduleDay.trim());
     if (r) {
       andClauses.push({
@@ -290,7 +315,11 @@ router.get('/', async (req, res) => {
         ],
       });
     }
-  } else if (typeof scheduleMonth === 'string' && /^\d{4}-\d{2}$/.test(scheduleMonth.trim())) {
+  } else if (
+    !useMarketerStatsDay &&
+    typeof scheduleMonth === 'string' &&
+    /^\d{4}-\d{2}$/.test(scheduleMonth.trim())
+  ) {
     const r = kstMonthRangeYm(scheduleMonth.trim());
     if (r) {
       andClauses.push({

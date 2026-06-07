@@ -673,6 +673,8 @@ export function AdminInquiriesPage() {
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
   const [marketerFilterId, setMarketerFilterId] = useState('');
+  /** 마케터 일별 집계와 동일 기준 목록 필터(KST YYYY-MM-DD). 비우면 일반 접수일 필터 */
+  const [marketerStatsDay, setMarketerStatsDay] = useState('');
   /** 빈 값이면 전체, 미배정·특정 팀장 */
   const [teamLeaderFilterId, setTeamLeaderFilterId] = useState('');
   const [operatingCompanyFilterId, setOperatingCompanyFilterId] = useState(
@@ -1025,6 +1027,9 @@ export function AdminInquiriesPage() {
     if (appliedSearchQuery.trim()) params.search = appliedSearchQuery.trim();
     if ((me?.role === 'ADMIN' || me?.role === 'MARKETER') && marketerFilterId.trim()) {
       params.createdById = marketerFilterId.trim();
+      if (marketerStatsDay.trim()) {
+        params.marketerStatsDay = marketerStatsDay.trim();
+      }
     }
     if (teamLeaderFilterId.trim()) {
       params.teamLeaderId = teamLeaderFilterId.trim();
@@ -1137,8 +1142,32 @@ export function AdminInquiriesPage() {
     [setSearchParams]
   );
 
+  const applyMarketerStatsListFilter = useCallback(
+    (marketerId: string, dayYmd: string) => {
+      flushSync(() => {
+        setMarketerFilterId(marketerId);
+        setMarketerStatsDay(dayYmd);
+        setDateBasis('createdAt');
+        setDatePreset('day');
+        setDayKey(dayYmd);
+        setStatusFilter('');
+        setSearchInput('');
+        setAppliedSearchQuery('');
+        setInquiryListBump((n) => n + 1);
+      });
+      patchInquiryListSearchParams((next) => {
+        next.set('datePreset', 'day');
+        next.set('day', dayYmd);
+        next.delete('month');
+        next.delete('status');
+      });
+    },
+    [patchInquiryListSearchParams]
+  );
+
   const applyDatePreset = useCallback(
     (preset: 'today' | 'all' | 'month' | 'day') => {
+      setMarketerStatsDay('');
       setDatePreset(preset);
       patchInquiryListSearchParams((next) => {
         next.set('datePreset', preset);
@@ -1201,6 +1230,7 @@ export function AdminInquiriesPage() {
         monthKey,
         dayKey,
         marketerFilterId,
+        marketerStatsDay,
         teamLeaderFilterId,
         operatingCompanyFilterId,
         inquiryListBump,
@@ -1213,6 +1243,7 @@ export function AdminInquiriesPage() {
       monthKey,
       dayKey,
       marketerFilterId,
+      marketerStatsDay,
       teamLeaderFilterId,
       operatingCompanyFilterId,
       inquiryListBump,
@@ -1253,6 +1284,7 @@ export function AdminInquiriesPage() {
     monthKey,
     dayKey,
     marketerFilterId,
+    marketerStatsDay,
     teamLeaderFilterId,
     operatingCompanyFilterId,
     me?.role,
@@ -1910,7 +1942,10 @@ export function AdminInquiriesPage() {
             <span className="text-fluid-sm text-gray-600 shrink-0">날짜 기준</span>
             <select
               value={dateBasis}
-              onChange={(e) => setDateBasis(e.target.value as 'createdAt' | 'preferredDate')}
+              onChange={(e) => {
+                setMarketerStatsDay('');
+                setDateBasis(e.target.value as 'createdAt' | 'preferredDate');
+              }}
               className="px-3 py-1.5 border border-gray-300 rounded text-fluid-sm bg-white"
             >
               <option value="createdAt">접수일</option>
@@ -1959,6 +1994,7 @@ export function AdminInquiriesPage() {
               <YearMonthSelect
                 value={monthKey}
                 onChange={(v) => {
+                  setMarketerStatsDay('');
                   setMonthKey(v);
                   patchInquiryListSearchParams((next) => {
                     next.set('datePreset', 'month');
@@ -1974,6 +2010,7 @@ export function AdminInquiriesPage() {
               <YmdSelect
                 value={dayKey}
                 onChange={(v) => {
+                  setMarketerStatsDay('');
                   setDayKey(v);
                   patchInquiryListSearchParams((next) => {
                     next.set('datePreset', 'day');
@@ -2044,14 +2081,21 @@ export function AdminInquiriesPage() {
                         role={me?.role === 'ADMIN' || me?.role === 'MARKETER' ? 'button' : undefined}
                         tabIndex={me?.role === 'ADMIN' || me?.role === 'MARKETER' ? 0 : undefined}
                         onClick={() => {
-                          if (me?.role === 'ADMIN' || me?.role === 'MARKETER')
-                            setMarketerFilterId(m.marketerId);
+                          if (me?.role === 'ADMIN' || me?.role === 'MARKETER') {
+                            applyMarketerStatsListFilter(
+                              m.marketerId,
+                              marketerOverview?.todayYmd ?? kstTodayYmd()
+                            );
+                          }
                         }}
                         onKeyDown={(e) => {
                           if (me?.role !== 'ADMIN' && me?.role !== 'MARKETER') return;
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            setMarketerFilterId(m.marketerId);
+                            applyMarketerStatsListFilter(
+                              m.marketerId,
+                              marketerOverview?.todayYmd ?? kstTodayYmd()
+                            );
                           }
                         }}
                         className={`border-b border-gray-100 last:border-0 ${
@@ -2061,7 +2105,7 @@ export function AdminInquiriesPage() {
                         } ${marketerFilterId === m.marketerId ? 'bg-blue-50/80' : ''}`}
                         title={
                           me?.role === 'ADMIN' || me?.role === 'MARKETER'
-                            ? '클릭하면 이 접수자로 목록 필터'
+                            ? '클릭하면 오늘 집계 기준으로 목록 필터'
                             : undefined
                         }
                       >
@@ -2110,7 +2154,10 @@ export function AdminInquiriesPage() {
                   <select
                     id="inquiry-marketer-filter"
                     value={marketerFilterId}
-                    onChange={(e) => setMarketerFilterId(e.target.value)}
+                    onChange={(e) => {
+                      setMarketerStatsDay('');
+                      setMarketerFilterId(e.target.value);
+                    }}
                     className="min-w-[8.5rem] max-w-[11rem] rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-xs text-gray-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
                   >
                     <option value="">전체</option>
@@ -2129,10 +2176,22 @@ export function AdminInquiriesPage() {
                   {marketerFilterId ? (
                     <button
                       type="button"
-                      onClick={() => setMarketerFilterId('')}
+                      onClick={() => {
+                        setMarketerStatsDay('');
+                        setMarketerFilterId('');
+                      }}
                       className="shrink-0 whitespace-nowrap text-[11px] text-gray-600 underline hover:text-gray-900 sm:text-fluid-xs"
                     >
                       접수자 필터 해제
+                    </button>
+                  ) : null}
+                  {marketerStatsDay ? (
+                    <button
+                      type="button"
+                      onClick={() => setMarketerStatsDay('')}
+                      className="shrink-0 whitespace-nowrap text-[11px] text-blue-700 underline hover:text-blue-900 sm:text-fluid-xs"
+                    >
+                      집계 기준 해제
                     </button>
                   ) : null}
                 </div>
@@ -2246,6 +2305,7 @@ export function AdminInquiriesPage() {
                       <button
                         type="button"
                         onClick={() => {
+                          setMarketerStatsDay('');
                           setStatusFilter('');
                           setStatusFilterOpen(false);
                         }}
@@ -2261,6 +2321,7 @@ export function AdminInquiriesPage() {
                           key={value}
                           type="button"
                           onClick={() => {
+                            setMarketerStatsDay('');
                             setStatusFilter(value);
                             setStatusFilterOpen(false);
                           }}
@@ -3061,17 +3122,31 @@ export function AdminInquiriesPage() {
         {!loading ? (
           <>
             <div className="border-t border-gray-100 px-4 py-2 text-fluid-xs text-gray-600">
-              {datePreset === 'today'
-                ? '오늘 접수'
-                : datePreset === 'month'
-                  ? `${monthKey}`
-                  : datePreset === 'day'
-                    ? `${dayKey}`
-                    : '전체 기간'}
+              {marketerStatsDay ? (
+                <>
+                  집계 기준 {marketerStatsDay}
+                  <span className="text-gray-500"> (발주서 제출일·전화·수기 접수일)</span>
+                </>
+              ) : datePreset === 'today' ? (
+                '오늘 접수'
+              ) : datePreset === 'month' ? (
+                `${monthKey}`
+              ) : datePreset === 'day' ? (
+                `${dayKey}`
+              ) : (
+                '전체 기간'
+              )}
               {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && marketerFilterId ? (
                 <>
                   {' · '}
                   접수자: {labelForMarketerFilter(marketerFilterId, me, marketers)}
+                </>
+              ) : null}
+              {marketerStatsDay && total >= 0 ? (
+                <>
+                  {' · '}
+                  <span className="font-medium tabular-nums text-gray-800">{total}건</span>
+                  <span className="text-gray-500"> (집계와 동일 조건)</span>
                 </>
               ) : null}
               {operatingCompanyFilterId ? (
@@ -4217,6 +4292,11 @@ export function AdminInquiriesPage() {
         marketerId={marketerDailyModal?.marketerId ?? null}
         marketerName={marketerDailyModal?.marketerName ?? ''}
         initialMonthKey={marketerOverview?.monthKey ?? kstTodayYmd().slice(0, 7)}
+        onDayClick={(dayYmd) => {
+          if (!marketerDailyModal) return;
+          applyMarketerStatsListFilter(marketerDailyModal.marketerId, dayYmd);
+          setMarketerDailyModal(null);
+        }}
       />
 
       {marketerQuickOpen &&
