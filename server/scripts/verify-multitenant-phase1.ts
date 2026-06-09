@@ -5,6 +5,10 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
+import {
+  createDefaultOperatingCompanyForTenant,
+  getDefaultOperatingCompanyId,
+} from '../src/modules/operating-companies/operatingCompany.service.js';
 import { DEFAULT_TENANT_ID, DEFAULT_TENANT_SLUG } from '../src/modules/tenants/tenant.constants.js';
 
 const API = process.env.VERIFY_API_BASE ?? 'http://127.0.0.1:3000/api';
@@ -113,11 +117,19 @@ async function seedVerifyData(): Promise<{ inquiryAId: string; inquiryBId: strin
     },
   });
 
+  await createDefaultOperatingCompanyForTenant(prisma, tenantB.id, {
+    name: '검증용 테스트업체',
+    slug: VERIFY_TENANT_SLUG,
+  });
+  const ocAId = await getDefaultOperatingCompanyId(prisma, tenantA!.id);
+  const ocBId = await getDefaultOperatingCompanyId(prisma, tenantB.id);
+
   const inquiryA = await prisma.inquiry.upsert({
     where: { tenantId_inquiryNumber: { tenantId: tenantA!.id, inquiryNumber: '999901' } },
     update: { customerName: `${MARKER_A} 고객`, memo: MARKER_A },
     create: {
       tenantId: tenantA!.id,
+      operatingCompanyId: ocAId,
       inquiryNumber: '999901',
       createdById: adminA.id,
       customerName: `${MARKER_A} 고객`,
@@ -135,6 +147,7 @@ async function seedVerifyData(): Promise<{ inquiryAId: string; inquiryBId: strin
     update: { customerName: `${MARKER_B} 고객`, memo: MARKER_B },
     create: {
       tenantId: tenantB.id,
+      operatingCompanyId: ocBId,
       inquiryNumber: '999902',
       createdById: adminB.id,
       customerName: `${MARKER_B} 고객`,

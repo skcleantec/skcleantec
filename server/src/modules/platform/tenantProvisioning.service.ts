@@ -60,39 +60,42 @@ export async function provisionTenant(input: ProvisionTenantInput) {
   const passwordHash = await bcrypt.hash(input.adminPassword.trim(), 10);
   const planModules = modulesForPlan(plan);
 
-  const result = await prisma.$transaction(async (tx) => {
-    const tenant = await tx.tenant.create({
-      data: {
-        slug,
-        name,
-        plan,
-        status,
-      },
-    });
-
-    for (const moduleId of planModules) {
-      await tx.tenantFeature.create({
-        data: { tenantId: tenant.id, moduleId, enabled: true },
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const tenant = await tx.tenant.create({
+        data: {
+          slug,
+          name,
+          plan,
+          status,
+        },
       });
-    }
 
-    const admin = await tx.user.create({
-      data: {
-        tenantId: tenant.id,
-        email: adminLoginId,
-        passwordHash,
-        name: adminName,
-        role: 'ADMIN',
-        isTenantOwner: true,
-      },
-      select: { id: true, email: true, name: true },
-    });
+      for (const moduleId of planModules) {
+        await tx.tenantFeature.create({
+          data: { tenantId: tenant.id, moduleId, enabled: true },
+        });
+      }
 
-    await seedTenantDefaults(tx, tenant.id, tenant.name);
-    await ensureDefaultAdChannelsForTenant(tx, tenant.id);
+      const admin = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          email: adminLoginId,
+          passwordHash,
+          name: adminName,
+          role: 'ADMIN',
+          isTenantOwner: true,
+        },
+        select: { id: true, email: true, name: true },
+      });
 
-    return { tenant, admin };
-  });
+      await seedTenantDefaults(tx, tenant.id, tenant.name);
+      await ensureDefaultAdChannelsForTenant(tx, tenant.id);
+
+      return { tenant, admin };
+    },
+    { maxWait: 15_000, timeout: 30_000 },
+  );
 
   return result;
 }

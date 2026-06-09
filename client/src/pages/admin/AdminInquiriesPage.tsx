@@ -650,7 +650,11 @@ export function AdminInquiriesPage() {
     return kstMonthKeyNow();
   });
   /** 날짜 지정(YYYY-MM-DD, KST 하루) */
-  const [dayKey, setDayKey] = useState(() => kstTodayYmd());
+  const [dayKey, setDayKey] = useState(() => {
+    const d = searchParams.get('day');
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    return kstTodayYmd();
+  });
   const [dateBasis, setDateBasis] = useState<'createdAt' | 'preferredDate'>('createdAt');
   /** 스케줄과 동일한 신규 접수 모달 — 예약일(YYYY-MM-DD) */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
@@ -672,9 +676,15 @@ export function AdminInquiriesPage() {
   } | null>(null);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
-  const [marketerFilterId, setMarketerFilterId] = useState('');
+  const [marketerFilterId, setMarketerFilterId] = useState(
+    () => searchParams.get('createdById') ?? ''
+  );
   /** 마케터 일별 집계와 동일 기준 목록 필터(KST YYYY-MM-DD). 비우면 일반 접수일 필터 */
-  const [marketerStatsDay, setMarketerStatsDay] = useState('');
+  const [marketerStatsDay, setMarketerStatsDay] = useState(() => {
+    const msd = searchParams.get('marketerStatsDay');
+    if (msd && /^\d{4}-\d{2}-\d{2}$/.test(msd)) return msd;
+    return '';
+  });
   /** 빈 값이면 전체, 미배정·특정 팀장 */
   const [teamLeaderFilterId, setTeamLeaderFilterId] = useState('');
   const [operatingCompanyFilterId, setOperatingCompanyFilterId] = useState(
@@ -805,13 +815,16 @@ export function AdminInquiriesPage() {
       .catch(() => setMe(null));
   }, [token]);
 
-  /** URL의 목록 필터(datePreset·month·status) — page·pageSize 변경만으로는 실행하지 않음 */
+  /** URL의 목록 필터 — page·pageSize 변경만으로는 실행하지 않음 */
   const urlListFilterSig = useMemo(
     () =>
       [
         searchParams.get('datePreset') ?? '',
         searchParams.get('month') ?? '',
+        searchParams.get('day') ?? '',
         searchParams.get('status') ?? '',
+        searchParams.get('createdById') ?? '',
+        searchParams.get('marketerStatsDay') ?? '',
       ].join('\0'),
     [searchParams]
   );
@@ -823,6 +836,7 @@ export function AdminInquiriesPage() {
 
     const dp = searchParams.get('datePreset');
     const m = searchParams.get('month');
+    const day = searchParams.get('day');
     const st = searchParams.get('status');
     if (dp === 'today' || dp === 'all' || dp === 'month' || dp === 'day') {
       setDatePreset(dp);
@@ -832,18 +846,39 @@ export function AdminInquiriesPage() {
     if (m && /^\d{4}-\d{2}$/.test(m)) {
       setMonthKey(m);
     }
+    if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      setDayKey(day);
+    }
     if (st && (STATUS_FILTER_VALUES as readonly string[]).includes(st)) {
       setStatusFilter(st);
+    } else if (!isFirst && searchParams.has('status') && !st) {
+      setStatusFilter('');
+    }
+    if (searchParams.has('createdById')) {
+      setMarketerFilterId(searchParams.get('createdById') ?? '');
+    } else if (!isFirst) {
+      setMarketerFilterId('');
+    }
+    const msd = searchParams.get('marketerStatsDay') ?? '';
+    if (msd && /^\d{4}-\d{2}-\d{2}$/.test(msd)) {
+      setMarketerStatsDay(msd);
+      setDateBasis('createdAt');
+    } else if (!isFirst) {
+      setMarketerStatsDay('');
     }
     if (
       !isFirst &&
-      (searchParams.has('datePreset') || searchParams.has('month') || searchParams.has('status'))
+      (searchParams.has('datePreset') ||
+        searchParams.has('month') ||
+        searchParams.has('day') ||
+        searchParams.has('status') ||
+        searchParams.has('createdById') ||
+        searchParams.has('marketerStatsDay'))
     ) {
       setSearchInput('');
       setAppliedSearchQuery('');
-      if (me?.role === 'ADMIN' || me?.role === 'MARKETER') setMarketerFilterId('');
     }
-  }, [urlListFilterSig, searchParams, me?.role]);
+  }, [urlListFilterSig, searchParams]);
 
   useEffect(() => {
     if (!editItem) setInquiryEditPreferredCalOpen(false);
@@ -1160,6 +1195,8 @@ export function AdminInquiriesPage() {
         next.set('datePreset', 'day');
         next.set('day', dayYmd);
         next.set('status', 'RECEIVED');
+        next.set('createdById', marketerId);
+        next.set('marketerStatsDay', dayYmd);
         next.delete('month');
       });
     },
@@ -1172,6 +1209,7 @@ export function AdminInquiriesPage() {
       setDatePreset(preset);
       patchInquiryListSearchParams((next) => {
         next.set('datePreset', preset);
+        next.delete('marketerStatsDay');
         if (preset === 'month') {
           next.set('month', monthKey);
           next.delete('day');
@@ -1946,6 +1984,7 @@ export function AdminInquiriesPage() {
               onChange={(e) => {
                 setMarketerStatsDay('');
                 setDateBasis(e.target.value as 'createdAt' | 'preferredDate');
+                patchInquiryListSearchParams((next) => next.delete('marketerStatsDay'));
               }}
               className="px-3 py-1.5 border border-gray-300 rounded text-fluid-sm bg-white"
             >
@@ -2001,6 +2040,7 @@ export function AdminInquiriesPage() {
                     next.set('datePreset', 'month');
                     next.set('month', v);
                     next.delete('day');
+                    next.delete('marketerStatsDay');
                   });
                 }}
                 idPrefix="inq-created-month"
@@ -2017,6 +2057,7 @@ export function AdminInquiriesPage() {
                     next.set('datePreset', 'day');
                     next.set('day', v);
                     next.delete('month');
+                    next.delete('marketerStatsDay');
                   });
                 }}
                 idPrefix="inq-created-day"
@@ -2156,8 +2197,14 @@ export function AdminInquiriesPage() {
                     id="inquiry-marketer-filter"
                     value={marketerFilterId}
                     onChange={(e) => {
+                      const v = e.target.value;
                       setMarketerStatsDay('');
-                      setMarketerFilterId(e.target.value);
+                      setMarketerFilterId(v);
+                      patchInquiryListSearchParams((next) => {
+                        next.delete('marketerStatsDay');
+                        if (v) next.set('createdById', v);
+                        else next.delete('createdById');
+                      });
                     }}
                     className="min-w-[8.5rem] max-w-[11rem] rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-xs text-gray-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
                   >
@@ -2180,6 +2227,10 @@ export function AdminInquiriesPage() {
                       onClick={() => {
                         setMarketerStatsDay('');
                         setMarketerFilterId('');
+                        patchInquiryListSearchParams((next) => {
+                          next.delete('createdById');
+                          next.delete('marketerStatsDay');
+                        });
                       }}
                       className="shrink-0 whitespace-nowrap text-[11px] text-gray-600 underline hover:text-gray-900 sm:text-fluid-xs"
                     >
@@ -2189,7 +2240,10 @@ export function AdminInquiriesPage() {
                   {marketerStatsDay ? (
                     <button
                       type="button"
-                      onClick={() => setMarketerStatsDay('')}
+                      onClick={() => {
+                        setMarketerStatsDay('');
+                        patchInquiryListSearchParams((next) => next.delete('marketerStatsDay'));
+                      }}
                       className="shrink-0 whitespace-nowrap text-[11px] text-blue-700 underline hover:text-blue-900 sm:text-fluid-xs"
                     >
                       집계 기준 해제
@@ -2309,6 +2363,10 @@ export function AdminInquiriesPage() {
                           setMarketerStatsDay('');
                           setStatusFilter('');
                           setStatusFilterOpen(false);
+                          patchInquiryListSearchParams((next) => {
+                            next.delete('status');
+                            next.delete('marketerStatsDay');
+                          });
                         }}
                         className={`flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs transition ${
                           statusFilter === '' ? 'bg-gray-800 text-white' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
@@ -2325,6 +2383,10 @@ export function AdminInquiriesPage() {
                             setMarketerStatsDay('');
                             setStatusFilter(value);
                             setStatusFilterOpen(false);
+                            patchInquiryListSearchParams((next) => {
+                              next.set('status', value);
+                              next.delete('marketerStatsDay');
+                            });
                           }}
                           className={`flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs transition ${
                             statusFilter === value

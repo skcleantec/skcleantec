@@ -44,6 +44,7 @@ alwaysApply: true
 - `dateBasis = 'createdAt'`, `datePreset = 'day'`, `dayKey` = 집계 기준일
 - `marketerFilterId` = 해당 마케터
 - API에 `marketerStatsDay` + `createdById` 전달 (일반 `datePreset`/`day` 대신 서버가 `whereMarketerStatsInquiriesOnDay` 사용)
+- URL 쿼리에 **`createdById`**, **`marketerStatsDay`**, **`day`**, **`status=RECEIVED`** 를 함께 반영해 새로고침·재로그인 후에도 집계 drill-down이 유지되게 한다 — **`.cursor/rules/routing-url-persistence.mdc`**
 
 UI 안내·툴팁·모달 문구도 **「예약완료 · 접수일 기준」** 으로 통일한다.
 
