@@ -23,6 +23,13 @@ import {
   buildInquiryPatchData,
   projectAfterPatch,
 } from './inquiryPatch.helpers.js';
+import {
+  attachInternalCustomerToneForRole,
+  canEditInternalCustomerTone,
+  internalCustomerToneDisplay,
+  mapInquiriesInternalToneForRole,
+  parseInternalCustomerToneInput,
+} from './internalCustomerTone.js';
 import { isSideCleaningPreferredTime } from '../schedule/scheduleSlot.helpers.js';
 import {
   filterExistingProfessionalOptionIds,
@@ -385,7 +392,10 @@ router.get('/', async (req, res) => {
   // 좌표 캐시가 있는 건 즉시 반환(빠름). 신규(미좌표) 건만 백그라운드에서 카카오로 채워
   // DB에 저장 → 다음 로드부터 저장된 좌표가 즉시 표시된다.
   res.json({
-    items: itemsRaw.map((row) => attachDistanceFromJuanForInquiry(row)),
+    items: mapInquiriesInternalToneForRole(
+      itemsRaw.map((row) => attachDistanceFromJuanForInquiry(row)),
+      user.role,
+    ),
     total,
   });
   scheduleBackgroundGeoHydrate(prisma, itemsRaw, { maxUniqueQueries: 18 });
@@ -461,7 +471,9 @@ router.get('/:id', async (req, res) => {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
-  res.json(attachDistanceFromJuanForInquiry(inquiryFresh));
+  res.json(
+    attachInternalCustomerToneForRole(attachDistanceFromJuanForInquiry(inquiryFresh), user.role),
+  );
 });
 
 /** 접수별 현장 청소 전·후 사진 (Cloudinary) — 목록·업로드·삭제 */
@@ -541,6 +553,18 @@ router.patch('/:id', async (req, res) => {
   /** 클라이언트가 teamLeaderIds를 보낸 경우에만 분배(Assignment) 동기화 — 배열이 아닌 형태도 normalize에서 처리 */
   let wantsTeamSync = Object.prototype.hasOwnProperty.call(body, 'teamLeaderIds');
   let teamLeaderIds = normalizeTeamLeaderIds(body.teamLeaderIds);
+
+  if (Object.prototype.hasOwnProperty.call(body, 'internalCustomerTone')) {
+    if (!canEditInternalCustomerTone(user.role)) {
+      res.status(403).json({ error: '내부 고객 표시를 변경할 권한이 없습니다.' });
+      return;
+    }
+    const parsedTone = parseInternalCustomerToneInput(body.internalCustomerTone);
+    if (!parsedTone) {
+      res.status(400).json({ error: '내부 고객 표시 값이 올바르지 않습니다.' });
+      return;
+    }
+  }
 
   const data = buildInquiryPatchData(body);
   const tentativeMergedStatus: InquiryStatus =
@@ -780,7 +804,11 @@ router.patch('/:id', async (req, res) => {
       where: { id },
       include: inquiryDetailInclude,
     });
-    res.json(unchanged ? attachDistanceFromJuanForInquiry(unchanged) : unchanged);
+    res.json(
+      unchanged
+        ? attachInternalCustomerToneForRole(attachDistanceFromJuanForInquiry(unchanged), user.role)
+        : unchanged,
+    );
     return;
   }
 
@@ -869,6 +897,14 @@ router.patch('/:id', async (req, res) => {
   if (data.scheduleMemo !== undefined) pushIfChanged('일정 메모', inquiry.scheduleMemo, data.scheduleMemo);
   if (data.consultationMemo !== undefined)
     pushIfChanged('상담·마케터 메모', inquiry.consultationMemo, data.consultationMemo);
+  if (data.internalCustomerTone !== undefined) {
+    pushIfChanged(
+      '내부 표시',
+      inquiry.internalCustomerTone,
+      data.internalCustomerTone,
+      (v) => internalCustomerToneDisplay((v as import('@prisma/client').InternalCustomerTone) ?? 'NORMAL'),
+    );
+  }
   if (data.claimMemo !== undefined) pushIfChanged('클레임 메모', inquiry.claimMemo, data.claimMemo);
   if (data.status !== undefined) pushIfChanged('상태', inquiry.status, data.status, fmtStatus);
   /**
@@ -1119,7 +1155,7 @@ router.patch('/:id', async (req, res) => {
     notifyTeamLeaderUsersRosterAck(rosterLeaderIds, crewRosterAckMessages);
   }
 
-  res.json(attachDistanceFromJuanForInquiry(updated));
+  res.json(attachInternalCustomerToneForRole(attachDistanceFromJuanForInquiry(updated), user.role));
 });
 
 const CREATE_STATUSES: InquiryStatus[] = [
@@ -1238,7 +1274,9 @@ router.post('/', async (req, res) => {
     res.status(500).json({ error: '접수 생성 후 조회에 실패했습니다.' });
     return;
   }
-  res.status(201).json(attachDistanceFromJuanForInquiry(createdOut));
+  res.status(201).json(
+    attachInternalCustomerToneForRole(attachDistanceFromJuanForInquiry(createdOut), user.role),
+  );
 });
 
 export default router;

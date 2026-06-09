@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
+  getStagingDbImportPreflight,
   getStagingDbImportStatus,
   postStagingDbImportStart,
+  type StagingDbImportPreflightPayload,
   type StagingDbImportStatusPayload,
 } from '../../api/stagingDbImport';
 import { isAuthSessionExpiredError } from '../../api/auth';
@@ -19,6 +21,8 @@ export function AdminStagingDbImportModal({ open, onClose, token, onSessionExpir
   const [busy, setBusy] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobView, setJobView] = useState<StagingDbImportStatusPayload | null>(null);
+  const [preflight, setPreflight] = useState<StagingDbImportPreflightPayload | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -27,8 +31,34 @@ export function AdminStagingDbImportModal({ open, onClose, token, onSessionExpir
       setBusy(false);
       setJobId(null);
       setJobView(null);
+      setPreflight(null);
+      setPreflightLoading(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !token || jobId) return;
+    let cancelled = false;
+    setPreflightLoading(true);
+    void getStagingDbImportPreflight(token)
+      .then((p) => {
+        if (!cancelled) setPreflight(p);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        if (isAuthSessionExpiredError(e)) {
+          onSessionExpired?.();
+          return;
+        }
+        setError(e instanceof Error ? e.message : '사전 점검을 불러오지 못했습니다.');
+      })
+      .finally(() => {
+        if (!cancelled) setPreflightLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, token, jobId, onSessionExpired]);
 
   useEffect(() => {
     if (!open || !token || !jobId) return;
@@ -106,6 +136,42 @@ export function AdminStagingDbImportModal({ open, onClose, token, onSessionExpir
           <li>진행 중에는 스테이징 화면이 잠시 불안정할 수 있습니다.</li>
           <li>완료 후 브라우저를 새로고침해 주세요.</li>
         </ul>
+
+        {preflightLoading ? (
+          <p className="mt-3 text-fluid-xs text-gray-500">DB 연결 사전 점검 중…</p>
+        ) : null}
+
+        {preflight ? (
+          <div className="mt-3 rounded border border-gray-100 bg-gray-50 px-3 py-2 text-fluid-2xs text-gray-700 space-y-2">
+            <div>
+              <p className="font-medium text-gray-800">운영(덤프 소스)</p>
+              <p className="font-mono text-[11px] break-all">{preflight.sourceLabel}</p>
+              <p>
+                접수 {preflight.source.inquiryCount} · tenant {preflight.source.tenantCount} · user{' '}
+                {preflight.source.userCount}
+              </p>
+              {preflight.source.tenantSlugs ? <p>tenants: {preflight.source.tenantSlugs}</p> : null}
+            </div>
+            <div>
+              <p className="font-medium text-gray-800">스테이징(복원 대상)</p>
+              <p className="font-mono text-[11px] break-all">{preflight.targetLabel}</p>
+              <p>
+                접수 {preflight.target.inquiryCount} · tenant {preflight.target.tenantCount} · user{' '}
+                {preflight.target.userCount}
+              </p>
+              <p>앱이 보는 접수: {preflight.appInquiryCount >= 0 ? preflight.appInquiryCount : '(조회 실패)'}</p>
+            </div>
+            {preflight.warnings.length > 0 ? (
+              <ul className="list-disc pl-4 text-amber-900 space-y-1">
+                {preflight.warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-green-800">사전 점검 경고 없음 — 운영·스테이징 지표가 정상적으로 구분됩니다.</p>
+            )}
+          </div>
+        ) : null}
 
         {jobView ? (
           <div className="mt-3 rounded border border-gray-100 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-800">

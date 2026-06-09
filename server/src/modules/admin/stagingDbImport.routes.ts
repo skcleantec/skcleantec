@@ -11,13 +11,18 @@ import { config } from '../../config/index.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
 import {
   assertDistinctSourceAndTarget,
+  buildImportPreflightWarnings,
+  collectDatabaseSnapshot,
   collectVerifyTableCounts,
   ensureDatabaseUrlSslMode,
+  formatDatabaseEndpointLabel,
+  formatDatabaseSnapshotSummary,
   formatTableCountSummary,
   pgRestoreLooksFailed,
   userMayUseStagingDbImport,
   verifyTableCounts,
-  WIPE_TARGET_PUBLIC_SCHEMA_SQL,
+  wipeTargetPublicSchema,
+  type DatabaseSnapshot,
 } from './stagingDbImport.helpers.js';
 
 type JobStatus =
@@ -43,6 +48,9 @@ type ImportJob = {
   message?: string;
   startedAt: string;
   finishedAt?: string;
+  sourceLabel?: string;
+  targetLabel?: string;
+  sourceInquiryCount?: number;
 };
 
 const jobs = new Map<string, ImportJob>();
@@ -123,6 +131,32 @@ async function runPostRestoreSchemaSync(job: ImportJob): Promise<string | null> 
   return null;
 }
 
+async function verifyAppSeesRestoredData(
+  expectedInquiryCount: number,
+  targetLabel: string,
+): Promise<string | null> {
+  await prisma.$connect();
+  const appCount = await prisma.inquiry.count();
+  if (appCount !== expectedInquiryCount) {
+    return (
+      `복원 후 앱 DB 확인 실패 — 접수 ${appCount}건 (운영 ${expectedInquiryCount}건).\n` +
+      `복원 대상 Postgres: ${targetLabel}\n` +
+      'Railway 스테이징 **웹 서비스** Variables의 DATABASE_URL이 위 Postgres와 같은지 확인하세요. ' +
+      'Postgres 플러그인이 두 개면 Data 탭에서 보는 DB와 앱이 쓰는 DB가 다를 수 있습니다.'
+    );
+  }
+  return null;
+}
+
+async function tryCollectSnapshot(dbUrl: string): Promise<DatabaseSnapshot | { error: string }> {
+  try {
+    return await collectDatabaseSnapshot(runPsql, dbUrl);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { error: msg };
+  }
+}
+
 async function verifyRestoredData(
   job: ImportJob,
   sourceUrl: string,
@@ -160,6 +194,10 @@ async function executeImportJob(jobId: string): Promise<void> {
 
   const sourceUrl = ensureDatabaseUrlSslMode(sourceRaw);
   const targetUrl = ensureDatabaseUrlSslMode(targetRaw);
+  const sourceLabel = formatDatabaseEndpointLabel(sourceUrl);
+  const targetLabel = formatDatabaseEndpointLabel(targetUrl);
+  job.sourceLabel = sourceLabel;
+  job.targetLabel = targetLabel;
 
   const sameDbErr = assertDistinctSourceAndTarget(sourceUrl, targetUrl);
   if (sameDbErr) {
@@ -172,8 +210,64 @@ async function executeImportJob(jobId: string): Promise<void> {
   const dumpPath = path.join(os.tmpdir(), `skct-import-${jobId}.dump`);
 
   try {
+    job.status = 'queued';
+    job.message = '시작 전 DB 상태 확인 중…';
+
+    const sourceSnapResult = await tryCollectSnapshot(sourceUrl);
+    if ('error' in sourceSnapResult) {
+      job.status = 'failed';
+      job.message =
+        `운영 DB(소스) 조회 실패: ${sourceSnapResult.error}\n` +
+        `소스: ${sourceLabel}\n` +
+        'STAGING_DB_IMPORT_SOURCE_DATABASE_URL이 Railway **production** Postgres 공개 Proxy URL인지 확인하세요.';
+      job.finishedAt = new Date().toISOString();
+      return;
+    }
+    if (sourceSnapResult.inquiryCount === 0) {
+      job.status = 'failed';
+      job.message =
+        `운영 DB(소스) 접수가 0건입니다. 소스: ${sourceLabel}\n` +
+        'STAGING_DB_IMPORT_SOURCE_DATABASE_URL이 운영 Postgres가 아닐 수 있습니다.';
+      job.finishedAt = new Date().toISOString();
+      return;
+    }
+    job.sourceInquiryCount = sourceSnapResult.inquiryCount;
+
+    const targetSnapResult = await tryCollectSnapshot(targetUrl);
+    const targetSnap =
+      'error' in targetSnapResult
+        ? {
+            inquiryCount: 0,
+            tenantCount: 0,
+            userCount: 0,
+            latestInquiryKst: '',
+            tenantSlugs: '',
+          }
+        : targetSnapResult;
+    const appInquiryBefore = await prisma.inquiry.count().catch(() => -1);
+    const preflightWarnings = buildImportPreflightWarnings(
+      sourceLabel,
+      targetLabel,
+      sourceSnapResult,
+      targetSnap,
+      appInquiryBefore,
+    );
+    if (preflightWarnings.length > 0) {
+      job.message = [
+        `소스(운영): ${sourceLabel}`,
+        `대상(스테이징): ${targetLabel}`,
+        '',
+        formatDatabaseSnapshotSummary('운영(덤프 소스)', sourceSnapResult),
+        '',
+        formatDatabaseSnapshotSummary('스테이징(복원 대상)', targetSnap),
+        '',
+        '⚠ 사전 경고:',
+        ...preflightWarnings.map((w) => `· ${w}`),
+      ].join('\n');
+    }
+
     job.status = 'dumping';
-    job.message = '운영 DB 덤프 중…';
+    job.message = `운영 DB 덤프 중… (소스: ${sourceLabel})`;
     const dump = await runCmd('pg_dump', [
       `--dbname=${sourceUrl}`,
       '-Fc',
@@ -205,15 +299,16 @@ async function executeImportJob(jobId: string): Promise<void> {
 
     try {
       job.status = 'wiping';
-      job.message = '스테이징 DB 초기화 중…(public 스키마 삭제)';
+      job.message = `스테이징 DB 초기화 중… (대상: ${targetLabel})`;
 
-      const wipe = await runPsql(targetUrl, WIPE_TARGET_PUBLIC_SCHEMA_SQL);
-      if (wipe.code !== 0) {
+      const wipeErr = await wipeTargetPublicSchema(runPsql, targetUrl);
+      if (wipeErr) {
         job.status = 'failed';
-        job.message = formatToolFailure('스테이징 DB 초기화', wipe.code, wipe.stderr, wipe.stdout);
+        job.message = wipeErr;
       } else {
         job.status = 'restoring';
-        job.message = `운영 데이터 복원 중… (덤프 ${Math.round(stat.size / 1024)} KB, 수 분 걸릴 수 있습니다)`;
+        job.message =
+          `운영 데이터 복원 중… (대상: ${targetLabel}, 덤프 ${Math.round(stat.size / 1024)} KB, 수 분 걸릴 수 있습니다)`;
 
         const restore = await runCmd('pg_restore', [
           '--exit-on-error',
@@ -240,12 +335,26 @@ async function executeImportJob(jobId: string): Promise<void> {
               job.status = 'failed';
               job.message = verify.summary ? `${syncErr}\n\n검증(복원 직후):\n${verify.summary}` : syncErr;
             } else {
-              job.status = 'done';
-              const verifyLine = verify.summary ? `\n\n검증:\n${verify.summary}` : '';
-              job.message =
-                restore.code === 1
-                  ? `복원·마이그레이션 완료(복원 중 일부 경고). 페이지를 새로고침해 확인하세요.${verifyLine}`
-                  : `복원·마이그레이션 완료. 페이지를 새로고침해 확인하세요.${verifyLine}`;
+              job.status = 'verifying';
+              job.message = '복원 후 앱 DB 연결 확인 중…';
+              const appErr = await verifyAppSeesRestoredData(
+                job.sourceInquiryCount ?? sourceSnapResult.inquiryCount,
+                targetLabel,
+              );
+              if (appErr) {
+                job.status = 'failed';
+                job.message = verify.summary
+                  ? `${appErr}\n\npsql 검증(복원 직후):\n${verify.summary}`
+                  : appErr;
+              } else {
+                job.status = 'done';
+                const verifyLine = verify.summary ? `\n\npsql 검증:\n${verify.summary}` : '';
+                const endpointLine = `\n\n복원 대상: ${targetLabel}\n운영 접수: ${job.sourceInquiryCount ?? sourceSnapResult.inquiryCount}건`;
+                job.message =
+                  restore.code === 1
+                    ? `복원·마이그레이션 완료(복원 중 일부 경고). 페이지를 새로고침해 확인하세요.${endpointLine}${verifyLine}`
+                    : `복원·마이그레이션 완료. 페이지를 새로고침해 확인하세요.${endpointLine}${verifyLine}`;
+              }
             }
           }
         }
@@ -266,6 +375,80 @@ async function executeImportJob(jobId: string): Promise<void> {
 }
 
 const router = Router();
+
+router.get('/staging-db-import/preflight', authMiddleware, adminOnly, async (req: Request, res: Response) => {
+  const user = (req as Request & { user: AuthPayload }).user;
+  if (!userMayUseStagingDbImport(user.role, user.email)) {
+    res.status(403).json({ error: '이 기능을 사용할 수 없습니다.' });
+    return;
+  }
+  if (!config.stagingDbImport.enabled) {
+    res.status(403).json({ error: '스테이징 DB 가져오기 기능이 비활성화되어 있습니다.' });
+    return;
+  }
+
+  const sourceRaw = config.stagingDbImport.sourceDatabaseUrl;
+  const targetRaw = process.env.DATABASE_URL ?? '';
+  if (!sourceRaw || !targetRaw) {
+    res.status(503).json({
+      error: 'DATABASE_URL 또는 STAGING_DB_IMPORT_SOURCE_DATABASE_URL이 설정되어 있지 않습니다.',
+    });
+    return;
+  }
+
+  const sourceUrl = ensureDatabaseUrlSslMode(sourceRaw);
+  const targetUrl = ensureDatabaseUrlSslMode(targetRaw);
+  const sourceLabel = formatDatabaseEndpointLabel(sourceUrl);
+  const targetLabel = formatDatabaseEndpointLabel(targetUrl);
+
+  const sameDbErr = assertDistinctSourceAndTarget(sourceUrl, targetUrl);
+  if (sameDbErr) {
+    res.status(400).json({ error: sameDbErr, sourceLabel, targetLabel });
+    return;
+  }
+
+  const sourceResult = await tryCollectSnapshot(sourceUrl);
+  if ('error' in sourceResult) {
+    res.status(502).json({
+      error: sourceResult.error,
+      sourceLabel,
+      targetLabel,
+    });
+    return;
+  }
+
+  const targetResult = await tryCollectSnapshot(targetUrl);
+  const targetSnap =
+    'error' in targetResult
+      ? {
+          inquiryCount: 0,
+          tenantCount: 0,
+          userCount: 0,
+          latestInquiryKst: '',
+          tenantSlugs: '',
+        }
+      : targetResult;
+  const targetError = 'error' in targetResult ? targetResult.error : null;
+
+  const appInquiryCount = await prisma.inquiry.count().catch(() => -1);
+  const warnings = buildImportPreflightWarnings(
+    sourceLabel,
+    targetLabel,
+    sourceResult,
+    targetSnap,
+    appInquiryCount,
+  );
+
+  res.json({
+    sourceLabel,
+    targetLabel,
+    source: sourceResult,
+    target: targetSnap,
+    targetQueryError: targetError,
+    appInquiryCount,
+    warnings,
+  });
+});
 
 router.post('/staging-db-import/start', authMiddleware, adminOnly, async (req: Request, res: Response) => {
   const user = (req as Request & { user: AuthPayload }).user;

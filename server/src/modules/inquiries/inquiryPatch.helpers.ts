@@ -173,6 +173,17 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
       data.createdBy = { connect: { id: String(v) } };
     }
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'internalCustomerTone')) {
+    const v = body.internalCustomerTone;
+    if (v == null || v === '') {
+      data.internalCustomerTone = 'NORMAL';
+    } else {
+      const s = String(v).trim().toUpperCase();
+      if (s === 'GOOD' || s === 'NORMAL' || s === 'BAD') {
+        data.internalCustomerTone = s;
+      }
+    }
+  }
   return data;
 }
 

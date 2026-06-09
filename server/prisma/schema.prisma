@@ -696,6 +696,13 @@ model DailyInquiryCounter {
   @@map("daily_inquiry_counters")
 }
 
+/// 마케터·관리자 내부용 고객 등급(접수 단위) — 고객·외부 노출 금지
+enum InternalCustomerTone {
+  GOOD
+  NORMAL
+  BAD
+}
+
 model Inquiry {
   id              String       @id @default(uuid())
   tenantId        String       @map("tenant_id")
@@ -773,6 +780,8 @@ model Inquiry {
   orderFormId  String?       @map("order_form_id")
   /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
   createdById  String?       @map("created_by_id")
+  /// 내부 고객 등급(😊/😐/😠) — 마케터·관리자만 조회·수정
+  internalCustomerTone InternalCustomerTone @default(NORMAL) @map("internal_customer_tone")
   /// 전문 시공 옵션 id 목록(JSON 배열 문자열)
   professionalOptionIds Json? @map("professional_option_ids")
 

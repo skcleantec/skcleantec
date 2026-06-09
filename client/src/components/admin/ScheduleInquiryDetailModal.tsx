@@ -68,6 +68,14 @@ import {
   effectiveTeamSharedAdminNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
 import { getInquiryEditSectionNumber } from '../../constants/inquiryEditSectionOrder';
+import { CustomerNameWithInternalTone } from './CustomerNameWithInternalTone';
+import { InternalCustomerToneRadio } from './InternalCustomerToneRadio';
+import {
+  canShowInternalCustomerTone,
+  DEFAULT_INTERNAL_CUSTOMER_TONE,
+  normalizeInternalCustomerTone,
+  type InternalCustomerTone,
+} from '../../constants/internalCustomerTone';
 
 function AdminScheduleDetailSection({
   title,
@@ -212,6 +220,7 @@ type EditFormFields = {
   scheduleMemo: string;
   /** 상담·참고 — 마케터 메모 (팀장·타업체와 공유, 접수 저장 시 반영) */
   consultationMemo: string;
+  internalCustomerTone: InternalCustomerTone;
   professionalOptionIds: string[];
 };
 
@@ -254,6 +263,7 @@ function buildPatchFromEditForm(
     externalTransferFee: parseWon(editForm.externalTransferFee),
     scheduleMemo: editForm.scheduleMemo.trim() || null,
     consultationMemo: editForm.consultationMemo.trim() || null,
+    internalCustomerTone: editForm.internalCustomerTone,
     professionalOptionIds: editForm.professionalOptionIds,
   };
   if (opts?.includeCreatedById === true) {
@@ -739,6 +749,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         externalTransferFee: '',
         scheduleMemo: '',
         consultationMemo: '',
+        internalCustomerTone: DEFAULT_INTERNAL_CUSTOMER_TONE,
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
       };
     }
@@ -784,6 +795,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       scheduleMemo: it.scheduleMemo ?? '',
       consultationMemo: it.consultationMemo ?? '',
+      internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     };
   });
@@ -967,6 +979,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       scheduleMemo: it.scheduleMemo ?? '',
       consultationMemo: it.consultationMemo ?? '',
+      internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
     });
     setMarketerQuickValue(it.createdBy?.id ?? '');
@@ -1559,7 +1572,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex items-center gap-2">
-                <p className="min-w-0 truncate text-base font-semibold text-gray-900">{item.customerName}</p>
+                <CustomerNameWithInternalTone
+                  name={item.customerName}
+                  tone={editForm.internalCustomerTone}
+                  viewerRole={meUser?.role}
+                  nameClassName="min-w-0 truncate text-base font-semibold text-gray-900"
+                />
                 <PropertyTypeSticker
                   propertyType={editForm.propertyType?.trim() || item.propertyType}
                   isOneRoom={editForm.isOneRoom}
@@ -1656,6 +1674,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               placeholder="숨고 아이디, 닉네임"
             />
           </div>
+          {canShowInternalCustomerTone(meUser?.role) ? (
+            <div className="sm:col-span-2">
+              <InternalCustomerToneRadio
+                value={editForm.internalCustomerTone}
+                onChange={(v) => setEditForm((p) => ({ ...p, internalCustomerTone: v }))}
+                name="scheduleDetailInternalCustomerTone"
+              />
+            </div>
+          ) : null}
           <div>
             <label className="block text-gray-600 mb-1">연락처</label>
             <input
@@ -2812,8 +2839,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                             }`}
                           >
                             <div className="min-w-0">
-                              <span className="block truncate font-medium text-gray-900" title={it.customerName}>
-                                {it.customerName.trim()}
+                              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                                <CustomerNameWithInternalTone
+                                  name={it.customerName.trim()}
+                                  tone={it.internalCustomerTone}
+                                  viewerRole={meUser?.role}
+                                  nameClassName="block truncate font-medium text-gray-900"
+                                />
                                 {it.inquiryNumber ? (
                                   <span className="ml-1 text-fluid-xs font-normal text-gray-600">
                                     (#{it.inquiryNumber})

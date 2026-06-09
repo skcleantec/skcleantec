@@ -8,6 +8,11 @@ export function ensureDatabaseUrlSslMode(url: string): string {
   return u.includes('?') ? `${u}&sslmode=require` : `${u}?sslmode=require`;
 }
 
+/** UI·로그용 — host:port/db (비밀번호 미포함) */
+export function formatDatabaseEndpointLabel(url: string): string {
+  return databaseUrlIdentity(url) || '(URL 파싱 실패)';
+}
+
 /** host:port/dbname — 비밀번호·쿼리 제외, 소스=대상 동일 여부 판별용 */
 export function databaseUrlIdentity(url: string): string {
   const u = url.trim();
@@ -106,16 +111,114 @@ export function verifyTableCounts(lines: TableCountLine[]): string | null {
   return null;
 }
 
-/** 스테이징 public 스키마 전체 삭제 — --clean 만으로는 남는 검증용 tenant/user 제거 */
-export const WIPE_TARGET_PUBLIC_SCHEMA_SQL = `
-SELECT pg_terminate_backend(pid)
-FROM pg_stat_activity
-WHERE datname = current_database() AND pid <> pg_backend_pid();
-DROP SCHEMA IF EXISTS public CASCADE;
-CREATE SCHEMA public;
-GRANT ALL ON SCHEMA public TO postgres;
-GRANT ALL ON SCHEMA public TO public;
+export type DatabaseSnapshot = {
+  inquiryCount: number;
+  tenantCount: number;
+  userCount: number;
+  latestInquiryKst: string;
+  tenantSlugs: string;
+};
+
+const SNAPSHOT_SQL = `
+SELECT
+  (SELECT COUNT(*)::bigint FROM inquiries),
+  (SELECT COUNT(*)::bigint FROM tenants),
+  (SELECT COUNT(*)::bigint FROM users),
+  (SELECT COALESCE(to_char(MAX(created_at) AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI'), '') FROM inquiries),
+  (SELECT COALESCE(string_agg(slug, ', ' ORDER BY slug), '') FROM tenants)
 `.trim();
+
+export async function collectDatabaseSnapshot(
+  runPsql: (dbUrl: string, sql: string) => Promise<{ code: number; stdout: string; stderr: string }>,
+  dbUrl: string,
+): Promise<DatabaseSnapshot> {
+  const res = await runPsql(dbUrl, SNAPSHOT_SQL);
+  if (res.code !== 0) {
+    throw new Error(
+      `DB 스냅샷 조회 실패 (${formatDatabaseEndpointLabel(dbUrl)}): ${res.stderr.trim() || res.stdout.trim()}`,
+    );
+  }
+  const parts = res.stdout.trim().split('|');
+  if (parts.length < 5) {
+    throw new Error(`DB 스냅샷 파싱 실패 (${formatDatabaseEndpointLabel(dbUrl)})`);
+  }
+  return {
+    inquiryCount: Number.parseInt(parts[0] ?? '0', 10) || 0,
+    tenantCount: Number.parseInt(parts[1] ?? '0', 10) || 0,
+    userCount: Number.parseInt(parts[2] ?? '0', 10) || 0,
+    latestInquiryKst: parts[3] ?? '',
+    tenantSlugs: parts[4] ?? '',
+  };
+}
+
+export function formatDatabaseSnapshotSummary(label: string, snap: DatabaseSnapshot): string {
+  return [
+    `${label}`,
+    `  접수 ${snap.inquiryCount} · tenant ${snap.tenantCount} · user ${snap.userCount}`,
+    snap.tenantSlugs ? `  tenants: ${snap.tenantSlugs}` : '  tenants: (없음)',
+    snap.latestInquiryKst ? `  최신 접수(KST): ${snap.latestInquiryKst}` : '  최신 접수: (없음)',
+  ].join('\n');
+}
+
+export function buildImportPreflightWarnings(
+  sourceLabel: string,
+  targetLabel: string,
+  source: DatabaseSnapshot,
+  target: DatabaseSnapshot,
+  appInquiryCount: number,
+): string[] {
+  const warnings: string[] = [];
+
+  if (
+    source.inquiryCount === target.inquiryCount &&
+    source.tenantCount === target.tenantCount &&
+    source.tenantSlugs === target.tenantSlugs &&
+    source.latestInquiryKst === target.latestInquiryKst &&
+    source.inquiryCount > 0
+  ) {
+    warnings.push(
+      '소스(운영)와 스테이징 DB 지표가 완전히 같습니다. ' +
+        'STAGING_DB_IMPORT_SOURCE_DATABASE_URL이 **운영 Postgres 공개 URL**이 아니라 ' +
+        '스테이징 Postgres(또는 ${{Postgres.DATABASE_URL}} 참조)를 가리키는 경우가 많습니다.',
+    );
+  }
+
+  if (source.inquiryCount === 0) {
+    warnings.push(
+      `소스 DB(${sourceLabel}) 접수가 0건입니다. 운영 DB URL이 맞는지 Railway production Postgres Proxy URL인지 확인하세요.`,
+    );
+  }
+
+  if (appInquiryCount !== target.inquiryCount) {
+    warnings.push(
+      `스테이징 앱 DATABASE_URL 접수 ${appInquiryCount}건 ≠ DB 직접 조회 ${target.inquiryCount}건. ` +
+        'Railway에서 **스테이징 웹 서비스**가 연결한 Postgres 플러그인과 Data 탭에서 보는 DB가 같은지 확인하세요.',
+    );
+  }
+
+  return warnings;
+}
+
+/** 스테이징 public 스키마 전체 삭제 — 명령을 나눠 실행(psql -c 다중문 장애 방지) */
+export async function wipeTargetPublicSchema(
+  runPsql: (dbUrl: string, sql: string) => Promise<{ code: number; stdout: string; stderr: string }>,
+  targetUrl: string,
+): Promise<string | null> {
+  const steps = [
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()`,
+    `DROP SCHEMA IF EXISTS public CASCADE`,
+    `CREATE SCHEMA public`,
+    `GRANT ALL ON SCHEMA public TO postgres`,
+    `GRANT ALL ON SCHEMA public TO public`,
+  ];
+  for (const sql of steps) {
+    const res = await runPsql(targetUrl, sql);
+    if (res.code !== 0) {
+      return `스테이징 DB 초기화 실패: ${res.stderr.trim() || res.stdout.trim() || `exit ${res.code}`}`;
+    }
+  }
+  return null;
+}
 
 export async function queryPgCount(
   runPsql: (dbUrl: string, sql: string) => Promise<{ code: number; stdout: string; stderr: string }>,

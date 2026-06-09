@@ -56,6 +56,7 @@ import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import { isManualIntakeInquiry } from '../../utils/manualIntakeInquiry';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
+import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
 import {
   buildLeaderDayAssignmentCounts,
   scheduleItemHasLeaderWithSingleAssignmentOnDay,
@@ -292,6 +293,7 @@ function ScheduleDayListItem({
   onPick,
   onOpenMemo,
   leaderAssignmentCountsForDay,
+  viewerRole,
 }: {
   item: ScheduleItem;
   profCatalog: ProfessionalSpecialtyOptionDto[];
@@ -299,6 +301,7 @@ function ScheduleDayListItem({
   onOpenMemo: () => void;
   /** 선택한 날짜의 팀장별 배정 건수(이번 달 목록 기준). 없으면 강조 생략 */
   leaderAssignmentCountsForDay?: Map<string, number>;
+  viewerRole?: string | null;
 }) {
   const isExternalIntake = isManualIntakeInquiry(item.source);
   const isPreOrder =
@@ -401,9 +404,12 @@ function ScheduleDayListItem({
           >
             <span className="min-w-0 inline-flex flex-col items-start gap-0 leading-tight">
               <span className="inline-flex min-w-0 max-w-full items-center gap-1">
-                <span className="truncate font-medium" title={primaryCustomerLabel}>
-                  {primaryCustomerLabel}
-                </span>
+                <CustomerNameWithInternalTone
+                  name={primaryCustomerLabel}
+                  tone={item.internalCustomerTone}
+                  viewerRole={viewerRole}
+                  nameClassName="truncate font-medium"
+                />
                 <PropertyTypeSticker
                   propertyType={item.propertyType}
                   isOneRoom={item.isOneRoom}
@@ -2024,6 +2030,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              viewerRole={meRole}
                               leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
@@ -2050,6 +2057,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              viewerRole={meRole}
                               leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
@@ -2076,6 +2084,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              viewerRole={meRole}
                               leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
@@ -2105,6 +2114,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              viewerRole={meRole}
                               leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
@@ -2154,6 +2164,7 @@ export function AdminSchedulePage() {
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
+                                          viewerRole={meRole}
                                           leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                           onPick={() => {
                                             setMemoModalItem(null);
@@ -2182,6 +2193,7 @@ export function AdminSchedulePage() {
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
+                                          viewerRole={meRole}
                                           leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                           onPick={() => {
                                             setMemoModalItem(null);
@@ -2210,6 +2222,7 @@ export function AdminSchedulePage() {
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
+                                          viewerRole={meRole}
                                           leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                           onPick={() => {
                                             setMemoModalItem(null);
@@ -2261,6 +2274,7 @@ export function AdminSchedulePage() {
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
+                                            viewerRole={meRole}
                                             leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                             onPick={() => {
                                               setMemoModalItem(null);
@@ -2289,6 +2303,7 @@ export function AdminSchedulePage() {
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
+                                            viewerRole={meRole}
                                             leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                             onPick={() => {
                                               setMemoModalItem(null);
@@ -2317,6 +2332,7 @@ export function AdminSchedulePage() {
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
+                                            viewerRole={meRole}
                                             leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                             onPick={() => {
                                               setMemoModalItem(null);
@@ -2350,6 +2366,7 @@ export function AdminSchedulePage() {
                               key={item.id}
                               item={item}
                               profCatalog={profCatalog}
+                              viewerRole={meRole}
                               leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);

@@ -11,6 +11,7 @@ import {
   mergeRefreshedInquiryGeoFields,
 } from '../inquiries/inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from '../inquiries/inquiryJuanDistance.js';
+import { mapInquiriesInternalToneForRole } from '../inquiries/internalCustomerTone.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
@@ -72,6 +73,7 @@ const scheduleListSelectLite = {
   specialNotes: true,
   scheduleMemo: true,
   consultationMemo: true,
+  internalCustomerTone: true,
   crewMemberCount: true,
   crewMemberNote: true,
   professionalOptionIds: true,
@@ -129,6 +131,7 @@ function rangeFromQuery(start?: string, end?: string) {
 }
 
 router.get('/', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const { start, end, lite } = req.query as { start?: string; end?: string; lite?: string };
@@ -191,7 +194,10 @@ router.get('/', async (req, res) => {
   const items = await mergeRefreshedInquiryGeoFields(prisma, itemsRaw, touched);
 
   res.json({
-    items: items.map((row) => attachDistanceFromJuanForInquiry(row)),
+    items: mapInquiriesInternalToneForRole(
+      items.map((row) => attachDistanceFromJuanForInquiry(row)),
+      user.role,
+    ),
   });
 });
 

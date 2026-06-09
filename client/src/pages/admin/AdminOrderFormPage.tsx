@@ -33,6 +33,11 @@ import {
   normalizeMsgConfigForEditor,
 } from '../../utils/orderFormCustomerCopy';
 import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
+import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
+import {
+  DEFAULT_INTERNAL_CUSTOMER_TONE,
+  type InternalCustomerTone,
+} from '../../constants/internalCustomerTone';
 import { OrderFormPage } from '../order/OrderFormPage';
 
 type Tab = 'issue' | 'followup' | 'list';
@@ -208,6 +213,8 @@ export function AdminOrderFormPage() {
     Array<{ id: string; customerName: string; customerPhone: string }>
   >([]);
   const [pendingLinkId, setPendingLinkId] = useState('');
+  const [issueInternalCustomerTone, setIssueInternalCustomerTone] =
+    useState<InternalCustomerTone>(DEFAULT_INTERNAL_CUSTOMER_TONE);
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [scheduleFabUnlinkedHint, setScheduleFabUnlinkedHint] = useState(false);
@@ -527,6 +534,19 @@ export function AdminOrderFormPage() {
                     ))}
                   </select>
                 </div>
+                {pendingLinkId ? (
+                  <div className="md:col-span-2 lg:col-span-12">
+                    <InternalCustomerToneRadio
+                      value={issueInternalCustomerTone}
+                      onChange={setIssueInternalCustomerTone}
+                      name="issueInternalCustomerTone"
+                    />
+                  </div>
+                ) : (
+                  <p className="md:col-span-2 lg:col-span-12 text-fluid-2xs text-gray-500">
+                    대기 접수를 연결하면 내부 고객 표시(😊/😐/😠)를 지정할 수 있습니다.
+                  </p>
+                )}
               </div>
               {token ? (
                 <div className="mt-5 border-t border-gray-100 pt-5">
@@ -534,13 +554,14 @@ export function AdminOrderFormPage() {
                     선택한 양식이 그대로 아래에 표시됩니다. 상담 내용을 미리 채우면 그 항목은 고객 화면에서 잠겨(수정 불가) 보이고, 비워 둔 항목은 고객이 직접 작성합니다.
                   </p>
                   <OrderFormPage
-                    key={`issue-${issueTemplateId}-${pendingLinkId}-${issueFormKey}`}
+                    key={`issue-${issueTemplateId}-${pendingLinkId}-${issueInternalCustomerTone}-${issueFormKey}`}
                     editor={{
                       authToken: token,
                       inline: true,
                       create: {
                         templateId: issueTemplateId || undefined,
                         pendingInquiryId: pendingLinkId || undefined,
+                        internalCustomerTone: pendingLinkId ? issueInternalCustomerTone : undefined,
                         onCreated: handleOrderCreated,
                       },
                     }}

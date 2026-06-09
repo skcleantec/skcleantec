@@ -25,6 +25,7 @@ import {
   professionalOptionDepthFromRoot,
 } from './specialtyOptions.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
+import { parseInternalCustomerToneInput } from '../inquiries/internalCustomerTone.js';
 import { resolveInquiryOperatingCompanyId } from '../operating-companies/operatingCompanyResolve.service.js';
 import { resolvePublicBrandingForCustomer } from '../operating-companies/publicOperatingCompanyBranding.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
@@ -915,6 +916,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     preferredTime,
     preferredTimeDetail,
     pendingInquiryId,
+    internalCustomerTone: internalCustomerToneRaw,
     operatingCompanyId: bodyOperatingCompanyIdRaw,
     areaPyeong: areaPyeongRaw,
     areaBasis: areaBasisRaw,
@@ -930,6 +932,8 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     preferredTime?: string;
     preferredTimeDetail?: string;
     pendingInquiryId?: string;
+    /** 대기 접수 연결 시 접수에 저장 — GOOD|NORMAL|BAD, 기본 NORMAL */
+    internalCustomerTone?: string;
     operatingCompanyId?: string;
     areaPyeong?: unknown;
     areaBasis?: unknown;
@@ -1031,12 +1035,14 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
             ...templateData,
           },
         });
+        const linkedTone = parseInternalCustomerToneInput(internalCustomerToneRaw) ?? 'NORMAL';
         await tx.inquiry.update({
           where: { id: pid },
           data: {
             orderFormId: created.id,
             status: 'ORDER_FORM_PENDING',
             source: '발주서',
+            internalCustomerTone: linkedTone,
             ...(issueAreaPyeong != null && issueAreaBasis
               ? { areaPyeong: issueAreaPyeong, areaBasis: issueAreaBasis, exclusiveAreaSqm: null }
               : {}),

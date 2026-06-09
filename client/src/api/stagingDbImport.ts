@@ -15,6 +15,45 @@ export type StagingDbImportStatusPayload = {
   finishedAt: string | null;
 };
 
+export type StagingDbImportPreflightPayload = {
+  sourceLabel: string;
+  targetLabel: string;
+  source: {
+    inquiryCount: number;
+    tenantCount: number;
+    userCount: number;
+    latestInquiryKst: string;
+    tenantSlugs: string;
+  };
+  target: {
+    inquiryCount: number;
+    tenantCount: number;
+    userCount: number;
+    latestInquiryKst: string;
+    tenantSlugs: string;
+  };
+  targetQueryError: string | null;
+  appInquiryCount: number;
+  warnings: string[];
+};
+
+export async function getStagingDbImportPreflight(token: string): Promise<StagingDbImportPreflightPayload> {
+  let res: Response;
+  try {
+    res = await fetch(`${API}/admin/staging-db-import/preflight`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) throw apiUnreachableMessage();
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '사전 점검을 불러올 수 없습니다.'));
+  }
+  return res.json() as Promise<StagingDbImportPreflightPayload>;
+}
+
 export async function postStagingDbImportStart(
   token: string,
   password: string,

@@ -19,6 +19,13 @@ import {
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
+import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
+import {
+  DEFAULT_INTERNAL_CUSTOMER_TONE,
+  normalizeInternalCustomerTone,
+  type InternalCustomerTone,
+} from '../../constants/internalCustomerTone';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
@@ -288,6 +295,7 @@ interface InquiryItem {
   /** KST 일자 기준 10자리 숫자 접수번호 (구 데이터는 null 가능) */
   inquiryNumber?: string | null;
   customerName: string;
+  internalCustomerTone?: InternalCustomerTone | null;
   nickname?: string | null;
   customerPhone: string;
   customerPhone2?: string | null;
@@ -599,6 +607,7 @@ export function AdminInquiriesPage() {
     amountBalance: '',
     externalTransferFee: '',
     createdById: '',
+    internalCustomerTone: DEFAULT_INTERNAL_CUSTOMER_TONE as InternalCustomerTone,
   });
   const [claimItem, setClaimItem] = useState<InquiryItem | null>(null);
   const [claimMemo, setClaimMemo] = useState('');
@@ -1401,6 +1410,7 @@ export function AdminInquiriesPage() {
       externalTransferFee:
         item.externalTransferFee != null ? String(item.externalTransferFee) : '',
       createdById: item.createdBy?.id ?? '',
+      internalCustomerTone: normalizeInternalCustomerTone(item.internalCustomerTone),
     });
     // 목록은 경량화되어 changeLogs·extraCharges·additionalReceipts 를 싣지 않는다.
     // 편집 모달의 변경이력·추가청구·추가결재 패널은 상세 API로 보강(목록에서 진입한 경우만).
@@ -1781,6 +1791,7 @@ export function AdminInquiriesPage() {
         serviceDepositAmount: parseWon(editForm.amountDeposit),
         serviceBalanceAmount: parseWon(editForm.amountBalance),
         externalTransferFee: parseWon(editForm.externalTransferFee),
+        internalCustomerTone: editForm.internalCustomerTone,
       };
       if (omitSpecialNotesIfLegacyUnchangedRef.current && editForm.specialNotes.trim() === '') {
         delete patch.specialNotes;
@@ -2456,7 +2467,12 @@ export function AdminInquiriesPage() {
                       <div className="flex items-start gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="truncate text-fluid-sm font-semibold text-gray-900">{item.customerName}</span>
+                            <CustomerNameWithInternalTone
+                              name={item.customerName}
+                              tone={item.internalCustomerTone}
+                              viewerRole={me?.role}
+                              nameClassName="truncate text-fluid-sm font-semibold text-gray-900"
+                            />
                             {item.claimMemo ? (
                               <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="클레임">
                                 ●
@@ -2872,8 +2888,12 @@ export function AdminInquiriesPage() {
                       title={`${item.customerName}${item.claimMemo ? ' (클레임)' : ''}`}
                     >
                       <div className="flex min-w-0 flex-col items-center leading-tight">
-                        <div className="min-w-0 max-w-full truncate">
-                          {item.customerName}
+                        <div className="min-w-0 max-w-full truncate inline-flex items-center justify-center gap-0.5">
+                          <CustomerNameWithInternalTone
+                            name={item.customerName}
+                            tone={item.internalCustomerTone}
+                            viewerRole={me?.role}
+                          />
                           {item.claimMemo && (
                             <span className="ml-0.5 text-orange-600" title={item.claimMemo}>
                               ●
@@ -3607,6 +3627,13 @@ export function AdminInquiriesPage() {
                   value={editForm.customerName}
                   onChange={(e) => setEditForm((p) => ({ ...p, customerName: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <InternalCustomerToneRadio
+                  value={editForm.internalCustomerTone}
+                  onChange={(v) => setEditForm((p) => ({ ...p, internalCustomerTone: v }))}
+                  name="inquiryEditInternalCustomerTone"
                 />
               </div>
               <div>

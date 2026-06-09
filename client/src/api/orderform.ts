@@ -394,6 +394,8 @@ export async function createOrderForm(
     areaBasis?: string;
     /** 대기 접수 건 id — 연결 시 고객 제출로 동일 건이 접수로 전환 */
     pendingInquiryId?: string;
+    /** 대기 접수 연결 시 내부 고객 등급 — GOOD|NORMAL|BAD */
+    internalCustomerTone?: string;
     /** 사용할 발주서 양식(템플릿) id — 미지정 시 테넌트 기본 양식 */
     templateId?: string;
   }
