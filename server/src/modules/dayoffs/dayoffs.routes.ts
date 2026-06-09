@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
+import { ShortTtlCache } from '../../lib/shortTtlCache.js';
 import { authMiddleware, adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
@@ -27,6 +28,25 @@ import { resolveLeaderMorningAfternoon } from '../schedule/scheduleDayAvailabili
 import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 
 const router = Router();
+
+type ScheduleStatsPayload = {
+  byDate: Record<string, unknown>;
+  asCsByDate: Record<
+    string,
+    Array<{
+      id: string;
+      customerName: string;
+      customerPhone: string;
+      content: string;
+      status: string;
+      inquiryId: string | null;
+      inquiryNumber: string | null;
+    }>
+  >;
+};
+
+/** 스케줄 통계는 쿼리 9건 병렬 — 원격 DB 시 체감이 커서 짧게 캐시 */
+const scheduleStatsCache = new ShortTtlCache<ScheduleStatsPayload>(25_000);
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -258,6 +278,13 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
   }
   const { start, end } = req.query as { start?: string; end?: string };
   const { startYmd, endYmd, startDate, endDate } = resolveScheduleRangeYmd(start, end);
+
+  const statsCacheKey = `ss:${tenantId}:${startYmd}:${endYmd}`;
+  const statsCached = scheduleStatsCache.get(statsCacheKey);
+  if (statsCached) {
+    res.json(statsCached);
+    return;
+  }
 
   const [
     teamLeaders,
@@ -638,7 +665,9 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     });
   }
 
-  res.json({ byDate, asCsByDate });
+  const payload: ScheduleStatsPayload = { byDate, asCsByDate };
+  scheduleStatsCache.set(statsCacheKey, payload);
+  res.json(payload);
 });
 
 const SLOT_ADJ_LIMIT = 300;
@@ -677,6 +706,7 @@ router.put('/schedule-slot-to-adjustment', authMiddleware, adminOrMarketer, asyn
     });
   }
 
+  scheduleStatsCache.deleteByPrefix(`ss:${tenantId}:`);
   res.json({ ok: true });
 });
 

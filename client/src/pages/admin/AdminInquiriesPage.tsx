@@ -1031,13 +1031,11 @@ export function AdminInquiriesPage() {
     [token]
   );
 
+  /** 마케터 집계는 목록보다 무거움 — 첫 목록 로드 이후에만 자동 요청(목록 체감 속도 우선) */
+  const marketerOverviewAfterListRef = useRef(false);
   useEffect(() => {
-    if (!token) {
-      setMarketerOverviewLoading(false);
-      return;
-    }
-    void loadMarketerOverview();
-  }, [token, loadMarketerOverview]);
+    marketerOverviewAfterListRef.current = false;
+  }, [token]);
 
   const refresh = (showLoading = false) => {
     if (!token) return;
@@ -1097,6 +1095,10 @@ export function AdminInquiriesPage() {
       })
       .finally(() => {
         setLoading(false);
+        if (!marketerOverviewAfterListRef.current) {
+          marketerOverviewAfterListRef.current = true;
+          void loadMarketerOverview();
+        }
       });
   };
 

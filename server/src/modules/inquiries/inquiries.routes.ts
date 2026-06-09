@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import type { Prisma } from '@prisma/client';
-import type { InquiryStatus } from '@prisma/client';
+import type { Prisma, InquiryStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { ShortTtlCache } from '../../lib/shortTtlCache.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
@@ -115,6 +115,9 @@ async function verifyAdminPasswordForRequest(
 
 const router = Router();
 
+/** 원격 DB 왕복 완화 — 탭 전환·WS 재조회 시 25초 이내 캐시 재사용 */
+const marketerOverviewCache = new ShortTtlCache<Awaited<ReturnType<typeof buildMarketerOverview>>>(25_000);
+
 router.use(authMiddleware);
 router.use(adminOrMarketer);
 
@@ -127,7 +130,14 @@ router.get('/marketer-overview', async (req, res) => {
     return;
   }
   try {
+    const cacheKey = `mo:${tenantId}`;
+    const cached = marketerOverviewCache.get(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
     const data = await buildMarketerOverview(tenantId);
+    marketerOverviewCache.set(cacheKey, data);
     res.json(data);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -379,16 +389,16 @@ router.get('/', async (req, res) => {
     : 200;
   const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
 
-  const [itemsRaw, total] = await Promise.all([
-    prisma.inquiry.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take,
-      skip,
-      include: listInclude,
-    }),
-    prisma.inquiry.count({ where }),
-  ]);
+  const itemsRaw = await prisma.inquiry.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take,
+    skip,
+    include: listInclude,
+  });
+  /** 마지막 페이지(또는 건수 < limit)면 COUNT 생략 — 로컬·원격 DB 왕복 1회 절약 */
+  const total =
+    itemsRaw.length < take ? skip + itemsRaw.length : await prisma.inquiry.count({ where });
   // 좌표 캐시가 있는 건 즉시 반환(빠름). 신규(미좌표) 건만 백그라운드에서 카카오로 채워
   // DB에 저장 → 다음 로드부터 저장된 좌표가 즉시 표시된다.
   res.json({

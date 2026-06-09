@@ -2,6 +2,18 @@ import type { PrismaClient } from '@prisma/client';
 import { getKakaoRestApiKey, kakaoGeocodeSequential } from '../geocode/kakaoGeocodeClient.js';
 import { inquiryGeocodeQueryLine } from './inquiryAddressGeoSync.js';
 
+/** 목록 API 백그라운드 카카오 지오 — 로컬(dev)은 기본 끔(원격 DB+외부 API 이중 지연). `LIST_GEO_HYDRATE_MAX` 로 조정 */
+export function resolveListGeoHydrateMax(opts?: { maxUniqueQueries?: number }): number {
+  if (opts?.maxUniqueQueries === 0) return 0;
+  const raw = (process.env.LIST_GEO_HYDRATE_MAX ?? '').trim();
+  if (raw !== '') {
+    const n = Number.parseInt(raw, 10);
+    if (Number.isFinite(n)) return Math.max(0, n);
+  }
+  if (process.env.NODE_ENV !== 'production') return 0;
+  return Math.min(35, Math.max(1, opts?.maxUniqueQueries ?? 18));
+}
+
 type ListInquiryRow = {
   id: string;
   address: string;
@@ -24,9 +36,8 @@ export async function hydrateMissingGeoForInquiryListItems(
   const kakaoKey = getKakaoRestApiKey();
   if (!kakaoKey) return [];
   /** 0이면 목록·스케줄 등에서 카카오 호출·DB 갱신 생략(상세·별도 동기화에 맡김) */
-  if (opts?.maxUniqueQueries === 0) return [];
-
-  const maxQ = Math.min(35, Math.max(1, opts?.maxUniqueQueries ?? 18));
+  const maxQ = resolveListGeoHydrateMax(opts);
+  if (maxQ === 0) return [];
   const queryToIds = new Map<string, string[]>();
 
   for (const it of items) {
@@ -94,7 +105,7 @@ export function scheduleBackgroundGeoHydrate(
   opts?: { maxUniqueQueries?: number }
 ): void {
   if (!getKakaoRestApiKey()) return;
-  if (opts?.maxUniqueQueries === 0) return;
+  if (resolveListGeoHydrateMax(opts) === 0) return;
 
   const pending = items.filter((it) => {
     const q = inquiryGeocodeQueryLine(it.address, it.addressDetail);

@@ -69,36 +69,56 @@ function resolveMarketerIdForReceivedRow(row: {
   return row.createdById ?? row.orderForm?.createdById ?? null;
 }
 
-/** 기간 내 마케터별 예약완료(RECEIVED) 건수 — 접수일(createdAt) KST */
-async function countReceivedInquiriesByMarketer(
+type ReceivedMarketerCountMaps = {
+  month: Map<string, number>;
+  today: Map<string, number>;
+};
+
+/** 이번 달·오늘 마케터별 RECEIVED 건수 — DB 1회 조회(월간 범위만) */
+async function countReceivedInquiriesByMarketerMonthAndToday(
   tenantId: string,
-  rangeGte: Date,
-  rangeLte: Date,
+  monthGte: Date,
+  monthLte: Date,
+  todayGte: Date,
+  todayLte: Date,
   marketerIds: string[],
-): Promise<Map<string, number>> {
+): Promise<ReceivedMarketerCountMaps> {
+  const empty = (): ReceivedMarketerCountMaps => ({
+    month: new Map(marketerIds.map((id) => [id, 0])),
+    today: new Map(marketerIds.map((id) => [id, 0])),
+  });
   const attr = whereReceivedInquiryAttributedToMarketers(marketerIds);
-  if (!attr) return new Map();
+  if (!attr) return empty();
 
   const rows = await prisma.inquiry.findMany({
     where: {
       tenantId,
-      createdAt: { gte: rangeGte, lte: rangeLte },
+      createdAt: { gte: monthGte, lte: monthLte },
       ...attr,
     },
     select: {
+      createdAt: true,
       createdById: true,
       orderForm: { select: { createdById: true } },
     },
   });
 
-  const out = new Map<string, number>();
-  for (const id of marketerIds) out.set(id, 0);
+  const month = new Map<string, number>();
+  const today = new Map<string, number>();
+  for (const id of marketerIds) {
+    month.set(id, 0);
+    today.set(id, 0);
+  }
   for (const row of rows) {
     const uid = resolveMarketerIdForReceivedRow(row);
-    if (!uid || !out.has(uid)) continue;
-    out.set(uid, (out.get(uid) ?? 0) + 1);
+    if (!uid || !month.has(uid)) continue;
+    month.set(uid, (month.get(uid) ?? 0) + 1);
+    const t = row.createdAt.getTime();
+    if (t >= todayGte.getTime() && t <= todayLte.getTime()) {
+      today.set(uid, (today.get(uid) ?? 0) + 1);
+    }
   }
-  return out;
+  return { month, today };
 }
 
 /**
@@ -143,10 +163,14 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
   const marketers = staff.filter((u) => !isTeamPreviewAdminEmail(u.email));
   const marketerIds = marketers.map((m) => m.id);
 
-  const [monthCounts, todayCounts] = await Promise.all([
-    countReceivedInquiriesByMarketer(tenantId, monthRange.gte, monthRange.lte, marketerIds),
-    countReceivedInquiriesByMarketer(tenantId, todayRange.gte, todayRange.lte, marketerIds),
-  ]);
+  const { month: monthCounts, today: todayCounts } = await countReceivedInquiriesByMarketerMonthAndToday(
+    tenantId,
+    monthRange.gte,
+    monthRange.lte,
+    todayRange.gte,
+    todayRange.lte,
+    marketerIds,
+  );
 
   const rows: MarketerOverviewRow[] = marketers.map((m) => ({
     marketerId: m.id,

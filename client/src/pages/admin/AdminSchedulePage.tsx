@@ -687,10 +687,10 @@ export function AdminSchedulePage() {
         setLoadError(null);
         let scheduleErr: string | null = null;
         let statsErr: string | null = null;
-        const [scheduleOutcome, statsOutcome] = await Promise.allSettled([
-          getSchedule(token, start, end),
-          getScheduleStats(token, start, end),
-        ]);
+
+        const scheduleOutcome = await Promise.allSettled([getSchedule(token, start, end)]).then(
+          (r) => r[0]
+        );
         if (rid !== fetchGenRef.current) return;
 
         if (scheduleOutcome.status === 'fulfilled') {
@@ -708,6 +708,20 @@ export function AdminSchedulePage() {
               : '스케줄을 불러오지 못했습니다.';
         }
 
+        if (scheduleErr) {
+          setStats({});
+          setAsCsByDate({});
+          setStatsLoading(false);
+          setLoadError(scheduleErr);
+          return;
+        }
+
+        setStatsLoading(true);
+        const statsOutcome = await Promise.allSettled([getScheduleStats(token, start, end)]).then(
+          (r) => r[0]
+        );
+        if (rid !== fetchGenRef.current) return;
+
         if (statsOutcome.status === 'fulfilled') {
           setStats(statsOutcome.value.byDate);
           setAsCsByDate(statsOutcome.value.asCsByDate ?? {});
@@ -716,11 +730,10 @@ export function AdminSchedulePage() {
           setAsCsByDate({});
           statsErr = '스케줄 현황(통계)을 불러오지 못했습니다. 접수 목록은 표시됩니다.';
         }
+        setStatsLoading(false);
 
         if (rid !== fetchGenRef.current) return;
-        if (scheduleErr && statsErr) setLoadError(`${scheduleErr} ${statsErr}`);
-        else if (scheduleErr) setLoadError(scheduleErr);
-        else if (statsErr) setLoadError(statsErr);
+        if (statsErr) setLoadError(statsErr);
         else setLoadError(null);
         return;
       }

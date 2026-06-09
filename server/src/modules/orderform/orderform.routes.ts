@@ -777,8 +777,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const take = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 30;
   const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
 
-  const [total, list, issuers] = await Promise.all([
-    prisma.orderForm.count({ where }),
+  const [list, issuers] = await Promise.all([
     prisma.orderForm.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -796,6 +795,8 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
       orderBy: [{ role: 'asc' }, { name: 'asc' }],
     }),
   ]);
+  const total =
+    list.length < take ? skip + list.length : await prisma.orderForm.count({ where });
 
   const issuerOptions = issuers.map((u) => ({
     id: u.id,
