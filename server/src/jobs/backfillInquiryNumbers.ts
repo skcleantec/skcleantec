@@ -4,8 +4,12 @@
  * 3) daily_inquiry_counters(tenant_id, operating_company_id, date_key) 동기화
  */
 import { prisma } from '../lib/prisma.js';
+import { ensureDailyInquiryCounterPk } from './ensureDailyInquiryCounterPk.js';
 import { parseOperatingCompanyConfig } from '../modules/operating-companies/operatingCompany.schema.js';
-import { getDefaultOperatingCompanyId } from '../modules/operating-companies/operatingCompany.service.js';
+import {
+  createDefaultOperatingCompanyForTenant,
+  getDefaultOperatingCompanyId,
+} from '../modules/operating-companies/operatingCompany.service.js';
 import { formatInquiryNumber, kstYYYYMMDD } from '../modules/inquiries/inquiryNumber.js';
 
 function counterMapKey(operatingCompanyId: string, dateKey: string): string {
@@ -39,13 +43,12 @@ async function syncCounters(tenantId: string, perDay: Map<string, number>) {
   for (const [key, lastSeq] of perDay) {
     const [operatingCompanyId, dateKey] = key.split('\0');
     if (!operatingCompanyId || !dateKey) continue;
-    await prisma.dailyInquiryCounter.upsert({
-      where: {
-        tenantId_operatingCompanyId_dateKey: { tenantId, operatingCompanyId, dateKey },
-      },
-      create: { tenantId, operatingCompanyId, dateKey, lastSeq },
-      update: { lastSeq },
-    });
+    await prisma.$executeRaw`
+      INSERT INTO daily_inquiry_counters (tenant_id, operating_company_id, date_key, last_seq)
+      VALUES (${tenantId}, ${operatingCompanyId}, ${dateKey}, ${lastSeq})
+      ON CONFLICT (tenant_id, operating_company_id, date_key) DO UPDATE
+      SET last_seq = GREATEST(daily_inquiry_counters.last_seq, EXCLUDED.last_seq)
+    `;
   }
 }
 
@@ -66,8 +69,23 @@ async function loadPrefixByOc(
   return out;
 }
 
+async function resolveDefaultOperatingCompanyId(tenantId: string): Promise<string> {
+  try {
+    return await getDefaultOperatingCompanyId(prisma, tenantId);
+  } catch {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true, slug: true },
+    });
+    return createDefaultOperatingCompanyForTenant(prisma, tenantId, {
+      name: tenant?.name?.trim() || '기본',
+      slug: tenant?.slug?.trim() || 'default',
+    });
+  }
+}
+
 async function backfillTenant(tenantId: string) {
-  const defaultOcId = await getDefaultOperatingCompanyId(prisma, tenantId);
+  const defaultOcId = await resolveDefaultOperatingCompanyId(tenantId);
 
   const counters = await prisma.dailyInquiryCounter.findMany({
     where: { tenantId },
@@ -158,6 +176,8 @@ async function backfillTenant(tenantId: string) {
 }
 
 export async function runBackfillInquiryNumbers(): Promise<void> {
+  await ensureDailyInquiryCounterPk();
+
   const tenants = await prisma.tenant.findMany({ select: { id: true, slug: true } });
   if (tenants.length === 0) {
     console.log('backfill-inquiry-numbers: tenant 없음 — 건너뜀');
