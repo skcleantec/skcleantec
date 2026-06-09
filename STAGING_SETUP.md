@@ -184,6 +184,8 @@ $env:SKCT_TARGET_DATABASE_URL = '<Railway staging 공개 Proxy DATABASE_URL>'
 
 - 스테이징 웹 서비스 **재배포** 또는 앱 재시작 후, 스테이징 URL에서 데이터·로그인을 확인한다.
 - `pg_restore` 가 경고만 내고 끝나는 경우가 있어, **접수·사용자 몇 건**이 보이는지 꼭 확인한다.
+- 웹 가져오기는 완료 시 **tenants·users·inquiries 건수 검증**을 수행한다. `done` 이라도 건수가 0·불일치면 `failed`로 처리된다.
+- **`STAGING_DB_IMPORT_SOURCE_DATABASE_URL` 과 스테이징 `DATABASE_URL` 이 같으면** 복사가 되지 않는다(시작 단계에서 차단).
 
 ---
 
