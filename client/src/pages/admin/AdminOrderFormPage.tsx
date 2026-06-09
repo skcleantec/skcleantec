@@ -36,6 +36,7 @@ import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
 import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
 import {
   DEFAULT_INTERNAL_CUSTOMER_TONE,
+  normalizeInternalCustomerTone,
   type InternalCustomerTone,
 } from '../../constants/internalCustomerTone';
 import { OrderFormPage } from '../order/OrderFormPage';
@@ -210,8 +211,14 @@ export function AdminOrderFormPage() {
   /** 발급 완료 후 인라인 폼을 초기화하기 위한 remount 키 */
   const [issueFormKey, setIssueFormKey] = useState(0);
   const [pendingLinkOptions, setPendingLinkOptions] = useState<
-    Array<{ id: string; customerName: string; customerPhone: string }>
+    Array<{
+      id: string;
+      customerName: string;
+      customerPhone: string;
+      internalCustomerTone?: InternalCustomerTone | null;
+    }>
   >([]);
+  const [issueTemplatesLoaded, setIssueTemplatesLoaded] = useState(false);
   const [pendingLinkId, setPendingLinkId] = useState('');
   const [issueInternalCustomerTone, setIssueInternalCustomerTone] =
     useState<InternalCustomerTone>(DEFAULT_INTERNAL_CUSTOMER_TONE);
@@ -288,12 +295,21 @@ export function AdminOrderFormPage() {
   useEffect(() => {
     if (!token || tab !== 'issue') return;
     getInquiries(token, { status: 'PENDING,DEPOSIT_COMPLETED,ORDER_FORM_PENDING', datePreset: 'all' })
-      .then((r: { items: Array<{ id: string; customerName: string; customerPhone?: string | null }> }) => {
+      .then(
+        (r: {
+          items: Array<{
+            id: string;
+            customerName: string;
+            customerPhone?: string | null;
+            internalCustomerTone?: InternalCustomerTone | null;
+          }>;
+        }) => {
         setPendingLinkOptions(
           r.items.map((i) => ({
             id: i.id,
             customerName: i.customerName,
             customerPhone: (i.customerPhone ?? '').trim(),
+            internalCustomerTone: i.internalCustomerTone ?? null,
           }))
         );
       })
@@ -304,6 +320,7 @@ export function AdminOrderFormPage() {
   useEffect(() => {
     if (!token || tab !== 'issue') return;
     let cancelled = false;
+    setIssueTemplatesLoaded(false);
     void listOrderFormTemplates(token)
       .then((items) => {
         if (cancelled) return;
@@ -317,6 +334,9 @@ export function AdminOrderFormPage() {
       })
       .catch(() => {
         if (!cancelled) setOrderTemplates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIssueTemplatesLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -524,7 +544,14 @@ export function AdminOrderFormPage() {
                   <select
                     className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
                     value={pendingLinkId}
-                    onChange={(e) => setPendingLinkId(e.target.value)}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setPendingLinkId(id);
+                      const row = pendingLinkOptions.find((o) => o.id === id);
+                      if (row?.internalCustomerTone) {
+                        setIssueInternalCustomerTone(normalizeInternalCustomerTone(row.internalCustomerTone));
+                      }
+                    }}
                   >
                     <option value="">없음 (일반 발급)</option>
                     {pendingLinkOptions.map((o) => (
@@ -534,38 +561,36 @@ export function AdminOrderFormPage() {
                     ))}
                   </select>
                 </div>
-                {pendingLinkId ? (
-                  <div className="md:col-span-2 lg:col-span-12">
-                    <InternalCustomerToneRadio
-                      value={issueInternalCustomerTone}
-                      onChange={setIssueInternalCustomerTone}
-                      name="issueInternalCustomerTone"
-                    />
-                  </div>
-                ) : (
-                  <p className="md:col-span-2 lg:col-span-12 text-fluid-2xs text-gray-500">
-                    대기 접수를 연결하면 내부 고객 표시(😊/😐/😠)를 지정할 수 있습니다.
-                  </p>
-                )}
+                <div className="md:col-span-2 lg:col-span-12">
+                  <InternalCustomerToneRadio
+                    value={issueInternalCustomerTone}
+                    onChange={setIssueInternalCustomerTone}
+                    name="issueInternalCustomerTone"
+                  />
+                </div>
               </div>
               {token ? (
                 <div className="mt-5 border-t border-gray-100 pt-5">
                   <p className="mb-3 text-fluid-2xs leading-relaxed text-gray-500">
                     선택한 양식이 그대로 아래에 표시됩니다. 상담 내용을 미리 채우면 그 항목은 고객 화면에서 잠겨(수정 불가) 보이고, 비워 둔 항목은 고객이 직접 작성합니다.
                   </p>
-                  <OrderFormPage
-                    key={`issue-${issueTemplateId}-${pendingLinkId}-${issueInternalCustomerTone}-${issueFormKey}`}
-                    editor={{
-                      authToken: token,
-                      inline: true,
-                      create: {
-                        templateId: issueTemplateId || undefined,
-                        pendingInquiryId: pendingLinkId || undefined,
-                        internalCustomerTone: pendingLinkId ? issueInternalCustomerTone : undefined,
-                        onCreated: handleOrderCreated,
-                      },
-                    }}
-                  />
+                  {!issueTemplatesLoaded ? (
+                    <p className="py-6 text-center text-fluid-sm text-gray-500">발주서 양식 불러오는 중…</p>
+                  ) : (
+                    <OrderFormPage
+                      key={`issue-${issueTemplateId}-${pendingLinkId}-${issueFormKey}`}
+                      editor={{
+                        authToken: token,
+                        inline: true,
+                        create: {
+                          templateId: issueTemplateId || undefined,
+                          pendingInquiryId: pendingLinkId || undefined,
+                          internalCustomerTone: issueInternalCustomerTone,
+                          onCreated: handleOrderCreated,
+                        },
+                      }}
+                    />
+                  )}
                 </div>
               ) : null}
             </div>

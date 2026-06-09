@@ -1077,6 +1077,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     const inquiryMemo = memoParts.length ? memoParts.join('\n') : null;
     const inquiryPreferredDate = preferredDateYmdToKstNoon(prefDateStr ?? undefined);
 
+    const standaloneTone = parseInternalCustomerToneInput(internalCustomerToneRaw) ?? 'NORMAL';
     const orderForm = await prisma.$transaction(async (tx) => {
       const operatingCompanyId = await resolveInquiryOperatingCompanyId({
         tx,
@@ -1120,6 +1121,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
           source: '발주서',
           orderFormId: created.id,
           createdById: userId,
+          internalCustomerTone: standaloneTone,
           serviceTotalAmount: totalAmount,
           serviceDepositAmount: deposit,
           serviceBalanceAmount: balance,

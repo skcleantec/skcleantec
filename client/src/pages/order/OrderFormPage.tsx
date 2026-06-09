@@ -381,10 +381,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     } else if (token) {
       loader = getOrderFormByToken(token);
     }
-    if (!loader) return;
+    if (!loader) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     setLoading(true);
     loader
       .then((data) => {
+        if (cancelled) return;
         if (!data) return;
         if (isOrderFormPublicSubmitted(data)) {
           setSubmittedReceipt(data);
@@ -511,8 +516,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         }
         setError(null);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : '발주서를 불러올 수 없습니다.'))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : '발주서를 불러올 수 없습니다.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token, isCreate, editorAuthToken, editorOrderFormId, createTemplateId, createPendingInquiryId]);
 
   useEffect(() => subscribeOrderGuideAgreeTerms(() => setAgreeToTerms(true)), []);
@@ -755,9 +767,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         preferredTimeDetail: form.preferredTimeDetail.trim() || undefined,
         ...(areaPyeongNum != null ? { areaPyeong: areaPyeongNum, areaBasis: form.areaBasis } : {}),
         pendingInquiryId: editor.create.pendingInquiryId || undefined,
-        internalCustomerTone: editor.create.pendingInquiryId
-          ? editor.create.internalCustomerTone || undefined
-          : undefined,
+        internalCustomerTone: editor.create.internalCustomerTone || undefined,
         templateId: editor.create.templateId || undefined,
       });
       await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());
@@ -784,6 +794,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   );
 
   if (loading) {
+    if (isInline) {
+      return (
+        <div className="py-8 text-center text-fluid-sm text-gray-500" role="status">
+          발주서 양식 불러오는 중…
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative">
         <div className="absolute top-4 right-4"><CloseButton /></div>
@@ -807,6 +824,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   }
 
   if (error && !order) {
+    if (isInline) {
+      return (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-fluid-sm text-red-800" role="alert">
+          <p>{error}</p>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative">
         <div className="absolute top-4 right-4"><CloseButton /></div>
