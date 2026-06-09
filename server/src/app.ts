@@ -109,6 +109,9 @@ app.get('/api/health', async (_req, res) => {
       dbMs,
       uptimeSec: Math.round(process.uptime()),
       pid: process.pid,
+      /** Railway GitHub 배포 시 주입 — 운영/스테이징 배포 커밋 확인용 */
+      gitSha: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+      gitBranch: process.env.RAILWAY_GIT_BRANCH ?? null,
     });
   } catch (err) {
     console.error('[health] DB 확인 실패:', err);
