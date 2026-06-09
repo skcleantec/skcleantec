@@ -17,9 +17,18 @@ import {
   pgRestoreLooksFailed,
   userMayUseStagingDbImport,
   verifyTableCounts,
+  WIPE_TARGET_PUBLIC_SCHEMA_SQL,
 } from './stagingDbImport.helpers.js';
 
-type JobStatus = 'queued' | 'dumping' | 'restoring' | 'migrating' | 'verifying' | 'done' | 'failed';
+type JobStatus =
+  | 'queued'
+  | 'dumping'
+  | 'wiping'
+  | 'restoring'
+  | 'migrating'
+  | 'verifying'
+  | 'done'
+  | 'failed';
 
 function resolveServerRoot(): string {
   const fromModule = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -84,6 +93,7 @@ function anyJobRunning(): boolean {
     if (
       j.status === 'queued' ||
       j.status === 'dumping' ||
+      j.status === 'wiping' ||
       j.status === 'restoring' ||
       j.status === 'migrating' ||
       j.status === 'verifying'
@@ -191,45 +201,52 @@ async function executeImportJob(jobId: string): Promise<void> {
       return;
     }
 
-    job.status = 'restoring';
-    job.message = `스테이징 DB 복원 중… (덤프 ${Math.round(stat.size / 1024)} KB, 수 분 걸릴 수 있습니다)`;
-
     await prisma.$disconnect();
 
     try {
-      const restore = await runCmd('pg_restore', [
-        '--exit-on-error',
-        '--clean',
-        '--if-exists',
-        '--no-owner',
-        '--no-acl',
-        `--dbname=${targetUrl}`,
-        dumpPath,
-      ]);
+      job.status = 'wiping';
+      job.message = '스테이징 DB 초기화 중…(public 스키마 삭제)';
 
-      const restoreErr = pgRestoreLooksFailed(restore.code, restore.stderr, restore.stdout);
-      if (restoreErr) {
+      const wipe = await runPsql(targetUrl, WIPE_TARGET_PUBLIC_SCHEMA_SQL);
+      if (wipe.code !== 0) {
         job.status = 'failed';
-        job.message = `${restoreErr}\n\n${formatToolFailure('pg_restore', restore.code, restore.stderr, restore.stdout)}`;
+        job.message = formatToolFailure('스테이징 DB 초기화', wipe.code, wipe.stderr, wipe.stdout);
       } else {
-        const verify = await verifyRestoredData(job, sourceUrl, targetUrl);
-        if (verify.error) {
+        job.status = 'restoring';
+        job.message = `운영 데이터 복원 중… (덤프 ${Math.round(stat.size / 1024)} KB, 수 분 걸릴 수 있습니다)`;
+
+        const restore = await runCmd('pg_restore', [
+          '--exit-on-error',
+          '--no-owner',
+          '--no-acl',
+          `--dbname=${targetUrl}`,
+          dumpPath,
+        ]);
+
+        const restoreErr = pgRestoreLooksFailed(restore.code, restore.stderr, restore.stdout);
+        if (restoreErr) {
           job.status = 'failed';
-          job.message = verify.summary
-            ? `${verify.error}\n\n${verify.summary}`
-            : verify.error;
+          job.message = `${restoreErr}\n\n${formatToolFailure('pg_restore', restore.code, restore.stderr, restore.stdout)}`;
         } else {
-          const syncErr = await runPostRestoreSchemaSync(job);
-          if (syncErr) {
+          const verify = await verifyRestoredData(job, sourceUrl, targetUrl);
+          if (verify.error) {
             job.status = 'failed';
-            job.message = verify.summary ? `${syncErr}\n\n검증(복원 직후):\n${verify.summary}` : syncErr;
+            job.message = verify.summary
+              ? `${verify.error}\n\n${verify.summary}`
+              : verify.error;
           } else {
-            job.status = 'done';
-            const verifyLine = verify.summary ? `\n\n검증:\n${verify.summary}` : '';
-            job.message =
-              restore.code === 1
-                ? `복원·마이그레이션 완료(복원 중 일부 경고). 페이지를 새로고침해 확인하세요.${verifyLine}`
-                : `복원·마이그레이션 완료. 페이지를 새로고침해 확인하세요.${verifyLine}`;
+            const syncErr = await runPostRestoreSchemaSync(job);
+            if (syncErr) {
+              job.status = 'failed';
+              job.message = verify.summary ? `${syncErr}\n\n검증(복원 직후):\n${verify.summary}` : syncErr;
+            } else {
+              job.status = 'done';
+              const verifyLine = verify.summary ? `\n\n검증:\n${verify.summary}` : '';
+              job.message =
+                restore.code === 1
+                  ? `복원·마이그레이션 완료(복원 중 일부 경고). 페이지를 새로고침해 확인하세요.${verifyLine}`
+                  : `복원·마이그레이션 완료. 페이지를 새로고침해 확인하세요.${verifyLine}`;
+            }
           }
         }
       }

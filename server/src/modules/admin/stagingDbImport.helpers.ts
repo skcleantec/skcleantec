@@ -69,22 +69,53 @@ export function formatTableCountSummary(lines: TableCountLine[]): string {
 }
 
 export function verifyTableCounts(lines: TableCountLine[]): string | null {
+  const byTable = Object.fromEntries(lines.map((l) => [l.table, l])) as Partial<
+    Record<TableCountLine['table'], TableCountLine>
+  >;
+  const inquiries = byTable.inquiries;
+
+  if (inquiries && inquiries.source > 0 && inquiries.target === 0) {
+    return (
+      '복원 검증 실패 — inquiries(접수)가 비어 있습니다. ' +
+      'pg_restore가 데이터를 넣지 못했거나 소스 URL이 잘못되었을 수 있습니다.'
+    );
+  }
+  if (inquiries && inquiries.source > 0 && inquiries.target !== inquiries.source) {
+    return (
+      `복원 검증 실패 — inquiries 건수 불일치(소스 ${inquiries.source}, 대상 ${inquiries.target}). ` +
+      '운영 데이터가 스테이징에 반영되지 않았습니다.'
+    );
+  }
+
   for (const { table, source, target } of lines) {
+    if (table === 'inquiries') continue;
     if (source > 0 && target === 0) {
       return (
         `복원 검증 실패 — ${table} 테이블이 비어 있습니다(소스 ${source}건). ` +
-        'pg_restore가 데이터를 넣지 못했거나 소스 URL이 잘못되었을 수 있습니다.'
+        'pg_restore가 메타 테이블을 넣지 못했을 수 있습니다.'
       );
     }
     if (source > 0 && target !== source) {
-      return (
-        `복원 검증 실패 — ${table} 건수 불일치(소스 ${source}, 대상 ${target}). ` +
-        '운영·스테이징 DB URL 설정과 pg_restore 로그를 확인하세요.'
-      );
+      const hint =
+        inquiries && inquiries.source > 0 && inquiries.target === inquiries.source
+          ? ' 접수(inquiries)는 일치하지만 스테이징에 이전 검증·테스트 데이터(tenant/user)가 남아 있을 수 있습니다. public 스키마 초기화 후 복원하도록 수정되었으니 다시 시도해 주세요.'
+          : ' 운영·스테이징 DB URL 설정과 pg_restore 로그를 확인하세요.';
+      return `복원 검증 실패 — ${table} 건수 불일치(소스 ${source}, 대상 ${target}).${hint}`;
     }
   }
   return null;
 }
+
+/** 스테이징 public 스키마 전체 삭제 — --clean 만으로는 남는 검증용 tenant/user 제거 */
+export const WIPE_TARGET_PUBLIC_SCHEMA_SQL = `
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = current_database() AND pid <> pg_backend_pid();
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO public;
+`.trim();
 
 export async function queryPgCount(
   runPsql: (dbUrl: string, sql: string) => Promise<{ code: number; stdout: string; stderr: string }>,
