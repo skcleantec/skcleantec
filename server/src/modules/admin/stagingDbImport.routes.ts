@@ -73,7 +73,7 @@ async function runPostRestoreSchemaSync(job: ImportJob): Promise<string | null> 
   }
 
   job.message = '접수번호·카운터 보정 중…';
-  const backfill = await runCmd('npx', ['tsx', 'scripts/backfill-inquiry-numbers.ts']);
+  const backfill = await runCmd('node', ['scripts/run-backfill-inquiry-numbers.mjs']);
   if (backfill.code !== 0) {
     return formatToolFailure('backfill-inquiry-numbers', backfill.code, backfill.stderr, backfill.stdout);
   }

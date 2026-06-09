@@ -29,7 +29,7 @@
     "verify:multitenant:phase4": "tsx scripts/verify-multitenant-phase4.ts",
     "verify:multitenant:phase5": "tsx scripts/verify-multitenant-phase5.ts",
     "verify:multitenant:phase6": "tsx scripts/verify-multitenant-phase6.ts",
-    "db:backfill-inquiry-numbers": "tsx scripts/backfill-inquiry-numbers.ts",
+    "db:backfill-inquiry-numbers": "node scripts/run-backfill-inquiry-numbers.mjs",
     "db:backfill-seed-inquiries-created-by": "tsx scripts/backfill-seed-inquiries-created-by.ts",
     "db:backfill-inquiry-address-geo": "tsx scripts/backfill-inquiry-address-geo.ts",
     "db:migrate-cs-images": "tsx scripts/migrate-cs-images-to-cloudinary.ts",
