@@ -13,6 +13,7 @@ import {
 import { canAdminOrMarketerViewInquiry } from '../inquiry-cleaning-photos/inquiryCleaningPhotos.access.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { syncConsultationPhotoUploadToShareMirror } from '../tenant-partners/tenantInquiryPhotoSync.service.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -94,6 +95,12 @@ router.post('/', uploadFields, async (req, res) => {
         mimetype: file.mimetype,
       });
       createdRows.push(created);
+      void syncConsultationPhotoUploadToShareMirror(inquiryId, {
+        cloudinaryPublicId: created.cloudinaryPublicId,
+        secureUrl: created.secureUrl,
+        width: created.width,
+        height: created.height,
+      }).catch((err) => console.error('[consultation-photo] tenant share mirror sync', err));
     }
     if (createdRows.length === 0) {
       res.status(400).json({ error: '유효한 이미지 파일이 없습니다.' });

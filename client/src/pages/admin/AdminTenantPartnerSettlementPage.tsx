@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getToken } from '../../stores/auth';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import {
+  downloadTenantPartnerSettlementCsv,
   getTenantPartnerBuyerSummary,
   getTenantPartnerSellerSummary,
   getTenantPartnerSettlementDetail,
@@ -16,6 +17,11 @@ function won(n: number): string {
 
 function kstTodayYmd(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+function kstMonthRange(): { from: string; to: string } {
+  const to = kstTodayYmd();
+  return { from: `${to.slice(0, 7)}-01`, to };
 }
 
 function formatKstDateLabel(iso: string): string {
@@ -48,6 +54,7 @@ export function AdminTenantPartnerSettlementPage() {
   const [payDate, setPayDate] = useState(kstTodayYmd());
   const [payError, setPayError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [csvBusyId, setCsvBusyId] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPayments, setHistoryPayments] = useState<
     Array<{ id: string; amount: number; paidAt: string; memo: string | null; actorName: string | null }>
@@ -96,6 +103,30 @@ export function AdminTenantPartnerSettlementPage() {
     setPayDate(kstTodayYmd());
     setPayError(null);
     setPayOpen(true);
+  };
+
+  const downloadCsv = async (row: TenantPartnerSettlementOverviewRow) => {
+    if (!token) return;
+    const { from, to } = kstMonthRange();
+    setCsvBusyId(row.partnerTenantId);
+    try {
+      const blob = await downloadTenantPartnerSettlementCsv(token, {
+        role: tab,
+        partnerTenantId: row.partnerTenantId,
+        from,
+        to,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tenant-settlement-${row.partnerSlug}-${from}_${to}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'CSV 다운로드에 실패했습니다.');
+    } finally {
+      setCsvBusyId(null);
+    }
   };
 
   const openHistory = async (row: TenantPartnerSettlementOverviewRow) => {
@@ -253,6 +284,14 @@ export function AdminTenantPartnerSettlementPage() {
                           className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700"
                         >
                           내역
+                        </button>
+                        <button
+                          type="button"
+                          disabled={csvBusyId === r.partnerTenantId}
+                          onClick={() => void downloadCsv(r)}
+                          className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 disabled:opacity-50"
+                        >
+                          {csvBusyId === r.partnerTenantId ? '…' : 'CSV'}
                         </button>
                       </div>
                     </td>

@@ -28,6 +28,7 @@
     "verify:multitenant:phase3": "tsx scripts/verify-multitenant-phase3.ts",
     "verify:multitenant:phase4": "tsx scripts/verify-multitenant-phase4.ts",
     "verify:multitenant:phase5": "tsx scripts/verify-multitenant-phase5.ts",
+    "verify:multitenant:tenant-exchange": "tsx scripts/verify-multitenant-tenant-exchange.ts",
     "verify:multitenant:phase6": "tsx scripts/verify-multitenant-phase6.ts",
     "db:backfill-inquiry-numbers": "node scripts/run-backfill-inquiry-numbers.mjs",
     "db:backfill-seed-inquiries-created-by": "tsx scripts/backfill-seed-inquiries-created-by.ts",

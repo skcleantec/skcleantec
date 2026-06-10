@@ -51,7 +51,6 @@ enum TenantInquiryShareSyncStatus {
   REVOKED
 }
 
-/// 테넌트 DB 거래 정산 — 판매(받을) / 구매(지급) 역할
 enum TenantPartnerSettlementRole {
   SELLER
   BUYER
@@ -160,6 +159,7 @@ model TenantInquiryShare {
   sharedAt                    DateTime                     @map("shared_at")
   sharedByUserId              String?                      @map("shared_by_user_id")
   cancelFeeDirection          TenantInquiryShareDirection? @map("cancel_fee_direction")
+  syncFieldMask               Json?                        @map("sync_field_mask")
 
   partnership   TenantPartnership @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
   sourceInquiry Inquiry           @relation("ShareSourceInquiry", fields: [sourceInquiryId], references: [id], onDelete: Restrict)

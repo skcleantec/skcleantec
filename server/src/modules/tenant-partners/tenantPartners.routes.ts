@@ -16,6 +16,7 @@ import {
   TenantInquiryShareError,
 } from './tenantInquiryShare.service.js';
 import {
+  buildSettlementExportCsv,
   getSettlementOverview,
   getSettlementPartnerDetail,
   recordSettlementPayment,
@@ -63,7 +64,13 @@ router.post('/shares', async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, auth);
   if (!tenantId) return;
-  const body = req.body as { inquiryId?: unknown; partnershipId?: unknown; transferFee?: unknown };
+  const body = req.body as {
+    inquiryId?: unknown;
+    partnershipId?: unknown;
+    transferFee?: unknown;
+    fieldMask?: unknown;
+    fieldPreset?: unknown;
+  };
   const inquiryId = typeof body.inquiryId === 'string' ? body.inquiryId.trim() : '';
   const partnershipId = typeof body.partnershipId === 'string' ? body.partnershipId.trim() : '';
   if (!inquiryId || !partnershipId) {
@@ -93,8 +100,41 @@ router.post('/shares', async (req, res) => {
       inquiryId,
       partnershipId,
       transferFee,
+      fieldMask: body.fieldMask,
+      fieldPreset: body.fieldPreset,
     });
     res.status(201).json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+/** 정산 내역 CSV 다운로드 */
+router.get('/settlement/export', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const role = parseSettlementRole(req.query.role);
+  const partnerTenantId =
+    typeof req.query.partnerTenantId === 'string' ? req.query.partnerTenantId.trim() : '';
+  if (!role || !partnerTenantId) {
+    res.status(400).json({ error: 'role(SELLER|BUYER)와 partnerTenantId가 필요합니다.' });
+    return;
+  }
+  const from = typeof req.query.from === 'string' ? req.query.from.trim() : undefined;
+  const to = typeof req.query.to === 'string' ? req.query.to.trim() : undefined;
+  try {
+    const csv = await buildSettlementExportCsv({
+      viewerTenantId: tenantId,
+      role,
+      partnerTenantId,
+      from,
+      to,
+    });
+    const filename = `tenant-partner-settlement-${role.toLowerCase()}-${partnerTenantId.slice(0, 8)}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;

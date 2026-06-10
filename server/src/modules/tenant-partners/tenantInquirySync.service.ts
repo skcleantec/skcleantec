@@ -1,6 +1,7 @@
 import type { Inquiry, InquiryStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { stampTenantShareCancelFeeDirection } from './tenantPartnerSettlement.service.js';
+import { filterKeysByShareMask, normalizeShareFieldMask } from './tenantInquiryShareFields.js';
 
 export const TENANT_SHARE_SYNC_LOG_PREFIX = '[테넌트DB동기화]';
 
@@ -109,6 +110,7 @@ type ShareSyncRow = {
   targetTenantId: string;
   targetInquiryId: string;
   syncStatus: 'ACTIVE' | 'PAUSED' | 'REVOKED';
+  syncFieldMask: unknown;
   partnership: { status: string };
 };
 
@@ -122,6 +124,7 @@ async function loadShareForInquiry(inquiryId: string): Promise<ShareSyncRow | nu
       targetTenantId: true,
       targetInquiryId: true,
       syncStatus: true,
+      syncFieldMask: true,
       partnership: { select: { status: true } },
     },
   });
@@ -135,6 +138,7 @@ async function loadShareForInquiry(inquiryId: string): Promise<ShareSyncRow | nu
       targetTenantId: true,
       targetInquiryId: true,
       syncStatus: true,
+      syncFieldMask: true,
       partnership: { select: { status: true } },
     },
   });
@@ -191,12 +195,15 @@ export async function syncTenantShareAfterInquiryPatch(opts: {
 
   const peerId = isSource ? share.targetInquiryId : share.sourceInquiryId;
   const statusChanged = changedKeys.includes('status');
-  const syncWhitelist = isSource;
-  const syncStatus = statusChanged && (isSource || isTarget);
+  const fieldMask = normalizeShareFieldMask(share.syncFieldMask);
+  const effectiveChangedKeys = isSource ? filterKeysByShareMask(changedKeys, fieldMask) : changedKeys;
+  const syncWhitelist = isSource && effectiveChangedKeys.some((k) => SYNC_WHITELIST_KEYS.includes(k as WhitelistKey));
+  const syncStatus =
+    statusChanged && (isSource || isTarget) && effectiveChangedKeys.includes('status');
 
   if (!syncWhitelist && !syncStatus) return;
 
-  const payload = pickSyncPayload(inquiryAfter, changedKeys, { syncWhitelist, syncStatus });
+  const payload = pickSyncPayload(inquiryAfter, effectiveChangedKeys, { syncWhitelist, syncStatus });
   if (Object.keys(payload).length === 0) return;
 
   await prisma.$transaction(async (tx) => {

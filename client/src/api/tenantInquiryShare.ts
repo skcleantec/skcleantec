@@ -21,7 +21,13 @@ function headers(token: string) {
 
 export async function createTenantInquiryShare(
   token: string,
-  data: { inquiryId: string; partnershipId: string; transferFee?: number | null },
+  data: {
+    inquiryId: string;
+    partnershipId: string;
+    transferFee?: number | null;
+    fieldPreset?: 'customer_schedule';
+    fieldMask?: string[];
+  },
 ): Promise<{
   share: TenantInquiryShareMeta;
   targetInquiryId: string;

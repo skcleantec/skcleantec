@@ -141,7 +141,8 @@
 | POST | `/:id/accept` | 승인 |
 | POST | `/:id/reject` | 거절 |
 | POST | `/:id/suspend` | 테넌트 측 중지 요청 |
-| POST | `/shares` | `{ inquiryId, partnershipId, transferFee }` 전달 |
+| POST | `/shares` | `{ inquiryId, partnershipId, transferFee, fieldPreset?, fieldMask? }` 전달 |
+| GET | `/settlement/export` | `role`, `partnerTenantId`, `from?`, `to?` — 정산 CSV |
 | GET | `/settlement/seller-summary` | 판매자 receivable |
 | GET | `/settlement/buyer-summary` | 구매자 payable |
 | POST | `/settlement/payments` | 지급 기록 |
@@ -179,7 +180,7 @@
 - [x] Prisma + migration: `TenantPartnership`
 - [x] `server/src/modules/tenant-partners/` — request/accept/reject/list
 - [x] `client` — 파트너 관리 페이지, GNB, `FeatureGate`
-- [ ] `verify-multitenant` — cross-tenant ID로 403 확인
+- [x] `verify-multitenant-tenant-exchange` — feature off 403·필드 마스크 단위 검증
 - [x] `tsc` server/client (Phase 2 구현 후)
 
 **완료 기준**: A가 B slug 초대 → B 승인 → ACTIVE. 전달 버튼은 Phase 2에서 활성.
@@ -213,7 +214,12 @@
 
 ### Phase 5 — 고도화
 
-- [ ] 사진 cross-tenant, 알림, 부분 필드 전달, 엑셀
+- [x] `sync_field_mask` migration + `tenantInquiryShareFields` (부분 필드 전달)
+- [x] share 생성·PATCH 동기화에 field mask 반영 (`customer_schedule` 프리셋)
+- [x] 상담사진 cross-tenant — `tenantInquiryPhotoSync.service` (URL 공유)
+- [x] 수신 알림 — `notifyTenantShareReceived` (변경 이력 WS)
+- [x] `GET /settlement/export` CSV + 정산 UI 다운로드
+- [x] 접수 상세 — 「고객·일정만」체크박스
 
 ---
 
@@ -237,7 +243,7 @@
 - [ ] 모든 신규 테이블 `tenantId` 또는 partnership을 통한 tenant 검증
 - [ ] cross-tenant write는 **전용 service 1곳**만
 - [ ] `schema.prisma` + migration SQL (db push 금지)
-- [ ] `npm run verify:multitenant:phase4` 또는 phase7
+- [ ] `npm run verify:multitenant:tenant-exchange` + `verify:multitenant:phase4`
 - [ ] server/client `tsc`
 - [ ] 스테이징: A→B 전달, B 수정→A 반영, CANCELLED 양쪽, 정산 잔액
 

@@ -376,6 +376,73 @@ export async function recordSettlementPayment(opts: {
   };
 }
 
+function csvEscapeCell(v: string | number | null | undefined): string {
+  const s = v == null ? '' : String(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function formatKstYmd(d: Date | null): string {
+  if (!d) return '';
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+/** 파트너별 정산 내역 CSV (UTF-8 BOM 포함) */
+export async function buildSettlementExportCsv(opts: {
+  viewerTenantId: string;
+  role: TenantPartnerSettlementRole;
+  partnerTenantId: string;
+  from?: string;
+  to?: string;
+}): Promise<string> {
+  const detail = await getSettlementPartnerDetail(opts);
+  const roleLabel = opts.role === 'SELLER' ? '판매' : '구매';
+  const header = [
+    '역할',
+    '파트너',
+    '기간시작',
+    '기간종료',
+    '접수번호',
+    '고객명',
+    '예약일',
+    '상태',
+    '수수료',
+    '부호수수료',
+    '취소여부',
+  ];
+  const rows = detail.items.map((it) =>
+    [
+      roleLabel,
+      detail.partnerName,
+      detail.from,
+      detail.to,
+      it.inquiryNumber ?? '',
+      it.customerName,
+      it.preferredDate ? formatKstYmd(new Date(it.preferredDate)) : '',
+      it.status,
+      it.feeAmount,
+      it.signedFeeAmount,
+      it.isCancelled ? 'Y' : 'N',
+    ]
+      .map(csvEscapeCell)
+      .join(','),
+  );
+  const summary = [
+    '',
+    csvEscapeCell(`합계(${detail.partnerName})`),
+    detail.from,
+    detail.to,
+    '',
+    '',
+    '',
+    '',
+    '',
+    detail.totalFee,
+    '',
+  ].join(',');
+  return `\uFEFF${header.join(',')}\n${rows.join('\n')}\n${summary}\n`;
+}
+
 export async function resetSettlementAccrual(opts: {
   viewerTenantId: string;
   viewerUserId: string;

@@ -103,6 +103,32 @@ export async function getTenantPartnerSettlementDetail(
   return res.json();
 }
 
+export async function downloadTenantPartnerSettlementCsv(
+  token: string,
+  params: {
+    role: TenantPartnerSettlementRole;
+    partnerTenantId: string;
+    from?: string;
+    to?: string;
+  },
+): Promise<Blob> {
+  const q = new URLSearchParams({
+    role: params.role,
+    partnerTenantId: params.partnerTenantId,
+  });
+  if (params.from) q.set('from', params.from);
+  if (params.to) q.set('to', params.to);
+  const res = await fetch(`${API}/tenant-partners/settlement/export?${q}`, {
+    ...NO_STORE,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || 'CSV보내기에 실패했습니다.');
+  }
+  return res.blob();
+}
+
 export async function postTenantPartnerSettlementPayment(
   token: string,
   data: {

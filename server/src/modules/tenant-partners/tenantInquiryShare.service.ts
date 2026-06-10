@@ -2,6 +2,13 @@ import type { Inquiry, Prisma, TenantInquiryShareDirection } from '@prisma/clien
 import { prisma } from '../../lib/prisma.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { getDefaultOperatingCompanyId } from '../operating-companies/operatingCompany.service.js';
+import {
+  applyFieldMaskToMirrorData,
+  normalizeShareFieldMask,
+  shareMaskFromPreset,
+} from './tenantInquiryShareFields.js';
+import { copyExistingConsultationPhotosToShareMirror } from './tenantInquiryPhotoSync.service.js';
+import { notifyTenantShareReceived } from './tenantInquiryShareNotify.js';
 
 export class TenantInquiryShareError extends Error {
   constructor(
@@ -137,6 +144,8 @@ export async function createTenantInquiryShare(opts: {
   inquiryId: string;
   partnershipId: string;
   transferFee?: number | null;
+  fieldMask?: unknown;
+  fieldPreset?: unknown;
 }) {
   const { viewerTenantId, viewerUserId, inquiryId, partnershipId } = opts;
   const transferFee =
@@ -183,14 +192,31 @@ export async function createTenantInquiryShare(opts: {
     viewerTenantId === partnership.tenantLowId ? partnership.tenantHighId : partnership.tenantLowId;
   const direction = resolveShareDirection(partnership, viewerTenantId);
   const now = new Date();
+  const syncFieldMask =
+    normalizeShareFieldMask(opts.fieldMask) ?? shareMaskFromPreset(opts.fieldPreset);
+
+  const partnershipRow = await prisma.tenantPartnership.findUniqueOrThrow({
+    where: { id: partnershipId },
+    include: {
+      tenantLow: { select: { id: true, name: true } },
+      tenantHigh: { select: { id: true, name: true } },
+    },
+  });
+  const partnerName =
+    partnershipRow.tenantLowId === viewerTenantId
+      ? partnershipRow.tenantHigh.name
+      : partnershipRow.tenantLow.name;
 
   const result = await prisma.$transaction(async (tx) => {
     const targetOcId = await getDefaultOperatingCompanyId(tx, targetTenantId);
     const targetInquiryNumber = await allocateNextInquiryNumber(tx, targetTenantId, targetOcId);
 
-    const mirror = await tx.inquiry.create({
-      data: buildMirrorInquiryUnchecked(source, targetTenantId, targetOcId, targetInquiryNumber),
-    });
+    const mirrorData = applyFieldMaskToMirrorData(
+      buildMirrorInquiryUnchecked(source, targetTenantId, targetOcId, targetInquiryNumber),
+      syncFieldMask,
+    );
+
+    const mirror = await tx.inquiry.create({ data: mirrorData });
 
     const share = await tx.tenantInquiryShare.create({
       data: {
@@ -204,11 +230,23 @@ export async function createTenantInquiryShare(opts: {
         sourceInquiryNumberSnapshot: source.inquiryNumber,
         sharedAt: now,
         sharedByUserId: viewerUserId,
+        syncFieldMask: syncFieldMask ?? undefined,
       },
       include: shareMetaInclude,
     });
 
+    await copyExistingConsultationPhotosToShareMirror(tx, source.id, mirror.id, targetTenantId);
+
     return { share, mirror };
+  });
+
+  notifyTenantShareReceived({
+    targetTenantId,
+    targetInquiryId: result.mirror.id,
+    customerName: source.customerName,
+    partnerName,
+    sourceInquiryNumberSnapshot: source.inquiryNumber,
+    targetInquiryNumber: result.mirror.inquiryNumber,
   });
 
   return {

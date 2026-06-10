@@ -636,6 +636,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [tenantSharePartnerships, setTenantSharePartnerships] = useState<TenantPartnershipItem[]>([]);
   const [tenantSharePartnershipId, setTenantSharePartnershipId] = useState('');
   const [tenantShareTransferFee, setTenantShareTransferFee] = useState('');
+  const [tenantShareCustomerScheduleOnly, setTenantShareCustomerScheduleOnly] = useState(false);
   const [tenantShareBusy, setTenantShareBusy] = useState(false);
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
@@ -1346,6 +1347,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         inquiryId: item.id,
         partnershipId: tenantSharePartnershipId.trim(),
         transferFee,
+        ...(tenantShareCustomerScheduleOnly ? { fieldPreset: 'customer_schedule' as const } : {}),
       });
       await onInquiryRefresh?.();
     } catch (e) {
@@ -1353,7 +1355,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     } finally {
       setTenantShareBusy(false);
     }
-  }, [item, onInquiryRefresh, tenantSharePartnershipId, tenantShareTransferFee, token]);
+  }, [
+    item,
+    onInquiryRefresh,
+    tenantShareCustomerScheduleOnly,
+    tenantSharePartnershipId,
+    tenantShareTransferFee,
+    token,
+  ]);
 
   const handleSave = async () => {
     if (!token) {
@@ -2221,6 +2230,20 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                       placeholder="비우면 미입력"
                     />
                   </div>
+                  <label className="flex items-start gap-2 text-xs text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tenantShareCustomerScheduleOnly}
+                      onChange={(e) => setTenantShareCustomerScheduleOnly(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      고객·일정만 전달 (금액·메모 제외)
+                      <span className="block text-[11px] text-gray-500 mt-0.5">
+                        체크 시 수신 mirror에 고객정보·일정만 복제되며 이후 동기화도 동일 범위입니다.
+                      </span>
+                    </span>
+                  </label>
                   <button
                     type="button"
                     disabled={tenantShareBusy || !tenantSharePartnershipId.trim()}
