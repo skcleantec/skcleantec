@@ -25,9 +25,9 @@ export function internalCustomerToneEmoji(tone: InternalCustomerTone): string {
     case 'GOOD':
       return '😊';
     case 'BAD':
-      return '😠';
+      return '😈';
     default:
-      return '😐';
+      return '';
   }
 }
 

@@ -767,7 +767,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         preferredTimeDetail: form.preferredTimeDetail.trim() || undefined,
         ...(areaPyeongNum != null ? { areaPyeong: areaPyeongNum, areaBasis: form.areaBasis } : {}),
         pendingInquiryId: editor.create.pendingInquiryId || undefined,
-        internalCustomerTone: editor.create.internalCustomerTone || undefined,
+        internalCustomerTone:
+          editor.create.internalCustomerTone === 'GOOD' || editor.create.internalCustomerTone === 'BAD'
+            ? editor.create.internalCustomerTone
+            : undefined,
         templateId: editor.create.templateId || undefined,
       });
       await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());

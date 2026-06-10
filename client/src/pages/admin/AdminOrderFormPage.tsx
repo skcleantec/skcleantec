@@ -550,6 +550,8 @@ export function AdminOrderFormPage() {
                       const row = pendingLinkOptions.find((o) => o.id === id);
                       if (row?.internalCustomerTone) {
                         setIssueInternalCustomerTone(normalizeInternalCustomerTone(row.internalCustomerTone));
+                      } else {
+                        setIssueInternalCustomerTone(DEFAULT_INTERNAL_CUSTOMER_TONE);
                       }
                     }}
                   >
