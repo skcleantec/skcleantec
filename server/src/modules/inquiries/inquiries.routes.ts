@@ -69,6 +69,11 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { inquiryDetailInclude, operatingCompanySummarySelect } from './inquiryDetailInclude.js';
 import { handlePostSwapCrewWithPartner } from './inquiryCrewPartnerSwap.handler.js';
+import {
+  attachTenantShareMetaToInquiries,
+  attachTenantShareMetaToInquiry,
+} from '../tenant-partners/tenantInquiryShareMeta.js';
+import { stampTenantShareCancelFeeDirection } from '../tenant-partners/tenantPartnerSettlement.service.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -401,11 +406,10 @@ router.get('/', async (req, res) => {
     itemsRaw.length < take ? skip + itemsRaw.length : await prisma.inquiry.count({ where });
   // 좌표 캐시가 있는 건 즉시 반환(빠름). 신규(미좌표) 건만 백그라운드에서 카카오로 채워
   // DB에 저장 → 다음 로드부터 저장된 좌표가 즉시 표시된다.
+  const itemsWithDistance = itemsRaw.map((row) => attachDistanceFromJuanForInquiry(row));
+  const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
   res.json({
-    items: mapInquiriesInternalToneForRole(
-      itemsRaw.map((row) => attachDistanceFromJuanForInquiry(row)),
-      user.role,
-    ),
+    items: mapInquiriesInternalToneForRole(itemsWithShare, user.role),
     total,
   });
   scheduleBackgroundGeoHydrate(prisma, itemsRaw, { maxUniqueQueries: 18 });
@@ -481,9 +485,11 @@ router.get('/:id', async (req, res) => {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
-  res.json(
-    attachInternalCustomerToneForRole(attachDistanceFromJuanForInquiry(inquiryFresh), user.role),
+  const detail = attachInternalCustomerToneForRole(
+    attachDistanceFromJuanForInquiry(inquiryFresh),
+    user.role,
   );
+  res.json(await attachTenantShareMetaToInquiry(tenantId, detail));
 });
 
 /** 접수별 현장 청소 전·후 사진 (Cloudinary) — 목록·업로드·삭제 */
@@ -1076,6 +1082,9 @@ router.patch('/:id', async (req, res) => {
        * 접수 상태가 C/S 처리중이면 C/S 관리에 반드시 노출되도록 보장한다.
        * (직접 클레임 등록 시 상태만 바뀌고 C/S 목록 누락되는 케이스 방지)
        */
+      if (mergedStatus === 'CANCELLED' && inquiry.status !== 'CANCELLED') {
+        await stampTenantShareCancelFeeDirection(tx, id);
+      }
       if (mergedStatus === 'CS_PROCESSING') {
         const openCsCount = await tx.csReport.count({
           where: {
@@ -1165,7 +1174,11 @@ router.patch('/:id', async (req, res) => {
     notifyTeamLeaderUsersRosterAck(rosterLeaderIds, crewRosterAckMessages);
   }
 
-  res.json(attachInternalCustomerToneForRole(attachDistanceFromJuanForInquiry(updated), user.role));
+  const patched = attachInternalCustomerToneForRole(
+    attachDistanceFromJuanForInquiry(updated),
+    user.role,
+  );
+  res.json(await attachTenantShareMetaToInquiry(tenantId, patched));
 });
 
 const CREATE_STATUSES: InquiryStatus[] = [

@@ -76,6 +76,10 @@ import {
   normalizeInternalCustomerTone,
   type InternalCustomerTone,
 } from '../../constants/internalCustomerTone';
+import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
+import { createTenantInquiryShare } from '../../api/tenantInquiryShare';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
+import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
 
 function AdminScheduleDetailSection({
   title,
@@ -628,6 +632,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [assignmentPolicy, setAssignmentPolicy] = useState<
     AssignableScheduleUsersResponse['policy']
   >({ assignmentMode: 'relaxed', teamLeaderListMode: 'tenant_all_read' });
+  const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
+  const [tenantSharePartnerships, setTenantSharePartnerships] = useState<TenantPartnershipItem[]>([]);
+  const [tenantSharePartnershipId, setTenantSharePartnershipId] = useState('');
+  const [tenantShareTransferFee, setTenantShareTransferFee] = useState('');
+  const [tenantShareBusy, setTenantShareBusy] = useState(false);
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
@@ -676,6 +685,30 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       cancelled = true;
     };
   }, [token, currentUserRole]);
+
+  useEffect(() => {
+    if (isCreate || !hasTenantExchange || !token) {
+      setTenantSharePartnerships([]);
+      setTenantSharePartnershipId('');
+      return;
+    }
+    let cancelled = false;
+    void listTenantPartnerships(token)
+      .then(({ items }) => {
+        if (cancelled) return;
+        const active = items.filter((p) => p.status === 'ACTIVE');
+        setTenantSharePartnerships(active);
+        setTenantSharePartnershipId((prev) =>
+          prev && active.some((p) => p.id === prev) ? prev : active[0]?.id ?? '',
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setTenantSharePartnerships([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreate, hasTenantExchange, token]);
 
   useEffect(() => {
     if (!token || !item) {
@@ -1292,6 +1325,36 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     onSaved,
   ]);
 
+  const handleTenantShare = useCallback(async () => {
+    if (!item || !tenantSharePartnershipId.trim()) {
+      alert('파트너 업체를 선택해 주세요.');
+      return;
+    }
+    const feeRaw = tenantShareTransferFee.replace(/,/g, '').trim();
+    let transferFee: number | null = null;
+    if (feeRaw !== '') {
+      const n = parseInt(feeRaw, 10);
+      if (Number.isNaN(n) || n < 0) {
+        alert('수수료는 0 이상 정수로 입력해 주세요.');
+        return;
+      }
+      transferFee = n;
+    }
+    setTenantShareBusy(true);
+    try {
+      await createTenantInquiryShare(token, {
+        inquiryId: item.id,
+        partnershipId: tenantSharePartnershipId.trim(),
+        transferFee,
+      });
+      await onInquiryRefresh?.();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'DB 전달에 실패했습니다.');
+    } finally {
+      setTenantShareBusy(false);
+    }
+  }, [item, onInquiryRefresh, tenantSharePartnershipId, tenantShareTransferFee, token]);
+
   const handleSave = async () => {
     if (!token) {
       alert('로그인이 필요합니다.');
@@ -1480,6 +1543,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               ) : (
                 <>
                   접수 수정
+                  {item?.tenantShare ? (
+                    <span className="ml-2">
+                      <TenantInquiryShareBadge share={item.tenantShare} />
+                    </span>
+                  ) : null}
                   {item?.inquiryNumber ? (
                     <span className="ml-2 text-base font-normal text-gray-500 tabular-nums">
                       · {item.inquiryNumber}
@@ -2099,6 +2167,72 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             />
             <p className="text-[11px] text-gray-500 mt-1">타업체 담당으로 분배된 건에 대해 받는 수수료</p>
           </div>
+          {!isCreate && hasTenantExchange && item ? (
+            <div className="sm:col-span-2 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
+              <p className="text-xs font-semibold text-indigo-900">테넌트 DB 전달</p>
+              <p className="text-[11px] text-gray-600 leading-relaxed">
+                솔루션 가입 파트너 업체에 접수를 복제 전달합니다. 타업체 담당·수수료와 별도입니다.
+              </p>
+              {item.tenantShare ? (
+                <div className="space-y-1.5">
+                  <TenantInquiryShareBadge share={item.tenantShare} />
+                  {item.tenantShare.role === 'TARGET' && item.tenantShare.sourceInquiryNumberSnapshot ? (
+                    <p className="text-[11px] text-gray-600">
+                      원 송신 접수번호:{' '}
+                      <span className="font-mono tabular-nums">
+                        {item.tenantShare.sourceInquiryNumberSnapshot}
+                      </span>
+                    </p>
+                  ) : null}
+                  {item.tenantShare.transferFee != null ? (
+                    <p className="text-[11px] text-gray-600 tabular-nums">
+                      DB 거래 수수료: {item.tenantShare.transferFee.toLocaleString()}원
+                    </p>
+                  ) : null}
+                </div>
+              ) : tenantSharePartnerships.length === 0 ? (
+                <p className="text-[11px] text-gray-500">
+                  ACTIVE 파트너가 없습니다. 관리 → 테넌트 DB 거래에서 연결하세요.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-gray-600 mb-1">파트너 업체</label>
+                    <select
+                      value={tenantSharePartnershipId}
+                      onChange={(e) => setTenantSharePartnershipId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-sm"
+                    >
+                      <option value="">선택</option>
+                      {tenantSharePartnerships.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.partner.name} ({p.partner.slug})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-600 mb-1">DB 거래 수수료 (원)</label>
+                    <input
+                      value={tenantShareTransferFee}
+                      onChange={(e) => setTenantShareTransferFee(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded"
+                      inputMode="numeric"
+                      placeholder="비우면 미입력"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={tenantShareBusy || !tenantSharePartnershipId.trim()}
+                    onClick={() => void handleTenantShare()}
+                    className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {tenantShareBusy ? '전달 중…' : 'DB 전달'}
+                  </button>
+                </>
+              )}
+            </div>
+          ) : null}
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">전문 시공 옵션</label>
             <div className="space-y-1.5 max-h-44 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">

@@ -27,6 +27,7 @@ import {
   type InternalCustomerTone,
 } from '../../constants/internalCustomerTone';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
+import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
 import { AdminListIntakeModal, type AdminListIntakeResult } from '../../components/admin/AdminListIntakeModal';
@@ -346,6 +347,7 @@ interface InquiryItem {
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
   externalTransferFee?: number | null;
+  tenantShare?: import('../../api/tenantInquiryShare').TenantInquiryShareMeta | null;
   /** 접수를 등록한 마케터(개별 접수·POST 시 설정) */
   createdBy?: { id: string; name: string; phone?: string | null } | null;
   orderForm?: {
@@ -2486,6 +2488,9 @@ export function AdminInquiriesPage() {
                               </span>
                             ) : null}
                             <OperatingCompanyBadge company={item.operatingCompany} />
+                            {item.tenantShare ? (
+                              <TenantInquiryShareBadge share={item.tenantShare} compact />
+                            ) : null}
                           </div>
                           {item.scheduleMemo?.trim() ? (
                             <p
@@ -2876,6 +2881,11 @@ export function AdminInquiriesPage() {
                       {item.operatingCompany ? (
                         <span className="mt-0.5 block">
                           <OperatingCompanyBadge company={item.operatingCompany} />
+                        </span>
+                      ) : null}
+                      {item.tenantShare ? (
+                        <span className="mt-0.5 block">
+                          <TenantInquiryShareBadge share={item.tenantShare} compact />
                         </span>
                       ) : null}
                     </td>
@@ -4335,6 +4345,7 @@ export function AdminInquiriesPage() {
             try {
               const raw = await getInquiry(token, editItem.id);
               openEdit(raw as unknown as InquiryItem);
+              refresh(false);
             } catch {
               refresh(false);
             }

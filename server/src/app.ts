@@ -22,6 +22,7 @@ import inquiryChangeLogsRoutes from './modules/inquiry-change-logs/inquiryChange
 import advertisingRoutes from './modules/advertising/advertising.routes.js';
 import teamsRoutes from './modules/teams/teams.routes.js';
 import externalCompaniesRoutes from './modules/external-companies/externalCompanies.routes.js';
+import tenantPartnersRoutes from './modules/tenant-partners/tenantPartners.routes.js';
 import operatingCompaniesRoutes from './modules/operating-companies/operatingCompany.routes.js';
 import adminNavBadgesRoutes from './modules/admin/adminNavBadges.routes.js';
 import stagingDbImportRoutes from './modules/admin/stagingDbImport.routes.js';
@@ -76,6 +77,7 @@ app.use('/api/realtime', celebrationFeedRoutes);
 app.use('/api/inquiry-change-logs', inquiryChangeLogsRoutes);
 app.use('/api/advertising', advertisingRoutes);
 app.use('/api/external-companies', externalCompaniesRoutes);
+app.use('/api/tenant-partners', tenantPartnersRoutes);
 app.use('/api/operating-companies', operatingCompaniesRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/geocode', geocodeRoutes);

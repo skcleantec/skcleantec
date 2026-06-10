@@ -1,4 +1,7 @@
 import { API } from './apiPrefix';
+import type { TenantInquiryShareMeta } from './tenantInquiryShare';
+
+export type { TenantInquiryShareMeta };
 
 function headers(token: string) {
   return {
@@ -111,6 +114,8 @@ export interface ScheduleItem {
   changeLogs?: InquiryChangeLogEntry[];
   /** 인천 주안 기준 직선거리(km) */
   distanceFromJuanKm?: number | null;
+  /** 테넌트 DB 거래 — 송신·수신 배지용 */
+  tenantShare?: TenantInquiryShareMeta | null;
   /** 과거 현장 추가 금액(InquiryExtraCharge). 신규 추가결재는 additionalReceipts */
   extraCharges?: Array<{
     id: string;

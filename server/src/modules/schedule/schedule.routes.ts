@@ -15,6 +15,7 @@ import { mapInquiriesInternalToneForRole } from '../inquiries/internalCustomerTo
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { attachTenantShareMetaToInquiries } from '../tenant-partners/tenantInquiryShareMeta.js';
 
 const router = Router();
 
@@ -193,11 +194,10 @@ router.get('/', async (req, res) => {
   });
   const items = await mergeRefreshedInquiryGeoFields(prisma, itemsRaw, touched);
 
+  const itemsWithDistance = items.map((row) => attachDistanceFromJuanForInquiry(row));
+  const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
   res.json({
-    items: mapInquiriesInternalToneForRole(
-      items.map((row) => attachDistanceFromJuanForInquiry(row)),
-      user.role,
-    ),
+    items: mapInquiriesInternalToneForRole(itemsWithShare, user.role),
   });
 });
 

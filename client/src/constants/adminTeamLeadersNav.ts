@@ -23,6 +23,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '타업체 등록',
       },
       {
+        to: '/admin/team-leaders/tenant-partners',
+        label: '테넌트DB거래',
+        title: '테넌트 DB 거래 파트너',
+      },
+      {
         to: '/admin/team-leaders/e-contracts',
         label: '전자계약',
         title: '전자계약',
@@ -37,6 +42,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         to: '/admin/team-leaders/external-settlement',
         label: '타업체정산',
         title: '타업체 정산',
+      },
+      {
+        to: '/admin/team-leaders/tenant-partner-settlement',
+        label: '테넌트DB정산',
+        title: '테넌트 DB 거래 정산',
       },
       {
         to: '/admin/team-leaders/payroll',

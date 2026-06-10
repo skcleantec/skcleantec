@@ -25,6 +25,38 @@ enum TenantStatus {
   SUSPENDED
 }
 
+/// 테넌트 간 DB 거래 파트너십 상태
+enum TenantPartnershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+/// 파트너십 중지 주체 (플랫폼·참여 테넌트)
+enum TenantPartnershipSuspendedBy {
+  PLATFORM
+  TENANT_LOW
+  TENANT_HIGH
+}
+
+enum TenantInquiryShareDirection {
+  LOW_TO_HIGH
+  HIGH_TO_LOW
+}
+
+enum TenantInquiryShareSyncStatus {
+  ACTIVE
+  PAUSED
+  REVOKED
+}
+
+/// 테넌트 DB 거래 정산 — 판매(받을) / 구매(지급) 역할
+enum TenantPartnerSettlementRole {
+  SELLER
+  BUYER
+}
+
 enum PlatformRole {
   SUPER_ADMIN
   SUPPORT
@@ -76,8 +108,105 @@ model Tenant {
   orderFormTemplateFields OrderFormTemplateField[]
   operatingCompanies OperatingCompany[]
   userOperatingCompanies UserOperatingCompany[]
+  partnershipsAsLow TenantPartnership[] @relation("TenantPartnershipLow")
+  partnershipsAsHigh TenantPartnership[] @relation("TenantPartnershipHigh")
+  partnershipsRequested TenantPartnership[] @relation("TenantPartnershipRequestedBy")
+  tenantPartnerSettlementPayments TenantPartnerSettlementPayment[] @relation("TenantPartnerSettlementPayments")
+  tenantPartnerSettlementResets TenantPartnerSettlementReset[] @relation("TenantPartnerSettlementResets")
 
   @@map("tenants")
+}
+
+/// 솔루션 가입 테넌트 간 DB 거래 파트너십 (Phase 1: 관계·동의만)
+model TenantPartnership {
+  id                  String                      @id @default(uuid())
+  tenantLowId         String                      @map("tenant_low_id")
+  tenantHighId        String                      @map("tenant_high_id")
+  status              TenantPartnershipStatus     @default(PENDING)
+  requestedByTenantId String                      @map("requested_by_tenant_id")
+  lowAcceptedAt       DateTime?                   @map("low_accepted_at")
+  highAcceptedAt      DateTime?                   @map("high_accepted_at")
+  suspendedAt         DateTime?                   @map("suspended_at")
+  suspendedBy         TenantPartnershipSuspendedBy? @map("suspended_by")
+  memo                String?                     @db.Text
+  createdAt           DateTime                    @default(now()) @map("created_at")
+  updatedAt           DateTime                    @updatedAt @map("updated_at")
+
+  tenantLow   Tenant @relation("TenantPartnershipLow", fields: [tenantLowId], references: [id], onDelete: Cascade)
+  tenantHigh  Tenant @relation("TenantPartnershipHigh", fields: [tenantHighId], references: [id], onDelete: Cascade)
+  requestedBy Tenant @relation("TenantPartnershipRequestedBy", fields: [requestedByTenantId], references: [id], onDelete: Restrict)
+  inquiryShares TenantInquiryShare[]
+  settlementPayments TenantPartnerSettlementPayment[]
+  settlementResets TenantPartnerSettlementReset[]
+
+  @@unique([tenantLowId, tenantHighId])
+  @@index([tenantLowId, status])
+  @@index([tenantHighId, status])
+  @@map("tenant_partnerships")
+}
+
+/// 테넌트 간 접수(DB) 전달 링크 — 송신 원본 + 수신 mirror Inquiry 쌍
+model TenantInquiryShare {
+  id                          String                       @id @default(uuid())
+  partnershipId               String                       @map("partnership_id")
+  sourceTenantId              String                       @map("source_tenant_id")
+  sourceInquiryId               String                       @unique @map("source_inquiry_id")
+  targetTenantId              String                       @map("target_tenant_id")
+  targetInquiryId               String                       @unique @map("target_inquiry_id")
+  direction                   TenantInquiryShareDirection
+  transferFee                 Int?                         @map("transfer_fee")
+  syncStatus                  TenantInquiryShareSyncStatus @default(ACTIVE) @map("sync_status")
+  sourceInquiryNumberSnapshot String?                      @map("source_inquiry_number_snapshot") @db.VarChar(24)
+  sharedAt                    DateTime                     @map("shared_at")
+  sharedByUserId              String?                      @map("shared_by_user_id")
+  cancelFeeDirection          TenantInquiryShareDirection? @map("cancel_fee_direction")
+
+  partnership   TenantPartnership @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
+  sourceInquiry Inquiry           @relation("ShareSourceInquiry", fields: [sourceInquiryId], references: [id], onDelete: Restrict)
+  targetInquiry Inquiry           @relation("ShareTargetInquiry", fields: [targetInquiryId], references: [id], onDelete: Restrict)
+
+  @@index([partnershipId])
+  @@index([sourceTenantId, sharedAt])
+  @@index([targetTenantId, sharedAt])
+  @@map("tenant_inquiry_shares")
+}
+
+/// 테넌트 DB 거래 정산 — 수금(판매)·지급(구매) 1행
+model TenantPartnerSettlementPayment {
+  id              String                    @id @default(uuid())
+  tenantId        String                    @map("tenant_id")
+  partnerTenantId String                    @map("partner_tenant_id")
+  partnershipId   String?                   @map("partnership_id")
+  role            TenantPartnerSettlementRole
+  amount          Int
+  paidAt          DateTime                  @default(now()) @map("paid_at")
+  memo            String?                   @db.Text
+  actorId         String?                   @map("actor_id")
+
+  tenant      Tenant             @relation("TenantPartnerSettlementPayments", fields: [tenantId], references: [id], onDelete: Cascade)
+  partnership TenantPartnership? @relation(fields: [partnershipId], references: [id], onDelete: SetNull)
+  actor       User?              @relation("TenantPartnerSettlementPaymentActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, role, partnerTenantId, paidAt])
+  @@map("tenant_partner_settlement_payments")
+}
+
+/// 테넌트 DB 거래 정산 누적 초기화(파트너·역할별)
+model TenantPartnerSettlementReset {
+  id              String                    @id @default(uuid())
+  tenantId        String                    @map("tenant_id")
+  partnerTenantId String                    @map("partner_tenant_id")
+  partnershipId   String?                   @map("partnership_id")
+  role            TenantPartnerSettlementRole
+  resetAt         DateTime                  @default(now()) @map("reset_at")
+  actorId         String?                   @map("actor_id")
+
+  tenant      Tenant             @relation("TenantPartnerSettlementResets", fields: [tenantId], references: [id], onDelete: Cascade)
+  partnership TenantPartnership? @relation(fields: [partnershipId], references: [id], onDelete: SetNull)
+  actor       User?              @relation("TenantPartnerSettlementResetActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, role, partnerTenantId, resetAt])
+  @@map("tenant_partner_settlement_resets")
 }
 
 /// 플랜 대비 per-tenant 모듈 on/off 오버라이드
@@ -265,6 +394,8 @@ model User {
   orderFormDeleteLogsAsCreator  OrderFormDeleteLog[]   @relation("OrderFormDeleteLogCreator")
   externalCompanySettlementResetsAsActor ExternalCompanySettlementReset[] @relation("ExternalCompanySettlementResetActor")
   externalCompanySettlementPaymentsAsActor ExternalCompanySettlementPayment[] @relation("ExternalCompanySettlementPaymentActor")
+  tenantPartnerSettlementPaymentsAsActor TenantPartnerSettlementPayment[] @relation("TenantPartnerSettlementPaymentActor")
+  tenantPartnerSettlementResetsAsActor TenantPartnerSettlementReset[] @relation("TenantPartnerSettlementResetActor")
   operatingCompanyMemberships UserOperatingCompany[]
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
   crewStaffNoticesSent          CrewStaffNotice[]     @relation("CrewStaffNoticeSender")
@@ -792,6 +923,8 @@ model Inquiry {
   consultationPhotos InquiryConsultationPhoto[]
   csReports      CsReport[]
   orderFollowups OrderFollowup[]
+  tenantShareAsSource TenantInquiryShare? @relation("ShareSourceInquiry")
+  tenantShareAsTarget TenantInquiryShare? @relation("ShareTargetInquiry")
 
   @@index([createdAt])
   @@index([preferredDate])

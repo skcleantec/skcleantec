@@ -40,6 +40,7 @@ import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
+import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
@@ -424,6 +425,9 @@ function ScheduleDayListItem({
             </span>
             {item.operatingCompany ? (
               <OperatingCompanyBadge company={item.operatingCompany} className="shrink-0" />
+            ) : null}
+            {item.tenantShare ? (
+              <TenantInquiryShareBadge share={item.tenantShare} compact className="shrink-0" />
             ) : null}
             {isExternalIntake && (
               <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[10px] font-semibold text-fuchsia-800">
@@ -2476,6 +2480,7 @@ export function AdminSchedulePage() {
             try {
               const raw = await getInquiry(token, detailItem.id);
               setDetailItem(raw as unknown as ScheduleItem);
+              void fetchMonthData(false);
             } catch {
               void fetchMonthData(false);
             }
