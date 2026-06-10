@@ -16,7 +16,7 @@ async function bootstrap() {
     await ensurePlatformBootstrapUsers(prisma);
   } catch (err) {
     console.error(
-      '[db] 연결 실패 — Docker 로컬이면 `npm run db:up` 후 `npm run db:setup`, 원격(Neon 등)이면 server/.env의 DATABASE_URL·SSL(sslmode=require)을 확인하세요.'
+      '[db] 연결 실패 — 팀 기본은 server/.env.staging 의 Railway staging Proxy URL 입니다. (STAGING_SETUP.md) Docker 로컬은 사용자가 명시한 경우에만 `npm run db:up` 후 `npm run db:setup`. SSL은 `?sslmode=require` 확인.'
     );
     console.error(err);
     process.exit(1);

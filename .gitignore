@@ -6,6 +6,8 @@ node_modules/
 .env.local
 .env.*.local
 .env.postgresql
+server/.env.staging
+**/.env.staging
 
 # Build output
 dist/
