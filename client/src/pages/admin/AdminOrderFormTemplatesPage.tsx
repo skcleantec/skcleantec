@@ -5,6 +5,7 @@ import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModa
 import { OrderFormTemplatePreview } from '../../components/admin/OrderFormTemplatePreview';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { getDesignerPreviewOrderToken } from '../../api/orderform';
+import { appendPublicQuery } from '../../utils/publicTenantQuery';
 import {
   createOrderFormTemplate,
   deleteOrderFormTemplate,
@@ -902,7 +903,9 @@ export function AdminOrderFormTemplatesPage() {
                       <span className="text-fluid-2xs font-medium uppercase tracking-wide text-gray-400">실제 고객 화면 (기존 표준 발주서)</span>
                       {defaultPreviewToken ? (
                         <a
-                          href={`${window.location.origin}/order/${encodeURIComponent(defaultPreviewToken)}`}
+                          href={appendPublicQuery(
+                            `${window.location.origin}/order/${encodeURIComponent(defaultPreviewToken)}`,
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="shrink-0 text-fluid-2xs font-medium text-blue-700 underline"
@@ -914,7 +917,9 @@ export function AdminOrderFormTemplatesPage() {
                     {defaultPreviewToken ? (
                       <iframe
                         title="기본 발주서 미리보기"
-                        src={`${window.location.origin}/order/${encodeURIComponent(defaultPreviewToken)}`}
+                        src={appendPublicQuery(
+                          `${window.location.origin}/order/${encodeURIComponent(defaultPreviewToken)}`,
+                        )}
                         className="h-[min(78vh,900px)] w-full min-h-[420px] bg-gray-50"
                       />
                     ) : (

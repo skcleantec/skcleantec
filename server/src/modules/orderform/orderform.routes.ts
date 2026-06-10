@@ -42,6 +42,7 @@ import {
 } from '../tenants/publicTenantAccess.js';
 import { resolvePublicTenantIdFromRequest } from '../tenants/publicRequestTenant.js';
 import {
+  ensureDefaultOrderFormTemplate,
   getOrCreateEstimateConfig,
   getOrCreateOrderFormConfig,
   profOptionKey,
@@ -667,8 +668,23 @@ async function buildEditableOrderPayload(
   };
 }
 
-/** 편집기 왼쪽 iframe용 — 실제 `/order/:token` 과 동일 렌더. 목록에서는 숨김 */
+/** 편집기 iframe용 미리보기 토큰 접두사 — 테넌트마다 별도 발주서 행 (레거시 단일 토큰은 목록에서만 제외) */
+export const DESIGNER_PREVIEW_TOKEN_PREFIX = 'skct_designer_preview';
+/** @deprecated 멀티테넌트 이전 단일 토큰 — 신규는 `designerPreviewOrderTokenForTenant` */
 export const DESIGNER_PREVIEW_ORDER_TOKEN = 'skct_designer_preview_v1';
+
+export function designerPreviewOrderTokenForTenant(tenantId: string): string {
+  return `${DESIGNER_PREVIEW_TOKEN_PREFIX}_${tenantId.replace(/-/g, '')}`;
+}
+
+export function isDesignerPreviewOrderToken(token: string): boolean {
+  return token.startsWith(DESIGNER_PREVIEW_TOKEN_PREFIX);
+}
+
+/** 발주서 목록·상세에서 미리보기 행 제외 */
+const excludeDesignerPreviewTokens: Prisma.StringFilter = {
+  not: { startsWith: DESIGNER_PREVIEW_TOKEN_PREFIX },
+};
 
 /** 견적 설정·추가 옵션 반영해 미리보기 발주서 금액 동기화 (32평 기준) */
 async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: string) {
@@ -683,9 +699,26 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
   const extraSum = extras._sum.extraAmount ?? 0;
   const totalAmount = pricePer * DEMO_PYEONG + extraSum;
   const balanceAmount = Math.max(0, totalAmount - deposit);
+  const previewToken = designerPreviewOrderTokenForTenant(tenantId);
+  const tenantRow = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { name: true },
+  });
+  if (tenantRow) {
+    await ensureDefaultOrderFormTemplate(
+      prisma,
+      tenantId,
+      `${tenantRow.name} 입주청소 발주서`,
+    );
+  }
+  const resolvedTemplate = await resolveIssueTemplate(prisma, tenantId, null);
+  const templatePatch =
+    resolvedTemplate && resolvedTemplate !== 'invalid'
+      ? { templateId: resolvedTemplate.id, templateVersion: resolvedTemplate.version }
+      : {};
 
-  const existing = await prisma.orderForm.findUnique({
-    where: { token: DESIGNER_PREVIEW_ORDER_TOKEN },
+  const existing = await prisma.orderForm.findFirst({
+    where: { tenantId, token: previewToken },
   });
   if (!existing) {
     const operatingCompanyId = await resolveInquiryOperatingCompanyId({
@@ -698,19 +731,20 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
       data: {
         tenantId,
         operatingCompanyId,
-        token: DESIGNER_PREVIEW_ORDER_TOKEN,
+        token: previewToken,
         customerName: '미리보기(고객용)',
         customerPhone: '010-0000-0000',
         totalAmount,
         depositAmount: deposit,
         balanceAmount,
         createdById,
+        ...templatePatch,
       },
     });
   }
   return prisma.orderForm.update({
-    where: { token: DESIGNER_PREVIEW_ORDER_TOKEN },
-    data: { totalAmount, depositAmount: deposit, balanceAmount },
+    where: { id: existing.id },
+    data: { totalAmount, depositAmount: deposit, balanceAmount, ...templatePatch },
   });
 }
 
@@ -755,7 +789,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
 
   const where: Prisma.OrderFormWhereInput = {
     tenantId,
-    token: { not: DESIGNER_PREVIEW_ORDER_TOKEN },
+    token: excludeDesignerPreviewTokens,
   };
   if (dateRange) {
     where.createdAt = { gte: dateRange.gte, lte: dateRange.lte };
@@ -821,7 +855,7 @@ router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (r
     return;
   }
   const row = await prisma.orderForm.findFirst({
-    where: { id: rawId, tenantId, token: { not: DESIGNER_PREVIEW_ORDER_TOKEN } },
+    where: { id: rawId, tenantId, token: excludeDesignerPreviewTokens },
     select: { customerSubmissionSnapshot: true, submittedAt: true },
   });
   if (!row) {
@@ -1172,15 +1206,26 @@ router.get('/issue-form', authMiddleware, adminOrMarketer, async (req, res) => {
   const pendingInquiryId =
     typeof req.query.pendingInquiryId === 'string' ? req.query.pendingInquiryId.trim() : '';
 
+  try {
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true },
+    });
+    if (tenantRow) {
+      await ensureDefaultOrderFormTemplate(
+        prisma,
+        tenantId,
+        `${tenantRow.name} 입주청소 발주서`,
+      );
+    }
+    await seedProfessionalDefaultsForTenant(prisma, tenantId);
+  } catch (err) {
+    console.error('issue-form ensure tenant defaults:', err);
+  }
   const resolved = await resolveIssueTemplate(prisma, tenantId, templateIdRaw);
   if (resolved === 'invalid') {
     res.status(400).json({ error: '선택한 발주서 양식을 찾을 수 없거나 발행되지 않았습니다.' });
     return;
-  }
-  try {
-    await seedProfessionalDefaultsForTenant(prisma, tenantId);
-  } catch (err) {
-    console.error('issue-form ensure professional defaults:', err);
   }
   const [professionalOptions, formConfig, template] = await Promise.all([
     prisma.professionalSpecialtyOption.findMany({

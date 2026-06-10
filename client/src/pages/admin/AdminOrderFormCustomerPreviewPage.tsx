@@ -17,6 +17,7 @@ import {
 import { getToken } from '../../stores/auth';
 import { normalizeMsgConfigForEditor, type FormMessagesState } from '../../utils/orderFormCustomerCopy';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults';
+import { appendPublicQuery } from '../../utils/publicTenantQuery';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
 
@@ -183,7 +184,9 @@ export function AdminOrderFormCustomerPreviewPage() {
 
   const iframeSrc =
     typeof window !== 'undefined' && previewToken
-      ? `${window.location.origin}/order/${encodeURIComponent(previewToken)}`
+      ? appendPublicQuery(
+          `${window.location.origin}/order/${encodeURIComponent(previewToken)}`,
+        )
       : '';
 
   const handleSaveMsg = async () => {
