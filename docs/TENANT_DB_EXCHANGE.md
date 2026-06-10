@@ -206,10 +206,10 @@
 
 ### Phase 4 — 양방향 동기화
 
-- [ ] `tenantInquirySync.service` + `inquiries.routes` PATCH hook
-- [ ] 화이트리스트 + `COMPLETED`/`CANCELLED`
-- [ ] change log 연동
-- [ ] 플랫폼 `suspend` → sync 차단
+- [x] `tenantInquirySync.service` + `inquiries.routes` PATCH hook
+- [x] 화이트리스트 + `COMPLETED`/`CANCELLED` (수신→송신은 상태만)
+- [x] change log 연동 (`[테넌트DB동기화]` 접두)
+- [x] 플랫폼 `/api/platform/tenant-partnerships` suspend/resume → sync 차단·복구
 
 ### Phase 5 — 고도화
 

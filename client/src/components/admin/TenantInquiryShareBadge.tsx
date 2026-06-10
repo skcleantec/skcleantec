@@ -14,7 +14,7 @@ export function TenantInquiryShareBadge({ share, className = '', compact = false
     : `📥 ${share.partnerName}에서 수신`;
   const sourceNo = share.sourceInquiryNumberSnapshot?.trim();
   const title = isSource
-    ? '수정 시 상대 전산에도 반영됩니다'
+    ? '수정 시 상대 전산에도 반영됩니다(고객·일정·금액 등). 완료·취소는 양쪽 자동 반영됩니다.'
     : sourceNo
       ? `원 접수번호: ${sourceNo}`
       : undefined;

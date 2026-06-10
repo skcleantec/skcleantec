@@ -74,6 +74,7 @@ import {
   attachTenantShareMetaToInquiry,
 } from '../tenant-partners/tenantInquiryShareMeta.js';
 import { stampTenantShareCancelFeeDirection } from '../tenant-partners/tenantPartnerSettlement.service.js';
+import { syncTenantShareAfterInquiryPatch } from '../tenant-partners/tenantInquirySync.service.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -1128,6 +1129,8 @@ router.patch('/:id', async (req, res) => {
     return;
   }
 
+  const patchChangedKeys = Object.keys(data);
+
   if (data.address !== undefined || data.addressDetail !== undefined) {
     await syncInquiryAddressGeo(prisma, id);
   }
@@ -1139,6 +1142,19 @@ router.patch('/:id', async (req, res) => {
   if (!updated) {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
+  }
+  if (patchChangedKeys.length > 0) {
+    try {
+      await syncTenantShareAfterInquiryPatch({
+        inquiryId: id,
+        viewerTenantId: tenantId,
+        actorId: user.userId,
+        changedKeys: patchChangedKeys,
+        inquiryAfter: updated,
+      });
+    } catch (e) {
+      console.error('[tenant-share-sync]', e);
+    }
   }
   if (data.consultationMemo !== undefined) {
     const leaderIds = updated.assignments.map((a) => a.teamLeaderId);
