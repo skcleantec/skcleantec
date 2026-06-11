@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { ADMIN_INQUIRIES_NAV_ITEMS } from '../../constants/adminInquiriesNav';
 import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 import { getToken } from '../../stores/auth';
 import { getReviewPaybackUnseenCount } from '../../api/reviewPayback';
-import { useInboxRealtime, useReviewPaybackRealtime } from '../../hooks/useInboxRealtime';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 
 const ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-inquiries-side-nav-collapsed';
 const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
@@ -60,8 +60,6 @@ function MobileInquirySubNavTabs({ reviewPaybackBadge }: { reviewPaybackBadge: n
 export function AdminInquiriesLayout() {
   const token = getToken();
   const [reviewPaybackBadge, setReviewPaybackBadge] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const refreshBadge = useCallback(async () => {
     if (!token) return;
@@ -79,17 +77,6 @@ export function AdminInquiriesLayout() {
 
   useInboxRealtime(token, () => void refreshBadge(), Boolean(token));
 
-  useReviewPaybackRealtime(
-    token,
-    (p) => {
-      setToast(p.summary || `${p.customerName} 페이백/리뷰 신청`);
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-      toastTimer.current = setTimeout(() => setToast(null), 6000);
-      void refreshBadge();
-    },
-    Boolean(token),
-  );
-
   const navItems = useMemo(
     () =>
       ADMIN_INQUIRIES_NAV_ITEMS.map((item) => {
@@ -103,15 +90,6 @@ export function AdminInquiriesLayout() {
 
   return (
     <div className="min-w-0 w-full max-w-full">
-      {toast ? (
-        <div
-          role="status"
-          className="fixed bottom-4 right-4 z-[60] max-w-sm rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-fluid-xs text-amber-950 shadow-lg"
-        >
-          {toast}
-        </div>
-      ) : null}
-
       <div className="lg:hidden">
         <AdminSubNavScroll aria-label="서비스접수 하위 메뉴">
           <MobileInquirySubNavTabs reviewPaybackBadge={reviewPaybackBadge} />

@@ -32,6 +32,8 @@
     "verify:review-payback:phase1": "tsx scripts/verify-review-payback-phase1.ts",
     "verify:review-payback:phase2-db": "tsx scripts/verify-review-payback-phase2-db.ts",
     "verify:review-payback:phase3": "tsx scripts/verify-review-payback-phase3.ts",
+    "verify:review-payback:phase4": "tsx scripts/verify-review-payback-phase4.ts",
+    "verify:review-payback:phase5": "tsx scripts/verify-review-payback-phase5.ts",
     "verify:multitenant:phase6": "tsx scripts/verify-multitenant-phase6.ts",
     "db:backfill-inquiry-numbers": "node scripts/run-backfill-inquiry-numbers.mjs",
     "db:backfill-seed-inquiries-created-by": "tsx scripts/backfill-seed-inquiries-created-by.ts",

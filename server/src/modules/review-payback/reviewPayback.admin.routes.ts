@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
-import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
+import { createdAtRangeFromQuery, kstDayRangeYmd } from '../inquiries/inquiryListDateRange.js';
 import {
   countUnseenPending,
   parseReviewPaybackStatus,
@@ -45,18 +45,34 @@ router.get('/', async (req, res) => {
     return;
   }
   const q = req.query as Record<string, string | undefined>;
-  const dateRange = createdAtRangeFromQuery({
-    datePreset: q.datePreset,
-    month: q.month,
-    day: q.day,
-  });
+  const fromYmd = q.from?.trim();
+  const toYmd = q.to?.trim();
+  const dateRange =
+    fromYmd && toYmd
+      ? (() => {
+          const start = kstDayRangeYmd(fromYmd);
+          const end = kstDayRangeYmd(toYmd);
+          if (!start || !end) return null;
+          return { gte: start.gte, lte: end.lte };
+        })()
+      : createdAtRangeFromQuery({
+          datePreset: q.datePreset,
+          month: q.month,
+          day: q.day,
+        });
   const status = parseReviewPaybackStatus(q.status);
+  const unseenOnly = q.unseenOnly === '1' || q.unseenOnly === 'true';
   const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(q.pageSize ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE));
   const search = q.search?.trim();
 
   const where: Prisma.ReviewPaybackRequestWhereInput = { tenantId };
-  if (status) where.status = status;
+  if (unseenOnly) {
+    where.status = 'PENDING';
+    where.seenAt = null;
+  } else if (status) {
+    where.status = status;
+  }
   if (dateRange) {
     where.submittedAt = { gte: dateRange.gte, lte: dateRange.lte };
   }

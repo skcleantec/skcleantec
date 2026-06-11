@@ -1443,7 +1443,6 @@ model OrderForm {
   template        OrderFormTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   /// 발급 시점 템플릿 버전(스냅샷)
   templateVersion Int?     @map("template_version")
-  /// 리뷰 페이백 공개 링크 토큰 — 발주서 token 과 분리
   reviewPaybackToken String? @unique @map("review_payback_token")
 
   createdBy  User      @relation("OrderFormCreatedBy", fields: [createdById], references: [id])
@@ -1561,7 +1560,6 @@ model OrderFollowupLog {
   @@map("order_followup_logs")
 }
 
-/// 고객 리뷰 페이백 신청 — 발주서 1건당 1회
 enum ReviewPaybackStatus {
   PENDING
   VERIFIED
@@ -1587,7 +1585,6 @@ model ReviewPaybackRequest {
   adminMemo           String?             @map("admin_memo") @db.Text
   handledById         String?             @map("handled_by_id")
   handledBy           User?               @relation("ReviewPaybackHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
-  /// 관리자가 목록에서 확인한 시각 — 미확인 배지용
   seenAt              DateTime?           @map("seen_at")
   submittedAt         DateTime            @default(now()) @map("submitted_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")

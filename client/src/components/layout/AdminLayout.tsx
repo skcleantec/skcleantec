@@ -12,7 +12,12 @@ import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAut
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { useInboxRealtime, useInquiryCelebrateRealtime, type InquiryCelebratePayload } from '../../hooks/useInboxRealtime';
+import {
+  useInboxRealtime,
+  useInquiryCelebrateRealtime,
+  useReviewPaybackRealtime,
+  type InquiryCelebratePayload,
+} from '../../hooks/useInboxRealtime';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import {
   ADMIN_NAV_DEF,
@@ -114,6 +119,9 @@ export function AdminLayout() {
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
+  const [reviewPaybackUnseenCount, setReviewPaybackUnseenCount] = useState(0);
+  const [reviewPaybackToast, setReviewPaybackToast] = useState<string | null>(null);
+  const reviewPaybackToastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [showNavMoreLeft, setShowNavMoreLeft] = useState(false);
   const [showNavMoreRight, setShowNavMoreRight] = useState(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
@@ -317,9 +325,21 @@ export function AdminLayout() {
       .then((r) => {
         setUnreadCount(r.unreadCount);
         setCsPendingCount(r.csPendingCount);
+        setReviewPaybackUnseenCount(r.reviewPaybackUnseenCount);
       })
       .catch(() => {});
   }, []);
+
+  useReviewPaybackRealtime(
+    adminToken,
+    (p) => {
+      setReviewPaybackToast(p.summary || `${p.customerName} 페이백/리뷰 신청`);
+      if (reviewPaybackToastTimer.current) clearTimeout(reviewPaybackToastTimer.current);
+      reviewPaybackToastTimer.current = setTimeout(() => setReviewPaybackToast(null), 6000);
+      fetchNavBadges();
+    },
+    Boolean(adminToken && (meRole === 'ADMIN' || meRole === 'MARKETER')),
+  );
 
   useEffect(() => {
     const token = getToken();
@@ -338,7 +358,7 @@ export function AdminLayout() {
 
   useEffect(() => {
     queueMicrotask(() => updateNavScrollHint());
-  }, [location.pathname, unreadCount, csPendingCount, updateNavScrollHint]);
+  }, [location.pathname, unreadCount, csPendingCount, reviewPaybackUnseenCount, updateNavScrollHint]);
 
   useEffect(() => {
     const el = navScrollRef.current;
@@ -528,6 +548,17 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
+      {reviewPaybackToast ? (
+        <button
+          type="button"
+          role="status"
+          onClick={() => navigate('/admin/inquiries/review-payback')}
+          className="fixed bottom-4 right-4 z-[60] max-w-sm rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-fluid-xs text-amber-950 shadow-lg hover:bg-amber-100"
+        >
+          {reviewPaybackToast}
+          <span className="mt-1 block text-[10px] text-amber-800">탭하여 페이백/리뷰 목록 열기</span>
+        </button>
+      ) : null}
       {celebration != null && (
         <div
           className="grid shrink-0 transition-[grid-template-rows] duration-300 ease-out"
@@ -709,6 +740,39 @@ export function AdminLayout() {
                               aria-hidden
                             >
                               {csPendingCount}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (id === 'inquiries') {
+                    return (
+                      <div
+                        key={id}
+                        className={rowClass}
+                        onDragOver={handleNavDragOver}
+                        onDrop={(e) => handleNavDrop(e, id)}
+                      >
+                        {dragHandle}
+                        <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+                          <NavLink
+                            to={def.to}
+                            className={navClass}
+                            aria-label={
+                              reviewPaybackUnseenCount > 0
+                                ? `${def.label}, 페이백/리뷰 미확인 ${reviewPaybackUnseenCount}건`
+                                : def.label
+                            }
+                          >
+                            {def.label}
+                          </NavLink>
+                          {reviewPaybackUnseenCount > 0 ? (
+                            <span
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-600 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
+                              aria-hidden
+                            >
+                              {reviewPaybackUnseenCount > 99 ? '99+' : reviewPaybackUnseenCount}
                             </span>
                           ) : null}
                         </div>

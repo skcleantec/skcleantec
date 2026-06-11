@@ -105,6 +105,15 @@ export async function getReviewPaybackUnseenCount(token: string): Promise<number
   return Number(j.count) || 0;
 }
 
+export async function getReviewPayback(token: string, id: string): Promise<ReviewPaybackListItem> {
+  const res = await fetch(`${API}/review-paybacks/${encodeURIComponent(id)}`, { headers: authHeaders(token) });
+  if (!res.ok) {
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(j.error || '상세를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export async function listReviewPaybacks(
   token: string,
   query: Record<string, string | number | undefined>,
