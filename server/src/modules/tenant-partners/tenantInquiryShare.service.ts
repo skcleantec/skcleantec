@@ -235,12 +235,18 @@ export async function createTenantInquiryShare(opts: {
       include: shareMetaInclude,
     });
 
-    await copyExistingConsultationPhotosToShareMirror(tx, source.id, mirror.id, targetTenantId);
+    await copyExistingConsultationPhotosToShareMirror(
+      tx,
+      source.id,
+      mirror.id,
+      targetTenantId,
+      syncFieldMask,
+    );
 
     return { share, mirror };
   });
 
-  notifyTenantShareReceived({
+  await notifyTenantShareReceived({
     targetTenantId,
     targetInquiryId: result.mirror.id,
     customerName: source.customerName,

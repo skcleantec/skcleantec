@@ -12,6 +12,7 @@ import {
   normalizeShareFieldMask,
   shareMaskFromPreset,
 } from '../src/modules/tenant-partners/tenantInquiryShareFields.js';
+import { shouldSyncConsultationPhotosForShare } from '../src/modules/tenant-partners/tenantInquiryPhotoSync.service.js';
 
 const API = process.env.VERIFY_API_BASE ?? 'http://127.0.0.1:3000/api';
 
@@ -77,6 +78,9 @@ function verifyFieldMaskHelpers(): void {
   assert(partial.customerName === '홍길동', 'mask mirror keeps customerName');
   assert(partial.memo == null, 'mask mirror drops memo');
   assert(partial.serviceTotalAmount == null, 'mask mirror drops amount');
+
+  assert(shouldSyncConsultationPhotosForShare(null) === true, 'full share syncs photos');
+  assert(shouldSyncConsultationPhotosForShare(preset) === false, 'partial share skips photos');
   console.log('✓ field mask helpers');
 }
 

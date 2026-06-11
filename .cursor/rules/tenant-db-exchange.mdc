@@ -25,7 +25,7 @@ alwaysApply: false
 ## 아키텍처
 
 - 신규 모듈: `server/src/modules/tenant-partners/` (partnership, share, sync, settlement).
-- **cross-tenant DB write는 `tenantInquirySync.service` / `tenantInquiryShare.service`만** — 라우트에 인라인 2-tenant update 금지.
+- **cross-tenant DB write는 전용 service만** (`tenantInquirySync`, `tenantInquiryShare`, `tenantInquiryPhotoSync`) — 라우트에 인라인 2-tenant update 금지.
 - 기존 `ExternalCompany`·`externalTransferFee` **대체하지 않음** — `mod_tenant_exchange` 병행.
 - 기능 게이트: `requireFeature('mod_tenant_exchange')` + 클라 `FeatureGate`.
 
@@ -72,6 +72,7 @@ alwaysApply: false
 | 2 | Share + mirror + 배지 |
 | 3 | Settlement seller/buyer |
 | 4 | Sync service + PATCH hook + 플랫폼 suspend |
+| 5 | field mask, 상담사진(전체 전달만), 수신 알림, 정산 CSV |
 
 각 Phase 끝: `tsc`, multitenant verify, `TENANT_DB_EXCHANGE.md` 체크리스트 갱신.
 

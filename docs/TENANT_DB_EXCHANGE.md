@@ -216,8 +216,8 @@
 
 - [x] `sync_field_mask` migration + `tenantInquiryShareFields` (부분 필드 전달)
 - [x] share 생성·PATCH 동기화에 field mask 반영 (`customer_schedule` 프리셋)
-- [x] 상담사진 cross-tenant — `tenantInquiryPhotoSync.service` (URL 공유)
-- [x] 수신 알림 — `notifyTenantShareReceived` (변경 이력 WS)
+- [x] 상담사진 cross-tenant — `tenantInquiryPhotoSync.service` (URL 공유, **전체 전달만**; 업로드·삭제 mirror 동기화)
+- [x] 수신 알림 — `notifyTenantShareReceived` (변경 이력 DB + WS)
 - [x] `GET /settlement/export` CSV + 정산 UI 다운로드
 - [x] 접수 상세 — 「고객·일정만」체크박스
 

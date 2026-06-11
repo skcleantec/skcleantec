@@ -2238,9 +2238,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                       className="mt-0.5"
                     />
                     <span>
-                      고객·일정만 전달 (금액·메모 제외)
+                      고객·일정만 전달 (금액·메모·상담사진 제외)
                       <span className="block text-[11px] text-gray-500 mt-0.5">
-                        체크 시 수신 mirror에 고객정보·일정만 복제되며 이후 동기화도 동일 범위입니다.
+                        체크 시 수신 mirror에 고객정보·일정만 복제되며 이후 필드 동기화도 동일 범위입니다. 상담사진은
+                        전체 전달 시에만 공유됩니다.
                       </span>
                     </span>
                   </label>
