@@ -2784,9 +2784,9 @@ export function AdminInquiriesPage() {
               <colgroup>
                 <col className="w-[9%]" />
                 <col className="w-[6%]" />
-                <col className="w-[8%]" />
+                <col className="w-[9%]" />
                 <col className="w-[6%]" />
-                <col className="w-[10%]" />
+                <col className="w-[9%]" />
                 <col className="w-[6%]" />
                 <col className="w-[8%]" />
                 <col className="w-[8%]" />
@@ -2896,7 +2896,7 @@ export function AdminInquiriesPage() {
                       {inquiryMarketerLabel(item)}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center font-medium text-gray-900 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-fluid-2xs font-medium text-gray-900 xl:px-1.5 xl:py-1.5 xl:text-fluid-xs 2xl:text-fluid-xs ${pBorder}`}
                       title={`${item.customerName}${item.claimMemo ? ' (클레임)' : ''}`}
                     >
                       <div className="flex min-w-0 flex-col items-center leading-tight">
@@ -2905,6 +2905,7 @@ export function AdminInquiriesPage() {
                             name={item.customerName}
                             tone={item.internalCustomerTone}
                             viewerRole={me?.role}
+                            nameClassName="truncate"
                           />
                           {item.claimMemo && (
                             <span className="ml-0.5 text-orange-600" title={item.claimMemo}>
@@ -2936,10 +2937,10 @@ export function AdminInquiriesPage() {
                       )}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      className={`min-w-0 px-1 py-1 align-middle text-center text-[10px] leading-tight text-gray-600 xl:px-1.5 xl:py-1.5 xl:text-[11px] ${pBorder}`}
                       title={`${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim()}
                     >
-                      {addressListShortSiGu(item.address)}
+                      <span className="block truncate">{addressListShortSiGu(item.address)}</span>
                     </td>
                     <td
                       className={`min-w-0 px-0.5 py-1 align-middle text-center text-[10px] leading-tight tabular-nums text-gray-600 xl:px-1 xl:py-1.5 2xl:text-[11px] ${pBorder}`}
