@@ -40,12 +40,14 @@ const HAPPY_CALL_STATS_STATUSES = [
 ] as const;
 
 /**
- * 접수 1건의 매출 금액 = 발주총액(없으면 평수×단가) + 추가청소(extraCharges) 합.
+ * 접수 1건의 매출 금액 = 확정 총액(발주서·서비스 총액·평수×단가 순) + 추가청소(extraCharges) 합.
  * extraCharges.amount 는 음수면 할인 — 스케줄·정산과 동일 기준.
+ * 파트너 연계 mirror는 orderForm 없이 serviceTotalAmount만 있으므로 반드시 포함한다.
  */
 function getInquiryAmount(
   inq: {
     orderForm?: { totalAmount: number } | null;
+    serviceTotalAmount?: number | null;
     areaPyeong: number | null;
     extraCharges?: { amount: number }[] | null;
   },
@@ -54,9 +56,11 @@ function getInquiryAmount(
   const base =
     inq.orderForm?.totalAmount != null
       ? inq.orderForm.totalAmount
-      : inq.areaPyeong != null && inq.areaPyeong > 0
-        ? Math.round(inq.areaPyeong * pricePerPyeong)
-        : 0;
+      : inq.serviceTotalAmount != null && inq.serviceTotalAmount > 0
+        ? inq.serviceTotalAmount
+        : inq.areaPyeong != null && inq.areaPyeong > 0
+          ? Math.round(inq.areaPyeong * pricePerPyeong)
+          : 0;
   const extra = inq.extraCharges?.reduce((sum, c) => sum + (c.amount ?? 0), 0) ?? 0;
   return base + extra;
 }
@@ -133,6 +137,7 @@ router.get('/stats', async (req, res) => {
       select: {
         createdAt: true,
         areaPyeong: true,
+        serviceTotalAmount: true,
         orderForm: { select: { totalAmount: true } },
         extraCharges: { select: { amount: true } },
         assignments: {
