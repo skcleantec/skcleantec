@@ -13,6 +13,17 @@ export function withDefaultText(raw: string | null | undefined, key: FormMsgDefa
   return orderFormConfigLine(raw, ORDER_FORM_CONFIG_DEFAULTS[key]);
 }
 
+const LEGACY_FOOTER_NOTICE2 = '❌ 연락 없을 시, 본사 확인 요청 필';
+
+/** 하단 안내 2 — 기본값 오타(「필」) 저장 건도 「필수」로 보정 */
+function footerNotice2ForMessage(raw: string | null | undefined): string {
+  const t = raw != null ? String(raw).trim() : '';
+  if (!t || t === LEGACY_FOOTER_NOTICE2) {
+    return ORDER_FORM_CONFIG_DEFAULTS.footerNotice2;
+  }
+  return t;
+}
+
 /** 폼 메시지 필드 — 편집 UI는 발주서 미리보기·설정 탭 연계 (고객 안내 본문은 안내사항설정에서 편집) */
 export type FormMessagesState = Pick<
   OrderFormConfigPublic,
@@ -39,7 +50,7 @@ export function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessa
         ? ORDER_FORM_CONFIG_DEFAULTS.reviewEventText
         : c.reviewEventText,
     footerNotice1: withDefaultText(c.footerNotice1, 'footerNotice1'),
-    footerNotice2: withDefaultText(c.footerNotice2, 'footerNotice2'),
+    footerNotice2: footerNotice2ForMessage(c.footerNotice2),
     submitSuccessTitle: withDefaultText(c.submitSuccessTitle, 'submitSuccessTitle'),
     submitSuccessBody: withDefaultText(c.submitSuccessBody, 'submitSuccessBody'),
     timeSlotAckTitle: withDefaultText(c.timeSlotAckTitle, 'timeSlotAckTitle'),
@@ -107,19 +118,14 @@ export function buildOrderFormCustomerMessage(
   // 리뷰 문구는 비우면 숨김 (normalizeMsgConfigForEditor에서 ''는 그대로 유지)
   const reviewText = (msgConfig.reviewEventText ?? '').trim();
   const footer1 = withDefaultText(msgConfig.footerNotice1, 'footerNotice1');
-  const footer2 = withDefaultText(msgConfig.footerNotice2, 'footerNotice2');
+  const footer2 = footerNotice2ForMessage(msgConfig.footerNotice2);
+  const paybackToken = order.reviewPaybackToken?.trim();
 
   let msg = `${title}
 
 총 금액 ${order.totalAmount.toLocaleString('ko-KR')}원 ${priceLabel}
 잔금 ${order.balanceAmount.toLocaleString('ko-KR')}원, 예약금 ${order.depositAmount.toLocaleString('ko-KR')}원`;
   if (reviewText) msg += `\n${reviewText}`;
-  const paybackToken = order.reviewPaybackToken?.trim();
-  // 리뷰 안내 문구(reviewEventText)와 무관하게, 발급 시 부여된 토큰이 있으면 페이백 링크를 항상 포함한다.
-  if (paybackToken) {
-    const paybackLink = getReviewPaybackPublicUrl(paybackToken, origin, tenantSlug, brandSlug);
-    msg += `\n\n${buildReviewPaybackMessageBlock(paybackLink)}`;
-  }
 
   if (order.preferredDate && order.preferredTime) {
     const slotLabel =
@@ -140,7 +146,14 @@ export function buildOrderFormCustomerMessage(
 ${link}
 
 청소 후 청소팀 태도, 고객 불편 관련 신고는 본사에 직접 요청해주시면 바로 시정처리 해드리겠습니다.
-신고 URL: ${csLink}
+신고 URL: ${csLink}`;
+  // 리뷰 안내 문구(reviewEventText)와 무관하게, 발급 시 부여된 토큰이 있으면 페이백 링크를 신고 URL 아래에 포함한다.
+  if (paybackToken) {
+    const paybackLink = getReviewPaybackPublicUrl(paybackToken, origin, tenantSlug, brandSlug);
+    msg += `\n\n${buildReviewPaybackMessageBlock(paybackLink)}`;
+  }
+
+  msg += `
 
 ${footer1}
 ${footer2}`;
