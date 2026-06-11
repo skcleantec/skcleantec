@@ -24,8 +24,8 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
       },
       {
         to: '/admin/team-leaders/tenant-partners',
-        label: '테넌트DB거래',
-        title: '테넌트 DB 거래 파트너',
+        label: '파트너연결',
+        title: '파트너 연결',
       },
       {
         to: '/admin/team-leaders/e-contracts',
@@ -45,8 +45,8 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
       },
       {
         to: '/admin/team-leaders/tenant-partner-settlement',
-        label: '테넌트DB정산',
-        title: '테넌트 DB 거래 정산',
+        label: '파트너정산',
+        title: '파트너 정산',
       },
       {
         to: '/admin/team-leaders/payroll',

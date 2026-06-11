@@ -170,7 +170,7 @@ export async function requestPartnership(viewerTenantId: string, partnerSlug: st
 
   if (existing) {
     if (existing.status === 'ACTIVE') {
-      throw new TenantPartnershipError('이미 DB 거래 파트너로 연결된 업체입니다.', 400);
+      throw new TenantPartnershipError('이미 접수 연계 파트너로 연결된 업체입니다.', 400);
     }
     if (existing.status === 'PENDING') {
       throw new TenantPartnershipError('이미 파트너 요청이 진행 중입니다.', 400);

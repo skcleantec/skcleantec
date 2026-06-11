@@ -113,10 +113,10 @@ export function AdminTenantPartnersPage() {
     <div className="min-w-0 w-full max-w-full space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-gray-800">테넌트 DB 거래</h1>
+          <h1 className="text-xl font-semibold text-gray-800">파트너 연결</h1>
           <p className="mt-1 text-sm text-gray-500">
-            같은 솔루션을 쓰는 다른 업체와 파트너로 연결합니다. 양쪽 관리자가 승인하면 DB 전달(2단계)을
-            사용할 수 있습니다.
+            같은 시스템을 쓰는 다른 청소업체와 파트너로 연결합니다. 양쪽 관리자가 승인하면 접수를 서로
+            연계할 수 있습니다.
           </p>
         </div>
         <button
@@ -139,7 +139,7 @@ export function AdminTenantPartnersPage() {
       {pendingIncoming.length > 0 ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm font-medium text-amber-950">
-            승인 대기 {pendingIncoming.length}건 — 상대 업체의 DB 거래 요청을 확인해 주세요.
+            승인 대기 {pendingIncoming.length}건 — 상대 업체의 파트너 연결 요청을 확인해 주세요.
           </p>
         </div>
       ) : null}
@@ -152,7 +152,7 @@ export function AdminTenantPartnersPage() {
           <div className="p-8 text-center text-sm text-gray-500">불러오는 중…</div>
         ) : items.length === 0 ? (
           <div className="p-8 text-center text-sm text-gray-500">
-            등록된 파트너가 없습니다. 상대 업체 코드(slug)로 초대해 주세요.
+            등록된 파트너가 없습니다. 상대 업체 코드로 초대해 주세요.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -160,7 +160,7 @@ export function AdminTenantPartnersPage() {
               <thead className="bg-gray-50 text-left text-xs text-gray-500">
                 <tr>
                   <th className="px-4 py-2 font-medium">상대 업체</th>
-                  <th className="px-4 py-2 font-medium">코드</th>
+                  <th className="px-4 py-2 font-medium">업체 코드</th>
                   <th className="px-4 py-2 font-medium">상태</th>
                   <th className="px-4 py-2 font-medium">승인</th>
                   <th className="px-4 py-2 font-medium text-right">작업</th>
@@ -223,7 +223,7 @@ export function AdminTenantPartnersPage() {
                             type="button"
                             disabled={actionId === row.id}
                             onClick={() => {
-                              if (!window.confirm(`${row.partner.name}와의 DB 거래를 중지할까요?`)) return;
+                              if (!window.confirm(`${row.partner.name}와의 파트너 연결을 중지할까요?`)) return;
                               void runAction(row.id, () =>
                                 token ? suspendTenantPartnership(token, row.id) : Promise.resolve(),
                               );
@@ -243,10 +243,6 @@ export function AdminTenantPartnersPage() {
         )}
       </div>
 
-      <p className="text-xs text-gray-400">
-        Phase 1: 파트너 연결·승인만 제공합니다. 접수 DB 전달은 2단계에서 연결됩니다.
-      </p>
-
       {showInvite ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="relative w-full max-w-md rounded-lg bg-white p-5 shadow-lg">
@@ -255,7 +251,7 @@ export function AdminTenantPartnersPage() {
             <p className="mt-1 text-xs text-gray-500">상대 업체의 로그인 화면 「업체 코드」를 입력하세요.</p>
             <form onSubmit={handleInvite} className="mt-4 space-y-3">
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-gray-600">업체 코드 (slug)</span>
+                <span className="mb-1 block text-xs font-medium text-gray-600">업체 코드</span>
                 <div className="flex gap-2">
                   <input
                     value={inviteSlug}

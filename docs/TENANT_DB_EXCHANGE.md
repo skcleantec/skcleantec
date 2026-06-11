@@ -1,7 +1,7 @@
-# 테넌트 간 DB 거래 (Tenant DB Exchange)
+# 파트너 접수 연계 (Tenant DB Exchange)
 
-> **목적**: 같은 솔루션을 쓰는 테넌트끼리 접수(DB)를 주고받고, 수수료·정산·양방향 동기화를 한다.  
-> **기존 타업체(`ExternalCompany`)와 병행** — 타업체는 솔루션 미사용 외부 협력사, 본 기능은 **테넌트(솔루션 가입 업체)** 대상.
+> **목적**: 같은 솔루션을 쓰는 업체(파트너)끼리 접수를 연계하고, 수수료·정산·양방향 동기화를 한다.  
+> **기존 타업체(`ExternalCompany`)와 병행** — 타업체는 우리 전산만 쓰는 외부 협력사, 본 기능은 **파트너(같은 시스템 가입 업체)** 대상.
 
 **관련**: [MULTI_TENANT_PLATFORM.md](./MULTI_TENANT_PLATFORM.md), [PROJECT_GUIDE.md](../PROJECT_GUIDE.md) §8  
 **구현 룰**: `.cursor/rules/tenant-db-exchange.mdc`  
@@ -21,14 +21,14 @@
 
 ---
 
-## 2. 기존 타업체 vs 테넌트 DB 거래
+## 2. 기존 타업체 vs 파트너 접수 연계
 
-| | 타업체 (`mod_external_co`) | 테넌트 DB 거래 (`mod_tenant_exchange`) |
+| | 타업체 (`mod_external_co`) | 파트너 접수 연계 (`mod_tenant_exchange`) |
 |---|---------------------------|----------------------------------------|
-| 상대 | `ExternalCompany` + `EXTERNAL_PARTNER` 로그인 | 다른 `Tenant` (ADMIN이 자체 전산 사용) |
+| 상대 | `ExternalCompany` + `EXTERNAL_PARTNER` 로그인 | 다른 가입 업체 (각자 관리자 로그인) |
 | 데이터 | 원본 1건, 우리 DB만 | **mirror 2건** + `TenantInquiryShare` 링크 |
 | 수수료 필드 | `Inquiry.externalTransferFee` | `TenantInquiryShare.transferFee` (+ 링크) |
-| 정산 UI | `/admin/team-leaders/external-companies` 정산 | 신규 「테넌트 DB 정산」 (패턴 복제) |
+| 정산 UI | `/admin/team-leaders/external-companies` 정산 | 「파트너 정산」 (패턴 복제) |
 | 참고 코드 | `server/src/modules/external-companies/externalCompanies.routes.ts` | 동일 집계 패턴 추출·재사용 |
 
 ---
@@ -90,7 +90,7 @@
 
 - 전달 후에도 송신 `Inquiry`는 **일반 PATCH 가능**.
 - PATCH 시 `tenantInquirySync.service`가 수신 mirror에 **허용 필드만** 반영.
-- UI: 송신 측 배지 `🔗 {partnerName}에 전달됨` + 툴팁 「수정 시 상대 전산에도 반영됩니다」.
+- UI: 송신 측 배지 `🔗 {partnerName}에 연계` + 툴팁 「수정 시 파트너 업체에도 반영됩니다」.
 
 ### 4.2 상태 동기화 (합의 #2)
 
@@ -141,7 +141,7 @@
 | POST | `/:id/accept` | 승인 |
 | POST | `/:id/reject` | 거절 |
 | POST | `/:id/suspend` | 테넌트 측 중지 요청 |
-| POST | `/shares` | `{ inquiryId, partnershipId, transferFee, fieldPreset?, fieldMask? }` 전달 |
+| POST | `/shares` | `{ inquiryId, partnershipId, transferFee, fieldPreset?, fieldMask? }` 접수 연계 |
 | GET | `/settlement/export` | `role`, `partnerTenantId`, `from?`, `to?` — 정산 CSV |
 | GET | `/settlement/seller-summary` | 판매자 receivable |
 | GET | `/settlement/buyer-summary` | 구매자 payable |
@@ -163,10 +163,10 @@
 
 | 위치 | 내용 |
 |------|------|
-| `관리 → 팀장·타업체` 인근 또는 신규 GNB | 「테넌트 DB 거래」 |
+| `관리 → 팀장·타업체` 인근 GNB | 「파트너 연결」 |
 | 파트너 목록·초대·승인 | slug 검색 |
-| 정산 | 판매/구매 탭 (타업체 정산 UI 복제) |
-| 접수 상세 | `ScheduleInquiryDetailModal` 정산 블록에 파트너 선택·수수료·「DB 전달」 |
+| 정산 | 「파트너 정산」 판매/구매 탭 |
+| 접수 상세 | `ScheduleInquiryDetailModal` — 파트너 선택·수수료·「접수 연계」 |
 
 **필수**: `inquiry-edit-dual-surface-sync.mdc` — 스케줄·접수 목록 **동일 모달** 동시 반영.
 
@@ -185,17 +185,17 @@
 
 **완료 기준**: A가 B slug 초대 → B 승인 → ACTIVE. 전달 버튼은 Phase 2에서 활성.
 
-### Phase 2 — DB 전달 + mirror
+### Phase 2 — 접수 연계 + mirror
 
 - [x] Prisma: `TenantInquiryShare`
 - [x] `tenantInquiryShare.service` — mirror `Inquiry` create, 독립 채번, 배지 필드
 - [x] `POST /api/tenant-partners/shares`
-- [x] 접수 상세 UI — 파트너·수수료·전달 (`ScheduleInquiryDetailModal`)
-- [x] 송신 원본 유지 + `🔗 {partner}에 전달` 배지
-- [x] 수신 `📥 {partner}에서 수신` 배지 + `sourceInquiryNumberSnapshot` 표시
+- [x] 접수 상세 UI — 파트너·수수료·접수 연계 (`ScheduleInquiryDetailModal`)
+- [x] 송신 원본 유지 + `🔗 {partner}에 연계` 배지
+- [x] 수신 `📥 {partner}에서 연계` 배지 + `sourceInquiryNumberSnapshot` 표시
 - [x] 목록·스케줄 API 응답에 `tenantShare` 메타 포함
 
-**완료 기준**: ACTIVE 파트너에게 1건 전달 → 양쪽 목록에 각각 표시, 번호 서로 다름.
+**완료 기준**: ACTIVE 파트너에게 1건 연계 → 양쪽 목록에 각각 표시, 번호 서로 다름.
 
 ### Phase 3 — 정산
 
@@ -209,14 +209,14 @@
 
 - [x] `tenantInquirySync.service` + `inquiries.routes` PATCH hook
 - [x] 화이트리스트 + `COMPLETED`/`CANCELLED` (수신→송신은 상태만)
-- [x] change log 연동 (`[테넌트DB동기화]` 접두)
+- [x] change log 연동 (`[파트너연계동기화]` 접두)
 - [x] 플랫폼 `/api/platform/tenant-partnerships` suspend/resume → sync 차단·복구
 
 ### Phase 5 — 고도화
 
-- [x] `sync_field_mask` migration + `tenantInquiryShareFields` (부분 필드 전달)
+- [x] `sync_field_mask` migration + `tenantInquiryShareFields` (부분 필드 연계)
 - [x] share 생성·PATCH 동기화에 field mask 반영 (`customer_schedule` 프리셋)
-- [x] 상담사진 cross-tenant — `tenantInquiryPhotoSync.service` (URL 공유, **전체 전달만**; 업로드·삭제 mirror 동기화)
+- [x] 상담사진 cross-tenant — `tenantInquiryPhotoSync.service` (URL 공유, **전체 연계만**; 업로드·삭제 mirror 동기화)
 - [x] 수신 알림 — `notifyTenantShareReceived` (변경 이력 DB + WS)
 - [x] `GET /settlement/export` CSV + 정산 UI 다운로드
 - [x] 접수 상세 — 「고객·일정만」체크박스
@@ -245,7 +245,7 @@
 - [ ] `schema.prisma` + migration SQL (db push 금지)
 - [ ] `npm run verify:multitenant:tenant-exchange` + `verify:multitenant:phase4`
 - [ ] server/client `tsc`
-- [ ] 스테이징: A→B 전달, B 수정→A 반영, CANCELLED 양쪽, 정산 잔액
+- [ ] 스테이징: A→B 접수 연계, B 수정→A 반영, CANCELLED 양쪽, 정산 잔액
 
 ---
 
@@ -253,9 +253,9 @@
 
 | 용어 | 의미 |
 |------|------|
-| 송신(판매) 테넌트 | DB를 넘기는 쪽 — 원본 접수 보유 |
-| 수신(구매) 테넌트 | mirror 접수를 받아 운영하는 쪽 |
-| mirror | 수신 테넌트에 생성된 복제 `Inquiry` |
+| 송신(판매) 업체 | DB를 넘기는 쪽 — 원본 접수 보유 |
+| 수신(구매) 업체 | mirror 접수를 받아 운영하는 쪽 |
+| mirror | 수신 업체 DB에 생성된 복제 `Inquiry` |
 | share | `TenantInquiryShare` 1행 |
 
 ---

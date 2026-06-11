@@ -40,7 +40,7 @@ export async function createTenantInquiryShare(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error || 'DB 전달에 실패했습니다.');
+    throw new Error((err as { error?: string }).error || '접수 연계에 실패했습니다.');
   }
   return res.json();
 }

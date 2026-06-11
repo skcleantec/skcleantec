@@ -13,7 +13,7 @@ export const TENANT_FEATURE_MODULES = {
   mod_payroll: { label: '급여·정산', tier: 'premium' as const, defaultOn: false },
   mod_e_contract: { label: '전자계약', tier: 'premium' as const, defaultOn: false },
   mod_external_co: { label: '타업체·외부정산', tier: 'standard' as const, defaultOn: true },
-  mod_tenant_exchange: { label: '테넌트 DB 거래', tier: 'standard' as const, defaultOn: false },
+  mod_tenant_exchange: { label: '파트너 접수 연계', tier: 'standard' as const, defaultOn: false },
   mod_crew: { label: '크루(현장)', tier: 'standard' as const, defaultOn: true },
   mod_team_stats: { label: '팀장 통계', tier: 'standard' as const, defaultOn: true },
 } as const;

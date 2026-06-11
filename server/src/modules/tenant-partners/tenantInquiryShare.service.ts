@@ -118,7 +118,7 @@ function buildMirrorInquiryUnchecked(
     memo: source.memo,
     claimMemo: source.claimMemo,
     status: source.status,
-    source: '테넌트DB',
+    source: '파트너연계',
     buildingType: source.buildingType,
     moveInDate: source.moveInDate,
     moveInDateUndecided: source.moveInDateUndecided,
@@ -164,7 +164,7 @@ export async function createTenantInquiryShare(opts: {
     throw new TenantInquiryShareError('파트너십을 찾을 수 없습니다.', 404);
   }
   if (partnership.status !== 'ACTIVE') {
-    throw new TenantInquiryShareError('ACTIVE 상태의 파트너에게만 DB를 전달할 수 있습니다.');
+    throw new TenantInquiryShareError('ACTIVE 상태의 파트너에게만 접수를 연계할 수 있습니다.');
   }
 
   const source = await prisma.inquiry.findFirst({
@@ -178,14 +178,14 @@ export async function createTenantInquiryShare(opts: {
     where: { sourceInquiryId: inquiryId },
   });
   if (existingAsSource) {
-    throw new TenantInquiryShareError('이미 다른 파트너에게 전달된 접수입니다.');
+    throw new TenantInquiryShareError('이미 다른 파트너에게 연계된 접수입니다.');
   }
 
   const existingAsTarget = await prisma.tenantInquiryShare.findUnique({
     where: { targetInquiryId: inquiryId },
   });
   if (existingAsTarget) {
-    throw new TenantInquiryShareError('수신된 접수는 다시 전달할 수 없습니다.');
+    throw new TenantInquiryShareError('연계받은 접수는 다시 연계할 수 없습니다.');
   }
 
   const targetTenantId =

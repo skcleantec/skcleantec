@@ -187,9 +187,9 @@ export function AdminTenantPartnerSettlementPage() {
   return (
     <div className="space-y-4 min-w-0 w-full max-w-full">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">테넌트 DB 정산</h1>
+        <h1 className="text-xl font-semibold text-gray-800">파트너 정산</h1>
         <p className="mt-1 text-sm text-gray-500">
-          DB 전달 수수료 기준(예약일)으로 파트너별 잔액을 확인하고 수금·지급을 기록합니다.
+          접수 연계 수수료(예약일 기준)로 파트너별 잔액을 확인하고 수금·지급을 기록합니다.
         </p>
       </div>
 
@@ -245,7 +245,7 @@ export function AdminTenantPartnerSettlementPage() {
           <div className="px-3 py-10 text-center text-gray-500">불러오는 중...</div>
         ) : filteredRows.length === 0 ? (
           <div className="px-3 py-10 text-center text-gray-500">
-            표시할 파트너가 없습니다. DB 전달 건이 있거나 수금·지급 이력이 있어야 합니다.
+            표시할 파트너가 없습니다. 접수 연계 건이 있거나 수금·지급 이력이 있어야 합니다.
           </div>
         ) : (
           <div className="overflow-x-auto">

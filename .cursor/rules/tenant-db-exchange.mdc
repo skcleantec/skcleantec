@@ -1,10 +1,10 @@
 ---
-description: 테넌트 간 DB 거래(Tenant DB Exchange) 구현 시 필수 — 가이드·동기화·정산·격리
+description: 파트너 접수 연계(Tenant DB Exchange) 구현 시 필수 — 가이드·동기화·정산·격리
 globs: "server/src/modules/tenant-partners/**,server/src/modules/inquiries/**,client/src/**/*TenantPartner*,client/src/**/*tenantPartner*,docs/TENANT_DB_EXCHANGE.md"
 alwaysApply: false
 ---
 
-# 테넌트 DB 거래 구현 규칙
+# 파트너 접수 연계 구현 규칙
 
 > **단일 기준 문서**: `docs/TENANT_DB_EXCHANGE.md` — 구현 전·중 반드시 읽고 합의 정책(§1)을 따른다.  
 > **격리**: `.cursor/rules/multitenant-safety.mdc` (alwaysApply)와 **중복 적용**.  
@@ -59,8 +59,9 @@ alwaysApply: false
 ## UI
 
 - 접수 상세: `ScheduleInquiryDetailModal.tsx` 정산 블록 확장 (타업체 담당과 **UI·저장 규칙 분리**).
-- 배지: 송신 `🔗 {name}에 전달`, 수신 `📥 {name}에서 수신`.
-- 정산 페이지: 타업체 정산(`AdminExternalCompaniesPage` 인근 nav) UX 맞춤.
+- 배지: 송신 `🔗 {name}에 연계`, 수신 `📥 {name}에서 연계`.
+- GNB: 「파트너 연결」·「파트너 정산」 (`AdminTenantPartnersPage`, `AdminTenantPartnerSettlementPage`).
+- 정산 페이지: 타업체 정산 UX 맞춤.
 
 ---
 

@@ -3,7 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { stampTenantShareCancelFeeDirection } from './tenantPartnerSettlement.service.js';
 import { filterKeysByShareMask, normalizeShareFieldMask } from './tenantInquiryShareFields.js';
 
-export const TENANT_SHARE_SYNC_LOG_PREFIX = '[테넌트DB동기화]';
+export const TENANT_SHARE_SYNC_LOG_PREFIX = '[파트너연계동기화]';
 
 const SYNC_WHITELIST_KEYS = [
   'customerName',

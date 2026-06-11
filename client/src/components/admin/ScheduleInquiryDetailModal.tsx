@@ -1351,7 +1351,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       });
       await onInquiryRefresh?.();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'DB 전달에 실패했습니다.');
+      alert(e instanceof Error ? e.message : '접수 연계에 실패했습니다.');
     } finally {
       setTenantShareBusy(false);
     }
@@ -2178,9 +2178,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </div>
           {!isCreate && hasTenantExchange && item ? (
             <div className="sm:col-span-2 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
-              <p className="text-xs font-semibold text-indigo-900">테넌트 DB 전달</p>
+              <p className="text-xs font-semibold text-indigo-900">파트너에 접수 연계</p>
               <p className="text-[11px] text-gray-600 leading-relaxed">
-                솔루션 가입 파트너 업체에 접수를 복제 전달합니다. 타업체 담당·수수료와 별도입니다.
+                연결된 파트너 업체 접수 목록에 같은 건을 복제합니다. 타업체 담당·수수료와 별도입니다.
               </p>
               {item.tenantShare ? (
                 <div className="space-y-1.5">
@@ -2195,13 +2195,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   ) : null}
                   {item.tenantShare.transferFee != null ? (
                     <p className="text-[11px] text-gray-600 tabular-nums">
-                      DB 거래 수수료: {item.tenantShare.transferFee.toLocaleString()}원
+                      파트너 수수료: {item.tenantShare.transferFee.toLocaleString()}원
                     </p>
                   ) : null}
                 </div>
               ) : tenantSharePartnerships.length === 0 ? (
                 <p className="text-[11px] text-gray-500">
-                  ACTIVE 파트너가 없습니다. 관리 → 테넌트 DB 거래에서 연결하세요.
+                  연결된 파트너가 없습니다. 관리 → 파트너 연결에서 초대해 주세요.
                 </p>
               ) : (
                 <>
@@ -2215,13 +2215,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                       <option value="">선택</option>
                       {tenantSharePartnerships.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.partner.name} ({p.partner.slug})
+                          {p.partner.name}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-gray-600 mb-1">DB 거래 수수료 (원)</label>
+                    <label className="block text-gray-600 mb-1">파트너 수수료 (원)</label>
                     <input
                       value={tenantShareTransferFee}
                       onChange={(e) => setTenantShareTransferFee(e.target.value)}
@@ -2238,10 +2238,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                       className="mt-0.5"
                     />
                     <span>
-                      고객·일정만 전달 (금액·메모·상담사진 제외)
+                      고객·일정만 연계 (금액·메모·상담사진 제외)
                       <span className="block text-[11px] text-gray-500 mt-0.5">
-                        체크 시 수신 mirror에 고객정보·일정만 복제되며 이후 필드 동기화도 동일 범위입니다. 상담사진은
-                        전체 전달 시에만 공유됩니다.
+                        체크 시 파트너 접수에 고객정보·일정만 복제되며 이후 동기화도 동일 범위입니다. 상담사진은 전체
+                        연계 시에만 공유됩니다.
                       </span>
                     </span>
                   </label>
@@ -2251,7 +2251,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     onClick={() => void handleTenantShare()}
                     className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {tenantShareBusy ? '전달 중…' : 'DB 전달'}
+                    {tenantShareBusy ? '연계 중…' : '접수 연계'}
                   </button>
                 </>
               )}
