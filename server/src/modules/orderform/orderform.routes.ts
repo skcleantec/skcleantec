@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
-import { reviewPaybackTokenCreateField } from '../review-payback/reviewPaybackOrderForm.js';
+import {
+  attachReviewPaybackTokensToOrderForms,
+  reviewPaybackTokenCreateField,
+} from '../review-payback/reviewPaybackOrderForm.js';
 import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
@@ -843,7 +846,8 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
         : (u.name?.trim() || u.email || u.id),
   }));
 
-  res.json({ items: list, issuers: issuerOptions, total });
+  const items = await attachReviewPaybackTokensToOrderForms(prisma, list);
+  res.json({ items, issuers: issuerOptions, total });
 });
 
 /** 관리자/마케터: 고객 제출 원본 스냅샷(제출 시점 저장 JSON). 미제출이거나 레거시면 null */

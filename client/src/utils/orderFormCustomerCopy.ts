@@ -115,7 +115,8 @@ export function buildOrderFormCustomerMessage(
 잔금 ${order.balanceAmount.toLocaleString('ko-KR')}원, 예약금 ${order.depositAmount.toLocaleString('ko-KR')}원`;
   if (reviewText) msg += `\n${reviewText}`;
   const paybackToken = order.reviewPaybackToken?.trim();
-  if (reviewText && paybackToken) {
+  // 리뷰 안내 문구(reviewEventText)와 무관하게, 발급 시 부여된 토큰이 있으면 페이백 링크를 항상 포함한다.
+  if (paybackToken) {
     const paybackLink = getReviewPaybackPublicUrl(paybackToken, origin, tenantSlug, brandSlug);
     msg += `\n\n${buildReviewPaybackMessageBlock(paybackLink)}`;
   }
