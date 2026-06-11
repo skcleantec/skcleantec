@@ -549,6 +549,20 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
   }, [order, form.preferredTime, form.preferredTimeDetail]);
 
+  /** 주소 검색 전 상세주소만 입력하는 경우 방지 */
+  useEffect(() => {
+    if (isEditor || addressConfirmedViaSearch) return;
+    const pm = order?.prefillAnswers as Record<string, unknown> | null | undefined;
+    const detailLocked =
+      pm != null &&
+      typeof pm.addressDetail === 'string' &&
+      pm.addressDetail.trim().length > 0;
+    if (detailLocked) return;
+    if (form.addressDetail) {
+      setForm((f) => ({ ...f, addressDetail: '' }));
+    }
+  }, [isEditor, addressConfirmedViaSearch, order?.prefillAnswers, form.addressDetail]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
@@ -573,6 +587,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       }
       if (!prefillLocked('addressDetail') && !form.addressDetail.trim()) {
         throw new Error('상세주소를 입력해 주세요.');
+      }
+      if (
+        !isEditor &&
+        !addressConfirmedViaSearch &&
+        !prefillLocked('address') &&
+        form.addressDetail.trim()
+      ) {
+        throw new Error('「주소 검색」으로 주소를 먼저 선택한 뒤 상세주소를 입력해 주세요.');
       }
       if (!form.customerPhone?.trim()) throw new Error('대표 전화번호를 입력해주세요.');
       if (!form.customerPhoneSecondary?.trim()) throw new Error('보조 전화번호를 입력해주세요.');
@@ -900,6 +922,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const lockedInputCls = 'bg-gray-100 text-gray-500 cursor-not-allowed';
   const clsWithLock = (key: string, base: string): string =>
     lockKey(key) ? `${base} ${lockedInputCls}` : base;
+  const addressDetailFieldDisabled =
+    lockKey('addressDetail') || (!isEditor && !addressConfirmedViaSearch);
   const profLocked = lockKey('professionalOptionIds');
   const moveLocked = lockKey('moveInDate') || lockKey('moveInDateUndecided');
 
@@ -1080,13 +1104,25 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <label className="block text-xs font-medium text-gray-700 mb-1">상세주소 *</label>
             <input
               type="text"
-              className={clsWithLock('addressDetail', inputCls)}
+              className={
+                addressDetailFieldDisabled
+                  ? `${inputCls} ${lockedInputCls}`
+                  : clsWithLock('addressDetail', inputCls)
+              }
               value={form.addressDetail}
               onChange={(e) => setForm((f) => ({ ...f, addressDetail: e.target.value }))}
-              placeholder="동·호수, 층, 상호 등"
+              placeholder={
+                addressDetailFieldDisabled && !lockKey('addressDetail')
+                  ? '먼저 「주소 검색」으로 주소를 선택해 주세요'
+                  : '동·호수, 층, 상호 등'
+              }
               autoComplete="address-line2"
-              disabled={lockKey('addressDetail')}
+              disabled={addressDetailFieldDisabled}
+              readOnly={addressDetailFieldDisabled}
             />
+            {!isEditor && !addressConfirmedViaSearch && !lockKey('addressDetail') ? (
+              <p className="mt-1 text-xs text-gray-500">주소 검색을 완료하면 상세주소를 입력할 수 있습니다.</p>
+            ) : null}
           </div>
 
           <div>
