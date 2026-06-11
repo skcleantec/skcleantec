@@ -198,17 +198,29 @@ export async function deleteEContractDefinition(
   }
 }
 
-export async function ensureEContractDraft(token: string, definitionId: string): Promise<{ draft: { id: string } }> {
+export async function ensureEContractDraft(
+  token: string,
+  definitionId: string,
+  opts?: { sourceVersionId?: string },
+): Promise<{
+  draft: { id: string; titleSnapshot?: string; bodyMarkdown?: string };
+  clonedFrom?: { id: string; publishedOrdinal: number | null };
+}> {
+  const body: { sourceVersionId?: string } = {};
+  if (opts?.sourceVersionId) body.sourceVersionId = opts.sourceVersionId;
   const res = await fetch(`${API}/admin/e-contracts/definitions/${definitionId}/draft`, {
     method: 'POST',
     headers: headers(token),
-    body: JSON.stringify({}),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '초안을 만들지 못했습니다.');
   }
-  return res.json() as Promise<{ draft: { id: string } }>;
+  return res.json() as Promise<{
+    draft: { id: string; titleSnapshot?: string; bodyMarkdown?: string };
+    clonedFrom?: { id: string; publishedOrdinal: number | null };
+  }>;
 }
 
 export async function patchEContractVersion(

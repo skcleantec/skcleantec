@@ -64,6 +64,9 @@ export function AdminEContractDefinitionPage() {
   const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
   const [publishedPreviewVersionId, setPublishedPreviewVersionId] = useState<string | null>(null);
   const [deletePublishedTarget, setDeletePublishedTarget] = useState<EContractVersionDetail | null>(null);
+  const [cloneFromTarget, setCloneFromTarget] = useState<EContractVersionDetail | null>(null);
+  const [cloneFromPublishedSelectId, setCloneFromPublishedSelectId] = useState('');
+  const [cloningFromPublished, setCloningFromPublished] = useState(false);
   const draftEditorGetHtmlRef = useRef<(() => string) | null>(null);
   const [delOpen, setDelOpen] = useState(false);
   const [delPwd, setDelPwd] = useState('');
@@ -132,6 +135,46 @@ export function AdminEContractDefinitionPage() {
     () => (def?.versions ?? []).filter((v) => v.status === 'PUBLISHED').sort((a, b) => (a.publishedOrdinal ?? 0) - (b.publishedOrdinal ?? 0)),
     [def]
   );
+
+  useEffect(() => {
+    if (publishedVersions.length === 0) {
+      setCloneFromPublishedSelectId('');
+      return;
+    }
+    setCloneFromPublishedSelectId((prev) => {
+      if (prev && publishedVersions.some((v) => v.id === prev)) return prev;
+      return publishedVersions[publishedVersions.length - 1]!.id;
+    });
+  }, [publishedVersions]);
+
+  const clonePublishedToDraftLocal = async (sourceVersionId: string) => {
+    if (!token || !definitionId) return;
+    setCloningFromPublished(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const result = await ensureEContractDraft(token, definitionId, { sourceVersionId });
+      const ord = result.clonedFrom?.publishedOrdinal;
+      setMsg(ord != null ? `v${ord} 배포본을 초안으로 불러왔습니다.` : '배포본을 초안으로 불러왔습니다.');
+      setCloneFromTarget(null);
+      setDraftId(result.draft.id);
+      if (result.draft.titleSnapshot) setDraftTitle(result.draft.titleSnapshot);
+      if (result.draft.bodyMarkdown) setDraftBody(result.draft.bodyMarkdown);
+      await loadAll();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '배포본을 초안으로 불러오지 못했습니다.');
+    } finally {
+      setCloningFromPublished(false);
+    }
+  };
+
+  const requestCloneFromPublished = (v: EContractVersionDetail) => {
+    if (draftId) {
+      setCloneFromTarget(v);
+      return;
+    }
+    void clonePublishedToDraftLocal(v.id);
+  };
 
   const ensureDraftLocal = async () => {
     if (!token || !definitionId) return;
@@ -356,8 +399,8 @@ export function AdminEContractDefinitionPage() {
       <section className="mb-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-fluid-md font-semibold text-gray-900">버전 히스토리</h2>
         <p className="mt-1 text-fluid-xs text-gray-600">
-          배포된 버전 본문은 변경되지 않습니다. 수정이 필요하면 새 초안을 만든 뒤 다시 배포하세요. 체결 내역이 없는 배포 버전만
-          본인 비밀번호 확인 후 삭제할 수 있습니다(연결된 미체결 발급 링크도 함께 제거됩니다).
+          배포된 버전 본문은 변경되지 않습니다. 수정이 필요하면 「초안으로 불러오기」로 배포본을 복사한 뒤 다시 배포하세요. 체결
+          내역이 없는 배포 버전만 본인 비밀번호 확인 후 삭제할 수 있습니다(연결된 미체결 발급 링크도 함께 제거됩니다).
         </p>
         <div className="mt-4 hidden lg:block overflow-x-auto">
           <table className="w-full table-fixed border border-gray-200 text-fluid-xs">
@@ -393,19 +436,29 @@ export function AdminEContractDefinitionPage() {
                   </td>
                   <td className="px-2 py-2 text-center">
                     {v.status === 'PUBLISHED' ? (
-                      v._count.submissions > 0 ? (
-                        <span className="text-fluid-2xs text-gray-400" title="체결 이력이 있어 삭제 불가">
-                          삭제 불가
-                        </span>
-                      ) : (
+                      <div className="flex flex-col items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => setDeletePublishedTarget(v)}
-                          className="text-fluid-2xs font-medium text-red-700 hover:underline"
+                          disabled={cloningFromPublished}
+                          onClick={() => requestCloneFromPublished(v)}
+                          className="text-fluid-2xs font-medium text-blue-800 hover:underline disabled:opacity-50"
                         >
-                          배포 삭제
+                          초안으로 불러오기
                         </button>
-                      )
+                        {v._count.submissions > 0 ? (
+                          <span className="text-fluid-2xs text-gray-400" title="체결 이력이 있어 삭제 불가">
+                            삭제 불가
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDeletePublishedTarget(v)}
+                            className="text-fluid-2xs font-medium text-red-700 hover:underline"
+                          >
+                            배포 삭제
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
@@ -423,14 +476,26 @@ export function AdminEContractDefinitionPage() {
                   {v.status === 'PUBLISHED' ? '배포' : '초안'}
                   {v.publishedOrdinal != null ? ` · v${v.publishedOrdinal}` : ''}
                 </div>
-                {v.status === 'PUBLISHED' && v._count.submissions === 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setDeletePublishedTarget(v)}
-                    className="shrink-0 rounded border border-red-200 bg-white px-2 py-1 text-fluid-2xs font-medium text-red-700"
-                  >
-                    배포 삭제
-                  </button>
+                {v.status === 'PUBLISHED' ? (
+                  <div className="flex shrink-0 flex-wrap gap-1">
+                    <button
+                      type="button"
+                      disabled={cloningFromPublished}
+                      onClick={() => requestCloneFromPublished(v)}
+                      className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-fluid-2xs font-medium text-blue-900 disabled:opacity-50"
+                    >
+                      초안으로 불러오기
+                    </button>
+                    {v._count.submissions === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setDeletePublishedTarget(v)}
+                        className="rounded border border-red-200 bg-white px-2 py-1 text-fluid-2xs font-medium text-red-700"
+                      >
+                        배포 삭제
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
               <div className="text-fluid-2xs text-gray-600 mt-1">
@@ -460,7 +525,41 @@ export function AdminEContractDefinitionPage() {
           ) : null}
         </div>
         {!draftId ? (
-          <p className="mt-3 text-fluid-sm text-gray-600">먼저 「새 초안 준비」를 눌러 수정할 초안을 만듭니다.</p>
+          <div className="mt-3 space-y-3">
+            <p className="text-fluid-sm text-gray-600">
+              「새 초안 준비」로 빈 초안을 만들거나, 아래에서 배포본을 골라 불러올 수 있습니다.
+            </p>
+            {publishedVersions.length > 0 ? (
+              <div className="flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3">
+                <div className="min-w-[12rem] flex-1">
+                  <label className="block text-fluid-xs font-medium text-gray-700">배포본에서 시작</label>
+                  <select
+                    value={cloneFromPublishedSelectId}
+                    onChange={(e) => setCloneFromPublishedSelectId(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
+                  >
+                    {publishedVersions
+                      .slice()
+                      .reverse()
+                      .map((v) => (
+                        <option key={v.id} value={v.id}>
+                          v{v.publishedOrdinal} — {v.titleSnapshot.slice(0, 48)}
+                          {v.titleSnapshot.length > 48 ? '…' : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  disabled={!cloneFromPublishedSelectId || cloningFromPublished}
+                  onClick={() => void clonePublishedToDraftLocal(cloneFromPublishedSelectId)}
+                  className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-fluid-xs font-medium text-blue-900 disabled:opacity-50"
+                >
+                  {cloningFromPublished ? '불러오는 중…' : '배포본 불러오기'}
+                </button>
+              </div>
+            ) : null}
+          </div>
         ) : (
           <div className="mt-4 space-y-4">
             <div>
@@ -759,13 +858,23 @@ export function AdminEContractDefinitionPage() {
               {v.contentHash ? (
                 <div className="mt-1 break-all font-mono text-fluid-2xs text-gray-500">{v.contentHash}</div>
               ) : null}
-              <button
-                type="button"
-                onClick={() => setPublishedPreviewVersionId(v.id)}
-                className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-fluid-2xs font-medium text-blue-900 hover:bg-blue-100"
-              >
-                배포본 미리보기
-              </button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPublishedPreviewVersionId(v.id)}
+                  className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-fluid-2xs font-medium text-blue-900 hover:bg-blue-100"
+                >
+                  배포본 미리보기
+                </button>
+                <button
+                  type="button"
+                  disabled={cloningFromPublished}
+                  onClick={() => requestCloneFromPublished(v)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-fluid-2xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  초안으로 불러오기
+                </button>
+              </div>
             </div>
           ))}
           {publishedVersions.length === 0 ? (
@@ -820,6 +929,45 @@ export function AdminEContractDefinitionPage() {
           </div>
         )}
       </section>
+
+      {cloneFromTarget ? (
+        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 p-4">
+          <div
+            role="dialog"
+            aria-labelledby="clone-draft-title"
+            className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-5 shadow-lg"
+          >
+            <h3 id="clone-draft-title" className="text-fluid-md font-semibold text-gray-900">
+              초안 덮어쓰기
+            </h3>
+            <p className="mt-2 text-fluid-sm text-gray-700">
+              현재 초안 내용이{' '}
+              <span className="font-medium">
+                v{cloneFromTarget.publishedOrdinal} · {cloneFromTarget.titleSnapshot}
+              </span>
+              배포본으로 바뀝니다. 저장하지 않은 편집 내용은 사라집니다.
+            </p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCloneFromTarget(null)}
+                disabled={cloningFromPublished}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-sm text-gray-800 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={cloningFromPublished}
+                onClick={() => void clonePublishedToDraftLocal(cloneFromTarget.id)}
+                className="rounded-lg bg-gray-900 px-4 py-2 text-fluid-sm font-medium text-white disabled:opacity-50"
+              >
+                {cloningFromPublished ? '불러오는 중…' : '덮어쓰기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <ConfirmPasswordModal
         open={Boolean(deletePublishedTarget)}

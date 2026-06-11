@@ -16,6 +16,7 @@ import {
   deleteDefinitionHard,
   deleteDraft,
   deletePublishedVersion,
+  clonePublishedToDraft,
   ensureDraft,
   getDefinitionWithVersions,
   getPublishedVersionPreview,
@@ -347,11 +348,29 @@ router.get('/definitions/:id/issuances', async (req, res) => {
 
 router.post('/definitions/:id/draft', async (req, res) => {
   try {
+    const body = req.body ?? {};
+    const sourceVersionId = typeof body.sourceVersionId === 'string' ? body.sourceVersionId.trim() : '';
+    if (sourceVersionId) {
+      const result = await clonePublishedToDraft(reqTenantId(req), req.params.id, sourceVersionId);
+      res.status(201).json(result);
+      return;
+    }
     const draft = await ensureDraft(reqTenantId(req), req.params.id);
     res.status(201).json({ draft });
   } catch (e: unknown) {
-    if ((e as { code?: string })?.code === 'not_found') {
+    const code = (e as { code?: string })?.code;
+    if (code === 'not_found') {
       res.status(404).json({ error: '없습니다.' });
+      return;
+    }
+    if (code === 'not_published') {
+      res.status(400).json({ error: '배포된 버전만 초안으로 불러올 수 있습니다.' });
+      return;
+    }
+    if (code === 'empty_source_body') {
+      res.status(400).json({
+        error: '배포본에 편집 가능한 본문이 없습니다. 빈 초안으로 시작하세요.',
+      });
       return;
     }
     console.error('[e-contract] ensure draft', e);

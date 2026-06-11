@@ -211,6 +211,43 @@ export async function patchDraftVersion(
   return prisma.eContractVersion.update({ where: { id: versionId }, data });
 }
 
+/** 배포된 버전 본문·제목을 초안에 복사한다. 초안이 없으면 생성하고, 있으면 덮어쓴다. */
+export async function clonePublishedToDraft(
+  tenantId: string,
+  definitionId: string,
+  sourceVersionId: string,
+) {
+  const source = await prisma.eContractVersion.findUnique({
+    where: { id: sourceVersionId },
+    include: { definition: { select: { id: true, tenantId: true, title: true } } },
+  });
+  if (!source || source.definition.tenantId !== tenantId || source.definitionId !== definitionId) {
+    throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
+  }
+  if (source.status !== EContractVersionStatus.PUBLISHED) {
+    throw Object.assign(new Error('not_published'), { code: 'not_published' as const });
+  }
+
+  let bodyMarkdown = (source.bodyMarkdown ?? '').replace(/\r\n/g, '\n').trim();
+  if (!editorBodyHasMeaningfulContent(bodyMarkdown)) {
+    throw Object.assign(new Error('empty_source_body'), { code: 'empty_source_body' as const });
+  }
+  bodyMarkdown = stripPartyAppendixFromContractHtml(bodyMarkdown);
+
+  const titleSnapshot = (source.titleSnapshot ?? '').trim() || source.definition.title;
+
+  const draftRow = await ensureDraft(tenantId, definitionId);
+  const draft = await patchDraftVersion(tenantId, draftRow.id, { titleSnapshot, bodyMarkdown });
+
+  return {
+    draft,
+    clonedFrom: {
+      id: source.id,
+      publishedOrdinal: source.publishedOrdinal,
+    },
+  };
+}
+
 export async function publishVersion(tenantId: string, actorId: string, versionId: string) {
   const v = await prisma.eContractVersion.findUnique({
     where: { id: versionId },
