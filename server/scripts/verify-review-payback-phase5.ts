@@ -94,6 +94,7 @@ async function main() {
         bankName: '검증은행',
         accountNumber: '1234567890',
         reviewImageUrl: 'https://example.com/verify-phase5.jpg',
+        reviewImages: [{ url: 'https://example.com/verify-phase5.jpg' }],
         status: 'PENDING',
         seenAt: null,
       },

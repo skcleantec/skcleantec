@@ -353,6 +353,7 @@ interface InquiryItem {
   orderForm?: {
     id?: string;
     token?: string;
+    reviewPaybackToken?: string | null;
     totalAmount?: number | null;
     depositAmount?: number | null;
     balanceAmount?: number | null;
@@ -709,6 +710,7 @@ export function AdminInquiriesPage() {
     inquiry: InquiryItem;
     order: {
       token: string;
+      reviewPaybackToken?: string | null;
       customerName: string;
       totalAmount: number;
       depositAmount: number;
@@ -1640,6 +1642,7 @@ export function AdminInquiriesPage() {
       inquiry: item,
       order: {
         token: tk,
+        reviewPaybackToken: item.orderForm?.reviewPaybackToken ?? null,
         customerName: item.customerName,
         totalAmount: total,
         depositAmount: deposit,

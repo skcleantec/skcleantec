@@ -14,6 +14,7 @@ import {
 } from './reviewPayback.service.js';
 import { uploadReviewPaybackImageBuffer } from './reviewPayback.upload.js';
 import { notifyReviewPaybackSubmitted } from './reviewPaybackNotify.js';
+import { normalizeReviewPaybackImagesInput } from './reviewPayback.images.js';
 
 const router = Router();
 
@@ -108,13 +109,23 @@ router.post('/:token/submit', async (req, res) => {
     res.status(400).json({ error: '유효하지 않은 링크입니다.' });
     return;
   }
-  const { bankName, accountNumber, reviewImageUrl, reviewImagePublicId } = req.body as {
+  const body = req.body as {
     bankName?: string;
     accountNumber?: string;
+    reviewImages?: unknown;
     reviewImageUrl?: string;
     reviewImagePublicId?: string;
   };
-  if (!bankName?.trim() || !accountNumber?.trim() || !reviewImageUrl?.trim()) {
+  let reviewImages = normalizeReviewPaybackImagesInput(body.reviewImages);
+  if (!reviewImages && body.reviewImageUrl?.trim()) {
+    reviewImages = [
+      {
+        url: body.reviewImageUrl.trim(),
+        publicId: body.reviewImagePublicId?.trim() || null,
+      },
+    ];
+  }
+  if (!body.bankName?.trim() || !body.accountNumber?.trim() || !reviewImages?.length) {
     res.status(400).json({ error: '은행, 계좌번호, 리뷰 캡처를 모두 입력해 주세요.' });
     return;
   }
@@ -133,10 +144,9 @@ router.post('/:token/submit', async (req, res) => {
     const created = await submitReviewPaybackRequest({
       paybackToken: token,
       tenantId,
-      bankName: bankName.trim(),
-      accountNumber: accountNumber.trim(),
-      reviewImageUrl: reviewImageUrl.trim(),
-      reviewImagePublicId: reviewImagePublicId?.trim() || null,
+      bankName: body.bankName.trim(),
+      accountNumber: body.accountNumber.trim(),
+      reviewImages,
     });
     await notifyReviewPaybackSubmitted({
       tenantId: created.tenantId,

@@ -1581,6 +1581,8 @@ model ReviewPaybackRequest {
   accountNumber       String              @map("account_number")
   reviewImageUrl      String              @map("review_image_url") @db.VarChar(1024)
   reviewImagePublicId String?             @map("review_image_public_id") @db.VarChar(512)
+  /// [{ url, publicId? }] — 목록 썸네일은 reviewImageUrl(첫 장) 유지
+  reviewImages        Json                @default("[]") @map("review_images")
   status              ReviewPaybackStatus @default(PENDING)
   adminMemo           String?             @map("admin_memo") @db.Text
   handledById         String?             @map("handled_by_id")

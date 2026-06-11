@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { generateReviewPaybackToken } from './reviewPayback.token.js';
 import type { ReviewPaybackStatusCode } from './reviewPayback.constants.js';
 import { REVIEW_PAYBACK_STATUSES } from './reviewPayback.constants.js';
+import type { ReviewPaybackImageItem } from './reviewPayback.images.js';
 
 export class ReviewPaybackError extends Error {
   constructor(
@@ -61,8 +62,7 @@ export async function submitReviewPaybackRequest(params: {
   tenantId: string;
   bankName: string;
   accountNumber: string;
-  reviewImageUrl: string;
-  reviewImagePublicId?: string | null;
+  reviewImages: ReviewPaybackImageItem[];
 }) {
   const form = await findOrderFormByPaybackToken(params.paybackToken);
   if (!form || form.tenantId !== params.tenantId) {
@@ -73,6 +73,7 @@ export async function submitReviewPaybackRequest(params: {
   }
 
   const inquiryId = form.inquiries[0]?.id ?? null;
+  const first = params.reviewImages[0]!;
   return prisma.reviewPaybackRequest.create({
     data: {
       tenantId: form.tenantId,
@@ -82,8 +83,9 @@ export async function submitReviewPaybackRequest(params: {
       customerPhone: form.customerPhone,
       bankName: params.bankName.trim(),
       accountNumber: params.accountNumber.trim(),
-      reviewImageUrl: params.reviewImageUrl,
-      reviewImagePublicId: params.reviewImagePublicId ?? null,
+      reviewImageUrl: first.url,
+      reviewImagePublicId: first.publicId ?? null,
+      reviewImages: params.reviewImages,
     },
   });
 }

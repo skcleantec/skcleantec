@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   fetchReviewPaybackPublicMeta,
   submitReviewPayback,
   uploadReviewPaybackImage,
+  type ReviewPaybackImageItem,
 } from '../../api/reviewPayback';
 import { ImageThumbLightbox } from '../../components/ui/ImageThumbLightbox';
 import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
@@ -12,6 +13,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useParams } from 'react-router-dom';
 
 const DEFAULT_BRAND = '리뷰 페이백 신청';
+const BANK_OTHER = '기타';
 
 const BANK_OPTIONS = [
   '국민은행',
@@ -24,7 +26,7 @@ const BANK_OPTIONS = [
   '토스뱅크',
   '새마을금고',
   '신협',
-  '기타',
+  BANK_OTHER,
 ] as const;
 
 export function ReviewPaybackPage() {
@@ -32,10 +34,10 @@ export function ReviewPaybackPage() {
   const [brandName, setBrandName] = useState(DEFAULT_BRAND);
   const [customerName, setCustomerName] = useState('');
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
-  const [bankName, setBankName] = useState('');
+  const [bankSelect, setBankSelect] = useState('');
+  const [bankOther, setBankOther] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [imagePublicId, setImagePublicId] = useState<string | undefined>();
+  const [images, setImages] = useState<ReviewPaybackImageItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -43,6 +45,12 @@ export function ReviewPaybackPage() {
   const [loading, setLoading] = useState(true);
 
   useDocumentTitle(brandName);
+
+  const resolvedBankName = useMemo(() => {
+    if (!bankSelect) return '';
+    if (bankSelect === BANK_OTHER) return bankOther.trim();
+    return bankSelect;
+  }, [bankSelect, bankOther]);
 
   useEffect(() => {
     const slug = resolveInitialTenantSlug();
@@ -78,22 +86,25 @@ export function ReviewPaybackPage() {
   const canSubmit =
     !submitted &&
     !alreadySubmitted &&
-    bankName.trim().length > 0 &&
+    resolvedBankName.length > 0 &&
     accountNumber.trim().length > 0 &&
-    imageUrl.length > 0 &&
+    images.length > 0 &&
     !uploading &&
     !submitting;
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !token) return;
+    const files = e.target.files;
+    if (!files?.length || !token) return;
     setError(null);
     setUploading(true);
     try {
-      const prepared = await prepareImageFileForUpload(file);
-      const { url, publicId } = await uploadReviewPaybackImage(token, prepared);
-      setImageUrl(url);
-      setImagePublicId(publicId);
+      const uploaded: ReviewPaybackImageItem[] = [];
+      for (const file of Array.from(files)) {
+        const prepared = await prepareImageFileForUpload(file);
+        const { url, publicId } = await uploadReviewPaybackImage(token, prepared);
+        uploaded.push({ url, publicId: publicId ?? null });
+      }
+      setImages((prev) => [...prev, ...uploaded]);
     } catch (err) {
       setError(err instanceof Error ? err.message : '업로드에 실패했습니다.');
     } finally {
@@ -102,16 +113,19 @@ export function ReviewPaybackPage() {
     }
   };
 
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit || !token) return;
     setSubmitting(true);
     setError(null);
     try {
       await submitReviewPayback(token, {
-        bankName: bankName.trim(),
+        bankName: resolvedBankName,
         accountNumber: accountNumber.trim(),
-        reviewImageUrl: imageUrl,
-        reviewImagePublicId: imagePublicId,
+        reviewImages: images,
       });
       setSubmitted(true);
     } catch (err) {
@@ -160,11 +174,35 @@ export function ReviewPaybackPage() {
       <div className="mt-5 space-y-4">
         <div>
           <label className="mb-1 block text-fluid-sm font-medium text-gray-700">리뷰 캡처</label>
-          <input type="file" accept="image/*" onChange={handleImageChange} disabled={uploading} className="text-fluid-xs" />
+          <p className="mb-2 text-fluid-xs text-gray-500">여러 장 선택 가능합니다.</p>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageChange}
+            disabled={uploading}
+            className="text-fluid-xs"
+          />
           {uploading ? <p className="mt-1 text-fluid-xs text-gray-500">업로드 중…</p> : null}
-          {imageUrl ? (
-            <div className="mt-2">
-              <ImageThumbLightbox src={imageUrl} alt="리뷰 캡처" thumbClassName="h-24 w-auto object-contain" />
+          {images.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {images.map((img, idx) => (
+                <div key={`${img.url}-${idx}`} className="relative">
+                  <ImageThumbLightbox
+                    src={img.url}
+                    alt={`리뷰 캡처 ${idx + 1}`}
+                    thumbClassName="h-20 w-20 object-cover rounded border border-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(idx)}
+                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-[10px] text-white"
+                    aria-label="이미지 삭제"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
           ) : null}
         </div>
@@ -172,8 +210,8 @@ export function ReviewPaybackPage() {
         <div>
           <label className="mb-1 block text-fluid-sm font-medium text-gray-700">은행</label>
           <select
-            value={bankName}
-            onChange={(e) => setBankName(e.target.value)}
+            value={bankSelect}
+            onChange={(e) => setBankSelect(e.target.value)}
             className="w-full rounded border border-gray-300 px-3 py-2 text-fluid-sm"
           >
             <option value="">선택</option>
@@ -183,6 +221,15 @@ export function ReviewPaybackPage() {
               </option>
             ))}
           </select>
+          {bankSelect === BANK_OTHER ? (
+            <input
+              type="text"
+              value={bankOther}
+              onChange={(e) => setBankOther(e.target.value)}
+              placeholder="은행명을 입력해 주세요"
+              className="mt-2 w-full rounded border border-gray-300 px-3 py-2 text-fluid-sm"
+            />
+          ) : null}
         </div>
 
         <div>

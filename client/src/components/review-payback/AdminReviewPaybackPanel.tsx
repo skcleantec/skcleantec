@@ -5,6 +5,7 @@ import {
   listReviewPaybacks,
   markReviewPaybacksSeen,
   patchReviewPayback,
+  type ReviewPaybackImageItem,
   type ReviewPaybackListItem,
   type ReviewPaybackStatus,
 } from '../../api/reviewPayback';
@@ -46,6 +47,42 @@ function displayPhone(phone: string | null | undefined): string {
 
 function isUnseenRow(row: ReviewPaybackListItem): boolean {
   return row.status === 'PENDING' && !row.seenAt;
+}
+
+const STATUS_DONE_MESSAGE: Partial<Record<ReviewPaybackStatus, string>> = {
+  PAID: '입금 완료되었습니다.',
+  REJECTED: '반려되었습니다.',
+};
+
+function reviewImagesForRow(row: ReviewPaybackListItem): ReviewPaybackImageItem[] {
+  if (row.reviewImages?.length) return row.reviewImages;
+  if (row.reviewImageUrl?.trim()) return [{ url: row.reviewImageUrl }];
+  return [];
+}
+
+function ReviewCaptureThumbs({
+  images,
+  thumbClassName,
+}: {
+  images: ReviewPaybackImageItem[];
+  thumbClassName: string;
+}) {
+  if (images.length === 0) return <span className="text-gray-400">—</span>;
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1">
+      {images.map((img, idx) => (
+        <ImageThumbLightbox
+          key={`${img.url}-${idx}`}
+          src={img.url}
+          alt={`리뷰 캡처 ${idx + 1}`}
+          thumbClassName={thumbClassName}
+        />
+      ))}
+      {images.length > 1 ? (
+        <span className="text-[10px] text-gray-500 tabular-nums">{images.length}장</span>
+      ) : null}
+    </div>
+  );
 }
 
 type Props = {
@@ -137,7 +174,13 @@ export function AdminReviewPaybackPanel({ token }: Props) {
     try {
       const updated = await patchReviewPayback(token, row.id, { status, adminMemo: memoDraft.trim() || null });
       setItems((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      if (detail?.id === updated.id) setDetail(updated);
+      const doneMsg = STATUS_DONE_MESSAGE[status];
+      if (doneMsg) {
+        setDetail(null);
+        alert(doneMsg);
+      } else if (detail?.id === updated.id) {
+        setDetail(updated);
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
     } finally {
@@ -290,13 +333,12 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                         <br />
                         <span className="tabular-nums">{row.accountNumberMasked}</span>
                       </td>
-                      <td className="px-2 py-2 text-center">
-                        <ImageThumbLightbox
-                          src={row.reviewImageUrl}
-                          alt="리뷰 캡처"
-                          thumbClassName="mx-auto h-12 w-12 object-cover"
-                        />
-                      </td>
+                  <td className="px-2 py-2 text-center">
+                    <ReviewCaptureThumbs
+                      images={reviewImagesForRow(row)}
+                      thumbClassName="mx-auto h-12 w-12 object-cover"
+                    />
+                  </td>
                       <td className="px-2 py-2 text-center">
                         <span
                           className={`inline-block rounded px-2 py-0.5 text-[10px] font-medium ${statusTone(row.status)}`}
@@ -367,9 +409,8 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                   {row.bankName} · <span className="tabular-nums">{row.accountNumberMasked}</span>
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <ImageThumbLightbox
-                    src={row.reviewImageUrl}
-                    alt="리뷰 캡처"
+                  <ReviewCaptureThumbs
+                    images={reviewImagesForRow(row)}
                     thumbClassName="h-14 w-14 object-cover rounded"
                   />
                   {row.inquiry?.id ? (
@@ -410,20 +451,24 @@ export function AdminReviewPaybackPanel({ token }: Props) {
             {detail.inquiry?.inquiryNumber ? (
               <p className="mt-1 text-fluid-xs text-gray-500">접수 {detail.inquiry.inquiryNumber}</p>
             ) : null}
-            <div className="mt-3">
-              <ImageThumbLightbox
-                src={detail.reviewImageUrl}
-                alt="리뷰 캡처"
-                thumbClassName="max-h-48 w-auto object-contain"
+            <div className="mt-3 space-y-2">
+              <ReviewCaptureThumbs
+                images={reviewImagesForRow(detail)}
+                thumbClassName="max-h-40 w-auto max-w-full object-contain"
               />
-              <a
-                href={detail.reviewImageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-block text-fluid-xs text-blue-700 hover:underline"
-              >
-                원본 이미지 열기
-              </a>
+              <div className="flex flex-wrap gap-2">
+                {reviewImagesForRow(detail).map((img, idx) => (
+                  <a
+                    key={`${img.url}-${idx}`}
+                    href={img.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-fluid-xs text-blue-700 hover:underline"
+                  >
+                    원본 {idx + 1}
+                  </a>
+                ))}
+              </div>
             </div>
             <p className="mt-3 text-fluid-sm text-gray-800">
               {detail.bankName} ·{' '}

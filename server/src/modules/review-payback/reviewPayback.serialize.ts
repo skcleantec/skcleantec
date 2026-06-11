@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { maskAccountNumber } from './reviewPayback.mask.js';
+import { parseReviewImagesFromDb } from './reviewPayback.images.js';
 
 const USER_BRIEF = { id: true, name: true, email: true, role: true } as const;
 
@@ -36,6 +37,7 @@ export function serializeReviewPayback(row: ReviewPaybackWithRelations, opts?: {
     accountNumber: reveal ? row.accountNumber : maskAccountNumber(row.accountNumber),
     accountNumberMasked: maskAccountNumber(row.accountNumber),
     reviewImageUrl: row.reviewImageUrl,
+    reviewImages: parseReviewImagesFromDb(row.reviewImages, row.reviewImageUrl, row.reviewImagePublicId),
     status: row.status,
     adminMemo: row.adminMemo,
     seenAt: row.seenAt?.toISOString() ?? null,

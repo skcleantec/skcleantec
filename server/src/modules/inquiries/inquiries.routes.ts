@@ -36,6 +36,7 @@ import {
   parseProfessionalOptionIdsRaw,
 } from '../orderform/specialtyOptions.js';
 import { resolveOneRoomSpecialNotes } from '../orderform/orderFormOneRoom.js';
+import { ensureReviewPaybackToken } from '../review-payback/reviewPayback.service.js';
 import { allocateNextInquiryNumber } from './inquiryNumber.js';
 import {
   mapOperatingCompanyResolveError,
@@ -376,6 +377,7 @@ router.get('/', async (req, res) => {
       select: {
         id: true,
         token: true,
+        reviewPaybackToken: true,
         totalAmount: true,
         depositAmount: true,
         balanceAmount: true,
@@ -402,18 +404,31 @@ router.get('/', async (req, res) => {
     skip,
     include: listInclude,
   });
+  /** 레거시 발주서 — 접수 목록 메시지 복사 시 페이백 토큰 lazy 발급 */
+  const itemsWithPaybackToken = await Promise.all(
+    itemsRaw.map(async (row) => {
+      if (!row.orderForm?.id) return row;
+      const paybackToken =
+        row.orderForm.reviewPaybackToken ??
+        (await ensureReviewPaybackToken(prisma, row.orderForm.id, tenantId));
+      if (paybackToken === row.orderForm.reviewPaybackToken) return row;
+      return { ...row, orderForm: { ...row.orderForm, reviewPaybackToken: paybackToken } };
+    }),
+  );
   /** 마지막 페이지(또는 건수 < limit)면 COUNT 생략 — 로컬·원격 DB 왕복 1회 절약 */
   const total =
-    itemsRaw.length < take ? skip + itemsRaw.length : await prisma.inquiry.count({ where });
+    itemsWithPaybackToken.length < take
+      ? skip + itemsWithPaybackToken.length
+      : await prisma.inquiry.count({ where });
   // 좌표 캐시가 있는 건 즉시 반환(빠름). 신규(미좌표) 건만 백그라운드에서 카카오로 채워
   // DB에 저장 → 다음 로드부터 저장된 좌표가 즉시 표시된다.
-  const itemsWithDistance = itemsRaw.map((row) => attachDistanceFromJuanForInquiry(row));
+  const itemsWithDistance = itemsWithPaybackToken.map((row) => attachDistanceFromJuanForInquiry(row));
   const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
   res.json({
     items: mapInquiriesInternalToneForRole(itemsWithShare, user.role),
     total,
   });
-  scheduleBackgroundGeoHydrate(prisma, itemsRaw, { maxUniqueQueries: 18 });
+  scheduleBackgroundGeoHydrate(prisma, itemsWithPaybackToken, { maxUniqueQueries: 18 });
 });
 
 /** 관리자만 — 접수일(createdAt) KST 하루 단위 영구 삭제 (배정·이력·현장사진 연쇄 삭제) */

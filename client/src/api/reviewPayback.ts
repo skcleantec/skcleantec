@@ -11,6 +11,11 @@ function authHeaders(token: string) {
 
 export type ReviewPaybackStatus = 'PENDING' | 'VERIFIED' | 'PAID' | 'REJECTED';
 
+export type ReviewPaybackImageItem = {
+  url: string;
+  publicId?: string | null;
+};
+
 export type ReviewPaybackListItem = {
   id: string;
   orderFormId: string;
@@ -21,6 +26,7 @@ export type ReviewPaybackListItem = {
   accountNumber: string;
   accountNumberMasked: string;
   reviewImageUrl: string;
+  reviewImages?: ReviewPaybackImageItem[];
   status: ReviewPaybackStatus;
   adminMemo: string | null;
   seenAt: string | null;
@@ -81,7 +87,11 @@ export async function uploadReviewPaybackImage(token: string, file: File): Promi
 
 export async function submitReviewPayback(
   token: string,
-  body: { bankName: string; accountNumber: string; reviewImageUrl: string; reviewImagePublicId?: string },
+  body: {
+    bankName: string;
+    accountNumber: string;
+    reviewImages: ReviewPaybackImageItem[];
+  },
 ): Promise<{ ok: boolean; submittedAt: string }> {
   const res = await fetch(
     `${API}/public/review-payback/${encodeURIComponent(token)}/submit${publicQueryString()}`,
