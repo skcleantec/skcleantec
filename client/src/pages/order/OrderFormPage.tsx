@@ -18,7 +18,7 @@ import {
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { AddressSearch } from '../../components/forms/AddressSearch';
-import { ORDER_TIME_SLOT_OPTIONS, labelForTimeSlot, type OrderTimeSlot } from '../../constants/orderFormSchedule';
+import { ORDER_TIME_SLOT_OPTIONS, isPreferredTimeDetailRequired, labelForTimeSlot, type OrderTimeSlot } from '../../constants/orderFormSchedule';
 import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
@@ -194,6 +194,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
   const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
+  /** 고객이 「주소 검색」으로 선택했거나, 마케터가 주소를 잠근 경우 true */
+  const [addressConfirmedViaSearch, setAddressConfirmedViaSearch] = useState(false);
   const [submittedReceipt, setSubmittedReceipt] = useState<OrderFormPublicSubmitted | null>(null);
   useDocumentTitle(
     publicBranding?.displayName ||
@@ -506,6 +508,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         if (Array.isArray(pfProf) && pfProf.length > 0) {
           setProfessionalOptionIds(pfProf.map((x) => String(x)));
         }
+        const addrPrefillLocked =
+          !isEditor && typeof pf.address === 'string' && pf.address.trim().length > 0;
+        setAddressConfirmedViaSearch(addrPrefillLocked);
         const fromForm = data.professionalOptions;
         if (fromForm && fromForm.length > 0) {
           setProfessionalOptions(fromForm);
@@ -549,8 +554,26 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     if (!token) return;
     setSubmitting(true);
     try {
+      const prefillMap = order?.prefillAnswers ?? null;
+      const prefillLocked = (key: string): boolean => {
+        if (isEditor || !prefillMap) return false;
+        const v = (prefillMap as Record<string, unknown>)[key];
+        if (v == null) return false;
+        if (typeof v === 'string') return v.trim().length > 0;
+        if (Array.isArray(v)) return v.length > 0;
+        if (typeof v === 'boolean') return v === true;
+        if (typeof v === 'number') return Number.isFinite(v);
+        return false;
+      };
+
       if (!form.customerName?.trim()) throw new Error('성함을 입력해주세요.');
-      if (!form.address?.trim()) throw new Error('주소를 검색해주세요.');
+      if (!form.address?.trim()) throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
+      if (!isEditor && !prefillLocked('address') && !addressConfirmedViaSearch) {
+        throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
+      }
+      if (!prefillLocked('addressDetail') && !form.addressDetail.trim()) {
+        throw new Error('상세주소를 입력해 주세요.');
+      }
       if (!form.customerPhone?.trim()) throw new Error('대표 전화번호를 입력해주세요.');
       if (!form.customerPhoneSecondary?.trim()) throw new Error('보조 전화번호를 입력해주세요.');
       if (!form.propertyType) throw new Error('건축물 유형을 선택해주세요.');
@@ -593,6 +616,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       const useTimeDetail = detailLockedByAdmin
         ? order!.preferredTimeDetail!.trim()
         : form.preferredTimeDetail.trim() || undefined;
+      if (
+        !detailLockedByAdmin &&
+        isPreferredTimeDetailRequired(useTime) &&
+        !useTimeDetail
+      ) {
+        throw new Error('사이청소 선택 시 구체적 시각을 선택해 주세요.');
+      }
       if (
         !detailLockedByAdmin &&
         form.preferredTimeDetail.trim() &&
@@ -1027,20 +1057,34 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
 
           <div>
-            <label className={labelCls}>2. 주소 (전체 상세주소) *</label>
+            <label className={reqLabelCls}>2. 주소 *</label>
+            <p className="text-xs text-gray-600 mb-2 leading-relaxed">
+              「주소 검색」으로 도로명·지번을 선택한 뒤, 아래에 상세주소를 입력해 주세요.
+            </p>
             <AddressSearch
               value={form.address}
-              onChange={(addr) => setForm((f) => ({ ...f, address: addr }))}
+              onChange={(addr) => {
+                setAddressConfirmedViaSearch(true);
+                setForm((f) => ({ ...f, address: addr }));
+              }}
               placeholder="주소 검색"
               className="mb-2"
+              mobilePreferred
               disabled={lockKey('address')}
             />
+            {!isEditor && !lockKey('address') && form.address.trim() && !addressConfirmedViaSearch ? (
+              <p className="mb-2 text-xs text-amber-800">
+                주소가 입력되어 있어도 「주소 검색」 버튼으로 다시 선택해야 합니다.
+              </p>
+            ) : null}
+            <label className="block text-xs font-medium text-gray-700 mb-1">상세주소 *</label>
             <input
               type="text"
               className={clsWithLock('addressDetail', inputCls)}
               value={form.addressDetail}
               onChange={(e) => setForm((f) => ({ ...f, addressDetail: e.target.value }))}
-              placeholder="상세주소 (동, 호수 등)"
+              placeholder="동·호수, 층, 상호 등"
+              autoComplete="address-line2"
               disabled={lockKey('addressDetail')}
             />
           </div>
@@ -1310,7 +1354,18 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('preferredTimeDetail') && (
           <div>
-            <label className={labelCls}>7. 구체적 시각 (선택)</label>
+            <label
+              className={
+                !detailLockedByAdmin && isPreferredTimeDetailRequired(form.preferredTime)
+                  ? reqLabelCls
+                  : labelCls
+              }
+            >
+              7. 구체적 시각
+              {!detailLockedByAdmin && isPreferredTimeDetailRequired(form.preferredTime)
+                ? ' *'
+                : ' (선택)'}
+            </label>
             {detailLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
                 {order!.preferredTimeDetail}{' '}
@@ -1328,7 +1383,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   value={form.preferredTimeDetail}
                   onChange={(e) => setForm((f) => ({ ...f, preferredTimeDetail: e.target.value }))}
                 >
-                  <option value="">선택 안 함</option>
+                  <option value="">
+                    {isPreferredTimeDetailRequired(form.preferredTime) ? '선택하기 *' : '선택 안 함'}
+                  </option>
                   {getPreferredTimeDetailSelectOptions(form.preferredTime).map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
@@ -1336,7 +1393,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                  {preferredTimeDetailRangeHint(form.preferredTime)} 비워 두셔도 접수는 가능합니다.
+                  {preferredTimeDetailRangeHint(form.preferredTime)}
+                  {isPreferredTimeDetailRequired(form.preferredTime)
+                    ? ' 사이청소는 상담 내용과 동일한 시각을 반드시 선택해 주세요.'
+                    : ' 비워 두셔도 접수는 가능합니다.'}
                 </p>
               </>
             )}

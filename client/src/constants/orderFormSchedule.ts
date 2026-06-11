@@ -4,8 +4,13 @@ export type OrderTimeSlot = '오전' | '오후' | '사이청소';
 export const ORDER_TIME_SLOT_OPTIONS: { value: OrderTimeSlot; label: string }[] = [
   { value: '오전', label: '오전 (8시~9시 시작)' },
   { value: '오후', label: '오후 (12시~14시 시작)' },
-  { value: '사이청소', label: '사이청소 (이사 전·입주 사이 등)' },
+  { value: '사이청소', label: '사이청소(상담내용 동일기재)' },
 ];
+
+/** 사이청소 선택 시 구체적 시각(7번) 필수 */
+export function isPreferredTimeDetailRequired(slot: string | null | undefined): boolean {
+  return slot === '사이청소';
+}
 
 export function labelForTimeSlot(value: string | null | undefined): string {
   if (value == null || value === '') return '—';

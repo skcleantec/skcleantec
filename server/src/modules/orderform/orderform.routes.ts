@@ -61,6 +61,7 @@ import {
 } from '../orderform-templates/orderFormTemplate.service.js';
 import {
   buildPrefillFromPayload,
+  lockedKeysFromPrefill,
   overlayPrefillOntoSubmitBody,
 } from './orderFormPrefill.js';
 import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes } from './orderFormOneRoom.js';
@@ -1906,6 +1907,22 @@ router.post('/submit/:token', async (req, res) => {
   const submitTenantId = form.tenantId;
   // 마케터가 선입력(잠금)한 값은 고객 제출 본문보다 우선 — 변조 방지
   overlayPrefillOntoSubmitBody(body as unknown as Record<string, unknown>, form.prefillAnswers);
+  const prefillLockedKeys = lockedKeysFromPrefill(form.prefillAnswers);
+
+  const addressTrim = body.address != null ? String(body.address).trim() : '';
+  if (!addressTrim) {
+    res.status(400).json({ error: '「주소 검색」 버튼으로 주소를 선택해 주세요.' });
+    return;
+  }
+  if (!prefillLockedKeys.has('addressDetail')) {
+    const addressDetailTrim =
+      body.addressDetail != null ? String(body.addressDetail).trim() : '';
+    if (!addressDetailTrim) {
+      res.status(400).json({ error: '상세주소를 입력해 주세요.' });
+      return;
+    }
+  }
+
   const rawIds = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
   const professionalIds = await filterActiveProfessionalOptionIds(prisma, submitTenantId, rawIds);
   const isOneRoom = parseIsOneRoomFlag(body.isOneRoom);
@@ -2020,6 +2037,11 @@ router.post('/submit/:token', async (req, res) => {
     res.status(400).json({
       error: '구체적 시각을 해당 시간대에서 허용되는 범위로 선택해 주세요.',
     });
+    return;
+  }
+
+  if (!adminDetailLocked && useTimeStr === '사이청소' && !useDetailStr) {
+    res.status(400).json({ error: '사이청소 선택 시 구체적 시각을 선택해 주세요.' });
     return;
   }
 
