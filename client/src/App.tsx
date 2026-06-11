@@ -29,6 +29,8 @@ import { TeamEContractListPage } from './pages/team/TeamEContractListPage';
 import { OrderFormPage, OrderFormPrefillEditorPage } from './pages/order/OrderFormPage';
 import { OrderInfoPage } from './pages/order/OrderInfoPage';
 import { CsReportPage } from './pages/cs/CsReportPage';
+import { ReviewPaybackPage } from './pages/review-payback/ReviewPaybackPage';
+import { AdminReviewPaybackPage } from './pages/admin/AdminReviewPaybackPage';
 import { AdminCsPage } from './pages/admin/AdminCsPage';
 import { AdminAdvertisingPage } from './pages/admin/AdminAdvertisingPage';
 import { AdminAdvertisingSettingsPage } from './pages/admin/AdminAdvertisingSettingsPage';
@@ -99,6 +101,7 @@ function App() {
           <Route path="inquiries" element={<AdminInquiriesLayout />}>
             <Route index element={<AdminInquiriesPage />} />
             <Route path="followup" element={<AdminOrderFormPage />} />
+            <Route path="review-payback" element={<AdminReviewPaybackPage />} />
             <Route path="order-forms" element={<AdminOrderFormPage />} />
             <Route path="order-issue" element={<AdminOrderFormPage />} />
             <Route
@@ -171,6 +174,7 @@ function App() {
         <Route path="/order/:token" element={<OrderFormPage />} />
         <Route path="/info" element={<OrderInfoPage />} />
         <Route path="/cs" element={<CsReportPage />} />
+        <Route path="/review-payback/:token" element={<ReviewPaybackPage />} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
         <Route
           path="/crew"

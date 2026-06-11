@@ -4,6 +4,7 @@ import type { AdminSideNavItem } from '../components/layout/AdminSectionSideNav'
 export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
   { type: 'link', to: '/admin/inquiries', end: true, label: '접수목록' },
   { type: 'link', to: '/admin/inquiries/followup', label: '부재·보류' },
+  { type: 'link', to: '/admin/inquiries/review-payback', label: '페이백/리뷰' },
   {
     type: 'group',
     label: '발주서',

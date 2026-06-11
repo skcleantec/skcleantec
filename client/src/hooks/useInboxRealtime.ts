@@ -91,6 +91,29 @@ function parseChangeLogPayload(d: unknown): ChangeLogRtPayload | null {
   };
 }
 
+export type ReviewPaybackRtPayload = {
+  type: 'review-payback:new';
+  requestId: string;
+  customerName: string;
+  orderFormId: string;
+  inquiryId: string | null;
+  summary: string;
+};
+
+function parseReviewPaybackPayload(d: unknown): ReviewPaybackRtPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.type !== 'review-payback:new') return null;
+  return {
+    type: 'review-payback:new',
+    requestId: typeof o.requestId === 'string' ? o.requestId : '',
+    customerName: typeof o.customerName === 'string' ? o.customerName : '',
+    orderFormId: typeof o.orderFormId === 'string' ? o.orderFormId : '',
+    inquiryId: typeof o.inquiryId === 'string' ? o.inquiryId : null,
+    summary: typeof o.summary === 'string' ? o.summary : '',
+  };
+}
+
 type Bucket = {
   token: string;
   ws: WebSocket | null;
@@ -101,6 +124,7 @@ type Bucket = {
   celebrationListeners: Set<(p: InquiryCelebratePayload) => void>;
   rosterAckListeners: Set<(p: RosterAckPayload) => void>;
   changeLogListeners: Set<(p: ChangeLogRtPayload) => void>;
+  reviewPaybackListeners: Set<(p: ReviewPaybackRtPayload) => void>;
 };
 
 const buckets = new Map<string, Bucket>();
@@ -110,7 +134,8 @@ function bucketHasSubscribers(bucket: Bucket): boolean {
     bucket.refreshListeners.size > 0 ||
     bucket.celebrationListeners.size > 0 ||
     bucket.rosterAckListeners.size > 0 ||
-    bucket.changeLogListeners.size > 0
+    bucket.changeLogListeners.size > 0 ||
+    bucket.reviewPaybackListeners.size > 0
   );
 }
 
@@ -177,6 +202,16 @@ function connectBucket(bucket: Bucket) {
         for (const fn of bucket.changeLogListeners) {
           try {
             fn(changeLog);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      const reviewPayback = parseReviewPaybackPayload(data);
+      if (reviewPayback) {
+        for (const fn of bucket.reviewPaybackListeners) {
+          try {
+            fn(reviewPayback);
           } catch {
             /* ignore */
           }
@@ -278,6 +313,7 @@ export function useInboxRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        reviewPaybackListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -361,6 +397,7 @@ export function useInquiryCelebrateRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        reviewPaybackListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -437,6 +474,7 @@ export function useRosterAckRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        reviewPaybackListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -492,6 +530,7 @@ export function useChangeLogRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        reviewPaybackListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -508,6 +547,56 @@ export function useChangeLogRealtime(
       const bucket = buckets.get(token);
       if (bucket) {
         bucket.changeLogListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}
+
+/** 스태프: 페이백/리뷰 신규 신청 WS 토스트·배지 갱신 */
+export function useReviewPaybackRealtime(
+  token: string | null,
+  onReviewPayback: (p: ReviewPaybackRtPayload) => void,
+  enabled: boolean,
+): void {
+  const onRef = useRef(onReviewPayback);
+  useEffect(() => {
+    onRef.current = onReviewPayback;
+  });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
+        reviewPaybackListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: ReviewPaybackRtPayload) => onRef.current(p);
+    b.reviewPaybackListeners.add(listener);
+    const noopConn = () => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.reviewPaybackListeners.delete(listener);
         bucket.connectionListeners.delete(noopConn);
       }
       destroyBucketIfIdle(token);

@@ -48,6 +48,8 @@ export type AdminSideNavLink = {
   label: string;
   end?: boolean;
   title?: string;
+  /** 미확인 건수 등 — 0이면 숨김 */
+  badge?: number;
 };
 
 export type AdminSideNavGroup = {
@@ -112,10 +114,21 @@ export function AdminSectionSideNav({ items, 'aria-label': ariaLabel, className 
                 <NavLink
                   to={item.to}
                   end={item.end}
-                  title={item.title ?? item.label}
+                  title={
+                    item.badge && item.badge > 0
+                      ? `${item.title ?? item.label} (미확인 ${item.badge}건)`
+                      : (item.title ?? item.label)
+                  }
                   className={({ isActive }) => topLinkClassName(isActive)}
                 >
-                  {item.label}
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <span className="truncate">{item.label}</span>
+                    {item.badge && item.badge > 0 ? (
+                      <span className="shrink-0 rounded-full bg-red-600 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-white">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    ) : null}
+                  </span>
                 </NavLink>
               </li>
             );

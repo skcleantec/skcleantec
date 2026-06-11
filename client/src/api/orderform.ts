@@ -18,6 +18,7 @@ export interface OrderFormCreatedBy {
 export interface OrderForm {
   id: string;
   token: string;
+  reviewPaybackToken?: string | null;
   customerName: string;
   /** 발급 시 입력(선택) — 고객 발주서 전화란 프리필 */
   customerPhone?: string | null;

@@ -19,6 +19,22 @@ if (fs.existsSync(stagingEnvPath)) {
 }
 
 const databaseUrl = (process.env.DATABASE_URL ?? '').trim();
+
+/** `env.staging.template` 그대로 두면 Prisma가 "invalid port number" 로만 실패해 원인 파악이 어렵다 */
+const stagingUrlLooksLikeTemplate =
+  databaseUrl.includes('HOST.proxy.rlwy.net') ||
+  databaseUrl.includes('@HOST.') ||
+  /:PORT[/?]/.test(databaseUrl) ||
+  databaseUrl.includes('USER:PASSWORD@');
+if (fs.existsSync(stagingEnvPath) && stagingUrlLooksLikeTemplate) {
+  console.error(
+    '[env] server/.env.staging 의 DATABASE_URL이 아직 템플릿(USER/HOST/PORT)입니다.',
+  );
+  console.error(
+    '[env] Railway staging → Postgres → Connect 에서 *.proxy.rlwy.net URL을 복사해 넣고 API를 재시작하세요. (STAGING_SETUP.md)',
+  );
+}
+
 if (process.env.NODE_ENV !== 'production' && databaseUrl.includes('@localhost:5432')) {
   if (!fs.existsSync(stagingEnvPath)) {
     console.warn(

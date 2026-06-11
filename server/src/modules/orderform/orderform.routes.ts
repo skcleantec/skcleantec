@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
+import { reviewPaybackTokenCreateField } from '../review-payback/reviewPaybackOrderForm.js';
 import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
@@ -739,6 +740,7 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
         balanceAmount,
         createdById,
         ...templatePatch,
+        ...reviewPaybackTokenCreateField(),
       },
     });
   }
@@ -1068,6 +1070,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
             areaBasis: issueAreaBasis,
             createdById: userId,
             ...templateData,
+            ...reviewPaybackTokenCreateField(),
           },
         });
         const linkedTone = parseInternalCustomerToneInput(internalCustomerToneRaw) ?? 'NORMAL';
@@ -1139,6 +1142,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
           areaBasis: issueAreaBasis,
           createdById: userId,
           ...templateData,
+          ...reviewPaybackTokenCreateField(),
         },
       });
       await tx.inquiry.create({

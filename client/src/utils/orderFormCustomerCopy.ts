@@ -5,6 +5,7 @@ import {
   orderFormConfigLine,
 } from '../constants/orderFormConfigDefaults';
 import { appendPublicQuery } from './publicTenantQuery';
+import { buildReviewPaybackMessageBlock, getReviewPaybackPublicUrl } from './reviewPaybackCustomerCopy';
 
 type FormMsgDefaultKey = keyof typeof ORDER_FORM_CONFIG_DEFAULTS;
 
@@ -86,6 +87,7 @@ export function buildOrderFormCustomerMessage(
   msgConfig: FormMessagesState,
   order: {
     token: string;
+    reviewPaybackToken?: string | null;
     totalAmount: number;
     depositAmount: number;
     balanceAmount: number;
@@ -112,6 +114,11 @@ export function buildOrderFormCustomerMessage(
 총 금액 ${order.totalAmount.toLocaleString('ko-KR')}원 ${priceLabel}
 잔금 ${order.balanceAmount.toLocaleString('ko-KR')}원, 예약금 ${order.depositAmount.toLocaleString('ko-KR')}원`;
   if (reviewText) msg += `\n${reviewText}`;
+  const paybackToken = order.reviewPaybackToken?.trim();
+  if (reviewText && paybackToken) {
+    const paybackLink = getReviewPaybackPublicUrl(paybackToken, origin, tenantSlug, brandSlug);
+    msg += `\n\n${buildReviewPaybackMessageBlock(paybackLink)}`;
+  }
 
   if (order.preferredDate && order.preferredTime) {
     const slotLabel =

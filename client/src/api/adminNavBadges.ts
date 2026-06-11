@@ -10,6 +10,7 @@ function authHeaders(token: string) {
 export async function getAdminNavBadges(token: string): Promise<{
   unreadCount: number;
   csPendingCount: number;
+  reviewPaybackUnseenCount: number;
 }> {
   const res = await fetch(`${API}/admin/nav-badges`, { headers: authHeaders(token) });
   if (!res.ok) throw new Error('배지 정보를 불러올 수 없습니다.');

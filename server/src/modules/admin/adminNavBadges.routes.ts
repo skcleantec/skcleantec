@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { countUnseenPending } from '../review-payback/reviewPayback.service.js';
 
 const router = Router();
 
@@ -21,13 +22,14 @@ router.get('/nav-badges', authMiddleware, adminOrMarketer, async (req, res) => {
     return;
   }
   try {
-    const [unreadCount, csPendingCount] = await Promise.all([
+    const [unreadCount, csPendingCount, reviewPaybackUnseenCount] = await Promise.all([
       prisma.message.count({
         where: { receiverId: userId, readAt: null },
       }),
       prisma.csReport.count({ where: { tenantId, status: 'RECEIVED' } }),
+      countUnseenPending(tenantId),
     ]);
-    res.json({ unreadCount, csPendingCount });
+    res.json({ unreadCount, csPendingCount, reviewPaybackUnseenCount });
   } catch (err) {
     if (isDbUnavailable(err)) {
       console.error('[nav-badges] DB unavailable:', err);

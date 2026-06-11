@@ -80,6 +80,7 @@ model Tenant {
   adChannels AdChannel[]
   teams Team[]
   orderFollowups OrderFollowup[]
+  reviewPaybackRequests ReviewPaybackRequest[]
   csReports CsReport[]
   messages Message[]
   assignments Assignment[]
@@ -389,6 +390,7 @@ model User {
   teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
   orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
+  reviewPaybacksHandled         ReviewPaybackRequest[] @relation("ReviewPaybackHandledBy")
   orderFollowupLogsAsActor      OrderFollowupLog[]     @relation("OrderFollowupLogActor")
   orderFormDeleteLogsAsActor    OrderFormDeleteLog[]   @relation("OrderFormDeleteLogActor")
   orderFormDeleteLogsAsCreator  OrderFormDeleteLog[]   @relation("OrderFormDeleteLogCreator")
@@ -923,6 +925,7 @@ model Inquiry {
   consultationPhotos InquiryConsultationPhoto[]
   csReports      CsReport[]
   orderFollowups OrderFollowup[]
+  reviewPaybackRequests ReviewPaybackRequest[]
   tenantShareAsSource TenantInquiryShare? @relation("ShareSourceInquiry")
   tenantShareAsTarget TenantInquiryShare? @relation("ShareTargetInquiry")
 
@@ -1440,10 +1443,13 @@ model OrderForm {
   template        OrderFormTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   /// 발급 시점 템플릿 버전(스냅샷)
   templateVersion Int?     @map("template_version")
+  /// 리뷰 페이백 공개 링크 토큰 — 발주서 token 과 분리
+  reviewPaybackToken String? @unique @map("review_payback_token")
 
   createdBy  User      @relation("OrderFormCreatedBy", fields: [createdById], references: [id])
   inquiries  Inquiry[]
   photos     OrderFormPhoto[]
+  reviewPaybackRequest ReviewPaybackRequest?
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
@@ -1553,6 +1559,42 @@ model OrderFollowupLog {
 
   @@index([followupId, createdAt])
   @@map("order_followup_logs")
+}
+
+/// 고객 리뷰 페이백 신청 — 발주서 1건당 1회
+enum ReviewPaybackStatus {
+  PENDING
+  VERIFIED
+  PAID
+  REJECTED
+}
+
+model ReviewPaybackRequest {
+  id                  String              @id @default(uuid())
+  tenantId            String              @map("tenant_id")
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderFormId         String              @unique @map("order_form_id")
+  orderForm           OrderForm           @relation(fields: [orderFormId], references: [id], onDelete: Cascade)
+  inquiryId           String?             @map("inquiry_id")
+  inquiry             Inquiry?            @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  customerName        String              @map("customer_name")
+  customerPhone       String?             @map("customer_phone")
+  bankName            String              @map("bank_name")
+  accountNumber       String              @map("account_number")
+  reviewImageUrl      String              @map("review_image_url") @db.VarChar(1024)
+  reviewImagePublicId String?             @map("review_image_public_id") @db.VarChar(512)
+  status              ReviewPaybackStatus @default(PENDING)
+  adminMemo           String?             @map("admin_memo") @db.Text
+  handledById         String?             @map("handled_by_id")
+  handledBy           User?               @relation("ReviewPaybackHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  /// 관리자가 목록에서 확인한 시각 — 미확인 배지용
+  seenAt              DateTime?           @map("seen_at")
+  submittedAt         DateTime            @default(now()) @map("submitted_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  @@index([tenantId, status, submittedAt(sort: Desc)])
+  @@index([tenantId, seenAt, status])
+  @@map("review_payback_requests")
 }
 
 enum InquiryStatus {
