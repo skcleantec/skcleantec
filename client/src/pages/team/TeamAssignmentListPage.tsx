@@ -14,6 +14,7 @@ import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
+import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { shortTimeSlotLabel } from '../../constants/orderFormSchedule';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
@@ -83,6 +84,7 @@ function formatAssignedAt(iso?: string | null): string {
 }
 
 export function TeamAssignmentListPage() {
+  const isLgUp = useIsLgUp();
   const token = getTeamToken();
   const navigate = useNavigate();
   const location = useLocation();
@@ -258,7 +260,11 @@ export function TeamAssignmentListPage() {
     setSearchInput(appliedSearch);
   }, [appliedSearch]);
 
+  const lastSilentRefreshRef = useRef(0);
   const silentRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSilentRefreshRef.current < 4000) return;
+    lastSilentRefreshRef.current = now;
     void loadList({ silent: true });
   }, [loadList]);
 
@@ -502,11 +508,14 @@ export function TeamAssignmentListPage() {
           </div>
         ) : (
           <>
-<p className="hidden px-4 pt-3 text-fluid-xs text-gray-500 lg:block sm:px-0">
+            {isLgUp ? (
+            <p className="hidden px-4 pt-3 text-fluid-xs text-gray-500 lg:block sm:px-0">
               <TeamBiLine id="team.assign.desktopHint" koClassName="text-fluid-xs text-gray-500" />
             </p>
+            ) : null}
 
-            <div className="flex flex-col gap-3 p-3 lg:hidden">
+            {!isLgUp ? (
+            <div className="flex flex-col gap-3 p-3">
               {paginatedRows.map((item) => {
                 const mine = myAssignment(item, myId!);
                 const addrFull = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
@@ -611,8 +620,10 @@ export function TeamAssignmentListPage() {
                 );
               })}
             </div>
+            ) : null}
 
-            <div className="hidden lg:block">
+            {isLgUp ? (
+            <div>
             <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
               <table className="w-full table-fixed text-fluid-sm border-collapse min-w-[960px]">
                 <colgroup>
@@ -802,6 +813,7 @@ export function TeamAssignmentListPage() {
               </table>
             </SyncHorizontalScroll>
             </div>
+            ) : null}
             <ListPaginationBar
               mode="nav"
               page={listPage}

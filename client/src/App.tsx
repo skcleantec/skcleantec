@@ -1,3 +1,4 @@
+import { Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { TeamLayout } from './components/layout/TeamLayout';
@@ -7,65 +8,74 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { TeamProtectedRoute } from './components/auth/TeamProtectedRoute';
 import { CrewProtectedRoute } from './components/auth/CrewProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
-import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
-import { AdminInquiriesPage } from './pages/admin/AdminInquiriesPage';
 import { AdminInquiriesLayout } from './components/layout/AdminInquiriesLayout';
-import { AdminSchedulePage } from './pages/admin/AdminSchedulePage';
-import { AdminTeamLeadersPage } from './pages/admin/AdminTeamLeadersPage';
 import { AdminTeamLeadersLayout } from './components/layout/AdminTeamLeadersLayout';
-import { AdminInquiryBulkDeletePage } from './pages/admin/AdminInquiryBulkDeletePage';
-import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
-import { AdminOrderFormPage } from './pages/admin/AdminOrderFormPage';
-import { AdminOrderFormCustomerPreviewPage } from './pages/admin/AdminOrderFormCustomerPreviewPage';
-import { AdminOrderFormTemplatesPage } from './pages/admin/AdminOrderFormTemplatesPage';
-import { TeamDashboardPage } from './pages/team/TeamDashboardPage';
-import { TeamSchedulePage } from './pages/team/TeamSchedulePage';
-import { TeamMessagesPage } from './pages/team/TeamMessagesPage';
-import { TeamDayOffsPage } from './pages/team/TeamDayOffsPage';
-import { TeamCsPage } from './pages/team/TeamCsPage';
-import { TeamAssignmentListPage } from './pages/team/TeamAssignmentListPage';
-import { TeamExternalSettlementPage } from './pages/team/TeamExternalSettlementPage';
-import { TeamEContractListPage } from './pages/team/TeamEContractListPage';
-import { OrderFormPage, OrderFormPrefillEditorPage } from './pages/order/OrderFormPage';
-import { OrderInfoPage } from './pages/order/OrderInfoPage';
-import { CsReportPage } from './pages/cs/CsReportPage';
-import { ReviewPaybackPage } from './pages/review-payback/ReviewPaybackPage';
-import { AdminReviewPaybackPage } from './pages/admin/AdminReviewPaybackPage';
-import { AdminCsPage } from './pages/admin/AdminCsPage';
-import { AdminAdvertisingPage } from './pages/admin/AdminAdvertisingPage';
-import { AdminAdvertisingSettingsPage } from './pages/admin/AdminAdvertisingSettingsPage';
 import { AdminAdvertisingLayout } from './components/layout/AdminAdvertisingLayout';
-import { AdminTeamsPage } from './pages/admin/AdminTeamsPage';
-import { AdminTeamHolidayCalendarPage } from './pages/admin/AdminTeamHolidayCalendarPage';
-import { AdminTeamLeaderStatsPage } from './pages/admin/AdminTeamLeaderStatsPage';
-import { AdminExternalCompaniesPage } from './pages/admin/AdminExternalCompaniesPage';
-import { AdminTenantPartnersPage } from './pages/admin/AdminTenantPartnersPage';
-import { AdminTenantPartnerSettlementPage } from './pages/admin/AdminTenantPartnerSettlementPage';
-import { AdminOperatingCompaniesPage } from './pages/admin/AdminOperatingCompaniesPage';
-import { AdminOperatingCompanyPolicyPage } from './pages/admin/AdminOperatingCompanyPolicyPage';
-import { AdminExternalSettlementPage } from './pages/admin/AdminExternalSettlementPage';
-import { AdminPageSettingsPage } from './pages/admin/AdminPageSettingsPage';
-import { AdminPayrollPage } from './pages/admin/AdminPayrollPage';
 import { AdminEContractLayout } from './components/layout/AdminEContractLayout';
-import { AdminEContractListPage } from './pages/admin/AdminEContractListPage';
-import { AdminEContractDefinitionPage } from './pages/admin/AdminEContractDefinitionPage';
-import { AdminEContractFieldSettingsPage } from './pages/admin/AdminEContractFieldSettingsPage';
-import { AdminEContractIssuerProfilePage } from './pages/admin/AdminEContractIssuerProfilePage';
-import { AdminEContractTeamOverviewPage } from './pages/admin/AdminEContractTeamOverviewPage';
-import { EContractPublicSignPage } from './pages/public/EContractPublicSignPage';
-import { CrewHomePage } from './pages/crew/CrewHomePage';
 import { CrewRosterLayout } from './pages/crew/CrewRosterLayout';
-import { CrewRosterCalendarPage } from './pages/crew/CrewRosterCalendarPage';
-import { CrewRosterDayPage } from './pages/crew/CrewRosterDayPage';
-import { CrewFieldSchedulePage } from './pages/crew/CrewFieldSchedulePage';
-import { CrewSettingsPage } from './pages/crew/CrewSettingsPage';
-import { CrewSettlementPage, CrewExpensesRedirect } from './pages/crew/CrewSettlementPage';
 import { PlatformProtectedRoute } from './components/auth/PlatformProtectedRoute';
 import { PlatformLayout } from './components/layout/PlatformLayout';
 import { PlatformLoginPage } from './pages/platform/PlatformLoginPage';
-import { PlatformTenantListPage } from './pages/platform/PlatformTenantListPage';
-import { PlatformTenantCreatePage } from './pages/platform/PlatformTenantCreatePage';
-import { PlatformTenantDetailPage } from './pages/platform/PlatformTenantDetailPage';
+import { RoutePageFallback } from './components/ui/RoutePageFallback';
+import {
+  AdminDashboardPage,
+  AdminInquiriesPage,
+  AdminSchedulePage,
+  AdminTeamLeadersPage,
+  AdminInquiryBulkDeletePage,
+  AdminMessagesPage,
+  AdminOrderFormPage,
+  AdminOrderFormCustomerPreviewPage,
+  AdminOrderFormTemplatesPage,
+  TeamDashboardPage,
+  TeamSchedulePage,
+  TeamMessagesPage,
+  TeamDayOffsPage,
+  TeamCsPage,
+  TeamAssignmentListPage,
+  TeamExternalSettlementPage,
+  TeamEContractListPage,
+  OrderFormPage,
+  OrderFormPrefillEditorPage,
+  OrderInfoPage,
+  CsReportPage,
+  ReviewPaybackPage,
+  AdminReviewPaybackPage,
+  AdminCsPage,
+  AdminAdvertisingPage,
+  AdminAdvertisingSettingsPage,
+  AdminTeamsPage,
+  AdminTeamHolidayCalendarPage,
+  AdminTeamLeaderStatsPage,
+  AdminExternalCompaniesPage,
+  AdminTenantPartnersPage,
+  AdminTenantPartnerSettlementPage,
+  AdminOperatingCompaniesPage,
+  AdminOperatingCompanyPolicyPage,
+  AdminExternalSettlementPage,
+  AdminPageSettingsPage,
+  AdminPayrollPage,
+  AdminEContractListPage,
+  AdminEContractDefinitionPage,
+  AdminEContractFieldSettingsPage,
+  AdminEContractIssuerProfilePage,
+  AdminEContractTeamOverviewPage,
+  EContractPublicSignPage,
+  CrewHomePage,
+  CrewRosterCalendarPage,
+  CrewRosterDayPage,
+  CrewFieldSchedulePage,
+  CrewSettingsPage,
+  CrewSettlementPage,
+  CrewExpensesRedirect,
+  PlatformTenantListPage,
+  PlatformTenantCreatePage,
+  PlatformTenantDetailPage,
+} from './routes/lazyPages';
+
+function SuspensePage({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RoutePageFallback />}>{children}</Suspense>;
+}
 
 function App() {
   return (
@@ -83,9 +93,9 @@ function App() {
             </PlatformProtectedRoute>
           }
         >
-          <Route path="tenants" element={<PlatformTenantListPage />} />
-          <Route path="tenants/new" element={<PlatformTenantCreatePage />} />
-          <Route path="tenants/:id" element={<PlatformTenantDetailPage />} />
+          <Route path="tenants" element={<SuspensePage><PlatformTenantListPage /></SuspensePage>} />
+          <Route path="tenants/new" element={<SuspensePage><PlatformTenantCreatePage /></SuspensePage>} />
+          <Route path="tenants/:id" element={<SuspensePage><PlatformTenantDetailPage /></SuspensePage>} />
           <Route index element={<Navigate to="tenants" replace />} />
         </Route>
         <Route path="/admin/login" element={<Navigate to="/login" replace />} />
@@ -97,36 +107,36 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="dashboard" element={<AdminDashboardPage />} />
+          <Route path="dashboard" element={<SuspensePage><AdminDashboardPage /></SuspensePage>} />
           <Route path="inquiries" element={<AdminInquiriesLayout />}>
-            <Route index element={<AdminInquiriesPage />} />
-            <Route path="followup" element={<AdminOrderFormPage />} />
-            <Route path="review-payback" element={<AdminReviewPaybackPage />} />
-            <Route path="order-forms" element={<AdminOrderFormPage />} />
-            <Route path="order-issue" element={<AdminOrderFormPage />} />
+            <Route index element={<SuspensePage><AdminInquiriesPage /></SuspensePage>} />
+            <Route path="followup" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
+            <Route path="review-payback" element={<SuspensePage><AdminReviewPaybackPage /></SuspensePage>} />
+            <Route path="order-forms" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
+            <Route path="order-issue" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route
               path="order-settings"
               element={<Navigate to="/admin/inquiries/order-customer-preview" replace />}
             />
-            <Route path="order-templates" element={<AdminOrderFormTemplatesPage />} />
-            <Route path="order-customer-preview" element={<AdminOrderFormCustomerPreviewPage />} />
+            <Route path="order-templates" element={<SuspensePage><AdminOrderFormTemplatesPage /></SuspensePage>} />
+            <Route path="order-customer-preview" element={<SuspensePage><AdminOrderFormCustomerPreviewPage /></SuspensePage>} />
           </Route>
-          <Route path="schedule" element={<AdminSchedulePage />} />
+          <Route path="schedule" element={<SuspensePage><AdminSchedulePage /></SuspensePage>} />
           <Route path="team-leaders" element={<AdminTeamLeadersLayout />}>
-            <Route index element={<AdminTeamLeadersPage />} />
-            <Route path="team-members" element={<AdminTeamsPage />} />
-            <Route path="holiday-calendar" element={<AdminTeamHolidayCalendarPage />} />
-            <Route path="leader-stats" element={<AdminTeamLeaderStatsPage />} />
-            <Route path="page-settings" element={<AdminPageSettingsPage />} />
-            <Route path="inquiry-delete" element={<AdminInquiryBulkDeletePage />} />
-            <Route path="operating-companies" element={<AdminOperatingCompaniesPage />} />
-            <Route path="operating-policy" element={<AdminOperatingCompanyPolicyPage />} />
-            <Route path="external-companies" element={<AdminExternalCompaniesPage />} />
+            <Route index element={<SuspensePage><AdminTeamLeadersPage /></SuspensePage>} />
+            <Route path="team-members" element={<SuspensePage><AdminTeamsPage /></SuspensePage>} />
+            <Route path="holiday-calendar" element={<SuspensePage><AdminTeamHolidayCalendarPage /></SuspensePage>} />
+            <Route path="leader-stats" element={<SuspensePage><AdminTeamLeaderStatsPage /></SuspensePage>} />
+            <Route path="page-settings" element={<SuspensePage><AdminPageSettingsPage /></SuspensePage>} />
+            <Route path="inquiry-delete" element={<SuspensePage><AdminInquiryBulkDeletePage /></SuspensePage>} />
+            <Route path="operating-companies" element={<SuspensePage><AdminOperatingCompaniesPage /></SuspensePage>} />
+            <Route path="operating-policy" element={<SuspensePage><AdminOperatingCompanyPolicyPage /></SuspensePage>} />
+            <Route path="external-companies" element={<SuspensePage><AdminExternalCompaniesPage /></SuspensePage>} />
             <Route
               path="tenant-partners"
               element={
                 <FeatureGate module="mod_tenant_exchange">
-                  <AdminTenantPartnersPage />
+                  <SuspensePage><AdminTenantPartnersPage /></SuspensePage>
                 </FeatureGate>
               }
             />
@@ -134,47 +144,47 @@ function App() {
               path="tenant-partner-settlement"
               element={
                 <FeatureGate module="mod_tenant_exchange">
-                  <AdminTenantPartnerSettlementPage />
+                  <SuspensePage><AdminTenantPartnerSettlementPage /></SuspensePage>
                 </FeatureGate>
               }
             />
-            <Route path="external-settlement" element={<AdminExternalSettlementPage />} />
-            <Route path="payroll" element={<FeatureGate module="mod_payroll"><AdminPayrollPage /></FeatureGate>} />
+            <Route path="external-settlement" element={<SuspensePage><AdminExternalSettlementPage /></SuspensePage>} />
+            <Route path="payroll" element={<FeatureGate module="mod_payroll"><SuspensePage><AdminPayrollPage /></SuspensePage></FeatureGate>} />
             <Route path="e-contracts" element={<FeatureGate module="mod_e_contract"><AdminEContractLayout /></FeatureGate>}>
-              <Route index element={<AdminEContractListPage />} />
-              <Route path="field-settings" element={<AdminEContractFieldSettingsPage />} />
-              <Route path="issuer-profile" element={<AdminEContractIssuerProfilePage />} />
-              <Route path="definition/:definitionId" element={<AdminEContractDefinitionPage />} />
-              <Route path="overview" element={<AdminEContractTeamOverviewPage />} />
+              <Route index element={<SuspensePage><AdminEContractListPage /></SuspensePage>} />
+              <Route path="field-settings" element={<SuspensePage><AdminEContractFieldSettingsPage /></SuspensePage>} />
+              <Route path="issuer-profile" element={<SuspensePage><AdminEContractIssuerProfilePage /></SuspensePage>} />
+              <Route path="definition/:definitionId" element={<SuspensePage><AdminEContractDefinitionPage /></SuspensePage>} />
+              <Route path="overview" element={<SuspensePage><AdminEContractTeamOverviewPage /></SuspensePage>} />
             </Route>
           </Route>
           <Route path="teams" element={<Navigate to="/admin/team-leaders/team-members" replace />} />
           <Route path="teams/holidays" element={<Navigate to="/admin/team-leaders/holiday-calendar" replace />} />
           <Route path="teams/leader-stats" element={<Navigate to="/admin/team-leaders/leader-stats" replace />} />
-          <Route path="messages" element={<AdminMessagesPage />} />
+          <Route path="messages" element={<SuspensePage><AdminMessagesPage /></SuspensePage>} />
           <Route path="orderforms" element={<Navigate to="/admin/inquiries/order-issue" replace />} />
           <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />} />
           <Route path="orderforms/followup" element={<Navigate to="/admin/inquiries/followup" replace />} />
-          <Route path="cs" element={<FeatureGate module="mod_cs"><AdminCsPage /></FeatureGate>} />
+          <Route path="cs" element={<FeatureGate module="mod_cs"><SuspensePage><AdminCsPage /></SuspensePage></FeatureGate>} />
           <Route path="advertising" element={<FeatureGate module="mod_advertising"><AdminAdvertisingLayout /></FeatureGate>}>
-            <Route index element={<AdminAdvertisingPage />} />
-            <Route path="settings" element={<AdminAdvertisingSettingsPage />} />
+            <Route index element={<SuspensePage><AdminAdvertisingPage /></SuspensePage>} />
+            <Route path="settings" element={<SuspensePage><AdminAdvertisingSettingsPage /></SuspensePage>} />
           </Route>
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
-        <Route path="/e-contract/sign/:token" element={<EContractPublicSignPage />} />
+        <Route path="/e-contract/sign/:token" element={<SuspensePage><EContractPublicSignPage /></SuspensePage>} />
         <Route
           path="/admin/order-prefill/:orderFormId"
           element={
             <ProtectedRoute>
-              <OrderFormPrefillEditorPage />
+              <SuspensePage><OrderFormPrefillEditorPage /></SuspensePage>
             </ProtectedRoute>
           }
         />
-        <Route path="/order/:token" element={<OrderFormPage />} />
-        <Route path="/info" element={<OrderInfoPage />} />
-        <Route path="/cs" element={<CsReportPage />} />
-        <Route path="/review-payback/:token" element={<ReviewPaybackPage />} />
+        <Route path="/order/:token" element={<SuspensePage><OrderFormPage /></SuspensePage>} />
+        <Route path="/info" element={<SuspensePage><OrderInfoPage /></SuspensePage>} />
+        <Route path="/cs" element={<SuspensePage><CsReportPage /></SuspensePage>} />
+        <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
         <Route
           path="/crew"
@@ -184,15 +194,15 @@ function App() {
             </CrewProtectedRoute>
           }
         >
-          <Route index element={<CrewHomePage />} />
+          <Route index element={<SuspensePage><CrewHomePage /></SuspensePage>} />
           <Route path="roster" element={<CrewRosterLayout />}>
-            <Route index element={<CrewRosterCalendarPage />} />
-            <Route path=":ymd" element={<CrewRosterDayPage />} />
+            <Route index element={<SuspensePage><CrewRosterCalendarPage /></SuspensePage>} />
+            <Route path=":ymd" element={<SuspensePage><CrewRosterDayPage /></SuspensePage>} />
           </Route>
-          <Route path="schedule" element={<CrewFieldSchedulePage />} />
-          <Route path="settlement" element={<CrewSettlementPage />} />
-          <Route path="expenses" element={<CrewExpensesRedirect />} />
-          <Route path="settings" element={<CrewSettingsPage />} />
+          <Route path="schedule" element={<SuspensePage><CrewFieldSchedulePage /></SuspensePage>} />
+          <Route path="settlement" element={<SuspensePage><CrewSettlementPage /></SuspensePage>} />
+          <Route path="expenses" element={<SuspensePage><CrewExpensesRedirect /></SuspensePage>} />
+          <Route path="settings" element={<SuspensePage><CrewSettingsPage /></SuspensePage>} />
         </Route>
         <Route
           path="/team"
@@ -202,14 +212,14 @@ function App() {
             </TeamProtectedRoute>
           }
         >
-          <Route path="dashboard" element={<TeamDashboardPage />} />
-          <Route path="assignments" element={<TeamAssignmentListPage />} />
-          <Route path="schedule" element={<TeamSchedulePage />} />
-          <Route path="dayoffs" element={<TeamDayOffsPage />} />
-          <Route path="settlement" element={<TeamExternalSettlementPage />} />
-          <Route path="cs" element={<TeamCsPage />} />
-          <Route path="messages" element={<TeamMessagesPage />} />
-          <Route path="e-contracts" element={<TeamEContractListPage />} />
+          <Route path="dashboard" element={<SuspensePage><TeamDashboardPage /></SuspensePage>} />
+          <Route path="assignments" element={<SuspensePage><TeamAssignmentListPage /></SuspensePage>} />
+          <Route path="schedule" element={<SuspensePage><TeamSchedulePage /></SuspensePage>} />
+          <Route path="dayoffs" element={<SuspensePage><TeamDayOffsPage /></SuspensePage>} />
+          <Route path="settlement" element={<SuspensePage><TeamExternalSettlementPage /></SuspensePage>} />
+          <Route path="cs" element={<SuspensePage><TeamCsPage /></SuspensePage>} />
+          <Route path="messages" element={<SuspensePage><TeamMessagesPage /></SuspensePage>} />
+          <Route path="e-contracts" element={<SuspensePage><TeamEContractListPage /></SuspensePage>} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />

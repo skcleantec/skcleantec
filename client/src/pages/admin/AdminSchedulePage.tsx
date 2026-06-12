@@ -1538,7 +1538,7 @@ export function AdminSchedulePage() {
                         setSelectedDate(isSelected ? null : key);
                       }
                     }}
-                    className={`min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 px-2 py-1.5 flex flex-col cursor-pointer relative overflow-hidden text-left rounded-xl transition-all duration-200 ${
+                    className={`min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 px-2 py-1.5 flex flex-col cursor-pointer relative overflow-hidden text-left rounded-xl max-lg:transition-none lg:transition-all lg:duration-200 ${
                       cellBg
                     } ${deficitAccent ? 'ring-2 ring-rose-500/80 ring-inset' : ''} ${
                       pendingAccent ? 'ring-1 ring-rose-300/80 ring-inset' : ''

@@ -63,6 +63,7 @@ import { InquirySettlementPanel } from '../../components/inquiry/InquirySettleme
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
+import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } from '../../api/teams';
 import { TeamMemberSearchSelect } from '../../components/admin/TeamMemberSearchSelect';
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
@@ -558,6 +559,7 @@ function sortInquiryItemsForList(rows: InquiryItem[]): InquiryItem[] {
 
 export function AdminInquiriesPage() {
   const token = getToken();
+  const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [items, setItems] = useState<InquiryItem[]>([]);
@@ -1116,7 +1118,11 @@ export function AdminInquiriesPage() {
 
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
+  const lastInquiriesSilentRefreshRef = useRef(0);
   const refreshInquiriesSilent = useCallback(() => {
+    const now = Date.now();
+    if (now - lastInquiriesSilentRefreshRef.current < 4000) return;
+    lastInquiriesSilentRefreshRef.current = now;
     refreshRef.current(false);
   }, []);
   /** 마케터 집계는 비용이 커서 목록 새로고침마다 돌리지 않고, WS 수신 시 최대 30초에 한 번만 무음 갱신 */
@@ -2451,10 +2457,12 @@ export function AdminInquiriesPage() {
           </div>
         ) : (
           <>
-            <p className="border-b border-slate-100/80 px-4 py-2.5 text-fluid-xs text-slate-500 lg:hidden font-medium">
+            {!isLgUp ? (
+            <>
+            <p className="border-b border-slate-100/80 px-4 py-2.5 text-fluid-xs text-slate-500 font-medium">
               카드를 누르면 상세 수정 화면이 열립니다. 아래 한 줄에서 상태·빠른 배정을 바꾸고, 그 아래 작업 버튼을 쓸 수 있습니다.
             </p>
-            <div className="flex flex-col gap-3 p-3 lg:hidden">
+            <div className="flex flex-col gap-3 p-3">
               {items.map((item) => {
                 const addrFull = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
                 const addrShort = addressListShortSiGu(item.address);
@@ -2784,8 +2792,11 @@ export function AdminInquiriesPage() {
                 );
               })}
             </div>
+            </>
+            ) : null}
 
-            <div className="hidden lg:block">
+            {isLgUp ? (
+            <div>
             <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
             <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm">
               <colgroup>
@@ -3220,6 +3231,7 @@ export function AdminInquiriesPage() {
             </table>
             </SyncHorizontalScroll>
             </div>
+            ) : null}
           </>
         )}
         {!shouldShowListBlockingLoading(loading, items.length) ? (

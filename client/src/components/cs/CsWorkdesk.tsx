@@ -410,12 +410,20 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     setListPage((p) => clampListPage(p, listTotal, listPageSize));
   }, [isAdmin, listTotal, listPageSize]);
 
+  const lastCsWsRefreshRef = useRef(0);
+  const refreshCsListFromWs = useCallback(() => {
+    const now = Date.now();
+    if (now - lastCsWsRefreshRef.current < 4000) return;
+    lastCsWsRefreshRef.current = now;
+    fetchList({ withLoading: false });
+  }, [fetchList]);
+
   const { connected: csWsConnected } = useInboxRealtime(
     token,
-    () => fetchList({ withLoading: false }),
+    refreshCsListFromWs,
     Boolean(token)
   );
-  useVisibilityInterval(() => fetchList({ withLoading: false }), csWsConnected ? 0 : 15000);
+  useVisibilityInterval(refreshCsListFromWs, csWsConnected ? 0 : 15000);
 
   useEffect(() => {
     const prev = prevListQueryKeyRef.current;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   completeTeamHappyCall,
@@ -61,7 +61,11 @@ export function TeamDashboardPage() {
     void loadDashboard();
   }, [loadDashboard]);
 
+  const lastSilentRefreshRef = useRef(0);
   const silentRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSilentRefreshRef.current < 4000) return;
+    lastSilentRefreshRef.current = now;
     void loadDashboard({ silent: true });
   }, [loadDashboard]);
 
