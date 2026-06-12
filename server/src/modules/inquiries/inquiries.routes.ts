@@ -12,7 +12,10 @@ import {
   kstDayRangeYmd,
   kstMonthRangeYm,
 } from './inquiryListDateRange.js';
-import { fetchInquiryListPageSorted } from './inquiryListSort.helpers.js';
+import {
+  fetchInquiryListPageSorted,
+  whereInquiryOrderFormPendingSubmit,
+} from './inquiryListSort.helpers.js';
 import {
   buildMarketerOverview,
   buildMarketerDailyOverview,
@@ -238,21 +241,7 @@ router.get('/', async (req, res) => {
       andClauses.push(statsWhere);
     }
   } else if (range) {
-    /** 접수일 구간 + 「미제출」은 발주서 발급일이 구간 안이면 포함(예: 예전 접수에 오늘 링크 발급 시 목록에 보이게) */
-    andClauses.push({
-      OR: [
-        { createdAt: { gte: range.gte, lte: range.lte } },
-        {
-          status: 'ORDER_FORM_PENDING',
-          orderForm: {
-            is: {
-              submittedAt: null,
-              createdAt: { gte: range.gte, lte: range.lte },
-            },
-          },
-        },
-      ],
-    });
+    andClauses.push({ createdAt: { gte: range.gte, lte: range.lte } });
   }
   if (!useMarketerStatsDay && status && typeof status === 'string') {
     const raw = status.trim();
@@ -314,8 +303,7 @@ router.get('/', async (req, res) => {
     andClauses.push({ operatingCompanyId: operatingCompanyId.trim() });
   }
 
-  /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선.
-   * 미제출(링크만 발급)은 고객 예약일과 무관하게 같은 날·같은 달에 발급된 발주서면 목록에 포함(발주서 목록과 동일하게 보이게). */
+  /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선. 미제출은 pinPendingWhere 로 상단 고정. */
   if (
     !useMarketerStatsDay &&
     typeof scheduleDay === 'string' &&
@@ -324,20 +312,7 @@ router.get('/', async (req, res) => {
     const r = kstDayRangeYmd(scheduleDay.trim());
     if (r) {
       andClauses.push({
-        OR: [
-          {
-            AND: [{ preferredDate: { not: null } }, { preferredDate: { gte: r.gte, lte: r.lte } }],
-          },
-          {
-            status: 'ORDER_FORM_PENDING',
-            orderForm: {
-              is: {
-                submittedAt: null,
-                createdAt: { gte: r.gte, lte: r.lte },
-              },
-            },
-          },
-        ],
+        AND: [{ preferredDate: { not: null } }, { preferredDate: { gte: r.gte, lte: r.lte } }],
       });
     }
   } else if (
@@ -348,20 +323,7 @@ router.get('/', async (req, res) => {
     const r = kstMonthRangeYm(scheduleMonth.trim());
     if (r) {
       andClauses.push({
-        OR: [
-          {
-            AND: [{ preferredDate: { not: null } }, { preferredDate: { gte: r.gte, lte: r.lte } }],
-          },
-          {
-            status: 'ORDER_FORM_PENDING',
-            orderForm: {
-              is: {
-                submittedAt: null,
-                createdAt: { gte: r.gte, lte: r.lte },
-              },
-            },
-          },
-        ],
+        AND: [{ preferredDate: { not: null } }, { preferredDate: { gte: r.gte, lte: r.lte } }],
       });
     }
   }
@@ -398,8 +360,28 @@ router.get('/', async (req, res) => {
     : 200;
   const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
 
+  /** 마케터 집계 drill-down 제외 — 접수일·예약일·상태 등 어떤 필터여도 미제출은 목록 최상단 고정 */
+  let pinPendingWhere: Prisma.InquiryWhereInput | null = null;
+  if (!useMarketerStatsDay) {
+    const pinClauses: Prisma.InquiryWhereInput[] = [{ tenantId }, whereInquiryOrderFormPendingSubmit()];
+    if (
+      (user.role === 'ADMIN' || user.role === 'MARKETER') &&
+      typeof createdById === 'string' &&
+      createdById.trim()
+    ) {
+      const cid = createdById.trim();
+      if (cid === CREATED_BY_FILTER_UNASSIGNED) {
+        pinClauses.push({ createdById: null, orderFormId: null });
+      } else {
+        pinClauses.push(whereInquiryAttributedToMarketer(cid));
+      }
+    }
+    pinPendingWhere = { AND: pinClauses };
+  }
+
   const { items: itemsRaw, total } = await fetchInquiryListPageSorted(prisma, {
     where,
+    pinPendingWhere,
     include: listInclude,
     take,
     skip,

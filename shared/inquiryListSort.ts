@@ -1,4 +1,9 @@
-/** 서비스접수 목록 정렬 — 서버·클라이언트 동일 규칙 (`.cursor/rules/inquiry-list-sort.mdc`) */
+/**
+ * 서비스접수 목록 정렬 — 서버·클라이언트 동일 규칙 (`.cursor/rules/inquiry-list-sort.mdc`)
+ *
+ * 미제출은 서버 `pinPendingWhere` 로 **날짜·상태 필터와 무관하게** 목록 최상단에 고정된다.
+ * 이 모듈의 tier 0 은 pin 블록·본문 목록 모두에 적용되는 정렬 키이다.
+ */
 
 export type InquiryListSortable = {
   status: string;
