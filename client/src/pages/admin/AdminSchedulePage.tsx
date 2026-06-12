@@ -83,7 +83,7 @@ const adminScheduleMapIconUrl =
   (import.meta.env.VITE_ADMIN_SCHEDULE_MAP_ICON_URL ?? '').trim() || DEFAULT_ADMIN_SCHEDULE_MAP_ICON;
 
 function scheduleLegendSlotHelpText(crewUnits: number): string {
-  return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 0보다 작으면 해당 구간이 소진 건수보다 많이 잡혀 있다는 뜻입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. 사이는 발주서 옵션 건수이며 확정 시 오전 또는 오후 한 칸을 씁니다.`;
+  return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 0보다 작으면 해당 구간이 소진 건수보다 많이 잡혀 있다는 뜻입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. ⚡ 사이는 팀장·타업체 미배정 사이청소 건수이며, 배정되면 캘린더에서 사라집니다. 확정 시 오전 또는 오후 한 칸을 씁니다.`;
 }
 
 const SCHEDULE_UNASSIGNED_SECTION_HELP =
@@ -1387,7 +1387,7 @@ export function AdminSchedulePage() {
               </span>
               <span>👥 팀원 가용</span>
               <span className="font-semibold text-red-600">⚠️ 미배정</span>
-              <span className="text-violet-700">⚡ 사이청소</span>
+              <span className="text-violet-700">⚡ 사이(미배정)</span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
                 대기
@@ -1878,7 +1878,7 @@ export function AdminSchedulePage() {
                   <div className="px-3 pb-3 pt-0 border-t border-slate-100 bg-slate-50/90 text-fluid-sm space-y-2">
                     {(stats[selectedDate].sideCleaningOrderCount ?? 0) > 0 && (
                       <div>
-                        <span className="text-slate-500">사이청소 접수</span>
+                        <span className="text-slate-500">사이청소 미배정</span>
                         <span className="ml-1 font-medium text-violet-800">
                           {stats[selectedDate].sideCleaningOrderCount}건
                         </span>

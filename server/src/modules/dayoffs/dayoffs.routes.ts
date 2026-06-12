@@ -15,8 +15,8 @@ import { dateToYmdKst } from '../users/userEmployment.js';
 import {
   consumesAfternoonSlot,
   consumesMorningSlot,
+  countsForSideCleaningCalendarBadge,
   inquiryUsesInternalTeamLeaderSlot,
-  isSideCleaningPreferredTime,
 } from '../schedule/scheduleSlot.helpers.js';
 import {
   countAvailableFieldStaffByDateRange,
@@ -382,9 +382,9 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       morningOccupied: number;
       /** 오후 슬롯 소진 건수 */
       afternoonOccupied: number;
-      /** 사이청소 옵션 접수 건수(발주서). 표시용 */
+      /** 사이청소 중 팀장·타업체 미배정 건수(캘린더 ⚡ 표시용) */
       sideCleaningOrderCount: number;
-      /** 사이청소 중 오전/오후 미확정 건수 */
+      /** 위 미배정 사이청소 중 오전/오후 미확정 건수 */
       sideCleaningUnconfirmedCount: number;
       unassignedTotal: number;
       assignableMorning: number;
@@ -470,7 +470,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
     let sideCleaningOrderCount = 0;
     let sideCleaningUnconfirmedCount = 0;
     for (const inv of dayInquiries) {
-      if (isSideCleaningPreferredTime(inv.preferredTime)) {
+      if (countsForSideCleaningCalendarBadge(inv)) {
         sideCleaningOrderCount += 1;
         if (inv.betweenScheduleSlot == null || inv.betweenScheduleSlot === '') {
           sideCleaningUnconfirmedCount += 1;

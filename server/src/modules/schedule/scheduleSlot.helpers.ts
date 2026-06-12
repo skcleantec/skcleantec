@@ -60,3 +60,14 @@ export function inquiryUsesInternalTeamLeaderSlot(inv: {
   if (list.length === 0) return true;
   return list.some((a) => a.teamLeader.role === 'TEAM_LEADER');
 }
+
+/**
+ * 관리 스케쥴 캘린더 ⚡ 사이청소 배지·통계에 포함할 접수.
+ * 팀장·타업체·관리자 등 담당자가 한 명이라도 배정되면 캘린더 배지에서 제외한다.
+ */
+export function countsForSideCleaningCalendarBadge(inv: {
+  preferredTime: string | null;
+  assignments: ReadonlyArray<unknown>;
+}): boolean {
+  return isSideCleaningPreferredTime(inv.preferredTime) && inv.assignments.length === 0;
+}
