@@ -670,6 +670,9 @@ export function AdminSchedulePage() {
   const [customCalendarEditing, setCustomCalendarEditing] = useState<UserCustomCalendarItem | null>(null);
   const [customCalendarDeleting, setCustomCalendarDeleting] = useState<UserCustomCalendarItem | null>(null);
   const fetchGenRef = useRef(0);
+  /** showLoading 요청이 silent 재조회에 밀려 loading=true 에 고착되는 것 방지 */
+  const loadingFetchGenRef = useRef(0);
+  const lastSilentRefreshAtRef = useRef(0);
   /** 모바일: 캘린더 가로 스와이프 — 왼쪽 다음 달, 오른쪽 전 달 (터치 종료 후 클릭 오동작 방지) */
   const calendarSwipeTouchRef = useRef<{ x: number; y: number; id: number } | null>(null);
   const calendarSwipeSuppressClickRef = useRef(false);
@@ -686,16 +689,81 @@ export function AdminSchedulePage() {
         return;
       }
       const rid = ++fetchGenRef.current;
+      if (showLoading) {
+        loadingFetchGenRef.current = rid;
+        setLoading(true);
+      }
       const { start, end } = getMonthRange(year, month);
 
-      if (!showLoading) {
+      const finishInitialLoading = () => {
+        if (showLoading && loadingFetchGenRef.current === rid) {
+          setLoading(false);
+        }
+      };
+
+      try {
+        if (!showLoading) {
+          setLoadError(null);
+          let scheduleErr: string | null = null;
+          let statsErr: string | null = null;
+
+          const scheduleOutcome = await Promise.allSettled([getSchedule(token, start, end)]).then(
+            (r) => r[0]
+          );
+          if (rid !== fetchGenRef.current) return;
+
+          if (scheduleOutcome.status === 'fulfilled') {
+            setItems(scheduleOutcome.value.items);
+            const grouped = groupScheduleItemsByKstDate(scheduleOutcome.value.items);
+            setSelectedDate((prev) => {
+              if (prev != null) return prev;
+              return pickDefaultSelectedDate(year, month, grouped);
+            });
+          } else {
+            setItems([]);
+            scheduleErr =
+              scheduleOutcome.reason instanceof Error
+                ? scheduleOutcome.reason.message
+                : '스케줄을 불러오지 못했습니다.';
+          }
+
+          if (scheduleErr) {
+            setStats({});
+            setAsCsByDate({});
+            setStatsLoading(false);
+            setLoadError(scheduleErr);
+            return;
+          }
+
+          setStatsLoading(true);
+          const statsOutcome = await Promise.allSettled([getScheduleStats(token, start, end)]).then(
+            (r) => r[0]
+          );
+          if (rid !== fetchGenRef.current) return;
+
+          if (statsOutcome.status === 'fulfilled') {
+            setStats(statsOutcome.value.byDate);
+            setAsCsByDate(statsOutcome.value.asCsByDate ?? {});
+          } else {
+            setStats({});
+            setAsCsByDate({});
+            statsErr = '스케줄 현황(통계)을 불러오지 못했습니다. 접수 목록은 표시됩니다.';
+          }
+          setStatsLoading(false);
+
+          if (rid !== fetchGenRef.current) return;
+          if (statsErr) setLoadError(statsErr);
+          else setLoadError(null);
+          return;
+        }
+
+        setStatsLoading(false);
         setLoadError(null);
+
         let scheduleErr: string | null = null;
         let statsErr: string | null = null;
 
-        const scheduleOutcome = await Promise.allSettled([getSchedule(token, start, end)]).then(
-          (r) => r[0]
-        );
+        const scheduleOutcome = await Promise.allSettled([getSchedule(token, start, end)]).then((r) => r[0]);
         if (rid !== fetchGenRef.current) return;
 
         if (scheduleOutcome.status === 'fulfilled') {
@@ -713,6 +781,8 @@ export function AdminSchedulePage() {
               : '스케줄을 불러오지 못했습니다.';
         }
 
+        finishInitialLoading();
+
         if (scheduleErr) {
           setStats({});
           setAsCsByDate({});
@@ -722,9 +792,7 @@ export function AdminSchedulePage() {
         }
 
         setStatsLoading(true);
-        const statsOutcome = await Promise.allSettled([getScheduleStats(token, start, end)]).then(
-          (r) => r[0]
-        );
+        const statsOutcome = await Promise.allSettled([getScheduleStats(token, start, end)]).then((r) => r[0]);
         if (rid !== fetchGenRef.current) return;
 
         if (statsOutcome.status === 'fulfilled') {
@@ -738,70 +806,21 @@ export function AdminSchedulePage() {
         setStatsLoading(false);
 
         if (rid !== fetchGenRef.current) return;
-        if (statsErr) setLoadError(statsErr);
+        if (scheduleErr && statsErr) setLoadError(`${scheduleErr} ${statsErr}`);
+        else if (scheduleErr) setLoadError(scheduleErr);
+        else if (statsErr) setLoadError(statsErr);
         else setLoadError(null);
-        return;
+      } finally {
+        finishInitialLoading();
       }
-
-      setLoading(true);
-      setStatsLoading(false);
-      setLoadError(null);
-
-      let scheduleErr: string | null = null;
-      let statsErr: string | null = null;
-
-      const scheduleOutcome = await Promise.allSettled([getSchedule(token, start, end)]).then((r) => r[0]);
-      if (rid !== fetchGenRef.current) return;
-
-      if (scheduleOutcome.status === 'fulfilled') {
-        setItems(scheduleOutcome.value.items);
-        const grouped = groupScheduleItemsByKstDate(scheduleOutcome.value.items);
-        setSelectedDate((prev) => {
-          if (prev != null) return prev;
-          return pickDefaultSelectedDate(year, month, grouped);
-        });
-      } else {
-        setItems([]);
-        scheduleErr =
-          scheduleOutcome.reason instanceof Error
-            ? scheduleOutcome.reason.message
-            : '스케줄을 불러오지 못했습니다.';
-      }
-
-      setLoading(false);
-
-      if (scheduleErr) {
-        setStats({});
-        setAsCsByDate({});
-        setStatsLoading(false);
-        setLoadError(scheduleErr);
-        return;
-      }
-
-      setStatsLoading(true);
-      const statsOutcome = await Promise.allSettled([getScheduleStats(token, start, end)]).then((r) => r[0]);
-      if (rid !== fetchGenRef.current) return;
-
-      if (statsOutcome.status === 'fulfilled') {
-        setStats(statsOutcome.value.byDate);
-        setAsCsByDate(statsOutcome.value.asCsByDate ?? {});
-      } else {
-        setStats({});
-        setAsCsByDate({});
-        statsErr = '스케줄 현황(통계)을 불러오지 못했습니다. 접수 목록은 표시됩니다.';
-      }
-      setStatsLoading(false);
-
-      if (rid !== fetchGenRef.current) return;
-      if (scheduleErr && statsErr) setLoadError(`${scheduleErr} ${statsErr}`);
-      else if (scheduleErr) setLoadError(scheduleErr);
-      else if (statsErr) setLoadError(statsErr);
-      else setLoadError(null);
     },
     [token, year, month]
   );
 
   const silentRefreshSchedule = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSilentRefreshAtRef.current < 4000) return;
+    lastSilentRefreshAtRef.current = now;
     void fetchMonthData(false);
   }, [fetchMonthData]);
 

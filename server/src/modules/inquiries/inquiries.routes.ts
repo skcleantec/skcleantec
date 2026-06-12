@@ -1134,14 +1134,6 @@ router.patch('/:id', async (req, res) => {
         for (const tid of teamLeaderIds) leaderIds.add(tid);
       }
       void notifyStaffInboxRefresh(tenantId, [...leaderIds]);
-    } else if (
-      data.status !== undefined ||
-      data.preferredDate !== undefined ||
-      data.preferredTime !== undefined ||
-      data.preferredTimeDetail !== undefined
-    ) {
-      const leaderIds = inquiry.assignments.map((a) => a.teamLeaderId);
-      void notifyStaffInboxRefresh(tenantId, leaderIds);
     }
     if (lines.length > 0) {
       notifyChangeLogToStaff({ tenantId, customerName: inquiry.customerName, inquiryId: id, lines });
