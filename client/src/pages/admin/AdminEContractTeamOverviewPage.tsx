@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useSearchParams } from 'react-router-dom';
 import { AdminEContractSubmissionDetailModal } from '../../components/e-contract/AdminEContractSubmissionDetailModal';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
@@ -83,6 +85,7 @@ export function AdminEContractTeamOverviewPage() {
   const [rows, setRows] = useState<EContractSubmissionRow[]>([]);
   const [listTotal, setListTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [err, setErr] = useState<string | null>(null);
   const [submissionModalId, setSubmissionModalId] = useState<string | null>(null);
 
@@ -114,7 +117,12 @@ export function AdminEContractTeamOverviewPage() {
 
   const loadList = useCallback(async () => {
     if (!token) return;
-    setLoading(true);
+    beginListRefresh({
+      showLoading: true,
+      itemCount: rows.length,
+      setLoading,
+      preserveScroll,
+    });
     setErr(null);
     try {
       const offset = (effectivePage - 1) * listPageSize;
@@ -135,15 +143,27 @@ export function AdminEContractTeamOverviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, effectivePage, listPageSize, filterLeaderId, datePreset, monthKey, dayKey]);
+  }, [token, effectivePage, listPageSize, filterLeaderId, datePreset, monthKey, dayKey, rows.length, preserveScroll]);
+
+  const listQueryKey = useMemo(
+    () =>
+      [filterLeaderId, datePreset, monthKey, dayKey, effectivePage, listPageSize].join('\0'),
+    [filterLeaderId, datePreset, monthKey, dayKey, effectivePage, listPageSize]
+  );
+  const prevListQueryKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     void loadPickers();
   }, [loadPickers]);
 
   useEffect(() => {
+    const prev = prevListQueryKeyRef.current;
+    prevListQueryKeyRef.current = listQueryKey;
+    if (prev !== null && prev !== listQueryKey) {
+      scrollToTop();
+    }
     void loadList();
-  }, [loadList]);
+  }, [listQueryKey, loadList, scrollToTop]);
 
   const applyDatePreset = (preset: DatePreset) => {
     patchParams((next) => {
@@ -287,7 +307,7 @@ export function AdminEContractTeamOverviewPage() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-800">{err}</div>
       ) : null}
 
-      {loading ? (
+      {shouldShowListBlockingLoading(loading, rows.length) ? (
         <div className="mt-10 text-center text-fluid-sm text-gray-500">불러오는 중…</div>
       ) : rows.length === 0 ? (
         <div className="mt-10 text-center text-fluid-sm text-gray-500">표시할 체결 기록이 없습니다.</div>
@@ -389,7 +409,7 @@ export function AdminEContractTeamOverviewPage() {
             </div>
           </div>
 
-          {!loading ? (
+          {!shouldShowListBlockingLoading(loading, rows.length) ? (
             <div className="mt-4">
               <ListPaginationBar
                 mode="nav"

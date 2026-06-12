@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { getToken } from '../../stores/auth';
 import {
   getExternalSettlementCompanyDetail,
@@ -100,6 +102,7 @@ export function AdminExternalSettlementPage() {
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<ExternalSettlementCompanyOverviewRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const { preserveScroll } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<ExternalSettlementCompanyOverviewRow | null>(null);
@@ -140,7 +143,12 @@ export function AdminExternalSettlementPage() {
 
   const loadList = useCallback(async () => {
     if (!token) return;
-    setLoading(true);
+    beginListRefresh({
+      showLoading: true,
+      itemCount: rows.length,
+      setLoading,
+      preserveScroll,
+    });
     setError(null);
     try {
       const r = await getExternalSettlementCompanyOverviewList(token);
@@ -151,7 +159,7 @@ export function AdminExternalSettlementPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, rows.length, preserveScroll]);
 
   useEffect(() => {
     void loadList();
@@ -365,7 +373,7 @@ export function AdminExternalSettlementPage() {
       ) : null}
 
       <div className="rounded-lg border border-gray-200 bg-white">
-        {loading ? (
+        {shouldShowListBlockingLoading(loading, filteredRows.length) ? (
           <div className="px-3 py-10 text-center text-gray-500">불러오는 중...</div>
         ) : filteredRows.length === 0 ? (
           <div className="px-3 py-10 text-center text-gray-500">표시할 업체가 없습니다.</div>

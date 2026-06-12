@@ -425,6 +425,56 @@ hover:bg-slate-50 hover:border-slate-300
 3. [ ] PC 표 + 모바일 카드 (`lg`)
 4. [ ] URL 반영
 5. [ ] §6 테이블·`slate` 카드 톤
+6. [ ] **편집·인라인 수정 후 스크롤 유지** (§7.8)
+
+### 7.8 목록 편집 후 스크롤 유지 (필수)
+
+업무용 레이아웃(`AdminLayout`·`TeamLayout`·`CrewLayout`)은 **window가 아니라** `main.staff-app-surface`가 세로 스크롤 컨테이너다. 목록에서 상태 변경·인라인 편집·저장 후 **같은 위치에서 이어서 작업**할 수 있어야 한다.
+
+#### 원칙
+
+| 상황 | 동작 |
+|------|------|
+| **초기 로드** (`items.length === 0`) | 전체 로딩占位 (`로딩 중…`) 허용 |
+| **재조회·편집 후 갱신** (기존 행 있음) | 표/카드를 **갈아끼우지 않음** (stale-while-revalidate) + 스크롤 복원 |
+| **필터·페이지·pageSize 변경** | `scrollStaffAppToTop()` — 맨 위부터 새 조회 결과 확인 |
+| **WebSocket·폴링 silent 재조회** | `silent` / `withLoading: false` + 스크롤 복원 |
+
+#### 공통 유틸 (복사 기준)
+
+| 파일 | 역할 |
+|------|------|
+| `client/src/utils/staffAppScrollRestore.ts` | `main.staff-app-surface` scrollTop 저장·복원 |
+| `client/src/utils/listRefreshDisplay.ts` | `shouldShowListBlockingLoading`, `beginListRefresh` |
+| `client/src/hooks/useStaffAppScrollPreserve.ts` | React 페인트 후 스크롤 복원 훅 |
+
+```tsx
+const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
+
+// 재조회 시작
+beginListRefresh({
+  showLoading: true,
+  itemCount: items.length,
+  setLoading,
+  preserveScroll,
+});
+
+// JSX — 기존 행이 있으면 로딩占位로 목록 전체를 교체하지 않음
+{shouldShowListBlockingLoading(loading, items.length) ? (
+  <div>로딩 중…</div>
+) : items.length === 0 ? (
+  <div>없음</div>
+) : (
+  <>…표/카드…</>
+)}
+```
+
+편집·삭제·상태 변경 직후에는 **`load({ silent: true })`** 또는 **`refresh(false)`** 로 재조회하고, 필요 시 `preserveScroll()`을 호출한다.
+
+#### 금지
+
+- `setLoading(true)` 후 `{loading ? <로딩/> : <목록/>}` 로 **전체 목록 DOM을 제거**하는 패턴 (재조회·편집 후).
+- 편집 후 `refresh(true)`만 호출하고 stale-while-revalidate·스크롤 복원 없이 목록을 비우는 것.
 
 ---
 
@@ -508,6 +558,9 @@ hover:bg-slate-50 hover:border-slate-300
 | `client/src/pages/admin/AdminOrderFormPage.tsx` | 발주서 목록 |
 | `client/src/pages/order/OrderFormPage.tsx` | 고객 발주서 (레거시 gray — §4 이전 예정) |
 | `client/src/components/ui/ListPaginationBar.tsx` | 페이지 UI |
+| `client/src/utils/staffAppScrollRestore.ts` | 목록 스크롤 저장·복원 |
+| `client/src/utils/listRefreshDisplay.ts` | 목록 stale-while-revalidate 헬퍼 |
+| `client/src/hooks/useStaffAppScrollPreserve.ts` | 스크롤 복원 훅 |
 | `client/src/components/ui/HelpTooltip.tsx` | `?` 툴팁 |
 | `client/tailwind.config.js` | fluid 타이포 |
 

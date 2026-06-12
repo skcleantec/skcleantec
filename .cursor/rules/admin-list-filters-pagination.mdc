@@ -89,6 +89,16 @@ alwaysApply: true
 - WebSocket·실시간 갱신 시에도 **현재 필터·페이지**로 silent 재조회 (전체 화면 스피너 대신 기존 목록 유지 패턴 우선).
 - `useInboxRealtime` 등과 병행할 때 **필터가 풀리지 않게** `fetchList` 의존성에 기간·페이지를 포함한다.
 
+### 목록 편집 후 스크롤 유지 (필수)
+
+> **상세:** `docs/UI_DESIGN_GUIDE.md` **§7.8**
+
+- 스크롤 컨테이너: **`main.staff-app-surface`** (window 아님).
+- **초기 로드**만 `{loading ? 로딩占位 : 목록}` 전체 교체. **재조회·편집 후**에는 `shouldShowListBlockingLoading(loading, items.length)` — 기존 행이 있으면 표/카드 유지.
+- 공통: `useStaffAppScrollPreserve`, `beginListRefresh`, `shouldShowListBlockingLoading` (`client/src/utils/listRefreshDisplay.ts`).
+- **필터·페이지 변경** 시에만 `scrollToTop()`. 편집·상태 변경 직후는 `silent` / `refresh(false)` + 스크롤 복원.
+- **금지:** 편집 후 `setLoading(true)`로 목록 DOM 전체를 제거해 scrollTop이 0으로 리셋되는 패턴.
+
 ## 참고 구현 (복사 기준)
 
 | 항목 | 파일 |
@@ -113,3 +123,4 @@ alwaysApply: true
 3. API가 **`total` + `limit`/`offset`** 을 지원하는가?
 4. 필터·페이지가 **URL**에 반영되는가 (해당 화면이 북마크·새로고침 대상일 때)?
 5. PC 표 + 모바일 카드가 필요하면 **`.cursor/rules/responsive-ui.mdc`** 도 함께 만족하는가?
+6. **편집·인라인 수정 후** 스크롤이 맨 위로 튀지 않는가? (**§7.8**, `useStaffAppScrollPreserve`)

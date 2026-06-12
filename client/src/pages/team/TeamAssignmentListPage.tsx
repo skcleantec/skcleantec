@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
@@ -110,6 +112,7 @@ export function TeamAssignmentListPage() {
   const [listTotal, setListTotal] = useState(0);
   const [myId, setMyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
@@ -170,11 +173,20 @@ export function TeamAssignmentListPage() {
   );
 
   const loadList = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; scrollToTop?: boolean }) => {
       if (!token) return;
-      if (!opts?.silent) {
-        setLoading(true);
+      const silent = opts?.silent === true;
+      if (opts?.scrollToTop) scrollToTop();
+      if (!silent) {
+        beginListRefresh({
+          showLoading: true,
+          itemCount: items.length,
+          setLoading,
+          preserveScroll,
+        });
         setLoadError(null);
+      } else if (items.length > 0) {
+        preserveScroll();
       }
       const startedKey = capturePreviewKey();
       try {
@@ -228,12 +240,19 @@ export function TeamAssignmentListPage() {
       listPageSize,
       capturePreviewKey,
       isPreviewFetchStale,
+      items.length,
+      preserveScroll,
+      scrollToTop,
     ],
   );
 
+  const prevListQueryKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
-    void loadList();
-  }, [loadList]);
+    const prev = prevListQueryKeyRef.current;
+    prevListQueryKeyRef.current = listQueryKey;
+    void loadList({ scrollToTop: prev !== null && prev !== listQueryKey });
+  }, [loadList, listQueryKey]);
 
   useEffect(() => {
     setSearchInput(appliedSearch);
@@ -287,7 +306,7 @@ export function TeamAssignmentListPage() {
       active ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
     }`;
 
-  if (loading) {
+  if (shouldShowListBlockingLoading(loading, items.length)) {
     return (
       <div className="py-12 text-center text-gray-500 text-fluid-sm">
         <TeamBiLine id="team.common.loading" koClassName="text-fluid-sm text-gray-500" />
@@ -805,12 +824,12 @@ export function TeamAssignmentListPage() {
           onPreferredDateChange={async (preferredDate) => {
             if (!token) return;
             await patchTeamInquiryPreferredDate(token, detailItem.id, preferredDate);
-            await loadList();
+            await loadList({ silent: true });
           }}
           onHappyCallComplete={async () => {
             if (!token) return;
             await completeTeamHappyCall(token, detailItem.id);
-            await loadList();
+            await loadList({ silent: true });
           }}
         />
       )}

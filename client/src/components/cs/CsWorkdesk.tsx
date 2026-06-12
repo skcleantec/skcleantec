@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
@@ -227,6 +229,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     parseInquiryListPageSize(searchParams.get('pageSize'))
   );
   const [loading, setLoading] = useState(false);
+  const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<CsReport | null>(null);
   const [editStatus, setEditStatus] = useState('');
@@ -329,10 +332,20 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   );
 
   const fetchList = useCallback(
-    (opts?: { withLoading?: boolean }) => {
+    (opts?: { withLoading?: boolean; scrollToTop?: boolean }) => {
       if (!token) return;
       const withLoading = opts?.withLoading ?? false;
-      if (withLoading) setLoading(true);
+      if (opts?.scrollToTop) scrollToTop();
+      if (withLoading) {
+        beginListRefresh({
+          showLoading: true,
+          itemCount: items.length,
+          setLoading,
+          preserveScroll,
+        });
+      } else if (items.length > 0) {
+        preserveScroll();
+      }
       const applyRows = (rows: CsReport[]) => {
         setItems(rows);
         if (withLoading) {
@@ -382,8 +395,15 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
         })
         .finally(finish);
     },
-    [token, isAdmin, previewKey, datePreset, monthKey, dayKey, listPage, listPageSize]
+    [token, isAdmin, previewKey, datePreset, monthKey, dayKey, listPage, listPageSize, items.length, preserveScroll, scrollToTop]
   );
+
+  const listQueryKey = useMemo(
+    () =>
+      [mode, datePreset, monthKey, dayKey, listPage, listPageSize, previewKey].join('\0'),
+    [mode, datePreset, monthKey, dayKey, listPage, listPageSize, previewKey]
+  );
+  const prevListQueryKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -398,8 +418,13 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   useVisibilityInterval(() => fetchList({ withLoading: false }), csWsConnected ? 0 : 15000);
 
   useEffect(() => {
-    fetchList({ withLoading: true });
-  }, [token, mode, fetchList]);
+    const prev = prevListQueryKeyRef.current;
+    prevListQueryKeyRef.current = listQueryKey;
+    fetchList({
+      withLoading: true,
+      scrollToTop: prev !== null && prev !== listQueryKey,
+    });
+  }, [token, listQueryKey, fetchList]);
 
   useEffect(() => {
     if (mode !== 'admin' || !token) {
@@ -690,7 +715,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       )}
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden min-w-0 max-w-full">
-        {loading ? (
+        {shouldShowListBlockingLoading(loading, items.length) ? (
           <div className={`text-center text-gray-500 ${isTeam ? 'p-4 text-fluid-xs' : 'p-8 text-sm'}`}>
             불러오는 중...
           </div>

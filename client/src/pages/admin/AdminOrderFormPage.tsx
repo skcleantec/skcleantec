@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { createPortal } from 'react-dom';
 import { Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
@@ -150,6 +152,7 @@ export function AdminOrderFormPage() {
   const [listCreatedById, setListCreatedById] = useState('');
   const [listSubmitStatus, setListSubmitStatus] = useState<'all' | 'pending' | 'submitted'>('all');
   const [loading, setLoading] = useState(false);
+  const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
 
   const listFilterKey = useMemo(
@@ -243,9 +246,20 @@ export function AdminOrderFormPage() {
     })
   );
 
+  const listQueryKey = useMemo(
+    () => `${listFilterKey}\0${listPage}\0${listPageSize}`,
+    [listFilterKey, listPage, listPageSize]
+  );
+  const prevListQueryKeyRef = useRef<string | null>(null);
+
   const refreshOrderForms = useCallback(() => {
     if (!token) return;
-    setLoading(true);
+    beginListRefresh({
+      showLoading: true,
+      itemCount: orderForms.length,
+      setLoading,
+      preserveScroll,
+    });
     getOrderForms(token, listFilters)
       .then((r) => {
         setOrderForms(r.items);
@@ -257,7 +271,7 @@ export function AdminOrderFormPage() {
         setTotal(0);
       })
       .finally(() => setLoading(false));
-  }, [token, listFilters, setTotal]);
+  }, [token, listFilters, setTotal, orderForms.length, preserveScroll]);
 
   const refreshMsgConfig = () => {
     if (!token) return;
@@ -289,8 +303,13 @@ export function AdminOrderFormPage() {
 
   useEffect(() => {
     if (!token || tab !== 'list') return;
+    const prev = prevListQueryKeyRef.current;
+    prevListQueryKeyRef.current = listQueryKey;
+    if (prev !== null && prev !== listQueryKey) {
+      scrollToTop();
+    }
     refreshOrderForms();
-  }, [token, tab, refreshOrderForms]);
+  }, [token, tab, listQueryKey, refreshOrderForms, scrollToTop]);
 
   useEffect(() => {
     if (!token || tab !== 'issue') return;
@@ -801,7 +820,7 @@ export function AdminOrderFormPage() {
                 </div>
               </div>
             </div>
-            {loading ? (
+            {shouldShowListBlockingLoading(loading, orderForms.length) ? (
               <div className="p-8 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
             ) : orderForms.length === 0 ? (
               <div className="p-8 text-center text-gray-500 text-fluid-sm">
@@ -1084,7 +1103,7 @@ export function AdminOrderFormPage() {
                 </div>
               </>
             )}
-            {!loading && total > 0 ? (
+            {!shouldShowListBlockingLoading(loading, orderForms.length) && total > 0 ? (
               <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 space-y-2">
                 <div className="text-fluid-xs text-gray-600">
                   <span className="lg:hidden">모바일은 카드 요약 · </span>

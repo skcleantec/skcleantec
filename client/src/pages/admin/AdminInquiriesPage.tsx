@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal, flushSync } from 'react-dom';
 import {
@@ -565,6 +567,7 @@ export function AdminInquiriesPage() {
     parseInquiryListPageSize(searchParams.get('pageSize'))
   );
   const [loading, setLoading] = useState(true);
+  const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [statusFilter, setStatusFilter] = useState<string>(() => {
     const st = searchParams.get('status');
     if (st && (STATUS_FILTER_VALUES as readonly string[]).includes(st)) return st;
@@ -1043,7 +1046,12 @@ export function AdminInquiriesPage() {
 
   const refresh = (showLoading = false) => {
     if (!token) return;
-    if (showLoading) setLoading(true);
+    beginListRefresh({
+      showLoading,
+      itemCount: items.length,
+      setLoading,
+      preserveScroll,
+    });
     /** 예약일 기준일 때는 접수일(datePreset)과 AND 되면 목록이 비거나 줄어들어 고객이 "사라진 것처럼" 보이므로 API에는 접수일 구간을 넣지 않는다. */
     const apiDatePreset: 'today' | 'all' | 'month' | 'day' =
       dateBasis === 'preferredDate' ? 'all' : datePreset;
@@ -1322,30 +1330,25 @@ export function AdminInquiriesPage() {
     );
   }, [listFilterKey, setSearchParams]);
 
+  const listQueryKey = useMemo(
+    () => `${listFilterKey}\0${listPage}\0${listPageSize}`,
+    [listFilterKey, listPage, listPageSize]
+  );
+  const prevListQueryKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
     setListPage((p) => clampListPage(p, total, listPageSize));
   }, [total, listPageSize]);
 
   useEffect(() => {
     if (!token) return;
+    const prev = prevListQueryKeyRef.current;
+    prevListQueryKeyRef.current = listQueryKey;
+    if (prev !== null && prev !== listQueryKey) {
+      scrollToTop();
+    }
     refresh(true);
-  }, [
-    token,
-    statusFilter,
-    appliedSearchQuery,
-    dateBasis,
-    datePreset,
-    monthKey,
-    dayKey,
-    marketerFilterId,
-    marketerStatsDay,
-    teamLeaderFilterId,
-    operatingCompanyFilterId,
-    me?.role,
-    inquiryListBump,
-    listPage,
-    listPageSize,
-  ]);
+  }, [token, listQueryKey, me?.role]);
 
   const handleAssign = async (inquiryId: string, teamLeaderId: string) => {
     if (!token || !teamLeaderId) return;
@@ -2440,7 +2443,7 @@ export function AdminInquiriesPage() {
       )}
 
       <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
-        {loading ? (
+        {shouldShowListBlockingLoading(loading, items.length) ? (
           <div className="p-8 text-center text-slate-500 text-fluid-sm">로딩 중...</div>
         ) : items.length === 0 ? (
           <div className="p-8 text-center text-slate-500 text-fluid-sm">
@@ -3219,7 +3222,7 @@ export function AdminInquiriesPage() {
             </div>
           </>
         )}
-        {!loading ? (
+        {!shouldShowListBlockingLoading(loading, items.length) ? (
           <>
             <div className="border-t border-gray-100 px-4 py-2 text-fluid-xs text-gray-600">
               {marketerStatsDay ? (

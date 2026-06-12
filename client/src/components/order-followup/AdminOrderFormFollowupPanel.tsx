@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
@@ -322,6 +324,7 @@ export function AdminOrderFormFollowupPanel({
   const [listIntakeOpen, setListIntakeOpen] = useState(false);
   const [items, setItems] = useState<OrderFollowupItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
   const [filterGoldDbOnly, setFilterGoldDbOnly] = useState(false);
   const [filterStatus, setFilterStatus] = useState<OrderFollowupStatus | ''>('');
@@ -405,9 +408,19 @@ export function AdminOrderFormFollowupPanel({
    * - silent: 테이블 유지(편집/부재+1/삭제 후) — 스크롤 위치가 맨 위로 튀는 현상 방지.
    */
   const load = useCallback(
-    async (opts?: { status?: OrderFollowupStatus | ''; silent?: boolean }) => {
+    async (opts?: { status?: OrderFollowupStatus | ''; silent?: boolean; scrollToTop?: boolean }) => {
       const silent = opts?.silent === true;
-      if (!silent) setLoading(true);
+      if (!silent && opts?.scrollToTop) scrollToTop();
+      if (!silent) {
+        beginListRefresh({
+          showLoading: true,
+          itemCount: items.length,
+          setLoading,
+          preserveScroll,
+        });
+      } else if (items.length > 0) {
+        preserveScroll();
+      }
       setError(null);
       const useStatus =
         opts !== undefined && 'status' in opts
@@ -460,11 +473,14 @@ export function AdminOrderFormFollowupPanel({
       listPage,
       listPageSize,
       setTotal,
+      items.length,
+      preserveScroll,
+      scrollToTop,
     ]
   );
 
   useEffect(() => {
-    void load();
+    void load({ scrollToTop: true });
   }, [load]);
 
   /** 예전에 다른 상태로 필터를 둔 경우 — 이 화면에서는 부재·보류만 */
@@ -864,7 +880,7 @@ export function AdminOrderFormFollowupPanel({
           </div>
         </div>
 
-        {loading ? (
+        {shouldShowListBlockingLoading(loading, items.length) ? (
           <div className="p-10 text-center text-fluid-sm text-gray-500">불러오는 중…</div>
         ) : items.length === 0 ? (
           <div className="p-10 text-center text-fluid-sm text-gray-500">
@@ -1073,7 +1089,7 @@ export function AdminOrderFormFollowupPanel({
                 </div>
               ))}
             </div>
-            {!loading && total > 0 ? (
+            {!shouldShowListBlockingLoading(loading, items.length) && total > 0 ? (
               <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
                 <ListPaginationBar
                   mode="nav"

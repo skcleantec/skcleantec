@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { Link } from 'react-router-dom';
 import {
   getReviewPayback,
@@ -92,6 +93,7 @@ type Props = {
 export function AdminReviewPaybackPanel({ token }: Props) {
   const [items, setItems] = useState<ReviewPaybackListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<ReviewPaybackStatus | ''>('');
   const [unseenOnly, setUnseenOnly] = useState(false);
@@ -121,9 +123,11 @@ export function AdminReviewPaybackPanel({ token }: Props) {
     usePaginatedListQuery(filterKey);
 
   const load = useCallback(
-    async (silent = false) => {
+    async (silent = false, opts?: { scrollToTop?: boolean }) => {
       if (!token) return;
+      if (opts?.scrollToTop) scrollToTop();
       if (!silent) setLoading(true);
+      else if (items.length > 0) preserveScroll();
       setError(null);
       try {
         const res = await listReviewPaybacks(token, {
@@ -144,12 +148,16 @@ export function AdminReviewPaybackPanel({ token }: Props) {
         if (!silent) setLoading(false);
       }
     },
-    [token, listPage, listPageSize, filterStatus, unseenOnly, search, dateQuery, setTotal],
+    [token, listPage, listPageSize, filterStatus, unseenOnly, search, dateQuery, setTotal, items.length, preserveScroll, scrollToTop],
   );
 
+  const prevFilterKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    const prev = prevFilterKeyRef.current;
+    prevFilterKeyRef.current = filterKey;
+    void load(false, { scrollToTop: prev !== null && prev !== filterKey });
+  }, [filterKey, listPage, listPageSize, load]);
 
   useInboxRealtime(token, () => void load(true), Boolean(token));
   useReviewPaybackRealtime(token, () => void load(true), Boolean(token));

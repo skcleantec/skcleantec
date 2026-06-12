@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
@@ -121,6 +123,7 @@ export function TeamEContractListPage() {
   const [items, setItems] = useState<TeamLeaderEContractIssuanceItem[]>([]);
   const [listTotal, setListTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
   const [previewSession, setPreviewSession] = useState<PublicSignSessionDto | null>(null);
   const [pagedPreviewOpen, setPagedPreviewOpen] = useState(false);
@@ -184,11 +187,29 @@ export function TeamEContractListPage() {
     [runWithPublicSession],
   );
 
+  const listQueryKey = useMemo(
+    () => [datePreset, monthKey, dayKey, effectivePage, listPageSize, previewKey].join('\0'),
+    [datePreset, monthKey, dayKey, effectivePage, listPageSize, previewKey],
+  );
+
   const load = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; scrollToTop?: boolean }) => {
       if (!token) return;
-      if (!opts?.silent) setLoading(true);
-      setError(null);
+      const silent = opts?.silent === true;
+      if (opts?.scrollToTop) scrollToTop();
+      if (!silent) {
+        beginListRefresh({
+          showLoading: true,
+          itemCount: items.length,
+          setLoading,
+          preserveScroll,
+        });
+        setError(null);
+      } else if (items.length > 0) {
+        preserveScroll();
+      } else {
+        setError(null);
+      }
       const startedKey = capturePreviewKey();
       try {
         const offset = (effectivePage - 1) * listPageSize;
@@ -222,12 +243,16 @@ export function TeamEContractListPage() {
         if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
       }
     },
-    [token, navigate, previewKey, effectivePage, listPageSize, datePreset, monthKey, dayKey, capturePreviewKey, isPreviewFetchStale],
+    [token, navigate, previewKey, effectivePage, listPageSize, datePreset, monthKey, dayKey, capturePreviewKey, isPreviewFetchStale, items.length, preserveScroll, scrollToTop],
   );
 
+  const prevListQueryKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    const prev = prevListQueryKeyRef.current;
+    prevListQueryKeyRef.current = listQueryKey;
+    void load({ scrollToTop: prev !== null && prev !== listQueryKey });
+  }, [load, listQueryKey]);
 
   const silentRefresh = useCallback(() => void load({ silent: true }), [load]);
 
@@ -275,7 +300,7 @@ export function TeamEContractListPage() {
     );
   }
 
-  if (loading) {
+  if (shouldShowListBlockingLoading(loading, items.length)) {
     return (
       <div className="py-12 text-center text-gray-500 text-fluid-sm">불러오는 중…</div>
     );
@@ -555,7 +580,7 @@ export function TeamEContractListPage() {
             표가 넓을 때는 좌우로 스크롤하여 볼 수 있습니다.
           </p>
 
-          {!loading ? (
+          {!shouldShowListBlockingLoading(loading, items.length) ? (
             <ListPaginationBar
               mode="nav"
               page={effectivePage}
