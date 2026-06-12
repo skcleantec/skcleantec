@@ -16,7 +16,7 @@ import {
   getTeamChangeHistoryList,
 } from '../../api/inquiryChangeLogs';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
-import { TeamBiInline, TeamBiLine, teamT } from '../../i18n/team/teamI18n';
+import { TeamBiInline, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 
