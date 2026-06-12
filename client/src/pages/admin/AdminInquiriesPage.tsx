@@ -242,8 +242,8 @@ function StatusQuickPicker({
   if (disabled) {
     return (
       <div
-        className={`flex w-full items-center justify-between rounded border border-gray-300 bg-gray-100 text-gray-500 ${
-          compact ? 'px-1 py-1 text-fluid-2xs xl:text-fluid-xs' : 'px-2 py-2 text-fluid-xs'
+        className={`flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 text-slate-500 ${
+          compact ? 'px-1 py-1.5 text-fluid-2xs xl:text-fluid-xs' : 'px-2 py-2 text-fluid-xs'
         }`}
       >
           <span className="flex items-center gap-1 whitespace-nowrap">
@@ -256,19 +256,19 @@ function StatusQuickPicker({
   return (
     <details className="relative w-full">
       <summary
-        className={`flex list-none cursor-pointer items-center justify-between rounded border border-gray-300 bg-white text-gray-800 [&::-webkit-details-marker]:hidden ${
-          compact ? 'px-1 py-1 text-fluid-2xs xl:text-fluid-xs' : 'px-2 py-2 text-fluid-xs'
+        className={`flex list-none cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 [&::-webkit-details-marker]:hidden ${
+          compact ? 'px-1 py-1.5 text-fluid-2xs xl:text-fluid-xs' : 'px-2.5 py-2 text-fluid-xs'
         }`}
       >
-        <span className="flex min-w-0 items-center gap-1 whitespace-nowrap">
+        <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
           <span aria-hidden>{icon}</span>
-          <span className="whitespace-nowrap">{label}</span>
+          <span className="whitespace-nowrap font-medium">{label}</span>
         </span>
-        <span aria-hidden className="text-gray-500">
+        <span aria-hidden className="text-slate-400">
           ▾
         </span>
       </summary>
-      <div className="absolute left-0 top-[calc(100%+4px)] z-30 max-h-64 w-44 overflow-y-auto rounded-lg border border-gray-200 bg-white p-1.5 shadow-xl">
+      <div className="absolute left-0 top-[calc(100%+4px)] z-30 max-h-64 w-44 overflow-y-auto rounded-xl border border-slate-200/60 bg-white p-1.5 shadow-xl shadow-slate-100/40">
         {STATUS_QUICK_PICKER_ORDER.map((nextValue) => (
           <button
             key={nextValue}
@@ -277,8 +277,8 @@ function StatusQuickPicker({
               onChange(nextValue);
               e.currentTarget.closest('details')?.removeAttribute('open');
             }}
-            className={`flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs ${
-              value === nextValue ? 'bg-gray-800 text-white' : 'text-gray-700 hover:bg-gray-100'
+            className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-fluid-xs transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
+              value === nextValue ? 'bg-slate-900 text-white font-medium' : 'text-slate-700 hover:bg-slate-50'
             }`}
             title={STATUS_LABELS[nextValue] ?? nextValue}
           >
@@ -437,13 +437,13 @@ function inquiryMobileCardShellClass(item: InquiryItem): string {
         hasAssignment
       );
   const base =
-    'rounded-xl border text-left outline-none transition focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation';
-  if (isPreOrder) return `${base} border-red-500 bg-red-50/90 ring-1 ring-red-200/50 shadow-sm`;
-  if (isOnHold) return `${base} border-amber-500 bg-amber-50/90 ring-1 ring-amber-300/80 shadow-sm`;
-  if (isDepositPending) return `${base} border-sky-500 bg-sky-50/90 ring-1 ring-sky-200/60 shadow-sm`;
-  if (hcTone === 'overdue') return `${base} border-red-200 bg-red-50/95 shadow-sm`;
-  if (hcTone === 'pending') return `${base} border-amber-200 bg-amber-50/80 shadow-sm`;
-  return `${base} border-gray-200 bg-white shadow-sm hover:border-gray-300`;
+    'rounded-2xl border text-left outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation shadow-md shadow-slate-100/40 hover:shadow-lg hover:scale-[1.01] overflow-hidden';
+  if (isPreOrder) return `${base} border-red-400 bg-red-50/50 ring-1 ring-red-200/30`;
+  if (isOnHold) return `${base} border-amber-400 bg-amber-50/50 ring-1 ring-amber-200/30`;
+  if (isDepositPending) return `${base} border-sky-400 bg-sky-50/50 ring-1 ring-sky-200/30`;
+  if (hcTone === 'overdue') return `${base} border-red-200 bg-red-50/60`;
+  if (hcTone === 'pending') return `${base} border-amber-200 bg-amber-50/60`;
+  return `${base} border-slate-200/60 bg-white hover:border-slate-300`;
 }
 
 function formatDistanceFromJuan(item: InquiryItem): string {
@@ -2439,16 +2439,16 @@ export function AdminInquiriesPage() {
         </div>
       )}
 
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
+          <div className="p-8 text-center text-slate-500 text-fluid-sm">로딩 중...</div>
         ) : items.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 text-fluid-sm">
+          <div className="p-8 text-center text-slate-500 text-fluid-sm">
             등록된 문의가 없습니다.
           </div>
         ) : (
           <>
-            <p className="border-b border-gray-100 px-4 py-2 text-fluid-xs text-gray-600 lg:hidden">
+            <p className="border-b border-slate-100/80 px-4 py-2.5 text-fluid-xs text-slate-500 lg:hidden font-medium">
               카드를 누르면 상세 수정 화면이 열립니다. 아래 한 줄에서 상태·빠른 배정을 바꾸고, 그 아래 작업 버튼을 쓸 수 있습니다.
             </p>
             <div className="flex flex-col gap-3 p-3 lg:hidden">
@@ -2517,7 +2517,7 @@ export function AdminInquiriesPage() {
                         <a
                           href={`tel:${item.customerPhone}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="shrink-0 self-start rounded-lg bg-blue-600 px-3 py-2 text-center text-fluid-xs font-medium text-white hover:bg-blue-700"
+                          className="shrink-0 self-start rounded-xl bg-indigo-600 px-3.5 py-2 text-center text-fluid-xs font-semibold text-white shadow-sm shadow-indigo-600/10 hover:bg-indigo-700 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
                         >
                           전화
                         </a>
@@ -2547,22 +2547,23 @@ export function AdminInquiriesPage() {
                       </div>
                     </div>
                     <div
-                      className="border-t border-gray-200/80 bg-gray-50/80 px-3 py-2.5"
+                      className="border-t border-slate-100 bg-slate-50/60 px-3 py-2.5"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="grid w-full min-w-0 grid-cols-2 gap-2">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span className="w-7 shrink-0 text-center text-fluid-2xs font-medium leading-tight text-gray-500">
+                      <div className="grid w-full min-w-0 grid-cols-2 gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="w-8 shrink-0 text-left text-fluid-2xs font-semibold leading-tight text-slate-500">
                             상태
                           </span>
                           <StatusQuickPicker
                             value={statusValueForPicker(item)}
                             onChange={(next) => handleStatusChange(item.id, next)}
                             disabled={saving}
+                            compact
                           />
                         </div>
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span className="w-7 shrink-0 text-center text-fluid-2xs font-medium leading-tight text-gray-500">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="w-8 shrink-0 text-left text-fluid-2xs font-semibold leading-tight text-slate-500">
                             배정
                           </span>
                           <select
@@ -2590,7 +2591,7 @@ export function AdminInquiriesPage() {
                                       ? '보류 건에는 분배할 수 없습니다.'
                                       : undefined
                             }
-                            className="min-h-[40px] min-w-0 flex-1 rounded border border-gray-300 bg-white px-1.5 py-1.5 text-fluid-2xs sm:text-fluid-xs"
+                            className="min-h-[38px] min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-fluid-2xs sm:text-fluid-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
                           >
                             <option value="">미배정</option>
                             {teamLeaders.map((tl) => (
@@ -2601,7 +2602,7 @@ export function AdminInquiriesPage() {
                           </select>
                         </div>
                       </div>
-                      <div className="mt-2 flex items-center gap-1 overflow-x-auto whitespace-nowrap border-t border-gray-200 pt-2 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-gray-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-medium [&>button]:leading-tight [&>button]:shadow-sm [&>button]:hover:bg-gray-50 [&>button]:active:bg-gray-100 sm:[&>button]:px-2.5 sm:[&>button]:py-1 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
+                      <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap border-t border-slate-100 pt-2 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2.5 [&>button]:py-1 [&>button]:text-[11px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300 sm:[&>button]:px-3 sm:[&>button]:py-1.5 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
                         {item.status === 'DEPOSIT_PENDING' ? (
                           <>
                             <button
@@ -2798,33 +2799,33 @@ export function AdminInquiriesPage() {
                 <col className="w-[20%]" />
               </colgroup>
               <thead>
-                <tr className="bg-gray-100 border-b border-gray-200">
-                  <th className="sticky left-0 z-10 border-r border-gray-200 bg-gray-100 px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                <tr className="bg-slate-50/85 border-b border-slate-200/60">
+                  <th className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                     접수일
                   </th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">접수자</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">고객</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">연락처</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">주소</th>
-                  <th className="px-0.5 py-1.5 text-center text-[10px] font-medium leading-tight text-gray-700 xl:px-1 xl:py-2 2xl:text-[11px]">
+                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">접수자</th>
+                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">고객</th>
+                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">연락처</th>
+                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">주소</th>
+                  <th className="px-0.5 py-2 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 xl:py-2.5 2xl:text-[11px]">
                     평수
                   </th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">예약일</th>
+                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">예약일</th>
                   <th
-                    className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs"
+                    className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs"
                     title="희망 시간대 · 인천 주안 기준 직선거리"
                   >
                     시간·거리
                   </th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">상태</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">팀장</th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">작업</th>
+                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">상태</th>
+                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">팀장</th>
+                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">작업</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => {
                   const isPreOrder = isPreReceiveInquiryRow(item);
-                  const pBorder = isPreOrder ? 'border-t-2 border-b-2 border-red-500' : 'border-b border-gray-100';
+                  const pBorder = isPreOrder ? 'border-t-2 border-b-2 border-red-400' : 'border-b border-slate-100/80';
                   const hcTone = isPreOrder
                     ? ('none' as const)
                     : happyCallRowTone(
@@ -2835,27 +2836,27 @@ export function AdminInquiriesPage() {
                         item.assignments.length > 0
                       );
                   const stickyBg = isPreOrder
-                    ? 'bg-red-50/70'
+                    ? 'bg-red-50/50'
                     : hcTone === 'overdue'
-                      ? 'bg-red-50/95'
+                      ? 'bg-red-50/60'
                       : hcTone === 'pending'
-                        ? 'bg-amber-50/70'
+                        ? 'bg-amber-50/50'
                         : 'bg-white';
                   const stickyHover = isPreOrder
                     ? 'group-hover:bg-red-50/80'
                     : hcTone === 'overdue'
-                      ? 'group-hover:bg-red-100/90'
+                      ? 'group-hover:bg-red-100/40'
                       : hcTone === 'pending'
-                        ? 'group-hover:bg-amber-100/70'
-                        : 'group-hover:bg-gray-50';
-                  const stickyR = isPreOrder ? 'border-r border-red-200' : 'border-r border-gray-100';
+                        ? 'group-hover:bg-amber-100/45'
+                        : 'group-hover:bg-slate-50/80';
+                  const stickyR = isPreOrder ? 'border-r border-red-200' : 'border-r border-slate-100/80';
                   const rowHover = isPreOrder
-                    ? 'hover:bg-red-50/80'
+                    ? 'hover:bg-red-50/70'
                     : hcTone === 'overdue'
-                      ? 'hover:bg-red-100/80'
+                      ? 'hover:bg-red-100/50'
                       : hcTone === 'pending'
-                        ? 'hover:bg-amber-100/50'
-                        : 'hover:bg-gray-50';
+                        ? 'hover:bg-amber-100/40'
+                        : 'hover:bg-slate-50/80';
                   const phoneSplit = phoneListTwoLines(item.customerPhone);
                   return (
                   <tr
@@ -3020,7 +3021,7 @@ export function AdminInquiriesPage() {
                                   ? '보류 건에는 분배할 수 없습니다.'
                                   : undefined
                         }
-                        className="w-full min-w-0 max-w-full rounded border border-gray-300 px-0.5 py-0.5 text-fluid-2xs xl:px-1 xl:py-1 xl:text-fluid-xs"
+                        className="w-full min-w-0 max-w-full rounded-lg border border-slate-200 px-1 py-0.5 text-fluid-2xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 bg-white"
                       >
                         <option value="">미배정</option>
                         {teamLeaders.map((tl) => (
@@ -3034,7 +3035,7 @@ export function AdminInquiriesPage() {
                       className={`min-w-0 align-middle px-1 py-1.5 xl:px-1.5 xl:py-2 ${pBorder} ${isPreOrder ? 'border-r-2 border-r-red-500' : ''}`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex flex-wrap content-start items-center justify-start gap-x-1 gap-y-1 [&>button]:inline-flex [&>button]:shrink-0 [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-gray-200 [&>button]:bg-white [&>button]:px-1.5 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-medium [&>button]:leading-tight [&>button]:shadow-sm [&>button]:hover:bg-gray-50 [&>button]:active:bg-gray-100 sm:[&>button]:px-2 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
+                      <div className="flex flex-wrap content-start items-center justify-start gap-x-1 gap-y-1 [&>button]:inline-flex [&>button]:shrink-0 [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300 sm:[&>button]:px-2 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
                         {item.status === 'DEPOSIT_PENDING' ? (
                           <>
                             <button

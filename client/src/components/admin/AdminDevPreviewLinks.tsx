@@ -128,7 +128,7 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
   return (
     <>
       <div
-        className="inline-flex max-w-full flex-wrap items-center gap-0.5 rounded border border-gray-200 bg-gray-50/90 px-0.5 py-0.5 text-gray-700"
+        className="inline-flex max-w-full flex-wrap items-center gap-0.5 rounded border border-gray-200 bg-gray-50/90 px-0.5 py-0.5 text-gray-700 admin-preview-links"
         title="관리자용: 대상 선택 후 팀장·타업체·크루 화면으로 이동"
       >
         <span className="shrink-0 pl-0.5 text-[9px] font-medium uppercase tracking-tight text-gray-400">

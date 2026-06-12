@@ -200,13 +200,13 @@ export function AdminReviewPaybackPanel({ token }: Props) {
   return (
     <div className="min-w-0 space-y-4">
       <div>
-        <h1 className="text-fluid-lg font-semibold text-gray-900">페이백/리뷰</h1>
-        <p className="mt-1 text-fluid-xs text-gray-600">
+        <h1 className="text-fluid-lg font-semibold text-slate-900">페이백/리뷰</h1>
+        <p className="mt-1 text-fluid-xs text-slate-500">
           고객이 페이백 링크로 제출한 리뷰 캡처·계좌 신청 목록입니다. 입금 금액은 시스템에서 관리하지 않습니다.
         </p>
       </div>
 
-      <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+      <div className="space-y-3 rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap gap-1.5">
           {STATUS_CHIPS.map((c) => (
             <button
@@ -214,10 +214,10 @@ export function AdminReviewPaybackPanel({ token }: Props) {
               type="button"
               disabled={unseenOnly}
               onClick={() => setFilterStatus(c.value)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-medium touch-manipulation disabled:opacity-40 ${
+              className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold touch-manipulation transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] disabled:opacity-45 ${
                 filterStatus === c.value && !unseenOnly
-                  ? 'border-gray-800 bg-gray-900 text-white'
-                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  ? 'border-slate-800 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
               }`}
             >
               {c.label}
@@ -229,23 +229,23 @@ export function AdminReviewPaybackPanel({ token }: Props) {
               setUnseenOnly((v) => !v);
               if (!unseenOnly) setFilterStatus('');
             }}
-            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium touch-manipulation ${
+            className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold touch-manipulation transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
               unseenOnly
-                ? 'border-amber-600 bg-amber-100 text-amber-950'
-                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                ? 'border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-200/50'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
             }`}
           >
             미확인만
           </button>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-fluid-xs text-gray-600">
+        <div className="flex flex-wrap items-end gap-2.5">
+          <label className="text-fluid-xs font-semibold text-slate-500">
             기간
             <select
               value={datePreset}
               onChange={(e) => setDatePreset(e.target.value as DateRangePresetId)}
-              className="mt-1 block rounded border border-gray-300 px-2 py-1.5 text-fluid-xs"
+              className="mt-1 block rounded-xl border border-slate-200 px-3 py-2 text-fluid-xs text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 shadow-sm"
             >
               <option value="today">오늘</option>
               <option value="thisMonth">이번 달</option>
@@ -256,29 +256,29 @@ export function AdminReviewPaybackPanel({ token }: Props) {
             </select>
           </label>
           {datePreset === 'custom' ? (
-            <label className="text-fluid-xs text-gray-600">
+            <label className="text-fluid-xs font-semibold text-slate-500">
               월
               <input
                 type="month"
                 value={monthKey}
                 onChange={(e) => setMonthKey(e.target.value)}
-                className="mt-1 block rounded border border-gray-300 px-2 py-1.5 text-fluid-xs"
+                className="mt-1 block rounded-xl border border-slate-200 px-3 py-2 text-fluid-xs text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 shadow-sm"
               />
             </label>
           ) : null}
-          <label className="min-w-[10rem] flex-1 text-fluid-xs text-gray-600">
+          <label className="min-w-[10rem] flex-1 text-fluid-xs font-semibold text-slate-500">
             검색
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="고객명·연락처·은행"
-              className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-fluid-xs"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-fluid-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 shadow-sm"
             />
           </label>
           <button
             type="button"
             onClick={() => void load()}
-            className="rounded bg-gray-800 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-gray-900"
+            className="rounded-xl bg-slate-800 px-4 py-2 text-fluid-xs font-semibold text-white shadow-sm hover:bg-slate-900 hover:scale-[1.03] active:scale-[0.97] transition-all duration-150"
           >
             조회
           </button>
@@ -286,75 +286,75 @@ export function AdminReviewPaybackPanel({ token }: Props) {
       </div>
 
       {error ? <p className="text-fluid-sm text-red-700">{error}</p> : null}
-      {loading ? <p className="text-fluid-sm text-gray-500">로딩 중…</p> : null}
+      {loading ? <p className="text-fluid-sm text-slate-500">로딩 중…</p> : null}
 
       {!loading && items.length === 0 ? (
-        <p className="rounded-lg border border-gray-200 bg-white p-8 text-center text-fluid-sm text-gray-500">
+        <p className="rounded-2xl border border-slate-200/60 bg-white p-8 text-center text-fluid-sm text-slate-500 shadow-sm">
           {unseenOnly ? '미확인 신청이 없습니다.' : '신청 내역이 없습니다.'}
         </p>
       ) : null}
-
+ 
       {items.length > 0 ? (
         <>
           <div className="hidden lg:block">
             <SyncHorizontalScroll>
               <table className="w-full min-w-[860px] border-collapse text-fluid-2xs xl:text-fluid-xs">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50 text-gray-700">
-                    <th className="px-2 py-2 text-left font-medium">신청일</th>
-                    <th className="px-2 py-2 text-left font-medium">고객</th>
-                    <th className="px-2 py-2 text-left font-medium">계좌</th>
-                    <th className="px-2 py-2 text-center font-medium">캡처</th>
-                    <th className="px-2 py-2 text-center font-medium">상태</th>
-                    <th className="px-2 py-2 text-center font-medium">연결</th>
-                    <th className="px-2 py-2 text-center font-medium">처리</th>
+                  <tr className="border-b border-slate-200/60 bg-slate-50/80 text-slate-500">
+                    <th className="px-2 py-2.5 text-left font-semibold">신청일</th>
+                    <th className="px-2 py-2.5 text-left font-semibold">고객</th>
+                    <th className="px-2 py-2.5 text-left font-semibold">계좌</th>
+                    <th className="px-2 py-2.5 text-center font-semibold">캡처</th>
+                    <th className="px-2 py-2.5 text-center font-semibold">상태</th>
+                    <th className="px-2 py-2.5 text-center font-semibold">연결</th>
+                    <th className="px-2 py-2.5 text-center font-semibold">처리</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((row) => (
                     <tr
                       key={row.id}
-                      className={`border-b border-gray-100 hover:bg-gray-50/80 ${
-                        isUnseenRow(row) ? 'bg-amber-50/80' : ''
+                      className={`border-b border-slate-100/80 transition-colors hover:bg-slate-50/80 ${
+                        isUnseenRow(row) ? 'bg-amber-50/50' : ''
                       }`}
                     >
-                      <td className="px-2 py-2 tabular-nums text-gray-700 whitespace-nowrap">
+                      <td className="px-2 py-2.5 tabular-nums text-slate-500 font-medium whitespace-nowrap">
                         {formatDateCompactWithWeekday(row.submittedAt)}
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="font-medium text-gray-900">{row.customerName}</div>
-                        <div className="text-gray-500 tabular-nums">{displayPhone(row.customerPhone)}</div>
+                      <td className="px-2 py-2.5">
+                        <div className="font-semibold text-slate-900">{row.customerName}</div>
+                        <div className="text-slate-500 font-medium tabular-nums">{displayPhone(row.customerPhone)}</div>
                         {row.inquiry?.inquiryNumber ? (
-                          <div className="text-gray-500">{row.inquiry.inquiryNumber}</div>
+                          <div className="text-slate-500 font-mono text-[11px] tabular-nums mt-0.5">{row.inquiry.inquiryNumber}</div>
                         ) : null}
                       </td>
-                      <td className="px-2 py-2 text-gray-700">
+                      <td className="px-2 py-2.5 text-slate-700 font-medium">
                         {row.bankName}
                         <br />
-                        <span className="tabular-nums">{row.accountNumberMasked}</span>
+                        <span className="tabular-nums text-slate-500 font-normal">{row.accountNumberMasked}</span>
                       </td>
-                  <td className="px-2 py-2 text-center">
-                    <ReviewCaptureThumbs
-                      images={reviewImagesForRow(row)}
-                      thumbClassName="mx-auto h-12 w-12 object-cover"
-                    />
-                  </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-2 py-2.5 text-center">
+                        <ReviewCaptureThumbs
+                          images={reviewImagesForRow(row)}
+                          thumbClassName="mx-auto h-12 w-12 object-cover rounded-lg border border-slate-100 shadow-sm"
+                        />
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
                         <span
-                          className={`inline-block rounded px-2 py-0.5 text-[10px] font-medium ${statusTone(row.status)}`}
+                          className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold ${statusTone(row.status)}`}
                         >
                           {STATUS_LABEL[row.status]}
                         </span>
                         {row.handledBy?.name ? (
-                          <div className="mt-0.5 text-[10px] text-gray-500">{row.handledBy.name}</div>
+                          <div className="mt-0.5 text-[10px] text-slate-500 font-medium">{row.handledBy.name}</div>
                         ) : null}
                       </td>
-                      <td className="px-2 py-2 text-center">
-                        <div className="flex flex-wrap justify-center gap-1">
+                      <td className="px-2 py-2.5 text-center">
+                        <div className="flex flex-wrap justify-center gap-1.5 [&>a]:inline-flex [&>a]:items-center [&>a]:rounded-lg [&>a]:border [&>a]:px-2.5 [&>a]:py-1 [&>a]:text-[10px] [&>a]:font-semibold [&>a]:shadow-sm [&>a]:transition-all [&>a]:duration-150 hover:[&>a]:scale-[1.03] active:[&>a]:scale-[0.97]">
                           {row.inquiry?.id ? (
                             <Link
                               to={`/admin/inquiries?openInquiry=${encodeURIComponent(row.inquiry.id)}`}
-                              className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-900 hover:bg-blue-100"
+                              className="border-indigo-100 bg-indigo-50/40 text-indigo-700 hover:bg-indigo-100/60"
                             >
                               접수
                             </Link>
@@ -362,18 +362,18 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                           {row.inquiry?.id ? (
                             <Link
                               to={`/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(row.inquiry.id)}`}
-                              className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-900 hover:bg-emerald-100"
+                              className="border-emerald-100 bg-emerald-50/40 text-emerald-700 hover:bg-emerald-100/60"
                             >
                               발주서
                             </Link>
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         <button
                           type="button"
                           onClick={() => void openDetail(row)}
-                          className="text-fluid-xs text-blue-700 hover:underline"
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-fluid-xs font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] hover:bg-slate-50 hover:border-slate-300"
                         >
                           상세
                         </button>
@@ -384,39 +384,41 @@ export function AdminReviewPaybackPanel({ token }: Props) {
               </table>
             </SyncHorizontalScroll>
           </div>
-
-          <div className="space-y-2 lg:hidden">
+ 
+          <div className="flex flex-col gap-3 p-1 lg:hidden">
             {items.map((row) => (
               <div
                 key={row.id}
-                className={`rounded-lg border border-gray-200 bg-white p-3 ${
-                  isUnseenRow(row) ? 'border-amber-300 bg-amber-50/50' : ''
+                className={`rounded-2xl border p-4 shadow-md shadow-slate-100/40 hover:shadow-lg transition-all duration-200 overflow-hidden ${
+                  isUnseenRow(row)
+                    ? 'border-amber-400 bg-amber-50/30'
+                    : 'border-slate-200/60 bg-white hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium text-gray-900">{row.customerName}</p>
-                    <p className="text-fluid-xs text-gray-500 tabular-nums">{displayPhone(row.customerPhone)}</p>
-                    <p className="text-fluid-xs text-gray-500 tabular-nums">
+                    <p className="font-semibold text-slate-900">{row.customerName}</p>
+                    <p className="text-fluid-xs text-slate-500 font-medium tabular-nums">{displayPhone(row.customerPhone)}</p>
+                    <p className="text-fluid-xs text-slate-500 font-medium tabular-nums">
                       {formatDateCompactWithWeekday(row.submittedAt)}
                     </p>
                   </div>
-                  <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-medium ${statusTone(row.status)}`}>
+                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold ${statusTone(row.status)}`}>
                     {STATUS_LABEL[row.status]}
                   </span>
                 </div>
-                <p className="mt-2 text-fluid-xs text-gray-700">
-                  {row.bankName} · <span className="tabular-nums">{row.accountNumberMasked}</span>
+                <p className="mt-2 text-fluid-xs text-slate-750 font-medium">
+                  {row.bankName} · <span className="tabular-nums font-normal text-slate-500">{row.accountNumberMasked}</span>
                 </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="mt-3.5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
                   <ReviewCaptureThumbs
                     images={reviewImagesForRow(row)}
-                    thumbClassName="h-14 w-14 object-cover rounded"
+                    thumbClassName="h-12 w-12 object-cover rounded-lg shadow-sm border border-slate-100"
                   />
                   {row.inquiry?.id ? (
                     <Link
                       to={`/admin/inquiries?openInquiry=${encodeURIComponent(row.inquiry.id)}`}
-                      className="text-fluid-xs text-blue-700 hover:underline"
+                      className="rounded-lg border border-indigo-100 bg-indigo-50/30 px-3 py-1.5 text-fluid-xs font-semibold text-indigo-700 transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] shadow-sm hover:bg-indigo-100/60"
                     >
                       접수 보기
                     </Link>
@@ -424,7 +426,7 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                   <button
                     type="button"
                     onClick={() => void openDetail(row)}
-                    className="ml-auto text-fluid-xs font-medium text-blue-700 hover:underline"
+                    className="ml-auto rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-fluid-xs font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] hover:bg-slate-50 hover:border-slate-300"
                   >
                     상세·처리
                   </button>

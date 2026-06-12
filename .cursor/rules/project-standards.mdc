@@ -84,13 +84,18 @@ alwaysApply: true
 
 ## 7. 디자인
 
-- **쿠팡 스타일**: 심플하고 간결한 UI
-- 불필요한 장식·애니메이션 최소화
-- 흰색/회색 계열, 명확한 여백, 읽기 쉬운 폰트
-- 버튼·카드·리스트는 단순한 형태 유지
+- **슬레이트 프리미엄 SaaS**: 심플·간결, `slate` 계열 + 부드러운 shadow·`rounded-xl`/`rounded-2xl`
+- 전역 폰트 **Inter + Noto Sans KR** (`client/src/index.css`)
+- 관리·팀·크루 **다크 GNB** (`theme-dark-header`), 본문은 밝은 카드
+- 불필요한 장식은 지양; GNB·칩 등 **미세 scale** hover는 허용
 - **PC와 모바일을 항상 함께 고려**해 구현한다. 목록·상세는 **서식을 맞춘 깔끔한 레이아웃**(표/카드 분기, 섹션 정리, 말줄임·요약)으로 만든다.
-- **표·반응형·금액 표기·목록/상세 서식**: `.cursor/rules/responsive-ui.mdc` 준수
-- **DB 목록 — 기간 필터·페이지당 30건 기본·하단 페이지 분할**: `.cursor/rules/admin-list-filters-pagination.mdc` 준수
+- **공개 고객 페이지·폼 UI** (페이백, C/S 접수 등): **`docs/UI_DESIGN_GUIDE.md` §4**
+- **표·반응형·금액 표기·목록/상세 서식**: **`docs/UI_DESIGN_GUIDE.md` §6** (요약 트리거: `responsive-ui.mdc`)
+- **DB 목록 — 기간 필터·페이지당 30건 기본·하단 페이지 분할**: **`docs/UI_DESIGN_GUIDE.md` §7** (요약 트리거: `admin-list-filters-pagination.mdc`)
+- **로그인·인증 화면**: **`docs/UI_DESIGN_GUIDE.md` §5** (Primary `slate-900`, 포커스 `sky-500`)
+- **기간 조회 UI**(보고·집계): **`docs/UI_DESIGN_GUIDE.md` §8** — `dateRangePresets.ts`
+- **HelpTooltip**: **`docs/UI_DESIGN_GUIDE.md` §9**
+- **단일 기준 문서**: 모든 디자인 상세는 **`docs/UI_DESIGN_GUIDE.md`**
 
 ## 8. 팀장 화면·DB 실시간 (WebSocket)
 
@@ -105,7 +110,7 @@ alwaysApply: true
 - 문서·가이드·답변에서 배포 절차를 안내할 때 **Vercel을 전제로 하지 않는다.** (루트 `vercel.json` 등은 레거시·참고용이며 운영 단일 소스가 아니다.)
 - **접수 변경 이력(`InquiryChangeLog`) 삭제**는 **최고 관리자**만 가능하다. 기본은 로그인 이메일 `admin`(환경변수 `SUPER_ADMIN_EMAIL`로 변경 가능). 삭제 API는 **본인 비밀번호** 확인 후에만 처리한다.
 - **삭제 기능 일반 규칙**: 앞으로 추가하는 **모든 삭제(데이터 영구 삭제) API·화면**은 **본인 비밀번호 확인 후**에만 동작하도록 한다. 상세는 `.cursor/rules/delete-password-and-date-presets.mdc` 참고.
-- **기간 조회 UI**: 보고·집계 화면에서 날짜 입력 옆에 **오늘 / 이번 달 / 지난 달 / 올해 / 지난해 / 직접 선택** 프리셋을 제공하고, 선택 시 날짜가 맞춰지며 **해당 기간으로 조회**되게 한다. 공통 유틸은 `client/src/utils/dateRangePresets.ts` 를 사용한다.
+- **기간 조회 UI**: 보고·집계 화면 — **`docs/UI_DESIGN_GUIDE.md` §8**
 
 ## 10. Git 푸시·브랜치 (스테이징 기본)
 

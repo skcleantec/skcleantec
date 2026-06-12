@@ -1,5 +1,7 @@
 # Help text: `?` tooltip (HelpTooltip)
 
+> **통합 가이드:** `docs/UI_DESIGN_GUIDE.md` **§9**
+
 Use the shared component `client/src/components/ui/HelpTooltip.tsx` instead of long inline paragraphs.
 
 ## Behaviour

@@ -39,6 +39,79 @@ function teamAriaMessages(count: number): string {
   return teamT('team.layout.aria.messagesUnread', { count: String(count) });
 }
 
+function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 'schedule' | 'settlement' | 'dayoffs' | 'cs' | 'messages' | 'e-contracts'; className?: string }) {
+  if (type === 'dashboard') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="7" height="9" rx="1.5" />
+        <rect x="14" y="3" width="7" height="5" rx="1.5" />
+        <rect x="14" y="12" width="7" height="9" rx="1.5" />
+        <rect x="3" y="16" width="7" height="5" rx="1.5" />
+      </svg>
+    );
+  }
+  if (type === 'assignments') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        <path d="M12 11v6" />
+        <path d="M9 14h6" />
+      </svg>
+    );
+  }
+  if (type === 'schedule') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+    );
+  }
+  if (type === 'settlement') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+        <line x1="1" y1="10" x2="23" y2="10" />
+      </svg>
+    );
+  }
+  if (type === 'dayoffs') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M16 2v4M8 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+        <path d="m3 22 18-18" />
+      </svg>
+    );
+  }
+  if (type === 'cs') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    );
+  }
+  if (type === 'messages') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+        <polyline points="22,6 12,13 2,6" />
+      </svg>
+    );
+  }
+  if (type === 'e-contracts') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <path d="M16 13a2 2 0 0 1-2 2H8v-4h6a2 2 0 0 1 2 2z" />
+      </svg>
+    );
+  }
+  return null;
+}
+
 export function TeamLayout() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const navigate = useNavigate();
@@ -164,11 +237,15 @@ export function TeamLayout() {
   };
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `px-3 py-2 text-sm font-medium rounded ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:text-gray-900'}`;
+    `inline-flex items-center px-3 py-1.5 text-fluid-xs font-semibold rounded-xl transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
+      isActive
+        ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20'
+        : 'text-slate-300 hover:text-white hover:bg-white/10'
+    }`;
 
   const mobileTabClass = ({ isActive }: { isActive: boolean }) =>
-    `flex flex-1 min-h-[44px] min-w-0 flex-row flex-nowrap items-center justify-center gap-0 py-2 px-0.5 text-center text-[11px] font-medium leading-tight touch-manipulation ${
-      isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
+    `flex flex-1 min-h-[50px] min-w-0 flex-col items-center justify-center gap-0.5 py-1 px-0.5 text-center text-[10px] font-medium leading-tight touch-manipulation transition-all duration-150 ${
+      isActive ? 'text-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-900'
     }`;
 
   const searchParams = new URLSearchParams(location.search);
@@ -205,7 +282,16 @@ export function TeamLayout() {
     Boolean(staffIdCardUrl) && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER');
 
   return (
-    <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
+    <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
+      {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+        {/* 좌상단 퍼플-인디고 조명 */}
+        <div className="absolute -top-[20%] -left-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-indigo-500/16 to-purple-500/10 blur-[100px] opacity-80" />
+        {/* 우하단 블루-스카이 조명 */}
+        <div className="absolute -bottom-[20%] -right-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-blue-500/16 to-sky-500/10 blur-[100px] opacity-80" />
+        {/* 상단 중앙 소프트 스포트라이트 */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-[800px] h-[350px] rounded-full bg-indigo-500/8 blur-[120px] opacity-80" />
+      </div>
       {rosterAckBanner ? (
         <RosterAckBanner
           payload={rosterAckBanner}
@@ -213,8 +299,8 @@ export function TeamLayout() {
           showThai={!isExternalPartner}
         />
       ) : null}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <header className="sticky top-0 z-40 pt-[env(safe-area-inset-top)] shadow-md theme-dark-header">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <h1 className="text-lg font-semibold text-gray-800 shrink-0 min-w-0">
               {isExternalPartner ? (
@@ -231,6 +317,7 @@ export function TeamLayout() {
             </h1>
             <nav className="hidden sm:flex flex-wrap items-center gap-1">
               <NavLink to={teamTo('/team/dashboard')} className={navClass}>
+                <TeamNavIcon type="dashboard" className="w-4 h-4 mr-1.5 shrink-0" />
                 <TeamBiInline id="team.layout.nav.dashboard" />
               </NavLink>
               <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
@@ -239,11 +326,12 @@ export function TeamLayout() {
                   className={navClass}
                   aria-label={teamAriaAssignNav(newAssignmentCount)}
                 >
+                  <TeamNavIcon type="assignments" className="w-4 h-4 mr-1.5 shrink-0" />
                   <TeamBiInline id="team.layout.nav.assignments" />
                 </NavLink>
                 {newAssignmentCount > 0 ? (
                   <span
-                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-xs font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
+                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
                     aria-hidden
                   >
                     {newAssignmentCount > 99 ? '99+' : newAssignmentCount}
@@ -251,15 +339,18 @@ export function TeamLayout() {
                 ) : null}
               </div>
               <NavLink to={teamTo('/team/schedule')} className={navClass}>
+                <TeamNavIcon type="schedule" className="w-4 h-4 mr-1.5 shrink-0" />
                 <TeamBiInline id="team.layout.nav.schedule" />
               </NavLink>
               {isExternalPartner && (
                 <NavLink to={teamTo('/team/settlement')} className={navClass}>
+                  <TeamNavIcon type="settlement" className="w-4 h-4 mr-1.5 shrink-0" />
                   <TeamBiInline id="team.layout.nav.settlement" />
                 </NavLink>
               )}
               {!hideTeamDayoffs && (
                 <NavLink to={teamTo('/team/dayoffs')} className={navClass}>
+                  <TeamNavIcon type="dayoffs" className="w-4 h-4 mr-1.5 shrink-0" />
                   <TeamBiInline id="team.layout.nav.dayoffs" />
                 </NavLink>
               )}
@@ -269,11 +360,12 @@ export function TeamLayout() {
                   className={navClass}
                   aria-label={teamAriaCs(csPendingCount)}
                 >
+                  <TeamNavIcon type="cs" className="w-4 h-4 mr-1.5 shrink-0" />
                   <TeamBiInline id="team.layout.nav.cs" />
                 </NavLink>
                 {csPendingCount > 0 ? (
                   <span
-                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-xs font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
+                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
                     aria-hidden
                   >
                     {csPendingCount}
@@ -286,11 +378,12 @@ export function TeamLayout() {
                   className={navClass}
                   aria-label={teamAriaMessages(unreadCount)}
                 >
+                  <TeamNavIcon type="messages" className="w-4 h-4 mr-1.5 shrink-0" />
                   <TeamBiInline id="team.layout.nav.messages" />
                 </NavLink>
                 {unreadCount > 0 ? (
                   <span
-                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-xs font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
+                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
                     aria-hidden
                   >
                     {unreadCount}
@@ -364,36 +457,40 @@ export function TeamLayout() {
         {/* 모바일: 상단(헤더 바로 아래) 탭 메뉴 */}
         <nav className="flex sm:hidden border-t border-gray-100 bg-white">
           <NavLink to={teamTo('/team/dashboard')} className={mobileTabClass}>
-            <TeamBiInline id="team.layout.nav.dashboard" />
+            <TeamNavIcon type="dashboard" className="w-4.5 h-4.5" />
+            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.dashboard" /></span>
           </NavLink>
           <NavLink
             to={teamTo('/team/assignments')}
             className={mobileTabClass}
             aria-label={teamAriaAssignMobile(newAssignmentCount)}
           >
-            <span className="shrink-0 min-w-0">
-              <TeamBiInline id="team.layout.nav.assignmentsShort" />
-            </span>
-            {newAssignmentCount > 0 ? (
-              <span
-                className="-ml-1 inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
-                aria-hidden
-              >
-                {newAssignmentCount > 99 ? '99+' : newAssignmentCount}
-              </span>
-            ) : null}
+            <div className="relative flex flex-col items-center justify-center">
+              <TeamNavIcon type="assignments" className="w-4.5 h-4.5" />
+              {newAssignmentCount > 0 ? (
+                <span
+                  className="absolute -top-1 -right-2 inline-flex min-w-[0.875rem] h-[0.875rem] items-center justify-center rounded-full bg-amber-400 px-0.5 text-center text-[8px] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse"
+                >
+                  {newAssignmentCount > 99 ? '99+' : newAssignmentCount}
+                </span>
+              ) : null}
+            </div>
+            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.assignmentsShort" /></span>
           </NavLink>
           <NavLink to={teamTo('/team/schedule')} className={mobileTabClass}>
-            <TeamBiInline id="team.layout.nav.schedule" />
+            <TeamNavIcon type="schedule" className="w-4.5 h-4.5" />
+            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.schedule" /></span>
           </NavLink>
           {isExternalPartner && (
             <NavLink to={teamTo('/team/settlement')} className={mobileTabClass}>
-              <TeamBiInline id="team.layout.nav.settlement" />
+              <TeamNavIcon type="settlement" className="w-4.5 h-4.5" />
+              <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.settlement" /></span>
             </NavLink>
           )}
           {!hideTeamDayoffs && (
             <NavLink to={teamTo('/team/dayoffs')} className={mobileTabClass}>
-              <TeamBiInline id="team.layout.nav.dayoffs" />
+              <TeamNavIcon type="dayoffs" className="w-4.5 h-4.5" />
+              <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.dayoffs" /></span>
             </NavLink>
           )}
           <NavLink
@@ -401,38 +498,38 @@ export function TeamLayout() {
             className={mobileTabClass}
             aria-label={teamAriaCs(csPendingCount)}
           >
-            <span className="shrink-0 min-w-0">
-              <TeamBiInline id="team.layout.nav.cs" />
-            </span>
-            {csPendingCount > 0 ? (
-              <span
-                className="-ml-1 inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
-                aria-hidden
-              >
-                {csPendingCount}
-              </span>
-            ) : null}
+            <div className="relative flex flex-col items-center justify-center">
+              <TeamNavIcon type="cs" className="w-4.5 h-4.5" />
+              {csPendingCount > 0 ? (
+                <span
+                  className="absolute -top-1 -right-2 inline-flex min-w-[0.875rem] h-[0.875rem] items-center justify-center rounded-full bg-amber-400 px-0.5 text-center text-[8px] font-bold leading-none text-slate-950"
+                >
+                  {csPendingCount}
+                </span>
+              ) : null}
+            </div>
+            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.cs" /></span>
           </NavLink>
           <NavLink
             to={teamTo('/team/messages')}
             className={mobileTabClass}
             aria-label={teamAriaMessages(unreadCount)}
           >
-            <span className="shrink-0 min-w-0">
-              <TeamBiInline id="team.layout.nav.messages" />
-            </span>
-            {unreadCount > 0 ? (
-              <span
-                className="-ml-1 inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
-                aria-hidden
-              >
-                {unreadCount}
-              </span>
-            ) : null}
+            <div className="relative flex flex-col items-center justify-center">
+              <TeamNavIcon type="messages" className="w-4.5 h-4.5" />
+              {unreadCount > 0 ? (
+                <span
+                  className="absolute -top-1 -right-2 inline-flex min-w-[0.875rem] h-[0.875rem] items-center justify-center rounded-full bg-amber-400 px-0.5 text-center text-[8px] font-bold leading-none text-slate-950"
+                >
+                  {unreadCount}
+                </span>
+              ) : null}
+            </div>
+            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.messages" /></span>
           </NavLink>
         </nav>
       </header>
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
+      <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
         <Outlet />
       </main>
       <TeamMobileStaffIdCardDrawer

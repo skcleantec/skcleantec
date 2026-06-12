@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,8 +8,11 @@ html, body {
   margin: 0;
   height: 100%;
   overflow-x: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 17px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -26,3 +31,159 @@ html, body {
   0% { opacity: 0; transform: translateY(8px) scale(0.96); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* slate-300 */
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; /* slate-400 */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* 업무 화면(관리·팀·크루) main — 전역 !important 대신 이 래퍼 안에서만 폼 기본 스타일 */
+.staff-app-surface input[type="text"],
+.staff-app-surface input[type="password"],
+.staff-app-surface input[type="email"],
+.staff-app-surface input[type="tel"],
+.staff-app-surface input[type="number"],
+.staff-app-surface input[type="search"],
+.staff-app-surface input[type="date"],
+.staff-app-surface input[type="datetime-local"],
+.staff-app-surface select,
+.staff-app-surface textarea {
+  border-radius: 0.75rem;
+  border-color: rgba(226, 232, 240, 0.8);
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.staff-app-surface input[type="text"]:focus,
+.staff-app-surface input[type="password"]:focus,
+.staff-app-surface input[type="email"]:focus,
+.staff-app-surface input[type="tel"]:focus,
+.staff-app-surface input[type="number"]:focus,
+.staff-app-surface input[type="search"]:focus,
+.staff-app-surface input[type="date"]:focus,
+.staff-app-surface input[type="datetime-local"]:focus,
+.staff-app-surface select:focus,
+.staff-app-surface textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+  outline: none;
+}
+
+.staff-app-surface button {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s, color 0.2s,
+    box-shadow 0.2s;
+}
+
+.staff-app-surface button:active {
+  transform: scale(0.98);
+}
+
+/* ==========================================
+   Premium Dark Navigation Header (SaaS Style)
+   ========================================== */
+.theme-dark-header {
+  background: #0f172a !important; /* slate-900 */
+  border-color: #1e293b !important; /* slate-800 */
+  color: #f1f5f9 !important;
+}
+
+/* Header brand text & headings */
+.theme-dark-header h1,
+.theme-dark-header h1 span,
+.theme-dark-header h1 div {
+  color: #ffffff !important;
+}
+
+/* User Profile Menu button & options inside dark header */
+.theme-dark-header button {
+  color: #f1f5f9 !important; /* slate-100 */
+}
+.theme-dark-header button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* AdminDevPreviewLinks (미리보기) */
+.theme-dark-header .admin-preview-links {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #cbd5e1 !important;
+}
+.theme-dark-header .admin-preview-links button {
+  color: #f1f5f9 !important;
+}
+.theme-dark-header .admin-preview-links button:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Scroll buttons left/right in layout */
+.theme-dark-header .pointer-events-auto {
+  background-color: #1e293b !important; /* slate-800 */
+  border-color: #334155 !important; /* slate-700 */
+  color: #cbd5e1 !important;
+}
+.theme-dark-header .pointer-events-auto:hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+/* NavLinks inside dark header */
+.theme-dark-header nav a {
+  transition: all 0.2s ease;
+}
+
+/* Active links */
+.theme-dark-header nav a.bg-slate-900,
+.theme-dark-header nav a.bg-blue-600,
+.theme-dark-header nav a.active {
+  background-color: #2563eb !important; /* blue-600 */
+  color: #ffffff !important;
+}
+
+/* Inactive links */
+.theme-dark-header nav a:not(.bg-slate-900):not(.bg-blue-600):not(.active) {
+  color: #cbd5e1 !important; /* slate-300 */
+}
+.theme-dark-header nav a:not(.bg-slate-900):not(.bg-blue-600):not(.active):hover {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* General text overrides inside dark header */
+.theme-dark-header .text-gray-900,
+.theme-dark-header .text-gray-900 span,
+.theme-dark-header .text-gray-900 a {
+  color: #ffffff !important;
+}
+.theme-dark-header .text-gray-800 {
+  color: #f1f5f9 !important; /* slate-100 */
+}
+.theme-dark-header .text-gray-700 {
+  color: #cbd5e1 !important; /* slate-300 */
+}
+.theme-dark-header .text-gray-600 {
+  color: #94a3b8 !important; /* slate-400 */
+}
+.theme-dark-header .text-gray-500 {
+  color: #64748b !important; /* slate-500 */
+}
+
+
+

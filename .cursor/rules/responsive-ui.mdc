@@ -5,6 +5,9 @@ alwaysApply: true
 
 # 반응형 UI (클라이언트)
 
+> **상세·클래스·체크리스트:** `docs/UI_DESIGN_GUIDE.md` **§6** (본 룰은 에이전트 트리거용 요약)  
+> **다크 GNB:** `AdminLayout` / `TeamLayout` / `CrewLayout` — `theme-dark-header` + active `blue-600`, 본문 `rounded-2xl` slate 카드
+
 ## PC·모바일 동시 설계 (필수)
 
 - **처음부터 두 뷰를 함께 설계**한다. 데스크톱만 만들고 모바일은 나중에 덧붙이지 않는다.

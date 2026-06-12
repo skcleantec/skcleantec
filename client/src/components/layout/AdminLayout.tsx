@@ -109,6 +109,73 @@ function OrderIssueFabIcon({ className }: { className?: string }) {
   );
 }
 
+function AdminNavIcon({ id, className }: { id: string; className?: string }) {
+  if (id === 'dashboard') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="7" height="9" rx="1.5" />
+        <rect x="14" y="3" width="7" height="5" rx="1.5" />
+        <rect x="14" y="12" width="7" height="9" rx="1.5" />
+        <rect x="3" y="16" width="7" height="5" rx="1.5" />
+      </svg>
+    );
+  }
+  if (id === 'inquiries') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <polyline points="10 9 9 9 8 9" />
+      </svg>
+    );
+  }
+  if (id === 'schedule') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+    );
+  }
+  if (id === 'team-leaders') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
+  if (id === 'cs') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    );
+  }
+  if (id === 'advertising') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+    );
+  }
+  if (id === 'messages') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+        <polyline points="22,6 12,13 2,6" />
+      </svg>
+    );
+  }
+  return null;
+}
+
 export function AdminLayout() {
   const adminToken = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const navigate = useNavigate();
@@ -379,7 +446,11 @@ export function AdminLayout() {
   };
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center px-2 sm:px-3 py-2 text-[clamp(0.6rem,1.4vw,0.875rem)] font-medium rounded whitespace-nowrap shrink-0 flex-none break-keep ${isActive ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:text-gray-900'}`;
+    `inline-flex items-center px-3 py-1.5 text-fluid-xs font-semibold rounded-xl whitespace-nowrap shrink-0 flex-none break-keep transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
+      isActive
+        ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20'
+        : 'text-slate-300 hover:text-white hover:bg-white/10'
+    }`;
 
   const scrollStep = () => {
     const el = navScrollRef.current;
@@ -547,7 +618,16 @@ export function AdminLayout() {
   }, [clampFabTop, fabDragging, navigate, location.pathname]);
 
   return (
-    <div className="min-h-0 h-dvh max-h-dvh bg-gray-50 flex flex-col overflow-hidden">
+    <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
+      {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+        {/* 좌상단 퍼플-인디고 조명 */}
+        <div className="absolute -top-[20%] -left-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-indigo-500/16 to-purple-500/10 blur-[100px] opacity-80" />
+        {/* 우하단 블루-스카이 조명 */}
+        <div className="absolute -bottom-[20%] -right-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-blue-500/16 to-sky-500/10 blur-[100px] opacity-80" />
+        {/* 상단 중앙 소프트 스포트라이트 */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-[800px] h-[350px] rounded-full bg-indigo-500/8 blur-[120px] opacity-80" />
+      </div>
       {reviewPaybackToast ? (
         <button
           type="button"
@@ -588,13 +668,13 @@ export function AdminLayout() {
           </div>
         </div>
       )}
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
+      <header className="relative z-20 px-4 py-2.5 shrink-0 shadow-md theme-dark-header">
         <div className="max-w-6xl mx-auto flex flex-col gap-2 min-w-0">
           <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
             <button
               type="button"
               onClick={() => navigate('/admin/dashboard')}
-              className="min-w-0 truncate text-left text-base font-semibold text-gray-800 hover:text-gray-900"
+              className="min-w-0 truncate text-left text-base font-semibold text-white hover:text-slate-200"
               aria-label="대시보드로 이동"
               title="대시보드로 이동"
             >
@@ -634,7 +714,7 @@ export function AdminLayout() {
               <button
                 type="button"
                 onClick={() => navigate('/admin/dashboard')}
-                className="hidden md:block text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-gray-800 whitespace-nowrap shrink-0 hover:text-gray-900"
+                className="hidden md:block text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-white whitespace-nowrap shrink-0 hover:text-slate-200"
                 aria-label="대시보드로 이동"
                 title="대시보드로 이동"
               >
@@ -663,8 +743,8 @@ export function AdminLayout() {
                       ))}
                     </span>
                   );
-                  const rowClass = `inline-flex flex-nowrap items-center gap-0.5 rounded shrink-0 ${
-                    dragging ? 'opacity-50' : ''
+                  const rowClass = `inline-flex flex-nowrap items-center gap-0.5 rounded-xl shrink-0 ${
+                    dragging ? 'opacity-40' : ''
                   }`;
                   if (id === 'team-leaders') {
                     return (
@@ -679,7 +759,8 @@ export function AdminLayout() {
                           to={def.to}
                           className={() => navClass({ isActive: teamLeadersActive })}
                         >
-                          {def.label}
+                          <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
+                          <span>{def.label}</span>
                         </NavLink>
                       </div>
                     );
@@ -701,11 +782,12 @@ export function AdminLayout() {
                               unreadCount > 0 ? `${def.label}, 새 메시지 ${unreadCount}건` : def.label
                             }
                           >
-                            {def.label}
+                            <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
+                            <span>{def.label}</span>
                           </NavLink>
                           {unreadCount > 0 ? (
                             <span
-                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
                               aria-hidden
                             >
                               {unreadCount}
@@ -732,11 +814,12 @@ export function AdminLayout() {
                               csPendingCount > 0 ? `${def.label}, 미확인 ${csPendingCount}건` : def.label
                             }
                           >
-                            {def.label}
+                            <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
+                            <span>{def.label}</span>
                           </NavLink>
                           {csPendingCount > 0 ? (
                             <span
-                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
                               aria-hidden
                             >
                               {csPendingCount}
@@ -765,11 +848,12 @@ export function AdminLayout() {
                                 : def.label
                             }
                           >
-                            {def.label}
+                            <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
+                            <span>{def.label}</span>
                           </NavLink>
                           {reviewPaybackUnseenCount > 0 ? (
                             <span
-                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-600 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-medium leading-none text-white tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
                               aria-hidden
                             >
                               {reviewPaybackUnseenCount > 99 ? '99+' : reviewPaybackUnseenCount}
@@ -788,7 +872,8 @@ export function AdminLayout() {
                     >
                       {dragHandle}
                       <NavLink to={def.to} className={navClass}>
-                        {def.label}
+                        <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
+                        <span>{def.label}</span>
                       </NavLink>
                     </div>
                   );
@@ -796,28 +881,28 @@ export function AdminLayout() {
               </nav>
             </div>
             {showNavMoreLeft && (
-              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center justify-start lg:hidden">
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-white via-white/95 to-transparent" aria-hidden />
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center justify-start">
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent" aria-hidden />
                 <button
                   type="button"
                   onClick={scrollNavLeft}
-                  className="pointer-events-auto relative ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
+                  className="pointer-events-auto relative ml-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-800 bg-slate-800 text-slate-300 shadow-sm transition-all hover:bg-slate-700 hover:text-white active:scale-95"
                   aria-label="메뉴가 왼쪽으로 더 있습니다. 탭하면 스크롤됩니다."
                 >
-                  <ChevronLeftIcon className="h-5 w-5" />
+                  <ChevronLeftIcon className="h-4.5 w-4.5" />
                 </button>
               </div>
             )}
             {showNavMoreRight && (
-              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center justify-end lg:hidden">
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white via-white/95 to-transparent" aria-hidden />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center justify-end">
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent" aria-hidden />
                 <button
                   type="button"
                   onClick={scrollNavRight}
-                  className="pointer-events-auto relative mr-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
+                  className="pointer-events-auto relative mr-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-800 bg-slate-800 text-slate-300 shadow-sm transition-all hover:bg-slate-700 hover:text-white active:scale-95"
                   aria-label="메뉴가 오른쪽으로 더 있습니다. 탭하면 스크롤됩니다."
                 >
-                  <ChevronRightIcon className="h-5 w-5" />
+                  <ChevronRightIcon className="h-4.5 w-4.5" />
                 </button>
               </div>
             )}
@@ -847,7 +932,7 @@ export function AdminLayout() {
         </div>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+      <main className="staff-app-surface relative z-10 max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan }}>
           <Outlet />
         </TenantCapabilitiesProvider>

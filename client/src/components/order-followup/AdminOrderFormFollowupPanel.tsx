@@ -702,17 +702,17 @@ export function AdminOrderFormFollowupPanel({
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-4 py-3">
+      <section className="rounded-2xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3.5">
           <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-2">
-            <div className="inline-flex shrink-0 rounded border border-gray-300 overflow-hidden text-fluid-sm">
+            <div className="inline-flex shrink-0 rounded-xl border border-slate-200 overflow-hidden text-fluid-sm bg-white p-0.5 shadow-sm">
               <button
                 type="button"
                 onClick={() => setListDateBasis('createdAt')}
-                className={`px-2.5 py-1.5 font-medium ${
+                className={`rounded-lg px-3 py-1.5 font-semibold transition-all duration-150 ${
                   listDateBasis === 'createdAt'
-                    ? 'bg-slate-700 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                    ? 'bg-slate-800 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                 }`}
               >
                 등록일
@@ -720,25 +720,25 @@ export function AdminOrderFormFollowupPanel({
               <button
                 type="button"
                 onClick={() => setListDateBasis('preferredMoveIn')}
-                className={`px-2.5 py-1.5 font-medium border-l border-gray-300 ${
+                className={`rounded-lg px-3 py-1.5 font-semibold transition-all duration-150 ${
                   listDateBasis === 'preferredMoveIn'
-                    ? 'bg-slate-700 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                    ? 'bg-slate-800 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                 }`}
               >
                 희망일
               </button>
             </div>
-            <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">
+            <span className="text-fluid-2xs font-semibold text-slate-500 shrink-0">
               {listDateBasis === 'createdAt' ? '등록일 범위' : '희망일 범위'}
             </span>
             <div className="inline-flex min-w-0 flex-wrap items-center gap-2">
-              <div className="inline-flex shrink-0 rounded border border-gray-300 overflow-hidden text-fluid-sm">
+              <div className="inline-flex shrink-0 rounded-xl border border-slate-200 overflow-hidden text-fluid-sm bg-white p-0.5 shadow-sm">
                 <button
                   type="button"
                   onClick={() => setDatePreset('today')}
-                  className={`px-3 py-1.5 font-medium ${
-                    datePreset === 'today' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  className={`rounded-lg px-3 py-1.5 font-semibold transition-all duration-150 ${
+                    datePreset === 'today' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
                   오늘
@@ -749,8 +749,8 @@ export function AdminOrderFormFollowupPanel({
                     setDatePreset('all');
                     setFilterGoldDbOnly(false);
                   }}
-                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                    datePreset === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  className={`rounded-lg px-3 py-1.5 font-semibold transition-all duration-150 ${
+                    datePreset === 'all' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
                   전체
@@ -758,8 +758,8 @@ export function AdminOrderFormFollowupPanel({
                 <button
                   type="button"
                   onClick={() => setDatePreset('month')}
-                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                    datePreset === 'month' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  className={`rounded-lg px-3 py-1.5 font-semibold transition-all duration-150 ${
+                    datePreset === 'month' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
                   월별
@@ -767,8 +767,8 @@ export function AdminOrderFormFollowupPanel({
                 <button
                   type="button"
                   onClick={() => setDatePreset('day')}
-                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                    datePreset === 'day' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  className={`rounded-lg px-3 py-1.5 font-semibold transition-all duration-150 ${
+                    datePreset === 'day' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
                   일별
@@ -777,7 +777,7 @@ export function AdminOrderFormFollowupPanel({
               <button
                 type="button"
                 onClick={() => setListIntakeOpen(true)}
-                className="inline-flex min-h-[30px] shrink-0 items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-2.5 py-1 text-fluid-2xs sm:text-fluid-xs font-medium text-sky-900 hover:bg-sky-100"
+                className="inline-flex min-h-[36px] shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50/50 px-3.5 py-1.5 text-fluid-2xs sm:text-fluid-xs font-semibold text-sky-800 hover:bg-sky-100/60 hover:scale-[1.03] active:scale-[0.97] transition-all duration-150 shadow-sm"
                 title="일반 워크플로우(부재/보류/입금)로 신규 등록 · 서비스접수와 동일"
               >
                 일반 등록
@@ -819,13 +819,13 @@ export function AdminOrderFormFollowupPanel({
                   value={filterCustomerName}
                   onChange={(e) => setFilterCustomerName(e.target.value)}
                   placeholder="고객명 검색"
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-fluid-2xs sm:text-fluid-xs text-gray-900"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-fluid-2xs sm:text-fluid-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
                 />
                 {filterCustomerName.trim() ? (
                   <button
                     type="button"
                     onClick={() => setFilterCustomerName('')}
-                    className="shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-fluid-2xs text-gray-600 hover:bg-gray-50"
+                    className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-fluid-2xs text-slate-600 hover:bg-slate-50 hover:scale-[1.03] active:scale-[0.97] transition-all"
                   >
                     초기화
                   </button>
@@ -834,10 +834,10 @@ export function AdminOrderFormFollowupPanel({
               <button
                 type="button"
                 onClick={() => setFilterGoldDbOnly((v) => !v)}
-                className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] sm:text-fluid-2xs font-medium touch-manipulation sm:ml-auto ${
+                className={`shrink-0 rounded-full border px-3 py-1 text-[11px] sm:text-fluid-2xs font-semibold touch-manipulation sm:ml-auto transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
                   filterGoldDbOnly
-                    ? 'border-amber-600 bg-amber-100 text-amber-950 ring-1 ring-amber-300/80'
-                    : 'border-amber-200 bg-white text-amber-900 hover:bg-amber-50'
+                    ? 'border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-200/50'
+                    : 'border-amber-200 bg-white text-amber-700 hover:bg-amber-50 hover:border-amber-300'
                 }`}
               >
                 골드DB만
@@ -851,10 +851,10 @@ export function AdminOrderFormFollowupPanel({
                     setFilterStatus(next);
                     if (next === '') setFilterGoldDbOnly(false);
                   }}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] sm:text-fluid-2xs font-medium touch-manipulation ${
+                  className={`rounded-full border px-3 py-1 text-[11px] sm:text-fluid-2xs font-semibold touch-manipulation transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] ${
                     (c.value === '' && filterStatus === '') || c.value === filterStatus
-                      ? 'border-gray-800 bg-gray-900 text-white'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                      ? 'border-slate-800 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
                   }`}
                 >
                   {c.label}
@@ -891,52 +891,52 @@ export function AdminOrderFormFollowupPanel({
                   <col style={{ width: '25%' }} />
                 </colgroup>
                 <thead>
-                  <tr className="border-b border-gray-200 bg-white">
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">고객</th>
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">연락처</th>
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">상태</th>
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">부재</th>
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">담당</th>
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">등록일</th>
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">희망일</th>
-                    <th className="py-2.5 px-2 font-semibold text-gray-600">작업</th>
+                  <tr className="border-b border-slate-200/60 bg-slate-50/80">
+                    <th className="py-2.5 px-2 font-semibold text-slate-500">고객</th>
+                    <th className="py-2.5 px-2 font-semibold text-slate-500">연락처</th>
+                    <th className="py-2.5 px-2 font-semibold text-slate-500">상태</th>
+                    <th className="py-2.5 px-2 font-semibold text-slate-500">부재</th>
+                    <th className="py-2.5 px-2 font-semibold text-slate-500">담당</th>
+                    <th className="py-2.5 px-2 font-semibold text-slate-500">등록일</th>
+                    <th className="py-2.5 px-2 font-semibold text-slate-500">희망일</th>
+                    <th className="py-2.5 px-2 font-semibold text-slate-500">작업</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((row) => (
                     <tr
                       key={row.id}
-                      className={`border-b border-gray-100 ${
+                      className={`border-b border-slate-100/80 transition-colors ${
                         row.goldDb
-                          ? 'bg-yellow-100 hover:bg-yellow-200/50 border-l-[3px] border-l-amber-500'
-                          : 'hover:bg-gray-50/80'
+                          ? 'bg-amber-50/40 hover:bg-amber-100/30 border-l-[4px] border-l-amber-500'
+                          : 'hover:bg-slate-50/80'
                       }`}
                     >
-                      <td className="py-2 px-2 font-medium text-gray-900 truncate max-w-[10rem]">
-                        <span>{row.customerName}</span>
+                      <td className="py-2.5 px-2 font-medium text-slate-900 truncate max-w-[10rem]">
+                        <span className="font-semibold">{row.customerName}</span>
                         {row.nickname?.trim() ? (
                           <>
-                            <span className="mx-1 text-[11px] font-normal text-gray-400" aria-hidden>
+                            <span className="mx-1 text-[11px] font-normal text-slate-400" aria-hidden>
                               ·
                             </span>
-                            <span className="text-[11px] font-normal text-gray-500">
+                            <span className="text-[11px] font-normal text-slate-500">
                               {row.nickname}
                             </span>
                           </>
                         ) : null}
                       </td>
-                      <td className="py-2 px-2 tabular-nums text-gray-800">{displayPhone(row.customerPhone)}</td>
-                      <td className="py-2 px-2">
+                      <td className="py-2.5 px-2 tabular-nums text-slate-800 font-medium">{displayPhone(row.customerPhone)}</td>
+                      <td className="py-2.5 px-2">
                         <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
                       </td>
-                      <td className="py-2 px-2 tabular-nums text-gray-800">{row.deferCount}</td>
-                      <td className="py-2 px-2 text-gray-700 truncate max-w-[6rem]">
+                      <td className="py-2.5 px-2 tabular-nums text-slate-800 font-medium">{row.deferCount}</td>
+                      <td className="py-2.5 px-2 text-slate-700 truncate max-w-[6rem] font-medium">
                         {row.handledBy?.name ?? '—'}
                       </td>
-                      <td className="py-2 px-2 text-gray-500 text-[11px] tabular-nums truncate" title={formatDateCompactWithWeekday(row.createdAt)}>
+                      <td className="py-2.5 px-2 text-slate-500 text-[11px] tabular-nums truncate" title={formatDateCompactWithWeekday(row.createdAt)}>
                         {formatDateCompactWithWeekday(row.createdAt)}
                       </td>
-                      <td className="py-2 px-2 text-gray-500 text-[11px] tabular-nums truncate" title={
+                      <td className="py-2.5 px-2 text-slate-500 text-[11px] tabular-nums truncate" title={
                         row.preferredMoveInCleaningDate
                           ? formatDateCompactWithWeekday(row.preferredMoveInCleaningDate)
                           : ''
@@ -946,25 +946,25 @@ export function AdminOrderFormFollowupPanel({
                           ? formatDateCompactWithWeekday(row.preferredMoveInCleaningDate)
                           : '—'}
                       </td>
-                      <td className="py-2 px-2">
-                        <div className="flex flex-wrap justify-center gap-1">
+                      <td className="py-2.5 px-2">
+                        <div className="flex flex-wrap justify-center gap-1 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2.5 [&>button]:py-1 [&>button]:text-fluid-2xs [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300">
                           <Link
                             to="/admin/inquiries/order-issue"
-                            className="inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100"
+                            className="inline-flex rounded-lg border border-emerald-100 bg-emerald-50/40 px-2.5 py-1 text-fluid-2xs font-semibold text-emerald-700 hover:scale-[1.03] active:scale-[0.97] transition-all duration-150 shadow-sm hover:bg-emerald-100/60 hover:border-emerald-200"
                           >
                             발주서
                           </Link>
                           <button
                             type="button"
                             onClick={() => setEdit(row)}
-                            className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-800 hover:bg-gray-50"
+                            className="!text-slate-700"
                           >
                             편집
                           </button>
                           <button
                             type="button"
                             onClick={() => setLogFor(row)}
-                            className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-800 hover:bg-gray-50"
+                            className="!text-slate-700"
                           >
                             로그
                           </button>
@@ -972,7 +972,7 @@ export function AdminOrderFormFollowupPanel({
                             <button
                               type="button"
                               onClick={() => setDeferTarget(row)}
-                              className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-950 hover:bg-amber-100"
+                              className="!text-amber-700 !bg-amber-50/40 !border-amber-100"
                             >
                               부재+1
                             </button>
@@ -980,7 +980,7 @@ export function AdminOrderFormFollowupPanel({
                           <button
                             type="button"
                             onClick={() => setDeleteTarget(row)}
-                            className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-100"
+                            className="!text-red-600 !bg-red-50/30 !border-red-100"
                           >
                             삭제
                           </button>
@@ -992,62 +992,64 @@ export function AdminOrderFormFollowupPanel({
               </table>
             </div>
 
-            <div className="lg:hidden divide-y divide-gray-100 p-2 space-y-0">
+            <div className="flex flex-col gap-3 p-3 lg:hidden">
               {items.map((row) => (
                 <div
                   key={row.id}
-                  className={`px-2 py-3 rounded-lg ${
-                    row.goldDb ? 'bg-yellow-100 border-l-[3px] border-l-amber-500' : ''
+                  className={`rounded-2xl border p-4 shadow-md shadow-slate-100/40 hover:shadow-lg transition-all duration-200 overflow-hidden ${
+                    row.goldDb
+                      ? 'border-amber-400 bg-amber-50/35 border-l-[4px] border-l-amber-500'
+                      : 'border-slate-200/60 bg-white hover:border-slate-300'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 min-w-0">
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">
+                      <p className="font-semibold text-slate-900 truncate">
                         <span>{row.customerName}</span>
                         {row.nickname?.trim() ? (
                           <>
-                            <span className="mx-1 text-fluid-xs font-normal text-gray-400" aria-hidden>
+                            <span className="mx-1 text-fluid-xs font-normal text-slate-400" aria-hidden>
                               ·
                             </span>
-                            <span className="text-fluid-xs font-normal text-gray-500">
+                            <span className="text-fluid-xs font-normal text-slate-500">
                               {row.nickname}
                             </span>
                           </>
                         ) : null}
                       </p>
-                      <p className="text-fluid-xs text-gray-600 tabular-nums">{displayPhone(row.customerPhone)}</p>
+                      <p className="text-fluid-xs text-slate-500 font-medium tabular-nums">{displayPhone(row.customerPhone)}</p>
                     </div>
                     <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-fluid-2xs text-gray-600">
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-fluid-2xs text-slate-500 font-medium">
                     <span>부재 {row.deferCount}회</span>
                     <span>담당 {row.handledBy?.name ?? '—'}</span>
                     <span className="block">등록일 {formatDateCompactWithWeekday(row.createdAt)}</span>
-                    <span className="block text-gray-700">
+                    <span className="block text-slate-700">
                       희망일{' '}
                       {row.preferredMoveInCleaningDate
                         ? formatDateCompactWithWeekday(row.preferredMoveInCleaningDate)
                         : '—'}
                     </span>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-3.5 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2.5 [&>button]:py-1.5 [&>button]:text-[11px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300">
                     <Link
                       to="/admin/inquiries/order-issue"
-                      className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-fluid-2xs font-medium text-emerald-900 hover:bg-emerald-100"
+                      className="inline-flex items-center rounded-lg border border-emerald-100 bg-emerald-50/40 px-2.5 py-1.5 text-fluid-2xs font-semibold text-emerald-700 hover:scale-[1.03] active:scale-[0.97] transition-all shadow-sm hover:bg-emerald-100/60"
                     >
                       발주서
                     </Link>
                     <button
                       type="button"
                       onClick={() => setEdit(row)}
-                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-fluid-2xs font-medium text-gray-800"
+                      className="!text-slate-700"
                     >
                       편집
                     </button>
                     <button
                       type="button"
                       onClick={() => setLogFor(row)}
-                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-fluid-2xs font-medium text-gray-800"
+                      className="!text-slate-700"
                     >
                       로그
                     </button>
@@ -1055,7 +1057,7 @@ export function AdminOrderFormFollowupPanel({
                       <button
                         type="button"
                         onClick={() => setDeferTarget(row)}
-                        className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-fluid-2xs font-medium text-amber-950"
+                        className="!text-amber-700 !bg-amber-50/40 !border-amber-100"
                       >
                         부재+1
                       </button>
@@ -1063,7 +1065,7 @@ export function AdminOrderFormFollowupPanel({
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(row)}
-                      className="ml-auto rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-fluid-2xs font-medium text-red-700 hover:bg-red-100"
+                      className="ml-auto !text-red-600 !bg-red-50/30 !border-red-100"
                     >
                       삭제
                     </button>

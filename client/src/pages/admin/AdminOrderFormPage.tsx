@@ -809,7 +809,7 @@ export function AdminOrderFormPage() {
               </div>
             ) : (
               <>
-                <p className="border-b border-gray-100 px-4 py-2 text-fluid-xs text-gray-600 lg:hidden">
+                <p className="border-b border-slate-100 px-4 py-2.5 text-fluid-xs text-slate-500 lg:hidden font-medium">
                   카드 하단에서 메시지·링크·새 창을 누르세요. PC(큰 화면)에서는 표가 보입니다.
                 </p>
                 <div className="flex flex-col gap-3 p-3 lg:hidden">
@@ -819,23 +819,23 @@ export function AdminOrderFormPage() {
                     return (
                       <div
                         key={o.id}
-                        className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+                        className="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-md shadow-slate-100/40 hover:shadow-lg transition-all duration-200 overflow-hidden"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-fluid-sm font-semibold text-gray-900">{o.customerName}</p>
-                          <p className="mt-1 text-fluid-xs text-gray-500">
+                          <p className="truncate text-fluid-sm font-semibold text-slate-900">{o.customerName}</p>
+                          <p className="mt-1 text-fluid-xs text-slate-500">
                             발급 {formatDateCompactWithWeekday(o.createdAt)} · 담당 {issuer}
                           </p>
                           <p
-                            className="mt-1.5 text-fluid-xs leading-snug text-gray-700"
+                            className="mt-1.5 text-fluid-xs leading-snug text-slate-700"
                             title={resv.title || undefined}
                           >
-                            <span className="font-medium text-gray-600">예약일</span>{' '}
-                            <span className="tabular-nums text-gray-900">{resv.dateText}</span>
+                            <span className="font-semibold text-slate-500">예약일</span>{' '}
+                            <span className="tabular-nums text-slate-900 font-medium">{resv.dateText}</span>
                           </p>
                           {resv.detailText ? (
                             <p
-                              className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-gray-600"
+                              className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-slate-600"
                               title={resv.detailText}
                             >
                               {resv.detailText}
@@ -843,44 +843,46 @@ export function AdminOrderFormPage() {
                           ) : null}
                           {o.optionNote?.trim() ? (
                             <p
-                              className="mt-1 line-clamp-2 text-fluid-2xs text-gray-600"
+                              className="mt-1 line-clamp-2 text-fluid-2xs text-slate-600"
                               title={o.optionNote.trim()}
                             >
                               {o.optionNote.trim()}
                             </p>
                           ) : null}
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-fluid-xs">
-                            <span className="tabular-nums font-medium text-gray-900">
+                          <div className="mt-2 flex flex-wrap items-center gap-2.5 text-fluid-xs">
+                            <span className="tabular-nums font-semibold text-slate-900">
                               {o.totalAmount.toLocaleString('ko-KR')}원
                             </span>
                             <span
-                              className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
-                                o.submittedAt ? 'bg-green-50 text-green-800 ring-1 ring-green-200' : 'bg-gray-100 text-gray-700 ring-1 ring-gray-200'
+                              className={`rounded-md px-2 py-0.5 text-fluid-2xs font-semibold ${
+                                o.submittedAt
+                                  ? 'bg-green-50 text-green-700 ring-1 ring-green-200/50'
+                                  : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200/55'
                               }`}
                             >
                               {o.submittedAt ? '제출완료' : '미제출'}
                             </span>
                           </div>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-gray-100 pt-2.5">
+                        <div className="mt-3.5 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2.5 [&>button]:py-1.5 [&>button]:text-[11px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300">
                           <button
                             type="button"
                             onClick={() => setPreviewModal({ kind: 'message', order: o })}
-                            className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                            className="!text-indigo-700 !bg-indigo-50/30 !border-indigo-100"
                           >
                             메시지
                           </button>
                           <button
                             type="button"
                             onClick={() => setPreviewModal({ kind: 'link', order: o })}
-                            className="text-fluid-xs font-medium text-gray-800 hover:underline"
+                            className="!text-slate-700"
                           >
                             링크
                           </button>
                           <button
                             type="button"
                             onClick={() => openInNewTab(o)}
-                            className="text-fluid-xs text-gray-600 hover:underline"
+                            className="!text-slate-600"
                           >
                             새 창
                           </button>
@@ -888,7 +890,7 @@ export function AdminOrderFormPage() {
                             <button
                               type="button"
                               onClick={() => navigate(`/admin/order-prefill/${o.id}`)}
-                              className="text-fluid-xs font-medium text-emerald-700 hover:underline"
+                              className="!text-emerald-700 !bg-emerald-50/40 !border-emerald-100"
                             >
                               작성
                             </button>
@@ -896,7 +898,7 @@ export function AdminOrderFormPage() {
                           <button
                             type="button"
                             onClick={() => void openPhotosModal(o)}
-                            className="text-fluid-xs font-medium text-emerald-700 hover:underline"
+                            className="!text-emerald-700 !bg-emerald-50/40 !border-emerald-100"
                           >
                             사진
                           </button>
@@ -904,7 +906,7 @@ export function AdminOrderFormPage() {
                             <button
                               type="button"
                               onClick={() => setSubmissionViewer({ id: o.id, customerName: o.customerName })}
-                              className="text-fluid-xs font-medium text-violet-700 hover:underline"
+                              className="!text-violet-750 !bg-violet-50/30 !border-violet-100"
                             >
                               제출원본
                             </button>
@@ -912,7 +914,7 @@ export function AdminOrderFormPage() {
                           <button
                             type="button"
                             onClick={() => openDeleteModal(o)}
-                            className="text-fluid-xs font-medium text-red-600 hover:underline"
+                            className="ml-auto !text-red-650 !bg-red-50/30 !border-red-100"
                           >
                             삭제
                           </button>
@@ -935,26 +937,26 @@ export function AdminOrderFormPage() {
                         <col className="w-[21%]" />
                       </colgroup>
                       <thead>
-                        <tr className="border-b border-gray-200 bg-gray-100">
-                          <th className="sticky left-0 z-10 border-r border-gray-200 bg-gray-100 px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                        <tr className="border-b border-slate-200/60 bg-slate-50/80">
+                          <th className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             고객명
                           </th>
-                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                          <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             예약일
                           </th>
-                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                          <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             담당
                           </th>
-                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                          <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             총액
                           </th>
-                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                          <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             상태
                           </th>
-                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                          <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             발급일
                           </th>
-                          <th className="px-1 py-1.5 text-center text-fluid-2xs font-medium text-gray-700 xl:px-1.5 xl:py-2 2xl:text-fluid-xs">
+                          <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             링크
                           </th>
                         </tr>
@@ -964,74 +966,76 @@ export function AdminOrderFormPage() {
                           const issuer = labelOrderFormIssuer(o.createdBy ?? undefined);
                           const resv = formatOrderFormReservationCell(o);
                           return (
-                            <tr key={o.id} className="group hover:bg-gray-50">
+                            <tr key={o.id} className="group hover:bg-slate-50/80 transition-colors">
                               <td
-                                className="sticky left-0 z-10 min-w-0 border-b border-r border-gray-100 bg-white px-1 py-1 align-middle group-hover:bg-gray-50 xl:px-1.5 xl:py-1.5"
+                                className="sticky left-0 z-10 min-w-0 border-b border-r border-slate-100/80 bg-white px-1.5 py-2 align-middle group-hover:bg-slate-50/80 xl:px-2 xl:py-2.5"
                                 title={o.customerName}
                               >
-                                <span className="block truncate text-left font-medium text-gray-900 xl:text-fluid-xs">
+                                <span className="block truncate text-left font-semibold text-slate-900 xl:text-fluid-xs">
                                   {o.customerName}
                                 </span>
                               </td>
                               <td
-                                className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle text-center text-gray-700 xl:px-1.5 xl:py-1.5"
+                                className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center text-slate-700 xl:px-1.5 xl:py-2.5"
                                 title={resv.title || undefined}
                               >
-                                <span className="block truncate text-fluid-2xs tabular-nums leading-tight text-gray-900 xl:text-fluid-xs">
+                                <span className="block truncate text-fluid-2xs tabular-nums leading-tight text-slate-900 font-medium xl:text-fluid-xs">
                                   {resv.dateText}
                                 </span>
                                 {resv.detailText ? (
-                                  <span className="mt-0.5 block truncate text-fluid-2xs leading-tight text-gray-500 xl:text-fluid-xs">
+                                  <span className="mt-0.5 block truncate text-fluid-2xs leading-tight text-slate-400 xl:text-fluid-xs">
                                     {resv.detailText}
                                   </span>
                                 ) : null}
                               </td>
                               <td
-                                className="min-w-0 truncate border-b border-gray-100 px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5"
+                                className="min-w-0 truncate border-b border-slate-100/80 px-1 py-2 align-middle text-center text-slate-600 xl:px-1.5 xl:py-2.5"
                                 title={issuer}
                               >
                                 {issuer}
                               </td>
-                              <td className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle text-right tabular-nums text-gray-700 xl:px-1.5 xl:py-1.5">
+                              <td className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-right tabular-nums text-slate-800 font-medium xl:px-1.5 xl:py-2.5">
                                 {o.totalAmount.toLocaleString('ko-KR')}원
                               </td>
-                              <td className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5">
+                              <td className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center xl:px-1.5 xl:py-2.5">
                                 {o.submittedAt ? (
-                                  <span className="text-fluid-2xs font-medium text-green-600 xl:text-fluid-xs">
+                                  <span className="text-fluid-2xs font-semibold text-green-700 bg-green-50 ring-1 ring-green-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
                                     제출완료
                                   </span>
                                 ) : (
-                                  <span className="text-fluid-2xs text-gray-500 xl:text-fluid-xs">미제출</span>
+                                  <span className="text-fluid-2xs text-slate-500 bg-slate-50 ring-1 ring-slate-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
+                                    미제출
+                                  </span>
                                 )}
                               </td>
                               <td
-                                className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle text-center tabular-nums text-gray-600 xl:px-1.5 xl:py-1.5"
+                                className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center tabular-nums text-slate-500 xl:px-1.5 xl:py-2.5"
                                 title={formatDateCompactWithWeekday(o.createdAt)}
                               >
                                 <span className="block truncate text-fluid-2xs leading-tight xl:text-fluid-xs">
                                   {formatDateCompactWithWeekday(o.createdAt)}
                                 </span>
                               </td>
-                              <td className="min-w-0 border-b border-gray-100 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5">
-                                <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
+                              <td className="min-w-0 border-b border-slate-100/80 px-1.5 py-2 align-middle xl:px-2 xl:py-2.5">
+                                <div className="flex min-w-0 flex-wrap items-center justify-center gap-1 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-1 [&>button]:text-fluid-2xs [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300">
                                   <button
                                     type="button"
                                     onClick={() => setPreviewModal({ kind: 'message', order: o })}
-                                    className="shrink-0 text-fluid-2xs font-medium text-blue-600 hover:underline xl:text-fluid-xs"
+                                    className="!text-indigo-700 !bg-indigo-50/30 !border-indigo-100"
                                   >
                                     메시지
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => setPreviewModal({ kind: 'link', order: o })}
-                                    className="shrink-0 text-fluid-2xs font-medium text-gray-800 hover:underline xl:text-fluid-xs"
+                                    className="!text-slate-700"
                                   >
                                     링크
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => openInNewTab(o)}
-                                    className="shrink-0 text-fluid-2xs text-gray-600 hover:underline xl:text-fluid-xs"
+                                    className="!text-slate-600"
                                   >
                                     새 창
                                   </button>
@@ -1039,7 +1043,7 @@ export function AdminOrderFormPage() {
                                     <button
                                       type="button"
                                       onClick={() => navigate(`/admin/order-prefill/${o.id}`)}
-                                      className="shrink-0 text-fluid-2xs font-medium text-emerald-700 hover:underline xl:text-fluid-xs"
+                                      className="!text-emerald-700 !bg-emerald-50/40 !border-emerald-100"
                                     >
                                       작성
                                     </button>
@@ -1047,7 +1051,7 @@ export function AdminOrderFormPage() {
                                   <button
                                     type="button"
                                     onClick={() => void openPhotosModal(o)}
-                                    className="shrink-0 text-fluid-2xs font-medium text-emerald-700 hover:underline xl:text-fluid-xs"
+                                    className="!text-emerald-700 !bg-emerald-50/40 !border-emerald-100"
                                   >
                                     사진
                                   </button>
@@ -1057,7 +1061,7 @@ export function AdminOrderFormPage() {
                                       onClick={() =>
                                         setSubmissionViewer({ id: o.id, customerName: o.customerName })
                                       }
-                                      className="shrink-0 text-fluid-2xs font-medium text-violet-700 hover:underline xl:text-fluid-xs"
+                                      className="!text-violet-750 !bg-violet-50/30 !border-violet-100"
                                     >
                                       제출원본
                                     </button>
@@ -1065,7 +1069,7 @@ export function AdminOrderFormPage() {
                                   <button
                                     type="button"
                                     onClick={() => openDeleteModal(o)}
-                                    className="shrink-0 text-fluid-2xs font-medium text-red-600 hover:underline xl:text-fluid-xs"
+                                    className="!text-red-600 !bg-red-50/30 !border-red-100"
                                   >
                                     삭제
                                   </button>
