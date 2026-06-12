@@ -1,0 +1,42 @@
+---
+description: 서비스접수 목록 정렬 — 발주서 미제출 최상단·예약완료 하단 (필수, 회귀 금지)
+alwaysApply: true
+---
+
+# 서비스접수 목록 정렬 (필수 — 회귀 금지)
+
+> **접수 목록 = `GET /inquiries` + `AdminInquiriesPage`**. 필터·페이지네이션과 **별도로** 아래 정렬 tier 를 **항상** 적용한다.  
+> `orderBy: { createdAt: 'desc' }` 만 쓰면 **미제출이 2페이지 이하로 밀려** 규칙이 깨진다.
+
+## 정렬 tier (위에서 아래, 같은 tier 안에서는 `createdAt` 최신순)
+
+| 순위 | 대상 | 판별 |
+|------|------|------|
+| **0 (최상단)** | **발주서 미제출** | `status === 'ORDER_FORM_PENDING'` **또는** 발주서 연결·`submittedAt == null` 이면서 `PENDING` / `DEPOSIT_COMPLETED` (레거시) |
+| 1 | 미확인 취소 | `CANCELLED` + `happyCallCompletedAt` 없음 |
+| 2 | 예약완료(RECEIVED) **아닌** 그 외 상태 | `status !== 'RECEIVED'` (tier 0·1 제외) |
+| 3 | 예약완료 | `status === 'RECEIVED'` |
+
+- **당일·전체·월별·상태 필터·페이지**와 무관하게 동일.
+- 상태 필터로 `미제출`만 볼 때도 tier 0 내부는 최신순.
+
+## 구현 위치 (한 곳 수정 시 나머지 동기화)
+
+| 계층 | 파일 |
+|------|------|
+| 규칙·클라이언트 | `shared/inquiryListSort.ts` → `sortInquiryListRows` |
+| 서버 API | `server/src/modules/inquiries/inquiryListSort.helpers.ts` → `fetchInquiryListPageSorted` |
+| 목록 GET | `server/src/modules/inquiries/inquiries.routes.ts` — **`findMany` + `createdAt` 단독 정렬 금지** |
+| UI 재정렬 | `client/src/pages/admin/AdminInquiriesPage.tsx` — API 응답 후 `sortInquiryListRows` (이중 안전망) |
+
+## 금지
+
+- 목록 API에 **`orderBy: { createdAt: 'desc' }` 만** 두고 클라이언트에서 현재 페이지만 재정렬 (페이지네이션과 충돌).
+- 미제출 tier 를 제거하거나 예약완료보다 아래로 내리기.
+- `shared/inquiryListSort.ts` 와 `inquiryListSort.helpers.ts` **로직 불일치**.
+
+## 변경 시 체크
+
+1. 미제출 건이 **1페이지 최상단**에 보이는가? (전체·당일, `page=1`)
+2. 미제출이 30건 넘어도 **2페이지 이전에** 다른 tier 가 끼지 않는가?
+3. 미확인 취소 → 그 외 비예약완료 → 예약완료 순서가 유지되는가?

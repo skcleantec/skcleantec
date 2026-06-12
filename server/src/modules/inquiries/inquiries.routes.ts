@@ -12,6 +12,7 @@ import {
   kstDayRangeYmd,
   kstMonthRangeYm,
 } from './inquiryListDateRange.js';
+import { fetchInquiryListPageSorted } from './inquiryListSort.helpers.js';
 import {
   buildMarketerOverview,
   buildMarketerDailyOverview,
@@ -397,12 +398,11 @@ router.get('/', async (req, res) => {
     : 200;
   const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
 
-  const itemsRaw = await prisma.inquiry.findMany({
+  const { items: itemsRaw, total } = await fetchInquiryListPageSorted(prisma, {
     where,
-    orderBy: { createdAt: 'desc' },
+    include: listInclude,
     take,
     skip,
-    include: listInclude,
   });
   /** 레거시 발주서 — 접수 목록 메시지 복사 시 페이백 토큰 lazy 발급 */
   const itemsWithPaybackToken = await Promise.all(
@@ -415,11 +415,6 @@ router.get('/', async (req, res) => {
       return { ...row, orderForm: { ...row.orderForm, reviewPaybackToken: paybackToken } };
     }),
   );
-  /** 마지막 페이지(또는 건수 < limit)면 COUNT 생략 — 로컬·원격 DB 왕복 1회 절약 */
-  const total =
-    itemsWithPaybackToken.length < take
-      ? skip + itemsWithPaybackToken.length
-      : await prisma.inquiry.count({ where });
   // 좌표 캐시가 있는 건 즉시 반환(빠름). 신규(미좌표) 건만 백그라운드에서 카카오로 채워
   // DB에 저장 → 다음 로드부터 저장된 좌표가 즉시 표시된다.
   const itemsWithDistance = itemsWithPaybackToken.map((row) => attachDistanceFromJuanForInquiry(row));

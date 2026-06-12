@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
+import { sortInquiryListRows } from '@shared/inquiryListSort';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal, flushSync } from 'react-dom';
 import {
@@ -643,27 +644,6 @@ function initialTeamLeaderIdsForEdit(assignments: InquiryItem['assignments']): s
   return assignments.map((a) => a.teamLeader.id);
 }
 
-/** 목록 정렬: 예약완료(RECEIVED)가 아닌 상태를 먼저, 그 다음 예약완료를 날짜순(최신 우선) */
-function sortInquiryItemsForList(rows: InquiryItem[]): InquiryItem[] {
-  return rows
-    .map((row, idx) => ({ row, idx }))
-    .sort((a, b) => {
-      const aUnconfirmedCancelled = a.row.status === 'CANCELLED' && !isCancelConfirmed(a.row);
-      const bUnconfirmedCancelled = b.row.status === 'CANCELLED' && !isCancelConfirmed(b.row);
-      if (aUnconfirmedCancelled !== bUnconfirmedCancelled) return aUnconfirmedCancelled ? -1 : 1;
-      const aReceived = a.row.status === 'RECEIVED';
-      const bReceived = b.row.status === 'RECEIVED';
-      if (aReceived !== bReceived) return aReceived ? 1 : -1;
-      const aTime = Date.parse(a.row.createdAt || '');
-      const bTime = Date.parse(b.row.createdAt || '');
-      const aStamp = Number.isFinite(aTime) ? aTime : 0;
-      const bStamp = Number.isFinite(bTime) ? bTime : 0;
-      if (aStamp !== bStamp) return bStamp - aStamp;
-      return a.idx - b.idx;
-    })
-    .map((x) => x.row);
-}
-
 export function AdminInquiriesPage() {
   const token = getToken();
   const isLgUp = useIsLgUp();
@@ -1209,7 +1189,7 @@ export function AdminInquiriesPage() {
     params.offset = (listPage - 1) * listPageSize;
     getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
-        setItems(sortInquiryItemsForList(res.items));
+        setItems(sortInquiryListRows(res.items));
         setTotal(res.total);
         setApiError(null);
       })
