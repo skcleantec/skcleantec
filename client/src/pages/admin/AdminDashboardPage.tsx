@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDashboardStats, type DashboardStats } from '../../api/dashboard';
+import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
 import { DashboardChangeHistory } from '../../components/admin/DashboardChangeHistory';
 import { TelemarketingSessionBlock } from '../../components/admin/TelemarketingSessionBlock';
@@ -26,6 +27,20 @@ export function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [tenantDisplayName, setTenantDisplayName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    getMe(token)
+      .then((u) => {
+        const name =
+          (typeof u.tenant?.displayName === 'string' && u.tenant.displayName.trim()) ||
+          (typeof u.tenant?.name === 'string' && u.tenant.name.trim()) ||
+          null;
+        setTenantDisplayName(name);
+      })
+      .catch(() => setTenantDisplayName(null));
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -58,7 +73,9 @@ export function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-fluid-xl font-semibold text-slate-900">메인 대시보드</h1>
+      <h1 className="text-fluid-xl font-semibold tracking-tight text-slate-900">
+        {tenantDisplayName ? `${tenantDisplayName} Dashboard` : 'Dashboard'}
+      </h1>
 
       {apiError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-fluid-sm">

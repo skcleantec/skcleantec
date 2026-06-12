@@ -18,6 +18,7 @@ import {
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { TeamBiInline, TeamBiLine, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
+import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -299,19 +300,14 @@ export function TeamLayout() {
       <header className="sticky top-0 z-40 pt-[env(safe-area-inset-top)] shadow-md theme-dark-header">
         <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <h1 className="text-lg font-semibold text-white shrink-0 min-w-0">
-              {isExternalPartner ? (
-                <TeamBiLine
-                  id="team.layout.partnerBrand"
-                  vars={{ name: previewExternalName }}
-                  koClassName="text-lg font-semibold text-white"
-                />
-              ) : tenantName ? (
-                <span className="text-lg font-semibold text-white">{tenantName}</span>
-              ) : (
-                <TeamBiLine id="team.layout.brand" koClassName="text-lg font-semibold text-white" />
-              )}
-            </h1>
+            <NavLink
+              to={teamTo('/team/dashboard')}
+              className="shrink-0 hover:opacity-90 transition-opacity"
+              aria-label="청소비서 — 대시보드로 이동"
+              title="대시보드로 이동"
+            >
+              <TenantBrandLogo height={32} />
+            </NavLink>
             <nav className="hidden sm:flex flex-wrap items-center gap-1">
               <NavLink to={teamTo('/team/dashboard')} className={navClass}>
                 <TeamNavIcon type="dashboard" className="w-4 h-4 mr-1.5 shrink-0" />

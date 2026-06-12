@@ -28,6 +28,7 @@ import {
   saveAdminNavOrder,
 } from '../../constants/adminNav';
 import { CELEBRATE_BAR_TEST_EVENT } from '../../utils/adminCelebrateBarTest';
+import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
@@ -686,11 +687,11 @@ export function AdminLayout() {
             <button
               type="button"
               onClick={() => navigate('/admin/dashboard')}
-              className="min-w-0 truncate text-left text-base font-semibold text-white hover:text-slate-200"
-              aria-label="대시보드로 이동"
+              className="min-w-0 shrink-0 text-left hover:opacity-90 transition-opacity"
+              aria-label="청소비서 — 대시보드로 이동"
               title="대시보드로 이동"
             >
-              {tenantName ?? '관리 콘솔'}
+              <TenantBrandLogo height={28} />
             </button>
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
               {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
@@ -726,11 +727,11 @@ export function AdminLayout() {
               <button
                 type="button"
                 onClick={() => navigate('/admin/dashboard')}
-                className="hidden md:block text-[clamp(0.75rem,1.8vw,1.125rem)] font-semibold text-white whitespace-nowrap shrink-0 hover:text-slate-200"
-                aria-label="대시보드로 이동"
+                className="hidden md:block shrink-0 hover:opacity-90 transition-opacity"
+                aria-label="청소비서 — 대시보드로 이동"
                 title="대시보드로 이동"
               >
-                {tenantName ?? '관리 콘솔'}
+                <TenantBrandLogo height={32} />
               </button>
               <nav ref={navInnerRef} className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {
