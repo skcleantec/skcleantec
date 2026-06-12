@@ -21,14 +21,15 @@ import { getTeamToken } from '../../stores/teamAuth';
 import {
   formatDateTimeCompactWithWeekday,
   formatDateCompactWithWeekday,
-  formatDateTimeTinyKo,
   formatPreferredDateInputYmd,
   kstTodayYmd,
 } from '../../utils/dateFormat';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
+import { HelpTooltip } from '../ui/HelpTooltip';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
+import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
 import {
@@ -132,9 +133,23 @@ function formatAreaLine(inquiry: NonNullable<CsReport['inquiry']>): string {
   });
 }
 
+function csStatusBadgeClass(status: string): string {
+  if (status === 'DONE') return 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-700/10';
+  if (status === 'PROCESSING') return 'bg-amber-50 text-amber-900 ring-1 ring-amber-700/10';
+  return 'bg-slate-100 text-slate-700';
+}
+
+function csMobileCardShellClass(status: string): string {
+  const base =
+    'rounded-2xl border text-left outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation shadow-md shadow-slate-100/40 hover:shadow-lg hover:scale-[1.01] overflow-hidden cursor-pointer';
+  if (status === 'DONE') return `${base} border-emerald-200/80 bg-emerald-50/20 hover:border-emerald-300`;
+  if (status === 'PROCESSING') return `${base} border-amber-200/80 bg-amber-50/25 hover:border-amber-300`;
+  return `${base} border-slate-200/60 bg-white hover:border-slate-300`;
+}
+
 function ServiceRatingStars({ value }: { value: number | null | undefined }) {
   if (value == null || value < 1 || value > 5) {
-    return <span className="text-gray-400">—</span>;
+    return <span className="text-slate-400">—</span>;
   }
   return (
     <span className="inline-flex gap-px text-amber-500 tabular-nums" aria-label={`${value}점`}>
@@ -163,36 +178,6 @@ const CS_FORWARD_HELP =
 
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
-}
-
-function CsHelpQuestionButton({
-  label,
-  expanded,
-  onToggle,
-  buttonClassName,
-}: {
-  label: string;
-  expanded: boolean;
-  onToggle: () => void;
-  buttonClassName?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={
-        buttonClassName ??
-        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-current/20 text-current hover:bg-white/40 touch-manipulation'
-      }
-      title={label}
-      aria-expanded={expanded}
-      aria-label={`도움말: ${label}`}
-    >
-      <span className="text-sm font-semibold leading-none" aria-hidden>
-        ?
-      </span>
-    </button>
-  );
 }
 
 export type CsWorkdeskMode = 'admin' | 'team';
@@ -246,8 +231,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   const [forwardSelectUserId, setForwardSelectUserId] = useState('');
   const [forwardSending, setForwardSending] = useState(false);
   const [editAsServiceDate, setEditAsServiceDate] = useState('');
-  const [asDateHelpOpen, setAsDateHelpOpen] = useState(false);
-  const [forwardHelpOpen, setForwardHelpOpen] = useState(false);
+  const isLgUp = useIsLgUp();
 
   useEffect(() => {
     if (mode !== 'admin' || !token) {
@@ -593,30 +577,30 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   const showAdminDeleteCol = mode === 'admin' && adminViewer;
 
   return (
-    <div className="min-w-0 w-full max-w-full">
+    <div className="min-w-0 w-full max-w-full space-y-4">
       <div
-        className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between min-w-0 ${
-          isTeam ? 'mb-2 sm:mb-4' : 'mb-4'
+        className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between min-w-0 ${
+          isTeam ? 'sm:mb-0' : ''
         }`}
       >
         <h1
-          className={`shrink-0 font-semibold text-gray-900 ${
-            isTeam ? 'text-fluid-base sm:text-xl' : 'text-xl'
+          className={`shrink-0 font-semibold tracking-tight text-slate-900 ${
+            isTeam ? 'text-fluid-base sm:text-xl' : 'text-xl sm:text-2xl'
           }`}
         >
           {pageTitle}
         </h1>
         {mode === 'admin' ? (
-          <div className="flex w-full min-w-0 items-center gap-2 sm:ml-4 sm:flex-1 sm:justify-end">
-            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm">
-              <span className="shrink-0 text-gray-500">고객 링크</span>
-              <code className="min-w-0 flex-1 truncate rounded bg-gray-100 px-2 py-1 text-xs sm:max-w-md sm:text-sm">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:ml-4 sm:max-w-2xl sm:flex-1 sm:items-stretch">
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden text-fluid-sm">
+              <span className="shrink-0 text-fluid-xs font-medium text-slate-500">고객 링크</span>
+              <code className="min-w-0 flex-1 truncate rounded-lg bg-slate-100 px-2 py-1.5 text-fluid-xs text-slate-800 sm:max-w-md sm:text-fluid-sm">
                 {csLink}
               </code>
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(csLink)}
-                className="shrink-0 touch-manipulation rounded border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50 min-h-[36px]"
+                className="shrink-0 touch-manipulation rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-xs font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:scale-[1.03] hover:border-slate-300 hover:bg-slate-50 active:scale-[0.97] min-h-[36px]"
               >
                 복사
               </button>
@@ -625,7 +609,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               href="/cs"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex shrink-0 items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-fluid-sm font-medium text-white bg-blue-600 rounded-lg border border-blue-700 hover:bg-blue-700 active:bg-blue-800 touch-manipulation shadow-sm"
+              className="inline-flex shrink-0 items-center justify-center gap-2 min-h-[44px] self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-fluid-sm font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:scale-[1.015] hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98] touch-manipulation sm:self-end"
             >
               <OpenInNewIcon className="h-4 w-4 shrink-0" />
               <span className="whitespace-nowrap">고객용 C/S 페이지 미리보기</span>
@@ -635,24 +619,24 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       </div>
 
       {mode !== 'admin' ? (
-        <p className="text-fluid-2xs sm:text-fluid-xs text-gray-600 mb-2 sm:mb-3 leading-snug">
+        <p className="text-fluid-2xs sm:text-fluid-xs text-slate-600 leading-snug">
           배정 접수와 연결된 C/S 또는 관리자가 본인에게 전달한 C/S가 표시됩니다. 완료 시 처리 방법을 입력해 주세요.
         </p>
       ) : null}
 
       {isAdmin ? (
-        <div className="mb-4 rounded-lg border border-gray-200 bg-white px-3 py-3 sm:px-4">
+        <div className="rounded-2xl border border-slate-200/60 bg-white px-3 py-3 sm:px-4 shadow-sm shadow-slate-100/50">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between min-w-0">
             <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
-              <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">접수일</span>
-              <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm shrink-0">
+              <span className="text-fluid-2xs font-semibold text-slate-600 shrink-0">접수일</span>
+              <div className="inline-flex rounded-xl border border-slate-200 overflow-hidden text-fluid-sm shrink-0 shadow-sm">
                 <button
                   type="button"
                   onClick={() => applyDatePreset('last3months')}
-                  className={`px-3 py-1.5 font-medium ${
+                  className={`px-3 py-1.5 font-medium transition-colors ${
                     datePreset === 'last3months'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   3개월
@@ -660,10 +644,10 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 <button
                   type="button"
                   onClick={() => applyDatePreset('month')}
-                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                  className={`px-3 py-1.5 font-medium border-l border-slate-200 transition-colors ${
                     datePreset === 'month'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   월별
@@ -671,10 +655,10 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 <button
                   type="button"
                   onClick={() => applyDatePreset('day')}
-                  className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
+                  className={`px-3 py-1.5 font-medium border-l border-slate-200 transition-colors ${
                     datePreset === 'day'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   날짜별
@@ -719,41 +703,127 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       ) : null}
 
       {error && (
-        <p className={`text-fluid-sm text-red-600 ${isTeam ? 'mb-2' : 'mb-4'}`}>{error}</p>
+        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-800" role="alert">
+          {error}
+        </p>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden min-w-0 max-w-full">
+      <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm shadow-slate-100/50 min-w-0 max-w-full">
         {shouldShowListBlockingLoading(loading, items.length) ? (
-          <div className={`text-center text-gray-500 ${isTeam ? 'p-4 text-fluid-xs' : 'p-8 text-sm'}`}>
-            불러오는 중...
+          <div className={`text-center text-slate-500 ${isTeam ? 'p-4 text-fluid-xs' : 'p-8 text-fluid-sm'}`}>
+            불러오는 중…
           </div>
         ) : items.length === 0 ? (
-          <div className={`text-center text-gray-500 ${isTeam ? 'p-4 text-fluid-xs' : 'p-8 text-sm'}`}>
+          <div className={`text-center text-slate-500 ${isTeam ? 'p-4 text-fluid-xs' : 'p-8 text-fluid-sm'}`}>
             표시할 C/S가 없습니다.
           </div>
         ) : (
           <>
             {isTeam && (
-              <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/90 flex flex-wrap items-center gap-x-4 gap-y-1 text-fluid-2xs sm:text-fluid-xs text-gray-700">
+              <div className="px-3 py-2 border-b border-slate-100/80 bg-slate-50/90 flex flex-wrap items-center gap-x-4 gap-y-1 text-fluid-2xs sm:text-fluid-xs text-slate-700">
                 <span className="tabular-nums">
-                  <span className="text-gray-500">미완료</span>{' '}
+                  <span className="text-slate-500">미완료</span>{' '}
                   <strong className="text-amber-800">{teamIncompleteCount}</strong>건
                 </span>
-                <span className="text-gray-300 hidden sm:inline" aria-hidden>
+                <span className="text-slate-300 hidden sm:inline" aria-hidden>
                   |
                 </span>
                 <span className="tabular-nums">
-                  <span className="text-gray-500">완료</span>{' '}
-                  <strong className="text-green-800">{teamCompleteCount}</strong>건
+                  <span className="text-slate-500">완료</span>{' '}
+                  <strong className="text-emerald-800">{teamCompleteCount}</strong>건
                 </span>
               </div>
             )}
+            {!isLgUp ? (
+              <>
+                <p className="border-b border-slate-100/80 px-4 py-2.5 text-fluid-xs text-slate-500 font-medium">
+                  카드를 누르면 C/S 상세 화면이 열립니다.
+                </p>
+                <div className="flex flex-col gap-3 p-3">
+                  {displayItems.map((item) => {
+                    const assignee = assigneeListLabel(item);
+                    const statusLabel =
+                      STATUS_OPTIONS.find((s) => s.value === item.status)?.label ?? item.status;
+                    return (
+                      <div
+                        key={item.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${item.customerName} C/S 상세`}
+                        onClick={() => openDetail(item)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openDetail(item);
+                          }
+                        }}
+                        className={csMobileCardShellClass(item.status)}
+                      >
+                        <div className="px-3 pt-3 pb-2">
+                          <div className="flex items-start justify-between gap-2 min-w-0">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {isTeam ? (
+                                  item.status === 'DONE' ? (
+                                    <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-fluid-2xs font-semibold text-emerald-800 ring-1 ring-emerald-700/10">
+                                      완료
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-fluid-2xs font-semibold text-amber-900 ring-1 ring-amber-700/10">
+                                      미완료
+                                    </span>
+                                  )
+                                ) : null}
+                                <span className="truncate text-fluid-sm font-semibold text-slate-900">
+                                  {item.customerName}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-fluid-xs text-slate-500 tabular-nums">
+                                {formatDateTimeCompactWithWeekday(item.createdAt)} · {item.customerPhone}
+                              </p>
+                              <p className="mt-1 truncate text-fluid-xs text-slate-600" title={assignee}>
+                                담당 {assignee}
+                              </p>
+                              {item.serviceRating != null && item.serviceRating >= 1 && item.serviceRating <= 5 ? (
+                                <p className="mt-1 flex items-center gap-1.5 text-fluid-xs text-slate-600">
+                                  <ServiceRatingStars value={item.serviceRating} />
+                                  <span className="tabular-nums">{item.serviceRating}점</span>
+                                </p>
+                              ) : null}
+                            </div>
+                            <span
+                              className={`shrink-0 inline-block rounded-full px-2 py-0.5 text-fluid-2xs font-semibold ${csStatusBadgeClass(item.status)}`}
+                            >
+                              {statusLabel}
+                            </span>
+                          </div>
+                        </div>
+                        {showAdminDeleteCol ? (
+                          <div
+                            className="border-t border-slate-100 px-3 py-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              className="inline-flex min-h-[36px] items-center rounded-lg border border-red-200 bg-white px-2.5 py-1 text-fluid-xs font-semibold text-red-700 shadow-sm transition-all duration-150 hover:scale-[1.03] hover:bg-red-50 active:scale-[0.97] touch-manipulation"
+                              onClick={() => setCsDeleteTarget(item)}
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
             <SyncHorizontalScroll
               className="w-full min-w-0 max-w-full"
               contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0 w-full min-w-0 max-w-full"
             >
               <table
-                className={`w-full border-collapse ${
+                className={`w-full border-collapse table-fixed ${
                   isTeam
                     ? 'min-w-[720px] md:min-w-[820px]'
                     : showAdminDeleteCol
@@ -761,33 +831,33 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                       : 'min-w-[680px] md:min-w-[780px]'
                 } ${tableText}`}
               >
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-slate-50/85 border-b border-slate-200/60">
                 <tr>
                   {isTeam ? (
                     <th
-                      className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap sticky left-0 z-10 bg-gray-100 border-r border-gray-200`}
+                      className={`text-center font-semibold text-slate-500 ${thPad} whitespace-nowrap sticky left-0 z-10 bg-slate-50/90 border-r border-slate-200/60`}
                     >
                       구분
                     </th>
                   ) : null}
-                  <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
+                  <th className={`text-center font-semibold text-slate-500 ${thPad} whitespace-nowrap`}>
                     날짜
                   </th>
-                  <th className={`text-center font-medium text-gray-700 ${thPad}`}>성함</th>
-                  <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
+                  <th className={`text-center font-semibold text-slate-500 ${thPad}`}>성함</th>
+                  <th className={`text-center font-semibold text-slate-500 ${thPad} whitespace-nowrap`}>
                     연락처
                   </th>
-                  <th className={`text-center font-medium text-gray-700 ${thPad}`}>담당</th>
-                  <th className={`text-center font-medium text-gray-700 ${thPad}`}>최초 배정</th>
-                  <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
+                  <th className={`text-center font-semibold text-slate-500 ${thPad}`}>담당</th>
+                  <th className={`text-center font-semibold text-slate-500 ${thPad}`}>최초 배정</th>
+                  <th className={`text-center font-semibold text-slate-500 ${thPad} whitespace-nowrap`}>
                     만족
                   </th>
-                  <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>
+                  <th className={`text-center font-semibold text-slate-500 ${thPad} whitespace-nowrap`}>
                     상태
                   </th>
-                  <th className={`text-center font-medium text-gray-700 ${thPad}`}>처리자</th>
+                  <th className={`text-center font-semibold text-slate-500 ${thPad}`}>처리자</th>
                   {showAdminDeleteCol ? (
-                    <th className={`text-center font-medium text-gray-700 ${thPad} whitespace-nowrap`}>삭제</th>
+                    <th className={`text-center font-semibold text-slate-500 ${thPad} whitespace-nowrap`}>삭제</th>
                   ) : null}
                 </tr>
               </thead>
@@ -796,93 +866,73 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   const assignee = assigneeListLabel(item);
                   const firstAssignee = firstAssigneeLabel(item);
                   const processor = processorNameLabel(item);
+                  const statusLabel =
+                    STATUS_OPTIONS.find((s) => s.value === item.status)?.label ?? item.status;
                   return (
                     <tr
                       key={item.id}
-                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer group"
+                      className="border-b border-slate-100/80 hover:bg-slate-50/80 cursor-pointer group transition-colors"
                       onClick={() => openDetail(item)}
                     >
                       {isTeam ? (
                         <td
-                          className={`${tdPad} sticky left-0 z-10 border-r border-gray-200 bg-white group-hover:bg-gray-50`}
+                          className={`${tdPad} sticky left-0 z-10 border-r border-slate-200/60 bg-white group-hover:bg-slate-50/80`}
                         >
                           {item.status === 'DONE' ? (
-                            <span className="inline-block px-1.5 py-0.5 rounded font-medium text-green-800 bg-green-100">
+                            <span className="inline-block rounded-full px-1.5 py-0.5 text-fluid-2xs font-semibold text-emerald-800 bg-emerald-50 ring-1 ring-emerald-700/10">
                               완료
                             </span>
                           ) : (
-                            <span className="inline-block px-1.5 py-0.5 rounded font-medium text-amber-900 bg-amber-100">
+                            <span className="inline-block rounded-full px-1.5 py-0.5 text-fluid-2xs font-semibold text-amber-900 bg-amber-50 ring-1 ring-amber-700/10">
                               미완료
                             </span>
                           )}
                         </td>
                       ) : null}
                       <td
-                        className={`${tdPad} text-gray-700 tabular-nums whitespace-nowrap ${
+                        className={`${tdPad} text-slate-700 tabular-nums whitespace-nowrap ${
                           isTeam ? 'max-w-[5.5rem] lg:max-w-none' : 'max-w-[7rem] md:max-w-none'
                         }`}
                       >
-                        <span className={isTeam ? 'lg:hidden' : 'md:hidden'}>
-                          {formatDateTimeTinyKo(item.createdAt)}
-                        </span>
-                        <span className={isTeam ? 'hidden lg:inline' : 'hidden md:inline'}>
-                          {formatDateTimeCompactWithWeekday(item.createdAt)}
-                        </span>
+                        {formatDateTimeCompactWithWeekday(item.createdAt)}
                       </td>
                       <td
-                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate`}
+                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate text-slate-800`}
                         title={item.customerName}
                       >
                         {item.customerName}
                       </td>
                       <td
-                        className={`${tdPad} tabular-nums whitespace-nowrap max-w-[6.5rem] sm:max-w-none`}
+                        className={`${tdPad} tabular-nums whitespace-nowrap max-w-[6.5rem] sm:max-w-none text-slate-700`}
                       >
                         {item.customerPhone}
                       </td>
                       <td
-                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate`}
+                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate text-slate-700`}
                         title={assignee}
                       >
                         {assignee}
                       </td>
                       <td
-                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate`}
+                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate text-slate-700`}
                         title={firstAssignee}
                       >
                         {firstAssignee}
                       </td>
                       <td className={tdPad}>
-                        <span
-                          className={`tabular-nums text-gray-800 ${isTeam ? 'lg:hidden' : 'md:hidden'}`}
-                        >
-                          {item.serviceRating != null && item.serviceRating >= 1 && item.serviceRating <= 5
-                            ? `${item.serviceRating}점`
-                            : '—'}
-                        </span>
-                        <span
-                          className={`inline-flex w-full justify-center ${isTeam ? 'hidden lg:inline-flex' : 'hidden md:inline-flex'}`}
-                        >
+                        <span className="inline-flex w-full justify-center">
                           <ServiceRatingStars value={item.serviceRating} />
                         </span>
                       </td>
                       <td className={tdPad}>
                         <span
-                          className={`inline-block px-1 py-0.5 md:px-2 rounded leading-tight ${
-                            isTeam ? 'max-lg:text-[0.62rem] max-md:text-[0.6rem]' : 'max-md:text-[0.65rem]'
-                          } ${
-                            item.status === 'DONE'
-                              ? 'bg-green-100 text-green-800'
-                              : item.status === 'PROCESSING'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-gray-100 text-gray-700'
-                          }`}
+                          className={`inline-block rounded-full px-2 py-0.5 text-fluid-2xs font-semibold leading-tight ${csStatusBadgeClass(item.status)}`}
                         >
-                          {STATUS_OPTIONS.find((s) => s.value === item.status)?.label ?? item.status}
+                          {statusLabel}
                         </span>
                       </td>
                       <td
-                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate`}
+                        className={`${tdPad} max-w-[4rem] sm:max-w-[6rem] md:max-w-[10rem] truncate text-slate-700`}
                         title={processor}
                       >
                         {processor}
@@ -891,7 +941,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                         <td className={tdPad} onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
-                            className="min-h-[36px] px-2 py-1 text-fluid-xs font-medium text-red-700 border border-red-200 rounded hover:bg-red-50 touch-manipulation"
+                            className="inline-flex min-h-[36px] items-center rounded-lg border border-red-200 bg-white px-2.5 py-1 text-fluid-xs font-semibold text-red-700 shadow-sm transition-all duration-150 hover:scale-[1.03] hover:bg-red-50 active:scale-[0.97] touch-manipulation"
                             onClick={() => setCsDeleteTarget(item)}
                           >
                             삭제
@@ -904,6 +954,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               </tbody>
             </table>
           </SyncHorizontalScroll>
+            )}
             {isAdmin && !loading ? (
               <ListPaginationBar
                 mode="nav"
@@ -921,23 +972,23 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       {selected && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeDetail}>
           <div
-            className="relative bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            className="relative bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-100/40 max-w-lg w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <ModalCloseButton onClick={closeDetail} />
-            <div className="p-4 border-b pr-12">
-              <h2 className="font-semibold">C/S 상세</h2>
+            <div className="p-4 sm:p-5 border-b border-slate-100 pr-12">
+              <h2 className="text-lg font-semibold text-slate-900">C/S 상세</h2>
               {mode === 'team' ? (
-                <p className="text-fluid-xs text-gray-600 mt-1">
-                  아래에 <strong className="font-medium text-gray-800">처리 방법</strong>을 적은 뒤 「처리완료」를 누르세요.
+                <p className="text-fluid-xs text-slate-600 mt-1">
+                  아래에 <strong className="font-medium text-slate-800">처리 방법</strong>을 적은 뒤 「처리완료」를 누르세요.
                 </p>
               ) : null}
             </div>
-            <div className="p-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-4 space-y-3">
+            <div className="p-4 sm:p-5 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-5 space-y-3">
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                 <div>
-                  <span className="text-gray-500 text-sm">처리 상태</span>
-                  <p className="font-medium">
+                  <span className="text-fluid-xs font-medium text-slate-500">처리 상태</span>
+                  <p className="font-semibold text-slate-900">
                     {STATUS_OPTIONS.find((s) => s.value === selected.status)?.label ?? selected.status}
                   </p>
                 </div>
@@ -945,7 +996,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   type="button"
                   onClick={handleComplete}
                   disabled={saving || selected.status === 'DONE'}
-                  className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-600 border border-green-700 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                  className="min-h-[44px] px-4 py-2 rounded-xl text-fluid-sm font-semibold text-white bg-emerald-600 border border-emerald-700 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation shadow-sm transition-colors"
                 >
                   {selected.status === 'DONE' ? '처리 완료됨' : '처리완료'}
                 </button>
@@ -953,55 +1004,55 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
 
               {selected.status !== 'DONE' ? (
                 <div
-                  className="rounded-lg border border-amber-200 bg-amber-50/90 p-3 sm:p-4"
+                  className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 sm:p-4"
                   id="cs-completion-method-input"
                 >
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-fluid-sm font-medium text-slate-900 mb-1">
                     C/S 처리 방법 <span className="text-red-600">*</span>
-                    <span className="font-normal text-gray-600 text-fluid-xs"> (처리완료 버튼 전에 입력)</span>
+                    <span className="font-normal text-slate-600 text-fluid-xs"> (처리완료 버튼 전에 입력)</span>
                   </label>
                   <textarea
                     value={completionMethodInput}
                     onChange={(e) => setCompletionMethodInput(e.target.value)}
                     rows={4}
-                    className="w-full border border-amber-300 rounded px-3 py-2 text-sm resize-none bg-white"
+                    className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-fluid-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
                     placeholder="예: 고객에게 전화로 사과 및 재방문 일정 조율, 현장 확인 후 추가 청소 진행 등"
                   />
                 </div>
               ) : null}
 
               {selected.completedAt && selected.completedBy ? (
-                <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm space-y-1">
-                  <div className="font-medium text-green-900">처리 완료 기록</div>
+                <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3 text-fluid-sm space-y-1">
+                  <div className="font-semibold text-emerald-900">처리 완료 기록</div>
                   <p>
-                    <span className="text-gray-600">처리일시</span>{' '}
+                    <span className="text-slate-600">처리일시</span>{' '}
                     {formatDateTimeCompactWithWeekday(selected.completedAt)}
                   </p>
                   <p>
-                    <span className="text-gray-600">처리자</span> {selected.completedBy.name} (
+                    <span className="text-slate-600">처리자</span> {selected.completedBy.name} (
                     {roleLabelKo(selected.completedBy.role)})
                   </p>
                   <div>
-                    <span className="text-gray-600">처리 방법</span>
-                    <p className="whitespace-pre-wrap text-gray-900 mt-0.5">{selected.completionMethod ?? '—'}</p>
+                    <span className="text-slate-600">처리 방법</span>
+                    <p className="whitespace-pre-wrap text-slate-900 mt-0.5">{selected.completionMethod ?? '—'}</p>
                   </div>
                 </div>
               ) : selected.status === 'DONE' ? (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-fluid-sm text-slate-600">
                   처리 완료 상태입니다. (처리 기록이 없는 경우 관리자에게 문의하세요.)
                 </div>
               ) : null}
 
               <div>
-                <span className="text-gray-500 text-sm">성함</span>
-                <p className="font-medium">{selected.customerName}</p>
+                <span className="text-fluid-xs font-medium text-slate-500">성함</span>
+                <p className="font-medium text-slate-900">{selected.customerName}</p>
               </div>
               <div>
-                <span className="text-gray-500 text-sm">연락처</span>
-                <p className="font-medium">{selected.customerPhone}</p>
+                <span className="text-fluid-xs font-medium text-slate-500">연락처</span>
+                <p className="font-medium text-slate-900 tabular-nums">{selected.customerPhone}</p>
               </div>
               <div>
-                <span className="text-gray-500 text-sm">서비스 품질 (고객 별점)</span>
+                <span className="text-fluid-xs font-medium text-slate-500">서비스 품질 (고객 별점)</span>
                 {selected.serviceRating != null &&
                 selected.serviceRating >= 1 &&
                 selected.serviceRating <= 5 ? (
@@ -1009,45 +1060,36 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                     <span className="text-lg leading-none">
                       <ServiceRatingStars value={selected.serviceRating} />
                     </span>
-                    <span className="text-sm text-gray-600 tabular-nums">{selected.serviceRating}점</span>
+                    <span className="text-fluid-sm text-slate-600 tabular-nums">{selected.serviceRating}점</span>
                   </p>
                 ) : (
-                  <p className="text-sm text-gray-500 mt-0.5">기록 없음 (이전 접수 건)</p>
+                  <p className="text-fluid-sm text-slate-500 mt-0.5">기록 없음 (이전 접수 건)</p>
                 )}
               </div>
 
               {selected.status !== 'DONE' ? (
-                <div className="rounded-lg border border-rose-100 bg-rose-50/60 p-3 space-y-1.5 text-rose-900">
+                <div className="rounded-xl border border-rose-200/80 bg-rose-50/60 p-3 space-y-1.5 text-rose-950">
                   <div className="flex items-start gap-2">
                     <label
-                      className="flex-1 min-w-0 text-sm font-medium text-gray-900 pt-1"
+                      className="flex-1 min-w-0 text-fluid-sm font-medium text-slate-900 pt-0.5"
                       htmlFor="cs-as-service-date"
                     >
-                      A/S 예정일 <span className="font-normal text-gray-600">(재방문·처리일)</span>
+                      A/S 예정일 <span className="font-normal text-slate-600">(재방문·처리일)</span>
                     </label>
-                    <CsHelpQuestionButton
-                      label={CS_AS_DATE_HELP}
-                      expanded={asDateHelpOpen}
-                      onToggle={() => setAsDateHelpOpen((v) => !v)}
-                    />
+                    <HelpTooltip text={CS_AS_DATE_HELP} />
                   </div>
-                  {asDateHelpOpen ? (
-                    <p className="text-fluid-xs leading-snug rounded-md border border-rose-200/80 bg-white/95 px-2.5 py-2 text-rose-900/90">
-                      {CS_AS_DATE_HELP}
-                    </p>
-                  ) : null}
                   <input
                     id="cs-as-service-date"
                     type="date"
                     min={kstTodayYmd()}
                     value={editAsServiceDate}
                     onChange={(e) => setEditAsServiceDate(e.target.value)}
-                    className="w-full min-h-[44px] border border-rose-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900"
+                    className="w-full min-h-[44px] rounded-xl border border-rose-200 bg-white px-3 py-2 text-fluid-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
                   />
                 </div>
               ) : selected.asServiceDate ? (
-                <div className="text-sm text-gray-700">
-                  <span className="text-gray-500">A/S 예정일</span>{' '}
+                <div className="text-fluid-sm text-slate-700">
+                  <span className="text-slate-500">A/S 예정일</span>{' '}
                   <span className="font-medium tabular-nums">
                     {formatDateCompactWithWeekday(selected.asServiceDate)}
                   </span>
@@ -1055,13 +1097,13 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               ) : null}
 
               {selected.inquiry ? (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                <div className="rounded-xl border border-slate-200/60 bg-slate-50/80 p-3 space-y-2">
                   <div>
-                    <span className="text-gray-500 text-sm">담당 팀장</span>
-                    <p className="font-medium text-gray-900">{formatTeamLeaderLabel(selected.inquiry)}</p>
+                    <span className="text-fluid-xs font-medium text-slate-500">담당 팀장</span>
+                    <p className="font-medium text-slate-900">{formatTeamLeaderLabel(selected.inquiry)}</p>
                   </div>
                   {selected.inquiry.inquiryNumber ? (
-                    <p className="text-sm text-gray-700">
+                    <p className="text-fluid-sm text-slate-700">
                       접수번호{' '}
                       <span className="font-mono tabular-nums">{selected.inquiry.inquiryNumber}</span>
                     </p>
@@ -1069,40 +1111,31 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   <button
                     type="button"
                     onClick={() => setConnectedInquiryModal(selected.inquiry!)}
-                    className="w-full min-h-[44px] px-3 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 touch-manipulation"
+                    className="w-full min-h-[44px] px-3 py-2 text-fluid-sm font-semibold text-indigo-700 bg-white border border-indigo-200 rounded-xl hover:bg-indigo-50 touch-manipulation shadow-sm transition-colors"
                   >
                     연결 접수 상세 보기
                   </button>
                 </div>
               ) : mode === 'admin' ? (
-                <p className="text-sm text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                <p className="text-fluid-sm text-amber-950 bg-amber-50/60 border border-amber-200/80 rounded-xl px-3 py-2">
                   접수 목록과 자동 연결된 건이 없습니다. (성함·연락처가 접수 DB와 일치할 때 연결됩니다.) 아래에서 팀장·타업체에
                   전달하면 해당 계정 C/S 메뉴에 표시됩니다.
                 </p>
               ) : null}
 
               {mode === 'admin' && selected.status !== 'DONE' ? (
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50/90 p-3 space-y-2 text-indigo-950">
+                <div className="rounded-xl border border-indigo-200/80 bg-indigo-50/50 p-3 space-y-2 text-indigo-950">
                   <div className="flex items-start gap-2">
-                    <div className="flex-1 min-w-0 text-sm font-semibold text-indigo-950 pt-1">
+                    <div className="flex-1 min-w-0 text-fluid-sm font-semibold text-indigo-950 pt-0.5">
                       팀장·타업체에 전달
                     </div>
-                    <CsHelpQuestionButton
-                      label={CS_FORWARD_HELP}
-                      expanded={forwardHelpOpen}
-                      onToggle={() => setForwardHelpOpen((v) => !v)}
-                    />
+                    <HelpTooltip text={CS_FORWARD_HELP} />
                   </div>
-                  {forwardHelpOpen ? (
-                    <p className="text-fluid-xs leading-snug rounded-md border border-indigo-200 bg-white/95 px-2.5 py-2 text-indigo-900/90">
-                      {CS_FORWARD_HELP}
-                    </p>
-                  ) : null}
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                     <select
                       value={forwardSelectUserId}
                       onChange={(e) => setForwardSelectUserId(e.target.value)}
-                      className="flex-1 min-w-0 min-h-[44px] border border-indigo-300 rounded-lg px-3 py-2 text-sm bg-white"
+                      className="flex-1 min-w-0 min-h-[44px] rounded-xl border border-indigo-200 bg-white px-3 py-2 text-fluid-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-400"
                     >
                       <option value="">전달 안 함 (목록에서 제외)</option>
                       {forwardOptions.map((u) => (
@@ -1115,31 +1148,31 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                       type="button"
                       onClick={handleForwardSend}
                       disabled={forwardSending}
-                      className="min-h-[44px] shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-700 border border-indigo-800 hover:bg-indigo-800 disabled:opacity-50 touch-manipulation"
+                      className="min-h-[44px] shrink-0 px-4 py-2 rounded-xl text-fluid-sm font-semibold text-white bg-indigo-600 border border-indigo-700 hover:bg-indigo-700 disabled:opacity-50 touch-manipulation shadow-sm transition-colors"
                     >
                       {forwardSending ? '처리 중…' : '보내기'}
                     </button>
                   </div>
                   {selected.forwardedToUser ? (
-                    <p className="text-fluid-xs text-gray-700">
+                    <p className="text-fluid-xs text-slate-700">
                       현재 전달: {formatAssignableUserLabel(forwardedToAsUserItem(selected.forwardedToUser))}
                     </p>
                   ) : null}
                 </div>
               ) : mode === 'admin' && selected.forwardedToUser ? (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                <div className="rounded-xl border border-slate-200/60 bg-slate-50 p-3 text-fluid-sm text-slate-700">
                   전달: {formatAssignableUserLabel(forwardedToAsUserItem(selected.forwardedToUser))} (완료 건은 전달
                   변경 불가)
                 </div>
               ) : null}
 
               <div>
-                <span className="text-gray-500 text-sm">내용</span>
-                <p className="whitespace-pre-wrap text-sm">{selected.content}</p>
+                <span className="text-fluid-xs font-medium text-slate-500">내용</span>
+                <p className="whitespace-pre-wrap text-fluid-sm text-slate-800">{selected.content}</p>
               </div>
               {selected.imageUrls?.length ? (
                 <div>
-                  <span className="text-gray-500 text-sm block mb-2">첨부 사진</span>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-2">첨부 사진</span>
                   <div className="flex flex-wrap gap-2">
                     {selected.imageUrls.map((url, i) => {
                       const slides = selected.imageUrls.map((u, j) => ({
@@ -1151,8 +1184,8 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                           key={i}
                           src={url}
                           alt={`첨부 ${i + 1}`}
-                          thumbClassName="w-6 h-6 object-cover rounded border border-gray-200"
-                          buttonClassName="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
+                          thumbClassName="w-6 h-6 object-cover rounded border border-slate-200"
+                          buttonClassName="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 touch-manipulation"
                           gallerySlides={selected.imageUrls.length > 1 ? slides : undefined}
                           galleryIndex={i}
                         />
@@ -1162,11 +1195,11 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </div>
               ) : null}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">상태 (수동 변경)</label>
+                <label className="block text-fluid-sm font-medium text-slate-700 mb-1">상태 (수동 변경)</label>
                 <select
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-fluid-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
                 >
                   {statusSelectOptions.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -1175,16 +1208,16 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   ))}
                 </select>
                 {mode === 'team' && selected.status === 'RECEIVED' && (
-                  <p className="text-xs text-gray-500 mt-1">현재 접수 상태입니다. 처리중 또는 완료로만 변경할 수 있습니다.</p>
+                  <p className="text-fluid-xs text-slate-500 mt-1">현재 접수 상태입니다. 처리중 또는 완료로만 변경할 수 있습니다.</p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">메모</label>
+                <label className="block text-fluid-sm font-medium text-slate-700 mb-1">메모</label>
                 <textarea
                   value={editMemo}
                   onChange={(e) => setEditMemo(e.target.value)}
                   rows={3}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-none"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-fluid-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
                   placeholder="내부 메모"
                 />
               </div>
@@ -1192,15 +1225,15 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full py-2 bg-gray-800 text-white text-sm font-medium rounded disabled:opacity-50 min-h-[44px] touch-manipulation"
+                className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-fluid-sm font-semibold hover:bg-slate-800 disabled:opacity-50 min-h-[44px] touch-manipulation shadow-sm transition-colors"
               >
-                {saving ? '저장 중...' : '저장'}
+                {saving ? '저장 중…' : '저장'}
               </button>
               {mode === 'admin' && adminViewer ? (
                 <button
                   type="button"
                   onClick={() => setCsDeleteTarget(selected)}
-                  className="w-full py-2 border border-red-300 text-red-700 text-sm font-medium rounded hover:bg-red-50 min-h-[44px] touch-manipulation"
+                  className="w-full py-2.5 rounded-xl border border-red-200 text-red-700 text-fluid-sm font-semibold hover:bg-red-50 min-h-[44px] touch-manipulation transition-colors"
                 >
                   C/S 영구 삭제…
                 </button>
@@ -1208,7 +1241,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               <button
                 type="button"
                 onClick={closeDetail}
-                className="w-full py-2 border border-gray-300 text-gray-800 text-sm font-medium rounded bg-white hover:bg-gray-50 min-h-[44px] touch-manipulation"
+                className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-800 text-fluid-sm font-semibold bg-white hover:bg-slate-50 min-h-[44px] touch-manipulation transition-colors"
               >
                 닫기
               </button>
@@ -1242,24 +1275,24 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
           onClick={() => setConnectedInquiryModal(null)}
         >
           <div
-            className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[92vh] overflow-y-auto"
+            className="relative bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-100/40 max-w-3xl w-full max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <ModalCloseButton onClick={() => setConnectedInquiryModal(null)} />
-            <div className="p-4 border-b pr-12">
-              <h2 className="font-semibold text-base">연결된 접수 상세</h2>
+            <div className="p-4 sm:p-5 border-b border-slate-100 pr-12">
+              <h2 className="font-semibold text-lg text-slate-900">연결된 접수 상세</h2>
               {connectedInquiryModal.inquiryNumber ? (
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-fluid-sm text-slate-600 mt-1">
                   접수번호{' '}
                   <span className="font-mono tabular-nums">{connectedInquiryModal.inquiryNumber}</span>
                 </p>
               ) : null}
             </div>
-            <div className="p-4 space-y-4 text-sm">
+            <div className="p-4 sm:p-5 space-y-4 text-fluid-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">접수일</span>
-                  <p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">접수일</span>
+                  <p className="text-slate-800">
                     {connectedInquiryModal.createdAt
                       ? formatDateTimeCompactWithWeekday(connectedInquiryModal.createdAt)
                       : '-'}
@@ -1267,47 +1300,47 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </div>
                 {!isInquirySourceHiddenFromUi(connectedInquiryModal.source) ? (
                   <div>
-                    <span className="text-gray-500 text-xs block mb-0.5">출처</span>
-                    <p>{formatInquirySourceLabel(connectedInquiryModal.source)}</p>
+                    <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">출처</span>
+                    <p className="text-slate-800">{formatInquirySourceLabel(connectedInquiryModal.source)}</p>
                   </div>
                 ) : null}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                <span className="text-gray-500 text-xs block mb-0.5">담당 팀장</span>
-                <p className="font-medium">{formatTeamLeaderLabel(connectedInquiryModal)}</p>
+                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">담당 팀장</span>
+                <p className="font-medium text-slate-900">{formatTeamLeaderLabel(connectedInquiryModal)}</p>
                 </div>
                 <div>
-                <span className="text-gray-500 text-xs block mb-0.5">접수 상태</span>
-                <p>{INQUIRY_STATUS_LABELS[connectedInquiryModal.status] ?? connectedInquiryModal.status}</p>
+                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">접수 상태</span>
+                <p className="text-slate-800">{INQUIRY_STATUS_LABELS[connectedInquiryModal.status] ?? connectedInquiryModal.status}</p>
                 </div>
               </div>
               <div>
-                <span className="text-gray-500 text-xs block mb-0.5">고객</span>
-                <p>
+                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">고객</span>
+                <p className="text-slate-800">
                   {connectedInquiryModal.customerName} / {connectedInquiryModal.customerPhone}
                   {connectedInquiryModal.customerPhone2 ? ` / ${connectedInquiryModal.customerPhone2}` : ''}
                 </p>
               </div>
               <div>
-                <span className="text-gray-500 text-xs block mb-0.5">주소</span>
-                <p className="whitespace-pre-wrap">
+                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">주소</span>
+                <p className="whitespace-pre-wrap text-slate-800">
                   {connectedInquiryModal.address}
                   {connectedInquiryModal.addressDetail ? ` ${connectedInquiryModal.addressDetail}` : ''}
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">건축물 유형</span>
-                  <p>{connectedInquiryModal.propertyType || '-'}</p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">건축물 유형</span>
+                  <p className="text-slate-800">{connectedInquiryModal.propertyType || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">평수</span>
-                  <p>{formatAreaLine(connectedInquiryModal)}</p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">평수</span>
+                  <p className="text-slate-800">{formatAreaLine(connectedInquiryModal)}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">방/화/베/주</span>
-                  <p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">방/화/베/주</span>
+                  <p className="text-slate-800">
                     {connectedInquiryModal.roomCount ?? '-'} / {connectedInquiryModal.bathroomCount ?? '-'} /{' '}
                     {connectedInquiryModal.balconyCount ?? '-'} / {connectedInquiryModal.kitchenCount ?? '-'}
                   </p>
@@ -1315,8 +1348,8 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                <span className="text-gray-500 text-xs block mb-0.5">희망일·시간</span>
-                <p>
+                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">희망일·시간</span>
+                <p className="text-slate-800">
                   {connectedInquiryModal.preferredDate
                     ? formatDateCompactWithWeekday(connectedInquiryModal.preferredDate)
                     : '-'}
@@ -1329,20 +1362,20 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">신축/구축/인테리어/거주</span>
-                  <p>{connectedInquiryModal.buildingType || '-'}</p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">신축/구축/인테리어/거주</span>
+                  <p className="text-slate-800">{connectedInquiryModal.buildingType || '-'}</p>
                 </div>
               </div>
               {connectedInquiryModal.moveInDate ? (
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">이사 날짜</span>
-                  <p>{formatDateCompactWithWeekday(connectedInquiryModal.moveInDate)}</p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">이사 날짜</span>
+                  <p className="text-slate-800">{formatDateCompactWithWeekday(connectedInquiryModal.moveInDate)}</p>
                 </div>
               ) : null}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">팀원 투입</span>
-                  <p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">팀원 투입</span>
+                  <p className="text-slate-800">
                     {connectedInquiryModal.crewMemberCount ?? '-'}명
                     {connectedInquiryModal.crewMemberNote?.trim()
                       ? ` · ${connectedInquiryModal.crewMemberNote.trim()}`
@@ -1350,28 +1383,28 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   </p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">일정 메모</span>
-                  <p className="whitespace-pre-wrap text-gray-800">
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">일정 메모</span>
+                  <p className="whitespace-pre-wrap text-slate-800">
                     {connectedInquiryModal.scheduleMemo?.trim() || '-'}
                   </p>
                 </div>
               </div>
               {connectedInquiryModal.memo?.trim() ? (
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">접수 메모</span>
-                  <p className="whitespace-pre-wrap text-gray-800">{connectedInquiryModal.memo}</p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">접수 메모</span>
+                  <p className="whitespace-pre-wrap text-slate-800">{connectedInquiryModal.memo}</p>
                 </div>
               ) : null}
               {connectedInquiryModal.claimMemo?.trim() ? (
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">클레임 메모</span>
-                  <p className="whitespace-pre-wrap text-gray-800">{connectedInquiryModal.claimMemo}</p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">클레임 메모</span>
+                  <p className="whitespace-pre-wrap text-slate-800">{connectedInquiryModal.claimMemo}</p>
                 </div>
               ) : null}
               {connectedInquiryModal.specialNotes?.trim() ? (
                 <div>
-                  <span className="text-gray-500 text-xs block mb-0.5">특이사항 (고객 작성)</span>
-                  <p className="whitespace-pre-wrap text-gray-800">{connectedInquiryModal.specialNotes}</p>
+                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">특이사항 (고객 작성)</span>
+                  <p className="whitespace-pre-wrap text-slate-800">{connectedInquiryModal.specialNotes}</p>
                 </div>
               ) : null}
             </div>
