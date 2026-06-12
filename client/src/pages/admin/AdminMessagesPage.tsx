@@ -8,6 +8,7 @@ interface Conversation {
   id: string;
   name: string;
   role: string;
+  staffIdCardUrl?: string | null;
   lastMessage: { content: string; createdAt: string; senderId: string } | null;
   unreadCount: number;
 }
@@ -20,7 +21,7 @@ interface Message {
   senderId: string;
   receiverId: string;
   batchId?: string | null;
-  sender: { id: string; name: string };
+  sender: { id: string; name: string; staffIdCardUrl?: string | null };
 }
 
 function scrollToEnd(ref: React.RefObject<HTMLDivElement | null>, behavior: ScrollBehavior = 'smooth') {
@@ -105,17 +106,55 @@ function ChevronDownIcon({ className }: { className?: string }) {
   );
 }
 
-function AvatarCircle({ name, size = 40 }: { name: string; size?: number }) {
+function AvatarCircle({
+  name,
+  photoUrl,
+  size = 40,
+}: {
+  name: string;
+  photoUrl?: string | null;
+  size?: number;
+}) {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const trimmedPhoto = photoUrl?.trim() || '';
+  const showPhoto = Boolean(trimmedPhoto) && !photoFailed;
+
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [trimmedPhoto]);
+
   const { bg, text } = getAvatarColors(name);
   const initial = name.trim().charAt(0) || '?';
   const fontSize = size <= 36 ? 13 : 15;
+  const shellStyle = {
+    width: size,
+    height: size,
+    minWidth: size,
+    borderRadius: '50%' as const,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+    flexShrink: 0,
+    overflow: 'hidden' as const,
+  };
+
+  if (showPhoto) {
+    return (
+      <div style={shellStyle} aria-hidden>
+        <img
+          src={trimmedPhoto}
+          alt=""
+          width={size}
+          height={size}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          onError={() => setPhotoFailed(true)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
-        width: size,
-        height: size,
-        minWidth: size,
-        borderRadius: '50%',
+        ...shellStyle,
         background: bg,
         color: text,
         display: 'flex',
@@ -124,9 +163,8 @@ function AvatarCircle({ name, size = 40 }: { name: string; size?: number }) {
         fontWeight: 700,
         fontSize,
         userSelect: 'none',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-        flexShrink: 0,
       }}
+      aria-hidden
     >
       {initial}
     </div>
@@ -526,7 +564,7 @@ export function AdminMessagesPage() {
                       if (!isActive) e.currentTarget.style.background = 'transparent';
                     }}
                   >
-                    <AvatarCircle name={c.name} size={42} />
+                    <AvatarCircle name={c.name} photoUrl={c.staffIdCardUrl} size={42} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 2 }}>
                         <span style={{ fontWeight: 700, fontSize: 13, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
@@ -615,7 +653,7 @@ export function AdminMessagesPage() {
                 >
                   <ChevronLeftIcon className="h-5 w-5" />
                 </button>
-                <AvatarCircle name={selected.name} size={34} />
+                <AvatarCircle name={selected.name} photoUrl={selected.staffIdCardUrl} size={34} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {selected.name}
@@ -632,7 +670,7 @@ export function AdminMessagesPage() {
                   if (!isMine) {
                     return (
                       <div key={m.id} className="kakaotalk-message-row-other">
-                        <AvatarCircle name={m.sender.name} size={34} />
+                        <AvatarCircle name={m.sender.name} photoUrl={m.sender.staffIdCardUrl} size={34} />
                         <div className="flex min-w-0 max-w-[calc(100%-50px)] flex-col gap-0.5">
                           <span className="ml-0.5 text-[11px] font-bold text-slate-700">{m.sender.name}</span>
                           <div className="flex min-w-0 items-end gap-1.5">

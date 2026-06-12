@@ -12,7 +12,11 @@ const router = Router();
 
 router.use(authMiddleware);
 
-type PartnerRow = { id: string; name: string; role: string };
+type PartnerRow = { id: string; name: string; role: string; staffIdCardUrl: string | null };
+
+const messageSenderSelect = { id: true, name: true, staffIdCardUrl: true } as const;
+
+type MessageSenderDto = { id: string; name: string; staffIdCardUrl: string | null };
 
 async function resolveTeamPreviewExternalActor(
   req: { query: Record<string, unknown> },
@@ -175,6 +179,7 @@ router.get('/conversations', async (req, res) => {
         id: true,
         name: true,
         role: true,
+        staffIdCardUrl: true,
         hireDate: true,
         resignationDate: true,
         externalCompany: { select: { name: true } },
@@ -185,6 +190,7 @@ router.get('/conversations', async (req, res) => {
       id: u.id,
       name: u.role === 'EXTERNAL_PARTNER' && u.externalCompany?.name ? `${u.name} (${u.externalCompany.name})` : u.name,
       role: u.role,
+      staffIdCardUrl: u.staffIdCardUrl ?? null,
     }));
     const staffIdsMerge = await getEmployedStaffIds(tenantId);
     const list = await buildConversationList(tenantId, userId, partners, { staffIdsMerge });
@@ -199,10 +205,15 @@ router.get('/conversations', async (req, res) => {
         isActive: true,
         role: { in: ['ADMIN', 'MARKETER'] },
       },
-      select: { id: true, name: true, role: true, hireDate: true, resignationDate: true },
+      select: { id: true, name: true, role: true, staffIdCardUrl: true, hireDate: true, resignationDate: true },
     });
     const users = usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd));
-    const partners: PartnerRow[] = users.map((u) => ({ id: u.id, name: u.name, role: u.role }));
+    const partners: PartnerRow[] = users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      role: u.role,
+      staffIdCardUrl: u.staffIdCardUrl ?? null,
+    }));
     const list = await buildConversationList(tenantId, userId, partners);
     res.json(list);
     return;
@@ -251,7 +262,7 @@ router.get('/team-office', async (req, res) => {
     senderId: string;
     receiverId: string;
     batchId: string | null;
-    sender: { id: string; name: string };
+    sender: MessageSenderDto;
   };
   const raw = (await prisma.message.findMany({
     where: {
@@ -270,7 +281,7 @@ router.get('/team-office', async (req, res) => {
       senderId: true,
       receiverId: true,
       batchId: true,
-      sender: { select: { id: true, name: true } },
+      sender: { select: messageSenderSelect },
     },
   })) as unknown as TeamOfficeRow[];
   const readNow = new Date();
@@ -333,7 +344,7 @@ router.post('/team-send', async (req, res) => {
           batchId,
         },
         include: {
-          sender: { select: { id: true, name: true } },
+          sender: { select: messageSenderSelect },
           receiver: { select: { id: true, name: true } },
         },
       })
@@ -345,7 +356,7 @@ router.post('/team-send', async (req, res) => {
         content: string;
         createdAt: Date;
         batchId: string | null;
-        sender: { id: string; name: string };
+        sender: MessageSenderDto;
       }
     | undefined;
   res.status(201).json({
@@ -502,7 +513,7 @@ router.get('/:userId', async (req, res) => {
     senderId: string;
     receiverId: string;
     batchId: string | null;
-    sender: { id: string; name: string };
+    sender: MessageSenderDto;
   };
 
   let messages: MsgRow[];
@@ -527,7 +538,7 @@ router.get('/:userId', async (req, res) => {
         senderId: true,
         receiverId: true,
         batchId: true,
-        sender: { select: { id: true, name: true } },
+        sender: { select: messageSenderSelect },
       },
     })) as unknown as MsgRow[];
     const seenBatch = new Set<string>();
@@ -557,7 +568,7 @@ router.get('/:userId', async (req, res) => {
         senderId: true,
         receiverId: true,
         batchId: true,
-        sender: { select: { id: true, name: true } },
+        sender: { select: messageSenderSelect },
       },
     })) as unknown as MsgRow[];
   }
@@ -603,7 +614,7 @@ router.post('/', async (req, res) => {
       content: content.trim(),
     },
     include: {
-      sender: { select: { id: true, name: true } },
+      sender: { select: messageSenderSelect },
       receiver: { select: { id: true, name: true } },
     },
   });
