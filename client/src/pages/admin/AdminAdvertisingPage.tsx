@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useSearchParams } from 'react-router-dom';
 import { getMe } from '../../api/auth';
 import { getUsers } from '../../api/users';
@@ -71,12 +73,12 @@ function roleLabel(role: string): string {
   return role;
 }
 
-const BY_USER_TH = 'text-center py-1 px-1.5 text-fluid-2xs font-medium text-gray-700 whitespace-nowrap';
+const BY_USER_TH = 'text-center py-1 px-1.5 text-fluid-2xs font-medium text-slate-700 whitespace-nowrap';
 const BY_USER_TD = 'py-1 px-1.5 text-fluid-2xs whitespace-nowrap tabular-nums';
 
-const AD_FILTER_LABEL = 'shrink-0 whitespace-nowrap text-fluid-2xs text-gray-500';
+const AD_FILTER_LABEL = 'shrink-0 whitespace-nowrap text-fluid-2xs text-slate-500';
 const AD_FILTER_SELECT =
-  'h-7 shrink-0 rounded border border-gray-300 bg-white px-1.5 text-fluid-2xs text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-400';
+  'h-7 shrink-0 rounded-lg border border-slate-200 bg-white px-1.5 text-fluid-2xs text-slate-900 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10';
 
 function adPeriodSegmentLabel(id: DateRangePresetId, label: string): string {
   if (id === 'custom') return '직접';
@@ -98,6 +100,8 @@ export function AdminAdvertisingPage() {
   const [history, setHistory] = useState<HistorySession[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const historyRef = useRef<HistorySession[]>([]);
+  const { preserveScroll } = useStaffAppScrollPreserve();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -185,7 +189,12 @@ export function AdminAdvertisingPage() {
 
   const loadHistory = useCallback(async () => {
     if (!token || !role) return;
-    setHistoryLoading(true);
+    beginListRefresh({
+      showLoading: true,
+      itemCount: historyRef.current.length,
+      setLoading: setHistoryLoading,
+      preserveScroll,
+    });
     try {
       const mid = role === 'ADMIN' ? (marketerFilter || undefined) : undefined;
       const offset = (effectiveHistoryPage - 1) * listPageSize;
@@ -195,15 +204,17 @@ export function AdminAdvertisingPage() {
         offset,
       });
       setHistory(hi.items);
+      historyRef.current = hi.items;
       setHistoryTotal(hi.total);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '이력을 불러올 수 없습니다.');
       setHistory([]);
+      historyRef.current = [];
       setHistoryTotal(0);
     } finally {
       setHistoryLoading(false);
     }
-  }, [token, role, from, to, marketerFilter, effectiveHistoryPage, listPageSize]);
+  }, [token, role, from, to, marketerFilter, effectiveHistoryPage, listPageSize, preserveScroll]);
 
   useEffect(() => {
     void loadMain();
@@ -260,26 +271,26 @@ export function AdminAdvertisingPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-fluid-xl font-semibold text-gray-800">광고비</h1>
+      <h1 className="text-fluid-xl font-semibold text-slate-900">광고비</h1>
 
       {err && (
         <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-fluid-sm">{err}</div>
       )}
 
-      <div className="rounded-lg border border-gray-200 bg-white px-2 py-1.5">
+      <div className="rounded-2xl border border-slate-200/60 bg-white px-2 py-1.5 shadow-sm shadow-slate-100/40">
         <div
           className="flex min-w-0 flex-nowrap items-center gap-x-1.5 gap-y-0 overflow-x-auto overscroll-x-contain [scrollbar-width:thin]"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <span className={AD_FILTER_LABEL}>기간</span>
-          <div className="inline-flex h-7 shrink-0 overflow-hidden rounded border border-gray-300 text-fluid-2xs">
+          <div className="inline-flex h-7 shrink-0 overflow-hidden rounded-lg border border-slate-200 text-fluid-2xs">
             {DATE_RANGE_PRESET_LABELS.map(({ id, label }, i) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => applyPeriodPreset(id)}
-                className={`inline-flex h-full items-center px-2 font-medium ${i > 0 ? 'border-l border-gray-300' : ''} ${
-                  periodPreset === id ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`inline-flex h-full items-center px-2 font-medium ${i > 0 ? 'border-l border-slate-200' : ''} ${
+                  periodPreset === id ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {adPeriodSegmentLabel(id, label)}
@@ -488,9 +499,9 @@ export function AdminAdvertisingPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {historyLoading ? (
+                    {shouldShowListBlockingLoading(historyLoading, history.length) ? (
                       <tr>
-                        <td colSpan={role === 'ADMIN' ? 3 : 2} className="py-4 px-3 text-gray-500 text-center">
+                        <td colSpan={role === 'ADMIN' ? 3 : 2} className="py-4 px-3 text-slate-500 text-center">
                           불러오는 중…
                         </td>
                       </tr>
@@ -539,7 +550,7 @@ export function AdminAdvertisingPage() {
                   </tbody>
                 </table>
               </div>
-              {!historyLoading ? (
+              {!shouldShowListBlockingLoading(historyLoading, history.length) ? (
                 <ListPaginationBar
                   mode="nav"
                   page={effectiveHistoryPage}

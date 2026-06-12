@@ -129,11 +129,11 @@ export function CrewLayout() {
         <div className="max-w-4xl mx-auto px-4 py-2.5 flex flex-col gap-2 min-w-0">
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="min-w-0 flex-1 leading-tight">
-              <div className="text-fluid-sm font-semibold text-gray-900 truncate">
-                <span className="text-gray-900">{crewT('crew.layout.titlePrefix').ko}</span>{' '}
+              <div className="text-fluid-sm font-semibold text-white truncate">
+                <span className="text-white">{crewT('crew.layout.titlePrefix').ko}</span>{' '}
                 <span>{me?.group.name ?? '…'}</span>
               </div>
-              <div className="text-fluid-2xs text-gray-600 truncate mt-px">
+              <div className="text-fluid-2xs text-slate-400 truncate mt-px">
                 {crewT('crew.layout.titlePrefix').th} {me?.group.name ?? '…'}
               </div>
             </div>

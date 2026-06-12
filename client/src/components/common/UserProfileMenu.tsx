@@ -132,29 +132,37 @@ export function UserProfileMenu({
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+          className="staff-profile-trigger inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-fluid-xs font-semibold text-slate-100 transition-all duration-200 hover:bg-white/10 hover:text-white"
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
         >
           <span className="max-w-[7rem] truncate">{loading ? '계정 확인 중…' : displayName}</span>
-          <span aria-hidden>▾</span>
+          <span aria-hidden className="text-slate-300">
+            ▾
+          </span>
         </button>
         {menuOpen ? (
-          <div className="absolute right-0 z-[140] mt-1 min-w-[11rem] w-max max-w-[min(100vw-2rem,16rem)] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+          <div
+            data-staff-profile-dropdown
+            role="menu"
+            className="absolute right-0 z-[140] mt-1 min-w-[11rem] w-max max-w-[min(100vw-2rem,16rem)] overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-xl shadow-slate-100/40"
+          >
             <button
               type="button"
               onClick={openProfileModal}
-              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              className="block w-full px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-slate-900"
             >
               개인정보 수정
             </button>
             {teamEContractMenu ? (
-              <div className="border-t border-gray-100 pt-2 mt-1">
-                <p className="px-3 pb-1 text-fluid-2xs font-semibold uppercase tracking-wide text-gray-500">
+              <div className="border-t border-slate-100 pt-2 mt-1">
+                <p className="px-3 pb-1 text-fluid-2xs font-semibold uppercase tracking-wide text-slate-500">
                   전자 계약
                 </p>
                 <Link
                   to={teamEContractMenu.listHref}
                   onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 min-w-0"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-slate-900 min-w-0"
                 >
                   <span className="min-w-0 truncate">계약서 목록 · 체결</span>
                   {teamEContractMenu.pendingCount > 0 ? (
@@ -175,7 +183,7 @@ export function UserProfileMenu({
                   setMenuOpen(false);
                   onStagingDbImport();
                 }}
-                className="block w-full px-3 py-2 text-left text-sm text-amber-900 hover:bg-amber-50"
+                className="block w-full px-3 py-2.5 text-left text-sm font-medium text-amber-900 hover:bg-amber-50"
               >
                 운영 DB 가져오기
               </button>
@@ -183,7 +191,7 @@ export function UserProfileMenu({
             <button
               type="button"
               onClick={onLogout}
-              className="block w-full border-t border-gray-100 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              className="staff-profile-logout block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-100"
             >
               로그아웃
             </button>

@@ -382,7 +382,7 @@ function ScheduleDayListItem({
 
   return (
     <div
-      className={`text-left w-full py-1.5 pl-2 pr-1 rounded-md flex gap-1.5 border border-gray-200/90 shadow-sm text-fluid-sm ${slotLeftBorder} ${
+      className={`text-left w-full py-2 pl-3 pr-2 rounded-xl flex gap-2 border border-slate-200/90 shadow-sm text-fluid-sm transition-all duration-200 hover:shadow-md hover:translate-y-[-0.5px] ${slotLeftBorder} ${
         leaderDayLoadUnderfilled ? 'bg-rose-50/95' : slotBgTint
       } ${
         isPreOrder ? 'ring-1 ring-red-500' : ''
@@ -393,16 +393,16 @@ function ScheduleDayListItem({
       } ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}`}
     >
       <span
-        className={`shrink-0 self-center inline-flex items-center justify-center min-w-[2.25rem] px-1 py-0.5 text-fluid-2xs font-bold leading-none rounded ${slotBadgeClass}`}
+        className={`shrink-0 self-center inline-flex items-center justify-center min-w-[2.25rem] px-1.5 py-0.5 text-fluid-2xs font-bold leading-none rounded-lg ${slotBadgeClass}`}
       >
         {slotLabelShort}
       </span>
-      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-        <div className="flex items-center gap-1 min-w-0">
+      <div className="min-w-0 flex-1 flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-2 min-w-0">
           <button
             type="button"
             onClick={onPick}
-            className="min-w-0 flex-1 text-left font-medium text-gray-900 inline-flex items-center gap-1.5 flex-wrap"
+            className="min-w-0 flex-1 text-left font-semibold text-slate-900 inline-flex items-center gap-1.5 flex-wrap"
           >
             <span className="min-w-0 inline-flex flex-col items-start gap-0 leading-tight">
               <span className="inline-flex min-w-0 max-w-full items-center gap-1">
@@ -410,7 +410,7 @@ function ScheduleDayListItem({
                   name={primaryCustomerLabel}
                   tone={item.internalCustomerTone}
                   viewerRole={viewerRole}
-                  nameClassName="truncate font-medium"
+                  nameClassName="truncate font-bold text-slate-900"
                 />
                 <PropertyTypeSticker
                   propertyType={item.propertyType}
@@ -419,7 +419,7 @@ function ScheduleDayListItem({
                 />
               </span>
               {phoneForExtra ? (
-                <span className="text-fluid-2xs text-gray-600 tabular-nums truncate max-w-[min(100%,14rem)]">
+                <span className="text-[10px] text-slate-500 tabular-nums truncate max-w-[min(100%,14rem)]">
                   {phoneForExtra}
                 </span>
               ) : null}
@@ -431,17 +431,17 @@ function ScheduleDayListItem({
               <TenantInquiryShareBadge share={item.tenantShare} compact className="shrink-0" />
             ) : null}
             {isExternalIntake && (
-              <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[10px] font-semibold text-fuchsia-800">
+              <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[9px] font-semibold text-fuchsia-800">
                 수기
               </span>
             )}
             {isCancelled && (
-              <span className="inline-flex items-center rounded border border-slate-400 bg-slate-100 px-1 py-px text-[10px] font-bold text-slate-800">
+              <span className="inline-flex items-center rounded border border-slate-400 bg-slate-100 px-1 py-px text-[9px] font-bold text-slate-800">
                 취소
               </span>
             )}
             {isOnHold && (
-              <span className="inline-flex items-center rounded border border-amber-500 bg-amber-100 px-1 py-px text-[10px] font-bold text-amber-950">
+              <span className="inline-flex items-center rounded border border-amber-500 bg-amber-100 px-1 py-px text-[9px] font-bold text-amber-950">
                 ! 보류
               </span>
             )}
@@ -451,11 +451,11 @@ function ScheduleDayListItem({
               intakeMarketerName) && (
               <span className="inline-flex items-center gap-0.5 flex-nowrap shrink-0 text-[10px] sm:text-fluid-2xs font-normal">
                 {item.inquiryNumber ? (
-                  <span className="text-gray-400 tabular-nums leading-none shrink-0">{item.inquiryNumber}</span>
+                  <span className="text-slate-400 tabular-nums leading-none shrink-0">{item.inquiryNumber}</span>
                 ) : null}
                 {distanceLabel ? (
                   <span
-                    className="text-gray-400 tabular-nums leading-none shrink-0"
+                    className="text-slate-400 tabular-nums leading-none shrink-0"
                     title="인천 주안 기준 직선거리"
                   >
                     {item.inquiryNumber ? ' · ' : ''}
@@ -464,7 +464,7 @@ function ScheduleDayListItem({
                 ) : null}
                 {intakeMarketerName ? (
                   <span
-                    className="text-gray-500 leading-none shrink-0 max-w-[6rem] sm:max-w-[9rem] truncate"
+                    className="text-slate-400 leading-none shrink-0 max-w-[6rem] sm:max-w-[9rem] truncate"
                     title="접수자(담당마케터)"
                   >
                     {item.inquiryNumber || distanceLabel ? ' · ' : ''}
@@ -473,7 +473,7 @@ function ScheduleDayListItem({
                 ) : null}
                 {showScheduleMemoBadge ? (
                   <span
-                    className="text-[9px] sm:text-[10px] leading-none font-medium text-gray-800 bg-white/80 border border-gray-200/90 rounded px-1 py-px max-w-[min(10rem,38vw)] truncate shadow-sm"
+                    className="text-[9px] sm:text-[10px] leading-none font-medium text-slate-700 bg-white/80 border border-slate-200/80 rounded px-1.5 py-0.5 max-w-[min(10rem,38vw)] truncate shadow-sm"
                     title={scheduleMemoLine}
                   >
                     {scheduleMemoLine}
@@ -485,60 +485,56 @@ function ScheduleDayListItem({
               <ProfessionalOptionDots rawIds={item.professionalOptionIds} catalog={profCatalog} />
             </span>
           </button>
-          {item.happyCallCompletedAt ? (
-            <span
-              className="shrink-0 inline-flex items-center rounded border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] sm:text-fluid-2xs font-medium text-green-800"
-              title="해피콜 완료"
-            >
-              해피콜 완료
-            </span>
-          ) : canHappyCall && hasAssignment ? (
-            <span
-              className={`shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] sm:text-fluid-2xs font-medium border ${
-                happyTone === 'overdue'
-                  ? 'border-red-300 bg-red-50 text-red-700'
-                  : 'border-amber-200 bg-amber-50 text-amber-900'
+          
+          <div className="flex items-center gap-1.5 shrink-0">
+            {item.happyCallCompletedAt ? (
+              <span
+                className="shrink-0 inline-flex items-center rounded-md border border-green-200 bg-green-50 px-1.5 py-0.5 text-[9px] font-medium text-green-700"
+                title="해피콜 완료"
+              >
+                해피콜 완료
+              </span>
+            ) : canHappyCall && hasAssignment ? (
+              <span
+                className={`shrink-0 inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-medium border ${
+                  happyTone === 'overdue'
+                    ? 'border-red-300 bg-red-50 text-red-600'
+                    : 'border-amber-200 bg-amber-50 text-amber-800'
+                }`}
+                title={happyTone === 'overdue' ? '해피콜 미완(마감 초과)' : '해피콜 미완'}
+              >
+                해피콜 미완
+              </span>
+            ) : null}
+            {isPreOrder && (
+              <span className="text-[10px] font-semibold text-red-600 shrink-0">
+                {item.status === 'ORDER_FORM_PENDING'
+                  ? '미제출'
+                  : item.status === 'DEPOSIT_COMPLETED'
+                    ? '입금완료'
+                    : '대기'}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onOpenMemo}
+              className={`shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
+                hasScheduleMemo
+                  ? 'border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
               }`}
-              title={happyTone === 'overdue' ? '해피콜 미완(마감 초과)' : '해피콜 미완'}
+              title="메모"
             >
-              해피콜 미완
-            </span>
-          ) : (
-            <span
-              className="shrink-0 inline-flex items-center rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] sm:text-fluid-2xs font-medium text-gray-500"
-              title="해피콜 대상 아님"
-            >
-              해피콜 대상 아님
-            </span>
-          )}
-          {isPreOrder && (
-            <span className="text-fluid-2xs font-semibold text-red-700 shrink-0">
-              {item.status === 'ORDER_FORM_PENDING'
-                ? '미제출'
-                : item.status === 'DEPOSIT_COMPLETED'
-                  ? '입금완료'
-                  : '대기'}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={onOpenMemo}
-            className={`shrink-0 px-1.5 py-0.5 text-[10px] sm:text-fluid-2xs font-medium rounded border tabular-nums ${
-              hasScheduleMemo
-                ? 'border-blue-400 bg-blue-50 text-blue-900 hover:bg-blue-100'
-                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-            }`}
-            title="메모"
-          >
-            메모
-          </button>
+              메모
+            </button>
+          </div>
         </div>
         <button
           type="button"
           onClick={onPick}
-          className="text-left w-full text-fluid-xs text-gray-600 leading-snug truncate hover:brightness-[0.99]"
+          className="text-left w-full text-fluid-xs text-slate-500 leading-snug truncate hover:brightness-[0.98] font-normal"
         >
-          {shortSiGuFromAddress(item.address)}
+          <span className="text-slate-800 font-semibold">{shortSiGuFromAddress(item.address)}</span>
           {(() => {
             const areaStr = formatInquiryListAreaLabel({
               areaBasis: item.areaBasis,
@@ -548,20 +544,20 @@ function ScheduleDayListItem({
             });
             return areaStr !== '—' ? ` / ${areaStr}` : '';
           })()}
-          <span className="text-gray-400"> · </span>
+          <span className="text-slate-300"> · </span>
           <span>{slotLabelShort}</span>
-          <span className="text-gray-400"> · </span>
+          <span className="text-slate-300"> · </span>
           {leaderNamesJoined ? (
-            <span>{leaderNamesJoined}</span>
+            <span className="text-slate-700 font-medium">{leaderNamesJoined}</span>
           ) : (
-            <span className="font-bold text-red-600">미배정</span>
+            <span className="font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1 py-px rounded">미배정</span>
           )}
-          <span className="text-gray-400"> · </span>
-          <span>팀원{crewN}명</span>
+          <span className="text-slate-300"> · </span>
+          <span>팀원 {crewN}명</span>
           {crewNote ? (
             <>
-              <span className="text-gray-400"> · </span>
-              <span>{crewNote}</span>
+              <span className="text-slate-300"> · </span>
+              <span className="text-indigo-600">{crewNote}</span>
             </>
           ) : null}
         </button>
@@ -1202,16 +1198,16 @@ export function AdminSchedulePage() {
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h1 className="text-fluid-lg font-semibold text-gray-900 tracking-tight">스케쥴</h1>
+            <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
             <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-stretch rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="inline-flex items-stretch rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
             <button
               type="button"
               onClick={goPrevMonth}
-              className="px-2.5 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-r border-gray-200"
+              className="px-2.5 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-200"
               aria-label="이전 달"
             >
               <ChevronLeftIcon className="w-5 h-5" />
@@ -1219,7 +1215,7 @@ export function AdminSchedulePage() {
             <button
               type="button"
               onClick={goNextMonth}
-              className="px-2.5 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              className="px-2.5 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               aria-label="다음 달"
             >
               <ChevronRightIcon className="w-5 h-5" />
@@ -1228,7 +1224,7 @@ export function AdminSchedulePage() {
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-fluid-sm bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300/80"
+            className="px-3 py-2 border border-slate-200 rounded-lg text-fluid-sm bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80"
           >
             {yearOptions.map((y) => (
               <option key={y} value={y}>
@@ -1239,7 +1235,7 @@ export function AdminSchedulePage() {
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-fluid-sm bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300/80 min-w-[5.5rem]"
+            className="px-3 py-2 border border-slate-200 rounded-lg text-fluid-sm bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 min-w-[5.5rem]"
           >
             {monthOptions.map((m) => (
               <option key={m} value={m}>
@@ -1259,11 +1255,11 @@ export function AdminSchedulePage() {
         </div>
       )}
       {loading ? (
-        <div className="py-12 text-center text-gray-500 text-fluid-sm">로딩 중...</div>
+        <div className="py-12 text-center text-slate-500 text-fluid-sm">로딩 중...</div>
       ) : (
         <>
           {/* 범례 */}
-          <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2.5 text-fluid-xs text-gray-600 leading-relaxed">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-fluid-xs text-slate-600 leading-relaxed">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <span className="inline-flex items-center gap-2">
                 <span className="h-2.5 w-3 shrink-0 rounded-sm border-2 border-rose-400 bg-rose-50 ring-1 ring-rose-200" />
@@ -1286,7 +1282,7 @@ export function AdminSchedulePage() {
                 마감
               </span>
               <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-gray-900 shrink-0" />
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-900 shrink-0" />
                 선택한 날
               </span>
               <span className="inline-flex items-center gap-2" title={SON_EOMNEUNG_NAL_HELP}>
@@ -1300,7 +1296,7 @@ export function AdminSchedulePage() {
                 />
               </div>
             </div>
-            <div className="mt-2 min-w-0 border-t border-gray-200/80 pt-2">
+            <div className="mt-2 min-w-0 border-t border-slate-200/80 pt-2">
               <CustomCalendarTabsBar
                 className="w-full min-w-0"
                 calendars={customCalendars}
@@ -1313,7 +1309,7 @@ export function AdminSchedulePage() {
               />
             </div>
             {activeCustomCalendar && (
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white/80 px-3 py-2">
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className={`inline-flex items-center rounded-full border px-2 py-0.5 text-fluid-xs font-semibold ${
@@ -1322,7 +1318,7 @@ export function AdminSchedulePage() {
                   >
                     {activeCustomCalendar.name}
                   </span>
-                  <span className="text-fluid-xs text-gray-600 truncate" title={activeCustomCalendar.regions.join(', ')}>
+                  <span className="text-fluid-xs text-slate-600 truncate" title={activeCustomCalendar.regions.join(', ')}>
                     {[
                       ...activeCustomCalendar.regions,
                       ...activeCustomCalendar.externalCompanyIds
@@ -1340,7 +1336,7 @@ export function AdminSchedulePage() {
                       setCustomCalendarEditing(activeCustomCalendar);
                       setCustomCalendarModalOpen(true);
                     }}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                     title="이 캘린더 이름·지역 수정 · 삭제"
                     aria-label="이 캘린더 수정"
                   >
@@ -1349,7 +1345,7 @@ export function AdminSchedulePage() {
                   <button
                     type="button"
                     onClick={() => setActiveCustomCalendarId(null)}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-xs text-gray-700 hover:bg-gray-50"
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-fluid-xs text-slate-700 hover:bg-slate-50"
                     title="전체 캘린더로 돌아가기"
                   >
                     ← 전체 캘린더
@@ -1383,19 +1379,19 @@ export function AdminSchedulePage() {
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
           <div
-            className="rounded-xl border border-gray-200 bg-gray-200/90 p-px shadow-sm overflow-hidden max-lg:[touch-action:pan-y]"
+            className="rounded-xl border border-slate-200 bg-slate-200/90 p-px shadow-sm overflow-hidden max-lg:[touch-action:pan-y]"
             onTouchStart={onCalendarSwipeTouchStart}
             onTouchEnd={onCalendarSwipeTouchEnd}
             onTouchCancel={() => {
               calendarSwipeTouchRef.current = null;
             }}
           >
-            <div className="grid grid-cols-7 gap-px bg-gray-200/90 text-left [word-break:keep-all]">
+            <div className="grid grid-cols-7 gap-px bg-slate-200/90 text-left [word-break:keep-all]">
               {WEEKDAYS.map((w, wi) => (
                 <div
                   key={w}
-                  className={`py-1.5 px-1 sm:py-2.5 sm:px-2.5 text-center text-calendar-xs font-semibold tracking-tight sm:tracking-wide bg-gray-100 min-w-0 ${
-                    wi === 0 ? 'text-rose-600' : wi === 6 ? 'text-slate-600' : 'text-gray-600'
+                  className={`py-1.5 px-1 sm:py-2.5 sm:px-2.5 text-center text-calendar-xs font-semibold tracking-tight sm:tracking-wide bg-slate-100 min-w-0 ${
+                    wi === 0 ? 'text-rose-600' : wi === 6 ? 'text-slate-600' : 'text-slate-600'
                   }`}
                 >
                   {w}
@@ -1406,7 +1402,7 @@ export function AdminSchedulePage() {
                   return (
                     <div
                       key={`empty-${i}`}
-                      className="min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 bg-gray-50/90"
+                      className="min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 bg-slate-50/90"
                     />
                   );
                 }
@@ -1430,7 +1426,6 @@ export function AdminSchedulePage() {
                 const sideUnconfirmed = dayStats?.sideCleaningUnconfirmedCount ?? 0;
                 const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = activeScheduleItems.filter((it) => !it.assignments?.[0]).length;
-                const hasEvents = dayItems.length > 0;
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
                 const isSunday = i % 7 === 0;
@@ -1453,27 +1448,27 @@ export function AdminSchedulePage() {
                   Boolean(dayStats && isFullDayClosure(dayStats)) ||
                   (!leaderSlotDeficit && workingCount > 0 && morningRem === 0 && afternoonRem === 0);
                 const weekdayColor =
-                  isHoliday || isSunday ? 'text-rose-600' : isSaturday ? 'text-slate-600' : 'text-gray-500';
+                  isHoliday || isSunday ? 'text-rose-600' : isSaturday ? 'text-slate-600' : 'text-slate-500';
                 const dateAndWeekdayRow = (
-                  <>
+                  <div className="flex w-full items-center justify-between min-w-0">
                     <span
                       title={sonDay ? SON_EOMNEUNG_NAL_HELP : undefined}
                       className={
                         today
                           ? sonDay
-                            ? 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-teal-700 text-calendar-xs font-bold text-white shadow-sm tabular-nums ring-1 ring-teal-500/90 sm:h-7 sm:min-w-[1.75rem]'
-                            : 'inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-gray-900 text-calendar-xs font-bold text-white shadow-sm tabular-nums sm:h-7 sm:min-w-[1.75rem]'
+                            ? 'inline-flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full bg-teal-700 text-calendar-xs font-bold text-white shadow-sm tabular-nums ring-1 ring-teal-500/90'
+                            : 'inline-flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-calendar-xs font-bold text-white shadow-sm tabular-nums'
                           : sonDay
-                            ? 'text-calendar-xs font-bold tabular-nums text-teal-700'
-                            : 'text-calendar-xs font-semibold tabular-nums text-gray-900'
+                            ? 'text-calendar-xs font-extrabold tabular-nums text-teal-700'
+                            : 'text-calendar-xs font-bold tabular-nums text-slate-950'
                       }
                     >
                       {d}
                     </span>
-                    <span className={`text-calendar-2xs font-medium leading-tight truncate shrink-0 ${weekdayColor}`}>
+                    <span className={`text-[10px] font-semibold leading-none shrink-0 ${weekdayColor}`}>
                       {weekdayKoFromYmd(year, month, d)}
                     </span>
-                  </>
+                  </div>
                 );
                 const customCalChips = (() => {
                   if (activeCustomCalendar) {
@@ -1519,14 +1514,12 @@ export function AdminSchedulePage() {
                   onHoldDayCount === 0 &&
                   !leaderSlotDeficit;
                 const cellBg = isSelected
-                  ? 'bg-white ring-2 ring-gray-900 ring-inset z-[1]'
+                  ? 'glass-calendar-cell-selected z-[1]'
                   : leaderSlotDeficit
-                    ? 'bg-rose-50/90'
+                    ? 'glass-calendar-cell-deficit shadow-sm shadow-red-500/5'
                     : isSlotFull
-                      ? 'bg-slate-100'
-                      : hasEvents
-                        ? 'bg-slate-50/90'
-                        : 'bg-white';
+                      ? 'glass-calendar-cell-full'
+                      : 'glass-calendar-cell';
                 return (
                   <div
                     key={key}
@@ -1545,177 +1538,116 @@ export function AdminSchedulePage() {
                         setSelectedDate(isSelected ? null : key);
                       }
                     }}
-                    className={`min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 px-1.5 py-1 sm:px-2 sm:py-1.5 flex flex-col cursor-pointer relative overflow-hidden text-left transition-colors ${
+                    className={`min-h-[clamp(5.25rem,2.75rem+14vmin,8rem)] min-w-0 px-2 py-1.5 flex flex-col cursor-pointer relative overflow-hidden text-left rounded-xl transition-all duration-200 ${
                       cellBg
-                    } ${deficitAccent ? 'ring-2 ring-rose-500/90 ring-inset' : ''} ${
-                      pendingAccent ? 'ring-1 ring-rose-400/90 ring-inset' : ''
+                    } ${deficitAccent ? 'ring-2 ring-rose-500/80 ring-inset' : ''} ${
+                      pendingAccent ? 'ring-1 ring-rose-300/80 ring-inset' : ''
                     } ${
-                      onHoldAccent ? 'ring-1 ring-amber-500/95 ring-inset' : ''
-                    } ${emptyAccent ? 'ring-1 ring-rose-300/80 ring-inset' : ''} ${
-                      !isSelected && !isSlotFull && !leaderSlotDeficit && !pendingAccent && !onHoldAccent
-                        ? 'hover:bg-gray-50/95'
-                        : ''
-                    } ${pendingDayCount > 0 ? 'bg-rose-50/50' : ''} ${
-                      onHoldDayCount > 0 && pendingDayCount === 0 ? 'bg-amber-50/35' : ''
-                    }`}
+                      onHoldAccent ? 'ring-1 ring-amber-400/85 ring-inset' : ''
+                    } ${emptyAccent ? 'ring-1 ring-rose-200/50 ring-inset' : ''}`}
                   >
-                    <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">{dateAndWeekdayRow}</div>
-                    <div className="mt-1.5 sm:mt-2 flex flex-col gap-0.5 sm:gap-1 min-w-0 flex-1 min-h-0">
-                      <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
-                        <span
-                          className={
+                    <div className="flex min-w-0 items-center justify-between gap-1 w-full">{dateAndWeekdayRow}</div>
+                    <div className="mt-1.5 flex flex-col gap-1 min-w-0 flex-1 min-h-0 w-full">
+                      {/* AM / PM 슬롯 가로 캡슐 배지 */}
+                      <div className="inline-flex w-full overflow-hidden rounded-md border border-slate-200/50 font-sans leading-none tabular-nums shrink-0">
+                        <div
+                          className={`flex-1 flex items-center justify-center sm:justify-between px-1 sm:px-1.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-bold ${
                             morningRem < 0
-                              ? 'text-rose-800 font-semibold text-calendar-2xs'
+                              ? 'bg-rose-50 text-rose-700'
                               : isSlotFull
-                                ? 'text-slate-600 font-medium text-calendar-2xs'
-                                : 'text-amber-900/90 font-medium text-calendar-2xs'
-                          }
-                        >
-                          오전
-                        </span>
-                        <span
-                          className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
-                            morningRem < 0
-                              ? 'text-rose-700'
-                              : isSlotFull
-                                ? 'text-slate-800'
-                                : 'text-amber-950'
+                                ? 'bg-slate-100 text-slate-400'
+                                : 'bg-amber-50 text-amber-900'
                           }`}
+                          title={`오전 잔여: ${morningRem}`}
                         >
-                          {morningRem}
-                        </span>
-                      </div>
-                        <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
-                        <span
-                          className={
+                          <span className="hidden sm:inline">AM</span>
+                          <span>{morningRem}</span>
+                        </div>
+                        <div
+                          className={`flex-1 flex items-center justify-center sm:justify-between px-1 sm:px-1.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-bold border-l border-slate-200/50 ${
                             afternoonRem < 0
-                              ? 'text-rose-800 font-semibold text-calendar-2xs'
+                              ? 'bg-rose-50 text-rose-700'
                               : isSlotFull
-                                ? 'text-slate-600 font-medium text-calendar-2xs'
-                                : 'text-sky-800 font-medium text-calendar-2xs'
-                          }
-                        >
-                          오후
-                        </span>
-                        <span
-                          className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
-                            afternoonRem < 0
-                              ? 'text-rose-700'
-                              : isSlotFull
-                                ? 'text-slate-800'
-                                : 'text-sky-950'
+                                ? 'bg-slate-100 text-slate-400'
+                                : 'bg-sky-50 text-sky-900'
                           }`}
+                          title={`오후 잔여: ${afternoonRem}`}
                         >
-                          {afternoonRem}
-                        </span>
+                          <span className="hidden sm:inline">PM</span>
+                          <span>{afternoonRem}</span>
+                        </div>
                       </div>
-                      {dayStats &&
-                        (dayStats.crewRemaining != null || dayStats.additionalStandardJobsByCrew != null) && (
-                          <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0 pt-0.5 border-t border-gray-200/80 mt-0.5">
-                            <span
-                              className={
-                                isSlotFull
-                                  ? 'text-slate-600 font-medium text-calendar-2xs'
-                                  : 'text-emerald-900 font-medium text-calendar-2xs'
-                              }
-                              title="휴무 반영 활성 팀원 기준 잔여(명). 표준 접수는 팀원 2명 단위로 집계합니다."
-                            >
-                              팀원
-                            </span>
-                            <span
-                              className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
-                                isSlotFull ? 'text-slate-800' : 'text-emerald-950'
-                              }`}
-                              title={`휴무 ${dayStats.crewDayOffCount ?? 0}명 · 잔여 ${dayStats.crewRemaining ?? 0}명 · 표준(2명) 접수 약 ${dayStats.additionalStandardJobsByCrew ?? 0}건 가능`}
-                            >
-                              {dayStats.crewRemaining ?? 0}
-                            </span>
-                          </div>
-                        )}
-                      <div
-                        className={`flex flex-col gap-0.5 border-t pt-1 mt-0.5 ${
-                          isSlotFull ? 'border-slate-200' : 'border-gray-200/90'
-                        }`}
-                      >
-                        <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
-                          <span
-                            className={
-                              isSlotFull
-                                ? 'text-slate-600 font-semibold text-calendar-2xs'
-                                : unassignedCount > 0
-                                  ? 'text-red-600 font-bold text-calendar-2xs'
-                                  : 'text-gray-500 text-calendar-2xs'
-                            }
-                          >
-                            미배정
+
+                      {/* 가용 팀원 수 */}
+                      {dayStats && dayStats.crewRemaining != null && (
+                        <div
+                          className="flex items-center justify-center sm:justify-between text-[9px] sm:text-[10px] font-semibold text-slate-500 leading-none shrink-0"
+                          title={`휴무 ${dayStats.crewDayOffCount ?? 0}명 · 잔여 ${dayStats.crewRemaining ?? 0}명 · 표준(2명) 접수 약 ${dayStats.additionalStandardJobsByCrew ?? 0}건 가능`}
+                        >
+                          <span className="flex items-center gap-0.5">
+                            <span className="text-[9px] sm:text-[10px]">👥</span>
+                            <span className="hidden sm:inline">팀원가용</span>
                           </span>
-                          <span
-                            className={`tabular-nums text-calendar-2xs shrink-0 ${
-                              isSlotFull
-                                ? unassignedCount > 0
-                                  ? 'text-slate-900 font-semibold'
-                                  : 'text-slate-700 font-semibold'
-                                : unassignedCount > 0
-                                  ? 'text-red-600 font-bold'
-                                  : 'text-gray-600 font-medium'
-                            }`}
-                          >
-                            {unassignedCount}
+                          <span className="tabular-nums font-bold text-slate-700 ml-0.5 sm:ml-0">
+                            {dayStats.crewRemaining}
                           </span>
                         </div>
-                        {sideOrderCount > 0 && (
-                          <div className="flex justify-between items-baseline gap-0.5 sm:gap-1 leading-none whitespace-nowrap min-w-0">
-                            <span className={isSlotFull ? 'text-slate-600 font-medium text-calendar-2xs' : 'text-violet-800 font-medium text-calendar-2xs'}>
-                              사이
-                            </span>
-                            <span
-                              className={`tabular-nums text-calendar-2xs font-semibold shrink-0 ${
-                                isSlotFull ? 'text-slate-900' : 'text-violet-950'
-                              }`}
-                            >
-                              {sideOrderCount}건
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      )}
+
+                      {/* 미배정 & 사이청소 한 줄 또는 컴팩트 정렬 */}
+                      {unassignedCount > 0 && (
+                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-bold text-red-600 leading-none shrink-0">
+                          <span className="flex items-center gap-0.5">
+                            <span>⚠️</span>
+                            <span className="hidden sm:inline">미배정</span>
+                          </span>
+                          <span className="tabular-nums ml-0.5 sm:ml-0">{unassignedCount}</span>
+                        </div>
+                      )}
+                      {sideOrderCount > 0 && (
+                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-violet-700 leading-none shrink-0">
+                          <span className="flex items-center gap-0.5">
+                            <span className="text-[9px]">⚡</span>
+                            <span className="hidden sm:inline">사이청소</span>
+                          </span>
+                          <span className="tabular-nums font-bold ml-0.5 sm:ml-0">{sideOrderCount}</span>
+                        </div>
+                      )}
                     </div>
+
+                    {/* 상태별 미니 도트 표시기 (대기: 장미색, 보류: 노란색, 취소: 회색) */}
                     {(pendingDayCount > 0 || onHoldDayCount > 0 || cancelledDayCount > 0) && (
-                      <div className="mt-auto pt-1 border-t border-gray-200/70 flex flex-wrap gap-0.5 justify-center items-center content-center min-w-0 w-full">
+                      <div className="mt-auto pt-1 border-t border-slate-100/60 flex items-center justify-center gap-1.5 w-full shrink-0">
                         {pendingDayCount > 0 && (
                           <span
-                            className="text-[0.65rem] sm:text-calendar-2xs font-semibold leading-tight text-rose-800 bg-rose-100/90 px-1 py-px rounded tabular-nums max-w-full text-center"
-                            title="대기 접수(발주서 미제출)"
-                          >
-                            대기{pendingDayCount > 1 ? pendingDayCount : ''}
-                          </span>
+                            className="h-1.5 w-1.5 rounded-full bg-rose-500"
+                            title={`대기 접수(미제출) ${pendingDayCount}건`}
+                          />
                         )}
                         {onHoldDayCount > 0 && (
                           <span
-                            className="text-[0.65rem] sm:text-calendar-2xs font-bold leading-tight text-amber-950 bg-amber-200/95 px-1 py-px rounded tabular-nums max-w-full text-center"
-                            title="보류(일정 미확정) — 담당 배정 없음"
-                          >
-                            ! 보류{onHoldDayCount > 1 ? onHoldDayCount : ''}
-                          </span>
+                            className="h-1.5 w-1.5 rounded-full bg-amber-400"
+                            title={`보류 일정 ${onHoldDayCount}건`}
+                          />
                         )}
                         {cancelledDayCount > 0 && (
                           <span
-                            className="text-[0.65rem] sm:text-calendar-2xs font-semibold leading-tight text-slate-700 bg-slate-200/90 px-1 py-px rounded tabular-nums max-w-full text-center"
-                            title="취소된 접수(일정에 유지)"
-                          >
-                            취소{cancelledDayCount > 1 ? cancelledDayCount : ''}
-                          </span>
+                            className="h-1.5 w-1.5 rounded-full bg-slate-400"
+                            title={`취소 일정 ${cancelledDayCount}건`}
+                          />
                         )}
                       </div>
                     )}
+
                     {customCalChips != null ? (
-                      <div className="w-full min-w-0 border-t border-gray-200/70 pt-0.5 max-sm:pt-1">
+                      <div className="w-full min-w-0 border-t border-slate-100/60 pt-1 mt-auto">
                         <div className="grid grid-cols-2 gap-x-0.5 gap-y-0.5 sm:flex sm:flex-wrap sm:justify-end sm:gap-0.5">
                           {customCalChips}
                         </div>
                       </div>
                     ) : null}
                     {isSlotFull && (
-                      <span className="mt-0.5 text-center text-[0.65rem] sm:text-calendar-2xs font-semibold text-slate-600 tracking-tight leading-none">
+                      <span className="mt-1 text-center text-[9px] font-semibold text-slate-500 tracking-tight leading-none">
                         마감
                       </span>
                     )}
@@ -1727,11 +1659,11 @@ export function AdminSchedulePage() {
 
           {/* 선택한 날짜의 일정 목록 + 상세 보기 */}
           {selectedDate && (
-            <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-sm">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3 mb-3">
-                <h3 className="text-fluid-xs sm:text-fluid-sm font-medium text-gray-800 tabular-nums min-w-0">
+                <h3 className="text-fluid-xs sm:text-fluid-sm font-medium text-slate-800 tabular-nums min-w-0">
                   {formatDateCompactWithWeekday(selectedDate)}{' '}
-                  <span className="text-gray-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
+                  <span className="text-slate-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
                 </h3>
                 <div className="flex flex-wrap items-center justify-end gap-1 sm:justify-start sm:gap-1.5 md:gap-2 shrink-0 min-w-0 w-full sm:w-auto">
                   {token &&
@@ -1749,7 +1681,7 @@ export function AdminSchedulePage() {
                     <button
                       type="button"
                       onClick={() => setAssignmentSummaryOpen(true)}
-                      className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 leading-snug whitespace-nowrap"
+                      className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 leading-snug whitespace-nowrap"
                     >
                       배정현황
                     </button>
@@ -1778,7 +1710,7 @@ export function AdminSchedulePage() {
                               setClosureBusy(false);
                             }
                           }}
-                          className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50 leading-snug sm:whitespace-nowrap"
+                          className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:opacity-50 leading-snug sm:whitespace-nowrap"
                         >
                           일정마감 해제
                         </button>
@@ -1787,7 +1719,7 @@ export function AdminSchedulePage() {
                           type="button"
                           disabled={closureBusy}
                           onClick={() => setClosureModalOpen(true)}
-                          className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded-md bg-gray-800 text-white hover:bg-gray-900 disabled:opacity-50 leading-snug whitespace-nowrap"
+                          className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded-md bg-slate-800 text-white hover:bg-slate-900 disabled:opacity-50 leading-snug whitespace-nowrap"
                         >
                           일정마감
                         </button>
@@ -1798,7 +1730,7 @@ export function AdminSchedulePage() {
                     <button
                       type="button"
                       onClick={() => setScheduleMapOpen(true)}
-                      className="inline-flex items-center justify-center shrink-0 size-[clamp(2rem,5.5vmin,2.5rem)] min-h-[32px] min-w-[32px] rounded-full border-[1.5px] border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm touch-manipulation sm:size-10 sm:border-2"
+                      className="inline-flex items-center justify-center shrink-0 size-[clamp(2rem,5.5vmin,2.5rem)] min-h-[32px] min-w-[32px] rounded-full border-[1.5px] border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-sm touch-manipulation sm:size-10 sm:border-2"
                       title="접수건 위치 검색"
                       aria-label="접수건 위치 검색"
                     >
@@ -1814,7 +1746,7 @@ export function AdminSchedulePage() {
                   <button
                     type="button"
                     onClick={() => setCreateInquiryModalDate(selectedDate)}
-                    className="inline-flex items-center justify-center shrink-0 size-[clamp(2rem,5.5vmin,2.5rem)] min-h-[32px] min-w-[32px] rounded-full border-[1.5px] border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm touch-manipulation sm:size-10 sm:border-2"
+                    className="inline-flex items-center justify-center shrink-0 size-[clamp(2rem,5.5vmin,2.5rem)] min-h-[32px] min-w-[32px] rounded-full border-[1.5px] border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-sm touch-manipulation sm:size-10 sm:border-2"
                     title="이 날짜로 신규 접수 (상세와 동일한 폼)"
                     aria-label="이 날짜로 신규 접수"
                   >
@@ -1862,32 +1794,32 @@ export function AdminSchedulePage() {
 
               {/* 요약: 휴무·근무가능·오전·후 소진 (항상 표시) */}
               {stats[selectedDate] && (
-                <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-100 text-fluid-sm">
+                <div className="mb-3 p-3 bg-slate-50 rounded-lg border border-slate-100 text-fluid-sm">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div>
-                      <span className="text-gray-500">휴무</span>
+                      <span className="text-slate-500">휴무</span>
                       <span className="ml-1 font-medium">{stats[selectedDate].offCount}인</span>
                       {stats[selectedDate].offNames.length > 0 && (
-                        <span className="ml-1 text-gray-600">
+                        <span className="ml-1 text-slate-600">
                           ({stats[selectedDate].offNames.join(', ')})
                         </span>
                       )}
                     </div>
                     <div>
-                      <span className="text-gray-500">근무가능</span>
+                      <span className="text-slate-500">근무가능</span>
                       <span className="ml-1 font-medium">{stats[selectedDate].workingCount}명</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">오전 소진</span>
+                      <span className="text-slate-500">오전 소진</span>
                       <span className="ml-1 font-medium">{stats[selectedDate].morningOccupied ?? 0}건</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">오후 소진</span>
+                      <span className="text-slate-500">오후 소진</span>
                       <span className="ml-1 font-medium">{stats[selectedDate].afternoonOccupied ?? 0}건</span>
                     </div>
                   </div>
                   {selectedDate && (asCsByDate[selectedDate]?.length ?? 0) > 0 ? (
-                    <p className="mt-2 pt-2 border-t border-gray-200 text-fluid-sm sm:text-sm font-extrabold text-red-600 tracking-tight">
+                    <p className="mt-2 pt-2 border-t border-slate-200 text-fluid-sm sm:text-sm font-extrabold text-red-600 tracking-tight">
                       A/S 발생{' '}
                       <span className="tabular-nums">
                         {asCsByDate[selectedDate]!.length}건
@@ -1898,15 +1830,15 @@ export function AdminSchedulePage() {
               )}
 
               {stats[selectedDate] && (
-                <details className="mb-3 rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm [&_summary::-webkit-details-marker]:hidden">
-                  <summary className="flex items-center justify-between gap-2 px-3 py-2.5 text-fluid-sm font-medium text-gray-800 cursor-pointer list-none hover:bg-gray-50 active:bg-gray-100 min-h-[44px] touch-manipulation">
+                <details className="mb-3 rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex items-center justify-between gap-2 px-3 py-2.5 text-fluid-sm font-medium text-slate-800 cursor-pointer list-none hover:bg-slate-50 active:bg-slate-100 min-h-[44px] touch-manipulation">
                     <span>인원·슬롯 상세</span>
-                    <ChevronDownIcon className="w-4 h-4 text-gray-500 shrink-0 opacity-80" aria-hidden />
+                    <ChevronDownIcon className="w-4 h-4 text-slate-500 shrink-0 opacity-80" aria-hidden />
                   </summary>
-                  <div className="px-3 pb-3 pt-0 border-t border-gray-100 bg-gray-50/90 text-fluid-sm space-y-2">
+                  <div className="px-3 pb-3 pt-0 border-t border-slate-100 bg-slate-50/90 text-fluid-sm space-y-2">
                     {(stats[selectedDate].sideCleaningOrderCount ?? 0) > 0 && (
                       <div>
-                        <span className="text-gray-500">사이청소 접수</span>
+                        <span className="text-slate-500">사이청소 접수</span>
                         <span className="ml-1 font-medium text-violet-800">
                           {stats[selectedDate].sideCleaningOrderCount}건
                         </span>
@@ -1923,8 +1855,8 @@ export function AdminSchedulePage() {
                       const aa = s.assignableAfternoonSlot ?? 0;
                       const sum = s.unassignedTotal ?? am + aa;
                       return (
-                        <div className="pt-1 border-t border-gray-200/90 text-fluid-sm">
-                          <span className="text-gray-500">슬롯 남은 자리(건)</span>
+                        <div className="pt-1 border-t border-slate-200/90 text-fluid-sm">
+                          <span className="text-slate-500">슬롯 남은 자리(건)</span>
                           <span
                             className={`ml-2 font-semibold tabular-nums ${
                               am < 0 || aa < 0 ? 'text-rose-800' : 'text-blue-800'
@@ -1937,32 +1869,32 @@ export function AdminSchedulePage() {
                               마이너스는 팀장 슬롯이 소진을 넘긴 상태입니다. 일정 조정을 검토해 주세요.
                             </span>
                           ) : (
-                          <span className="block text-fluid-xs text-gray-500 mt-1">
+                          <span className="block text-fluid-xs text-slate-500 mt-1">
                             휴무 팀장은 근무 인원에서 제외됩니다. 사이청소는 확정 시 오전 또는 오후 중 하나를 사용합니다.
                           </span>
                           )}
                         </div>
                       );
                     })()}
-                    <div className="space-y-2 border-t border-gray-200/90 pt-2">
+                    <div className="space-y-2 border-t border-slate-200/90 pt-2">
                       <div>
-                        <div className="text-[11px] sm:text-xs text-gray-500">
+                        <div className="text-[11px] sm:text-xs text-slate-500">
                           오전 근무 가능{' '}
                           <span className="tabular-nums">
                             ({stats[selectedDate].morningWorkingCount ?? (stats[selectedDate].morningWorkingNames ?? []).length}명)
                           </span>
                         </div>
-                        <p className="mt-0.5 text-[11px] sm:text-xs text-gray-800 font-normal leading-snug break-words">
+                        <p className="mt-0.5 text-[11px] sm:text-xs text-slate-800 font-normal leading-snug break-words">
                           {(stats[selectedDate].morningWorkingNames ?? []).length > 0
                             ? (stats[selectedDate].morningWorkingNames ?? []).join(', ')
                             : '—'}
                         </p>
-                        <div className="mt-1.5 text-[11px] sm:text-xs text-gray-500">
+                        <div className="mt-1.5 text-[11px] sm:text-xs text-slate-500">
                           오전 추가 배정 가능{' '}
                           <span className="tabular-nums">
                             ({(stats[selectedDate].availableMorningNames ?? []).length}명)
                           </span>
-                          <span className="text-gray-400"> · 이미 오전 일정에 배정된 팀장은 제외</span>
+                          <span className="text-slate-400"> · 이미 오전 일정에 배정된 팀장은 제외</span>
                         </div>
                         <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
                           {(stats[selectedDate].availableMorningNames ?? []).length > 0
@@ -1971,23 +1903,23 @@ export function AdminSchedulePage() {
                         </p>
                       </div>
                       <div>
-                        <div className="text-[11px] sm:text-xs text-gray-500">
+                        <div className="text-[11px] sm:text-xs text-slate-500">
                           오후 근무 가능{' '}
                           <span className="tabular-nums">
                             ({stats[selectedDate].afternoonWorkingCount ?? (stats[selectedDate].afternoonWorkingNames ?? []).length}명)
                           </span>
                         </div>
-                        <p className="mt-0.5 text-[11px] sm:text-xs text-gray-800 font-normal leading-snug break-words">
+                        <p className="mt-0.5 text-[11px] sm:text-xs text-slate-800 font-normal leading-snug break-words">
                           {(stats[selectedDate].afternoonWorkingNames ?? []).length > 0
                             ? (stats[selectedDate].afternoonWorkingNames ?? []).join(', ')
                             : '—'}
                         </p>
-                        <div className="mt-1.5 text-[11px] sm:text-xs text-gray-500">
+                        <div className="mt-1.5 text-[11px] sm:text-xs text-slate-500">
                           오후 추가 배정 가능{' '}
                           <span className="tabular-nums">
                             ({(stats[selectedDate].availableAfternoonNames ?? []).length}명)
                           </span>
-                          <span className="text-gray-400"> · 이미 오후 일정에 배정된 팀장은 제외</span>
+                          <span className="text-slate-400"> · 이미 오후 일정에 배정된 팀장은 제외</span>
                         </div>
                         <p className="mt-0.5 text-[11px] sm:text-xs text-blue-700 font-normal leading-snug break-words">
                           {(stats[selectedDate].availableAfternoonNames ?? []).length > 0
@@ -2057,15 +1989,16 @@ export function AdminSchedulePage() {
                 const extTotal = morningExt.length + afternoonExt.length + otherExt.length;
 
                 return (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-4">
                     {unassignedOwn.length > 0 && (
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-2 border-b-2 border-rose-400 pb-1.5">
-                          <span className="text-fluid-sm font-bold text-rose-950">팀장 미배정</span>
+                        <div className="flex items-center gap-2 mb-2.5 bg-rose-50 border border-rose-100 rounded-lg px-3 py-1.5 w-full">
+                          <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                          <span className="text-fluid-xs font-bold text-rose-950 flex-1">팀장 미배정</span>
                           <HelpTooltip className="shrink-0" text={SCHEDULE_UNASSIGNED_SECTION_HELP} />
-                          <span className="text-fluid-xs text-rose-900/80 tabular-nums">{unassignedOwn.length}건</span>
+                          <span className="text-[10px] font-bold text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{unassignedOwn.length}건</span>
                         </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1.5">
                           {unassignedOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
@@ -2088,11 +2021,12 @@ export function AdminSchedulePage() {
                     )}
                     {morningOwn.length > 0 && (
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-2 border-b-2 border-amber-400 pb-1.5">
-                          <span className="text-fluid-sm font-bold text-amber-900">오전 일정</span>
-                          <span className="text-fluid-xs text-amber-800/80 tabular-nums">{morningOwn.length}건</span>
+                        <div className="flex items-center gap-2 mb-2.5 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 w-full">
+                          <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                          <span className="text-fluid-xs font-bold text-amber-950 flex-1">오전 일정</span>
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{morningOwn.length}건</span>
                         </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1.5">
                           {morningOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
@@ -2115,11 +2049,12 @@ export function AdminSchedulePage() {
                     )}
                     {afternoonOwn.length > 0 && (
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-2 border-b-2 border-sky-600 pb-1.5">
-                          <span className="text-fluid-sm font-bold text-sky-900">오후 일정</span>
-                          <span className="text-fluid-xs text-sky-800/80 tabular-nums">{afternoonOwn.length}건</span>
+                        <div className="flex items-center gap-2 mb-2.5 bg-sky-50 border border-sky-100 rounded-lg px-3 py-1.5 w-full">
+                          <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0" />
+                          <span className="text-fluid-xs font-bold text-sky-950 flex-1">오후 일정</span>
+                          <span className="text-[10px] font-bold text-sky-700 bg-sky-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{afternoonOwn.length}건</span>
                         </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1.5">
                           {afternoonOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
@@ -2142,14 +2077,15 @@ export function AdminSchedulePage() {
                     )}
                     {otherOwn.length > 0 && (
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-2 border-b-2 border-violet-400 pb-1.5">
-                          <span className="text-fluid-sm font-bold text-violet-900">사이 · 일정 미확정</span>
-                          <span className="text-fluid-xs text-violet-800/80 tabular-nums">{otherOwn.length}건</span>
+                        <div className="flex items-center gap-2 mb-2.5 bg-violet-50 border border-violet-100 rounded-lg px-3 py-1.5 w-full">
+                          <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
+                          <span className="text-fluid-xs font-bold text-violet-950 flex-1">사이 · 일정 미확정</span>
+                          <span className="text-[10px] font-bold text-violet-700 bg-violet-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{otherOwn.length}건</span>
                         </div>
-                        <p className="text-fluid-xs text-gray-600 mb-2">
+                        <p className="text-fluid-xs text-slate-500 mb-2 px-1">
                           사이청소인데 오전/오후가 아직 정해지지 않았거나, 시간대가 비어 있는 접수입니다.
                         </p>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1.5">
                           {otherOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
@@ -2396,10 +2332,10 @@ export function AdminSchedulePage() {
                       </details>
                     )}
                     {shelfInactive.length > 0 && (
-                      <div className="min-w-0 border-t border-gray-200 pt-3 mt-1">
-                        <div className="flex items-center gap-2 mb-2 border-b border-gray-300 pb-1.5">
-                          <span className="text-fluid-sm font-bold text-gray-800">취소·보류</span>
-                          <span className="text-fluid-xs text-gray-600 tabular-nums">{shelfInactive.length}건</span>
+                      <div className="min-w-0 border-t border-slate-200 pt-3 mt-1">
+                        <div className="flex items-center gap-2 mb-2 border-b border-slate-300 pb-1.5">
+                          <span className="text-fluid-sm font-bold text-slate-800">취소·보류</span>
+                          <span className="text-fluid-xs text-slate-600 tabular-nums">{shelfInactive.length}건</span>
                         </div>
                         <div className="flex flex-col gap-1">
                           {shelfInactive.map((item) => (
@@ -2477,7 +2413,7 @@ export function AdminSchedulePage() {
               ) : null}
               {(byDate[selectedDate]?.length ?? 0) === 0 &&
               (asCsByDate[selectedDate ?? '']?.length ?? 0) === 0 ? (
-                <div className="text-center text-gray-500 py-6 text-fluid-sm">
+                <div className="text-center text-slate-500 py-6 text-fluid-sm">
                   해당 날짜에 일정이 없습니다.
                 </div>
               ) : null}
@@ -2554,13 +2490,13 @@ export function AdminSchedulePage() {
             onClick={() => setClosureModalOpen(false)}
           />
           <div
-            className="relative bg-white rounded-xl shadow-xl border border-gray-200 p-5 max-w-sm w-full"
+            className="relative bg-white rounded-xl shadow-xl border border-slate-200 p-5 max-w-sm w-full"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="closure-scope-title" className="text-base font-semibold text-gray-900 mb-1">
+            <h3 id="closure-scope-title" className="text-base font-semibold text-slate-900 mb-1">
               일정 마감 범위
             </h3>
-            <p className="text-fluid-xs text-gray-600 mb-4">
+            <p className="text-fluid-xs text-slate-600 mb-4">
               선택한 구간의 잔여 TO가 0으로 표시됩니다. 전체 마감 시 팀원 가용도 0으로 표시됩니다.
             </p>
             <div className="flex flex-col gap-2">
@@ -2568,7 +2504,7 @@ export function AdminSchedulePage() {
                 type="button"
                 disabled={closureBusy}
                 onClick={() => void submitClosure('FULL')}
-                className="w-full py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="w-full py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
               >
                 전체 (오전·오후)
               </button>
@@ -2592,7 +2528,7 @@ export function AdminSchedulePage() {
                 type="button"
                 disabled={closureBusy}
                 onClick={() => setClosureModalOpen(false)}
-                className="w-full py-2 rounded-lg border border-gray-200 text-gray-700 text-sm hover:bg-gray-50"
+                className="w-full py-2 rounded-lg border border-slate-200 text-slate-700 text-sm hover:bg-slate-50"
               >
                 취소
               </button>
@@ -2684,7 +2620,7 @@ export function AdminSchedulePage() {
         description={
           customCalendarDeleting ? (
             <span>
-              <span className="font-medium text-gray-900">"{customCalendarDeleting.name}"</span> 캘린더를 삭제하려면
+              <span className="font-medium text-slate-900">"{customCalendarDeleting.name}"</span> 캘린더를 삭제하려면
               본인 비밀번호를 입력해 주세요. 삭제 후에는 복구할 수 없습니다.
             </span>
           ) : undefined

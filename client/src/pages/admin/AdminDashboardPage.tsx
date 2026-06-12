@@ -58,7 +58,7 @@ export function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-fluid-xl font-semibold text-gray-800">메인 대시보드</h1>
+      <h1 className="text-fluid-xl font-semibold text-slate-900">메인 대시보드</h1>
 
       {apiError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-fluid-sm">
@@ -70,10 +70,10 @@ export function AdminDashboardPage() {
 
       {/* 팀 현황: 이번 달 업무량 · 오늘 휴무 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm shadow-gray-100/50">
-          <div className="mb-4 border-b border-gray-100 pb-3 flex items-center justify-between">
+        <section className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm shadow-slate-100/50">
+          <div className="mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
-              <h2 className="text-fluid-sm font-semibold text-gray-900 flex items-center gap-1.5">
+              <h2 className="text-fluid-sm font-semibold text-slate-900 flex items-center gap-1.5">
                 <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
                 </svg>
@@ -168,10 +168,10 @@ export function AdminDashboardPage() {
           )}
         </section>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm shadow-gray-100/50">
-          <div className="mb-4 border-b border-gray-100 pb-3 flex items-center justify-between">
+        <section className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm shadow-slate-100/50">
+          <div className="mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
-              <h2 className="text-fluid-sm font-semibold text-gray-900 flex items-center gap-1.5">
+              <h2 className="text-fluid-sm font-semibold text-slate-900 flex items-center gap-1.5">
                 <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
@@ -293,8 +293,8 @@ export function AdminDashboardPage() {
       </div>
 
       {/* 매출 통계 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm shadow-gray-100/50">
-        <h2 className="text-fluid-base font-semibold text-gray-800 mb-4 flex items-center gap-1.5">
+      <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm shadow-slate-100/50">
+        <h2 className="text-fluid-base font-semibold text-slate-900 mb-4 flex items-center gap-1.5">
           <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -421,7 +421,7 @@ function StatCard({
     amber: 'bg-amber-50/30 border-amber-100 hover:border-amber-200 text-amber-600 ring-amber-500/5',
     rose: 'bg-rose-50/30 border-rose-100 hover:border-rose-200 text-rose-600 ring-rose-500/5',
     emerald: 'bg-emerald-50/30 border-emerald-100 hover:border-emerald-200 text-emerald-600 ring-emerald-500/5',
-    slate: 'bg-white border-gray-200 hover:border-gray-300 text-gray-600 ring-gray-900/5',
+    slate: 'bg-white border-slate-200 hover:border-slate-300 text-slate-600 ring-slate-900/5',
   };
 
   const iconClasses = {
@@ -435,8 +435,8 @@ function StatCard({
   const inner = (
     <div className="flex items-center justify-between w-full">
       <div className="min-w-0">
-        <p className="text-fluid-xs font-semibold text-gray-500 truncate">{label}</p>
-        <p className="text-fluid-2xl font-bold text-gray-950 mt-1.5 tabular-nums tracking-tight">{value}</p>
+        <p className="text-fluid-xs font-semibold text-slate-500 truncate">{label}</p>
+        <p className="text-fluid-2xl font-bold text-slate-950 mt-1.5 tabular-nums tracking-tight">{value}</p>
       </div>
       {icon && (
         <div className={`p-2.5 rounded-xl shrink-0 ${iconClasses[theme]}`}>

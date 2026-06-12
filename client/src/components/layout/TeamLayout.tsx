@@ -244,8 +244,8 @@ export function TeamLayout() {
     }`;
 
   const mobileTabClass = ({ isActive }: { isActive: boolean }) =>
-    `flex flex-1 min-h-[50px] min-w-0 flex-col items-center justify-center gap-0.5 py-1 px-0.5 text-center text-[10px] font-medium leading-tight touch-manipulation transition-all duration-150 ${
-      isActive ? 'text-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-900'
+    `flex flex-1 min-h-[50px] min-w-0 flex-col items-center justify-center gap-0.5 py-1 px-0.5 text-center text-[10px] font-semibold leading-tight touch-manipulation transition-all duration-150 ${
+      isActive ? 'text-white bg-blue-600' : 'text-slate-400 hover:text-white hover:bg-white/10'
     }`;
 
   const searchParams = new URLSearchParams(location.search);
@@ -302,17 +302,17 @@ export function TeamLayout() {
       <header className="sticky top-0 z-40 pt-[env(safe-area-inset-top)] shadow-md theme-dark-header">
         <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <h1 className="text-lg font-semibold text-gray-800 shrink-0 min-w-0">
+            <h1 className="text-lg font-semibold text-white shrink-0 min-w-0">
               {isExternalPartner ? (
                 <TeamBiLine
                   id="team.layout.partnerBrand"
                   vars={{ name: previewExternalName }}
-                  koClassName="text-lg font-semibold text-gray-800"
+                  koClassName="text-lg font-semibold text-white"
                 />
               ) : tenantName ? (
-                <span className="text-lg font-semibold text-gray-800">{tenantName}</span>
+                <span className="text-lg font-semibold text-white">{tenantName}</span>
               ) : (
-                <TeamBiLine id="team.layout.brand" koClassName="text-lg font-semibold text-gray-800" />
+                <TeamBiLine id="team.layout.brand" koClassName="text-lg font-semibold text-white" />
               )}
             </h1>
             <nav className="hidden sm:flex flex-wrap items-center gap-1">

@@ -1972,7 +1972,7 @@ export function AdminInquiriesPage() {
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-gray-800">서비스접수</h1>
+            <h1 className="text-xl font-semibold text-slate-900">서비스접수</h1>
           </div>
           {token && (
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -1999,7 +1999,7 @@ export function AdminInquiriesPage() {
         </div>
         <div className="flex flex-col gap-3">
           <div className="flex w-full flex-wrap items-center gap-2">
-            <span className="text-fluid-sm text-gray-600 shrink-0">날짜 기준</span>
+            <span className="text-fluid-sm text-slate-600 shrink-0">날짜 기준</span>
             <select
               value={dateBasis}
               onChange={(e) => {
@@ -2007,18 +2007,18 @@ export function AdminInquiriesPage() {
                 setDateBasis(e.target.value as 'createdAt' | 'preferredDate');
                 patchInquiryListSearchParams((next) => next.delete('marketerStatsDay'));
               }}
-              className="px-3 py-1.5 border border-gray-300 rounded text-fluid-sm bg-white"
+              className="px-3 py-1.5 border border-slate-200 rounded-lg text-fluid-sm bg-white"
             >
               <option value="createdAt">접수일</option>
               <option value="preferredDate">예약일</option>
             </select>
             <HelpTooltip text="접수일 기준 또는 예약일 기준으로 날짜 필터를 적용합니다." />
-            <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm">
+            <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-fluid-sm">
               <button
                 type="button"
                 onClick={() => applyDatePreset('today')}
                 className={`px-3 py-1.5 font-medium ${
-                  datePreset === 'today' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  datePreset === 'today' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 당일
@@ -2026,8 +2026,8 @@ export function AdminInquiriesPage() {
               <button
                 type="button"
                 onClick={() => applyDatePreset('all')}
-                className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                  datePreset === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`px-3 py-1.5 font-medium border-l border-slate-200 ${
+                  datePreset === 'all' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 전체
@@ -2035,8 +2035,8 @@ export function AdminInquiriesPage() {
               <button
                 type="button"
                 onClick={() => applyDatePreset('month')}
-                className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                  datePreset === 'month' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`px-3 py-1.5 font-medium border-l border-slate-200 ${
+                  datePreset === 'month' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 월별
@@ -2044,8 +2044,8 @@ export function AdminInquiriesPage() {
               <button
                 type="button"
                 onClick={() => applyDatePreset('day')}
-                className={`px-3 py-1.5 font-medium border-l border-gray-300 ${
-                  datePreset === 'day' ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`px-3 py-1.5 font-medium border-l border-slate-200 ${
+                  datePreset === 'day' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 날짜
@@ -2390,7 +2390,7 @@ export function AdminInquiriesPage() {
                           });
                         }}
                         className={`flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs transition ${
-                          statusFilter === '' ? 'bg-gray-800 text-white' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                          statusFilter === '' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                         }`}
                       >
                         <span aria-hidden>📋</span>
@@ -2411,8 +2411,8 @@ export function AdminInquiriesPage() {
                           }}
                           className={`flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs transition ${
                             statusFilter === value
-                              ? 'bg-gray-800 text-white'
-                              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                              ? 'bg-slate-900 text-white'
+                              : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                           }`}
                           title={STATUS_LABELS[value] ?? value}
                         >
@@ -2427,7 +2427,7 @@ export function AdminInquiriesPage() {
               <button
                 type="button"
                 onClick={() => setAppliedSearchQuery(searchInput.trim())}
-                className="px-4 py-2 rounded bg-gray-800 text-white text-fluid-sm font-medium hover:bg-gray-900 shrink-0"
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-fluid-sm font-medium hover:bg-slate-800 shrink-0"
               >
                 조회
               </button>

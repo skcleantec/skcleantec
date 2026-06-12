@@ -112,12 +112,30 @@ html, body {
   color: #ffffff !important;
 }
 
-/* User Profile Menu button & options inside dark header */
-.theme-dark-header button {
-  color: #f1f5f9 !important; /* slate-100 */
+/* User Profile Menu — 트리거(다크 헤더) / 드롭다운(밝은 패널) 분리 */
+.theme-dark-header .staff-profile-trigger {
+  color: #f8fafc !important; /* slate-50 */
 }
-.theme-dark-header button:hover {
+.theme-dark-header .staff-profile-trigger:hover {
+  color: #ffffff !important;
   background-color: rgba(255, 255, 255, 0.1) !important;
+}
+.theme-dark-header [data-staff-profile-dropdown] button,
+.theme-dark-header [data-staff-profile-dropdown] a {
+  color: #1e293b !important; /* slate-800 */
+  background-color: transparent !important;
+}
+.theme-dark-header [data-staff-profile-dropdown] button:hover,
+.theme-dark-header [data-staff-profile-dropdown] a:hover {
+  background-color: #f8fafc !important; /* slate-50 */
+  color: #0f172a !important; /* slate-900 */
+}
+.theme-dark-header [data-staff-profile-dropdown] .staff-profile-logout {
+  color: #0f172a !important;
+  font-weight: 600;
+}
+.theme-dark-header [data-staff-profile-dropdown] .staff-profile-logout:hover {
+  background-color: #f1f5f9 !important; /* slate-100 */
 }
 
 /* AdminDevPreviewLinks (미리보기) */
@@ -185,5 +203,84 @@ html, body {
   color: #64748b !important; /* slate-500 */
 }
 
+/* Premium Schedule Page Redesign Styles */
+.glass-calendar-cell {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(226, 232, 240, 0.6) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
+.glass-calendar-cell:hover {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+}
 
+.glass-calendar-cell-selected {
+  background-color: #ffffff !important;
+  border-color: #0f172a !important;
+  box-shadow: 0 0 0 2px #0f172a inset, 0 10px 15px -3px rgba(15, 23, 42, 0.1) !important;
+}
+
+.glass-calendar-cell-deficit {
+  background-color: rgba(254, 242, 242, 0.7) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.glass-calendar-cell-full {
+  background-color: rgba(241, 245, 249, 0.7) !important;
+}
+
+/* Schedule Capsule Badge */
+.schedule-capsule {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.schedule-capsule-item {
+  padding: 3px 6px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.schedule-capsule-morning {
+  background-color: #fef3c7; /* amber-100 */
+  color: #78350f; /* amber-900 */
+}
+
+.schedule-capsule-morning-deficit {
+  background-color: #fee2e2; /* red-100 */
+  color: #991b1b; /* red-800 */
+}
+
+.schedule-capsule-afternoon {
+  background-color: #e0f2fe; /* sky-100 */
+  color: #0369a1; /* sky-700 */
+}
+
+.schedule-capsule-afternoon-deficit {
+  background-color: #fee2e2; /* red-100 */
+  color: #991b1b; /* red-800 */
+}
+
+.pulse-slow {
+  animation: pulse-slow-anim 2s infinite;
+}
+
+@keyframes pulse-slow-anim {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.82;
+  }
+}
