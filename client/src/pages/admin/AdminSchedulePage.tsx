@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useInboxRealtime, useChangeLogRealtime } from '../../hooks/useInboxRealtime';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import {
   getSchedule,
   postScheduleDayClosure,
@@ -800,9 +801,13 @@ export function AdminSchedulePage() {
     [token, year, month]
   );
 
-  useInboxRealtime(token, () => {
+  const silentRefreshSchedule = useCallback(() => {
     void fetchMonthData(false);
-  }, Boolean(token));
+  }, [fetchMonthData]);
+
+  const { connected: scheduleWsConnected } = useInboxRealtime(token, silentRefreshSchedule, Boolean(token));
+  useChangeLogRealtime(token, silentRefreshSchedule, Boolean(token));
+  useVisibilityInterval(silentRefreshSchedule, token && !scheduleWsConnected ? 20000 : 0);
 
   const submitClosure = useCallback(
     async (scope: 'FULL' | 'MORNING' | 'AFTERNOON') => {
@@ -1178,7 +1183,7 @@ export function AdminSchedulePage() {
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h1 className="text-fluid-lg font-semibold text-gray-900 tracking-tight">스케줄 표</h1>
+            <h1 className="text-fluid-lg font-semibold text-gray-900 tracking-tight">스케쥴</h1>
             <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
         </div>

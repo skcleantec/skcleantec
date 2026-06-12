@@ -66,7 +66,7 @@ import {
   notifyAllActiveCrewRosterAck,
   notifyTeamLeaderUsersRosterAck,
 } from '../crew/crewFieldRealtime.js';
-import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyStaffInboxRefresh } from '../realtime/navBadgeNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { inquiryDetailInclude, operatingCompanySummarySelect } from './inquiryDetailInclude.js';
 import { handlePostSwapCrewWithPartner } from './inquiryCrewPartnerSwap.handler.js';
@@ -1133,7 +1133,15 @@ router.patch('/:id', async (req, res) => {
       if (wantsTeamSync) {
         for (const tid of teamLeaderIds) leaderIds.add(tid);
       }
-      if (leaderIds.size > 0) notifyInboxRefresh([...leaderIds]);
+      void notifyStaffInboxRefresh(tenantId, [...leaderIds]);
+    } else if (
+      data.status !== undefined ||
+      data.preferredDate !== undefined ||
+      data.preferredTime !== undefined ||
+      data.preferredTimeDetail !== undefined
+    ) {
+      const leaderIds = inquiry.assignments.map((a) => a.teamLeaderId);
+      void notifyStaffInboxRefresh(tenantId, leaderIds);
     }
     if (lines.length > 0) {
       notifyChangeLogToStaff({ tenantId, customerName: inquiry.customerName, inquiryId: id, lines });
@@ -1173,7 +1181,7 @@ router.patch('/:id', async (req, res) => {
   }
   if (data.consultationMemo !== undefined) {
     const leaderIds = updated.assignments.map((a) => a.teamLeaderId);
-    if (leaderIds.length > 0) notifyInboxRefresh(leaderIds);
+    void notifyStaffInboxRefresh(tenantId, leaderIds);
   }
   void notifyAfterInquiryPatch({
     inquiryBefore: {

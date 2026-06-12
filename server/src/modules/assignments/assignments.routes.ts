@@ -160,8 +160,8 @@ router.post('/', async (req, res) => {
     },
   });
 
-  void notifyNewAssignmentForInquiry(inquiryId, [teamLeaderId], [...prevLeaderSet]).catch((e) =>
-    console.error('[assignment-notify] notifyNewAssignmentForInquiry', e)
+  void notifyNewAssignmentForInquiry(tenantId, inquiryId, [teamLeaderId], [...prevLeaderSet]).catch((e) =>
+    console.error('[assignment-notify] notifyNewAssignmentForInquiry', e),
   );
   void notifyAllActiveCrewGroupsRefresh(tenantId).catch((e) =>
     console.error('[assignment-notify] notifyAllActiveCrewGroupsRefresh', e)

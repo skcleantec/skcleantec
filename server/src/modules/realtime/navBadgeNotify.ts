@@ -41,9 +41,19 @@ async function resolveCsNotifyTenantId(
 }
 
 /**
- * C/S 신규·상태 변경 시 GNB 배지(관리자 미처리 건수·팀장 담당 건수) 갱신용.
- * `inbox:refresh` 와 동일 채널로 보내 클라이언트가 GET /nav-badges 를 다시 호출하게 함.
+ * 접수·스케줄·배지 등 스태프 화면 무음 재조회 — ADMIN·MARKETER (+ 선택적 추가 수신자).
+ * `inbox:refresh` 로 클라이언트가 목록·캘린더를 다시 불러오게 한다.
  */
+export async function notifyStaffInboxRefresh(
+  tenantId: string,
+  alsoNotifyUserIds?: ReadonlyArray<string | null | undefined>,
+): Promise<void> {
+  const staff = await getEmployedStaffUserIds(tenantId);
+  const extra = [...(alsoNotifyUserIds ?? [])].filter((x): x is string => typeof x === 'string' && x.length > 0);
+  notifyInboxRefresh([...new Set([...staff, ...extra])]);
+}
+
+/** C/S 신규·상태 변경 시 GNB 배지(관리자 미처리 건수·팀장 담당 건수) 갱신용. */
 export async function notifyCsReportNavBadges(
   inquiryId: string | null | undefined,
   alsoNotifyUserIds?: ReadonlyArray<string | null | undefined>,
@@ -57,6 +67,5 @@ export async function notifyCsReportNavBadges(
     notifyInboxRefresh([...new Set([...leaders, ...extra])]);
     return;
   }
-  const staff = await getEmployedStaffUserIds(scopeTenantId);
-  notifyInboxRefresh([...new Set([...staff, ...leaders, ...extra])]);
+  void notifyStaffInboxRefresh(scopeTenantId, [...leaders, ...extra]);
 }

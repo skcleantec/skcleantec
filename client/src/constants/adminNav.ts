@@ -39,7 +39,7 @@ export const ADMIN_NAV_DEF: Record<
   dashboard: { to: '/admin/dashboard', label: '대시보드' },
   /** 상단 GNB 명칭 — 본문 첫 탭은 `AdminInquiriesLayout`에서 「접수목록」으로 별도 표기 */
   inquiries: { to: '/admin/inquiries', label: '서비스접수' },
-  schedule: { to: '/admin/schedule', label: '스케줄 표' },
+  schedule: { to: '/admin/schedule', label: '스케쥴' },
   /** 팀장·마케터·타업체 등 — 관리자만 GNB에 노출 */
   'team-leaders': { to: '/admin/team-leaders', label: '관리자 전용', adminOnly: true },
   cs: { to: '/admin/cs', label: 'C/S 관리' },
