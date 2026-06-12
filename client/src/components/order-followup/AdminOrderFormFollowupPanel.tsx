@@ -330,8 +330,8 @@ export function AdminOrderFormFollowupPanel({
   const [filterStatus, setFilterStatus] = useState<OrderFollowupStatus | ''>('');
   const [filterCustomerName, setFilterCustomerName] = useState('');
   const [listDateBasis, setListDateBasis] = useState<FollowupListDateBasis>('createdAt');
-  /** 기본 '전체'는 인덱스가 불리한 정렬·스캔으로 느려질 수 있어 이번 달을 디폴트로 둔다. */
-  const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('month');
+  /** 기본 '오늘' — 당일 후속 위주 조회(전체·월 스캔 부담 완화). */
+  const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('today');
   const [dateMonthKey, setDateMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
 
@@ -1008,65 +1008,62 @@ export function AdminOrderFormFollowupPanel({
               </table>
             </div>
 
-            <div className="flex flex-col gap-3 p-3 lg:hidden">
+            <div className="flex flex-col gap-2 p-2 lg:hidden">
               {items.map((row) => (
                 <div
                   key={row.id}
-                  className={`rounded-2xl border p-4 shadow-md shadow-slate-100/40 hover:shadow-lg transition-all duration-200 overflow-hidden ${
+                  className={`rounded-xl border p-2.5 shadow-sm overflow-hidden max-lg:transition-none lg:shadow-md lg:transition-all ${
                     row.goldDb
-                      ? 'border-amber-400 bg-amber-50/35 border-l-[4px] border-l-amber-500'
-                      : 'border-slate-200/60 bg-white hover:border-slate-300'
+                      ? 'border-amber-400 bg-amber-50/35 border-l-[3px] border-l-amber-500'
+                      : 'border-slate-200/60 bg-white'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2 min-w-0">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 truncate">
+                  <div className="flex items-center justify-between gap-1.5 min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-fluid-xs font-semibold text-slate-900 truncate leading-tight">
                         <span>{row.customerName}</span>
                         {row.nickname?.trim() ? (
                           <>
-                            <span className="mx-1 text-fluid-xs font-normal text-slate-400" aria-hidden>
+                            <span className="mx-0.5 text-[10px] font-normal text-slate-400" aria-hidden>
                               ·
                             </span>
-                            <span className="text-fluid-xs font-normal text-slate-500">
-                              {row.nickname}
-                            </span>
+                            <span className="text-[10px] font-normal text-slate-500">{row.nickname}</span>
                           </>
                         ) : null}
+                        <span className="ml-1.5 text-[10px] font-normal tabular-nums text-slate-500">
+                          {displayPhone(row.customerPhone)}
+                        </span>
                       </p>
-                      <p className="text-fluid-xs text-slate-500 font-medium tabular-nums">{displayPhone(row.customerPhone)}</p>
                     </div>
-                    <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
+                    <div className="shrink-0 scale-[0.92] origin-right">
+                      <StatusBadgeWithMemo row={row} onOpenMemo={setMemoView} />
+                    </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-fluid-2xs text-slate-500 font-medium">
-                    <span>부재 {row.deferCount}회</span>
+                  <p className="mt-1 text-[10px] leading-snug text-slate-500">
+                    <span className="font-medium tabular-nums">부재 {row.deferCount}회</span>
+                    <span className="text-slate-300"> · </span>
                     <span>담당 {row.handledBy?.name ?? '—'}</span>
-                    <span className="block">등록일 {formatDateCompactWithWeekday(row.createdAt)}</span>
-                    <span className="block text-slate-700">
-                      희망일{' '}
+                    <span className="text-slate-300"> · </span>
+                    <span className="tabular-nums">등록 {formatDateCompactWithWeekday(row.createdAt)}</span>
+                    <span className="text-slate-300"> · </span>
+                    <span className="text-slate-700">
+                      희망{' '}
                       {row.preferredMoveInCleaningDate
                         ? formatDateCompactWithWeekday(row.preferredMoveInCleaningDate)
                         : '—'}
                     </span>
-                  </div>
-                  <div className="mt-3.5 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2.5 [&>button]:py-1.5 [&>button]:text-[11px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300">
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1 border-t border-slate-100/80 pt-1.5 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm">
                     <Link
                       to="/admin/inquiries/order-issue"
-                      className="inline-flex items-center rounded-lg border border-emerald-100 bg-emerald-50/40 px-2.5 py-1.5 text-fluid-2xs font-semibold text-emerald-700 hover:scale-[1.03] active:scale-[0.97] transition-all shadow-sm hover:bg-emerald-100/60"
+                      className="inline-flex items-center rounded-md border border-emerald-100 bg-emerald-50/40 px-2 py-0.5 text-[10px] font-semibold leading-tight text-emerald-700"
                     >
                       발주서
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => setEdit(row)}
-                      className="!text-slate-700"
-                    >
+                    <button type="button" onClick={() => setEdit(row)} className="!text-slate-700">
                       편집
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setLogFor(row)}
-                      className="!text-slate-700"
-                    >
+                    <button type="button" onClick={() => setLogFor(row)} className="!text-slate-700">
                       로그
                     </button>
                     {row.status !== 'FULFILLED' ? (

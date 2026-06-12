@@ -151,14 +151,15 @@ html, body {
   background-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Scroll buttons left/right in layout */
-.theme-dark-header .pointer-events-auto {
-  background-color: #1e293b !important; /* slate-800 */
-  border-color: #334155 !important; /* slate-700 */
-  color: #cbd5e1 !important;
+/* GNB 가로 스크롤 ◀▶ (모바일·좁은 화면) */
+.theme-dark-header [data-admin-nav-scroll-btn] {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
 }
-.theme-dark-header .pointer-events-auto:hover {
-  background-color: #334155 !important;
+.theme-dark-header [data-admin-nav-scroll-btn]:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
   color: #ffffff !important;
 }
 

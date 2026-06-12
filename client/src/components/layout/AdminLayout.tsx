@@ -192,6 +192,7 @@ export function AdminLayout() {
   const [showNavMoreLeft, setShowNavMoreLeft] = useState(false);
   const [showNavMoreRight, setShowNavMoreRight] = useState(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
+  const navInnerRef = useRef<HTMLElement>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
   const [meName, setMeName] = useState<string | null>(null);
   const [mePhone, setMePhone] = useState<string | null>(null);
@@ -377,10 +378,13 @@ export function AdminLayout() {
   const updateNavScrollHint = useCallback(() => {
     const el = navScrollRef.current;
     if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    const hasOverflow = scrollWidth > clientWidth + 2;
-    const atStart = scrollLeft <= 3;
-    const atEnd = scrollLeft + clientWidth >= scrollWidth - 3;
+    const scrollWidth = Math.ceil(el.scrollWidth);
+    const clientWidth = Math.floor(el.clientWidth);
+    const scrollLeft = Math.round(el.scrollLeft);
+    const maxScroll = Math.max(0, scrollWidth - clientWidth);
+    const hasOverflow = scrollWidth > clientWidth + 1;
+    const atStart = scrollLeft <= 2;
+    const atEnd = maxScroll <= 2 || scrollLeft >= maxScroll - 2;
     setShowNavMoreLeft(hasOverflow && !atStart);
     setShowNavMoreRight(hasOverflow && !atEnd);
   }, []);
@@ -425,19 +429,27 @@ export function AdminLayout() {
 
   useEffect(() => {
     queueMicrotask(() => updateNavScrollHint());
-  }, [location.pathname, unreadCount, csPendingCount, reviewPaybackUnseenCount, updateNavScrollHint]);
+  }, [location.pathname, unreadCount, csPendingCount, reviewPaybackUnseenCount, navOrder, updateNavScrollHint]);
 
   useEffect(() => {
     const el = navScrollRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => updateNavScrollHint());
+    const run = () => updateNavScrollHint();
+    const ro = new ResizeObserver(run);
     ro.observe(el);
-    window.addEventListener('resize', updateNavScrollHint);
+    const inner = navInnerRef.current;
+    if (inner) ro.observe(inner);
+    window.addEventListener('resize', run);
+    void document.fonts?.ready?.then(run);
+    const t1 = window.setTimeout(run, 100);
+    const t2 = window.setTimeout(run, 450);
     return () => {
       ro.disconnect();
-      window.removeEventListener('resize', updateNavScrollHint);
+      window.removeEventListener('resize', run);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
     };
-  }, [updateNavScrollHint]);
+  }, [updateNavScrollHint, navOrder]);
 
   const handleLogout = () => {
     clearToken();
@@ -720,7 +732,7 @@ export function AdminLayout() {
               >
                 {tenantName ?? '관리 콘솔'}
               </button>
-              <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
+              <nav ref={navInnerRef} className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {
                   if (id === 'dashboard') return null;
                   if (!canShowAdminNavItem(id, navCtx)) return null;
@@ -881,28 +893,30 @@ export function AdminLayout() {
               </nav>
             </div>
             {showNavMoreLeft && (
-              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center justify-start">
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent" aria-hidden />
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center justify-start">
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-slate-900 via-slate-900/90 to-transparent" aria-hidden />
                 <button
                   type="button"
+                  data-admin-nav-scroll-btn
                   onClick={scrollNavLeft}
-                  className="pointer-events-auto relative ml-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-800 bg-slate-800 text-slate-300 shadow-sm transition-all hover:bg-slate-700 hover:text-white active:scale-95"
+                  className="pointer-events-auto relative ml-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/30 bg-slate-700/95 text-white shadow-md shadow-black/25 transition-all hover:bg-slate-600 hover:border-white/40 active:scale-95"
                   aria-label="메뉴가 왼쪽으로 더 있습니다. 탭하면 스크롤됩니다."
                 >
-                  <ChevronLeftIcon className="h-4.5 w-4.5" />
+                  <ChevronLeftIcon className="h-4 w-4" />
                 </button>
               </div>
             )}
             {showNavMoreRight && (
-              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center justify-end">
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent" aria-hidden />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-20 flex items-center justify-end">
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-slate-900 via-slate-900/90 to-transparent" aria-hidden />
                 <button
                   type="button"
+                  data-admin-nav-scroll-btn
                   onClick={scrollNavRight}
-                  className="pointer-events-auto relative mr-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-800 bg-slate-800 text-slate-300 shadow-sm transition-all hover:bg-slate-700 hover:text-white active:scale-95"
+                  className="pointer-events-auto relative mr-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/30 bg-slate-700/95 text-white shadow-md shadow-black/25 transition-all hover:bg-slate-600 hover:border-white/40 active:scale-95"
                   aria-label="메뉴가 오른쪽으로 더 있습니다. 탭하면 스크롤됩니다."
                 >
-                  <ChevronRightIcon className="h-4.5 w-4.5" />
+                  <ChevronRightIcon className="h-4 w-4" />
                 </button>
               </div>
             )}

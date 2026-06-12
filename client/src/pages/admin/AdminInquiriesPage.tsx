@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -32,6 +32,10 @@ import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBa
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
+import {
+  InquiryListFieldQuickEditModal,
+  type InquiryListQuickEditField,
+} from '../../components/admin/InquiryListFieldQuickEditModal';
 import { AdminListIntakeModal, type AdminListIntakeResult } from '../../components/admin/AdminListIntakeModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { MarketerDailyInquiryModal } from '../../components/admin/MarketerDailyInquiryModal';
@@ -242,26 +246,88 @@ function StatusQuickPicker({
 }) {
   const label = STATUS_LABELS[value] ?? value;
   const icon = STATUS_ICON_MAP[value] ?? '🏷️';
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  const syncMenuPos = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const menuW = 176;
+    const menuMaxH = 256;
+    let top = r.bottom + 4;
+    if (top + menuMaxH > window.innerHeight - 8) {
+      top = Math.max(8, r.top - menuMaxH - 4);
+    }
+    let left = r.left;
+    left = Math.min(left, window.innerWidth - menuW - 8);
+    left = Math.max(8, left);
+    setMenuPos({ top, left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPos(null);
+      return;
+    }
+    syncMenuPos();
+    window.addEventListener('resize', syncMenuPos);
+    window.addEventListener('scroll', syncMenuPos, true);
+    return () => {
+      window.removeEventListener('resize', syncMenuPos);
+      window.removeEventListener('scroll', syncMenuPos, true);
+    };
+  }, [open, syncMenuPos]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onPointer = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onPointer);
+    };
+  }, [open]);
+
+  const triggerClass = compact
+    ? 'px-1 py-1.5 text-fluid-2xs xl:text-fluid-xs'
+    : 'px-2.5 py-2 text-fluid-xs';
+
   if (disabled) {
     return (
       <div
-        className={`flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 text-slate-500 ${
-          compact ? 'px-1 py-1.5 text-fluid-2xs xl:text-fluid-xs' : 'px-2 py-2 text-fluid-xs'
-        }`}
+        className={`flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 text-slate-500 ${triggerClass}`}
       >
-          <span className="flex items-center gap-1 whitespace-nowrap">
+        <span className="flex items-center gap-1 whitespace-nowrap">
           <span aria-hidden>{icon}</span>
           <span className="whitespace-nowrap">{label}</span>
         </span>
       </div>
     );
   }
+
   return (
-    <details className="relative w-full">
-      <summary
-        className={`flex list-none cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 [&::-webkit-details-marker]:hidden ${
-          compact ? 'px-1 py-1.5 text-fluid-2xs xl:text-fluid-xs' : 'px-2.5 py-2 text-fluid-xs'
-        }`}
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className={`flex w-full list-none cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 ${triggerClass}`}
       >
         <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
           <span aria-hidden>{icon}</span>
@@ -270,27 +336,68 @@ function StatusQuickPicker({
         <span aria-hidden className="text-slate-400">
           ▾
         </span>
-      </summary>
-      <div className="absolute left-0 top-[calc(100%+4px)] z-30 max-h-64 w-44 overflow-y-auto rounded-xl border border-slate-200/60 bg-white p-1.5 shadow-xl shadow-slate-100/40">
-        {STATUS_QUICK_PICKER_ORDER.map((nextValue) => (
-          <button
-            key={nextValue}
-            type="button"
-            onClick={(e) => {
-              onChange(nextValue);
-              e.currentTarget.closest('details')?.removeAttribute('open');
-            }}
-            className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-fluid-xs transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
-              value === nextValue ? 'bg-slate-900 text-white font-medium' : 'text-slate-700 hover:bg-slate-50'
-            }`}
-            title={STATUS_LABELS[nextValue] ?? nextValue}
-          >
-            <span aria-hidden>{STATUS_ICON_MAP[nextValue] ?? '🏷️'}</span>
-            <span className="whitespace-nowrap">{STATUS_LABELS[nextValue] ?? nextValue}</span>
-          </button>
-        ))}
-      </div>
-    </details>
+      </button>
+      {open && menuPos
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="listbox"
+              className="fixed z-[180] max-h-64 w-44 overflow-y-auto rounded-xl border border-slate-200/60 bg-white p-1.5 shadow-xl shadow-slate-100/40"
+              style={{ top: menuPos.top, left: menuPos.left }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {STATUS_QUICK_PICKER_ORDER.map((nextValue) => (
+                <button
+                  key={nextValue}
+                  type="button"
+                  role="option"
+                  aria-selected={value === nextValue}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(nextValue);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-fluid-xs transition-colors ${
+                    value === nextValue ? 'bg-slate-900 text-white font-medium' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                  title={STATUS_LABELS[nextValue] ?? nextValue}
+                >
+                  <span aria-hidden>{STATUS_ICON_MAP[nextValue] ?? '🏷️'}</span>
+                  <span className="whitespace-nowrap">{STATUS_LABELS[nextValue] ?? nextValue}</span>
+                </button>
+              ))}
+            </div>,
+            document.body
+          )
+        : null}
+    </>
+  );
+}
+
+/** PC 목록 — 셀 클릭으로 예약일·시간·평수 빠른 수정 */
+function InquiryListQuickEditTrigger({
+  label,
+  onClick,
+  children,
+  className = '',
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`w-full min-w-0 rounded px-0.5 py-0.5 text-inherit transition-colors hover:bg-blue-50/90 hover:ring-1 hover:ring-blue-200/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${className}`}
+      title={`${label} — 클릭하여 수정`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -579,6 +686,10 @@ export function AdminInquiriesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
+  const [listQuickEdit, setListQuickEdit] = useState<{
+    field: InquiryListQuickEditField;
+    item: InquiryItem;
+  } | null>(null);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
   const [inquiryEditPreferredCalOpen, setInquiryEditPreferredCalOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -2962,30 +3073,46 @@ export function AdminInquiriesPage() {
                     </td>
                     <td
                       className={`min-w-0 px-0.5 py-1 align-middle text-center text-[10px] leading-tight tabular-nums text-gray-600 xl:px-1 xl:py-1.5 2xl:text-[11px] ${pBorder}`}
-                      title={formatInquiryAreaKoLine(item)}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <span className="line-clamp-2 break-words">{formatInquiryListAreaLabel(item)}</span>
-                    </td>
-                    <td className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}>
-                      <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
-                        {formatDateCompactWithWeekday(item.preferredDate)}
-                      </span>
+                      <InquiryListQuickEditTrigger
+                        label="평수·방"
+                        onClick={() => setListQuickEdit({ field: 'area', item })}
+                      >
+                        <span className="line-clamp-2 break-words" title={formatInquiryAreaKoLine(item)}>
+                          {formatInquiryListAreaLabel(item)}
+                        </span>
+                      </InquiryListQuickEditTrigger>
                     </td>
                     <td
                       className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
-                      title={
-                        [
-                          item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '시간 미정',
-                          `주안 ${formatDistanceFromJuan(item)}`,
-                        ].join(' · ')
-                      }
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <span className="block leading-tight text-fluid-2xs xl:text-fluid-xs">
-                        {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '-'}
-                      </span>
-                      <span className="mt-0.5 block truncate text-fluid-2xs tabular-nums text-gray-500">
-                        {formatDistanceFromJuan(item)}
-                      </span>
+                      <InquiryListQuickEditTrigger
+                        label="예약일"
+                        onClick={() => setListQuickEdit({ field: 'date', item })}
+                      >
+                        <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
+                          {formatDateCompactWithWeekday(item.preferredDate)}
+                        </span>
+                      </InquiryListQuickEditTrigger>
+                    </td>
+                    <td
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <InquiryListQuickEditTrigger
+                        label="시간"
+                        onClick={() => setListQuickEdit({ field: 'time', item })}
+                        className="block"
+                      >
+                        <span className="block leading-tight text-fluid-2xs xl:text-fluid-xs">
+                          {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '-'}
+                        </span>
+                        <span className="mt-0.5 block truncate text-fluid-2xs tabular-nums text-gray-500 pointer-events-none">
+                          {formatDistanceFromJuan(item)}
+                        </span>
+                      </InquiryListQuickEditTrigger>
                     </td>
                     <td className={`min-w-0 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <StatusQuickPicker
@@ -3410,6 +3537,15 @@ export function AdminInquiriesPage() {
         token={token ?? ''}
         initialYmd={editForm.preferredDate}
         onSelect={(ymd) => setEditForm((p) => ({ ...p, preferredDate: ymd }))}
+      />
+
+      <InquiryListFieldQuickEditModal
+        open={listQuickEdit != null}
+        field={listQuickEdit?.field ?? null}
+        item={listQuickEdit?.item ?? null}
+        token={token}
+        onClose={() => setListQuickEdit(null)}
+        onSaved={() => refresh(false)}
       />
 
       {/* 클레임·상세 모달은 body로 포털 (AdminLayout main overflow 등에 잘리지 않도록) */}
