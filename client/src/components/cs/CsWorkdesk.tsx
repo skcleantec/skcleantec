@@ -447,8 +447,6 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     setEditMemo(item.memo ?? '');
     setCompletionMethodInput('');
     setEditAsServiceDate(formatPreferredDateInputYmd(item.asServiceDate));
-    setAsDateHelpOpen(false);
-    setForwardHelpOpen(false);
 
     if (item.status !== 'RECEIVED' || !token) return;
     const ack = mode === 'admin' ? acknowledgeCsReport(token, item.id) : acknowledgeTeamCsReport(token, item.id);
@@ -466,8 +464,6 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
 
   const closeDetail = () => {
     setSelected(null);
-    setAsDateHelpOpen(false);
-    setForwardHelpOpen(false);
   };
 
   const handleSave = async () => {

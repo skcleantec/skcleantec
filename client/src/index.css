@@ -320,3 +320,145 @@ html, body {
     opacity: 0.82;
   }
 }
+
+/* KakaoTalk Premium Chat Theme (AdminMessagesPage) */
+.kakaotalk-chat-bg {
+  background-color: #bacbe0;
+}
+
+.kakaotalk-chat-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kakaotalk-message-row-other {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.kakaotalk-message-row-mine {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kakaotalk-bubble {
+  position: relative;
+  word-break: break-all;
+  white-space: pre-wrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  padding: 9px 13px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.kakaotalk-bubble-other {
+  background-color: #ffffff;
+  color: #1f2937;
+  border-radius: 14px;
+  border-top-left-radius: 0;
+  max-width: 100%;
+}
+
+.kakaotalk-bubble-mine {
+  background-color: #fee500;
+  color: #1f2937;
+  border-radius: 14px;
+  border-top-right-radius: 0;
+  max-width: min(280px, 70vw);
+}
+
+.kakaotalk-unread-indicator {
+  font-size: 10px;
+  font-weight: 700;
+  color: #b8a200;
+  line-height: 1;
+}
+
+.kakaotalk-read-indicator {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1;
+}
+
+.kakaotalk-time-indicator {
+  font-size: 10px;
+  color: #4b5b6e;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.kakaotalk-composer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  background: #f7f9fb;
+  border-top: 1px solid #dde5ef;
+}
+
+.kakaotalk-composer-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kakaotalk-composer-input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 21px;
+  border: 1.5px solid #dde5ef;
+  background: #ffffff;
+  font-size: 14px;
+  outline: none;
+  color: #1e293b;
+}
+
+.kakaotalk-composer-input:focus {
+  border-color: #f59e0b;
+}
+
+.kakaotalk-composer-send {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 21px;
+  background: #fee500;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+  touch-action: manipulation;
+}
+
+.kakaotalk-composer-send:disabled {
+  background: #fde68a;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.kakaotalk-send-error {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
+}

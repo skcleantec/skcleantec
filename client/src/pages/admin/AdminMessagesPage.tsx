@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { broadcastToField, getConversations, getMessages, sendMessage } from '../../api/messages';
 import { getToken } from '../../stores/auth';
-import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 
@@ -32,6 +31,44 @@ function fieldPartnerRoleLabel(role: string): string {
   if (role === 'EXTERNAL_PARTNER') return '외부업체';
   if (role === 'TEAM_LEADER') return '팀장';
   return role;
+}
+
+const AVATAR_PALETTE = [
+  { bg: '#f59e0b', text: '#ffffff' },
+  { bg: '#3b82f6', text: '#ffffff' },
+  { bg: '#10b981', text: '#ffffff' },
+  { bg: '#6366f1', text: '#ffffff' },
+  { bg: '#f43f5e', text: '#ffffff' },
+  { bg: '#8b5cf6', text: '#ffffff' },
+  { bg: '#14b8a6', text: '#ffffff' },
+] as const;
+
+function avatarPaletteIndex(name: string): number {
+  let sum = 0;
+  for (let i = 0; i < name.length; i++) {
+    sum += name.charCodeAt(i);
+  }
+  return sum % AVATAR_PALETTE.length;
+}
+
+function getAvatarColors(name: string): { bg: string; text: string } {
+  const entry = AVATAR_PALETTE[avatarPaletteIndex(name)]!;
+  return { bg: entry.bg, text: entry.text };
+}
+
+function formatTimeForList(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return '';
+  }
 }
 
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -68,6 +105,57 @@ function ChevronDownIcon({ className }: { className?: string }) {
   );
 }
 
+function AvatarCircle({ name, size = 40 }: { name: string; size?: number }) {
+  const { bg, text } = getAvatarColors(name);
+  const initial = name.trim().charAt(0) || '?';
+  const fontSize = size <= 36 ? 13 : 15;
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        borderRadius: '50%',
+        background: bg,
+        color: text,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 700,
+        fontSize,
+        userSelect: 'none',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+        flexShrink: 0,
+      }}
+    >
+      {initial}
+    </div>
+  );
+}
+
+function MineMessageMeta({ message }: { message: Message }) {
+  if (message.batchId) {
+    return (
+      <span className="kakaotalk-time-indicator pb-0.5">
+        {formatTimeForList(message.createdAt)}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pb-0.5">
+      {message.readAt ? (
+        <span className="kakaotalk-read-indicator">읽음</span>
+      ) : (
+        <span className="kakaotalk-unread-indicator" aria-label="읽지 않음">
+          1
+        </span>
+      )}
+      <span className="kakaotalk-time-indicator">{formatTimeForList(message.createdAt)}</span>
+    </div>
+  );
+}
+
 export function AdminMessagesPage() {
   const token = getToken();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -75,6 +163,7 @@ export function AdminMessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [broadcastText, setBroadcastText] = useState('');
   const [broadcasting, setBroadcasting] = useState(false);
@@ -110,8 +199,10 @@ export function AdminMessagesPage() {
   useEffect(() => {
     if (!token || !selectedId) {
       setMessages([]);
+      setSendError(null);
       return;
     }
+    setSendError(null);
     getMessages(token, selectedId)
       .then((msgs) => {
         setMessages(msgs);
@@ -171,38 +262,68 @@ export function AdminMessagesPage() {
     e.preventDefault();
     if (!token || !selectedId || !input.trim() || sending) return;
     setSending(true);
+    setSendError(null);
     try {
       const msg = await sendMessage(token, selectedId, input.trim());
       setMessages((prev) => [...prev, { ...msg, readAt: null }]);
       setInput('');
       loadConversations();
       scrollToEnd(messagesEndRef, 'smooth');
-    } catch {
-      // ignore
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : '메시지 전송에 실패했습니다.');
     } finally {
       setSending(false);
     }
   };
 
   const selected = conversations.find((c) => c.id === selectedId);
-  const mobileChatFocused = Boolean(selectedId);
+  // 모바일에서 채팅방이 선택됐을 때
+  const mobileChatActive = Boolean(selectedId);
 
   if (loading) {
     return (
-      <div className="py-12 text-center text-gray-500 text-sm">로딩 중...</div>
+      <div className="py-12 text-center text-slate-500 text-fluid-sm">로딩 중…</div>
     );
   }
 
   return (
-    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full overflow-hidden">
-      <h1 className={`text-xl font-semibold text-gray-800 shrink-0 ${mobileChatFocused ? 'max-md:hidden' : ''}`}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        gap: 12,
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      {/* 페이지 제목 - 모바일에서 채팅중일 때 숨김 */}
+      <h1
+        style={{
+          fontSize: 20,
+          fontWeight: 700,
+          color: '#0f172a',
+          letterSpacing: '-0.01em',
+          flexShrink: 0,
+        }}
+        className={mobileChatActive ? 'max-md:hidden' : undefined}
+      >
         메시지
       </h1>
 
+      {/* 일괄 공지 패널 - 모바일에서 채팅중일 때 숨김 */}
       <div
-        className={`shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white ${
-          mobileChatFocused ? 'max-md:hidden' : ''
-        }`}
+        style={{
+          flexShrink: 0,
+          borderRadius: 12,
+          border: '1px solid #e2e8f0',
+          background: '#ffffff',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+          overflow: 'hidden',
+        }}
+        className={mobileChatActive ? 'max-md:hidden' : undefined}
       >
         <button
           type="button"
@@ -210,81 +331,109 @@ export function AdminMessagesPage() {
           aria-expanded={broadcastOpen}
           aria-controls="admin-broadcast-panel"
           onClick={() => setBroadcastOpen((o) => !o)}
-          className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 sm:px-5 sm:py-3.5"
+          style={{
+            display: 'flex',
+            width: '100%',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '12px 16px',
+            textAlign: 'left',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+          }}
         >
-          <span className="text-sm font-semibold text-gray-900">현장 공지(일괄)</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>📢</span>
+            현장 공지(일괄 발송)
+          </span>
           <ChevronDownIcon
-            className={`h-5 w-5 shrink-0 text-gray-500 transition-transform ${broadcastOpen ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${broadcastOpen ? 'rotate-180' : ''}`}
           />
         </button>
+
         {broadcastOpen && (
           <div
             id="admin-broadcast-panel"
             role="region"
             aria-labelledby="admin-broadcast-toggle"
-            className="border-t border-gray-100 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4"
+            style={{ borderTop: '1px solid #f1f5f9', padding: '16px', background: '#f8fafc' }}
           >
-            <form onSubmit={handleBroadcast} className="flex flex-col gap-3">
-              <fieldset className="min-w-0 space-y-2 rounded border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+            <form onSubmit={handleBroadcast} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <fieldset
+                style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 10,
+                  padding: 12,
+                  background: '#fff',
+                }}
+              >
                 <legend className="sr-only">공지 수신 대상</legend>
-                <p className="text-xs text-gray-600">받을 대상을 선택하세요. 최소 한 곳 이상.</p>
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-2">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-                    <input
-                      type="checkbox"
-                      checked={toTeamLeaders}
-                      onChange={(e) => setToTeamLeaders(e.target.checked)}
-                      disabled={broadcasting}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    팀장
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-                    <input
-                      type="checkbox"
-                      checked={toExternalPartners}
-                      onChange={(e) => setToExternalPartners(e.target.checked)}
-                      disabled={broadcasting}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    외부업체
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-                    <input
-                      type="checkbox"
-                      checked={toCrew}
-                      onChange={(e) => setToCrew(e.target.checked)}
-                      disabled={broadcasting}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    팀원(크루 공유 로그인)
-                  </label>
+                <p style={{ fontSize: 12, color: '#64748b', fontWeight: 500, marginBottom: 8 }}>수신 대상을 1개 이상 선택하세요.</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px' }}>
+                  {[
+                    { label: '팀장', value: toTeamLeaders, set: setToTeamLeaders },
+                    { label: '외부업체', value: toExternalPartners, set: setToExternalPartners },
+                    { label: '팀원(크루)', value: toCrew, set: setToCrew },
+                  ].map(({ label, value, set }) => (
+                    <label key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={value}
+                        onChange={(e) => set(e.target.checked)}
+                        disabled={broadcasting}
+                        className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                      />
+                      {label}
+                    </label>
+                  ))}
                 </div>
               </fieldset>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <textarea
                   value={broadcastText}
                   onChange={(e) => setBroadcastText(e.target.value)}
-                  rows={3}
-                  placeholder="공지 내용을 입력하세요. 선택한 대상에게 동일 내용이 전달됩니다."
-                  className="max-h-40 min-w-0 max-w-full flex-1 resize-y overflow-y-auto rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                  placeholder="현장으로 공지할 내용을 입력하세요. 전송 시 대상의 채팅창에 일괄적으로 메시지가 남습니다."
+                  style={{
+                    flex: 1,
+                    minWidth: 200,
+                    maxHeight: 120,
+                    resize: 'vertical',
+                    borderRadius: 10,
+                    border: '1px solid #cbd5e1',
+                    padding: '10px 14px',
+                    fontSize: 14,
+                    outline: 'none',
+                  }}
                   disabled={broadcasting}
                 />
                 <button
                   type="submit"
-                  disabled={
-                    broadcasting ||
-                    !broadcastText.trim() ||
-                    (!toTeamLeaders && !toExternalPartners && !toCrew)
-                  }
-                  className="min-h-[44px] shrink-0 touch-manipulation rounded bg-gray-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
+                  disabled={broadcasting || !broadcastText.trim() || (!toTeamLeaders && !toExternalPartners && !toCrew)}
+                  style={{
+                    height: 44,
+                    padding: '0 20px',
+                    borderRadius: 10,
+                    background: '#fbbf24',
+                    color: '#0f172a',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    border: 'none',
+                    cursor: 'pointer',
+                    opacity: (broadcasting || !broadcastText.trim() || (!toTeamLeaders && !toExternalPartners && !toCrew)) ? 0.5 : 1,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
                 >
-                  {broadcasting ? '전송 중…' : '전송'}
+                  {broadcasting ? '전송 중…' : '공지 발송'}
                 </button>
               </div>
             </form>
             {broadcastError && (
-              <p className="mt-2 text-sm text-red-600" role="alert">
+              <p style={{ marginTop: 8, fontSize: 12, color: '#dc2626', fontWeight: 600 }} role="alert">
                 {broadcastError}
               </p>
             )}
@@ -292,147 +441,246 @@ export function AdminMessagesPage() {
         )}
       </div>
 
-      {/* 팀장 목록·채팅: 모바일은 목록 전체 → 선택 시 카드 안에서 채팅만 슬라이드 / md+ 는 좁은 열+채팅 */}
+      {/* 메인 채팅 레이아웃: 대화목록(좌) + 채팅방(우) */}
       <div
-        className={`bg-white border border-gray-200 rounded-lg overflow-hidden relative flex flex-col md:flex-row flex-1 min-h-0 min-w-0 ${
-          mobileChatFocused ? 'max-md:rounded-none max-md:border-0 max-md:-mx-4 max-md:h-full' : ''
-        }`}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'row',
+          borderRadius: 12,
+          border: '1px solid #e2e8f0',
+          background: '#fff',
+          boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
+          overflow: 'hidden',
+          position: 'relative',
+        }}
       >
+        {/* 좌측: 대화 목록 사이드바 */}
+        {/* PC: 항상 260px 고정 / 모바일: 채팅 선택 전 = 전체폭, 선택 후 = 숨김 */}
         <div
-          className={`flex w-full flex-col min-h-0 border-b border-gray-200 max-md:relative max-md:z-0 max-md:flex-1 max-md:min-h-0 md:flex md:w-44 md:shrink-0 md:self-stretch md:border-b-0 md:border-r lg:w-52 ${
-            mobileChatFocused ? 'max-md:hidden' : ''
-          }`}
+          style={{
+            flexDirection: 'column',
+            borderRight: '1px solid #e8edf3',
+            background: '#ffffff',
+            flexShrink: 0,
+          }}
+          className={
+            mobileChatActive
+              ? 'hidden md:flex md:w-[260px] md:min-w-[260px] md:max-w-[260px]'
+              : 'flex w-full md:w-[260px] md:min-w-[260px] md:max-w-[260px]'
+          }
         >
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+          {/* 사이드바 헤더 */}
+          <div
+            style={{
+              padding: '14px 16px 10px',
+              borderBottom: '1px solid #f1f5f9',
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ fontSize: 15, fontWeight: 700, color: '#1e293b' }}>대화 목록</span>
+          </div>
+
+          {/* 대화 목록 */}
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehavior: 'contain',
+            }}
+          >
             {conversations.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500 md:p-3 md:text-center md:text-fluid-sm">
+              <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: '#94a3b8' }}>
                 대화 상대가 없습니다.
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
-                {conversations.map((c) => (
+              conversations.map((c) => {
+                const isActive = selectedId === c.id;
+                return (
                   <button
                     key={c.id}
                     type="button"
                     onClick={() => setSelectedId(c.id)}
-                    title={
-                      c.unreadCount > 0
-                        ? `${c.name} · 새 메시지 ${c.unreadCount}건`
-                        : c.lastMessage
-                          ? `${c.name} — ${c.lastMessage.content}`
-                          : c.name
-                    }
-                    className={`flex w-full flex-col gap-1.5 py-3.5 pl-3 pr-3 text-left hover:bg-gray-50 md:items-stretch md:gap-1.5 md:px-2.5 md:py-2.5 md:text-center ${
-                      selectedId === c.id ? 'bg-blue-50' : ''
-                    }`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      width: '100%',
+                      padding: '12px 14px',
+                      textAlign: 'left',
+                      border: 'none',
+                      borderBottom: '1px solid #f8fafc',
+                      background: isActive ? '#eef4ff' : 'transparent',
+                      cursor: 'pointer',
+                      transition: 'background 0.15s',
+                      minWidth: 0,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) e.currentTarget.style.background = '#f8fafc';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) e.currentTarget.style.background = 'transparent';
+                    }}
                   >
-                    <div className="flex min-w-0 items-center justify-between gap-2 md:flex-col md:items-stretch md:justify-center md:gap-1.5 md:px-0.5">
-                      <span className="min-w-0 max-w-full truncate font-medium text-gray-900 md:w-full md:text-center md:text-fluid-sm md:leading-snug md:line-clamp-2 md:break-words md:whitespace-normal md:overflow-hidden">
-                        {c.name}
-                      </span>
-                      {c.unreadCount > 0 && (
-                        <div className="flex shrink-0 items-center gap-1 md:flex-col md:gap-1">
-                          <span className="text-red-600 text-xs font-medium md:hidden">새 메시지</span>
-                          <span className="min-w-[1.125rem] rounded-full bg-red-500 px-1 py-0.5 text-center text-[10px] font-medium leading-none text-white tabular-nums md:scale-90">
+                    <AvatarCircle name={c.name} size={42} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 2 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                          {c.name}
+                        </span>
+                        {c.lastMessage && (
+                          <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
+                            {formatTimeForList(c.lastMessage.createdAt)}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                        <span style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                          {c.lastMessage ? c.lastMessage.content : '대화 시작하기'}
+                        </span>
+                        {c.unreadCount > 0 && (
+                          <span
+                            style={{
+                              minWidth: 18,
+                              height: 18,
+                              borderRadius: 9,
+                              background: '#ef4444',
+                              color: '#fff',
+                              fontSize: 10,
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '0 5px',
+                              flexShrink: 0,
+                            }}
+                          >
                             {c.unreadCount > 99 ? '99+' : c.unreadCount}
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                    {c.lastMessage && (
-                      <span
-                        className={`text-xs truncate md:hidden ${c.unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}`}
-                      >
-                        {c.lastMessage.content}
-                      </span>
-                    )}
                   </button>
-                ))}
-              </div>
+                );
+              })
             )}
           </div>
         </div>
 
+        {/* 우측: 채팅 스레드 */}
+        {/* PC: flex-1 항상 표시 / 모바일: 채팅 선택 시만 표시 */}
         <div
-          className={`flex min-h-0 min-w-0 flex-col bg-white
-            md:relative md:flex-1 md:translate-x-0
-            max-md:absolute max-md:inset-0 max-md:z-20 max-md:flex
-            max-md:transition-transform max-md:duration-300 max-md:ease-out
-            ${
-              selectedId
-                ? 'max-md:translate-x-0 max-md:pointer-events-auto'
-                : 'max-md:translate-x-full max-md:pointer-events-none'
-            }`}
+          className={`kakaotalk-chat-bg flex-1 min-w-0 min-h-0 flex-col ${!mobileChatActive ? 'hidden md:flex' : 'flex'}`}
         >
           {selected ? (
             <>
-              <div className="flex shrink-0 items-start gap-2 border-b border-gray-200 bg-gray-50 p-3 md:items-stretch md:gap-0 md:p-4">
+              {/* 채팅방 헤더 */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.97)',
+                  borderBottom: '1px solid #dde5ef',
+                  flexShrink: 0,
+                  backdropFilter: 'blur(8px)',
+                  zIndex: 5,
+                }}
+              >
+                {/* 모바일: 뒤로가기 버튼 */}
                 <button
                   type="button"
-                  aria-label="팀장 목록으로"
-                  className="md:hidden shrink-0 -ml-1 mt-0.5 flex h-10 w-10 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-200/80 active:bg-gray-200 touch-manipulation"
+                  aria-label="채팅 목록으로"
                   onClick={() => setSelectedId(null)}
+                  className="md:hidden"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                    color: '#475569',
+                    marginLeft: -4,
+                    flexShrink: 0,
+                  }}
                 >
-                  <ChevronLeftIcon className="h-6 w-6" />
+                  <ChevronLeftIcon className="h-5 w-5" />
                 </button>
-                <div className="min-w-0 flex-1">
-                  <h2 className="font-medium text-gray-900">{selected.name}</h2>
-                  <span className="text-xs text-gray-500">{fieldPartnerRoleLabel(selected.role)}</span>
+                <AvatarCircle name={selected.name} size={34} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selected.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
+                    {fieldPartnerRoleLabel(selected.role)}
+                  </div>
                 </div>
               </div>
-              <div
-                ref={chatScrollRef}
-                className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-3"
-                style={{ WebkitOverflowScrolling: 'touch' }}
-              >
+
+              <div ref={chatScrollRef} className="kakaotalk-chat-scroll">
                 {messages.map((m) => {
                   const isMine = m.senderId !== selectedId;
-                  return (
-                    <div
-                      key={m.id}
-                      className={`flex ${m.senderId === selectedId ? 'justify-start' : 'justify-end'}`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                          m.senderId === selectedId
-                            ? 'bg-gray-200 text-gray-900'
-                            : 'bg-blue-600 text-white'
-                        }`}
-                      >
-                        <div className="font-medium text-xs opacity-80 mb-0.5">{m.sender.name}</div>
-                        <div className="break-words">{m.content}</div>
-                        <div className="text-[11px] opacity-70 mt-1 flex items-center gap-2 tabular-nums">
-                          <span>{formatDateTimeCompactWithWeekday(m.createdAt)}</span>
-                          {isMine && !m.batchId && (
-                            <span className={m.readAt ? 'text-blue-300' : 'text-gray-400'}>
-                              {m.readAt ? '읽음' : '읽지 않음'}
+                  if (!isMine) {
+                    return (
+                      <div key={m.id} className="kakaotalk-message-row-other">
+                        <AvatarCircle name={m.sender.name} size={34} />
+                        <div className="flex min-w-0 max-w-[calc(100%-50px)] flex-col gap-0.5">
+                          <span className="ml-0.5 text-[11px] font-bold text-slate-700">{m.sender.name}</span>
+                          <div className="flex min-w-0 items-end gap-1.5">
+                            <div className="kakaotalk-bubble kakaotalk-bubble-other">{m.content}</div>
+                            <span className="kakaotalk-time-indicator pb-0.5">
+                              {formatTimeForList(m.createdAt)}
                             </span>
-                          )}
+                          </div>
                         </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={m.id} className="kakaotalk-message-row-mine">
+                      <div className="flex min-w-0 items-end justify-end gap-1.5">
+                        <MineMessageMeta message={m} />
+                        <div className="kakaotalk-bubble kakaotalk-bubble-mine">{m.content}</div>
                       </div>
                     </div>
                   );
                 })}
                 <div ref={messagesEndRef} />
               </div>
-              <form
-                onSubmit={handleSend}
-                className="shrink-0 border-t border-gray-200 bg-white p-3 md:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-              >
-                <div className="flex gap-2">
+
+              <form onSubmit={handleSend} className="kakaotalk-composer">
+                {sendError ? (
+                  <p className="kakaotalk-send-error" role="alert">
+                    {sendError}
+                  </p>
+                ) : null}
+                <div className="kakaotalk-composer-row">
                   <input
                     type="text"
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="메시지 입력..."
-                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      if (sendError) setSendError(null);
+                    }}
+                    placeholder="메시지를 입력하세요..."
+                    className="kakaotalk-composer-input"
                     disabled={sending}
                     autoComplete="off"
                   />
                   <button
                     type="submit"
                     disabled={sending || !input.trim()}
-                    className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
+                    className="kakaotalk-composer-send"
                   >
                     전송
                   </button>
@@ -440,8 +688,21 @@ export function AdminMessagesPage() {
               </form>
             </>
           ) : (
-            <div className="flex-1 min-h-0 flex items-center justify-center text-gray-500 text-sm p-4">
-              대화를 선택해주세요.
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#4b5b6e',
+                fontSize: 14,
+                fontWeight: 500,
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 36 }}>💬</span>
+              <span>대화방을 선택하여 채팅을 시작해 보세요.</span>
             </div>
           )}
         </div>
