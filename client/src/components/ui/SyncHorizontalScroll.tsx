@@ -56,14 +56,13 @@ type Props = {
 };
 
 /**
- * 표 가로 넘침 시:
- * - **리스트 바로 아래** 얇은 가로 스크롤바 (표 영역과 scrollLeft 동기화)
- * - 표가 화면에 보일 때 **뷰포트 하단 고정** 스크롤 막대 + ◀▶
+ * 표 가로 넘침 시 **뷰포트 하단 고정** 가로 스크롤바(표 scrollLeft 동기화) + ◀▶.
+ * 표 영역이 화면에 보이는 동안 화면 아래에 따라다닙니다.
  */
 export function SyncHorizontalScroll({ children, className, contentClassName = '' }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const inlineBarRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const syncingRef = useRef(false);
   const [spacerW, setSpacerW] = useState(0);
@@ -107,21 +106,20 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
   }, [scheduleMeasure, children]);
 
   useEffect(() => {
-    const main = mainRef.current;
-    if (!main) return;
+    const el = containerRef.current;
+    if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => setTableInView(entry.isIntersecting),
       { threshold: 0, rootMargin: '0px' },
     );
-    io.observe(main);
+    io.observe(el);
     return () => io.disconnect();
   }, [children]);
 
-  const syncScrollLeft = useCallback((left: number, source: 'main' | 'inline' | 'dock') => {
+  const syncScrollLeft = useCallback((left: number, source: 'main' | 'dock') => {
     if (syncingRef.current) return;
     syncingRef.current = true;
     if (source !== 'main' && mainRef.current) mainRef.current.scrollLeft = left;
-    if (source !== 'inline' && inlineBarRef.current) inlineBarRef.current.scrollLeft = left;
     if (source !== 'dock' && dockRef.current) dockRef.current.scrollLeft = left;
     requestAnimationFrame(() => {
       syncingRef.current = false;
@@ -131,8 +129,7 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
   const scrollByDelta = (delta: number) => {
     const main = mainRef.current;
     if (!main) return;
-    const next = main.scrollLeft + delta;
-    syncScrollLeft(next, 'main');
+    syncScrollLeft(main.scrollLeft + delta, 'main');
   };
 
   const showDock = mounted && hasOverflow && tableInView;
@@ -144,7 +141,7 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
   }, [hasOverflow, spacerW, syncScrollLeft]);
 
   return (
-    <div className={`${className ?? ''} ${showDock ? 'pb-14' : ''}`}>
+    <div ref={containerRef} className={`${className ?? ''} ${showDock ? 'pb-14' : ''}`}>
       {showDock &&
         createPortal(
           <div
@@ -164,11 +161,11 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
                 <div
                   ref={dockRef}
                   onScroll={(e) => syncScrollLeft(e.currentTarget.scrollLeft, 'dock')}
-                  className={`min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden rounded-full bg-gray-200 py-1 ${SCROLLBAR_VISIBLE}`}
+                  className={`min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden rounded-full bg-gray-200 py-1.5 ${SCROLLBAR_VISIBLE}`}
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   aria-label="가로 스크롤"
                 >
-                  <div style={{ width: Math.max(spacerW, 1), height: 4 }} />
+                  <div style={{ width: Math.max(spacerW, 1), height: 6 }} />
                 </div>
                 <button
                   type="button"
@@ -196,20 +193,6 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
           {children}
         </div>
       </div>
-
-      {hasOverflow ? (
-        <div className="border-t border-slate-200/80 bg-slate-50/90">
-          <div
-            ref={inlineBarRef}
-            onScroll={(e) => syncScrollLeft(e.currentTarget.scrollLeft, 'inline')}
-            className={`overflow-x-auto overflow-y-hidden py-1 ${SCROLLBAR_VISIBLE}`}
-            style={{ WebkitOverflowScrolling: 'touch' }}
-            aria-label="표 가로 스크롤"
-          >
-            <div style={{ width: Math.max(spacerW, 1), height: 1 }} aria-hidden />
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
