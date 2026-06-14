@@ -6,6 +6,18 @@ type ChecklistRow = Prisma.InquiryInspectionChecklistGetPayload<{
   include: typeof inspectionChecklistInclude;
 }>;
 
+function serializePhoto(p: ChecklistRow['areas'][number]['items'][number]['photos'][number]) {
+  return {
+    id: p.id,
+    phase: p.phase,
+    secureUrl: p.secureUrl,
+    width: p.width,
+    height: p.height,
+    uploadedBy: p.uploadedBy,
+    createdAt: p.createdAt.toISOString(),
+  };
+}
+
 export function serializeInspectionChecklist(row: ChecklistRow, inquiry?: {
   customerName: string;
   preferredDate: Date | null;
@@ -50,14 +62,15 @@ export function serializeInspectionChecklist(row: ChecklistRow, inquiry?: {
       isCustom: a.isCustom,
       notApplicable: a.notApplicable,
       naReason: a.naReason,
-      photos: a.photos.map((p) => ({
-        id: p.id,
-        phase: p.phase,
-        secureUrl: p.secureUrl,
-        width: p.width,
-        height: p.height,
-        uploadedBy: p.uploadedBy,
-        createdAt: p.createdAt.toISOString(),
+      items: a.items.map((it) => ({
+        id: it.id,
+        itemKey: it.itemKey,
+        label: it.label,
+        sortOrder: it.sortOrder,
+        isCustom: it.isCustom,
+        notApplicable: it.notApplicable,
+        naReason: it.naReason,
+        photos: it.photos.map(serializePhoto),
       })),
     })),
     inquiryHeader: inquiry

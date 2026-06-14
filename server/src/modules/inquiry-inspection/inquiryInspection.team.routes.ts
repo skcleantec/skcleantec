@@ -14,6 +14,10 @@ import {
   patchInspectionArea,
   updateInspectionDraft,
 } from './inquiryInspection.service.js';
+import {
+  addCustomInspectionItem,
+  patchInspectionItem,
+} from './inquiryInspection.items.service.js';
 import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { serializeInspectionChecklist } from './inquiryInspection.serialize.js';
 import {
@@ -214,13 +218,103 @@ router.patch('/areas/:areaId', async (req, res) => {
   }
 });
 
-/** POST /areas/:areaId/photos */
-router.post('/areas/:areaId/photos', uploadImages, async (req, res) => {
+/** PATCH /items/:itemId */
+router.patch('/items/:itemId', async (req, res) => {
+  const { inquiryId, itemId } = req.params as { inquiryId: string; itemId: string };
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await tenantIdForTeamReq(req);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 세션이 필요합니다.' });
+    return;
+  }
+  const inquiry = await findInquiryForTeamLeader({ inquiryId, teamLeaderId: userId, tenantId });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  const checklist = await prisma.inquiryInspectionChecklist.findFirst({ where: { inquiryId, tenantId } });
+  if (!checklist) {
+    res.status(404).json({ error: '검수 체크리스트가 없습니다.' });
+    return;
+  }
+  const b = req.body as Record<string, unknown>;
+  try {
+    await assertChecklistEditableForTeam({ inquiryId, tenantId });
+    const item = await patchInspectionItem({
+      checklistId: checklist.id,
+      tenantId,
+      itemId,
+      notApplicable: typeof b.notApplicable === 'boolean' ? b.notApplicable : undefined,
+      naReason: typeof b.naReason === 'string' ? b.naReason : b.naReason === null ? null : undefined,
+    });
+    res.json({ item });
+  } catch (e) {
+    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
+    if (code === 'locked') {
+      res.status(409).json({ error: '완료된 검수본은 수정할 수 없습니다.' });
+      return;
+    }
+    if (code === 'not_found') {
+      res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+/** POST /areas/:areaId/items — 커스텀 세부 항목 추가 */
+router.post('/areas/:areaId/items', async (req, res) => {
+  const { inquiryId, areaId } = req.params as { inquiryId: string; areaId: string };
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await tenantIdForTeamReq(req);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 세션이 필요합니다.' });
+    return;
+  }
+  const inquiry = await findInquiryForTeamLeader({ inquiryId, teamLeaderId: userId, tenantId });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  const checklist = await assertChecklistEditableForTeam({ inquiryId, tenantId });
+  if (!checklist) {
+    res.status(404).json({ error: '검수 체크리스트가 없습니다.' });
+    return;
+  }
+  const label = typeof req.body?.label === 'string' ? req.body.label : '';
+  try {
+    const item = await addCustomInspectionItem({
+      checklistId: checklist.id,
+      tenantId,
+      areaId,
+      label,
+    });
+    res.status(201).json({ item });
+  } catch (e) {
+    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
+    if (code === 'locked') {
+      res.status(409).json({ error: '완료된 검수본은 수정할 수 없습니다.' });
+      return;
+    }
+    if (code === 'bad_request') {
+      res.status(400).json({ error: '항목 이름을 입력해 주세요.' });
+      return;
+    }
+    if (code === 'not_found') {
+      res.status(404).json({ error: '구역을 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+/** POST /items/:itemId/photos */
+router.post('/items/:itemId/photos', uploadImages, async (req, res) => {
   if (!isCloudinaryConfigured()) {
     res.status(503).json({ error: 'Cloudinary가 설정되지 않았습니다.' });
     return;
   }
-  const { inquiryId, areaId } = req.params as { inquiryId: string; areaId: string };
+  const { inquiryId, itemId } = req.params as { inquiryId: string; itemId: string };
   const { userId } = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await tenantIdForTeamReq(req);
   if (!tenantId) {
@@ -252,15 +346,16 @@ router.post('/areas/:areaId/photos', uploadImages, async (req, res) => {
     return;
   }
 
-  const area = await prisma.inquiryInspectionArea.findFirst({
-    where: { id: areaId, checklistId: checklist.id },
+  const item = await prisma.inquiryInspectionItem.findFirst({
+    where: { id: itemId, area: { checklistId: checklist.id } },
+    include: { area: true },
   });
-  if (!area) {
-    res.status(404).json({ error: '구역을 찾을 수 없습니다.' });
+  if (!item) {
+    res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
   }
-  if (area.notApplicable) {
-    res.status(400).json({ error: '해당사항 없음 구역에는 사진을 등록할 수 없습니다.' });
+  if (item.area.notApplicable || item.notApplicable) {
+    res.status(400).json({ error: '해당사항 없음 항목에는 사진을 등록할 수 없습니다.' });
     return;
   }
 
@@ -269,7 +364,7 @@ router.post('/areas/:areaId/photos', uploadImages, async (req, res) => {
     if (!file.buffer?.length) continue;
     const row = await uploadInspectionPhotoBuffer({
       inquiryId,
-      areaId,
+      itemId,
       phase,
       uploadedById: userId,
       buffer: file.buffer,
@@ -291,11 +386,11 @@ router.post('/areas/:areaId/photos', uploadImages, async (req, res) => {
   res.status(201).json({ items: created });
 });
 
-/** DELETE /areas/:areaId/photos/:photoId */
-router.delete('/areas/:areaId/photos/:photoId', async (req, res) => {
-  const { inquiryId, areaId, photoId } = req.params as {
+/** DELETE /items/:itemId/photos/:photoId */
+router.delete('/items/:itemId/photos/:photoId', async (req, res) => {
+  const { inquiryId, itemId, photoId } = req.params as {
     inquiryId: string;
-    areaId: string;
+    itemId: string;
     photoId: string;
   };
   const { userId } = (req as unknown as { user: AuthPayload }).user;
@@ -320,12 +415,22 @@ router.delete('/areas/:areaId/photos/:photoId', async (req, res) => {
     res.status(409).json({ error: '완료된 검수본은 수정할 수 없습니다.' });
     return;
   }
-  const deleted = await deleteInspectionPhoto({ photoId, areaId, checklistId: checklist.id });
+  const deleted = await deleteInspectionPhoto({ photoId, itemId, checklistId: checklist.id });
   if (!deleted) {
     res.status(404).json({ error: '사진을 찾을 수 없습니다.' });
     return;
   }
   res.json({ ok: true });
+});
+
+/** @deprecated 구역 단위 — v2는 /items/:itemId/photos 사용 */
+router.post('/areas/:areaId/photos', uploadImages, async (req, res) => {
+  res.status(410).json({ error: '세부 항목별 사진 API를 사용해 주세요. (/items/:itemId/photos)' });
+});
+
+/** @deprecated */
+router.delete('/areas/:areaId/photos/:photoId', async (_req, res) => {
+  res.status(410).json({ error: '세부 항목별 사진 API를 사용해 주세요.' });
 });
 
 /** POST /signature */

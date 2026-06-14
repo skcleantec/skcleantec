@@ -23,18 +23,27 @@ async function fetchImageBuffer(url: string): Promise<{ buffer: Buffer; ext: str
 export async function buildInspectionPhotosZipBuffer(row: ChecklistRow): Promise<Buffer> {
   const zip = new JSZip();
   for (const area of row.areas) {
-    const folder = zip.folder(area.label.replace(/[\\/:*?"<>|]/g, '_').slice(0, 40) || 'area');
-    if (!folder) continue;
-    let beforeIdx = 0;
-    let afterIdx = 0;
-    for (const photo of area.photos) {
-      const { buffer, ext } = await fetchImageBuffer(photo.secureUrl);
-      const idx = photo.phase === 'BEFORE' ? beforeIdx++ : afterIdx++;
-      const name = safeFileName(area.label, photo.phase === 'BEFORE' ? '전' : '후', idx, ext);
-      folder.file(name, buffer);
-    }
+    const areaFolder = zip.folder(area.label.replace(/[\\/:*?"<>|]/g, '_').slice(0, 40) || 'area');
+    if (!areaFolder) continue;
     if (area.notApplicable && area.naReason?.trim()) {
-      folder.file('_해당사항없음.txt', area.naReason.trim());
+      areaFolder.file('_구역_해당사항없음.txt', area.naReason.trim());
+      continue;
+    }
+    for (const item of area.items) {
+      const itemFolder = areaFolder.folder(item.label.replace(/[\\/:*?"<>|]/g, '_').slice(0, 40) || 'item');
+      if (!itemFolder) continue;
+      if (item.notApplicable && item.naReason?.trim()) {
+        itemFolder.file('_해당사항없음.txt', item.naReason.trim());
+        continue;
+      }
+      let beforeIdx = 0;
+      let afterIdx = 0;
+      for (const photo of item.photos) {
+        const { buffer, ext } = await fetchImageBuffer(photo.secureUrl);
+        const idx = photo.phase === 'BEFORE' ? beforeIdx++ : afterIdx++;
+        const name = safeFileName(item.label, photo.phase === 'BEFORE' ? '전' : '후', idx, ext);
+        itemFolder.file(name, buffer);
+      }
     }
   }
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });

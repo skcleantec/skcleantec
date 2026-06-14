@@ -10,13 +10,13 @@ export function assertCloudinaryReady(): void {
 
 export async function uploadInspectionPhotoBuffer(params: {
   inquiryId: string;
-  areaId: string;
+  itemId: string;
   phase: InspectionAreaPhotoPhase;
   uploadedById: string;
   buffer: Buffer;
 }) {
   assertCloudinaryReady();
-  const folder = `skcleanteck/inquiries/${params.inquiryId}/inspection/${params.areaId}/${params.phase.toLowerCase()}`;
+  const folder = `skcleanteck/inquiries/${params.inquiryId}/inspection/${params.itemId}/${params.phase.toLowerCase()}`;
   const result = await new Promise<{
     public_id: string;
     secure_url: string;
@@ -40,7 +40,7 @@ export async function uploadInspectionPhotoBuffer(params: {
 
   return prisma.inquiryInspectionAreaPhoto.create({
     data: {
-      areaId: params.areaId,
+      itemId: params.itemId,
       phase: params.phase,
       uploadedById: params.uploadedById,
       cloudinaryPublicId: result.public_id,
@@ -78,11 +78,15 @@ export async function uploadInspectionSignatureBuffer(params: {
 
 export async function deleteInspectionPhoto(params: {
   photoId: string;
-  areaId: string;
+  itemId: string;
   checklistId: string;
 }) {
   const row = await prisma.inquiryInspectionAreaPhoto.findFirst({
-    where: { id: params.photoId, areaId: params.areaId, area: { checklistId: params.checklistId } },
+    where: {
+      id: params.photoId,
+      itemId: params.itemId,
+      item: { area: { checklistId: params.checklistId } },
+    },
   });
   if (!row) return null;
   try {

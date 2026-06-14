@@ -4,9 +4,14 @@ export const inspectionChecklistInclude = {
   areas: {
     orderBy: { sortOrder: 'asc' as const },
     include: {
-      photos: {
-        orderBy: { createdAt: 'asc' as const },
-        include: { uploadedBy: { select: { id: true, name: true } } },
+      items: {
+        orderBy: { sortOrder: 'asc' as const },
+        include: {
+          photos: {
+            orderBy: { createdAt: 'asc' as const },
+            include: { uploadedBy: { select: { id: true, name: true } } },
+          },
+        },
       },
     },
   },

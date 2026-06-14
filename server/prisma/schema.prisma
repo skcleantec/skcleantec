@@ -1085,16 +1085,34 @@ model InquiryInspectionArea {
   naReason      String?  @map("na_reason") @db.VarChar(500)
 
   checklist InquiryInspectionChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
-  photos    InquiryInspectionAreaPhoto[]
+  items     InquiryInspectionItem[]
 
   @@unique([checklistId, areaKey])
   @@index([checklistId, sortOrder])
   @@map("inquiry_inspection_areas")
 }
 
+model InquiryInspectionItem {
+  id            String   @id @default(uuid())
+  areaId        String   @map("area_id")
+  itemKey       String   @map("item_key") @db.VarChar(64)
+  label         String   @db.VarChar(120)
+  sortOrder     Int      @default(0) @map("sort_order")
+  isCustom      Boolean  @default(false) @map("is_custom")
+  notApplicable Boolean  @default(false) @map("not_applicable")
+  naReason      String?  @map("na_reason") @db.VarChar(500)
+
+  area   InquiryInspectionArea        @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  photos InquiryInspectionAreaPhoto[]
+
+  @@unique([areaId, itemKey])
+  @@index([areaId, sortOrder])
+  @@map("inquiry_inspection_items")
+}
+
 model InquiryInspectionAreaPhoto {
   id                 String                   @id @default(uuid())
-  areaId             String                   @map("area_id")
+  itemId             String                   @map("item_id")
   phase              InspectionAreaPhotoPhase
   cloudinaryPublicId String                   @map("cloudinary_public_id") @db.VarChar(512)
   secureUrl          String                   @map("secure_url") @db.VarChar(1024)
@@ -1103,10 +1121,10 @@ model InquiryInspectionAreaPhoto {
   uploadedById       String                   @map("uploaded_by_id")
   createdAt          DateTime                 @default(now()) @map("created_at")
 
-  area       InquiryInspectionArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  item       InquiryInspectionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   uploadedBy User                  @relation("InspectionPhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
 
-  @@index([areaId, phase, createdAt])
+  @@index([itemId, phase, createdAt])
   @@map("inquiry_inspection_area_photos")
 }
 

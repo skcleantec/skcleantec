@@ -10,7 +10,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.join(here, '..');
 const repoRoot = path.join(serverRoot, '..');
 
-const files = ['inquiryInspectionTemplate.ts', 'inquiryInspectionConsent.ts'];
+const files = ['inquiryInspectionTemplate.ts', 'inquiryInspectionConsent.ts', 'inquiryInspectionItems.ts'];
 
 const banner = (name) => `/**
  * @generated-sync from shared/${name} — 직접 수정하지 마세요.

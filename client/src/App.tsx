@@ -34,6 +34,7 @@ import {
   TeamCsPage,
   TeamAssignmentListPage,
   TeamInspectionPage,
+  TeamPreCleanPhotoPage,
   TeamExternalSettlementPage,
   TeamEContractListPage,
   OrderFormPage,
@@ -215,6 +216,7 @@ function App() {
         >
           <Route path="dashboard" element={<SuspensePage><TeamDashboardPage /></SuspensePage>} />
           <Route path="assignments" element={<SuspensePage><TeamAssignmentListPage /></SuspensePage>} />
+          <Route path="pre-clean/:inquiryId" element={<SuspensePage><TeamPreCleanPhotoPage /></SuspensePage>} />
           <Route path="inspection/:inquiryId" element={<SuspensePage><TeamInspectionPage /></SuspensePage>} />
           <Route path="schedule" element={<SuspensePage><TeamSchedulePage /></SuspensePage>} />
           <Route path="dayoffs" element={<SuspensePage><TeamDayOffsPage /></SuspensePage>} />

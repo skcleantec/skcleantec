@@ -15,6 +15,17 @@ export type InspectionAreaPhoto = {
   createdAt: string;
 };
 
+export type InspectionItem = {
+  id: string;
+  itemKey: string;
+  label: string;
+  sortOrder: number;
+  isCustom: boolean;
+  notApplicable: boolean;
+  naReason: string | null;
+  photos: InspectionAreaPhoto[];
+};
+
 export type InspectionArea = {
   id: string;
   areaKey: string;
@@ -23,7 +34,7 @@ export type InspectionArea = {
   isCustom: boolean;
   notApplicable: boolean;
   naReason: string | null;
-  photos: InspectionAreaPhoto[];
+  items: InspectionItem[];
 };
 
 export type InspectionChecklistDto = {
@@ -124,6 +135,28 @@ export async function addTeamInspectionArea(
   return data.area!;
 }
 
+export async function addTeamInspectionItem(
+  token: string,
+  inquiryId: string,
+  areaId: string,
+  label: string,
+): Promise<InspectionItem> {
+  const res = await fetch(
+    withTeamPreviewQuery(
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/areas/${encodeURIComponent(areaId)}/items`,
+    ),
+    {
+      method: 'POST',
+      headers: { ...teamHeaders(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label }),
+    },
+  );
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  const data = (await res.json()) as { item?: InspectionItem; error?: string };
+  if (!res.ok) throw new Error(data.error ?? '항목 추가에 실패했습니다.');
+  return data.item!;
+}
+
 export async function patchTeamInspectionArea(
   token: string,
   inquiryId: string,
@@ -145,10 +178,31 @@ export async function patchTeamInspectionArea(
   if (!res.ok) throw new Error(data.error ?? '구역 저장에 실패했습니다.');
 }
 
+export async function patchTeamInspectionItem(
+  token: string,
+  inquiryId: string,
+  itemId: string,
+  body: { notApplicable?: boolean; naReason?: string | null },
+): Promise<void> {
+  const res = await fetch(
+    withTeamPreviewQuery(
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/items/${encodeURIComponent(itemId)}`,
+    ),
+    {
+      method: 'PATCH',
+      headers: { ...teamHeaders(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  const data = (await res.json()) as { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '항목 저장에 실패했습니다.');
+}
+
 export async function uploadTeamInspectionPhotos(
   token: string,
   inquiryId: string,
-  areaId: string,
+  itemId: string,
   phase: 'BEFORE' | 'AFTER',
   files: File[],
 ): Promise<InspectionAreaPhoto[]> {
@@ -157,7 +211,7 @@ export async function uploadTeamInspectionPhotos(
   fd.append('phase', phase);
   const res = await fetch(
     withTeamPreviewQuery(
-      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/areas/${encodeURIComponent(areaId)}/photos`,
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/items/${encodeURIComponent(itemId)}/photos`,
     ),
     { method: 'POST', headers: teamHeaders(token), body: fd },
   );
@@ -170,12 +224,12 @@ export async function uploadTeamInspectionPhotos(
 export async function deleteTeamInspectionPhoto(
   token: string,
   inquiryId: string,
-  areaId: string,
+  itemId: string,
   photoId: string,
 ): Promise<void> {
   const res = await fetch(
     withTeamPreviewQuery(
-      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/areas/${encodeURIComponent(areaId)}/photos/${encodeURIComponent(photoId)}`,
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/items/${encodeURIComponent(itemId)}/photos/${encodeURIComponent(photoId)}`,
     ),
     { method: 'DELETE', headers: teamHeaders(token) },
   );

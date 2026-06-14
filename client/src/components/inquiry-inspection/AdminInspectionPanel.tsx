@@ -9,7 +9,7 @@ import {
   type InspectionChecklistDto,
 } from '../../api/inquiryInspection';
 import {
-  InspectionAreaCard,
+  InspectionAreaSection,
   InspectionBasicSection,
   InspectionConsentSection,
   InspectionHeaderBlock,
@@ -69,7 +69,7 @@ export function AdminInspectionPanel({
   if (!checklist) {
     return (
       <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-fluid-xs text-gray-600">
-        아직 현장 검수 체크리스트가 없습니다. 팀장이 현장에서 「현장 검수 / 청소완료」를 진행하면 여기에 표시됩니다.
+        아직 현장 검수 체크리스트가 없습니다. 팀장이 현장에서 「청소 전 촬영」 또는 「현장 검수 · 청소완료」를 진행하면 여기에 표시됩니다.
       </div>
     );
   }
@@ -139,16 +139,17 @@ export function AdminInspectionPanel({
 
       <InspectionBasicSection checklist={checklist} readOnly onPatch={() => {}} />
 
-      <section className="space-y-3">
-        <h3 className="text-fluid-sm font-semibold text-gray-900">구역별 사진</h3>
+      <section className="space-y-2">
+        <h3 className="text-fluid-sm font-semibold text-gray-900">구역별 세부 항목 사진</h3>
         {checklist.areas.map((area) => (
-          <InspectionAreaCard
+          <InspectionAreaSection
             key={area.id}
             area={area}
             readOnly
             busy={false}
-            onToggleNa={() => {}}
-            onNaReasonChange={() => {}}
+            photoMode="both"
+            onToggleItemNa={() => {}}
+            onItemNaReasonChange={() => {}}
             onUpload={() => {}}
             onDeletePhoto={() => {}}
           />

@@ -2,7 +2,8 @@ import type { Prisma } from '@prisma/client';
 import {
   basicAnswersComplete,
   emptyBasicAnswers,
-  isAreaComplete,
+  isAreaItemsComplete,
+  isItemComplete,
   type InspectionBasicAnswers,
   type InspectionBasicQuestionId,
 } from '../../lib/inquiryInspectionTemplate.js';
@@ -46,13 +47,42 @@ export function validateInspectionCompletion(row: ChecklistRow): InspectionCompl
   }
 
   for (const area of row.areas) {
-    const beforeCount = area.photos.filter((p) => p.phase === 'BEFORE').length;
-    const afterCount = area.photos.filter((p) => p.phase === 'AFTER').length;
-    if (!isAreaComplete({ notApplicable: area.notApplicable, naReason: area.naReason, beforeCount, afterCount })) {
+    if (area.notApplicable) {
+      if (!area.naReason?.trim()) {
+        issues.push({
+          code: 'area_na_incomplete',
+          message: `「${area.label}」 구역: 해당사항 없음 사유가 필요합니다.`,
+        });
+      }
+      continue;
+    }
+
+    const itemStats = area.items.map((item) => ({
+      notApplicable: item.notApplicable,
+      naReason: item.naReason,
+      beforeCount: item.photos.filter((p) => p.phase === 'BEFORE').length,
+      afterCount: item.photos.filter((p) => p.phase === 'AFTER').length,
+    }));
+
+    if (!area.items.length) {
       issues.push({
-        code: 'area_incomplete',
-        message: `「${area.label}」 구역: 청소 전·후 사진 또는 해당사항 없음+사유가 필요합니다.`,
+        code: 'area_no_items',
+        message: `「${area.label}」 구역: 세부 항목이 없습니다. 항목을 추가해 주세요.`,
       });
+      continue;
+    }
+
+    if (!isAreaItemsComplete(itemStats)) {
+      for (const item of area.items) {
+        const beforeCount = item.photos.filter((p) => p.phase === 'BEFORE').length;
+        const afterCount = item.photos.filter((p) => p.phase === 'AFTER').length;
+        if (!isItemComplete({ notApplicable: item.notApplicable, naReason: item.naReason, beforeCount, afterCount })) {
+          issues.push({
+            code: 'item_incomplete',
+            message: `「${area.label} › ${item.label}」: 청소 전·후 사진 또는 해당사항 없음+사유가 필요합니다.`,
+          });
+        }
+      }
     }
   }
 

@@ -48,15 +48,22 @@ export function buildInspectionReportPlainText(
     lines.push(`  팀장: ${yn(slot.leader)} / 고객: ${yn(slot.customer)}`);
   }
 
-  lines.push('', '— 구역별 검수 —');
+  lines.push('', '— 구역별 세부 검수 —');
   for (const area of row.areas) {
     if (area.notApplicable) {
-      lines.push(`[${area.label}] 해당사항 없음 — ${area.naReason ?? ''}`);
+      lines.push(`[${area.label}] 구역 전체 해당사항 없음 — ${area.naReason ?? ''}`);
       continue;
     }
-    const before = area.photos.filter((p) => p.phase === 'BEFORE').length;
-    const after = area.photos.filter((p) => p.phase === 'AFTER').length;
-    lines.push(`[${area.label}] 청소 전 ${before}장 / 청소 후 ${after}장`);
+    lines.push(`[${area.label}]`);
+    for (const item of area.items) {
+      if (item.notApplicable) {
+        lines.push(`  · ${item.label}: 해당사항 없음 — ${item.naReason ?? ''}`);
+        continue;
+      }
+      const before = item.photos.filter((p) => p.phase === 'BEFORE').length;
+      const after = item.photos.filter((p) => p.phase === 'AFTER').length;
+      lines.push(`  · ${item.label}: 청소 전 ${before}장 / 청소 후 ${after}장`);
+    }
   }
 
   if (row.leaderNotes?.trim()) {
@@ -85,14 +92,23 @@ export function buildInspectionReportHtml(
     (q) => `<tr><td>${escapeHtml(q.text)}</td><td>${yn(basic[q.id].leader)}</td><td>${yn(basic[q.id].customer)}</td></tr>`,
   ).join('');
 
-  const areaRows = row.areas
+  const areaBlocks = row.areas
     .map((area) => {
       if (area.notApplicable) {
-        return `<tr><td>${escapeHtml(area.label)}</td><td colspan="2">해당사항 없음 — ${escapeHtml(area.naReason ?? '')}</td></tr>`;
+        return `<h3>${escapeHtml(area.label)}</h3><p>구역 전체 해당사항 없음 — ${escapeHtml(area.naReason ?? '')}</p>`;
       }
-      const before = area.photos.filter((p) => p.phase === 'BEFORE').length;
-      const after = area.photos.filter((p) => p.phase === 'AFTER').length;
-      return `<tr><td>${escapeHtml(area.label)}</td><td>전 ${before}장</td><td>후 ${after}장</td></tr>`;
+      const itemRows = area.items
+        .map((item) => {
+          if (item.notApplicable) {
+            return `<tr><td>${escapeHtml(item.label)}</td><td colspan="2">해당사항 없음 — ${escapeHtml(item.naReason ?? '')}</td></tr>`;
+          }
+          const before = item.photos.filter((p) => p.phase === 'BEFORE').length;
+          const after = item.photos.filter((p) => p.phase === 'AFTER').length;
+          return `<tr><td>${escapeHtml(item.label)}</td><td>전 ${before}장</td><td>후 ${after}장</td></tr>`;
+        })
+        .join('');
+      return `<h3>${escapeHtml(area.label)}</h3>
+<table><thead><tr><th>세부 항목</th><th>청소 전</th><th>청소 후</th></tr></thead><tbody>${itemRows}</tbody></table>`;
     })
     .join('');
 
@@ -118,8 +134,8 @@ ${inquiry.inquiryNumber ? `<tr><th>접수번호</th><td>${escapeHtml(inquiry.inq
 </table>
 <h2>기본사항</h2>
 <table><thead><tr><th>확인 내용</th><th>팀장</th><th>고객</th></tr></thead><tbody>${basicRows}</tbody></table>
-<h2>구역별 검수</h2>
-<table><thead><tr><th>구역</th><th>청소 전</th><th>청소 후</th></tr></thead><tbody>${areaRows}</tbody></table>
+<h2>구역별 세부 검수</h2>
+${areaBlocks}
 ${row.leaderNotes?.trim() ? `<h2>특이사항</h2><p>${escapeHtml(row.leaderNotes.trim())}</p>` : ''}
 <p class="note">${escapeHtml(INSPECTION_FINAL_CONFIRM_NOTICE)}</p>
 </body></html>`;

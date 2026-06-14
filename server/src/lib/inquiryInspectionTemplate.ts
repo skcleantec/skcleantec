@@ -3,7 +3,7 @@
  * 변경: shared/inquiryInspectionTemplate.ts 수정 후 `npm run sync:inquiry-inspection-shared` (prebuild/predev 자동).
  */
 
-export const INSPECTION_TEMPLATE_VERSION = 'v1';
+export const INSPECTION_TEMPLATE_VERSION = 'v2';
 
 export const INSPECTION_HEADER_INTRO =
   '담당 팀장이 「내가 살 집이라 생각하고」 청소하였으며, 아래 내용을 고객님과 함께 확인·기록합니다. 본 문서는 서비스 품질 확인 및 사후 A/S·분쟁 예방을 위해 작성됩니다.';
@@ -80,7 +80,13 @@ export function buildStandardInspectionAreas(params: {
 }
 
 export const INSPECTION_AREA_GUIDE =
-  '각 구역마다 청소 전·청소 후 사진을 등록해야 합니다. 해당 공간이 없거나 청소 범위에 포함되지 않는 경우 「해당사항 없음」을 선택하고 사유를 입력해 주세요.';
+  '각 세부 항목마다 청소 전·청소 후 사진을 등록해야 합니다. 모서리·걸레받이·몰딩 등 작은 흔적도 CS 분쟁 예방을 위해 반드시 촬영해 주세요.';
+
+export const INSPECTION_PRE_CLEAN_GUIDE =
+  '청소 시작 전, 팀장이 현장에 도착하면 이 화면에서 모든 세부 항목의 「청소 전」 사진을 먼저 촬영합니다. 크루는 청소를 시작하고, 청소 후·고객 확인은 「현장 검수·청소완료」에서 진행합니다.';
+
+export const INSPECTION_ITEM_GUIDE =
+  '항목별로 청소 전·후 사진을 각각 1장 이상 등록하세요. 해당 공간/항목이 없으면 「해당사항 없음」+ 사유를 입력합니다.';
 
 export const INSPECTION_NA_CUSTOMER_NOTICE =
   '본 구역(또는 추가 항목)은 당일 청소 범위에 포함되지 않거나 현장 구조상 해당 공간이 없음을 확인하였습니다. 이후 해당 구역에 대한 추가 청소를 요청하실 경우 별도 견적·추가 요금이 발생할 수 있습니다.';
@@ -88,7 +94,7 @@ export const INSPECTION_NA_CUSTOMER_NOTICE =
 export const INSPECTION_CUSTOM_AREA_GUIDE =
   '현장에 표준 목록에 없는 공간(예: 추가 베란다, 창고, 외부 등)이 있으면 「구역 추가」 후 동일하게 청소 전·후 사진을 등록해 주세요.';
 
-export function isAreaComplete(params: {
+export function isItemComplete(params: {
   notApplicable: boolean;
   naReason: string | null | undefined;
   beforeCount: number;
@@ -98,6 +104,52 @@ export function isAreaComplete(params: {
     return Boolean(params.naReason?.trim());
   }
   return params.beforeCount >= 1 && params.afterCount >= 1;
+}
+
+/** @deprecated 구역 단위 — v2는 세부 항목 기준 */
+export function isAreaComplete(params: {
+  notApplicable: boolean;
+  naReason: string | null | undefined;
+  beforeCount: number;
+  afterCount: number;
+}): boolean {
+  return isItemComplete(params);
+}
+
+export function isAreaItemsComplete(
+  items: ReadonlyArray<{
+    notApplicable: boolean;
+    naReason: string | null | undefined;
+    beforeCount: number;
+    afterCount: number;
+  }>,
+): boolean {
+  if (!items.length) return false;
+  return items.every((it) => isItemComplete(it));
+}
+
+export function countItemPhotoProgress(
+  items: ReadonlyArray<{
+    notApplicable: boolean;
+    naReason: string | null | undefined;
+    beforeCount: number;
+    afterCount: number;
+  }>,
+): { beforeDone: number; afterDone: number; total: number; naDone: number } {
+  let beforeDone = 0;
+  let afterDone = 0;
+  let naDone = 0;
+  for (const it of items) {
+    if (it.notApplicable && it.naReason?.trim()) {
+      naDone += 1;
+      beforeDone += 1;
+      afterDone += 1;
+      continue;
+    }
+    if (it.beforeCount >= 1) beforeDone += 1;
+    if (it.afterCount >= 1) afterDone += 1;
+  }
+  return { beforeDone, afterDone, total: items.length, naDone };
 }
 
 export function basicAnswersComplete(answers: InspectionBasicAnswers): boolean {

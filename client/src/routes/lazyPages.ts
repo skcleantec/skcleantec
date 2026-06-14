@@ -50,6 +50,9 @@ export const TeamAssignmentListPage = lazy(() =>
 export const TeamInspectionPage = lazy(() =>
   import('../pages/team/TeamInspectionPage').then((m) => ({ default: m.TeamInspectionPage }))
 );
+export const TeamPreCleanPhotoPage = lazy(() =>
+  import('../pages/team/TeamPreCleanPhotoPage').then((m) => ({ default: m.TeamPreCleanPhotoPage }))
+);
 export const TeamExternalSettlementPage = lazy(() =>
   import('../pages/team/TeamExternalSettlementPage').then((m) => ({ default: m.TeamExternalSettlementPage }))
 );
