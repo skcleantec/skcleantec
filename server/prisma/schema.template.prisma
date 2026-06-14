@@ -113,6 +113,7 @@ model Tenant {
   partnershipsRequested TenantPartnership[] @relation("TenantPartnershipRequestedBy")
   tenantPartnerSettlementPayments TenantPartnerSettlementPayment[] @relation("TenantPartnerSettlementPayments")
   tenantPartnerSettlementResets TenantPartnerSettlementReset[] @relation("TenantPartnerSettlementResets")
+  inquiryInspectionChecklists InquiryInspectionChecklist[]
 
   @@map("tenants")
 }
@@ -383,6 +384,9 @@ model User {
   scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
   inquiryCleaningPhotosUploaded InquiryCleaningPhoto[] @relation("CleaningPhotoUploader")
   inquiryConsultationPhotosUploaded InquiryConsultationPhoto[] @relation("InquiryConsultationPhotoUploader")
+  inquiryInspectionsLed           InquiryInspectionChecklist[] @relation("InspectionTeamLeader")
+  inquiryInspectionsVoided        InquiryInspectionChecklist[] @relation("InspectionVoidedBy")
+  inquiryInspectionPhotosUploaded InquiryInspectionAreaPhoto[] @relation("InspectionPhotoUploader")
   inquiryExtraChargesCreated    InquiryExtraCharge[]   @relation("InquiryExtraChargeCreatedBy")
   inquiryAdditionalReceiptsCreated InquiryAdditionalReceipt[] @relation("InquiryAdditionalReceiptCreatedBy")
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
@@ -923,6 +927,7 @@ model Inquiry {
   changeLogs  InquiryChangeLog[]
   cleaningPhotos InquiryCleaningPhoto[]
   consultationPhotos InquiryConsultationPhoto[]
+  inspectionChecklist InquiryInspectionChecklist?
   csReports      CsReport[]
   orderFollowups OrderFollowup[]
   reviewPaybackRequests ReviewPaybackRequest[]
@@ -1012,6 +1017,95 @@ model InquiryCleaningPhoto {
 
   @@index([inquiryId, phase, createdAt])
   @@map("inquiry_cleaning_photos")
+}
+
+/// 현장 검수 체크리스트 — 팀장 청소완료(마감) 공식 기록 (접수 단위 청소 전·후 사진과 역할 분리)
+enum InquiryInspectionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  AWAITING_CUSTOMER
+  COMPLETED
+  VOID
+}
+
+enum InspectionAreaPhotoPhase {
+  BEFORE
+  AFTER
+}
+
+model InquiryInspectionChecklist {
+  id                     String                   @id @default(uuid())
+  tenantId               String                   @map("tenant_id")
+  inquiryId              String                   @unique @map("inquiry_id")
+  teamLeaderId           String                   @map("team_leader_id")
+  status                 InquiryInspectionStatus  @default(IN_PROGRESS)
+  templateVersion        String                   @default("v1") @map("template_version") @db.VarChar(16)
+  customerEmail          String?                  @map("customer_email") @db.VarChar(256)
+  leaderNotes            String?                  @map("leader_notes") @db.Text
+  basicAnswersJson       Json                     @default("{}") @map("basic_answers_json")
+  consentSnapshotJson    Json?                    @map("consent_snapshot_json")
+  consentPersonalInfo    Boolean                  @default(false) @map("consent_personal_info")
+  consentThirdParty      Boolean                  @default(false) @map("consent_third_party")
+  consentScopeConfirm    Boolean                  @default(false) @map("consent_scope_confirm")
+  consentLeaderLiability Boolean                  @default(false) @map("consent_leader_liability")
+  consentCustomerConfirm Boolean                  @default(false) @map("consent_customer_confirm")
+  consentCommercialUse   Boolean                  @default(false) @map("consent_commercial_use")
+  consentEmailDelivery   Boolean                  @default(false) @map("consent_email_delivery")
+  signaturePublicId      String?                  @map("signature_public_id") @db.VarChar(512)
+  signatureSecureUrl     String?                  @map("signature_secure_url") @db.VarChar(2048)
+  completedAt            DateTime?                @map("completed_at")
+  voidedAt               DateTime?                @map("voided_at")
+  voidedById             String?                  @map("voided_by_id")
+  voidReason             String?                  @map("void_reason") @db.Text
+  emailSentAt            DateTime?                @map("email_sent_at")
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inquiry    Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  teamLeader User    @relation("InspectionTeamLeader", fields: [teamLeaderId], references: [id], onDelete: Restrict)
+  voidedBy   User?   @relation("InspectionVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  areas      InquiryInspectionArea[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, inquiryId])
+  @@map("inquiry_inspection_checklists")
+}
+
+model InquiryInspectionArea {
+  id            String   @id @default(uuid())
+  checklistId   String   @map("checklist_id")
+  areaKey       String   @map("area_key") @db.VarChar(64)
+  label         String   @db.VarChar(120)
+  sortOrder     Int      @default(0) @map("sort_order")
+  isCustom      Boolean  @default(false) @map("is_custom")
+  notApplicable Boolean  @default(false) @map("not_applicable")
+  naReason      String?  @map("na_reason") @db.VarChar(500)
+
+  checklist InquiryInspectionChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  photos    InquiryInspectionAreaPhoto[]
+
+  @@unique([checklistId, areaKey])
+  @@index([checklistId, sortOrder])
+  @@map("inquiry_inspection_areas")
+}
+
+model InquiryInspectionAreaPhoto {
+  id                 String                   @id @default(uuid())
+  areaId             String                   @map("area_id")
+  phase              InspectionAreaPhotoPhase
+  cloudinaryPublicId String                   @map("cloudinary_public_id") @db.VarChar(512)
+  secureUrl          String                   @map("secure_url") @db.VarChar(1024)
+  width              Int?
+  height             Int?
+  uploadedById       String                   @map("uploaded_by_id")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+
+  area       InquiryInspectionArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  uploadedBy User                  @relation("InspectionPhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([areaId, phase, createdAt])
+  @@map("inquiry_inspection_area_photos")
 }
 
 /// 마케터·관리자가 상담 중 받은 참고 사진 (Cloudinary) — 담당 팀장·타업체·마케터 조회
