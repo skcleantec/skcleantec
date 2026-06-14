@@ -19,6 +19,7 @@ import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPr
 import { TeamBiInline, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
+import { DarkHeaderNavScroll } from './DarkHeaderNavScroll';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -370,6 +371,8 @@ export function TeamLayout() {
     unreadCount,
   };
 
+  const mobileNavHintKey = `${location.pathname}|${isExternalPartner}|${hideTeamDayoffs}|${newAssignmentCount}|${csPendingCount}|${unreadCount}`;
+
   const showStaffIdCardDrawer =
     Boolean(staffIdCardUrl) && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER');
 
@@ -466,18 +469,13 @@ export function TeamLayout() {
               )}
             </div>
           </div>
-          <nav
-            className="sm:hidden relative min-w-0 -mx-4 px-4"
-            data-team-mobile-nav
+          <DarkHeaderNavScroll
+            className="sm:hidden -mx-4 px-4"
             aria-label="팀장 메뉴"
+            hintKey={mobileNavHintKey}
           >
-            <div
-              className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              style={{ WebkitOverflowScrolling: 'touch' }}
-            >
-              <TeamNavLinks navClass={navClass} teamTo={teamTo} compact {...navShared} />
-            </div>
-          </nav>
+            <TeamNavLinks navClass={navClass} teamTo={teamTo} compact {...navShared} />
+          </DarkHeaderNavScroll>
         </div>
       </header>
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
