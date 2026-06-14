@@ -15,12 +15,21 @@ interface Props {
   maxPhotos?: number;
 }
 
+const IMAGE_ACCEPT =
+  'image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif';
+
+function isImageFile(file: File): boolean {
+  if (file.type.startsWith('image/')) return true;
+  return /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(file.name);
+}
+
 export function OrderFormPhotoSection({ token, disabled, maxPhotos = 20 }: Props) {
   const [items, setItems] = useState<OrderFormPhotoItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<OrderFormPhotoItem | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -35,21 +44,28 @@ export function OrderFormPhotoSection({ token, disabled, maxPhotos = 20 }: Props
     void refresh();
   }, [refresh]);
 
-  const onPick = () => {
+  const onPickGallery = () => {
     if (disabled || uploading) return;
-    fileInputRef.current?.click();
+    galleryInputRef.current?.click();
   };
 
-  const onFiles = async (fileList: FileList | null) => {
+  const onPickCamera = () => {
+    if (disabled || uploading) return;
+    cameraInputRef.current?.click();
+  };
+
+  const onFiles = async (fileList: FileList | null, inputEl: HTMLInputElement | null) => {
     if (!fileList || fileList.length === 0) return;
-    const selected = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
+    const selected = Array.from(fileList).filter(isImageFile);
     if (selected.length === 0) {
       setError('이미지 파일만 선택해주세요.');
+      if (inputEl) inputEl.value = '';
       return;
     }
     const remaining = Math.max(0, maxPhotos - items.length);
     if (remaining <= 0) {
       setError(`사진은 최대 ${maxPhotos}장까지 첨부할 수 있습니다.`);
+      if (inputEl) inputEl.value = '';
       return;
     }
     const toUpload = selected.slice(0, remaining);
@@ -70,7 +86,7 @@ export function OrderFormPhotoSection({ token, disabled, maxPhotos = 20 }: Props
       void refresh();
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (inputEl) inputEl.value = '';
     }
   };
 
@@ -106,24 +122,43 @@ export function OrderFormPhotoSection({ token, disabled, maxPhotos = 20 }: Props
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={onPick}
+          onClick={onPickGallery}
           disabled={disabled || uploading || atLimit}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-[44px] touch-manipulation items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {uploading ? '업로드 중…' : '사진 선택'}
+          {uploading ? '업로드 중…' : '앨범에서 선택 (여러 장)'}
+        </button>
+        <button
+          type="button"
+          onClick={onPickCamera}
+          disabled={disabled || uploading || atLimit}
+          className="inline-flex min-h-[44px] touch-manipulation items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          카메라로 촬영
         </button>
         <span className="text-xs text-gray-500">
           {items.length} / {maxPhotos}장 · 한 장당 최대 12MB
         </span>
+        {/* 앨범·갤러리: capture 없음 — iOS/Android에서 사진 보관함·다중 선택 */}
         <input
-          ref={fileInputRef}
+          ref={galleryInputRef}
           type="file"
-          accept="image/*"
+          accept={IMAGE_ACCEPT}
           multiple
+          className="hidden"
+          onChange={(e) => {
+            void onFiles(e.target.files, e.target);
+          }}
+        />
+        {/* 카메라 전용: capture 있으면 앨범이 막히므로 입력 분리 */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept={IMAGE_ACCEPT}
           capture="environment"
           className="hidden"
           onChange={(e) => {
-            void onFiles(e.target.files);
+            void onFiles(e.target.files, e.target);
           }}
         />
       </div>
@@ -166,7 +201,8 @@ export function OrderFormPhotoSection({ token, disabled, maxPhotos = 20 }: Props
         </ul>
       ) : (
         <p className="mt-3 text-xs text-gray-500">
-          * 아직 첨부된 사진이 없습니다. 필요하시면 자유롭게 여러 장 올려주세요.
+          * 아직 첨부된 사진이 없습니다. 앨범에서 여러 장을 한 번에 선택하거나, 카메라로 촬영해
+          올려주세요.
         </p>
       )}
 
