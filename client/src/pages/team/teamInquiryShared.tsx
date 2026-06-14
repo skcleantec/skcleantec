@@ -42,6 +42,8 @@ import {
   teamInquiryStatusKoRecord,
   teamT,
 } from '../../i18n/team/teamI18n';
+import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
+import type { InspectionListSummary } from '../../api/inquiryInspection';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
   return (
@@ -244,6 +246,8 @@ export interface InquiryItem {
   }>;
   /** 접수 변경 이력(미팅 시각 포함) — 목록 조회 포함 시 서버 제공 */
   changeLogs?: InquiryChangeLogEntry[];
+  /** 목록 API — 현장 검수 진행률 요약 */
+  inspectionSummary?: InspectionListSummary | null;
 }
 
 export function formatScheduleLine(item: InquiryItem) {
@@ -770,6 +774,7 @@ export function TeamInquiryDetailModal({
                 ) : null}
                 <TeamInquiryStatusBi code={item.status} />
                 {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
+                <InspectionProgressBadge summary={item.inspectionSummary} />
                 {item.orderForm?.template && !item.orderForm.template.isDefault ? (
                   <OrderFormTemplateBadge template={item.orderForm.template} />
                 ) : null}

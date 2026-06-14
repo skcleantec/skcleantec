@@ -64,6 +64,7 @@ import { getSchedule } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { AdminInspectionPanel } from '../../components/inquiry-inspection/AdminInspectionPanel';
+import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
@@ -502,6 +503,8 @@ interface InquiryItem {
   happyCallCompletedAt?: string | null;
   /** 인천 주안 기준 직선거리(km), 서버가 주소 지오코딩 캐시로 계산 */
   distanceFromJuanKm?: number | null;
+  /** 목록 API — 현장 검수 진행률 요약 */
+  inspectionSummary?: import('../../api/inquiryInspection').InspectionListSummary | null;
 }
 
 /** 대기·입금완료·미제출(발주서 고객 미제출) — 분배 불가·행 강조 등 */
@@ -796,6 +799,10 @@ export function AdminInquiriesPage() {
   });
   /** 빈 값이면 전체, 미배정·특정 팀장 */
   const [teamLeaderFilterId, setTeamLeaderFilterId] = useState('');
+  /** 관리자: 현장 검수 상태 필터 NONE|IN_PROGRESS|COMPLETED|VOID */
+  const [inspectionStatusFilter, setInspectionStatusFilter] = useState(
+    () => searchParams.get('inspectionStatus') ?? '',
+  );
   const [operatingCompanyFilterId, setOperatingCompanyFilterId] = useState(
     () => searchParams.get('operatingCompanyId') ?? ''
   );
@@ -1161,6 +1168,7 @@ export function AdminInquiriesPage() {
       operatingCompanyId?: string;
       scheduleMonth?: string;
       scheduleDay?: string;
+      inspectionStatus?: string;
       limit?: number;
       offset?: number;
     } = { datePreset: apiDatePreset };
@@ -1185,6 +1193,9 @@ export function AdminInquiriesPage() {
     }
     if (operatingCompanyFilterId.trim()) {
       params.operatingCompanyId = operatingCompanyFilterId.trim();
+    }
+    if (me?.role === 'ADMIN' && inspectionStatusFilter.trim()) {
+      params.inspectionStatus = inspectionStatusFilter.trim();
     }
     params.limit = listPageSize;
     params.offset = (listPage - 1) * listPageSize;
@@ -1393,6 +1404,7 @@ export function AdminInquiriesPage() {
         marketerStatsDay,
         teamLeaderFilterId,
         operatingCompanyFilterId,
+        inspectionStatusFilter,
         inquiryListBump,
       ].join('\0'),
     [
@@ -1406,6 +1418,7 @@ export function AdminInquiriesPage() {
       marketerStatsDay,
       teamLeaderFilterId,
       operatingCompanyFilterId,
+      inspectionStatusFilter,
       inquiryListBump,
     ]
   );
@@ -2407,6 +2420,35 @@ export function AdminInquiriesPage() {
                   </button>
                 ) : null}
               </div>
+              {me?.role === 'ADMIN' ? (
+                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                  <label
+                    htmlFor="inquiry-inspection-status-filter"
+                    className="text-fluid-xs text-slate-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                  >
+                    현장검수
+                  </label>
+                  <select
+                    id="inquiry-inspection-status-filter"
+                    value={inspectionStatusFilter}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setInspectionStatusFilter(v);
+                      patchInquiryListSearchParams((next) => {
+                        if (v) next.set('inspectionStatus', v);
+                        else next.delete('inspectionStatus');
+                      });
+                    }}
+                    className="min-w-[7.5rem] max-w-[10rem] rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-xs text-slate-900 sm:px-3 sm:py-2 sm:text-fluid-sm"
+                  >
+                    <option value="">전체</option>
+                    <option value="NONE">없음</option>
+                    <option value="IN_PROGRESS">진행중</option>
+                    <option value="COMPLETED">완료</option>
+                    <option value="VOID">무효</option>
+                  </select>
+                </div>
+              ) : null}
               {operatingCompanies.length > 0 ? (
                 <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                   <label
@@ -2924,6 +2966,7 @@ export function AdminInquiriesPage() {
                     시간·거리
                   </th>
                   <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">상태</th>
+                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">현장검수</th>
                   <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">팀장</th>
                   <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">작업</th>
                 </tr>
@@ -3110,6 +3153,9 @@ export function AdminInquiriesPage() {
                           발주서 · 미제출
                         </span>
                       ) : null}
+                    </td>
+                    <td className={`min-w-0 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`}>
+                      <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
                     </td>
                     <td className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <div

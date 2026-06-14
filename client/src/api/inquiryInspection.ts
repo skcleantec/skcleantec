@@ -5,6 +5,19 @@ import type { InspectionBasicAnswers } from '@shared/inquiryInspectionTemplate';
 
 export type InspectionStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'AWAITING_CUSTOMER' | 'COMPLETED' | 'VOID';
 
+export type InspectionListSummary = {
+  status: InspectionStatus;
+  completedAt: string | null;
+  emailSentAt: string | null;
+  hasPdf: boolean;
+  beforeDone: number;
+  beforeTotal: number;
+  afterDone: number;
+  afterTotal: number;
+  itemsComplete: number;
+  itemsTotal: number;
+};
+
 export type InspectionAreaPhoto = {
   id: string;
   phase: 'BEFORE' | 'AFTER';

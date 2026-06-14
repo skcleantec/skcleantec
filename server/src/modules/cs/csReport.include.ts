@@ -1,4 +1,5 @@
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
+import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
 
 /** C/S API 응답용 inquiry·처리자 include (관리자·팀장 공통) */
 export const csReportInquiryInclude = {
@@ -42,14 +43,7 @@ export const csReportInquiryInclude = {
     orderForm: {
       select: { id: true, submittedAt: true, customerSpecialNotes: true },
     },
-    inspectionChecklist: {
-      select: {
-        status: true,
-        completedAt: true,
-        emailSentAt: true,
-        completionPdfSecureUrl: true,
-      },
-    },
+    inspectionChecklist: inspectionChecklistListInclude,
   },
 } as const;
 

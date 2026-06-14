@@ -10,7 +10,13 @@ import inquiryConsultationPhotosTeamRoutes from '../inquiry-consultation-photos/
 import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtraCharges.team.routes.js';
 import inquiryAdditionalReceiptsTeamRoutes from '../inquiry-additional-receipts/inquiryAdditionalReceipts.team.routes.js';
 import inquiryInspectionTeamRoutes from '../inquiry-inspection/inquiryInspection.team.routes.js';
+import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
+import {
+  attachInspectionSummaries,
+  attachInspectionSummaryToInquiry,
+} from '../inquiry-inspection/inquiryInspection.summary.js';
 import { csReportFullInclude } from '../cs/csReport.include.js';
+import { serializeCsReportRow, serializeCsReportRows } from '../cs/csReport.serialize.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
@@ -155,6 +161,7 @@ const teamInquiryInclude = {
       actor: { select: { id: true, name: true } },
     },
   },
+  inspectionChecklist: inspectionChecklistListInclude,
 } as const;
 
 /**
@@ -217,15 +224,18 @@ async function attachCrewMembers<T extends { crewMemberNote: string | null }>(
 async function attachCrewMembersOne<T extends { crewMemberNote: string | null } | null>(
   item: T,
   tenantId: string,
-): Promise<
-  | (Exclude<T, null> & { crewMembers: Array<{ name: string; phone: string | null }> })
-  | null
-> {
+) {
   if (!item) return null;
   const [enriched] = await attachCrewMembers([item], tenantId);
-  return enriched as Exclude<T, null> & {
-    crewMembers: Array<{ name: string; phone: string | null }>;
-  };
+  if (!enriched) return null;
+  if ('inspectionChecklist' in enriched) {
+    return attachInspectionSummaryToInquiry(
+      enriched as Parameters<typeof attachInspectionSummaryToInquiry>[0] & {
+        crewMembers: Array<{ name: string; phone: string | null }>;
+      },
+    );
+  }
+  return enriched;
 }
 
 type TeamProfessionalOption = {
@@ -378,7 +388,7 @@ router.get('/cs', async (req, res) => {
     orderBy: { createdAt: 'desc' },
     include: csReportFullInclude,
   });
-  res.json({ items });
+  res.json({ items: serializeCsReportRows(items) });
 });
 
 /** 팀장/타업체: C/S 상세 열람 — 접수(RECEIVED)면 처리중(PROCESSING)으로 자동 전환(미확인 배지 해제) */
@@ -394,7 +404,7 @@ router.post('/cs/:id/acknowledge', async (req, res) => {
     return;
   }
   if (report.status !== 'RECEIVED') {
-    res.json(report);
+    res.json(serializeCsReportRow(report));
     return;
   }
   const updated = await prisma.csReport.update({
@@ -402,7 +412,7 @@ router.post('/cs/:id/acknowledge', async (req, res) => {
     data: { status: 'PROCESSING' },
     include: csReportFullInclude,
   });
-  res.json(updated);
+  res.json(serializeCsReportRow(updated));
   void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : [], report.tenantId);
 });
 
@@ -449,7 +459,7 @@ router.patch('/cs/:id', async (req, res) => {
     data: built.data,
     include: csReportFullInclude,
   });
-  res.json(updated);
+  res.json(serializeCsReportRow(updated));
   void notifyCsReportNavBadges(updated.inquiryId, updated.forwardedToUserId ? [updated.forwardedToUserId] : [], updated.tenantId);
   if (Object.prototype.hasOwnProperty.call(built.data, 'asServiceDate')) {
     void getEmployedStaffUserIds(updated.tenantId).then((ids) => notifyInboxRefresh(ids));
@@ -861,7 +871,7 @@ router.get('/inquiries/:id', async (req, res) => {
     return;
   }
   const [item] = await attachProfessionalOptions(await attachCrewMembers([row], tenantId), tenantId);
-  res.json(item);
+  res.json(attachInspectionSummaryToInquiry(item));
 });
 
 router.get('/inquiries', async (req, res) => {
@@ -889,7 +899,11 @@ router.get('/inquiries', async (req, res) => {
       include: teamInquiryInclude,
     });
     const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
-    res.json({ items });
+    res.json({
+      items: attachInspectionSummaries(
+        items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+      ),
+    });
     return;
   }
   try {
@@ -905,7 +919,12 @@ router.get('/inquiries', async (req, res) => {
       },
       brandScope ? { AND: [{ tenantId }, brandScope] } : { tenantId },
     );
-    res.json({ items, total });
+    res.json({
+      items: attachInspectionSummaries(
+        items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+      ),
+      total,
+    });
   } catch (e) {
     console.error('[GET /team/inquiries]', e);
     res.status(500).json({ error: '배정 목록을 불러오지 못했습니다.' });
@@ -954,7 +973,11 @@ router.get('/schedule', async (req, res) => {
     include: teamInquiryInclude,
   });
   const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
-  res.json({ items });
+  res.json({
+    items: attachInspectionSummaries(
+      items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+    ),
+  });
 });
 
 /**

@@ -29,6 +29,7 @@ import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import { InspectionCsSummaryBadge } from '../inquiry-inspection/InspectionCsSummaryBadge';
+import { AdminInspectionPanel } from '../inquiry-inspection/AdminInspectionPanel';
 import type { InspectionStatus } from '../../api/inquiryInspection';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
@@ -68,6 +69,22 @@ function roleLabelKo(role: string): string {
   if (role === 'TEAM_LEADER') return '팀장';
   if (role === 'EXTERNAL_PARTNER') return '타업체';
   return role;
+}
+
+function csInspectionBadgeProps(inquiry: NonNullable<CsReport['inquiry']>) {
+  const summary = inquiry.inspectionSummary;
+  if (!summary) return null;
+  return {
+    status: summary.status as InspectionStatus,
+    completedAt: summary.completedAt,
+    emailSentAt: summary.emailSentAt,
+    beforeDone: summary.beforeDone,
+    beforeTotal: summary.beforeTotal,
+    afterDone: summary.afterDone,
+    afterTotal: summary.afterTotal,
+    itemsComplete: summary.itemsComplete,
+    itemsTotal: summary.itemsTotal,
+  };
 }
 
 function formatTeamLeaderLabel(inquiry: NonNullable<CsReport['inquiry']>): string {
@@ -1106,17 +1123,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                       <span className="font-mono tabular-nums">{selected.inquiry.inquiryNumber}</span>
                     </p>
                   ) : null}
-                  <InspectionCsSummaryBadge
-                    summary={
-                      selected.inquiry.inspectionChecklist
-                        ? {
-                            status: selected.inquiry.inspectionChecklist.status as InspectionStatus,
-                            completedAt: selected.inquiry.inspectionChecklist.completedAt,
-                            emailSentAt: selected.inquiry.inspectionChecklist.emailSentAt,
-                          }
-                        : null
-                    }
-                  />
+                  <InspectionCsSummaryBadge summary={csInspectionBadgeProps(selected.inquiry)} />
                   <button
                     type="button"
                     onClick={() => setConnectedInquiryModal(selected.inquiry!)}
@@ -1299,13 +1306,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               <div className="mt-2">
                 <InspectionCsSummaryBadge
                   summary={
-                    connectedInquiryModal.inspectionChecklist
-                      ? {
-                          status: connectedInquiryModal.inspectionChecklist.status as InspectionStatus,
-                          completedAt: connectedInquiryModal.inspectionChecklist.completedAt,
-                          emailSentAt: connectedInquiryModal.inspectionChecklist.emailSentAt,
-                        }
-                      : null
+                    connectedInquiryModal ? csInspectionBadgeProps(connectedInquiryModal) : null
                   }
                 />
               </div>
@@ -1427,6 +1428,12 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 <div>
                   <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">특이사항 (고객 작성)</span>
                   <p className="whitespace-pre-wrap text-slate-800">{connectedInquiryModal.specialNotes}</p>
+                </div>
+              ) : null}
+              {mode === 'admin' && token ? (
+                <div className="border-t border-slate-200 pt-4">
+                  <h3 className="text-fluid-sm font-semibold text-slate-900 mb-3">현장 검수 체크리스트</h3>
+                  <AdminInspectionPanel inquiryId={connectedInquiryModal.id} token={token} />
                 </div>
               ) : null}
             </div>

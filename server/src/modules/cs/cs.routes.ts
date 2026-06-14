@@ -11,6 +11,7 @@ import { adminOrMarketer } from '../auth/auth.middleware.js';
 import { adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { csReportFullInclude } from './csReport.include.js';
+import { serializeCsReportRow, serializeCsReportRows } from './csReport.serialize.js';
 import { buildCsReportUpdateData } from './csReport.patch.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { uploadCsImageBuffer } from './csImageUpload.js';
@@ -158,7 +159,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
       include: csReportFullInclude,
     }),
   ]);
-  res.json({ items, total });
+  res.json({ items: serializeCsReportRows(items), total });
 });
 
 /** 관리자·마케터: 미처리(접수) C/S 건수 — 상단 메뉴 배지용 */
@@ -222,7 +223,7 @@ router.post('/:id/forward', authMiddleware, adminOrMarketer, async (req, res) =>
     data: { forwardedToUserId: nextId },
     include: csReportFullInclude,
   });
-  res.json(updated);
+  res.json(serializeCsReportRow(updated));
   void notifyCsReportNavBadges(updated.inquiryId, [
     prevForward,
     updated.forwardedToUserId,
@@ -247,7 +248,7 @@ router.post('/:id/acknowledge', authMiddleware, adminOrMarketer, async (req, res
     return;
   }
   if (item.status !== 'RECEIVED') {
-    res.json(item);
+    res.json(serializeCsReportRow(item));
     return;
   }
   const updated = await prisma.csReport.update({
@@ -255,7 +256,7 @@ router.post('/:id/acknowledge', authMiddleware, adminOrMarketer, async (req, res
     data: { status: 'PROCESSING' },
     include: csReportFullInclude,
   });
-  res.json(updated);
+  res.json(serializeCsReportRow(updated));
   void notifyCsReportNavBadges(
     updated.inquiryId,
     updated.forwardedToUserId ? [updated.forwardedToUserId] : [],
@@ -280,7 +281,7 @@ router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
     res.status(404).json({ error: 'C/S를 찾을 수 없습니다.' });
     return;
   }
-  res.json(item);
+  res.json(serializeCsReportRow(item));
 });
 
 /** 관리자·마케터: C/S 상태/메모/처리완료 */
@@ -313,7 +314,7 @@ router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
     data: built.data,
     include: csReportFullInclude,
   });
-  res.json(updated);
+  res.json(serializeCsReportRow(updated));
   void notifyCsReportNavBadges(
     updated.inquiryId,
     updated.forwardedToUserId ? [updated.forwardedToUserId] : [],

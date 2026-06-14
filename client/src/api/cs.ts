@@ -61,12 +61,7 @@ export interface CsReport {
     source?: string | null;
     createdAt?: string;
     assignments: Array<{ teamLeader: { id: string; name: string } }>;
-    inspectionChecklist?: {
-      status: string;
-      completedAt?: string | null;
-      emailSentAt?: string | null;
-      completionPdfSecureUrl?: string | null;
-    } | null;
+    inspectionSummary?: import('./inquiryInspection').InspectionListSummary | null;
   } | null;
   /** 관리자가 팀장/타업체 계정으로 전달한 경우 */
   forwardedToUser?: {

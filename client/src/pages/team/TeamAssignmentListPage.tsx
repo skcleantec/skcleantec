@@ -29,6 +29,7 @@ import {
   TeamInquiryDetailModal,
   formatTeamInquiryAreaSummary,
 } from './teamInquiryShared';
+import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
 import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
@@ -612,6 +613,7 @@ export function TeamAssignmentListPage() {
                         {STATUS_LABELS[item.status] ?? item.status}
                       </span>
                       <TeamHappyCallBadge item={item} variant="list" />
+                      <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
                     </div>
                     <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatCrewInfo(item)}>
                       {formatCrewInfo(item)}
@@ -639,6 +641,7 @@ export function TeamAssignmentListPage() {
                   <col className="w-[4.5rem]" />
                   <col className="w-[4.5rem]" />
                   <col className="w-[4.5rem]" />
+                  <col className="w-[5.5rem]" />
                   <col className="w-[6rem]" />
                 </colgroup>
                 <thead>
@@ -678,6 +681,9 @@ export function TeamAssignmentListPage() {
                     </th>
                     <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
                       <TeamBiLine id="team.assign.thHappy" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <span className="text-fluid-xs font-medium text-gray-700">현장검수</span>
                     </th>
                     <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
                       <TeamBiLine id="team.assign.thCoLeaders" koClassName="text-fluid-xs font-medium text-gray-700" />
@@ -799,6 +805,9 @@ export function TeamAssignmentListPage() {
                         </td>
                         <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>
                           <TeamHappyCallBadge item={item} variant="list" />
+                        </td>
+                        <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>
+                          <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
                         </td>
                         <td
                           className={`align-middle py-2 px-2 text-gray-600 text-center max-w-[120px] truncate ${pBorder}`}

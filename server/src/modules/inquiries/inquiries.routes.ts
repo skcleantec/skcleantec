@@ -74,6 +74,11 @@ import {
 import { notifyStaffInboxRefresh } from '../realtime/navBadgeNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { inquiryDetailInclude, operatingCompanySummarySelect } from './inquiryDetailInclude.js';
+import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
+import {
+  attachInspectionSummaries,
+  whereInspectionStatusFilter,
+} from '../inquiry-inspection/inquiryInspection.summary.js';
 import { handlePostSwapCrewWithPartner } from './inquiryCrewPartnerSwap.handler.js';
 import {
   attachTenantShareMetaToInquiries,
@@ -215,6 +220,7 @@ router.get('/', async (req, res) => {
     operatingCompanyId,
     scheduleMonth,
     scheduleDay,
+    inspectionStatus,
   } = req.query;
   const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
   const statsDayRaw =
@@ -304,6 +310,15 @@ router.get('/', async (req, res) => {
     andClauses.push({ operatingCompanyId: operatingCompanyId.trim() });
   }
 
+  if (
+    user.role === 'ADMIN' &&
+    typeof inspectionStatus === 'string' &&
+    inspectionStatus.trim()
+  ) {
+    const inspectionWhere = whereInspectionStatusFilter(inspectionStatus);
+    if (inspectionWhere) andClauses.push(inspectionWhere);
+  }
+
   /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선. 미제출은 pinPendingWhere 로 상단 고정. */
   if (
     !useMarketerStatsDay &&
@@ -352,6 +367,7 @@ router.get('/', async (req, res) => {
     },
     // changeLogs·extraCharges·additionalReceipts 는 편집 모달에서만 쓰므로 목록에서 제외(경량화).
     // 편집 진입 시 GET /:id (inquiryDetailInclude) 로 보강한다.
+    inspectionChecklist: inspectionChecklistListInclude,
   } as const;
 
   const parsedLimit = parseInt(limit as string, 10);
@@ -402,8 +418,9 @@ router.get('/', async (req, res) => {
   // DB에 저장 → 다음 로드부터 저장된 좌표가 즉시 표시된다.
   const itemsWithDistance = itemsWithPaybackToken.map((row) => attachDistanceFromJuanForInquiry(row));
   const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
+  const itemsWithInspection = attachInspectionSummaries(itemsWithShare);
   res.json({
-    items: mapInquiriesInternalToneForRole(itemsWithShare, user.role),
+    items: mapInquiriesInternalToneForRole(itemsWithInspection, user.role),
     total,
   });
   scheduleBackgroundGeoHydrate(prisma, itemsWithPaybackToken, { maxUniqueQueries: 18 });

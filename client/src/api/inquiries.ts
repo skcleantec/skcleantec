@@ -83,6 +83,8 @@ export async function getInquiries(
     scheduleMonth?: string;
     /** 예약일(희망일) 하루 YYYY-MM-DD, KST (scheduleMonth보다 우선) */
     scheduleDay?: string;
+    /** 관리자: 현장 검수 상태 NONE|IN_PROGRESS|COMPLETED|VOID */
+    inspectionStatus?: string;
     /** 목록 건수 상한 (집계만 할 때 1 등) */
     limit?: number;
     offset?: number;
@@ -102,6 +104,7 @@ export async function getInquiries(
   if (params?.operatingCompanyId) q.set('operatingCompanyId', params.operatingCompanyId);
   if (params?.scheduleMonth) q.set('scheduleMonth', params.scheduleMonth);
   if (params?.scheduleDay) q.set('scheduleDay', params.scheduleDay);
+  if (params?.inspectionStatus) q.set('inspectionStatus', params.inspectionStatus);
   const qs = q.toString();
   const res = await fetch(`${API}/inquiries${qs ? `?${qs}` : ''}`, {
     headers: headers(token),
