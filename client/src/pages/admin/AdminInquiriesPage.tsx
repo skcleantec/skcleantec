@@ -562,6 +562,10 @@ function inquiryMobileCardShellClass(item: InquiryItem): string {
   return `${base} border-slate-200/60 bg-white hover:border-slate-300`;
 }
 
+/** PC·모바일 접수 목록 행 작업 버튼 */
+const INQUIRY_LIST_ACTION_BTN =
+  'inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold leading-tight shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 xl:px-2.5 xl:text-fluid-2xs';
+
 function formatDistanceFromJuan(item: InquiryItem): string {
   const km = item.distanceFromJuanKm;
   if (km == null || !Number.isFinite(km)) return '—';
@@ -2694,7 +2698,7 @@ export function AdminInquiriesPage() {
                       </div>
                     </div>
                     <div
-                      className="border-t border-slate-100 bg-slate-50/60 px-3 py-2.5"
+                      className="border-t border-slate-100 bg-slate-50/60 px-3 py-2"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="grid w-full min-w-0 grid-cols-2 gap-3">
@@ -2738,7 +2742,7 @@ export function AdminInquiriesPage() {
                                       ? '보류 건에는 분배할 수 없습니다.'
                                       : undefined
                             }
-                            className="min-h-[38px] min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-fluid-2xs sm:text-fluid-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
+                            className="min-h-[34px] min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-fluid-2xs sm:text-fluid-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
                           >
                             <option value="">미배정</option>
                             {teamLeaders.map((tl) => (
@@ -2749,7 +2753,7 @@ export function AdminInquiriesPage() {
                           </select>
                         </div>
                       </div>
-                      <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap border-t border-slate-100 pt-2 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2.5 [&>button]:py-1 [&>button]:text-[11px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300 sm:[&>button]:px-3 sm:[&>button]:py-1.5 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2">
                         {item.status === 'DEPOSIT_PENDING' ? (
                           <>
                             <button
@@ -2759,14 +2763,14 @@ export function AdminInquiriesPage() {
                                 void handleStatusChange(item.id, 'DEPOSIT_COMPLETED');
                               }}
                               disabled={saving}
-                              className="text-fluid-xs font-medium text-sky-700 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-sky-700`}
                             >
                               입금완료
                             </button>
                             <button
                               type="button"
                               onClick={() => openEdit(item)}
-                              className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
                             >
                               메모
                             </button>
@@ -2774,7 +2778,7 @@ export function AdminInquiriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
-                                className="text-fluid-xs text-red-600 hover:underline"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
                               >
                                 삭제
                               </button>
@@ -2788,7 +2792,7 @@ export function AdminInquiriesPage() {
                                 e.stopPropagation();
                                 openOrderCustomerPreviewModal(item, 'message');
                               }}
-                              className="text-fluid-xs font-medium text-blue-700 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
                             >
                               메시지
                             </button>
@@ -2798,7 +2802,7 @@ export function AdminInquiriesPage() {
                                 e.stopPropagation();
                                 openOrderCustomerPreviewModal(item, 'link');
                               }}
-                              className="text-fluid-xs font-medium text-blue-700 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
                             >
                               링크
                             </button>
@@ -2808,7 +2812,7 @@ export function AdminInquiriesPage() {
                                 e.stopPropagation();
                                 openOrderFormNewTab(item);
                               }}
-                              className="text-fluid-xs text-slate-700 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
                             >
                               새창
                             </button>
@@ -2816,7 +2820,7 @@ export function AdminInquiriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
-                                className="text-fluid-xs text-red-600 hover:underline"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
                               >
                                 삭제
                               </button>
@@ -2832,14 +2836,14 @@ export function AdminInquiriesPage() {
                                   `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
                                 );
                               }}
-                              className="text-fluid-xs font-medium text-blue-700 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
                             >
                               발주서
                             </button>
                             <button
                               type="button"
                               onClick={() => openListIntakeEditModal(item)}
-                              className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
                             >
                               수정
                             </button>
@@ -2847,7 +2851,7 @@ export function AdminInquiriesPage() {
                               type="button"
                               onClick={() => handleCancelInquiry(item)}
                               disabled={saving}
-                              className="text-fluid-xs text-slate-700 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
                             >
                               취소
                             </button>
@@ -2855,7 +2859,7 @@ export function AdminInquiriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
-                                className="text-fluid-xs text-red-600 hover:underline"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
                               >
                                 삭제
                               </button>
@@ -2872,7 +2876,7 @@ export function AdminInquiriesPage() {
                                     `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
                                   );
                                 }}
-                                className="text-fluid-xs font-medium text-blue-700 hover:underline"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
                               >
                                 발주서 생성
                               </button>
@@ -2880,14 +2884,14 @@ export function AdminInquiriesPage() {
                             <button
                               type="button"
                               onClick={() => openEdit(item)}
-                              className="text-fluid-xs font-medium text-blue-600 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
                             >
                               상세보기
                             </button>
                             <button
                               type="button"
                               onClick={() => openClaim(item)}
-                              className="text-fluid-xs font-medium text-orange-600 hover:underline"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-orange-600`}
                             >
                               클레임
                             </button>
@@ -2896,7 +2900,7 @@ export function AdminInquiriesPage() {
                                 type="button"
                                 onClick={() => handleCancelInquiry(item)}
                                 disabled={saving}
-                                className="text-fluid-xs text-slate-700 hover:underline"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
                               >
                                 취소
                               </button>
@@ -2905,7 +2909,7 @@ export function AdminInquiriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
-                                className="text-fluid-xs text-red-600 hover:underline"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
                               >
                                 삭제
                               </button>
@@ -2915,7 +2919,7 @@ export function AdminInquiriesPage() {
                                 type="button"
                                 onClick={() => handleStatusChange(item.id, 'COMPLETED')}
                                 disabled={saving}
-                                className="text-fluid-xs font-medium text-green-600 hover:underline"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-green-600`}
                               >
                                 완료
                               </button>
@@ -2934,45 +2938,66 @@ export function AdminInquiriesPage() {
             {isLgUp ? (
             <div>
             <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-            <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm">
+            <table
+              className={`w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm ${hasInspectionModule ? 'min-w-[68rem]' : 'min-w-[62rem]'}`}
+            >
               <colgroup>
-                <col className="w-[9%]" />
-                <col className="w-[6%]" />
-                <col className="w-[9%]" />
-                <col className="w-[6%]" />
-                <col className="w-[9%]" />
-                <col className="w-[6%]" />
-                <col className="w-[8%]" />
-                <col className="w-[8%]" />
-                <col className="w-[10%]" />
-                <col className="w-[9%]" />
-                <col className="w-[20%]" />
+                {hasInspectionModule ? (
+                  <>
+                    <col className="w-[8%]" />
+                    <col className="w-[5%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[5%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[5%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[23%]" />
+                  </>
+                ) : (
+                  <>
+                    <col className="w-[9%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[20%]" />
+                  </>
+                )}
               </colgroup>
               <thead>
                 <tr className="bg-slate-50/85 border-b border-slate-200/60">
-                  <th className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
+                  <th className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">
                     접수일
                   </th>
-                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">접수자</th>
-                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">고객</th>
-                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">연락처</th>
-                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">주소</th>
-                  <th className="px-0.5 py-2 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 xl:py-2.5 2xl:text-[11px]">
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">접수자</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">고객</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">연락처</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">주소</th>
+                  <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-[11px]">
                     평수
                   </th>
-                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">예약일</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">예약일</th>
                   <th
-                    className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs"
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs"
                     title="희망 시간대 · 인천 주안 기준 직선거리"
                   >
                     시간·거리
                   </th>
-                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">상태</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">상태</th>
                   {hasInspectionModule ? (
-                    <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">현장검수</th>
+                    <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">현장검수</th>
                   ) : null}
-                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">팀장</th>
-                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">작업</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">팀장</th>
+                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -3025,7 +3050,7 @@ export function AdminInquiriesPage() {
                     }
                   >
                     <td
-                      className={`sticky left-0 z-10 min-w-0 align-middle px-1 py-1 text-slate-700 xl:px-1.5 xl:py-1.5 ${stickyBg} ${stickyR} ${pBorder} ${isPreOrder ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}
+                      className={`sticky left-0 z-10 min-w-0 align-middle px-1 py-0.5 text-slate-700 xl:px-1.5 ${stickyBg} ${stickyR} ${pBorder} ${isPreOrder ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}
                     >
                       <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
                         {formatDateCompactWithWeekday(item.createdAt)}
@@ -3047,13 +3072,13 @@ export function AdminInquiriesPage() {
                       ) : null}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-slate-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-slate-600 xl:px-1.5 ${pBorder}`}
                       title={inquiryMarketerLabel(item)}
                     >
                       {inquiryMarketerLabel(item)}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-fluid-2xs font-medium text-slate-900 xl:px-1.5 xl:py-1.5 xl:text-fluid-xs 2xl:text-fluid-xs ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-fluid-2xs font-medium text-slate-900 xl:px-1.5 xl:text-fluid-xs 2xl:text-fluid-xs ${pBorder}`}
                       title={`${item.customerName}${item.claimMemo ? ' (클레임)' : ''}`}
                     >
                       <div className="flex min-w-0 flex-col items-center leading-tight">
@@ -3081,7 +3106,7 @@ export function AdminInquiriesPage() {
                       </div>
                     </td>
                     <td
-                      className={`min-w-0 px-1 py-1 align-middle text-center text-fluid-2xs text-slate-600 xl:px-1.5 xl:py-1.5 xl:text-fluid-xs ${pBorder}`}
+                      className={`min-w-0 px-1 py-0.5 align-middle text-center text-fluid-2xs text-slate-600 xl:px-1.5 xl:text-fluid-xs ${pBorder}`}
                       title={item.customerPhone}
                     >
                       {phoneSplit ? (
@@ -3094,13 +3119,13 @@ export function AdminInquiriesPage() {
                       )}
                     </td>
                     <td
-                      className={`min-w-0 px-1 py-1 align-middle text-center text-[10px] leading-tight text-slate-600 xl:px-1.5 xl:py-1.5 xl:text-[11px] ${pBorder}`}
+                      className={`min-w-0 px-1 py-0.5 align-middle text-center text-[10px] leading-tight text-slate-600 xl:px-1.5 xl:text-[11px] ${pBorder}`}
                       title={`${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim()}
                     >
                       <span className="block truncate">{addressListShortSiGu(item.address)}</span>
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-1 align-middle text-center text-[10px] leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-1.5 2xl:text-[11px] ${pBorder}`}
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[10px] leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-0.5 2xl:text-[11px] ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -3113,7 +3138,7 @@ export function AdminInquiriesPage() {
                       </InquiryListQuickEditTrigger>
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-slate-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-slate-600 xl:px-1.5 ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -3126,7 +3151,7 @@ export function AdminInquiriesPage() {
                       </InquiryListQuickEditTrigger>
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-slate-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-slate-600 xl:px-1.5 ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -3142,7 +3167,7 @@ export function AdminInquiriesPage() {
                         </span>
                       </InquiryListQuickEditTrigger>
                     </td>
-                    <td className={`min-w-0 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
+                    <td className={`min-w-0 px-1 py-0.5 align-middle text-center xl:px-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <StatusQuickPicker
                         value={item.status}
                         onChange={(next) => handleStatusChange(item.id, next)}
@@ -3159,17 +3184,11 @@ export function AdminInquiriesPage() {
                       ) : null}
                     </td>
                     {hasInspectionModule ? (
-                      <td className={`min-w-0 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`}>
+                      <td className={`min-w-0 px-1 py-0.5 align-middle text-center xl:px-1.5 ${pBorder}`}>
                         <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
                       </td>
                     ) : null}
-                    <td className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
-                      <div
-                        className="mb-0.5 line-clamp-2 text-left text-[10px] leading-snug text-slate-600 xl:text-fluid-2xs"
-                        title={formatInquiryTeamSummary(item)}
-                      >
-                        {formatInquiryTeamSummary(item)}
-                      </div>
+                    <td className={`min-w-0 px-1 py-0.5 align-middle xl:px-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={item.assignments[0]?.teamLeader?.id ?? ''}
                         onChange={(e) => {
@@ -3185,15 +3204,16 @@ export function AdminInquiriesPage() {
                           item.status === 'ON_HOLD'
                         }
                         title={
-                          isInquiryLinkedOrderFormPendingSubmit(item)
-                            ? '발주서 링크는 발급됐으나 고객 미제출입니다. 고객이 제출하면 분배할 수 있습니다.'
+                          formatInquiryTeamSummary(item) +
+                          (isInquiryLinkedOrderFormPendingSubmit(item)
+                            ? ' · 발주서 링크는 발급됐으나 고객 미제출입니다. 고객이 제출하면 분배할 수 있습니다.'
                             : item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED'
-                              ? '대기·입금완료 건은 발주서 연결·고객 제출 후 분배할 수 있습니다.'
+                              ? ' · 대기·입금완료 건은 발주서 연결·고객 제출 후 분배할 수 있습니다.'
                               : item.status === 'DEPOSIT_PENDING'
-                                ? '입금대기 건은 입금 완료·발주서 생성 후 분배할 수 있습니다.'
+                                ? ' · 입금대기 건은 입금 완료·발주서 생성 후 분배할 수 있습니다.'
                                 : item.status === 'ON_HOLD'
-                                  ? '보류 건에는 분배할 수 없습니다.'
-                                  : undefined
+                                  ? ' · 보류 건에는 분배할 수 없습니다.'
+                                  : '')
                         }
                         className="w-full min-w-0 max-w-full rounded-lg border border-slate-200 px-1 py-0.5 text-fluid-2xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 bg-white"
                       >
@@ -3206,10 +3226,10 @@ export function AdminInquiriesPage() {
                       </select>
                     </td>
                     <td
-                      className={`min-w-0 align-middle px-1 py-1.5 xl:px-1.5 xl:py-2 ${pBorder} ${isPreOrder ? 'border-r-2 border-r-red-500' : ''}`}
+                      className={`min-w-0 align-middle px-1 py-0.5 xl:px-1.5 ${pBorder} ${isPreOrder ? 'border-r-2 border-r-red-500' : ''}`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex flex-wrap content-start items-center justify-start gap-x-1 gap-y-1 [&>button]:inline-flex [&>button]:shrink-0 [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300 sm:[&>button]:px-2 sm:[&>button]:text-fluid-2xs xl:[&>button]:text-fluid-xs">
+                      <div className="flex flex-wrap content-start items-center justify-start gap-1">
                         {item.status === 'DEPOSIT_PENDING' ? (
                           <>
                             <button
@@ -3219,14 +3239,14 @@ export function AdminInquiriesPage() {
                                 void handleStatusChange(item.id, 'DEPOSIT_COMPLETED');
                               }}
                               disabled={saving}
-                              className="text-fluid-2xs text-sky-700 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-sky-700`}
                             >
                               입금완료
                             </button>
                             <button
                               type="button"
                               onClick={() => openEdit(item)}
-                              className="text-fluid-2xs text-blue-600 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
                             >
                               메모
                             </button>
@@ -3234,7 +3254,7 @@ export function AdminInquiriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
-                                className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
                               >
                                 삭제
                               </button>
@@ -3248,7 +3268,7 @@ export function AdminInquiriesPage() {
                                 e.stopPropagation();
                                 openOrderCustomerPreviewModal(item, 'message');
                               }}
-                              className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
                             >
                               메시지
                             </button>
@@ -3258,7 +3278,7 @@ export function AdminInquiriesPage() {
                                 e.stopPropagation();
                                 openOrderCustomerPreviewModal(item, 'link');
                               }}
-                              className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
                             >
                               링크
                             </button>
@@ -3268,7 +3288,7 @@ export function AdminInquiriesPage() {
                                 e.stopPropagation();
                                 openOrderFormNewTab(item);
                               }}
-                              className="text-fluid-2xs text-slate-700 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
                             >
                               새창
                             </button>
@@ -3276,7 +3296,7 @@ export function AdminInquiriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
-                                className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
                               >
                                 삭제
                               </button>
@@ -3292,14 +3312,14 @@ export function AdminInquiriesPage() {
                                   `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
                                 );
                               }}
-                              className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
                             >
                               발주서
                             </button>
                             <button
                               type="button"
                               onClick={() => openListIntakeEditModal(item)}
-                              className="text-fluid-2xs text-blue-600 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
                             >
                               수정
                             </button>
@@ -3307,7 +3327,7 @@ export function AdminInquiriesPage() {
                               type="button"
                               onClick={() => handleCancelInquiry(item)}
                               disabled={saving}
-                              className="text-fluid-2xs text-slate-700 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
                             >
                               취소
                             </button>
@@ -3315,7 +3335,7 @@ export function AdminInquiriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
-                                className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
                               >
                                 삭제
                               </button>
@@ -3332,7 +3352,7 @@ export function AdminInquiriesPage() {
                                     `/admin/inquiries/order-issue?pendingInquiryId=${encodeURIComponent(item.id)}`
                                   );
                                 }}
-                                className="text-fluid-2xs text-blue-700 hover:underline xl:text-fluid-xs"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
                               >
                                 발주서
                               </button>
@@ -3340,14 +3360,14 @@ export function AdminInquiriesPage() {
                             <button
                               type="button"
                               onClick={() => openEdit(item)}
-                              className="text-fluid-2xs text-blue-600 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-600`}
                             >
                               상세
                             </button>
                             <button
                               type="button"
                               onClick={() => openClaim(item)}
-                              className="text-fluid-2xs text-orange-600 hover:underline xl:text-fluid-xs"
+                              className={`${INQUIRY_LIST_ACTION_BTN} text-orange-600`}
                             >
                               클레임
                             </button>
@@ -3356,7 +3376,7 @@ export function AdminInquiriesPage() {
                                 type="button"
                                 onClick={() => handleCancelInquiry(item)}
                                 disabled={saving}
-                                className="text-fluid-2xs text-slate-700 hover:underline xl:text-fluid-xs"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
                               >
                                 취소
                               </button>
@@ -3365,7 +3385,7 @@ export function AdminInquiriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
-                                className="text-fluid-2xs text-red-600 hover:underline xl:text-fluid-xs"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
                               >
                                 삭제
                               </button>
@@ -3375,7 +3395,7 @@ export function AdminInquiriesPage() {
                                 type="button"
                                 onClick={() => handleStatusChange(item.id, 'COMPLETED')}
                                 disabled={saving}
-                                className="text-fluid-2xs font-medium text-green-600 hover:underline xl:text-fluid-xs"
+                                className={`${INQUIRY_LIST_ACTION_BTN} text-green-600`}
                               >
                                 완료
                               </button>
