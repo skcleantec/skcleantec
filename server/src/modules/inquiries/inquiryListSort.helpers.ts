@@ -1,13 +1,12 @@
 /**
- * 서비스접수 목록 pin·페이지네이션 — tier 정렬 규칙은 `shared/inquiryListSort.ts` 단일 소스.
- * (server tsconfig include 로 shared 를 빌드에 포함 — tier 로직 중복 금지)
+ * 서비스접수 목록 pin·페이지네이션 — tier 정렬은 `lib/inquiryListSort.ts` (shared 동기화).
  */
 import type { Prisma } from '@prisma/client';
 import type { prisma } from '../../lib/prisma.js';
 import {
   isInquiryOrderFormPendingSubmit,
   sortInquiryListRows,
-} from '../../../../shared/inquiryListSort.js';
+} from '../../lib/inquiryListSort.js';
 
 export type InquiryListSortable = {
   status: string;

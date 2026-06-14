@@ -45,7 +45,7 @@ alwaysApply: true
 | 계층 | 파일 |
 |------|------|
 | 규칙·클라이언트 정렬 | `shared/inquiryListSort.ts` |
-| pin + 페이지네이션 | `server/src/modules/inquiries/inquiryListSort.helpers.ts` → `fetchInquiryListPageSorted`, `whereInquiryOrderFormPendingSubmit` (tier 정렬은 `shared/inquiryListSort.ts` import) |
+| pin + 페이지네이션 | `server/src/modules/inquiries/inquiryListSort.helpers.ts` → `fetchInquiryListPageSorted`, `whereInquiryOrderFormPendingSubmit` (tier는 `server/src/lib/inquiryListSort.ts` ← `shared` sync) |
 | pin where 조립 | `server/src/modules/inquiries/inquiries.routes.ts` |
 | UI 이중 안전망 | `AdminInquiriesPage.tsx` → `sortInquiryListRows` |
 
