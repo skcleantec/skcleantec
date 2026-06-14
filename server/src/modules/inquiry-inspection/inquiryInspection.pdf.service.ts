@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import {
   INSPECTION_BASIC_QUESTIONS,
   INSPECTION_HEADER_INTRO,
+  formatInspectionNaReason,
 } from '../../lib/inquiryInspectionTemplate.js';
 import { INSPECTION_FINAL_CONFIRM_NOTICE } from '../../lib/inquiryInspectionConsent.js';
 import {
@@ -108,7 +109,7 @@ export async function buildInspectionPdfBuffer(
         doc.fillColor('#333');
 
         if (area.notApplicable) {
-          doc.fontSize(8.5).text(`구역 전체 해당사항 없음 — ${area.naReason ?? ''}`);
+          doc.fontSize(8.5).text(`구역 전체 해당사항 없음 — ${formatInspectionNaReason(area.naReason)}`);
           doc.moveDown(0.4);
           continue;
         }
@@ -121,7 +122,7 @@ export async function buildInspectionPdfBuffer(
           doc.fontSize(9).fillColor('#111').text(`· ${item.label}`);
 
           if (item.notApplicable) {
-            doc.fontSize(8).fillColor('#666').text(`  해당사항 없음 — ${item.naReason ?? ''}`);
+            doc.fontSize(8).fillColor('#666').text(`  해당사항 없음 — ${formatInspectionNaReason(item.naReason)}`);
             doc.moveDown(0.25);
             continue;
           }

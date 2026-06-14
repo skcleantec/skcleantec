@@ -12,6 +12,8 @@ import {
   INSPECTION_PRE_CLEAN_GUIDE,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
 import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
+import { TeamPreCleanWizard } from './TeamPreCleanWizard';
+import { isBeforeItemComplete } from '@shared/inquiryInspectionTemplate';
 
 function countBeforeProgress(checklist: InspectionChecklistDto) {
   let beforeDone = 0;
@@ -21,10 +23,12 @@ function countBeforeProgress(checklist: InspectionChecklistDto) {
     for (const item of area.items) {
       if (item.itemKey.startsWith('_')) continue;
       total += 1;
-      const beforeCount = item.photos.filter((p) => p.phase === 'BEFORE').length;
-      if (item.notApplicable && item.naReason?.trim()) {
-        beforeDone += 1;
-      } else if (beforeCount >= 1) {
+      if (
+        isBeforeItemComplete({
+          notApplicable: item.notApplicable,
+          beforeCount: item.photos.filter((p) => p.phase === 'BEFORE').length,
+        })
+      ) {
         beforeDone += 1;
       }
     }
@@ -108,28 +112,41 @@ export function TeamPreCleanPhotoPage() {
       <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-fluid-xs text-sky-950">
         진행: 청소 전 {beforeDone}/{total} 항목
         {beforeDone >= total && total > 0 && (
-          <span className="ml-2 text-emerald-800 font-medium">— 청소 전 촬영 완료</span>
+          <span className="ml-2 font-medium text-emerald-800">— 청소 전 촬영 완료</span>
         )}
       </div>
 
-      <TeamInspectionAreasEditor
-        checklist={checklist}
-        inquiryId={inquiryId}
-        token={token}
-        readOnly={readOnly}
-        busy={busy}
-        setBusy={setBusy}
-        photoMode="before-only"
-        onReload={reload}
-        onMsg={setMsg}
-      />
+      {readOnly ? (
+        <TeamInspectionAreasEditor
+          checklist={checklist}
+          inquiryId={inquiryId}
+          token={token}
+          readOnly={readOnly}
+          busy={busy}
+          setBusy={setBusy}
+          photoMode="before-only"
+          onReload={reload}
+          onMsg={setMsg}
+        />
+      ) : (
+        <TeamPreCleanWizard
+          checklist={checklist}
+          inquiryId={inquiryId}
+          token={token}
+          readOnly={readOnly}
+          busy={busy}
+          setBusy={setBusy}
+          onReload={reload}
+          onMsg={setMsg}
+        />
+      )}
 
       {msg && (
         <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-800">{msg}</p>
       )}
 
       {!readOnly && (
-        <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur space-y-2">
+        <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
           <Link
             to={`/team/inspection/${encodeURIComponent(inquiryId)}`}
             className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-gray-900 py-3 text-fluid-sm font-semibold text-white touch-manipulation"

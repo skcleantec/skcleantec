@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { formatInspectionNaReason } from '../../lib/inquiryInspectionTemplate.js';
 import type { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import type { Prisma } from '@prisma/client';
 
@@ -25,15 +26,15 @@ export async function buildInspectionPhotosZipBuffer(row: ChecklistRow): Promise
   for (const area of row.areas) {
     const areaFolder = zip.folder(area.label.replace(/[\\/:*?"<>|]/g, '_').slice(0, 40) || 'area');
     if (!areaFolder) continue;
-    if (area.notApplicable && area.naReason?.trim()) {
-      areaFolder.file('_구역_해당사항없음.txt', area.naReason.trim());
+    if (area.notApplicable) {
+      areaFolder.file('_구역_해당사항없음.txt', formatInspectionNaReason(area.naReason));
       continue;
     }
     for (const item of area.items) {
       const itemFolder = areaFolder.folder(item.label.replace(/[\\/:*?"<>|]/g, '_').slice(0, 40) || 'item');
       if (!itemFolder) continue;
-      if (item.notApplicable && item.naReason?.trim()) {
-        itemFolder.file('_해당사항없음.txt', item.naReason.trim());
+      if (item.notApplicable) {
+        itemFolder.file('_해당사항없음.txt', formatInspectionNaReason(item.naReason));
         continue;
       }
       let beforeIdx = 0;

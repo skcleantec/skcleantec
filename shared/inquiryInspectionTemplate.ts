@@ -82,13 +82,44 @@ export const INSPECTION_PRE_CLEAN_GUIDE =
   '청소 시작 전, 팀장이 현장에 도착하면 이 화면에서 모든 세부 항목의 「청소 전」 사진을 먼저 촬영합니다. 크루는 청소를 시작하고, 청소 후·고객 확인은 「현장 검수·청소완료」에서 진행합니다.';
 
 export const INSPECTION_ITEM_GUIDE =
-  '항목별로 청소 전·후 사진을 각각 1장 이상 등록하세요. 해당 공간/항목이 없으면 「해당사항 없음」+ 사유를 입력합니다.';
+  '항목별로 청소 전·후 사진을 각각 1장 이상 등록하세요. 해당 공간/항목이 없으면 「해당없음」을 눌러 주세요.';
 
 export const INSPECTION_NA_CUSTOMER_NOTICE =
   '본 구역(또는 추가 항목)은 당일 청소 범위에 포함되지 않거나 현장 구조상 해당 공간이 없음을 확인하였습니다. 이후 해당 구역에 대한 추가 청소를 요청하실 경우 별도 견적·추가 요금이 발생할 수 있습니다.';
 
 export const INSPECTION_CUSTOM_AREA_GUIDE =
   '현장에 표준 목록에 없는 공간(예: 추가 베란다, 창고, 외부 등)이 있으면 「구역 추가」 후 동일하게 청소 전·후 사진을 등록해 주세요.';
+
+/** PDF·고객 열람 — 사유 미입력 시 표시 */
+export const INSPECTION_NA_DEFAULT_LABEL = '현장에 해당 항목(공간) 없음을 확인함';
+
+export function formatInspectionNaReason(reason: string | null | undefined): string {
+  const t = typeof reason === 'string' ? reason.trim() : '';
+  return t || INSPECTION_NA_DEFAULT_LABEL;
+}
+
+/** 청소 전 촬영만 — 사진 1장 또는 해당없음 */
+export function isBeforeItemComplete(params: { notApplicable: boolean; beforeCount: number }): boolean {
+  if (params.notApplicable) return true;
+  return params.beforeCount >= 1;
+}
+
+export function isBeforeAreaItemsComplete(
+  items: ReadonlyArray<{ notApplicable: boolean; beforeCount: number }>,
+): boolean {
+  if (!items.length) return false;
+  return items.every((it) => isBeforeItemComplete(it));
+}
+
+export function countBeforeItemProgress(
+  items: ReadonlyArray<{ notApplicable: boolean; beforeCount: number }>,
+): { beforeDone: number; total: number } {
+  let beforeDone = 0;
+  for (const it of items) {
+    if (isBeforeItemComplete(it)) beforeDone += 1;
+  }
+  return { beforeDone, total: items.length };
+}
 
 export function isItemComplete(params: {
   notApplicable: boolean;
@@ -97,7 +128,7 @@ export function isItemComplete(params: {
   afterCount: number;
 }): boolean {
   if (params.notApplicable) {
-    return Boolean(params.naReason?.trim());
+    return true;
   }
   return params.beforeCount >= 1 && params.afterCount >= 1;
 }
@@ -136,7 +167,7 @@ export function countItemPhotoProgress(
   let afterDone = 0;
   let naDone = 0;
   for (const it of items) {
-    if (it.notApplicable && it.naReason?.trim()) {
+    if (it.notApplicable) {
       naDone += 1;
       beforeDone += 1;
       afterDone += 1;

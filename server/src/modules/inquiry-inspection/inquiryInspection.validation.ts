@@ -48,12 +48,6 @@ export function validateInspectionCompletion(row: ChecklistRow): InspectionCompl
 
   for (const area of row.areas) {
     if (area.notApplicable) {
-      if (!area.naReason?.trim()) {
-        issues.push({
-          code: 'area_na_incomplete',
-          message: `「${area.label}」 구역: 해당사항 없음 사유가 필요합니다.`,
-        });
-      }
       continue;
     }
 
@@ -79,7 +73,7 @@ export function validateInspectionCompletion(row: ChecklistRow): InspectionCompl
         if (!isItemComplete({ notApplicable: item.notApplicable, naReason: item.naReason, beforeCount, afterCount })) {
           issues.push({
             code: 'item_incomplete',
-            message: `「${area.label} › ${item.label}」: 청소 전·후 사진 또는 해당사항 없음+사유가 필요합니다.`,
+            message: `「${area.label} › ${item.label}」: 청소 전·후 사진 또는 해당없음 처리가 필요합니다.`,
           });
         }
       }

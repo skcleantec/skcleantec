@@ -167,7 +167,6 @@ export function AdminInspectionPanel({
             busy={false}
             photoMode="both"
             onToggleItemNa={() => {}}
-            onItemNaReasonChange={() => {}}
             onUpload={() => {}}
             onDeletePhoto={() => {}}
           />

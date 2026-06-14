@@ -8,6 +8,7 @@ import {
   INSPECTION_NA_CUSTOMER_NOTICE,
   INSPECTION_PRE_CLEAN_GUIDE,
   countItemPhotoProgress,
+  formatInspectionNaReason,
   isItemComplete,
 } from '@shared/inquiryInspectionTemplate';
 import {
@@ -62,7 +63,6 @@ export function InspectionItemCard({
   busy,
   photoMode,
   onToggleNa,
-  onNaReasonChange,
   onUpload,
   onDeletePhoto,
 }: {
@@ -71,7 +71,6 @@ export function InspectionItemCard({
   busy: boolean;
   photoMode: InspectionPhotoMode;
   onToggleNa: (na: boolean) => void;
-  onNaReasonChange: (reason: string) => void;
   onUpload: (phase: 'BEFORE' | 'AFTER', files: FileList | null) => void;
   onDeletePhoto: (photoId: string) => void;
 }) {
@@ -116,17 +115,7 @@ export function InspectionItemCard({
       {item.notApplicable ? (
         <div className="mt-1.5 space-y-1">
           <p className="text-[10px] text-amber-900/90 leading-snug">{INSPECTION_NA_CUSTOMER_NOTICE}</p>
-          {!readOnly ? (
-            <textarea
-              value={item.naReason ?? ''}
-              onChange={(e) => onNaReasonChange(e.target.value)}
-              rows={2}
-              placeholder="사유 (필수)"
-              className="w-full rounded border border-gray-300 px-2 py-1 text-fluid-2xs"
-            />
-          ) : item.naReason ? (
-            <p className="text-fluid-2xs text-gray-700 whitespace-pre-wrap">{item.naReason}</p>
-          ) : null}
+          <p className="text-fluid-2xs text-gray-700">{formatInspectionNaReason(item.naReason)}</p>
         </div>
       ) : (
         <div className={`mt-2 grid gap-2 ${showBefore && showAfter ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
@@ -221,7 +210,6 @@ export function InspectionAreaSection({
   customItemLabel,
   onCustomItemLabelChange,
   onToggleItemNa,
-  onItemNaReasonChange,
   onUpload,
   onDeletePhoto,
 }: {
@@ -235,7 +223,6 @@ export function InspectionAreaSection({
   customItemLabel?: string;
   onCustomItemLabelChange?: (v: string) => void;
   onToggleItemNa: (itemId: string, na: boolean) => void;
-  onItemNaReasonChange: (itemId: string, reason: string) => void;
   onUpload: (itemId: string, phase: 'BEFORE' | 'AFTER', files: FileList | null) => void;
   onDeletePhoto: (itemId: string, photoId: string) => void;
 }) {
@@ -306,7 +293,7 @@ export function InspectionAreaSection({
         )}
 
         {area.notApplicable ? (
-          <p className="text-fluid-2xs text-amber-900">{area.naReason ?? '구역 전체 해당사항 없음'}</p>
+          <p className="text-fluid-2xs text-amber-900">{formatInspectionNaReason(area.naReason)}</p>
         ) : (
           <>
             {visibleItems.map((item) => (
@@ -317,7 +304,6 @@ export function InspectionAreaSection({
                 busy={busy}
                 photoMode={photoMode}
                 onToggleNa={(na) => onToggleItemNa(item.id, na)}
-                onNaReasonChange={(reason) => onItemNaReasonChange(item.id, reason)}
                 onUpload={(phase, files) => onUpload(item.id, phase, files)}
                 onDeletePhoto={(photoId) => onDeletePhoto(item.id, photoId)}
               />

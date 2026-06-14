@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import {
   INSPECTION_BASIC_QUESTIONS,
   INSPECTION_HEADER_INTRO,
+  formatInspectionNaReason,
 } from '../../lib/inquiryInspectionTemplate.js';
 import { INSPECTION_FINAL_CONFIRM_NOTICE } from '../../lib/inquiryInspectionConsent.js';
 import type { inspectionChecklistInclude } from './inquiryInspection.include.js';
@@ -51,13 +52,13 @@ export function buildInspectionReportPlainText(
   lines.push('', '— 구역별 세부 검수 —');
   for (const area of row.areas) {
     if (area.notApplicable) {
-      lines.push(`[${area.label}] 구역 전체 해당사항 없음 — ${area.naReason ?? ''}`);
+      lines.push(`[${area.label}] 구역 전체 해당사항 없음 — ${formatInspectionNaReason(area.naReason)}`);
       continue;
     }
     lines.push(`[${area.label}]`);
     for (const item of area.items) {
       if (item.notApplicable) {
-        lines.push(`  · ${item.label}: 해당사항 없음 — ${item.naReason ?? ''}`);
+        lines.push(`  · ${item.label}: 해당사항 없음 — ${formatInspectionNaReason(item.naReason)}`);
         continue;
       }
       const before = item.photos.filter((p) => p.phase === 'BEFORE').length;
@@ -95,12 +96,12 @@ export function buildInspectionReportHtml(
   const areaBlocks = row.areas
     .map((area) => {
       if (area.notApplicable) {
-        return `<h3>${escapeHtml(area.label)}</h3><p>구역 전체 해당사항 없음 — ${escapeHtml(area.naReason ?? '')}</p>`;
+        return `<h3>${escapeHtml(area.label)}</h3><p>구역 전체 해당사항 없음 — ${escapeHtml(formatInspectionNaReason(area.naReason))}</p>`;
       }
       const itemRows = area.items
         .map((item) => {
           if (item.notApplicable) {
-            return `<tr><td>${escapeHtml(item.label)}</td><td colspan="2">해당사항 없음 — ${escapeHtml(item.naReason ?? '')}</td></tr>`;
+            return `<tr><td>${escapeHtml(item.label)}</td><td colspan="2">해당사항 없음 — ${escapeHtml(formatInspectionNaReason(item.naReason))}</td></tr>`;
           }
           const before = item.photos.filter((p) => p.phase === 'BEFORE').length;
           const after = item.photos.filter((p) => p.phase === 'AFTER').length;

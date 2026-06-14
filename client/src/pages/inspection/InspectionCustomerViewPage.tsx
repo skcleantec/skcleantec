@@ -71,7 +71,6 @@ function ReadOnlyChecklistBody({ checklist }: { checklist: InspectionChecklistDt
             photoMode="both"
             defaultOpen={false}
             onToggleItemNa={() => {}}
-            onItemNaReasonChange={() => {}}
             onUpload={() => {}}
             onDeletePhoto={() => {}}
           />

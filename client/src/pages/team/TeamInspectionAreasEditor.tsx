@@ -41,53 +41,29 @@ export function TeamInspectionAreasEditor({
   const [customItemLabels, setCustomItemLabels] = useState<Record<string, string>>({});
 
   const handleToggleItemNa = async (itemId: string, na: boolean) => {
-    if (na) {
-      const reason = window.prompt('해당사항 없음 사유를 입력해 주세요.') ?? '';
-      if (!reason.trim()) return;
-      setBusy(true);
-      try {
-        await patchTeamInspectionItem(token, inquiryId, itemId, {
-          notApplicable: true,
-          naReason: reason.trim(),
-        });
-        await onReload();
-      } catch (e) {
-        onMsg(e instanceof Error ? e.message : '저장 실패');
-      } finally {
-        setBusy(false);
-      }
-    } else {
-      setBusy(true);
-      try {
-        await patchTeamInspectionItem(token, inquiryId, itemId, { notApplicable: false, naReason: null });
-        await onReload();
-      } finally {
-        setBusy(false);
-      }
+    setBusy(true);
+    try {
+      await patchTeamInspectionItem(token, inquiryId, itemId, {
+        notApplicable: na,
+        naReason: null,
+      });
+      await onReload();
+    } catch (e) {
+      onMsg(e instanceof Error ? e.message : '저장 실패');
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleToggleAreaNa = async (areaId: string, na: boolean) => {
-    if (na) {
-      const reason = window.prompt('구역 전체 해당사항 없음 사유를 입력해 주세요.') ?? '';
-      if (!reason.trim()) return;
-      setBusy(true);
-      try {
-        await patchTeamInspectionArea(token, inquiryId, areaId, { notApplicable: true, naReason: reason.trim() });
-        await onReload();
-      } catch (e) {
-        onMsg(e instanceof Error ? e.message : '저장 실패');
-      } finally {
-        setBusy(false);
-      }
-    } else {
-      setBusy(true);
-      try {
-        await patchTeamInspectionArea(token, inquiryId, areaId, { notApplicable: false, naReason: null });
-        await onReload();
-      } finally {
-        setBusy(false);
-      }
+    setBusy(true);
+    try {
+      await patchTeamInspectionArea(token, inquiryId, areaId, { notApplicable: na, naReason: null });
+      await onReload();
+    } catch (e) {
+      onMsg(e instanceof Error ? e.message : '저장 실패');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -169,9 +145,6 @@ export function TeamInspectionAreasEditor({
                 : undefined
             }
             onToggleItemNa={(itemId, na) => void handleToggleItemNa(itemId, na)}
-            onItemNaReasonChange={(itemId, reason) => {
-              void patchTeamInspectionItem(token, inquiryId, itemId, { naReason: reason }).then(onReload);
-            }}
             onUpload={async (itemId, phase, files) => {
               if (!files?.length) return;
               setBusy(true);
