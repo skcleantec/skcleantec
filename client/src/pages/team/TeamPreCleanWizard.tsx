@@ -17,6 +17,7 @@ import {
   type InspectionItem,
 } from '../../api/inquiryInspection';
 import { ImageThumbLightbox, type ImageGallerySlide } from '../../components/ui/ImageThumbLightbox';
+import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
 
 const SESSION_PREFIX = 'preCleanWizard';
 
@@ -68,6 +69,38 @@ function collectAreaBeforePhotos(area: InspectionArea): AreaBeforePhotoEntry[] {
     }
   }
   return out;
+}
+
+function mergeItemPhotos(
+  dto: InspectionChecklistDto,
+  itemId: string,
+  newPhotos: InspectionAreaPhoto[],
+): InspectionChecklistDto {
+  return {
+    ...dto,
+    areas: dto.areas.map((area) => ({
+      ...area,
+      items: area.items.map((it) =>
+        it.id === itemId ? { ...it, photos: [...it.photos, ...newPhotos] } : it,
+      ),
+    })),
+  };
+}
+
+function removeItemPhoto(
+  dto: InspectionChecklistDto,
+  itemId: string,
+  photoId: string,
+): InspectionChecklistDto {
+  return {
+    ...dto,
+    areas: dto.areas.map((area) => ({
+      ...area,
+      items: area.items.map((it) =>
+        it.id === itemId ? { ...it, photos: it.photos.filter((p) => p.id !== photoId) } : it,
+      ),
+    })),
+  };
 }
 
 function CapturePhotoThumb({
@@ -145,11 +178,29 @@ export function TeamPreCleanWizard({
   const [captureAreaId, setCaptureAreaId] = useState<string | null>(null);
   const [itemIndex, setItemIndex] = useState(0);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [localChecklist, setLocalChecklist] = useState(checklist);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const openCameraAfterReloadRef = useRef(false);
   const restoredRef = useRef(false);
+  const reloadGenRef = useRef(0);
 
-  const areas = checklist.areas;
+  useEffect(() => {
+    if (!captureAreaId) {
+      setLocalChecklist(checklist);
+    }
+  }, [checklist, captureAreaId]);
+
+  const scheduleBackgroundReload = useCallback(() => {
+    const gen = ++reloadGenRef.current;
+    void onReload().then((fresh) => {
+      if (fresh && gen === reloadGenRef.current) {
+        setLocalChecklist(fresh);
+      }
+    });
+  }, [onReload]);
+
+  const areas = localChecklist.areas;
 
   const captureArea = useMemo(
     () => (captureAreaId ? areas.find((a) => a.id === captureAreaId) ?? null : null),
@@ -196,10 +247,10 @@ export function TeamPreCleanWizard({
   }, [captureAreaId, itemIndex, inquiryId, readOnly]);
 
   useEffect(() => {
-    if (!openCameraAfterReloadRef.current || busy || !captureAreaId) return;
+    if (!openCameraAfterReloadRef.current || uploading || busy || !captureAreaId) return;
     openCameraAfterReloadRef.current = false;
     fileInputRef.current?.click();
-  }, [checklist, busy, captureAreaId]);
+  }, [localChecklist, uploading, busy, captureAreaId]);
 
   useEffect(() => {
     if (readOnly || !captureAreaId) return;
@@ -238,6 +289,7 @@ export function TeamPreCleanWizard({
     setBusy(true);
     try {
       const fresh = await onReload();
+      if (fresh) setLocalChecklist(fresh);
       beginCaptureForArea(areaId, fresh?.areas ?? areas);
     } finally {
       setBusy(false);
@@ -258,17 +310,19 @@ export function TeamPreCleanWizard({
   );
 
   const handleCapture = async (files: FileList | null) => {
-    if (!currentItem || !files?.length) return;
-    setBusy(true);
+    if (!currentItem || !files?.length || uploading) return;
+    const itemId = currentItem.id;
+    setUploading(true);
     onMsg(null);
     try {
-      await uploadTeamInspectionPhotos(token, inquiryId, currentItem.id, 'BEFORE', Array.from(files));
-      await onReload();
-      onMsg('사진이 등록됐습니다.');
+      const prepared = await Promise.all(Array.from(files).map((f) => prepareImageFileForUpload(f)));
+      const newPhotos = await uploadTeamInspectionPhotos(token, inquiryId, itemId, 'BEFORE', prepared);
+      setLocalChecklist((prev) => mergeItemPhotos(prev, itemId, newPhotos));
+      scheduleBackgroundReload();
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '업로드 실패');
     } finally {
-      setBusy(false);
+      setUploading(false);
     }
   };
 
@@ -307,23 +361,21 @@ export function TeamPreCleanWizard({
   };
 
   const handleRetakePhoto = async (photoId: string, itemId: string) => {
-    if (busy) return;
+    if (uploading || busy) return;
     if (!window.confirm('선택한 사진을 삭제하고 다시 촬영할까요?')) return;
-    setBusy(true);
+    setUploading(true);
     onMsg(null);
     try {
       await deleteTeamInspectionPhoto(token, inquiryId, itemId, photoId);
-      await onReload();
+      setLocalChecklist((prev) => removeItemPhoto(prev, itemId, photoId));
+      scheduleBackgroundReload();
       if (currentItem?.id === itemId) {
-        onMsg('다시 촬영해 주세요.');
         openCameraAfterReloadRef.current = true;
-      } else {
-        onMsg('사진을 삭제했습니다.');
       }
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '삭제 실패');
     } finally {
-      setBusy(false);
+      setUploading(false);
     }
   };
 
@@ -402,38 +454,6 @@ export function TeamPreCleanWizard({
             </p>
           </div>
 
-          <div className="mx-auto w-full max-w-lg rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-            <p className="mb-2 text-center text-xs font-medium text-gray-400">촬영 항목</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {captureItems.map((it, idx) => {
-                const done = isBeforeItemComplete({
-                  notApplicable: it.notApplicable,
-                  beforeCount: itemBeforeCount(it),
-                });
-                const isCurrent = idx === itemIndex;
-                return (
-                  <button
-                    key={it.id}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setItemIndex(idx)}
-                    className={`min-h-[36px] truncate rounded-lg px-2 py-1.5 text-left text-[11px] leading-tight touch-manipulation disabled:opacity-50 ${
-                      isCurrent
-                        ? 'border border-sky-400/70 bg-sky-500/20 font-semibold text-white'
-                        : done
-                          ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                          : 'border border-white/10 bg-black/20 text-gray-300'
-                    }`}
-                    title={it.label}
-                  >
-                    {done ? '✓ ' : '○ '}
-                    {it.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <div className="mx-auto w-full max-w-lg rounded-xl border border-white/15 bg-white/5 px-4 py-4">
             {areaBeforeEntries.length === 0 ? (
               <p className="py-6 text-center text-sm leading-relaxed text-gray-400">
@@ -454,7 +474,7 @@ export function TeamPreCleanWizard({
                       photo={entry.photo}
                       idx={idx}
                       gallerySlides={areaGallerySlides}
-                      disabled={busy}
+                      disabled={uploading || busy}
                       caption={entry.itemLabel}
                       onRetake={(id) => void handleRetakePhoto(id, entry.itemId)}
                     />
@@ -499,11 +519,11 @@ export function TeamPreCleanWizard({
             </button>
             <button
               type="button"
-              disabled={busy}
+              disabled={uploading}
               onClick={() => fileInputRef.current?.click()}
               className="flex min-h-[52px] items-center justify-center rounded-xl bg-sky-500 text-sm font-bold text-white touch-manipulation disabled:opacity-50"
             >
-              {busy ? '처리 중…' : '촬영'}
+              {uploading ? '업로드…' : '촬영'}
             </button>
             <button
               type="button"
@@ -521,7 +541,7 @@ export function TeamPreCleanWizard({
             accept="image/*"
             capture="environment"
             className="hidden"
-            disabled={busy}
+            disabled={uploading}
             onChange={(e) => {
               void handleCapture(e.target.files);
               e.target.value = '';
