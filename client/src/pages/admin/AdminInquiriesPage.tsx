@@ -2085,7 +2085,7 @@ export function AdminInquiriesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -2588,7 +2588,7 @@ export function AdminInquiriesPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm min-w-0">
         {shouldShowListBlockingLoading(loading, items.length) ? (
           <div className="p-8 text-center text-slate-500 text-fluid-sm">로딩 중...</div>
         ) : items.length === 0 ? (
@@ -2936,16 +2936,18 @@ export function AdminInquiriesPage() {
             ) : null}
 
             {isLgUp ? (
-            <div>
-            <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="min-w-0">
+            <SyncHorizontalScroll className="min-w-0 w-full" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
             <table
-              className={`w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm ${hasInspectionModule ? 'min-w-[68rem]' : 'min-w-[62rem]'}`}
+              className={`table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm max-w-none ${
+                hasInspectionModule ? 'w-[68rem] min-w-[68rem]' : 'w-[62rem] min-w-[62rem]'
+              }`}
             >
               <colgroup>
                 {hasInspectionModule ? (
                   <>
                     <col className="w-[8%]" />
-                    <col className="w-[5%]" />
+                    <col className="w-[3%]" />
                     <col className="w-[8%]" />
                     <col className="w-[5%]" />
                     <col className="w-[8%]" />
@@ -2955,12 +2957,12 @@ export function AdminInquiriesPage() {
                     <col className="w-[9%]" />
                     <col className="w-[7%]" />
                     <col className="w-[8%]" />
-                    <col className="w-[23%]" />
+                    <col className="w-[25%]" />
                   </>
                 ) : (
                   <>
                     <col className="w-[9%]" />
-                    <col className="w-[6%]" />
+                    <col className="w-[4%]" />
                     <col className="w-[9%]" />
                     <col className="w-[6%]" />
                     <col className="w-[9%]" />
@@ -2969,7 +2971,7 @@ export function AdminInquiriesPage() {
                     <col className="w-[8%]" />
                     <col className="w-[10%]" />
                     <col className="w-[9%]" />
-                    <col className="w-[20%]" />
+                    <col className="w-[22%]" />
                   </>
                 )}
               </colgroup>
@@ -2978,7 +2980,7 @@ export function AdminInquiriesPage() {
                   <th className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">
                     접수일
                   </th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">접수자</th>
+                  <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">접수자</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">고객</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">연락처</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">주소</th>
@@ -3072,7 +3074,7 @@ export function AdminInquiriesPage() {
                       ) : null}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-slate-600 xl:px-1.5 ${pBorder}`}
+                      className={`min-w-0 max-w-[3.25rem] truncate px-0.5 py-0.5 align-middle text-center text-[10px] leading-tight text-slate-600 xl:max-w-[3.5rem] xl:text-[11px] ${pBorder}`}
                       title={inquiryMarketerLabel(item)}
                     >
                       {inquiryMarketerLabel(item)}

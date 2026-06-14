@@ -79,8 +79,11 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
   const measure = useCallback(() => {
     const el = bottomRef.current;
     if (!el) return;
-    const overflow = el.scrollWidth > el.clientWidth + 2;
-    setSpacerW(el.scrollWidth);
+    const inner = el.querySelector('table') ?? el.firstElementChild;
+    const innerW = inner instanceof HTMLElement ? inner.offsetWidth : 0;
+    const scrollW = Math.max(el.scrollWidth, innerW);
+    const overflow = scrollW > el.clientWidth + 2;
+    setSpacerW(scrollW);
     setHasOverflow(overflow);
   }, []);
 
@@ -90,12 +93,14 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
     if (!el) return;
     const ro = new ResizeObserver(() => measure());
     ro.observe(el);
+    const inner = el.querySelector('table') ?? el.firstElementChild;
+    if (inner instanceof Element) ro.observe(inner);
     window.addEventListener('resize', measure);
     return () => {
       ro.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [measure]);
+  }, [measure, children]);
 
   useEffect(() => {
     const el = bottomRef.current;
@@ -142,11 +147,11 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
       {showDock &&
         createPortal(
           <div
-            className="pointer-events-none fixed inset-x-0 bottom-0 z-[120]"
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-[130]"
             style={{ paddingBottom: 'max(0.2rem, env(safe-area-inset-bottom, 0px))' }}
           >
             <div className="pointer-events-auto border-t border-gray-200 bg-white/95 px-2 py-1.5 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm supports-[backdrop-filter]:bg-white/90">
-              <div className="mx-auto flex max-w-6xl items-center gap-1">
+              <div className="flex w-full items-center gap-1 px-3 sm:px-4">
                 <button
                   type="button"
                   onClick={() => scrollByDelta(-SCROLL_STEP)}
