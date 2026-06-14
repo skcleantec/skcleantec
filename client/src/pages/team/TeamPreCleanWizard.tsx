@@ -14,6 +14,7 @@ import {
   type InspectionChecklistDto,
   type InspectionItem,
 } from '../../api/inquiryInspection';
+import { ImageThumbLightbox } from '../../components/ui/ImageThumbLightbox';
 
 const SESSION_PREFIX = 'preCleanWizard';
 
@@ -142,7 +143,7 @@ export function TeamPreCleanWizard({
     try {
       await uploadTeamInspectionPhotos(token, inquiryId, currentItem.id, 'BEFORE', Array.from(files));
       await onReload();
-      advanceAfterAction(captureItems.length);
+      onMsg('사진이 등록됐습니다.');
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '업로드 실패');
     } finally {
@@ -206,7 +207,10 @@ export function TeamPreCleanWizard({
       areaLabel: captureArea.label,
     });
     const beforePhotos = currentItem.photos.filter((p) => p.phase === 'BEFORE');
-    const latestPhoto = beforePhotos[beforePhotos.length - 1];
+    const gallerySlides = beforePhotos.map((p, i) => ({
+      src: p.secureUrl,
+      alt: `청소 전 ${i + 1}`,
+    }));
 
     captureOverlay = (
       <div className="fixed inset-0 z-[200] flex flex-col bg-gray-950 text-white pt-[env(safe-area-inset-top)]">
@@ -251,25 +255,32 @@ export function TeamPreCleanWizard({
             </p>
           </div>
 
-          {latestPhoto ? (
-            <div className="mx-auto w-full max-w-lg">
-              <p className="mb-2 text-center text-xs text-gray-400">등록된 청소 전 사진</p>
-              <img
-                src={latestPhoto.secureUrl}
-                alt="청소 전"
-                className="w-full rounded-xl object-contain shadow-lg max-h-[45vh]"
-              />
-              {beforePhotos.length > 1 && (
-                <p className="mt-2 text-center text-xs text-gray-500">
-                  등록된 사진 {beforePhotos.length}장 (추가 촬영 가능)
+          <div className="mx-auto w-full max-w-lg rounded-xl border border-white/15 bg-white/5 px-4 py-4">
+            {beforePhotos.length === 0 ? (
+              <p className="py-6 text-center text-sm leading-relaxed text-gray-400">
+                아래 「촬영」 버튼을 눌러 사진을 등록하세요
+              </p>
+            ) : (
+              <>
+                <p className="mb-3 text-center text-xs text-gray-400">
+                  등록된 사진 {beforePhotos.length}장 · 썸네일을 누르면 크게 볼 수 있어요
                 </p>
-              )}
-            </div>
-          ) : (
-            <div className="mx-auto flex w-full max-w-lg flex-1 min-h-[8rem] items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-6 text-center text-sm text-gray-400">
-              아래 「촬영」 버튼을 눌러 사진을 등록하세요
-            </div>
-          )}
+                <div className="flex flex-wrap justify-center gap-2.5">
+                  {beforePhotos.map((photo, idx) => (
+                    <ImageThumbLightbox
+                      key={photo.id}
+                      src={photo.secureUrl}
+                      alt={`청소 전 ${idx + 1}`}
+                      gallerySlides={gallerySlides}
+                      galleryIndex={idx}
+                      thumbClassName="h-[4.5rem] w-[4.5rem] object-cover"
+                      buttonClassName="block shrink-0 overflow-hidden rounded-xl border-2 border-white/20 bg-black/40 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 touch-manipulation active:scale-[0.97]"
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           {currentItem.notApplicable && (
             <p className="mx-auto max-w-lg text-center text-sm text-amber-300">
@@ -279,7 +290,18 @@ export function TeamPreCleanWizard({
         </div>
 
         <div className="shrink-0 border-t border-white/10 bg-black/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-          <div className="mx-auto grid max-w-lg grid-cols-3 gap-2">
+          <div className="mx-auto max-w-lg space-y-2">
+            {beforePhotos.length >= 1 && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => advanceAfterAction(captureItems.length)}
+                className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-emerald-600 text-sm font-semibold text-white touch-manipulation disabled:opacity-50"
+              >
+                다음 항목 ▶
+              </button>
+            )}
+            <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
               disabled={busy || itemIndex === 0}
@@ -304,6 +326,7 @@ export function TeamPreCleanWizard({
             >
               해당없음
             </button>
+          </div>
           </div>
           <input
             ref={fileInputRef}
