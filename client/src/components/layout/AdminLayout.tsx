@@ -947,7 +947,7 @@ export function AdminLayout() {
         </div>
         </div>
       </header>
-      <main className="staff-app-surface relative z-10 max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+      <main className="staff-app-surface relative z-10 max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan }}>
           <Outlet />
         </TenantCapabilitiesProvider>

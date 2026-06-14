@@ -2937,7 +2937,7 @@ export function AdminInquiriesPage() {
 
             {isLgUp ? (
             <div className="min-w-0">
-            <SyncHorizontalScroll className="min-w-0 w-full" contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
+            <SyncHorizontalScroll className="min-w-0 w-full">
             <table
               className={`table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm max-w-none ${
                 hasInspectionModule ? 'w-[68rem] min-w-[68rem]' : 'w-[62rem] min-w-[62rem]'
