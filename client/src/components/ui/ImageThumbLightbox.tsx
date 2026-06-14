@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 
-export type ImageGallerySlide = { src: string; alt: string };
+export type ImageGallerySlide = { src: string; alt: string; /** 라이트박스 상단 제목 */ title?: string };
 
 type Props = {
   src: string;
@@ -66,6 +66,7 @@ export function ImageThumbLightbox({
   }, [open, multi, slides.length]);
 
   const current = slides[open ? activeIndex : 0] ?? { src, alt: alt || '' };
+  const headerTitle = current.title?.trim() || current.alt?.trim() || '';
 
   return (
     <>
@@ -101,6 +102,16 @@ export function ImageThumbLightbox({
             aria-label={current.alt || '이미지 보기'}
             onClick={() => setOpen(false)}
           >
+            {headerTitle ? (
+              <div className="pointer-events-none absolute left-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-[750] w-[min(92vw,24rem)] -translate-x-1/2 px-12 text-center">
+                <p className="truncate text-sm font-semibold text-white drop-shadow-md">{headerTitle}</p>
+                {multi ? (
+                  <p className="mt-0.5 text-xs tabular-nums text-white/75">
+                    {activeIndex + 1} / {slides.length}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <img
               src={current.src}
               alt={current.alt}
@@ -137,9 +148,11 @@ export function ImageThumbLightbox({
                     ›
                   </span>
                 </button>
-                <div className="absolute bottom-3 left-1/2 z-[750] -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-fluid-xs text-white tabular-nums">
-                  {activeIndex + 1} / {slides.length}
-                </div>
+                {!headerTitle ? (
+                  <div className="absolute bottom-3 left-1/2 z-[750] -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-fluid-xs text-white tabular-nums">
+                    {activeIndex + 1} / {slides.length}
+                  </div>
+                ) : null}
               </>
             )}
           </div>,

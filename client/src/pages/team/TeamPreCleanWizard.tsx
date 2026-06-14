@@ -350,9 +350,10 @@ export function TeamPreCleanWizard({
     });
     const beforePhotos = currentItem.photos.filter((p) => p.phase === 'BEFORE');
     const areaBeforeEntries = collectAreaBeforePhotos(captureArea);
-    const areaGallerySlides = areaBeforeEntries.map((entry, i) => ({
+    const areaGallerySlides = areaBeforeEntries.map((entry) => ({
       src: entry.photo.secureUrl,
-      alt: `${entry.itemLabel} 청소 전 ${i + 1}`,
+      alt: `${captureArea.label} › ${entry.itemLabel} 청소 전`,
+      title: `${captureArea.label} · ${entry.itemLabel}`,
     }));
     const areaDoneCount = captureItems.filter((it) =>
       isBeforeItemComplete({ notApplicable: it.notApplicable, beforeCount: itemBeforeCount(it) }),
