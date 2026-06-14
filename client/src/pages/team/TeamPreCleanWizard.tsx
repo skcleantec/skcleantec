@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   countBeforeItemProgress,
   isBeforeAreaItemsComplete,
@@ -101,6 +102,15 @@ export function TeamPreCleanWizard({
     }
   }, [captureAreaId, itemIndex, inquiryId, readOnly]);
 
+  useEffect(() => {
+    if (readOnly || !captureAreaId) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [captureAreaId, readOnly]);
+
   const exitCapture = useCallback(() => {
     setCaptureAreaId(null);
     void onReload();
@@ -186,7 +196,10 @@ export function TeamPreCleanWizard({
     }
   };
 
-  if (!readOnly && captureArea && currentItem) {
+  const inCaptureMode = !readOnly && captureArea && currentItem;
+
+  let captureOverlay: ReactNode = null;
+  if (inCaptureMode) {
     const hint = getInspectionCaptureHint({
       itemKey: currentItem.itemKey,
       label: currentItem.label,
@@ -195,8 +208,8 @@ export function TeamPreCleanWizard({
     const beforePhotos = currentItem.photos.filter((p) => p.phase === 'BEFORE');
     const latestPhoto = beforePhotos[beforePhotos.length - 1];
 
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-gray-950 text-white">
+    captureOverlay = (
+      <div className="fixed inset-0 z-[200] flex flex-col bg-gray-950 text-white pt-[env(safe-area-inset-top)]">
         <div className="shrink-0 border-b border-white/10 bg-black/80 px-3 py-2.5 backdrop-blur-sm">
           <div className="mx-auto flex max-w-lg items-center gap-2">
             <button
@@ -310,7 +323,9 @@ export function TeamPreCleanWizard({
   }
 
   return (
-    <section className="space-y-3">
+    <>
+      {captureOverlay ? createPortal(captureOverlay, document.body) : null}
+    <section className="space-y-3" aria-hidden={inCaptureMode ? true : undefined}>
       <p className="text-fluid-2xs text-gray-600">
         구역을 선택한 뒤 「촬영 시작」으로 항목별 연속 촬영을 진행하세요. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
       </p>
@@ -389,5 +404,6 @@ export function TeamPreCleanWizard({
         })}
       </div>
     </section>
+    </>
   );
 }
