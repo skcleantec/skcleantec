@@ -138,6 +138,7 @@ export function TeamPreCleanPhotoPage() {
           setBusy={setBusy}
           onReload={reload}
           onMsg={setMsg}
+          onClose={() => navigate('/team/assignments')}
         />
       )}
 

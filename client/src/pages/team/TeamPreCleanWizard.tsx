@@ -45,6 +45,7 @@ export function TeamPreCleanWizard({
   setBusy,
   onReload,
   onMsg,
+  onClose,
 }: {
   checklist: InspectionChecklistDto;
   inquiryId: string;
@@ -54,6 +55,7 @@ export function TeamPreCleanWizard({
   setBusy: (v: boolean) => void;
   onReload: () => Promise<void>;
   onMsg: (msg: string | null) => void;
+  onClose?: () => void;
 }) {
   const [captureAreaId, setCaptureAreaId] = useState<string | null>(null);
   const [itemIndex, setItemIndex] = useState(0);
@@ -195,43 +197,71 @@ export function TeamPreCleanWizard({
 
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-gray-950 text-white">
-        <div className="shrink-0 border-b border-white/10 bg-black/75 px-3 py-2.5 backdrop-blur-sm">
-          <div className="mx-auto flex max-w-lg items-start gap-2">
+        <div className="shrink-0 border-b border-white/10 bg-black/80 px-3 py-2.5 backdrop-blur-sm">
+          <div className="mx-auto flex max-w-lg items-center gap-2">
             <button
               type="button"
               onClick={exitCapture}
               disabled={busy}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-lg font-bold touch-manipulation disabled:opacity-50"
+              className="flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-xl bg-white/10 px-2 text-sm font-medium touch-manipulation disabled:opacity-50"
               aria-label="구역 목록으로"
             >
               ←
             </button>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">
-                {captureArea.label} · {itemIndex + 1}/{captureItems.length} 「{currentItem.label}」
+            <div className="min-w-0 flex-1 text-center">
+              <p className="text-xs text-gray-400">
+                {captureArea.label} · {itemIndex + 1}/{captureItems.length}
               </p>
-              <p className="mt-0.5 text-xs leading-snug text-gray-300">{hint}</p>
+              <p className="truncate text-base font-bold">{currentItem.label}</p>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCaptureAreaId(null);
+                sessionStorage.removeItem(sessionKey(inquiryId));
+                onClose?.();
+              }}
+              disabled={busy}
+              className="flex h-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/10 px-3 text-sm font-semibold touch-manipulation disabled:opacity-50"
+            >
+              닫기
+            </button>
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+          <div className="mx-auto w-full max-w-lg rounded-xl border border-sky-400/50 bg-sky-950/80 px-4 py-3.5 shadow-lg">
+            <p className="text-xs font-bold tracking-wide text-sky-300">촬영 가이드 — 어디를 찍을까요?</p>
+            <p className="mt-2 text-base font-medium leading-relaxed text-white">{hint}</p>
+            <p className="mt-2 text-xs leading-snug text-sky-200/80">
+              모서리·틈새·얼룩이 보이도록 가까이 또는 넓게 한 장 이상 촬영해 주세요.
+            </p>
+          </div>
+
           {latestPhoto ? (
-            <img
-              src={latestPhoto.secureUrl}
-              alt="청소 전"
-              className="max-h-[55vh] w-full max-w-lg rounded-xl object-contain shadow-lg"
-            />
+            <div className="mx-auto w-full max-w-lg">
+              <p className="mb-2 text-center text-xs text-gray-400">등록된 청소 전 사진</p>
+              <img
+                src={latestPhoto.secureUrl}
+                alt="청소 전"
+                className="w-full rounded-xl object-contain shadow-lg max-h-[45vh]"
+              />
+              {beforePhotos.length > 1 && (
+                <p className="mt-2 text-center text-xs text-gray-500">
+                  등록된 사진 {beforePhotos.length}장 (추가 촬영 가능)
+                </p>
+              )}
+            </div>
           ) : (
-            <div className="flex h-48 w-full max-w-lg items-center justify-center rounded-xl border border-dashed border-white/25 bg-white/5 px-4 text-center text-sm text-gray-400">
-              아래 「촬영」으로 청소 전 사진을 등록하세요
+            <div className="mx-auto flex w-full max-w-lg flex-1 min-h-[8rem] items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-6 text-center text-sm text-gray-400">
+              아래 「촬영」 버튼을 눌러 사진을 등록하세요
             </div>
           )}
+
           {currentItem.notApplicable && (
-            <p className="text-sm text-amber-300">이 항목은 해당없음으로 표시되어 있습니다.</p>
-          )}
-          {beforePhotos.length > 1 && (
-            <p className="text-xs text-gray-500">등록된 사진 {beforePhotos.length}장 (추가 촬영 가능)</p>
+            <p className="mx-auto max-w-lg text-center text-sm text-amber-300">
+              이 항목은 해당없음으로 표시되어 있습니다. 「촬영」 또는 「해당없음」으로 다음으로 넘어갈 수 있습니다.
+            </p>
           )}
         </div>
 

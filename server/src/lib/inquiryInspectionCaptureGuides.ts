@@ -46,6 +46,8 @@ export function getInspectionCaptureHint(params: {
   areaLabel: string;
 }): string {
   const keyHint = HINTS[params.itemKey];
-  if (keyHint) return keyHint;
-  return `${params.areaLabel}의 「${params.label}」 — 청소 전 상태가 잘 보이게 촬영해 주세요.`;
+  if (keyHint) {
+    return `「${params.areaLabel} › ${params.label}」 — ${keyHint}`;
+  }
+  return `「${params.areaLabel} › ${params.label}」 — 청소 전 상태가 잘 보이도록, 해당 부위 전체와 모서리·틈새를 함께 촬영해 주세요.`;
 }
