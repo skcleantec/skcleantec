@@ -102,7 +102,7 @@ export function InspectionItemCard({
             type="button"
             disabled={busy}
             onClick={() => onToggleNa(!item.notApplicable)}
-            className={`rounded border px-1.5 py-0.5 text-[10px] touch-manipulation ${
+            className={`shrink-0 rounded-lg border px-2.5 py-1.5 min-h-[36px] text-fluid-2xs touch-manipulation sm:min-h-0 sm:px-1.5 sm:py-0.5 sm:text-[10px] ${
               item.notApplicable
                 ? 'border-amber-600 bg-amber-50 text-amber-900'
                 : 'border-gray-300 bg-white text-gray-600'
@@ -167,15 +167,16 @@ function renderPhotoColumn(params: {
 }) {
   return (
     <div className="min-w-0">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-fluid-2xs font-medium text-gray-600">{params.label}</span>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-fluid-2xs font-medium text-gray-600 sm:text-fluid-xs">{params.label}</span>
         {!params.readOnly && (
-          <label className="cursor-pointer rounded border border-blue-600 bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-900 touch-manipulation">
-            추가
+          <label className="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center rounded-xl border border-blue-600 bg-blue-50 px-4 py-2.5 text-fluid-xs font-semibold text-blue-900 shadow-sm touch-manipulation active:scale-[0.98] has-[:disabled]:opacity-50 sm:min-h-[36px] sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-fluid-2xs sm:font-medium">
+            사진 추가
             <input
               type="file"
               accept="image/*"
               multiple
+              capture="environment"
               className="hidden"
               disabled={params.busy}
               onChange={(e) => {
@@ -186,23 +187,24 @@ function renderPhotoColumn(params: {
           </label>
         )}
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {params.items.map((p) => (
           <div key={p.id} className="relative">
-            <img src={p.secureUrl} alt={params.label} className="h-16 w-16 rounded object-cover border" />
+            <img src={p.secureUrl} alt={params.label} className="h-20 w-20 rounded-lg object-cover border border-gray-200 sm:h-16 sm:w-16" />
             {!params.readOnly && (
               <button
                 type="button"
                 disabled={params.busy}
                 onClick={() => params.onDeletePhoto(p.id)}
-                className="absolute -right-1 -top-1 rounded-full bg-gray-900/80 px-1 text-[9px] text-white"
+                className="absolute -right-1.5 -top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-gray-900/85 text-xs font-bold text-white touch-manipulation sm:h-5 sm:w-5 sm:text-[10px]"
+                aria-label="사진 삭제"
               >
                 ×
               </button>
             )}
           </div>
         ))}
-        {!params.items.length && <span className="text-[10px] text-gray-400">없음</span>}
+        {!params.items.length && <span className="text-fluid-2xs text-gray-400 py-2">없음</span>}
       </div>
     </div>
   );
