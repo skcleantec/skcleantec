@@ -402,6 +402,38 @@ export function TeamPreCleanWizard({
             </p>
           </div>
 
+          <div className="mx-auto w-full max-w-lg rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+            <p className="mb-2 text-center text-xs font-medium text-gray-400">촬영 항목</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {captureItems.map((it, idx) => {
+                const done = isBeforeItemComplete({
+                  notApplicable: it.notApplicable,
+                  beforeCount: itemBeforeCount(it),
+                });
+                const isCurrent = idx === itemIndex;
+                return (
+                  <button
+                    key={it.id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setItemIndex(idx)}
+                    className={`min-h-[36px] truncate rounded-lg px-2 py-1.5 text-left text-[11px] leading-tight touch-manipulation disabled:opacity-50 ${
+                      isCurrent
+                        ? 'border border-sky-400/70 bg-sky-500/20 font-semibold text-white'
+                        : done
+                          ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                          : 'border border-white/10 bg-black/20 text-gray-300'
+                    }`}
+                    title={it.label}
+                  >
+                    {done ? '✓ ' : '○ '}
+                    {it.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="mx-auto w-full max-w-lg rounded-xl border border-white/15 bg-white/5 px-4 py-4">
             {areaBeforeEntries.length === 0 ? (
               <p className="py-6 text-center text-sm leading-relaxed text-gray-400">
@@ -508,7 +540,7 @@ export function TeamPreCleanWizard({
         구역을 선택한 뒤 「촬영 시작」으로 항목별 연속 촬영을 진행하세요. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
       </p>
 
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 snap-x snap-mandatory">
+      <div className="grid grid-cols-2 gap-2">
         {areas.map((area) => {
           const items = visibleItems(area);
           const { beforeDone, total } = countBeforeItemProgress(
@@ -530,7 +562,7 @@ export function TeamPreCleanWizard({
           return (
             <div
               key={area.id}
-              className={`min-w-[9.5rem] shrink-0 snap-start rounded-xl border p-3 ${
+              className={`min-w-0 rounded-xl border p-3 ${
                 complete ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-200 bg-white'
               }`}
             >
@@ -543,6 +575,30 @@ export function TeamPreCleanWizard({
               <p className="mt-1 text-fluid-2xs text-gray-600">
                 {area.notApplicable ? '해당없음' : `청소 전 ${beforeDone}/${total}`}
               </p>
+
+              {!area.notApplicable && items.length > 0 && (
+                <ul className="mt-2 grid grid-cols-2 gap-x-1.5 gap-y-1" aria-label={`${area.label} 촬영 항목`}>
+                  {items.map((it) => {
+                    const done = isBeforeItemComplete({
+                      notApplicable: it.notApplicable,
+                      beforeCount: itemBeforeCount(it),
+                    });
+                    return (
+                      <li
+                        key={it.id}
+                        className={`truncate text-[10px] leading-tight ${
+                          done ? 'font-medium text-emerald-700' : 'text-gray-600'
+                        }`}
+                        title={it.label}
+                      >
+                        {done ? '✓ ' : '○ '}
+                        {it.label}
+                        {it.notApplicable ? ' (해당없음)' : ''}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
 
               {!readOnly && (
                 <div className="mt-2.5 flex flex-col gap-1.5">
