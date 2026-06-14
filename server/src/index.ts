@@ -8,6 +8,10 @@ import { ensurePlatformBootstrapUsers } from './lib/ensurePlatformBootstrap.js';
 import { ensureInquiryStatusEnumForDeploy } from './lib/ensureInquiryStatusEnumForDeploy.js';
 import { ensureMissingProfessionalDefaults } from './modules/orderform/defaultProfessionalOptions.js';
 import { attachInboxWebSocket } from './modules/realtime/index.js';
+import {
+  parseInspectionRetentionOptionsFromEnv,
+  purgeExpiredInspectionChecklists,
+} from './modules/inquiry-inspection/inquiryInspection.retention.service.js';
 
 async function bootstrap() {
   try {
@@ -67,6 +71,27 @@ async function bootstrap() {
       });
     }, intervalMs);
     keepAlive.unref();
+  }
+
+  /** 완료 검수본 보관 만료 — INSPECTION_RETENTION_CRON_ENABLED=true 시 24h마다 1회 */
+  const retentionOpts = parseInspectionRetentionOptionsFromEnv();
+  if (retentionOpts.cronEnabled) {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const runRetention = () => {
+      void purgeExpiredInspectionChecklists()
+        .then((r) => {
+          if (r.scanned > 0 || r.purged > 0) {
+            console.info('[inspection-retention] scheduled run', r);
+          }
+        })
+        .catch((e) => console.error('[inspection-retention] scheduled run failed', e));
+    };
+    const bootDelayMs = Number.parseInt(process.env.INSPECTION_RETENTION_CRON_BOOT_DELAY_MS ?? '120000', 10) || 120_000;
+    setTimeout(runRetention, bootDelayMs).unref();
+    setInterval(runRetention, dayMs).unref();
+    console.info(
+      `[inspection-retention] in-process scheduler on (days=${retentionOpts.retentionDays}, batch=${retentionOpts.batchSize})`,
+    );
   }
 }
 

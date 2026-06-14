@@ -74,6 +74,7 @@ export type InspectionChecklistDto = {
   voidedBy: { id: string; name: string } | null;
   voidReason: string | null;
   completionPdf: { publicId: string | null; secureUrl: string } | null;
+  customerViewToken?: string | null;
   emailSentAt: string | null;
   teamLeader: { id: string; name: string };
   createdAt: string;

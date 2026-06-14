@@ -74,6 +74,11 @@ export const CsReportPage = lazy(() =>
 export const ReviewPaybackPage = lazy(() =>
   import('../pages/review-payback/ReviewPaybackPage').then((m) => ({ default: m.ReviewPaybackPage }))
 );
+export const InspectionCustomerViewPage = lazy(() =>
+  import('../pages/inspection/InspectionCustomerViewPage').then((m) => ({
+    default: m.InspectionCustomerViewPage,
+  }))
+);
 export const AdminReviewPaybackPage = lazy(() =>
   import('../pages/admin/AdminReviewPaybackPage').then((m) => ({ default: m.AdminReviewPaybackPage }))
 );
@@ -119,6 +124,11 @@ export const AdminExternalSettlementPage = lazy(() =>
 );
 export const AdminPageSettingsPage = lazy(() =>
   import('../pages/admin/AdminPageSettingsPage').then((m) => ({ default: m.AdminPageSettingsPage }))
+);
+export const AdminInspectionTemplatePage = lazy(() =>
+  import('../pages/admin/AdminInspectionTemplatePage').then((m) => ({
+    default: m.AdminInspectionTemplatePage,
+  }))
 );
 export const AdminPayrollPage = lazy(() =>
   import('../pages/admin/AdminPayrollPage').then((m) => ({ default: m.AdminPayrollPage }))

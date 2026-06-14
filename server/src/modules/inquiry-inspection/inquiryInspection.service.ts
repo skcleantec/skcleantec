@@ -1,13 +1,15 @@
 import { InquiryInspectionStatus, InquiryStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { buildStandardInspectionAreas } from '../../lib/inquiryInspectionTemplate.js';
-import { buildStandardItemsForAreaKey } from '../../lib/inquiryInspectionItems.js';
+import { resolveInspectionItemsForArea } from '../../lib/inquiryInspectionTenantTemplate.js';
+import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 import { buildInspectionConsentSnapshot } from '../../lib/inquiryInspectionConsent.js';
 import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { serializeInspectionChecklist } from './inquiryInspection.serialize.js';
 import { validateInspectionCompletion } from './inquiryInspection.validation.js';
 import { finalizeInspectionAfterComplete } from './inquiryInspection.postComplete.service.js';
 import { ensureInspectionItemsForChecklist } from './inquiryInspection.items.service.js';
+import { ensureInspectionCustomerViewToken } from './inquiryInspection.customerView.service.js';
 
 function isEditableStatus(status: InquiryInspectionStatus): boolean {
   return status === InquiryInspectionStatus.IN_PROGRESS || status === InquiryInspectionStatus.AWAITING_CUSTOMER;
@@ -27,7 +29,7 @@ export async function getOrCreateInspectionChecklist(params: {
     include: inspectionChecklistInclude,
   });
   if (existing) {
-    await ensureInspectionItemsForChecklist(existing.id);
+    await ensureInspectionItemsForChecklist(existing.id, params.tenantId);
     const refreshed = await prisma.inquiryInspectionChecklist.findFirst({
       where: { id: existing.id },
       include: inspectionChecklistInclude,
@@ -42,6 +44,8 @@ export async function getOrCreateInspectionChecklist(params: {
     roomCount: params.roomCount,
     isOneRoom: params.isOneRoom,
   });
+  const tenantConfig = await getTenantConfig(params.tenantId);
+  const inspectionTemplate = tenantConfig.inspection ?? null;
 
   const created = await prisma.inquiryInspectionChecklist.create({
     data: {
@@ -52,7 +56,7 @@ export async function getOrCreateInspectionChecklist(params: {
       templateVersion: 'v2',
       areas: {
         create: areas.map((a) => {
-          const itemDefs = buildStandardItemsForAreaKey(a.areaKey);
+          const itemDefs = resolveInspectionItemsForArea(a.areaKey, inspectionTemplate);
           return {
             areaKey: a.areaKey,
             label: a.label,
@@ -85,7 +89,7 @@ export async function loadInspectionChecklist(params: { inquiryId: string; tenan
     include: inspectionChecklistInclude,
   });
   if (!row) return null;
-  await ensureInspectionItemsForChecklist(row.id);
+  await ensureInspectionItemsForChecklist(row.id, params.tenantId);
   const refreshed = await prisma.inquiryInspectionChecklist.findFirst({
     where: { id: row.id },
     include: inspectionChecklistInclude,
@@ -94,7 +98,16 @@ export async function loadInspectionChecklist(params: { inquiryId: string; tenan
     where: { id: params.inquiryId, tenantId: params.tenantId },
     select: { customerName: true, preferredDate: true },
   });
-  return serializeInspectionChecklist(refreshed ?? row, inquiry ?? undefined);
+  let out = refreshed ?? row;
+  if (out.status === InquiryInspectionStatus.COMPLETED && !out.customerViewToken) {
+    await ensureInspectionCustomerViewToken(prisma, out.id, params.tenantId);
+    const withToken = await prisma.inquiryInspectionChecklist.findFirst({
+      where: { id: out.id },
+      include: inspectionChecklistInclude,
+    });
+    if (withToken) out = withToken;
+  }
+  return serializeInspectionChecklist(out, inquiry ?? undefined);
 }
 
 export async function updateInspectionDraft(params: {
@@ -260,7 +273,16 @@ export async function completeInspectionChecklist(params: {
     inquiryId: params.inquiryId,
   }).catch((e) => console.error('[inspection] post-complete failed', e));
 
-  return serializeInspectionChecklist(updated);
+  await ensureInspectionCustomerViewToken(prisma, updated.id, params.tenantId);
+  const withToken = await prisma.inquiryInspectionChecklist.findFirst({
+    where: { id: updated.id },
+    include: inspectionChecklistInclude,
+  });
+  const inquiry = await prisma.inquiry.findFirst({
+    where: { id: params.inquiryId, tenantId: params.tenantId },
+    select: { customerName: true, preferredDate: true },
+  });
+  return serializeInspectionChecklist(withToken ?? updated, inquiry ?? undefined);
 }
 
 export async function voidInspectionChecklist(params: {

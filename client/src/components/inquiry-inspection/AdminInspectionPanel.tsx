@@ -15,6 +15,8 @@ import {
   InspectionHeaderBlock,
 } from './inspectionUiBlocks';
 import { getMe } from '../../api/auth';
+import { copyTextToClipboard } from '../../utils/clipboard';
+import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
 
 export function AdminInspectionPanel({
   inquiryId,
@@ -30,6 +32,7 @@ export function AdminInspectionPanel({
   const [voidReason, setVoidReason] = useState('');
   const [voidPassword, setVoidPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [copyHint, setCopyHint] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setErr(null);
@@ -110,6 +113,21 @@ export function AdminInspectionPanel({
             >
               사진 ZIP
             </button>
+            {checklist.customerViewToken ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const url = getInspectionCustomerViewUrl(checklist.customerViewToken!);
+                  void copyTextToClipboard(url).then((ok) => {
+                    setCopyHint(ok ? '복사됨' : '복사 실패');
+                    window.setTimeout(() => setCopyHint(null), 2000);
+                  });
+                }}
+                className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-fluid-2xs text-indigo-900 hover:bg-indigo-100"
+              >
+                {copyHint ?? '고객 열람 링크 복사'}
+              </button>
+            ) : null}
             {isAdmin && smtpConfigured && (
               <button
                 type="button"

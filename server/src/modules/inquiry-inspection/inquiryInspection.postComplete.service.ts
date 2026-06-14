@@ -5,6 +5,8 @@ import { buildInspectionPdfBuffer } from './inquiryInspection.pdf.service.js';
 import { uploadInspectionPdfBuffer } from './inquiryInspection.pdfUpload.service.js';
 import { sendInspectionCompletionEmail } from './inquiryInspection.email.service.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { ensureInspectionCustomerViewToken } from './inquiryInspection.customerView.service.js';
+import { buildInspectionCustomerViewUrl } from './inquiryInspection.publicUrl.js';
 
 /** 검수 완료 직후 PDF 생성·Cloudinary 저장·고객 이메일 발송 */
 export async function finalizeInspectionAfterComplete(params: {
@@ -26,6 +28,7 @@ export async function finalizeInspectionAfterComplete(params: {
       preferredDate: true,
       address: true,
       addressDetail: true,
+      operatingCompany: { select: { slug: true } },
     },
   });
   if (!inquiry) return;
@@ -69,6 +72,22 @@ export async function finalizeInspectionAfterComplete(params: {
     (typeof tenantConfig.branding?.displayName === 'string' && tenantConfig.branding.displayName.trim()) ||
     '청소비서';
 
+  const tenantRow = await prisma.tenant.findUnique({
+    where: { id: params.tenantId },
+    select: { slug: true },
+  });
+
+  let customerViewUrl: string | null = null;
+  try {
+    const viewToken = await ensureInspectionCustomerViewToken(prisma, row.id, params.tenantId);
+    customerViewUrl = buildInspectionCustomerViewUrl(viewToken, {
+      tenantSlug: tenantRow?.slug ?? null,
+      brandSlug: inquiry.operatingCompany?.slug ?? null,
+    });
+  } catch (e) {
+    console.error('[inspection-finalize] customer view token failed', e);
+  }
+
   let emailSent = false;
   try {
     emailSent = await sendInspectionCompletionEmail({
@@ -77,6 +96,7 @@ export async function finalizeInspectionAfterComplete(params: {
       tenantDisplayName,
       pdfBuffer,
       pdfUrl,
+      customerViewUrl,
     });
   } catch (e) {
     console.error('[inspection-finalize] email send failed', e);
@@ -112,6 +132,7 @@ export async function resendInspectionCompletionEmail(params: {
       preferredDate: true,
       address: true,
       addressDetail: true,
+      operatingCompany: { select: { slug: true } },
     },
   });
   if (!inquiry) throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
@@ -144,12 +165,28 @@ export async function resendInspectionCompletionEmail(params: {
     (typeof tenantConfig.branding?.displayName === 'string' && tenantConfig.branding.displayName.trim()) ||
     '청소비서';
 
+  const tenantRow = await prisma.tenant.findUnique({
+    where: { id: params.tenantId },
+    select: { slug: true },
+  });
+  let customerViewUrl: string | null = null;
+  try {
+    const viewToken = await ensureInspectionCustomerViewToken(prisma, row.id, params.tenantId);
+    customerViewUrl = buildInspectionCustomerViewUrl(viewToken, {
+      tenantSlug: tenantRow?.slug ?? null,
+      brandSlug: inquiry.operatingCompany?.slug ?? null,
+    });
+  } catch (e) {
+    console.error('[inspection-resend] customer view token failed', e);
+  }
+
   const emailSent = await sendInspectionCompletionEmail({
     row,
     inquiry: inquiryPayload,
     tenantDisplayName,
     pdfBuffer,
     pdfUrl,
+    customerViewUrl,
   });
 
   if (emailSent) {

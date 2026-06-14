@@ -43,6 +43,7 @@ import {
   teamT,
 } from '../../i18n/team/teamI18n';
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import type { InspectionListSummary } from '../../api/inquiryInspection';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
@@ -588,6 +589,7 @@ export function TeamInquiryDetailModal({
   viewerTeamLeaderId?: string | null;
 }) {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
+  const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
   const [happySaving, setHappySaving] = useState(false);
@@ -774,7 +776,9 @@ export function TeamInquiryDetailModal({
                 ) : null}
                 <TeamInquiryStatusBi code={item.status} />
                 {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
-                <InspectionProgressBadge summary={item.inspectionSummary} />
+                {hasInspectionModule ? (
+                  <InspectionProgressBadge summary={item.inspectionSummary} />
+                ) : null}
                 {item.orderForm?.template && !item.orderForm.template.isDefault ? (
                   <OrderFormTemplateBadge template={item.orderForm.template} />
                 ) : null}
@@ -1311,7 +1315,7 @@ export function TeamInquiryDetailModal({
         </div>
 
         <footer className="shrink-0 space-y-2 border-t border-gray-200 bg-gray-50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:rounded-b-2xl">
-          {enableHappyCall ? (
+          {enableHappyCall && hasInspectionModule ? (
             <>
               <Link
                 to={`/team/pre-clean/${encodeURIComponent(item.id)}`}

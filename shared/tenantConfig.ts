@@ -14,15 +14,17 @@ export type TenantOrderFormConfig = {
   publicSubtitle?: string;
 };
 
+import type { OperatingCompanyPolicy } from './operatingCompanyConfig.js';
+
+export type { OperatingCompanyPolicy } from './operatingCompanyConfig.js';
+export { DEFAULT_OPERATING_COMPANY_POLICY } from './operatingCompanyConfig.js';
+
 export type TenantInquiryConfig = {
   /** 접수번호 접두 (예: SK-) — 미구현 시 서버 기본 규칙 유지 */
   numberPrefix?: string;
 };
 
-import type { OperatingCompanyPolicy } from './operatingCompanyConfig.js';
-
-export type { OperatingCompanyPolicy } from './operatingCompanyConfig.js';
-export { DEFAULT_OPERATING_COMPANY_POLICY } from './operatingCompanyConfig.js';
+import type { TenantInspectionTemplateConfig } from './inquiryInspectionTenantTemplate.js';
 
 export type TenantConfig = {
   branding?: TenantBrandingConfig;
@@ -30,6 +32,8 @@ export type TenantConfig = {
   inquiry?: TenantInquiryConfig;
   /** 테넌트 전역 영업 브랜드 정책(배정·팀장 목록·접수 기본 귀속). 브랜딩 JSON은 OperatingCompany.config */
   operatingCompanyPolicy?: OperatingCompanyPolicy;
+  /** 현장 검수 체크리스트 세부 항목 템플릿 */
+  inspection?: TenantInspectionTemplateConfig;
 };
 
 export const EMPTY_TENANT_CONFIG: TenantConfig = {};
@@ -50,6 +54,7 @@ export const TENANT_CONFIG_FIELD_HINTS = {
   'branding.loginSubtitle': '로그인 화면 부제',
   'orderForm.publicSubtitle': '고객 발주서 부제 (기본 영업 브랜드 초기값)',
   'inquiry.numberPrefix': '접수번호 접두 (예: SK-, 브랜드별 prefix는 OperatingCompany.config)',
+  'inspection.areaItems': '현장 검수 구역별 세부 항목 템플릿 (관리자 UI에서 편집)',
   ...OPERATING_COMPANY_POLICY_FIELD_HINTS,
 } as const;
 

@@ -30,6 +30,7 @@ import {
   formatTeamInquiryAreaSummary,
 } from './teamInquiryShared';
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
@@ -86,6 +87,7 @@ function formatAssignedAt(iso?: string | null): string {
 
 export function TeamAssignmentListPage() {
   const isLgUp = useIsLgUp();
+  const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const token = getTeamToken();
   const navigate = useNavigate();
   const location = useLocation();
@@ -613,7 +615,9 @@ export function TeamAssignmentListPage() {
                         {STATUS_LABELS[item.status] ?? item.status}
                       </span>
                       <TeamHappyCallBadge item={item} variant="list" />
-                      <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
+                      {hasInspectionModule ? (
+                        <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
+                      ) : null}
                     </div>
                     <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatCrewInfo(item)}>
                       {formatCrewInfo(item)}
@@ -682,9 +686,11 @@ export function TeamAssignmentListPage() {
                     <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
                       <TeamBiLine id="team.assign.thHappy" koClassName="text-fluid-xs font-medium text-gray-700" />
                     </th>
-                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
-                      <span className="text-fluid-xs font-medium text-gray-700">현장검수</span>
-                    </th>
+                    {hasInspectionModule ? (
+                      <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                        <span className="text-fluid-xs font-medium text-gray-700">현장검수</span>
+                      </th>
+                    ) : null}
                     <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
                       <TeamBiLine id="team.assign.thCoLeaders" koClassName="text-fluid-xs font-medium text-gray-700" />
                     </th>
@@ -806,9 +812,11 @@ export function TeamAssignmentListPage() {
                         <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>
                           <TeamHappyCallBadge item={item} variant="list" />
                         </td>
-                        <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>
-                          <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
-                        </td>
+                        {hasInspectionModule ? (
+                          <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>
+                            <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
+                          </td>
+                        ) : null}
                         <td
                           className={`align-middle py-2 px-2 text-gray-600 text-center max-w-[120px] truncate ${pBorder}`}
                           title={coLeadersSummary(item, myId!)}

@@ -42,6 +42,7 @@ import {
   OrderInfoPage,
   CsReportPage,
   ReviewPaybackPage,
+  InspectionCustomerViewPage,
   AdminReviewPaybackPage,
   AdminCsPage,
   AdminAdvertisingPage,
@@ -56,6 +57,7 @@ import {
   AdminOperatingCompanyPolicyPage,
   AdminExternalSettlementPage,
   AdminPageSettingsPage,
+  AdminInspectionTemplatePage,
   AdminPayrollPage,
   AdminEContractListPage,
   AdminEContractDefinitionPage,
@@ -133,6 +135,14 @@ function App() {
             <Route path="inquiry-delete" element={<SuspensePage><AdminInquiryBulkDeletePage /></SuspensePage>} />
             <Route path="operating-companies" element={<SuspensePage><AdminOperatingCompaniesPage /></SuspensePage>} />
             <Route path="operating-policy" element={<SuspensePage><AdminOperatingCompanyPolicyPage /></SuspensePage>} />
+            <Route
+              path="inspection-template"
+              element={
+                <FeatureGate module="mod_inspection">
+                  <SuspensePage><AdminInspectionTemplatePage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
             <Route path="external-companies" element={<SuspensePage><AdminExternalCompaniesPage /></SuspensePage>} />
             <Route
               path="tenant-partners"
@@ -187,6 +197,7 @@ function App() {
         <Route path="/info" element={<SuspensePage><OrderInfoPage /></SuspensePage>} />
         <Route path="/cs" element={<SuspensePage><CsReportPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
+        <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
         <Route
           path="/crew"
@@ -216,8 +227,8 @@ function App() {
         >
           <Route path="dashboard" element={<SuspensePage><TeamDashboardPage /></SuspensePage>} />
           <Route path="assignments" element={<SuspensePage><TeamAssignmentListPage /></SuspensePage>} />
-          <Route path="pre-clean/:inquiryId" element={<SuspensePage><TeamPreCleanPhotoPage /></SuspensePage>} />
-          <Route path="inspection/:inquiryId" element={<SuspensePage><TeamInspectionPage /></SuspensePage>} />
+          <Route path="pre-clean/:inquiryId" element={<FeatureGate module="mod_inspection" redirectTo="/team/dashboard"><SuspensePage><TeamPreCleanPhotoPage /></SuspensePage></FeatureGate>} />
+          <Route path="inspection/:inquiryId" element={<FeatureGate module="mod_inspection" redirectTo="/team/dashboard"><SuspensePage><TeamInspectionPage /></SuspensePage></FeatureGate>} />
           <Route path="schedule" element={<SuspensePage><TeamSchedulePage /></SuspensePage>} />
           <Route path="dayoffs" element={<SuspensePage><TeamDayOffsPage /></SuspensePage>} />
           <Route path="settlement" element={<SuspensePage><TeamExternalSettlementPage /></SuspensePage>} />

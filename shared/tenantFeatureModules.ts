@@ -16,6 +16,7 @@ export const TENANT_FEATURE_MODULES = {
   mod_tenant_exchange: { label: '파트너 접수 연계', tier: 'standard' as const, defaultOn: false },
   mod_crew: { label: '크루(현장)', tier: 'standard' as const, defaultOn: true },
   mod_team_stats: { label: '팀장 통계', tier: 'standard' as const, defaultOn: true },
+  mod_inspection: { label: '현장 검수', tier: 'standard' as const, defaultOn: true },
 } as const;
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
@@ -37,6 +38,7 @@ export const TENANT_PLANS = {
       'mod_tenant_exchange',
       'mod_crew',
       'mod_team_stats',
+      'mod_inspection',
     ] as TenantFeatureModuleId[],
   },
   premium: {
@@ -51,6 +53,7 @@ export const TENANT_PLANS = {
       'mod_tenant_exchange',
       'mod_crew',
       'mod_team_stats',
+      'mod_inspection',
       'mod_advertising',
       'mod_payroll',
       'mod_e_contract',

@@ -1,0 +1,19 @@
+/** 서버·이메일용 공개 URL 빌더 */
+export function getPublicAppBaseUrl(): string {
+  const domain = process.env.RAILWAY_PUBLIC_DOMAIN;
+  if (domain) return `https://${domain}`;
+  return process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
+}
+
+export function buildInspectionCustomerViewUrl(
+  customerViewToken: string,
+  params?: { origin?: string; tenantSlug?: string | null; brandSlug?: string | null },
+): string {
+  const base = (params?.origin ?? getPublicAppBaseUrl()).replace(/\/$/, '');
+  const path = `/inspection/${encodeURIComponent(customerViewToken)}`;
+  const q = new URLSearchParams();
+  if (params?.tenantSlug?.trim()) q.set('tenant', params.tenantSlug.trim());
+  if (params?.brandSlug?.trim()) q.set('brand', params.brandSlug.trim());
+  const qs = q.toString();
+  return qs ? `${base}${path}?${qs}` : `${base}${path}`;
+}

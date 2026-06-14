@@ -17,6 +17,8 @@ import {
   InspectionHeaderBlock,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
 import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
+import { copyTextToClipboard } from '../../utils/clipboard';
+import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
 
 export function TeamInspectionPage() {
   const { inquiryId = '' } = useParams<{ inquiryId: string }>();
@@ -222,9 +224,24 @@ export function TeamInspectionPage() {
       )}
 
       {checklist.status === 'COMPLETED' && checklist.completedAt && (
-        <p className="text-fluid-xs text-emerald-800">
-          완료: {new Date(checklist.completedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
-        </p>
+        <div className="space-y-2">
+          <p className="text-fluid-xs text-emerald-800">
+            완료: {new Date(checklist.completedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
+          </p>
+          {checklist.customerViewToken ? (
+            <button
+              type="button"
+              className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-fluid-xs font-medium text-indigo-900"
+              onClick={() => {
+                void copyTextToClipboard(
+                  getInspectionCustomerViewUrl(checklist.customerViewToken!),
+                ).then((ok) => alert(ok ? '고객 열람 링크를 복사했습니다.' : '복사에 실패했습니다.'));
+              }}
+            >
+              고객 열람 링크 복사
+            </button>
+          ) : null}
+        </div>
       )}
     </div>
   );

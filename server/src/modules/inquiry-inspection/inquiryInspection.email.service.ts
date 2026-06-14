@@ -18,6 +18,7 @@ export async function sendInspectionCompletionEmail(params: {
   tenantDisplayName: string;
   pdfBuffer: Buffer | null;
   pdfUrl: string | null;
+  customerViewUrl?: string | null;
 }): Promise<boolean> {
   const email = params.row.customerEmail?.trim();
   if (!email) return false;
@@ -32,8 +33,11 @@ export async function sendInspectionCompletionEmail(params: {
   const pdfLinkBlock = params.pdfUrl
     ? `<p style="margin-top:16px;"><a href="${params.pdfUrl}">완료본 PDF 다운로드</a></p>`
     : '';
+  const viewLinkBlock = params.customerViewUrl
+    ? `<p style="margin-top:12px;"><a href="${params.customerViewUrl}">웹에서 검수본 보기</a></p>`
+    : '';
 
-  const html = `${htmlBody.replace('</body>', `${pdfLinkBlock}</body>`)}`;
+  const html = `${htmlBody.replace('</body>', `${pdfLinkBlock}${viewLinkBlock}</body>`)}`;
 
   const attachments =
     params.pdfBuffer && params.pdfBuffer.length > 0
@@ -50,7 +54,7 @@ export async function sendInspectionCompletionEmail(params: {
     to: email,
     subject,
     html,
-    text: plain + (params.pdfUrl ? `\n\nPDF: ${params.pdfUrl}` : ''),
+    text: plain + (params.pdfUrl ? `\n\nPDF: ${params.pdfUrl}` : '') + (params.customerViewUrl ? `\n\n웹 열람: ${params.customerViewUrl}` : ''),
     attachments,
   });
   return true;

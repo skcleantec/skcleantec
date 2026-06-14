@@ -17,12 +17,17 @@ export type TenantInquiryConfig = {
 };
 
 import type { OperatingCompanyPolicy } from '../operating-companies/operatingCompanyPolicy.js';
+import {
+  sanitizeTenantInspectionAreaItems,
+  type TenantInspectionTemplateConfig,
+} from '../../lib/inquiryInspectionTenantTemplate.js';
 
 export type TenantConfig = {
   branding?: TenantBrandingConfig;
   orderForm?: TenantOrderFormConfig;
   inquiry?: TenantInquiryConfig;
   operatingCompanyPolicy?: OperatingCompanyPolicy;
+  inspection?: TenantInspectionTemplateConfig;
 };
 
 const MAX_STRING = 512;
@@ -85,6 +90,19 @@ function parseOperatingCompanyPolicySection(raw: unknown): TenantConfig['operati
   return out;
 }
 
+function parseInspection(raw: unknown): TenantConfig['inspection'] | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const o = raw as Record<string, unknown>;
+  if (!o.areaItems) return undefined;
+  try {
+    const areaItems = sanitizeTenantInspectionAreaItems(o.areaItems);
+    if (Object.keys(areaItems).length === 0) return undefined;
+    return { areaItems };
+  } catch {
+    return undefined;
+  }
+}
+
 /** DB JSON → 검증된 TenantConfig (알 수 없는 키는 무시) */
 export function parseTenantConfig(raw: unknown): TenantConfig {
   if (raw == null) return {};
@@ -96,11 +114,13 @@ export function parseTenantConfig(raw: unknown): TenantConfig {
   const orderForm = parseOrderForm(o.orderForm);
   const inquiry = parseInquiry(o.inquiry);
   const operatingCompanyPolicy = parseOperatingCompanyPolicySection(o.operatingCompanyPolicy);
+  const inspection = parseInspection(o.inspection);
   const out: TenantConfig = {};
   if (branding) out.branding = branding;
   if (orderForm) out.orderForm = orderForm;
   if (inquiry) out.inquiry = inquiry;
   if (operatingCompanyPolicy) out.operatingCompanyPolicy = operatingCompanyPolicy;
+  if (inspection) out.inspection = inspection;
   return out;
 }
 
@@ -114,6 +134,7 @@ export function mergeTenantConfig(existing: TenantConfig, patch: TenantConfig): 
       patch.operatingCompanyPolicy !== undefined
         ? patch.operatingCompanyPolicy
         : existing.operatingCompanyPolicy,
+    inspection: patch.inspection !== undefined ? patch.inspection : existing.inspection,
   };
 }
 
@@ -123,6 +144,9 @@ export function tenantConfigToJson(config: TenantConfig): Record<string, unknown
   if (config.orderForm && Object.keys(config.orderForm).length > 0) out.orderForm = config.orderForm;
   if (config.inquiry && Object.keys(config.inquiry).length > 0) out.inquiry = config.inquiry;
   if (config.operatingCompanyPolicy) out.operatingCompanyPolicy = config.operatingCompanyPolicy;
+  if (config.inspection?.areaItems && Object.keys(config.inspection.areaItems).length > 0) {
+    out.inspection = { areaItems: config.inspection.areaItems };
+  }
   return out;
 }
 

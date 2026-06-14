@@ -89,6 +89,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         label: '브랜드정책',
         title: '영업 브랜드 운영 정책',
       },
+      {
+        to: '/admin/team-leaders/inspection-template',
+        label: '검수템플릿',
+        title: '현장 검수 체크리스트 템플릿',
+      },
     ],
   },
 ];

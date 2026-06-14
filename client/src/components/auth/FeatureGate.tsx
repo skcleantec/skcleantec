@@ -7,10 +7,12 @@ import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 type Props = {
   module: TenantFeatureModuleId;
   children: ReactNode;
+  /** 기능 off 시 이동 경로 (기본: 관리자 대시보드) */
+  redirectTo?: string;
 };
 
-/** 테넌트 기능 모듈 off 시 대시보드로 돌려보냄 */
-export function FeatureGate({ module, children }: Props) {
+/** 테넌트 기능 모듈 off 시 redirectTo 로 돌려보냄 */
+export function FeatureGate({ module, children, redirectTo = '/admin/dashboard' }: Props) {
   const { features } = useTenantCapabilities();
   const location = useLocation();
 
@@ -23,7 +25,7 @@ export function FeatureGate({ module, children }: Props) {
   if (!hasFeature(features, module)) {
     return (
       <Navigate
-        to="/admin/dashboard"
+        to={redirectTo}
         replace
         state={{ featureDisabled: module, from: location.pathname + location.search }}
       />

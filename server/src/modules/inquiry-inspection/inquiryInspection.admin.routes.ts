@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { findInquiryForStaff } from './inquiryInspection.access.js';
 import { loadInspectionChecklist, voidInspectionChecklist } from './inquiryInspection.service.js';
 import { resendInspectionCompletionEmail } from './inquiryInspection.postComplete.service.js';
@@ -12,6 +13,8 @@ import { prisma } from '../../lib/prisma.js';
 import { isSmtpConfigured } from '../../lib/mailer.js';
 
 const router = Router({ mergeParams: true });
+
+router.use(requireFeature('mod_inspection'));
 
 async function loadChecklistRow(inquiryId: string, tenantId: string) {
   return prisma.inquiryInspectionChecklist.findFirst({

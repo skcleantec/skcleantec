@@ -30,6 +30,7 @@ import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import { InspectionCsSummaryBadge } from '../inquiry-inspection/InspectionCsSummaryBadge';
 import { AdminInspectionPanel } from '../inquiry-inspection/AdminInspectionPanel';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import type { InspectionStatus } from '../../api/inquiryInspection';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
@@ -207,6 +208,7 @@ type CsWorkdeskProps = {
 
 export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   const location = useLocation();
+  const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const [searchParams, setSearchParams] = useSearchParams();
   const previewKey = teamPreviewDepsKey(location.search);
   const token = mode === 'admin' ? getToken() : getTeamToken();
@@ -1123,7 +1125,9 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                       <span className="font-mono tabular-nums">{selected.inquiry.inquiryNumber}</span>
                     </p>
                   ) : null}
-                  <InspectionCsSummaryBadge summary={csInspectionBadgeProps(selected.inquiry)} />
+                  {hasInspectionModule ? (
+                    <InspectionCsSummaryBadge summary={csInspectionBadgeProps(selected.inquiry)} />
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => setConnectedInquiryModal(selected.inquiry!)}
@@ -1303,13 +1307,15 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   <span className="font-mono tabular-nums">{connectedInquiryModal.inquiryNumber}</span>
                 </p>
               ) : null}
-              <div className="mt-2">
-                <InspectionCsSummaryBadge
-                  summary={
-                    connectedInquiryModal ? csInspectionBadgeProps(connectedInquiryModal) : null
-                  }
-                />
-              </div>
+              {hasInspectionModule ? (
+                <div className="mt-2">
+                  <InspectionCsSummaryBadge
+                    summary={
+                      connectedInquiryModal ? csInspectionBadgeProps(connectedInquiryModal) : null
+                    }
+                  />
+                </div>
+              ) : null}
             </div>
             <div className="p-4 sm:p-5 space-y-4 text-fluid-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1430,7 +1436,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   <p className="whitespace-pre-wrap text-slate-800">{connectedInquiryModal.specialNotes}</p>
                 </div>
               ) : null}
-              {mode === 'admin' && token ? (
+              {mode === 'admin' && token && hasInspectionModule ? (
                 <div className="border-t border-slate-200 pt-4">
                   <h3 className="text-fluid-sm font-semibold text-slate-900 mb-3">현장 검수 체크리스트</h3>
                   <AdminInspectionPanel inquiryId={connectedInquiryModal.id} token={token} />

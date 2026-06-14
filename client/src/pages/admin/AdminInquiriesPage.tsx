@@ -69,6 +69,7 @@ import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFo
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } from '../../api/teams';
@@ -650,6 +651,7 @@ function initialTeamLeaderIdsForEdit(assignments: InquiryItem['assignments']): s
 
 export function AdminInquiriesPage() {
   const token = getToken();
+  const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -1194,7 +1196,7 @@ export function AdminInquiriesPage() {
     if (operatingCompanyFilterId.trim()) {
       params.operatingCompanyId = operatingCompanyFilterId.trim();
     }
-    if (me?.role === 'ADMIN' && inspectionStatusFilter.trim()) {
+    if (me?.role === 'ADMIN' && hasInspectionModule && inspectionStatusFilter.trim()) {
       params.inspectionStatus = inspectionStatusFilter.trim();
     }
     params.limit = listPageSize;
@@ -2420,7 +2422,7 @@ export function AdminInquiriesPage() {
                   </button>
                 ) : null}
               </div>
-              {me?.role === 'ADMIN' ? (
+              {me?.role === 'ADMIN' && hasInspectionModule ? (
                 <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                   <label
                     htmlFor="inquiry-inspection-status-filter"
@@ -2966,7 +2968,9 @@ export function AdminInquiriesPage() {
                     시간·거리
                   </th>
                   <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">상태</th>
-                  <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">현장검수</th>
+                  {hasInspectionModule ? (
+                    <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">현장검수</th>
+                  ) : null}
                   <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">팀장</th>
                   <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">작업</th>
                 </tr>
@@ -3154,9 +3158,11 @@ export function AdminInquiriesPage() {
                         </span>
                       ) : null}
                     </td>
-                    <td className={`min-w-0 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`}>
-                      <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
-                    </td>
+                    {hasInspectionModule ? (
+                      <td className={`min-w-0 px-1 py-1 align-middle text-center xl:px-1.5 xl:py-1.5 ${pBorder}`}>
+                        <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
+                      </td>
+                    ) : null}
                     <td className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <div
                         className="mb-0.5 line-clamp-2 text-left text-[10px] leading-snug text-slate-600 xl:text-fluid-2xs"
@@ -4461,7 +4467,7 @@ export function AdminInquiriesPage() {
               </div>
             )}
 
-            {token && (
+            {token && hasInspectionModule && (
               <div className="mt-4 min-w-0 rounded-lg border border-slate-200 bg-white p-3">
                 <p className="mb-2 text-fluid-xs font-semibold text-slate-900">현장 검수·완료</p>
                 <AdminInspectionPanel inquiryId={editItem.id} token={token} />

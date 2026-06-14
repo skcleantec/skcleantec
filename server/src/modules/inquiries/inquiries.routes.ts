@@ -79,6 +79,7 @@ import {
   attachInspectionSummaries,
   whereInspectionStatusFilter,
 } from '../inquiry-inspection/inquiryInspection.summary.js';
+import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { handlePostSwapCrewWithPartner } from './inquiryCrewPartnerSwap.handler.js';
 import {
   attachTenantShareMetaToInquiries,
@@ -206,6 +207,7 @@ router.get('/', async (req, res) => {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
+  const inspectionModuleEnabled = await isFeatureEnabled(tenantId, 'mod_inspection');
   const {
     status,
     limit = '200',
@@ -311,6 +313,7 @@ router.get('/', async (req, res) => {
   }
 
   if (
+    inspectionModuleEnabled &&
     user.role === 'ADMIN' &&
     typeof inspectionStatus === 'string' &&
     inspectionStatus.trim()

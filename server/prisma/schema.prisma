@@ -1060,6 +1060,8 @@ model InquiryInspectionChecklist {
   emailSentAt            DateTime?                @map("email_sent_at")
   completionPdfPublicId  String?                  @map("completion_pdf_public_id") @db.VarChar(512)
   completionPdfSecureUrl String?                  @map("completion_pdf_secure_url") @db.VarChar(2048)
+  /** 고객 열람용 공개 링크 토큰 — COMPLETED 시 발급 */
+  customerViewToken      String?                  @unique @map("customer_view_token") @db.VarChar(64)
   createdAt              DateTime                 @default(now()) @map("created_at")
   updatedAt              DateTime                 @updatedAt @map("updated_at")
 
@@ -1071,6 +1073,7 @@ model InquiryInspectionChecklist {
 
   @@index([tenantId, status])
   @@index([tenantId, inquiryId])
+  @@index([status, completedAt])
   @@map("inquiry_inspection_checklists")
 }
 

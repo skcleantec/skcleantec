@@ -634,6 +634,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     AssignableScheduleUsersResponse['policy']
   >({ assignmentMode: 'relaxed', teamLeaderListMode: 'tenant_all_read' });
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
+  const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const [tenantSharePartnerships, setTenantSharePartnerships] = useState<TenantPartnershipItem[]>([]);
   const [tenantSharePartnershipId, setTenantSharePartnershipId] = useState('');
   const [tenantShareTransferFee, setTenantShareTransferFee] = useState('');
@@ -2830,7 +2831,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </AdminScheduleDetailSection>
         )}
 
-        {!isCreate && item && (
+        {!isCreate && item && hasInspectionModule && (
           <AdminScheduleDetailSection title="현장 검수·완료" sectionAnchor="inspection">
             <AdminInspectionPanel inquiryId={item.id} token={token} />
           </AdminScheduleDetailSection>

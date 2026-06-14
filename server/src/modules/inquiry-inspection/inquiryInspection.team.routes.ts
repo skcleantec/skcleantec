@@ -27,6 +27,7 @@ import {
 } from './inquiryInspection.photos.service.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { prisma } from '../../lib/prisma.js';
+import { requireFeature } from '../tenants/requireTenantFeature.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -46,6 +47,8 @@ function collectUploadedFiles(req: Request): Express.Multer.File[] {
 }
 
 const router = Router({ mergeParams: true });
+
+router.use(requireFeature('mod_inspection'));
 
 async function tenantIdForTeamReq(req: Request): Promise<string | null> {
   const user = (req as unknown as { user: AuthPayload }).user;

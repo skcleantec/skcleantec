@@ -51,6 +51,7 @@ export function serializeInspectionChecklist(row: ChecklistRow, inquiry?: {
     completionPdf: row.completionPdfSecureUrl
       ? { publicId: row.completionPdfPublicId, secureUrl: row.completionPdfSecureUrl }
       : null,
+    customerViewToken: row.customerViewToken,
     teamLeader: row.teamLeader,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
