@@ -53,6 +53,7 @@ import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/m
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { PropertyTypeSticker } from '../ui/PropertyTypeSticker';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
+import { AdminInspectionPanel } from '../inquiry-inspection/AdminInspectionPanel';
 import { InquiryConsultationPhotosPanel } from '../inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../inquiry/InquirySettlementPanel';
@@ -2826,6 +2827,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         {!isCreate && orderFormPhotoId && (
           <AdminScheduleDetailSection title="발주서 첨부 사진 (고객 업로드)" sectionAnchor="order-photos">
             <AdminOrderFormPhotosPanel orderFormId={orderFormPhotoId} token={token} />
+          </AdminScheduleDetailSection>
+        )}
+
+        {!isCreate && item && (
+          <AdminScheduleDetailSection title="현장 검수·완료" sectionAnchor="inspection">
+            <AdminInspectionPanel inquiryId={item.id} token={token} />
           </AdminScheduleDetailSection>
         )}
 

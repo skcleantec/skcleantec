@@ -47,6 +47,9 @@ export const TeamCsPage = lazy(() =>
 export const TeamAssignmentListPage = lazy(() =>
   import('../pages/team/TeamAssignmentListPage').then((m) => ({ default: m.TeamAssignmentListPage }))
 );
+export const TeamInspectionPage = lazy(() =>
+  import('../pages/team/TeamInspectionPage').then((m) => ({ default: m.TeamInspectionPage }))
+);
 export const TeamExternalSettlementPage = lazy(() =>
   import('../pages/team/TeamExternalSettlementPage').then((m) => ({ default: m.TeamExternalSettlementPage }))
 );

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
@@ -1306,6 +1306,15 @@ export function TeamInquiryDetailModal({
         </div>
 
         <footer className="shrink-0 space-y-2 border-t border-gray-200 bg-gray-50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:rounded-b-2xl">
+          {enableHappyCall ? (
+            <Link
+              to={`/team/inspection/${encodeURIComponent(item.id)}`}
+              onClick={onClose}
+              className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-emerald-700 bg-emerald-600 text-fluid-sm font-medium text-white hover:bg-emerald-700 touch-manipulation"
+            >
+              현장 검수 · 청소완료
+            </Link>
+          ) : null}
           {enableHappyCall && canHappy && !item.happyCallCompletedAt && onHappyCallComplete ? (
             <button
               type="button"

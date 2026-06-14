@@ -12,6 +12,7 @@ export const INQUIRY_EDIT_SECTION_ANCHOR_ORDER = [
   'status',
   'consultation-photos',
   'order-photos',
+  'inspection',
   'site-photos',
   'history',
 ] as const;
@@ -28,6 +29,7 @@ export const INQUIRY_EDIT_SECTION_TITLE_HINTS = [
   '상태 · 배정 · 팀원 · 메모',
   '상담·참고 (사진·마케터 메모)',
   '발주서 첨부 사진 (고객 업로드)',
+  '현장 검수·완료',
   '현장 사진 (청소 전·후)',
   '날짜·금액 변경 이력',
 ] as const;

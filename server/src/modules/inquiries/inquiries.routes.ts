@@ -56,6 +56,7 @@ import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiry
 import inquiryConsultationPhotosAdminRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.admin.routes.js';
 import inquiryExtraChargesAdminRoutes from '../inquiry-extra-charges/inquiryExtraCharges.admin.routes.js';
 import inquiryAdditionalReceiptsAdminRoutes from '../inquiry-additional-receipts/inquiryAdditionalReceipts.admin.routes.js';
+import inquiryInspectionAdminRoutes from '../inquiry-inspection/inquiryInspection.admin.routes.js';
 import { buildInquiryPatchCrewRosterAckMessages } from './crewRosterAckMessages.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
@@ -487,6 +488,7 @@ router.get('/:id', async (req, res) => {
 
 /** 접수별 현장 청소 전·후 사진 (Cloudinary) — 목록·업로드·삭제 */
 router.use('/:inquiryId/cleaning-photos', inquiryCleaningPhotosAdminRoutes);
+router.use('/:inquiryId/inspection', inquiryInspectionAdminRoutes);
 router.use('/:inquiryId/consultation-photos', inquiryConsultationPhotosAdminRoutes);
 router.use('/:inquiryId/extra-charges', inquiryExtraChargesAdminRoutes);
 router.use('/:inquiryId/additional-receipts', inquiryAdditionalReceiptsAdminRoutes);

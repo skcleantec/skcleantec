@@ -1,0 +1,95 @@
+import type { InspectionAreaPhotoPhase } from '@prisma/client';
+import { prisma } from '../../lib/prisma.js';
+import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+
+export function assertCloudinaryReady(): void {
+  if (!isCloudinaryConfigured()) {
+    throw new Error('CLOUDINARY_NOT_CONFIGURED');
+  }
+}
+
+export async function uploadInspectionPhotoBuffer(params: {
+  inquiryId: string;
+  areaId: string;
+  phase: InspectionAreaPhotoPhase;
+  uploadedById: string;
+  buffer: Buffer;
+}) {
+  assertCloudinaryReady();
+  const folder = `skcleanteck/inquiries/${params.inquiryId}/inspection/${params.areaId}/${params.phase.toLowerCase()}`;
+  const result = await new Promise<{
+    public_id: string;
+    secure_url: string;
+    width?: number;
+    height?: number;
+  }>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'image',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+      },
+      (err, res) => {
+        if (err) reject(err);
+        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
+        else resolve(res as { public_id: string; secure_url: string; width?: number; height?: number });
+      }
+    );
+    stream.end(params.buffer);
+  });
+
+  return prisma.inquiryInspectionAreaPhoto.create({
+    data: {
+      areaId: params.areaId,
+      phase: params.phase,
+      uploadedById: params.uploadedById,
+      cloudinaryPublicId: result.public_id,
+      secureUrl: result.secure_url,
+      width: result.width ?? null,
+      height: result.height ?? null,
+    },
+    include: { uploadedBy: { select: { id: true, name: true } } },
+  });
+}
+
+export async function uploadInspectionSignatureBuffer(params: {
+  inquiryId: string;
+  buffer: Buffer;
+}) {
+  assertCloudinaryReady();
+  const folder = `skcleanteck/inquiries/${params.inquiryId}/inspection/signature`;
+  const result = await new Promise<{ public_id: string; secure_url: string }>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'image',
+        allowed_formats: ['png', 'jpg', 'jpeg', 'webp'],
+      },
+      (err, res) => {
+        if (err) reject(err);
+        else if (!res?.public_id || !res.secure_url) reject(new Error('cloudinary_upload_failed'));
+        else resolve(res as { public_id: string; secure_url: string });
+      }
+    );
+    stream.end(params.buffer);
+  });
+  return result;
+}
+
+export async function deleteInspectionPhoto(params: {
+  photoId: string;
+  areaId: string;
+  checklistId: string;
+}) {
+  const row = await prisma.inquiryInspectionAreaPhoto.findFirst({
+    where: { id: params.photoId, areaId: params.areaId, area: { checklistId: params.checklistId } },
+  });
+  if (!row) return null;
+  try {
+    await cloudinary.uploader.destroy(row.cloudinaryPublicId, { resource_type: 'image' });
+  } catch {
+    /* ignore cloudinary delete errors */
+  }
+  await prisma.inquiryInspectionAreaPhoto.delete({ where: { id: row.id } });
+  return row;
+}

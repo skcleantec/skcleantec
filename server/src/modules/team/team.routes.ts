@@ -9,6 +9,7 @@ import inquiryCleaningPhotosTeamRoutes from '../inquiry-cleaning-photos/inquiryC
 import inquiryConsultationPhotosTeamRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.team.routes.js';
 import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtraCharges.team.routes.js';
 import inquiryAdditionalReceiptsTeamRoutes from '../inquiry-additional-receipts/inquiryAdditionalReceipts.team.routes.js';
+import inquiryInspectionTeamRoutes from '../inquiry-inspection/inquiryInspection.team.routes.js';
 import { csReportFullInclude } from '../cs/csReport.include.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
@@ -333,6 +334,7 @@ router.get('/e-contracts/issuances', async (req, res) => {
 });
 
 router.use('/inquiries/:inquiryId/cleaning-photos', inquiryCleaningPhotosTeamRoutes);
+router.use('/inquiries/:inquiryId/inspection', inquiryInspectionTeamRoutes);
 router.use('/inquiries/:inquiryId/consultation-photos', inquiryConsultationPhotosTeamRoutes);
 router.use('/inquiries/:inquiryId/extra-charges', inquiryExtraChargesTeamRoutes);
 router.use('/inquiries/:inquiryId/additional-receipts', inquiryAdditionalReceiptsTeamRoutes);

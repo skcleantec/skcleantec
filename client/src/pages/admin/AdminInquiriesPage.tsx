@@ -63,6 +63,7 @@ import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { getSchedule } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
+import { AdminInspectionPanel } from '../../components/inquiry-inspection/AdminInspectionPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
@@ -4411,6 +4412,13 @@ export function AdminInquiriesPage() {
                   발주서 첨부 사진 (고객 업로드)
                 </p>
                 <AdminOrderFormPhotosPanel orderFormId={editItem.orderForm.id} token={token} />
+              </div>
+            )}
+
+            {token && (
+              <div className="mt-4 min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+                <p className="mb-2 text-fluid-xs font-semibold text-slate-900">현장 검수·완료</p>
+                <AdminInspectionPanel inquiryId={editItem.id} token={token} />
               </div>
             )}
 
