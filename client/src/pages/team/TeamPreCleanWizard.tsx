@@ -54,18 +54,36 @@ function writeCaptureSession(inquiryId: string, areaId: string, idx: number) {
   sessionStorage.setItem(sessionKey(inquiryId), JSON.stringify({ areaId, idx }));
 }
 
+type AreaBeforePhotoEntry = {
+  photo: InspectionAreaPhoto;
+  itemId: string;
+  itemLabel: string;
+};
+
+function collectAreaBeforePhotos(area: InspectionArea): AreaBeforePhotoEntry[] {
+  const out: AreaBeforePhotoEntry[] = [];
+  for (const item of visibleItems(area)) {
+    for (const photo of item.photos.filter((p) => p.phase === 'BEFORE')) {
+      out.push({ photo, itemId: item.id, itemLabel: item.label });
+    }
+  }
+  return out;
+}
+
 function CapturePhotoThumb({
   photo,
   idx,
   gallerySlides,
   disabled,
   onRetake,
+  caption,
 }: {
   photo: InspectionAreaPhoto;
   idx: number;
   gallerySlides: ImageGallerySlide[];
   disabled: boolean;
   onRetake: (photoId: string) => void;
+  caption?: string;
 }) {
   return (
     <div className="flex w-[4.75rem] flex-col gap-1">
@@ -94,6 +112,11 @@ function CapturePhotoThumb({
         buttonLabel="크게 보기"
         buttonClassName="flex min-h-[26px] w-full items-center justify-center rounded-lg border border-white/20 bg-white/10 text-[10px] font-medium text-gray-200 touch-manipulation"
       />
+      {caption ? (
+        <p className="truncate text-center text-[9px] leading-tight text-gray-400" title={caption}>
+          {caption}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -115,14 +138,13 @@ export function TeamPreCleanWizard({
   readOnly: boolean;
   busy: boolean;
   setBusy: (v: boolean) => void;
-  onReload: () => Promise<void>;
+  onReload: () => Promise<InspectionChecklistDto | null>;
   onMsg: (msg: string | null) => void;
   onClose?: () => void;
 }) {
   const [captureAreaId, setCaptureAreaId] = useState<string | null>(null);
   const [itemIndex, setItemIndex] = useState(0);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
-  const [pendingStartAreaId, setPendingStartAreaId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const openCameraAfterReloadRef = useRef(false);
   const restoredRef = useRef(false);
@@ -164,25 +186,6 @@ export function TeamPreCleanWizard({
   }, [inquiryId, areas, readOnly]);
 
   useEffect(() => {
-    if (!pendingStartAreaId) return;
-    const area = areas.find((a) => a.id === pendingStartAreaId);
-    if (!area || area.notApplicable) {
-      setPendingStartAreaId(null);
-      return;
-    }
-    const items = visibleItems(area);
-    const saved = readCaptureSession(inquiryId);
-    let idx = findFirstIncompleteIndex(area);
-    if (saved?.areaId === pendingStartAreaId && typeof saved.idx === 'number') {
-      idx = Math.min(Math.max(0, saved.idx), Math.max(0, items.length - 1));
-    }
-    setCaptureAreaId(pendingStartAreaId);
-    setItemIndex(idx);
-    setActiveItemId(items[idx]?.id ?? null);
-    setPendingStartAreaId(null);
-  }, [pendingStartAreaId, areas, inquiryId]);
-
-  useEffect(() => {
     if (!captureAreaId || !captureItems[itemIndex]) return;
     setActiveItemId(captureItems[itemIndex].id);
   }, [captureAreaId, itemIndex, captureItems]);
@@ -207,19 +210,38 @@ export function TeamPreCleanWizard({
     };
   }, [captureAreaId, readOnly]);
 
-  const exitCapture = useCallback(() => {
+  const exitCapture = useCallback(async () => {
     if (captureAreaId) {
       writeCaptureSession(inquiryId, captureAreaId, itemIndex);
     }
     setCaptureAreaId(null);
-    void onReload();
+    await onReload();
   }, [captureAreaId, itemIndex, inquiryId, onReload]);
 
-  const startCapture = (areaId: string) => {
+  const beginCaptureForArea = (areaId: string, areasSource: InspectionArea[]) => {
+    const area = areasSource.find((a) => a.id === areaId);
+    if (!area || area.notApplicable) return;
+    const items = visibleItems(area);
+    const saved = readCaptureSession(inquiryId);
+    let idx = findFirstIncompleteIndex(area);
+    if (saved?.areaId === areaId && typeof saved.idx === 'number') {
+      idx = Math.min(Math.max(0, saved.idx), Math.max(0, items.length - 1));
+    }
+    setCaptureAreaId(areaId);
+    setItemIndex(idx);
+    setActiveItemId(items[idx]?.id ?? null);
+  };
+
+  const startCapture = async (areaId: string) => {
     const area = areas.find((a) => a.id === areaId);
     if (!area || area.notApplicable) return;
-    setPendingStartAreaId(areaId);
-    void onReload();
+    setBusy(true);
+    try {
+      const fresh = await onReload();
+      beginCaptureForArea(areaId, fresh?.areas ?? areas);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const advanceAfterAction = useCallback(
@@ -284,16 +306,20 @@ export function TeamPreCleanWizard({
     }
   };
 
-  const handleRetakePhoto = async (photoId: string) => {
-    if (!currentItem || busy) return;
+  const handleRetakePhoto = async (photoId: string, itemId: string) => {
+    if (busy) return;
     if (!window.confirm('선택한 사진을 삭제하고 다시 촬영할까요?')) return;
     setBusy(true);
     onMsg(null);
     try {
-      await deleteTeamInspectionPhoto(token, inquiryId, currentItem.id, photoId);
+      await deleteTeamInspectionPhoto(token, inquiryId, itemId, photoId);
       await onReload();
-      onMsg('다시 촬영해 주세요.');
-      openCameraAfterReloadRef.current = true;
+      if (currentItem?.id === itemId) {
+        onMsg('다시 촬영해 주세요.');
+        openCameraAfterReloadRef.current = true;
+      } else {
+        onMsg('사진을 삭제했습니다.');
+      }
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '삭제 실패');
     } finally {
@@ -323,10 +349,14 @@ export function TeamPreCleanWizard({
       areaLabel: captureArea.label,
     });
     const beforePhotos = currentItem.photos.filter((p) => p.phase === 'BEFORE');
-    const gallerySlides = beforePhotos.map((p, i) => ({
-      src: p.secureUrl,
-      alt: `청소 전 ${i + 1}`,
+    const areaBeforeEntries = collectAreaBeforePhotos(captureArea);
+    const areaGallerySlides = areaBeforeEntries.map((entry, i) => ({
+      src: entry.photo.secureUrl,
+      alt: `${entry.itemLabel} 청소 전 ${i + 1}`,
     }));
+    const areaDoneCount = captureItems.filter((it) =>
+      isBeforeItemComplete({ notApplicable: it.notApplicable, beforeCount: itemBeforeCount(it) }),
+    ).length;
 
     captureOverlay = (
       <div className="fixed inset-0 z-[200] flex flex-col bg-gray-950 text-white pt-[env(safe-area-inset-top)]">
@@ -372,27 +402,36 @@ export function TeamPreCleanWizard({
           </div>
 
           <div className="mx-auto w-full max-w-lg rounded-xl border border-white/15 bg-white/5 px-4 py-4">
-            {beforePhotos.length === 0 ? (
+            {areaBeforeEntries.length === 0 ? (
               <p className="py-6 text-center text-sm leading-relaxed text-gray-400">
                 아래 「촬영」 버튼을 눌러 사진을 등록하세요
               </p>
             ) : (
               <>
-                <p className="mb-3 text-center text-xs text-gray-400">
-                  등록된 사진 {beforePhotos.length}장 · 사진 탭 재촬영 · 크게 보기 가능
+                <p className="mb-1 text-center text-xs font-medium text-gray-300">
+                  이 구역 등록 사진 {areaBeforeEntries.length}장 · 항목 {areaDoneCount}/{captureItems.length} 완료
+                </p>
+                <p className="mb-3 text-center text-[11px] text-gray-500">
+                  사진 탭 재촬영 · 「크게 보기」로 확인
                 </p>
                 <div className="flex flex-wrap justify-center gap-2.5">
-                  {beforePhotos.map((photo, idx) => (
+                  {areaBeforeEntries.map((entry, idx) => (
                     <CapturePhotoThumb
-                      key={photo.id}
-                      photo={photo}
+                      key={entry.photo.id}
+                      photo={entry.photo}
                       idx={idx}
-                      gallerySlides={gallerySlides}
+                      gallerySlides={areaGallerySlides}
                       disabled={busy}
-                      onRetake={(id) => void handleRetakePhoto(id)}
+                      caption={entry.itemLabel}
+                      onRetake={(id) => void handleRetakePhoto(id, entry.itemId)}
                     />
                   ))}
                 </div>
+                {beforePhotos.length === 0 && (
+                  <p className="mt-4 text-center text-sm leading-relaxed text-gray-400">
+                    현재 「{currentItem.label}」 — 아래 「촬영」으로 등록해 주세요
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -520,7 +559,7 @@ export function TeamPreCleanWizard({
                       <button
                         type="button"
                         disabled={busy || !items.length}
-                        onClick={() => startCapture(area.id)}
+                        onClick={() => void startCapture(area.id)}
                         className="min-h-[44px] rounded-lg bg-gray-900 px-2 py-2 text-fluid-2xs font-semibold text-white touch-manipulation disabled:opacity-50"
                       >
                         촬영 시작

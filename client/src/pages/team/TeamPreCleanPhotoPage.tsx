@@ -47,19 +47,21 @@ export function TeamPreCleanPhotoPage() {
 
   const readOnly = checklist?.status === 'COMPLETED' || checklist?.status === 'VOID';
 
-  const reload = useCallback(async () => {
-    if (!token || !inquiryId) return;
+  const reload = useCallback(async (): Promise<InspectionChecklistDto | null> => {
+    if (!token || !inquiryId) return null;
     setLoadErr(null);
     try {
       const dto = await fetchTeamInspectionChecklist(token, inquiryId);
       setChecklist(dto);
+      return dto;
     } catch (e) {
       if (isAuthSessionExpiredError(e)) {
         clearTeamToken();
         navigate('/login', { replace: true });
-        return;
+        return null;
       }
       setLoadErr(e instanceof Error ? e.message : '불러오기 실패');
+      return null;
     }
   }, [token, inquiryId, navigate]);
 

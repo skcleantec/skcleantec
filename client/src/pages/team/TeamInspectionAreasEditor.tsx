@@ -34,7 +34,7 @@ export function TeamInspectionAreasEditor({
   busy: boolean;
   setBusy: (v: boolean) => void;
   photoMode: InspectionPhotoMode;
-  onReload: () => Promise<void>;
+  onReload: () => Promise<unknown>;
   onMsg: (msg: string | null) => void;
 }) {
   const [customAreaLabel, setCustomAreaLabel] = useState('');
