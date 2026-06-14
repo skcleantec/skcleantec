@@ -37,6 +37,7 @@ import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
+import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
 import { countPendingIssuancesForTeamLeader, listIssuancesByTeamLeader, parseEContractListQuery } from '../e-contract/eContract.service.js';
 import {
   listTeamAssignmentsPaginated,
@@ -100,11 +101,13 @@ router.get('/me', async (req, res) => {
   }
   const tenantId = getTenantIdFromAuth(auth) ?? me.tenantId ?? null;
   let tenant: { id: string; name: string; displayName: string } | null = null;
+  let features: string[] = [];
   if (tenantId) {
     const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, name: true } });
     if (t) {
       const cfg = await getTenantConfig(tenantId);
       tenant = { id: t.id, name: t.name, displayName: cfg.branding?.displayName?.trim() || t.name };
+      features = await getEffectiveEnabledModules(tenantId);
     }
   }
   const { tenantId: _omitTenantId, ...meRest } = me;
@@ -114,6 +117,7 @@ router.get('/me', async (req, res) => {
     previewExternal: Boolean(viewer?.previewExternal),
     previewTeamLeader: Boolean(viewer?.previewTeamLeader),
     tenant,
+    features,
   });
 });
 

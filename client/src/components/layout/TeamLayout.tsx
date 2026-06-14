@@ -20,6 +20,7 @@ import { TeamBiInline, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { DarkHeaderNavScroll } from './DarkHeaderNavScroll';
+import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -222,6 +223,7 @@ export function TeamLayout() {
   const [hireDateIso, setHireDateIso] = useState<string | null>(null);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
+  const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
 
   useDocumentTitle(tenantName);
 
@@ -239,6 +241,7 @@ export function TeamLayout() {
       setHireDateIso(null);
       setViewerUserId(null);
       setTenantName(null);
+      setTenantFeatures(null);
       return;
     }
     const startedKey = capturePreviewKey();
@@ -254,6 +257,7 @@ export function TeamLayout() {
         setHireDateIso(u.hireDate ?? null);
         setViewerUserId(u.id ?? null);
         setTenantName(u.tenant?.displayName?.trim() || u.tenant?.name?.trim() || null);
+        setTenantFeatures(Array.isArray(u.features) ? u.features : []);
       })
       .catch((e) => {
         if (isPreviewFetchStale(startedKey)) return;
@@ -266,6 +270,7 @@ export function TeamLayout() {
         setHireDateIso(null);
         setViewerUserId(null);
         setTenantName(null);
+        setTenantFeatures(null);
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
@@ -479,7 +484,9 @@ export function TeamLayout() {
         </div>
       </header>
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
-        <Outlet />
+        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null }}>
+          <Outlet />
+        </TenantCapabilitiesProvider>
       </main>
       <TeamMobileStaffIdCardDrawer
         viewerUserId={viewerUserId}

@@ -27,6 +27,6 @@ export function useTenantCapabilities(): TenantCapabilitiesState {
 
 export function useHasTenantFeature(moduleId: TenantFeatureModuleId): boolean {
   const { features } = useTenantCapabilities();
-  if (!features) return true;
+  if (!features) return false;
   return features.includes(moduleId);
 }

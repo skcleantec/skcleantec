@@ -72,6 +72,8 @@ export interface TeamViewerMe {
   hireDate?: string | null;
   /** 소속 업체(테넌트) 표시명 — 헤더·탭 제목용 */
   tenant?: { id: string; name: string; displayName: string } | null;
+  /** 테넌트 기능 모듈 (FeatureGate·메뉴 표시) */
+  features?: string[];
 }
 
 export async function getTeamMe(token: string): Promise<TeamViewerMe> {
