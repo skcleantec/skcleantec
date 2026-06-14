@@ -2084,7 +2084,7 @@ export function AdminInquiriesPage() {
               <button
                 type="button"
                 onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
-                className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
+                className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-sm"
                 title="수동접수 버튼 (스케줄 상세 폼)"
                 aria-label="수동접수 버튼"
               >
@@ -2162,7 +2162,7 @@ export function AdminInquiriesPage() {
                   });
                 }}
                 idPrefix="inq-created-month"
-                className="px-2 py-1.5 border border-gray-300 rounded bg-white"
+                className="px-2 py-1.5 border border-slate-300 rounded bg-white"
               />
             )}
             {datePreset === 'day' && (
@@ -2179,7 +2179,7 @@ export function AdminInquiriesPage() {
                   });
                 }}
                 idPrefix="inq-created-day"
-                className="px-2 py-1.5 border border-gray-300 rounded bg-white"
+                className="px-2 py-1.5 border border-slate-300 rounded bg-white"
               />
             )}
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end">
@@ -2193,11 +2193,11 @@ export function AdminInquiriesPage() {
               />
             </div>
           </div>
-          <details className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
-            <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-fluid-xs hover:bg-gray-100/80">
-              <span className="font-medium text-gray-800">마케터별 확정 예약</span>
+          <details className="rounded-lg border border-slate-200 bg-slate-50 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-fluid-xs hover:bg-slate-100/80">
+              <span className="font-medium text-slate-800">마케터별 확정 예약</span>
               {marketerOverview && (
-                <span className="min-w-0 truncate text-gray-500">
+                <span className="min-w-0 truncate text-slate-500">
                   · {formatMonthKeyLabel(marketerOverview.monthKey)} · 오늘 {marketerOverview.todayYmd}
                 </span>
               )}
@@ -2205,20 +2205,20 @@ export function AdminInquiriesPage() {
                 text="서비스접수 목록과 동일합니다. 접수일(createdAt)·상태 예약완료(RECEIVED)·접수자 기준 건수입니다. 분배완료·진행중 등 다른 상태는 포함하지 않습니다."
                 className="shrink-0"
               />
-              <span className="ml-auto shrink-0 text-gray-500" aria-hidden>
+              <span className="ml-auto shrink-0 text-slate-500" aria-hidden>
                 ▾
               </span>
             </summary>
-            <div className="border-t border-gray-200 px-3 py-2.5">
+            <div className="border-t border-slate-200 px-3 py-2.5">
             {marketerOverviewLoading ? (
-              <p className="text-fluid-sm text-gray-500">집계를 불러오는 중...</p>
+              <p className="text-fluid-sm text-slate-500">집계를 불러오는 중...</p>
             ) : marketerOverviewError ? (
               <div className="text-fluid-sm">
                 <p className="text-red-600">{marketerOverviewError}</p>
                 <button
                   type="button"
                   onClick={() => void loadMarketerOverview()}
-                  className="mt-2 text-fluid-sm text-gray-700 underline hover:text-gray-900"
+                  className="mt-2 text-fluid-sm text-slate-700 underline hover:text-slate-900"
                 >
                   다시 시도
                 </button>
@@ -2227,14 +2227,14 @@ export function AdminInquiriesPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-fluid-sm border-collapse min-w-[320px]">
                   <thead>
-                    <tr className="border-b border-gray-200 text-gray-600">
+                    <tr className="border-b border-slate-200 text-slate-600">
                       <th className="text-center py-1.5 pr-3 font-medium">이름</th>
                       <th className="text-center py-1.5 px-2 font-medium whitespace-nowrap">이번 달</th>
                       <th className="text-center py-1.5 px-2 font-medium whitespace-nowrap">오늘</th>
                       <th className="text-center py-1.5 pl-2 font-medium whitespace-nowrap w-16">일별</th>
                     </tr>
                   </thead>
-                  <tbody className="text-gray-800">
+                  <tbody className="text-slate-800">
                     {marketerOverview.marketers.map((m) => (
                       <tr
                         key={m.marketerId}
@@ -2258,9 +2258,9 @@ export function AdminInquiriesPage() {
                             );
                           }
                         }}
-                        className={`border-b border-gray-100 last:border-0 ${
+                        className={`border-b border-slate-100 last:border-0 ${
                           me?.role === 'ADMIN' || me?.role === 'MARKETER'
-                            ? 'cursor-pointer hover:bg-gray-100 focus-visible:outline focus-visible:ring-2 focus-visible:ring-gray-400'
+                            ? 'cursor-pointer hover:bg-slate-100 focus-visible:outline focus-visible:ring-2 focus-visible:ring-slate-400'
                             : ''
                         } ${marketerFilterId === m.marketerId ? 'bg-blue-50/80' : ''}`}
                         title={
@@ -2282,7 +2282,7 @@ export function AdminInquiriesPage() {
                                 marketerName: m.name,
                               });
                             }}
-                            className="rounded border border-gray-300 bg-white px-2 py-0.5 text-fluid-2xs font-medium text-gray-800 hover:bg-gray-50"
+                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50"
                             title={`${m.name} 일별 접수 건수`}
                           >
                             내역
@@ -2294,7 +2294,7 @@ export function AdminInquiriesPage() {
                 </table>
               </div>
             ) : (
-              <p className="text-fluid-sm text-gray-500">집계 데이터가 없습니다.</p>
+              <p className="text-fluid-sm text-slate-500">집계 데이터가 없습니다.</p>
             )}
             </div>
           </details>
@@ -2307,7 +2307,7 @@ export function AdminInquiriesPage() {
                 <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                   <label
                     htmlFor="inquiry-marketer-filter"
-                    className="text-fluid-xs text-gray-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                    className="text-fluid-xs text-slate-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
                   >
                     접수자
                   </label>
@@ -2324,7 +2324,7 @@ export function AdminInquiriesPage() {
                         else next.delete('createdById');
                       });
                     }}
-                    className="min-w-[8.5rem] max-w-[11rem] rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-xs text-gray-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
+                    className="min-w-[8.5rem] max-w-[11rem] rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-xs text-slate-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
                   >
                     <option value="">전체</option>
                     <option value={CREATED_BY_FILTER_UNASSIGNED}>미지정</option>
@@ -2350,7 +2350,7 @@ export function AdminInquiriesPage() {
                           next.delete('marketerStatsDay');
                         });
                       }}
-                      className="shrink-0 whitespace-nowrap text-[11px] text-gray-600 underline hover:text-gray-900 sm:text-fluid-xs"
+                      className="shrink-0 whitespace-nowrap text-[11px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
                     >
                       접수자 필터 해제
                     </button>
@@ -2371,14 +2371,14 @@ export function AdminInquiriesPage() {
               )}
               {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
                 <span
-                  className="hidden h-5 w-px shrink-0 bg-gray-200 sm:block"
+                  className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block"
                   aria-hidden
                 />
               )}
               <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <label
                   htmlFor="inquiry-team-leader-filter"
-                  className="text-fluid-xs text-gray-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                  className="text-fluid-xs text-slate-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
                 >
                   팀장·타업체
                 </label>
@@ -2386,7 +2386,7 @@ export function AdminInquiriesPage() {
                   id="inquiry-team-leader-filter"
                   value={teamLeaderFilterId}
                   onChange={(e) => setTeamLeaderFilterId(e.target.value)}
-                  className="min-w-[8.5rem] max-w-[11rem] rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-xs text-gray-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
+                  className="min-w-[8.5rem] max-w-[11rem] rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-xs text-slate-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
                 >
                   <option value="">전체</option>
                   <option value={TEAM_LEADER_FILTER_UNASSIGNED}>미배정</option>
@@ -2400,7 +2400,7 @@ export function AdminInquiriesPage() {
                   <button
                     type="button"
                     onClick={() => setTeamLeaderFilterId('')}
-                    className="shrink-0 whitespace-nowrap text-[11px] text-gray-600 underline hover:text-gray-900 sm:text-fluid-xs"
+                    className="shrink-0 whitespace-nowrap text-[11px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
                   >
                     배정 필터 해제
                   </button>
@@ -2410,7 +2410,7 @@ export function AdminInquiriesPage() {
                 <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                   <label
                     htmlFor="inquiry-operating-company-filter"
-                    className="text-fluid-xs text-gray-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                    className="text-fluid-xs text-slate-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
                   >
                     브랜드
                   </label>
@@ -2418,7 +2418,7 @@ export function AdminInquiriesPage() {
                     id="inquiry-operating-company-filter"
                     value={operatingCompanyFilterId}
                     onChange={(e) => setOperatingCompanyFilterId(e.target.value)}
-                    className="min-w-[8.5rem] max-w-[11rem] rounded border border-gray-300 bg-white px-2 py-1.5 text-fluid-xs text-gray-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
+                    className="min-w-[8.5rem] max-w-[11rem] rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-xs text-slate-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
                   >
                     <option value="">전체</option>
                     {operatingCompanies.map((oc) => (
@@ -2432,7 +2432,7 @@ export function AdminInquiriesPage() {
                     <button
                       type="button"
                       onClick={() => setOperatingCompanyFilterId('')}
-                      className="shrink-0 whitespace-nowrap text-[11px] text-gray-600 underline hover:text-gray-900 sm:text-fluid-xs"
+                      className="shrink-0 whitespace-nowrap text-[11px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
                     >
                       브랜드 필터 해제
                     </button>
@@ -2452,13 +2452,13 @@ export function AdminInquiriesPage() {
                   }
                 }}
                 placeholder="고객명·연락처·접수번호 검색"
-                className="px-3 py-2 border border-gray-300 rounded text-fluid-sm flex-1 min-w-0"
+                className="px-3 py-2 border border-slate-300 rounded text-fluid-sm flex-1 min-w-0"
               />
               <div className="relative shrink-0" ref={statusFilterPanelRef}>
                 <button
                   type="button"
                   onClick={() => setStatusFilterOpen((prev) => !prev)}
-                  className="flex min-w-[8.75rem] items-center justify-between gap-2 rounded border border-gray-300 bg-white px-3 py-2 text-fluid-sm text-gray-900"
+                  className="flex min-w-[8.75rem] items-center justify-between gap-2 rounded border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
                   aria-haspopup="dialog"
                   aria-expanded={statusFilterOpen}
                   aria-label="상태 필터 선택"
@@ -2467,13 +2467,13 @@ export function AdminInquiriesPage() {
                     <span aria-hidden>{statusFilter ? STATUS_ICON_MAP[statusFilter] ?? '📋' : '📋'}</span>
                     <span>{statusFilter ? STATUS_LABELS[statusFilter] ?? statusFilter : '전체 상태'}</span>
                   </span>
-                  <span aria-hidden className="text-gray-500">
+                  <span aria-hidden className="text-slate-500">
                     ▾
                   </span>
                 </button>
                 {statusFilterOpen ? (
-                  <div className="absolute right-0 z-30 mt-1.5 w-[15rem] rounded-lg border border-gray-200 bg-white p-2 shadow-xl">
-                    <p className="px-1 pb-2 text-fluid-2xs text-gray-500">상태를 선택하면 바로 필터에 적용됩니다.</p>
+                  <div className="absolute right-0 z-30 mt-1.5 w-[15rem] rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
+                    <p className="px-1 pb-2 text-fluid-2xs text-slate-500">상태를 선택하면 바로 필터에 적용됩니다.</p>
                     <div className="grid grid-cols-2 gap-1">
                       <button
                         type="button"
@@ -2580,7 +2580,7 @@ export function AdminInquiriesPage() {
                               name={item.customerName}
                               tone={item.internalCustomerTone}
                               viewerRole={me?.role}
-                              nameClassName="truncate text-fluid-sm font-semibold text-gray-900"
+                              nameClassName="truncate text-fluid-sm font-semibold text-slate-900"
                             />
                             {item.claimMemo ? (
                               <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="클레임">
@@ -2588,7 +2588,7 @@ export function AdminInquiriesPage() {
                               </span>
                             ) : null}
                             {item.inquiryNumber ? (
-                              <span className="shrink-0 rounded bg-gray-900 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-white">
+                              <span className="shrink-0 rounded bg-slate-900 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-white">
                                 {item.inquiryNumber}
                               </span>
                             ) : null}
@@ -2599,20 +2599,20 @@ export function AdminInquiriesPage() {
                           </div>
                           {item.scheduleMemo?.trim() ? (
                             <p
-                              className="mt-1 line-clamp-1 text-fluid-xs text-gray-700"
+                              className="mt-1 line-clamp-1 text-fluid-xs text-slate-700"
                               title={item.scheduleMemo}
                             >
                               {item.scheduleMemo}
                             </p>
                           ) : null}
                           <p
-                            className="mt-1 line-clamp-2 text-fluid-xs text-gray-500 leading-snug"
+                            className="mt-1 line-clamp-2 text-fluid-xs text-slate-500 leading-snug"
                             title={`접수 ${formatDateCompactWithWeekday(item.createdAt)} · ${inquiryMarketerLabel(item)} · ${mobileSpecsTail}`}
                           >
                             접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
-                            <span className="text-gray-600"> · {mobileSpecsTail}</span>
+                            <span className="text-slate-600"> · {mobileSpecsTail}</span>
                           </p>
-                          <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={addrFull}>
+                          <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-slate-600" title={addrFull}>
                             {addrShort}
                           </p>
                         </div>
@@ -2624,19 +2624,19 @@ export function AdminInquiriesPage() {
                           전화
                         </a>
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-fluid-xs text-gray-700">
-                        <span className="tabular-nums text-gray-800">
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-fluid-xs text-slate-700">
+                        <span className="tabular-nums text-slate-800">
                           예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
                         </span>
-                        <span className="rounded-md bg-gray-100 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-fluid-2xs font-medium text-slate-800">
                           {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '시간 미정'} · 주안{' '}
                           {formatDistanceFromJuan(item)}
                         </span>
                         <span
                           className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
                             isInquiryLinkedOrderFormPendingSubmit(item)
-                              ? 'bg-gray-100 text-gray-500 ring-1 ring-gray-200'
-                              : 'bg-gray-200 text-gray-800'
+                              ? 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
+                              : 'bg-slate-200 text-slate-800'
                           }`}
                           title={
                             isInquiryLinkedOrderFormPendingSubmit(item)
@@ -2763,7 +2763,7 @@ export function AdminInquiriesPage() {
                                 e.stopPropagation();
                                 openOrderFormNewTab(item);
                               }}
-                              className="text-fluid-xs text-gray-700 hover:underline"
+                              className="text-fluid-xs text-slate-700 hover:underline"
                             >
                               새창
                             </button>
@@ -2802,7 +2802,7 @@ export function AdminInquiriesPage() {
                               type="button"
                               onClick={() => handleCancelInquiry(item)}
                               disabled={saving}
-                              className="text-fluid-xs text-gray-700 hover:underline"
+                              className="text-fluid-xs text-slate-700 hover:underline"
                             >
                               취소
                             </button>
@@ -2851,7 +2851,7 @@ export function AdminInquiriesPage() {
                                 type="button"
                                 onClick={() => handleCancelInquiry(item)}
                                 disabled={saving}
-                                className="text-fluid-xs text-gray-700 hover:underline"
+                                className="text-fluid-xs text-slate-700 hover:underline"
                               >
                                 취소
                               </button>
@@ -2966,7 +2966,7 @@ export function AdminInquiriesPage() {
                   return (
                   <tr
                     key={item.id}
-                    className={`cursor-pointer group active:bg-gray-100 ${rowHover}`}
+                    className={`cursor-pointer group active:bg-slate-100 ${rowHover}`}
                     onClick={() => openEdit(item)}
                     title={
                       isInquiryLinkedOrderFormPendingSubmit(item)
@@ -2977,13 +2977,13 @@ export function AdminInquiriesPage() {
                     }
                   >
                     <td
-                      className={`sticky left-0 z-10 min-w-0 align-middle px-1 py-1 text-gray-700 xl:px-1.5 xl:py-1.5 ${stickyBg} ${stickyR} ${pBorder} ${isPreOrder ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}
+                      className={`sticky left-0 z-10 min-w-0 align-middle px-1 py-1 text-slate-700 xl:px-1.5 xl:py-1.5 ${stickyBg} ${stickyR} ${pBorder} ${isPreOrder ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}
                     >
                       <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
                         {formatDateCompactWithWeekday(item.createdAt)}
                       </span>
                       {item.inquiryNumber ? (
-                        <span className="mt-0.5 block truncate text-fluid-2xs tabular-nums text-gray-500 xl:text-fluid-xs">
+                        <span className="mt-0.5 block truncate text-fluid-2xs tabular-nums text-slate-500 xl:text-fluid-xs">
                           {item.inquiryNumber}
                         </span>
                       ) : null}
@@ -2999,13 +2999,13 @@ export function AdminInquiriesPage() {
                       ) : null}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-slate-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
                       title={inquiryMarketerLabel(item)}
                     >
                       {inquiryMarketerLabel(item)}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-fluid-2xs font-medium text-gray-900 xl:px-1.5 xl:py-1.5 xl:text-fluid-xs 2xl:text-fluid-xs ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-fluid-2xs font-medium text-slate-900 xl:px-1.5 xl:py-1.5 xl:text-fluid-xs 2xl:text-fluid-xs ${pBorder}`}
                       title={`${item.customerName}${item.claimMemo ? ' (클레임)' : ''}`}
                     >
                       <div className="flex min-w-0 flex-col items-center leading-tight">
@@ -3024,7 +3024,7 @@ export function AdminInquiriesPage() {
                         </div>
                         {item.scheduleMemo?.trim() ? (
                           <div
-                            className="mt-0.5 max-w-full truncate text-fluid-2xs font-normal text-gray-600"
+                            className="mt-0.5 max-w-full truncate text-fluid-2xs font-normal text-slate-600"
                             title={item.scheduleMemo}
                           >
                             {item.scheduleMemo}
@@ -3033,26 +3033,26 @@ export function AdminInquiriesPage() {
                       </div>
                     </td>
                     <td
-                      className={`min-w-0 px-1 py-1 align-middle text-center text-fluid-2xs text-gray-600 xl:px-1.5 xl:py-1.5 xl:text-fluid-xs ${pBorder}`}
+                      className={`min-w-0 px-1 py-1 align-middle text-center text-fluid-2xs text-slate-600 xl:px-1.5 xl:py-1.5 xl:text-fluid-xs ${pBorder}`}
                       title={item.customerPhone}
                     >
                       {phoneSplit ? (
                         <div className="inline-flex flex-col items-center justify-center gap-0.5 leading-tight">
-                          <span className="font-medium tabular-nums text-gray-900">{phoneSplit.head}</span>
-                          <span className="tabular-nums text-gray-600">{phoneSplit.tail}</span>
+                          <span className="font-medium tabular-nums text-slate-900">{phoneSplit.head}</span>
+                          <span className="tabular-nums text-slate-600">{phoneSplit.tail}</span>
                         </div>
                       ) : (
                         <span className="break-all">{item.customerPhone}</span>
                       )}
                     </td>
                     <td
-                      className={`min-w-0 px-1 py-1 align-middle text-center text-[10px] leading-tight text-gray-600 xl:px-1.5 xl:py-1.5 xl:text-[11px] ${pBorder}`}
+                      className={`min-w-0 px-1 py-1 align-middle text-center text-[10px] leading-tight text-slate-600 xl:px-1.5 xl:py-1.5 xl:text-[11px] ${pBorder}`}
                       title={`${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim()}
                     >
                       <span className="block truncate">{addressListShortSiGu(item.address)}</span>
                     </td>
                     <td
-                      className={`min-w-0 px-0.5 py-1 align-middle text-center text-[10px] leading-tight tabular-nums text-gray-600 xl:px-1 xl:py-1.5 2xl:text-[11px] ${pBorder}`}
+                      className={`min-w-0 px-0.5 py-1 align-middle text-center text-[10px] leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-1.5 2xl:text-[11px] ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -3065,7 +3065,7 @@ export function AdminInquiriesPage() {
                       </InquiryListQuickEditTrigger>
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-slate-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -3078,7 +3078,7 @@ export function AdminInquiriesPage() {
                       </InquiryListQuickEditTrigger>
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-gray-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
+                      className={`min-w-0 truncate px-1 py-1 align-middle text-center text-slate-600 xl:px-1.5 xl:py-1.5 ${pBorder}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <InquiryListQuickEditTrigger
@@ -3089,7 +3089,7 @@ export function AdminInquiriesPage() {
                         <span className="block leading-tight text-fluid-2xs xl:text-fluid-xs">
                           {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '-'}
                         </span>
-                        <span className="mt-0.5 block truncate text-fluid-2xs tabular-nums text-gray-500 pointer-events-none">
+                        <span className="mt-0.5 block truncate text-fluid-2xs tabular-nums text-slate-500 pointer-events-none">
                           {formatDistanceFromJuan(item)}
                         </span>
                       </InquiryListQuickEditTrigger>
@@ -3103,7 +3103,7 @@ export function AdminInquiriesPage() {
                       />
                       {isInquiryLinkedOrderFormPendingSubmit(item) && item.status !== 'ORDER_FORM_PENDING' ? (
                         <span
-                          className="mt-0.5 block text-center text-fluid-2xs text-gray-500 xl:text-fluid-xs"
+                          className="mt-0.5 block text-center text-fluid-2xs text-slate-500 xl:text-fluid-xs"
                           title="발주서 목록과 동일: 고객 제출 전"
                         >
                           발주서 · 미제출
@@ -3112,7 +3112,7 @@ export function AdminInquiriesPage() {
                     </td>
                     <td className={`min-w-0 px-1 py-1 align-middle xl:px-1.5 xl:py-1.5 ${pBorder}`} onClick={(e) => e.stopPropagation()}>
                       <div
-                        className="mb-0.5 line-clamp-2 text-left text-[10px] leading-snug text-gray-600 xl:text-fluid-2xs"
+                        className="mb-0.5 line-clamp-2 text-left text-[10px] leading-snug text-slate-600 xl:text-fluid-2xs"
                         title={formatInquiryTeamSummary(item)}
                       >
                         {formatInquiryTeamSummary(item)}
@@ -3215,7 +3215,7 @@ export function AdminInquiriesPage() {
                                 e.stopPropagation();
                                 openOrderFormNewTab(item);
                               }}
-                              className="text-fluid-2xs text-gray-700 hover:underline xl:text-fluid-xs"
+                              className="text-fluid-2xs text-slate-700 hover:underline xl:text-fluid-xs"
                             >
                               새창
                             </button>
@@ -3254,7 +3254,7 @@ export function AdminInquiriesPage() {
                               type="button"
                               onClick={() => handleCancelInquiry(item)}
                               disabled={saving}
-                              className="text-fluid-2xs text-gray-700 hover:underline xl:text-fluid-xs"
+                              className="text-fluid-2xs text-slate-700 hover:underline xl:text-fluid-xs"
                             >
                               취소
                             </button>
@@ -3303,7 +3303,7 @@ export function AdminInquiriesPage() {
                                 type="button"
                                 onClick={() => handleCancelInquiry(item)}
                                 disabled={saving}
-                                className="text-fluid-2xs text-gray-700 hover:underline xl:text-fluid-xs"
+                                className="text-fluid-2xs text-slate-700 hover:underline xl:text-fluid-xs"
                               >
                                 취소
                               </button>
@@ -3343,11 +3343,11 @@ export function AdminInquiriesPage() {
         )}
         {!shouldShowListBlockingLoading(loading, items.length) ? (
           <>
-            <div className="border-t border-gray-100 px-4 py-2 text-fluid-xs text-gray-600">
+            <div className="border-t border-slate-100 px-4 py-2 text-fluid-xs text-slate-600">
               {marketerStatsDay ? (
                 <>
                   예약완료 · 집계 기준 {marketerStatsDay}
-                  <span className="text-gray-500"> (접수일·서비스접수와 동일)</span>
+                  <span className="text-slate-500"> (접수일·서비스접수와 동일)</span>
                 </>
               ) : datePreset === 'today' ? (
                 '오늘 접수'
@@ -3367,8 +3367,8 @@ export function AdminInquiriesPage() {
               {marketerStatsDay && total >= 0 ? (
                 <>
                   {' · '}
-                  <span className="font-medium tabular-nums text-gray-800">{total}건</span>
-                  <span className="text-gray-500"> (집계와 동일 조건)</span>
+                  <span className="font-medium tabular-nums text-slate-800">{total}건</span>
+                  <span className="text-slate-500"> (집계와 동일 조건)</span>
                 </>
               ) : null}
               {operatingCompanyFilterId ? (
@@ -3443,15 +3443,15 @@ export function AdminInquiriesPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <ModalCloseButton onClick={() => closeOrderCustomerPreviewModal()} />
-              <div className="shrink-0 border-b border-gray-200 px-4 pb-3 pt-4 pr-14">
-                <h2 id="inquiry-order-preview-modal-title" className="text-lg font-semibold text-gray-900">
+              <div className="shrink-0 border-b border-slate-200 px-4 pb-3 pt-4 pr-14">
+                <h2 id="inquiry-order-preview-modal-title" className="text-lg font-semibold text-slate-900">
                   {orderCustomerPreview.kind === 'message' ? '고객 발송용 메시지' : '발주서 링크'}
                 </h2>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-slate-500">
                   {orderCustomerPreview.order.customerName} · 총액{' '}
                   {orderCustomerPreview.order.totalAmount.toLocaleString('ko-KR')}원
                   {orderCustomerPreview.order.createdBy ? (
-                    <span className="mt-0.5 block text-[11px] text-gray-500">
+                    <span className="mt-0.5 block text-[11px] text-slate-500">
                       담당: {labelOrderFormIssuer(orderCustomerPreview.order.createdBy)}
                     </span>
                   ) : null}
@@ -3462,9 +3462,9 @@ export function AdminInquiriesPage() {
                   <p className="text-sm text-red-600">{orderCustomerPreviewError}</p>
                 ) : orderCustomerPreview.kind === 'message' ? (
                   orderCustomerPreviewLoading || !orderCustomerPreviewMsgConfig ? (
-                    <p className="text-sm text-gray-600">불러오는 중…</p>
+                    <p className="text-sm text-slate-600">불러오는 중…</p>
                   ) : (
-                    <pre className="whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-3 font-sans text-sm text-gray-800">
+                    <pre className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-slate-50 p-3 font-sans text-sm text-slate-800">
                       {buildOrderFormCustomerMessage(
                         orderCustomerPreviewMsgConfig,
                         orderCustomerPreview.order,
@@ -3476,11 +3476,11 @@ export function AdminInquiriesPage() {
                   )
                 ) : (
                   <label className="block">
-                    <span className="mb-1 block text-xs text-gray-500">고객에게 보낼 URL</span>
+                    <span className="mb-1 block text-xs text-slate-500">고객에게 보낼 URL</span>
                     <textarea
                       readOnly
                       rows={4}
-                      className="w-full resize-none rounded border border-gray-300 bg-white px-3 py-2 font-mono text-sm text-gray-900"
+                      className="w-full resize-none rounded border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900"
                       value={getOrderFormPublicUrl(
                         orderCustomerPreview.order.token,
                         undefined,
@@ -3492,7 +3492,7 @@ export function AdminInquiriesPage() {
                   </label>
                 )}
               </div>
-              <div className="flex shrink-0 justify-end gap-2 border-t border-gray-200 px-4 py-3">
+              <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-4 py-3">
                 <button
                   type="button"
                   onClick={() => void handleCopyOrderCustomerPreview()}
@@ -3501,7 +3501,7 @@ export function AdminInquiriesPage() {
                     Boolean(orderCustomerPreviewError) ||
                     (orderCustomerPreview.kind === 'message' && !orderCustomerPreviewMsgConfig)
                   }
-                  className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                  className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
                 >
                   클립보드에 복사
                 </button>
@@ -3534,20 +3534,20 @@ export function AdminInquiriesPage() {
           <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto overscroll-y-contain bg-black/40 px-4 py-6 sm:py-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
             <div className="relative my-auto w-full max-w-md shrink-0 rounded-lg bg-white p-6 shadow-xl">
               <ModalCloseButton onClick={closeClaimModal} />
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 pr-10">
+              <h2 className="text-lg font-semibold text-slate-800 mb-4 pr-10">
                 C/S 등록 - {claimItem.customerName}
               </h2>
-              <p className="text-fluid-xs text-gray-500 mb-2">클레임 내용을 입력하면 상태가 C/S 처리중으로 변경됩니다.</p>
+              <p className="text-fluid-xs text-slate-500 mb-2">클레임 내용을 입력하면 상태가 C/S 처리중으로 변경됩니다.</p>
               <textarea
                 value={claimMemo}
                 onChange={(e) => setClaimMemo(e.target.value)}
                 rows={4}
                 placeholder="고객 클레임 내용을 입력하세요"
-                className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm mb-4"
+                className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm mb-4"
               />
-              <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-3">
-                <p className="text-fluid-xs font-medium text-gray-800 mb-1">클레임 사진 (선택)</p>
-                <p className="text-fluid-2xs text-gray-500 mb-2">
+              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3">
+                <p className="text-fluid-xs font-medium text-slate-800 mb-1">클레임 사진 (선택)</p>
+                <p className="text-fluid-2xs text-slate-500 mb-2">
                   최대 20장 · JPG·PNG 등 (서버에 Cloudinary 설정이 있어야 업로드됩니다)
                 </p>
                 <input
@@ -3569,12 +3569,12 @@ export function AdminInquiriesPage() {
                   type="button"
                   disabled={saving || claimPhotoFiles.length >= 20}
                   onClick={() => claimPhotoInputRef.current?.click()}
-                  className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-white px-3 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 touch-manipulation"
+                  className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 text-fluid-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50 touch-manipulation"
                 >
                   사진 추가 ({claimPhotoFiles.length}/20)
                 </button>
                 {claimPhotoFiles.length > 0 && (
-                  <ul className="mt-2 max-h-32 overflow-y-auto space-y-1 text-fluid-xs text-gray-700">
+                  <ul className="mt-2 max-h-32 overflow-y-auto space-y-1 text-fluid-xs text-slate-700">
                     {claimPhotoFiles.map((f, i) => (
                       <li
                         key={`${i}-${f.name}-${f.size}-${f.lastModified}`}
@@ -3608,7 +3608,7 @@ export function AdminInquiriesPage() {
                 <button
                   type="button"
                   onClick={closeClaimModal}
-                  className="px-4 py-2 border border-gray-300 rounded text-fluid-sm font-medium hover:bg-gray-50"
+                  className="px-4 py-2 border border-slate-300 rounded text-fluid-sm font-medium hover:bg-slate-50"
                 >
                   취소
                 </button>
@@ -3632,21 +3632,21 @@ export function AdminInquiriesPage() {
               className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:rounded-lg"
               onClick={(e) => e.stopPropagation()}
             >
-            <div className="relative shrink-0 border-b border-gray-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
+            <div className="relative shrink-0 border-b border-slate-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
             <ModalCloseButton onClick={() => setEditItem(null)} />
-            <h2 id="inquiry-edit-title" className="text-lg font-semibold text-gray-800 mb-1 pr-10 sm:pr-12">
+            <h2 id="inquiry-edit-title" className="text-lg font-semibold text-slate-800 mb-1 pr-10 sm:pr-12">
               접수 수정
               {editItem.inquiryNumber ? (
-                <span className="ml-2 text-fluid-sm font-normal text-gray-500 tabular-nums">
+                <span className="ml-2 text-fluid-sm font-normal text-slate-500 tabular-nums">
                   · {editItem.inquiryNumber}
                 </span>
               ) : null}
             </h2>
-            <p className="text-fluid-sm text-gray-500 mb-4">필요한 항목을 바로 수정한 뒤 저장하세요.</p>
+            <p className="text-fluid-sm text-slate-500 mb-4">필요한 항목을 바로 수정한 뒤 저장하세요.</p>
 
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-fluid-xs text-gray-500 border-b border-gray-100 pb-3 mb-4">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-fluid-xs text-slate-500 border-b border-slate-100 pb-3 mb-4">
               {editItem.inquiryNumber ? (
-                <span className="font-medium text-gray-700 tabular-nums">접수번호 {editItem.inquiryNumber}</span>
+                <span className="font-medium text-slate-700 tabular-nums">접수번호 {editItem.inquiryNumber}</span>
               ) : null}
               {!isInquirySourceHiddenFromUi(editItem.source) ? (
                 <span>출처: {formatInquirySourceLabel(editItem.source)}</span>
@@ -3678,11 +3678,11 @@ export function AdminInquiriesPage() {
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
               <div className="sm:col-span-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">상태</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">상태</label>
                 <select
                   value={editForm.status}
                   onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
-                  className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full max-w-xs px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                 >
                   {Object.entries(STATUS_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -3691,8 +3691,8 @@ export function AdminInquiriesPage() {
                   ))}
                 </select>
                 {isInquiryLinkedOrderFormPendingSubmit(editItem) ? (
-                  <p className="mt-1.5 text-fluid-xs text-gray-500">
-                    발주서 <span className="font-medium text-gray-600">미제출</span>
+                  <p className="mt-1.5 text-fluid-xs text-slate-500">
+                    발주서 <span className="font-medium text-slate-600">미제출</span>
                     {' — '}
                     고객이 제출하면 접수 상태로 바뀝니다.
                   </p>
@@ -3733,9 +3733,9 @@ export function AdminInquiriesPage() {
                       <p className="text-fluid-xs text-red-600">{orderForceMatchError}</p>
                     ) : null}
                     {orderForceMatchLoading ? (
-                      <p className="text-fluid-xs text-gray-600">후보를 불러오는 중…</p>
+                      <p className="text-fluid-xs text-slate-600">후보를 불러오는 중…</p>
                     ) : orderForceMatchCandidates.length === 0 ? (
-                      <p className="text-fluid-xs text-gray-600">제출 완료 발주서 후보가 없습니다.</p>
+                      <p className="text-fluid-xs text-slate-600">제출 완료 발주서 후보가 없습니다.</p>
                     ) : (
                       <div className="max-h-44 overflow-y-auto rounded border border-blue-100 bg-white">
                         {orderForceMatchCandidates.map((cand) => (
@@ -3744,10 +3744,10 @@ export function AdminInquiriesPage() {
                             className="flex flex-col gap-2 border-b border-blue-50 px-3 py-2 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="min-w-0">
-                              <p className="truncate text-fluid-sm font-medium text-gray-900">
+                              <p className="truncate text-fluid-sm font-medium text-slate-900">
                                 {cand.customerName} {cand.customerPhone ? `· ${cand.customerPhone}` : ''}
                               </p>
-                              <p className="text-fluid-2xs text-gray-600">
+                              <p className="text-fluid-2xs text-slate-600">
                                 제출: {cand.submittedAt ? cand.submittedAt.slice(0, 16).replace('T', ' ') : '-'}
                                 {cand.linkedInquiry
                                   ? ` · 현재연결: ${STATUS_LABELS[cand.linkedInquiry.status] ?? cand.linkedInquiry.status}${cand.linkedInquiry.inquiryNumber ? ` (#${cand.linkedInquiry.inquiryNumber})` : ''}`
@@ -3770,11 +3770,11 @@ export function AdminInquiriesPage() {
                 ) : null}
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">성함</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">성함</label>
                 <input
                   value={editForm.customerName}
                   onChange={(e) => setEditForm((p) => ({ ...p, customerName: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                 />
               </div>
               <div className="sm:col-span-2">
@@ -3785,25 +3785,25 @@ export function AdminInquiriesPage() {
                 />
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">닉네임 (선택)</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">닉네임 (선택)</label>
                 <input
                   value={editForm.nickname}
                   onChange={(e) => setEditForm((p) => ({ ...p, nickname: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                   placeholder="예: 숨고 닉네임"
                 />
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">연락처</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">연락처</label>
                 <input
                   value={editForm.customerPhone}
                   onChange={(e) => setEditForm((p) => ({ ...p, customerPhone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                   inputMode="tel"
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">주소</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">주소</label>
                 <AddressSearch
                   value={editForm.address}
                   onChange={(addr) => setEditForm((p) => ({ ...p, address: addr }))}
@@ -3811,29 +3811,29 @@ export function AdminInquiriesPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">상세주소</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">상세주소</label>
                 <input
                   value={editForm.addressDetail}
                   onChange={(e) => setEditForm((p) => ({ ...p, addressDetail: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                   placeholder="동·호수"
                 />
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">보조 연락처</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">보조 연락처</label>
                 <input
                   value={editForm.customerPhone2}
                   onChange={(e) => setEditForm((p) => ({ ...p, customerPhone2: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                   placeholder="비우면 저장 시 비움"
                 />
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">건축물 유형</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">건축물 유형</label>
                 <select
                   value={editForm.propertyType}
                   onChange={(e) => setEditForm((p) => ({ ...p, propertyType: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                 >
                   <option value="">선택</option>
                   {PROPERTY_TYPE_EDIT.map((v) => (
@@ -3842,10 +3842,10 @@ export function AdminInquiriesPage() {
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="flex cursor-pointer items-center gap-2 text-fluid-sm text-gray-800">
+                <label className="flex cursor-pointer items-center gap-2 text-fluid-sm text-slate-800">
                   <input
                     type="checkbox"
-                    className="rounded border-gray-300"
+                    className="rounded border-slate-300"
                     checked={editForm.isOneRoom}
                     onChange={(e) => {
                       const checked = e.target.checked;
@@ -3856,7 +3856,7 @@ export function AdminInquiriesPage() {
                 </label>
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">면적 기준</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">면적 기준</label>
                 <select
                   value={editForm.areaBasis}
                   onChange={(e) => {
@@ -3869,7 +3869,7 @@ export function AdminInquiriesPage() {
                         v === '공급' || v === '전용' ? (v === p.areaBasis ? p.areaPyeong : '') : p.areaPyeong,
                     }));
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                 >
                   <option value="">선택</option>
                   {AREA_BASIS_EDIT.map((v) => (
@@ -3879,11 +3879,11 @@ export function AdminInquiriesPage() {
               </div>
               {editForm.areaBasis === '공급' ? (
                 <div>
-                  <label className="block text-fluid-sm text-gray-600 mb-1">분양평수 (평)</label>
+                  <label className="block text-fluid-sm text-slate-600 mb-1">분양평수 (평)</label>
                   <input
                     value={editForm.areaPyeong}
                     onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm tabular-nums"
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm tabular-nums"
                     placeholder="예: 32"
                     inputMode="decimal"
                   />
@@ -3891,11 +3891,11 @@ export function AdminInquiriesPage() {
               ) : null}
               {editForm.areaBasis === '전용' ? (
                 <div>
-                  <label className="block text-fluid-sm text-gray-600 mb-1">전용면적 (평)</label>
+                  <label className="block text-fluid-sm text-slate-600 mb-1">전용면적 (평)</label>
                   <input
                     value={editForm.areaPyeong}
                     onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm tabular-nums"
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm tabular-nums"
                     placeholder="예: 25.5"
                     inputMode="decimal"
                   />
@@ -3903,60 +3903,60 @@ export function AdminInquiriesPage() {
               ) : null}
               {editForm.areaBasis !== '공급' && editForm.areaBasis !== '전용' ? (
                 <div>
-                  <label className="block text-fluid-sm text-gray-600 mb-1">평수 (숫자·레거시)</label>
+                  <label className="block text-fluid-sm text-slate-600 mb-1">평수 (숫자·레거시)</label>
                   <input
                     value={editForm.areaPyeong}
                     onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                     placeholder="면적 기준 선택 후 입력"
                   />
                 </div>
               ) : null}
               <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-fluid-sm text-gray-600 mb-1">방</label>
+                  <label className="block text-fluid-sm text-slate-600 mb-1">방</label>
                   <input
                     type="number"
                     min={0}
                     value={editForm.roomCount}
                     onChange={(e) => setEditForm((p) => ({ ...p, roomCount: e.target.value }))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded text-fluid-sm text-center"
+                    className="w-full px-2 py-2 border border-slate-300 rounded text-fluid-sm text-center"
                   />
                 </div>
                 <div>
-                  <label className="block text-fluid-sm text-gray-600 mb-1">화</label>
+                  <label className="block text-fluid-sm text-slate-600 mb-1">화</label>
                   <input
                     type="number"
                     min={0}
                     value={editForm.bathroomCount}
                     onChange={(e) => setEditForm((p) => ({ ...p, bathroomCount: e.target.value }))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded text-fluid-sm text-center"
+                    className="w-full px-2 py-2 border border-slate-300 rounded text-fluid-sm text-center"
                   />
                 </div>
                 <div>
-                  <label className="block text-fluid-sm text-gray-600 mb-1">베</label>
+                  <label className="block text-fluid-sm text-slate-600 mb-1">베</label>
                   <input
                     type="number"
                     min={0}
                     value={editForm.balconyCount}
                     onChange={(e) => setEditForm((p) => ({ ...p, balconyCount: e.target.value }))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded text-fluid-sm text-center"
+                    className="w-full px-2 py-2 border border-slate-300 rounded text-fluid-sm text-center"
                   />
                 </div>
                 <div>
-                  <label className="block text-fluid-sm text-gray-600 mb-1">주방</label>
+                  <label className="block text-fluid-sm text-slate-600 mb-1">주방</label>
                   <input
                     type="number"
                     min={0}
                     value={editForm.kitchenCount}
                     onChange={(e) => setEditForm((p) => ({ ...p, kitchenCount: e.target.value }))}
-                    className="w-full px-2 py-2 border border-gray-300 rounded text-fluid-sm text-center"
+                    className="w-full px-2 py-2 border border-slate-300 rounded text-fluid-sm text-center"
                     placeholder="비움"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">예약일 (청소 희망일)</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">예약일 (청소 희망일)</label>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-2">
                   <YmdSelect
                     value={editForm.preferredDate}
@@ -3965,24 +3965,24 @@ export function AdminInquiriesPage() {
                     allowEmpty
                     emitOnCompleteOnly
                     minYmd={kstTodayYmd()}
-                    className="flex-1 min-w-0 px-2 py-2 border border-gray-300 rounded bg-white"
+                    className="flex-1 min-w-0 px-2 py-2 border border-slate-300 rounded bg-white"
                   />
                   <button
                     type="button"
                     disabled={!token}
                     onClick={() => setInquiryEditPreferredCalOpen(true)}
-                    className="shrink-0 px-3 py-2 rounded border border-gray-300 bg-gray-50 text-fluid-sm font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
+                    className="shrink-0 px-3 py-2 rounded border border-slate-300 bg-slate-50 text-fluid-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
                   >
                     달력·분배 가능일
                   </button>
                 </div>
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">희망 시간대</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">희망 시간대</label>
                 <select
                   value={editForm.preferredTime}
                   onChange={(e) => setEditForm((p) => ({ ...p, preferredTime: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                 >
                   <option value="">선택 안 함</option>
                   {ORDER_TIME_SLOT_OPTIONS.map((o) => (
@@ -3993,16 +3993,16 @@ export function AdminInquiriesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">구체적 시각</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">구체적 시각</label>
                 <input
                   value={editForm.preferredTimeDetail}
                   onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                   placeholder="예: 10:30"
                 />
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">신축/구축/인테리어/거주</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">신축/구축/인테리어/거주</label>
                 <select
                   value={editForm.buildingType}
                   onChange={(e) => {
@@ -4013,7 +4013,7 @@ export function AdminInquiriesPage() {
                       ...(v === ORDER_BUILDING_TYPE_RESIDING ? { moveInDateUndecided: false } : {}),
                     }));
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                 >
                   <option value="">선택 안 함</option>
                   {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
@@ -4024,12 +4024,12 @@ export function AdminInquiriesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-fluid-sm text-gray-600 mb-1">
+                <label className="block text-fluid-sm text-slate-600 mb-1">
                   이사 날짜
                   {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
                     <span className="text-red-600"> *</span>
                   ) : (
-                    <span className="text-gray-500"> (선택)</span>
+                    <span className="text-slate-500"> (선택)</span>
                   )}
                 </label>
                 <YmdSelect
@@ -4045,13 +4045,13 @@ export function AdminInquiriesPage() {
                   idPrefix="inq-edit-move"
                   allowEmpty
                   emitOnCompleteOnly
-                  className="w-full px-2 py-2 border border-gray-300 rounded bg-white"
+                  className="w-full px-2 py-2 border border-slate-300 rounded bg-white"
                 />
                 {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
-                  <label className="mt-2 flex cursor-pointer items-center gap-2 text-fluid-xs text-gray-800">
+                  <label className="mt-2 flex cursor-pointer items-center gap-2 text-fluid-xs text-slate-800">
                     <input
                       type="checkbox"
-                      className="rounded border-gray-300"
+                      className="rounded border-slate-300"
                       checked={editForm.moveInDateUndecided}
                       onChange={(e) => {
                         const c = e.target.checked;
@@ -4073,29 +4073,29 @@ export function AdminInquiriesPage() {
                   orderForm: editItem.orderForm,
                 }).trim() !== '' ? (
                   <div>
-                    <label className="block text-fluid-sm text-gray-600 mb-1">
+                    <label className="block text-fluid-sm text-slate-600 mb-1">
                       고객 발주서 특이사항 (읽기 전용)
                     </label>
-                    <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-sm text-gray-800">
+                    <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-sm text-slate-800">
                       {effectiveCustomerOrderNotes({
                         specialNotes: editItem.specialNotes,
                         orderForm: editItem.orderForm,
                       })}
                     </div>
-                    <p className="mt-1 text-fluid-2xs text-gray-500">
+                    <p className="mt-1 text-fluid-2xs text-slate-500">
                       고객이 발주서 11항에 작성한 내용입니다. 서식·금액 등은 발주서 본문에서 확인하세요.
                     </p>
                   </div>
                 ) : null}
                 <div>
-                  <label className="block text-fluid-sm text-gray-600 mb-1">
+                  <label className="block text-fluid-sm text-slate-600 mb-1">
                     특이사항 (관리자·팀장 공유)
                   </label>
                   <textarea
                     value={editForm.specialNotes}
                     onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                     placeholder="현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)"
                   />
                 </div>
@@ -4122,39 +4122,39 @@ export function AdminInquiriesPage() {
               <div className="sm:col-span-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
                   <div className="sm:col-span-2">
-                    <label className="block text-fluid-sm text-gray-600 mb-1">총액 (원)</label>
+                    <label className="block text-fluid-sm text-slate-600 mb-1">총액 (원)</label>
                     <input
                       value={editForm.amountTotal}
                       onChange={(e) => setEditForm((p) => ({ ...p, amountTotal: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                       placeholder="예: 500000"
                       inputMode="numeric"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:gap-x-4">
                     <div className="min-w-0">
-                      <label className="block text-fluid-sm text-gray-600 mb-1">예약금 (원)</label>
+                      <label className="block text-fluid-sm text-slate-600 mb-1">예약금 (원)</label>
                       <input
                         value={editForm.amountDeposit}
                         onChange={(e) => setEditForm((p) => ({ ...p, amountDeposit: e.target.value }))}
-                        className="w-full min-w-0 px-2 py-2 sm:px-3 border border-gray-300 rounded text-fluid-sm tabular-nums"
+                        className="w-full min-w-0 px-2 py-2 sm:px-3 border border-slate-300 rounded text-fluid-sm tabular-nums"
                         placeholder="예: 100000"
                         inputMode="numeric"
                       />
                     </div>
                     <div className="min-w-0">
-                      <label className="block text-fluid-sm text-gray-600 mb-1">잔금 (원)</label>
+                      <label className="block text-fluid-sm text-slate-600 mb-1">잔금 (원)</label>
                       <input
                         value={editForm.amountBalance}
                         onChange={(e) => setEditForm((p) => ({ ...p, amountBalance: e.target.value }))}
-                        className="w-full min-w-0 px-2 py-2 sm:px-3 border border-gray-300 rounded text-fluid-sm tabular-nums"
+                        className="w-full min-w-0 px-2 py-2 sm:px-3 border border-slate-300 rounded text-fluid-sm tabular-nums"
                         placeholder="예: 400000"
                         inputMode="numeric"
                       />
                     </div>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-fluid-sm text-gray-600 mb-1">타업체 담당</label>
+                    <label className="block text-fluid-sm text-slate-600 mb-1">타업체 담당</label>
                     <select
                       value={resolvedExternalLeadId}
                       disabled={
@@ -4177,7 +4177,7 @@ export function AdminInquiriesPage() {
                           return { ...p, teamLeaderIds: [v] };
                         });
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-fluid-sm disabled:bg-gray-100"
+                      className="w-full px-3 py-2 border border-slate-300 rounded bg-white text-fluid-sm disabled:bg-slate-100"
                       aria-describedby="inq-edit-settlement-external-hint"
                     >
                       <option value="">선택 안 함 (자사 팀장만)</option>
@@ -4187,20 +4187,20 @@ export function AdminInquiriesPage() {
                         </option>
                       ))}
                     </select>
-                    <p id="inq-edit-settlement-external-hint" className="text-[11px] text-gray-500 mt-1">
+                    <p id="inq-edit-settlement-external-hint" className="text-[11px] text-slate-500 mt-1">
                       타업체를 선택하면 자사 팀장과 동시 분배가 되지 않습니다. 수수료는 아래 입력란에만 해당합니다.
                     </p>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-fluid-sm text-gray-600 mb-1">수수료 (원)</label>
+                    <label className="block text-fluid-sm text-slate-600 mb-1">수수료 (원)</label>
                     <input
                       value={editForm.externalTransferFee}
                       onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                       placeholder="비우면 미입력"
                       inputMode="numeric"
                     />
-                    <p className="text-fluid-xs text-gray-500 mt-1">
+                    <p className="text-fluid-xs text-slate-500 mt-1">
                       타업체 담당으로 분배된 건에 대해 받는 수수료
                     </p>
                   </div>
@@ -4229,7 +4229,7 @@ export function AdminInquiriesPage() {
                 />
               </div>
               <div className="sm:col-span-2 space-y-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">
+                <label className="block text-fluid-sm text-slate-600 mb-1">
                   담당 팀장 (여러 명 가능)
                   <HelpTooltip
                     className="ml-1 align-middle"
@@ -4274,7 +4274,7 @@ export function AdminInquiriesPage() {
                               return { ...p, teamLeaderIds: next };
                             });
                           }}
-                          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-fluid-sm disabled:bg-gray-100"
+                          className="flex-1 min-w-0 px-3 py-2 border border-slate-300 rounded text-fluid-sm disabled:bg-slate-100"
                         >
                           <option value="">선택 안 함</option>
                           {leaderOptionsForRow(idx).map((tl) => (
@@ -4286,7 +4286,7 @@ export function AdminInquiriesPage() {
                         {editForm.teamLeaderIds.length > 1 && (
                           <button
                             type="button"
-                            className="shrink-0 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded"
+                            className="shrink-0 px-2 py-1 text-xs text-slate-600 border border-slate-200 rounded"
                             onClick={() =>
                               setEditForm((p) => ({
                                 ...p,
@@ -4319,8 +4319,8 @@ export function AdminInquiriesPage() {
                 )}
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">팀원 투입</label>
-                <p className="text-fluid-xs text-gray-500 mb-2">
+                <label className="block text-fluid-sm text-slate-600 mb-1">팀원 투입</label>
+                <p className="text-fluid-xs text-slate-500 mb-2">
                   인원 수를 선택하면 아래 "투입 팀원 선택" 슬롯이 그만큼 늘어납니다. 이름 일부나 초성(예: ㄱㅁ)으로 빠르게 검색할 수 있습니다.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
@@ -4333,7 +4333,7 @@ export function AdminInquiriesPage() {
                         crewMemberCount: Number.isFinite(v) ? v : 0,
                       }));
                     }}
-                    className="px-3 py-2 border border-gray-300 rounded text-fluid-sm min-w-[8rem]"
+                    className="px-3 py-2 border border-slate-300 rounded text-fluid-sm min-w-[8rem]"
                   >
                     {Array.from({ length: 21 }, (_, i) => (
                       <option key={i} value={String(i)}>
@@ -4345,7 +4345,7 @@ export function AdminInquiriesPage() {
               </div>
               {editForm.crewMemberCount > 0 && (
                 <div className="sm:col-span-2">
-                  <label className="block text-fluid-sm text-gray-600 mb-1">투입 팀원 선택</label>
+                  <label className="block text-fluid-sm text-slate-600 mb-1">투입 팀원 선택</label>
                   <div className="flex flex-wrap gap-2">
                     {editForm.crewMemberNames.map((name, idx) => {
                       const duplicateSet = new Set(
@@ -4377,7 +4377,7 @@ export function AdminInquiriesPage() {
                       );
                     })}
                   </div>
-                  <p className="mt-1 text-fluid-xs text-gray-500">
+                  <p className="mt-1 text-fluid-xs text-slate-500">
                     크루 그룹에서 「집계·일자 명단」모드를 쓰는 경우, 해당 예약일에 가용한 팀원만 목록에 나옵니다. 같은 창에서 이미
                     선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다. 첫 번째 자사 담당
                     팀장(타업체 제외)을 기준으로, 목록에{' '}
@@ -4387,12 +4387,12 @@ export function AdminInquiriesPage() {
                 </div>
               )}
               <div className="sm:col-span-2">
-                <label className="block text-fluid-sm text-gray-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
+                <label className="block text-fluid-sm text-slate-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
                 <textarea
                   value={editForm.memo}
                   onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                   placeholder="접수 메모"
                 />
               </div>
@@ -4401,7 +4401,7 @@ export function AdminInquiriesPage() {
             {editItem.claimMemo?.trim() && (
               <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-fluid-sm">
                 <p className="text-fluid-xs font-medium text-orange-800 mb-1">클레임 내용 (참고)</p>
-                <p className="text-gray-800 whitespace-pre-wrap">{editItem.claimMemo}</p>
+                <p className="text-slate-800 whitespace-pre-wrap">{editItem.claimMemo}</p>
               </div>
             )}
 
@@ -4415,16 +4415,16 @@ export function AdminInquiriesPage() {
             )}
 
             {token && (
-              <div className="mt-4 min-w-0 rounded-lg border border-gray-200 bg-white p-3">
+              <div className="mt-4 min-w-0 rounded-lg border border-slate-200 bg-white p-3">
                 <InquiryCleaningPhotosPanel inquiryId={editItem.id} variant="admin" token={token} />
               </div>
             )}
 
-            <details className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
-              <summary className="px-3 py-2 text-fluid-sm text-gray-700 bg-gray-50 cursor-pointer select-none hover:bg-gray-100">
+            <details className="mt-4 border border-slate-200 rounded-lg overflow-hidden">
+              <summary className="px-3 py-2 text-fluid-sm text-slate-700 bg-slate-50 cursor-pointer select-none hover:bg-slate-100">
                 날짜·금액 변경 이력 보기
               </summary>
-              <div className="p-3 bg-white border-t border-gray-100">
+              <div className="p-3 bg-white border-t border-slate-100">
                 <InquiryChangeHistoryBlock
                   logs={editItem.changeLogs}
                   className="mb-0 p-0 border-0 bg-transparent"
@@ -4435,7 +4435,7 @@ export function AdminInquiriesPage() {
 
             </div>
 
-            <div className="relative z-20 flex shrink-0 gap-2 border-t border-gray-200 bg-white px-5 py-3 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="relative z-20 flex shrink-0 gap-2 border-t border-slate-200 bg-white px-5 py-3 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 onClick={() => void handleSaveEdit()}
@@ -4447,7 +4447,7 @@ export function AdminInquiriesPage() {
               <button
                 type="button"
                 onClick={() => setEditItem(null)}
-                className="min-h-[44px] touch-manipulation px-4 py-2.5 border border-gray-300 rounded text-fluid-sm font-medium hover:bg-gray-50"
+                className="min-h-[44px] touch-manipulation px-4 py-2.5 border border-slate-300 rounded text-fluid-sm font-medium hover:bg-slate-50"
               >
                 취소
               </button>
@@ -4543,15 +4543,15 @@ export function AdminInquiriesPage() {
         createPortal(
           <div className="fixed inset-0 z-[560] flex items-center justify-center bg-black/35 p-4">
             <div className="w-full max-w-sm rounded-xl bg-white shadow-xl">
-              <div className="border-b border-gray-100 px-4 py-3 text-fluid-sm font-semibold text-gray-900">
+              <div className="border-b border-slate-100 px-4 py-3 text-fluid-sm font-semibold text-slate-900">
                 담당 마케터 변경
               </div>
               <div className="space-y-3 px-4 py-4">
-                <p className="text-fluid-xs text-gray-600">{editItem.customerName} 접수</p>
+                <p className="text-fluid-xs text-slate-600">{editItem.customerName} 접수</p>
                 <select
                   value={marketerQuickValue}
                   onChange={(e) => setMarketerQuickValue(e.target.value)}
-                  className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-fluid-sm"
+                  className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-fluid-sm"
                 >
                   <option value="">미지정</option>
                   {me ? <option value={me.id}>관리자 ({me.name})</option> : null}
@@ -4562,7 +4562,7 @@ export function AdminInquiriesPage() {
                   ))}
                 </select>
               </div>
-              <div className="flex gap-2 border-t border-gray-100 px-4 py-3">
+              <div className="flex gap-2 border-t border-slate-100 px-4 py-3">
                 <button
                   type="button"
                   onClick={handleQuickMarketerSave}
@@ -4574,7 +4574,7 @@ export function AdminInquiriesPage() {
                 <button
                   type="button"
                   onClick={() => setMarketerQuickOpen(false)}
-                  className="min-h-[40px] rounded border border-gray-300 px-3 py-2 text-fluid-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="min-h-[40px] rounded border border-slate-300 px-3 py-2 text-fluid-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   취소
                 </button>

@@ -1,9 +1,13 @@
 /**
- * 서비스접수 목록 정렬 — `shared/inquiryListSort.ts` 와 동기화 유지.
- * (server rootDir=src 이므로 shared 를 런타임에서 직접 import 하지 않음)
+ * 서비스접수 목록 pin·페이지네이션 — tier 정렬 규칙은 `shared/inquiryListSort.ts` 단일 소스.
+ * (server tsconfig include 로 shared 를 빌드에 포함 — tier 로직 중복 금지)
  */
 import type { Prisma } from '@prisma/client';
 import type { prisma } from '../../lib/prisma.js';
+import {
+  isInquiryOrderFormPendingSubmit,
+  sortInquiryListRows,
+} from '../../../../shared/inquiryListSort.js';
 
 export type InquiryListSortable = {
   status: string;
@@ -12,41 +16,10 @@ export type InquiryListSortable = {
   orderForm: { submittedAt: Date | null; createdAt: Date } | null;
 };
 
-export function isInquiryOrderFormPendingSubmit(row: InquiryListSortable): boolean {
-  if (row.status === 'ORDER_FORM_PENDING') return true;
-  return Boolean(
-    row.orderForm &&
-      !row.orderForm.submittedAt &&
-      (row.status === 'PENDING' || row.status === 'DEPOSIT_COMPLETED'),
-  );
-}
+export { isInquiryOrderFormPendingSubmit };
 
-export function isInquiryCancelUnconfirmed(row: InquiryListSortable): boolean {
-  return row.status === 'CANCELLED' && !row.happyCallCompletedAt;
-}
-
-export function inquiryListSortTier(row: InquiryListSortable): number {
-  if (isInquiryOrderFormPendingSubmit(row)) return 0;
-  if (isInquiryCancelUnconfirmed(row)) return 1;
-  if (row.status !== 'RECEIVED') return 2;
-  return 3;
-}
-
-export function compareInquiryListSortable(a: InquiryListSortable, b: InquiryListSortable): number {
-  const tierA = inquiryListSortTier(a);
-  const tierB = inquiryListSortTier(b);
-  if (tierA !== tierB) return tierA - tierB;
-  return b.createdAt.getTime() - a.createdAt.getTime();
-}
-
-export function sortInquiryListSortables<T extends InquiryListSortable>(rows: T[]): T[] {
-  return rows
-    .map((row, idx) => ({ row, idx }))
-    .sort((a, b) => {
-      const cmp = compareInquiryListSortable(a.row, b.row);
-      return cmp !== 0 ? cmp : a.idx - b.idx;
-    })
-    .map((x) => x.row);
+function sortInquiryListSortables<T extends InquiryListSortable>(rows: T[]): T[] {
+  return sortInquiryListRows(rows);
 }
 
 /** 발주서 미제출 — Prisma where (목록 상단 고정·필터 OR 용) */
