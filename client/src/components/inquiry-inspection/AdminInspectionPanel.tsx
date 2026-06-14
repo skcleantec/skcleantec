@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  downloadAdminInspectionPdf,
+  downloadAdminInspectionPhotosZip,
   fetchAdminInspectionChecklist,
   INSPECTION_STATUS_LABELS,
+  resendAdminInspectionEmail,
   voidAdminInspectionChecklist,
   type InspectionChecklistDto,
 } from '../../api/inquiryInspection';
@@ -21,6 +24,7 @@ export function AdminInspectionPanel({
   token: string;
 }) {
   const [checklist, setChecklist] = useState<InspectionChecklistDto | null | undefined>(undefined);
+  const [smtpConfigured, setSmtpConfigured] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [voidReason, setVoidReason] = useState('');
@@ -30,8 +34,9 @@ export function AdminInspectionPanel({
   const reload = useCallback(async () => {
     setErr(null);
     try {
-      const dto = await fetchAdminInspectionChecklist(token, inquiryId);
+      const { checklist: dto, smtpConfigured: smtp } = await fetchAdminInspectionChecklist(token, inquiryId);
       setChecklist(dto);
+      setSmtpConfigured(smtp);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '불러오기 실패');
       setChecklist(null);
@@ -46,17 +51,15 @@ export function AdminInspectionPanel({
   }, [reload, token]);
 
   const downloadAllPhotos = () => {
-    if (!checklist) return;
-    for (const area of checklist.areas) {
-      for (const p of area.photos) {
-        const a = document.createElement('a');
-        a.href = p.secureUrl;
-        a.download = `${area.label}_${p.phase}_${p.id.slice(0, 8)}.jpg`;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.click();
-      }
-    }
+    void downloadAdminInspectionPhotosZip(token, inquiryId).catch((e) => {
+      alert(e instanceof Error ? e.message : 'ZIP 다운로드 실패');
+    });
+  };
+
+  const downloadPdf = () => {
+    void downloadAdminInspectionPdf(token, inquiryId).catch((e) => {
+      alert(e instanceof Error ? e.message : 'PDF 다운로드 실패');
+    });
   };
 
   if (checklist === undefined) {
@@ -87,15 +90,49 @@ export function AdminInspectionPanel({
         {checklist.emailSentAt ? (
           <span className="text-fluid-2xs text-emerald-700">이메일 발송됨</span>
         ) : checklist.status === 'COMPLETED' ? (
-          <span className="text-fluid-2xs text-amber-700">이메일 발송 예정</span>
+          <span className="text-fluid-2xs text-amber-700">
+            {smtpConfigured ? '이메일 발송 대기/실패' : 'SMTP 미설정'}
+          </span>
         ) : null}
-        <button
-          type="button"
-          onClick={downloadAllPhotos}
-          className="ml-auto rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-fluid-2xs hover:bg-gray-50"
-        >
-          사진 일괄 다운로드
-        </button>
+        {checklist.status === 'COMPLETED' && (
+          <>
+            <button
+              type="button"
+              onClick={downloadPdf}
+              className="rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-fluid-2xs hover:bg-gray-50"
+            >
+              PDF 다운로드
+            </button>
+            <button
+              type="button"
+              onClick={downloadAllPhotos}
+              className="rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-fluid-2xs hover:bg-gray-50"
+            >
+              사진 ZIP
+            </button>
+            {isAdmin && smtpConfigured && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    const dto = await resendAdminInspectionEmail(token, inquiryId);
+                    setChecklist(dto);
+                    alert('이메일을 재발송했습니다.');
+                  } catch (e) {
+                    alert(e instanceof Error ? e.message : '재발송 실패');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="rounded-lg border border-blue-600 bg-blue-50 px-2.5 py-1 text-fluid-2xs text-blue-900 hover:bg-blue-100 disabled:opacity-50"
+              >
+                이메일 재발송
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       <InspectionHeaderBlock checklist={checklist} />

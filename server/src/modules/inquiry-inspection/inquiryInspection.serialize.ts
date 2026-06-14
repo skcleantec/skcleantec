@@ -36,6 +36,9 @@ export function serializeInspectionChecklist(row: ChecklistRow, inquiry?: {
     voidedBy: row.voidedBy ? { id: row.voidedBy.id, name: row.voidedBy.name } : null,
     voidReason: row.voidReason,
     emailSentAt: row.emailSentAt?.toISOString() ?? null,
+    completionPdf: row.completionPdfSecureUrl
+      ? { publicId: row.completionPdfPublicId, secureUrl: row.completionPdfSecureUrl }
+      : null,
     teamLeader: row.teamLeader,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

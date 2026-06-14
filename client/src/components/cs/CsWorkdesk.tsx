@@ -28,6 +28,8 @@ import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { HelpTooltip } from '../ui/HelpTooltip';
+import { InspectionCsSummaryBadge } from '../inquiry-inspection/InspectionCsSummaryBadge';
+import type { InspectionStatus } from '../../api/inquiryInspection';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
@@ -1104,6 +1106,17 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                       <span className="font-mono tabular-nums">{selected.inquiry.inquiryNumber}</span>
                     </p>
                   ) : null}
+                  <InspectionCsSummaryBadge
+                    summary={
+                      selected.inquiry.inspectionChecklist
+                        ? {
+                            status: selected.inquiry.inspectionChecklist.status as InspectionStatus,
+                            completedAt: selected.inquiry.inspectionChecklist.completedAt,
+                            emailSentAt: selected.inquiry.inspectionChecklist.emailSentAt,
+                          }
+                        : null
+                    }
+                  />
                   <button
                     type="button"
                     onClick={() => setConnectedInquiryModal(selected.inquiry!)}
@@ -1283,6 +1296,19 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   <span className="font-mono tabular-nums">{connectedInquiryModal.inquiryNumber}</span>
                 </p>
               ) : null}
+              <div className="mt-2">
+                <InspectionCsSummaryBadge
+                  summary={
+                    connectedInquiryModal.inspectionChecklist
+                      ? {
+                          status: connectedInquiryModal.inspectionChecklist.status as InspectionStatus,
+                          completedAt: connectedInquiryModal.inspectionChecklist.completedAt,
+                          emailSentAt: connectedInquiryModal.inspectionChecklist.emailSentAt,
+                        }
+                      : null
+                  }
+                />
+              </div>
             </div>
             <div className="p-4 sm:p-5 space-y-4 text-fluid-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

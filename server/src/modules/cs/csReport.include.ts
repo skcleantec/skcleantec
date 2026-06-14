@@ -42,6 +42,14 @@ export const csReportInquiryInclude = {
     orderForm: {
       select: { id: true, submittedAt: true, customerSpecialNotes: true },
     },
+    inspectionChecklist: {
+      select: {
+        status: true,
+        completedAt: true,
+        emailSentAt: true,
+        completionPdfSecureUrl: true,
+      },
+    },
   },
 } as const;
 

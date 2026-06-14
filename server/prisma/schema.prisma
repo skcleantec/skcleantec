@@ -1058,6 +1058,8 @@ model InquiryInspectionChecklist {
   voidedById             String?                  @map("voided_by_id")
   voidReason             String?                  @map("void_reason") @db.Text
   emailSentAt            DateTime?                @map("email_sent_at")
+  completionPdfPublicId  String?                  @map("completion_pdf_public_id") @db.VarChar(512)
+  completionPdfSecureUrl String?                  @map("completion_pdf_secure_url") @db.VarChar(2048)
   createdAt              DateTime                 @default(now()) @map("created_at")
   updatedAt              DateTime                 @updatedAt @map("updated_at")
 

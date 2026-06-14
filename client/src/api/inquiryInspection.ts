@@ -49,6 +49,7 @@ export type InspectionChecklistDto = {
   voidedAt: string | null;
   voidedBy: { id: string; name: string } | null;
   voidReason: string | null;
+  completionPdf: { publicId: string | null; secureUrl: string } | null;
   emailSentAt: string | null;
   teamLeader: { id: string; name: string };
   createdAt: string;
@@ -221,14 +222,18 @@ export async function completeTeamInspection(
 export async function fetchAdminInspectionChecklist(
   token: string,
   inquiryId: string,
-): Promise<InspectionChecklistDto | null> {
+): Promise<{ checklist: InspectionChecklistDto | null; smtpConfigured: boolean }> {
   const res = await fetch(`${API}/inquiries/${encodeURIComponent(inquiryId)}/inspection`, {
     headers: adminHeaders(token),
   });
-  const data = (await res.json()) as { checklist?: InspectionChecklistDto | null; error?: string };
-  if (res.status === 404) return null;
+  const data = (await res.json()) as {
+    checklist?: InspectionChecklistDto | null;
+    smtpConfigured?: boolean;
+    error?: string;
+  };
+  if (res.status === 404) return { checklist: null, smtpConfigured: false };
   if (!res.ok) throw new Error(data.error ?? '검수 체크리스트를 불러올 수 없습니다.');
-  return data.checklist ?? null;
+  return { checklist: data.checklist ?? null, smtpConfigured: Boolean(data.smtpConfigured) };
 }
 
 export async function voidAdminInspectionChecklist(
@@ -245,6 +250,58 @@ export async function voidAdminInspectionChecklist(
   const data = (await res.json()) as { checklist?: InspectionChecklistDto; error?: string };
   if (!res.ok) throw new Error(data.error ?? '무효 처리에 실패했습니다.');
   return data.checklist!;
+}
+export async function downloadAdminInspectionPdf(token: string, inquiryId: string): Promise<void> {
+  const res = await fetch(`${API}/inquiries/${encodeURIComponent(inquiryId)}/inspection/pdf`, {
+    headers: { Authorization: `Bearer ${token}` },
+    redirect: 'follow',
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? 'PDF 다운로드에 실패했습니다.');
+  }
+  const ct = res.headers.get('content-type') ?? '';
+  if (ct.includes('application/pdf')) {
+    const blob = await res.blob();
+    triggerBlobDownload(blob, `inspection_${inquiryId.slice(0, 8)}.pdf`);
+    return;
+  }
+  if (res.url) window.open(res.url, '_blank', 'noopener');
+}
+
+export async function downloadAdminInspectionPhotosZip(token: string, inquiryId: string): Promise<void> {
+  const res = await fetch(`${API}/inquiries/${encodeURIComponent(inquiryId)}/inspection/photos.zip`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? 'ZIP 다운로드에 실패했습니다.');
+  }
+  const blob = await res.blob();
+  triggerBlobDownload(blob, `inspection_photos_${inquiryId.slice(0, 8)}.zip`);
+}
+
+export async function resendAdminInspectionEmail(
+  token: string,
+  inquiryId: string,
+): Promise<InspectionChecklistDto> {
+  const res = await fetch(`${API}/inquiries/${encodeURIComponent(inquiryId)}/inspection/resend-email`, {
+    method: 'POST',
+    headers: adminHeaders(token),
+  });
+  const data = (await res.json()) as { checklist?: InspectionChecklistDto; error?: string; emailSent?: boolean };
+  if (!res.ok) throw new Error(data.error ?? '이메일 재발송에 실패했습니다.');
+  if (!data.emailSent) throw new Error('이메일이 발송되지 않았습니다. SMTP 설정을 확인하세요.');
+  return data.checklist!;
+}
+
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export const INSPECTION_STATUS_LABELS: Record<InspectionStatus, string> = {

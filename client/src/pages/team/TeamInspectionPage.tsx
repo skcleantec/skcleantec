@@ -78,7 +78,7 @@ export function TeamInspectionPage() {
     try {
       const dto = await completeTeamInspection(token, inquiryId);
       setChecklist(dto);
-      setMsg('청소완료(검수 마감) 처리되었습니다.');
+      setMsg('청소완료(검수 마감) 처리되었습니다. 완료본 PDF·이메일은 잠시 후 발송됩니다.');
     } catch (e) {
       setMsg(e instanceof Error ? e.message : '완료 처리 실패');
     } finally {

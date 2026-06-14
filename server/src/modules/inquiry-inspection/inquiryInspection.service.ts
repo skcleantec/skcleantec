@@ -5,6 +5,7 @@ import { buildInspectionConsentSnapshot } from '../../lib/inquiryInspectionConse
 import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { serializeInspectionChecklist } from './inquiryInspection.serialize.js';
 import { validateInspectionCompletion } from './inquiryInspection.validation.js';
+import { finalizeInspectionAfterComplete } from './inquiryInspection.postComplete.service.js';
 
 function isEditableStatus(status: InquiryInspectionStatus): boolean {
   return status === InquiryInspectionStatus.IN_PROGRESS || status === InquiryInspectionStatus.AWAITING_CUSTOMER;
@@ -228,7 +229,13 @@ export async function completeInspectionChecklist(params: {
     }),
   ]);
 
-  // 이메일 발송은 Phase 2 — customerEmail 저장만 완료
+  // 이메일·PDF는 완료 트랜잭션 직후 비동기 후처리
+  void finalizeInspectionAfterComplete({
+    checklistId: updated.id,
+    tenantId: params.tenantId,
+    inquiryId: params.inquiryId,
+  }).catch((e) => console.error('[inspection] post-complete failed', e));
+
   return serializeInspectionChecklist(updated);
 }
 
