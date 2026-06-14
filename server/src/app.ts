@@ -149,9 +149,23 @@ const clientDistCandidates = [
 const clientDir = clientDistCandidates.find((d) => fs.existsSync(d));
 if (clientDir) {
   console.info('[app] client 정적 파일:', clientDir);
-  app.use(express.static(clientDir));
+  app.use(
+    express.static(clientDir, {
+      setHeaders(res, filePath) {
+        const base = path.basename(filePath);
+        if (base === 'index.html') {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          return;
+        }
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    }),
+  );
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(path.join(clientDir, 'index.html'), (err) => {
       if (err) next(err);
     });

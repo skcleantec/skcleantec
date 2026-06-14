@@ -157,6 +157,7 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
         >
           <div
             className="flex max-h-[min(70vh,420px)] w-full max-w-sm flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl overscroll-contain"
+            data-admin-dev-preview-modal
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
@@ -189,7 +190,7 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
                         <button
                           type="button"
                           disabled={navBusy}
-                          className={listBtn}
+                          className={`${listBtn} text-gray-900`}
                           onClick={() => goTeamLeader(u.id)}
                         >
                           {u.name}
@@ -209,7 +210,7 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
                         <button
                           type="button"
                           disabled={navBusy}
-                          className={listBtn}
+                          className={`${listBtn} text-gray-900`}
                           onClick={() => goExternal(u)}
                         >
                           {formatAssignableUserLabel(u)}
@@ -228,7 +229,7 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
                         <button
                           type="button"
                           disabled={crewNavBusy}
-                          className={listBtn}
+                          className={`${listBtn} text-gray-900`}
                           onClick={() => void goCrew(g.loginId)}
                         >
                           <span className="font-medium">{g.name}</span>

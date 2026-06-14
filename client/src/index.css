@@ -151,6 +151,24 @@ html, body {
   background-color: rgba(255, 255, 255, 0.15) !important;
 }
 
+/* AdminDevPreviewLinks 모달 — fixed 이지만 theme-dark-header 자손이라 글자색 상속 보정 */
+.theme-dark-header [data-admin-dev-preview-modal] {
+  color: #0f172a !important;
+}
+.theme-dark-header [data-admin-dev-preview-modal] button {
+  color: #0f172a !important;
+}
+.theme-dark-header [data-admin-dev-preview-modal] .text-gray-800 {
+  color: #1e293b !important;
+}
+.theme-dark-header [data-admin-dev-preview-modal] .text-gray-500,
+.theme-dark-header [data-admin-dev-preview-modal] .text-gray-400 {
+  color: #64748b !important;
+}
+.theme-dark-header [data-admin-dev-preview-modal] .text-red-600 {
+  color: #dc2626 !important;
+}
+
 /* GNB 가로 스크롤 ◀▶ (모바일·좁은 화면) */
 .theme-dark-header [data-admin-nav-scroll-btn] {
   background-color: rgba(255, 255, 255, 0.15) !important;
