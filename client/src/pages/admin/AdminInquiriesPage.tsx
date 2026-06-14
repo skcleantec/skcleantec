@@ -2947,10 +2947,10 @@ export function AdminInquiriesPage() {
                 {hasInspectionModule ? (
                   <>
                     <col className="w-[8%]" />
-                    <col className="w-[3%]" />
-                    <col className="w-[8%]" />
                     <col className="w-[5%]" />
-                    <col className="w-[8%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[5%]" />
+                    <col className="w-[7%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
                     <col className="w-[7%]" />
@@ -2962,10 +2962,10 @@ export function AdminInquiriesPage() {
                 ) : (
                   <>
                     <col className="w-[9%]" />
-                    <col className="w-[4%]" />
-                    <col className="w-[9%]" />
                     <col className="w-[6%]" />
-                    <col className="w-[9%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[8%]" />
                     <col className="w-[6%]" />
                     <col className="w-[8%]" />
                     <col className="w-[8%]" />
@@ -3074,8 +3074,7 @@ export function AdminInquiriesPage() {
                       ) : null}
                     </td>
                     <td
-                      className={`min-w-0 max-w-[3.25rem] truncate px-0.5 py-0.5 align-middle text-center text-[10px] leading-tight text-slate-600 xl:max-w-[3.5rem] xl:text-[11px] ${pBorder}`}
-                      title={inquiryMarketerLabel(item)}
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[9px] leading-snug text-slate-600 break-keep whitespace-normal xl:text-[10px] ${pBorder}`}
                     >
                       {inquiryMarketerLabel(item)}
                     </td>
