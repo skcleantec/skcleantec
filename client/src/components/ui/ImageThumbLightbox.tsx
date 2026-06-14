@@ -13,6 +13,8 @@ type Props = {
   gallerySlides?: ImageGallerySlide[];
   /** gallerySlides에서 현재 썸네일 인덱스 */
   galleryIndex?: number;
+  /** 설정 시 버튼에 텍스트만 표시 (썸네일 없는 「크게 보기」 등) */
+  buttonLabel?: string;
 };
 
 /**
@@ -27,6 +29,7 @@ export function ImageThumbLightbox({
     'block w-full overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation',
   gallerySlides,
   galleryIndex = 0,
+  buttonLabel,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -77,9 +80,17 @@ export function ImageThumbLightbox({
           setOpen(true);
         }}
         className={buttonClassName}
-        aria-label={alt || '이미지 크게 보기'}
+        aria-label={buttonLabel || alt || '이미지 크게 보기'}
       >
-        <img src={src} alt="" className={thumbClassName} loading="lazy" />
+        {buttonLabel ? (
+          <span className="px-2 py-1 text-fluid-2xs font-medium">{buttonLabel}</span>
+        ) : null}
+        <img
+          src={src}
+          alt=""
+          className={buttonLabel ? 'sr-only' : thumbClassName}
+          loading="lazy"
+        />
       </button>
       {open &&
         createPortal(

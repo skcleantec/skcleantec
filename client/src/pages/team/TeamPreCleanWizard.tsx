@@ -7,14 +7,16 @@ import {
 } from '@shared/inquiryInspectionTemplate';
 import { getInspectionCaptureHint } from '@shared/inquiryInspectionCaptureGuides';
 import {
+  deleteTeamInspectionPhoto,
   patchTeamInspectionArea,
   patchTeamInspectionItem,
   uploadTeamInspectionPhotos,
   type InspectionArea,
+  type InspectionAreaPhoto,
   type InspectionChecklistDto,
   type InspectionItem,
 } from '../../api/inquiryInspection';
-import { ImageThumbLightbox } from '../../components/ui/ImageThumbLightbox';
+import { ImageThumbLightbox, type ImageGallerySlide } from '../../components/ui/ImageThumbLightbox';
 
 const SESSION_PREFIX = 'preCleanWizard';
 
@@ -36,6 +38,64 @@ function findFirstIncompleteIndex(area: InspectionArea): number {
 
 function sessionKey(inquiryId: string) {
   return `${SESSION_PREFIX}:${inquiryId}`;
+}
+
+function readCaptureSession(inquiryId: string): { areaId?: string; idx?: number } | null {
+  const raw = sessionStorage.getItem(sessionKey(inquiryId));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as { areaId?: string; idx?: number };
+  } catch {
+    return null;
+  }
+}
+
+function writeCaptureSession(inquiryId: string, areaId: string, idx: number) {
+  sessionStorage.setItem(sessionKey(inquiryId), JSON.stringify({ areaId, idx }));
+}
+
+function CapturePhotoThumb({
+  photo,
+  idx,
+  gallerySlides,
+  disabled,
+  onRetake,
+}: {
+  photo: InspectionAreaPhoto;
+  idx: number;
+  gallerySlides: ImageGallerySlide[];
+  disabled: boolean;
+  onRetake: (photoId: string) => void;
+}) {
+  return (
+    <div className="flex w-[4.75rem] flex-col gap-1">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onRetake(photo.id)}
+        className="relative block w-full overflow-hidden rounded-xl border-2 border-white/25 bg-black/40 touch-manipulation disabled:opacity-50 active:scale-[0.97]"
+        aria-label={`청소 전 ${idx + 1} 재촬영`}
+      >
+        <img
+          src={photo.secureUrl}
+          alt=""
+          className="h-[4.5rem] w-full object-cover"
+          loading="lazy"
+        />
+        <span className="absolute inset-x-0 bottom-0 bg-black/65 py-0.5 text-center text-[10px] font-medium text-white">
+          재촬영
+        </span>
+      </button>
+      <ImageThumbLightbox
+        src={photo.secureUrl}
+        alt={`청소 전 ${idx + 1}`}
+        gallerySlides={gallerySlides}
+        galleryIndex={idx}
+        buttonLabel="크게 보기"
+        buttonClassName="flex min-h-[26px] w-full items-center justify-center rounded-lg border border-white/20 bg-white/10 text-[10px] font-medium text-gray-200 touch-manipulation"
+      />
+    </div>
+  );
 }
 
 export function TeamPreCleanWizard({
@@ -61,7 +121,10 @@ export function TeamPreCleanWizard({
 }) {
   const [captureAreaId, setCaptureAreaId] = useState<string | null>(null);
   const [itemIndex, setItemIndex] = useState(0);
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [pendingStartAreaId, setPendingStartAreaId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const openCameraAfterReloadRef = useRef(false);
   const restoredRef = useRef(false);
 
   const areas = checklist.areas;
@@ -76,32 +139,64 @@ export function TeamPreCleanWizard({
     [captureArea],
   );
 
-  const currentItem = captureItems[itemIndex] ?? null;
+  const currentItem = useMemo(() => {
+    if (!captureArea) return null;
+    const items = visibleItems(captureArea);
+    if (activeItemId) {
+      return items.find((it) => it.id === activeItemId) ?? items[itemIndex] ?? null;
+    }
+    return items[itemIndex] ?? null;
+  }, [captureArea, activeItemId, itemIndex]);
 
   useEffect(() => {
     if (restoredRef.current || readOnly) return;
     restoredRef.current = true;
-    const raw = sessionStorage.getItem(sessionKey(inquiryId));
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as { areaId?: string; idx?: number };
-      if (parsed.areaId && areas.some((a) => a.id === parsed.areaId)) {
-        setCaptureAreaId(parsed.areaId);
-        setItemIndex(typeof parsed.idx === 'number' ? parsed.idx : 0);
-      }
-    } catch {
-      /* ignore */
-    }
+    const saved = readCaptureSession(inquiryId);
+    if (!saved?.areaId || !areas.some((a) => a.id === saved.areaId)) return;
+    const area = areas.find((a) => a.id === saved.areaId);
+    if (!area) return;
+    const items = visibleItems(area);
+    const idx =
+      typeof saved.idx === 'number' ? Math.min(Math.max(0, saved.idx), Math.max(0, items.length - 1)) : 0;
+    setCaptureAreaId(saved.areaId);
+    setItemIndex(idx);
+    setActiveItemId(items[idx]?.id ?? null);
   }, [inquiryId, areas, readOnly]);
 
   useEffect(() => {
-    if (readOnly) return;
-    if (captureAreaId) {
-      sessionStorage.setItem(sessionKey(inquiryId), JSON.stringify({ areaId: captureAreaId, idx: itemIndex }));
-    } else {
-      sessionStorage.removeItem(sessionKey(inquiryId));
+    if (!pendingStartAreaId) return;
+    const area = areas.find((a) => a.id === pendingStartAreaId);
+    if (!area || area.notApplicable) {
+      setPendingStartAreaId(null);
+      return;
     }
+    const items = visibleItems(area);
+    const saved = readCaptureSession(inquiryId);
+    let idx = findFirstIncompleteIndex(area);
+    if (saved?.areaId === pendingStartAreaId && typeof saved.idx === 'number') {
+      idx = Math.min(Math.max(0, saved.idx), Math.max(0, items.length - 1));
+    }
+    setCaptureAreaId(pendingStartAreaId);
+    setItemIndex(idx);
+    setActiveItemId(items[idx]?.id ?? null);
+    setPendingStartAreaId(null);
+  }, [pendingStartAreaId, areas, inquiryId]);
+
+  useEffect(() => {
+    if (!captureAreaId || !captureItems[itemIndex]) return;
+    setActiveItemId(captureItems[itemIndex].id);
+  }, [captureAreaId, itemIndex, captureItems]);
+
+  useEffect(() => {
+    if (readOnly || !captureAreaId) return;
+    writeCaptureSession(inquiryId, captureAreaId, itemIndex);
   }, [captureAreaId, itemIndex, inquiryId, readOnly]);
+
+  useEffect(() => {
+    if (!openCameraAfterReloadRef.current || busy || !captureAreaId) return;
+    openCameraAfterReloadRef.current = false;
+    fileInputRef.current?.click();
+  }, [checklist, busy, captureAreaId]);
 
   useEffect(() => {
     if (readOnly || !captureAreaId) return;
@@ -113,15 +208,18 @@ export function TeamPreCleanWizard({
   }, [captureAreaId, readOnly]);
 
   const exitCapture = useCallback(() => {
+    if (captureAreaId) {
+      writeCaptureSession(inquiryId, captureAreaId, itemIndex);
+    }
     setCaptureAreaId(null);
     void onReload();
-  }, [onReload]);
+  }, [captureAreaId, itemIndex, inquiryId, onReload]);
 
   const startCapture = (areaId: string) => {
     const area = areas.find((a) => a.id === areaId);
     if (!area || area.notApplicable) return;
-    setCaptureAreaId(areaId);
-    setItemIndex(findFirstIncompleteIndex(area));
+    setPendingStartAreaId(areaId);
+    void onReload();
   };
 
   const advanceAfterAction = useCallback(
@@ -131,6 +229,7 @@ export function TeamPreCleanWizard({
       } else {
         onMsg('이 구역의 청소 전 촬영을 마쳤습니다.');
         setCaptureAreaId(null);
+        sessionStorage.removeItem(sessionKey(inquiryId));
       }
     },
     [itemIndex, onMsg],
@@ -180,6 +279,23 @@ export function TeamPreCleanWizard({
       onMsg('구역 전체를 해당없음으로 처리했습니다.');
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '저장 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRetakePhoto = async (photoId: string) => {
+    if (!currentItem || busy) return;
+    if (!window.confirm('선택한 사진을 삭제하고 다시 촬영할까요?')) return;
+    setBusy(true);
+    onMsg(null);
+    try {
+      await deleteTeamInspectionPhoto(token, inquiryId, currentItem.id, photoId);
+      await onReload();
+      onMsg('다시 촬영해 주세요.');
+      openCameraAfterReloadRef.current = true;
+    } catch (e) {
+      onMsg(e instanceof Error ? e.message : '삭제 실패');
     } finally {
       setBusy(false);
     }
@@ -263,18 +379,17 @@ export function TeamPreCleanWizard({
             ) : (
               <>
                 <p className="mb-3 text-center text-xs text-gray-400">
-                  등록된 사진 {beforePhotos.length}장 · 썸네일을 누르면 크게 볼 수 있어요
+                  등록된 사진 {beforePhotos.length}장 · 사진 탭 재촬영 · 크게 보기 가능
                 </p>
                 <div className="flex flex-wrap justify-center gap-2.5">
                   {beforePhotos.map((photo, idx) => (
-                    <ImageThumbLightbox
+                    <CapturePhotoThumb
                       key={photo.id}
-                      src={photo.secureUrl}
-                      alt={`청소 전 ${idx + 1}`}
+                      photo={photo}
+                      idx={idx}
                       gallerySlides={gallerySlides}
-                      galleryIndex={idx}
-                      thumbClassName="h-[4.5rem] w-[4.5rem] object-cover"
-                      buttonClassName="block shrink-0 overflow-hidden rounded-xl border-2 border-white/20 bg-black/40 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 touch-manipulation active:scale-[0.97]"
+                      disabled={busy}
+                      onRetake={(id) => void handleRetakePhoto(id)}
                     />
                   ))}
                 </div>
