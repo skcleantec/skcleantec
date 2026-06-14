@@ -25,11 +25,6 @@ function teamAriaAssignNav(count: number): string {
   return teamT('team.layout.aria.assignListUnread', { count: String(count) });
 }
 
-function teamAriaAssignMobile(count: number): string {
-  if (count <= 0) return teamT('team.layout.aria.assignShort');
-  return teamT('team.layout.aria.assignShortUnread', { count: String(count) });
-}
-
 function teamAriaCs(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.csOnly');
   return teamT('team.layout.aria.csUnread', { count: String(count) });
@@ -38,6 +33,99 @@ function teamAriaCs(count: number): string {
 function teamAriaMessages(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.messagesOnly');
   return teamT('team.layout.aria.messagesUnread', { count: String(count) });
+}
+
+const navBadgeClass =
+  '-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none';
+
+function TeamNavLinks({
+  teamTo,
+  navClass,
+  isExternalPartner,
+  hideTeamDayoffs,
+  newAssignmentCount,
+  csPendingCount,
+  unreadCount,
+  compact,
+}: {
+  teamTo: (path: string) => string;
+  navClass: ({ isActive }: { isActive: boolean }) => string;
+  isExternalPartner: boolean;
+  hideTeamDayoffs: boolean;
+  newAssignmentCount: number;
+  csPendingCount: number;
+  unreadCount: number;
+  compact?: boolean;
+}) {
+  return (
+    <>
+      <NavLink to={teamTo('/team/dashboard')} className={navClass}>
+        <TeamNavIcon type="dashboard" className="w-4 h-4 mr-1.5 shrink-0" />
+        <TeamBiInline id="team.layout.nav.dashboard" />
+      </NavLink>
+      <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+        <NavLink
+          to={teamTo('/team/assignments')}
+          className={navClass}
+          aria-label={teamAriaAssignNav(newAssignmentCount)}
+        >
+          <TeamNavIcon type="assignments" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id={compact ? 'team.layout.nav.assignmentsShort' : 'team.layout.nav.assignments'} />
+        </NavLink>
+        {newAssignmentCount > 0 ? (
+          <span className={navBadgeClass} aria-hidden>
+            {newAssignmentCount > 99 ? '99+' : newAssignmentCount}
+          </span>
+        ) : null}
+      </div>
+      <NavLink to={teamTo('/team/schedule')} className={navClass}>
+        <TeamNavIcon type="schedule" className="w-4 h-4 mr-1.5 shrink-0" />
+        <TeamBiInline id="team.layout.nav.schedule" />
+      </NavLink>
+      {isExternalPartner ? (
+        <NavLink to={teamTo('/team/settlement')} className={navClass}>
+          <TeamNavIcon type="settlement" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id="team.layout.nav.settlement" />
+        </NavLink>
+      ) : null}
+      {!hideTeamDayoffs ? (
+        <NavLink to={teamTo('/team/dayoffs')} className={navClass}>
+          <TeamNavIcon type="dayoffs" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id="team.layout.nav.dayoffs" />
+        </NavLink>
+      ) : null}
+      <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+        <NavLink
+          to={teamTo('/team/cs')}
+          className={navClass}
+          aria-label={teamAriaCs(csPendingCount)}
+        >
+          <TeamNavIcon type="cs" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id="team.layout.nav.cs" />
+        </NavLink>
+        {csPendingCount > 0 ? (
+          <span className={navBadgeClass} aria-hidden>
+            {csPendingCount}
+          </span>
+        ) : null}
+      </div>
+      <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+        <NavLink
+          to={teamTo('/team/messages')}
+          className={navClass}
+          aria-label={teamAriaMessages(unreadCount)}
+        >
+          <TeamNavIcon type="messages" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id="team.layout.nav.messages" />
+        </NavLink>
+        {unreadCount > 0 ? (
+          <span className={navBadgeClass} aria-hidden>
+            {unreadCount}
+          </span>
+        ) : null}
+      </div>
+    </>
+  );
 }
 
 function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 'schedule' | 'settlement' | 'dayoffs' | 'cs' | 'messages' | 'e-contracts'; className?: string }) {
@@ -238,15 +326,10 @@ export function TeamLayout() {
   };
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center px-3 py-1.5 text-fluid-xs font-semibold rounded-xl transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
+    `inline-flex items-center shrink-0 whitespace-nowrap px-3 py-1.5 text-fluid-xs font-semibold rounded-xl transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] touch-manipulation ${
       isActive
         ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20'
         : 'text-slate-300 hover:text-white hover:bg-white/10'
-    }`;
-
-  const mobileTabClass = ({ isActive }: { isActive: boolean }) =>
-    `flex flex-1 min-h-[50px] min-w-0 flex-col items-center justify-center gap-0.5 py-1 px-0.5 text-center text-[10px] font-semibold leading-tight touch-manipulation transition-all duration-150 ${
-      isActive ? 'text-white bg-blue-600' : 'text-slate-400 hover:text-white hover:bg-white/10'
     }`;
 
   const searchParams = new URLSearchParams(location.search);
@@ -279,6 +362,14 @@ export function TeamLayout() {
   }
   const teamTo = (path: string) => `${path}${previewQuery}`;
 
+  const navShared = {
+    isExternalPartner,
+    hideTeamDayoffs,
+    newAssignmentCount,
+    csPendingCount,
+    unreadCount,
+  };
+
   const showStaffIdCardDrawer =
     Boolean(staffIdCardUrl) && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER');
 
@@ -298,229 +389,96 @@ export function TeamLayout() {
         />
       ) : null}
       <header className="sticky top-0 z-40 pt-[env(safe-area-inset-top)] shadow-md theme-dark-header">
-        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <NavLink
-              to={teamTo('/team/dashboard')}
-              className="shrink-0 hover:opacity-90 transition-opacity"
-              aria-label="청소비서 — 대시보드로 이동"
-              title="대시보드로 이동"
-            >
-              <TenantBrandLogo height={32} />
-            </NavLink>
-            <nav className="hidden sm:flex flex-wrap items-center gap-1">
-              <NavLink to={teamTo('/team/dashboard')} className={navClass}>
-                <TeamNavIcon type="dashboard" className="w-4 h-4 mr-1.5 shrink-0" />
-                <TeamBiInline id="team.layout.nav.dashboard" />
-              </NavLink>
-              <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
-                <NavLink
-                  to={teamTo('/team/assignments')}
-                  className={navClass}
-                  aria-label={teamAriaAssignNav(newAssignmentCount)}
-                >
-                  <TeamNavIcon type="assignments" className="w-4 h-4 mr-1.5 shrink-0" />
-                  <TeamBiInline id="team.layout.nav.assignments" />
-                </NavLink>
-                {newAssignmentCount > 0 ? (
-                  <span
-                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
-                    aria-hidden
-                  >
-                    {newAssignmentCount > 99 ? '99+' : newAssignmentCount}
-                  </span>
-                ) : null}
-              </div>
-              <NavLink to={teamTo('/team/schedule')} className={navClass}>
-                <TeamNavIcon type="schedule" className="w-4 h-4 mr-1.5 shrink-0" />
-                <TeamBiInline id="team.layout.nav.schedule" />
-              </NavLink>
-              {isExternalPartner && (
-                <NavLink to={teamTo('/team/settlement')} className={navClass}>
-                  <TeamNavIcon type="settlement" className="w-4 h-4 mr-1.5 shrink-0" />
-                  <TeamBiInline id="team.layout.nav.settlement" />
-                </NavLink>
-              )}
-              {!hideTeamDayoffs && (
-                <NavLink to={teamTo('/team/dayoffs')} className={navClass}>
-                  <TeamNavIcon type="dayoffs" className="w-4 h-4 mr-1.5 shrink-0" />
-                  <TeamBiInline id="team.layout.nav.dayoffs" />
-                </NavLink>
-              )}
-              <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
-                <NavLink
-                  to={teamTo('/team/cs')}
-                  className={navClass}
-                  aria-label={teamAriaCs(csPendingCount)}
-                >
-                  <TeamNavIcon type="cs" className="w-4 h-4 mr-1.5 shrink-0" />
-                  <TeamBiInline id="team.layout.nav.cs" />
-                </NavLink>
-                {csPendingCount > 0 ? (
-                  <span
-                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
-                    aria-hidden
-                  >
-                    {csPendingCount}
-                  </span>
-                ) : null}
-              </div>
-              <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
-                <NavLink
-                  to={teamTo('/team/messages')}
-                  className={navClass}
-                  aria-label={teamAriaMessages(unreadCount)}
-                >
-                  <TeamNavIcon type="messages" className="w-4 h-4 mr-1.5 shrink-0" />
-                  <TeamBiInline id="team.layout.nav.messages" />
-                </NavLink>
-                {unreadCount > 0 ? (
-                  <span
-                    className="-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none"
-                    aria-hidden
-                  >
-                    {unreadCount}
-                  </span>
-                ) : null}
-              </div>
-            </nav>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
-            {showAdminScreenLink ? (
+        <div className="max-w-6xl mx-auto px-4 py-2.5 flex flex-col gap-2 min-w-0">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <NavLink
-                to="/admin/dashboard"
-                className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] font-medium text-blue-700 hover:bg-blue-100 hover:text-blue-900 whitespace-nowrap"
-                title={teamT('team.layout.adminScreenTitle')}
+                to={teamTo('/team/dashboard')}
+                className="shrink-0 hover:opacity-90 transition-opacity"
+                aria-label="청소비서 — 대시보드로 이동"
+                title="대시보드로 이동"
               >
-                <TeamBiInline id="team.layout.adminScreen" />
+                <TenantBrandLogo height={32} />
               </NavLink>
-            ) : null}
-            {previewExternal ? (
-              <div className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] text-indigo-800 whitespace-nowrap">
-                <span className="font-medium">{previewExternalName}</span>
-                <span className="text-indigo-600 inline-block align-middle">
-                  <TeamBiInline id="team.layout.previewExternal" />
-                </span>
-              </div>
-            ) : (
-              <>
-                {previewTeamLeader ? (
-                  <span
-                    className="max-w-[9rem] truncate rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-[clamp(0.6rem,1.4vw,0.75rem)] font-medium text-teal-900 whitespace-nowrap"
-                    title={userName ?? undefined}
-                  >
-                    {userName ? `${userName} · ` : ''}
-                    <TeamBiInline id="team.layout.previewTeamLeader" />
+              <nav className="hidden sm:flex flex-wrap items-center gap-1" aria-label="팀장 메뉴">
+                <TeamNavLinks navClass={navClass} teamTo={teamTo} {...navShared} />
+              </nav>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+              {showAdminScreenLink ? (
+                <NavLink
+                  to="/admin/dashboard"
+                  className="inline-flex items-center rounded-md border border-white/20 bg-white/10 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] font-medium text-slate-100 hover:bg-white/15 hover:text-white whitespace-nowrap"
+                  title={teamT('team.layout.adminScreenTitle')}
+                >
+                  <TeamBiInline id="team.layout.adminScreen" />
+                </NavLink>
+              ) : null}
+              {previewExternal ? (
+                <div className="inline-flex items-center gap-2 rounded-md border border-indigo-300/40 bg-indigo-500/15 px-2 py-1 text-[clamp(0.65rem,1.5vw,0.8125rem)] text-indigo-100 whitespace-nowrap">
+                  <span className="font-medium">{previewExternalName}</span>
+                  <span className="text-indigo-200 inline-block align-middle">
+                    <TeamBiInline id="team.layout.previewExternal" />
                   </span>
-                ) : null}
-                <UserProfileMenu
-                  token={teamToken}
-                  teamProfileVehicleField
-                  showVehicleForPreviewAdmin={Boolean(
-                    (userRole === 'ADMIN' || userRole === 'MARKETER') && previewTeamLeader
-                  )}
-                  me={{
-                    name: userName,
-                    phone: userPhone,
-                    vehicleNumber: userVehicleNumber,
-                    role: userRole,
-                    nameEn: userNameEn,
-                  }}
-                  onSaved={(next) => {
-                    setUserName(next.name);
-                    setUserPhone(next.phone);
-                    setUserVehicleNumber(next.vehicleNumber);
-                    if (next.nameEn !== undefined) setUserNameEn(next.nameEn);
-                  }}
-                  teamEContractMenu={
-                    userRole === 'TEAM_LEADER'
-                      ? { listHref: teamTo('/team/e-contracts'), pendingCount: eContractPendingCount }
-                      : null
-                  }
-                  onLogout={handleLogout}
-                  onSessionExpired={() => {
-                    clearTeamToken();
-                    navigate('/login', { replace: true, state: { sessionExpired: true } });
-                  }}
-                />
-              </>
-            )}
+                </div>
+              ) : (
+                <>
+                  {previewTeamLeader ? (
+                    <span
+                      className="max-w-[9rem] truncate rounded border border-teal-300/40 bg-teal-500/15 px-1.5 py-0.5 text-[clamp(0.6rem,1.4vw,0.75rem)] font-medium text-teal-100 whitespace-nowrap"
+                      title={userName ?? undefined}
+                    >
+                      {userName ? `${userName} · ` : ''}
+                      <TeamBiInline id="team.layout.previewTeamLeader" />
+                    </span>
+                  ) : null}
+                  <UserProfileMenu
+                    token={teamToken}
+                    teamProfileVehicleField
+                    showVehicleForPreviewAdmin={Boolean(
+                      (userRole === 'ADMIN' || userRole === 'MARKETER') && previewTeamLeader
+                    )}
+                    me={{
+                      name: userName,
+                      phone: userPhone,
+                      vehicleNumber: userVehicleNumber,
+                      role: userRole,
+                      nameEn: userNameEn,
+                    }}
+                    onSaved={(next) => {
+                      setUserName(next.name);
+                      setUserPhone(next.phone);
+                      setUserVehicleNumber(next.vehicleNumber);
+                      if (next.nameEn !== undefined) setUserNameEn(next.nameEn);
+                    }}
+                    teamEContractMenu={
+                      userRole === 'TEAM_LEADER'
+                        ? { listHref: teamTo('/team/e-contracts'), pendingCount: eContractPendingCount }
+                        : null
+                    }
+                    onLogout={handleLogout}
+                    onSessionExpired={() => {
+                      clearTeamToken();
+                      navigate('/login', { replace: true, state: { sessionExpired: true } });
+                    }}
+                  />
+                </>
+              )}
+            </div>
           </div>
+          <nav
+            className="sm:hidden relative min-w-0 -mx-4 px-4"
+            data-team-mobile-nav
+            aria-label="팀장 메뉴"
+          >
+            <div
+              className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              <TeamNavLinks navClass={navClass} teamTo={teamTo} compact {...navShared} />
+            </div>
+          </nav>
         </div>
-        {/* 모바일: 상단(헤더 바로 아래) 탭 메뉴 */}
-        <nav className="flex sm:hidden border-t border-gray-100 bg-white">
-          <NavLink to={teamTo('/team/dashboard')} className={mobileTabClass}>
-            <TeamNavIcon type="dashboard" className="w-4.5 h-4.5" />
-            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.dashboard" /></span>
-          </NavLink>
-          <NavLink
-            to={teamTo('/team/assignments')}
-            className={mobileTabClass}
-            aria-label={teamAriaAssignMobile(newAssignmentCount)}
-          >
-            <div className="relative flex flex-col items-center justify-center">
-              <TeamNavIcon type="assignments" className="w-4.5 h-4.5" />
-              {newAssignmentCount > 0 ? (
-                <span
-                  className="absolute -top-1 -right-2 inline-flex min-w-[0.875rem] h-[0.875rem] items-center justify-center rounded-full bg-amber-400 px-0.5 text-center text-[8px] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse"
-                >
-                  {newAssignmentCount > 99 ? '99+' : newAssignmentCount}
-                </span>
-              ) : null}
-            </div>
-            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.assignmentsShort" /></span>
-          </NavLink>
-          <NavLink to={teamTo('/team/schedule')} className={mobileTabClass}>
-            <TeamNavIcon type="schedule" className="w-4.5 h-4.5" />
-            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.schedule" /></span>
-          </NavLink>
-          {isExternalPartner && (
-            <NavLink to={teamTo('/team/settlement')} className={mobileTabClass}>
-              <TeamNavIcon type="settlement" className="w-4.5 h-4.5" />
-              <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.settlement" /></span>
-            </NavLink>
-          )}
-          {!hideTeamDayoffs && (
-            <NavLink to={teamTo('/team/dayoffs')} className={mobileTabClass}>
-              <TeamNavIcon type="dayoffs" className="w-4.5 h-4.5" />
-              <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.dayoffs" /></span>
-            </NavLink>
-          )}
-          <NavLink
-            to={teamTo('/team/cs')}
-            className={mobileTabClass}
-            aria-label={teamAriaCs(csPendingCount)}
-          >
-            <div className="relative flex flex-col items-center justify-center">
-              <TeamNavIcon type="cs" className="w-4.5 h-4.5" />
-              {csPendingCount > 0 ? (
-                <span
-                  className="absolute -top-1 -right-2 inline-flex min-w-[0.875rem] h-[0.875rem] items-center justify-center rounded-full bg-amber-400 px-0.5 text-center text-[8px] font-bold leading-none text-slate-950"
-                >
-                  {csPendingCount}
-                </span>
-              ) : null}
-            </div>
-            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.cs" /></span>
-          </NavLink>
-          <NavLink
-            to={teamTo('/team/messages')}
-            className={mobileTabClass}
-            aria-label={teamAriaMessages(unreadCount)}
-          >
-            <div className="relative flex flex-col items-center justify-center">
-              <TeamNavIcon type="messages" className="w-4.5 h-4.5" />
-              {unreadCount > 0 ? (
-                <span
-                  className="absolute -top-1 -right-2 inline-flex min-w-[0.875rem] h-[0.875rem] items-center justify-center rounded-full bg-amber-400 px-0.5 text-center text-[8px] font-bold leading-none text-slate-950"
-                >
-                  {unreadCount}
-                </span>
-              ) : null}
-            </div>
-            <span className="truncate max-w-full"><TeamBiInline id="team.layout.nav.messages" /></span>
-          </NavLink>
-        </nav>
       </header>
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
         <Outlet />
