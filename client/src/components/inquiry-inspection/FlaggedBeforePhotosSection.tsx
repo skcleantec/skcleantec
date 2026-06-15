@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { InspectionChecklistDto } from '../../api/inquiryInspection';
 import { patchTeamInspectionPhotoFlag } from '../../api/inquiryInspection';
-import { shareImageFiles } from '../../utils/shareFiles';
+import { shareImageFiles, DESKTOP_SHARE_HINT, CLIPBOARD_SHARE_HINT } from '../../utils/shareFiles';
 import {
   collectFlaggedBeforePhotos,
   flaggedBeforePhotosToShareItems,
@@ -85,10 +85,10 @@ export function FlaggedBeforePhotosSection({
         text,
         onProgress: (done, total) => setShareProgress({ done, total }),
       });
-      if (result === 'clipboard') {
-        alert(
-          '사진 파일 공유를 사용할 수 없어 링크를 복사했습니다. 카톡에 붙여넣으면 사진을 바로 열어볼 수 있습니다.',
-        );
+      if (result === 'desktop') {
+        alert(DESKTOP_SHARE_HINT);
+      } else if (result === 'clipboard') {
+        alert(CLIPBOARD_SHARE_HINT);
       }
     } catch (e) {
       alert(e instanceof Error ? e.message : '전달 준비에 실패했습니다.');

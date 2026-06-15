@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { InspectionArea } from '../../api/inquiryInspection';
-import { shareImageFiles, type ShareImageItem } from '../../utils/shareFiles';
+import { shareImageFiles, type ShareImageItem, DESKTOP_SHARE_HINT, CLIPBOARD_SHARE_HINT } from '../../utils/shareFiles';
 
 function safeNamePart(s: string): string {
   return s.replace(/[\\/:*?"<>|]/g, '_').slice(0, 20);
@@ -70,10 +70,10 @@ export function ShareAreaBeforePhotosButton({
         text,
         onProgress: (done, total) => setProgress({ done, total }),
       });
-      if (result === 'clipboard') {
-        alert(
-          '사진 파일 공유를 사용할 수 없어 링크를 복사했습니다. 카톡에 붙여넣으면 사진을 바로 열어볼 수 있습니다.',
-        );
+      if (result === 'desktop') {
+        alert(DESKTOP_SHARE_HINT);
+      } else if (result === 'clipboard') {
+        alert(CLIPBOARD_SHARE_HINT);
       }
     } catch (e) {
       alert(e instanceof Error ? e.message : '전달 준비에 실패했습니다.');
