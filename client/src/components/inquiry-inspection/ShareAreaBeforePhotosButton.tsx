@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { InspectionArea } from '../../api/inquiryInspection';
-import { shareImageFiles, type ShareImageItem, DESKTOP_SHARE_HINT, CLIPBOARD_SHARE_HINT } from '../../utils/shareFiles';
+import { shareImageFiles, type ShareImageItem, shareImagesResultHint } from '../../utils/shareFiles';
 
 function safeNamePart(s: string): string {
   return s.replace(/[\\/:*?"<>|]/g, '_').slice(0, 20);
@@ -70,11 +70,8 @@ export function ShareAreaBeforePhotosButton({
         text,
         onProgress: (done, total) => setProgress({ done, total }),
       });
-      if (result === 'desktop') {
-        alert(DESKTOP_SHARE_HINT);
-      } else if (result === 'clipboard') {
-        alert(CLIPBOARD_SHARE_HINT);
-      }
+      const hint = shareImagesResultHint(result, photoCount);
+      if (hint) alert(hint);
     } catch (e) {
       alert(e instanceof Error ? e.message : '전달 준비에 실패했습니다.');
     } finally {

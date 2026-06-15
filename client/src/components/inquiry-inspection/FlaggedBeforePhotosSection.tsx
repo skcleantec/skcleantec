@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { InspectionChecklistDto } from '../../api/inquiryInspection';
 import { patchTeamInspectionPhotoFlag } from '../../api/inquiryInspection';
-import { shareImageFiles, DESKTOP_SHARE_HINT, CLIPBOARD_SHARE_HINT } from '../../utils/shareFiles';
+import { shareImageFiles, shareImagesResultHint } from '../../utils/shareFiles';
 import {
   collectFlaggedBeforePhotos,
   flaggedBeforePhotosToShareItems,
@@ -85,11 +85,8 @@ export function FlaggedBeforePhotosSection({
         text,
         onProgress: (done, total) => setShareProgress({ done, total }),
       });
-      if (result === 'desktop') {
-        alert(DESKTOP_SHARE_HINT);
-      } else if (result === 'clipboard') {
-        alert(CLIPBOARD_SHARE_HINT);
-      }
+      const hint = shareImagesResultHint(result, count);
+      if (hint) alert(hint);
     } catch (e) {
       alert(e instanceof Error ? e.message : '전달 준비에 실패했습니다.');
     } finally {
