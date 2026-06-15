@@ -450,7 +450,9 @@ export async function resendAdminInspectionEmail(
   });
   const data = (await res.json()) as { checklist?: InspectionChecklistDto; error?: string; emailSent?: boolean };
   if (!res.ok) throw new Error(data.error ?? '이메일 재발송에 실패했습니다.');
-  if (!data.emailSent) throw new Error('이메일이 발송되지 않았습니다. SMTP 설정을 확인하세요.');
+  if (!data.emailSent) {
+    throw new Error(data.error ?? '이메일이 발송되지 않았습니다.');
+  }
   return data.checklist!;
 }
 

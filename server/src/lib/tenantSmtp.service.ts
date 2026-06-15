@@ -12,6 +12,47 @@ export type ResolvedSmtpTransport = {
   source: 'tenant' | 'global';
 };
 
+/** `"회사명" <a@b.com>` 또는 `a@b.com` 에서 로그인용 이메일만 추출 */
+export function extractSmtpLoginEmail(raw: string): string {
+  const t = raw.trim();
+  const angle = t.match(/<([^>]+)>/);
+  if (angle?.[1]) return angle[1].trim();
+  return t;
+}
+
+function resolveSmtpAuthUser(user: string, from: string): string | null {
+  const fromEmail = extractSmtpLoginEmail(from);
+  const userEmail = user.trim();
+  if (userEmail.includes('@')) return userEmail;
+  if (fromEmail.includes('@')) return fromEmail;
+  return null;
+}
+
+/** nodemailer 오류 → 화면용 짧은 메시지 (비밀번호 등은 노출하지 않음) */
+export function formatSmtpSendError(e: unknown): string {
+  const err = e as {
+    message?: string;
+    response?: string;
+    responseCode?: number;
+    code?: string;
+  };
+  const blob = `${err.response ?? ''} ${err.message ?? ''}`.toLowerCase();
+  if (blob.includes('username and password not accepted') || blob.includes('535')) {
+    return 'Gmail 로그인이 거부되었습니다. SMTP 로그인 계정에 @gmail.com 전체 주소를 넣고, 일반 비밀번호가 아닌 앱 비밀번호를 사용했는지 확인해 주세요.';
+  }
+  if (blob.includes('invalid login') || blob.includes('authentication')) {
+    return 'SMTP 인증에 실패했습니다. 로그인 계정·앱 비밀번호·포트(587/465)와 SSL 설정을 확인해 주세요.';
+  }
+  if (blob.includes('self signed certificate') || blob.includes('certificate')) {
+    return 'SMTP 서버 SSL 인증서 연결에 실패했습니다. 포트·SSL/TLS 설정을 확인해 주세요.';
+  }
+  if (err.code === 'ECONNECTION' || err.code === 'ETIMEDOUT') {
+    return 'SMTP 서버에 연결하지 못했습니다. 호스트·포트·방화벽을 확인해 주세요.';
+  }
+  if (err.message?.trim()) return err.message.trim();
+  return '메일 발송에 실패했습니다. SMTP 설정을 확인해 주세요.';
+}
+
 function storedSmtpComplete(stored: TenantSmtpConfigStored | undefined): boolean {
   if (!stored) return false;
   const host = stored.host?.trim();
@@ -48,6 +89,8 @@ export function resolveStoredSmtpTransport(
   const host = stored!.host!.trim();
   const from = stored!.from!.trim();
   const user = stored!.user?.trim() ?? '';
+  const authUser = resolveSmtpAuthUser(user, from);
+  if (!authUser) return null;
   const port = stored!.port ?? 587;
   const secure = stored!.secure === true || port === 465;
   return {
@@ -55,7 +98,7 @@ export function resolveStoredSmtpTransport(
     port,
     secure,
     from,
-    auth: user ? { user, pass } : { user: from, pass },
+    auth: { user: authUser, pass },
     source: 'tenant',
   };
 }
@@ -105,6 +148,7 @@ export async function sendMailWithTransport(
     host: transport.host,
     port: transport.port,
     secure: transport.secure,
+    requireTLS: !transport.secure && transport.port === 587,
     auth: transport.auth,
   });
   await tx.sendMail({

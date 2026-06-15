@@ -98,6 +98,11 @@ export function AdminInspectionPanel({
           </span>
         ) : null}
         {checklist.status === 'COMPLETED' && (
+          <span className="text-fluid-2xs text-gray-600">
+            수신: {checklist.customerEmail?.trim() || '— (이메일 없음)'}
+          </span>
+        )}
+        {checklist.status === 'COMPLETED' && (
           <>
             <button
               type="button"

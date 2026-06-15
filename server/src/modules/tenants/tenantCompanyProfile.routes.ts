@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireTenantIdFromAuth } from './tenantScope.helpers.js';
 import {
@@ -59,7 +60,7 @@ router.post('/test-email', async (req, res) => {
       return;
     }
     console.error('[tenant-company-profile] test-email failed', e);
-    res.status(500).json({ error: '테스트 메일 발송에 실패했습니다. SMTP 정보를 확인해 주세요.' });
+    res.status(500).json({ error: formatSmtpSendError(e) });
   }
 });
 

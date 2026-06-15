@@ -10,7 +10,7 @@ import { buildInspectionPhotosZipBuffer } from './inquiryInspection.zip.service.
 import { buildInspectionPdfBuffer } from './inquiryInspection.pdf.service.js';
 import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { prisma } from '../../lib/prisma.js';
-import { isSmtpConfiguredForTenant } from '../../lib/tenantSmtp.service.js';
+import { isSmtpConfiguredForTenant, formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
 
 const router = Router({ mergeParams: true });
 
@@ -160,17 +160,25 @@ router.post('/resend-email', async (req, res) => {
     const checklist = await loadInspectionChecklist({ inquiryId, tenantId });
     res.json({ checklist, emailSent: result.emailSent, pdfUrl: result.pdfUrl });
   } catch (e) {
-    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
-    if (code === 'bad_request') {
+    const err = e as { code?: string; message?: string };
+    if (err.code === 'bad_request') {
       res.status(400).json({ error: '완료된 검수본만 이메일을 발송할 수 있습니다.' });
       return;
     }
-    if (code === 'not_found') {
+    if (err.code === 'not_found') {
       res.status(404).json({ error: '검수본을 찾을 수 없습니다.' });
       return;
     }
+    if (err.code === 'no_customer_email' || err.code === 'invalid_customer_email') {
+      res.status(400).json({ error: err.message ?? '고객 이메일을 확인해 주세요.' });
+      return;
+    }
+    if (err.code === 'smtp_not_configured') {
+      res.status(503).json({ error: err.message ?? 'SMTP가 설정되지 않았습니다.' });
+      return;
+    }
     console.error('[inspection] resend-email failed', e);
-    res.status(500).json({ error: '이메일 발송에 실패했습니다.' });
+    res.status(500).json({ error: formatSmtpSendError(e) });
   }
 });
 

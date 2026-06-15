@@ -5,6 +5,7 @@ import { buildInspectionPdfBuffer } from './inquiryInspection.pdf.service.js';
 import { uploadInspectionPdfBuffer } from './inquiryInspection.pdfUpload.service.js';
 import { sendInspectionCompletionEmail } from './inquiryInspection.email.service.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
 import { ensureInspectionCustomerViewToken } from './inquiryInspection.customerView.service.js';
 import { buildInspectionCustomerViewUrl } from './inquiryInspection.publicUrl.js';
 
@@ -100,7 +101,7 @@ export async function finalizeInspectionAfterComplete(params: {
       customerViewUrl,
     });
   } catch (e) {
-    console.error('[inspection-finalize] email send failed', e);
+    console.error('[inspection-finalize] email send failed', formatSmtpSendError(e), e);
   }
 
   if (emailSent) {
@@ -158,7 +159,12 @@ export async function resendInspectionCompletionEmail(params: {
     }
   }
   if (!pdfBuffer) {
-    pdfBuffer = await buildInspectionPdfBuffer(row, inquiryPayload);
+    try {
+      pdfBuffer = await buildInspectionPdfBuffer(row, inquiryPayload);
+    } catch (e) {
+      console.error('[inspection-resend] PDF generation failed — mail will send with links only', e);
+      pdfBuffer = null;
+    }
   }
 
   const tenantConfig = await getTenantConfig(params.tenantId);

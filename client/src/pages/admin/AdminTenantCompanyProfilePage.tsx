@@ -273,6 +273,9 @@ export function AdminTenantCompanyProfilePage() {
           </label>
           <label className="block sm:col-span-2">
             <span className="text-sm font-medium text-gray-800">SMTP 로그인 계정</span>
+            <span className="block text-xs font-normal text-gray-500 mt-0.5">
+              Gmail은 반드시 <code className="font-mono">you@gmail.com</code> 전체 주소 (발신 From과 동일 계정 권장)
+            </span>
             <input
               type="text"
               value={smtpUser}
