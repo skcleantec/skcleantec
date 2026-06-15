@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   INSPECTION_AREA_GUIDE,
   INSPECTION_BASIC_QUESTIONS,
@@ -212,6 +212,7 @@ export function InspectionAreaSection({
   onToggleItemNa,
   onUpload,
   onDeletePhoto,
+  areaShareAction,
 }: {
   area: InspectionArea;
   readOnly: boolean;
@@ -225,6 +226,8 @@ export function InspectionAreaSection({
   onToggleItemNa: (itemId: string, na: boolean) => void;
   onUpload: (itemId: string, phase: 'BEFORE' | 'AFTER', files: FileList | null) => void;
   onDeletePhoto: (itemId: string, photoId: string) => void;
+  /** 청소 전 구역 사진 카톡 전달 등 */
+  areaShareAction?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const visibleItems = area.items.filter((it) => !it.itemKey.startsWith('_'));
@@ -277,6 +280,7 @@ export function InspectionAreaSection({
       </summary>
 
       <div className="border-t border-gray-100 px-3 pb-3 pt-2 space-y-2">
+        {areaShareAction ? <div>{areaShareAction}</div> : null}
         {!readOnly && onToggleAreaNa && photoMode !== 'after-only' && (
           <button
             type="button"

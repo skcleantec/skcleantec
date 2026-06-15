@@ -49,3 +49,40 @@ export async function buildInspectionPhotosZipBuffer(row: ChecklistRow): Promise
   }
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
+export class InspectionAreaZipError extends Error {
+  constructor(
+    message: string,
+    readonly code: 'no_photos' | 'fetch_failed',
+  ) {
+    super(message);
+    this.name = 'InspectionAreaZipError';
+  }
+}
+
+/** 구역 단위 청소 전(BEFORE) 사진만 ZIP */
+export async function buildAreaBeforePhotosZipBuffer(
+  area: ChecklistRow['areas'][number],
+): Promise<Buffer> {
+  const zip = new JSZip();
+  let photoCount = 0;
+  for (const item of area.items) {
+    if (item.notApplicable) continue;
+    const beforePhotos = item.photos.filter((p) => p.phase === 'BEFORE');
+    for (let i = 0; i < beforePhotos.length; i += 1) {
+      const photo = beforePhotos[i]!;
+      try {
+        const { buffer, ext } = await fetchImageBuffer(photo.secureUrl);
+        const itemLabel = item.label.replace(/[\\/:*?"<>|]/g, '_').slice(0, 36) || 'item';
+        zip.file(`${itemLabel}_${String(i + 1).padStart(2, '0')}${ext}`, buffer);
+        photoCount += 1;
+      } catch {
+        throw new InspectionAreaZipError('사진을 불러오지 못했습니다.', 'fetch_failed');
+      }
+    }
+  }
+  if (photoCount === 0) {
+    throw new InspectionAreaZipError('전달할 청소 전 사진이 없습니다.', 'no_photos');
+  }
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+}

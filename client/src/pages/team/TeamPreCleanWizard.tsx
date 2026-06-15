@@ -19,6 +19,7 @@ import {
 import { ImageThumbLightbox, type ImageGallerySlide } from '../../components/ui/ImageThumbLightbox';
 import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
 import { useInlineCamera } from '../../hooks/useInlineCamera';
+import { ShareAreaBeforePhotosButton } from '../../components/inquiry-inspection/ShareAreaBeforePhotosButton';
 
 const SESSION_PREFIX = 'preCleanWizard';
 
@@ -668,6 +669,15 @@ export function TeamPreCleanWizard({
                       >
                         촬영 시작
                       </button>
+                      <ShareAreaBeforePhotosButton
+                        token={token}
+                        inquiryId={inquiryId}
+                        area={area}
+                        customerName={checklist.inquiryHeader?.customerName}
+                        preferredDate={checklist.inquiryHeader?.preferredDate}
+                        disabled={busy || uploading}
+                        className="w-full"
+                      />
                       <button
                         type="button"
                         disabled={busy}

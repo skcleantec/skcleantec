@@ -269,6 +269,25 @@ export async function uploadTeamInspectionSignature(
   return data.checklist!;
 }
 
+export async function fetchTeamInspectionAreaBeforePhotosZip(
+  token: string,
+  inquiryId: string,
+  areaId: string,
+): Promise<Blob> {
+  const res = await fetch(
+    withTeamPreviewQuery(
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/areas/${encodeURIComponent(areaId)}/before-photos.zip`,
+    ),
+    { headers: teamHeaders(token) },
+  );
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? '사진 ZIP을 만들 수 없습니다.');
+  }
+  return res.blob();
+}
+
 export async function completeTeamInspection(
   token: string,
   inquiryId: string,

@@ -15,6 +15,7 @@ import {
   INSPECTION_ITEM_GUIDE,
   type InspectionPhotoMode,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
+import { ShareAreaBeforePhotosButton } from '../../components/inquiry-inspection/ShareAreaBeforePhotosButton';
 
 export function TeamInspectionAreasEditor({
   checklist,
@@ -169,6 +170,19 @@ export function TeamInspectionAreasEditor({
                 setBusy(false);
               }
             }}
+            areaShareAction={
+              photoMode === 'before-only' ? (
+                <ShareAreaBeforePhotosButton
+                  token={token}
+                  inquiryId={inquiryId}
+                  area={area}
+                  customerName={checklist.inquiryHeader?.customerName}
+                  preferredDate={checklist.inquiryHeader?.preferredDate}
+                  disabled={busy}
+                  className="w-full"
+                />
+              ) : undefined
+            }
           />
         ))}
       </div>

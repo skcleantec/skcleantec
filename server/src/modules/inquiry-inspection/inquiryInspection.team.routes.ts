@@ -28,6 +28,10 @@ import {
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { prisma } from '../../lib/prisma.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
+import {
+  buildAreaBeforePhotosZipBuffer,
+  InspectionAreaZipError,
+} from './inquiryInspection.zip.service.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -175,6 +179,52 @@ router.post('/areas', async (req, res) => {
       return;
     }
     throw e;
+  }
+});
+
+/** GET /areas/:areaId/before-photos.zip — 구역 청소 전 사진 ZIP (카톡·공유용) */
+router.get('/areas/:areaId/before-photos.zip', async (req, res) => {
+  const { inquiryId, areaId } = req.params as { inquiryId: string; areaId: string };
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await tenantIdForTeamReq(req);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 세션이 필요합니다.' });
+    return;
+  }
+  const inquiry = await findInquiryForTeamLeader({ inquiryId, teamLeaderId: userId, tenantId });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  const row = await prisma.inquiryInspectionChecklist.findFirst({
+    where: { inquiryId, tenantId },
+    include: inspectionChecklistInclude,
+  });
+  if (!row) {
+    res.status(404).json({ error: '검수 체크리스트가 없습니다.' });
+    return;
+  }
+  const area = row.areas.find((a) => a.id === areaId);
+  if (!area) {
+    res.status(404).json({ error: '구역을 찾을 수 없습니다.' });
+    return;
+  }
+  try {
+    const zip = await buildAreaBeforePhotosZipBuffer(area);
+    const safeArea = area.label.replace(/[\\/:*?"<>|]/g, '_').slice(0, 24) || 'area';
+    const safeCustomer = inquiry.customerName.replace(/[\\/:*?"<>|]/g, '_').slice(0, 16) || 'customer';
+    const fileName = `preclean_${safeArea}_${safeCustomer}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.send(zip);
+  } catch (e) {
+    if (e instanceof InspectionAreaZipError) {
+      const status = e.code === 'no_photos' ? 400 : 502;
+      res.status(status).json({ error: e.message });
+      return;
+    }
+    console.error('[inspection] area before zip failed', e);
+    res.status(500).json({ error: '사진 ZIP 생성에 실패했습니다.' });
   }
 });
 
