@@ -55,6 +55,7 @@ import {
   AdminTenantPartnersPage,
   AdminTenantPartnerSettlementPage,
   AdminOperatingCompaniesPage,
+  AdminTenantCompanyProfilePage,
   AdminOperatingCompanyPolicyPage,
   AdminExternalSettlementPage,
   AdminPageSettingsPage,
@@ -135,6 +136,7 @@ function App() {
             <Route path="page-settings" element={<SuspensePage><AdminPageSettingsPage /></SuspensePage>} />
             <Route path="inquiry-delete" element={<SuspensePage><AdminInquiryBulkDeletePage /></SuspensePage>} />
             <Route path="operating-companies" element={<SuspensePage><AdminOperatingCompaniesPage /></SuspensePage>} />
+            <Route path="company-profile" element={<SuspensePage><AdminTenantCompanyProfilePage /></SuspensePage>} />
             <Route path="operating-policy" element={<SuspensePage><AdminOperatingCompanyPolicyPage /></SuspensePage>} />
             <Route
               path="inspection-template"

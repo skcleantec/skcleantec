@@ -1,4 +1,4 @@
-import { isSmtpConfigured, sendMail } from '../../lib/mailer.js';
+import { sendMailForTenant, isSmtpConfiguredForTenant } from '../../lib/tenantSmtp.service.js';
 import { buildInspectionReportHtml, buildInspectionReportPlainText } from './inquiryInspection.report.js';
 import type { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import type { Prisma } from '@prisma/client';
@@ -8,6 +8,7 @@ type ChecklistRow = Prisma.InquiryInspectionChecklistGetPayload<{
 }>;
 
 export async function sendInspectionCompletionEmail(params: {
+  tenantId: string;
   row: ChecklistRow;
   inquiry: {
     customerName: string;
@@ -22,8 +23,8 @@ export async function sendInspectionCompletionEmail(params: {
 }): Promise<boolean> {
   const email = params.row.customerEmail?.trim();
   if (!email) return false;
-  if (!isSmtpConfigured()) {
-    console.warn('[inspection-email] SMTP not configured — skip send to', email);
+  if (!(await isSmtpConfiguredForTenant(params.tenantId))) {
+    console.warn('[inspection-email] SMTP not configured for tenant', params.tenantId, '— skip send to', email);
     return false;
   }
 
@@ -50,7 +51,7 @@ export async function sendInspectionCompletionEmail(params: {
         ]
       : undefined;
 
-  await sendMail({
+  await sendMailForTenant(params.tenantId, {
     to: email,
     subject,
     html,

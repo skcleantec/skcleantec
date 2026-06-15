@@ -91,6 +91,7 @@ export async function finalizeInspectionAfterComplete(params: {
   let emailSent = false;
   try {
     emailSent = await sendInspectionCompletionEmail({
+      tenantId: params.tenantId,
       row,
       inquiry: inquiryPayload,
       tenantDisplayName,
@@ -181,6 +182,7 @@ export async function resendInspectionCompletionEmail(params: {
   }
 
   const emailSent = await sendInspectionCompletionEmail({
+    tenantId: params.tenantId,
     row,
     inquiry: inquiryPayload,
     tenantDisplayName,

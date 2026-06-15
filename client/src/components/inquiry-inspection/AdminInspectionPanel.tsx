@@ -94,7 +94,7 @@ export function AdminInspectionPanel({
           <span className="text-fluid-2xs text-emerald-700">이메일 발송됨</span>
         ) : checklist.status === 'COMPLETED' ? (
           <span className="text-fluid-2xs text-amber-700">
-            {smtpConfigured ? '이메일 발송 대기/실패' : 'SMTP 미설정'}
+            {smtpConfigured ? '이메일 발송 대기/실패' : 'SMTP 미설정 (업체등록정보)'}
           </span>
         ) : null}
         {checklist.status === 'COMPLETED' && (

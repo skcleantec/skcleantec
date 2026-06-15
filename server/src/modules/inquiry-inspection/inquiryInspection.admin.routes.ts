@@ -10,7 +10,7 @@ import { buildInspectionPhotosZipBuffer } from './inquiryInspection.zip.service.
 import { buildInspectionPdfBuffer } from './inquiryInspection.pdf.service.js';
 import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { prisma } from '../../lib/prisma.js';
-import { isSmtpConfigured } from '../../lib/mailer.js';
+import { isSmtpConfiguredForTenant } from '../../lib/tenantSmtp.service.js';
 
 const router = Router({ mergeParams: true });
 
@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
     return;
   }
   const checklist = await loadInspectionChecklist({ inquiryId, tenantId });
-  res.json({ checklist, smtpConfigured: isSmtpConfigured() });
+  res.json({ checklist, smtpConfigured: await isSmtpConfiguredForTenant(tenantId) });
 });
 
 /** GET /pdf — 완료본 PDF 다운로드 */
@@ -145,8 +145,10 @@ router.post('/resend-email', async (req, res) => {
     res.status(404).json({ error: '검수 체크리스트가 없습니다.' });
     return;
   }
-  if (!isSmtpConfigured()) {
-    res.status(503).json({ error: 'SMTP가 설정되지 않았습니다. SMTP_HOST·SMTP_FROM 등을 설정하세요.' });
+  if (!(await isSmtpConfiguredForTenant(tenantId))) {
+    res.status(503).json({
+      error: 'SMTP가 설정되지 않았습니다. 관리자 전용 → 사용자 등록 → 업체등록정보에서 SMTP를 설정하세요.',
+    });
     return;
   }
   try {

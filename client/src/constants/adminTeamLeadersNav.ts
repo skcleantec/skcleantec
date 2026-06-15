@@ -18,6 +18,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '영업 브랜드 등록',
       },
       {
+        to: '/admin/team-leaders/company-profile',
+        label: '업체등록정보',
+        title: '업체 사업자 정보 · 완료본 메일 SMTP',
+      },
+      {
         to: '/admin/team-leaders/external-companies',
         label: '타업체등록',
         title: '타업체 등록',

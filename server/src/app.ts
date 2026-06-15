@@ -40,6 +40,7 @@ import teamCrewGroupsRoutes from './modules/team-crew-groups/teamCrewGroups.rout
 import crewRoutes from './modules/crew/crew.routes.js';
 import eContractAdminRoutes from './modules/e-contract/eContract.admin.routes.js';
 import eContractPublicRoutes from './modules/e-contract/eContract.public.routes.js';
+import tenantCompanyProfileRoutes from './modules/tenants/tenantCompanyProfile.routes.js';
 import tenantRoutes from './modules/tenants/tenant.routes.js';
 import platformAuthRoutes from './modules/platform/platformAuth.routes.js';
 import platformTenantsRoutes from './modules/platform/platformTenants.routes.js';
@@ -96,6 +97,7 @@ app.use('/api/geocode', geocodeRoutes);
 app.use('/api/user-custom-calendars', userCustomCalendarsRoutes);
 app.use('/api/team-crew-groups', teamCrewGroupsRoutes);
 app.use('/api/crew', crewRoutes);
+app.use('/api/admin/tenant-company-profile', tenantCompanyProfileRoutes);
 app.use('/api/admin/e-contracts', eContractAdminRoutes);
 app.use('/api/e-contract', eContractPublicRoutes);
 mountCustomModuleRoutes(app);
