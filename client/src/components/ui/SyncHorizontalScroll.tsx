@@ -84,7 +84,6 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
 
   const measure = useCallback(() => {
     const main = mainRef.current;
-    const container = containerRef.current;
     if (!main) return;
     const inner = main.querySelector('table') ?? main.firstElementChild;
     const contentW =
