@@ -92,13 +92,6 @@ export function TeamInspectionPage() {
     setLeaderNotesLocal(checklist.leaderNotes ?? '');
   }, [checklist?.id, checklist?.leaderNotes]);
 
-  useEffect(
-    () => () => {
-      if (leaderNotesSaveTimerRef.current) clearTimeout(leaderNotesSaveTimerRef.current);
-    },
-    [],
-  );
-
   const flushLeaderNotesSave = useCallback(
     (value: string) => {
       if (leaderNotesSaveTimerRef.current) {
@@ -121,10 +114,51 @@ export function TeamInspectionPage() {
     [saveDraft],
   );
 
+  const [customerEmailLocal, setCustomerEmailLocal] = useState('');
+  const customerEmailFocusedRef = useRef(false);
+  const customerEmailSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!checklist) return;
+    if (customerEmailFocusedRef.current) return;
+    setCustomerEmailLocal(checklist.customerEmail ?? '');
+  }, [checklist?.id, checklist?.customerEmail]);
+
+  useEffect(
+    () => () => {
+      if (leaderNotesSaveTimerRef.current) clearTimeout(leaderNotesSaveTimerRef.current);
+      if (customerEmailSaveTimerRef.current) clearTimeout(customerEmailSaveTimerRef.current);
+    },
+    [],
+  );
+
+  const flushCustomerEmailSave = useCallback(
+    (value: string) => {
+      if (customerEmailSaveTimerRef.current) {
+        clearTimeout(customerEmailSaveTimerRef.current);
+        customerEmailSaveTimerRef.current = null;
+      }
+      return saveDraft({ customerEmail: value }, { silent: true });
+    },
+    [saveDraft],
+  );
+
+  const scheduleCustomerEmailSave = useCallback(
+    (value: string) => {
+      if (customerEmailSaveTimerRef.current) clearTimeout(customerEmailSaveTimerRef.current);
+      customerEmailSaveTimerRef.current = setTimeout(() => {
+        customerEmailSaveTimerRef.current = null;
+        void saveDraft({ customerEmail: value }, { silent: true });
+      }, 600);
+    },
+    [saveDraft],
+  );
+
   const handleComplete = async () => {
     if (!token || !inquiryId || readOnly) return;
     if (!window.confirm('고객과 함께 확인·서명을 완료했습니까? 청소완료 후에는 수정할 수 없습니다.')) return;
     await flushLeaderNotesSave(leaderNotesLocal);
+    await flushCustomerEmailSave(customerEmailLocal);
     setBusy(true);
     setMsg(null);
     try {
@@ -238,7 +272,18 @@ export function TeamInspectionPage() {
       <InspectionConsentSection
         checklist={checklist}
         readOnly={readOnly}
-        onEmailChange={(email) => void saveDraft({ customerEmail: email })}
+        customerEmail={customerEmailLocal}
+        onEmailChange={(email) => {
+          setCustomerEmailLocal(email);
+          scheduleCustomerEmailSave(email);
+        }}
+        onEmailFocus={() => {
+          customerEmailFocusedRef.current = true;
+        }}
+        onEmailBlur={(email) => {
+          customerEmailFocusedRef.current = false;
+          void flushCustomerEmailSave(email);
+        }}
         onConsentChange={(key, value) => {
           const map: Record<string, string> = {
             personalInfo: 'consentPersonalInfo',

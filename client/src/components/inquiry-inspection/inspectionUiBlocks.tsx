@@ -457,11 +457,18 @@ export function InspectionConsentSection({
   readOnly,
   onConsentChange,
   onEmailChange,
+  customerEmail,
+  onEmailBlur,
+  onEmailFocus,
 }: {
   checklist: InspectionChecklistDto;
   readOnly: boolean;
   onConsentChange: (key: keyof InspectionChecklistDto['consent'], value: boolean) => void;
   onEmailChange: (email: string) => void;
+  /** 입력 중 리렌더 지연 방지 — 부모 로컬 state 연결 */
+  customerEmail?: string;
+  onEmailBlur?: (email: string) => void;
+  onEmailFocus?: () => void;
 }) {
   const consentKeyMap: Record<string, keyof InspectionChecklistDto['consent']> = {
     F1: 'personalInfo',
@@ -480,11 +487,16 @@ export function InspectionConsentSection({
         <label className="mt-2 block text-fluid-xs text-gray-700">완료본 수신 이메일</label>
         <input
           type="email"
-          value={checklist.customerEmail ?? ''}
+          inputMode="email"
+          value={customerEmail ?? checklist.customerEmail ?? ''}
           readOnly={readOnly}
           onChange={(e) => onEmailChange(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+          onFocus={onEmailFocus}
+          onBlur={onEmailBlur ? (e) => onEmailBlur(e.target.value) : undefined}
+          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-base touch-manipulation"
           placeholder="customer@example.com"
+          autoComplete="email"
+          enterKeyHint="done"
         />
       </div>
 
