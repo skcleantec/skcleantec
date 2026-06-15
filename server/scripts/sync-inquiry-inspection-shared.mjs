@@ -16,6 +16,7 @@ const files = [
   'inquiryInspectionItems.ts',
   'inquiryInspectionCaptureGuides.ts',
   'inquiryInspectionTenantTemplate.ts',
+  'inquiryInspectionAreaInstances.ts',
   'inquiryInspectionRetention.ts',
 ];
 

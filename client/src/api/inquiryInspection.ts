@@ -151,6 +151,44 @@ export async function addTeamInspectionArea(
   return data.area!;
 }
 
+export async function addTeamInspectionAreaInstance(
+  token: string,
+  inquiryId: string,
+  templateKey: string,
+): Promise<InspectionChecklistDto> {
+  const res = await fetch(
+    withTeamPreviewQuery(
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/areas/instances`,
+    ),
+    {
+      method: 'POST',
+      headers: { ...teamHeaders(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateKey }),
+    },
+  );
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  const data = (await res.json()) as { checklist?: InspectionChecklistDto; error?: string };
+  if (!res.ok) throw new Error(data.error ?? '구역 추가에 실패했습니다.');
+  return data.checklist!;
+}
+
+export async function removeTeamInspectionAreaInstance(
+  token: string,
+  inquiryId: string,
+  areaId: string,
+): Promise<InspectionChecklistDto> {
+  const res = await fetch(
+    withTeamPreviewQuery(
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/areas/${encodeURIComponent(areaId)}/instance`,
+    ),
+    { method: 'DELETE', headers: teamHeaders(token) },
+  );
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  const data = (await res.json()) as { checklist?: InspectionChecklistDto; error?: string };
+  if (!res.ok) throw new Error(data.error ?? '구역 삭제에 실패했습니다.');
+  return data.checklist!;
+}
+
 export async function addTeamInspectionItem(
   token: string,
   inquiryId: string,

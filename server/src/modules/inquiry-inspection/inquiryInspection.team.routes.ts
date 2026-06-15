@@ -33,6 +33,10 @@ import {
   buildAreaBeforePhotosZipBuffer,
   InspectionAreaZipError,
 } from './inquiryInspection.zip.service.js';
+import {
+  addInspectionAreaInstance,
+  removeInspectionAreaInstance,
+} from './inquiryInspection.areas.service.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -177,6 +181,121 @@ router.post('/areas', async (req, res) => {
     }
     if (code === 'bad_request') {
       res.status(400).json({ error: '구역 이름을 입력해 주세요.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+/** POST /areas/instances — 표준 구역(방·현관·욕실·베란다) 1개 추가 */
+router.post('/areas/instances', async (req, res) => {
+  const { inquiryId } = req.params as { inquiryId: string };
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await tenantIdForTeamReq(req);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 세션이 필요합니다.' });
+    return;
+  }
+  const inquiry = await findInquiryForTeamLeader({ inquiryId, teamLeaderId: userId, tenantId });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  const checklist = await assertChecklistEditableForTeam({ inquiryId, tenantId });
+  if (!checklist) {
+    res.status(404).json({ error: '검수 체크리스트가 없습니다.' });
+    return;
+  }
+  const templateKey = typeof req.body?.templateKey === 'string' ? req.body.templateKey.trim() : '';
+  if (!templateKey) {
+    res.status(400).json({ error: 'templateKey가 필요합니다.' });
+    return;
+  }
+  try {
+    const updated = await addInspectionAreaInstance({
+      checklistId: checklist.id,
+      tenantId,
+      templateKey,
+    });
+    if (!updated) {
+      res.status(500).json({ error: '구역 추가에 실패했습니다.' });
+      return;
+    }
+    res.status(201).json({
+      checklist: serializeInspectionChecklist(updated, {
+        customerName: inquiry.customerName,
+        preferredDate: inquiry.preferredDate,
+      }),
+    });
+  } catch (e) {
+    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
+    if (code === 'locked') {
+      res.status(409).json({ error: '완료된 검수본은 수정할 수 없습니다.' });
+      return;
+    }
+    if (code === 'bad_request') {
+      const msg =
+        e instanceof Error && e.message === 'max_instances'
+          ? '더 이상 추가할 수 없습니다.'
+          : '추가할 수 없는 구역입니다.';
+      res.status(400).json({ error: msg });
+      return;
+    }
+    throw e;
+  }
+});
+
+/** DELETE /areas/:areaId/instance — 표준 구역 1개 제거 */
+router.delete('/areas/:areaId/instance', async (req, res) => {
+  const { inquiryId, areaId } = req.params as { inquiryId: string; areaId: string };
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await tenantIdForTeamReq(req);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 세션이 필요합니다.' });
+    return;
+  }
+  const inquiry = await findInquiryForTeamLeader({ inquiryId, teamLeaderId: userId, tenantId });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  const checklist = await assertChecklistEditableForTeam({ inquiryId, tenantId });
+  if (!checklist) {
+    res.status(404).json({ error: '검수 체크리스트가 없습니다.' });
+    return;
+  }
+  try {
+    const updated = await removeInspectionAreaInstance({
+      checklistId: checklist.id,
+      tenantId,
+      areaId,
+    });
+    if (!updated) {
+      res.status(500).json({ error: '구역 삭제에 실패했습니다.' });
+      return;
+    }
+    res.json({
+      checklist: serializeInspectionChecklist(updated, {
+        customerName: inquiry.customerName,
+        preferredDate: inquiry.preferredDate,
+      }),
+    });
+  } catch (e) {
+    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
+    if (code === 'locked') {
+      res.status(409).json({ error: '완료된 검수본은 수정할 수 없습니다.' });
+      return;
+    }
+    if (code === 'bad_request') {
+      const msg =
+        e instanceof Error && e.message === 'min_instances'
+          ? '최소 1개는 남겨 두어야 합니다.'
+          : '삭제할 수 없는 구역입니다.';
+      res.status(400).json({ error: msg });
+      return;
+    }
+    if (code === 'not_found') {
+      res.status(404).json({ error: '구역을 찾을 수 없습니다.' });
       return;
     }
     throw e;

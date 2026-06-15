@@ -8,6 +8,8 @@ import {
 import { getInspectionCaptureHint } from '@shared/inquiryInspectionCaptureGuides';
 import {
   deleteTeamInspectionPhoto,
+  addTeamInspectionAreaInstance,
+  removeTeamInspectionAreaInstance,
   patchTeamInspectionArea,
   patchTeamInspectionItem,
   patchTeamInspectionPhotoFlag,
@@ -22,7 +24,12 @@ import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
 import { useInlineCamera } from '../../hooks/useInlineCamera';
 import { ShareAreaBeforePhotosButton } from '../../components/inquiry-inspection/ShareAreaBeforePhotosButton';
 import { InspectionPhotoFlagButton } from '../../components/inquiry-inspection/InspectionPhotoFlagButton';
+import {
+  InspectionAreaCountButtons,
+  areaHasBeforePhotos,
+} from '../../components/inquiry-inspection/InspectionAreaCountButtons';
 import { updateChecklistPhotoFlag } from '../../utils/inspectionFlaggedPhotos';
+import { normalizeAreaKeyForTemplate } from '@shared/inquiryInspectionTenantTemplate';
 
 const SESSION_PREFIX = 'preCleanWizard';
 
@@ -464,6 +471,43 @@ export function TeamPreCleanWizard({
     [applyChecklist, flaggingPhotoId, inquiryId, localChecklist, onMsg, readOnly, token],
   );
 
+  const handleAddAreaInstance = async (area: InspectionArea) => {
+    if (readOnly || busy) return;
+    setBusy(true);
+    onMsg(null);
+    try {
+      const templateKey = normalizeAreaKeyForTemplate(area.areaKey);
+      const next = await addTeamInspectionAreaInstance(token, inquiryId, templateKey);
+      setLocalChecklist(next);
+      onChecklistUpdate?.(next);
+    } catch (e) {
+      onMsg(e instanceof Error ? e.message : '구역 추가 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemoveAreaInstance = async (area: InspectionArea) => {
+    if (readOnly || busy) return;
+    if (areaHasBeforePhotos(area)) {
+      if (!window.confirm(`「${area.label}」에 촬영한 사진이 있습니다. 이 구역을 삭제할까요?`)) return;
+    } else if (!window.confirm(`「${area.label}」 구역을 삭제할까요?`)) {
+      return;
+    }
+    setBusy(true);
+    onMsg(null);
+    try {
+      const next = await removeTeamInspectionAreaInstance(token, inquiryId, area.id);
+      setLocalChecklist(next);
+      onChecklistUpdate?.(next);
+      if (captureAreaId === area.id) setCaptureAreaId(null);
+    } catch (e) {
+      onMsg(e instanceof Error ? e.message : '구역 삭제 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const inCaptureMode = !readOnly && captureArea && currentItem;
 
   let captureOverlay: ReactNode = null;
@@ -643,7 +687,7 @@ export function TeamPreCleanWizard({
       {captureOverlay ? createPortal(captureOverlay, document.body) : null}
     <section className="space-y-3" aria-hidden={inCaptureMode ? true : undefined}>
       <p className="text-fluid-2xs text-gray-600">
-        구역을 선택한 뒤 「촬영 시작」— 화면에서 바로 찍으면 다음 항목으로 자동 이동합니다. 오염이 심한 곳은 사진의 ☆를 눌러 표시해 주세요. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
+        구역을 선택한 뒤 「촬영 시작」— 화면에서 바로 찍으면 다음 항목으로 자동 이동합니다. 방·현관·욕실·베란다는 카드 오른쪽 ＋／− 로 개수를 조절할 수 있습니다. 오염이 심한 곳은 사진의 ☆를 눌러 표시해 주세요. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
       </p>
 
       <div className="grid grid-cols-2 gap-2">
@@ -673,10 +717,21 @@ export function TeamPreCleanWizard({
               }`}
             >
               <div className="flex items-start justify-between gap-1">
-                <span className="text-fluid-xs font-semibold text-gray-900">{area.label}</span>
-                {complete && !area.notApplicable && (
-                  <span className="text-[10px] font-medium text-emerald-700">완료</span>
-                )}
+                <span className="min-w-0 flex-1 text-fluid-xs font-semibold text-gray-900">{area.label}</span>
+                <div className="flex shrink-0 items-center gap-1">
+                  {!readOnly && (
+                    <InspectionAreaCountButtons
+                      area={area}
+                      allAreas={areas}
+                      disabled={busy || uploading}
+                      onAdd={() => void handleAddAreaInstance(area)}
+                      onRemove={() => void handleRemoveAreaInstance(area)}
+                    />
+                  )}
+                  {complete && !area.notApplicable && (
+                    <span className="text-[10px] font-medium text-emerald-700">완료</span>
+                  )}
+                </div>
               </div>
               <p className="mt-1 text-fluid-2xs text-gray-600">
                 {area.notApplicable ? '해당없음' : `청소 전 ${beforeDone}/${total}`}
@@ -727,23 +782,25 @@ export function TeamPreCleanWizard({
                       >
                         촬영 시작
                       </button>
-                      <ShareAreaBeforePhotosButton
-                        token={token}
-                        inquiryId={inquiryId}
-                        area={area}
-                        customerName={checklist.inquiryHeader?.customerName}
-                        preferredDate={checklist.inquiryHeader?.preferredDate}
-                        disabled={busy || uploading}
-                        className="w-full"
-                      />
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void handleAreaNa(area.id)}
-                        className="min-h-[36px] rounded-lg border border-amber-400 bg-amber-50 px-2 py-1 text-[11px] text-amber-900 touch-manipulation disabled:opacity-50"
-                      >
-                        구역 해당없음
-                      </button>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <ShareAreaBeforePhotosButton
+                          token={token}
+                          inquiryId={inquiryId}
+                          area={area}
+                          customerName={checklist.inquiryHeader?.customerName}
+                          preferredDate={checklist.inquiryHeader?.preferredDate}
+                          disabled={busy || uploading}
+                          className="min-w-0 w-full"
+                        />
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleAreaNa(area.id)}
+                          className="min-h-[36px] min-w-0 rounded-lg border border-amber-400 bg-amber-50 px-1.5 py-1 text-[11px] font-medium text-amber-900 touch-manipulation disabled:opacity-50"
+                        >
+                          구역 해당없음
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>

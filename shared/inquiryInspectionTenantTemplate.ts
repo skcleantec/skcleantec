@@ -32,6 +32,9 @@ const VALID_TEMPLATE_KEYS = new Set(INSPECTION_TEMPLATE_AREA_CATALOG.map((a) => 
 
 export function normalizeAreaKeyForTemplate(areaKey: string): string {
   if (areaKey.startsWith('room_')) return 'room';
+  if (areaKey === 'entrance' || areaKey.startsWith('entrance_')) return 'entrance';
+  if (areaKey === 'bathroom' || areaKey.startsWith('bathroom_')) return 'bathroom';
+  if (areaKey === 'balcony' || areaKey.startsWith('balcony_')) return 'balcony';
   return areaKey;
 }
 
