@@ -5,11 +5,13 @@ import {
   useEffect,
   useCallback,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { ADMIN_SECTION_SIDE_NAV_LAYOUT_EVENT } from '../../utils/adminSectionSideNavLayout';
 
 const SCROLL_STEP = 120;
+const MIN_THUMB_PX = 40;
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -45,9 +47,6 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
-const DOCK_SCROLLBAR =
-  '[scrollbar-width:thin] [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-100';
-
 type Props = {
   children: ReactNode;
   /** 바깥 래퍼 */
@@ -59,21 +58,25 @@ type Props = {
 type DockRect = { left: number; width: number };
 
 /**
- * 표 가로 넘침 시 **표 영역 하단 고정** 가로 스크롤바(표 scrollLeft 동기화) + ◀▶.
- * 바깥 레이아웃은 가로로 넘치지 않고, 표 영역만 내부 scrollLeft 로 이동합니다.
+ * 표 가로 넘침 시 **하단 고정 커스텀 스크롤바 1개**(◀▶ 포함)만 표시.
+ * 표 본문은 overflow-x:hidden — 네이티브 가로 스크롤바 없음.
  */
 export function SyncHorizontalScroll({ children, className, contentClassName = '' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
-  const dockRef = useRef<HTMLDivElement>(null);
-  const syncingRef = useRef(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const thumbDragRef = useRef<{ startX: number; startScroll: number } | null>(null);
   const [spacerW, setSpacerW] = useState(0);
+  const [viewportW, setViewportW] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
   const [hasOverflow, setHasOverflow] = useState(false);
   const [tableInView, setTableInView] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [dockRect, setDockRect] = useState<DockRect>({ left: 0, width: 0 });
 
   useEffect(() => setMounted(true), []);
+
+  const maxScrollLeft = Math.max(0, spacerW - viewportW);
 
   const updateDockRect = useCallback(() => {
     const container = containerRef.current;
@@ -88,10 +91,12 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
     const inner = main.querySelector('table') ?? main.firstElementChild;
     const contentW =
       inner instanceof HTMLElement ? inner.getBoundingClientRect().width : main.scrollWidth;
-    const viewportW = main.clientWidth;
-    const overflow = contentW > viewportW + 2;
+    const vpW = main.clientWidth;
+    const overflow = contentW > vpW + 2;
     setSpacerW(Math.ceil(contentW));
+    setViewportW(vpW);
     setHasOverflow(overflow);
+    setScrollLeft(main.scrollLeft);
     updateDockRect();
   }, [updateDockRect]);
 
@@ -133,29 +138,94 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
     return () => io.disconnect();
   }, [children]);
 
-  const syncScrollLeft = useCallback((left: number, source: 'main' | 'dock') => {
-    if (syncingRef.current) return;
-    syncingRef.current = true;
-    if (source !== 'main' && mainRef.current) mainRef.current.scrollLeft = left;
-    if (source !== 'dock' && dockRef.current) dockRef.current.scrollLeft = left;
-    requestAnimationFrame(() => {
-      syncingRef.current = false;
-    });
-  }, []);
+  const applyScrollLeft = useCallback(
+    (left: number) => {
+      const main = mainRef.current;
+      if (!main) return;
+      const clamped = Math.max(0, Math.min(left, maxScrollLeft));
+      if (main.scrollLeft !== clamped) main.scrollLeft = clamped;
+      setScrollLeft(clamped);
+    },
+    [maxScrollLeft],
+  );
 
-  const scrollByDelta = (delta: number) => {
+  const scrollByDelta = useCallback(
+    (delta: number) => {
+      applyScrollLeft(scrollLeft + delta);
+    },
+    [applyScrollLeft, scrollLeft],
+  );
+
+  useEffect(() => {
     const main = mainRef.current;
-    if (!main) return;
-    syncScrollLeft(main.scrollLeft + delta, 'main');
-  };
+    if (!main || !hasOverflow) return;
 
-  const showDock = mounted && hasOverflow && tableInView && dockRect.width > 0;
+    const onWheel = (e: WheelEvent) => {
+      const delta =
+        Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0;
+      if (delta === 0 || maxScrollLeft <= 0) return;
+      e.preventDefault();
+      applyScrollLeft(main.scrollLeft + delta);
+    };
+
+    main.addEventListener('wheel', onWheel, { passive: false });
+    return () => main.removeEventListener('wheel', onWheel);
+  }, [hasOverflow, maxScrollLeft, applyScrollLeft]);
 
   useLayoutEffect(() => {
     if (!hasOverflow) return;
-    const left = mainRef.current?.scrollLeft ?? 0;
-    syncScrollLeft(left, 'main');
-  }, [hasOverflow, spacerW, dockRect.width, syncScrollLeft]);
+    applyScrollLeft(mainRef.current?.scrollLeft ?? 0);
+  }, [hasOverflow, spacerW, viewportW, applyScrollLeft]);
+
+  const showDock = mounted && hasOverflow && tableInView && dockRect.width > 0;
+
+  const trackInnerW = Math.max(0, dockRect.width - 72);
+  const thumbW =
+    maxScrollLeft <= 0 || trackInnerW <= 0
+      ? trackInnerW
+      : Math.max(MIN_THUMB_PX, Math.round((viewportW / spacerW) * trackInnerW));
+  const thumbTravel = Math.max(0, trackInnerW - thumbW);
+  const thumbLeft =
+    maxScrollLeft <= 0 ? 0 : Math.round((scrollLeft / maxScrollLeft) * thumbTravel);
+
+  const scrollFromTrackX = useCallback(
+    (clientX: number) => {
+      const track = trackRef.current;
+      if (!track || maxScrollLeft <= 0) return;
+      const rect = track.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left - thumbW / 2) / thumbTravel));
+      applyScrollLeft(ratio * maxScrollLeft);
+    },
+    [applyScrollLeft, maxScrollLeft, thumbTravel, thumbW],
+  );
+
+  const onTrackPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (maxScrollLeft <= 0) return;
+    scrollFromTrackX(e.clientX);
+  };
+
+  const onThumbPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (maxScrollLeft <= 0) return;
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    thumbDragRef.current = { startX: e.clientX, startScroll: scrollLeft };
+  };
+
+  const onThumbPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = thumbDragRef.current;
+    const track = trackRef.current;
+    if (!drag || !track || maxScrollLeft <= 0 || thumbTravel <= 0) return;
+    const deltaX = e.clientX - drag.startX;
+    const scrollDelta = (deltaX / thumbTravel) * maxScrollLeft;
+    applyScrollLeft(drag.startScroll + scrollDelta);
+  };
+
+  const onThumbPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    thumbDragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
 
   return (
     <div
@@ -177,24 +247,38 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
                 <button
                   type="button"
                   onClick={() => scrollByDelta(-SCROLL_STEP)}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 active:bg-gray-200"
+                  disabled={scrollLeft <= 0}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 active:bg-gray-200 disabled:opacity-40"
                   aria-label="왼쪽"
                 >
                   <ChevronLeftIcon className="h-4 w-4" />
                 </button>
                 <div
-                  ref={dockRef}
-                  onScroll={(e) => syncScrollLeft(e.currentTarget.scrollLeft, 'dock')}
-                  className={`min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden rounded-full bg-gray-200 py-1.5 ${DOCK_SCROLLBAR}`}
-                  style={{ WebkitOverflowScrolling: 'touch' }}
+                  ref={trackRef}
+                  role="scrollbar"
+                  aria-orientation="horizontal"
+                  aria-valuemin={0}
+                  aria-valuemax={maxScrollLeft}
+                  aria-valuenow={scrollLeft}
                   aria-label="표 가로 스크롤"
+                  className="relative h-2.5 min-w-0 flex-1 cursor-pointer rounded-full bg-slate-200"
+                  onPointerDown={onTrackPointerDown}
                 >
-                  <div style={{ width: Math.max(spacerW, 1), height: 6 }} aria-hidden />
+                  <div
+                    role="presentation"
+                    className="absolute top-0 h-full rounded-full bg-slate-500 hover:bg-slate-600 active:bg-slate-700 touch-none"
+                    style={{ width: thumbW, transform: `translateX(${thumbLeft}px)` }}
+                    onPointerDown={onThumbPointerDown}
+                    onPointerMove={onThumbPointerMove}
+                    onPointerUp={onThumbPointerUp}
+                    onPointerCancel={onThumbPointerUp}
+                  />
                 </div>
                 <button
                   type="button"
                   onClick={() => scrollByDelta(SCROLL_STEP)}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 active:bg-gray-200"
+                  disabled={scrollLeft >= maxScrollLeft - 1}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 active:bg-gray-200 disabled:opacity-40"
                   aria-label="오른쪽"
                 >
                   <ChevronRightIcon className="h-4 w-4" />
@@ -207,11 +291,19 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
 
       <div
         ref={mainRef}
-        onScroll={(e) => syncScrollLeft(e.currentTarget.scrollLeft, 'main')}
-        className={`sync-horizontal-scroll-main w-full max-w-full min-w-0 overscroll-x-contain ${
-          hasOverflow ? '' : 'overflow-x-hidden'
+        onScroll={(e) => {
+          if (!hasOverflow) return;
+          setScrollLeft(e.currentTarget.scrollLeft);
+        }}
+        className={`w-full max-w-full min-w-0 overflow-y-visible overscroll-x-contain ${
+          hasOverflow ? 'sync-horizontal-scroll-main' : 'overflow-x-hidden'
         } ${contentClassName}`}
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          ...(hasOverflow
+            ? ({ scrollbarWidth: 'none', msOverflowStyle: 'none' } as const)
+            : undefined),
+        }}
       >
         {children}
       </div>
