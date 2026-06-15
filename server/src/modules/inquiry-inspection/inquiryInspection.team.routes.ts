@@ -187,7 +187,7 @@ router.post('/areas', async (req, res) => {
   }
 });
 
-/** POST /areas/instances — 표준 구역(방·현관·욕실·베란다) 1개 추가 */
+/** POST /areas/instances — 표준 구역 1개 추가 (방·거실·주방 등) */
 router.post('/areas/instances', async (req, res) => {
   const { inquiryId } = req.params as { inquiryId: string };
   const { userId } = (req as unknown as { user: AuthPayload }).user;

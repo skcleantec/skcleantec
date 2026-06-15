@@ -1,11 +1,14 @@
-/** 현장 촬영 — 개수를 늘리거나 줄일 수 있는 표준 구역(방·현관·욕실·베란다) */
+/** 현장 촬영 — 개수를 늘리거나 줄일 수 있는 표준 구역 */
 import { normalizeAreaKeyForTemplate } from './inquiryInspectionTenantTemplate.js';
 
 export const COUNTABLE_INSPECTION_AREA_TEMPLATE_KEYS = [
-  'room',
   'entrance',
+  'living',
+  'kitchen',
+  'room',
   'bathroom',
   'balcony',
+  'utility',
 ] as const;
 
 export type CountableInspectionAreaTemplateKey =
@@ -16,10 +19,13 @@ const COUNTABLE_SET = new Set<string>(COUNTABLE_INSPECTION_AREA_TEMPLATE_KEYS);
 export const MAX_INSPECTION_AREA_INSTANCES = 8;
 
 const INSTANCE_LABEL_BASE: Record<CountableInspectionAreaTemplateKey, string> = {
-  room: '방',
   entrance: '현관',
+  living: '거실',
+  kitchen: '주방',
+  room: '방',
   bathroom: '욕실',
   balcony: '베란다',
+  utility: '다용도실',
 };
 
 export function isCountableInspectionAreaKey(areaKey: string): boolean {

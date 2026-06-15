@@ -687,7 +687,7 @@ export function TeamPreCleanWizard({
       {captureOverlay ? createPortal(captureOverlay, document.body) : null}
     <section className="space-y-3" aria-hidden={inCaptureMode ? true : undefined}>
       <p className="text-fluid-2xs text-gray-600">
-        구역을 선택한 뒤 「촬영 시작」— 화면에서 바로 찍으면 다음 항목으로 자동 이동합니다. 방·현관·욕실·베란다는 카드 오른쪽 ＋／− 로 개수를 조절할 수 있습니다. 오염이 심한 곳은 사진의 ☆를 눌러 표시해 주세요. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
+        구역을 선택한 뒤 「촬영 시작」— 화면에서 바로 찍으면 다음 항목으로 자동 이동합니다. 각 구역 카드 오른쪽 ＋／− 로 개수를 조절할 수 있습니다(큰 집은 거실·주방 등도 추가). 오염이 심한 곳은 사진의 ☆를 눌러 표시해 주세요. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
       </p>
 
       <div className="grid grid-cols-2 gap-2">
