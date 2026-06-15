@@ -625,6 +625,10 @@ function inquiryMarketerLabel(item: InquiryItem): string {
 
 const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
 const TEAM_LEADER_FILTER_UNASSIGNED = '__unassigned__';
+const INQUIRY_LIST_FILTER_LABEL_CLASS =
+  'text-[11px] leading-tight text-slate-600 whitespace-nowrap shrink-0';
+const INQUIRY_LIST_FILTER_SELECT_CLASS =
+  'min-w-[5.25rem] max-w-[7.5rem] rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] leading-tight text-slate-900 sm:min-w-[5.75rem] sm:max-w-[8.5rem]';
 
 function labelForMarketerFilter(
   filterId: string,
@@ -774,6 +778,8 @@ export function AdminInquiriesPage() {
     return kstTodayYmd();
   });
   const [dateBasis, setDateBasis] = useState<'createdAt' | 'preferredDate'>('createdAt');
+  /** 검색 적용 전 날짜 필터 — 검색 해제 시 복원 */
+  const datePresetBeforeSearchRef = useRef<'today' | 'all' | 'month' | 'day' | null>(null);
   /** 스케줄과 동일한 신규 접수 모달 — 예약일(YYYY-MM-DD) */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
@@ -1361,6 +1367,36 @@ export function AdminInquiriesPage() {
       });
     },
     [patchInquiryListSearchParams, monthKey, dayKey]
+  );
+
+  const applySearchQuery = useCallback(
+    (raw: string) => {
+      const q = raw.trim();
+      if (q) {
+        if (!appliedSearchQuery.trim() && datePreset !== 'all') {
+          datePresetBeforeSearchRef.current = datePreset;
+        }
+        if (datePreset !== 'all') {
+          setMarketerStatsDay('');
+          setDatePreset('all');
+          patchInquiryListSearchParams((next) => {
+            next.set('datePreset', 'all');
+            next.delete('month');
+            next.delete('day');
+            next.delete('marketerStatsDay');
+          });
+        }
+        setAppliedSearchQuery(q);
+        return;
+      }
+      setAppliedSearchQuery('');
+      const restore = datePresetBeforeSearchRef.current;
+      datePresetBeforeSearchRef.current = null;
+      if (restore && datePreset === 'all') {
+        applyDatePreset(restore);
+      }
+    },
+    [appliedSearchQuery, datePreset, applyDatePreset, patchInquiryListSearchParams]
   );
 
   const syncListPaginationUrl = useCallback(
@@ -2320,14 +2356,14 @@ export function AdminInquiriesPage() {
           </details>
           <div className="flex flex-col gap-2 min-w-0">
             <div
-              className="flex min-w-0 max-w-full flex-nowrap items-center gap-x-2 gap-y-1.5 overflow-x-auto overscroll-x-contain pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 sm:gap-x-3 sm:gap-y-2"
+              className="flex min-w-0 max-w-full flex-nowrap items-center gap-x-1.5 gap-y-1 overflow-x-auto overscroll-x-contain pb-0.5"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
-                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <div className="flex shrink-0 items-center gap-1">
                   <label
                     htmlFor="inquiry-marketer-filter"
-                    className="text-fluid-xs text-slate-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                    className={INQUIRY_LIST_FILTER_LABEL_CLASS}
                   >
                     접수자
                   </label>
@@ -2344,7 +2380,7 @@ export function AdminInquiriesPage() {
                         else next.delete('createdById');
                       });
                     }}
-                    className="min-w-[8.5rem] max-w-[11rem] rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-xs text-slate-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
+                    className={INQUIRY_LIST_FILTER_SELECT_CLASS}
                   >
                     <option value="">전체</option>
                     <option value={CREATED_BY_FILTER_UNASSIGNED}>미지정</option>
@@ -2395,10 +2431,10 @@ export function AdminInquiriesPage() {
                   aria-hidden
                 />
               )}
-              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <div className="flex shrink-0 items-center gap-1">
                 <label
                   htmlFor="inquiry-team-leader-filter"
-                  className="text-fluid-xs text-slate-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                  className={INQUIRY_LIST_FILTER_LABEL_CLASS}
                 >
                   팀장·타업체
                 </label>
@@ -2406,7 +2442,7 @@ export function AdminInquiriesPage() {
                   id="inquiry-team-leader-filter"
                   value={teamLeaderFilterId}
                   onChange={(e) => setTeamLeaderFilterId(e.target.value)}
-                  className="min-w-[8.5rem] max-w-[11rem] rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-xs text-slate-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
+                  className={INQUIRY_LIST_FILTER_SELECT_CLASS}
                 >
                   <option value="">전체</option>
                   <option value={TEAM_LEADER_FILTER_UNASSIGNED}>미배정</option>
@@ -2427,10 +2463,10 @@ export function AdminInquiriesPage() {
                 ) : null}
               </div>
               {me?.role === 'ADMIN' && hasInspectionModule ? (
-                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <div className="flex shrink-0 items-center gap-1">
                   <label
                     htmlFor="inquiry-inspection-status-filter"
-                    className="text-fluid-xs text-slate-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                    className={INQUIRY_LIST_FILTER_LABEL_CLASS}
                   >
                     현장검수
                   </label>
@@ -2445,7 +2481,7 @@ export function AdminInquiriesPage() {
                         else next.delete('inspectionStatus');
                       });
                     }}
-                    className="min-w-[7.5rem] max-w-[10rem] rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-xs text-slate-900 sm:px-3 sm:py-2 sm:text-fluid-sm"
+                    className={INQUIRY_LIST_FILTER_SELECT_CLASS}
                   >
                     <option value="">전체</option>
                     <option value="NONE">없음</option>
@@ -2456,10 +2492,10 @@ export function AdminInquiriesPage() {
                 </div>
               ) : null}
               {operatingCompanies.length > 0 ? (
-                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <div className="flex shrink-0 items-center gap-1">
                   <label
                     htmlFor="inquiry-operating-company-filter"
-                    className="text-fluid-xs text-slate-600 sm:text-fluid-sm whitespace-nowrap shrink-0"
+                    className={INQUIRY_LIST_FILTER_LABEL_CLASS}
                   >
                     브랜드
                   </label>
@@ -2467,7 +2503,7 @@ export function AdminInquiriesPage() {
                     id="inquiry-operating-company-filter"
                     value={operatingCompanyFilterId}
                     onChange={(e) => setOperatingCompanyFilterId(e.target.value)}
-                    className="min-w-[8.5rem] max-w-[11rem] rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-xs text-slate-900 sm:min-w-[10rem] sm:max-w-[min(100%,18rem)] sm:px-3 sm:py-2 sm:text-fluid-sm"
+                    className={INQUIRY_LIST_FILTER_SELECT_CLASS}
                   >
                     <option value="">전체</option>
                     {operatingCompanies.map((oc) => (
@@ -2497,7 +2533,7 @@ export function AdminInquiriesPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    setAppliedSearchQuery(searchInput.trim());
+                    applySearchQuery(searchInput);
                   }
                 }}
                 placeholder="고객명·연락처·접수번호 검색"
@@ -2572,7 +2608,7 @@ export function AdminInquiriesPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setAppliedSearchQuery(searchInput.trim())}
+                onClick={() => applySearchQuery(searchInput)}
                 className="px-4 py-2 rounded-xl bg-slate-900 text-white text-fluid-sm font-medium hover:bg-slate-800 shrink-0"
               >
                 조회

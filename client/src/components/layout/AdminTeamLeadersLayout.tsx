@@ -113,7 +113,7 @@ export function AdminTeamLeadersLayout() {
       </div>
 
       <div className="min-w-0 lg:flex lg:items-start lg:gap-2.5 xl:gap-3 2xl:gap-4">
-        <div className="shrink-0 lg:-ml-4">
+        <div className="shrink-0">
           <AdminCollapsibleSectionSideNav
             title="관리자 전용"
             items={ADMIN_TEAM_LEADERS_NAV_ITEMS}

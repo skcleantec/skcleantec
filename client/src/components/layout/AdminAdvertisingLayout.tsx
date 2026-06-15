@@ -115,7 +115,7 @@ export function AdminAdvertisingLayout() {
       </div>
 
       <div className="min-w-0 lg:flex lg:items-start lg:gap-2.5 xl:gap-3 2xl:gap-4">
-        <div className="shrink-0 lg:-ml-4">
+        <div className="shrink-0">
           <AdminCollapsibleSectionSideNav
             title="광고비"
             items={navItems}

@@ -34,9 +34,8 @@ alwaysApply: true
 
 | 순위 | 대상 |
 |------|------|
-| 1 | 미확인 취소 (`CANCELLED` + `happyCallCompletedAt` 없음) |
-| 2 | 예약완료(RECEIVED) 아닌 그 외 |
-| 3 | 예약완료(RECEIVED) |
+| 1 | 예약완료(RECEIVED) 아닌 그 외 (취소 포함 — 별도 상단 고정 없음) |
+| 2 | 예약완료(RECEIVED) |
 
 같은 tier 안에서는 `createdAt` **최신순**.
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh } from '../../utils/listRefreshDisplay';
 import { Link } from 'react-router-dom';
 import {
   getReviewPayback,
@@ -126,8 +127,12 @@ export function AdminReviewPaybackPanel({ token }: Props) {
     async (silent = false, opts?: { scrollToTop?: boolean }) => {
       if (!token) return;
       if (opts?.scrollToTop) scrollToTop();
-      if (!silent) setLoading(true);
-      else if (items.length > 0) preserveScroll();
+      beginListRefresh({
+        showLoading: !silent,
+        itemCount: items.length,
+        setLoading,
+        preserveScroll,
+      });
       setError(null);
       try {
         const res = await listReviewPaybacks(token, {

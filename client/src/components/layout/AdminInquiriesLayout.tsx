@@ -96,8 +96,8 @@ export function AdminInquiriesLayout() {
         </AdminSubNavScroll>
       </div>
 
-      <div className="min-w-0 w-full max-w-full overflow-x-hidden lg:flex lg:items-start lg:gap-2.5 xl:gap-3 2xl:gap-4">
-        <div className="shrink-0 lg:-ml-4">
+      <div className="min-w-0 w-full max-w-full lg:flex lg:items-start lg:gap-2.5 xl:gap-3 2xl:gap-4">
+        <div className="shrink-0">
           <AdminCollapsibleSectionSideNav
             title="서비스접수"
             items={navItems}

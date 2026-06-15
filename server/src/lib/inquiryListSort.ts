@@ -23,16 +23,11 @@ export function isInquiryOrderFormPendingSubmit(row: InquiryListSortable): boole
   );
 }
 
-export function isInquiryCancelUnconfirmed(row: InquiryListSortable): boolean {
-  return row.status === 'CANCELLED' && !row.happyCallCompletedAt;
-}
-
-/** 0=미제출 최상단, 1=미확인 취소, 2=예약완료 외, 3=예약완료(RECEIVED) */
+/** 0=미제출 최상단, 1=예약완료(RECEIVED) 외, 2=예약완료(RECEIVED) */
 export function inquiryListSortTier(row: InquiryListSortable): number {
   if (isInquiryOrderFormPendingSubmit(row)) return 0;
-  if (isInquiryCancelUnconfirmed(row)) return 1;
-  if (row.status !== 'RECEIVED') return 2;
-  return 3;
+  if (row.status !== 'RECEIVED') return 1;
+  return 2;
 }
 
 function toSortMs(d: string | Date | null | undefined): number {

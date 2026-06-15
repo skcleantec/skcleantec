@@ -45,7 +45,10 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
-const SCROLLBAR_VISIBLE =
+const SCROLLBAR_HIDDEN =
+  '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-0';
+
+const DOCK_SCROLLBAR =
   '[scrollbar-width:thin] [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-100';
 
 type Props = {
@@ -185,7 +188,7 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
                 <div
                   ref={dockRef}
                   onScroll={(e) => syncScrollLeft(e.currentTarget.scrollLeft, 'dock')}
-                  className={`min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden rounded-full bg-gray-200 py-1.5 ${SCROLLBAR_VISIBLE}`}
+                  className={`min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden rounded-full bg-gray-200 py-1.5 ${DOCK_SCROLLBAR}`}
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   aria-label="표 가로 스크롤"
                 >
@@ -208,8 +211,8 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
       <div
         ref={mainRef}
         onScroll={(e) => syncScrollLeft(e.currentTarget.scrollLeft, 'main')}
-        className={`w-full max-w-full min-w-0 overflow-x-auto overscroll-x-contain ${
-          hasOverflow ? '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : ''
+        className={`w-full max-w-full min-w-0 overscroll-x-contain ${SCROLLBAR_HIDDEN} ${
+          hasOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'
         } ${contentClassName}`}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >

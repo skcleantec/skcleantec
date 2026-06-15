@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useInboxRealtime, useChangeLogRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
@@ -632,6 +633,9 @@ export function AdminSchedulePage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [items, setItems] = useState<ScheduleItem[]>([]);
+  const itemsLengthRef = useRef(0);
+  itemsLengthRef.current = items.length;
+  const { preserveScroll } = useStaffAppScrollPreserve();
   const [stats, setStats] = useState<Record<string, ScheduleStatsByDate>>({});
   const [asCsByDate, setAsCsByDate] = useState<Record<string, AsCsScheduleListItem[]>>({});
   const [loading, setLoading] = useState(true);
@@ -683,6 +687,9 @@ export function AdminSchedulePage() {
       if (!token) {
         if (showLoading) setLoading(false);
         return;
+      }
+      if (!showLoading && itemsLengthRef.current > 0) {
+        preserveScroll();
       }
       const rid = ++fetchGenRef.current;
       if (showLoading) {
@@ -810,7 +817,7 @@ export function AdminSchedulePage() {
         finishInitialLoading();
       }
     },
-    [token, year, month]
+    [token, year, month, preserveScroll],
   );
 
   const silentRefreshSchedule = useCallback(() => {
