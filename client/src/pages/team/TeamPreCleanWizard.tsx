@@ -657,6 +657,8 @@ export function TeamPreCleanWizard({
     }));
     const areaDoneCount = captureItems.filter((it) => isPhaseItemComplete(it, phase)).length;
     const shutterColor = isBeforePhase ? 'bg-sky-500' : 'bg-emerald-500';
+    const currentBeforePhoto =
+      currentItem.photos.find((p) => p.phase === 'BEFORE') ?? null;
 
     captureOverlay = (
       <div className="fixed inset-0 z-[200] flex flex-col bg-black text-white pt-[env(safe-area-inset-top)]">
@@ -730,12 +732,41 @@ export function TeamPreCleanWizard({
                 {phaseLabel} 촬영 가이드
               </p>
               <p className="mt-1.5 text-sm font-medium leading-snug text-white">{hint}</p>
+              {!isBeforePhase && currentBeforePhoto ? (
+                <p className="mt-2 text-[11px] leading-snug text-emerald-100/90">
+                  왼쪽 하단 「청소 전」 사진과 같은 각도로 맞춰 촬영해 주세요.
+                </p>
+              ) : null}
             </div>
           </div>
 
           {uploading && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45">
               <p className="rounded-full bg-black/70 px-4 py-2 text-sm font-medium">저장 중…</p>
+            </div>
+          )}
+
+          {!isBeforePhase && (
+            <div className="pointer-events-auto absolute bottom-4 left-4 z-10">
+              <p className="mb-1 text-[10px] font-semibold tracking-wide text-sky-200">청소 전 참고</p>
+              {currentBeforePhoto ? (
+                <ImageThumbLightbox
+                  src={currentBeforePhoto.secureUrl}
+                  alt={`${captureArea.label} ${currentItem.label} 청소 전`}
+                  thumbClassName="h-full w-full object-cover"
+                  buttonClassName="relative block h-[4.75rem] w-[4.75rem] overflow-hidden rounded-lg border-2 border-sky-300/70 bg-black/50 shadow-lg touch-manipulation active:scale-[0.97]"
+                  onLightboxClose={() => {
+                    refreshPreview();
+                    requestAnimationFrame(() => refreshPreview());
+                  }}
+                />
+              ) : (
+                <div className="flex h-[4.75rem] w-[4.75rem] items-center justify-center rounded-lg border-2 border-dashed border-white/25 bg-black/45 px-1.5 text-center text-[9px] leading-snug text-white/55">
+                  청소 전
+                  <br />
+                  사진 없음
+                </div>
+              )}
             </div>
           )}
         </div>

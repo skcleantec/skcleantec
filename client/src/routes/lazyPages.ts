@@ -53,6 +53,9 @@ export const TeamInspectionPage = lazyWithRetry(() =>
 export const TeamPreCleanPhotoPage = lazyWithRetry(() =>
   import('../pages/team/TeamPreCleanPhotoPage').then((m) => ({ default: m.TeamPreCleanPhotoPage }))
 );
+export const TeamPostCleanPhotoPage = lazyWithRetry(() =>
+  import('../pages/team/TeamPostCleanPhotoPage').then((m) => ({ default: m.TeamPostCleanPhotoPage }))
+);
 export const TeamExternalSettlementPage = lazyWithRetry(() =>
   import('../pages/team/TeamExternalSettlementPage').then((m) => ({ default: m.TeamExternalSettlementPage }))
 );

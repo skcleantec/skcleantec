@@ -1327,9 +1327,16 @@ export function TeamInquiryDetailModal({
                 청소 전 촬영
               </Link>
               <Link
+                to={`/team/post-clean/${encodeURIComponent(item.id)}`}
+                state={teamInquiryNavState(inquiryReturnTo)}
+                className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-emerald-800 bg-emerald-700 text-fluid-sm font-medium text-white hover:bg-emerald-800 touch-manipulation"
+              >
+                청소 후 촬영
+              </Link>
+              <Link
                 to={`/team/inspection/${encodeURIComponent(item.id)}`}
                 state={teamInquiryNavState(inquiryReturnTo)}
-                className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-emerald-700 bg-emerald-600 text-fluid-sm font-medium text-white hover:bg-emerald-700 touch-manipulation"
+                className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-gray-800 bg-gray-900 text-fluid-sm font-medium text-white hover:bg-gray-950 touch-manipulation"
               >
                 현장 검수 · 청소완료
               </Link>

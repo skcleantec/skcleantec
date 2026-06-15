@@ -17,33 +17,10 @@ import {
   InspectionHeaderBlock,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
 import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
-import { TeamPreCleanWizard } from './TeamPreCleanWizard';
-import { isAfterItemComplete } from '@shared/inquiryInspectionTemplate';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
 import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 import { RoundBackButton } from '../../components/ui/RoundBackButton';
-
-function countAfterProgress(checklist: InspectionChecklistDto) {
-  let afterDone = 0;
-  let total = 0;
-  for (const area of checklist.areas) {
-    if (area.notApplicable) continue;
-    for (const item of area.items) {
-      if (item.itemKey.startsWith('_')) continue;
-      total += 1;
-      if (
-        isAfterItemComplete({
-          notApplicable: item.notApplicable,
-          afterCount: item.photos.filter((p) => p.phase === 'AFTER').length,
-        })
-      ) {
-        afterDone += 1;
-      }
-    }
-  }
-  return { afterDone, total };
-}
 
 export function TeamInspectionPage() {
   const { inquiryId = '' } = useParams<{ inquiryId: string }>();
@@ -63,25 +40,22 @@ export function TeamInspectionPage() {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [postCleanCaptureActive, setPostCleanCaptureActive] = useState(false);
 
   const readOnly = checklist?.status === 'COMPLETED' || checklist?.status === 'VOID';
 
-  const reload = useCallback(async (): Promise<InspectionChecklistDto | null> => {
-    if (!token || !inquiryId) return null;
+  const reload = useCallback(async () => {
+    if (!token || !inquiryId) return;
     setLoadErr(null);
     try {
       const dto = await fetchTeamInspectionChecklist(token, inquiryId);
       setChecklist(dto);
-      return dto;
     } catch (e) {
       if (isAuthSessionExpiredError(e)) {
         clearTeamToken();
         navigate('/login', { replace: true });
-        return null;
+        return;
       }
       setLoadErr(e instanceof Error ? e.message : '불러오기 실패');
-      return null;
     }
   }, [token, inquiryId, navigate]);
 
@@ -142,14 +116,20 @@ export function TeamInspectionPage() {
     return <div className="p-4 text-fluid-sm text-gray-500">불러오는 중…</div>;
   }
 
-  const { afterDone, total: afterTotal } = countAfterProgress(checklist);
-  const hasAfterCaptureQueue = afterTotal > 0;
-
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 pb-24">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <RoundBackButton onClick={goBack} />
         <div className="flex flex-wrap items-center gap-2">
+          {!readOnly && (
+            <Link
+              to={`/team/post-clean/${encodeURIComponent(inquiryId)}`}
+              state={teamInquiryNavState(preCleanReturnTo)}
+              className="rounded-full border border-emerald-600 bg-emerald-50 px-2.5 py-0.5 text-fluid-2xs font-medium text-emerald-900 touch-manipulation"
+            >
+              청소 후 촬영
+            </Link>
+          )}
           {!readOnly && (
             <Link
               to={`/team/pre-clean/${encodeURIComponent(inquiryId)}`}
@@ -172,51 +152,6 @@ export function TeamInspectionPage() {
         readOnly={readOnly}
         onPatch={(basicAnswers) => void saveDraft({ basicAnswers })}
       />
-
-      {!readOnly && hasAfterCaptureQueue && (
-        <div className="space-y-2">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs text-emerald-950">
-            청소 후 촬영: {afterDone}/{afterTotal} 항목
-            {afterDone >= afterTotal && (
-              <span className="ml-2 font-medium text-emerald-800">— 완료</span>
-            )}
-          </div>
-          {afterDone < afterTotal && (
-          <button
-            type="button"
-            disabled={busy || postCleanCaptureActive}
-            onClick={() => {
-              setMsg(null);
-              setPostCleanCaptureActive(true);
-            }}
-            className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-emerald-700 px-4 py-2.5 text-fluid-sm font-semibold text-white touch-manipulation disabled:opacity-50"
-          >
-            청소 후 촬영 시작
-          </button>
-          )}
-        </div>
-      )}
-
-      {!readOnly && (
-        <TeamPreCleanWizard
-          checklist={checklist}
-          inquiryId={inquiryId}
-          token={token}
-          readOnly={readOnly}
-          busy={busy}
-          setBusy={setBusy}
-          onReload={reload}
-          onMsg={setMsg}
-          onChecklistUpdate={setChecklist}
-          phase="AFTER"
-          hideAreaGrid
-          captureActive={postCleanCaptureActive}
-          onClose={() => {
-            setPostCleanCaptureActive(false);
-            void reload();
-          }}
-        />
-      )}
 
       <TeamInspectionAreasEditor
         checklist={checklist}
