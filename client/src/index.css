@@ -55,6 +55,20 @@ html, body {
   background-clip: padding-box;
 }
 
+/** SyncHorizontalScroll 표 본문 — 스크롤은 가능하나 가로 스크롤바는 숨김(하단 도크만 표시) */
+.sync-horizontal-scroll-main {
+  overflow-x: auto;
+  overflow-y: visible;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.sync-horizontal-scroll-main::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
 /* 업무 화면(관리·팀·크루) main — 전역 !important 대신 이 래퍼 안에서만 폼 기본 스타일 */
 .staff-app-surface input[type="text"],
 .staff-app-surface input[type="password"],

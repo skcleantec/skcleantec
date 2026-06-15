@@ -45,9 +45,6 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
-const SCROLLBAR_HIDDEN =
-  '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-0';
-
 const DOCK_SCROLLBAR =
   '[scrollbar-width:thin] [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-slate-100';
 
@@ -211,8 +208,8 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
       <div
         ref={mainRef}
         onScroll={(e) => syncScrollLeft(e.currentTarget.scrollLeft, 'main')}
-        className={`w-full max-w-full min-w-0 overscroll-x-contain ${SCROLLBAR_HIDDEN} ${
-          hasOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'
+        className={`sync-horizontal-scroll-main w-full max-w-full min-w-0 overscroll-x-contain ${
+          hasOverflow ? '' : 'overflow-x-hidden'
         } ${contentClassName}`}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
