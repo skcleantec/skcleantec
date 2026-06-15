@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NavLink, matchPath, useLocation } from 'react-router-dom';
+import { notifyAdminSectionSideNavLayoutChange } from '../../utils/adminSectionSideNavLayout';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -197,9 +198,14 @@ export function AdminCollapsibleSectionSideNav({
 }: CollapsibleProps) {
   const [collapsed, setCollapsed] = useState(() => readCollapsedFromStorage(collapseStorageKey));
 
+  useEffect(() => {
+    notifyAdminSectionSideNavLayoutChange();
+  }, []);
+
   const setCollapsedPersisted = useCallback(
     (next: boolean) => {
       setCollapsed(next);
+      notifyAdminSectionSideNavLayoutChange();
       if (!collapseStorageKey) return;
       try {
         window.localStorage.setItem(collapseStorageKey, next ? '1' : '0');
@@ -207,7 +213,7 @@ export function AdminCollapsibleSectionSideNav({
         /* ignore */
       }
     },
-    [collapseStorageKey]
+    [collapseStorageKey],
   );
 
   const toggle = () => setCollapsedPersisted(!collapsed);

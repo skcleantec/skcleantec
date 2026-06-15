@@ -2588,7 +2588,7 @@ export function AdminInquiriesPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm min-w-0">
+      <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm min-w-0 overflow-x-hidden">
         {shouldShowListBlockingLoading(loading, items.length) ? (
           <div className="p-8 text-center text-slate-500 text-fluid-sm">로딩 중...</div>
         ) : items.length === 0 ? (
@@ -2936,7 +2936,7 @@ export function AdminInquiriesPage() {
             ) : null}
 
             {isLgUp ? (
-            <div className="min-w-0">
+            <div className="min-w-0 overflow-x-hidden">
             <SyncHorizontalScroll className="min-w-0 w-full">
             <table
               className={`table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm max-w-none ${

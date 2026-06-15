@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { ADMIN_SECTION_SIDE_NAV_LAYOUT_EVENT } from '../../utils/adminSectionSideNavLayout';
 
 const SCROLL_STEP = 120;
 
@@ -55,8 +56,10 @@ type Props = {
   contentClassName?: string;
 };
 
+type DockRect = { left: number; width: number };
+
 /**
- * 표 가로 넘침 시 **뷰포트 하단 고정** 가로 스크롤바(표 scrollLeft 동기화) + ◀▶.
+ * 표 가로 넘침 시 **표 영역 하단 고정** 가로 스크롤바(표 scrollLeft 동기화) + ◀▶.
  * 바깥 레이아웃은 가로로 넘치지 않고, 표 영역만 내부 scrollLeft 로 이동합니다.
  */
 export function SyncHorizontalScroll({ children, className, contentClassName = '' }: Props) {
@@ -68,19 +71,30 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
   const [hasOverflow, setHasOverflow] = useState(false);
   const [tableInView, setTableInView] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [dockRect, setDockRect] = useState<DockRect>({ left: 0, width: 0 });
 
   useEffect(() => setMounted(true), []);
 
+  const updateDockRect = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const r = container.getBoundingClientRect();
+    setDockRect({ left: r.left, width: r.width });
+  }, []);
+
   const measure = useCallback(() => {
     const main = mainRef.current;
+    const container = containerRef.current;
     if (!main) return;
     const inner = main.querySelector('table') ?? main.firstElementChild;
     const contentW =
       inner instanceof HTMLElement ? inner.getBoundingClientRect().width : main.scrollWidth;
-    const overflow = contentW > main.clientWidth + 2;
+    const viewportW = main.clientWidth;
+    const overflow = contentW > viewportW + 2;
     setSpacerW(Math.ceil(contentW));
     setHasOverflow(overflow);
-  }, []);
+    updateDockRect();
+  }, [updateDockRect]);
 
   const scheduleMeasure = useCallback(() => {
     measure();
@@ -93,15 +107,19 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
   useLayoutEffect(() => {
     scheduleMeasure();
     const main = mainRef.current;
+    const container = containerRef.current;
     if (!main) return;
     const ro = new ResizeObserver(() => scheduleMeasure());
     ro.observe(main);
+    if (container) ro.observe(container);
     const inner = main.querySelector('table') ?? main.firstElementChild;
     if (inner instanceof Element) ro.observe(inner);
     window.addEventListener('resize', scheduleMeasure);
+    window.addEventListener(ADMIN_SECTION_SIDE_NAV_LAYOUT_EVENT, scheduleMeasure);
     return () => {
       ro.disconnect();
       window.removeEventListener('resize', scheduleMeasure);
+      window.removeEventListener(ADMIN_SECTION_SIDE_NAV_LAYOUT_EVENT, scheduleMeasure);
     };
   }, [scheduleMeasure, children]);
 
@@ -132,13 +150,13 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
     syncScrollLeft(main.scrollLeft + delta, 'main');
   };
 
-  const showDock = mounted && hasOverflow && tableInView;
+  const showDock = mounted && hasOverflow && tableInView && dockRect.width > 0;
 
   useLayoutEffect(() => {
     if (!hasOverflow) return;
     const left = mainRef.current?.scrollLeft ?? 0;
     syncScrollLeft(left, 'main');
-  }, [hasOverflow, spacerW, syncScrollLeft]);
+  }, [hasOverflow, spacerW, dockRect.width, syncScrollLeft]);
 
   return (
     <div
@@ -148,11 +166,15 @@ export function SyncHorizontalScroll({ children, className, contentClassName = '
       {showDock &&
         createPortal(
           <div
-            className="pointer-events-none fixed inset-x-0 bottom-0 z-[130]"
-            style={{ paddingBottom: 'max(0.2rem, env(safe-area-inset-bottom, 0px))' }}
+            className="pointer-events-none fixed bottom-0 z-[130]"
+            style={{
+              left: dockRect.left,
+              width: dockRect.width,
+              paddingBottom: 'max(0.2rem, env(safe-area-inset-bottom, 0px))',
+            }}
           >
             <div className="pointer-events-auto border-t border-gray-200 bg-white/95 px-2 py-1.5 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm supports-[backdrop-filter]:bg-white/90">
-              <div className="flex w-full max-w-full min-w-0 items-center gap-1 px-3 sm:px-4">
+              <div className="flex w-full max-w-full min-w-0 items-center gap-1">
                 <button
                   type="button"
                   onClick={() => scrollByDelta(-SCROLL_STEP)}
