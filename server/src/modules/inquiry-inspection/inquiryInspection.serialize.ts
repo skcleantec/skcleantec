@@ -13,6 +13,7 @@ function serializePhoto(p: ChecklistRow['areas'][number]['items'][number]['photo
     secureUrl: p.secureUrl,
     width: p.width,
     height: p.height,
+    flagged: p.flagged,
     uploadedBy: p.uploadedBy,
     createdAt: p.createdAt.toISOString(),
   };

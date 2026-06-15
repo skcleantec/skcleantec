@@ -24,6 +24,8 @@ export type InspectionAreaPhoto = {
   secureUrl: string;
   width: number | null;
   height: number | null;
+  /** 청소 전 — 오염 심함 등 고객 전달용 */
+  flagged: boolean;
   uploadedBy: { id: string; name: string };
   createdAt: string;
 };
@@ -250,6 +252,29 @@ export async function deleteTeamInspectionPhoto(
   if (res.status === 401) throw new AuthSessionExpiredError();
   const data = (await res.json()) as { error?: string };
   if (!res.ok) throw new Error(data.error ?? '사진 삭제에 실패했습니다.');
+}
+
+export async function patchTeamInspectionPhotoFlag(
+  token: string,
+  inquiryId: string,
+  itemId: string,
+  photoId: string,
+  flagged: boolean,
+): Promise<InspectionAreaPhoto> {
+  const res = await fetch(
+    withTeamPreviewQuery(
+      `${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection/items/${encodeURIComponent(itemId)}/photos/${encodeURIComponent(photoId)}`,
+    ),
+    {
+      method: 'PATCH',
+      headers: { ...teamHeaders(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flagged }),
+    },
+  );
+  if (res.status === 401) throw new AuthSessionExpiredError();
+  const data = (await res.json()) as { photo?: InspectionAreaPhoto; error?: string };
+  if (!res.ok) throw new Error(data.error ?? '표시 저장에 실패했습니다.');
+  return data.photo!;
 }
 
 export async function uploadTeamInspectionSignature(

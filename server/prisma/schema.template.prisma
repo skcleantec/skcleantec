@@ -1123,6 +1123,8 @@ model InquiryInspectionAreaPhoto {
   height             Int?
   uploadedById       String                   @map("uploaded_by_id")
   createdAt          DateTime                 @default(now()) @map("created_at")
+  /// 청소 전 촬영 — 오염 심함 등 고객 전달용 표시
+  flagged            Boolean                  @default(false)
 
   item       InquiryInspectionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   uploadedBy User                  @relation("InspectionPhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)

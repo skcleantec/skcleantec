@@ -10,6 +10,7 @@ import {
   deleteTeamInspectionPhoto,
   patchTeamInspectionArea,
   patchTeamInspectionItem,
+  patchTeamInspectionPhotoFlag,
   uploadTeamInspectionPhotos,
   type InspectionArea,
   type InspectionAreaPhoto,
@@ -20,6 +21,8 @@ import { ImageThumbLightbox, type ImageGallerySlide } from '../../components/ui/
 import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
 import { useInlineCamera } from '../../hooks/useInlineCamera';
 import { ShareAreaBeforePhotosButton } from '../../components/inquiry-inspection/ShareAreaBeforePhotosButton';
+import { InspectionPhotoFlagButton } from '../../components/inquiry-inspection/InspectionPhotoFlagButton';
+import { updateChecklistPhotoFlag } from '../../utils/inspectionFlaggedPhotos';
 
 const SESSION_PREFIX = 'preCleanWizard';
 
@@ -113,6 +116,8 @@ function CapturePhotoThumb({
   onRetakeAtGalleryIndex,
   onLightboxClose,
   caption,
+  onToggleFlag,
+  flagDisabled,
 }: {
   photo: InspectionAreaPhoto;
   idx: number;
@@ -121,19 +126,37 @@ function CapturePhotoThumb({
   onRetakeAtGalleryIndex: (galleryIndex: number) => void;
   onLightboxClose?: () => void;
   caption?: string;
+  onToggleFlag?: () => void;
+  flagDisabled?: boolean;
 }) {
+  const flagged = !!photo.flagged;
   return (
     <div className="flex w-[4rem] shrink-0 flex-col gap-0.5">
-      <ImageThumbLightbox
-        src={photo.secureUrl}
-        alt={`청소 전 ${idx + 1}`}
-        gallerySlides={gallerySlides}
-        galleryIndex={idx}
-        thumbClassName="h-14 w-full object-cover"
-        buttonClassName="relative block w-full overflow-hidden rounded-lg border-2 border-white/25 bg-black/40 touch-manipulation active:scale-[0.97] disabled:opacity-50"
-        onRetake={disabled ? undefined : onRetakeAtGalleryIndex}
-        onLightboxClose={onLightboxClose}
-      />
+      <div className="relative">
+        <ImageThumbLightbox
+          src={photo.secureUrl}
+          alt={`청소 전 ${idx + 1}`}
+          gallerySlides={gallerySlides}
+          galleryIndex={idx}
+          thumbClassName="h-14 w-full object-cover"
+          buttonClassName={`relative block w-full overflow-hidden rounded-lg border-2 bg-black/40 touch-manipulation active:scale-[0.97] disabled:opacity-50 ${
+            flagged ? 'border-amber-400' : 'border-white/25'
+          }`}
+          onRetake={disabled ? undefined : onRetakeAtGalleryIndex}
+          onLightboxClose={onLightboxClose}
+        />
+        {onToggleFlag ? (
+          <div className="absolute -left-1 -top-1 z-10">
+            <InspectionPhotoFlagButton
+              flagged={flagged}
+              disabled={flagDisabled}
+              variant="dark"
+              onToggle={onToggleFlag}
+              className="!h-8 !w-8 !text-sm"
+            />
+          </div>
+        ) : null}
+      </div>
       {caption ? (
         <p className="truncate text-center text-[9px] leading-tight text-gray-400" title={caption}>
           {caption}
@@ -153,6 +176,7 @@ export function TeamPreCleanWizard({
   onReload,
   onMsg,
   onClose,
+  onChecklistUpdate,
 }: {
   checklist: InspectionChecklistDto;
   inquiryId: string;
@@ -163,12 +187,14 @@ export function TeamPreCleanWizard({
   onReload: () => Promise<InspectionChecklistDto | null>;
   onMsg: (msg: string | null) => void;
   onClose?: () => void;
+  onChecklistUpdate?: (next: InspectionChecklistDto) => void;
 }) {
   const [captureAreaId, setCaptureAreaId] = useState<string | null>(null);
   const [itemIndex, setItemIndex] = useState(0);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localChecklist, setLocalChecklist] = useState(checklist);
   const [uploading, setUploading] = useState(false);
+  const [flaggingPhotoId, setFlaggingPhotoId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoredRef = useRef(false);
   const reloadGenRef = useRef(0);
@@ -410,6 +436,34 @@ export function TeamPreCleanWizard({
     }
   };
 
+  const applyChecklist = useCallback(
+    (next: InspectionChecklistDto) => {
+      setLocalChecklist(next);
+      onChecklistUpdate?.(next);
+    },
+    [onChecklistUpdate],
+  );
+
+  const handleTogglePhotoFlag = useCallback(
+    async (itemId: string, photoId: string, nextFlagged: boolean) => {
+      if (readOnly || flaggingPhotoId) return;
+      const prev = localChecklist;
+      const optimistic = updateChecklistPhotoFlag(localChecklist, itemId, photoId, nextFlagged);
+      applyChecklist(optimistic);
+      setFlaggingPhotoId(photoId);
+      onMsg(null);
+      try {
+        await patchTeamInspectionPhotoFlag(token, inquiryId, itemId, photoId, nextFlagged);
+      } catch (e) {
+        applyChecklist(prev);
+        onMsg(e instanceof Error ? e.message : '표시 저장 실패');
+      } finally {
+        setFlaggingPhotoId(null);
+      }
+    },
+    [applyChecklist, flaggingPhotoId, inquiryId, localChecklist, onMsg, readOnly, token],
+  );
+
   const inCaptureMode = !readOnly && captureArea && currentItem;
 
   let captureOverlay: ReactNode = null;
@@ -538,7 +592,7 @@ export function TeamPreCleanWizard({
           {areaBeforeEntries.length > 0 && (
             <div className="mt-3 border-t border-white/10 pt-3">
               <p className="mb-2 text-center text-[10px] text-gray-400">
-                등록 {areaBeforeEntries.length}장 · {areaDoneCount}/{captureItems.length} 완료 · 탭하면 크게 보기
+                등록 {areaBeforeEntries.length}장 · {areaDoneCount}/{captureItems.length} 완료 · ☆ 오염 심함 표시
               </p>
               <div className="mx-auto flex max-w-lg gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
                 {areaBeforeEntries.map((entry, idx) => (
@@ -549,6 +603,10 @@ export function TeamPreCleanWizard({
                     gallerySlides={areaGallerySlides}
                     disabled={uploading || busy}
                     caption={entry.itemLabel}
+                    flagDisabled={uploading || busy || flaggingPhotoId === entry.photo.id}
+                    onToggleFlag={() =>
+                      void handleTogglePhotoFlag(entry.itemId, entry.photo.id, !entry.photo.flagged)
+                    }
                     onRetakeAtGalleryIndex={(galleryIdx) => {
                       const target = areaBeforeEntries[galleryIdx];
                       if (target) void handleRetakePhoto(target.photo.id, target.itemId);
@@ -585,7 +643,7 @@ export function TeamPreCleanWizard({
       {captureOverlay ? createPortal(captureOverlay, document.body) : null}
     <section className="space-y-3" aria-hidden={inCaptureMode ? true : undefined}>
       <p className="text-fluid-2xs text-gray-600">
-        구역을 선택한 뒤 「촬영 시작」— 화면에서 바로 찍으면 다음 항목으로 자동 이동합니다. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
+        구역을 선택한 뒤 「촬영 시작」— 화면에서 바로 찍으면 다음 항목으로 자동 이동합니다. 오염이 심한 곳은 사진의 ☆를 눌러 표시해 주세요. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
       </p>
 
       <div className="grid grid-cols-2 gap-2">

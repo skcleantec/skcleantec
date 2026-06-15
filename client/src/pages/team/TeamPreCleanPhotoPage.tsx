@@ -16,6 +16,7 @@ import { TeamPreCleanWizard } from './TeamPreCleanWizard';
 import { isBeforeItemComplete } from '@shared/inquiryInspectionTemplate';
 import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 import { RoundBackButton } from '../../components/ui/RoundBackButton';
+import { FlaggedBeforePhotosSection } from '../../components/inquiry-inspection/FlaggedBeforePhotosSection';
 
 function countBeforeProgress(checklist: InspectionChecklistDto) {
   let beforeDone = 0;
@@ -124,6 +125,16 @@ export function TeamPreCleanPhotoPage() {
         )}
       </div>
 
+      <FlaggedBeforePhotosSection
+        checklist={checklist}
+        inquiryId={inquiryId}
+        token={token}
+        readOnly={readOnly}
+        disabled={busy}
+        onChecklistUpdate={setChecklist}
+        onMsg={setMsg}
+      />
+
       {readOnly ? (
         <TeamInspectionAreasEditor
           checklist={checklist}
@@ -147,6 +158,7 @@ export function TeamPreCleanPhotoPage() {
           onReload={reload}
           onMsg={setMsg}
           onClose={goBack}
+          onChecklistUpdate={setChecklist}
         />
       )}
 

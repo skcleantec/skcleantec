@@ -97,3 +97,28 @@ export async function deleteInspectionPhoto(params: {
   await prisma.inquiryInspectionAreaPhoto.delete({ where: { id: row.id } });
   return row;
 }
+
+export async function patchInspectionPhotoFlag(params: {
+  photoId: string;
+  itemId: string;
+  checklistId: string;
+  flagged: boolean;
+}) {
+  const row = await prisma.inquiryInspectionAreaPhoto.findFirst({
+    where: {
+      id: params.photoId,
+      itemId: params.itemId,
+      item: { area: { checklistId: params.checklistId } },
+    },
+    include: { uploadedBy: { select: { id: true, name: true } } },
+  });
+  if (!row) return null;
+  if (row.phase !== 'BEFORE') {
+    throw new Error('BEFORE_ONLY');
+  }
+  return prisma.inquiryInspectionAreaPhoto.update({
+    where: { id: row.id },
+    data: { flagged: params.flagged },
+    include: { uploadedBy: { select: { id: true, name: true } } },
+  });
+}

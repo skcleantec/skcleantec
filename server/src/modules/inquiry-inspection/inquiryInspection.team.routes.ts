@@ -22,6 +22,7 @@ import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { serializeInspectionChecklist } from './inquiryInspection.serialize.js';
 import {
   deleteInspectionPhoto,
+  patchInspectionPhotoFlag,
   uploadInspectionPhotoBuffer,
   uploadInspectionSignatureBuffer,
 } from './inquiryInspection.photos.service.js';
@@ -428,6 +429,7 @@ router.post('/items/:itemId/photos', uploadImages, async (req, res) => {
       secureUrl: row.secureUrl,
       width: row.width,
       height: row.height,
+      flagged: row.flagged,
       uploadedBy: row.uploadedBy,
       createdAt: row.createdAt.toISOString(),
     });
@@ -437,6 +439,73 @@ router.post('/items/:itemId/photos', uploadImages, async (req, res) => {
     return;
   }
   res.status(201).json({ items: created });
+});
+
+/** PATCH /items/:itemId/photos/:photoId — 청소 전 오염 심함 표시 */
+router.patch('/items/:itemId/photos/:photoId', async (req, res) => {
+  const { inquiryId, itemId, photoId } = req.params as {
+    inquiryId: string;
+    itemId: string;
+    photoId: string;
+  };
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await tenantIdForTeamReq(req);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 세션이 필요합니다.' });
+    return;
+  }
+  const inquiry = await findInquiryForTeamLeader({ inquiryId, teamLeaderId: userId, tenantId });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  const checklist = await prisma.inquiryInspectionChecklist.findFirst({ where: { inquiryId, tenantId } });
+  if (!checklist) {
+    res.status(404).json({ error: '검수 체크리스트가 없습니다.' });
+    return;
+  }
+  try {
+    await assertChecklistEditableForTeam({ inquiryId, tenantId });
+  } catch {
+    res.status(409).json({ error: '완료된 검수본은 수정할 수 없습니다.' });
+    return;
+  }
+  const flagged = req.body?.flagged;
+  if (typeof flagged !== 'boolean') {
+    res.status(400).json({ error: 'flagged(true/false)가 필요합니다.' });
+    return;
+  }
+  try {
+    const updated = await patchInspectionPhotoFlag({
+      photoId,
+      itemId,
+      checklistId: checklist.id,
+      flagged,
+    });
+    if (!updated) {
+      res.status(404).json({ error: '사진을 찾을 수 없습니다.' });
+      return;
+    }
+    res.json({
+      photo: {
+        id: updated.id,
+        phase: updated.phase,
+        secureUrl: updated.secureUrl,
+        width: updated.width,
+        height: updated.height,
+        flagged: updated.flagged,
+        uploadedBy: updated.uploadedBy,
+        createdAt: updated.createdAt.toISOString(),
+      },
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'BEFORE_ONLY') {
+      res.status(400).json({ error: '청소 전 사진만 표시할 수 있습니다.' });
+      return;
+    }
+    console.error('[inspection] patch photo flag failed', e);
+    res.status(500).json({ error: '표시 저장에 실패했습니다.' });
+  }
 });
 
 /** DELETE /items/:itemId/photos/:photoId */
