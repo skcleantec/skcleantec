@@ -39,7 +39,7 @@ import {
   normalizeProfessionalOptionIds,
   type ProfessionalSpecialtyOption,
 } from '../../constants/professionalSpecialtyOptions';
-import type { ScheduleStatsByDate } from '../../api/dayoffs';
+import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { buildSlotOccupiedLeaderIdsForDay } from '../../utils/scheduleSlotOccupancy';
 import { formatPreferredDateInputYmd, formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
@@ -49,7 +49,11 @@ import {
   inquiryAreaEditFormStringsFromItem,
 } from '../../utils/inquiryAreaDisplay';
 import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
-import { scheduleItemHasLeaderWithSingleAssignmentOnDay } from '../../utils/scheduleLeaderDayAssignmentBalance';
+import {
+  buildLeaderDayAssignmentCounts,
+  scheduleItemHasLeaderWithSingleAssignmentOnDay,
+} from '../../utils/scheduleLeaderDayAssignmentBalance';
+import { InquiryOrderForceMatchPanel } from './InquiryOrderForceMatchPanel';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { PropertyTypeSticker } from '../ui/PropertyTypeSticker';
@@ -66,6 +70,7 @@ import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
+  effectiveAdminTeamSpecialNotes,
   effectiveCustomerOrderNotes,
   effectiveTeamSharedAdminNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
@@ -183,6 +188,27 @@ function distanceFromJuanLabel(item: ScheduleItem): string | null {
   return `${km}km`;
 }
 
+/** YYYY-MM-DD가 속한 달의 1일~말일 (YYYY-MM-DD) */
+function monthRangeFromYmd(ymd: string): { start: string; end: string } {
+  const y = Number(ymd.slice(0, 4));
+  const mo = Number(ymd.slice(5, 7));
+  const lastDay = new Date(y, mo, 0).getDate();
+  const m = String(mo).padStart(2, '0');
+  return {
+    start: `${y}-${m}-01`,
+    end: `${y}-${m}-${String(lastDay).padStart(2, '0')}`,
+  };
+}
+
+function isInquiryLinkedOrderFormPendingSubmit(item: ScheduleItem): boolean {
+  if (item.status === 'ORDER_FORM_PENDING') return true;
+  return Boolean(
+    item.orderForm?.id &&
+      !item.orderForm.submittedAt &&
+      (item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED')
+  );
+}
+
 type EditFormFields = {
   customerName: string;
   nickname: string;
@@ -224,6 +250,8 @@ type EditFormFields = {
   externalTransferFee: string;
   /** 수기(간편) 등록 제목(접수 리스트 노출) */
   scheduleMemo: string;
+  /** 관리자·팀장 공유 특이사항 (접수 specialNotes) */
+  specialNotes: string;
   /** 상담·참고 — 마케터 메모 (팀장·타업체와 공유, 접수 저장 시 반영) */
   consultationMemo: string;
   internalCustomerTone: InternalCustomerTone;
@@ -268,6 +296,7 @@ function buildPatchFromEditForm(
     serviceBalanceAmount: parseWon(editForm.amountBalance),
     externalTransferFee: parseWon(editForm.externalTransferFee),
     scheduleMemo: editForm.scheduleMemo.trim() || null,
+    specialNotes: editForm.specialNotes.trim() || null,
     consultationMemo: editForm.consultationMemo.trim() || null,
     internalCustomerTone: editForm.internalCustomerTone,
     professionalOptionIds: editForm.professionalOptionIds,
@@ -554,7 +583,7 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
     '특이사항 (팀장·타업체 공유)',
     effectiveTeamSharedAdminNotes({
       memo: editForm.memo,
-      specialNotes: item.specialNotes,
+      specialNotes: editForm.specialNotes,
       orderForm: item.orderForm,
     })
   );
@@ -646,6 +675,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [tenantShareTransferFee, setTenantShareTransferFee] = useState('');
   const [tenantShareCustomerScheduleOnly, setTenantShareCustomerScheduleOnly] = useState(false);
   const [tenantShareBusy, setTenantShareBusy] = useState(false);
+  /** 구데이터: 고객 특이사항만 접수 specialNotes에 있음 — 저장 시 빈 관리자 메모로 덮어쓰지 않도록 PATCH에서 specialNotes 제외 */
+  const omitSpecialNotesIfLegacyUnchangedRef = useRef(false);
+  const [fetchedScheduleStatsByDate, setFetchedScheduleStatsByDate] = useState<
+    Record<string, ScheduleStatsByDate>
+  >({});
+  const [fetchedDayScheduleItems, setFetchedDayScheduleItems] = useState<ScheduleItem[]>([]);
+  const effectiveScheduleStatsByDate = scheduleStatsByDate ?? fetchedScheduleStatsByDate;
+  const effectiveDayScheduleItems = dayScheduleItems ?? fetchedDayScheduleItems;
   const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
@@ -790,6 +827,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         amountBalance: '',
         externalTransferFee: '',
         scheduleMemo: '',
+        specialNotes: '',
         consultationMemo: '',
         internalCustomerTone: DEFAULT_INTERNAL_CUSTOMER_TONE,
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
@@ -797,6 +835,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     }
     const it = props.item;
     const amt = effectiveAmounts(it);
+    const notesCtx = { specialNotes: it.specialNotes, orderForm: it.orderForm };
     return {
       customerName: it.customerName,
       nickname: it.nickname || '',
@@ -836,6 +875,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       scheduleMemo: it.scheduleMemo ?? '',
+      specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
       consultationMemo: it.consultationMemo ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
@@ -874,9 +914,52 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     setEditForm((p) => (p.status === ns ? p : { ...p, status: ns }));
   }, [isCreate, createIntakeLane]);
 
+  useEffect(() => {
+    if (scheduleStatsByDate || !token) return;
+    const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      setFetchedScheduleStatsByDate({});
+      return;
+    }
+    const { start, end } = monthRangeFromYmd(ymd);
+    let cancelled = false;
+    getScheduleStats(token, start, end)
+      .then((r) => {
+        if (!cancelled) setFetchedScheduleStatsByDate(r.byDate);
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedScheduleStatsByDate({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scheduleStatsByDate, token, editForm.preferredDate]);
+
+  useEffect(() => {
+    if (dayScheduleItems || !token) return;
+    const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      setFetchedDayScheduleItems([]);
+      return;
+    }
+    let cancelled = false;
+    getSchedule(token, ymd, ymd)
+      .then((r) => {
+        if (!cancelled) setFetchedDayScheduleItems(r.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedDayScheduleItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dayScheduleItems, token, editForm.preferredDate]);
+
   const dateKeyForStats = editForm.preferredDate?.trim().slice(0, 10) ?? '';
   const dayStat =
-    dateKeyForStats && scheduleStatsByDate ? scheduleStatsByDate[dateKeyForStats] : undefined;
+    dateKeyForStats && effectiveScheduleStatsByDate
+      ? effectiveScheduleStatsByDate[dateKeyForStats]
+      : undefined;
 
   const assignableLeaderIdsForSlot = useMemo(() => {
     if (!dayStat) return null;
@@ -896,9 +979,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   }, [dayStat, editForm.preferredTime, editForm.betweenScheduleSlot]);
 
   const slotOccupiedLeaderIds = useMemo(() => {
-    if (!dayScheduleItems?.length) return null;
-    return buildSlotOccupiedLeaderIdsForDay(dayScheduleItems, item?.id);
-  }, [dayScheduleItems, item?.id]);
+    if (!effectiveDayScheduleItems?.length) return null;
+    return buildSlotOccupiedLeaderIdsForDay(effectiveDayScheduleItems, item?.id);
+  }, [effectiveDayScheduleItems, item?.id]);
+
+  const effectiveLeaderAssignmentCountsByLeaderId = useMemo(() => {
+    if (leaderAssignmentCountsByLeaderId?.size) return leaderAssignmentCountsByLeaderId;
+    if (!effectiveDayScheduleItems.length || !dateKeyForStats) return undefined;
+    return buildLeaderDayAssignmentCounts(effectiveDayScheduleItems).get(dateKeyForStats);
+  }, [
+    leaderAssignmentCountsByLeaderId,
+    effectiveDayScheduleItems,
+    dateKeyForStats,
+  ]);
 
   const leaderOptionsForRow = useMemo(() => {
     return (rowIndex: number) => {
@@ -1016,6 +1109,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     if (!item) return;
     const it = item;
     const a = effectiveAmounts(it);
+    const notesCtx = { specialNotes: it.specialNotes, orderForm: it.orderForm };
+    omitSpecialNotesIfLegacyUnchangedRef.current =
+      effectiveCustomerOrderNotes(notesCtx).trim() !== '' &&
+      effectiveAdminTeamSpecialNotes(notesCtx) === '';
     setEditForm({
       customerName: it.customerName,
       nickname: it.nickname || '',
@@ -1055,6 +1152,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       externalTransferFee:
         it.externalTransferFee != null ? String(it.externalTransferFee) : '',
       scheduleMemo: it.scheduleMemo ?? '',
+      specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
       consultationMemo: it.consultationMemo ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
@@ -1481,6 +1579,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           patch.operatingCompanyId = ocId;
         }
       }
+      if (
+        omitSpecialNotesIfLegacyUnchangedRef.current &&
+        editForm.specialNotes.trim() === ''
+      ) {
+        delete patch.specialNotes;
+      }
       if (isCreate) {
         const created = (await createInquiry(
           token,
@@ -1560,9 +1664,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   }, [item, editForm]);
 
   const detailLeaderAssignmentUnderfilled = useMemo(() => {
-    if (!item || !leaderAssignmentCountsByLeaderId?.size) return false;
-    return scheduleItemHasLeaderWithSingleAssignmentOnDay(item, leaderAssignmentCountsByLeaderId);
-  }, [item, leaderAssignmentCountsByLeaderId]);
+    if (!item || !effectiveLeaderAssignmentCountsByLeaderId?.size) return false;
+    return scheduleItemHasLeaderWithSingleAssignmentOnDay(
+      item,
+      effectiveLeaderAssignmentCountsByLeaderId
+    );
+  }, [item, effectiveLeaderAssignmentCountsByLeaderId]);
 
   const detailHeaderAreaShort = useMemo(() => {
     if (isCreate || !item) return '—';
@@ -2580,7 +2687,24 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 ))}
               </select>
             )}
+            {!isCreate && item && isInquiryLinkedOrderFormPendingSubmit(item) ? (
+              <p className="mt-1.5 text-fluid-xs text-slate-500">
+                발주서 <span className="font-medium text-slate-600">미제출</span>
+                {' — '}
+                고객이 제출하면 접수 상태로 바뀝니다.
+              </p>
+            ) : null}
           </div>
+          {!isCreate && item ? (
+            <InquiryOrderForceMatchPanel
+              token={token}
+              inquiryId={item.id}
+              customerName={item.customerName}
+              customerPhone={item.customerPhone}
+              disabled={saving}
+              onMatched={() => onInquiryRefresh?.()}
+            />
+          ) : null}
           {canEditMarketer && (
             <div>
               <label className="block text-gray-600 mb-1">담당 마케터</label>
@@ -2821,13 +2945,23 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           )}
           <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">특이사항</label>
+            <label className="block text-gray-600 mb-1">특이사항 (관리자·팀장 공유)</label>
+            <textarea
+              value={editForm.specialNotes}
+              onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded"
+              placeholder="현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-gray-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
             <textarea
               value={editForm.memo}
               onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
-              rows={6}
+              rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded"
-              placeholder="현장·일정 전달, 팀장·타업체와 공유할 내용을 입력하세요."
+              placeholder="접수 메모"
             />
           </div>
         </div>
