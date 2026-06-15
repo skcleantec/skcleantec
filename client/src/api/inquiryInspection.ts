@@ -365,7 +365,16 @@ export async function completeTeamInspection(
     error?: string;
     issues?: { message: string }[];
   };
-  if (!res.ok) throw new Error(data.error ?? data.issues?.[0]?.message ?? '청소완료 처리에 실패했습니다.');
+  if (!res.ok) {
+    const issues = data.issues?.length
+      ? data.issues
+      : [{ message: data.error ?? '청소완료 처리에 실패했습니다.' }];
+    const err = new Error(data.error ?? issues[0]!.message) as Error & {
+      issues: { code?: string; message: string }[];
+    };
+    err.issues = issues;
+    throw err;
+  }
   return data.checklist!;
 }
 

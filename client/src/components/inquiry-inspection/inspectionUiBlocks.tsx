@@ -407,13 +407,18 @@ export function InspectionAreaSection({
 
 export function InspectionBasicSection({
   checklist,
+  basicAnswers,
   readOnly,
   onPatch,
 }: {
   checklist: InspectionChecklistDto;
+  /** 입력 즉시 반영 — 부모 로컬 state 연결 */
+  basicAnswers?: InspectionChecklistDto['basicAnswers'];
   readOnly: boolean;
   onPatch: (basicAnswers: InspectionChecklistDto['basicAnswers']) => void;
 }) {
+  const answers = basicAnswers ?? checklist.basicAnswers;
+
   return (
     <section className="space-y-3">
       <h3 className="text-fluid-sm font-semibold text-gray-900">기본사항</h3>
@@ -424,23 +429,23 @@ export function InspectionBasicSection({
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
               <YesNoToggle
                 label="팀장"
-                value={checklist.basicAnswers[q.id].leader}
+                value={answers[q.id].leader}
                 disabled={readOnly}
                 onChange={(v) =>
                   onPatch({
-                    ...checklist.basicAnswers,
-                    [q.id]: { ...checklist.basicAnswers[q.id], leader: v },
+                    ...answers,
+                    [q.id]: { ...answers[q.id], leader: v },
                   })
                 }
               />
               <YesNoToggle
                 label="고객"
-                value={checklist.basicAnswers[q.id].customer}
+                value={answers[q.id].customer}
                 disabled={readOnly}
                 onChange={(v) =>
                   onPatch({
-                    ...checklist.basicAnswers,
-                    [q.id]: { ...checklist.basicAnswers[q.id], customer: v },
+                    ...answers,
+                    [q.id]: { ...answers[q.id], customer: v },
                   })
                 }
               />
@@ -454,22 +459,29 @@ export function InspectionBasicSection({
 
 export function InspectionConsentSection({
   checklist,
+  consent,
   readOnly,
   onConsentChange,
+  onAgreeAll,
   onEmailChange,
   customerEmail,
   onEmailBlur,
   onEmailFocus,
 }: {
   checklist: InspectionChecklistDto;
+  /** 체크 즉시 반영 — 부모 로컬 state 연결 */
+  consent?: InspectionChecklistDto['consent'];
   readOnly: boolean;
   onConsentChange: (key: keyof InspectionChecklistDto['consent'], value: boolean) => void;
+  onAgreeAll?: () => void;
   onEmailChange: (email: string) => void;
   /** 입력 중 리렌더 지연 방지 — 부모 로컬 state 연결 */
   customerEmail?: string;
   onEmailBlur?: (email: string) => void;
   onEmailFocus?: () => void;
 }) {
+  const consentState = consent ?? checklist.consent;
+
   const consentKeyMap: Record<string, keyof InspectionChecklistDto['consent']> = {
     F1: 'personalInfo',
     F2: 'thirdParty',
@@ -479,6 +491,11 @@ export function InspectionConsentSection({
     F5: 'commercialUse',
     EMAIL: 'emailDelivery',
   };
+
+  const requiredKeys = INSPECTION_CONSENT_ITEMS.filter((item) => item.required).map(
+    (item) => consentKeyMap[item.id]!,
+  );
+  const allRequiredChecked = requiredKeys.every((key) => consentState[key]);
 
   return (
     <section className="space-y-4">
@@ -500,10 +517,21 @@ export function InspectionConsentSection({
         />
       </div>
 
+      {!readOnly && onAgreeAll && (
+        <button
+          type="button"
+          onClick={onAgreeAll}
+          disabled={allRequiredChecked && consentState.commercialUse}
+          className="min-h-[44px] w-full rounded-xl border border-indigo-300 bg-indigo-50 py-2.5 text-fluid-sm font-semibold text-indigo-900 touch-manipulation disabled:cursor-default disabled:opacity-60"
+        >
+          모두 동의하기
+        </button>
+      )}
+
       {INSPECTION_CONSENT_ITEMS.map((item) => {
         const key = consentKeyMap[item.id];
         if (!key) return null;
-        const checked = checklist.consent[key];
+        const checked = consentState[key];
         return (
           <details key={item.id} className="rounded-lg border border-gray-200 bg-white" open={item.required}>
             <summary className="cursor-pointer px-3 py-2 text-fluid-xs font-medium text-gray-900">
@@ -518,7 +546,7 @@ export function InspectionConsentSection({
                   checked={checked}
                   disabled={readOnly}
                   onChange={(e) => onConsentChange(key, e.target.checked)}
-                  className="mt-0.5"
+                  className="mt-0.5 h-4 w-4 shrink-0 touch-manipulation"
                 />
                 <span>{item.checkboxLabel}</span>
               </label>

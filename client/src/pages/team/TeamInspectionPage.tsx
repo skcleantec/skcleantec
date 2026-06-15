@@ -16,11 +16,16 @@ import {
   InspectionConsentSection,
   InspectionHeaderBlock,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
+import { InspectionCompletionIssuesModal } from '../../components/inquiry-inspection/InspectionCompletionIssuesModal';
 import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
 import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 import { RoundBackButton } from '../../components/ui/RoundBackButton';
+import {
+  consentToDraftPatch,
+  validateInspectionCompletionForTeam,
+} from '../../utils/inspectionCompletionFields';
 
 export function TeamInspectionPage() {
   const { inquiryId = '' } = useParams<{ inquiryId: string }>();
@@ -40,6 +45,7 @@ export function TeamInspectionPage() {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [completionIssues, setCompletionIssues] = useState<ReadonlyArray<{ message: string }>>([]);
 
   const readOnly = checklist?.status === 'COMPLETED' || checklist?.status === 'VOID';
 
@@ -124,14 +130,6 @@ export function TeamInspectionPage() {
     setCustomerEmailLocal(checklist.customerEmail ?? '');
   }, [checklist?.id, checklist?.customerEmail]);
 
-  useEffect(
-    () => () => {
-      if (leaderNotesSaveTimerRef.current) clearTimeout(leaderNotesSaveTimerRef.current);
-      if (customerEmailSaveTimerRef.current) clearTimeout(customerEmailSaveTimerRef.current);
-    },
-    [],
-  );
-
   const flushCustomerEmailSave = useCallback(
     (value: string) => {
       if (customerEmailSaveTimerRef.current) {
@@ -154,19 +152,108 @@ export function TeamInspectionPage() {
     [saveDraft],
   );
 
+  const [basicAnswersLocal, setBasicAnswersLocal] = useState<
+    InspectionChecklistDto['basicAnswers'] | null
+  >(null);
+  const basicAnswersSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!checklist) return;
+    setBasicAnswersLocal(checklist.basicAnswers);
+  }, [checklist?.id]);
+
+  const flushBasicAnswersSave = useCallback(
+    (answers: InspectionChecklistDto['basicAnswers']) => {
+      if (basicAnswersSaveTimerRef.current) {
+        clearTimeout(basicAnswersSaveTimerRef.current);
+        basicAnswersSaveTimerRef.current = null;
+      }
+      return saveDraft({ basicAnswers: answers }, { silent: true });
+    },
+    [saveDraft],
+  );
+
+  const scheduleBasicAnswersSave = useCallback(
+    (answers: InspectionChecklistDto['basicAnswers']) => {
+      if (basicAnswersSaveTimerRef.current) clearTimeout(basicAnswersSaveTimerRef.current);
+      basicAnswersSaveTimerRef.current = setTimeout(() => {
+        basicAnswersSaveTimerRef.current = null;
+        void saveDraft({ basicAnswers: answers }, { silent: true });
+      }, 600);
+    },
+    [saveDraft],
+  );
+
+  const [consentLocal, setConsentLocal] = useState<InspectionChecklistDto['consent'] | null>(null);
+  const consentSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!checklist) return;
+    setConsentLocal(checklist.consent);
+  }, [checklist?.id]);
+
+  const flushConsentSave = useCallback(
+    (consent: InspectionChecklistDto['consent']) => {
+      if (consentSaveTimerRef.current) {
+        clearTimeout(consentSaveTimerRef.current);
+        consentSaveTimerRef.current = null;
+      }
+      return saveDraft(consentToDraftPatch(consent), { silent: true });
+    },
+    [saveDraft],
+  );
+
+  const scheduleConsentSave = useCallback(
+    (consent: InspectionChecklistDto['consent']) => {
+      if (consentSaveTimerRef.current) clearTimeout(consentSaveTimerRef.current);
+      consentSaveTimerRef.current = setTimeout(() => {
+        consentSaveTimerRef.current = null;
+        void saveDraft(consentToDraftPatch(consent), { silent: true });
+      }, 600);
+    },
+    [saveDraft],
+  );
+
+  useEffect(
+    () => () => {
+      if (leaderNotesSaveTimerRef.current) clearTimeout(leaderNotesSaveTimerRef.current);
+      if (customerEmailSaveTimerRef.current) clearTimeout(customerEmailSaveTimerRef.current);
+      if (basicAnswersSaveTimerRef.current) clearTimeout(basicAnswersSaveTimerRef.current);
+      if (consentSaveTimerRef.current) clearTimeout(consentSaveTimerRef.current);
+    },
+    [],
+  );
+
   const handleComplete = async () => {
-    if (!token || !inquiryId || readOnly) return;
+    if (!token || !inquiryId || readOnly || !checklist) return;
+    const consent = consentLocal ?? checklist.consent;
     if (!window.confirm('고객과 함께 확인·서명을 완료했습니까? 청소완료 후에는 수정할 수 없습니다.')) return;
+
     await flushLeaderNotesSave(leaderNotesLocal);
     await flushCustomerEmailSave(customerEmailLocal);
+    if (basicAnswersLocal) await flushBasicAnswersSave(basicAnswersLocal);
+    await flushConsentSave(consent);
+
+    const issues = validateInspectionCompletionForTeam(checklist, customerEmailLocal, consent);
+    if (issues.length) {
+      setCompletionIssues(issues);
+      return;
+    }
+
     setBusy(true);
     setMsg(null);
+    setCompletionIssues([]);
     try {
       const dto = await completeTeamInspection(token, inquiryId);
       setChecklist(dto);
       setMsg('청소완료(검수 마감) 처리되었습니다. 완료본 PDF·이메일은 잠시 후 발송됩니다.');
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '완료 처리 실패');
+      const errIssues = (e as { issues?: { message: string }[] }).issues;
+      if (errIssues?.length) {
+        setCompletionIssues(errIssues);
+      } else {
+        setMsg(e instanceof Error ? e.message : '완료 처리 실패');
+      }
     } finally {
       setBusy(false);
     }
@@ -228,8 +315,12 @@ export function TeamInspectionPage() {
 
       <InspectionBasicSection
         checklist={checklist}
+        basicAnswers={basicAnswersLocal ?? checklist.basicAnswers}
         readOnly={readOnly}
-        onPatch={(basicAnswers) => void saveDraft({ basicAnswers })}
+        onPatch={(basicAnswers) => {
+          setBasicAnswersLocal(basicAnswers);
+          scheduleBasicAnswersSave(basicAnswers);
+        }}
       />
 
       <TeamInspectionAreasEditor
@@ -271,6 +362,7 @@ export function TeamInspectionPage() {
 
       <InspectionConsentSection
         checklist={checklist}
+        consent={consentLocal ?? checklist.consent}
         readOnly={readOnly}
         customerEmail={customerEmailLocal}
         onEmailChange={(email) => {
@@ -284,17 +376,24 @@ export function TeamInspectionPage() {
           customerEmailFocusedRef.current = false;
           void flushCustomerEmailSave(email);
         }}
-        onConsentChange={(key, value) => {
-          const map: Record<string, string> = {
-            personalInfo: 'consentPersonalInfo',
-            thirdParty: 'consentThirdParty',
-            scopeConfirm: 'consentScopeConfirm',
-            leaderLiability: 'consentLeaderLiability',
-            customerConfirm: 'consentCustomerConfirm',
-            commercialUse: 'consentCommercialUse',
-            emailDelivery: 'consentEmailDelivery',
+        onAgreeAll={() => {
+          const next: InspectionChecklistDto['consent'] = {
+            personalInfo: true,
+            thirdParty: true,
+            scopeConfirm: true,
+            leaderLiability: true,
+            customerConfirm: true,
+            commercialUse: true,
+            emailDelivery: true,
           };
-          void saveDraft({ [map[key]!]: value });
+          setConsentLocal(next);
+          void flushConsentSave(next);
+        }}
+        onConsentChange={(key, value) => {
+          const prev = consentLocal ?? checklist.consent;
+          const next = { ...prev, [key]: value };
+          setConsentLocal(next);
+          scheduleConsentSave(next);
         }}
       />
 
@@ -341,10 +440,16 @@ export function TeamInspectionPage() {
             청소완료 (고객 확인·서명)
           </button>
           <p className="mt-2 text-center text-fluid-2xs text-gray-500">
-            모든 세부 항목·동의·서명·이메일이 충족되어야 완료됩니다.
+            필수 동의·이메일·고객 서명이 충족되면 완료할 수 있습니다. (사진은 모두 찍지 않아도 됩니다)
           </p>
         </div>
       )}
+
+      <InspectionCompletionIssuesModal
+        open={completionIssues.length > 0}
+        issues={completionIssues}
+        onClose={() => setCompletionIssues([])}
+      />
 
       {checklist.status === 'COMPLETED' && checklist.completedAt && (
         <div className="space-y-2">
