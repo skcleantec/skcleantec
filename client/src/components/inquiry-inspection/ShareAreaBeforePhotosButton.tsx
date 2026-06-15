@@ -30,6 +30,7 @@ export function ShareAreaBeforePhotosButton({
   disabled,
   className = '',
   variant = 'light',
+  size = 'default',
 }: {
   token: string;
   inquiryId: string;
@@ -40,6 +41,7 @@ export function ShareAreaBeforePhotosButton({
   className?: string;
   /** light: 구역 카드(밝은 배경) · dark: 촬영 오버레이 등 */
   variant?: 'light' | 'dark';
+  size?: 'default' | 'compact';
 }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -90,13 +92,18 @@ export function ShareAreaBeforePhotosButton({
       ? `준비 중 (${progress.done}/${progress.total})`
       : '준비 중…';
 
+  const sizeClass =
+    size === 'compact'
+      ? 'min-h-[28px] px-1 py-0.5 text-[10px] leading-tight font-medium'
+      : 'min-h-[36px] px-2 py-1.5 text-fluid-2xs font-medium';
+
   return (
     <button
       type="button"
       disabled={disabled || busy || !canShare}
       onClick={() => void handleShare()}
       title={canShare ? '카카오톡 등으로 사진 바로 전달' : '전달할 청소 전 사진이 없습니다'}
-      className={`min-h-[36px] rounded-lg border px-2 py-1.5 text-fluid-2xs font-medium touch-manipulation disabled:opacity-45 ${baseClass} ${className}`}
+      className={`rounded-lg border touch-manipulation disabled:opacity-45 ${sizeClass} ${baseClass} ${className}`}
     >
       {busy ? busyLabel : `전달하기${canShare ? ` (${photoCount})` : ''}`}
     </button>

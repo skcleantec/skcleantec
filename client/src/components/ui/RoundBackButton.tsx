@@ -32,9 +32,9 @@ export function RoundBackButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-800 shadow-sm touch-manipulation hover:bg-gray-50 active:scale-[0.97] disabled:opacity-50 ${className}`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-800 shadow-sm touch-manipulation hover:bg-gray-50 active:scale-[0.97] disabled:opacity-50 ${className}`}
     >
-      <ChevronLeftIcon className="h-5 w-5" />
+      <ChevronLeftIcon className="h-4 w-4" />
     </button>
   );
 }

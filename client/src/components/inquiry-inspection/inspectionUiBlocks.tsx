@@ -472,18 +472,18 @@ export function InspectionHeaderBlock({
     <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4">
       <h2 className="text-fluid-base font-bold text-blue-950">{title}</h2>
       <p className="mt-2 text-fluid-xs text-blue-900/90">{intro}</p>
-      <dl className="mt-3 grid gap-1 text-fluid-xs text-gray-800 sm:grid-cols-3">
-        <div>
+      <dl className="mt-3 grid grid-cols-3 gap-x-1.5 gap-y-0.5 text-[10px] leading-snug text-gray-800 sm:gap-x-2 sm:text-fluid-xs">
+        <div className="min-w-0">
           <dt className="text-gray-500">고객명</dt>
-          <dd className="font-medium">{checklist.inquiryHeader?.customerName ?? '—'}</dd>
+          <dd className="truncate font-medium">{checklist.inquiryHeader?.customerName ?? '—'}</dd>
         </div>
-        <div>
+        <div className="min-w-0">
           <dt className="text-gray-500">서비스일</dt>
-          <dd className="font-medium">{checklist.inquiryHeader?.preferredDate ?? '—'}</dd>
+          <dd className="truncate font-medium">{checklist.inquiryHeader?.preferredDate ?? '—'}</dd>
         </div>
-        <div>
+        <div className="min-w-0">
           <dt className="text-gray-500">담당 팀장</dt>
-          <dd className="font-medium">{checklist.teamLeader.name}</dd>
+          <dd className="truncate font-medium">{checklist.teamLeader.name}</dd>
         </div>
       </dl>
     </div>

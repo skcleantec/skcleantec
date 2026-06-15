@@ -167,7 +167,7 @@ export function TeamPreCleanPhotoPage() {
       )}
 
       {!readOnly && (
-        <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
+        <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
           <Link
             to={`/team/inspection/${encodeURIComponent(inquiryId)}`}
             state={teamInquiryNavState(returnTo)}
@@ -175,9 +175,6 @@ export function TeamPreCleanPhotoPage() {
           >
             현장 검수 · 청소완료로 이동
           </Link>
-          <p className="text-center text-fluid-2xs text-gray-500">
-            크루 청소 후 「청소 후」 사진·고객 확인·서명은 검수 페이지에서 진행합니다.
-          </p>
         </div>
       )}
 

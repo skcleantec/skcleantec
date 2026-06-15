@@ -686,10 +686,6 @@ export function TeamPreCleanWizard({
     <>
       {captureOverlay ? createPortal(captureOverlay, document.body) : null}
     <section className="space-y-3" aria-hidden={inCaptureMode ? true : undefined}>
-      <p className="text-fluid-2xs text-gray-600">
-        구역을 선택한 뒤 「촬영 시작」— 화면에서 바로 찍으면 다음 항목으로 자동 이동합니다. 각 구역 카드 오른쪽 ＋／− 로 개수를 조절할 수 있습니다(큰 집은 거실·주방 등도 추가). 오염이 심한 곳은 사진의 ☆를 눌러 표시해 주세요. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
-      </p>
-
       <div className="grid grid-cols-2 gap-2">
         {areas.map((area) => {
           const items = visibleItems(area);
@@ -762,13 +758,13 @@ export function TeamPreCleanWizard({
               )}
 
               {!readOnly && (
-                <div className="mt-2.5 flex flex-col gap-1.5">
+                <div className="mt-2 flex flex-col gap-1">
                   {area.notApplicable ? (
                     <button
                       type="button"
                       disabled={busy}
                       onClick={() => void handleUndoAreaNa(area.id)}
-                      className="min-h-[40px] rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-fluid-2xs touch-manipulation disabled:opacity-50"
+                      className="min-h-[28px] rounded-lg border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] touch-manipulation disabled:opacity-50"
                     >
                       해당없음 해제
                     </button>
@@ -778,11 +774,11 @@ export function TeamPreCleanWizard({
                         type="button"
                         disabled={busy || !items.length}
                         onClick={() => void startCapture(area.id)}
-                        className="min-h-[44px] rounded-lg bg-gray-900 px-2 py-2 text-fluid-2xs font-semibold text-white touch-manipulation disabled:opacity-50"
+                        className="min-h-[32px] rounded-lg bg-gray-900 px-2 py-1 text-[11px] font-semibold text-white touch-manipulation disabled:opacity-50"
                       >
                         촬영 시작
                       </button>
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 gap-1">
                         <ShareAreaBeforePhotosButton
                           token={token}
                           inquiryId={inquiryId}
@@ -790,15 +786,16 @@ export function TeamPreCleanWizard({
                           customerName={checklist.inquiryHeader?.customerName}
                           preferredDate={checklist.inquiryHeader?.preferredDate}
                           disabled={busy || uploading}
+                          size="compact"
                           className="min-w-0 w-full"
                         />
                         <button
                           type="button"
                           disabled={busy}
                           onClick={() => void handleAreaNa(area.id)}
-                          className="min-h-[36px] min-w-0 rounded-lg border border-amber-400 bg-amber-50 px-1.5 py-1 text-[11px] font-medium text-amber-900 touch-manipulation disabled:opacity-50"
+                          className="min-h-[28px] min-w-0 rounded-lg border border-amber-400 bg-amber-50 px-1 py-0.5 text-[10px] font-medium leading-tight text-amber-900 touch-manipulation disabled:opacity-50"
                         >
-                          구역 해당없음
+                          해당없음
                         </button>
                       </div>
                     </>

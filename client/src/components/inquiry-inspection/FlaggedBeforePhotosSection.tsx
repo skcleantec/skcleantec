@@ -10,6 +10,26 @@ import {
 import { InspectionPhotoFlagButton } from './InspectionPhotoFlagButton';
 import { ImageThumbLightbox, type ImageGallerySlide } from '../ui/ImageThumbLightbox';
 
+function ShareOutlineIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
+  );
+}
+
 export function FlaggedBeforePhotosSection({
   checklist,
   inquiryId,
@@ -95,12 +115,12 @@ export function FlaggedBeforePhotosSection({
     }
   };
 
-  const shareLabel =
+  const shareAriaLabel =
     sharing && shareProgress
-      ? `준비 중 (${shareProgress.done}/${shareProgress.total})`
+      ? `사진 준비 중 ${shareProgress.done}/${shareProgress.total}`
       : sharing
-        ? '준비 중…'
-        : `선택 사진 전달${count ? ` (${count})` : ''}`;
+        ? '사진 준비 중'
+        : `선택 사진 ${count}장 전달`;
 
   return (
     <section
@@ -108,25 +128,27 @@ export function FlaggedBeforePhotosSection({
         count > 0 ? 'border-amber-300 bg-amber-50/80' : 'border-gray-200 bg-gray-50/80'
       }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="text-fluid-sm font-semibold text-gray-900">
-            오염 심함 {count > 0 ? `(${count})` : ''}
-          </h3>
-          <p className="mt-0.5 text-fluid-2xs text-gray-600">
-            {readOnly
-              ? '표시된 청소 전 사진입니다.'
-              : '촬영한 사진에서 ☆를 눌러 표시하면 여기에 모입니다.'}
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="min-w-0 text-fluid-sm font-semibold text-gray-900">오염 심함</h3>
         {count > 0 && (
           <button
             type="button"
             disabled={disabled || sharing}
             onClick={() => void handleShare()}
-            className="min-h-[40px] shrink-0 rounded-lg border border-sky-400 bg-sky-100 px-3 py-2 text-fluid-2xs font-semibold text-sky-950 touch-manipulation disabled:opacity-45"
+            title={shareAriaLabel}
+            aria-label={shareAriaLabel}
+            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400 bg-sky-100 text-sky-900 touch-manipulation disabled:opacity-45 active:scale-95"
           >
-            {shareLabel}
+            {sharing ? (
+              <span className="text-[10px] font-semibold leading-none">…</span>
+            ) : (
+              <ShareOutlineIcon className="h-4 w-4 shrink-0" />
+            )}
+            {!sharing ? (
+              <span className="pointer-events-none absolute right-0 top-0 flex h-[13px] min-w-[13px] translate-x-[35%] -translate-y-[35%] items-center justify-center rounded-full bg-sky-600 px-0.5 text-[8px] font-bold leading-none text-white ring-1 ring-amber-50">
+                {count}
+              </span>
+            ) : null}
           </button>
         )}
       </div>
