@@ -15,6 +15,9 @@ type Props = {
   galleryIndex?: number;
   /** 설정 시 버튼에 텍스트만 표시 (썸네일 없는 「크게 보기」 등) */
   buttonLabel?: string;
+  /** 라이트박스 하단 — 현재 슬라이드 기준 재촬영 등 */
+  onRetake?: (activeIndex: number) => void;
+  retakeLabel?: string;
 };
 
 /**
@@ -30,6 +33,8 @@ export function ImageThumbLightbox({
   gallerySlides,
   galleryIndex = 0,
   buttonLabel,
+  onRetake,
+  retakeLabel = '재촬영',
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -120,6 +125,19 @@ export function ImageThumbLightbox({
               onClick={(e) => e.stopPropagation()}
             />
             <ModalCloseButton onClick={() => setOpen(false)} className="right-2 top-2 z-[750] sm:right-4 sm:top-4" />
+            {onRetake && (
+              <button
+                type="button"
+                className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[750] min-h-[44px] -translate-x-1/2 rounded-xl border border-white/30 bg-black/70 px-6 text-sm font-semibold text-white touch-manipulation hover:bg-black/85"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetake(activeIndex);
+                  setOpen(false);
+                }}
+              >
+                {retakeLabel}
+              </button>
+            )}
             {multi && (
               <>
                 <button

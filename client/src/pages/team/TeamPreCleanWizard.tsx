@@ -109,42 +109,26 @@ function CapturePhotoThumb({
   idx,
   gallerySlides,
   disabled,
-  onRetake,
+  onRetakeAtGalleryIndex,
   caption,
 }: {
   photo: InspectionAreaPhoto;
   idx: number;
   gallerySlides: ImageGallerySlide[];
   disabled: boolean;
-  onRetake: (photoId: string) => void;
+  onRetakeAtGalleryIndex: (galleryIndex: number) => void;
   caption?: string;
 }) {
   return (
-    <div className="flex w-[4.75rem] flex-col gap-1">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onRetake(photo.id)}
-        className="relative block w-full overflow-hidden rounded-xl border-2 border-white/25 bg-black/40 touch-manipulation disabled:opacity-50 active:scale-[0.97]"
-        aria-label={`청소 전 ${idx + 1} 재촬영`}
-      >
-        <img
-          src={photo.secureUrl}
-          alt=""
-          className="h-[4.5rem] w-full object-cover"
-          loading="lazy"
-        />
-        <span className="absolute inset-x-0 bottom-0 bg-black/65 py-0.5 text-center text-[10px] font-medium text-white">
-          재촬영
-        </span>
-      </button>
+    <div className="flex w-[4rem] shrink-0 flex-col gap-0.5">
       <ImageThumbLightbox
         src={photo.secureUrl}
         alt={`청소 전 ${idx + 1}`}
         gallerySlides={gallerySlides}
         galleryIndex={idx}
-        buttonLabel="크게 보기"
-        buttonClassName="flex min-h-[26px] w-full items-center justify-center rounded-lg border border-white/20 bg-white/10 text-[10px] font-medium text-gray-200 touch-manipulation"
+        thumbClassName="h-14 w-full object-cover"
+        buttonClassName="relative block w-full overflow-hidden rounded-lg border-2 border-white/25 bg-black/40 touch-manipulation active:scale-[0.97] disabled:opacity-50"
+        onRetake={disabled ? undefined : onRetakeAtGalleryIndex}
       />
       {caption ? (
         <p className="truncate text-center text-[9px] leading-tight text-gray-400" title={caption}>
@@ -507,29 +491,6 @@ export function TeamPreCleanWizard({
               <p className="rounded-full bg-black/70 px-4 py-2 text-sm font-medium">저장 중…</p>
             </div>
           )}
-
-          {areaBeforeEntries.length > 0 && (
-            <div className="absolute inset-x-0 bottom-[7.5rem] z-10 px-3">
-              <div className="mx-auto max-w-lg overflow-x-auto">
-                <p className="mb-1.5 text-center text-[10px] text-gray-300">
-                  등록 {areaBeforeEntries.length}장 · {areaDoneCount}/{captureItems.length} 완료
-                </p>
-                <div className="flex gap-2 pb-1">
-                  {areaBeforeEntries.map((entry, idx) => (
-                    <CapturePhotoThumb
-                      key={entry.photo.id}
-                      photo={entry.photo}
-                      idx={idx}
-                      gallerySlides={areaGallerySlides}
-                      disabled={uploading || busy}
-                      caption={entry.itemLabel}
-                      onRetake={(id) => void handleRetakePhoto(id, entry.itemId)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="shrink-0 border-t border-white/10 bg-black/90 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
@@ -567,6 +528,31 @@ export function TeamPreCleanWizard({
           <p className="mt-2 text-center text-[11px] text-gray-400">
             셔터를 누르면 저장 후 다음 항목으로 자동 이동합니다
           </p>
+
+          {areaBeforeEntries.length > 0 && (
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <p className="mb-2 text-center text-[10px] text-gray-400">
+                등록 {areaBeforeEntries.length}장 · {areaDoneCount}/{captureItems.length} 완료 · 탭하면 크게 보기
+              </p>
+              <div className="mx-auto flex max-w-lg gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
+                {areaBeforeEntries.map((entry, idx) => (
+                  <CapturePhotoThumb
+                    key={entry.photo.id}
+                    photo={entry.photo}
+                    idx={idx}
+                    gallerySlides={areaGallerySlides}
+                    disabled={uploading || busy}
+                    caption={entry.itemLabel}
+                    onRetakeAtGalleryIndex={(galleryIdx) => {
+                      const target = areaBeforeEntries[galleryIdx];
+                      if (target) void handleRetakePhoto(target.photo.id, target.itemId);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           <input
             ref={fileInputRef}
             type="file"
