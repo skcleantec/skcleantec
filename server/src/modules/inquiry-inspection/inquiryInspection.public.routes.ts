@@ -13,6 +13,7 @@ import {
 import { serializeInspectionChecklist } from './inquiryInspection.serialize.js';
 import { prisma } from '../../lib/prisma.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
+import { resolveTenantCustomerFacingBrandName } from '../tenants/tenantConfig.schema.js';
 
 const router = Router();
 
@@ -60,11 +61,17 @@ router.get('/:token', async (req, res) => {
       return;
     }
 
-    const tenantConfig = await getTenantConfig(tenantId);
-    const brandName =
-      (typeof tenantConfig.branding?.displayName === 'string' &&
-        tenantConfig.branding.displayName.trim()) ||
-      '청소비서';
+    const [tenantConfig, tenantRow] = await Promise.all([
+      getTenantConfig(tenantId),
+      prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      }),
+    ]);
+    const brandName = resolveTenantCustomerFacingBrandName(
+      tenantConfig,
+      tenantRow?.name ?? '',
+    );
 
     res.json({
       brandName,

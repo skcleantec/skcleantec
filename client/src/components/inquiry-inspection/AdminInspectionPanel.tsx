@@ -158,95 +158,123 @@ export function AdminInspectionPanel({
         )}
       </div>
 
-      <InspectionHeaderBlock checklist={checklist} />
-
-      <InspectionBasicSection checklist={checklist} readOnly onPatch={() => {}} />
-
-      <section className="space-y-2">
-        <h3 className="text-fluid-sm font-semibold text-gray-900">구역별 세부 항목 사진</h3>
-        {checklist.areas.map((area) => (
-          <InspectionAreaSection
-            key={area.id}
-            area={area}
-            readOnly
-            busy={false}
-            photoMode="both"
-            onToggleItemNa={() => {}}
-            onUpload={() => {}}
-            onDeletePhoto={() => {}}
-          />
-        ))}
-      </section>
-
-      {checklist.leaderNotes?.trim() && (
-        <section>
-          <h3 className="text-fluid-sm font-semibold text-gray-900 mb-1">특이사항</h3>
-          <p className="whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-fluid-xs">{checklist.leaderNotes}</p>
-        </section>
-      )}
-
-      <InspectionConsentSection checklist={checklist} readOnly onConsentChange={() => {}} onEmailChange={() => {}} />
-
-      {checklist.signature?.secureUrl && (
-        <section>
-          <h3 className="text-fluid-sm font-semibold text-gray-900 mb-2">고객 서명</h3>
-          <img src={checklist.signature.secureUrl} alt="고객 서명" className="max-h-36 rounded-lg border bg-white" />
-        </section>
-      )}
-
-      {checklist.status === 'VOID' && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-fluid-xs text-rose-900">
-          무효 처리: {checklist.voidedBy?.name ?? '—'} ·{' '}
-          {checklist.voidedAt
-            ? new Date(checklist.voidedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
-            : '—'}
-          <p className="mt-1 whitespace-pre-wrap">{checklist.voidReason}</p>
-        </div>
-      )}
-
-      {isAdmin && checklist.status === 'COMPLETED' && (
-        <details className="rounded-lg border border-amber-200 bg-amber-50/50">
-          <summary className="cursor-pointer px-3 py-2 text-fluid-xs font-medium text-amber-950">
-            관리자 — 검수본 무효(VOID)
-          </summary>
-          <div className="space-y-2 border-t border-amber-100 px-3 py-3">
-            <textarea
-              value={voidReason}
-              onChange={(e) => setVoidReason(e.target.value)}
-              rows={2}
-              placeholder="무효 사유 (필수)"
-              className="w-full rounded border border-gray-300 px-2 py-1 text-fluid-xs"
-            />
-            <input
-              type="password"
-              value={voidPassword}
-              onChange={(e) => setVoidPassword(e.target.value)}
-              placeholder="관리자 비밀번호"
-              className="w-full rounded border border-gray-300 px-2 py-1 text-fluid-xs"
-            />
-            <button
-              type="button"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  const dto = await voidAdminInspectionChecklist(token, inquiryId, voidPassword, voidReason);
-                  setChecklist(dto);
-                  setVoidPassword('');
-                  setVoidReason('');
-                } catch (e) {
-                  alert(e instanceof Error ? e.message : '무효 처리 실패');
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              className="rounded-lg border border-rose-700 bg-white px-3 py-1.5 text-fluid-xs text-rose-900"
+      <details className="group rounded-lg border border-gray-200 bg-white">
+        <summary className="cursor-pointer list-none px-3 py-2 text-fluid-xs font-medium text-gray-800 select-none [&::-webkit-details-marker]:hidden">
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="text-gray-400 transition-transform group-open:rotate-90"
             >
-              무효 처리
-            </button>
-          </div>
-        </details>
-      )}
+              ▸
+            </span>
+            검수 상세 내용 보기
+          </span>
+        </summary>
+        <div className="space-y-5 border-t border-gray-100 p-3 pt-4">
+          <InspectionHeaderBlock checklist={checklist} />
+
+          <InspectionBasicSection checklist={checklist} readOnly onPatch={() => {}} />
+
+          <section className="space-y-2">
+            <h3 className="text-fluid-sm font-semibold text-gray-900">구역별 세부 항목 사진</h3>
+            {checklist.areas.map((area) => (
+              <InspectionAreaSection
+                key={area.id}
+                area={area}
+                readOnly
+                busy={false}
+                photoMode="both"
+                defaultOpen={false}
+                onToggleItemNa={() => {}}
+                onUpload={() => {}}
+                onDeletePhoto={() => {}}
+              />
+            ))}
+          </section>
+
+          {checklist.leaderNotes?.trim() && (
+            <section>
+              <h3 className="text-fluid-sm font-semibold text-gray-900 mb-1">특이사항</h3>
+              <p className="whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-fluid-xs">
+                {checklist.leaderNotes}
+              </p>
+            </section>
+          )}
+
+          <InspectionConsentSection
+            checklist={checklist}
+            readOnly
+            consentItemsDefaultOpen={false}
+            onConsentChange={() => {}}
+            onEmailChange={() => {}}
+          />
+
+          {checklist.signature?.secureUrl && (
+            <section>
+              <h3 className="text-fluid-sm font-semibold text-gray-900 mb-2">고객 서명</h3>
+              <img
+                src={checklist.signature.secureUrl}
+                alt="고객 서명"
+                className="max-h-36 rounded-lg border bg-white"
+              />
+            </section>
+          )}
+
+          {checklist.status === 'VOID' && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-fluid-xs text-rose-900">
+              무효 처리: {checklist.voidedBy?.name ?? '—'} ·{' '}
+              {checklist.voidedAt
+                ? new Date(checklist.voidedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+                : '—'}
+              <p className="mt-1 whitespace-pre-wrap">{checklist.voidReason}</p>
+            </div>
+          )}
+
+          {isAdmin && checklist.status === 'COMPLETED' && (
+            <details className="rounded-lg border border-amber-200 bg-amber-50/50">
+              <summary className="cursor-pointer px-3 py-2 text-fluid-xs font-medium text-amber-950">
+                관리자 — 검수본 무효(VOID)
+              </summary>
+              <div className="space-y-2 border-t border-amber-100 px-3 py-3">
+                <textarea
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  rows={2}
+                  placeholder="무효 사유 (필수)"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-fluid-xs"
+                />
+                <input
+                  type="password"
+                  value={voidPassword}
+                  onChange={(e) => setVoidPassword(e.target.value)}
+                  placeholder="관리자 비밀번호"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-fluid-xs"
+                />
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    try {
+                      const dto = await voidAdminInspectionChecklist(token, inquiryId, voidPassword, voidReason);
+                      setChecklist(dto);
+                      setVoidPassword('');
+                      setVoidReason('');
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : '무효 처리 실패');
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  className="rounded-lg border border-rose-700 bg-white px-3 py-1.5 text-fluid-xs text-rose-900"
+                >
+                  무효 처리
+                </button>
+              </div>
+            </details>
+          )}
+        </div>
+      </details>
     </div>
   );
 }

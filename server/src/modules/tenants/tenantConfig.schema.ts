@@ -239,4 +239,26 @@ export function tenantConfigToJson(config: TenantConfig): Record<string, unknown
   return out;
 }
 
+/** SaaS 플랫폼명 — 고객 대면(메일 제목·공개 열람) 폴백에서 제외 (@see shared/platformBrand.ts) */
+const PLATFORM_BRAND_NAME = '청소비서';
+
+/**
+ * 고객 대면 표시명 — 업체등록정보 회사명 우선, 플랫폼명(청소비서)은 사용하지 않음.
+ */
+export function resolveTenantCustomerFacingBrandName(
+  config: TenantConfig,
+  tenantName: string,
+): string {
+  const companyName = config.companyRegistration?.companyName?.trim();
+  if (companyName) return companyName;
+
+  const name = tenantName.trim();
+  if (name) return name;
+
+  const branding = config.branding?.displayName?.trim();
+  if (branding && branding !== PLATFORM_BRAND_NAME) return branding;
+
+  return '업체';
+}
+
 export type { TenantConfig as TenantConfigParsed };

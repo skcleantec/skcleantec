@@ -511,6 +511,7 @@ export function InspectionConsentSection({
   customerEmail,
   onEmailBlur,
   onEmailFocus,
+  consentItemsDefaultOpen = true,
 }: {
   checklist: InspectionChecklistDto;
   /** 체크 즉시 반영 — 부모 로컬 state 연결 */
@@ -523,6 +524,8 @@ export function InspectionConsentSection({
   customerEmail?: string;
   onEmailBlur?: (email: string) => void;
   onEmailFocus?: () => void;
+  /** 관리자 열람 등 — 동의 항목 본문 기본 접힘 */
+  consentItemsDefaultOpen?: boolean;
 }) {
   const consentState = consent ?? checklist.consent;
 
@@ -577,7 +580,11 @@ export function InspectionConsentSection({
         if (!key) return null;
         const checked = consentState[key];
         return (
-          <details key={item.id} className="rounded-lg border border-gray-200 bg-white" open={item.required}>
+          <details
+            key={item.id}
+            className="rounded-lg border border-gray-200 bg-white"
+            open={consentItemsDefaultOpen && item.required}
+          >
             <summary className="cursor-pointer px-3 py-2 text-fluid-xs font-medium text-gray-900">
               {item.title}
               {item.required ? ' (필수)' : ' (선택)'}

@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
+import { resolveTenantCustomerFacingBrandName } from '../tenants/tenantConfig.schema.js';
 import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { buildInspectionPdfBuffer } from './inquiryInspection.pdf.service.js';
 import { uploadInspectionPdfBuffer } from './inquiryInspection.pdfUpload.service.js';
@@ -68,15 +69,17 @@ export async function finalizeInspectionAfterComplete(params: {
     console.error('[inspection-finalize] PDF generation/upload failed', e);
   }
 
-  const tenantConfig = await getTenantConfig(params.tenantId);
-  const tenantDisplayName =
-    (typeof tenantConfig.branding?.displayName === 'string' && tenantConfig.branding.displayName.trim()) ||
-    '청소비서';
-
-  const tenantRow = await prisma.tenant.findUnique({
-    where: { id: params.tenantId },
-    select: { slug: true },
-  });
+  const [tenantConfig, tenantRow] = await Promise.all([
+    getTenantConfig(params.tenantId),
+    prisma.tenant.findUnique({
+      where: { id: params.tenantId },
+      select: { slug: true, name: true },
+    }),
+  ]);
+  const tenantDisplayName = resolveTenantCustomerFacingBrandName(
+    tenantConfig,
+    tenantRow?.name ?? '',
+  );
 
   let customerViewUrl: string | null = null;
   try {
@@ -167,15 +170,17 @@ export async function resendInspectionCompletionEmail(params: {
     }
   }
 
-  const tenantConfig = await getTenantConfig(params.tenantId);
-  const tenantDisplayName =
-    (typeof tenantConfig.branding?.displayName === 'string' && tenantConfig.branding.displayName.trim()) ||
-    '청소비서';
-
-  const tenantRow = await prisma.tenant.findUnique({
-    where: { id: params.tenantId },
-    select: { slug: true },
-  });
+  const [tenantConfig, tenantRow] = await Promise.all([
+    getTenantConfig(params.tenantId),
+    prisma.tenant.findUnique({
+      where: { id: params.tenantId },
+      select: { slug: true, name: true },
+    }),
+  ]);
+  const tenantDisplayName = resolveTenantCustomerFacingBrandName(
+    tenantConfig,
+    tenantRow?.name ?? '',
+  );
   let customerViewUrl: string | null = null;
   try {
     const viewToken = await ensureInspectionCustomerViewToken(prisma, row.id, params.tenantId);
