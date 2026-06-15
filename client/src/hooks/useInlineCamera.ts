@@ -56,6 +56,14 @@ export function useInlineCamera(enabled: boolean) {
       return;
     }
 
+    const existing = streamRef.current;
+    if (existing?.getVideoTracks().some((t) => t.readyState === 'live')) {
+      bindStreamToVideo();
+      setStatus('live');
+      setError(null);
+      return;
+    }
+
     let cancelled = false;
     setStatus('starting');
     setError(null);

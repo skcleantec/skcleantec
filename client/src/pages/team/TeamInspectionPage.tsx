@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { SignaturePad } from '../../components/e-contract/SignaturePad';
 import {
@@ -63,23 +63,68 @@ export function TeamInspectionPage() {
     void reload();
   }, [reload]);
 
-  const saveDraft = async (patch: Record<string, unknown>) => {
-    if (!token || !inquiryId || readOnly) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      const dto = await patchTeamInspectionDraft(token, inquiryId, patch);
-      setChecklist(dto);
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : '저장 실패');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const saveDraft = useCallback(
+    async (patch: Record<string, unknown>, opts?: { silent?: boolean }) => {
+      if (!token || !inquiryId || readOnly) return;
+      if (!opts?.silent) {
+        setBusy(true);
+        setMsg(null);
+      }
+      try {
+        const dto = await patchTeamInspectionDraft(token, inquiryId, patch);
+        setChecklist(dto);
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : '저장 실패');
+      } finally {
+        if (!opts?.silent) setBusy(false);
+      }
+    },
+    [inquiryId, readOnly, token],
+  );
+
+  const [leaderNotesLocal, setLeaderNotesLocal] = useState('');
+  const leaderNotesFocusedRef = useRef(false);
+  const leaderNotesSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!checklist) return;
+    if (leaderNotesFocusedRef.current) return;
+    setLeaderNotesLocal(checklist.leaderNotes ?? '');
+  }, [checklist?.id, checklist?.leaderNotes]);
+
+  useEffect(
+    () => () => {
+      if (leaderNotesSaveTimerRef.current) clearTimeout(leaderNotesSaveTimerRef.current);
+    },
+    [],
+  );
+
+  const flushLeaderNotesSave = useCallback(
+    (value: string) => {
+      if (leaderNotesSaveTimerRef.current) {
+        clearTimeout(leaderNotesSaveTimerRef.current);
+        leaderNotesSaveTimerRef.current = null;
+      }
+      return saveDraft({ leaderNotes: value }, { silent: true });
+    },
+    [saveDraft],
+  );
+
+  const scheduleLeaderNotesSave = useCallback(
+    (value: string) => {
+      if (leaderNotesSaveTimerRef.current) clearTimeout(leaderNotesSaveTimerRef.current);
+      leaderNotesSaveTimerRef.current = setTimeout(() => {
+        leaderNotesSaveTimerRef.current = null;
+        void saveDraft({ leaderNotes: value }, { silent: true });
+      }, 600);
+    },
+    [saveDraft],
+  );
 
   const handleComplete = async () => {
     if (!token || !inquiryId || readOnly) return;
     if (!window.confirm('고객과 함께 확인·서명을 완료했습니까? 청소완료 후에는 수정할 수 없습니다.')) return;
+    await flushLeaderNotesSave(leaderNotesLocal);
     setBusy(true);
     setMsg(null);
     try {
@@ -168,12 +213,25 @@ export function TeamInspectionPage() {
       <section>
         <h3 className="text-fluid-sm font-semibold text-gray-900 mb-2">특이사항 (팀장)</h3>
         <textarea
-          value={checklist.leaderNotes ?? ''}
+          value={leaderNotesLocal}
           readOnly={readOnly}
-          onChange={(e) => void saveDraft({ leaderNotes: e.target.value })}
+          onChange={(e) => {
+            const next = e.target.value;
+            setLeaderNotesLocal(next);
+            scheduleLeaderNotesSave(next);
+          }}
+          onFocus={() => {
+            leaderNotesFocusedRef.current = true;
+          }}
+          onBlur={(e) => {
+            leaderNotesFocusedRef.current = false;
+            flushLeaderNotesSave(e.target.value);
+          }}
           rows={4}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base leading-relaxed touch-manipulation"
           placeholder="현장 특이사항, 고객 요청 등"
+          autoComplete="off"
+          enterKeyHint="done"
         />
       </section>
 

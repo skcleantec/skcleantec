@@ -253,13 +253,29 @@ export function TeamPreCleanWizard({
   const restoredRef = useRef(false);
   const globalStartRef = useRef(false);
   const reloadGenRef = useRef(0);
+  /** 페이지에 머무는 동안 카메라 세션 유지 — 촬영 화면 나갔다 들어와도 권한 재요청 방지 */
+  const [cameraSessionWarm, setCameraSessionWarm] = useState(false);
 
   const isBeforePhase = phase === 'BEFORE';
   const phaseLabel = isBeforePhase ? '청소 전' : '청소 후';
 
-  const cameraActive = !readOnly && !!captureAreaId;
+  useEffect(() => {
+    if (captureAreaId || (hideAreaGrid && captureActive)) {
+      setCameraSessionWarm(true);
+    }
+  }, [captureAreaId, hideAreaGrid, captureActive]);
+
+  const cameraActive =
+    !readOnly &&
+    (cameraSessionWarm || !!captureAreaId || (hideAreaGrid && captureActive));
   const { videoRef, status: cameraStatus, error: cameraError, captureFrame, refreshPreview } =
     useInlineCamera(cameraActive);
+
+  useEffect(() => {
+    if (!captureAreaId || !cameraSessionWarm) return;
+    refreshPreview();
+    requestAnimationFrame(() => refreshPreview());
+  }, [captureAreaId, cameraSessionWarm, refreshPreview]);
 
   useEffect(() => {
     if (!captureAreaId) {
