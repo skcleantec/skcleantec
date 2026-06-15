@@ -488,7 +488,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       if (!consumesMorningSlot(inv)) continue;
       if (!inquiryUsesInternalTeamLeaderSlot(inv)) continue;
       for (const a of inv.assignments) {
-        if (a.teamLeader.role !== 'TEAM_LEADER') continue;
+        if (a.teamLeader.role !== 'TEAM_LEADER' && a.teamLeader.role !== 'ADMIN') continue;
         morningAssignedIds.add(a.teamLeaderId);
       }
     }
@@ -497,7 +497,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
       if (!consumesAfternoonSlot(inv)) continue;
       if (!inquiryUsesInternalTeamLeaderSlot(inv)) continue;
       for (const a of inv.assignments) {
-        if (a.teamLeader.role !== 'TEAM_LEADER') continue;
+        if (a.teamLeader.role !== 'TEAM_LEADER' && a.teamLeader.role !== 'ADMIN') continue;
         afternoonAssignedIds.add(a.teamLeaderId);
       }
     }

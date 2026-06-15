@@ -2480,6 +2480,7 @@ export function AdminSchedulePage() {
           marketerOptions={marketers}
           meUser={meUser}
           leaderAssignmentCountsByLeaderId={detailLeaderAssignmentCounts}
+          dayScheduleItems={detailItem.preferredDate ? byDate[formatPreferredDateInputYmd(detailItem.preferredDate) ?? ''] ?? [] : []}
           onClose={() => setDetailItem(null)}
           onSaved={() => fetchMonthData(false)}
           onInquiryRefresh={async () => {

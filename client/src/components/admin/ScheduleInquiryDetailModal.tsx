@@ -41,6 +41,7 @@ import {
 } from '../../constants/professionalSpecialtyOptions';
 import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
+import { buildSlotOccupiedLeaderIdsForDay } from '../../utils/scheduleSlotOccupancy';
 import { formatPreferredDateInputYmd, formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 import {
@@ -413,6 +414,8 @@ export type ScheduleInquiryDetailModalProps =
       onInquiryRefresh?: () => void | Promise<void>;
       /** 스케줄 월 뷰에서만 전달. 해당 예약일·팀장별 당일 배정 건수(표시만, DB 없음) */
       leaderAssignmentCountsByLeaderId?: Map<string, number>;
+      /** 스케줄 월 뷰 — 같은 예약일 접수 목록(슬롯별 이미 배정된 팀장 제외용) */
+      dayScheduleItems?: ScheduleItem[];
     }
   | {
       mode: 'create';
@@ -594,6 +597,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     : (props as { onInquiryRefresh?: () => void | Promise<void> }).onInquiryRefresh;
   const leaderAssignmentCountsByLeaderId = !isCreate
     ? (props as { leaderAssignmentCountsByLeaderId?: Map<string, number> }).leaderAssignmentCountsByLeaderId
+    : undefined;
+  const dayScheduleItems = !isCreate
+    ? (props as { dayScheduleItems?: ScheduleItem[] }).dayScheduleItems
     : undefined;
   const canEditMarketer = currentUserRole === 'ADMIN';
 
@@ -885,8 +891,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     });
     if (bucket === 'morning') return m;
     if (bucket === 'afternoon') return a;
-    return [...new Set([...m, ...a])];
+    /** 사이·시간 미확정 — 오전+오후 가용 목록 합집합 시 이미 오전 배정된 팀장이 오후 가용으로 다시 노출됨 */
+    return null;
   }, [dayStat, editForm.preferredTime, editForm.betweenScheduleSlot]);
+
+  const slotOccupiedLeaderIds = useMemo(() => {
+    if (!dayScheduleItems?.length) return null;
+    return buildSlotOccupiedLeaderIdsForDay(dayScheduleItems, item?.id);
+  }, [dayScheduleItems, item?.id]);
 
   const leaderOptionsForRow = useMemo(() => {
     return (rowIndex: number) => {
@@ -895,6 +907,20 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const otherSelected = new Set(
         editForm.teamLeaderIds.filter((lid, i) => i !== rowIndex && lid.trim() !== '')
       );
+      const bucket = getScheduleTimeBucket({
+        preferredTime: editForm.preferredTime || null,
+        betweenScheduleSlot:
+          editForm.betweenScheduleSlot && editForm.betweenScheduleSlot.trim() !== ''
+            ? editForm.betweenScheduleSlot
+            : null,
+      });
+      const occupiedForBucket = slotOccupiedLeaderIds
+        ? bucket === 'morning'
+          ? slotOccupiedLeaderIds.morning
+          : bucket === 'afternoon'
+            ? slotOccupiedLeaderIds.afternoon
+            : new Set([...slotOccupiedLeaderIds.morning, ...slotOccupiedLeaderIds.afternoon])
+        : null;
       /** 팀장 드롭다운에는 타업체 계정 제외 — 타업체는 「정산」의 타업체 담당에서만 지정 */
       const base =
         ids == null
@@ -904,7 +930,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 t.role !== 'EXTERNAL_PARTNER' &&
                 (ids.includes(t.id) || (t.role === 'ADMIN' && meUser != null && t.id === meUser.id))
             );
-      const allowed = base.filter((t) => !otherSelected.has(t.id) || t.id === curId);
+      const seen = new Set<string>();
+      const allowed = base.filter((t) => {
+        if (seen.has(t.id)) return false;
+        seen.add(t.id);
+        if (otherSelected.has(t.id) && t.id !== curId) return false;
+        if (occupiedForBucket?.has(t.id) && t.id !== curId) return false;
+        return true;
+      });
       const cur = assignableTeamLeaders.find((t) => t.id === curId);
       if (curId && cur && !allowed.some((t) => t.id === curId)) {
         if (cur.role === 'EXTERNAL_PARTNER') return allowed;
@@ -912,7 +945,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       }
       return allowed;
     };
-  }, [assignableTeamLeaders, assignableLeaderIdsForSlot, editForm.teamLeaderIds, meUser]);
+  }, [
+    assignableTeamLeaders,
+    assignableLeaderIdsForSlot,
+    editForm.teamLeaderIds,
+    editForm.preferredTime,
+    editForm.betweenScheduleSlot,
+    meUser,
+    slotOccupiedLeaderIds,
+  ]);
 
   /** 배정 타업체 계정 하나만 — 정산의 타업체 담당 드롭다운과 동기화 */
   const resolvedExternalLeadId = useMemo(() => {
