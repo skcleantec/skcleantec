@@ -27,9 +27,23 @@ function sendPaybackError(res: import('express').Response, e: unknown): void {
     res.status(e.status).json({ error: e.message, code: e.code });
     return;
   }
-  if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-    res.status(409).json({ error: '이미 페이백 신청이 완료되었습니다.', code: 'ALREADY_SUBMITTED' });
-    return;
+  if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e.code === 'P2002') {
+      res.status(409).json({ error: '이미 페이백 신청이 완료되었습니다.', code: 'ALREADY_SUBMITTED' });
+      return;
+    }
+    if (e.code === 'P2022') {
+      console.error('[review-payback] schema drift P2022:', e.meta);
+      res.status(503).json({
+        error: 'DB 스키마가 최신이 아닙니다. 잠시 후 다시 시도해 주세요.',
+        code: 'SCHEMA_DRIFT',
+      });
+      return;
+    }
+    if (e.code === 'P2000') {
+      res.status(400).json({ error: '이미지 정보가 너무 깁니다. 캡처를 다시 업로드해 주세요.' });
+      return;
+    }
   }
   console.error('[review-payback]', e);
   res.status(500).json({ error: '처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
