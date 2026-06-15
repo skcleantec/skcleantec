@@ -3,6 +3,7 @@ import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve
 import { beginListRefresh } from '../../utils/listRefreshDisplay';
 import { Link } from 'react-router-dom';
 import {
+  deleteReviewPayback,
   getReviewPayback,
   listReviewPaybacks,
   markReviewPaybacksSeen,
@@ -11,6 +12,7 @@ import {
   type ReviewPaybackListItem,
   type ReviewPaybackStatus,
 } from '../../api/reviewPayback';
+import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
@@ -105,6 +107,7 @@ export function AdminReviewPaybackPanel({ token }: Props) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [memoDraft, setMemoDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ReviewPaybackListItem | null>(null);
 
   const dateQuery = useMemo(() => {
     if (datePreset === 'custom') {
@@ -208,6 +211,13 @@ export function AdminReviewPaybackPanel({ token }: Props) {
     } catch {
       alert(text);
     }
+  };
+
+  const handleDeleted = (deletedId: string) => {
+    setItems((prev) => prev.filter((r) => r.id !== deletedId));
+    setTotal((t) => Math.max(0, t - 1));
+    setDetail((d) => (d?.id === deletedId ? null : d));
+    setDeleteTarget(null);
   };
 
   return (
@@ -383,13 +393,22 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                         </div>
                       </td>
                       <td className="px-2 py-2.5 text-center">
-                        <button
-                          type="button"
-                          onClick={() => void openDetail(row)}
-                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-fluid-xs font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] hover:bg-slate-50 hover:border-slate-300"
-                        >
-                          상세
-                        </button>
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => void openDetail(row)}
+                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-fluid-xs font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] hover:bg-slate-50 hover:border-slate-300"
+                          >
+                            상세
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(row)}
+                            className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-fluid-xs font-semibold text-red-700 shadow-sm transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] hover:bg-red-50"
+                          >
+                            삭제
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -439,9 +458,16 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                   <button
                     type="button"
                     onClick={() => void openDetail(row)}
-                    className="ml-auto rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-fluid-xs font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] hover:bg-slate-50 hover:border-slate-300"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-fluid-xs font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] hover:bg-slate-50 hover:border-slate-300"
                   >
                     상세·처리
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(row)}
+                    className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-fluid-xs font-semibold text-red-700 shadow-sm transition-all duration-150 hover:scale-[1.03] active:scale-[0.97] hover:bg-red-50"
+                  >
+                    삭제
                   </button>
                 </div>
               </div>
@@ -525,10 +551,34 @@ export function AdminReviewPaybackPanel({ token }: Props) {
               >
                 닫기
               </button>
+              <button
+                type="button"
+                disabled={saving || detailLoading}
+                onClick={() => setDeleteTarget(detail)}
+                className="rounded border border-red-200 px-3 py-1.5 text-fluid-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+              >
+                삭제
+              </button>
             </div>
           </div>
         </div>
       ) : null}
+
+      <ConfirmPasswordModal
+        open={!!deleteTarget}
+        title={
+          deleteTarget
+            ? `「${deleteTarget.customerName}」 페이백/리뷰 신청을 영구 삭제합니다. 복구할 수 없습니다.`
+            : ''
+        }
+        confirmLabel="삭제"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async (password) => {
+          if (!token || !deleteTarget) return;
+          await deleteReviewPayback(token, deleteTarget.id, password);
+          handleDeleted(deleteTarget.id);
+        }}
+      />
     </div>
   );
 }

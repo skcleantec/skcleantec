@@ -171,3 +171,13 @@ export async function markReviewPaybacksSeen(token: string, ids: string[]): Prom
   });
   if (!res.ok) throw new Error('확인 처리에 실패했습니다.');
 }
+
+/** 비밀번호 확인 후 건별 영구 삭제 */
+export async function deleteReviewPayback(token: string, id: string, password: string): Promise<void> {
+  const res = await fetch(`${API}/review-paybacks/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) await parseReviewPaybackError(res);
+}

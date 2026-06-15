@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
@@ -6,6 +7,7 @@ import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { createdAtRangeFromQuery, kstDayRangeYmd } from '../inquiries/inquiryListDateRange.js';
 import {
   countUnseenPending,
+  deleteReviewPaybackRequest,
   parseReviewPaybackStatus,
   ReviewPaybackError,
 } from './reviewPayback.service.js';
@@ -17,6 +19,30 @@ router.use(authMiddleware);
 router.use(adminOrMarketer);
 
 const DEFAULT_PAGE_SIZE = 30;
+
+async function verifyAdminPasswordForRequest(
+  req: import('express').Request,
+  res: import('express').Response,
+  passwordRaw: unknown,
+): Promise<boolean> {
+  const password = passwordRaw != null ? String(passwordRaw) : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return false;
+  }
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return false;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return false;
+  }
+  return true;
+}
 
 function sendPaybackError(res: import('express').Response, e: unknown): void {
   if (res.headersSent) return;
@@ -209,6 +235,25 @@ router.patch('/:id', async (req, res) => {
   });
   void notifyReviewPaybackListRefresh(tenantId);
   res.json(serializeReviewPayback(row, { revealAccount: true }));
+});
+
+/** 비밀번호 확인 후 건별 영구 삭제 */
+router.delete('/:id', async (req, res) => {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const body = req.body as { password?: string };
+  if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
+
+  try {
+    await deleteReviewPaybackRequest({ tenantId, id: req.params.id });
+    void notifyReviewPaybackListRefresh(tenantId);
+    res.json({ ok: true });
+  } catch (e) {
+    sendPaybackError(res, e);
+  }
 });
 
 export default router;
