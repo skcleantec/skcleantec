@@ -18,6 +18,8 @@ type Props = {
   /** 라이트박스 하단 — 현재 슬라이드 기준 재촬영 등 */
   onRetake?: (activeIndex: number) => void;
   retakeLabel?: string;
+  /** 라이트박스가 닫힐 때 (재촬영·닫기·배경 탭) */
+  onLightboxClose?: () => void;
 };
 
 /**
@@ -35,9 +37,15 @@ export function ImageThumbLightbox({
   buttonLabel,
   onRetake,
   retakeLabel = '재촬영',
+  onLightboxClose,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  const closeLightbox = () => {
+    setOpen(false);
+    onLightboxClose?.();
+  };
 
   const slides: ImageGallerySlide[] =
     gallerySlides && gallerySlides.length > 0 ? gallerySlides : [{ src, alt: alt || '이미지' }];
@@ -55,7 +63,7 @@ export function ImageThumbLightbox({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') closeLightbox();
       if (!multi) return;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -105,7 +113,7 @@ export function ImageThumbLightbox({
             role="dialog"
             aria-modal="true"
             aria-label={current.alt || '이미지 보기'}
-            onClick={() => setOpen(false)}
+            onClick={closeLightbox}
           >
             {headerTitle ? (
               <div className="pointer-events-none absolute left-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-[750] w-[min(92vw,24rem)] -translate-x-1/2 px-12 text-center">
@@ -124,7 +132,7 @@ export function ImageThumbLightbox({
               draggable={false}
               onClick={(e) => e.stopPropagation()}
             />
-            <ModalCloseButton onClick={() => setOpen(false)} className="right-2 top-2 z-[750] sm:right-4 sm:top-4" />
+            <ModalCloseButton onClick={closeLightbox} className="right-2 top-2 z-[750] sm:right-4 sm:top-4" />
             {onRetake && (
               <button
                 type="button"
@@ -132,7 +140,7 @@ export function ImageThumbLightbox({
                 onClick={(e) => {
                   e.stopPropagation();
                   onRetake(activeIndex);
-                  setOpen(false);
+                  closeLightbox();
                 }}
               >
                 {retakeLabel}

@@ -110,6 +110,7 @@ function CapturePhotoThumb({
   gallerySlides,
   disabled,
   onRetakeAtGalleryIndex,
+  onLightboxClose,
   caption,
 }: {
   photo: InspectionAreaPhoto;
@@ -117,6 +118,7 @@ function CapturePhotoThumb({
   gallerySlides: ImageGallerySlide[];
   disabled: boolean;
   onRetakeAtGalleryIndex: (galleryIndex: number) => void;
+  onLightboxClose?: () => void;
   caption?: string;
 }) {
   return (
@@ -129,6 +131,7 @@ function CapturePhotoThumb({
         thumbClassName="h-14 w-full object-cover"
         buttonClassName="relative block w-full overflow-hidden rounded-lg border-2 border-white/25 bg-black/40 touch-manipulation active:scale-[0.97] disabled:opacity-50"
         onRetake={disabled ? undefined : onRetakeAtGalleryIndex}
+        onLightboxClose={onLightboxClose}
       />
       {caption ? (
         <p className="truncate text-center text-[9px] leading-tight text-gray-400" title={caption}>
@@ -170,7 +173,8 @@ export function TeamPreCleanWizard({
   const reloadGenRef = useRef(0);
 
   const cameraActive = !readOnly && !!captureAreaId;
-  const { videoRef, status: cameraStatus, error: cameraError, captureFrame } = useInlineCamera(cameraActive);
+  const { videoRef, status: cameraStatus, error: cameraError, captureFrame, refreshPreview } =
+    useInlineCamera(cameraActive);
 
   useEffect(() => {
     if (!captureAreaId) {
@@ -385,6 +389,7 @@ export function TeamPreCleanWizard({
       await deleteTeamInspectionPhoto(token, inquiryId, itemId, photoId);
       setLocalChecklist((prev) => removeItemPhoto(prev, itemId, photoId));
       scheduleBackgroundReload();
+      refreshPreview();
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '삭제 실패');
     } finally {
@@ -546,6 +551,10 @@ export function TeamPreCleanWizard({
                     onRetakeAtGalleryIndex={(galleryIdx) => {
                       const target = areaBeforeEntries[galleryIdx];
                       if (target) void handleRetakePhoto(target.photo.id, target.itemId);
+                    }}
+                    onLightboxClose={() => {
+                      refreshPreview();
+                      requestAnimationFrame(() => refreshPreview());
                     }}
                   />
                 ))}

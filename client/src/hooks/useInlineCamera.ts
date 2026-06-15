@@ -3,10 +3,22 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type InlineCameraStatus = 'idle' | 'starting' | 'live' | 'error';
 
 export function useInlineCamera(enabled: boolean) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<InlineCameraStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+
+  const bindStreamToVideo = useCallback(() => {
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+    if (video.paused) {
+      void video.play().catch(() => {});
+    }
+  }, []);
 
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -14,6 +26,21 @@ export function useInlineCamera(enabled: boolean) {
     const video = videoRef.current;
     if (video) video.srcObject = null;
   }, []);
+
+  /** video remount·라이트박스 닫힘 후 미리보기 복구 */
+  const refreshPreview = useCallback(() => {
+    bindStreamToVideo();
+  }, [bindStreamToVideo]);
+
+  const setVideoElement = useCallback(
+    (node: HTMLVideoElement | null) => {
+      videoRef.current = node;
+      if (node && streamRef.current) {
+        bindStreamToVideo();
+      }
+    },
+    [bindStreamToVideo],
+  );
 
   useEffect(() => {
     if (!enabled) {
@@ -44,11 +71,7 @@ export function useInlineCamera(enabled: boolean) {
           return;
         }
         streamRef.current = stream;
-        const video = videoRef.current;
-        if (video) {
-          video.srcObject = stream;
-          void video.play().catch(() => {});
-        }
+        bindStreamToVideo();
         setStatus('live');
       })
       .catch((e: unknown) => {
@@ -61,9 +84,20 @@ export function useInlineCamera(enabled: boolean) {
       cancelled = true;
       stopStream();
     };
-  }, [enabled, stopStream]);
+  }, [enabled, stopStream, bindStreamToVideo]);
+
+  useEffect(() => {
+    if (!enabled || status !== 'live') return;
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refreshPreview();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [enabled, status, refreshPreview]);
 
   const captureFrame = useCallback(async (): Promise<File> => {
+    bindStreamToVideo();
     const video = videoRef.current;
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
       throw new Error('카메라 준비 중입니다. 잠시 후 다시 시도해 주세요.');
@@ -79,7 +113,7 @@ export function useInlineCamera(enabled: boolean) {
     });
     if (!blob) throw new Error('촬영에 실패했습니다.');
     return new File([blob], `preclean-${Date.now()}.jpg`, { type: 'image/jpeg' });
-  }, []);
+  }, [bindStreamToVideo]);
 
-  return { videoRef, status, error, captureFrame, stopStream };
+  return { videoRef: setVideoElement, status, error, captureFrame, refreshPreview, stopStream };
 }
