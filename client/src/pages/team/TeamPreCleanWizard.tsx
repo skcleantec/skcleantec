@@ -18,6 +18,7 @@ import {
 } from '../../api/inquiryInspection';
 import { ImageThumbLightbox, type ImageGallerySlide } from '../../components/ui/ImageThumbLightbox';
 import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
+import { useInlineCamera } from '../../hooks/useInlineCamera';
 
 const SESSION_PREFIX = 'preCleanWizard';
 
@@ -181,9 +182,11 @@ export function TeamPreCleanWizard({
   const [localChecklist, setLocalChecklist] = useState(checklist);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const openCameraAfterReloadRef = useRef(false);
   const restoredRef = useRef(false);
   const reloadGenRef = useRef(0);
+
+  const cameraActive = !readOnly && !!captureAreaId;
+  const { videoRef, status: cameraStatus, error: cameraError, captureFrame } = useInlineCamera(cameraActive);
 
   useEffect(() => {
     if (!captureAreaId) {
@@ -247,12 +250,6 @@ export function TeamPreCleanWizard({
   }, [captureAreaId, itemIndex, inquiryId, readOnly]);
 
   useEffect(() => {
-    if (!openCameraAfterReloadRef.current || uploading || busy || !captureAreaId) return;
-    openCameraAfterReloadRef.current = false;
-    fileInputRef.current?.click();
-  }, [localChecklist, uploading, busy, captureAreaId]);
-
-  useEffect(() => {
     if (readOnly || !captureAreaId) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -296,34 +293,69 @@ export function TeamPreCleanWizard({
     }
   };
 
-  const advanceAfterAction = useCallback(
+  const advanceToNextItem = useCallback(
     (areaItemsLength: number) => {
-      if (itemIndex < areaItemsLength - 1) {
-        setItemIndex((i) => i + 1);
-      } else {
-        onMsg('이 구역의 청소 전 촬영을 마쳤습니다.');
-        setCaptureAreaId(null);
-        sessionStorage.removeItem(sessionKey(inquiryId));
-      }
+      setItemIndex((i) => {
+        if (i < areaItemsLength - 1) return i + 1;
+        queueMicrotask(() => {
+          onMsg('이 구역의 청소 전 촬영을 마쳤습니다.');
+          setCaptureAreaId(null);
+          sessionStorage.removeItem(sessionKey(inquiryId));
+        });
+        return i;
+      });
     },
-    [itemIndex, onMsg],
+    [inquiryId, onMsg],
   );
 
-  const handleCapture = async (files: FileList | null) => {
-    if (!currentItem || !files?.length || uploading) return;
-    const itemId = currentItem.id;
-    setUploading(true);
-    onMsg(null);
-    try {
-      const prepared = await Promise.all(Array.from(files).map((f) => prepareImageFileForUpload(f)));
-      const newPhotos = await uploadTeamInspectionPhotos(token, inquiryId, itemId, 'BEFORE', prepared);
-      setLocalChecklist((prev) => mergeItemPhotos(prev, itemId, newPhotos));
-      scheduleBackgroundReload();
-    } catch (e) {
-      onMsg(e instanceof Error ? e.message : '업로드 실패');
-    } finally {
-      setUploading(false);
+  const uploadAndAdvance = useCallback(
+    async (file: File) => {
+      if (!currentItem || uploading) return;
+      const itemId = currentItem.id;
+      const areaLen = captureItems.length;
+      setUploading(true);
+      onMsg(null);
+      try {
+        const prepared = await prepareImageFileForUpload(file);
+        const newPhotos = await uploadTeamInspectionPhotos(token, inquiryId, itemId, 'BEFORE', [prepared]);
+        setLocalChecklist((prev) => mergeItemPhotos(prev, itemId, newPhotos));
+        scheduleBackgroundReload();
+        advanceToNextItem(areaLen);
+      } catch (e) {
+        onMsg(e instanceof Error ? e.message : '업로드 실패');
+      } finally {
+        setUploading(false);
+      }
+    },
+    [
+      advanceToNextItem,
+      captureItems.length,
+      currentItem,
+      inquiryId,
+      onMsg,
+      scheduleBackgroundReload,
+      token,
+      uploading,
+    ],
+  );
+
+  const handleShutter = useCallback(async () => {
+    if (uploading || busy || !currentItem) return;
+    if (cameraStatus === 'live') {
+      try {
+        const file = await captureFrame();
+        await uploadAndAdvance(file);
+      } catch (e) {
+        onMsg(e instanceof Error ? e.message : '촬영 실패');
+      }
+      return;
     }
+    fileInputRef.current?.click();
+  }, [busy, cameraStatus, captureFrame, currentItem, onMsg, uploadAndAdvance, uploading]);
+
+  const handleCapture = async (files: FileList | null) => {
+    if (!files?.length || uploading) return;
+    await uploadAndAdvance(files[0]!);
   };
 
   const handleItemNa = async () => {
@@ -336,7 +368,7 @@ export function TeamPreCleanWizard({
         naReason: null,
       });
       await onReload();
-      advanceAfterAction(captureItems.length);
+      advanceToNextItem(captureItems.length);
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -369,9 +401,6 @@ export function TeamPreCleanWizard({
       await deleteTeamInspectionPhoto(token, inquiryId, itemId, photoId);
       setLocalChecklist((prev) => removeItemPhoto(prev, itemId, photoId));
       scheduleBackgroundReload();
-      if (currentItem?.id === itemId) {
-        openCameraAfterReloadRef.current = true;
-      }
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '삭제 실패');
     } finally {
@@ -400,7 +429,6 @@ export function TeamPreCleanWizard({
       label: currentItem.label,
       areaLabel: captureArea.label,
     });
-    const beforePhotos = currentItem.photos.filter((p) => p.phase === 'BEFORE');
     const areaBeforeEntries = collectAreaBeforePhotos(captureArea);
     const areaGallerySlides = areaBeforeEntries.map((entry) => ({
       src: entry.photo.secureUrl,
@@ -412,62 +440,81 @@ export function TeamPreCleanWizard({
     ).length;
 
     captureOverlay = (
-      <div className="fixed inset-0 z-[200] flex flex-col bg-gray-950 text-white pt-[env(safe-area-inset-top)]">
-        <div className="shrink-0 border-b border-white/10 bg-black/80 px-3 py-2.5 backdrop-blur-sm">
-          <div className="mx-auto flex max-w-lg items-center gap-2">
-            <button
-              type="button"
-              onClick={exitCapture}
-              disabled={busy}
-              className="flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-xl bg-white/10 px-2 text-sm font-medium touch-manipulation disabled:opacity-50"
-              aria-label="구역 목록으로"
-            >
-              ←
-            </button>
-            <div className="min-w-0 flex-1 text-center">
-              <p className="text-xs text-gray-400">
-                {captureArea.label} · {itemIndex + 1}/{captureItems.length}
+      <div className="fixed inset-0 z-[200] flex flex-col bg-black text-white pt-[env(safe-area-inset-top)]">
+        <div className="relative min-h-0 flex-1">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`absolute inset-0 h-full w-full object-cover ${
+              cameraStatus === 'live' ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+          {cameraStatus !== 'live' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-950 px-6 text-center">
+              <p className="text-sm text-gray-300">
+                {cameraStatus === 'starting'
+                  ? '카메라를 여는 중…'
+                  : cameraError ?? '카메라를 사용할 수 없습니다. 아래 촬영 버튼으로 갤러리·카메라 앱을 이용해 주세요.'}
               </p>
-              <p className="truncate text-base font-bold">{currentItem.label}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setCaptureAreaId(null);
-                sessionStorage.removeItem(sessionKey(inquiryId));
-                onClose?.();
-              }}
-              disabled={busy}
-              className="flex h-11 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/10 px-3 text-sm font-semibold touch-manipulation disabled:opacity-50"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
+          )}
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
-          <div className="mx-auto w-full max-w-lg rounded-xl border border-sky-400/50 bg-sky-950/80 px-4 py-3.5 shadow-lg">
-            <p className="text-xs font-bold tracking-wide text-sky-300">촬영 가이드 — 어디를 찍을까요?</p>
-            <p className="mt-2 text-base font-medium leading-relaxed text-white">{hint}</p>
-            <p className="mt-2 text-xs leading-snug text-sky-200/80">
-              모서리·틈새·얼룩이 보이도록 가까이 또는 넓게 한 장 이상 촬영해 주세요.
-            </p>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/75 via-transparent to-black/80" />
+
+          <div className="absolute inset-x-0 top-0 z-10 border-b border-white/10 bg-black/40 px-3 py-2.5 backdrop-blur-sm">
+            <div className="mx-auto flex max-w-lg items-center gap-2">
+              <button
+                type="button"
+                onClick={exitCapture}
+                disabled={busy || uploading}
+                className="pointer-events-auto flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-medium touch-manipulation disabled:opacity-50"
+                aria-label="구역 목록으로"
+              >
+                ←
+              </button>
+              <div className="min-w-0 flex-1 text-center">
+                <p className="text-xs text-gray-300">
+                  {captureArea.label} · {itemIndex + 1}/{captureItems.length}
+                </p>
+                <p className="truncate text-base font-bold">{currentItem.label}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCaptureAreaId(null);
+                  sessionStorage.removeItem(sessionKey(inquiryId));
+                  onClose?.();
+                }}
+                disabled={busy || uploading}
+                className="pointer-events-auto flex h-11 shrink-0 items-center justify-center rounded-full border border-white/25 bg-white/10 px-3 text-sm font-semibold touch-manipulation disabled:opacity-50"
+              >
+                닫기
+              </button>
+            </div>
           </div>
 
-          <div className="mx-auto w-full max-w-lg rounded-xl border border-white/15 bg-white/5 px-4 py-4">
-            {areaBeforeEntries.length === 0 ? (
-              <p className="py-6 text-center text-sm leading-relaxed text-gray-400">
-                아래 「촬영」 버튼을 눌러 사진을 등록하세요
-              </p>
-            ) : (
-              <>
-                <p className="mb-1 text-center text-xs font-medium text-gray-300">
-                  이 구역 등록 사진 {areaBeforeEntries.length}장 · 항목 {areaDoneCount}/{captureItems.length} 완료
+          <div className="absolute inset-x-0 top-[4.25rem] z-10 px-4">
+            <div className="pointer-events-none mx-auto max-w-lg rounded-xl border border-sky-400/40 bg-black/55 px-4 py-3 backdrop-blur-md">
+              <p className="text-[11px] font-bold tracking-wide text-sky-300">촬영 가이드</p>
+              <p className="mt-1.5 text-sm font-medium leading-snug text-white">{hint}</p>
+            </div>
+          </div>
+
+          {uploading && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45">
+              <p className="rounded-full bg-black/70 px-4 py-2 text-sm font-medium">저장 중…</p>
+            </div>
+          )}
+
+          {areaBeforeEntries.length > 0 && (
+            <div className="absolute inset-x-0 bottom-[7.5rem] z-10 px-3">
+              <div className="mx-auto max-w-lg overflow-x-auto">
+                <p className="mb-1.5 text-center text-[10px] text-gray-300">
+                  등록 {areaBeforeEntries.length}장 · {areaDoneCount}/{captureItems.length} 완료
                 </p>
-                <p className="mb-3 text-center text-[11px] text-gray-500">
-                  사진 탭 재촬영 · 「크게 보기」로 확인
-                </p>
-                <div className="flex flex-wrap justify-center gap-2.5">
+                <div className="flex gap-2 pb-1">
                   {areaBeforeEntries.map((entry, idx) => (
                     <CapturePhotoThumb
                       key={entry.photo.id}
@@ -480,61 +527,46 @@ export function TeamPreCleanWizard({
                     />
                   ))}
                 </div>
-                {beforePhotos.length === 0 && (
-                  <p className="mt-4 text-center text-sm leading-relaxed text-gray-400">
-                    현재 「{currentItem.label}」 — 아래 「촬영」으로 등록해 주세요
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-
-          {currentItem.notApplicable && (
-            <p className="mx-auto max-w-lg text-center text-sm text-amber-300">
-              이 항목은 해당없음으로 표시되어 있습니다. 「촬영」 또는 「해당없음」으로 다음으로 넘어갈 수 있습니다.
-            </p>
+              </div>
+            </div>
           )}
         </div>
 
-        <div className="shrink-0 border-t border-white/10 bg-black/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-          <div className="mx-auto max-w-lg space-y-2">
-            {beforePhotos.length >= 1 && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => advanceAfterAction(captureItems.length)}
-                className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-emerald-600 text-sm font-semibold text-white touch-manipulation disabled:opacity-50"
-              >
-                다음 항목 ▶
-              </button>
-            )}
-            <div className="grid grid-cols-3 gap-2">
+        <div className="shrink-0 border-t border-white/10 bg-black/90 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
             <button
               type="button"
-              disabled={busy || itemIndex === 0}
+              disabled={busy || uploading || itemIndex === 0}
               onClick={() => setItemIndex((i) => Math.max(0, i - 1))}
-              className="flex min-h-[52px] items-center justify-center rounded-xl border border-white/20 bg-white/5 text-sm font-medium touch-manipulation disabled:opacity-40"
+              className="flex h-12 min-w-[3.5rem] flex-col items-center justify-center rounded-xl text-[11px] text-gray-300 touch-manipulation disabled:opacity-40"
             >
-              ← 이전
+              <span className="text-lg leading-none">←</span>
+              이전
             </button>
+
             <button
               type="button"
-              disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
-              className="flex min-h-[52px] items-center justify-center rounded-xl bg-sky-500 text-sm font-bold text-white touch-manipulation disabled:opacity-50"
+              disabled={uploading || busy}
+              onClick={() => void handleShutter()}
+              className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full border-4 border-white bg-white/95 shadow-lg touch-manipulation active:scale-95 disabled:opacity-50"
+              aria-label="촬영"
             >
-              {uploading ? '업로드…' : '촬영'}
+              <span className="block h-[3.25rem] w-[3.25rem] rounded-full bg-sky-500" />
             </button>
+
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || uploading}
               onClick={() => void handleItemNa()}
-              className="flex min-h-[52px] items-center justify-center rounded-xl border border-amber-500/60 bg-amber-500/15 text-sm font-medium text-amber-100 touch-manipulation disabled:opacity-50"
+              className="flex h-12 min-w-[3.5rem] flex-col items-center justify-center rounded-xl text-[11px] text-amber-200 touch-manipulation disabled:opacity-50"
             >
-              해당없음
+              해당
+              <span>없음</span>
             </button>
           </div>
-          </div>
+          <p className="mt-2 text-center text-[11px] text-gray-400">
+            셔터를 누르면 저장 후 다음 항목으로 자동 이동합니다
+          </p>
           <input
             ref={fileInputRef}
             type="file"
@@ -557,7 +589,7 @@ export function TeamPreCleanWizard({
       {captureOverlay ? createPortal(captureOverlay, document.body) : null}
     <section className="space-y-3" aria-hidden={inCaptureMode ? true : undefined}>
       <p className="text-fluid-2xs text-gray-600">
-        구역을 선택한 뒤 「촬영 시작」으로 항목별 연속 촬영을 진행하세요. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
+        구역을 선택한 뒤 「촬영 시작」— 화면에서 바로 찍으면 다음 항목으로 자동 이동합니다. 해당 공간이 없으면 「구역 해당없음」을 눌러 주세요.
       </p>
 
       <div className="grid grid-cols-2 gap-2">
