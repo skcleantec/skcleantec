@@ -23,6 +23,7 @@ import {
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
+import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 
 export function TeamDashboardPage() {
   const token = getTeamToken();
@@ -33,6 +34,8 @@ export function TeamDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
+
+  useTeamOpenInquiryDeepLink(token, setDetailItem);
 
   const loadDashboard = useCallback(
     async (opts?: { silent?: boolean }) => {

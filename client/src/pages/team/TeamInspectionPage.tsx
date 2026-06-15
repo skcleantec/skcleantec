@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { SignaturePad } from '../../components/e-contract/SignaturePad';
 import {
   completeTeamInspection,
@@ -19,11 +19,22 @@ import {
 import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
+import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 
 export function TeamInspectionPage() {
   const { inquiryId = '' } = useParams<{ inquiryId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const token = getTeamToken();
+  const returnTo = useMemo(
+    () => resolveTeamInquiryReturnTo(location, inquiryId),
+    [location, inquiryId],
+  );
+  const preCleanReturnTo = useMemo(() => {
+    const q = location.search || '';
+    return `/team/inspection/${encodeURIComponent(inquiryId)}${q}`;
+  }, [inquiryId, location.search]);
+  const goBack = useCallback(() => navigate(returnTo), [navigate, returnTo]);
   const [checklist, setChecklist] = useState<InspectionChecklistDto | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -107,13 +118,18 @@ export function TeamInspectionPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 pb-24">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link to="/team/assignments" className="text-fluid-xs text-blue-700 underline touch-manipulation">
-          ← 배정 목록
-        </Link>
+        <button
+          type="button"
+          onClick={goBack}
+          className="text-fluid-xs text-blue-700 underline touch-manipulation"
+        >
+          ← 이전
+        </button>
         <div className="flex flex-wrap items-center gap-2">
           {!readOnly && (
             <Link
               to={`/team/pre-clean/${encodeURIComponent(inquiryId)}`}
+              state={teamInquiryNavState(preCleanReturnTo)}
               className="rounded-full border border-sky-600 bg-sky-50 px-2.5 py-0.5 text-fluid-2xs font-medium text-sky-900 touch-manipulation"
             >
               청소 전 촬영

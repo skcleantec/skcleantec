@@ -35,6 +35,7 @@ import {
   teamBiPlain,
   teamT,
 } from '../../i18n/team/teamI18n';
+import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 
 /** 관리자 스케줄과 동일 아이콘. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL 로 덮어쓰기 */
 const DEFAULT_SCHEDULE_MAP_ICON =
@@ -77,6 +78,8 @@ export function TeamSchedulePage() {
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
   const [mapModalItems, setMapModalItems] = useState<ScheduleItem[]>([]);
+
+  useTeamOpenInquiryDeepLink(token, setDetailItem);
 
   /** 성능: 전체 담당 접수가 아닌 「현재 달력에 보이는 한 달」만 가져온다. */
   const loadSchedule = useCallback(

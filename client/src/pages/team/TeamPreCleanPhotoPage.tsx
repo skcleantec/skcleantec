@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   fetchTeamInspectionChecklist,
   INSPECTION_STATUS_LABELS,
@@ -14,6 +14,7 @@ import {
 import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
 import { TeamPreCleanWizard } from './TeamPreCleanWizard';
 import { isBeforeItemComplete } from '@shared/inquiryInspectionTemplate';
+import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 
 function countBeforeProgress(checklist: InspectionChecklistDto) {
   let beforeDone = 0;
@@ -39,7 +40,13 @@ function countBeforeProgress(checklist: InspectionChecklistDto) {
 export function TeamPreCleanPhotoPage() {
   const { inquiryId = '' } = useParams<{ inquiryId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const token = getTeamToken();
+  const returnTo = useMemo(
+    () => resolveTeamInquiryReturnTo(location, inquiryId),
+    [location, inquiryId],
+  );
+  const goBack = useCallback(() => navigate(returnTo), [navigate, returnTo]);
   const [checklist, setChecklist] = useState<InspectionChecklistDto | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -97,9 +104,13 @@ export function TeamPreCleanPhotoPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 pb-24">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link to="/team/assignments" className="text-fluid-xs text-blue-700 underline touch-manipulation">
-          ← 배정 목록
-        </Link>
+        <button
+          type="button"
+          onClick={goBack}
+          className="text-fluid-xs text-blue-700 underline touch-manipulation"
+        >
+          ← 이전
+        </button>
         <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-fluid-2xs font-medium text-sky-900">
           청소 전 촬영
         </span>
@@ -140,7 +151,7 @@ export function TeamPreCleanPhotoPage() {
           setBusy={setBusy}
           onReload={reload}
           onMsg={setMsg}
-          onClose={() => navigate('/team/assignments')}
+          onClose={goBack}
         />
       )}
 
@@ -152,6 +163,7 @@ export function TeamPreCleanPhotoPage() {
         <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
           <Link
             to={`/team/inspection/${encodeURIComponent(inquiryId)}`}
+            state={teamInquiryNavState(returnTo)}
             className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-gray-900 py-3 text-fluid-sm font-semibold text-white touch-manipulation"
           >
             현장 검수 · 청소완료로 이동

@@ -27,6 +27,7 @@ import { copyTextToClipboard } from '../../utils/clipboard';
 import { formatInquiryListAreaLabel } from '../../utils/inquiryAreaDisplay';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
+import { buildTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 import {
   formatMeetingTimeKoLabel,
   isValidCrewMeetingHhmm,
@@ -592,6 +593,7 @@ export function TeamInquiryDetailModal({
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
+  const inquiryReturnTo = buildTeamInquiryReturnTo(location, item.id);
   const [happySaving, setHappySaving] = useState(false);
   const [viewerMe, setViewerMe] = useState<TeamViewerMe | null>(null);
   const [shareCopyHint, setShareCopyHint] = useState<string | null>(null);
@@ -1319,14 +1321,14 @@ export function TeamInquiryDetailModal({
             <>
               <Link
                 to={`/team/pre-clean/${encodeURIComponent(item.id)}`}
-                onClick={onClose}
+                state={teamInquiryNavState(inquiryReturnTo)}
                 className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-sky-700 bg-sky-600 text-fluid-sm font-medium text-white hover:bg-sky-700 touch-manipulation"
               >
                 청소 전 촬영
               </Link>
               <Link
                 to={`/team/inspection/${encodeURIComponent(item.id)}`}
-                onClick={onClose}
+                state={teamInquiryNavState(inquiryReturnTo)}
                 className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-emerald-700 bg-emerald-600 text-fluid-sm font-medium text-white hover:bg-emerald-700 touch-manipulation"
               >
                 현장 검수 · 청소완료

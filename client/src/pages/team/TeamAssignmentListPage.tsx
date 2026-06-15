@@ -5,7 +5,6 @@ import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
   getTeamInquiries,
-  getTeamInquiry,
   getTeamMe,
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
@@ -41,6 +40,7 @@ import {
   type InquiryListPageSize,
 } from '../../utils/listPagination';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
+import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 
 function kstMonthKeyNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -122,30 +122,7 @@ export function TeamAssignmentListPage() {
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
 
-  /** 변경 이력 종 등에서 `?openInquiry=` 로 진입 시 해당 담당 접수 상세 모달 */
-  const openInquiryId = searchParams.get('openInquiry');
-  useEffect(() => {
-    if (!openInquiryId || !token) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const raw = await getTeamInquiry(token, openInquiryId);
-        if (cancelled) return;
-        setDetailItem(raw as InquiryItem);
-      } catch {
-        /* 담당 아님·삭제 등은 조용히 무시 */
-      } finally {
-        if (!cancelled) {
-          patchListParams((next) => next.delete('openInquiry'));
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // openInquiryId 변경 시에만 1회 딥링크 처리
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openInquiryId, token]);
+  useTeamOpenInquiryDeepLink(token, setDetailItem);
 
   const patchListParams = useCallback(
     (patch: (next: URLSearchParams) => void) => {
