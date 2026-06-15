@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  addTeamInspectionArea,
   addTeamInspectionItem,
   deleteTeamInspectionPhoto,
   patchTeamInspectionArea,
@@ -10,9 +9,6 @@ import {
 } from '../../api/inquiryInspection';
 import {
   InspectionAreaSection,
-  INSPECTION_AREA_GUIDE,
-  INSPECTION_CUSTOM_AREA_GUIDE,
-  INSPECTION_ITEM_GUIDE,
   type InspectionPhotoMode,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
 import { ShareAreaBeforePhotosButton } from '../../components/inquiry-inspection/ShareAreaBeforePhotosButton';
@@ -38,8 +34,13 @@ export function TeamInspectionAreasEditor({
   onReload: () => Promise<unknown>;
   onMsg: (msg: string | null) => void;
 }) {
-  const [customAreaLabel, setCustomAreaLabel] = useState('');
   const [customItemLabels, setCustomItemLabels] = useState<Record<string, string>>({});
+
+  /** 청소 전 촬영에서 해당없음·− 로 제외한 구역은 현장검수 목록에 표시하지 않음 (+ 로 추가 시 다시 노출) */
+  const displayAreas = useMemo(
+    () => (photoMode === 'both' ? checklist.areas.filter((a) => !a.notApplicable) : checklist.areas),
+    [checklist.areas, photoMode],
+  );
 
   const handleToggleItemNa = async (itemId: string, na: boolean) => {
     setBusy(true);
@@ -74,45 +75,16 @@ export function TeamInspectionAreasEditor({
         <h3 className="text-fluid-sm font-semibold text-gray-900">
           {photoMode === 'before-only' ? '청소 전 촬영 (세부 항목)' : '구역별 검수 (세부 항목)'}
         </h3>
-        <p className="mt-1 text-fluid-2xs text-gray-600">{INSPECTION_AREA_GUIDE}</p>
-        <p className="mt-1 text-fluid-2xs text-gray-600">{INSPECTION_ITEM_GUIDE}</p>
-        {photoMode === 'both' && (
-          <p className="mt-1 text-fluid-2xs text-gray-600">{INSPECTION_CUSTOM_AREA_GUIDE}</p>
-        )}
       </div>
 
-      {!readOnly && photoMode === 'both' && (
-        <div className="flex flex-wrap gap-2">
-          <input
-            value={customAreaLabel}
-            onChange={(e) => setCustomAreaLabel(e.target.value)}
-            placeholder="추가 구역 이름"
-            className="flex-1 min-w-[8rem] rounded-lg border border-gray-300 px-2 py-1.5 text-fluid-xs"
-          />
-          <button
-            type="button"
-            disabled={busy || !customAreaLabel.trim()}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await addTeamInspectionArea(token, inquiryId, customAreaLabel.trim());
-                setCustomAreaLabel('');
-                await onReload();
-              } catch (e) {
-                onMsg(e instanceof Error ? e.message : '구역 추가 실패');
-              } finally {
-                setBusy(false);
-              }
-            }}
-            className="rounded-lg border border-blue-600 bg-blue-50 px-3 py-1.5 text-fluid-xs text-blue-900 touch-manipulation disabled:opacity-50"
-          >
-            구역 추가
-          </button>
-        </div>
+      {photoMode === 'both' && displayAreas.length === 0 && (
+        <p className="text-fluid-2xs text-gray-500">
+          표시할 구역이 없습니다. 청소 전 촬영에서 구역을 추가하거나 해당없음을 해제해 주세요.
+        </p>
       )}
 
       <div className="space-y-2">
-        {checklist.areas.map((area, idx) => (
+        {displayAreas.map((area, idx) => (
           <InspectionAreaSection
             key={area.id}
             area={area}

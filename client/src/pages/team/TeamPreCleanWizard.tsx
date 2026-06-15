@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  countAfterItemProgress,
   countBeforeItemProgress,
+  isAfterAreaItemsComplete,
+  isAfterItemComplete,
   isBeforeAreaItemsComplete,
   isBeforeItemComplete,
 } from '@shared/inquiryInspectionTemplate';
@@ -31,30 +34,60 @@ import {
 import { updateChecklistPhotoFlag } from '../../utils/inspectionFlaggedPhotos';
 import { normalizeAreaKeyForTemplate } from '@shared/inquiryInspectionTenantTemplate';
 
-const SESSION_PREFIX = 'preCleanWizard';
+export type InspectionCapturePhase = 'BEFORE' | 'AFTER';
+
+const SESSION_PREFIX: Record<InspectionCapturePhase, string> = {
+  BEFORE: 'preCleanWizard',
+  AFTER: 'postCleanWizard',
+};
 
 function visibleItems(area: InspectionArea): InspectionItem[] {
   return area.items.filter((it) => !it.itemKey.startsWith('_'));
 }
 
-function itemBeforeCount(item: InspectionItem): number {
-  return item.photos.filter((p) => p.phase === 'BEFORE').length;
+function itemPhaseCount(item: InspectionItem, phase: InspectionCapturePhase): number {
+  return item.photos.filter((p) => p.phase === phase).length;
 }
 
-function findFirstIncompleteIndex(area: InspectionArea): number {
+function isPhaseItemComplete(item: InspectionItem, phase: InspectionCapturePhase): boolean {
+  if (item.notApplicable) return true;
+  if (phase === 'BEFORE') {
+    return isBeforeItemComplete({ notApplicable: false, beforeCount: itemPhaseCount(item, 'BEFORE') });
+  }
+  return isAfterItemComplete({ notApplicable: false, afterCount: itemPhaseCount(item, 'AFTER') });
+}
+
+function findFirstIncompleteIndex(area: InspectionArea, phase: InspectionCapturePhase): number {
   const items = visibleItems(area);
-  const idx = items.findIndex((it) =>
-    !isBeforeItemComplete({ notApplicable: it.notApplicable, beforeCount: itemBeforeCount(it) }),
-  );
+  const idx = items.findIndex((it) => !isPhaseItemComplete(it, phase));
   return idx >= 0 ? idx : 0;
 }
 
-function sessionKey(inquiryId: string) {
-  return `${SESSION_PREFIX}:${inquiryId}`;
+function findFirstIncompleteCaptureTarget(
+  areas: InspectionArea[],
+  phase: InspectionCapturePhase,
+  afterAreaId?: string,
+): { areaId: string; idx: number } | null {
+  const list = areas.filter((a) => !a.notApplicable);
+  const startAt = afterAreaId ? list.findIndex((a) => a.id === afterAreaId) + 1 : 0;
+  for (let i = Math.max(0, startAt); i < list.length; i += 1) {
+    const area = list[i]!;
+    const items = visibleItems(area);
+    const idx = items.findIndex((it) => !isPhaseItemComplete(it, phase));
+    if (idx >= 0) return { areaId: area.id, idx };
+  }
+  return null;
 }
 
-function readCaptureSession(inquiryId: string): { areaId?: string; idx?: number } | null {
-  const raw = sessionStorage.getItem(sessionKey(inquiryId));
+function sessionKey(inquiryId: string, phase: InspectionCapturePhase) {
+  return `${SESSION_PREFIX[phase]}:${inquiryId}`;
+}
+
+function readCaptureSession(
+  inquiryId: string,
+  phase: InspectionCapturePhase,
+): { areaId?: string; idx?: number } | null {
+  const raw = sessionStorage.getItem(sessionKey(inquiryId, phase));
   if (!raw) return null;
   try {
     return JSON.parse(raw) as { areaId?: string; idx?: number };
@@ -63,8 +96,13 @@ function readCaptureSession(inquiryId: string): { areaId?: string; idx?: number 
   }
 }
 
-function writeCaptureSession(inquiryId: string, areaId: string, idx: number) {
-  sessionStorage.setItem(sessionKey(inquiryId), JSON.stringify({ areaId, idx }));
+function writeCaptureSession(
+  inquiryId: string,
+  phase: InspectionCapturePhase,
+  areaId: string,
+  idx: number,
+) {
+  sessionStorage.setItem(sessionKey(inquiryId, phase), JSON.stringify({ areaId, idx }));
 }
 
 type AreaBeforePhotoEntry = {
@@ -184,6 +222,9 @@ export function TeamPreCleanWizard({
   onMsg,
   onClose,
   onChecklistUpdate,
+  phase = 'BEFORE',
+  hideAreaGrid = false,
+  captureActive = false,
 }: {
   checklist: InspectionChecklistDto;
   inquiryId: string;
@@ -195,6 +236,12 @@ export function TeamPreCleanWizard({
   onMsg: (msg: string | null) => void;
   onClose?: () => void;
   onChecklistUpdate?: (next: InspectionChecklistDto) => void;
+  /** BEFORE: 청소 전, AFTER: 청소 후 연속 촬영 */
+  phase?: InspectionCapturePhase;
+  /** true면 구역 카드 없이 촬영 오버레이만 (현장검수 청소 후) */
+  hideAreaGrid?: boolean;
+  /** hideAreaGrid일 때 true면 첫 미완료 항목부터 촬영 시작 */
+  captureActive?: boolean;
 }) {
   const [captureAreaId, setCaptureAreaId] = useState<string | null>(null);
   const [itemIndex, setItemIndex] = useState(0);
@@ -204,7 +251,11 @@ export function TeamPreCleanWizard({
   const [flaggingPhotoId, setFlaggingPhotoId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoredRef = useRef(false);
+  const globalStartRef = useRef(false);
   const reloadGenRef = useRef(0);
+
+  const isBeforePhase = phase === 'BEFORE';
+  const phaseLabel = isBeforePhase ? '청소 전' : '청소 후';
 
   const cameraActive = !readOnly && !!captureAreaId;
   const { videoRef, status: cameraStatus, error: cameraError, captureFrame, refreshPreview } =
@@ -247,9 +298,9 @@ export function TeamPreCleanWizard({
   }, [captureArea, activeItemId, itemIndex]);
 
   useEffect(() => {
-    if (restoredRef.current || readOnly) return;
+    if (hideAreaGrid || restoredRef.current || readOnly) return;
     restoredRef.current = true;
-    const saved = readCaptureSession(inquiryId);
+    const saved = readCaptureSession(inquiryId, phase);
     if (!saved?.areaId || !areas.some((a) => a.id === saved.areaId)) return;
     const area = areas.find((a) => a.id === saved.areaId);
     if (!area) return;
@@ -259,7 +310,59 @@ export function TeamPreCleanWizard({
     setCaptureAreaId(saved.areaId);
     setItemIndex(idx);
     setActiveItemId(items[idx]?.id ?? null);
-  }, [inquiryId, areas, readOnly]);
+  }, [hideAreaGrid, inquiryId, areas, readOnly, phase]);
+
+  useEffect(() => {
+    if (!captureActive) {
+      globalStartRef.current = false;
+      return;
+    }
+    if (!hideAreaGrid || readOnly || captureAreaId || globalStartRef.current) return;
+    globalStartRef.current = true;
+    void (async () => {
+      setBusy(true);
+      onMsg(null);
+      try {
+        const fresh = await onReload();
+        const src = (fresh ?? checklist).areas.filter((a) => !a.notApplicable);
+        if (fresh) {
+          setLocalChecklist(fresh);
+          onChecklistUpdate?.(fresh);
+        }
+        const saved = readCaptureSession(inquiryId, phase);
+        if (saved?.areaId && src.some((a) => a.id === saved.areaId)) {
+          beginCaptureForArea(saved.areaId, src, saved.idx);
+        } else {
+          const target = findFirstIncompleteCaptureTarget(src, phase);
+          if (!target) {
+            onMsg(`${phaseLabel} 촬영할 항목이 없습니다.`);
+            onClose?.();
+            return;
+          }
+          beginCaptureForArea(target.areaId, src, target.idx);
+        }
+      } catch (e) {
+        onMsg(e instanceof Error ? e.message : '불러오기 실패');
+        onClose?.();
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, [
+    captureActive,
+    captureAreaId,
+    checklist,
+    hideAreaGrid,
+    inquiryId,
+    onChecklistUpdate,
+    onClose,
+    onMsg,
+    onReload,
+    phase,
+    phaseLabel,
+    readOnly,
+    setBusy,
+  ]);
 
   useEffect(() => {
     if (!captureAreaId || !captureItems[itemIndex]) return;
@@ -268,8 +371,8 @@ export function TeamPreCleanWizard({
 
   useEffect(() => {
     if (readOnly || !captureAreaId) return;
-    writeCaptureSession(inquiryId, captureAreaId, itemIndex);
-  }, [captureAreaId, itemIndex, inquiryId, readOnly]);
+    writeCaptureSession(inquiryId, phase, captureAreaId, itemIndex);
+  }, [captureAreaId, itemIndex, inquiryId, phase, readOnly]);
 
   useEffect(() => {
     if (readOnly || !captureAreaId) return;
@@ -282,19 +385,27 @@ export function TeamPreCleanWizard({
 
   const exitCapture = useCallback(async () => {
     if (captureAreaId) {
-      writeCaptureSession(inquiryId, captureAreaId, itemIndex);
+      writeCaptureSession(inquiryId, phase, captureAreaId, itemIndex);
     }
     setCaptureAreaId(null);
     await onReload();
-  }, [captureAreaId, itemIndex, inquiryId, onReload]);
+    if (hideAreaGrid) onClose?.();
+  }, [captureAreaId, hideAreaGrid, itemIndex, inquiryId, onClose, onReload, phase]);
 
-  const beginCaptureForArea = (areaId: string, areasSource: InspectionArea[]) => {
+  const beginCaptureForArea = (
+    areaId: string,
+    areasSource: InspectionArea[],
+    forcedIdx?: number,
+  ) => {
     const area = areasSource.find((a) => a.id === areaId);
     if (!area || area.notApplicable) return;
     const items = visibleItems(area);
-    const saved = readCaptureSession(inquiryId);
-    let idx = findFirstIncompleteIndex(area);
-    if (saved?.areaId === areaId && typeof saved.idx === 'number') {
+    const saved = readCaptureSession(inquiryId, phase);
+    let idx =
+      typeof forcedIdx === 'number'
+        ? forcedIdx
+        : findFirstIncompleteIndex(area, phase);
+    if (typeof forcedIdx !== 'number' && saved?.areaId === areaId && typeof saved.idx === 'number') {
       idx = Math.min(Math.max(0, saved.idx), Math.max(0, items.length - 1));
     }
     setCaptureAreaId(areaId);
@@ -320,14 +431,33 @@ export function TeamPreCleanWizard({
       setItemIndex((i) => {
         if (i < areaItemsLength - 1) return i + 1;
         queueMicrotask(() => {
-          onMsg('이 구역의 청소 전 촬영을 마쳤습니다.');
+          const src = localChecklist.areas.filter((a) => !a.notApplicable);
+          const next = captureAreaId
+            ? findFirstIncompleteCaptureTarget(src, phase, captureAreaId)
+            : null;
+          if (hideAreaGrid && next) {
+            onMsg(`「${src.find((a) => a.id === next.areaId)?.label ?? '다음 구역'}」으로 이동합니다.`);
+            beginCaptureForArea(next.areaId, src, next.idx);
+            return;
+          }
+          if (!hideAreaGrid) {
+            onMsg(
+              isBeforePhase
+                ? '이 구역의 청소 전 촬영을 마쳤습니다.'
+                : '이 구역의 청소 후 촬영을 마쳤습니다.',
+            );
+          }
           setCaptureAreaId(null);
-          sessionStorage.removeItem(sessionKey(inquiryId));
+          sessionStorage.removeItem(sessionKey(inquiryId, phase));
+          if (hideAreaGrid) {
+            onMsg(`${phaseLabel} 촬영을 모두 마쳤습니다.`);
+            onClose?.();
+          }
         });
         return i;
       });
     },
-    [inquiryId, onMsg],
+    [captureAreaId, hideAreaGrid, inquiryId, isBeforePhase, localChecklist.areas, onClose, onMsg, phase, phaseLabel],
   );
 
   const uploadAndAdvance = useCallback(
@@ -339,7 +469,7 @@ export function TeamPreCleanWizard({
       onMsg(null);
       try {
         const prepared = await prepareImageFileForUpload(file);
-        const newPhotos = await uploadTeamInspectionPhotos(token, inquiryId, itemId, 'BEFORE', [prepared]);
+        const newPhotos = await uploadTeamInspectionPhotos(token, inquiryId, itemId, phase, [prepared]);
         setLocalChecklist((prev) => mergeItemPhotos(prev, itemId, newPhotos));
         scheduleBackgroundReload();
         advanceToNextItem(areaLen);
@@ -358,6 +488,7 @@ export function TeamPreCleanWizard({
       scheduleBackgroundReload,
       token,
       uploading,
+      phase,
     ],
   );
 
@@ -516,6 +647,7 @@ export function TeamPreCleanWizard({
       itemKey: currentItem.itemKey,
       label: currentItem.label,
       areaLabel: captureArea.label,
+      phase,
     });
     const areaBeforeEntries = collectAreaBeforePhotos(captureArea);
     const areaGallerySlides = areaBeforeEntries.map((entry) => ({
@@ -523,9 +655,8 @@ export function TeamPreCleanWizard({
       alt: `${captureArea.label} › ${entry.itemLabel} 청소 전`,
       title: `${captureArea.label} · ${entry.itemLabel}`,
     }));
-    const areaDoneCount = captureItems.filter((it) =>
-      isBeforeItemComplete({ notApplicable: it.notApplicable, beforeCount: itemBeforeCount(it) }),
-    ).length;
+    const areaDoneCount = captureItems.filter((it) => isPhaseItemComplete(it, phase)).length;
+    const shutterColor = isBeforePhase ? 'bg-sky-500' : 'bg-emerald-500';
 
     captureOverlay = (
       <div className="fixed inset-0 z-[200] flex flex-col bg-black text-white pt-[env(safe-area-inset-top)]">
@@ -572,7 +703,7 @@ export function TeamPreCleanWizard({
                 type="button"
                 onClick={() => {
                   setCaptureAreaId(null);
-                  sessionStorage.removeItem(sessionKey(inquiryId));
+                  sessionStorage.removeItem(sessionKey(inquiryId, phase));
                   onClose?.();
                 }}
                 disabled={busy || uploading}
@@ -584,8 +715,20 @@ export function TeamPreCleanWizard({
           </div>
 
           <div className="absolute inset-x-0 top-[4.25rem] z-10 px-4">
-            <div className="pointer-events-none mx-auto max-w-lg rounded-xl border border-sky-400/40 bg-black/55 px-4 py-3 backdrop-blur-md">
-              <p className="text-[11px] font-bold tracking-wide text-sky-300">촬영 가이드</p>
+            <div
+              className={`pointer-events-none mx-auto max-w-lg rounded-xl border px-4 py-3 backdrop-blur-md ${
+                isBeforePhase
+                  ? 'border-sky-400/40 bg-black/55'
+                  : 'border-emerald-400/40 bg-black/55'
+              }`}
+            >
+              <p
+                className={`text-[11px] font-bold tracking-wide ${
+                  isBeforePhase ? 'text-sky-300' : 'text-emerald-300'
+                }`}
+              >
+                {phaseLabel} 촬영 가이드
+              </p>
               <p className="mt-1.5 text-sm font-medium leading-snug text-white">{hint}</p>
             </div>
           </div>
@@ -616,7 +759,7 @@ export function TeamPreCleanWizard({
               className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full border-4 border-white bg-white/95 shadow-lg touch-manipulation active:scale-95 disabled:opacity-50"
               aria-label="촬영"
             >
-              <span className="block h-[3.25rem] w-[3.25rem] rounded-full bg-sky-500" />
+              <span className={`block h-[3.25rem] w-[3.25rem] rounded-full ${shutterColor}`} />
             </button>
 
             <button
@@ -633,7 +776,7 @@ export function TeamPreCleanWizard({
             셔터를 누르면 저장 후 다음 항목으로 자동 이동합니다
           </p>
 
-          {areaBeforeEntries.length > 0 && (
+          {isBeforePhase && areaBeforeEntries.length > 0 && (
             <div className="mt-3 border-t border-white/10 pt-3">
               <p className="mb-2 text-center text-[10px] text-gray-400">
                 등록 {areaBeforeEntries.length}장 · {areaDoneCount}/{captureItems.length} 완료 · ☆ 오염 심함 표시
@@ -685,25 +828,32 @@ export function TeamPreCleanWizard({
   return (
     <>
       {captureOverlay ? createPortal(captureOverlay, document.body) : null}
+      {!hideAreaGrid && (
     <section className="space-y-3" aria-hidden={inCaptureMode ? true : undefined}>
       <div className="grid grid-cols-2 gap-2">
         {areas.map((area) => {
           const items = visibleItems(area);
+          const itemStats = items.map((it) => ({
+            notApplicable: it.notApplicable,
+            beforeCount: itemPhaseCount(it, 'BEFORE'),
+            afterCount: itemPhaseCount(it, 'AFTER'),
+          }));
           const { beforeDone, total } = countBeforeItemProgress(
-            items.map((it) => ({
-              notApplicable: it.notApplicable,
-              beforeCount: itemBeforeCount(it),
-            })),
+            itemStats.map(({ notApplicable, beforeCount }) => ({ notApplicable, beforeCount })),
+          );
+          const { afterDone } = countAfterItemProgress(
+            itemStats.map(({ notApplicable, afterCount }) => ({ notApplicable, afterCount })),
           );
           const complete =
             area.notApplicable ||
             (items.length > 0 &&
-              isBeforeAreaItemsComplete(
-                items.map((it) => ({
-                  notApplicable: it.notApplicable,
-                  beforeCount: itemBeforeCount(it),
-                })),
-              ));
+              (isBeforePhase
+                ? isBeforeAreaItemsComplete(
+                    itemStats.map(({ notApplicable, beforeCount }) => ({ notApplicable, beforeCount })),
+                  )
+                : isAfterAreaItemsComplete(
+                    itemStats.map(({ notApplicable, afterCount }) => ({ notApplicable, afterCount })),
+                  )));
 
           return (
             <div
@@ -730,16 +880,17 @@ export function TeamPreCleanWizard({
                 </div>
               </div>
               <p className="mt-1 text-fluid-2xs text-gray-600">
-                {area.notApplicable ? '해당없음' : `청소 전 ${beforeDone}/${total}`}
+                {area.notApplicable
+                  ? '해당없음'
+                  : isBeforePhase
+                    ? `청소 전 ${beforeDone}/${total}`
+                    : `청소 후 ${afterDone}/${total}`}
               </p>
 
               {!area.notApplicable && items.length > 0 && (
                 <ul className="mt-2 grid grid-cols-2 gap-x-1.5 gap-y-1" aria-label={`${area.label} 촬영 항목`}>
                   {items.map((it) => {
-                    const done = isBeforeItemComplete({
-                      notApplicable: it.notApplicable,
-                      beforeCount: itemBeforeCount(it),
-                    });
+                    const done = isPhaseItemComplete(it, phase);
                     return (
                       <li
                         key={it.id}
@@ -776,8 +927,9 @@ export function TeamPreCleanWizard({
                         onClick={() => void startCapture(area.id)}
                         className="min-h-[32px] rounded-lg bg-gray-900 px-2 py-1 text-[11px] font-semibold text-white touch-manipulation disabled:opacity-50"
                       >
-                        촬영 시작
+                        {isBeforePhase ? '촬영 시작' : '청소 후 촬영'}
                       </button>
+                      {isBeforePhase && (
                       <div className="grid grid-cols-2 gap-1">
                         <ShareAreaBeforePhotosButton
                           token={token}
@@ -798,6 +950,7 @@ export function TeamPreCleanWizard({
                           해당없음
                         </button>
                       </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -807,6 +960,7 @@ export function TeamPreCleanWizard({
         })}
       </div>
     </section>
+      )}
     </>
   );
 }

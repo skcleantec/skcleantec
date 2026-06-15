@@ -41,10 +41,18 @@ export function getInspectionCaptureHint(params: {
   itemKey: string;
   label: string;
   areaLabel: string;
+  phase?: 'BEFORE' | 'AFTER';
 }): string {
   const keyHint = HINTS[params.itemKey];
-  if (keyHint) {
-    return `「${params.areaLabel} › ${params.label}」 — ${keyHint}`;
+  const subject = `「${params.areaLabel} › ${params.label}」`;
+  if (params.phase === 'AFTER') {
+    if (keyHint) {
+      return `${subject} — 청소 후 상태가 보이도록, 같은 각도로 촬영해 주세요.`;
+    }
+    return `${subject} — 청소 후 깨끗한 상태가 잘 보이도록, 해당 부위 전체와 모서리·틈새를 함께 촬영해 주세요.`;
   }
-  return `「${params.areaLabel} › ${params.label}」 — 청소 전 상태가 잘 보이도록, 해당 부위 전체와 모서리·틈새를 함께 촬영해 주세요.`;
+  if (keyHint) {
+    return `${subject} — ${keyHint}`;
+  }
+  return `${subject} — 청소 전 상태가 잘 보이도록, 해당 부위 전체와 모서리·틈새를 함께 촬영해 주세요.`;
 }

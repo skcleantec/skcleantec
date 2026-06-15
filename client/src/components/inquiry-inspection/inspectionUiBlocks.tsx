@@ -84,15 +84,18 @@ export function InspectionItemCard({
 
   const showBefore = photoMode === 'before-only' || photoMode === 'both';
   const showAfter = photoMode === 'after-only' || photoMode === 'both';
-  const beforeReadOnly = photoMode === 'after-only';
-  const afterReadOnly = photoMode === 'before-only';
+  const showSplit = showBefore && showAfter;
+  const beforeReadOnly = readOnly || photoMode === 'after-only';
+  const afterReadOnly = readOnly || photoMode === 'before-only';
 
   return (
     <div
-      className={`rounded-lg border p-2.5 ${complete ? 'border-emerald-200 bg-emerald-50/30' : 'border-gray-100 bg-gray-50/50'}`}
+      className={`overflow-hidden rounded-xl border ${
+        complete ? 'border-emerald-300 bg-white shadow-sm' : 'border-gray-200 bg-white'
+      }`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-fluid-xs font-medium text-gray-900">
+      <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-3 py-2">
+        <span className="min-w-0 truncate text-fluid-xs font-semibold text-gray-900">
           {item.label}
           {item.isCustom && <span className="ml-1 text-fluid-2xs font-normal text-blue-700">(추가)</span>}
         </span>
@@ -101,10 +104,10 @@ export function InspectionItemCard({
             type="button"
             disabled={busy}
             onClick={() => onToggleNa(!item.notApplicable)}
-            className={`shrink-0 rounded-lg border px-2.5 py-1.5 min-h-[36px] text-fluid-2xs touch-manipulation sm:min-h-0 sm:px-1.5 sm:py-0.5 sm:text-[10px] ${
+            className={`shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium touch-manipulation ${
               item.notApplicable
-                ? 'border-amber-600 bg-amber-50 text-amber-900'
-                : 'border-gray-300 bg-white text-gray-600'
+                ? 'border-amber-500 bg-amber-50 text-amber-900'
+                : 'border-gray-300 bg-gray-50 text-gray-600'
             }`}
           >
             해당없음
@@ -113,19 +116,43 @@ export function InspectionItemCard({
       </div>
 
       {item.notApplicable ? (
-        <div className="mt-1.5 space-y-1">
-          <p className="text-[10px] text-amber-900/90 leading-snug">{INSPECTION_NA_CUSTOMER_NOTICE}</p>
+        <div className="space-y-1 bg-amber-50/40 px-3 py-2.5">
+          <p className="text-[10px] leading-snug text-amber-900/90">{INSPECTION_NA_CUSTOMER_NOTICE}</p>
           <p className="text-fluid-2xs text-gray-700">{formatInspectionNaReason(item.naReason)}</p>
         </div>
+      ) : showSplit ? (
+        <div className="grid grid-cols-2 divide-x divide-gray-200">
+          {renderPhotoColumn({
+            phase: 'BEFORE',
+            label: '청소 전',
+            items: item.photos.filter((p) => p.phase === 'BEFORE'),
+            readOnly: beforeReadOnly,
+            busy,
+            split: true,
+            onUpload,
+            onDeletePhoto,
+          })}
+          {renderPhotoColumn({
+            phase: 'AFTER',
+            label: '청소 후',
+            items: item.photos.filter((p) => p.phase === 'AFTER'),
+            readOnly: afterReadOnly,
+            busy,
+            split: true,
+            onUpload,
+            onDeletePhoto,
+          })}
+        </div>
       ) : (
-        <div className={`mt-2 grid gap-2 ${showBefore && showAfter ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
+        <div className="p-2">
           {showBefore &&
             renderPhotoColumn({
               phase: 'BEFORE',
               label: '청소 전',
               items: item.photos.filter((p) => p.phase === 'BEFORE'),
-              readOnly: readOnly || beforeReadOnly,
+              readOnly: beforeReadOnly,
               busy,
+              split: false,
               onUpload,
               onDeletePhoto,
             })}
@@ -134,8 +161,9 @@ export function InspectionItemCard({
               phase: 'AFTER',
               label: '청소 후',
               items: item.photos.filter((p) => p.phase === 'AFTER'),
-              readOnly: readOnly || afterReadOnly,
+              readOnly: afterReadOnly,
               busy,
+              split: false,
               onUpload,
               onDeletePhoto,
             })}
@@ -151,50 +179,85 @@ function renderPhotoColumn(params: {
   items: InspectionItem['photos'];
   readOnly: boolean;
   busy: boolean;
+  split: boolean;
   onUpload: (phase: 'BEFORE' | 'AFTER', files: FileList | null) => void;
   onDeletePhoto: (photoId: string) => void;
 }) {
+  const isBefore = params.phase === 'BEFORE';
+  const hasPhotos = params.items.length > 0;
+  const headerTone = isBefore
+    ? 'border-sky-100 bg-sky-50 text-sky-800'
+    : 'border-emerald-100 bg-emerald-50 text-emerald-800';
+  const emptyTone = isBefore
+    ? 'border-sky-200/70 bg-sky-50/40 text-sky-600/70'
+    : 'border-emerald-200/70 bg-emerald-50/40 text-emerald-600/70';
+  const addTone = isBefore
+    ? 'border-sky-200 bg-sky-50/50 text-sky-800 hover:bg-sky-100/80'
+    : 'border-emerald-200 bg-emerald-50/50 text-emerald-800 hover:bg-emerald-100/80';
+
   return (
-    <div className="min-w-0">
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="text-fluid-2xs font-medium text-gray-600 sm:text-fluid-xs">{params.label}</span>
-        {!params.readOnly && (
-          <label className="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center rounded-xl border border-blue-600 bg-blue-50 px-4 py-2.5 text-fluid-xs font-semibold text-blue-900 shadow-sm touch-manipulation active:scale-[0.98] has-[:disabled]:opacity-50 sm:min-h-[36px] sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-fluid-2xs sm:font-medium">
-            사진 추가
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              capture="environment"
-              className="hidden"
-              disabled={params.busy}
-              onChange={(e) => {
-                params.onUpload(params.phase, e.target.files);
-                e.target.value = '';
-              }}
-            />
-          </label>
+    <div className={`flex min-w-0 flex-col ${params.split ? 'min-h-[7.5rem]' : ''}`}>
+      <div
+        className={`border-b px-2 py-1.5 text-center text-[10px] font-bold tracking-wide ${headerTone}`}
+      >
+        {params.label}
+        {hasPhotos ? (
+          <span className="ml-1 font-normal opacity-80">({params.items.length})</span>
+        ) : null}
+      </div>
+
+      <div className={`flex flex-1 flex-col ${params.split ? 'p-1.5' : 'mt-1.5'}`}>
+        {hasPhotos ? (
+          <div className="grid grid-cols-2 gap-1.5">
+            {params.items.map((p) => (
+              <div key={p.id} className="relative aspect-square min-w-0">
+                <img
+                  src={p.secureUrl}
+                  alt={params.label}
+                  className="h-full w-full rounded-md border border-gray-200/80 object-cover"
+                />
+                {!params.readOnly && (
+                  <button
+                    type="button"
+                    disabled={params.busy}
+                    onClick={() => params.onDeletePhoto(p.id)}
+                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900/90 text-[10px] font-bold text-white touch-manipulation"
+                    aria-label="사진 삭제"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className={`flex flex-1 items-center justify-center rounded-md border border-dashed px-2 py-4 text-[10px] ${emptyTone}`}
+          >
+            없음
+          </div>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">
-        {params.items.map((p) => (
-          <div key={p.id} className="relative">
-            <img src={p.secureUrl} alt={params.label} className="h-20 w-20 rounded-lg object-cover border border-gray-200 sm:h-16 sm:w-16" />
-            {!params.readOnly && (
-              <button
-                type="button"
-                disabled={params.busy}
-                onClick={() => params.onDeletePhoto(p.id)}
-                className="absolute -right-1.5 -top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-gray-900/85 text-xs font-bold text-white touch-manipulation sm:h-5 sm:w-5 sm:text-[10px]"
-                aria-label="사진 삭제"
-              >
-                ×
-              </button>
-            )}
-          </div>
-        ))}
-        {!params.items.length && <span className="text-fluid-2xs text-gray-400 py-2">없음</span>}
-      </div>
+
+      {!params.readOnly && (
+        <label
+          className={`mx-1.5 mb-1.5 flex cursor-pointer items-center justify-center rounded-md border py-1.5 text-[10px] font-semibold touch-manipulation active:scale-[0.98] has-[:disabled]:opacity-50 ${addTone} ${params.split ? '' : 'mt-1'}`}
+        >
+          + 사진 추가
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            capture="environment"
+            className="hidden"
+            disabled={params.busy}
+            onChange={(e) => {
+              params.onUpload(params.phase, e.target.files);
+              e.target.value = '';
+            }}
+          />
+        </label>
+      )}
     </div>
   );
 }

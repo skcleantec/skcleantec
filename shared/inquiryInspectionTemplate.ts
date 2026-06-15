@@ -121,6 +121,29 @@ export function countBeforeItemProgress(
   return { beforeDone, total: items.length };
 }
 
+/** 청소 후 촬영만 — 사진 1장 또는 해당없음 */
+export function isAfterItemComplete(params: { notApplicable: boolean; afterCount: number }): boolean {
+  if (params.notApplicable) return true;
+  return params.afterCount >= 1;
+}
+
+export function isAfterAreaItemsComplete(
+  items: ReadonlyArray<{ notApplicable: boolean; afterCount: number }>,
+): boolean {
+  if (!items.length) return false;
+  return items.every((it) => isAfterItemComplete(it));
+}
+
+export function countAfterItemProgress(
+  items: ReadonlyArray<{ notApplicable: boolean; afterCount: number }>,
+): { afterDone: number; total: number } {
+  let afterDone = 0;
+  for (const it of items) {
+    if (isAfterItemComplete(it)) afterDone += 1;
+  }
+  return { afterDone, total: items.length };
+}
+
 export function isItemComplete(params: {
   notApplicable: boolean;
   naReason: string | null | undefined;
