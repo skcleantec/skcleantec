@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   fetchReviewPaybackPublicMeta,
   submitReviewPayback,
@@ -32,8 +33,77 @@ const BANK_OPTIONS = [
 const STEPS = [
   { title: '리뷰 캡처', desc: '작성한 리뷰 화면을 촬영·업로드' },
   { title: '입금 계좌', desc: '페이백 받을 계좌 정보 입력' },
-  { title: '신청 완료', desc: '확인 후 순차 입금' },
+  { title: '신청 완료', desc: '영업일 기준 5일 이내 입금' },
 ] as const;
+
+function ReviewPaybackCompleteModal({
+  customerName,
+  onConfirm,
+}: {
+  customerName: string;
+  onConfirm: () => void;
+}) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-[fadeIn_150ms_ease-out]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="review-payback-complete-title"
+    >
+      <div
+        className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+        onClick={(e) => e.stopPropagation()}
+        role="presentation"
+      >
+        <div className="flex flex-col items-center px-6 pb-5 pt-7 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 ring-8 ring-emerald-50/60">
+            <svg
+              className="h-7 w-7 text-emerald-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 id="review-payback-complete-title" className="mt-4 text-base font-semibold tracking-tight text-slate-900">
+            페이백 신청이 접수되었습니다
+          </h2>
+          <p className="mt-2 text-[15px] leading-relaxed text-slate-700">
+            {customerName ? (
+              <>
+                <span className="font-medium text-slate-900">{customerName}</span>님, 신청이 정상적으로 저장되었습니다.
+              </>
+            ) : (
+              '신청이 정상적으로 저장되었습니다.'
+            )}
+          </p>
+          <p className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/80 px-3.5 py-3 text-fluid-sm leading-relaxed text-emerald-950">
+            리뷰 확인 후 <span className="font-semibold">영업일 기준 5일 이내</span>에 등록하신 계좌로 입금됩니다.
+          </p>
+          <p className="mt-3 text-fluid-xs text-slate-500 leading-relaxed">
+            전화·카톡으로 별도 연락하실 필요 없습니다.
+          </p>
+        </div>
+        <div className="flex justify-center border-t border-slate-100 bg-slate-50/60 px-4 py-3">
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="w-full min-h-[44px] rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.99] touch-manipulation"
+            autoFocus
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 function PageShell({
   brandName,
@@ -92,6 +162,7 @@ export function ReviewPaybackPage() {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -170,7 +241,7 @@ export function ReviewPaybackPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit || !token) return;
+    if (!canSubmit || !token || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -180,6 +251,8 @@ export function ReviewPaybackPage() {
         reviewImages: images,
       });
       setSubmitted(true);
+      setAlreadySubmitted(true);
+      setCompleteModalOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : '신청에 실패했습니다.');
     } finally {
@@ -201,6 +274,12 @@ export function ReviewPaybackPage() {
   if (submitted || alreadySubmitted) {
     return (
       <PageShell brandName={brandName} customerName={customerName}>
+        {completeModalOpen ? (
+          <ReviewPaybackCompleteModal
+            customerName={customerName}
+            onConfirm={() => setCompleteModalOpen(false)}
+          />
+        ) : null}
         <div className="bg-white rounded-2xl shadow-xl shadow-slate-300/40 border border-slate-100 px-6 py-10 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 border border-emerald-100">
             <svg className="h-7 w-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -210,13 +289,13 @@ export function ReviewPaybackPage() {
           <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">페이백 신청이 접수되었습니다</h2>
           <p className="text-fluid-sm text-slate-600 leading-relaxed max-w-sm mx-auto">
             {customerName ? `${customerName}님, ` : ''}
-            리뷰 확인 후 순차적으로 입금 처리됩니다.
+            리뷰 확인 후 <span className="font-medium text-slate-800">영업일 기준 5일 이내</span>에 입금됩니다.
             <br />
             <span className="text-slate-500">전화·카톡으로 별도 연락하실 필요 없습니다.</span>
           </p>
           <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-fluid-xs text-slate-600">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-            접수 완료 · 처리 대기
+            접수 완료 · 입금 대기
           </div>
         </div>
       </PageShell>

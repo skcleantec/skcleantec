@@ -1,6 +1,5 @@
 import { API } from './apiPrefix';
-import { resolveInitialTenantSlug } from '../utils/tenantHostResolve';
-import { resolvePublicBrandSlug } from '../utils/publicTenantQuery';
+import { appendPublicQuery } from '../utils/publicTenantQuery';
 
 function authHeaders(token: string) {
   return {
@@ -48,14 +47,13 @@ export type ReviewPaybackListItem = {
   } | null;
 };
 
-function publicQueryString(): string {
-  const slug = resolveInitialTenantSlug();
-  const brand = resolvePublicBrandSlug();
-  const qs = new URLSearchParams();
-  if (slug) qs.set('slug', slug);
-  if (brand) qs.set('brand', brand);
-  const s = qs.toString();
-  return s ? `?${s}` : '';
+const SUBMIT_TIMEOUT_MS = 90_000;
+
+async function parseReviewPaybackError(res: Response): Promise<never> {
+  const j = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+  const err = new Error(j.error || '요청에 실패했습니다.') as Error & { code?: string };
+  if (j.code) err.code = j.code;
+  throw err;
 }
 
 export async function fetchReviewPaybackPublicMeta(token: string): Promise<{
@@ -63,11 +61,8 @@ export async function fetchReviewPaybackPublicMeta(token: string): Promise<{
   alreadySubmitted: boolean;
   submittedAt: string | null;
 }> {
-  const res = await fetch(`${API}/public/review-payback/${encodeURIComponent(token)}${publicQueryString()}`);
-  if (!res.ok) {
-    const j = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(j.error || '페이지 정보를 불러올 수 없습니다.');
-  }
+  const res = await fetch(appendPublicQuery(`${API}/public/review-payback/${encodeURIComponent(token)}`));
+  if (!res.ok) await parseReviewPaybackError(res);
   return res.json();
 }
 
@@ -75,13 +70,10 @@ export async function uploadReviewPaybackImage(token: string, file: File): Promi
   const fd = new FormData();
   fd.append('image', file);
   const res = await fetch(
-    `${API}/public/review-payback/${encodeURIComponent(token)}/upload${publicQueryString()}`,
+    appendPublicQuery(`${API}/public/review-payback/${encodeURIComponent(token)}/upload`),
     { method: 'POST', body: fd },
   );
-  if (!res.ok) {
-    const j = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(j.error || '이미지 업로드에 실패했습니다.');
-  }
+  if (!res.ok) await parseReviewPaybackError(res);
   return res.json();
 }
 
@@ -93,19 +85,35 @@ export async function submitReviewPayback(
     reviewImages: ReviewPaybackImageItem[];
   },
 ): Promise<{ ok: boolean; submittedAt: string }> {
-  const res = await fetch(
-    `${API}/public/review-payback/${encodeURIComponent(token)}/submit${publicQueryString()}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) {
-    const j = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(j.error || '신청에 실패했습니다.');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SUBMIT_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      appendPublicQuery(`${API}/public/review-payback/${encodeURIComponent(token)}/submit`),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      },
+    );
+    if (res.status === 409) {
+      const j = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+      if (j.code === 'ALREADY_SUBMITTED') {
+        return { ok: true, submittedAt: new Date().toISOString() };
+      }
+      throw new Error(j.error || '이미 신청이 완료되었습니다.');
+    }
+    if (!res.ok) await parseReviewPaybackError(res);
+    return res.json();
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('제출 시간이 초과되었습니다. 네트워크 확인 후 다시 시도해 주세요.');
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
 }
 
 export async function getReviewPaybackUnseenCount(token: string): Promise<number> {
@@ -117,10 +125,7 @@ export async function getReviewPaybackUnseenCount(token: string): Promise<number
 
 export async function getReviewPayback(token: string, id: string): Promise<ReviewPaybackListItem> {
   const res = await fetch(`${API}/review-paybacks/${encodeURIComponent(id)}`, { headers: authHeaders(token) });
-  if (!res.ok) {
-    const j = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(j.error || '상세를 불러올 수 없습니다.');
-  }
+  if (!res.ok) await parseReviewPaybackError(res);
   return res.json();
 }
 
@@ -139,10 +144,7 @@ export async function listReviewPaybacks(
     if (v !== undefined && v !== '') qs.set(k, String(v));
   }
   const res = await fetch(`${API}/review-paybacks?${qs.toString()}`, { headers: authHeaders(token) });
-  if (!res.ok) {
-    const j = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(j.error || '목록을 불러올 수 없습니다.');
-  }
+  if (!res.ok) await parseReviewPaybackError(res);
   return res.json();
 }
 
@@ -156,10 +158,7 @@ export async function patchReviewPayback(
     headers: authHeaders(token),
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const j = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(j.error || '저장에 실패했습니다.');
-  }
+  if (!res.ok) await parseReviewPaybackError(res);
   return res.json();
 }
 

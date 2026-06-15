@@ -15,17 +15,24 @@ import {
 import { uploadReviewPaybackImageBuffer } from './reviewPayback.upload.js';
 import { notifyReviewPaybackSubmitted } from './reviewPaybackNotify.js';
 import { normalizeReviewPaybackImagesInput } from './reviewPayback.images.js';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
 
 function sendPaybackError(res: import('express').Response, e: unknown): void {
+  if (res.headersSent) return;
   if (e instanceof ReviewPaybackError) {
     res.status(e.status).json({ error: e.message, code: e.code });
     return;
   }
-  throw e;
+  if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+    res.status(409).json({ error: '이미 페이백 신청이 완료되었습니다.', code: 'ALREADY_SUBMITTED' });
+    return;
+  }
+  console.error('[review-payback]', e);
+  res.status(500).json({ error: '처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
 }
 
 /** 공개: 페이백 페이지 메타 (이미 신청 여부) */
@@ -148,14 +155,16 @@ router.post('/:token/submit', async (req, res) => {
       accountNumber: body.accountNumber.trim(),
       reviewImages,
     });
-    await notifyReviewPaybackSubmitted({
+    res.status(201).json({ ok: true, submittedAt: created.submittedAt.toISOString() });
+    void notifyReviewPaybackSubmitted({
       tenantId: created.tenantId,
       requestId: created.id,
       customerName: created.customerName,
       orderFormId: created.orderFormId,
       inquiryId: created.inquiryId,
+    }).catch((err) => {
+      console.error('[review-payback-submit] notify failed:', err);
     });
-    res.status(201).json({ ok: true, submittedAt: created.submittedAt.toISOString() });
   } catch (e) {
     sendPaybackError(res, e);
   }

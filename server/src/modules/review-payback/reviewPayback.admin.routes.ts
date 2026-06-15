@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
@@ -19,11 +19,17 @@ router.use(adminOrMarketer);
 const DEFAULT_PAGE_SIZE = 30;
 
 function sendPaybackError(res: import('express').Response, e: unknown): void {
+  if (res.headersSent) return;
   if (e instanceof ReviewPaybackError) {
     res.status(e.status).json({ error: e.message, code: e.code });
     return;
   }
-  throw e;
+  if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+    res.status(409).json({ error: '이미 페이백 신청이 완료되었습니다.', code: 'ALREADY_SUBMITTED' });
+    return;
+  }
+  console.error('[review-payback-admin]', e);
+  res.status(500).json({ error: '처리 중 오류가 발생했습니다.' });
 }
 
 /** 미확인(PENDING·seenAt null) 건수 — 메뉴 배지 */

@@ -7,8 +7,9 @@ import { resolveTenantBySlug, TenantNotFoundError } from './tenant.service.js';
 export async function resolvePublicTenantIdFromRequest(req: Request): Promise<string> {
   const body = req.body as { tenantSlug?: unknown };
   const bodySlug = typeof body?.tenantSlug === 'string' ? body.tenantSlug.trim() : '';
-  const querySlug = typeof req.query?.tenant === 'string' ? req.query.tenant.trim() : '';
-  const slugCandidate = bodySlug || querySlug;
+  const queryTenant = typeof req.query?.tenant === 'string' ? req.query.tenant.trim() : '';
+  const querySlug = typeof req.query?.slug === 'string' ? req.query.slug.trim() : '';
+  const slugCandidate = bodySlug || queryTenant || querySlug;
 
   if (slugCandidate) {
     try {
