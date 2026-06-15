@@ -15,6 +15,7 @@ import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
 import { TeamPreCleanWizard } from './TeamPreCleanWizard';
 import { isBeforeItemComplete } from '@shared/inquiryInspectionTemplate';
 import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
+import { RoundBackButton } from '../../components/ui/RoundBackButton';
 
 function countBeforeProgress(checklist: InspectionChecklistDto) {
   let beforeDone = 0;
@@ -104,13 +105,7 @@ export function TeamPreCleanPhotoPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 pb-24">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={goBack}
-          className="text-fluid-xs text-blue-700 underline touch-manipulation"
-        >
-          ← 이전
-        </button>
+        <RoundBackButton onClick={goBack} />
         <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-fluid-2xs font-medium text-sky-900">
           청소 전 촬영
         </span>

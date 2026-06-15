@@ -20,6 +20,7 @@ import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
 import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
+import { RoundBackButton } from '../../components/ui/RoundBackButton';
 
 export function TeamInspectionPage() {
   const { inquiryId = '' } = useParams<{ inquiryId: string }>();
@@ -118,13 +119,7 @@ export function TeamInspectionPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 pb-24">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={goBack}
-          className="text-fluid-xs text-blue-700 underline touch-manipulation"
-        >
-          ← 이전
-        </button>
+        <RoundBackButton onClick={goBack} />
         <div className="flex flex-wrap items-center gap-2">
           {!readOnly && (
             <Link
