@@ -25,11 +25,10 @@ export function isInquiryOrderFormPendingSubmit(row: InquiryListSortable): boole
   );
 }
 
-/** 0=미제출 최상단, 1=예약완료(RECEIVED) 외, 2=예약완료(RECEIVED) */
+/** 0=미제출 최상단, 1=그 외 — 본문은 접수일(createdAt) 최신순만 적용 */
 export function inquiryListSortTier(row: InquiryListSortable): number {
   if (isInquiryOrderFormPendingSubmit(row)) return 0;
-  if (row.status !== 'RECEIVED') return 1;
-  return 2;
+  return 1;
 }
 
 function toSortMs(d: string | Date | null | undefined): number {
