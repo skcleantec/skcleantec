@@ -16,6 +16,7 @@ import {
   INSPECTION_FINAL_CONFIRM_NOTICE,
 } from '@shared/inquiryInspectionConsent';
 import type { InspectionArea, InspectionChecklistDto, InspectionItem } from '../../api/inquiryInspection';
+import { ImageThumbLightbox, type ImageGallerySlide } from '../ui/ImageThumbLightbox';
 
 export type InspectionPhotoMode = 'before-only' | 'after-only' | 'both';
 
@@ -62,6 +63,7 @@ export function InspectionItemCard({
   readOnly,
   busy,
   photoMode,
+  enablePhotoLightbox,
   onToggleNa,
   onUpload,
   onDeletePhoto,
@@ -70,6 +72,8 @@ export function InspectionItemCard({
   readOnly: boolean;
   busy: boolean;
   photoMode: InspectionPhotoMode;
+  /** 고객 열람 등 — 탭 시 크게 보기·저장 */
+  enablePhotoLightbox?: boolean;
   onToggleNa: (na: boolean) => void;
   onUpload: (phase: 'BEFORE' | 'AFTER', files: FileList | null) => void;
   onDeletePhoto: (photoId: string) => void;
@@ -125,20 +129,24 @@ export function InspectionItemCard({
           {renderPhotoColumn({
             phase: 'BEFORE',
             label: '청소 전',
+            itemLabel: item.label,
             items: item.photos.filter((p) => p.phase === 'BEFORE'),
             readOnly: beforeReadOnly,
             busy,
             split: true,
+            enableLightbox: enablePhotoLightbox,
             onUpload,
             onDeletePhoto,
           })}
           {renderPhotoColumn({
             phase: 'AFTER',
             label: '청소 후',
+            itemLabel: item.label,
             items: item.photos.filter((p) => p.phase === 'AFTER'),
             readOnly: afterReadOnly,
             busy,
             split: true,
+            enableLightbox: enablePhotoLightbox,
             onUpload,
             onDeletePhoto,
           })}
@@ -149,10 +157,12 @@ export function InspectionItemCard({
             renderPhotoColumn({
               phase: 'BEFORE',
               label: '청소 전',
+              itemLabel: item.label,
               items: item.photos.filter((p) => p.phase === 'BEFORE'),
               readOnly: beforeReadOnly,
               busy,
               split: false,
+              enableLightbox: enablePhotoLightbox,
               onUpload,
               onDeletePhoto,
             })}
@@ -160,10 +170,12 @@ export function InspectionItemCard({
             renderPhotoColumn({
               phase: 'AFTER',
               label: '청소 후',
+              itemLabel: item.label,
               items: item.photos.filter((p) => p.phase === 'AFTER'),
               readOnly: afterReadOnly,
               busy,
               split: false,
+              enableLightbox: enablePhotoLightbox,
               onUpload,
               onDeletePhoto,
             })}
@@ -176,10 +188,12 @@ export function InspectionItemCard({
 function renderPhotoColumn(params: {
   phase: 'BEFORE' | 'AFTER';
   label: string;
+  itemLabel: string;
   items: InspectionItem['photos'];
   readOnly: boolean;
   busy: boolean;
   split: boolean;
+  enableLightbox?: boolean;
   onUpload: (phase: 'BEFORE' | 'AFTER', files: FileList | null) => void;
   onDeletePhoto: (photoId: string) => void;
 }) {
@@ -195,6 +209,13 @@ function renderPhotoColumn(params: {
     ? 'border-sky-200 bg-sky-50/50 text-sky-800 hover:bg-sky-100/80'
     : 'border-emerald-200 bg-emerald-50/50 text-emerald-800 hover:bg-emerald-100/80';
 
+  const gallerySlides: ImageGallerySlide[] = params.items.map((p, idx) => ({
+    src: p.secureUrl,
+    alt: `${params.itemLabel} ${params.label} ${idx + 1}`,
+    title: `${params.itemLabel} · ${params.label}`,
+    downloadFilename: `${sanitizeFilenamePart(params.itemLabel)}_${isBefore ? 'before' : 'after'}_${idx + 1}.jpg`,
+  }));
+
   return (
     <div className={`flex min-w-0 flex-col ${params.split ? 'min-h-[7.5rem]' : ''}`}>
       <div
@@ -206,22 +227,37 @@ function renderPhotoColumn(params: {
         ) : null}
       </div>
 
-      <div className={`flex flex-1 flex-col ${params.split ? 'p-1.5' : 'mt-1.5'}`}>
+      <div className={`flex flex-1 flex-col items-center ${params.split ? 'p-1.5' : 'mt-1.5'}`}>
         {hasPhotos ? (
-          <div className="grid grid-cols-2 gap-1.5">
-            {params.items.map((p) => (
-              <div key={p.id} className="relative aspect-square min-w-0">
-                <img
-                  src={p.secureUrl}
-                  alt={params.label}
-                  className="h-full w-full rounded-md border border-gray-200/80 object-cover"
-                />
+          <div className="flex w-full flex-wrap justify-center gap-1.5">
+            {params.items.map((p, idx) => (
+              <div
+                key={p.id}
+                className="relative aspect-square w-[calc(50%-0.375rem)] max-w-[9rem] min-w-[4.5rem]"
+              >
+                {params.enableLightbox ? (
+                  <ImageThumbLightbox
+                    src={p.secureUrl}
+                    alt={`${params.label} ${idx + 1}`}
+                    gallerySlides={gallerySlides}
+                    galleryIndex={idx}
+                    showDownload
+                    thumbClassName="h-full w-full rounded-md border border-gray-200/80 object-cover"
+                    buttonClassName="block h-full w-full overflow-hidden rounded-md touch-manipulation ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  />
+                ) : (
+                  <img
+                    src={p.secureUrl}
+                    alt={params.label}
+                    className="h-full w-full rounded-md border border-gray-200/80 object-cover"
+                  />
+                )}
                 {!params.readOnly && (
                   <button
                     type="button"
                     disabled={params.busy}
                     onClick={() => params.onDeletePhoto(p.id)}
-                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900/90 text-[10px] font-bold text-white touch-manipulation"
+                    className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900/90 text-[10px] font-bold text-white touch-manipulation"
                     aria-label="사진 삭제"
                   >
                     ×
@@ -232,7 +268,7 @@ function renderPhotoColumn(params: {
           </div>
         ) : (
           <div
-            className={`flex flex-1 items-center justify-center rounded-md border border-dashed px-2 py-4 text-[10px] ${emptyTone}`}
+            className={`flex w-full flex-1 items-center justify-center rounded-md border border-dashed px-2 py-4 text-center text-[10px] ${emptyTone}`}
           >
             없음
           </div>
@@ -262,11 +298,17 @@ function renderPhotoColumn(params: {
   );
 }
 
+function sanitizeFilenamePart(raw: string): string {
+  const t = raw.trim().replace(/[^\w\uAC00-\uD7A3.-]+/g, '_').slice(0, 40);
+  return t || 'photo';
+}
+
 export function InspectionAreaSection({
   area,
   readOnly,
   busy,
   photoMode,
+  enablePhotoLightbox,
   defaultOpen,
   onToggleAreaNa,
   onAddItem,
@@ -281,6 +323,7 @@ export function InspectionAreaSection({
   readOnly: boolean;
   busy: boolean;
   photoMode: InspectionPhotoMode;
+  enablePhotoLightbox?: boolean;
   defaultOpen?: boolean;
   onToggleAreaNa?: (na: boolean) => void;
   onAddItem?: () => void;
@@ -370,6 +413,7 @@ export function InspectionAreaSection({
                 readOnly={readOnly}
                 busy={busy}
                 photoMode={photoMode}
+                enablePhotoLightbox={enablePhotoLightbox}
                 onToggleNa={(na) => onToggleItemNa(item.id, na)}
                 onUpload={(phase, files) => onUpload(item.id, phase, files)}
                 onDeletePhoto={(photoId) => onDeletePhoto(item.id, photoId)}

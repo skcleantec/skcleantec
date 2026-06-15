@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 
-export type ImageGallerySlide = { src: string; alt: string; /** 라이트박스 상단 제목 */ title?: string };
+export type ImageGallerySlide = {
+  src: string;
+  alt: string;
+  /** 라이트박스 상단 제목 */
+  title?: string;
+  /** 다운로드 파일명 (확장자 포함 권장) */
+  downloadFilename?: string;
+};
 
 type Props = {
   src: string;
@@ -20,6 +27,8 @@ type Props = {
   retakeLabel?: string;
   /** 라이트박스가 닫힐 때 (재촬영·닫기·배경 탭) */
   onLightboxClose?: () => void;
+  /** 라이트박스에서 현재 이미지 저장 */
+  showDownload?: boolean;
 };
 
 /**
@@ -38,9 +47,11 @@ export function ImageThumbLightbox({
   onRetake,
   retakeLabel = '재촬영',
   onLightboxClose,
+  showDownload = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [downloadBusy, setDownloadBusy] = useState(false);
 
   const closeLightbox = () => {
     setOpen(false);
@@ -80,6 +91,28 @@ export function ImageThumbLightbox({
 
   const current = slides[open ? activeIndex : 0] ?? { src, alt: alt || '' };
   const headerTitle = current.title?.trim() || current.alt?.trim() || '';
+
+  const handleDownload = async () => {
+    if (downloadBusy) return;
+    setDownloadBusy(true);
+    try {
+      const res = await fetch(current.src);
+      if (!res.ok) throw new Error('fetch_failed');
+      const blob = await res.blob();
+      const ext = blob.type.includes('png') ? '.png' : blob.type.includes('webp') ? '.webp' : '.jpg';
+      const filename = current.downloadFilename?.trim() || `photo_${activeIndex + 1}${ext}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(current.src, '_blank', 'noopener,noreferrer');
+    } finally {
+      setDownloadBusy(false);
+    }
+  };
 
   return (
     <>
@@ -133,18 +166,35 @@ export function ImageThumbLightbox({
               onClick={(e) => e.stopPropagation()}
             />
             <ModalCloseButton onClick={closeLightbox} className="right-2 top-2 z-[750] sm:right-4 sm:top-4" />
-            {onRetake && (
-              <button
-                type="button"
-                className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[750] min-h-[44px] -translate-x-1/2 rounded-xl border border-white/30 bg-black/70 px-6 text-sm font-semibold text-white touch-manipulation hover:bg-black/85"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRetake(activeIndex);
-                  closeLightbox();
-                }}
-              >
-                {retakeLabel}
-              </button>
+            {(showDownload || onRetake) && (
+              <div className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[750] flex -translate-x-1/2 flex-wrap items-center justify-center gap-2">
+                {showDownload && (
+                  <button
+                    type="button"
+                    disabled={downloadBusy}
+                    className="min-h-[44px] rounded-xl border border-white/30 bg-black/70 px-5 text-sm font-semibold text-white touch-manipulation hover:bg-black/85 disabled:opacity-60"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleDownload();
+                    }}
+                  >
+                    {downloadBusy ? '저장 중…' : '사진 저장'}
+                  </button>
+                )}
+                {onRetake && (
+                  <button
+                    type="button"
+                    className="min-h-[44px] rounded-xl border border-white/30 bg-black/70 px-5 text-sm font-semibold text-white touch-manipulation hover:bg-black/85"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRetake(activeIndex);
+                      closeLightbox();
+                    }}
+                  >
+                    {retakeLabel}
+                  </button>
+                )}
+              </div>
             )}
             {multi && (
               <>

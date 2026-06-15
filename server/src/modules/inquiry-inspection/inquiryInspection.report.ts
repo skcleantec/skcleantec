@@ -79,6 +79,129 @@ export function buildInspectionReportPlainText(
   return lines.join('\n');
 }
 
+export type InspectionCompletionEmailContentOptions = {
+  customerViewUrl?: string | null;
+  pdfUrl?: string | null;
+};
+
+/** 완료본 이메일용 — 구역별 세부 검수 목록 제외, 하단에 웹 사진 확인 안내 */
+export function buildInspectionCompletionEmailPlainText(
+  row: ChecklistRow,
+  inquiry: {
+    customerName: string;
+    inquiryNumber: string | null;
+    preferredDate: Date | null;
+    address: string;
+  },
+  opts: InspectionCompletionEmailContentOptions = {},
+): string {
+  const basic = parseBasicAnswers(row.basicAnswersJson);
+  const lines: string[] = [
+    '청소 서비스 현장 검수 체크리스트',
+    '',
+    INSPECTION_HEADER_INTRO,
+    '',
+    `고객명: ${inquiry.customerName}`,
+    inquiry.inquiryNumber ? `접수번호: ${inquiry.inquiryNumber}` : '',
+    `서비스일: ${inquiry.preferredDate?.toISOString().slice(0, 10) ?? '—'}`,
+    `주소: ${inquiry.address}`,
+    `담당 팀장: ${row.teamLeader.name}`,
+    '',
+    '— 기본사항 —',
+  ].filter(Boolean);
+
+  for (const q of INSPECTION_BASIC_QUESTIONS) {
+    const slot = basic[q.id];
+    lines.push(`${q.text}`);
+    lines.push(`  팀장: ${yn(slot.leader)} / 고객: ${yn(slot.customer)}`);
+  }
+
+  if (row.leaderNotes?.trim()) {
+    lines.push('', '— 특이사항 —', row.leaderNotes.trim());
+  }
+
+  lines.push('', INSPECTION_FINAL_CONFIRM_NOTICE);
+
+  if (opts.customerViewUrl?.trim()) {
+    lines.push(
+      '',
+      '— 검수 사진 —',
+      '청소 전·후 현장 사진은 아래 링크에서 웹으로 확인하실 수 있습니다.',
+      `검수 사진 웹에서 확인하기: ${opts.customerViewUrl.trim()}`,
+    );
+  }
+
+  if (opts.pdfUrl?.trim()) {
+    lines.push('', `완료본 PDF 다운로드: ${opts.pdfUrl.trim()}`);
+  }
+
+  if (row.completedAt) {
+    lines.push('', `완료 일시: ${row.completedAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`);
+  }
+  return lines.join('\n');
+}
+
+export function buildInspectionCompletionEmailHtml(
+  row: ChecklistRow,
+  inquiry: {
+    customerName: string;
+    inquiryNumber: string | null;
+    preferredDate: Date | null;
+    address: string;
+  },
+  opts: InspectionCompletionEmailContentOptions = {},
+): string {
+  const basic = parseBasicAnswers(row.basicAnswersJson);
+  const basicRows = INSPECTION_BASIC_QUESTIONS.map(
+    (q) => `<tr><td>${escapeHtml(q.text)}</td><td>${yn(basic[q.id].leader)}</td><td>${yn(basic[q.id].customer)}</td></tr>`,
+  ).join('');
+
+  const photoViewBlock = opts.customerViewUrl?.trim()
+    ? `<div class="photo-cta">
+<p class="photo-cta-title">검수 사진 확인</p>
+<p class="photo-cta-desc">청소 전·후 현장 사진은 웹에서 구역별로 확인하실 수 있습니다.</p>
+<p><a class="photo-cta-link" href="${escapeHtml(opts.customerViewUrl.trim())}">검수 사진 웹에서 확인하기</a></p>
+</div>`
+    : '';
+
+  const pdfBlock = opts.pdfUrl?.trim()
+    ? `<p class="pdf-link"><a href="${escapeHtml(opts.pdfUrl.trim())}">완료본 PDF 다운로드</a></p>`
+    : '';
+
+  return `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/>
+<style>
+body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#111;line-height:1.5;padding:24px;}
+h1{font-size:20px;margin:0 0 8px;}
+.meta{margin:12px 0 20px;color:#333;}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13px;}
+th,td{border:1px solid #ddd;padding:8px;text-align:left;vertical-align:top;}
+th{background:#f5f5f5;}
+.note{background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:8px;font-size:12px;color:#334155;}
+.photo-cta{margin-top:24px;padding:16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;}
+.photo-cta-title{margin:0 0 8px;font-size:15px;font-weight:600;color:#1e3a8a;}
+.photo-cta-desc{margin:0 0 12px;font-size:13px;color:#334155;}
+.photo-cta-link{font-size:14px;font-weight:600;color:#1d4ed8;}
+.pdf-link{margin-top:16px;font-size:13px;}
+</style></head><body>
+<h1>청소 서비스 현장 검수 체크리스트</h1>
+<p class="meta">${escapeHtml(INSPECTION_HEADER_INTRO)}</p>
+<table class="meta">
+<tr><th>고객명</th><td>${escapeHtml(inquiry.customerName)}</td></tr>
+${inquiry.inquiryNumber ? `<tr><th>접수번호</th><td>${escapeHtml(inquiry.inquiryNumber)}</td></tr>` : ''}
+<tr><th>서비스일</th><td>${escapeHtml(inquiry.preferredDate?.toISOString().slice(0, 10) ?? '—')}</td></tr>
+<tr><th>주소</th><td>${escapeHtml(inquiry.address)}</td></tr>
+<tr><th>담당 팀장</th><td>${escapeHtml(row.teamLeader.name)}</td></tr>
+<tr><th>완료 일시</th><td>${row.completedAt ? escapeHtml(row.completedAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })) : '—'}</td></tr>
+</table>
+<h2>기본사항</h2>
+<table><thead><tr><th>확인 내용</th><th>팀장</th><th>고객</th></tr></thead><tbody>${basicRows}</tbody></table>
+${row.leaderNotes?.trim() ? `<h2>특이사항</h2><p>${escapeHtml(row.leaderNotes.trim())}</p>` : ''}
+<p class="note">${escapeHtml(INSPECTION_FINAL_CONFIRM_NOTICE)}</p>
+${photoViewBlock}
+${pdfBlock}
+</body></html>`;
+}
+
 export function buildInspectionReportHtml(
   row: ChecklistRow,
   inquiry: {

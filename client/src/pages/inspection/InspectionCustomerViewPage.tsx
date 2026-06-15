@@ -62,6 +62,7 @@ function ReadOnlyChecklistBody({ checklist }: { checklist: InspectionChecklistDt
       <InspectionBasicSection checklist={checklist} readOnly onPatch={() => {}} />
       <div className="space-y-3">
         <p className="text-fluid-sm font-semibold text-slate-900">구역별 세부 검수</p>
+        <p className="text-fluid-2xs text-slate-500 -mt-2">사진을 누르면 크게 보고 저장할 수 있습니다.</p>
         {checklist.areas.map((area) => (
           <InspectionAreaSection
             key={area.id}
@@ -69,6 +70,7 @@ function ReadOnlyChecklistBody({ checklist }: { checklist: InspectionChecklistDt
             readOnly
             busy={false}
             photoMode="both"
+            enablePhotoLightbox
             defaultOpen={false}
             onToggleItemNa={() => {}}
             onUpload={() => {}}
