@@ -1,5 +1,5 @@
-import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
-import type { ScheduleItem } from '../../api/schedule';
+import type { UserCustomCalendarItem } from '../api/userCustomCalendars';
+import type { ScheduleItem } from '../api/schedule';
 import { addressMatchesRegions } from './regionMatch';
 import { scheduleItemExternalCompanyIds } from './scheduleExternalCompany';
 
