@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getDashboardOpsHourly,
@@ -26,10 +26,45 @@ const METRIC_ACCENT: Record<string, string> = {
   followup_reserved: 'bg-emerald-500',
 };
 
-function MiniHourBars({ hourly, peakHour, accentClass }: { hourly: number[]; peakHour: number; accentClass: string }) {
+const PRIMARY_BOX_THEME: Record<
+  'order_form_issued' | 'followup_absent',
+  { border: string; bg: string; title: string; peak: string }
+> = {
+  order_form_issued: {
+    border: 'border-indigo-200/80',
+    bg: 'bg-indigo-50/40',
+    title: 'text-indigo-900',
+    peak: 'text-indigo-700',
+  },
+  followup_absent: {
+    border: 'border-amber-200/80',
+    bg: 'bg-amber-50/40',
+    title: 'text-amber-950',
+    peak: 'text-amber-800',
+  },
+};
+
+const SECONDARY_METRIC_IDS: OpsHourlyMetricId[] = [
+  'order_form_submitted',
+  'inquiry_received',
+  'followup_on_hold',
+  'followup_reserved',
+];
+
+function MiniHourBars({
+  hourly,
+  peakHour,
+  accentClass,
+  tall,
+}: {
+  hourly: number[];
+  peakHour: number;
+  accentClass: string;
+  tall?: boolean;
+}) {
   const max = Math.max(...hourly, 1);
   return (
-    <div className="flex h-3 w-full items-end gap-px" aria-hidden>
+    <div className={`flex w-full items-end gap-px ${tall ? 'h-8' : 'h-3'}`} aria-hidden>
       {hourly.map((v, h) => (
         <div
           key={h}
@@ -43,13 +78,54 @@ function MiniHourBars({ hourly, peakHour, accentClass }: { hourly: number[]; pea
   );
 }
 
+function OpsPrimaryBox({
+  metric,
+  boxId,
+  onDrill,
+  footer,
+}: {
+  metric: OpsHourlyMetric;
+  boxId: 'order_form_issued' | 'followup_absent';
+  onDrill?: () => void;
+  footer?: ReactNode;
+}) {
+  const theme = PRIMARY_BOX_THEME[boxId];
+  const accent = METRIC_ACCENT[metric.id] ?? 'bg-slate-500';
+  const clickable = metric.peakCount > 0 && onDrill;
+
+  return (
+    <div className={`flex min-w-0 flex-1 flex-col rounded-xl border ${theme.border} ${theme.bg} p-3`}>
+      <button
+        type="button"
+        disabled={!clickable}
+        onClick={clickable ? onDrill : undefined}
+        className={`flex flex-1 flex-col gap-2 text-left ${clickable ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
+        title={clickable ? `${metric.description} — 클릭하면 해당 시간대 목록으로 이동` : metric.description}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className={`text-[11px] font-semibold ${theme.title}`}>{metric.label}</p>
+            <p className="mt-0.5 text-[10px] text-slate-500">{metric.description}</p>
+          </div>
+          <span className="shrink-0 rounded-md bg-white/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-slate-600">
+            {metric.total}건
+          </span>
+        </div>
+        <p className={`text-sm font-bold tabular-nums leading-tight ${theme.peak}`}>
+          {metric.peakCount > 0 ? `${metric.peakLabel} · ${metric.peakCount}건` : '피크 없음'}
+        </p>
+        <MiniHourBars hourly={metric.hourly} peakHour={metric.peakHour} accentClass={accent} tall />
+      </button>
+      {footer ? <div className="mt-2 border-t border-white/60 pt-2">{footer}</div> : null}
+    </div>
+  );
+}
+
 function OpsHourlyChip({
   metric,
-  highlight,
   onDrill,
 }: {
   metric: OpsHourlyMetric;
-  highlight?: boolean;
   onDrill?: () => void;
 }) {
   const accent = METRIC_ACCENT[metric.id] ?? 'bg-slate-500';
@@ -59,11 +135,9 @@ function OpsHourlyChip({
       type="button"
       disabled={!clickable}
       onClick={clickable ? onDrill : undefined}
-      className={`flex min-w-[8.5rem] flex-1 flex-col gap-1 rounded-lg border px-2 py-1.5 text-left transition ${
-        highlight
-          ? 'border-indigo-200 bg-indigo-50/60 ring-1 ring-indigo-100'
-          : 'border-slate-200/80 bg-white/80'
-      } ${clickable ? 'cursor-pointer hover:border-slate-300 hover:shadow-sm' : 'cursor-default'}`}
+      className={`flex min-w-[7.5rem] flex-1 flex-col gap-1 rounded-lg border border-slate-200/80 bg-white/80 px-2 py-1.5 text-left transition ${
+        clickable ? 'cursor-pointer hover:border-slate-300 hover:shadow-sm' : 'cursor-default'
+      }`}
       title={clickable ? `${metric.description} — 클릭하면 해당 시간대 목록으로 이동` : metric.description}
     >
       <div className="flex items-center justify-between gap-1">
@@ -154,7 +228,9 @@ export function DashboardOpsHourlyStrip() {
     };
   }, [token, days]);
 
-  const primary = data?.metrics.find((m) => m.id === 'order_form_issued');
+  const issued = data?.metrics.find((m) => m.id === 'order_form_issued');
+  const absent = data?.metrics.find((m) => m.id === 'followup_absent');
+  const secondaryMetrics = data?.metrics.filter((m) => SECONDARY_METRIC_IDS.includes(m.id)) ?? [];
 
   const drill = (metricId: OpsHourlyMetricId) => {
     if (!data) return;
@@ -166,7 +242,7 @@ export function DashboardOpsHourlyStrip() {
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <h2 className="text-fluid-xs font-semibold text-slate-900">운영 시간대 (KST)</h2>
-          <HelpTooltip text="테넌트별 최근 기간 동안 이벤트가 몰린 시간대입니다. 메인 지표는 발주서 발급 시각이며, 접수 전환은 RECEIVED 상태 변경 시각, 부재·보류·예약은 부재현황 등록 기준입니다. 칩을 클릭하면 해당 시간대 목록으로 이동합니다." />
+          <HelpTooltip text="발주서 발급·부재 유입을 각각 박스로 보여줍니다. 아래 보조 지표는 제출·접수 전환·보류·예약입니다. 칩·박스를 클릭하면 해당 시간대 목록으로 이동합니다." />
         </div>
         <div className="flex items-center gap-1">
           {PERIOD_OPTIONS.map((opt) => (
@@ -187,80 +263,97 @@ export function DashboardOpsHourlyStrip() {
       </div>
 
       {data && !loading ? (
-        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-slate-500">
-          <span>
-            {data.periodStartYmd} ~ {data.periodEndYmd}
-          </span>
-          {primary && primary.peakCount > 0 ? (
-            <span className="font-medium text-indigo-700">발주 발급 피크 {primary.peakLabel}</span>
-          ) : null}
-          {data.openBacklog.total > 0 ? (
-            <span>
-              미처리 부재·보류{' '}
-              <span className="font-medium tabular-nums text-amber-700">{data.openBacklog.total}건</span>
-              <span className="text-slate-400">
-                {' '}
-                (부재 {data.openBacklog.absent} · 보류 {data.openBacklog.onHold})
-              </span>
-            </span>
-          ) : null}
-          {data.conversionByHour.peakRatePct > 0 ? (
-            <span>
-              예약 전환 피크{' '}
-              <span className="font-medium tabular-nums text-emerald-700">
-                {data.conversionByHour.peakRatePct}%
-              </span>
-              <span className="text-slate-400">
-                {' '}
-                ({data.conversionByHour.peakHour}~
-                {data.conversionByHour.peakHour === 23 ? 0 : data.conversionByHour.peakHour + 1}시)
-              </span>
-            </span>
-          ) : null}
-        </div>
+        <p className="mb-3 text-[10px] text-slate-500">
+          {data.periodStartYmd} ~ {data.periodEndYmd}
+        </p>
       ) : null}
 
       {error ? (
         <p className="rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2 text-[11px] text-rose-700">{error}</p>
       ) : loading ? (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-14 min-w-[8.5rem] flex-1 animate-pulse rounded-lg bg-slate-100" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-36 animate-pulse rounded-xl bg-slate-100" />
           ))}
         </div>
-      ) : data ? (
+      ) : data && issued && absent ? (
         <>
-          <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-            {data.metrics.map((m) => (
-              <OpsHourlyChip
-                key={m.id}
-                metric={m}
-                highlight={m.id === 'order_form_issued'}
-                onDrill={() => drill(m.id)}
-              />
-            ))}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <OpsPrimaryBox
+              metric={issued}
+              boxId="order_form_issued"
+              onDrill={() => drill('order_form_issued')}
+              footer={
+                data.heatmap.total > 0 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setHeatmapOpen((v) => !v)}
+                      className="flex w-full items-center justify-between gap-2 text-left text-[10px] font-medium text-indigo-800/80 hover:text-indigo-900"
+                    >
+                      <span>
+                        요일×시간 히트맵
+                        {data.heatmap.peak.count > 0 ? (
+                          <span className="ml-1 font-normal">피크 {data.heatmap.peak.label}</span>
+                        ) : null}
+                      </span>
+                      <span className="text-indigo-400">{heatmapOpen ? '접기' : '펼치기'}</span>
+                    </button>
+                    {heatmapOpen ? (
+                      <div className="mt-2 rounded-lg bg-white/60 p-2">
+                        <OpsHeatmapGrid heatmap={data.heatmap} />
+                      </div>
+                    ) : null}
+                  </>
+                ) : null
+              }
+            />
+            <OpsPrimaryBox
+              metric={absent}
+              boxId="followup_absent"
+              onDrill={() => drill('followup_absent')}
+              footer={
+                data.openBacklog.total > 0 || data.conversionByHour.peakRatePct > 0 ? (
+                  <div className="space-y-1 text-[10px] text-slate-600">
+                    {data.openBacklog.total > 0 ? (
+                      <p>
+                        현재 미처리{' '}
+                        <span className="font-semibold tabular-nums text-amber-800">
+                          {data.openBacklog.total}건
+                        </span>
+                        <span className="text-slate-400">
+                          {' '}
+                          (부재 {data.openBacklog.absent} · 보류 {data.openBacklog.onHold})
+                        </span>
+                      </p>
+                    ) : null}
+                    {data.conversionByHour.peakRatePct > 0 ? (
+                      <p>
+                        예약 전환 피크{' '}
+                        <span className="font-semibold tabular-nums text-emerald-700">
+                          {data.conversionByHour.peakRatePct}%
+                        </span>
+                        <span className="text-slate-400">
+                          {' '}
+                          ({data.conversionByHour.peakHour}~
+                          {data.conversionByHour.peakHour === 23 ? 0 : data.conversionByHour.peakHour + 1}시)
+                        </span>
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null
+              }
+            />
           </div>
 
-          {data.heatmap.total > 0 ? (
-            <div className="mt-3 border-t border-slate-100 pt-2">
-              <button
-                type="button"
-                onClick={() => setHeatmapOpen((v) => !v)}
-                className="flex w-full items-center justify-between gap-2 text-left text-[10px] font-medium text-slate-600 hover:text-slate-900"
-              >
-                <span>
-                  발주 발급 히트맵 (요일×시간)
-                  {data.heatmap.peak.count > 0 ? (
-                    <span className="ml-1 font-normal text-indigo-600">피크 {data.heatmap.peak.label}</span>
-                  ) : null}
-                </span>
-                <span className="text-slate-400">{heatmapOpen ? '접기' : '펼치기'}</span>
-              </button>
-              {heatmapOpen ? (
-                <div className="mt-2">
-                  <OpsHeatmapGrid heatmap={data.heatmap} />
-                </div>
-              ) : null}
+          {secondaryMetrics.length > 0 ? (
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="mb-1.5 text-[10px] font-medium text-slate-500">보조 지표</p>
+              <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                {secondaryMetrics.map((m) => (
+                  <OpsHourlyChip key={m.id} metric={m} onDrill={() => drill(m.id)} />
+                ))}
+              </div>
             </div>
           ) : null}
         </>
