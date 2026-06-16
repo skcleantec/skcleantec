@@ -260,21 +260,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     return custom.length ? custom.map((v) => ({ value: v, label: v })) : ORDER_BUILDING_TYPE_OPTIONS;
   }, [sysOptions]);
 
-  const profShowExactAmounts = useMemo(() => {
-    if (isEditor) return true;
-    const pf = order?.prefillAnswers;
-    if (!pf || typeof pf !== 'object') return false;
-    const v = (pf as Record<string, unknown>).professionalOptionIds;
-    return Array.isArray(v) && v.length > 0;
-  }, [isEditor, order?.prefillAnswers]);
-
   /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
   const profSelectionSummary = useMemo(
-    () =>
-      computeProfSelectionSummary(profSelections, professionalOptions, {
-        showAmounts: profShowExactAmounts,
-      }),
-    [profSelections, professionalOptions, profShowExactAmounts],
+    () => computeProfSelectionSummary(profSelections, professionalOptions),
+    [profSelections, professionalOptions],
   );
 
   const profSelectionIds = useMemo(
@@ -398,18 +387,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           onQuantityChange={(q) => setProfQuantity(o.id, q)}
           onUnitAmountChange={(raw) => setProfUnitAmount(o.id, raw)}
           amountEditable={isEditor}
-          showAmounts={profShowExactAmounts}
         />
       );
     },
-    [
-      profSelections,
-      toggleProfOption,
-      setProfQuantity,
-      setProfUnitAmount,
-      isEditor,
-      profShowExactAmounts,
-    ],
+    [profSelections, toggleProfOption, setProfQuantity, setProfUnitAmount, isEditor],
   );
 
   const editorAuthToken = editor?.authToken;
@@ -1131,7 +1112,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 <ProfOptionSelectionSummary
                   rows={profSelectionSummary.rows}
                   sum={profSelectionSummary.sum}
-                  showAmounts={profShowExactAmounts}
                   className="text-xs text-gray-600"
                 />
               </div>
@@ -1778,7 +1758,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 <ProfOptionSelectionSummary
                   rows={profSelectionSummary.rows}
                   sum={profSelectionSummary.sum}
-                  showAmounts
                 />
               </div>
             ) : (
@@ -1898,7 +1877,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   <ProfOptionSelectionSummary
                     rows={profSelectionSummary.rows}
                     sum={profSelectionSummary.sum}
-                    showAmounts={profShowExactAmounts}
                     className="text-sm text-gray-700"
                   />
                 </div>

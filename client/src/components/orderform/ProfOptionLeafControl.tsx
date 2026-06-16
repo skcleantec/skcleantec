@@ -1,7 +1,6 @@
 import type { ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import type { ProfessionalOptionSelection } from '../../constants/professionalSpecialtyOptions';
 import { formatProfOptionPriceDisplay } from '../../constants/professionalSpecialtyOptions';
-import { PROF_OPTION_CUSTOMER_AMOUNT_DEFER_MSG } from '../../constants/orderFormProfessionalOptions';
 
 type Props = {
   option: ProfessionalSpecialtyOptionDto;
@@ -12,8 +11,6 @@ type Props = {
   onUnitAmountChange?: (raw: string) => void;
   /** 마케터 발급·선입력 시 건당 금액 직접 입력 */
   amountEditable?: boolean;
-  /** false면 카탈로그·확정 금액 숨김(고객 직접 선택) */
-  showAmounts?: boolean;
   disabled?: boolean;
 };
 
@@ -25,7 +22,6 @@ export function ProfOptionLeafControl({
   onQuantityChange,
   onUnitAmountChange,
   amountEditable = false,
-  showAmounts = true,
   disabled = false,
 }: Props) {
   const catalogPrice = formatProfOptionPriceDisplay(option);
@@ -53,70 +49,61 @@ export function ProfOptionLeafControl({
             aria-hidden
           />
           <span className="font-medium">{option.label}</span>
-          {!checked && showAmounts && catalogPrice ? (
-            <span className="text-gray-500"> {catalogPrice}</span>
-          ) : null}
+          {!checked && catalogPrice ? <span className="text-gray-500"> {catalogPrice}</span> : null}
         </span>
       </label>
       {checked && selection ? (
-        <div className="ml-6 flex flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-            <div className="inline-flex items-center rounded border border-gray-300 bg-white overflow-hidden">
-              <button
-                type="button"
-                className="px-2 py-1 hover:bg-gray-50 disabled:opacity-40"
-                disabled={disabled || qty <= 1}
-                aria-label="수량 줄이기"
-                onClick={() => onQuantityChange?.(qty - 1)}
-              >
-                −
-              </button>
-              <span className="px-2 py-1 tabular-nums min-w-[2rem] text-center border-x border-gray-300">
-                {qty}
-              </span>
-              <button
-                type="button"
-                className="px-2 py-1 hover:bg-gray-50 disabled:opacity-40"
-                disabled={disabled || qty >= 99}
-                aria-label="수량 늘리기"
-                onClick={() => onQuantityChange?.(qty + 1)}
-              >
-                +
-              </button>
-            </div>
-            <span className="text-gray-500">대</span>
-            {showAmounts ? (
-              amountEditable ? (
-                <label className="inline-flex items-center gap-1">
-                  <span className="text-gray-500 shrink-0">건당</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    className="w-24 px-1.5 py-1 border border-gray-300 rounded text-xs text-right tabular-nums"
-                    value={
-                      selection.unitAmount != null && selection.unitAmount >= 0
-                        ? String(selection.unitAmount)
-                        : ''
-                    }
-                    placeholder="금액"
-                    disabled={disabled}
-                    onChange={(e) => onUnitAmountChange?.(e.target.value)}
-                  />
-                  <span className="text-gray-500">원</span>
-                </label>
-              ) : selection.unitAmount != null && selection.unitAmount > 0 ? (
-                <span className="tabular-nums">
-                  건당 {selection.unitAmount.toLocaleString('ko-KR')}원
-                </span>
-              ) : catalogPrice ? (
-                <span className="text-gray-500">
-                  {catalogPrice.replace(/^\(/, '').replace(/\)$/, '')}
-                </span>
-              ) : null
-            ) : null}
+        <div className="ml-6 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+          <div className="inline-flex items-center rounded border border-gray-300 bg-white overflow-hidden">
+            <button
+              type="button"
+              className="px-2 py-1 hover:bg-gray-50 disabled:opacity-40"
+              disabled={disabled || qty <= 1}
+              aria-label="수량 줄이기"
+              onClick={() => onQuantityChange?.(qty - 1)}
+            >
+              −
+            </button>
+            <span className="px-2 py-1 tabular-nums min-w-[2rem] text-center border-x border-gray-300">
+              {qty}
+            </span>
+            <button
+              type="button"
+              className="px-2 py-1 hover:bg-gray-50 disabled:opacity-40"
+              disabled={disabled || qty >= 99}
+              aria-label="수량 늘리기"
+              onClick={() => onQuantityChange?.(qty + 1)}
+            >
+              +
+            </button>
           </div>
-          {!showAmounts ? (
-            <p className="text-[11px] text-gray-500 leading-snug">{PROF_OPTION_CUSTOMER_AMOUNT_DEFER_MSG}</p>
+          <span className="text-gray-500">대</span>
+          {amountEditable ? (
+            <label className="inline-flex items-center gap-1">
+              <span className="text-gray-500 shrink-0">건당</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="w-24 px-1.5 py-1 border border-gray-300 rounded text-xs text-right tabular-nums"
+                value={
+                  selection.unitAmount != null && selection.unitAmount >= 0
+                    ? String(selection.unitAmount)
+                    : ''
+                }
+                placeholder="금액"
+                disabled={disabled}
+                onChange={(e) => onUnitAmountChange?.(e.target.value)}
+              />
+              <span className="text-gray-500">원</span>
+            </label>
+          ) : selection.unitAmount != null && selection.unitAmount > 0 ? (
+            <span className="tabular-nums">
+              건당 {selection.unitAmount.toLocaleString('ko-KR')}원
+            </span>
+          ) : catalogPrice ? (
+            <span className="text-gray-500">
+              {catalogPrice.replace(/^\(/, '').replace(/\)$/, '')}
+            </span>
           ) : null}
         </div>
       ) : null}

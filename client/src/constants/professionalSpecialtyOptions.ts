@@ -161,9 +161,7 @@ export type ProfSelectionSummaryRow = {
 export function computeProfSelectionSummary(
   selections: ProfessionalOptionSelection[],
   catalog: ProfessionalSpecialtyOption[],
-  options?: { showAmounts?: boolean },
 ): { rows: ProfSelectionSummaryRow[]; sum: number } {
-  const showAmounts = options?.showAmounts !== false;
   const rows: ProfSelectionSummaryRow[] = [];
   let sum = 0;
   for (const sel of selections) {
@@ -172,20 +170,18 @@ export function computeProfSelectionSummary(
     if (!isSelectableProfOption(catalog, o)) continue;
     const unitAmount = resolveSelectionUnitAmount(sel, catalog);
     const lineTotal = unitAmount > 0 ? unitAmount * sel.quantity : 0;
-    if (showAmounts) sum += lineTotal;
+    sum += lineTotal;
     const qtyPart = sel.quantity > 1 ? ` × ${sel.quantity}대` : '';
     const unitPart =
-      showAmounts && unitAmount > 0 ? ` · 건당 ${unitAmount.toLocaleString('ko-KR')}원` : '';
-    const totalPart =
-      showAmounts && lineTotal > 0 ? ` · ${lineTotal.toLocaleString('ko-KR')}원` : '';
-    const hint =
-      showAmounts && !unitAmount && o.priceHint ? ` (${o.priceHint})` : '';
+      unitAmount > 0 ? ` · 건당 ${unitAmount.toLocaleString('ko-KR')}원` : '';
+    const totalPart = lineTotal > 0 ? ` · ${lineTotal.toLocaleString('ko-KR')}원` : '';
+    const hint = !unitAmount && o.priceHint ? ` (${o.priceHint})` : '';
     rows.push({
       key: sel.id,
       text: `${o.label}${qtyPart}${unitPart}${totalPart}${hint}`,
       quantity: sel.quantity,
-      unitAmount: showAmounts ? unitAmount : 0,
-      lineTotal: showAmounts ? lineTotal : 0,
+      unitAmount,
+      lineTotal,
     });
   }
   return { rows, sum };
