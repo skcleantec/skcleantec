@@ -51,29 +51,78 @@ const SECONDARY_METRIC_IDS: OpsHourlyMetricId[] = [
   'followup_reserved',
 ];
 
-function MiniHourBars({
+function formatHourRange(h: number): string {
+  const hour = Math.max(0, Math.min(23, Math.floor(h)));
+  const next = hour === 23 ? 0 : hour + 1;
+  return `${hour}~${next}시`;
+}
+
+function HourlyBarChart({
   hourly,
   peakHour,
   accentClass,
-  tall,
+  size = 'sm',
 }: {
   hourly: number[];
   peakHour: number;
   accentClass: string;
-  tall?: boolean;
+  size?: 'sm' | 'md';
 }) {
   const max = Math.max(...hourly, 1);
+  const tall = size === 'md';
+  const barAreaClass = tall ? 'h-20' : 'h-7';
+
   return (
-    <div className={`flex w-full items-end gap-px ${tall ? 'h-8' : 'h-3'}`} aria-hidden>
-      {hourly.map((v, h) => (
-        <div
-          key={h}
-          className={`min-w-0 flex-1 rounded-[1px] ${
-            v > 0 && h === peakHour ? accentClass : v > 0 ? 'bg-slate-300/80' : 'bg-slate-200/60'
-          }`}
-          style={{ height: `${Math.max(15, Math.round((v / max) * 100))}%` }}
-        />
-      ))}
+    <div className="w-full" role="img" aria-label="0~23시(KST) 시간대별 건수 막대">
+      <div className={`flex w-full items-end gap-px ${barAreaClass}`}>
+        {hourly.map((v, h) => {
+          const heightPct = v > 0 ? Math.max(12, Math.round((v / max) * 100)) : 8;
+          const isPeak = v > 0 && h === peakHour;
+          return (
+            <div
+              key={h}
+              className="group/bar relative flex min-w-0 flex-1 h-full flex-col items-center justify-end"
+            >
+              {tall && v > 0 ? (
+                <span
+                  className={`mb-0.5 text-[9px] font-semibold leading-none tabular-nums ${
+                    isPeak ? 'text-slate-800' : 'text-slate-500'
+                  }`}
+                >
+                  {v}
+                </span>
+              ) : null}
+              <div
+                title={`${formatHourRange(h)} · ${v}건`}
+                className={`w-full rounded-[2px] transition-opacity group-hover/bar:opacity-100 ${
+                  v > 0
+                    ? isPeak
+                      ? accentClass
+                      : 'bg-slate-300/90'
+                    : 'bg-slate-200/60'
+                } ${v > 0 ? 'opacity-90 group-hover/bar:ring-1 group-hover/bar:ring-slate-400/50' : ''}`}
+                style={{ height: `${heightPct}%`, minHeight: v > 0 ? (tall ? '4px' : '2px') : '2px' }}
+              />
+              <div
+                className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white shadow-sm group-hover/bar:block"
+                aria-hidden
+              >
+                {formatHourRange(h)} · {v}건
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1 flex w-full gap-px">
+        {hourly.map((_, h) => (
+          <div
+            key={h}
+            className="min-w-0 flex-1 text-center text-[8px] leading-none tabular-nums text-slate-400"
+          >
+            {h % 3 === 0 ? h : ''}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -99,8 +148,8 @@ function OpsPrimaryBox({
         type="button"
         disabled={!clickable}
         onClick={clickable ? onDrill : undefined}
-        className={`flex flex-1 flex-col gap-2 text-left ${clickable ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
-        title={clickable ? `${metric.description} — 클릭하면 해당 시간대 목록으로 이동` : metric.description}
+        className={`text-left ${clickable ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
+        title={clickable ? `${metric.description} — 클릭하면 피크 시간대 목록으로 이동` : metric.description}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -111,11 +160,13 @@ function OpsPrimaryBox({
             {metric.total}건
           </span>
         </div>
-        <p className={`text-sm font-bold tabular-nums leading-tight ${theme.peak}`}>
+        <p className={`mt-2 text-sm font-bold tabular-nums leading-tight ${theme.peak}`}>
           {metric.peakCount > 0 ? `${metric.peakLabel} · ${metric.peakCount}건` : '피크 없음'}
         </p>
-        <MiniHourBars hourly={metric.hourly} peakHour={metric.peakHour} accentClass={accent} tall />
       </button>
+      <div className="mt-2">
+        <HourlyBarChart hourly={metric.hourly} peakHour={metric.peakHour} accentClass={accent} size="md" />
+      </div>
       {footer ? <div className="mt-2 border-t border-white/60 pt-2">{footer}</div> : null}
     </div>
   );
@@ -147,7 +198,7 @@ function OpsHourlyChip({
       <p className="truncate text-[11px] font-semibold tabular-nums text-slate-900 leading-tight">
         {metric.peakCount > 0 ? `${metric.peakLabel} · ${metric.peakCount}건` : '—'}
       </p>
-      <MiniHourBars hourly={metric.hourly} peakHour={metric.peakHour} accentClass={accent} />
+      <HourlyBarChart hourly={metric.hourly} peakHour={metric.peakHour} accentClass={accent} size="sm" />
     </button>
   );
 }
@@ -242,7 +293,7 @@ export function DashboardOpsHourlyStrip() {
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <h2 className="text-fluid-xs font-semibold text-slate-900">운영 시간대 (KST)</h2>
-          <HelpTooltip text="발주서 발급·부재 유입을 각각 박스로 보여줍니다. 아래 보조 지표는 제출·접수 전환·보류·예약입니다. 칩·박스를 클릭하면 해당 시간대 목록으로 이동합니다." />
+          <HelpTooltip text="막대에 마우스를 올리면 시간대·건수가 표시됩니다. 큰 박스는 막대 위 숫자와 하단 0·3·6…시(KST) 눈금을 함께 봅니다." />
         </div>
         <div className="flex items-center gap-1">
           {PERIOD_OPTIONS.map((opt) => (
