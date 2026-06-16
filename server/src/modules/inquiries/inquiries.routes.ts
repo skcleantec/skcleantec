@@ -66,6 +66,10 @@ import inquiryAdditionalReceiptsAdminRoutes from '../inquiry-additional-receipts
 import inquiryInspectionAdminRoutes from '../inquiry-inspection/inquiryInspection.admin.routes.js';
 import { buildInquiryPatchCrewRosterAckMessages } from './crewRosterAckMessages.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
+import {
+  clearInquiryCrewMemberMeetingTimes,
+  inquiryHasAnyCrewMeetingTime,
+} from './inquiryCrewMemberMeetingTime.service.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
@@ -838,9 +842,14 @@ router.patch('/:id', async (req, res) => {
   if (crewRosterChanged) {
     data.crewMeetingTime = null;
     data.crewMeetingTimeUpdatedAt = null;
+    const hadPrevMeeting = await inquiryHasAnyCrewMeetingTime(
+      prisma,
+      id,
+      inquiry.crewMeetingTime,
+    );
     crewRosterAckMessages = buildInquiryPatchCrewRosterAckMessages(inquiry.crewMemberNote, mergedCrewMemberNote, {
       customerName: String(inquiry.customerName ?? ''),
-      hadPrevMeeting: Boolean((inquiry.crewMeetingTime ?? '').trim()),
+      hadPrevMeeting,
     });
   }
 
@@ -984,10 +993,11 @@ router.patch('/:id', async (req, res) => {
   if (data.crewMemberCount !== undefined)
     pushIfChanged('팀원 인원', inquiry.crewMemberCount, data.crewMemberCount, fmtNum);
   if (data.crewMemberNote !== undefined) pushIfChanged('팀원 메모', inquiry.crewMemberNote, data.crewMemberNote);
-  if (crewRosterChanged && (inquiry.crewMeetingTime ?? '').trim()) {
-    lines.push(
-      `현장 미팅(크루): 팀원 구성 변경으로 미팅 시각 초기화 (이전: ${(inquiry.crewMeetingTime ?? '').trim()})`,
-    );
+  if (crewRosterChanged) {
+    const hadMeeting = await inquiryHasAnyCrewMeetingTime(prisma, id, inquiry.crewMeetingTime);
+    if (hadMeeting) {
+      lines.push('현장 미팅(크루): 팀원 구성 변경으로 미팅 시각 초기화');
+    }
   }
   if (operatingCompanyChanged && data.operatingCompany && 'connect' in data.operatingCompany) {
     const nextOcId = String((data.operatingCompany as { connect: { id: string } }).connect.id);
@@ -1097,6 +1107,9 @@ router.patch('/:id', async (req, res) => {
       }
       if (Object.keys(updateData).length > 0) {
         await tx.inquiry.update({ where: { id }, data: updateData });
+      }
+      if (crewRosterChanged) {
+        await clearInquiryCrewMemberMeetingTimes(tx, id);
       }
       if (mergedStatus !== inquiry.status) {
         await recordInquiryStatusTransition(tx, {

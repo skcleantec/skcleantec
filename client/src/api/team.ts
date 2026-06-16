@@ -235,18 +235,27 @@ export async function patchTeamInquiryPreferredDate(
   return res.json();
 }
 
-/** 팀장: 크루 현장 일정용 미팅 시각(KST HH:mm 또는 null). 오전 희망 시에만 유효 */
+/** 팀장: 크루 현장 일정용 미팅 시각 — 공용 또는 팀원별(KST HH:mm) */
+export type CrewMeetingTimePatch =
+  | { shared: true; crewMeetingTime: string | null }
+  | { shared: false; memberTimes: Array<{ teamMemberId: string; meetingTime: string }> };
+
 export async function patchTeamInquiryCrewMeetingTime(
   token: string,
   inquiryId: string,
-  crewMeetingTime: string | null,
+  payload: CrewMeetingTimePatch,
 ) {
+  const body =
+    payload.shared === true
+      ? { shared: true, crewMeetingTime: payload.crewMeetingTime }
+      : { shared: false, memberTimes: payload.memberTimes };
+
   const res = await fetch(
     withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/crew-meeting-time`),
     {
       method: 'PATCH',
       headers: headers(token),
-      body: JSON.stringify({ crewMeetingTime }),
+      body: JSON.stringify(body),
     },
   );
   if (!res.ok) {

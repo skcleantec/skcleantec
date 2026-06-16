@@ -519,6 +519,7 @@ model TeamMember {
   payrollMonthAdjusts TeamMemberPayrollMonthAdjust[]
   payrollSettlements TeamMemberPayrollSettlement[]
   payrollLedgerManualExpenseTargets PayrollAccountLedgerManualEntry[]
+  inquiryCrewMemberMeetingTimes InquiryCrewMemberMeetingTime[]
 
   @@index([tenantId, isActive])
   @@map("team_members")
@@ -885,6 +886,8 @@ model Inquiry {
   updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at")
   /// 팀장이 지정한 크루 현장 미팅 시각(KST, "HH:mm"). 오전 희망 접수에만 노출 등에 사용
   crewMeetingTime   String?       @map("crew_meeting_time") @db.VarChar(5)
+  /// true(기본): crewMeetingTime을 투입 팀원 전원에 공용 적용. false: 팀원별 행 사용
+  crewMeetingTimeShared Boolean     @default(true) @map("crew_meeting_time_shared")
   /// 팀장이 미팅 시각을 저장·변경한 시각(크루 UI «수정됨» 배지용)
   crewMeetingTimeUpdatedAt DateTime? @map("crew_meeting_time_updated_at")
   /// 팀장이 고객에게 전화로 일정 안내(해피콜) 완료 시각 — 미입력이면 미완료
@@ -936,6 +939,7 @@ model Inquiry {
   reviewPaybackRequests ReviewPaybackRequest[]
   tenantShareAsSource TenantInquiryShare? @relation("ShareSourceInquiry")
   tenantShareAsTarget TenantInquiryShare? @relation("ShareTargetInquiry")
+  crewMemberMeetingTimes InquiryCrewMemberMeetingTime[]
 
   @@index([createdAt])
   @@index([preferredDate])
@@ -945,6 +949,23 @@ model Inquiry {
   @@index([tenantId, operatingCompanyId, createdAt])
   @@unique([tenantId, inquiryNumber])
   @@map("inquiries")
+}
+
+/// 접수·팀원별 크루 미팅 시각(crewMeetingTimeShared=false 일 때)
+model InquiryCrewMemberMeetingTime {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  inquiryId    String   @map("inquiry_id")
+  teamMemberId String   @map("team_member_id")
+  meetingTime  String   @map("meeting_time") @db.VarChar(5)
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  inquiry    Inquiry    @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([inquiryId, teamMemberId])
+  @@index([tenantId, inquiryId])
+  @@map("inquiry_crew_member_meeting_times")
 }
 
 enum CleaningPhotoPhase {

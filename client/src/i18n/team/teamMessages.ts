@@ -111,6 +111,15 @@ export const teamMessages = {
   'team.modal.meetingHint': {
     ko: '시간을 선택·입력한 뒤 저장을 누르면 반영됩니다. 크루 「현장 일정」과 관리자 접수 목록 등은 접수 변경 알림 채널로 갱신됩니다.',
 },
+  'team.modal.meetingShared': {
+    ko: '공용 미팅 시간 (투입 팀원 전원 동일)',
+  },
+  'team.modal.meetingPerMemberHint': {
+    ko: '팀원마다 다른 장소에서 출발할 때 각각 미팅 시각을 지정하세요.',
+  },
+  'team.modal.meetingNoCrew': {
+    ko: '투입 팀원이 없습니다. 관리자 스케줄에서 팀원을 먼저 지정해 주세요.',
+  },
   'team.modal.section.schedule': { ko: '일정'},
   'team.modal.row.preferredDate': { ko: '예약일'},
   'team.modal.row.preferredTime': { ko: '희망 시간'},
@@ -163,6 +172,9 @@ export const teamMessages = {
   'team.alert.meetingSavedClear': {
     ko: '미팅 미지정으로 저장되었습니다. 크루 「현장 일정」에도 표시되지 않습니다.',
 },
+  'team.alert.meetingSavedPerMember': {
+    ko: '팀원별 미팅 시각을 저장했습니다. 크루 「현장 일정」에 각각 반영됩니다.',
+  },
   'team.alert.meetingFail': { ko: '미팅 시각 저장에 실패했습니다.'},
 
   'team.assign.title': { ko: '배정목록'},

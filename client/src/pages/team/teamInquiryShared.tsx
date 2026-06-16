@@ -176,6 +176,8 @@ export interface InquiryItem {
   betweenScheduleSlot?: string | null;
   /** 팀장 지정 크루 미팅(HH:mm KST). 오전 희망일 때만 */
   crewMeetingTime?: string | null;
+  /** true(기본): crewMeetingTime 공용. false: 팀원별 meetingTime */
+  crewMeetingTimeShared?: boolean;
   /** 팀장이 미팅 시각을 저장·변경한 시각(ISO) — 크루 «수정됨» 배지 등 */
   crewMeetingTimeUpdatedAt?: string | null;
   status: string;
@@ -184,8 +186,13 @@ export interface InquiryItem {
   specialNotes?: string | null;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
-  /** 서버에서 `crewMemberNote`의 이름을 `TeamMember`와 매칭해 첨부한 전화번호 */
-  crewMembers?: Array<{ name: string; phone: string | null }>;
+  /** 서버에서 `crewMemberNote`의 이름을 `TeamMember`와 매칭해 첨부한 전화번호·미팅 시각 */
+  crewMembers?: Array<{
+    teamMemberId: string | null;
+    name: string;
+    phone: string | null;
+    meetingTime?: string | null;
+  }>;
   /** 관리자 입력 수기(간편) 등록 제목 */
   scheduleMemo?: string | null;
   /** 상담·참고 — 마케터 메모 (팀 화면 공유) */
@@ -385,10 +392,20 @@ export function buildTeamInquiryShareClipText(item: InquiryItem): string {
   }
   addRow('현장 작업자', formatCrewInfo(item));
   if (isMorningBucketForTeamMeeting(item)) {
-    const cm = (item.crewMeetingTime ?? '').trim();
-    if (cm && isValidCrewMeetingHhmm(normalizeTimeInputToHhmm(cm) ?? cm)) {
-      const norm = normalizeTimeInputToHhmm(cm) ?? cm;
-      addRow('현장 미팅(오전)', formatMeetingTimeKoLabel(norm));
+    const shared = item.crewMeetingTimeShared !== false;
+    if (shared) {
+      const cm = (item.crewMeetingTime ?? '').trim();
+      if (cm && isValidCrewMeetingHhmm(normalizeTimeInputToHhmm(cm) ?? cm)) {
+        const norm = normalizeTimeInputToHhmm(cm) ?? cm;
+        addRow('현장 미팅(오전·공용)', formatMeetingTimeKoLabel(norm));
+      }
+    } else {
+      for (const m of item.crewMembers ?? []) {
+        const cm = (m.meetingTime ?? '').trim();
+        if (!cm || !isValidCrewMeetingHhmm(normalizeTimeInputToHhmm(cm) ?? cm)) continue;
+        const norm = normalizeTimeInputToHhmm(cm) ?? cm;
+        addRow(`현장 미팅(오전·${m.name})`, formatMeetingTimeKoLabel(norm));
+      }
     }
   }
   endSection();
@@ -625,7 +642,17 @@ export function TeamInquiryDetailModal({
   const [preferredDateInput, setPreferredDateInput] = useState(item.preferredDate?.slice(0, 10) ?? '');
   const [preferredDateSaving, setPreferredDateSaving] = useState(false);
   /** 서버 저장값과 별도 — 시간 입력 중 경고·PATCH 방지 */
+  const [crewMeetingSharedDraft, setCrewMeetingSharedDraft] = useState(
+    () => item.crewMeetingTimeShared !== false,
+  );
   const [crewMeetingDraft, setCrewMeetingDraft] = useState(() => item.crewMeetingTime ?? '');
+  const [memberMeetingDrafts, setMemberMeetingDrafts] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    for (const m of item.crewMembers ?? []) {
+      if (m.teamMemberId && m.meetingTime) out[m.teamMemberId] = m.meetingTime;
+    }
+    return out;
+  });
   const [crewMeetingSaving, setCrewMeetingSaving] = useState(false);
   /** 저장 직후 사용자 피드백 메시지(몇 초 후 자동 숨김) */
   const [crewMeetingSaveNotice, setCrewMeetingSaveNotice] = useState<ReactNode | null>(null);
@@ -633,7 +660,13 @@ export function TeamInquiryDetailModal({
   const showHappyBlock = enableHappyCall && item.preferredDate;
 
   useEffect(() => {
+    setCrewMeetingSharedDraft(item.crewMeetingTimeShared !== false);
     setCrewMeetingDraft(item.crewMeetingTime ?? '');
+    const out: Record<string, string> = {};
+    for (const m of item.crewMembers ?? []) {
+      if (m.teamMemberId && m.meetingTime) out[m.teamMemberId] = m.meetingTime;
+    }
+    setMemberMeetingDrafts(out);
   }, [item.id]);
 
   useEffect(() => {
@@ -684,25 +717,61 @@ export function TeamInquiryDetailModal({
       alert(teamT('team.alert.needLogin'));
       return;
     }
-    const t = crewMeetingDraft.trim();
-    const normalized = t === '' ? null : normalizeTimeInputToHhmm(t);
-    if (t !== '' && normalized === null) {
-      alert(teamT('team.alert.timeInvalid'));
-      return;
-    }
-    const val = normalized;
     setCrewMeetingSaving(true);
     try {
-      const next = (await patchTeamInquiryCrewMeetingTime(teamToken, item.id, val)) as InquiryItem;
-      onInquiryPatched?.(next);
-      setCrewMeetingDraft(next.crewMeetingTime ?? '');
-      setCrewMeetingSaveNotice(
-        val != null ? (
-          <TeamBiLine id="team.alert.meetingSavedAt" vars={{ time: val }} />
-        ) : (
-          <TeamBiLine id="team.alert.meetingSavedClear" />
-        ),
-      );
+      if (crewMeetingSharedDraft) {
+        const t = crewMeetingDraft.trim();
+        const normalized = t === '' ? null : normalizeTimeInputToHhmm(t);
+        if (t !== '' && normalized === null) {
+          alert(teamT('team.alert.timeInvalid'));
+          return;
+        }
+        const next = (await patchTeamInquiryCrewMeetingTime(teamToken, item.id, {
+          shared: true,
+          crewMeetingTime: normalized,
+        })) as InquiryItem;
+        onInquiryPatched?.(next);
+        setCrewMeetingSharedDraft(next.crewMeetingTimeShared !== false);
+        setCrewMeetingDraft(next.crewMeetingTime ?? '');
+        setCrewMeetingSaveNotice(
+          normalized != null ? (
+            <TeamBiLine id="team.alert.meetingSavedAt" vars={{ time: normalized }} />
+          ) : (
+            <TeamBiLine id="team.alert.meetingSavedClear" />
+          ),
+        );
+      } else {
+        const members = (item.crewMembers ?? []).filter(
+          (m): m is typeof m & { teamMemberId: string } => Boolean(m.teamMemberId),
+        );
+        if (members.length === 0) {
+          alert(teamT('team.modal.meetingNoCrew'));
+          return;
+        }
+        const memberTimes: Array<{ teamMemberId: string; meetingTime: string }> = [];
+        for (const m of members) {
+          const t = (memberMeetingDrafts[m.teamMemberId] ?? '').trim();
+          const normalized = t === '' ? null : normalizeTimeInputToHhmm(t);
+          if (!normalized) {
+            alert(`${m.name}: ${teamT('team.alert.timeInvalid')}`);
+            return;
+          }
+          memberTimes.push({ teamMemberId: m.teamMemberId, meetingTime: normalized });
+        }
+        const next = (await patchTeamInquiryCrewMeetingTime(teamToken, item.id, {
+          shared: false,
+          memberTimes,
+        })) as InquiryItem;
+        onInquiryPatched?.(next);
+        setCrewMeetingSharedDraft(false);
+        setCrewMeetingDraft('');
+        const out: Record<string, string> = {};
+        for (const m of next.crewMembers ?? []) {
+          if (m.teamMemberId && m.meetingTime) out[m.teamMemberId] = m.meetingTime;
+        }
+        setMemberMeetingDrafts(out);
+        setCrewMeetingSaveNotice(<TeamBiLine id="team.alert.meetingSavedPerMember" />);
+      }
       window.setTimeout(() => setCrewMeetingSaveNotice(null), 4500);
     } catch (e) {
       alert(
@@ -722,13 +791,26 @@ export function TeamInquiryDetailModal({
       ? formatMeetingTimeKoLabel(crewMeetingPreview)
       : null;
   const crewMeetingDirty = (() => {
-    const savedRaw = (item.crewMeetingTime ?? '').trim();
-    const savedNorm = savedRaw === '' ? null : normalizeTimeInputToHhmm(savedRaw);
-    const t = crewMeetingDraft.trim();
-    if (t === '') return savedRaw !== '';
-    const n = normalizeTimeInputToHhmm(t);
-    if (n === null) return true;
-    return n !== (savedNorm ?? null);
+    if (crewMeetingSharedDraft !== (item.crewMeetingTimeShared !== false)) return true;
+    if (crewMeetingSharedDraft) {
+      const savedRaw = (item.crewMeetingTime ?? '').trim();
+      const savedNorm = savedRaw === '' ? null : normalizeTimeInputToHhmm(savedRaw);
+      const t = crewMeetingDraft.trim();
+      if (t === '') return savedRaw !== '';
+      const n = normalizeTimeInputToHhmm(t);
+      if (n === null) return true;
+      return n !== (savedNorm ?? null);
+    }
+    const members = (item.crewMembers ?? []).filter((m) => m.teamMemberId);
+    for (const m of members) {
+      const id = m.teamMemberId!;
+      const saved = (m.meetingTime ?? '').trim();
+      const draft = (memberMeetingDrafts[id] ?? '').trim();
+      const savedNorm = saved === '' ? null : normalizeTimeInputToHhmm(saved);
+      const draftNorm = draft === '' ? null : normalizeTimeInputToHhmm(draft);
+      if (savedNorm !== draftNorm) return true;
+    }
+    return false;
   })();
 
   const showExternalShareCopy =
@@ -1005,21 +1087,89 @@ export function TeamInquiryDetailModal({
                   label={<TeamBiLine id="team.modal.row.meetingTime" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
                   <div className="space-y-2">
-                    <div className="flex min-w-0 w-full flex-col gap-2 items-start sm:flex-row sm:flex-wrap sm:items-center">
+                    <label className="flex items-start gap-2 text-fluid-sm text-gray-800 cursor-pointer">
                       <input
-                        type="time"
-                        className="h-9 min-h-9 w-[9.75rem] max-w-full shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-fluid-sm tabular-nums text-gray-900 shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)] [color-scheme:light]"
+                        type="checkbox"
+                        className="mt-0.5 shrink-0"
+                        checked={crewMeetingSharedDraft}
                         disabled={crewMeetingSaving || !teamToken}
-                        value={crewMeetingDraft}
-                        onChange={(e) => setCrewMeetingDraft(e.target.value)}
-                        aria-label={teamBiPlain('team.modal.meetingAria')}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setCrewMeetingSharedDraft(on);
+                          if (!on) {
+                            const seed = crewMeetingDraft.trim() || (item.crewMeetingTime ?? '').trim();
+                            const members = (item.crewMembers ?? []).filter((m) => m.teamMemberId);
+                            setMemberMeetingDrafts((prev) => {
+                              const next = { ...prev };
+                              for (const m of members) {
+                                const id = m.teamMemberId!;
+                                if (!next[id]?.trim()) {
+                                  next[id] = m.meetingTime?.trim() || seed;
+                                }
+                              }
+                              return next;
+                            });
+                          } else if (!crewMeetingDraft.trim() && item.crewMeetingTime) {
+                            setCrewMeetingDraft(item.crewMeetingTime);
+                          }
+                        }}
                       />
-                      {crewMeetingPreviewLabel ? (
-                        <span className="inline-flex shrink-0 items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-fluid-2xs font-medium tabular-nums text-gray-700">
-                          {crewMeetingPreviewLabel}
-                        </span>
-                      ) : null}
-                      <div className="inline-flex w-fit shrink-0 self-start items-stretch overflow-hidden rounded-lg border border-gray-200/95 bg-gray-50/90 shadow-[0_1px_2px_rgba(15,23,42,0.05)] ring-1 ring-black/[0.03]">
+                      <TeamBiLine id="team.modal.meetingShared" koClassName="text-fluid-sm text-gray-800" />
+                    </label>
+                    {crewMeetingSharedDraft ? (
+                      <div className="flex min-w-0 w-full flex-col gap-2 items-start sm:flex-row sm:flex-wrap sm:items-center">
+                        <input
+                          type="time"
+                          className="h-9 min-h-9 w-[9.75rem] max-w-full shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-fluid-sm tabular-nums text-gray-900 shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)] [color-scheme:light]"
+                          disabled={crewMeetingSaving || !teamToken}
+                          value={crewMeetingDraft}
+                          onChange={(e) => setCrewMeetingDraft(e.target.value)}
+                          aria-label={teamBiPlain('team.modal.meetingAria')}
+                        />
+                        {crewMeetingPreviewLabel ? (
+                          <span className="inline-flex shrink-0 items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-fluid-2xs font-medium tabular-nums text-gray-700">
+                            {crewMeetingPreviewLabel}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="space-y-2 pl-0.5">
+                        {(item.crewMembers ?? []).filter((m) => m.teamMemberId).length === 0 ? (
+                          <p className="text-fluid-2xs text-amber-800">
+                            <TeamBiLine id="team.modal.meetingNoCrew" koClassName="text-fluid-2xs text-amber-800" />
+                          </p>
+                        ) : (
+                          (item.crewMembers ?? [])
+                            .filter((m): m is typeof m & { teamMemberId: string } => Boolean(m.teamMemberId))
+                            .map((m) => (
+                              <div
+                                key={m.teamMemberId}
+                                className="flex flex-wrap items-center gap-2 text-fluid-sm text-gray-800"
+                              >
+                                <span className="min-w-[4.5rem] font-medium">{m.name}</span>
+                                <input
+                                  type="time"
+                                  className="h-9 min-h-9 w-[9.75rem] max-w-full shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-fluid-sm tabular-nums text-gray-900 [color-scheme:light]"
+                                  disabled={crewMeetingSaving || !teamToken}
+                                  value={memberMeetingDrafts[m.teamMemberId] ?? ''}
+                                  onChange={(e) =>
+                                    setMemberMeetingDrafts((prev) => ({
+                                      ...prev,
+                                      [m.teamMemberId]: e.target.value,
+                                    }))
+                                  }
+                                  aria-label={`${m.name} ${teamBiPlain('team.modal.meetingAria')}`}
+                                />
+                              </div>
+                            ))
+                        )}
+                        <p className="text-fluid-2xs text-gray-500">
+                          <TeamBiLine id="team.modal.meetingPerMemberHint" koClassName="text-fluid-2xs text-gray-500" />
+                        </p>
+                      </div>
+                    )}
+                    <div className="inline-flex w-fit shrink-0 self-start items-stretch overflow-hidden rounded-lg border border-gray-200/95 bg-gray-50/90 shadow-[0_1px_2px_rgba(15,23,42,0.05)] ring-1 ring-black/[0.03]">
+                      {crewMeetingSharedDraft ? (
                         <button
                           type="button"
                           disabled={crewMeetingSaving || !teamToken || crewMeetingDraft.trim() === ''}
@@ -1028,19 +1178,19 @@ export function TeamInquiryDetailModal({
                         >
                           <TeamBiLine id="team.common.clear" koClassName="text-fluid-2xs font-medium text-gray-600" />
                         </button>
-                        <button
-                          type="button"
-                          disabled={crewMeetingSaving || !teamToken || !crewMeetingDirty}
-                          onClick={() => void handleCrewMeetingSave()}
-                          className="min-h-9 shrink-0 border-0 border-l border-gray-200 bg-gray-950 px-3 py-2 text-fluid-2xs font-semibold leading-none text-white transition-colors hover:bg-gray-900 disabled:opacity-40 sm:px-3.5"
-                        >
-                          {crewMeetingSaving ? (
-                            <TeamBiLine id="team.common.savingShort" koClassName="text-fluid-2xs font-semibold text-white" />
-                          ) : (
-                            <TeamBiLine id="team.common.save" koClassName="text-fluid-2xs font-semibold text-white" />
-                          )}
-                        </button>
-                      </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={crewMeetingSaving || !teamToken || !crewMeetingDirty}
+                        onClick={() => void handleCrewMeetingSave()}
+                        className={`min-h-9 shrink-0 border-0 bg-gray-950 px-3 py-2 text-fluid-2xs font-semibold leading-none text-white transition-colors hover:bg-gray-900 disabled:opacity-40 sm:px-3.5 ${crewMeetingSharedDraft ? 'border-l border-gray-200' : ''}`}
+                      >
+                        {crewMeetingSaving ? (
+                          <TeamBiLine id="team.common.savingShort" koClassName="text-fluid-2xs font-semibold text-white" />
+                        ) : (
+                          <TeamBiLine id="team.common.save" koClassName="text-fluid-2xs font-semibold text-white" />
+                        )}
+                      </button>
                     </div>
                     {crewMeetingSaveNotice ? (
                       <TeamInlineNoticeModule variant="success">{crewMeetingSaveNotice}</TeamInlineNoticeModule>

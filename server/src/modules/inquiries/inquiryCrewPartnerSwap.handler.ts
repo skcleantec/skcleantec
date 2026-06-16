@@ -4,6 +4,10 @@ import { prisma } from '../../lib/prisma.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
+import {
+  clearInquiryCrewMemberMeetingTimes,
+  inquiryHasAnyCrewMeetingTime,
+} from './inquiryCrewMemberMeetingTime.service.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
@@ -170,6 +174,11 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
   const aChanged = isCrewRosterChanged(aNote, aCount, aNoteNext, aCount);
   const bChanged = isCrewRosterChanged(bNote, bCount, bNoteNext, bCount);
 
+  const aHadMeeting =
+    aChanged && (await inquiryHasAnyCrewMeetingTime(prisma, a.id, a.crewMeetingTime));
+  const bHadMeeting =
+    bChanged && (await inquiryHasAnyCrewMeetingTime(prisma, b.id, b.crewMeetingTime));
+
   const labelOther = (row: typeof a) =>
     `${String(row.customerName ?? '').trim() || '고객'}${row.inquiryNumber != null ? ` (#${row.inquiryNumber})` : ''}`;
 
@@ -177,20 +186,16 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
     `팀원 교환: ${labelOther(b)} 접수와 '${myTok}' ↔ '${theirTok}'`,
     `팀원 메모: ${fmtNum(aNote)} → ${fmtNum(aNoteNext)}`,
   ];
-  if (aChanged && (a.crewMeetingTime ?? '').trim()) {
-    linesA.push(
-      `현장 미팅(크루): 팀원 구성 변경으로 미팅 시각 초기화 (이전: ${(a.crewMeetingTime ?? '').trim()})`,
-    );
+  if (aHadMeeting) {
+    linesA.push('현장 미팅(크루): 팀원 구성 변경으로 미팅 시각 초기화');
   }
 
   const linesB: string[] = [
     `팀원 교환: ${labelOther(a)} 접수와 '${theirTok}' ↔ '${myTok}'`,
     `팀원 메모: ${fmtNum(bNote)} → ${fmtNum(bNoteNext)}`,
   ];
-  if (bChanged && (b.crewMeetingTime ?? '').trim()) {
-    linesB.push(
-      `현장 미팅(크루): 팀원 구성 변경으로 미팅 시각 초기화 (이전: ${(b.crewMeetingTime ?? '').trim()})`,
-    );
+  if (bHadMeeting) {
+    linesB.push('현장 미팅(크루): 팀원 구성 변경으로 미팅 시각 초기화');
   }
 
   const dataA: Prisma.InquiryUpdateInput = {
@@ -214,6 +219,8 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
     await prisma.$transaction(async (tx) => {
       await tx.inquiry.update({ where: { id: a.id }, data: dataA });
       await tx.inquiry.update({ where: { id: b.id }, data: dataB });
+      if (aChanged) await clearInquiryCrewMemberMeetingTimes(tx, a.id);
+      if (bChanged) await clearInquiryCrewMemberMeetingTimes(tx, b.id);
       await tx.inquiryChangeLog.create({
         data: {
           inquiryId: a.id,

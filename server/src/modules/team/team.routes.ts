@@ -30,9 +30,14 @@ import {
   settlementPreferredRangeFromQuery,
 } from './teamExternalSettlementRange.js';
 import {
-  parseCrewMeetingTimeBody,
+  parseCrewMeetingPatchBody,
   validateCrewMeetingTimeForInquiry,
 } from '../inquiries/crewMeetingTime.helpers.js';
+import {
+  clearInquiryCrewMemberMeetingTimes,
+  resolveCrewTeamMemberIdsFromNote,
+  upsertInquiryMemberMeetingTimes,
+} from '../inquiries/inquiryCrewMemberMeetingTime.service.js';
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
@@ -166,6 +171,9 @@ const teamInquiryInclude = {
     },
   },
   inspectionChecklist: inspectionChecklistListInclude,
+  crewMemberMeetingTimes: {
+    select: { teamMemberId: true, meetingTime: true },
+  },
 } as const;
 
 /**
@@ -190,10 +198,28 @@ async function resolveTeamContextTenantId(user: AuthPayload): Promise<string | n
   return row?.tenantId ?? null;
 }
 
-async function attachCrewMembers<T extends { crewMemberNote: string | null }>(
+async function attachCrewMembers<
+  T extends {
+    crewMemberNote: string | null;
+    crewMeetingTimeShared?: boolean;
+    crewMeetingTime?: string | null;
+    crewMemberMeetingTimes?: Array<{ teamMemberId: string; meetingTime: string }>;
+  },
+>(
   items: T[],
   tenantId: string,
-): Promise<Array<T & { crewMembers: Array<{ name: string; phone: string | null }> }>> {
+): Promise<
+  Array<
+    T & {
+      crewMembers: Array<{
+        teamMemberId: string | null;
+        name: string;
+        phone: string | null;
+        meetingTime: string | null;
+      }>;
+    }
+  >
+> {
   const allNames = new Set<string>();
   for (const it of items) {
     for (const n of parseCrewNames(it.crewMemberNote)) allNames.add(n);
@@ -206,23 +232,40 @@ async function attachCrewMembers<T extends { crewMemberNote: string | null }>(
       name: { in: Array.from(allNames) },
       ...tenantActiveTeamMemberWhere(tenantId),
     },
-    select: { name: true, phone: true, sortOrder: true, createdAt: true },
+    select: { id: true, name: true, phone: true, sortOrder: true, createdAt: true },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
-  const phoneByName = new Map<string, string | null>();
+  const memberByName = new Map<string, { id: string; phone: string | null }>();
   for (const m of members) {
-    // 동명이인이 있을 수 있어 **첫 매칭**만 사용(최선노력). 번호가 있는 행을 우선.
-    const cur = phoneByName.get(m.name);
-    if (cur == null) phoneByName.set(m.name, m.phone ?? null);
-    else if (!cur && m.phone) phoneByName.set(m.name, m.phone);
+    const cur = memberByName.get(m.name);
+    if (!cur) memberByName.set(m.name, { id: m.id, phone: m.phone ?? null });
+    else if (!cur.phone && m.phone) memberByName.set(m.name, { id: cur.id, phone: m.phone });
   }
-  return items.map((it) => ({
-    ...it,
-    crewMembers: parseCrewNames(it.crewMemberNote).map((name) => ({
-      name,
-      phone: phoneByName.get(name) ?? null,
-    })),
-  }));
+  return items.map((it) => {
+    const shared = it.crewMeetingTimeShared !== false;
+    const timeByMember = new Map(
+      (it.crewMemberMeetingTimes ?? []).map((r) => [r.teamMemberId, r.meetingTime] as const),
+    );
+    return {
+      ...it,
+      crewMembers: parseCrewNames(it.crewMemberNote).map((name) => {
+        const mem = memberByName.get(name);
+        const teamMemberId = mem?.id ?? null;
+        let meetingTime: string | null = null;
+        if (shared) {
+          meetingTime = it.crewMeetingTime ?? null;
+        } else if (teamMemberId) {
+          meetingTime = timeByMember.get(teamMemberId) ?? null;
+        }
+        return {
+          teamMemberId,
+          name,
+          phone: mem?.phone ?? null,
+          meetingTime,
+        };
+      }),
+    };
+  });
 }
 
 async function attachCrewMembersOne<T extends { crewMemberNote: string | null } | null>(
@@ -235,7 +278,12 @@ async function attachCrewMembersOne<T extends { crewMemberNote: string | null } 
   if ('inspectionChecklist' in enriched) {
     return attachInspectionSummaryToInquiry(
       enriched as Parameters<typeof attachInspectionSummaryToInquiry>[0] & {
-        crewMembers: Array<{ name: string; phone: string | null }>;
+        crewMembers: Array<{
+          teamMemberId: string | null;
+          name: string;
+          phone: string | null;
+          meetingTime: string | null;
+        }>;
       },
     );
   }
@@ -601,16 +649,17 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
   res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
 });
 
-/** 팀장: 오전 희망 접수일 때만 크루 현장 일정에 노출할 미팅 시각(KST, HH:mm) */
+/** 팀장: 오전 희망 접수일 때만 크루 현장 일정에 노출할 미팅 시각(KST, HH:mm) — 공용 또는 팀원별 */
 router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
   try {
     const { userId } = (req as unknown as { user: AuthPayload }).user;
     const { id } = req.params;
-    const parsed = parseCrewMeetingTimeBody((req.body as { crewMeetingTime?: unknown })?.crewMeetingTime);
+    const parsed = parseCrewMeetingPatchBody(req.body);
     if (!parsed.ok) {
       res.status(400).json({ error: parsed.error });
       return;
     }
+    const patch = parsed.value;
     const inquiry = await prisma.inquiry.findFirst({
       where: {
         id,
@@ -623,7 +672,10 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         status: true,
         preferredTime: true,
         betweenScheduleSlot: true,
+        crewMemberNote: true,
         crewMeetingTime: true,
+        crewMeetingTimeShared: true,
+        crewMemberMeetingTimes: { select: { teamMemberId: true, meetingTime: true, teamMember: { select: { name: true } } } },
       },
     });
     if (!inquiry) {
@@ -634,18 +686,123 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
       res.status(400).json({ error: '취소된 접수입니다.' });
       return;
     }
-    const chk = validateCrewMeetingTimeForInquiry(
-      inquiry.preferredTime,
-      inquiry.betweenScheduleSlot,
-      parsed.value
-    );
-    if (!chk.ok) {
-      res.status(400).json({ error: chk.error });
+
+    const fmt = (v: string | null) => v ?? '(미지정)';
+    const logLines: string[] = [];
+
+    if (patch.mode === 'shared') {
+      const chk = validateCrewMeetingTimeForInquiry(
+        inquiry.preferredTime,
+        inquiry.betweenScheduleSlot,
+        patch.crewMeetingTime,
+      );
+      if (!chk.ok) {
+        res.status(400).json({ error: chk.error });
+        return;
+      }
+      const next = patch.crewMeetingTime;
+      const modeChanged = inquiry.crewMeetingTimeShared === false;
+      if (!modeChanged && inquiry.crewMeetingTime === next && inquiry.crewMemberMeetingTimes.length === 0) {
+        const unchanged = await prisma.inquiry.findUnique({
+          where: { id },
+          include: teamInquiryInclude,
+        });
+        res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId));
+        return;
+      }
+      if (modeChanged) {
+        logLines.push('현장 미팅(크루): 개별 → 공용');
+      }
+      logLines.push(`현장 미팅(크루·공용): ${fmt(inquiry.crewMeetingTime)} → ${fmt(next)}`);
+
+      const updated = await prisma.$transaction(async (tx) => {
+        await clearInquiryCrewMemberMeetingTimes(tx, id);
+        await tx.inquiry.update({
+          where: { id },
+          data: {
+            crewMeetingTimeShared: true,
+            crewMeetingTime: next,
+            crewMeetingTimeUpdatedAt: new Date(),
+          },
+        });
+        await tx.inquiryChangeLog.create({
+          data: {
+            inquiryId: id,
+            customerName: inquiry.customerName,
+            actorId: userId,
+            lines: logLines,
+          },
+        });
+        return tx.inquiry.findUnique({
+          where: { id },
+          include: teamInquiryInclude,
+        });
+      });
+      void notifyAllActiveCrewGroupsRefresh(inquiry.tenantId).catch((e) =>
+        console.error('[crew-meeting-time] crew refresh', e),
+      );
+      void notifyCsReportNavBadges(id, undefined, inquiry.tenantId).catch((e) =>
+        console.error('[crew-meeting-time] staff/leaders nav refresh', e),
+      );
+      notifyChangeLogToStaff({
+        tenantId: inquiry.tenantId,
+        customerName: inquiry.customerName,
+        inquiryId: id,
+        lines: logLines,
+      });
+      res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
       return;
     }
-    const before = inquiry.crewMeetingTime;
-    const next = parsed.value;
-    if (before === next) {
+
+    // individual mode
+    const allowed = await resolveCrewTeamMemberIdsFromNote(
+      prisma,
+      inquiry.tenantId,
+      inquiry.crewMemberNote,
+    );
+    if (allowed.length === 0) {
+      res.status(400).json({ error: '투입 팀원이 없습니다. 접수에 팀원을 먼저 지정해 주세요.' });
+      return;
+    }
+    const allowedSet = new Set(allowed.map((x) => x.teamMemberId));
+    for (const row of patch.memberTimes) {
+      if (!allowedSet.has(row.teamMemberId)) {
+        res.status(400).json({ error: '투입되지 않은 팀원에게는 미팅 시각을 지정할 수 없습니다.' });
+        return;
+      }
+      const chk = validateCrewMeetingTimeForInquiry(
+        inquiry.preferredTime,
+        inquiry.betweenScheduleSlot,
+        row.meetingTime,
+      );
+      if (!chk.ok) {
+        res.status(400).json({ error: chk.error });
+        return;
+      }
+    }
+    if (patch.memberTimes.length !== allowed.length) {
+      res.status(400).json({ error: '투입 팀원 전원의 미팅 시각을 입력해 주세요.' });
+      return;
+    }
+    const nameById = new Map(allowed.map((x) => [x.teamMemberId, x.name] as const));
+    const beforeById = new Map(
+      inquiry.crewMemberMeetingTimes.map((r) => [r.teamMemberId, r.meetingTime] as const),
+    );
+    const modeChanged = inquiry.crewMeetingTimeShared !== false;
+    if (modeChanged) {
+      logLines.push('현장 미팅(크루): 공용 → 개별');
+      if ((inquiry.crewMeetingTime ?? '').trim()) {
+        logLines.push(`현장 미팅(크루·공용 해제): ${fmt(inquiry.crewMeetingTime)}`);
+      }
+    }
+    for (const row of patch.memberTimes) {
+      const name = nameById.get(row.teamMemberId) ?? row.teamMemberId;
+      const before = beforeById.get(row.teamMemberId) ?? null;
+      if (before !== row.meetingTime) {
+        logLines.push(`현장 미팅(크루·${name}): ${fmt(before)} → ${fmt(row.meetingTime)}`);
+      }
+    }
+    if (logLines.length === 0) {
       const unchanged = await prisma.inquiry.findUnique({
         where: { id },
         include: teamInquiryInclude,
@@ -653,21 +810,23 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
       res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId));
       return;
     }
-    const fmt = (v: string | null) => v ?? '(미지정)';
+
     const updated = await prisma.$transaction(async (tx) => {
       await tx.inquiry.update({
         where: { id },
         data: {
-          crewMeetingTime: next,
+          crewMeetingTimeShared: false,
+          crewMeetingTime: null,
           crewMeetingTimeUpdatedAt: new Date(),
         },
       });
+      await upsertInquiryMemberMeetingTimes(tx, inquiry.tenantId, id, patch.memberTimes);
       await tx.inquiryChangeLog.create({
         data: {
           inquiryId: id,
           customerName: inquiry.customerName,
           actorId: userId,
-          lines: [`현장 미팅(크루): ${fmt(before)} → ${fmt(next)}`],
+          lines: logLines,
         },
       });
       return tx.inquiry.findUnique({
@@ -675,7 +834,9 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         include: teamInquiryInclude,
       });
     });
-    void notifyAllActiveCrewGroupsRefresh(inquiry.tenantId).catch((e) => console.error('[crew-meeting-time] crew refresh', e));
+    void notifyAllActiveCrewGroupsRefresh(inquiry.tenantId).catch((e) =>
+      console.error('[crew-meeting-time] crew refresh', e),
+    );
     void notifyCsReportNavBadges(id, undefined, inquiry.tenantId).catch((e) =>
       console.error('[crew-meeting-time] staff/leaders nav refresh', e),
     );
@@ -683,7 +844,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
       tenantId: inquiry.tenantId,
       customerName: inquiry.customerName,
       inquiryId: id,
-      lines: [`현장 미팅(크루): ${fmt(before)} → ${fmt(next)}`],
+      lines: logLines,
     });
     res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
   } catch (e: unknown) {

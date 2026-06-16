@@ -70,3 +70,70 @@ export function effectiveCrewMeetingTimeForDisplay(
   if (!isMorningPreferenceForCrewMeeting(preferredTime, betweenScheduleSlot)) return null;
   return stored;
 }
+
+export type CrewMeetingPatchShared = {
+  mode: 'shared';
+  crewMeetingTime: string | null;
+};
+
+export type CrewMeetingPatchIndividual = {
+  mode: 'individual';
+  memberTimes: Array<{ teamMemberId: string; meetingTime: string }>;
+};
+
+export type CrewMeetingPatchInput = CrewMeetingPatchShared | CrewMeetingPatchIndividual;
+
+export function parseCrewMeetingPatchBody(
+  body: unknown,
+): { ok: true; value: CrewMeetingPatchInput } | { ok: false; error: string } {
+  if (!body || typeof body !== 'object') {
+    return { ok: false, error: '요청 본문이 올바르지 않습니다.' };
+  }
+  const b = body as Record<string, unknown>;
+
+  // 레거시: { crewMeetingTime } 만 전송
+  if (!('shared' in b) && 'crewMeetingTime' in b) {
+    const parsed = parseCrewMeetingTimeBody(b.crewMeetingTime);
+    if (!parsed.ok) return parsed;
+    return { ok: true, value: { mode: 'shared', crewMeetingTime: parsed.value } };
+  }
+
+  const sharedRaw = b.shared;
+  const shared =
+    sharedRaw === true ||
+    sharedRaw === 'true' ||
+    sharedRaw === 1 ||
+    sharedRaw === '1';
+
+  if (shared) {
+    const parsed = parseCrewMeetingTimeBody(b.crewMeetingTime);
+    if (!parsed.ok) return parsed;
+    return { ok: true, value: { mode: 'shared', crewMeetingTime: parsed.value } };
+  }
+
+  const rawList = b.memberTimes;
+  if (!Array.isArray(rawList)) {
+    return { ok: false, error: '개별 미팅 시각 목록(memberTimes)이 필요합니다.' };
+  }
+  const memberTimes: Array<{ teamMemberId: string; meetingTime: string }> = [];
+  const seen = new Set<string>();
+  for (const x of rawList) {
+    if (!x || typeof x !== 'object') {
+      return { ok: false, error: '개별 미팅 시각 형식이 올바르지 않습니다.' };
+    }
+    const row = x as { teamMemberId?: unknown; meetingTime?: unknown };
+    const teamMemberId = typeof row.teamMemberId === 'string' ? row.teamMemberId.trim() : '';
+    if (!teamMemberId) {
+      return { ok: false, error: '팀원 id(teamMemberId)가 필요합니다.' };
+    }
+    if (seen.has(teamMemberId)) continue;
+    seen.add(teamMemberId);
+    const parsed = parseCrewMeetingTimeBody(row.meetingTime);
+    if (!parsed.ok) return parsed;
+    if (parsed.value == null) {
+      return { ok: false, error: '투입 팀원마다 미팅 시각을 모두 입력해 주세요.' };
+    }
+    memberTimes.push({ teamMemberId, meetingTime: parsed.value });
+  }
+  return { ok: true, value: { mode: 'individual', memberTimes } };
+}

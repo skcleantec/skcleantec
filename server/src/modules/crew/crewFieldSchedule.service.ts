@@ -4,6 +4,7 @@ import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 import { getDayRosterInRange } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { effectiveCrewMeetingTimeForDisplay } from '../inquiries/crewMeetingTime.helpers.js';
+import { resolveMemberMeetingTimeRaw } from '../inquiries/inquiryCrewMemberMeetingTime.service.js';
 
 const NOTE_SPLIT = /[,·/|]/g;
 
@@ -106,7 +107,9 @@ export async function buildCrewFieldSchedule(
       preferredTime: true,
       betweenScheduleSlot: true,
       crewMeetingTime: true,
+      crewMeetingTimeShared: true,
       crewMeetingTimeUpdatedAt: true,
+      crewMemberMeetingTimes: { select: { teamMemberId: true, meetingTime: true } },
       status: true,
       crewMemberNote: true,
       assignments: {
@@ -193,10 +196,16 @@ export async function buildCrewFieldSchedule(
       for (const inq of dayInquiries) {
         const names = parseCrewMemberNoteToNames(inq.crewMemberNote);
         if (!names.some((n) => nameToMemberIdsInGroup(n).includes(mid))) continue;
+        const rawMeeting = resolveMemberMeetingTimeRaw(
+          inq.crewMeetingTimeShared !== false,
+          inq.crewMeetingTime,
+          mid,
+          inq.crewMemberMeetingTimes,
+        );
         const effMeeting = effectiveCrewMeetingTimeForDisplay(
           inq.preferredTime,
           inq.betweenScheduleSlot,
-          inq.crewMeetingTime
+          rawMeeting,
         );
         matched.push({
           inquiryId: inq.id,
