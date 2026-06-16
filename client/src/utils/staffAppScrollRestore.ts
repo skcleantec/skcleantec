@@ -25,3 +25,16 @@ export function restoreStaffAppScrollTop(top: number): void {
 export function scrollStaffAppToTop(): void {
   restoreStaffAppScrollTop(0);
 }
+
+/** `main.staff-app-surface` 안에서 요소가 보이도록 스크롤한다. */
+export function scrollStaffAppElementIntoView(el: HTMLElement, behavior: ScrollBehavior = 'smooth'): void {
+  const container = getStaffAppScrollElement();
+  if (!container) {
+    el.scrollIntoView({ behavior, block: 'start' });
+    return;
+  }
+  const containerRect = container.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const top = elRect.top - containerRect.top + container.scrollTop - 12;
+  container.scrollTo({ top: Math.max(0, top), behavior });
+}

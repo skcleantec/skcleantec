@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { scrollStaffAppElementIntoView } from '../../utils/staffAppScrollRestore';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { createPortal } from 'react-dom';
 import { Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
@@ -255,6 +256,8 @@ export function AdminOrderFormPage() {
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   /** 발급 완료 후 인라인 폼을 초기화하기 위한 remount 키 */
   const [issueFormKey, setIssueFormKey] = useState(0);
+  const issueCompleteRef = useRef<HTMLDivElement>(null);
+  const pendingIssueScrollRef = useRef(false);
   const [pendingLinkOptions, setPendingLinkOptions] = useState<
     Array<{
       id: string;
@@ -445,10 +448,21 @@ export function AdminOrderFormPage() {
 
   /** 인라인 발급 폼에서 발주서가 생성되면 호출 — 완료 카드 표시 + 폼 초기화 */
   const handleOrderCreated = (order: OrderForm) => {
+    pendingIssueScrollRef.current = true;
     setNewOrder(order);
     setPendingLinkId('');
     setIssueFormKey((k) => k + 1);
   };
+
+  useEffect(() => {
+    if (!pendingIssueScrollRef.current || !newOrder || tab !== 'issue') return;
+    const el = issueCompleteRef.current;
+    if (!el) return;
+    pendingIssueScrollRef.current = false;
+    requestAnimationFrame(() => {
+      scrollStaffAppElementIntoView(el);
+    });
+  }, [newOrder, issueFormKey, tab]);
 
   const brandSlugForOrder = (order: OrderForm) => order.operatingCompany?.slug ?? null;
 
@@ -632,6 +646,70 @@ export function AdminOrderFormPage() {
                   />
                 </div>
               </div>
+              {newOrder ? (
+                <div
+                  ref={issueCompleteRef}
+                  className="mx-auto mt-6 w-full max-w-md border-t border-gray-100 pt-6 lg:mx-0 lg:max-w-none"
+                >
+                  <div className="rounded-lg border border-emerald-200/90 bg-emerald-50/50 p-5 sm:p-6 lg:grid lg:grid-cols-2 lg:gap-10 lg:p-8">
+                    <div className="min-w-0">
+                      <p className="text-fluid-sm font-semibold text-gray-900">발급 완료</p>
+                      <p className="mt-1 text-fluid-sm text-gray-600 tabular-nums">
+                        {newOrder.customerName}님 · {newOrder.totalAmount.toLocaleString('ko-KR')}원
+                      </p>
+                      <p className="mt-2 break-all text-fluid-2xs text-gray-600">
+                        {getOrderLink(newOrder.token, brandSlugForOrder(newOrder))}
+                      </p>
+                    </div>
+                    <div className="mt-5 min-w-0 lg:mt-0">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewModal({ kind: 'message', order: newOrder })}
+                          className="rounded-md bg-gray-800 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-900"
+                        >
+                          메시지
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewModal({ kind: 'link', order: newOrder })}
+                          className="rounded-md bg-gray-700 px-4 py-2 text-fluid-sm text-white shadow-sm hover:bg-gray-800"
+                        >
+                          링크
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openInNewTab(newOrder)}
+                          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
+                        >
+                          새 창에서 열기
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/order-prefill/${newOrder.id}`)}
+                          className="rounded-md bg-emerald-600 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-emerald-700"
+                        >
+                          미리 작성
+                        </button>
+                      </div>
+                      <p className="mt-2 text-fluid-2xs text-gray-600">
+                        「미리 작성」에서 상담 내용을 채우면 고객 화면에서 해당 항목이 잠깁니다(고객 제출 전까지 다시 수정 가능).
+                      </p>
+                      <p className="mt-3 text-fluid-2xs text-gray-600">
+                        메시지 복사 후 카카오톡·문자로 고객에게 보내세요.
+                      </p>
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-fluid-xs text-gray-600 hover:text-gray-900">
+                          미리보기
+                        </summary>
+                        <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-gray-200 bg-white p-3 text-fluid-xs leading-relaxed text-gray-700 whitespace-pre-wrap">
+                          {getOrderMessage(newOrder)}
+                        </pre>
+                      </details>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               {token ? (
                 <div className="mt-5 border-t border-gray-100 pt-5">
                   <p className="mb-3 text-fluid-2xs leading-relaxed text-gray-500">
@@ -657,65 +735,6 @@ export function AdminOrderFormPage() {
                 </div>
               ) : null}
             </div>
-
-            {newOrder && (
-              <div className="mx-auto mt-8 w-full max-w-md border-t border-gray-100 pt-8 lg:mx-0 lg:max-w-none">
-                <div className="rounded-lg border border-emerald-200/90 bg-emerald-50/50 p-5 sm:p-6 lg:grid lg:grid-cols-2 lg:gap-10 lg:p-8">
-                  <div className="min-w-0">
-                    <p className="text-fluid-sm font-semibold text-gray-900">발급 완료</p>
-                    <p className="mt-1 text-fluid-sm text-gray-600 tabular-nums">
-                      {newOrder.customerName}님 · {newOrder.totalAmount.toLocaleString('ko-KR')}원
-                    </p>
-                  </div>
-                  <div className="mt-5 min-w-0 lg:mt-0">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewModal({ kind: 'message', order: newOrder })}
-                        className="rounded-md bg-gray-800 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-gray-900"
-                      >
-                        메시지
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewModal({ kind: 'link', order: newOrder })}
-                        className="rounded-md bg-gray-700 px-4 py-2 text-fluid-sm text-white shadow-sm hover:bg-gray-800"
-                      >
-                        링크
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openInNewTab(newOrder)}
-                        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-fluid-sm text-gray-800 shadow-sm hover:bg-gray-50"
-                      >
-                        새 창에서 열기
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/admin/order-prefill/${newOrder.id}`)}
-                        className="rounded-md bg-emerald-600 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-emerald-700"
-                      >
-                        미리 작성
-                      </button>
-                    </div>
-                    <p className="mt-2 text-fluid-2xs text-gray-600">
-                      「미리 작성」에서 상담 내용을 채우면 고객 화면에서 해당 항목이 잠깁니다(고객 제출 전까지 다시 수정 가능).
-                    </p>
-                    <p className="mt-3 text-fluid-2xs text-gray-600">
-                      메시지 복사 후 카카오톡·문자로 고객에게 보내세요.
-                    </p>
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-fluid-xs text-gray-600 hover:text-gray-900">
-                        미리보기
-                      </summary>
-                      <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-gray-200 bg-white p-3 text-fluid-xs leading-relaxed text-gray-700 whitespace-pre-wrap">
-                        {getOrderMessage(newOrder)}
-                      </pre>
-                    </details>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
