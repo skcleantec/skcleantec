@@ -77,6 +77,10 @@ export async function listOrderFollowups(
     datePreset?: OrderFollowupDatePreset;
     month?: string;
     day?: string;
+    fromYmd?: string;
+    toYmd?: string;
+    kstHour?: number;
+    opsDrill?: boolean;
     /** 입주청소 희망일(YYYY-MM-DD) 기간 — 지정 시 등록일 필터는 적용되지 않음 */
     preferredDatePreset?: OrderFollowupDatePreset;
     preferredMonth?: string;
@@ -98,6 +102,14 @@ export async function listOrderFollowups(
   if (opts?.missingInquiryLink) q.set('missingInquiryLink', '1');
   if (opts?.limit != null) q.set('limit', String(opts.limit));
   if (opts?.offset != null) q.set('offset', String(opts.offset));
+  if (opts?.fromYmd?.trim() && opts?.toYmd?.trim()) {
+    q.set('fromYmd', opts.fromYmd.trim());
+    q.set('toYmd', opts.toYmd.trim());
+  }
+  if (opts?.kstHour != null && opts.kstHour >= 0 && opts.kstHour <= 23) {
+    q.set('kstHour', String(opts.kstHour));
+  }
+  if (opts?.opsDrill) q.set('opsDrill', '1');
   const prefPreset = opts?.preferredDatePreset;
   const usePreferred = prefPreset && prefPreset !== 'all';
   if (usePreferred) {

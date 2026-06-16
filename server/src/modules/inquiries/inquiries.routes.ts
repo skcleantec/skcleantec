@@ -12,6 +12,12 @@ import {
   kstDayRangeYmd,
   kstMonthRangeYm,
 } from './inquiryListDateRange.js';
+import { recordInquiryStatusEvent } from './inquiryStatusEvent.js';
+import {
+  createdAtRangeFromListQuery,
+  parseKstHourQuery,
+} from '../ops-analytics/kstHourListFilter.js';
+import { inquiryIdsMatchingStatusEventKstHour } from '../ops-analytics/kstHourFilterQueries.js';
 import {
   fetchInquiryListPageSorted,
   whereInquiryOrderFormPendingSubmit,
@@ -223,6 +229,10 @@ router.get('/', async (req, res) => {
     scheduleMonth,
     scheduleDay,
     inspectionStatus,
+    fromYmd,
+    toYmd,
+    kstHour: kstHourRaw,
+    statusEvent,
   } = req.query;
   const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
   const statsDayRaw =
@@ -237,11 +247,17 @@ router.get('/', async (req, res) => {
 
   const range = useMarketerStatsDay
     ? null
-    : createdAtRangeFromQuery({
+    : createdAtRangeFromListQuery({
         datePreset: typeof datePreset === 'string' ? datePreset : undefined,
         month: typeof month === 'string' ? month : undefined,
         day: typeof day === 'string' ? day : undefined,
+        fromYmd: typeof fromYmd === 'string' ? fromYmd : undefined,
+        toYmd: typeof toYmd === 'string' ? toYmd : undefined,
       });
+
+  const kstHour = parseKstHourQuery(kstHourRaw);
+  const statusEventFilter =
+    typeof statusEvent === 'string' && statusEvent.trim() ? statusEvent.trim() : undefined;
 
   const andClauses: Prisma.InquiryWhereInput[] = [{ tenantId }];
   if (useMarketerStatsDay) {
@@ -251,6 +267,18 @@ router.get('/', async (req, res) => {
     }
   } else if (range) {
     andClauses.push({ createdAt: { gte: range.gte, lte: range.lte } });
+  }
+  if (!useMarketerStatsDay && statusEventFilter && kstHour !== undefined && range) {
+    const matchedIds = await inquiryIdsMatchingStatusEventKstHour({
+      tenantId,
+      gte: range.gte,
+      lte: range.lte,
+      kstHour,
+      status: statusEventFilter,
+    });
+    andClauses.push({
+      id: { in: matchedIds.length > 0 ? matchedIds : ['00000000-0000-0000-0000-000000000000'] },
+    });
   }
   if (!useMarketerStatsDay && status && typeof status === 'string') {
     const raw = status.trim();
@@ -1068,6 +1096,14 @@ router.patch('/:id', async (req, res) => {
       if (Object.keys(updateData).length > 0) {
         await tx.inquiry.update({ where: { id }, data: updateData });
       }
+      if (mergedStatus !== inquiry.status) {
+        await recordInquiryStatusEvent(tx, {
+          tenantId,
+          inquiryId: id,
+          status: mergedStatus,
+          actorId: user?.userId ?? null,
+        });
+      }
       if (wantsTeamSync) {
         await tx.assignment.deleteMany({ where: { inquiryId: id } });
         if (teamLeaderIds.length > 0) {
@@ -1310,6 +1346,13 @@ router.post('/', async (req, res) => {
         crewMemberCount,
       },
     });
+  });
+  await recordInquiryStatusEvent(prisma, {
+    tenantId,
+    inquiryId: inquiry.id,
+    status: inquiry.status,
+    actorId: user?.userId ?? null,
+    occurredAt: inquiry.createdAt,
   });
   void notifyInquiryCelebrate({
     tenantId,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   deleteOrderFollowup,
   deferOrderFollowup,
@@ -26,6 +26,7 @@ import {
   type OrderFollowupStatus,
 } from '../../constants/orderFollowupStatus';
 import { formatDateCompactWithWeekday, formatDateTimeCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
+import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 
 function toLocalDatetimeValue(iso: string | null): string {
   if (!iso) return '';
@@ -321,6 +322,7 @@ export function AdminOrderFormFollowupPanel({
   linkedInquiryId?: string | null;
   onClearLinkedInquiry?: () => void;
 }) {
+  const [searchParams] = useSearchParams();
   const [listIntakeOpen, setListIntakeOpen] = useState(false);
   const [items, setItems] = useState<OrderFollowupItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -334,6 +336,27 @@ export function AdminOrderFormFollowupPanel({
   const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('today');
   const [dateMonthKey, setDateMonthKey] = useState(() => kstTodayYmd().slice(0, 7));
   const [dateDayKey, setDateDayKey] = useState(() => kstTodayYmd());
+  const [opsRange, setOpsRange] = useState<{
+    fromYmd: string;
+    toYmd: string;
+    kstHour: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const from = searchParams.get('fromYmd')?.trim();
+    const to = searchParams.get('toYmd')?.trim();
+    const kh = searchParams.get('kstHour');
+    const hour = kh != null ? parseInt(kh, 10) : NaN;
+    const st = searchParams.get('status')?.trim();
+    if (from && to && Number.isFinite(hour) && hour >= 0 && hour <= 23 && searchParams.get('opsDrill') === '1') {
+      setOpsRange({ fromYmd: from, toYmd: to, kstHour: hour });
+      if (st === 'ABSENT' || st === 'ON_HOLD' || st === 'RESERVED') {
+        setFilterStatus(st);
+      }
+    } else {
+      setOpsRange(null);
+    }
+  }, [searchParams]);
 
   const listFilterKey = useMemo(
     () =>
@@ -346,6 +369,7 @@ export function AdminOrderFormFollowupPanel({
         dateMonthKey,
         dateDayKey,
         linkedInquiryId: linkedInquiryId?.trim() ?? '',
+        opsRange,
       }),
     [
       filterGoldDbOnly,
@@ -356,6 +380,7 @@ export function AdminOrderFormFollowupPanel({
       dateMonthKey,
       dateDayKey,
       linkedInquiryId,
+      opsRange,
     ]
   );
 
@@ -434,19 +459,26 @@ export function AdminOrderFormFollowupPanel({
           customerName: filterCustomerName.trim() || undefined,
           goldDbOnly: filterGoldDbOnly || undefined,
           ...(linkedInquiryId?.trim() ? { inquiryId: linkedInquiryId.trim() } : {}),
-          ...(datePreset !== 'all'
-            ? listDateBasis === 'preferredMoveIn'
-              ? {
-                  preferredDatePreset: datePreset,
-                  ...(datePreset === 'month' ? { preferredMonth: dateMonthKey } : {}),
-                  ...(datePreset === 'day' ? { preferredDay: dateDayKey } : {}),
-                }
-              : {
-                  datePreset,
-                  ...(datePreset === 'month' ? { month: dateMonthKey } : {}),
-                  ...(datePreset === 'day' ? { day: dateDayKey } : {}),
-                }
-            : {}),
+          ...(opsRange
+            ? {
+                fromYmd: opsRange.fromYmd,
+                toYmd: opsRange.toYmd,
+                kstHour: opsRange.kstHour,
+                opsDrill: true,
+              }
+            : datePreset !== 'all'
+              ? listDateBasis === 'preferredMoveIn'
+                ? {
+                    preferredDatePreset: datePreset,
+                    ...(datePreset === 'month' ? { preferredMonth: dateMonthKey } : {}),
+                    ...(datePreset === 'day' ? { preferredDay: dateDayKey } : {}),
+                  }
+                : {
+                    datePreset,
+                    ...(datePreset === 'month' ? { month: dateMonthKey } : {}),
+                    ...(datePreset === 'day' ? { day: dateDayKey } : {}),
+                  }
+              : {}),
           limit: listPageSize,
           offset: (listPage - 1) * listPageSize,
         });
@@ -472,6 +504,7 @@ export function AdminOrderFormFollowupPanel({
       listDateBasis,
       listPage,
       listPageSize,
+      opsRange,
       setTotal,
       items.length,
       preserveScroll,
@@ -483,8 +516,9 @@ export function AdminOrderFormFollowupPanel({
     void load({ scrollToTop: true });
   }, [load]);
 
-  /** 예전에 다른 상태로 필터를 둔 경우 — 이 화면에서는 부재·보류만 */
+  /** 예전에 다른 상태로 필터를 둔 경우 — 이 화면에서는 부재·보류만 (대시보드 drill-down 예외) */
   useEffect(() => {
+    if (opsRange && filterStatus === 'RESERVED') return;
     if (
       filterStatus !== '' &&
       filterStatus !== 'REQUESTED' &&
@@ -493,7 +527,7 @@ export function AdminOrderFormFollowupPanel({
     ) {
       setFilterStatus('');
     }
-  }, [filterStatus]);
+  }, [filterStatus, opsRange]);
 
   useEffect(() => {
     if (!logFor) {
@@ -696,6 +730,18 @@ export function AdminOrderFormFollowupPanel({
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-700">{error}</div>
       )}
+
+      {opsRange ? (
+        <p className="rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-fluid-xs text-indigo-900">
+          대시보드 시간대 필터:{' '}
+          {opsDrillBannerLabel({
+            fromYmd: opsRange.fromYmd,
+            toYmd: opsRange.toYmd,
+            kstHour: String(opsRange.kstHour),
+            label: filterStatus ? ORDER_FOLLOWUP_STATUS_LABEL[filterStatus] : '부재현황',
+          })}
+        </p>
+      ) : null}
 
       {linkedInquiryId?.trim() ? (
         <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50/90 px-3 py-2.5 text-fluid-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">

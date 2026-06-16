@@ -4,6 +4,7 @@ import { getDashboardStats, type DashboardStats } from '../../api/dashboard';
 import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
 import { DashboardChangeHistory } from '../../components/admin/DashboardChangeHistory';
+import { DashboardOpsHourlyStrip } from '../../components/admin/DashboardOpsHourlyStrip';
 import { TelemarketingSessionBlock } from '../../components/admin/TelemarketingSessionBlock';
 
 function formatCurrency(n: number): string {
@@ -84,6 +85,8 @@ export function AdminDashboardPage() {
       )}
 
       <TelemarketingSessionBlock />
+
+      <DashboardOpsHourlyStrip />
 
       {/* 팀 현황: 이번 달 업무량 · 오늘 휴무 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

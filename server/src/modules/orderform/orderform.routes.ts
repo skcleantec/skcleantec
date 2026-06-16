@@ -37,6 +37,11 @@ import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { tenantIdForUserId } from '../tenants/tenant.service.js';
 import { createdAtRangeFromQuery, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import {
+  createdAtRangeFromListQuery,
+  parseKstHourQuery,
+} from '../ops-analytics/kstHourListFilter.js';
+import { orderFormIdsMatchingKstHour } from '../ops-analytics/kstHourFilterQueries.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
   assertTenantAllowsPublicService,
@@ -779,11 +784,15 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
   const q = req.query as Record<string, string | undefined>;
-  const dateRange = createdAtRangeFromQuery({
+  const dateRange = createdAtRangeFromListQuery({
     datePreset: q.datePreset,
     month: q.month,
     day: q.day,
+    fromYmd: q.fromYmd,
+    toYmd: q.toYmd,
   });
+  const kstHour = parseKstHourQuery(q.kstHour);
+  const kstTimeField = q.kstTimeField === 'submitted' ? 'submitted_at' : 'created_at';
   const createdById =
     typeof q.createdById === 'string' && /^[0-9a-f-]{36}$/i.test(q.createdById.trim())
       ? q.createdById.trim()
@@ -810,6 +819,18 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
     where.submittedAt = null;
   } else if (submitStatus === 'submitted') {
     where.submittedAt = { not: null };
+  }
+  if (kstHour !== undefined && dateRange) {
+    const matchedIds = await orderFormIdsMatchingKstHour({
+      tenantId,
+      gte: dateRange.gte,
+      lte: dateRange.lte,
+      kstHour,
+      timeColumn: kstTimeField,
+    });
+    where.id = {
+      in: matchedIds.length > 0 ? matchedIds : ['00000000-0000-0000-0000-000000000000'],
+    };
   }
 
   const parsedLimit = Number.parseInt(String(q.limit ?? '30'), 10);

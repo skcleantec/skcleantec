@@ -274,6 +274,10 @@ export type GetOrderFormsFilters = {
   datePreset?: OrderFormListDatePreset;
   month?: string;
   day?: string;
+  fromYmd?: string;
+  toYmd?: string;
+  kstHour?: number;
+  kstTimeField?: 'created' | 'submitted';
   customerName?: string;
   createdById?: string;
   submitStatus?: 'all' | 'pending' | 'submitted';
@@ -307,11 +311,18 @@ export async function getOrderForms(
   filters?: GetOrderFormsFilters
 ): Promise<{ items: OrderForm[]; issuers?: OrderFormIssuerOption[]; total: number }> {
   const params = new URLSearchParams();
-  if (filters?.datePreset && filters.datePreset !== 'all') {
+  if (filters?.fromYmd?.trim() && filters?.toYmd?.trim()) {
+    params.set('fromYmd', filters.fromYmd.trim());
+    params.set('toYmd', filters.toYmd.trim());
+  } else if (filters?.datePreset && filters.datePreset !== 'all') {
     params.set('datePreset', filters.datePreset);
     if (filters.datePreset === 'month' && filters.month?.trim()) params.set('month', filters.month.trim());
     if (filters.datePreset === 'day' && filters.day?.trim()) params.set('day', filters.day.trim());
   }
+  if (filters?.kstHour != null && filters.kstHour >= 0 && filters.kstHour <= 23) {
+    params.set('kstHour', String(filters.kstHour));
+  }
+  if (filters?.kstTimeField === 'submitted') params.set('kstTimeField', 'submitted');
   if (filters?.customerName?.trim()) params.set('customerName', filters.customerName.trim());
   if (filters?.createdById?.trim()) params.set('createdById', filters.createdById.trim());
   if (filters?.submitStatus && filters.submitStatus !== 'all') params.set('submitStatus', filters.submitStatus);

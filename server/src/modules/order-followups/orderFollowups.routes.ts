@@ -9,6 +9,11 @@ import {
   preferredMoveInYmdRangeFromQuery,
 } from '../inquiries/inquiryListDateRange.js';
 import {
+  createdAtRangeFromListQuery,
+  parseKstHourQuery,
+} from '../ops-analytics/kstHourListFilter.js';
+import { orderFollowupIdsMatchingKstHour } from '../ops-analytics/kstHourFilterQueries.js';
+import {
   appendFollowupLog,
   FOLLOWUP_INCLUDE,
   parseStatus,
@@ -163,6 +168,7 @@ router.get('/', async (req, res) => {
     typeof req.query.inquiryId === 'string' ? req.query.inquiryId.trim() : '';
   const missingInquiryLink =
     req.query.missingInquiryLink === '1' || req.query.missingInquiryLink === 'true';
+  const opsDrill = req.query.opsDrill === '1' || req.query.opsDrill === 'true';
   if (inquiryIdFilter && missingInquiryLink) {
     res.status(400).json({ error: 'inquiryId와 missingInquiryLink는 함께 사용할 수 없습니다.' });
     return;
@@ -179,20 +185,24 @@ router.get('/', async (req, res) => {
     }
   }
   const where: import('@prisma/client').Prisma.OrderFollowupWhereInput = { tenantId };
-  /** 부재·보류 화면은 항상 부재/보류 상태만 조회한다. */
+  /** 부재·보류 화면은 항상 부재/보류 상태만 조회한다. (대시보드 drill-down은 opsDrill로 예외) */
   const absHoldOnly: import('@prisma/client').Prisma.OrderFollowupWhereInput = {
     status: { in: ['REQUESTED', 'ABSENT', 'ON_HOLD'] },
   };
-  where.AND = [absHoldOnly];
+  if (opsDrill && statusFilter) {
+    where.status = statusFilter;
+  } else {
+    where.AND = [absHoldOnly];
+  }
   if (inquiryIdFilter) {
     where.inquiryId = inquiryIdFilter;
   }
   if (missingInquiryLink) {
     where.inquiryId = null;
   }
-  if (statusFilter) {
+  if (statusFilter && !opsDrill) {
     where.status = statusFilter;
-  } else {
+  } else if (!opsDrill) {
     /** 부재·보류 화면 기본: 완료만 제외(부재/보류 안에서) */
     const listExtraAnd: import('@prisma/client').Prisma.OrderFollowupWhereInput[] = [];
     if (!includeFulfilled) {
@@ -219,13 +229,30 @@ router.get('/', async (req, res) => {
   const dateRange =
     missingInquiryLink || preferredYmdRange
       ? null
-      : createdAtRangeFromQuery({
+      : createdAtRangeFromListQuery({
           datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : undefined,
           month: typeof req.query.month === 'string' ? req.query.month : undefined,
           day: typeof req.query.day === 'string' ? req.query.day : undefined,
+          fromYmd: typeof req.query.fromYmd === 'string' ? req.query.fromYmd : undefined,
+          toYmd: typeof req.query.toYmd === 'string' ? req.query.toYmd : undefined,
         });
+  const kstHour = parseKstHourQuery(req.query.kstHour);
   if (dateRange) {
     where.createdAt = { gte: dateRange.gte, lte: dateRange.lte };
+  }
+  if (kstHour !== undefined && dateRange && !missingInquiryLink) {
+    const followupStatusForHour =
+      statusFilter && typeof statusFilter === 'string' ? statusFilter : undefined;
+    const matchedIds = await orderFollowupIdsMatchingKstHour({
+      tenantId,
+      gte: dateRange.gte,
+      lte: dateRange.lte,
+      kstHour,
+      status: followupStatusForHour,
+    });
+    where.id = {
+      in: matchedIds.length > 0 ? matchedIds : ['00000000-0000-0000-0000-000000000000'],
+    };
   }
   if (preferredYmdRange) {
     where.preferredMoveInCleaningDate = { gte: preferredYmdRange.gte, lte: preferredYmdRange.lte };

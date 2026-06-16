@@ -85,7 +85,10 @@ export async function getInquiries(
     scheduleDay?: string;
     /** 관리자: 현장 검수 상태 NONE|IN_PROGRESS|COMPLETED|VOID */
     inspectionStatus?: string;
-    /** 목록 건수 상한 (집계만 할 때 1 등) */
+    fromYmd?: string;
+    toYmd?: string;
+    kstHour?: number;
+    statusEvent?: string;
     limit?: number;
     offset?: number;
   }
@@ -93,9 +96,16 @@ export async function getInquiries(
   const q = new URLSearchParams();
   if (params?.status) q.set('status', params.status);
   if (params?.search) q.set('search', params.search);
-  if (params?.datePreset) q.set('datePreset', params.datePreset);
+  if (params?.fromYmd?.trim() && params?.toYmd?.trim()) {
+    q.set('fromYmd', params.fromYmd.trim());
+    q.set('toYmd', params.toYmd.trim());
+  } else if (params?.datePreset) q.set('datePreset', params.datePreset);
   if (params?.month) q.set('month', params.month);
   if (params?.day) q.set('day', params.day);
+  if (params?.kstHour != null && params.kstHour >= 0 && params.kstHour <= 23) {
+    q.set('kstHour', String(params.kstHour));
+  }
+  if (params?.statusEvent?.trim()) q.set('statusEvent', params.statusEvent.trim());
   if (params?.limit != null) q.set('limit', String(params.limit));
   if (params?.offset != null) q.set('offset', String(params.offset));
   if (params?.createdById) q.set('createdById', params.createdById);

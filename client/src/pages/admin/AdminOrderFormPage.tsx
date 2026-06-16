@@ -26,6 +26,7 @@ import { getInquiries } from '../../api/inquiries';
 import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
 import { getToken } from '../../stores/auth';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
+import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import {
@@ -142,6 +143,30 @@ export function AdminOrderFormPage() {
       { replace: true }
     );
   }, [setSearchParams]);
+
+  useEffect(() => {
+    if (inquiriesEmbed !== 'list') {
+      setListOpsRange(null);
+      return;
+    }
+    const from = searchParams.get('fromYmd')?.trim();
+    const to = searchParams.get('toYmd')?.trim();
+    const kh = searchParams.get('kstHour');
+    const hour = kh != null ? parseInt(kh, 10) : NaN;
+    if (from && to && Number.isFinite(hour) && hour >= 0 && hour <= 23) {
+      setListOpsRange({
+        fromYmd: from,
+        toYmd: to,
+        kstHour: hour,
+        kstTimeField: searchParams.get('kstTimeField') === 'submitted' ? 'submitted' : 'created',
+      });
+      const ss = searchParams.get('submitStatus')?.trim().toLowerCase();
+      if (ss === 'submitted' || ss === 'pending') setListSubmitStatus(ss);
+    } else {
+      setListOpsRange(null);
+    }
+  }, [searchParams, inquiriesEmbed]);
+
   const [orderForms, setOrderForms] = useState<OrderForm[]>([]);
   const [listIssuers, setListIssuers] = useState<OrderFormIssuerOption[]>([]);
   /** 기본 '전체'는 행이 많을 때 첫 로드가 매우 느려져 '이번 달'을 디폴트로 둔다. */
@@ -151,6 +176,12 @@ export function AdminOrderFormPage() {
   const [listCustomerName, setListCustomerName] = useState('');
   const [listCreatedById, setListCreatedById] = useState('');
   const [listSubmitStatus, setListSubmitStatus] = useState<'all' | 'pending' | 'submitted'>('all');
+  const [listOpsRange, setListOpsRange] = useState<{
+    fromYmd: string;
+    toYmd: string;
+    kstHour: number;
+    kstTimeField?: 'created' | 'submitted';
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
@@ -164,8 +195,9 @@ export function AdminOrderFormPage() {
         listCustomerName: listCustomerName.trim(),
         listCreatedById: listCreatedById.trim(),
         listSubmitStatus,
+        listOpsRange,
       }),
-    [listDatePreset, listMonthKey, listDayKey, listCustomerName, listCreatedById, listSubmitStatus]
+    [listDatePreset, listMonthKey, listDayKey, listCustomerName, listCreatedById, listSubmitStatus, listOpsRange]
   );
 
   const {
@@ -179,9 +211,18 @@ export function AdminOrderFormPage() {
 
   const listFilters = useMemo(
     () => ({
-      datePreset: listDatePreset,
-      ...(listDatePreset === 'month' ? { month: listMonthKey } : {}),
-      ...(listDatePreset === 'day' ? { day: listDayKey } : {}),
+      ...(listOpsRange
+        ? {
+            fromYmd: listOpsRange.fromYmd,
+            toYmd: listOpsRange.toYmd,
+            kstHour: listOpsRange.kstHour,
+            kstTimeField: listOpsRange.kstTimeField,
+          }
+        : {
+            datePreset: listDatePreset,
+            ...(listDatePreset === 'month' ? { month: listMonthKey } : {}),
+            ...(listDatePreset === 'day' ? { day: listDayKey } : {}),
+          }),
       ...(listCustomerName.trim() ? { customerName: listCustomerName.trim() } : {}),
       ...(listCreatedById.trim() ? { createdById: listCreatedById.trim() } : {}),
       submitStatus: listSubmitStatus,
@@ -189,6 +230,7 @@ export function AdminOrderFormPage() {
       offset: (listPage - 1) * listPageSize,
     }),
     [
+      listOpsRange,
       listDatePreset,
       listMonthKey,
       listDayKey,
@@ -680,6 +722,17 @@ export function AdminOrderFormPage() {
 
       {tab === 'list' && (
         <div className="min-w-0 w-full max-w-full">
+          {listOpsRange ? (
+            <p className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-fluid-xs text-indigo-900">
+              대시보드 시간대 필터:{' '}
+              {opsDrillBannerLabel({
+                fromYmd: listOpsRange.fromYmd,
+                toYmd: listOpsRange.toYmd,
+                kstHour: String(listOpsRange.kstHour),
+                label: listOpsRange.kstTimeField === 'submitted' ? '발주서 제출' : '발주서 발급',
+              })}
+            </p>
+          ) : null}
           <div className="rounded-lg border border-gray-200 bg-white">
             <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-3 py-3 sm:px-4">
               <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">

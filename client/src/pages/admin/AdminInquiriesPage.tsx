@@ -78,6 +78,7 @@ import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import {
   addressListShortSiGu,
   formatInquirySourceLabel,
@@ -663,6 +664,17 @@ export function AdminInquiriesPage() {
   const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const opsDrillParams = useMemo(() => {
+    const from = searchParams.get('fromYmd')?.trim();
+    const to = searchParams.get('toYmd')?.trim();
+    const kh = searchParams.get('kstHour');
+    const hour = kh != null ? parseInt(kh, 10) : NaN;
+    const statusEvent = searchParams.get('statusEvent')?.trim();
+    if (from && to && Number.isFinite(hour) && hour >= 0 && hour <= 23) {
+      return { fromYmd: from, toYmd: to, kstHour: hour, statusEvent: statusEvent || undefined };
+    }
+    return null;
+  }, [searchParams]);
   const [items, setItems] = useState<InquiryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [listPage, setListPage] = useState(() => parseListPage(searchParams.get('page')));
@@ -1174,6 +1186,10 @@ export function AdminInquiriesPage() {
       datePreset: 'today' | 'all' | 'month' | 'day';
       month?: string;
       day?: string;
+      fromYmd?: string;
+      toYmd?: string;
+      kstHour?: number;
+      statusEvent?: string;
       createdById?: string;
       marketerStatsDay?: string;
       teamLeaderId?: string;
@@ -1184,7 +1200,12 @@ export function AdminInquiriesPage() {
       limit?: number;
       offset?: number;
     } = { datePreset: apiDatePreset };
-    if (dateBasis === 'createdAt') {
+    if (opsDrillParams) {
+      params.fromYmd = opsDrillParams.fromYmd;
+      params.toYmd = opsDrillParams.toYmd;
+      params.kstHour = opsDrillParams.kstHour;
+      if (opsDrillParams.statusEvent) params.statusEvent = opsDrillParams.statusEvent;
+    } else if (dateBasis === 'createdAt') {
       if (datePreset === 'month') params.month = monthKey;
       if (datePreset === 'day') params.day = dayKey;
     } else {
@@ -2617,6 +2638,18 @@ export function AdminInquiriesPage() {
           </div>
         </div>
       </div>
+
+      {opsDrillParams ? (
+        <p className="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-fluid-xs text-indigo-900">
+          대시보드 시간대 필터:{' '}
+          {opsDrillBannerLabel({
+            fromYmd: opsDrillParams.fromYmd,
+            toYmd: opsDrillParams.toYmd,
+            kstHour: String(opsDrillParams.kstHour),
+            label: opsDrillParams.statusEvent === 'RECEIVED' ? '접수 전환' : undefined,
+          })}
+        </p>
+      ) : null}
 
       {apiError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-fluid-sm">

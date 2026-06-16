@@ -8,6 +8,7 @@ import { happyCallDeadlineEnd } from '../inquiries/happyCall.helpers.js';
 import { distanceKmFromJuan } from '../inquiries/inquiryJuanDistance.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { buildOpsHourlySummary } from '../ops-analytics/opsAnalyticsHourly.service.js';
 
 const router = Router();
 
@@ -336,6 +337,23 @@ router.get('/stats', async (req, res) => {
           ? 'DB 스키마가 코드보다 낮을 수 있습니다. server 에서 `npx prisma migrate deploy`(또는 로컬 `migrate dev`) 후 다시 시도해 주세요.'
           : msg,
     });
+  }
+});
+
+/** 운영 시간대 — 테넌트별 KST 시간·피크 (발주 발급 등) */
+router.get('/ops-hourly', async (req, res) => {
+  try {
+    const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+    if (!tenantId) {
+      res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+      return;
+    }
+    const summary = await buildOpsHourlySummary(tenantId, req.query.days);
+    res.json(summary);
+  } catch (err) {
+    console.error('[dashboard/ops-hourly]', err);
+    const msg = err instanceof Error ? err.message : '운영 시간대 통계를 불러오지 못했습니다.';
+    res.status(500).json({ error: msg });
   }
 });
 
