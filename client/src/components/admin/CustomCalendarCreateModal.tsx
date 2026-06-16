@@ -330,7 +330,7 @@ export function CustomCalendarCreateModal({
                 전체 캘린더에서 숨기고 이 캘린더에서만 보기
               </label>
               <HelpTooltip
-                text="업체별 캘린더에 해당하는 배정 건을 전체 캘린더에서 숨기고, 이 캘린더에서만 보이게 합니다."
+                text="해당 지역·타업체 접수를 전체 캘린더에서 숨기고, 이 캘린더에서만 보이게 합니다."
                 className="shrink-0"
               />
             </div>

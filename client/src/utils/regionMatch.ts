@@ -8,12 +8,23 @@
  *  - 광주광역시: 경기도 **광주시**와 구분하기 위해 두 글자 `광주` 단독 별칭은 쓰지 않고,
  *    `광주서구`·`광주남구` 등 구 이름 접두 패턴만 추가로 인정한다.
  *  - 시/군 선택값: 풀네임 + `시`/`군` 접미사 제거 형태(천안시 → 천안).
- *  - 단어 경계: 공백 제거 후 부분 문자열의 **직전 문자가 한글이 아니면** 매칭 후보로 인정한다.
- *    (`올림픽경기장로` 안의 `경기` 등은 제외 — 다만 `경기도` 풀네임은 별도 별칭으로 매칭)
+ *  - 단어 경계: 직전 문자가 한글이 아니거나 **`도`(시·도 접미)** 이면 매칭 후보로 인정.
+ *    (`경기도수원시`의 `수원` 인정, `올림픽경기장로` 안의 `경기`는 제외)
+ *  - 주소 맨 앞 `경기`·`충남` 등 시·도 축약은 풀네임으로 정규화 후 시/군 매칭(`제주시`는 시명과 구분).
  */
 
 function stripSpaces(s: string): string {
   return s.replace(/\s+/g, '');
+}
+
+/**
+ * 시·도·군 이름이 이어질 때의 경계(공백 제거 주소 기준).
+ * `경기도수원시`, `충청남도천안시`처럼 `도` 직후에 시·군이 오는 표기를 인정한다.
+ */
+function isRegionTokenBoundary(prev: string): boolean {
+  if (!prev) return true;
+  if (!/[가-힣]/.test(prev)) return true;
+  return prev === '도';
 }
 
 /** 주소(공백 제거)에서 `kw` 가 단어 경계에 걸리는지 */
@@ -24,9 +35,33 @@ function hasWordBoundary(addr: string, kw: string): boolean {
     const idx = addr.indexOf(kw, start);
     if (idx < 0) return false;
     const prev = idx > 0 ? addr[idx - 1] : '';
-    if (!prev || !/[가-힣]/.test(prev)) return true;
+    if (isRegionTokenBoundary(prev)) return true;
     start = idx + 1;
   }
+}
+
+/** 카카오·지번 축약(`경기 화성`, `충남 천안`)을 풀 시·도 접두로 정규화 */
+const COMPACT_SIDO_PREFIX: ReadonlyArray<{ compact: string; full: string }> = [
+  { compact: '경기', full: '경기도' },
+  { compact: '충북', full: '충청북도' },
+  { compact: '충남', full: '충청남도' },
+  { compact: '전북', full: '전북특별자치도' },
+  { compact: '전남', full: '전라남도' },
+  { compact: '경북', full: '경상북도' },
+  { compact: '경남', full: '경상남도' },
+  { compact: '강원', full: '강원특별자치도' },
+  { compact: '제주', full: '제주특별자치도' },
+];
+
+function normalizeAddressForRegionMatch(addressNoSpace: string): string {
+  for (const { compact, full } of COMPACT_SIDO_PREFIX) {
+    if (!addressNoSpace.startsWith(compact)) continue;
+    if (addressNoSpace.startsWith(full)) continue;
+    /** `제주시`(시·군명)와 `제주`(도 축약) 구분 */
+    if (compact === '제주' && addressNoSpace.startsWith('제주시')) continue;
+    return full + addressNoSpace.slice(compact.length);
+  }
+  return addressNoSpace;
 }
 
 /**
@@ -86,6 +121,14 @@ function matchOneRegion(addressNoSpace: string, region: string): boolean {
   }
 
   // 2) 시/군: 풀네임 + 접미사 제거 형태
+  /** 경기 광주시 — `광주광역시`·구 축약과 `광주` 단축 별칭 충돌 방지 */
+  if (canonical === '광주시') {
+    if (addressNoSpace.startsWith('광주광역') || matchesGwangjuMetroCompact(addressNoSpace)) {
+      return false;
+    }
+    return hasWordBoundary(addressNoSpace, canonical);
+  }
+
   if (hasWordBoundary(addressNoSpace, canonical)) return true;
   const short = cityShortForm(canonical);
   if (short && short !== canonical && hasWordBoundary(addressNoSpace, short)) {
@@ -100,8 +143,9 @@ export function addressMatchesRegions(
   regions: readonly string[]
 ): boolean {
   if (!regions || regions.length === 0) return false;
-  const addr = stripSpaces(String(address ?? ''));
-  if (!addr) return false;
+  const raw = stripSpaces(String(address ?? ''));
+  if (!raw) return false;
+  const addr = normalizeAddressForRegionMatch(raw);
   for (const r of regions) {
     if (matchOneRegion(addr, r)) return true;
   }

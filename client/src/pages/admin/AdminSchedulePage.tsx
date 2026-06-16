@@ -1009,7 +1009,7 @@ export function AdminSchedulePage() {
     for (const cal of customCalendars) {
       if (!cal.isolateFromGlobal) continue;
       for (const it of items) {
-        if (matchesCustomCalendarExternalCompany(it, cal)) hiddenByIsolated.add(it.id);
+        if (matchesCustomCalendarFilter(it, cal)) hiddenByIsolated.add(it.id);
       }
     }
     if (hiddenByIsolated.size === 0) return items;
