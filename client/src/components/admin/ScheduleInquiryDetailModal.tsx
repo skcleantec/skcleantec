@@ -26,6 +26,7 @@ import { ScheduleCustomCalendarPinSection } from './ScheduleCustomCalendarPinSec
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import type { ServiceZoneItem } from '../../api/serviceZones';
 import {
+  isNearbyAssignmentViaPin,
   matchingServiceZonesForAddress,
   pinnedServiceZoneIdForInquiry,
   resolveEffectiveAssignmentServiceZoneId,
@@ -1182,12 +1183,27 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     ],
   );
 
+  const nearbyAssignmentViaPin = useMemo(
+    () =>
+      isNearbyAssignmentViaPin({
+        pinnedServiceZoneId,
+        matchingZones: matchingServiceZones,
+      }),
+    [pinnedServiceZoneId, matchingServiceZones],
+  );
+
+  const pinnedServiceZoneName = useMemo(() => {
+    if (!pinnedServiceZoneId) return null;
+    return serviceZones.find((z) => z.id === pinnedServiceZoneId)?.name ?? null;
+  }, [pinnedServiceZoneId, serviceZones]);
+
   useEffect(() => {
     if (teamLeaderAssignmentSurface !== 'inquiry-list') return;
+    if (pinnedServiceZoneId) return;
     if (matchingServiceZones.length === 1 && !manualAssignmentZoneId.trim()) {
       setManualAssignmentZoneId(matchingServiceZones[0]!.id);
     }
-  }, [teamLeaderAssignmentSurface, matchingServiceZones, manualAssignmentZoneId]);
+  }, [teamLeaderAssignmentSurface, matchingServiceZones, manualAssignmentZoneId, pinnedServiceZoneId]);
 
   useEffect(() => {
     setManualAssignmentZoneId('');
@@ -2863,7 +2879,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             <label className="block text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
             {teamLeaderAssignmentSurface === 'inquiry-list' &&
             serviceZones.length > 0 &&
-            (matchingServiceZones.length > 0 || pinnedServiceZoneId) ? (
+            !pinnedServiceZoneId &&
+            matchingServiceZones.length > 0 ? (
               <div>
                 <label className="block text-fluid-xs text-gray-600 mb-1">배정 권역</label>
                 <select
@@ -2872,12 +2889,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   className="w-full max-w-md px-3 py-2 border border-gray-300 rounded text-sm mb-2"
                 >
                   <option value="">권역 선택…</option>
-                  {(matchingServiceZones.length > 0
-                    ? matchingServiceZones
-                    : serviceZones
-                        .filter((z) => z.id === pinnedServiceZoneId)
-                        .map((z) => ({ id: z.id, name: z.name }))
-                  ).map((z) => (
+                  {matchingServiceZones.map((z) => (
                     <option key={z.id} value={z.id}>
                       {z.name}
                     </option>
@@ -2888,6 +2900,27 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             {teamLeaderZoneBlock.blocked && teamLeaderZoneBlock.message ? (
               <p className="text-fluid-xs text-amber-950 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug">
                 {teamLeaderZoneBlock.message}
+              </p>
+            ) : null}
+            {pinnedServiceZoneId && !activeServiceZoneId && !teamLeaderZoneBlock.blocked ? (
+              <p className="text-fluid-xs text-violet-950 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 leading-snug">
+                {nearbyAssignmentViaPin ? (
+                  <>
+                    <span className="font-semibold">근접·수동 배정:</span> 주소 권역과 달리{' '}
+                    <span className="font-medium">
+                      「{pinnedServiceZoneName ?? '지정 권역'}」
+                    </span>{' '}
+                    캘린더로 지정되어 해당 권역 팀장만 선택할 수 있습니다.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">캘린더 지정:</span>{' '}
+                    <span className="font-medium">
+                      「{pinnedServiceZoneName ?? '지정 권역'}」
+                    </span>{' '}
+                    권역 팀장만 배정할 수 있습니다.
+                  </>
+                )}
               </p>
             ) : null}
             {activeServiceZoneId && serviceZones.length > 0 ? (

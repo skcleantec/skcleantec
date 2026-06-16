@@ -16,7 +16,36 @@ export interface KoreanRegionGroup {
 }
 
 export const KOREAN_REGION_GROUPS: ReadonlyArray<KoreanRegionGroup> = [
-  { sido: '서울특별시', cities: ['서울특별시'] },
+  {
+    sido: '서울특별시',
+    cities: [
+      '종로구',
+      '중구',
+      '용산구',
+      '성동구',
+      '광진구',
+      '동대문구',
+      '중랑구',
+      '성북구',
+      '강북구',
+      '도봉구',
+      '노원구',
+      '은평구',
+      '서대문구',
+      '마포구',
+      '양천구',
+      '강서구',
+      '구로구',
+      '금천구',
+      '영등포구',
+      '동작구',
+      '관악구',
+      '서초구',
+      '강남구',
+      '송파구',
+      '강동구',
+    ],
+  },
   { sido: '부산광역시', cities: ['부산광역시'] },
   { sido: '대구광역시', cities: ['대구광역시'] },
   { sido: '인천광역시', cities: ['인천광역시'] },
@@ -250,7 +279,15 @@ export function isSidoFullySelected(sido: string, selected: readonly string[]): 
   if (!g) return false;
   if (selected.includes(g.sido)) return true;
   if (isSingleSidoRegionGroup(g)) return selected.includes(g.sido);
-  return g.cities.every((c) => selected.includes(c));
+  return g.cities.length > 0 && g.cities.every((c) => selected.includes(c));
+}
+
+/** 시·도 전체 또는 산하 일부라도 선택됨 */
+export function hasSidoRegionSelection(sido: string, selected: readonly string[]): boolean {
+  const g = findKoreanRegionGroup(sido);
+  if (!g) return false;
+  if (selected.includes(g.sido)) return true;
+  return g.cities.some((c) => selected.includes(c));
 }
 
 /** 시·도 빠른 선택 토글 — 켜면 시·도 전체, 끄면 해당 시·도·산하 시·군 제거 */

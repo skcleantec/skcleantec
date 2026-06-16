@@ -23,6 +23,7 @@ import {
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
+import { getUserCustomCalendars, type UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
 import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
 import {
@@ -694,6 +695,7 @@ export function AdminInquiriesPage() {
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
+  const [customCalendars, setCustomCalendars] = useState<UserCustomCalendarItem[]>([]);
   const [listQuickEdit, setListQuickEdit] = useState<{
     field: InquiryListQuickEditField;
     item: InquiryItem;
@@ -1331,6 +1333,9 @@ export function AdminInquiriesPage() {
     void listServiceZones(token)
       .then(setServiceZones)
       .catch(() => setServiceZones([]));
+    void getUserCustomCalendars(token)
+      .then(setCustomCalendars)
+      .catch(() => setCustomCalendars([]));
   }, [token]);
 
   const patchInquiryListSearchParams = useCallback(
@@ -4642,6 +4647,8 @@ export function AdminInquiriesPage() {
             }
           }}
           serviceZones={serviceZones}
+          customCalendars={customCalendars}
+          onCustomCalendarsChange={setCustomCalendars}
           teamLeaderAssignmentSurface="inquiry-list"
         />
       )}

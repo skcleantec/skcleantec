@@ -35,10 +35,21 @@ export function resolveEffectiveAssignmentServiceZoneId(params: {
 }): string {
   return (
     params.activeServiceZoneId?.trim() ||
-    params.manualAssignmentZoneId?.trim() ||
     params.pinnedServiceZoneId?.trim() ||
+    params.manualAssignmentZoneId?.trim() ||
     ''
   );
+}
+
+/** 캘린더 pin 권역이 주소 자동 매칭 권역과 다른 근접·수동 배정 */
+export function isNearbyAssignmentViaPin(params: {
+  pinnedServiceZoneId: string | null;
+  matchingZones: Array<{ id: string; name: string }>;
+}): boolean {
+  const pin = params.pinnedServiceZoneId?.trim();
+  if (!pin) return false;
+  if (params.matchingZones.length === 0) return true;
+  return !params.matchingZones.some((z) => z.id === pin);
 }
 
 export function teamLeaderAssignmentBlocked(params: {
@@ -47,28 +58,35 @@ export function teamLeaderAssignmentBlocked(params: {
   pinnedServiceZoneId: string | null;
   effectiveAssignmentZoneId: string;
 }): { blocked: boolean; message?: string } {
-  const requires =
-    params.matchingZones.length > 0 || Boolean(params.pinnedServiceZoneId?.trim());
-  if (!requires) return { blocked: false };
+  const pinned = params.pinnedServiceZoneId?.trim() ?? '';
+  const effective = params.effectiveAssignmentZoneId?.trim() ?? '';
 
   if (params.surface === 'global-schedule') {
-    const names = params.matchingZones.map((z) => z.name).join(', ');
-    return {
-      blocked: true,
-      message: names
-        ? `${names} 권역 접수입니다. 해당 지역 캘린더 탭에서 팀장을 배정해 주세요.`
-        : '이 접수는 서비스 권역이 지정되어 있습니다. 해당 지역 캘린더 탭에서 팀장을 배정해 주세요.',
-    };
+    if (pinned) return { blocked: false };
+    if (params.matchingZones.length > 0) {
+      const names = params.matchingZones.map((z) => z.name).join(', ');
+      return {
+        blocked: true,
+        message: names
+          ? `${names} 권역 접수입니다. 근접 권역 팀장 배정이 필요하면 상세에서 「내 추가 캘린더」에 권역 캘린더를 지정한 뒤 팀장을 배정해 주세요.`
+          : '이 접수는 서비스 권역이 지정되어 있습니다. 해당 지역 캘린더 탭에서 팀장을 배정해 주세요.',
+      };
+    }
+    return { blocked: false };
   }
 
-  if (params.surface === 'inquiry-list' && !params.effectiveAssignmentZoneId) {
-    const names = params.matchingZones.map((z) => z.name).join(', ');
-    return {
-      blocked: true,
-      message: names
-        ? `${names} 권역 접수입니다. 아래 「배정 권역」을 선택한 뒤 팀장을 지정해 주세요.`
-        : '배정 권역을 선택한 뒤 팀장을 지정해 주세요.',
-    };
+  if (params.surface === 'inquiry-list') {
+    if (effective) return { blocked: false };
+    if (params.matchingZones.length > 0) {
+      const names = params.matchingZones.map((z) => z.name).join(', ');
+      return {
+        blocked: true,
+        message: names
+          ? `${names} 권역 접수입니다. 아래 「배정 권역」을 선택하거나, 「내 추가 캘린더」에서 권역 캘린더를 지정해 주세요.`
+          : '배정 권역을 선택하거나 권역 캘린더를 지정한 뒤 팀장을 지정해 주세요.',
+      };
+    }
+    return { blocked: false };
   }
 
   return { blocked: false };
