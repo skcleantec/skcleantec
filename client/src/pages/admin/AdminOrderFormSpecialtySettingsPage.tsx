@@ -11,6 +11,7 @@ import {
   listProfChildren,
   listProfRootNodes,
   profDepthFromRoot,
+  swapProfSiblingOrder,
 } from '../../constants/professionalSpecialtyOptions';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ProfOptionEmojiPicker } from '../../components/orderform/ProfOptionEmojiPicker';
@@ -18,6 +19,7 @@ import { ProfOptionEmojiPicker } from '../../components/orderform/ProfOptionEmoj
 const SPECIALTY_SETTINGS_HELP =
   '① 맨 위「대분류 추가」에서 섹션 제목만 만든 뒤, 생긴 카드 안 맨 아래 「+ 상세 옵션(가격) 추가」를 누르면 항목명·가격(원) 입력란이 열립니다(예: 가전내부분해).\n\n' +
   '② 그 상세 한 줄 아래 들여쓴 영역에서 「+ 하위 금액 항목 추가」로 전자레인지·냉장고처럼 금액 리프를 더 넣을 수 있습니다(최대 3단).\n\n' +
+  '③ 각 줄의 ↑↓ 로 같은 단계끼리 순서를 바꿀 수 있습니다(대분류끼리, 상세끼리, 하위 금액끼리).\n\n' +
   '고객 발주서에서는 대분류 → 상세 → 금액 순으로 펼쳐서 고릅니다. 이미 만든 단일 루트에도 같은 카드 안에서 상세를 추가할 수 있습니다.';
 
 const SPECIALTY_EMPTY_CHILDREN_HELP =
@@ -31,6 +33,51 @@ function parsePriceInt(raw: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+function ProfOptionMoveButtons({
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
+  disabled,
+  size = 'sm',
+}: {
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  disabled?: boolean;
+  size?: 'sm' | 'xs';
+}) {
+  const btnClass =
+    size === 'xs'
+      ? 'px-1 py-0.5 text-[10px] leading-none'
+      : 'px-1.5 py-0.5 text-[11px] leading-none';
+  return (
+    <span className="flex gap-0.5 shrink-0">
+      <button
+        type="button"
+        disabled={disabled || !canMoveUp}
+        onClick={onMoveUp}
+        className={`${btnClass} border border-gray-300 rounded text-gray-600 disabled:opacity-30`}
+        title="위로"
+        aria-label="순서 위로"
+      >
+        ↑
+      </button>
+      <button
+        type="button"
+        disabled={disabled || !canMoveDown}
+        onClick={onMoveDown}
+        className={`${btnClass} border border-gray-300 rounded text-gray-600 disabled:opacity-30`}
+        title="아래로"
+        aria-label="순서 아래로"
+      >
+        ↓
+      </button>
+    </span>
+  );
+}
+
 /** 발주서 설정 탭 — 전문 시공: 대분류 + 상세 옵션(가격) */
 export function AdminOrderFormSpecialtySettingsPage() {
   const token = getToken();
@@ -42,7 +89,6 @@ export function AdminOrderFormSpecialtySettingsPage() {
   const [newPriceHint, setNewPriceHint] = useState('');
   const [newEmoji, setNewEmoji] = useState('');
   const [newColor, setNewColor] = useState('#2563eb');
-  const [newSortOrder, setNewSortOrder] = useState('0');
 
   const [childParentId, setChildParentId] = useState<string | null>(null);
   const [childLabel, setChildLabel] = useState('');
@@ -50,16 +96,15 @@ export function AdminOrderFormSpecialtySettingsPage() {
   const [childPriceAmount, setChildPriceAmount] = useState('');
   const [childEmoji, setChildEmoji] = useState('');
   const [childColor, setChildColor] = useState('#6b7280');
-  const [childSortOrder, setChildSortOrder] = useState('0');
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
   const [editDraft, setEditDraft] = useState({
     label: '',
     priceHint: '',
     priceAmount: '',
     emoji: '',
     color: '#2563eb',
-    sortOrder: '0',
     isGroup: false,
   });
 
@@ -97,13 +142,12 @@ export function AdminOrderFormSpecialtySettingsPage() {
         priceHint: newPriceHint.trim() || undefined,
         emoji: newEmoji.trim() || undefined,
         color: newColor,
-        sortOrder: parseInt(newSortOrder, 10) || 0,
+        sortOrder: roots.length,
       });
       setNewLabel('');
       setNewPriceHint('');
       setNewEmoji('');
       setNewColor('#2563eb');
-      setNewSortOrder('0');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : '추가 실패');
@@ -125,7 +169,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
         priceAmount: pa ?? undefined,
         emoji: childEmoji.trim() || undefined,
         color: childColor,
-        sortOrder: parseInt(childSortOrder, 10) || 0,
+        sortOrder: listProfChildren(items, parentId).length,
       });
       setChildParentId(null);
       setChildLabel('');
@@ -133,7 +177,6 @@ export function AdminOrderFormSpecialtySettingsPage() {
       setChildPriceAmount('');
       setChildEmoji('');
       setChildColor('#6b7280');
-      setChildSortOrder('0');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : '상세 추가 실패');
@@ -178,9 +221,30 @@ export function AdminOrderFormSpecialtySettingsPage() {
       priceAmount: opt.priceAmount != null ? String(opt.priceAmount) : '',
       emoji: opt.emoji ?? '',
       color: opt.color,
-      sortOrder: String(opt.sortOrder),
       isGroup: opt.parentId ? false : opt.isGroup,
     });
+  };
+
+  const handleMoveSibling = async (parentId: string | null, id: string, direction: -1 | 1) => {
+    if (!token || reordering) return;
+    const next = swapProfSiblingOrder(items, parentId, id, direction);
+    if (!next) return;
+
+    const siblings =
+      parentId == null ? listProfRootNodes(next) : listProfChildren(next, parentId);
+    setReordering(true);
+    setError(null);
+    setItems(next);
+    try {
+      await Promise.all(
+        siblings.map((opt, idx) => updateProfessionalOption(token, opt.id, { sortOrder: idx }))
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '순서 변경 실패');
+      await load();
+    } finally {
+      setReordering(false);
+    }
   };
 
   const saveEdit = async () => {
@@ -198,7 +262,6 @@ export function AdminOrderFormSpecialtySettingsPage() {
         priceAmount: pa,
         emoji: editDraft.emoji.trim() || undefined,
         color: editDraft.color,
-        sortOrder: parseInt(editDraft.sortOrder, 10) || 0,
         isGroup: !items.find((x) => x.id === editingId)?.parentId ? editDraft.isGroup : undefined,
       });
       setEditingId(null);
@@ -275,15 +338,6 @@ export function AdminOrderFormSpecialtySettingsPage() {
                 />
               </div>
             </div>
-            <div className="w-[3.25rem]">
-              <label className="block text-[10px] text-gray-600 mb-0.5">순서</label>
-              <input
-                type="number"
-                className="w-full px-1 py-1 border border-gray-300 rounded text-xs"
-                value={newSortOrder}
-                onChange={(e) => setNewSortOrder(e.target.value)}
-              />
-            </div>
             <button
               type="button"
               onClick={handleAddRoot}
@@ -298,7 +352,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
           <p className="text-xs text-gray-500">불러오는 중…</p>
         ) : (
           <ul className="space-y-2">
-            {roots.map((root) => {
+            {roots.map((root, rootIdx) => {
               const children = listProfChildren(items, root.id);
               const isSection = root.isGroup || children.length > 0;
               return (
@@ -365,12 +419,6 @@ export function AdminOrderFormSpecialtySettingsPage() {
                           onChange={(e) => setEditDraft((d) => ({ ...d, color: e.target.value }))}
                           aria-label="색상"
                         />
-                        <input
-                          type="text"
-                          className="w-16 px-1.5 py-1 border border-gray-300 rounded text-xs"
-                          value={editDraft.sortOrder}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, sortOrder: e.target.value }))}
-                        />
                       </div>
                       <div className="flex gap-1">
                         <button
@@ -393,6 +441,13 @@ export function AdminOrderFormSpecialtySettingsPage() {
                     <div>
                       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                         <div className="flex items-center gap-1.5 min-w-0">
+                          <ProfOptionMoveButtons
+                            canMoveUp={rootIdx > 0}
+                            canMoveDown={rootIdx < roots.length - 1}
+                            disabled={reordering}
+                            onMoveUp={() => void handleMoveSibling(null, root.id, -1)}
+                            onMoveDown={() => void handleMoveSibling(null, root.id, 1)}
+                          />
                           <span
                             className="inline-block w-2.5 h-2.5 rounded-full shrink-0 border border-gray-300"
                             style={{ backgroundColor: root.color }}
@@ -422,7 +477,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
                               ) : null}
                             </p>
                             <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
-                              순서 {root.sortOrder} · {root.id.slice(0, 8)}…
+                              {rootIdx + 1}번째 · {root.id.slice(0, 8)}…
                             </p>
                           </div>
                         </div>
@@ -458,7 +513,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
                               <HelpTooltip className="shrink-0" text={SPECIALTY_EMPTY_CHILDREN_HELP} />
                             </div>
                           ) : null}
-                          {children.map((ch) => {
+                          {children.map((ch, chIdx) => {
                             const canAddGrandchild = profDepthFromRoot(items, ch.id) <= 1;
                             const grandkids = listProfChildren(items, ch.id);
                             return (
@@ -511,23 +566,33 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                   </div>
                                 ) : (
                                   <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] leading-tight">
-                                    <span
-                                      className={ch.isActive ? 'text-gray-800' : 'text-gray-400 line-through'}
-                                    >
-                                      <span
-                                        className="inline-block w-2 h-2 rounded-full mr-1 border border-gray-200 align-middle"
-                                        style={{ backgroundColor: ch.color }}
+                                    <span className="flex items-center gap-1 min-w-0">
+                                      <ProfOptionMoveButtons
+                                        size="xs"
+                                        canMoveUp={chIdx > 0}
+                                        canMoveDown={chIdx < children.length - 1}
+                                        disabled={reordering}
+                                        onMoveUp={() => void handleMoveSibling(root.id, ch.id, -1)}
+                                        onMoveDown={() => void handleMoveSibling(root.id, ch.id, 1)}
                                       />
-                                      {ch.emoji ? `${ch.emoji} ` : null}
-                                      {ch.label}
-                                      {ch.priceAmount != null && ch.priceAmount > 0 && (
-                                        <span className="text-gray-500 ml-1">
-                                          {ch.priceAmount.toLocaleString('ko-KR')}원
-                                        </span>
-                                      )}
-                                      {ch.priceHint ? (
-                                        <span className="text-gray-500"> · {ch.priceHint}</span>
-                                      ) : null}
+                                      <span
+                                        className={ch.isActive ? 'text-gray-800' : 'text-gray-400 line-through'}
+                                      >
+                                        <span
+                                          className="inline-block w-2 h-2 rounded-full mr-1 border border-gray-200 align-middle"
+                                          style={{ backgroundColor: ch.color }}
+                                        />
+                                        {ch.emoji ? `${ch.emoji} ` : null}
+                                        {ch.label}
+                                        {ch.priceAmount != null && ch.priceAmount > 0 && (
+                                          <span className="text-gray-500 ml-1">
+                                            {ch.priceAmount.toLocaleString('ko-KR')}원
+                                          </span>
+                                        )}
+                                        {ch.priceHint ? (
+                                          <span className="text-gray-500"> · {ch.priceHint}</span>
+                                        ) : null}
+                                      </span>
                                     </span>
                                     <span className="flex gap-1 shrink-0">
                                       <button
@@ -556,7 +621,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                 )}
 
                                 <div className="ml-1.5 pl-1.5 border-l border-gray-100 space-y-0.5">
-                                  {grandkids.map((gc) =>
+                                  {grandkids.map((gc, gcIdx) =>
                                     editingId === gc.id ? (
                                       <div key={gc.id} className="space-y-0.5 bg-amber-50/50 p-1 rounded">
                                         <div className="flex flex-wrap gap-0.5">
@@ -612,25 +677,35 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                         key={gc.id}
                                         className="flex flex-wrap items-center justify-between gap-1 text-[10px] leading-tight"
                                       >
-                                        <span
-                                          className={
-                                            gc.isActive ? 'text-gray-700' : 'text-gray-400 line-through'
-                                          }
-                                        >
-                                          <span
-                                            className="inline-block w-2 h-2 rounded-full mr-1 border border-gray-200 align-middle"
-                                            style={{ backgroundColor: gc.color }}
+                                        <span className="flex items-center gap-1 min-w-0">
+                                          <ProfOptionMoveButtons
+                                            size="xs"
+                                            canMoveUp={gcIdx > 0}
+                                            canMoveDown={gcIdx < grandkids.length - 1}
+                                            disabled={reordering}
+                                            onMoveUp={() => void handleMoveSibling(ch.id, gc.id, -1)}
+                                            onMoveDown={() => void handleMoveSibling(ch.id, gc.id, 1)}
                                           />
-                                          {gc.emoji ? `${gc.emoji} ` : null}
-                                          {gc.label}
-                                          {gc.priceAmount != null && gc.priceAmount > 0 && (
-                                            <span className="text-gray-500 ml-1">
-                                              {gc.priceAmount.toLocaleString('ko-KR')}원
-                                            </span>
-                                          )}
-                                          {gc.priceHint ? (
-                                            <span className="text-gray-500"> · {gc.priceHint}</span>
-                                          ) : null}
+                                          <span
+                                            className={
+                                              gc.isActive ? 'text-gray-700' : 'text-gray-400 line-through'
+                                            }
+                                          >
+                                            <span
+                                              className="inline-block w-2 h-2 rounded-full mr-1 border border-gray-200 align-middle"
+                                              style={{ backgroundColor: gc.color }}
+                                            />
+                                            {gc.emoji ? `${gc.emoji} ` : null}
+                                            {gc.label}
+                                            {gc.priceAmount != null && gc.priceAmount > 0 && (
+                                              <span className="text-gray-500 ml-1">
+                                                {gc.priceAmount.toLocaleString('ko-KR')}원
+                                              </span>
+                                            )}
+                                            {gc.priceHint ? (
+                                              <span className="text-gray-500"> · {gc.priceHint}</span>
+                                            ) : null}
+                                          </span>
                                         </span>
                                         <span className="flex gap-1 shrink-0">
                                           <button
@@ -725,17 +800,6 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                                 onChange={(e) => setChildColor(e.target.value)}
                                               />
                                             </div>
-                                            <div>
-                                              <label className="block text-[9px] font-medium text-gray-600 mb-px">
-                                                순서
-                                              </label>
-                                              <input
-                                                type="number"
-                                                className="w-14 px-1 py-0.5 border border-gray-300 rounded text-[11px]"
-                                                value={childSortOrder}
-                                                onChange={(e) => setChildSortOrder(e.target.value)}
-                                              />
-                                            </div>
                                             <div className="flex gap-0.5 sm:ml-auto pt-0.5">
                                               <button
                                                 type="button"
@@ -766,7 +830,6 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                           setChildPriceHint('');
                                           setChildEmoji('');
                                           setChildColor('#6b7280');
-                                          setChildSortOrder('0');
                                         }}
                                       >
                                         + 하위 금액 추가
@@ -843,17 +906,6 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                       onChange={(e) => setChildColor(e.target.value)}
                                     />
                                   </div>
-                                  <div>
-                                    <label className="block text-[9px] font-medium text-gray-600 mb-px">
-                                      순서
-                                    </label>
-                                    <input
-                                      type="number"
-                                      className="w-16 px-1 py-0.5 border border-gray-300 rounded text-[11px]"
-                                      value={childSortOrder}
-                                      onChange={(e) => setChildSortOrder(e.target.value)}
-                                    />
-                                  </div>
                                   <div className="flex gap-0.5 sm:ml-auto pt-0.5">
                                     <button
                                       type="button"
@@ -884,7 +936,6 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                 setChildPriceHint('');
                                 setChildEmoji('');
                                 setChildColor('#6b7280');
-                                setChildSortOrder('0');
                               }}
                             >
                               + 상세 옵션 추가 (이름·가격)

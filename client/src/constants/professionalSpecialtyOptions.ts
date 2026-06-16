@@ -79,6 +79,28 @@ export function listProfRootNodes(
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+/** 같은 부모(루트는 parentId=null) 형제끼리 ↑↓ 이동 — sortOrder를 0..n-1로 재부여한 새 catalog */
+export function swapProfSiblingOrder(
+  catalog: ProfessionalSpecialtyOptionDto[],
+  parentId: string | null,
+  id: string,
+  direction: -1 | 1
+): ProfessionalSpecialtyOptionDto[] | null {
+  const siblings =
+    parentId == null ? listProfRootNodes(catalog) : listProfChildren(catalog, parentId);
+  const idx = siblings.findIndex((x) => x.id === id);
+  const targetIdx = idx + direction;
+  if (idx < 0 || targetIdx < 0 || targetIdx >= siblings.length) return null;
+
+  const reordered = [...siblings];
+  [reordered[idx], reordered[targetIdx]] = [reordered[targetIdx]!, reordered[idx]!];
+  const orderMap = new Map(reordered.map((o, i) => [o.id, i]));
+  return catalog.map((item) => {
+    const nextOrder = orderMap.get(item.id);
+    return nextOrder !== undefined ? { ...item, sortOrder: nextOrder } : item;
+  });
+}
+
 export type ProfessionalOptionSelection = {
   id: string;
   quantity: number;
