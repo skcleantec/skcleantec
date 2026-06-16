@@ -14,6 +14,8 @@ export interface UserCustomCalendarItem {
   hideAssignedInRegionBadge: boolean;
   colorKey: string;
   sortOrder: number;
+  /** 수동 포함된 접수 id */
+  pinnedInquiryIds: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -88,11 +90,14 @@ function headers(token: string, json = false): HeadersInit {
 }
 
 function normalize(raw: unknown): UserCustomCalendarItem {
-  const r = raw as Partial<UserCustomCalendarItem> & { regions?: unknown };
+  const r = raw as Partial<UserCustomCalendarItem> & { regions?: unknown; pinnedInquiryIds?: unknown };
   const rawRegions = Array.isArray(r.regions)
     ? r.regions.filter((x): x is string => typeof x === 'string')
     : [];
   const decoded = decodeCalendarRegions(rawRegions);
+  const pinnedInquiryIds = Array.isArray(r.pinnedInquiryIds)
+    ? r.pinnedInquiryIds.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+    : [];
   return {
     id: String(r.id ?? ''),
     userId: String(r.userId ?? ''),
@@ -103,6 +108,7 @@ function normalize(raw: unknown): UserCustomCalendarItem {
     hideAssignedInRegionBadge: decoded.hideAssignedInRegionBadge,
     colorKey: String(r.colorKey ?? 'teal'),
     sortOrder: Number(r.sortOrder ?? 0),
+    pinnedInquiryIds: Array.from(new Set(pinnedInquiryIds)),
     createdAt: String(r.createdAt ?? ''),
     updatedAt: String(r.updatedAt ?? ''),
   };
@@ -206,4 +212,39 @@ export async function deleteUserCustomCalendar(
     body: JSON.stringify({ password }),
   });
   if (!res.ok) throw new Error(await readError(res, '캘린더를 삭제하지 못했습니다.'));
+}
+
+export async function pinInquiryToCustomCalendar(
+  token: string,
+  calendarId: string,
+  inquiryId: string,
+): Promise<UserCustomCalendarItem> {
+  const res = await fetch(
+    `${API}/user-custom-calendars/${encodeURIComponent(calendarId)}/pins`,
+    {
+      method: 'POST',
+      headers: headers(token, true),
+      body: JSON.stringify({ inquiryId }),
+    },
+  );
+  if (!res.ok) throw new Error(await readError(res, '캘린더에 포함하지 못했습니다.'));
+  const body = (await res.json().catch(() => ({}))) as { item?: unknown };
+  return normalize(body.item);
+}
+
+export async function unpinInquiryFromCustomCalendar(
+  token: string,
+  calendarId: string,
+  inquiryId: string,
+): Promise<UserCustomCalendarItem> {
+  const res = await fetch(
+    `${API}/user-custom-calendars/${encodeURIComponent(calendarId)}/pins/${encodeURIComponent(inquiryId)}`,
+    {
+      method: 'DELETE',
+      headers: headers(token),
+    },
+  );
+  if (!res.ok) throw new Error(await readError(res, '캘린더 포함을 해제하지 못했습니다.'));
+  const body = (await res.json().catch(() => ({}))) as { item?: unknown };
+  return normalize(body.item);
 }

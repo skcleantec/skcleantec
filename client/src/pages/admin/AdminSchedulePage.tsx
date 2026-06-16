@@ -16,7 +16,7 @@ import {
   deleteUserCustomCalendar,
   type UserCustomCalendarItem,
 } from '../../api/userCustomCalendars';
-import { addressMatchesRegions } from '../../utils/regionMatch';
+import { matchesCustomCalendarFilter } from '../../utils/customCalendarMatch';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import { CustomCalendarCreateModal } from '../../components/admin/CustomCalendarCreateModal';
 import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabsBar';
@@ -174,15 +174,6 @@ function inquiryHasTeamLeaderAssignment(item: ScheduleItem): boolean {
   return (item.assignments?.length ?? 0) > 0;
 }
 
-function scheduleItemExternalCompanyIds(item: ScheduleItem): string[] {
-  const out = new Set<string>();
-  for (const a of item.assignments ?? []) {
-    const id = a.teamLeader.externalCompany?.id?.trim();
-    if (id) out.add(id);
-  }
-  return Array.from(out);
-}
-
 /** 타업체 배정 중 DB 업체가 연결된 경우(우측 일정에서 업체별 접기 묶음용) */
 function primaryLinkedExternalCompany(item: ScheduleItem): { id: string; label: string } | null {
   for (const a of item.assignments ?? []) {
@@ -247,31 +238,6 @@ function buildLinkedExternalCompanyBuckets(
     b.other = sortScheduleItemsByCustomer(b.other);
   }
   return out;
-}
-
-/** 지역 필터는 접수의 주소 검색 한 줄(`address`)만 사용한다. 상세주소는 빌딩명 등으로 오탐할 수 있어 제외한다. */
-function matchesCustomCalendarRegion(item: ScheduleItem, cal: Pick<UserCustomCalendarItem, 'regions'>): boolean {
-  return Array.isArray(cal.regions) && cal.regions.length > 0
-    ? addressMatchesRegions(item.address, cal.regions)
-    : false;
-}
-
-function matchesCustomCalendarExternalCompany(
-  item: ScheduleItem,
-  cal: Pick<UserCustomCalendarItem, 'externalCompanyIds'>
-): boolean {
-  return Array.isArray(cal.externalCompanyIds) && cal.externalCompanyIds.length > 0
-    ? scheduleItemExternalCompanyIds(item).some((id) => cal.externalCompanyIds.includes(id))
-    : false;
-}
-
-function matchesCustomCalendarFilter(
-  item: ScheduleItem,
-  cal: Pick<UserCustomCalendarItem, 'regions' | 'externalCompanyIds'>
-): boolean {
-  const byRegion = matchesCustomCalendarRegion(item, cal);
-  const byExternalCompany = matchesCustomCalendarExternalCompany(item, cal);
-  return byRegion || byExternalCompany;
 }
 
 /** 서버가 접수 DB 좌표로 계산해 내려주는 주안 기준 직선거리(km) */
@@ -2557,6 +2523,8 @@ export function AdminSchedulePage() {
           meUser={meUser}
           leaderAssignmentCountsByLeaderId={detailLeaderAssignmentCounts}
           dayScheduleItems={detailItem.preferredDate ? byDate[formatPreferredDateInputYmd(detailItem.preferredDate) ?? ''] ?? [] : []}
+          customCalendars={customCalendars}
+          onCustomCalendarsChange={setCustomCalendars}
           onClose={() => setDetailItem(null)}
           onSaved={() => fetchMonthData(false)}
           onInquiryRefresh={async () => {

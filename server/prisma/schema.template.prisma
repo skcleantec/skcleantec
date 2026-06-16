@@ -97,6 +97,7 @@ model Tenant {
   payrollIncomeDeposits PayrollIncomeDeposit[]
   payrollAccountLedgerManualEntries PayrollAccountLedgerManualEntry[]
   userCustomCalendars UserCustomCalendar[]
+  userCustomCalendarInquiryPins UserCustomCalendarInquiryPin[]
   eContractIssuerProfiles EContractIssuerProfile[]
   eContractFieldDefinitions EContractFieldDefinition[]
   eContractDefinitions EContractDefinition[]
@@ -406,6 +407,7 @@ model User {
   tenantPartnerSettlementResetsAsActor TenantPartnerSettlementReset[] @relation("TenantPartnerSettlementResetActor")
   operatingCompanyMemberships UserOperatingCompany[]
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
+  customCalendarInquiryPins     UserCustomCalendarInquiryPin[]
   crewStaffNoticesSent          CrewStaffNotice[]     @relation("CrewStaffNoticeSender")
   teamMemberPayrollSettlementsAsActor TeamMemberPayrollSettlement[] @relation("TeamMemberPayrollSettlementActor")
   marketerPayrollSettlements           MarketerPayrollSettlement[]
@@ -940,6 +942,7 @@ model Inquiry {
   tenantShareAsSource TenantInquiryShare? @relation("ShareSourceInquiry")
   tenantShareAsTarget TenantInquiryShare? @relation("ShareTargetInquiry")
   crewMemberMeetingTimes InquiryCrewMemberMeetingTime[]
+  customCalendarInquiryPins UserCustomCalendarInquiryPin[]
 
   @@index([createdAt])
   @@index([preferredDate])
@@ -1836,9 +1839,29 @@ model UserCustomCalendar {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation("UserCustomCalendars", fields: [userId], references: [id], onDelete: Cascade)
+  inquiryPins UserCustomCalendarInquiryPin[]
 
   @@index([tenantId, userId, sortOrder])
   @@map("user_custom_calendars")
+}
+
+/// 사용자 맞춤 캘린더에 수동 포함된 접수(지역 자동 매칭 외)
+model UserCustomCalendarInquiryPin {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calendarId String   @map("calendar_id")
+  calendar   UserCustomCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  inquiryId  String   @map("inquiry_id")
+  inquiry    Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([calendarId, inquiryId])
+  @@index([tenantId, userId, calendarId])
+  @@index([tenantId, inquiryId])
+  @@map("user_custom_calendar_inquiry_pins")
 }
 
 /// 갑(인) 칸에 넣을 이미지 종류 — 동일 토큰 `[[EC_ISSUER_SEAL]]` 로 치환.

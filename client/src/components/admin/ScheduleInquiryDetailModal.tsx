@@ -22,6 +22,8 @@ import { OperatingCompanyBadge } from './OperatingCompanyBadge';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
+import { ScheduleCustomCalendarPinSection } from './ScheduleCustomCalendarPinSection';
+import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../orderform/OrderFormTemplateInfo';
 import { AddressSearch } from '../forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
@@ -445,6 +447,9 @@ export type ScheduleInquiryDetailModalProps =
       leaderAssignmentCountsByLeaderId?: Map<string, number>;
       /** 스케줄 월 뷰 — 같은 예약일 접수 목록(슬롯별 이미 배정된 팀장 제외용) */
       dayScheduleItems?: ScheduleItem[];
+      /** 스케줄 — 내 추가 캘린더 수동 포함 */
+      customCalendars?: UserCustomCalendarItem[];
+      onCustomCalendarsChange?: (next: UserCustomCalendarItem[]) => void;
     }
   | {
       mode: 'create';
@@ -629,6 +634,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     : undefined;
   const dayScheduleItems = !isCreate
     ? (props as { dayScheduleItems?: ScheduleItem[] }).dayScheduleItems
+    : undefined;
+  const customCalendars = !isCreate
+    ? (props as { customCalendars?: UserCustomCalendarItem[] }).customCalendars
+    : undefined;
+  const onCustomCalendarsChange = !isCreate
+    ? (props as { onCustomCalendarsChange?: (next: UserCustomCalendarItem[]) => void }).onCustomCalendarsChange
     : undefined;
   const canEditMarketer = currentUserRole === 'ADMIN';
 
@@ -2251,6 +2262,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           ) : null}
         </div>
         </AdminScheduleDetailSection>
+
+        {!isCreate && item && item.status !== 'CANCELLED' && customCalendars && customCalendars.length > 0 && onCustomCalendarsChange ? (
+          <AdminScheduleDetailSection title="내 추가 캘린더" sectionAnchor="custom-calendars">
+            <ScheduleCustomCalendarPinSection
+              token={token}
+              item={item}
+              calendars={customCalendars}
+              onCalendarsChange={onCustomCalendarsChange}
+            />
+          </AdminScheduleDetailSection>
+        ) : null}
 
         <AdminScheduleDetailSection title="정산 · 옵션" sectionAnchor="settlement">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">

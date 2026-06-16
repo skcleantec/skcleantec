@@ -6,6 +6,36 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { sanitizeCustomCalendarColorKey } from '../../constants/customCalendarColorKeys.js';
 
+const calendarListInclude = {
+  inquiryPins: { select: { inquiryId: true } },
+} as const;
+
+function serializeCalendar(
+  row: {
+    id: string;
+    userId: string;
+    name: string;
+    regions: unknown;
+    colorKey: string;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+    inquiryPins?: Array<{ inquiryId: string }>;
+  },
+) {
+  const { inquiryPins, ...rest } = row;
+  return {
+    ...rest,
+    pinnedInquiryIds: (inquiryPins ?? []).map((p) => p.inquiryId),
+  };
+}
+
+async function findOwnedCalendar(calendarId: string, tenantId: string, userId: string) {
+  return prisma.userCustomCalendar.findFirst({
+    where: { id: calendarId, tenantId, userId },
+  });
+}
+
 /** 비동기 핸들러 에러를 JSON 500으로 내려주는 래퍼 */
 function asyncHandler(
   fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
@@ -72,8 +102,9 @@ router.get(
     const list = await prisma.userCustomCalendar.findMany({
       where: { tenantId, userId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      include: calendarListInclude,
     });
-    res.json({ items: list });
+    res.json({ items: list.map(serializeCalendar) });
   })
 );
 
@@ -110,8 +141,9 @@ router.post(
 
     const created = await prisma.userCustomCalendar.create({
       data: { tenantId, userId, name: rawName, regions, colorKey, sortOrder },
+      include: calendarListInclude,
     });
-    res.json({ item: created });
+    res.json({ item: serializeCalendar(created) });
   })
 );
 
@@ -172,9 +204,86 @@ router.patch(
       if (Number.isFinite(n)) data.sortOrder = Math.max(0, Math.floor(n));
     }
 
-    const updated = await prisma.userCustomCalendar.update({ where: { id }, data });
-    res.json({ item: updated });
+    const updated = await prisma.userCustomCalendar.update({
+      where: { id },
+      data,
+      include: calendarListInclude,
+    });
+    res.json({ item: serializeCalendar(updated) });
   })
+);
+
+/** 접수를 캘린더에 수동 포함 */
+router.post(
+  '/:id/pins',
+  asyncHandler(async (req, res) => {
+    const { userId } = authUser(req);
+    const tenantId = (req as unknown as TenantScopedRequest).tenantId;
+    const { id: calendarId } = req.params;
+    const body = (req.body ?? {}) as { inquiryId?: unknown };
+    const inquiryId = typeof body.inquiryId === 'string' ? body.inquiryId.trim() : '';
+    if (!inquiryId) {
+      res.status(400).json({ error: '접수 id(inquiryId)가 필요합니다.' });
+      return;
+    }
+
+    const calendar = await findOwnedCalendar(calendarId, tenantId, userId);
+    if (!calendar) {
+      res.status(404).json({ error: '캘린더를 찾을 수 없습니다.' });
+      return;
+    }
+
+    const inquiry = await prisma.inquiry.findFirst({
+      where: { id: inquiryId, tenantId },
+      select: { id: true, status: true },
+    });
+    if (!inquiry) {
+      res.status(404).json({ error: '접수를 찾을 수 없습니다.' });
+      return;
+    }
+    if (inquiry.status === 'CANCELLED') {
+      res.status(400).json({ error: '취소된 접수는 캘린더에 포함할 수 없습니다.' });
+      return;
+    }
+
+    await prisma.userCustomCalendarInquiryPin.upsert({
+      where: { calendarId_inquiryId: { calendarId, inquiryId } },
+      create: { tenantId, userId, calendarId, inquiryId },
+      update: {},
+    });
+
+    const updated = await prisma.userCustomCalendar.findFirst({
+      where: { id: calendarId, tenantId, userId },
+      include: calendarListInclude,
+    });
+    res.json({ item: updated ? serializeCalendar(updated) : null, inquiryId });
+  }),
+);
+
+/** 접수 수동 포함 해제(자동 지역 매칭은 유지) */
+router.delete(
+  '/:id/pins/:inquiryId',
+  asyncHandler(async (req, res) => {
+    const { userId } = authUser(req);
+    const tenantId = (req as unknown as TenantScopedRequest).tenantId;
+    const { id: calendarId, inquiryId } = req.params;
+
+    const calendar = await findOwnedCalendar(calendarId, tenantId, userId);
+    if (!calendar) {
+      res.status(404).json({ error: '캘린더를 찾을 수 없습니다.' });
+      return;
+    }
+
+    await prisma.userCustomCalendarInquiryPin.deleteMany({
+      where: { calendarId, inquiryId, tenantId, userId },
+    });
+
+    const updated = await prisma.userCustomCalendar.findFirst({
+      where: { id: calendarId, tenantId, userId },
+      include: calendarListInclude,
+    });
+    res.json({ item: updated ? serializeCalendar(updated) : null, inquiryId });
+  }),
 );
 
 /** 삭제 — 본인 비밀번호 확인 필수(프로젝트 규칙) */
