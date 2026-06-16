@@ -61,13 +61,25 @@ export function inquiryUsesInternalTeamLeaderSlot(inv: {
   return list.some((a) => a.teamLeader.role === 'TEAM_LEADER');
 }
 
+/** 사이청소 오전·오후 확정 여부 — 확정 시 해당 슬롯 1건 소모, ⚡ 배지는 표시하지 않음 */
+export function isSideCleaningScheduleSlotConfirmed(betweenScheduleSlot: string | null | undefined): boolean {
+  const s = String(betweenScheduleSlot ?? '').trim();
+  return s === '오전' || s === '오후';
+}
+
 /**
  * 관리 스케쥴 캘린더 ⚡ 사이청소 배지·통계에 포함할 접수.
- * 팀장·타업체·관리자 등 담당자가 한 명이라도 배정되면 캘린더 배지에서 제외한다.
+ * 미배정이면서 오전·오후가 아직 확정되지 않은 사이청소만 포함한다.
+ * 오전/오후 확정 후에는 해당 슬롯 잔여·미배정 숫자로만 표시한다.
+ * 팀장·타업체·관리자 등 담당자가 한 명이라도 배정되면 배지에서 제외한다.
  */
 export function countsForSideCleaningCalendarBadge(inv: {
   preferredTime: string | null;
+  betweenScheduleSlot?: string | null;
   assignments: ReadonlyArray<unknown>;
 }): boolean {
-  return isSideCleaningPreferredTime(inv.preferredTime) && inv.assignments.length === 0;
+  if (!isSideCleaningPreferredTime(inv.preferredTime)) return false;
+  if (inv.assignments.length > 0) return false;
+  if (isSideCleaningScheduleSlotConfirmed(inv.betweenScheduleSlot)) return false;
+  return true;
 }

@@ -86,7 +86,7 @@ const adminScheduleMapIconUrl =
   (import.meta.env.VITE_ADMIN_SCHEDULE_MAP_ICON_URL ?? '').trim() || DEFAULT_ADMIN_SCHEDULE_MAP_ICON;
 
 function scheduleLegendSlotHelpText(crewUnits: number): string {
-  return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 0보다 작으면 해당 구간이 소진 건수보다 많이 잡혀 있다는 뜻입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. ⚡ 사이는 팀장·타업체 미배정 사이청소 건수이며, 배정되면 캘린더에서 사라집니다. 확정 시 오전 또는 오후 한 칸을 씁니다.`;
+  return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 0보다 작으면 해당 구간이 소진 건수보다 많이 잡혀 있다는 뜻입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. ⚡ 사이는 팀장 미배정이면서 오전·오후가 아직 확정되지 않은 사이청소 건수입니다. 오전 또는 오후를 확정하면 ⚡는 사라지고 해당 슬롯 잔여가 줄어듭니다(미배정 건수는 유지).`;
 }
 
 const SCHEDULE_UNASSIGNED_SECTION_HELP =
