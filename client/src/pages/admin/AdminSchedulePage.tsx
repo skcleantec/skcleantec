@@ -18,6 +18,7 @@ import {
 } from '../../api/userCustomCalendars';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { matchesCustomCalendarFilter } from '../../utils/customCalendarMatch';
+import { computeRegionalDaySlotStats } from '../../utils/regionalSlotStats';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import { CustomCalendarCreateModal } from '../../components/admin/CustomCalendarCreateModal';
 import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabsBar';
@@ -615,6 +616,7 @@ export function AdminSchedulePage() {
   /** 신규 접수 모달 — 선택한 캘린더 날짜로 예약일 고정 */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
+  const [teamLeadersWithZones, setTeamLeadersWithZones] = useState<UserItem[]>([]);
   const [externalCompanies, setExternalCompanies] = useState<Array<{ id: string; name: string }>>([]);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
@@ -841,6 +843,16 @@ export function AdminSchedulePage() {
 
   useEffect(() => {
     if (!token) {
+      setTeamLeadersWithZones([]);
+      return;
+    }
+    getUsers(token, 'TEAM_LEADER', { scope: 'management', employmentStatus: 'active' })
+      .then(setTeamLeadersWithZones)
+      .catch(() => setTeamLeadersWithZones([]));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
       setMeRole(null);
       return;
     }
@@ -946,6 +958,20 @@ export function AdminSchedulePage() {
 
   const activeServiceZoneId = activeCustomCalendar?.serviceZoneId ?? null;
 
+  const activeServiceZoneName = useMemo(() => {
+    if (!activeServiceZoneId) return null;
+    return serviceZones.find((z) => z.id === activeServiceZoneId)?.name ?? null;
+  }, [serviceZones, activeServiceZoneId]);
+
+  const zoneLeaderIds = useMemo(() => {
+    if (!activeServiceZoneId) return new Set<string>();
+    return new Set(
+      teamLeadersWithZones
+        .filter((t) => t.serviceZones?.some((z) => z.id === activeServiceZoneId))
+        .map((t) => t.id),
+    );
+  }, [teamLeadersWithZones, activeServiceZoneId]);
+
   /** 없어진 id는 URL에서 자동 정리 (규칙: 원래 경로 유지하며 덮어쓰기) */
   useEffect(() => {
     const qs = new URLSearchParams(location.search);
@@ -997,6 +1023,29 @@ export function AdminSchedulePage() {
   }, [items, activeCustomCalendar, customCalendars]);
 
   const byDate = groupScheduleItemsByKstDate(filteredItems);
+
+  const regionalSlotStatsByDate = useMemo(() => {
+    if (!activeServiceZoneId || !activeCustomCalendar || zoneLeaderIds.size === 0) return null;
+    const map = new Map<
+      string,
+      NonNullable<ReturnType<typeof computeRegionalDaySlotStats>>
+    >();
+    for (const key of Object.keys(byDate)) {
+      const rs = computeRegionalDaySlotStats(
+        byDate[key] ?? [],
+        stats[key],
+        zoneLeaderIds,
+        activeCustomCalendar,
+      );
+      if (rs) map.set(key, rs);
+    }
+    for (const key of Object.keys(stats)) {
+      if (map.has(key)) continue;
+      const rs = computeRegionalDaySlotStats([], stats[key], zoneLeaderIds, activeCustomCalendar);
+      if (rs) map.set(key, rs);
+    }
+    return map;
+  }, [activeServiceZoneId, activeCustomCalendar, zoneLeaderIds, byDate, stats]);
 
   /** 이번 달 로드 전체 기준 — 팀장별 예약일당 배정 건수(배정 판단·UI용, DB 변경 없음) */
   const leaderDayAssignmentCountsByDate = useMemo(
@@ -1073,12 +1122,13 @@ export function AdminSchedulePage() {
       const key = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const s = stats[key];
       if (!s || isFullDayClosure(s)) continue;
-      const am = s.assignableMorning ?? 0;
-      const pm = s.assignableAfternoonSlot ?? 0;
+      const regional = regionalSlotStatsByDate?.get(key);
+      const am = regional?.assignableMorning ?? s.assignableMorning ?? 0;
+      const pm = regional?.assignableAfternoonSlot ?? s.assignableAfternoonSlot ?? 0;
       if (am < 0 || pm < 0) keys.push(key);
     }
     return keys.sort((a, b) => a.localeCompare(b));
-  }, [stats, year, month]);
+  }, [stats, year, month, regionalSlotStatsByDate]);
 
   const usedCustomCalendarColors = useMemo(
     () => customCalendars.map((c) => c.colorKey),
@@ -1092,6 +1142,7 @@ export function AdminSchedulePage() {
     isolateFromGlobal: boolean;
     hideAssignedInRegionBadge: boolean;
     colorKey: string;
+    serviceZoneId: string | null;
   }) {
     if (!token) return;
     if (customCalendarEditing) {
@@ -1439,8 +1490,12 @@ export function AdminSchedulePage() {
                 const onHoldDayCount = dayItems.filter((it) => it.status === 'ON_HOLD').length;
                 const cancelledDayCount = dayItems.filter((it) => it.status === 'CANCELLED').length;
                 const dayStats = stats[key];
-                const morningRem = dayStats?.assignableMorning ?? 0;
-                const afternoonRem = dayStats?.assignableAfternoonSlot ?? 0;
+                const regionalStats = regionalSlotStatsByDate?.get(key);
+                const globalMorningRem = dayStats?.assignableMorning ?? 0;
+                const globalAfternoonRem = dayStats?.assignableAfternoonSlot ?? 0;
+                const morningRem = regionalStats?.assignableMorning ?? globalMorningRem;
+                const afternoonRem = regionalStats?.assignableAfternoonSlot ?? globalAfternoonRem;
+                const regionalToLabel = activeServiceZoneName ? `${activeServiceZoneName} 권역 · ` : '';
                 const sideOrderCount = dayStats?.sideCleaningOrderCount ?? 0;
                 const sideUnconfirmed = dayStats?.sideCleaningUnconfirmedCount ?? 0;
                 const workingCount = dayStats?.workingCount ?? 0;
@@ -1579,7 +1634,11 @@ export function AdminSchedulePage() {
                                 ? 'bg-slate-100 text-slate-400'
                                 : 'bg-amber-50 text-amber-900'
                           }`}
-                          title={`오전 잔여: ${morningRem}`}
+                          title={
+                            regionalStats
+                              ? `${regionalToLabel}오전 잔여: ${morningRem} (전체 ${globalMorningRem})`
+                              : `오전 잔여: ${morningRem}`
+                          }
                         >
                           <span className="shrink-0 sm:hidden">오전</span>
                           <span className="hidden shrink-0 sm:inline">AM</span>
@@ -1593,7 +1652,11 @@ export function AdminSchedulePage() {
                                 ? 'bg-slate-100 text-slate-400'
                                 : 'bg-sky-50 text-sky-900'
                           }`}
-                          title={`오후 잔여: ${afternoonRem}`}
+                          title={
+                            regionalStats
+                              ? `${regionalToLabel}오후 잔여: ${afternoonRem} (전체 ${globalAfternoonRem})`
+                              : `오후 잔여: ${afternoonRem}`
+                          }
                         >
                           <span className="shrink-0 sm:hidden">오후</span>
                           <span className="hidden shrink-0 sm:inline">PM</span>
@@ -1807,20 +1870,41 @@ export function AdminSchedulePage() {
 
               {stats[selectedDate] &&
               !isFullDayClosure(stats[selectedDate]) &&
-              ((stats[selectedDate].assignableMorning ?? 0) < 0 ||
-                (stats[selectedDate].assignableAfternoonSlot ?? 0) < 0) ? (
+              (() => {
+                const regional = selectedDate ? regionalSlotStatsByDate?.get(selectedDate) : undefined;
+                const am = regional?.assignableMorning ?? stats[selectedDate].assignableMorning ?? 0;
+                const aa =
+                  regional?.assignableAfternoonSlot ?? stats[selectedDate].assignableAfternoonSlot ?? 0;
+                return am < 0 || aa < 0;
+              })() ? (
                 <div
                   role="alert"
                   className="mb-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs leading-snug text-rose-950"
                 >
                   <span className="font-semibold">팀장 슬롯 초과:</span> 선택한 날 분배 잔여가 부족합니다.{' '}
                   <span className="tabular-nums font-semibold text-rose-900">
-                    오전 {(stats[selectedDate].assignableMorning ?? 0)}
+                    오전{' '}
+                    {(() => {
+                      const regional = regionalSlotStatsByDate?.get(selectedDate);
+                      return regional?.assignableMorning ?? stats[selectedDate].assignableMorning ?? 0;
+                    })()}
                   </span>
                   {' · '}
                   <span className="tabular-nums font-semibold text-rose-900">
-                    오후 {(stats[selectedDate].assignableAfternoonSlot ?? 0)}
+                    오후{' '}
+                    {(() => {
+                      const regional = regionalSlotStatsByDate?.get(selectedDate);
+                      return (
+                        regional?.assignableAfternoonSlot ?? stats[selectedDate].assignableAfternoonSlot ?? 0
+                      );
+                    })()}
                   </span>
+                  {activeServiceZoneName ? (
+                    <span className="block mt-1 text-rose-800/90">
+                      ({activeServiceZoneName} 권역 기준 · 전체 오전 {stats[selectedDate].assignableMorning ?? 0} ·
+                      오후 {stats[selectedDate].assignableAfternoonSlot ?? 0})
+                    </span>
+                  ) : null}
                   접수 예약일·배정을 조정해 주세요.
                 </div>
               ) : null}
@@ -1884,12 +1968,18 @@ export function AdminSchedulePage() {
                     )}
                     {(() => {
                       const s = stats[selectedDate];
-                      const am = s.assignableMorning ?? 0;
-                      const aa = s.assignableAfternoonSlot ?? 0;
-                      const sum = s.unassignedTotal ?? am + aa;
+                      const regional = regionalSlotStatsByDate?.get(selectedDate);
+                      const am = regional?.assignableMorning ?? s.assignableMorning ?? 0;
+                      const aa = regional?.assignableAfternoonSlot ?? s.assignableAfternoonSlot ?? 0;
+                      const sum = am + aa;
                       return (
                         <div className="pt-1 border-t border-slate-200/90 text-fluid-sm">
-                          <span className="text-slate-500">슬롯 남은 자리(건)</span>
+                          <span className="text-slate-500">
+                            슬롯 남은 자리(건)
+                            {regional && activeServiceZoneName ? (
+                              <span className="text-violet-700"> · {activeServiceZoneName} 권역</span>
+                            ) : null}
+                          </span>
                           <span
                             className={`ml-2 font-semibold tabular-nums ${
                               am < 0 || aa < 0 ? 'text-rose-800' : 'text-blue-800'
@@ -1897,6 +1987,11 @@ export function AdminSchedulePage() {
                           >
                             오전 {am} · 오후 {aa} · 합(TO) {sum}
                           </span>
+                          {regional ? (
+                            <span className="block text-fluid-xs text-slate-500 mt-1 tabular-nums">
+                              전체 기준 오전 {s.assignableMorning ?? 0} · 오후 {s.assignableAfternoonSlot ?? 0}
+                            </span>
+                          ) : null}
                           {(am < 0 || aa < 0) ? (
                             <span className="block text-fluid-xs text-rose-800 mt-1 font-medium">
                               마이너스는 팀장 슬롯이 소진을 넘긴 상태입니다. 일정 조정을 검토해 주세요.
@@ -2708,11 +2803,13 @@ export function AdminSchedulePage() {
                 isolateFromGlobal: customCalendarEditing.isolateFromGlobal,
                 hideAssignedInRegionBadge: customCalendarEditing.hideAssignedInRegionBadge,
                 colorKey: customCalendarEditing.colorKey as never,
+                serviceZoneId: customCalendarEditing.serviceZoneId,
               }
             : null
         }
         usedColors={usedCustomCalendarColors}
         externalCompanies={externalCompanies}
+        serviceZones={serviceZones}
         onClose={() => {
           setCustomCalendarModalOpen(false);
           setCustomCalendarEditing(null);

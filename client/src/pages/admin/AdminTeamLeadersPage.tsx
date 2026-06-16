@@ -16,6 +16,7 @@ import {
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
+import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import {
   UserOperatingCompanyFields,
@@ -23,6 +24,12 @@ import {
   userOperatingCompanyFormFromUser,
   type UserOperatingCompanyFormValue,
 } from '../../components/admin/UserOperatingCompanyFields';
+import {
+  ServiceZoneBadges,
+  UserServiceZoneFields,
+  userServiceZoneFormFromUser,
+  type UserServiceZoneFormValue,
+} from '../../components/admin/UserServiceZoneFields';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 
 type UserRole = 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
@@ -214,6 +221,9 @@ export function AdminTeamLeadersPage() {
     operatingCompanyIds: [],
     primaryOperatingCompanyId: '',
   });
+  const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
+  const [szForm, setSzForm] = useState<UserServiceZoneFormValue>({ serviceZoneIds: [] });
+  const [editSzForm, setEditSzForm] = useState<UserServiceZoneFormValue>({ serviceZoneIds: [] });
 
   const refresh = (): Promise<void> => {
     if (!token) return Promise.resolve();
@@ -276,6 +286,13 @@ export function AdminTeamLeadersPage() {
   }, [token]);
 
   useEffect(() => {
+    if (!token) return;
+    listServiceZones(token)
+      .then(setServiceZones)
+      .catch(() => setServiceZones([]));
+  }, [token]);
+
+  useEffect(() => {
     setShowForm(null);
   }, [userTab]);
 
@@ -297,6 +314,7 @@ export function AdminTeamLeadersPage() {
         teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
         operatingCompanyIds?: string[];
         primaryOperatingCompanyId?: string;
+        serviceZoneIds?: string[];
       } = {
         email: form.email.trim().toLowerCase(),
         password: form.password,
@@ -369,6 +387,7 @@ export function AdminTeamLeadersPage() {
           return;
         }
         payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
+        payload.serviceZoneIds = szForm.serviceZoneIds;
       }
 
       if (role === 'TEAM_LEADER' || role === 'MARKETER') {
@@ -384,6 +403,7 @@ export function AdminTeamLeadersPage() {
       await createUser(token, payload);
       setForm(emptyRegisterForm());
       setOcForm(defaultUserOperatingCompanyForm(operatingCompanies));
+      setSzForm({ serviceZoneIds: [] });
       setShowForm(null);
       refresh();
     } catch (err) {
@@ -420,6 +440,7 @@ export function AdminTeamLeadersPage() {
           : '',
     });
     setEditOcForm(userOperatingCompanyFormFromUser(operatingCompanies, item.operatingCompanies));
+    setEditSzForm(userServiceZoneFormFromUser(item));
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -441,6 +462,7 @@ export function AdminTeamLeadersPage() {
         teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
         operatingCompanyIds?: string[];
         primaryOperatingCompanyId?: string;
+        serviceZoneIds?: string[];
       } = {
         email: editForm.email.trim().toLowerCase(),
         name: editForm.name.trim(),
@@ -525,6 +547,7 @@ export function AdminTeamLeadersPage() {
           return;
         }
         payload.teamLeaderAdditionalReceiptCompanyShareBps = shareParsed.bps;
+        payload.serviceZoneIds = editSzForm.serviceZoneIds;
       }
 
       if (editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER') {
@@ -681,6 +704,7 @@ export function AdminTeamLeadersPage() {
                 else {
                   setForm(emptyRegisterForm());
                   setOcForm(defaultUserOperatingCompanyForm(operatingCompanies));
+                  setSzForm({ serviceZoneIds: [] });
                   setShowForm('team');
                 }
               }}
@@ -722,8 +746,9 @@ export function AdminTeamLeadersPage() {
                             <span className="mx-1 text-gray-400">·</span>
                             <span className="tabular-nums">{item.phone || '연락처 없음'}</span>
                           </p>
-                          <div className="mt-1.5">
+                          <div className="mt-1.5 space-y-1">
                             <OperatingCompanyBadges items={item.operatingCompanies} />
+                            <ServiceZoneBadges items={item.serviceZones} />
                           </div>
                         </div>
                       </div>
@@ -775,12 +800,13 @@ export function AdminTeamLeadersPage() {
 
               <div className="hidden lg:block">
                 <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-                  <table className="w-full border-collapse text-fluid-sm min-w-[680px]">
+                  <table className="w-full border-collapse text-fluid-sm min-w-[760px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">브랜드</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">권역</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
                         <th className="px-2 py-3 text-center font-medium text-gray-700 w-[7.5rem] whitespace-nowrap">
                           본인 휴무
@@ -797,6 +823,9 @@ export function AdminTeamLeadersPage() {
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.name}</td>
                           <td className="px-4 py-3 text-center">
                             <OperatingCompanyBadges items={item.operatingCompanies} />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <ServiceZoneBadges items={item.serviceZones} />
                           </td>
                           <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap tabular-nums">
                             {item.phone || '-'}
@@ -1337,6 +1366,11 @@ export function AdminTeamLeadersPage() {
                   </div>
                 ) : null}
                 {showForm === 'team' ? (
+                  <div className="sm:col-span-2">
+                    <UserServiceZoneFields zones={serviceZones} value={szForm} onChange={setSzForm} />
+                  </div>
+                ) : null}
+                {showForm === 'team' ? (
                   <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-3">
                     <p className="text-fluid-xs font-medium text-gray-800">일반 정산 · 추가결재</p>
                     <p className="text-fluid-2xs text-gray-600 leading-snug">
@@ -1623,6 +1657,13 @@ export function AdminTeamLeadersPage() {
                     companies={operatingCompanies}
                     value={editOcForm}
                     onChange={setEditOcForm}
+                  />
+                ) : null}
+                {editingUser.role === 'TEAM_LEADER' ? (
+                  <UserServiceZoneFields
+                    zones={serviceZones}
+                    value={editSzForm}
+                    onChange={setEditSzForm}
                   />
                 ) : null}
                 {editingUser.role === 'TEAM_LEADER' && (

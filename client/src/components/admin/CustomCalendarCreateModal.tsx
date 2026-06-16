@@ -10,6 +10,7 @@ import {
   pickAutoColorKey,
   type CustomCalendarColorKey,
 } from '../../constants/customCalendarColors';
+import type { ServiceZoneItem } from '../../api/serviceZones';
 
 export type CustomCalendarCreateValues = {
   name: string;
@@ -18,6 +19,7 @@ export type CustomCalendarCreateValues = {
   isolateFromGlobal: boolean;
   hideAssignedInRegionBadge: boolean;
   colorKey: CustomCalendarColorKey;
+  serviceZoneId: string | null;
 };
 
 type Mode = 'create' | 'edit';
@@ -30,6 +32,7 @@ export type CustomCalendarCreateModalProps = {
   /** 기존에 이미 사용된 색상(새 항목 자동 배정용) */
   usedColors?: readonly string[];
   externalCompanies?: ReadonlyArray<{ id: string; name: string }>;
+  serviceZones?: ReadonlyArray<ServiceZoneItem>;
   onClose: () => void;
   onSubmit: (values: CustomCalendarCreateValues) => Promise<void>;
   /**
@@ -45,6 +48,7 @@ export function CustomCalendarCreateModal({
   initial,
   usedColors = [],
   externalCompanies = [],
+  serviceZones = [],
   onClose,
   onSubmit,
   onRequestDelete,
@@ -55,6 +59,7 @@ export function CustomCalendarCreateModal({
   const [isolateFromGlobal, setIsolateFromGlobal] = useState(false);
   const [hideAssignedInRegionBadge, setHideAssignedInRegionBadge] = useState(false);
   const [colorKey, setColorKey] = useState<CustomCalendarColorKey>('teal');
+  const [serviceZoneId, setServiceZoneId] = useState<string>('');
   const [cityDraft, setCityDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +87,7 @@ export function CustomCalendarCreateModal({
     setColorKey(
       (initial?.colorKey as CustomCalendarColorKey) ?? pickAutoColorKey(usedColors)
     );
+    setServiceZoneId(initial?.serviceZoneId ?? '');
     setCityDraft('');
     setSaving(false);
     setError(null);
@@ -113,6 +119,27 @@ export function CustomCalendarCreateModal({
     setSelectedExternalCompanyIds((prev) => prev.filter((x) => x !== id));
   };
 
+  const activeServiceZones = useMemo(
+    () => serviceZones.filter((z) => z.isActive),
+    [serviceZones],
+  );
+
+  const linkedZone = useMemo(
+    () => activeServiceZones.find((z) => z.id === serviceZoneId) ?? null,
+    [activeServiceZones, serviceZoneId],
+  );
+
+  const regionsLockedByZone = Boolean(linkedZone);
+
+  const handleServiceZoneChange = (nextId: string) => {
+    setServiceZoneId(nextId);
+    if (!nextId) return;
+    const zone = activeServiceZones.find((z) => z.id === nextId);
+    if (zone && zone.regions.length > 0) {
+      setSelectedRegions(Array.from(zone.regions));
+    }
+  };
+
   const canSubmit =
     !saving &&
     name.trim().length > 0 &&
@@ -131,6 +158,7 @@ export function CustomCalendarCreateModal({
         isolateFromGlobal,
         hideAssignedInRegionBadge,
         colorKey,
+        serviceZoneId: serviceZoneId.trim() || null,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -185,6 +213,38 @@ export function CustomCalendarCreateModal({
             />
           </div>
 
+          {activeServiceZones.length > 0 ? (
+            <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-3 sm:p-4 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <label className="text-fluid-sm font-medium text-gray-800" htmlFor="custom-cal-zone">
+                  서비스 권역 연결
+                </label>
+                <HelpTooltip
+                  text="권역을 연결하면 지역 목록이 자동으로 맞춰지고, 이 캘린더 탭에서는 해당 권역 팀장만 배정할 수 있습니다."
+                  className="shrink-0"
+                />
+              </div>
+              <select
+                id="custom-cal-zone"
+                value={serviceZoneId}
+                onChange={(e) => handleServiceZoneChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-fluid-sm bg-white"
+              >
+                <option value="">연결 안 함 (지역 직접 선택)</option>
+                {activeServiceZones.map((z) => (
+                  <option key={z.id} value={z.id}>
+                    {z.name}
+                  </option>
+                ))}
+              </select>
+              {linkedZone ? (
+                <p className="text-fluid-xs text-violet-900">
+                  <span className="font-medium">{linkedZone.name}</span> 권역 지역이 아래 목록에 반영됩니다.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4 space-y-2">
             <div className="flex items-center gap-1.5">
               <label className="text-fluid-sm font-medium text-gray-800" htmlFor="custom-cal-city">
@@ -199,11 +259,12 @@ export function CustomCalendarCreateModal({
               <select
                 id="custom-cal-city"
                 value={cityDraft}
+                disabled={regionsLockedByZone}
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v) addRegion(v);
                 }}
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-fluid-sm bg-white"
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-fluid-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
               >
                 <option value="">시·도 전체 또는 시/군 선택</option>
                 {flatOptions.map((g) => {
@@ -239,7 +300,8 @@ export function CustomCalendarCreateModal({
                     <button
                       type="button"
                       onClick={() => removeRegion(r)}
-                      className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      disabled={regionsLockedByZone}
+                      className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-40"
                       aria-label={`${r} 제거`}
                       title={`${r} 제거`}
                     >
