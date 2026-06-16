@@ -11,4 +11,9 @@ interface ImportMetaEnv {
   readonly VITE_INTERNAL_API_BASE?: string;
   /** 공개 HTTPS URL — 스케줄「접수건 위치 검색」버튼 아이콘(미설정 시 코드 기본값) */
   readonly VITE_ADMIN_SCHEDULE_MAP_ICON_URL?: string;
+  /** 테넌트 서브도메인 base — 예: cbiseo.com */
+  readonly VITE_TENANT_HOST_BASE_DOMAIN?: string;
+  /** apex alias — 쉼표 구분, 예: skcleantec.com */
+  readonly VITE_TENANT_HOST_ALIAS_DOMAINS?: string;
+  readonly VITE_PLATFORM_HOST_SUBDOMAIN?: string;
 }

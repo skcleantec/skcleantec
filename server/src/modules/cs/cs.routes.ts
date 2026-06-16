@@ -23,6 +23,7 @@ import type { Prisma } from '@prisma/client';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { resolvePublicTenantIdFromRequest } from '../tenants/publicRequestTenant.js';
 import { assertTenantAllowsPublicService, PublicTenantAccessError, publicTenantAccessHttpStatus } from '../tenants/publicTenantAccess.js';
+import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
 
 const router = Router();
 
@@ -33,11 +34,9 @@ const csDir = path.join(uploadDir, 'cs');
 /** 클라이언트에서 리사이즈·압축 후 전송. 메모리 버퍼로 받아 Cloudinary 업로드(미설정 시 디스크 폴백) */
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } }); // 12MB
 
-/** 서버 공개 URL (Railway: RAILWAY_PUBLIC_DOMAIN, 로컬: PUBLIC_URL) — 로컬 폴백 URL용 */
+/** 서버 공개 URL — `PUBLIC_URL` 우선, Railway 자동 도메인 fallback */
 function getBaseUrl(): string {
-  const domain = process.env.RAILWAY_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain}`;
-  return process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
+  return getPublicAppBaseUrl();
 }
 
 /** 공개: 이미지 업로드 (C/S 제출용) — Cloudinary 우선, 미설정 시 로컬 폴백 */

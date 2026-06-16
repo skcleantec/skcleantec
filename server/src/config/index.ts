@@ -1,4 +1,5 @@
 import '../env.js';
+import { parseTenantHostList } from '../lib/tenantHost.js';
 
 const stagingImportEnabledFlag = process.env.STAGING_DB_IMPORT_ENABLED === 'true';
 const stagingImportSource = (process.env.STAGING_DB_IMPORT_SOURCE_DATABASE_URL ?? '').trim();
@@ -23,9 +24,11 @@ export const config = {
     sourceDatabaseUrl: stagingImportSource,
     operatorEmailSubstring: (process.env.STAGING_DB_IMPORT_OPERATOR_EMAIL_SUBSTRING ?? 'pyo').trim() || 'pyo',
   },
-  /** 서브도메인 테넌트 라우팅 — 예: TENANT_HOST_BASE_DOMAIN=app.example.com */
+  /** 서브도메인 테넌트 라우팅 — 예: TENANT_HOST_BASE_DOMAIN=cbiseo.com */
   tenantHost: {
     baseDomain: (process.env.TENANT_HOST_BASE_DOMAIN ?? '').trim().toLowerCase(),
     platformSubdomain: (process.env.PLATFORM_HOST_SUBDOMAIN ?? 'platform').trim().toLowerCase(),
+    /** apex 추가 도메인 — 예: skcleantec.com (기본 테넌트로 resolve) */
+    aliasApexDomains: parseTenantHostList(process.env.TENANT_HOST_ALIAS_DOMAINS),
   },
 } as const;

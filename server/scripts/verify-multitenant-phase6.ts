@@ -49,6 +49,21 @@ async function main() {
     }) === null,
     'platform subdomain excluded',
   );
+  assert(
+    resolveTenantSlugFromHost('www.cbiseo.com', {
+      baseDomain: 'cbiseo.com',
+      platformSubdomain: 'platform',
+    }) === 'skcleanteck',
+    'www → default tenant',
+  );
+  assert(
+    resolveTenantSlugFromHost('skcleantec.com', {
+      baseDomain: 'cbiseo.com',
+      platformSubdomain: 'platform',
+      aliasApexDomains: ['skcleantec.com'],
+    }) === 'skcleanteck',
+    'alias apex → default tenant',
+  );
 
   const parsed = parseTenantConfig({
     branding: { displayName: '테스트' },

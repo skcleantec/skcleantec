@@ -1,9 +1,7 @@
 /** 서버·이메일용 공개 URL 빌더 */
-export function getPublicAppBaseUrl(): string {
-  const domain = process.env.RAILWAY_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain}`;
-  return process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
-}
+import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
+
+export { getPublicAppBaseUrl };
 
 export function buildInspectionCustomerViewUrl(
   customerViewToken: string,

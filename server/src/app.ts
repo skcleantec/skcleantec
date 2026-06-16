@@ -159,6 +159,10 @@ if (clientDir) {
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           return;
         }
+        if (base.endsWith('.webmanifest')) {
+          res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+          return;
+        }
         if (filePath.includes(`${path.sep}assets${path.sep}`)) {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }

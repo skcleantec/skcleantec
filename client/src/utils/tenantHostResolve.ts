@@ -3,14 +3,9 @@
  * 서버 `tenantHostResolve.ts` 와 동일 규칙 — Vite env 로 base domain 설정
  */
 
-import { DEFAULT_TENANT_SLUG } from '@shared/tenantFeatureModules';
+import { parseTenantHostList, resolveTenantSlugFromHostCore } from '@shared/tenantHost';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
-
-function normalizeHost(raw: string): string {
-  const h = raw.trim().toLowerCase();
-  return (h.split(':')[0] ?? h).replace(/\.$/, '');
-}
 
 function baseDomainFromEnv(): string {
   const v = import.meta.env.VITE_TENANT_HOST_BASE_DOMAIN;
@@ -22,34 +17,25 @@ function platformSubFromEnv(): string {
   return typeof v === 'string' && v.trim() ? v.trim().toLowerCase() : 'platform';
 }
 
+function aliasApexFromEnv(): string[] {
+  const v = import.meta.env.VITE_TENANT_HOST_ALIAS_DOMAINS;
+  return typeof v === 'string' ? parseTenantHostList(v) : [];
+}
+
 export function resolveTenantSlugFromHost(
   hostRaw: string,
-  opts?: { baseDomain?: string; platformSubdomain?: string },
+  opts?: {
+    baseDomain?: string;
+    platformSubdomain?: string;
+    aliasApexDomains?: readonly string[];
+  },
 ): string | null {
-  const host = normalizeHost(hostRaw);
-  if (!host) return null;
-
-  const baseDomain = (opts?.baseDomain ?? baseDomainFromEnv()).trim().toLowerCase();
-  const platformSub = (opts?.platformSubdomain ?? platformSubFromEnv()).trim().toLowerCase();
-
-  if (!baseDomain) {
-    if (host.endsWith('.localhost')) {
-      const sub = host.slice(0, -'.localhost'.length);
-      if (sub && sub !== platformSub && SLUG_RE.test(sub)) return sub;
-    }
-    return null;
-  }
-
-  if (host === baseDomain) return DEFAULT_TENANT_SLUG;
-
-  const suffix = `.${baseDomain}`;
-  if (!host.endsWith(suffix)) return null;
-
-  const subdomain = host.slice(0, -suffix.length);
-  if (!subdomain || subdomain.includes('.')) return null;
-  if (subdomain === platformSub) return null;
-  if (!SLUG_RE.test(subdomain)) return null;
-  return subdomain;
+  return resolveTenantSlugFromHostCore({
+    hostRaw,
+    baseDomain: opts?.baseDomain ?? baseDomainFromEnv(),
+    platformSubdomain: opts?.platformSubdomain ?? platformSubFromEnv(),
+    aliasApexDomains: opts?.aliasApexDomains ?? aliasApexFromEnv(),
+  });
 }
 
 /** URL ?tenant= → Host subdomain → localStorage 순 */
