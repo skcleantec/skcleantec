@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { crewDevPreviewLogin } from '../../api/crew';
 import { clearToken } from '../../stores/auth';
@@ -148,18 +149,19 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
           크루
         </button>
       </div>
-      {panel ? (
-        <div
-          className="fixed inset-0 z-[200] flex items-end justify-center bg-black/35 p-2 sm:items-center"
-          role="dialog"
-          aria-modal="true"
-          onClick={closePanel}
-        >
-          <div
-            className="flex max-h-[min(70vh,420px)] w-full max-w-sm flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl overscroll-contain"
-            data-admin-dev-preview-modal
-            onClick={(e) => e.stopPropagation()}
-          >
+      {panel
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[200] flex items-end justify-center bg-black/35 p-2 sm:items-center"
+              role="dialog"
+              aria-modal="true"
+              onClick={closePanel}
+            >
+              <div
+                className="flex max-h-[min(70vh,420px)] w-full max-w-sm flex-col overflow-hidden rounded-lg border border-gray-200 bg-white text-gray-900 shadow-xl overscroll-contain"
+                data-admin-dev-preview-modal
+                onClick={(e) => e.stopPropagation()}
+              >
             <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
               <span className="text-fluid-xs font-semibold text-gray-800">
                 {panel === 'tl' ? '팀장 화면' : panel === 'ext' ? '타업체 화면' : '크루 화면'}
@@ -242,8 +244,10 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
               )}
             </div>
           </div>
-        </div>
-      ) : null}
+        </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
