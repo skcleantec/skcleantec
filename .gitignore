@@ -42,8 +42,11 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# 로컬 에이전트·폰트 (저장소 미포함)
-/agent/
+# 로컬 에이전트 — product/help 빌더 소스만 저장소 포함
+/agent/*
+!/agent/product/
+/agent/product/node_modules/
+/agent/product/output/assets/
 malgun.ttf
 
 # shared/ 는 TS 소스만 — server tsc 산출물 금지

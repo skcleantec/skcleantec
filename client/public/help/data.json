@@ -1,0 +1,32 @@
+[
+  {
+    "role": "admin",
+    "module": "대시보드",
+    "moduleOrder": 1,
+    "title": "관리자 대시보드",
+    "path": "/admin/dashboard",
+    "screenshotFile": "admin_대시보드_대시보드.png",
+    "summary": "오늘 일정·미배정·운영 지표를 한눈에 확인합니다.",
+    "markdown": "## 화면 소개\n관리자가 **매일 아침** 확인하는 요약 화면입니다.\n\n## 주요 기능\n- 오늘 접수·스케줄 요약\n- 미배정 건수 확인\n- 운영 시간대별 접수 분포\n\n## 사용 방법\n- 좌측 메뉴에서 다른 업무 화면으로 이동할 수 있습니다.\n\n## FAQ\n- **새로고침 후에도** 현재 메뉴 URL이 유지됩니다."
+  },
+  {
+    "role": "admin",
+    "module": "스케줄",
+    "moduleOrder": 2,
+    "title": "관리 스케줄",
+    "path": "/admin/schedule",
+    "screenshotFile": "admin_스케줄_관리스케줄.png",
+    "summary": "캘린더에서 일별 팀장 슬롯·미배정·사이청소를 확인하고 배정합니다.",
+    "markdown": "## 화면 소개\n접수 일정을 **날짜별**로 관리하는 핵심 화면입니다.\n\n## 주요 기능\n- 오전·오후 팀장 슬롯 잔여\n- 미배정·사이청소 표시\n- 접수 상세·팀장 배정\n\n## 사용 방법\n- 날짜를 선택하면 우측에 해당 일 접수 목록이 표시됩니다."
+  },
+  {
+    "role": "crew",
+    "module": "현장 일정",
+    "moduleOrder": 1,
+    "title": "크루 현장 일정",
+    "path": "/crew/schedule",
+    "screenshotFile": "crew_현장일정_일정.png",
+    "summary": "배정된 현장 일정과 미팅 시각을 확인합니다.",
+    "markdown": "## 화면 소개\n크루(현장 팀원)용 **일정 목록** 화면입니다.\n\n## 주요 기능\n- 날짜별 현장 배정\n- 고객 주소·연락처\n- 크루 미팅 시각\n\n## FAQ\n- 일정은 팀장 배정 후 표시됩니다."
+  }
+]

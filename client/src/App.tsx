@@ -78,6 +78,7 @@ import {
   PlatformTenantListPage,
   PlatformTenantCreatePage,
   PlatformTenantDetailPage,
+  HelpPage,
 } from './routes/lazyPages';
 
 function SuspensePage({ children }: { children: ReactNode }) {
@@ -200,6 +201,7 @@ function App() {
         />
         <Route path="/order/:token" element={<SuspensePage><OrderFormPage /></SuspensePage>} />
         <Route path="/info" element={<SuspensePage><OrderInfoPage /></SuspensePage>} />
+        <Route path="/help" element={<SuspensePage><HelpPage /></SuspensePage>} />
         <Route path="/cs" element={<SuspensePage><CsReportPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />

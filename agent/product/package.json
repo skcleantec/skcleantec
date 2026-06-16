@@ -1,0 +1,12 @@
+{
+  "name": "@skcleantec/product-help-builder",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsx src/build-site.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

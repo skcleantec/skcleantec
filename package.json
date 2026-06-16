@@ -8,6 +8,7 @@
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev:vite",
     "build": "cd server && npm run build && cd ../client && npm run build",
+    "build:help": "cd agent/product && npm run build",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:setup": "cd server && node scripts/prepare-schema.js && npx prisma db push && npm run db:seed && npm run db:backfill-inquiry-numbers",
