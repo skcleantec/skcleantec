@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -8,8 +8,10 @@ import {
   updateServiceZone,
   type ServiceZoneItem,
 } from '../../api/serviceZones';
-import { KOREAN_REGION_GROUPS } from '../../constants/koreanCities';
+import { createUserCustomCalendar, getUserCustomCalendars } from '../../api/userCustomCalendars';
+import { pickAutoColorKey } from '../../constants/customCalendarColors';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { KoreanRegionPicker } from '../../components/admin/KoreanRegionPicker';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 
 type FormState = { name: string; regions: string[]; isActive: boolean };
@@ -26,10 +28,11 @@ export function AdminServiceZonesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceZoneItem | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
-  const [cityDraft, setCityDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ServiceZoneItem | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
+  /** 권역 추가 시 스케줄 맞춤 캘린더 자동 생성 (기본 켜짐) */
+  const [autoCreateCalendar, setAutoCreateCalendar] = useState(true);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -49,25 +52,16 @@ export function AdminServiceZonesPage() {
     void load();
   }, [load]);
 
-  const regionOptions = useMemo(() => {
-    const out: string[] = [];
-    for (const g of KOREAN_REGION_GROUPS) {
-      for (const c of g.cities) out.push(c);
-    }
-    return out;
-  }, []);
-
   function openCreate() {
     setEditing(null);
     setForm(emptyForm());
-    setCityDraft('');
+    setAutoCreateCalendar(true);
     setModalOpen(true);
   }
 
   function openEdit(row: ServiceZoneItem) {
     setEditing(row);
     setForm({ name: row.name, regions: [...row.regions], isActive: row.isActive });
-    setCityDraft('');
     setModalOpen(true);
   }
 
@@ -90,7 +84,24 @@ export function AdminServiceZonesPage() {
           isActive: form.isActive,
         });
       } else {
-        await createServiceZone(token, { name: form.name.trim(), regions: form.regions });
+        const created = await createServiceZone(token, { name: form.name.trim(), regions: form.regions });
+        if (autoCreateCalendar) {
+          try {
+            const calendars = await getUserCustomCalendars(token);
+            const usedColors = calendars.map((c) => c.colorKey);
+            await createUserCustomCalendar(token, {
+              name: form.name.trim(),
+              regions: form.regions,
+              serviceZoneId: created.id,
+              colorKey: pickAutoColorKey(usedColors),
+            });
+          } catch (calErr) {
+            const msg = calErr instanceof Error ? calErr.message : '캘린더 생성에 실패했습니다.';
+            alert(
+              `권역은 저장됐지만 맞춤 캘린더 자동 생성에 실패했습니다. 스케줄에서 수동으로 추가해 주세요.\n\n${msg}`,
+            );
+          }
+        }
       }
       setModalOpen(false);
       await load();
@@ -133,8 +144,11 @@ export function AdminServiceZonesPage() {
           </p>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">서비스 권역</h1>
           <p className="text-fluid-sm text-slate-600 mt-1 max-w-2xl">
-            팀장 담당 지역·지역 캘린더·배정 규칙의 공통 기준입니다. 권역을 만든 뒤 팀장 관리에서
-            담당 권역을 지정하고, 스케줄 맞춤 캘린더에 연결하세요.
+            팀장 담당 지역·지역 캘린더·배정 규칙의 공통 기준입니다. 권역을 만든 뒤{' '}
+            <Link to="/admin/team-leaders" className="font-medium text-violet-800 underline underline-offset-2">
+              사용자 등록 → 팀장
+            </Link>
+            에서 담당 권역을 지정하세요. 권역 추가 시 맞춤 캘린더를 함께 만들 수 있습니다.
           </p>
         </div>
         <button
@@ -197,7 +211,7 @@ export function AdminServiceZonesPage() {
 
       {modalOpen ? (
         <div className="fixed inset-0 z-[1200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40">
-          <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl border border-slate-200">
+          <div className="w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl border border-slate-200">
             <div className="sticky top-0 flex items-center justify-between gap-2 border-b border-slate-100 bg-white px-4 py-3">
               <h2 className="font-semibold text-slate-900">{editing ? '권역 수정' : '권역 추가'}</h2>
               <ModalCloseButton onClick={() => setModalOpen(false)} />
@@ -212,50 +226,34 @@ export function AdminServiceZonesPage() {
                   placeholder="예: 수원권"
                 />
               </div>
-              <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <label className="text-sm text-slate-600">담당 지역</label>
-                  <HelpTooltip text="맞춤 캘린더·접수 주소 매칭과 동일한 시·군·도 이름을 사용합니다." />
-                </div>
-                <div className="flex gap-2 mb-2">
-                  <select
-                    value={cityDraft}
-                    onChange={(e) => setCityDraft(e.target.value)}
-                    className="flex-1 rounded-lg border border-slate-300 px-2 py-2 text-sm"
-                  >
-                    <option value="">지역 선택…</option>
-                    {regionOptions.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!cityDraft || form.regions.includes(cityDraft)}
-                    onClick={() => {
-                      if (!cityDraft) return;
-                      setForm((p) => ({ ...p, regions: [...p.regions, cityDraft] }));
-                      setCityDraft('');
-                    }}
-                    className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-40"
-                  >
-                    추가
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {form.regions.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setForm((p) => ({ ...p, regions: p.regions.filter((x) => x !== r) }))}
-                      className="text-xs rounded-full bg-slate-100 text-slate-800 px-2.5 py-1 hover:bg-slate-200"
-                    >
-                      {r} ×
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <KoreanRegionPicker
+                selectId="service-zone-region"
+                value={form.regions}
+                onChange={(regions) => setForm((p) => ({ ...p, regions }))}
+                helpText="맞춤 캘린더·접수 주소 매칭과 동일합니다. 경기도·충청남도 등 시·도 전체 또는 시·군 단위로 지정하세요."
+              />
+              {!editing ? (
+                <label className="flex items-start gap-2 rounded-lg border border-violet-100 bg-violet-50/50 px-3 py-3 text-sm text-slate-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoCreateCalendar}
+                    onChange={(e) => setAutoCreateCalendar(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-300"
+                  />
+                  <span className="min-w-0">
+                    <span className="inline-flex items-center gap-1.5 font-medium">
+                      스케줄 맞춤 캘린더도 함께 만들기
+                      <HelpTooltip
+                        className="shrink-0"
+                        text="체크하면 권역과 같은 이름·지역·권역 연결로 내 스케줄 캘린더 탭이 자동 생성됩니다. 스케줄 화면에서 바로 해당 탭으로 배정·TO 확인을 시작할 수 있습니다."
+                      />
+                    </span>
+                    <span className="block text-xs text-slate-500 mt-1 leading-snug">
+                      권역 이름과 동일한 탭이 스케줄에 추가됩니다.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
               {editing ? (
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input

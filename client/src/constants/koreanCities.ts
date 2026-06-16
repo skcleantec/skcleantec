@@ -229,3 +229,99 @@ export function flattenKoreanCities(): string[] {
   }
   return Array.from(set);
 }
+
+/** 광역시·특별시 등 시·도 1개 = 단일 항목인 그룹 */
+export function isSingleSidoRegionGroup(g: KoreanRegionGroup): boolean {
+  return g.cities.length === 1 && g.cities[0] === g.sido;
+}
+
+/** 시·도 전체를 하나의 region 값으로 쓸 때 (예: 경기도 → 도 전체 매칭) */
+export function sidoWholeRegionValue(g: KoreanRegionGroup): string {
+  return g.sido;
+}
+
+export function findKoreanRegionGroup(sido: string): KoreanRegionGroup | undefined {
+  return KOREAN_REGION_GROUPS.find((g) => g.sido === sido);
+}
+
+/** 선택 목록에 시·도 전체가 포함됐는지 (시·도 이름 또는 산하 시·군 전부) */
+export function isSidoFullySelected(sido: string, selected: readonly string[]): boolean {
+  const g = findKoreanRegionGroup(sido);
+  if (!g) return false;
+  if (selected.includes(g.sido)) return true;
+  if (isSingleSidoRegionGroup(g)) return selected.includes(g.sido);
+  return g.cities.every((c) => selected.includes(c));
+}
+
+/** 시·도 빠른 선택 토글 — 켜면 시·도 전체, 끄면 해당 시·도·산하 시·군 제거 */
+export function toggleSidoRegionSelection(sido: string, selected: readonly string[]): string[] {
+  const g = findKoreanRegionGroup(sido);
+  if (!g) return [...selected];
+  const next = new Set(selected);
+  if (isSidoFullySelected(sido, selected)) {
+    next.delete(g.sido);
+    for (const c of g.cities) next.delete(c);
+  } else {
+    for (const c of g.cities) next.delete(c);
+    next.add(g.sido);
+  }
+  return Array.from(next);
+}
+
+export function addKoreanRegion(selected: readonly string[], region: string): string[] {
+  const v = region.trim();
+  if (!v || selected.includes(v)) return [...selected];
+  return [...selected, v];
+}
+
+export function removeKoreanRegion(selected: readonly string[], region: string): string[] {
+  return selected.filter((x) => x !== region);
+}
+
+/** 시·군 단일 토글 (시·도 전체 선택 중이면 해당 시·군만 빼고 나머지 시·군으로 전환) */
+export function toggleCityRegionSelection(
+  city: string,
+  group: KoreanRegionGroup,
+  selected: readonly string[],
+): string[] {
+  const next = new Set(selected);
+  if (next.has(group.sido)) {
+    next.delete(group.sido);
+    for (const c of group.cities) {
+      if (c !== city) next.add(c);
+    }
+    return Array.from(next);
+  }
+  if (next.has(city)) {
+    next.delete(city);
+    return Array.from(next);
+  }
+  next.add(city);
+  if (!isSingleSidoRegionGroup(group) && group.cities.every((c) => next.has(c))) {
+    for (const c of group.cities) next.delete(c);
+    next.add(group.sido);
+  }
+  return Array.from(next);
+}
+
+export function isCityRegionSelected(
+  city: string,
+  group: KoreanRegionGroup,
+  selected: readonly string[],
+): boolean {
+  if (selected.includes(group.sido)) return true;
+  return selected.includes(city);
+}
+
+export function sidoTabLabel(sido: string): string {
+  if (sido.startsWith('충청북')) return '충북';
+  if (sido.startsWith('충청남')) return '충남';
+  if (sido.startsWith('전북')) return '전북';
+  if (sido.startsWith('전라남')) return '전남';
+  if (sido.startsWith('경상북')) return '경북';
+  if (sido.startsWith('경상남')) return '경남';
+  if (sido.startsWith('경기')) return '경기';
+  if (sido.startsWith('강원')) return '강원';
+  if (sido.startsWith('제주')) return '제주';
+  return sido.replace(/특별자치시|특별자치도|특별시|광역시/g, '').slice(0, 4);
+}

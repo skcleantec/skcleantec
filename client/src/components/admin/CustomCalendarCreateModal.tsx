@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from './ModalCloseButton';
 import { HelpTooltip } from '../ui/HelpTooltip';
-import { KOREAN_REGION_GROUPS } from '../../constants/koreanCities';
+import { KoreanRegionPicker } from './KoreanRegionPicker';
 import {
   CUSTOM_CALENDAR_COLOR_KEYS,
   CUSTOM_CALENDAR_COLOR_LABEL_KO,
@@ -60,7 +60,6 @@ export function CustomCalendarCreateModal({
   const [hideAssignedInRegionBadge, setHideAssignedInRegionBadge] = useState(false);
   const [colorKey, setColorKey] = useState<CustomCalendarColorKey>('teal');
   const [serviceZoneId, setServiceZoneId] = useState<string>('');
-  const [cityDraft, setCityDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,26 +87,9 @@ export function CustomCalendarCreateModal({
       (initial?.colorKey as CustomCalendarColorKey) ?? pickAutoColorKey(usedColors)
     );
     setServiceZoneId(initial?.serviceZoneId ?? '');
-    setCityDraft('');
     setSaving(false);
     setError(null);
   }, [open, initial, usedColors]);
-
-  const flatOptions = useMemo(() => {
-    // 드롭다운 optgroup 용
-    return KOREAN_REGION_GROUPS;
-  }, []);
-
-  const addRegion = (r: string) => {
-    const v = r.trim();
-    if (!v) return;
-    setSelectedRegions((prev) => (prev.includes(v) ? prev : [...prev, v]));
-    setCityDraft('');
-  };
-
-  const removeRegion = (r: string) => {
-    setSelectedRegions((prev) => prev.filter((x) => x !== r));
-  };
 
   const addExternalCompany = (id: string) => {
     const v = id.trim();
@@ -246,71 +228,13 @@ export function CustomCalendarCreateModal({
           ) : null}
 
           <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4 space-y-2">
-            <div className="flex items-center gap-1.5">
-              <label className="text-fluid-sm font-medium text-gray-800" htmlFor="custom-cal-city">
-                지역별 캘린더
-              </label>
-              <HelpTooltip
-                text="시/군 단위 또는 시·도 전체를 선택하세요. 여러 지역을 함께 저장할 수 있습니다."
-                className="shrink-0"
-              />
-            </div>
-            <div className="flex gap-2">
-              <select
-                id="custom-cal-city"
-                value={cityDraft}
-                disabled={regionsLockedByZone}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v) addRegion(v);
-                }}
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-fluid-sm bg-white disabled:bg-gray-100 disabled:text-gray-500"
-              >
-                <option value="">시·도 전체 또는 시/군 선택</option>
-                {flatOptions.map((g) => {
-                  const isSingle = g.cities.length === 1 && g.cities[0] === g.sido;
-                  return (
-                    <optgroup key={g.sido} label={g.sido}>
-                      {!isSingle && (
-                        <option value={g.sido} disabled={selectedRegions.includes(g.sido)}>
-                          {g.sido} 전체{selectedRegions.includes(g.sido) ? ' (선택됨)' : ''}
-                        </option>
-                      )}
-                      {g.cities.map((c) => (
-                        <option key={`${g.sido}-${c}`} value={c} disabled={selectedRegions.includes(c)}>
-                          {c}
-                          {selectedRegions.includes(c) ? ' (선택됨)' : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
-              </select>
-            </div>
-            <div className="flex flex-wrap gap-1.5 min-h-[2.25rem]">
-              {selectedRegions.length === 0 ? (
-                <span className="text-fluid-xs text-gray-400 italic py-1">선택된 지역이 없습니다.</span>
-              ) : (
-                selectedRegions.map((r) => (
-                  <span
-                    key={r}
-                    className="inline-flex items-center gap-1 rounded-full bg-gray-100 border border-gray-200 px-2.5 py-1 text-fluid-xs text-gray-800"
-                  >
-                    <span>{r}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeRegion(r)}
-                      disabled={regionsLockedByZone}
-                      className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-40"
-                      aria-label={`${r} 제거`}
-                      title={`${r} 제거`}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))
-              )}
-            </div>
+            <KoreanRegionPicker
+              selectId="custom-cal-city"
+              value={selectedRegions}
+              onChange={setSelectedRegions}
+              readOnly={regionsLockedByZone}
+              disabled={regionsLockedByZone}
+            />
             <label className="mt-1 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-700">
               <input
                 type="checkbox"

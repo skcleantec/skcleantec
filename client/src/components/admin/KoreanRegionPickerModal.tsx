@@ -1,0 +1,206 @@
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ModalCloseButton } from './ModalCloseButton';
+import {
+  KOREAN_REGION_GROUPS,
+  type KoreanRegionGroup,
+  isCityRegionSelected,
+  isSingleSidoRegionGroup,
+  isSidoFullySelected,
+  sidoTabLabel,
+  toggleCityRegionSelection,
+  toggleSidoRegionSelection,
+} from '../../constants/koreanCities';
+
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  value: readonly string[];
+  onApply: (regions: string[]) => void;
+};
+
+function pickInitialSido(value: readonly string[]): string {
+  for (const g of KOREAN_REGION_GROUPS) {
+    if (isSidoFullySelected(g.sido, value)) return g.sido;
+    if (g.cities.some((c) => value.includes(c))) return g.sido;
+  }
+  return KOREAN_REGION_GROUPS[0]?.sido ?? '';
+}
+
+export function KoreanRegionPickerModal({ open, onClose, value, onApply }: Props) {
+  const [draft, setDraft] = useState<string[]>([]);
+  const [activeSido, setActiveSido] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setDraft(Array.from(value));
+    setActiveSido(pickInitialSido(value));
+  }, [open, value]);
+
+  const activeGroup = useMemo(
+    () => KOREAN_REGION_GROUPS.find((g) => g.sido === activeSido) ?? KOREAN_REGION_GROUPS[0],
+    [activeSido],
+  );
+
+  if (!open) return null;
+  const root = typeof document !== 'undefined' ? document.body : null;
+  if (!root) return null;
+
+  const renderCityGrid = (group: KoreanRegionGroup) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {group.cities.map((city) => {
+        const selected = isCityRegionSelected(city, group, draft);
+        return (
+          <button
+            key={city}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => setDraft(toggleCityRegionSelection(city, group, draft))}
+            className={`rounded-lg border px-2.5 py-2 text-left text-sm font-medium transition touch-manipulation ${
+              selected
+                ? 'border-violet-400 bg-violet-50 text-violet-900 shadow-sm'
+                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            {city}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1400] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45"
+      role="dialog"
+      aria-modal
+      aria-labelledby="korean-region-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="relative flex w-full sm:max-w-2xl max-h-[min(94vh,40rem)] flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-xl border border-slate-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 pr-12">
+          <div>
+            <h2 id="korean-region-modal-title" className="font-semibold text-slate-900">
+              지역 선택
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">시·도를 고른 뒤 전체 또는 시·군을 탭하세요.</p>
+          </div>
+          <ModalCloseButton onClick={onClose} />
+        </div>
+
+        <div className="shrink-0 border-b border-slate-100 bg-slate-50/80 px-2 py-2">
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+            {KOREAN_REGION_GROUPS.map((g) => {
+              const active = activeSido === g.sido;
+              const hasPick = isSidoFullySelected(g.sido, draft);
+              return (
+                <button
+                  key={g.sido}
+                  type="button"
+                  onClick={() => setActiveSido(g.sido)}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition touch-manipulation ${
+                    active
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : hasPick
+                        ? 'border-violet-300 bg-violet-100 text-violet-900'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                  }`}
+                  title={g.sido}
+                >
+                  {sidoTabLabel(g.sido)}
+                  {hasPick ? ' ✓' : ''}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+          {activeGroup ? (
+            <>
+              {!isSingleSidoRegionGroup(activeGroup) ? (
+                <button
+                  type="button"
+                  aria-pressed={isSidoFullySelected(activeGroup.sido, draft)}
+                  onClick={() => setDraft(toggleSidoRegionSelection(activeGroup.sido, draft))}
+                  className={`w-full rounded-xl border-2 px-4 py-3 text-left transition touch-manipulation ${
+                    isSidoFullySelected(activeGroup.sido, draft)
+                      ? 'border-violet-500 bg-violet-50 text-violet-950'
+                      : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{activeGroup.sido} 전체</span>
+                  <span className="block text-xs text-slate-500 mt-0.5">
+                    {activeGroup.sido} 소속 주소를 한 번에 포함합니다.
+                  </span>
+                </button>
+              ) : null}
+
+              {isSingleSidoRegionGroup(activeGroup) ? (
+                <button
+                  type="button"
+                  aria-pressed={draft.includes(activeGroup.sido)}
+                  onClick={() => setDraft(toggleSidoRegionSelection(activeGroup.sido, draft))}
+                  className={`w-full rounded-xl border-2 px-4 py-3 text-left font-bold text-sm transition touch-manipulation ${
+                    draft.includes(activeGroup.sido)
+                      ? 'border-violet-500 bg-violet-50 text-violet-950'
+                      : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  {activeGroup.sido} 선택
+                </button>
+              ) : (
+                <>
+                  <p className="text-xs font-medium text-slate-600">시·군 개별 선택</p>
+                  {renderCityGrid(activeGroup)}
+                </>
+              )}
+            </>
+          ) : null}
+        </div>
+
+        <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-3 space-y-2">
+          <div className="flex flex-wrap gap-1.5 min-h-[1.75rem] max-h-20 overflow-y-auto">
+            {draft.length === 0 ? (
+              <span className="text-xs text-slate-400">선택된 지역이 없습니다.</span>
+            ) : (
+              draft.map((r) => (
+                <span
+                  key={r}
+                  className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] text-slate-800"
+                >
+                  {r}
+                </span>
+              ))
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-slate-500 tabular-nums">{draft.length}곳 선택</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => onApply(draft)}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+              >
+                적용
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    root,
+  );
+}
