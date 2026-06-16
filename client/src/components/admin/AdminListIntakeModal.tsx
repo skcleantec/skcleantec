@@ -19,7 +19,7 @@ function emptyForm() {
     phone: '',
     memo: '',
     preferredMoveInCleanYmd: '',
-    kind: 'deposit' as Kind,
+    kind: 'absent' as Kind,
   };
 }
 
@@ -48,7 +48,7 @@ export function AdminListIntakeModal({
   const [phone, setPhone] = useState('');
   const [memo, setMemo] = useState('');
   const [preferredMoveInCleanYmd, setPreferredMoveInCleanYmd] = useState('');
-  const [kind, setKind] = useState<Kind>('deposit');
+  const [kind, setKind] = useState<Kind>('absent');
   const [goldDb, setGoldDb] = useState(false);
   const [saving, setSaving] = useState(false);
 
