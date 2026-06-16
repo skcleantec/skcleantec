@@ -88,7 +88,7 @@ function scheduleLegendSlotHelpText(crewUnits: number): string {
 }
 
 const SCHEDULE_UNASSIGNED_SECTION_HELP =
-  '팀장이 아직 배정되지 않은 자사 접수입니다. 각 행의 오전·오후·사이 배지는 희망 시간대입니다. 배정되면 아래 해당 구역에서 표시됩니다.';
+  '팀장이 아직 배정되지 않은 자사 접수입니다. 사이청소·일반 접수 모두 오전·오후 확정(또는 희망 시간대)에 따라 미배정 오전/오후/사이·미확정으로 나뉩니다. 팀장 배정 후에는 아래 오전·오후·사이 일정 구역으로 이동합니다.';
 
 function groupScheduleItemsByKstDate(items: ScheduleItem[]) {
   return items.reduce<Record<string, ScheduleItem[]>>((acc, item) => {
@@ -1997,16 +1997,19 @@ export function AdminSchedulePage() {
                   (i) => !inquiryHasExternalAssignment(i) && inquiryHasTeamLeaderAssignment(i)
                 );
 
-                const unassignedOwn = dayList
-                  .filter((i) => !inquiryHasExternalAssignment(i) && !inquiryHasTeamLeaderAssignment(i))
-                  .slice()
-                  .sort((a, b) => {
-                    const ord = (x: ScheduleItem) => {
-                      const bkt = getScheduleTimeBucket(x);
-                      return bkt === 'morning' ? 0 : bkt === 'afternoon' ? 1 : 2;
-                    };
-                    return ord(a) - ord(b);
-                  });
+                const unassignedOwnAll = dayList.filter(
+                  (i) => !inquiryHasExternalAssignment(i) && !inquiryHasTeamLeaderAssignment(i)
+                );
+                const unassignedOwnMorning = sortScheduleItemsByCustomer(
+                  unassignedOwnAll.filter((i) => getScheduleTimeBucket(i) === 'morning')
+                );
+                const unassignedOwnAfternoon = sortScheduleItemsByCustomer(
+                  unassignedOwnAll.filter((i) => getScheduleTimeBucket(i) === 'afternoon')
+                );
+                const unassignedOwnOther = sortScheduleItemsByCustomer(
+                  unassignedOwnAll.filter((i) => getScheduleTimeBucket(i) === 'other')
+                );
+                const unassignedOwn = unassignedOwnAll;
 
                 const morningExt = morningList.filter(inquiryHasExternalAssignment);
                 const afternoonExt = afternoonList.filter(inquiryHasExternalAssignment);
@@ -2045,24 +2048,97 @@ export function AdminSchedulePage() {
                           <HelpTooltip className="shrink-0" text={SCHEDULE_UNASSIGNED_SECTION_HELP} />
                           <span className="text-[10px] font-bold text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{unassignedOwn.length}건</span>
                         </div>
-                        <div className="flex flex-col gap-1.5">
-                          {unassignedOwn.map((item) => (
-                            <ScheduleDayListItem
-                              key={item.id}
-                              item={item}
-                              profCatalog={profCatalog}
-                              viewerRole={meRole}
-                              leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
-                              onPick={() => {
-                                setMemoModalItem(null);
-                                setDetailItem(item);
-                              }}
-                              onOpenMemo={() => {
-                                setDetailItem(null);
-                                setMemoModalItem(item);
-                              }}
-                            />
-                          ))}
+                        <div className="flex flex-col gap-3">
+                          {unassignedOwnMorning.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-amber-950">미배정 · 오전</span>
+                                <span className="text-fluid-2xs text-amber-900/80 tabular-nums">
+                                  {unassignedOwnMorning.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {unassignedOwnMorning.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {unassignedOwnAfternoon.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-sky-600/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-sky-950">미배정 · 오후</span>
+                                <span className="text-fluid-2xs text-sky-900/80 tabular-nums">
+                                  {unassignedOwnAfternoon.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {unassignedOwnAfternoon.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {unassignedOwnOther.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-violet-500/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-violet-950">미배정 · 사이 · 일정 미확정</span>
+                                <span className="text-fluid-2xs text-violet-900/80 tabular-nums">
+                                  {unassignedOwnOther.length}건
+                                </span>
+                              </div>
+                              <p className="text-fluid-xs text-slate-500 mb-2 px-0.5">
+                                사이청소인데 오전/오후가 아직 정해지지 않았거나, 시간대가 비어 있는 접수입니다.
+                              </p>
+                              <div className="flex flex-col gap-1.5">
+                                {unassignedOwnOther.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
