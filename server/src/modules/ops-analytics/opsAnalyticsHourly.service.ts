@@ -18,6 +18,11 @@ import {
   sumHourly,
   type HourlyBucket,
 } from './kstHourlyAggregate.js';
+import {
+  sqlExcludeDesignerPreviewTokens,
+  sqlExtractKstDow,
+  sqlExtractKstHour,
+} from './kstSql.js';
 
 export type OpsHourlyMetricId =
   | 'order_form_issued'
@@ -140,24 +145,26 @@ async function queryHourlyFromTable(params: {
   if (table === 'order_forms') {
     if (timeColumn === 'submitted_at') {
       const rows = await prisma.$queryRaw<{ hour: number; cnt: bigint }[]>(Prisma.sql`
-        SELECT EXTRACT(HOUR FROM timezone('Asia/Seoul', submitted_at))::int AS hour,
+        SELECT ${sqlExtractKstHour(Prisma.sql`submitted_at`)} AS hour,
                COUNT(*)::bigint AS cnt
         FROM order_forms
         WHERE tenant_id = ${tenantId}
           AND submitted_at IS NOT NULL
           AND submitted_at >= ${gte}
           AND submitted_at <= ${lte}
+          AND ${sqlExcludeDesignerPreviewTokens()}
         GROUP BY 1
       `);
       return rows.map((r) => ({ hour: Number(r.hour), cnt: Number(r.cnt) }));
     }
     const rows = await prisma.$queryRaw<{ hour: number; cnt: bigint }[]>(Prisma.sql`
-      SELECT EXTRACT(HOUR FROM timezone('Asia/Seoul', created_at))::int AS hour,
+      SELECT ${sqlExtractKstHour(Prisma.sql`created_at`)} AS hour,
              COUNT(*)::bigint AS cnt
       FROM order_forms
       WHERE tenant_id = ${tenantId}
         AND created_at >= ${gte}
         AND created_at <= ${lte}
+        AND ${sqlExcludeDesignerPreviewTokens()}
       GROUP BY 1
     `);
     return rows.map((r) => ({ hour: Number(r.hour), cnt: Number(r.cnt) }));
@@ -165,7 +172,7 @@ async function queryHourlyFromTable(params: {
 
   if (table === 'inquiry_status_events') {
     const rows = await prisma.$queryRaw<{ hour: number; cnt: bigint }[]>(Prisma.sql`
-      SELECT EXTRACT(HOUR FROM timezone('Asia/Seoul', occurred_at))::int AS hour,
+      SELECT ${sqlExtractKstHour(Prisma.sql`occurred_at`)} AS hour,
              COUNT(*)::bigint AS cnt
       FROM inquiry_status_events
       WHERE tenant_id = ${tenantId}
@@ -178,7 +185,7 @@ async function queryHourlyFromTable(params: {
   }
 
   const rows = await prisma.$queryRaw<{ hour: number; cnt: bigint }[]>(Prisma.sql`
-    SELECT EXTRACT(HOUR FROM timezone('Asia/Seoul', created_at))::int AS hour,
+    SELECT ${sqlExtractKstHour(Prisma.sql`created_at`)} AS hour,
            COUNT(*)::bigint AS cnt
     FROM order_followups
     WHERE tenant_id = ${tenantId}
@@ -196,13 +203,14 @@ async function queryHeatmapOrderFormsIssued(
   lte: Date,
 ): Promise<{ dow: number; hour: number; cnt: number }[]> {
   const rows = await prisma.$queryRaw<{ dow: number; hour: number; cnt: bigint }[]>(Prisma.sql`
-    SELECT EXTRACT(DOW FROM timezone('Asia/Seoul', created_at))::int AS dow,
-           EXTRACT(HOUR FROM timezone('Asia/Seoul', created_at))::int AS hour,
+    SELECT ${sqlExtractKstDow(Prisma.sql`created_at`)} AS dow,
+           ${sqlExtractKstHour(Prisma.sql`created_at`)} AS hour,
            COUNT(*)::bigint AS cnt
     FROM order_forms
     WHERE tenant_id = ${tenantId}
       AND created_at >= ${gte}
       AND created_at <= ${lte}
+      AND ${sqlExcludeDesignerPreviewTokens()}
     GROUP BY 1, 2
   `);
   return rows.map((r) => ({ dow: Number(r.dow), hour: Number(r.hour), cnt: Number(r.cnt) }));

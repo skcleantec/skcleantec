@@ -1,7 +1,9 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-
-const DESIGNER_PREVIEW_TOKEN_PREFIX = 'designer-preview-';
+import {
+  sqlExcludeDesignerPreviewTokens,
+  sqlExtractKstHour,
+} from './kstSql.js';
 
 export async function orderFormIdsMatchingKstHour(params: {
   tenantId: string;
@@ -19,8 +21,8 @@ export async function orderFormIdsMatchingKstHour(params: {
         AND submitted_at IS NOT NULL
         AND submitted_at >= ${gte}
         AND submitted_at <= ${lte}
-        AND token NOT LIKE ${`${DESIGNER_PREVIEW_TOKEN_PREFIX}%`}
-        AND EXTRACT(HOUR FROM timezone('Asia/Seoul', submitted_at))::int = ${kstHour}
+        AND ${sqlExcludeDesignerPreviewTokens()}
+        AND ${sqlExtractKstHour(Prisma.sql`submitted_at`)} = ${kstHour}
     `);
     return rows.map((r) => r.id);
   }
@@ -30,8 +32,8 @@ export async function orderFormIdsMatchingKstHour(params: {
     WHERE tenant_id = ${tenantId}
       AND created_at >= ${gte}
       AND created_at <= ${lte}
-      AND token NOT LIKE ${`${DESIGNER_PREVIEW_TOKEN_PREFIX}%`}
-      AND EXTRACT(HOUR FROM timezone('Asia/Seoul', created_at))::int = ${kstHour}
+      AND ${sqlExcludeDesignerPreviewTokens()}
+      AND ${sqlExtractKstHour(Prisma.sql`created_at`)} = ${kstHour}
   `);
   return rows.map((r) => r.id);
 }
@@ -53,7 +55,7 @@ export async function orderFollowupIdsMatchingKstHour(params: {
             AND status = ${status}::"OrderFollowupStatus"
             AND created_at >= ${gte}
             AND created_at <= ${lte}
-            AND EXTRACT(HOUR FROM timezone('Asia/Seoul', created_at))::int = ${kstHour}
+            AND ${sqlExtractKstHour(Prisma.sql`created_at`)} = ${kstHour}
         `)
       : await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
           SELECT id
@@ -61,7 +63,7 @@ export async function orderFollowupIdsMatchingKstHour(params: {
           WHERE tenant_id = ${tenantId}
             AND created_at >= ${gte}
             AND created_at <= ${lte}
-            AND EXTRACT(HOUR FROM timezone('Asia/Seoul', created_at))::int = ${kstHour}
+            AND ${sqlExtractKstHour(Prisma.sql`created_at`)} = ${kstHour}
         `);
   return rows.map((r) => r.id);
 }
@@ -81,7 +83,7 @@ export async function inquiryIdsMatchingStatusEventKstHour(params: {
       AND status = ${status}::"InquiryStatus"
       AND occurred_at >= ${gte}
       AND occurred_at <= ${lte}
-      AND EXTRACT(HOUR FROM timezone('Asia/Seoul', occurred_at))::int = ${kstHour}
+      AND ${sqlExtractKstHour(Prisma.sql`occurred_at`)} = ${kstHour}
   `);
   return rows.map((r) => r.inquiry_id);
 }
