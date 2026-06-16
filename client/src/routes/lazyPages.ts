@@ -9,6 +9,9 @@ export const AdminInquiriesPage = lazyWithRetry(() =>
 export const AdminSchedulePage = lazyWithRetry(() =>
   import('../pages/admin/AdminSchedulePage').then((m) => ({ default: m.AdminSchedulePage }))
 );
+export const AdminServiceZonesPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminServiceZonesPage').then((m) => ({ default: m.AdminServiceZonesPage }))
+);
 export const AdminTeamLeadersPage = lazyWithRetry(() =>
   import('../pages/admin/AdminTeamLeadersPage').then((m) => ({ default: m.AdminTeamLeadersPage }))
 );

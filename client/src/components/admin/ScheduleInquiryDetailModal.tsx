@@ -24,6 +24,14 @@ import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
 import { ScheduleCustomCalendarPinSection } from './ScheduleCustomCalendarPinSection';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
+import type { ServiceZoneItem } from '../../api/serviceZones';
+import {
+  matchingServiceZonesForAddress,
+  pinnedServiceZoneIdForInquiry,
+  resolveEffectiveAssignmentServiceZoneId,
+  teamLeaderAssignmentBlocked,
+  type TeamLeaderAssignmentSurface,
+} from '../../utils/inquiryServiceZoneAssignment';
 import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../orderform/OrderFormTemplateInfo';
 import { AddressSearch } from '../forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
@@ -450,6 +458,10 @@ export type ScheduleInquiryDetailModalProps =
       /** 스케줄 — 내 추가 캘린더 수동 포함 */
       customCalendars?: UserCustomCalendarItem[];
       onCustomCalendarsChange?: (next: UserCustomCalendarItem[]) => void;
+      /** 테넌트 서비스 권역 — 있으면 배정 규칙 적용 */
+      serviceZones?: ServiceZoneItem[];
+      teamLeaderAssignmentSurface?: TeamLeaderAssignmentSurface;
+      activeServiceZoneId?: string | null;
     }
   | {
       mode: 'create';
@@ -641,6 +653,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const onCustomCalendarsChange = !isCreate
     ? (props as { onCustomCalendarsChange?: (next: UserCustomCalendarItem[]) => void }).onCustomCalendarsChange
     : undefined;
+  const serviceZones =
+    (props as { serviceZones?: ServiceZoneItem[] }).serviceZones ?? [];
+  const teamLeaderAssignmentSurface =
+    (props as { teamLeaderAssignmentSurface?: TeamLeaderAssignmentSurface }).teamLeaderAssignmentSurface ??
+    'inquiry-list';
+  const activeServiceZoneId =
+    (props as { activeServiceZoneId?: string | null }).activeServiceZoneId ?? null;
   const canEditMarketer = currentUserRole === 'ADMIN';
 
   const [saving, setSaving] = useState(false);
@@ -676,6 +695,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [copyHint, setCopyHint] = useState<string | null>(null);
   const [operatingCompanyOptions, setOperatingCompanyOptions] = useState<OperatingCompanyItem[]>([]);
   const [assignableTeamLeaders, setAssignableTeamLeaders] = useState<UserItem[]>(teamLeaders);
+  const [manualAssignmentZoneId, setManualAssignmentZoneId] = useState('');
   const [assignmentPolicy, setAssignmentPolicy] = useState<
     AssignableScheduleUsersResponse['policy']
   >({ assignmentMode: 'relaxed', teamLeaderListMode: 'tenant_all_read' });
@@ -1093,10 +1113,16 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   useEffect(() => {
     if (!token) return;
     const ymd = editForm.preferredDate?.trim().slice(0, 10);
+    const zoneIdForFetch = resolveEffectiveAssignmentServiceZoneId({
+      activeServiceZoneId,
+      manualAssignmentZoneId,
+      pinnedServiceZoneId: pinnedServiceZoneIdForInquiry(item?.id, customCalendars ?? []),
+    });
     let cancelled = false;
     void getAssignableScheduleUsers(token, {
       employedOn: ymd || undefined,
       operatingCompanyId: inquiryOperatingCompanyIdForAssign || undefined,
+      serviceZoneId: zoneIdForFetch || undefined,
     })
       .then((r) => {
         if (cancelled) return;
@@ -1114,7 +1140,58 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     editForm.preferredDate,
     inquiryOperatingCompanyIdForAssign,
     teamLeaders,
+    activeServiceZoneId,
+    manualAssignmentZoneId,
+    item?.id,
+    customCalendars,
   ]);
+
+  const matchingServiceZones = useMemo(
+    () => matchingServiceZonesForAddress(editForm.address, serviceZones),
+    [editForm.address, serviceZones],
+  );
+  const pinnedServiceZoneId = useMemo(
+    () => pinnedServiceZoneIdForInquiry(item?.id, customCalendars ?? []),
+    [item?.id, customCalendars],
+  );
+  const effectiveAssignmentZoneId = useMemo(
+    () =>
+      resolveEffectiveAssignmentServiceZoneId({
+        activeServiceZoneId,
+        manualAssignmentZoneId,
+        pinnedServiceZoneId,
+      }),
+    [activeServiceZoneId, manualAssignmentZoneId, pinnedServiceZoneId],
+  );
+  const teamLeaderZoneBlock = useMemo(
+    () =>
+      serviceZones.length > 0
+        ? teamLeaderAssignmentBlocked({
+            surface: teamLeaderAssignmentSurface,
+            matchingZones: matchingServiceZones,
+            pinnedServiceZoneId,
+            effectiveAssignmentZoneId,
+          })
+        : { blocked: false as const },
+    [
+      serviceZones.length,
+      teamLeaderAssignmentSurface,
+      matchingServiceZones,
+      pinnedServiceZoneId,
+      effectiveAssignmentZoneId,
+    ],
+  );
+
+  useEffect(() => {
+    if (teamLeaderAssignmentSurface !== 'inquiry-list') return;
+    if (matchingServiceZones.length === 1 && !manualAssignmentZoneId.trim()) {
+      setManualAssignmentZoneId(matchingServiceZones[0]!.id);
+    }
+  }, [teamLeaderAssignmentSurface, matchingServiceZones, manualAssignmentZoneId]);
+
+  useEffect(() => {
+    setManualAssignmentZoneId('');
+  }, [item?.id]);
 
   useEffect(() => {
     if (!item) return;
@@ -1583,6 +1660,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           ? null
           : undefined;
       patch.teamLeaderIds = leaderIdsForSave;
+      if (
+        leaderIdsForSave.length > 0 &&
+        !resolvedExternalLeadId &&
+        effectiveAssignmentZoneId
+      ) {
+        patch.assignmentServiceZoneId = effectiveAssignmentZoneId;
+      }
       const ocId = editForm.operatingCompanyId.trim();
       if (ocId) {
         const curOcId = item?.operatingCompanyId ?? item?.operatingCompany?.id ?? '';
@@ -2777,6 +2861,41 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           ) : null}
           <div className="sm:col-span-2 space-y-2">
             <label className="block text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
+            {teamLeaderAssignmentSurface === 'inquiry-list' &&
+            serviceZones.length > 0 &&
+            (matchingServiceZones.length > 0 || pinnedServiceZoneId) ? (
+              <div>
+                <label className="block text-fluid-xs text-gray-600 mb-1">배정 권역</label>
+                <select
+                  value={manualAssignmentZoneId}
+                  onChange={(e) => setManualAssignmentZoneId(e.target.value)}
+                  className="w-full max-w-md px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                >
+                  <option value="">권역 선택…</option>
+                  {(matchingServiceZones.length > 0
+                    ? matchingServiceZones
+                    : serviceZones
+                        .filter((z) => z.id === pinnedServiceZoneId)
+                        .map((z) => ({ id: z.id, name: z.name }))
+                  ).map((z) => (
+                    <option key={z.id} value={z.id}>
+                      {z.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            {teamLeaderZoneBlock.blocked && teamLeaderZoneBlock.message ? (
+              <p className="text-fluid-xs text-amber-950 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug">
+                {teamLeaderZoneBlock.message}
+              </p>
+            ) : null}
+            {activeServiceZoneId && serviceZones.length > 0 ? (
+              <p className="text-fluid-xs text-teal-950 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 leading-snug">
+                {serviceZones.find((z) => z.id === activeServiceZoneId)?.name ?? '이 권역'} 캘린더 —
+                이 권역 담당 팀장만 배정할 수 있습니다.
+              </p>
+            ) : null}
             {assignmentPolicy.assignmentMode === 'strict' && inquiryOperatingCompanyIdForAssign ? (
               <p className="text-fluid-xs text-indigo-900 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 leading-snug">
                 엄격 배정: 이 접수 영업 브랜드에 소속된 팀장만 선택할 수 있습니다.
@@ -2804,6 +2923,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   <div key={idx} className="flex gap-2 items-center">
                     <select
                       value={lid}
+                      disabled={teamLeaderZoneBlock.blocked}
                       onChange={(e) => {
                         const v = e.target.value;
                         setEditForm((p) => {
@@ -2840,7 +2960,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
-                    className="text-sm text-blue-600 hover:underline"
+                    className="text-sm text-blue-600 hover:underline disabled:opacity-40 disabled:no-underline"
+                    disabled={teamLeaderZoneBlock.blocked}
                     onClick={() =>
                       setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
                     }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useInboxRealtime, useChangeLogRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import {
@@ -16,6 +16,7 @@ import {
   deleteUserCustomCalendar,
   type UserCustomCalendarItem,
 } from '../../api/userCustomCalendars';
+import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { matchesCustomCalendarFilter } from '../../utils/customCalendarMatch';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import { CustomCalendarCreateModal } from '../../components/admin/CustomCalendarCreateModal';
@@ -635,6 +636,7 @@ export function AdminSchedulePage() {
   const [customCalendarModalOpen, setCustomCalendarModalOpen] = useState(false);
   const [customCalendarEditing, setCustomCalendarEditing] = useState<UserCustomCalendarItem | null>(null);
   const [customCalendarDeleting, setCustomCalendarDeleting] = useState<UserCustomCalendarItem | null>(null);
+  const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const fetchGenRef = useRef(0);
   /** showLoading 요청이 silent 재조회에 밀려 loading=true 에 고착되는 것 방지 */
   const loadingFetchGenRef = useRef(0);
@@ -916,6 +918,16 @@ export function AdminSchedulePage() {
     void fetchCustomCalendars();
   }, [fetchCustomCalendars]);
 
+  useEffect(() => {
+    if (!token) {
+      setServiceZones([]);
+      return;
+    }
+    void listServiceZones(token)
+      .then(setServiceZones)
+      .catch(() => setServiceZones([]));
+  }, [token]);
+
   /**
    * 활성 지역 캘린더 id — URL 쿼리(`?customCalendarId=...`)에 동기화.
    * 새로고침·재로그인 후에도 같은 캘린더를 유지한다 (routing-url-persistence 규칙).
@@ -931,6 +943,8 @@ export function AdminSchedulePage() {
     () => customCalendars.find((c) => c.id === activeCustomCalendarId) ?? null,
     [customCalendars, activeCustomCalendarId]
   );
+
+  const activeServiceZoneId = activeCustomCalendar?.serviceZoneId ?? null;
 
   /** 없어진 id는 URL에서 자동 정리 (규칙: 원래 경로 유지하며 덮어쓰기) */
   useEffect(() => {
@@ -1269,9 +1283,9 @@ export function AdminSchedulePage() {
                 />
               </div>
             </div>
-            <div className="mt-2 min-w-0 border-t border-slate-200/80 pt-2">
+            <div className="mt-2 min-w-0 border-t border-slate-200/80 pt-2 flex flex-wrap items-center justify-between gap-2">
               <CustomCalendarTabsBar
-                className="w-full min-w-0"
+                className="w-full min-w-0 min-[520px]:flex-1"
                 calendars={customCalendars}
                 activeId={activeCustomCalendarId}
                 onSelect={(id) => setActiveCustomCalendarId(id)}
@@ -1280,6 +1294,12 @@ export function AdminSchedulePage() {
                   setCustomCalendarModalOpen(true);
                 }}
               />
+              <Link
+                to="/admin/service-zones"
+                className="shrink-0 text-fluid-xs font-medium text-slate-600 hover:text-slate-900 underline-offset-2 hover:underline"
+              >
+                서비스 권역 관리
+              </Link>
             </div>
             {activeCustomCalendar && (
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
@@ -2525,6 +2545,11 @@ export function AdminSchedulePage() {
           dayScheduleItems={detailItem.preferredDate ? byDate[formatPreferredDateInputYmd(detailItem.preferredDate) ?? ''] ?? [] : []}
           customCalendars={customCalendars}
           onCustomCalendarsChange={setCustomCalendars}
+          serviceZones={serviceZones}
+          teamLeaderAssignmentSurface={
+            activeServiceZoneId ? 'regional-schedule' : 'global-schedule'
+          }
+          activeServiceZoneId={activeServiceZoneId}
           onClose={() => setDetailItem(null)}
           onSaved={() => fetchMonthData(false)}
           onInquiryRefresh={async () => {

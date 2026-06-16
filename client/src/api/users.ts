@@ -36,6 +36,8 @@ export interface UserItem {
   teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
   /** scope=management · 팀장·마케터 */
   operatingCompanies?: UserOperatingCompanySummary[];
+  /** 팀장 — 담당 서비스 권역 */
+  serviceZones?: Array<{ id: string; name: string }>;
 }
 
 export type TeamLeaderGeneralSettlementModeApi =
@@ -78,11 +80,12 @@ export type AssignableScheduleUsersResponse = {
 /** 스케줄·접수 분배 드롭다운: 팀장 + 타업체 (strict 시 operatingCompanyId 로 팀장 필터) */
 export async function getAssignableScheduleUsers(
   token: string,
-  opts?: { employedOn?: string; operatingCompanyId?: string },
+  opts?: { employedOn?: string; operatingCompanyId?: string; serviceZoneId?: string },
 ): Promise<AssignableScheduleUsersResponse> {
   const q = new URLSearchParams();
   if (opts?.employedOn) q.set('employedOn', opts.employedOn);
   if (opts?.operatingCompanyId?.trim()) q.set('operatingCompanyId', opts.operatingCompanyId.trim());
+  if (opts?.serviceZoneId?.trim()) q.set('serviceZoneId', opts.serviceZoneId.trim());
   const qs = q.toString();
   const res = await fetch(`${API}/users/assignable-schedule${qs ? `?${qs}` : ''}`, {
     headers: headers(token),
@@ -137,6 +140,7 @@ export async function createUser(
     teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
     operatingCompanyIds?: string[];
     primaryOperatingCompanyId?: string;
+    serviceZoneIds?: string[];
   }
 ): Promise<UserItem> {
   const res = await fetch(`${API}/users`, {
@@ -179,6 +183,7 @@ export async function updateUser(
     teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
     operatingCompanyIds?: string[];
     primaryOperatingCompanyId?: string;
+    serviceZoneIds?: string[];
   }
 ): Promise<UserItem> {
   const res = await fetch(`${API}/users/${encodeURIComponent(id)}`, {

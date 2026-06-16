@@ -26,6 +26,12 @@ import {
   type EmploymentStatusFilter,
 } from './userEmployment.js';
 import {
+  filterTeamLeaderIdsInServiceZone,
+  listServiceZonesByUserIds,
+  replaceUserServiceZones,
+} from '../service-zones/userServiceZone.service.js';
+import { ServiceZoneValidationError } from '../service-zones/serviceZone.service.js';
+import {
   ensureDefaultMembershipForUser,
   listOperatingCompaniesByUserIds,
   parseUserOperatingCompanyMembershipInput,
@@ -44,6 +50,14 @@ const staffIdCardUpload = multer({
 });
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseServiceZoneIdsInput(raw: unknown): string[] | null {
+  if (raw === undefined) return null;
+  if (!Array.isArray(raw)) {
+    throw new ServiceZoneValidationError('serviceZoneIds는 배열이어야 합니다.');
+  }
+  return Array.from(new Set(raw.map((v) => String(v ?? '').trim()).filter(Boolean)));
+}
 
 const MANAGEABLE_STAFF_ROLES = ['TEAM_LEADER', 'MARKETER', 'OFFICE_STAFF', 'EXTERNAL_PARTNER'] as const;
 const STAFF_ID_CARD_ROLES = ['TEAM_LEADER', 'MARKETER'] as const;
@@ -89,6 +103,7 @@ function mapAssignableUserRow(
   operatingCompanies?: Awaited<ReturnType<typeof listOperatingCompaniesByUserIds>> extends Map<string, infer V>
     ? V
     : never,
+  serviceZones?: Array<{ id: string; name: string }>,
 ) {
   return {
     id: u.id,
@@ -106,6 +121,7 @@ function mapAssignableUserRow(
     teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
     staffIdCardUrl: u.staffIdCardUrl ?? null,
     operatingCompanies,
+    serviceZones,
     ...serializeUserDates(u),
   };
 }
@@ -122,6 +138,8 @@ router.get('/assignable-schedule', adminOrMarketer, async (req, res) => {
   const employedOn = YMD.test(employedOnRaw) ? employedOnRaw : kstTodayYmd();
   const operatingCompanyId =
     typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId.trim() : '';
+  const serviceZoneId =
+    typeof req.query.serviceZoneId === 'string' ? req.query.serviceZoneId.trim() : '';
 
   const [leaders, partners, policy] = await Promise.all([
     prisma.user.findMany({
@@ -160,6 +178,16 @@ router.get('/assignable-schedule', adminOrMarketer, async (req, res) => {
     leaderOut.map((u) => u.id),
   );
   leaderOut = leaderOut.filter((u) => allowedLeaderIds.has(u.id));
+
+  if (serviceZoneId) {
+    const inZone = await filterTeamLeaderIdsInServiceZone(
+      prisma,
+      tenantId,
+      serviceZoneId,
+      leaderOut.map((u) => u.id),
+    );
+    leaderOut = leaderOut.filter((u) => inZone.has(u.id));
+  }
 
   const partnerOut = partners.filter((u) =>
     isUserEmployedOnYmd(u.hireDate, u.resignationDate, employedOn),
@@ -291,6 +319,15 @@ router.get('/', adminOrMarketer, async (req, res) => {
         )
       : null;
 
+  const szByUser =
+    management && role === 'TEAM_LEADER'
+      ? await listServiceZonesByUserIds(
+          prisma,
+          tenantId,
+          out.map((u) => u.id),
+        )
+      : null;
+
   res.json(
     out.map((u) => ({
       id: u.id,
@@ -308,6 +345,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
       teamLeaderAdditionalReceiptCompanyShareBps: u.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
       staffIdCardUrl: u.staffIdCardUrl ?? null,
       operatingCompanies: ocByUser?.get(u.id) ?? undefined,
+      serviceZones: szByUser?.get(u.id) ?? undefined,
       ...serializeUserDates(u),
     }))
   );
@@ -350,6 +388,7 @@ router.post('/', adminOnly, async (req, res) => {
     teamLeaderAdditionalReceiptCompanyShareBps?: unknown;
     operatingCompanyIds?: unknown;
     primaryOperatingCompanyId?: unknown;
+    serviceZoneIds?: unknown;
   };
   const { email, password, name, phone, role } = body;
   if (!email || !password || !name) {
@@ -458,6 +497,18 @@ router.post('/', adminOnly, async (req, res) => {
   }
 
   let membershipInput = null;
+  let serviceZoneIdsInput: string[] | null = null;
+  if (userRole === 'TEAM_LEADER' && body.serviceZoneIds !== undefined) {
+    try {
+      serviceZoneIdsInput = parseServiceZoneIdsInput(body.serviceZoneIds);
+    } catch (e) {
+      if (e instanceof ServiceZoneValidationError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+      throw e;
+    }
+  }
   if (userRoleSupportsOperatingMembership(userRole)) {
     try {
       membershipInput = parseUserOperatingCompanyMembershipInput(body);
@@ -513,6 +564,9 @@ router.post('/', adminOnly, async (req, res) => {
       await syncUserOperatingCompanies(tx, tenantId, created.id, membershipInput);
     } else {
       await ensureDefaultMembershipForUser(tx, tenantId, created.id, userRole);
+    }
+    if (userRole === 'TEAM_LEADER' && serviceZoneIdsInput !== null) {
+      await replaceUserServiceZones(tx, tenantId, created.id, serviceZoneIdsInput);
     }
     return created;
   });
@@ -653,12 +707,14 @@ router.patch('/:id', adminOnly, async (req, res) => {
     teamLeaderAdditionalReceiptCompanyShareBps?: number | string | null;
     operatingCompanyIds?: unknown;
     primaryOperatingCompanyId?: unknown;
+    serviceZoneIds?: unknown;
   };
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, authUser);
   if (!tenantId) return;
 
   let membershipInput: ReturnType<typeof parseUserOperatingCompanyMembershipInput> = null;
+  let serviceZoneIdsInput: string[] | null = null;
   if (body.operatingCompanyIds !== undefined || body.primaryOperatingCompanyId !== undefined) {
     try {
       membershipInput = parseUserOperatingCompanyMembershipInput(body);
@@ -701,6 +757,22 @@ router.patch('/:id', adminOnly, async (req, res) => {
   ) {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
+  }
+
+  if (body.serviceZoneIds !== undefined) {
+    if (existing.role !== 'TEAM_LEADER') {
+      res.status(400).json({ error: '서비스 권역은 팀장 계정만 설정할 수 있습니다.' });
+      return;
+    }
+    try {
+      serviceZoneIdsInput = parseServiceZoneIdsInput(body.serviceZoneIds);
+    } catch (e) {
+      if (e instanceof ServiceZoneValidationError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+      throw e;
+    }
   }
 
   const data: {
@@ -919,7 +991,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     staffIdCardUrl: true,
   } as const;
 
-  if (Object.keys(data).length === 0 && !membershipInput) {
+  if (Object.keys(data).length === 0 && !membershipInput && serviceZoneIdsInput === null) {
     const u = await prisma.user.findUnique({ where: { id }, select: userSelect });
     if (!u) {
       res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
@@ -947,12 +1019,19 @@ router.patch('/:id', adminOnly, async (req, res) => {
     if (membershipInput && userRoleSupportsOperatingMembership(u.role)) {
       await syncUserOperatingCompanies(tx, tenantId, id, membershipInput);
     }
+    if (serviceZoneIdsInput !== null && u.role === 'TEAM_LEADER') {
+      await replaceUserServiceZones(tx, tenantId, id, serviceZoneIdsInput);
+    }
     return u;
   });
 
   const ocMap =
     userRoleSupportsOperatingMembership(updated.role)
       ? await listOperatingCompaniesByUserIds(prisma, tenantId, [updated.id])
+      : null;
+  const szMap =
+    updated.role === 'TEAM_LEADER'
+      ? await listServiceZonesByUserIds(prisma, tenantId, [updated.id])
       : null;
 
   res.json({
@@ -966,6 +1045,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
       updated.teamLeaderAdditionalReceiptCompanyShareBps ?? null,
     staffIdCardUrl: updated.staffIdCardUrl ?? null,
     operatingCompanies: ocMap?.get(updated.id),
+    serviceZones: szMap?.get(updated.id),
     ...serializeUserDates(updated),
   });
 });

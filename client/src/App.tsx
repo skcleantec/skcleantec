@@ -21,6 +21,7 @@ import {
   AdminDashboardPage,
   AdminInquiriesPage,
   AdminSchedulePage,
+  AdminServiceZonesPage,
   AdminTeamLeadersPage,
   AdminInquiryBulkDeletePage,
   AdminMessagesPage,
@@ -128,6 +129,7 @@ function App() {
             <Route path="order-customer-preview" element={<SuspensePage><AdminOrderFormCustomerPreviewPage /></SuspensePage>} />
           </Route>
           <Route path="schedule" element={<SuspensePage><AdminSchedulePage /></SuspensePage>} />
+          <Route path="service-zones" element={<SuspensePage><AdminServiceZonesPage /></SuspensePage>} />
           <Route path="team-leaders" element={<AdminTeamLeadersLayout />}>
             <Route index element={<SuspensePage><AdminTeamLeadersPage /></SuspensePage>} />
             <Route path="team-members" element={<SuspensePage><AdminTeamsPage /></SuspensePage>} />

@@ -98,6 +98,8 @@ model Tenant {
   payrollAccountLedgerManualEntries PayrollAccountLedgerManualEntry[]
   userCustomCalendars UserCustomCalendar[]
   userCustomCalendarInquiryPins UserCustomCalendarInquiryPin[]
+  serviceZones ServiceZone[]
+  userServiceZones UserServiceZone[]
   eContractIssuerProfiles EContractIssuerProfile[]
   eContractFieldDefinitions EContractFieldDefinition[]
   eContractDefinitions EContractDefinition[]
@@ -408,6 +410,7 @@ model User {
   operatingCompanyMemberships UserOperatingCompany[]
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
   customCalendarInquiryPins     UserCustomCalendarInquiryPin[]
+  serviceZoneMemberships        UserServiceZone[]
   crewStaffNoticesSent          CrewStaffNotice[]     @relation("CrewStaffNoticeSender")
   teamMemberPayrollSettlementsAsActor TeamMemberPayrollSettlement[] @relation("TeamMemberPayrollSettlementActor")
   marketerPayrollSettlements           MarketerPayrollSettlement[]
@@ -1821,6 +1824,44 @@ model Message {
   @@map("messages")
 }
 
+/// 테넌트 공통 서비스 권역 — 팀장 담당 지역·지역 캘린더·배정 규칙의 기준
+model ServiceZone {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(64)
+  /// 시·도/시·군 문자열 배열(JSON). 맞춤 캘린더 `regions` 와 동일 형식
+  regions   Json
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  leaderMemberships UserServiceZone[]
+  customCalendars   UserCustomCalendar[]
+
+  @@index([tenantId, sortOrder])
+  @@index([tenantId, isActive])
+  @@map("service_zones")
+}
+
+/// 팀장 ↔ 서비스 권역 (다대다)
+model UserServiceZone {
+  id            String      @id @default(uuid())
+  tenantId      String      @map("tenant_id")
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId        String      @map("user_id")
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceZoneId String      @map("service_zone_id")
+  serviceZone   ServiceZone @relation(fields: [serviceZoneId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@unique([userId, serviceZoneId])
+  @@index([tenantId, serviceZoneId])
+  @@index([tenantId, userId])
+  @@map("user_service_zones")
+}
+
 /// 사용자별 맞춤 '지역 필터 캘린더'
 /// 관리자·마케터가 자주 보는 지역 묶음을 저장해 스케줄 화면에서 빠르게 전환한다.
 /// `regions` 는 시 단위 문자열 배열(JSON). 예: ["천안시","아산시","대전광역시"]
@@ -1832,6 +1873,9 @@ model UserCustomCalendar {
   userId    String   @map("user_id")
   name      String   @db.VarChar(64)
   regions   Json
+  /// 연결된 서비스 권역 — 지역 캘린더 탭에서 해당 권역 팀장만 배정
+  serviceZoneId String?     @map("service_zone_id")
+  serviceZone   ServiceZone? @relation(fields: [serviceZoneId], references: [id], onDelete: SetNull)
   /// 탭 색상 키 — `CUSTOM_CALENDAR_COLOR_KEYS`(클라·서버 constants)에 정의된 짧은 영문 식별자
   colorKey  String   @default("teal") @map("color_key") @db.VarChar(16)
   sortOrder Int      @default(0) @map("sort_order")
@@ -1842,6 +1886,7 @@ model UserCustomCalendar {
   inquiryPins UserCustomCalendarInquiryPin[]
 
   @@index([tenantId, userId, sortOrder])
+  @@index([tenantId, serviceZoneId])
   @@map("user_custom_calendars")
 }
 

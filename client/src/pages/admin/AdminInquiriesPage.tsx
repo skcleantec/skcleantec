@@ -22,6 +22,7 @@ import {
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
 import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
 import {
@@ -692,6 +693,7 @@ export function AdminInquiriesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
+  const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const [listQuickEdit, setListQuickEdit] = useState<{
     field: InquiryListQuickEditField;
     item: InquiryItem;
@@ -1326,6 +1328,9 @@ export function AdminInquiriesPage() {
     getAssignableScheduleUsers(token)
       .then((r) => setTeamLeaders(r.items))
       .catch(() => setTeamLeaders([]));
+    void listServiceZones(token)
+      .then(setServiceZones)
+      .catch(() => setServiceZones([]));
   }, [token]);
 
   const patchInquiryListSearchParams = useCallback(
@@ -4636,6 +4641,8 @@ export function AdminInquiriesPage() {
               refresh(false);
             }
           }}
+          serviceZones={serviceZones}
+          teamLeaderAssignmentSurface="inquiry-list"
         />
       )}
 

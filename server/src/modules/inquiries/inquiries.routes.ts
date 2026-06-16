@@ -58,6 +58,10 @@ import {
   assertTeamLeadersMatchInquiryBrand,
   OperatingCompanyAssignmentError,
 } from '../operating-companies/operatingCompanyAssignment.js';
+import {
+  assertInquiryTeamLeaderAssignmentZones,
+  ServiceZoneAssignmentError,
+} from '../service-zones/serviceZoneAssignment.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import inquiryCleaningPhotosAdminRoutes from '../inquiry-cleaning-photos/inquiryCleaningPhotos.admin.routes.js';
 import inquiryConsultationPhotosAdminRoutes from '../inquiry-consultation-photos/inquiryConsultationPhotos.admin.routes.js';
@@ -777,6 +781,35 @@ router.patch('/:id', async (req, res) => {
         });
       } catch (e) {
         if (e instanceof OperatingCompanyAssignmentError) {
+          res.status(400).json({ error: e.message });
+          return;
+        }
+        throw e;
+      }
+      const mergedAddress =
+        data.address !== undefined
+          ? typeof data.address === 'string'
+            ? data.address
+            : inquiry.address
+          : inquiry.address;
+      const assignmentServiceZoneId =
+        typeof body.assignmentServiceZoneId === 'string'
+          ? body.assignmentServiceZoneId.trim()
+          : '';
+      try {
+        await assertInquiryTeamLeaderAssignmentZones({
+          db: prisma,
+          tenantId,
+          inquiryAddress: mergedAddress,
+          inquiryId: inquiry.id,
+          teamLeaderIds,
+          internalTeamLeaderIds: assignees
+            .filter((a) => a.role === 'TEAM_LEADER' || a.role === 'ADMIN')
+            .map((a) => a.id),
+          assignmentServiceZoneId: assignmentServiceZoneId || null,
+        });
+      } catch (e) {
+        if (e instanceof ServiceZoneAssignmentError) {
           res.status(400).json({ error: e.message });
           return;
         }

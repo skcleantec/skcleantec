@@ -16,6 +16,7 @@ function serializeCalendar(
     userId: string;
     name: string;
     regions: unknown;
+    serviceZoneId?: string | null;
     colorKey: string;
     sortOrder: number;
     createdAt: Date;
@@ -26,6 +27,7 @@ function serializeCalendar(
   const { inquiryPins, ...rest } = row;
   return {
     ...rest,
+    serviceZoneId: rest.serviceZoneId ?? null,
     pinnedInquiryIds: (inquiryPins ?? []).map((p) => p.inquiryId),
   };
 }
@@ -94,6 +96,21 @@ function sanitizeRegions(value: unknown): string[] | null {
   return cleaned;
 }
 
+async function resolveCalendarServiceZoneId(
+  tenantId: string,
+  raw: unknown,
+): Promise<string | null | 'invalid'> {
+  if (raw === undefined) return null;
+  if (raw === null || raw === '') return null;
+  const id = typeof raw === 'string' ? raw.trim() : '';
+  if (!id) return null;
+  const zone = await prisma.serviceZone.findFirst({
+    where: { id, tenantId, isActive: true },
+    select: { id: true },
+  });
+  return zone ? zone.id : 'invalid';
+}
+
 router.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -113,7 +130,12 @@ router.post(
   asyncHandler(async (req, res) => {
     const { userId } = authUser(req);
     const tenantId = (req as unknown as TenantScopedRequest).tenantId;
-    const body = (req.body ?? {}) as { name?: unknown; regions?: unknown; colorKey?: unknown };
+    const body = (req.body ?? {}) as {
+      name?: unknown;
+      regions?: unknown;
+      colorKey?: unknown;
+      serviceZoneId?: unknown;
+    };
 
     const rawName = typeof body.name === 'string' ? body.name.trim() : '';
     if (!rawName) {
@@ -133,6 +155,12 @@ router.post(
 
     const colorKey = sanitizeCustomCalendarColorKey(body.colorKey);
 
+    const serviceZoneId = await resolveCalendarServiceZoneId(tenantId, body.serviceZoneId);
+    if (serviceZoneId === 'invalid') {
+      res.status(400).json({ error: '유효하지 않은 서비스 권역입니다.' });
+      return;
+    }
+
     const last = await prisma.userCustomCalendar.findFirst({
       where: { tenantId, userId },
       orderBy: { sortOrder: 'desc' },
@@ -140,7 +168,15 @@ router.post(
     const sortOrder = (last?.sortOrder ?? -1) + 1;
 
     const created = await prisma.userCustomCalendar.create({
-      data: { tenantId, userId, name: rawName, regions, colorKey, sortOrder },
+      data: {
+        tenantId,
+        userId,
+        name: rawName,
+        regions,
+        colorKey,
+        sortOrder,
+        ...(serviceZoneId ? { serviceZoneId } : {}),
+      },
       include: calendarListInclude,
     });
     res.json({ item: serializeCalendar(created) });
@@ -164,6 +200,7 @@ router.patch(
       regions?: unknown;
       colorKey?: unknown;
       sortOrder?: unknown;
+      serviceZoneId?: unknown;
     };
 
     const data: {
@@ -171,6 +208,7 @@ router.patch(
       regions?: string[];
       colorKey?: string;
       sortOrder?: number;
+      serviceZoneId?: string | null;
     } = {};
 
     if (body.name !== undefined) {
@@ -202,6 +240,15 @@ router.patch(
     if (body.sortOrder !== undefined) {
       const n = Number(body.sortOrder);
       if (Number.isFinite(n)) data.sortOrder = Math.max(0, Math.floor(n));
+    }
+
+    if (body.serviceZoneId !== undefined) {
+      const resolved = await resolveCalendarServiceZoneId(tenantId, body.serviceZoneId);
+      if (resolved === 'invalid') {
+        res.status(400).json({ error: '유효하지 않은 서비스 권역입니다.' });
+        return;
+      }
+      data.serviceZoneId = resolved;
     }
 
     const updated = await prisma.userCustomCalendar.update({

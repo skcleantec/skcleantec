@@ -14,6 +14,10 @@ import {
   assertTeamLeadersMatchInquiryBrand,
   OperatingCompanyAssignmentError,
 } from '../operating-companies/operatingCompanyAssignment.js';
+import {
+  assertInquiryTeamLeaderAssignmentZones,
+  ServiceZoneAssignmentError,
+} from '../service-zones/serviceZoneAssignment.js';
 
 const router = Router();
 
@@ -21,9 +25,10 @@ router.use(authMiddleware);
 router.use(adminOrMarketer);
 
 router.post('/', async (req, res) => {
-  const { inquiryId, teamLeaderId } = req.body as {
+  const { inquiryId, teamLeaderId, assignmentServiceZoneId: assignmentServiceZoneIdRaw } = req.body as {
     inquiryId?: string;
     teamLeaderId?: string;
+    assignmentServiceZoneId?: string;
   };
   const user = (req as unknown as { user: AuthPayload }).user;
   const adminId = user.userId;
@@ -102,6 +107,28 @@ router.post('/', async (req, res) => {
       return;
     }
     throw e;
+  }
+
+  const assignmentServiceZoneId =
+    typeof assignmentServiceZoneIdRaw === 'string' ? assignmentServiceZoneIdRaw.trim() : '';
+  if (teamLeader.role === 'TEAM_LEADER' || teamLeader.role === 'ADMIN') {
+    try {
+      await assertInquiryTeamLeaderAssignmentZones({
+        db: prisma,
+        tenantId,
+        inquiryAddress: inquiry.address,
+        inquiryId: inquiry.id,
+        teamLeaderIds: [teamLeaderId],
+        internalTeamLeaderIds: [teamLeaderId],
+        assignmentServiceZoneId: assignmentServiceZoneId || null,
+      });
+    } catch (e) {
+      if (e instanceof ServiceZoneAssignmentError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+      throw e;
+    }
   }
 
   if (inquiry.status === 'CANCELLED' || inquiry.status === 'ON_HOLD') {

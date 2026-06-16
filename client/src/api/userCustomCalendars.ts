@@ -4,6 +4,8 @@ export interface UserCustomCalendarItem {
   id: string;
   userId: string;
   name: string;
+  /** 연결된 테넌트 서비스 권역 id */
+  serviceZoneId: string | null;
   /** 시 단위 문자열 배열 */
   regions: string[];
   /** 타업체 캘린더용 대상 업체 id 배열 */
@@ -102,6 +104,7 @@ function normalize(raw: unknown): UserCustomCalendarItem {
     id: String(r.id ?? ''),
     userId: String(r.userId ?? ''),
     name: String(r.name ?? ''),
+    serviceZoneId: typeof r.serviceZoneId === 'string' && r.serviceZoneId.trim() ? r.serviceZoneId.trim() : null,
     regions: decoded.regions,
     externalCompanyIds: decoded.externalCompanyIds,
     isolateFromGlobal: decoded.isolateFromGlobal,
@@ -144,6 +147,7 @@ export async function createUserCustomCalendar(
     isolateFromGlobal?: boolean;
     hideAssignedInRegionBadge?: boolean;
     colorKey?: string;
+    serviceZoneId?: string | null;
   }
 ): Promise<UserCustomCalendarItem> {
   const res = await fetch(`${API}/user-custom-calendars`, {
@@ -153,6 +157,7 @@ export async function createUserCustomCalendar(
       name: input.name,
       regions: encodeCalendarRegions(input),
       colorKey: input.colorKey,
+      ...(input.serviceZoneId !== undefined ? { serviceZoneId: input.serviceZoneId } : {}),
     }),
   });
   if (!res.ok) throw new Error(await readError(res, '캘린더를 만들지 못했습니다.'));
@@ -171,12 +176,14 @@ export async function updateUserCustomCalendar(
     hideAssignedInRegionBadge: boolean;
     colorKey: string;
     sortOrder: number;
+    serviceZoneId: string | null;
   }>
 ): Promise<UserCustomCalendarItem> {
   const payload: Record<string, unknown> = {};
   if (input.name !== undefined) payload.name = input.name;
   if (input.colorKey !== undefined) payload.colorKey = input.colorKey;
   if (input.sortOrder !== undefined) payload.sortOrder = input.sortOrder;
+  if (input.serviceZoneId !== undefined) payload.serviceZoneId = input.serviceZoneId;
   if (
     input.regions !== undefined ||
     input.externalCompanyIds !== undefined ||
