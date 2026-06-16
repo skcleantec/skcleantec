@@ -380,7 +380,11 @@ async function main() {
     const useTimeStr = row.preferredTime;
     const useDetailStr = row.preferredTimeDetail?.trim() || null;
 
-    const professionalMemoLine = await formatProfessionalOptionsMemoLine(prisma, row.professionalIds);
+    const professionalMemoLine = await formatProfessionalOptionsMemoLine(
+      prisma,
+      marketer.tenantId,
+      row.professionalIds,
+    );
 
     const memo = buildMemo(
       {

@@ -249,16 +249,26 @@ type TeamProfessionalOption = {
   color: string | null;
 };
 
-/** `Inquiry.professionalOptionIds`(JSON 배열) → 문자열 id 목록(중복 제거) */
+/** `Inquiry.professionalOptionIds`(JSON) → 문자열 id 목록(중복 제거) */
 function parseProfessionalOptionIdList(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const out: string[] = [];
   const seen = new Set<string>();
   for (const v of raw) {
-    const s = typeof v === 'string' ? v.trim() : '';
-    if (s && !seen.has(s)) {
-      seen.add(s);
-      out.push(s);
+    if (typeof v === 'string') {
+      const s = v.trim();
+      if (s && !seen.has(s)) {
+        seen.add(s);
+        out.push(s);
+      }
+      continue;
+    }
+    if (v && typeof v === 'object' && typeof (v as { id?: unknown }).id === 'string') {
+      const s = String((v as { id: string }).id).trim();
+      if (s && !seen.has(s)) {
+        seen.add(s);
+        out.push(s);
+      }
     }
   }
   return out;

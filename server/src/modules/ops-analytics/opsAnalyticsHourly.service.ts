@@ -96,7 +96,7 @@ const METRIC_DEFS: { id: OpsHourlyMetricId; label: string; description: string }
   {
     id: 'inquiry_received',
     label: '접수 전환',
-    description: '접수(RECEIVED) 상태로 전환된 시각(KST)',
+    description: '접수(RECEIVED)로 바뀐 시각(KST) — 발주서 제출·상태 변경 기준',
   },
   {
     id: 'followup_absent',

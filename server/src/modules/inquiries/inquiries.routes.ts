@@ -12,7 +12,7 @@ import {
   kstDayRangeYmd,
   kstMonthRangeYm,
 } from './inquiryListDateRange.js';
-import { recordInquiryStatusEvent } from './inquiryStatusEvent.js';
+import { recordInquiryStatusEvent, recordInquiryStatusTransition } from './inquiryStatusEvent.js';
 import {
   createdAtRangeFromListQuery,
   parseKstHourQuery,
@@ -42,8 +42,9 @@ import {
 } from './internalCustomerTone.js';
 import { isSideCleaningPreferredTime } from '../schedule/scheduleSlot.helpers.js';
 import {
-  filterExistingProfessionalOptionIds,
-  parseProfessionalOptionIdsRaw,
+  filterExistingProfessionalOptionSelections,
+  parseProfessionalOptionSelectionsRaw,
+  serializeProfessionalOptionSelectionsJson,
 } from '../orderform/specialtyOptions.js';
 import { resolveOneRoomSpecialNotes } from '../orderform/orderFormOneRoom.js';
 import { ensureReviewPaybackToken } from '../review-payback/reviewPayback.service.js';
@@ -796,8 +797,9 @@ router.patch('/:id', async (req, res) => {
   }
 
   if (body.professionalOptionIds !== undefined) {
-    const raw = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
-    data.professionalOptionIds = await filterExistingProfessionalOptionIds(prisma, tenantId, raw);
+    const raw = parseProfessionalOptionSelectionsRaw(body.professionalOptionIds);
+    const filtered = await filterExistingProfessionalOptionSelections(prisma, tenantId, raw);
+    data.professionalOptionIds = serializeProfessionalOptionSelectionsJson(filtered);
   }
   if (data.crewMemberCount !== undefined && data.crewMemberCount !== null) {
     const n = Number(data.crewMemberCount);
@@ -1097,10 +1099,11 @@ router.patch('/:id', async (req, res) => {
         await tx.inquiry.update({ where: { id }, data: updateData });
       }
       if (mergedStatus !== inquiry.status) {
-        await recordInquiryStatusEvent(tx, {
+        await recordInquiryStatusTransition(tx, {
           tenantId,
           inquiryId: id,
-          status: mergedStatus,
+          previousStatus: inquiry.status,
+          nextStatus: mergedStatus,
           actorId: user?.userId ?? null,
         });
       }

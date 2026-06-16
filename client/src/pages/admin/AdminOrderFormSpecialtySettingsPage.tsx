@@ -13,6 +13,7 @@ import {
   profDepthFromRoot,
 } from '../../constants/professionalSpecialtyOptions';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { ProfOptionEmojiPicker } from '../../components/orderform/ProfOptionEmojiPicker';
 
 const SPECIALTY_SETTINGS_HELP =
   '① 맨 위「대분류 추가」에서 섹션 제목만 만든 뒤, 생긴 카드 안 맨 아래 「+ 상세 옵션(가격) 추가」를 누르면 항목명·가격(원) 입력란이 열립니다(예: 가전내부분해).\n\n' +
@@ -195,7 +196,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
         label: editDraft.label.trim(),
         priceHint: editDraft.priceHint.trim(),
         priceAmount: pa,
-        emoji: editDraft.emoji.trim(),
+        emoji: editDraft.emoji.trim() || undefined,
         color: editDraft.color,
         sortOrder: parseInt(editDraft.sortOrder, 10) || 0,
         isGroup: !items.find((x) => x.id === editingId)?.parentId ? editDraft.isGroup : undefined,
@@ -253,14 +254,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
             </div>
             <div className="w-14">
               <label className="block text-[10px] text-gray-600 mb-0.5">이모지</label>
-              <input
-                type="text"
-                className="w-full px-1 py-1 border border-gray-300 rounded text-xs text-center"
-                value={newEmoji}
-                onChange={(e) => setNewEmoji(e.target.value)}
-                placeholder="🟢"
-                maxLength={8}
-              />
+              <ProfOptionEmojiPicker value={newEmoji} onChange={setNewEmoji} compact />
             </div>
             <div>
               <label className="block text-[10px] text-gray-600 mb-0.5">색</label>
@@ -359,14 +353,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
                             placeholder="보조 안내"
                           />
                         )}
-                        <input
-                          type="text"
-                          className="w-12 px-0.5 py-1 border border-gray-300 rounded text-xs text-center"
+                        <ProfOptionEmojiPicker
                           value={editDraft.emoji}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, emoji: e.target.value }))}
-                          placeholder="🟢"
-                          maxLength={8}
-                          aria-label="이모지"
+                          onChange={(emoji) => setEditDraft((d) => ({ ...d, emoji }))}
+                          compact
                         />
                         <input
                           type="color"
@@ -492,12 +482,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                         placeholder="원"
                                         inputMode="numeric"
                                       />
-                                      <input
-                                        type="text"
-                                        className="w-14 text-[11px] px-1 py-0.5 border border-gray-300 rounded"
+                                      <ProfOptionEmojiPicker
                                         value={editDraft.emoji}
-                                        onChange={(e) => setEditDraft((d) => ({ ...d, emoji: e.target.value }))}
-                                        maxLength={8}
+                                        onChange={(emoji) => setEditDraft((d) => ({ ...d, emoji }))}
+                                        compact
                                       />
                                       <input
                                         type="color"
@@ -590,14 +578,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                             placeholder="원"
                                             inputMode="numeric"
                                           />
-                                          <input
-                                            type="text"
-                                            className="w-12 text-[11px] px-1 py-0.5 border border-gray-300 rounded"
+                                          <ProfOptionEmojiPicker
                                             value={editDraft.emoji}
-                                            onChange={(e) =>
-                                              setEditDraft((d) => ({ ...d, emoji: e.target.value }))
-                                            }
-                                            maxLength={8}
+                                            onChange={(emoji) => setEditDraft((d) => ({ ...d, emoji }))}
+                                            compact
                                           />
                                           <input
                                             type="color"
@@ -724,12 +708,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                               <label className="block text-[9px] font-medium text-gray-600 mb-px">
                                                 이모지
                                               </label>
-                                              <input
-                                                type="text"
-                                                className="w-9 px-0.5 py-0.5 border border-gray-300 rounded text-center text-[11px]"
+                                              <ProfOptionEmojiPicker
                                                 value={childEmoji}
-                                                onChange={(e) => setChildEmoji(e.target.value)}
-                                                maxLength={8}
+                                                onChange={setChildEmoji}
+                                                compact
                                               />
                                             </div>
                                             <div>
@@ -844,12 +826,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                     <label className="block text-[9px] font-medium text-gray-600 mb-px">
                                       이모지
                                     </label>
-                                    <input
-                                      type="text"
-                                      className="w-9 px-0.5 py-0.5 border border-gray-300 rounded text-center text-[11px]"
+                                    <ProfOptionEmojiPicker
                                       value={childEmoji}
-                                      onChange={(e) => setChildEmoji(e.target.value)}
-                                      maxLength={8}
+                                      onChange={setChildEmoji}
+                                      compact
                                     />
                                   </div>
                                   <div>

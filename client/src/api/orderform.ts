@@ -446,7 +446,7 @@ export interface OrderFormPrefillPayload {
   moveInDateUndecided?: boolean;
   isOneRoom?: boolean;
   specialNotes?: string;
-  professionalOptionIds?: string[];
+  professionalOptionIds?: Array<string | { id: string; quantity?: number; unitAmount?: number | null }>;
   answers?: Record<string, unknown>;
 }
 
@@ -594,7 +594,7 @@ export async function submitOrderForm(
     isOneRoom?: boolean;
     specialNotes?: string;
     /** 전문 시공 옵션 id 목록 */
-    professionalOptionIds?: string[];
+    professionalOptionIds?: Array<string | { id: string; quantity?: number; unitAmount?: number | null }>;
     exclusiveAreaSqm?: number | null;
     /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
     answers?: Record<string, unknown>;

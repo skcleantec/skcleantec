@@ -30,13 +30,18 @@ import {
   preferredTimeDetailRangeHint,
 } from '../../constants/orderFormPreferredTimeDetail';
 import {
-  formatProfOptionPriceDisplay,
+  computeProfSelectionSummary,
   isSelectableProfOption,
   listProfChildren,
   listProfRootNodes,
   collectSubtreeOptionIds,
+  parseProfessionalOptionSelections,
+  serializeProfessionalOptionSelections,
+  type ProfessionalOptionSelection,
 } from '../../constants/professionalSpecialtyOptions';
 import { ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL } from '../../constants/orderFormProfessionalOptions';
+import { ProfOptionLeafControl } from '../../components/orderform/ProfOptionLeafControl';
+import { ProfOptionSelectionSummary } from '../../components/orderform/ProfOptionSelectionSummary';
 
 const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o) => o.value));
 
@@ -214,7 +219,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   /** 마케터 작성 시 "청소 날짜 고객 작성" 체크(비워 두면 고객이 직접 선택) */
   const [dateByCustomer, setDateByCustomer] = useState(false);
   const [guideAgreeModalOpen, setGuideAgreeModalOpen] = useState(false);
-  const [professionalOptionIds, setProfessionalOptionIds] = useState<string[]>([]);
+  const [profSelections, setProfSelections] = useState<ProfessionalOptionSelection[]>([]);
   const [professionalOptions, setProfessionalOptions] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   /** 대분류(하위 있음) — 체크 시에만 세부 항목 표시 */
   const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
@@ -256,27 +261,20 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   }, [sysOptions]);
 
   /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
-  const profSelectionSummary = useMemo(() => {
-    const rows: { key: string; text: string }[] = [];
-    let sum = 0;
-    for (const id of professionalOptionIds) {
-      const o = professionalOptions.find((x) => x.id === id);
-      if (!o || !o.isActive) continue;
-      if (!isSelectableProfOption(professionalOptions, o)) continue;
-      const price = formatProfOptionPriceDisplay(o);
-      if (o.priceAmount != null && o.priceAmount > 0) sum += o.priceAmount;
-      rows.push({
-        key: id,
-        text: price ? `${o.label} ${price}` : o.label,
-      });
-    }
-    return { rows, sum };
-  }, [professionalOptionIds, professionalOptions]);
+  const profSelectionSummary = useMemo(
+    () => computeProfSelectionSummary(profSelections, professionalOptions),
+    [profSelections, professionalOptions],
+  );
+
+  const profSelectionIds = useMemo(
+    () => profSelections.map((s) => s.id),
+    [profSelections],
+  );
 
   useEffect(() => {
     setProfCatOpen((prev) => {
       const next = { ...prev };
-      for (const sid of professionalOptionIds) {
+      for (const sid of profSelectionIds) {
         let cur = professionalOptions.find((x) => x.id === sid);
         while (cur) {
           const pid = cur.parentId;
@@ -287,7 +285,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       }
       return next;
     });
-  }, [professionalOptionIds, professionalOptions]);
+  }, [profSelectionIds, professionalOptions]);
 
   const cancelTimeSlotAck = useCallback(() => {
     setPendingTimeSlot(null);
@@ -335,11 +333,64 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     return () => window.removeEventListener('keydown', onKey);
   }, [timeSlotAckOpen, cancelTimeSlotAck]);
 
-  const toggleProfessionalOption = (id: string) => {
-    setProfessionalOptionIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+  const toggleProfOption = useCallback(
+    (id: string) => {
+      setProfSelections((prev) => {
+        if (prev.some((s) => s.id === id)) return prev.filter((s) => s.id !== id);
+        const o = professionalOptions.find((x) => x.id === id);
+        return [
+          ...prev,
+          {
+            id,
+            quantity: 1,
+            unitAmount: o?.priceAmount != null && o.priceAmount >= 0 ? o.priceAmount : null,
+          },
+        ];
+      });
+    },
+    [professionalOptions],
+  );
+
+  const setProfQuantity = useCallback((id: string, quantity: number) => {
+    const q = Math.max(1, Math.min(99, Math.floor(quantity)));
+    setProfSelections((prev) => prev.map((s) => (s.id === id ? { ...s, quantity: q } : s)));
+  }, []);
+
+  const setProfUnitAmount = useCallback((id: string, raw: string) => {
+    const t = raw.replace(/,/g, '').trim();
+    setProfSelections((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        if (!t) return { ...s, unitAmount: null };
+        const n = parseInt(t, 10);
+        if (!Number.isFinite(n) || n < 0) return s;
+        return { ...s, unitAmount: n };
+      }),
     );
-  };
+  }, []);
+
+  const removeProfInSubtree = useCallback((subtree: string[]) => {
+    setProfSelections((prev) => prev.filter((s) => !subtree.includes(s.id)));
+  }, []);
+
+  const renderProfLeaf = useCallback(
+    (o: ProfessionalSpecialtyOptionDto) => {
+      const sel = profSelections.find((s) => s.id === o.id);
+      return (
+        <ProfOptionLeafControl
+          key={o.id}
+          option={o}
+          checked={Boolean(sel)}
+          onToggle={() => toggleProfOption(o.id)}
+          selection={sel}
+          onQuantityChange={(q) => setProfQuantity(o.id, q)}
+          onUnitAmountChange={(raw) => setProfUnitAmount(o.id, raw)}
+          amountEditable={isEditor}
+        />
+      );
+    },
+    [profSelections, toggleProfOption, setProfQuantity, setProfUnitAmount, isEditor],
+  );
 
   const editorAuthToken = editor?.authToken;
   const editorOrderFormId = editor?.orderFormId;
@@ -505,18 +556,24 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             detectOneRoomFromNotes(pfStr('specialNotes') ?? data.draftCustomerSpecialNotes ?? ''),
         }));
         const pfProf = pf['professionalOptionIds'];
-        if (Array.isArray(pfProf) && pfProf.length > 0) {
-          setProfessionalOptionIds(pfProf.map((x) => String(x)));
-        }
+        const applyProfPrefill = (catalog: ProfessionalSpecialtyOptionDto[]) => {
+          if (Array.isArray(pfProf) && pfProf.length > 0) {
+            setProfSelections(parseProfessionalOptionSelections(pfProf, catalog));
+          }
+        };
         const addrPrefillLocked =
           !isEditor && typeof pf.address === 'string' && pf.address.trim().length > 0;
         setAddressConfirmedViaSearch(addrPrefillLocked);
         const fromForm = data.professionalOptions;
         if (fromForm && fromForm.length > 0) {
           setProfessionalOptions(fromForm);
+          applyProfPrefill(fromForm);
         } else {
           void getPublicProfessionalOptions()
-            .then((r) => setProfessionalOptions(r.items))
+            .then((r) => {
+              setProfessionalOptions(r.items);
+              applyProfPrefill(r.items);
+            })
             .catch(() => setProfessionalOptions([]));
         }
         setError(null);
@@ -699,7 +756,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         moveInDateUndecided: form.moveInDateUndecided,
         isOneRoom: form.isOneRoom || undefined,
         specialNotes: form.specialNotes.trim() || undefined,
-        professionalOptionIds: professionalOptionIds.length ? professionalOptionIds : undefined,
+        professionalOptionIds: profSelections.length
+          ? serializeProfessionalOptionSelections(profSelections)
+          : undefined,
         answers: Object.keys(customAnswers).length ? customAnswers : undefined,
       });
       const receipt = await getOrderFormByToken(token);
@@ -737,7 +796,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       moveInDateUndecided: form.moveInDateUndecided || undefined,
       isOneRoom: form.isOneRoom || undefined,
       specialNotes: form.specialNotes.trim() || undefined,
-      professionalOptionIds: professionalOptionIds.length ? professionalOptionIds : undefined,
+      professionalOptionIds: profSelections.length
+        ? serializeProfessionalOptionSelections(profSelections)
+        : undefined,
       answers: Object.keys(customAnswers).length ? customAnswers : undefined,
     };
   };
@@ -1047,21 +1108,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             {profSelectionSummary.rows.length > 0 ? (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <p className="text-xs font-medium text-gray-800 mb-1.5">전문 시공 선택 내역</p>
-                <ul className="text-xs text-gray-600 space-y-1 leading-snug">
-                  {profSelectionSummary.rows.map((r) => (
-                    <li key={r.key} className="flex gap-1.5">
-                      <span className="text-gray-400 shrink-0" aria-hidden>
-                        ·
-                      </span>
-                      <span>{r.text}</span>
-                    </li>
-                  ))}
-                </ul>
-                {profSelectionSummary.sum > 0 ? (
-                  <p className="text-[11px] text-gray-500 mt-2 tabular-nums">
-                    선택 항목 금액 합계 {profSelectionSummary.sum.toLocaleString('ko-KR')}원
-                  </p>
-                ) : null}
+                <ProfOptionSelectionSummary
+                  rows={profSelectionSummary.rows}
+                  sum={profSelectionSummary.sum}
+                  className="text-xs text-gray-600"
+                />
               </div>
             ) : null}
           </div>
@@ -1703,18 +1754,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <p className={`${labelCls} mb-2`}>{ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL}</p>
             {profLocked ? (
               <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
-                {profSelectionSummary.rows.length > 0 ? (
-                  <ul className="space-y-1 leading-snug">
-                    {profSelectionSummary.rows.map((r) => (
-                      <li key={r.key} className="flex gap-1.5">
-                        <span className="text-gray-400 shrink-0" aria-hidden>·</span>
-                        <span>{r.text}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <span className="text-gray-500">선택된 전문 시공 옵션이 없습니다.</span>
-                )}
+                <ProfOptionSelectionSummary
+                  rows={profSelectionSummary.rows}
+                  sum={profSelectionSummary.sum}
+                />
               </div>
             ) : (
             <div className="space-y-2.5 pl-0.5">
@@ -1738,9 +1781,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                               const on = e.target.checked;
                               setProfCatOpen((p) => ({ ...p, [root.id]: on }));
                               if (!on) {
-                                setProfessionalOptionIds((ids) =>
-                                  ids.filter((id) => !subtree.includes(id))
-                                );
+                                removeProfInSubtree(subtree);
                               }
                             }}
                             className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
@@ -1781,9 +1822,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                                           const on = e.target.checked;
                                           setProfCatOpen((p) => ({ ...p, [o.id]: on }));
                                           if (!on) {
-                                            setProfessionalOptionIds((ids) =>
-                                              ids.filter((id) => !subTree.includes(id))
-                                            );
+                                            removeProfInSubtree(subTree);
                                           }
                                         }}
                                         className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
@@ -1810,38 +1849,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                                         role="group"
                                         aria-label={`${o.label} 세부`}
                                       >
-                                        {gkids.map((g) => {
-                                          const gPrice = formatProfOptionPriceDisplay(g);
-                                          return (
-                                            <label
-                                              key={g.id}
-                                              className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug"
-                                            >
-                                              <input
-                                                type="checkbox"
-                                                checked={professionalOptionIds.includes(g.id)}
-                                                onChange={() => toggleProfessionalOption(g.id)}
-                                                className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
-                                              />
-                                              <span>
-                                                {g.emoji ? (
-                                                  <span className="mr-1" aria-hidden>
-                                                    {g.emoji}
-                                                  </span>
-                                                ) : null}
-                                                <span
-                                                  className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
-                                                  style={{ backgroundColor: g.color }}
-                                                  aria-hidden
-                                                />
-                                                <span className="font-medium">{g.label}</span>
-                                                {gPrice ? (
-                                                  <span className="text-gray-500"> {gPrice}</span>
-                                                ) : null}
-                                              </span>
-                                            </label>
-                                          );
-                                        })}
+                                        {gkids.map((g) => renderProfLeaf(g))}
                                       </div>
                                     ) : null}
                                   </div>
@@ -1850,34 +1858,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                               if (!isSelectableProfOption(professionalOptions, o) || !o.isActive) {
                                 return null;
                               }
-                              const price = formatProfOptionPriceDisplay(o);
-                              return (
-                                <label
-                                  key={o.id}
-                                  className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={professionalOptionIds.includes(o.id)}
-                                    onChange={() => toggleProfessionalOption(o.id)}
-                                    className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
-                                  />
-                                  <span>
-                                    {o.emoji ? (
-                                      <span className="mr-1" aria-hidden>
-                                        {o.emoji}
-                                      </span>
-                                    ) : null}
-                                    <span
-                                      className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
-                                      style={{ backgroundColor: o.color }}
-                                      aria-hidden
-                                    />
-                                    <span className="font-medium">{o.label}</span>
-                                    {price ? <span className="text-gray-500"> {price}</span> : null}
-                                  </span>
-                                </label>
-                              );
+                              return renderProfLeaf(o);
                             })}
                           </div>
                         ) : null}
@@ -1887,36 +1868,18 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   if (!root.isActive || !isSelectableProfOption(professionalOptions, root)) {
                     return null;
                   }
-                  const price = formatProfOptionPriceDisplay(root);
-                  return (
-                    <label
-                      key={root.id}
-                      className="flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer leading-snug"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={professionalOptionIds.includes(root.id)}
-                        onChange={() => toggleProfessionalOption(root.id)}
-                        className="mt-0.5 shrink-0 w-4 h-4 border-gray-300"
-                      />
-                      <span>
-                        {root.emoji ? (
-                          <span className="mr-1" aria-hidden>
-                            {root.emoji}
-                          </span>
-                        ) : null}
-                        <span
-                          className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle border border-gray-300"
-                          style={{ backgroundColor: root.color }}
-                          aria-hidden
-                        />
-                        <span className="font-medium">{root.label}</span>
-                        {price ? <span className="text-gray-500"> {price}</span> : null}
-                      </span>
-                    </label>
-                  );
+                  return renderProfLeaf(root);
                 })
               )}
+              {!profLocked && profSelectionSummary.rows.length > 0 ? (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <ProfOptionSelectionSummary
+                    rows={profSelectionSummary.rows}
+                    sum={profSelectionSummary.sum}
+                    className="text-sm text-gray-700"
+                  />
+                </div>
+              ) : null}
             </div>
             )}
           </div>

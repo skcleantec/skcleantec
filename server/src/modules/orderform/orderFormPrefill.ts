@@ -7,6 +7,11 @@
  *   값이 들어간 키 = 고객 화면 잠금(확인 전용), 제출 시 그 값이 우선.
  */
 
+import {
+  parseProfessionalOptionSelectionsRaw,
+  serializeProfessionalOptionSelectionsJson,
+} from './specialtyOptions.js';
+
 /** prefillAnswers 로 다루는 표준(시스템) 항목 키 — 제출 body 필드명과 동일하게 맞춘다 */
 export const PREFILL_STANDARD_KEYS = [
   'customerName',
@@ -77,8 +82,10 @@ export function buildPrefillFromPayload(
     }
     if (key === 'professionalOptionIds') {
       if (Array.isArray(raw)) {
-        const ids = raw.map((x) => String(x)).filter(Boolean);
-        if (ids.length > 0) out[key] = ids;
+        const sel = parseProfessionalOptionSelectionsRaw(raw);
+        if (sel.length > 0) {
+          out[key] = serializeProfessionalOptionSelectionsJson(sel);
+        }
       }
       continue;
     }

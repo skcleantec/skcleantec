@@ -23,16 +23,21 @@ import {
   type GuideSection,
 } from './guideDefaults.js';
 import {
-  filterActiveProfessionalOptionIds,
+  filterActiveProfessionalOptionSelections,
   normalizeHexColor,
-  parseProfessionalOptionIdsRaw,
+  parseProfessionalOptionSelectionsRaw,
   professionalOptionDepthFromRoot,
+  serializeProfessionalOptionSelectionsJson,
 } from './specialtyOptions.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { parseInternalCustomerToneInput } from '../inquiries/internalCustomerTone.js';
 import { resolveInquiryOperatingCompanyId } from '../operating-companies/operatingCompanyResolve.service.js';
 import { resolvePublicBrandingForCustomer } from '../operating-companies/publicOperatingCompanyBranding.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
+import {
+  recordInquiryStatusEvent,
+  recordInquiryStatusTransition,
+} from '../inquiries/inquiryStatusEvent.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { tenantIdForUserId } from '../tenants/tenant.service.js';
@@ -466,7 +471,10 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
     data.isGroup = Boolean(body.isGroup);
   }
   if (body.priceHint !== undefined) data.priceHint = String(body.priceHint).trim();
-  if (body.emoji !== undefined) data.emoji = String(body.emoji).trim().slice(0, 8);
+  if (body.emoji !== undefined) {
+    const e = String(body.emoji).trim().slice(0, 8);
+    data.emoji = e.length ? e : null;
+  }
   if (body.color !== undefined) {
     const c = normalizeHexColor(String(body.color));
     if (!c) {
@@ -1583,6 +1591,15 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
       data,
       select: { id: true, status: true, orderFormId: true },
     });
+    if (targetInquiry.status !== 'RECEIVED') {
+      await recordInquiryStatusTransition(tx, {
+        tenantId,
+        inquiryId,
+        previousStatus: targetInquiry.status,
+        nextStatus: 'RECEIVED',
+        actorId: userId,
+      });
+    }
     return updated;
   });
 
@@ -1944,8 +1961,14 @@ router.post('/submit/:token', async (req, res) => {
     }
   }
 
-  const rawIds = parseProfessionalOptionIdsRaw(body.professionalOptionIds);
-  const professionalIds = await filterActiveProfessionalOptionIds(prisma, submitTenantId, rawIds);
+  const rawSelections = parseProfessionalOptionSelectionsRaw(body.professionalOptionIds);
+  const professionalSelections = await filterActiveProfessionalOptionSelections(
+    prisma,
+    submitTenantId,
+    rawSelections,
+  );
+  const professionalIds = professionalSelections.map((s) => s.id);
+  const professionalOptionIdsJson = serializeProfessionalOptionSelectionsJson(professionalSelections);
   const isOneRoom = parseIsOneRoomFlag(body.isOneRoom);
   const customerSpecialNotes = resolveOneRoomSpecialNotes(
     body.specialNotes != null ? String(body.specialNotes) : null,
@@ -2178,7 +2201,7 @@ router.post('/submit/:token', async (req, res) => {
       moveInDate: moveInDateStr,
       moveInDateUndecided: moveInUndecided,
       specialNotes: customerSpecialNotes,
-      professionalOptionIds: [...professionalIds],
+      professionalOptionIds: [...professionalOptionIdsJson],
       professionalOptionLabels,
     },
     issuedSummary: {
@@ -2193,11 +2216,12 @@ router.post('/submit/:token', async (req, res) => {
 
   const existingPending = await prisma.inquiry.findFirst({
     where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
-    select: { id: true, inquiryNumber: true, operatingCompanyId: true },
+    select: { id: true, inquiryNumber: true, operatingCompanyId: true, status: true },
   });
 
   let changedInquiryId: string | null = null;
   if (existingPending) {
+    const submittedAt = new Date();
     await prisma.$transaction(async (tx) => {
       const inquiryNumber =
         existingPending.inquiryNumber ??
@@ -2231,13 +2255,23 @@ router.post('/submit/:token', async (req, res) => {
           serviceBalanceAmount: form.balanceAmount,
           source: '발주서',
           status: 'RECEIVED',
-          professionalOptionIds: professionalIds,
+          professionalOptionIds: professionalOptionIdsJson,
         },
       });
+      if (existingPending.status !== 'RECEIVED') {
+        await recordInquiryStatusTransition(tx, {
+          tenantId: submitTenantId,
+          inquiryId: existingPending.id,
+          previousStatus: existingPending.status,
+          nextStatus: 'RECEIVED',
+          actorId: form.createdById,
+          occurredAt: submittedAt,
+        });
+      }
       await tx.orderForm.update({
         where: { id: form.id },
         data: {
-          submittedAt: new Date(),
+          submittedAt,
           customerSpecialNotes,
           /** 발주서 목록 「예약일」열 — 고객 제출 값을 접수와 동일하게 반영 */
           preferredDate: useDateStr,
@@ -2250,6 +2284,7 @@ router.post('/submit/:token', async (req, res) => {
     });
     changedInquiryId = existingPending.id;
   } else {
+    const submittedAt = new Date();
     await prisma.$transaction(async (tx) => {
       const creator = form.createdById
         ? await tx.user.findFirst({
@@ -2299,14 +2334,21 @@ router.post('/submit/:token', async (req, res) => {
           source: '발주서',
           status: 'RECEIVED',
           orderFormId: form.id,
-          professionalOptionIds: professionalIds,
+          professionalOptionIds: professionalOptionIdsJson,
         },
         select: { id: true },
+      });
+      await recordInquiryStatusEvent(tx, {
+        tenantId: submitTenantId,
+        inquiryId: createdInquiry.id,
+        status: 'RECEIVED',
+        actorId: form.createdById,
+        occurredAt: submittedAt,
       });
       await tx.orderForm.update({
         where: { id: form.id },
         data: {
-          submittedAt: new Date(),
+          submittedAt,
           customerSpecialNotes,
           preferredDate: useDateStr,
           preferredTime: useTimeStr,
