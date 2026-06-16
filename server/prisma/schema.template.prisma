@@ -80,6 +80,7 @@ model Tenant {
   adChannels AdChannel[]
   teams Team[]
   orderFollowups OrderFollowup[]
+  inquiryStatusEvents InquiryStatusEvent[]
   reviewPaybackRequests ReviewPaybackRequest[]
   csReports CsReport[]
   messages Message[]
@@ -391,6 +392,7 @@ model User {
   inquiryAdditionalReceiptsCreated InquiryAdditionalReceipt[] @relation("InquiryAdditionalReceiptCreatedBy")
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
   inquiryChangeLogsAsActor      InquiryChangeLog[]     @relation("InquiryChangeLogActor")
+  inquiryStatusEventsAsActor      InquiryStatusEvent[]   @relation("InquiryStatusEventActor")
   teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
   orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
@@ -925,6 +927,7 @@ model Inquiry {
   orderForm   OrderForm?          @relation(fields: [orderFormId], references: [id])
   createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   changeLogs  InquiryChangeLog[]
+  statusEvents InquiryStatusEvent[]
   cleaningPhotos InquiryCleaningPhoto[]
   consultationPhotos InquiryConsultationPhoto[]
   inspectionChecklist InquiryInspectionChecklist?
@@ -1259,6 +1262,24 @@ model InquiryChangeLog {
 
   @@index([inquiryId, createdAt(sort: Desc)])
   @@map("inquiry_change_logs")
+}
+
+/// 접수 상태 전환 시각 — 운영 시간대·접수(RECEIVED) 피크 분석용
+model InquiryStatusEvent {
+  id         String        @id @default(uuid())
+  tenantId   String        @map("tenant_id")
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inquiryId  String        @map("inquiry_id")
+  inquiry    Inquiry       @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  status     InquiryStatus
+  occurredAt DateTime      @default(now()) @map("occurred_at")
+  actorId    String?       @map("actor_id")
+  actor      User?         @relation("InquiryStatusEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, occurredAt])
+  @@index([tenantId, inquiryId, occurredAt])
+  @@index([inquiryId])
+  @@map("inquiry_status_events")
 }
 
 model EstimateConfig {
