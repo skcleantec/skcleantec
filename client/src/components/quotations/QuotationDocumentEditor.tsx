@@ -27,6 +27,10 @@ const docInput =
 const docCellInput =
   'w-full min-w-0 bg-white/90 border border-slate-200/80 rounded-sm px-1.5 py-1 text-[12px] text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200';
 
+/** 품목표 서식 격자 */
+const gridCell = 'border border-slate-300';
+const gridHeadCell = 'border border-slate-500/60';
+
 type Props = {
   quoteNumber: string | null;
   createdAt: string | null;
@@ -316,29 +320,41 @@ export function QuotationDocumentEditor({
               </div>
 
               {/* 품목 표 — 고정 행 서식 */}
-              <div className="overflow-x-auto -mx-0.5 mb-4 rounded-md overflow-hidden border border-slate-300 shadow-sm">
+              <div className="overflow-x-auto -mx-0.5 mb-4 rounded-md overflow-hidden border-2 border-slate-400 shadow-sm">
                 <table className="w-full border-collapse text-[12px]">
                   <thead>
                     <tr className="bg-gradient-to-r from-slate-800 to-slate-700 text-white">
-                      <th className="w-9 border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
+                      <th
+                        className={`w-9 ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                      >
                         No
                       </th>
-                      <th className="border-r border-slate-600/50 px-2 py-2 text-left text-[10px] font-bold tracking-wide">
+                      <th
+                        className={`${gridHeadCell} px-2 py-2 text-left text-[10px] font-bold tracking-wide`}
+                      >
                         품목
                       </th>
-                      <th className="w-12 border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
+                      <th
+                        className={`w-12 ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                      >
                         수량
                       </th>
-                      <th className="w-[68px] border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
+                      <th
+                        className={`w-[68px] ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                      >
                         단가
                       </th>
-                      <th className="w-[68px] border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
+                      <th
+                        className={`w-[68px] ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                      >
                         부가세
                       </th>
-                      <th className="w-[76px] border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
+                      <th
+                        className={`w-[76px] ${gridHeadCell} px-1 py-2 text-center text-[10px] font-bold tracking-wide`}
+                      >
                         금액
                       </th>
-                      <th className="w-7 px-0.5 py-2" aria-label="삭제" />
+                      <th className={`w-7 ${gridHeadCell} px-0.5 py-2`} aria-label="삭제" />
                     </tr>
                   </thead>
                   <tbody>
@@ -354,14 +370,16 @@ export function QuotationDocumentEditor({
                       return (
                         <tr
                           key={li.key}
-                          className={`border-t border-slate-200 ${
+                          className={`${
                             idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/90'
                           } ${isBlankRow ? 'bg-slate-50/40' : ''} hover:bg-sky-50/30 transition-colors`}
                         >
-                          <td className="border-r border-slate-200 px-1 py-1.5 text-center text-[11px] font-medium text-slate-500 tabular-nums align-middle">
+                          <td
+                            className={`${gridCell} px-1 py-1.5 text-center text-[11px] font-medium text-slate-500 tabular-nums align-middle`}
+                          >
                             {idx + 1}
                           </td>
-                          <td className="border-r border-slate-200 px-1 py-1 align-middle">
+                          <td className={`${gridCell} px-1 py-1 align-middle`}>
                             {catalog.length > 0 ? (
                               <div className="space-y-1">
                                 <select
@@ -405,7 +423,7 @@ export function QuotationDocumentEditor({
                               />
                             )}
                           </td>
-                          <td className="border-r border-slate-200 px-1 py-1 align-middle">
+                          <td className={`${gridCell} px-1 py-1 align-middle`}>
                             <input
                               className={`${docCellInput} text-center tabular-nums bg-white`}
                               inputMode="numeric"
@@ -416,7 +434,7 @@ export function QuotationDocumentEditor({
                               }
                             />
                           </td>
-                          <td className="border-r border-slate-200 px-1 py-1 align-middle">
+                          <td className={`${gridCell} px-1 py-1 align-middle`}>
                             <input
                               className={`${docCellInput} text-right tabular-nums bg-white`}
                               inputMode="numeric"
@@ -427,17 +445,21 @@ export function QuotationDocumentEditor({
                               }
                             />
                           </td>
-                          <td className="border-r border-slate-200 px-1.5 py-1.5 text-right text-[11px] tabular-nums align-middle text-indigo-700/90 font-medium">
+                          <td
+                            className={`${gridCell} px-1.5 py-1.5 text-right text-[11px] tabular-nums align-middle text-indigo-700/90 font-medium`}
+                          >
                             {supply != null
                               ? `${lineCalc.vatAmount.toLocaleString('ko-KR')}원`
                               : '—'}
                           </td>
-                          <td className="border-r border-slate-200 px-1.5 py-1.5 text-right text-[11px] tabular-nums align-middle font-semibold text-slate-900">
+                          <td
+                            className={`${gridCell} px-1.5 py-1.5 text-right text-[11px] tabular-nums align-middle font-semibold text-slate-900`}
+                          >
                             {supply != null
                               ? `${lineCalc.grandAmount.toLocaleString('ko-KR')}원`
                               : '—'}
                           </td>
-                          <td className="px-0.5 py-1 text-center align-middle">
+                          <td className={`${gridCell} px-0.5 py-1 text-center align-middle`}>
                             {canDelete ? (
                               <button
                                 type="button"
@@ -454,7 +476,7 @@ export function QuotationDocumentEditor({
                     })}
                   </tbody>
                 </table>
-                <div className="border-t border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100/80 px-2 py-2 flex justify-center">
+                <div className="border-t-2 border-slate-400 bg-gradient-to-b from-slate-50 to-slate-100/80 px-2 py-2 flex justify-center">
                   <button
                     type="button"
                     onClick={addRow}

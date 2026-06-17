@@ -16,6 +16,7 @@ import {
 } from './quotationEmailSend.service.js';
 import {
   generateAndStoreQuotationPdf,
+  getQuotationPdfBuffer,
 } from './quotationPdfBuild.service.js';
 import {
   getOrCreateQuotationConfig,
@@ -685,7 +686,7 @@ router.get('/:id/pdf', async (req, res) => {
     req.query.inline === 'true' ||
     req.query.preview === '1';
   try {
-    const { buffer } = await generateAndStoreQuotationPdf(prisma, id, tenantId);
+    const buffer = await getQuotationPdfBuffer(prisma, id, tenantId);
     const row = await prisma.quotation.findFirst({
       where: { id, tenantId },
       select: { quoteNumber: true },
@@ -701,8 +702,9 @@ router.get('/:id/pdf', async (req, res) => {
     );
     res.send(buffer);
   } catch (e) {
+    console.error('[quotation-pdf] preview/download failed', e);
     const msg = e instanceof Error ? e.message : 'PDF 생성에 실패했습니다.';
-    res.status(404).json({ error: msg });
+    res.status(500).json({ error: msg });
   }
 });
 

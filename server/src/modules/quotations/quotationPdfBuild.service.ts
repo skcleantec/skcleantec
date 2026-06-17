@@ -49,6 +49,19 @@ export async function buildQuotationPdfForRow(
   });
 }
 
+export async function getQuotationPdfBuffer(
+  db: Db,
+  quotationId: string,
+  tenantId: string,
+): Promise<Buffer> {
+  const row = await db.quotation.findFirst({
+    where: { id: quotationId, tenantId },
+    include: quotationInclude,
+  });
+  if (!row) throw new Error('견적서를 찾을 수 없습니다.');
+  return buildQuotationPdfForRow(row, tenantId);
+}
+
 export async function generateAndStoreQuotationPdf(
   db: Db,
   quotationId: string,

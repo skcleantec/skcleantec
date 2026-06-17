@@ -329,6 +329,10 @@ export async function downloadQuotationPdf(
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error(await readError(res));
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/pdf')) {
+    throw new Error(await readError(res));
+  }
   return res.blob();
 }
 
