@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   fetchTenantCompanyProfile,
   patchTenantCompanyProfile,
@@ -17,7 +18,7 @@ export function AdminTenantCompanyProfilePage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<string | null>(null);
   const [profile, setProfile] = useState<TenantCompanyProfileDto | null>(null);
 
   const [companyName, setCompanyName] = useState('');
@@ -79,7 +80,6 @@ export function AdminTenantCompanyProfilePage() {
     if (!token) return;
     setBusy(true);
     setErr(null);
-    setMsg(null);
     const portNum = parseInt(smtpPort, 10);
     const companyPayload = {
       companyName,
@@ -107,12 +107,12 @@ export function AdminTenantCompanyProfilePage() {
             : { companyRegistration: companyPayload, smtp: smtpPayload };
       const dto = await patchTenantCompanyProfile(token, patch);
       hydrate(dto);
-      setMsg(
+      setSuccessModal(
         scope === 'company'
-          ? '사업자 정보를 저장했습니다.'
+          ? '사업자 정보가 저장되었습니다.'
           : scope === 'smtp'
-            ? '메일 설정을 저장했습니다.'
-            : '저장했습니다.',
+            ? '메일 설정이 저장되었습니다.'
+            : '저장되었습니다.',
       );
     } catch (e) {
       setErr(e instanceof Error ? e.message : '저장 실패');
@@ -130,10 +130,9 @@ export function AdminTenantCompanyProfilePage() {
     }
     setBusy(true);
     setErr(null);
-    setMsg(null);
     try {
       await sendTenantCompanyProfileTestEmail(token, to);
-      setMsg(`테스트 메일을 ${to}(으)로 발송했습니다.`);
+      setSuccessModal('테스트 메일이 발송되었습니다.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : '테스트 발송 실패');
     } finally {
@@ -159,11 +158,6 @@ export function AdminTenantCompanyProfilePage() {
       {err && (
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">
           {err}
-        </p>
-      )}
-      {msg && (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">
-          {msg}
         </p>
       )}
 
@@ -431,6 +425,37 @@ export function AdminTenantCompanyProfilePage() {
       {guideOpen && (
         <TenantSmtpSetupGuideModal companyName={companyName} onClose={() => setGuideOpen(false)} />
       )}
+
+      {successModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="company-profile-success-title"
+            onClick={() => setSuccessModal(null)}
+          >
+            <div
+              className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p
+                id="company-profile-success-title"
+                className="text-base font-semibold text-gray-900 whitespace-pre-wrap"
+              >
+                {successModal}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSuccessModal(null)}
+                className="mt-5 min-h-[44px] w-full rounded-md bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
+              >
+                확인
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
         <div className="mx-auto flex max-w-3xl flex-wrap gap-2">
