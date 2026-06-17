@@ -9,10 +9,12 @@ import {
   type QuotationLineItemDto,
   type QuotationServiceItemDto,
 } from '../../api/quotations';
-import { fetchTenantCompanyProfile } from '../../api/tenantCompanyProfile';
-import { QuotationCustomerFields } from '../../components/quotations/QuotationCustomerFields';
+import {
+  fetchTenantCompanyProfile,
+  type TenantCompanyRegistration,
+} from '../../api/tenantCompanyProfile';
+import { QuotationDocumentEditor } from '../../components/quotations/QuotationDocumentEditor';
 import { QuotationEmailPanel } from '../../components/quotations/QuotationEmailPanel';
-import { QuotationLineItemsEditor } from '../../components/quotations/QuotationLineItemsEditor';
 import { QuotationPdfActions } from '../../components/quotations/QuotationPdfActions';
 import { QuotationPreconditionBanner } from '../../components/quotations/QuotationPreconditionBanner';
 import {
@@ -37,7 +39,11 @@ export function AdminQuotationEditorPage() {
   const token = getToken();
 
   const [catalog, setCatalog] = useState<QuotationServiceItemDto[]>([]);
+  const [documentTitle, setDocumentTitle] = useState('견적서');
+  const [footerNotice, setFooterNotice] = useState<string | null>(null);
+  const [company, setCompany] = useState<TenantCompanyRegistration | null>(null);
   const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('DRAFT');
   const [linkedInquiryId, setLinkedInquiryId] = useState<string | null>(null);
   const [linkedInquiryLabel, setLinkedInquiryLabel] = useState<string | null>(null);
@@ -58,10 +64,21 @@ export function AdminQuotationEditorPage() {
   const [smtpReady, setSmtpReady] = useState(false);
   const [globalSmtpFallback, setGlobalSmtpFallback] = useState(false);
 
+  const applyEditorDefaults = useCallback(
+    (defaults: Awaited<ReturnType<typeof fetchQuotationEditorDefaults>>) => {
+      setCatalog(defaults.catalog);
+      setDocumentTitle(defaults.config.documentTitle?.trim() || '견적서');
+      setFooterNotice(defaults.config.footerNotice);
+      if (isNew && defaults.validUntilDefault) setValidUntil(defaults.validUntilDefault);
+    },
+    [isNew],
+  );
+
   const loadPreconditions = useCallback(async () => {
     if (!token) return;
     try {
       const profile = await fetchTenantCompanyProfile(token);
+      setCompany(profile.companyRegistration);
       setCompanyNameMissing(!profile.companyRegistration.companyName?.trim());
       setSmtpReady(profile.smtp.configured);
       setGlobalSmtpFallback(profile.globalSmtpFallbackAvailable);
@@ -74,12 +91,11 @@ export function AdminQuotationEditorPage() {
     if (!token || !isNew) return;
     try {
       const defaults = await fetchQuotationEditorDefaults(token);
-      setCatalog(defaults.catalog);
-      if (defaults.validUntilDefault) setValidUntil(defaults.validUntilDefault);
+      applyEditorDefaults(defaults);
     } catch {
       /* optional */
     }
-  }, [token, isNew]);
+  }, [token, isNew, applyEditorDefaults]);
 
   const loadInquirySeed = useCallback(async () => {
     if (!token || !isNew || !seedInquiryId) return;
@@ -106,8 +122,9 @@ export function AdminQuotationEditorPage() {
         getQuotation(token, id),
         fetchQuotationEditorDefaults(token),
       ]);
-      setCatalog(defaults.catalog);
+      applyEditorDefaults(defaults);
       setQuoteNumber(row.quoteNumber);
+      setCreatedAt(row.createdAt);
       setStatus(row.status);
       setCustomerName(row.customerName);
       setCustomerPhone(row.customerPhone ?? '');
@@ -142,7 +159,7 @@ export function AdminQuotationEditorPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, isNew, id]);
+  }, [token, isNew, id, applyEditorDefaults]);
 
   useEffect(() => {
     void loadPreconditions();
@@ -191,7 +208,7 @@ export function AdminQuotationEditorPage() {
   async function handleSave(finalize = false) {
     if (!token) return;
     if (!customerName.trim()) {
-      alert('상대 이름을 입력해 주세요.');
+      alert('공급받는자 이름을 입력해 주세요.');
       return;
     }
     const lineItems = buildLinePayload();
@@ -238,7 +255,7 @@ export function AdminQuotationEditorPage() {
 
   if (loading) {
     return (
-      <div className={qUi.pageRootNarrow}>
+      <div className={qUi.pageRoot}>
         <p className={qUi.emptyState}>불러오는 중…</p>
       </div>
     );
@@ -247,7 +264,7 @@ export function AdminQuotationEditorPage() {
   const canEmail = smtpReady || globalSmtpFallback;
 
   return (
-    <div className={`${qUi.pageRootNarrow} pb-24`}>
+    <div className={`${qUi.pageRoot} pb-24`}>
       <div className="space-y-1">
         <p className={qUi.breadcrumb}>
           <Link to="/admin/inquiries/quotations" className={qUi.breadcrumbLink}>
@@ -264,9 +281,9 @@ export function AdminQuotationEditorPage() {
             <QuotationStatusBadge status={status} />
           )}
         </div>
-        {!isNew && (
-          <p className={qUi.pageDesc}>상대 정보·항목을 수정한 뒤 저장하거나 PDF·이메일로 발송합니다.</p>
-        )}
+        <p className={qUi.pageDesc}>
+          견적서 양식에 바로 입력합니다. 저장 후 PDF·이메일 발송이 가능합니다.
+        </p>
       </div>
 
       {linkedInquiryLabel && (
@@ -281,82 +298,59 @@ export function AdminQuotationEditorPage() {
         globalSmtpFallback={globalSmtpFallback}
       />
 
-      {error && <p className={qUi.alertError} role="alert">{error}</p>}
+      {error && (
+        <p className={qUi.alertError} role="alert">
+          {error}
+        </p>
+      )}
 
-      <div className="space-y-4">
-        <QuotationCustomerFields
-          customerName={customerName}
-          customerPhone={customerPhone}
+      <QuotationDocumentEditor
+        documentTitle={documentTitle}
+        quoteNumber={quoteNumber}
+        createdAt={createdAt}
+        company={company}
+        customerName={customerName}
+        customerPhone={customerPhone}
+        customerEmail={customerEmail}
+        customerAddress={customerAddress}
+        validUntil={validUntil}
+        onCustomerNameChange={setCustomerName}
+        onCustomerPhoneChange={setCustomerPhone}
+        onCustomerEmailChange={setCustomerEmail}
+        onCustomerAddressChange={setCustomerAddress}
+        onValidUntilChange={setValidUntil}
+        lines={lines}
+        catalog={catalog}
+        onLinesChange={setLines}
+        discountAmount={discountAmount}
+        onDiscountAmountChange={setDiscountAmount}
+        subtotal={totals.subtotal}
+        total={totals.total}
+        memo={memo}
+        onMemoChange={setMemo}
+        footerNotice={footerNotice}
+      />
+
+      {!isNew && id && token && (
+        <QuotationEmailPanel
+          token={token}
+          quotationId={id}
+          status={status}
           customerEmail={customerEmail}
-          customerAddress={customerAddress}
-          validUntil={validUntil}
-          onCustomerNameChange={setCustomerName}
-          onCustomerPhoneChange={setCustomerPhone}
-          onCustomerEmailChange={setCustomerEmail}
-          onCustomerAddressChange={setCustomerAddress}
-          onValidUntilChange={setValidUntil}
+          sentAt={sentAt}
+          lastEmailedAt={lastEmailedAt}
+          canEmail={canEmail}
+          onSent={(patch) => {
+            setStatus(patch.status);
+            setCustomerEmail(patch.customerEmail ?? '');
+            setSentAt(patch.sentAt);
+            setLastEmailedAt(patch.lastEmailedAt);
+          }}
         />
-
-        <QuotationLineItemsEditor lines={lines} catalog={catalog} onChange={setLines} />
-
-        <section className={`${qUi.cardBody} space-y-3`}>
-          <h2 className={qUi.sectionTitle}>합계</h2>
-          <div className="flex justify-between text-fluid-sm text-slate-600">
-            <span>소계</span>
-            <span className="tabular-nums font-medium text-slate-800">
-              {totals.subtotal.toLocaleString('ko-KR')}원
-            </span>
-          </div>
-          <label className="flex justify-between items-center gap-3 text-fluid-sm">
-            <span className="text-slate-600 shrink-0">할인</span>
-            <input
-              className={`${qUi.input} w-32 text-right tabular-nums`}
-              inputMode="numeric"
-              value={discountAmount}
-              onChange={(e) => setDiscountAmount(e.target.value)}
-            />
-          </label>
-          <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-            <span className="font-semibold text-slate-900">합계 (VAT 별도)</span>
-            <span className="text-lg font-bold tabular-nums text-slate-900">
-              {totals.total.toLocaleString('ko-KR')}원
-            </span>
-          </div>
-        </section>
-
-        <section className={`${qUi.cardBody}`}>
-          <label className="block">
-            <span className={qUi.label}>비고 (견적서 본문)</span>
-            <textarea
-              className={qUi.textarea}
-              rows={3}
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-            />
-          </label>
-        </section>
-
-        {!isNew && id && token && (
-          <QuotationEmailPanel
-            token={token}
-            quotationId={id}
-            status={status}
-            customerEmail={customerEmail}
-            sentAt={sentAt}
-            lastEmailedAt={lastEmailedAt}
-            canEmail={canEmail}
-            onSent={(patch) => {
-              setStatus(patch.status);
-              setCustomerEmail(patch.customerEmail ?? '');
-              setSentAt(patch.sentAt);
-              setLastEmailedAt(patch.lastEmailedAt);
-            }}
-          />
-        )}
-      </div>
+      )}
 
       <div className={qUi.stickyActionBar}>
-        <div className="mx-auto flex max-w-4xl flex-wrap gap-2 justify-center sm:justify-start">
+        <div className="mx-auto flex max-w-[794px] flex-wrap gap-2 justify-center sm:justify-start">
           <button
             type="button"
             disabled={saving}
