@@ -28,6 +28,9 @@ import {
   AdminOrderFormPage,
   AdminOrderFormCustomerPreviewPage,
   AdminOrderFormTemplatesPage,
+  AdminQuotationsListPage,
+  AdminQuotationEditorPage,
+  AdminQuotationSettingsPage,
   TeamDashboardPage,
   TeamSchedulePage,
   TeamMessagesPage,
@@ -128,6 +131,10 @@ function App() {
             />
             <Route path="order-templates" element={<SuspensePage><AdminOrderFormTemplatesPage /></SuspensePage>} />
             <Route path="order-customer-preview" element={<SuspensePage><AdminOrderFormCustomerPreviewPage /></SuspensePage>} />
+            <Route path="quotations" element={<SuspensePage><AdminQuotationsListPage /></SuspensePage>} />
+            <Route path="quotations/new" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />
+            <Route path="quotations/settings" element={<SuspensePage><AdminQuotationSettingsPage /></SuspensePage>} />
+            <Route path="quotations/:id" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />
           </Route>
           <Route path="schedule" element={<SuspensePage><AdminSchedulePage /></SuspensePage>} />
           <Route path="service-zones" element={<SuspensePage><AdminServiceZonesPage /></SuspensePage>} />

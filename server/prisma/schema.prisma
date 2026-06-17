@@ -107,6 +107,9 @@ model Tenant {
   orderFormConfigs OrderFormConfig[]
   estimateConfigs EstimateConfig[]
   estimateOptions EstimateOption[]
+  quotationServiceItems QuotationServiceItem[]
+  quotations Quotation[]
+  quotationDailyCounters QuotationDailyCounter[]
   professionalSpecialtyOptions ProfessionalSpecialtyOption[]
   orderFormTemplates OrderFormTemplate[]
   orderFormTemplateFields OrderFormTemplateField[]
@@ -399,6 +402,7 @@ model User {
   teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
   orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
+  quotationsCreated             Quotation[]            @relation("QuotationCreatedBy")
   reviewPaybacksHandled         ReviewPaybackRequest[] @relation("ReviewPaybackHandledBy")
   orderFollowupLogsAsActor      OrderFollowupLog[]     @relation("OrderFollowupLogActor")
   orderFormDeleteLogsAsActor    OrderFormDeleteLog[]   @relation("OrderFormDeleteLogActor")
@@ -941,6 +945,7 @@ model Inquiry {
   inspectionChecklist InquiryInspectionChecklist?
   csReports      CsReport[]
   orderFollowups OrderFollowup[]
+  quotations Quotation[]
   reviewPaybackRequests ReviewPaybackRequest[]
   tenantShareAsSource TenantInquiryShare? @relation("ShareSourceInquiry")
   tenantShareAsTarget TenantInquiryShare? @relation("ShareTargetInquiry")
@@ -1332,6 +1337,93 @@ model EstimateOption {
 
   @@index([tenantId, isActive])
   @@map("estimate_options")
+}
+
+enum QuotationStatus {
+  DRAFT
+  FINALIZED
+  SENT
+}
+
+/// 견적 설정 — 서비스 항목 카탈로그 (발주서 EstimateOption 과 별개)
+model QuotationServiceItem {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String   @db.VarChar(120)
+  unitPrice   Int      @map("unit_price")
+  description String?  @db.VarChar(500)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  lineItems QuotationLineItem[]
+
+  @@index([tenantId, isActive, sortOrder])
+  @@map("quotation_service_items")
+}
+
+/// 독립 견적서 — 예약·접수 전 발행
+model Quotation {
+  id              String          @id @default(uuid())
+  tenantId        String          @map("tenant_id")
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quoteNumber     String          @map("quote_number") @db.VarChar(32)
+  status          QuotationStatus @default(DRAFT)
+  customerName    String          @map("customer_name") @db.VarChar(120)
+  customerPhone   String?         @map("customer_phone") @db.VarChar(32)
+  customerEmail   String?         @map("customer_email") @db.VarChar(254)
+  customerAddress String?         @map("customer_address") @db.VarChar(500)
+  memo            String?         @db.VarChar(1000)
+  subtotal        Int             @default(0)
+  discountAmount  Int             @default(0) @map("discount_amount")
+  total           Int             @default(0)
+  validUntil      DateTime?       @map("valid_until") @db.Date
+  inquiryId       String?         @map("inquiry_id")
+  inquiry         Inquiry?        @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  createdById     String?         @map("created_by_id")
+  createdBy       User?           @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  sentAt          DateTime?       @map("sent_at")
+  pdfPublicId     String?         @map("pdf_public_id") @db.VarChar(512)
+  pdfSecureUrl    String?         @map("pdf_secure_url") @db.VarChar(2048)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  lineItems QuotationLineItem[]
+
+  @@unique([tenantId, quoteNumber])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@map("quotations")
+}
+
+model QuotationLineItem {
+  id            String  @id @default(uuid())
+  tenantId      String  @map("tenant_id")
+  quotationId   String  @map("quotation_id")
+  catalogItemId String? @map("catalog_item_id")
+  label         String  @db.VarChar(200)
+  unitPrice     Int     @map("unit_price")
+  quantity      Int     @default(1)
+  lineAmount    Int     @map("line_amount")
+  sortOrder     Int     @default(0) @map("sort_order")
+
+  quotation   Quotation             @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  catalogItem QuotationServiceItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
+
+  @@index([quotationId, sortOrder])
+  @@map("quotation_line_items")
+}
+
+model QuotationDailyCounter {
+  tenantId String @map("tenant_id")
+  dateKey  String @map("date_key") @db.Char(8)
+  lastSeq  Int    @map("last_seq")
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, dateKey])
+  @@map("quotation_daily_counters")
 }
 
 model OrderFormConfig {

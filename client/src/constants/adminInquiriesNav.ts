@@ -23,4 +23,13 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
       },
     ],
   },
+  {
+    type: 'group',
+    label: '견적서',
+    children: [
+      { to: '/admin/inquiries/quotations', label: '견적 목록' },
+      { to: '/admin/inquiries/quotations/new', label: '견적 작성' },
+      { to: '/admin/inquiries/quotations/settings', label: '견적 설정' },
+    ],
+  },
 ];

@@ -32,6 +32,15 @@ export const AdminOrderFormCustomerPreviewPage = lazyWithRetry(() =>
 export const AdminOrderFormTemplatesPage = lazyWithRetry(() =>
   import('../pages/admin/AdminOrderFormTemplatesPage').then((m) => ({ default: m.AdminOrderFormTemplatesPage }))
 );
+export const AdminQuotationsListPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminQuotationsListPage').then((m) => ({ default: m.AdminQuotationsListPage }))
+);
+export const AdminQuotationEditorPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminQuotationEditorPage').then((m) => ({ default: m.AdminQuotationEditorPage }))
+);
+export const AdminQuotationSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminQuotationSettingsPage').then((m) => ({ default: m.AdminQuotationSettingsPage }))
+);
 export const TeamDashboardPage = lazyWithRetry(() =>
   import('../pages/team/TeamDashboardPage').then((m) => ({ default: m.TeamDashboardPage }))
 );

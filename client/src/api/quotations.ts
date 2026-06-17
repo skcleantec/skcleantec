@@ -1,0 +1,224 @@
+import { API } from './apiPrefix';
+
+function headers(token: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+async function readError(res: Response): Promise<string> {
+  const ct = res.headers.get('content-type') ?? '';
+  if (ct.includes('application/json')) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (typeof data.error === 'string' && data.error.trim()) return data.error;
+  } else {
+    const text = await res.text().catch(() => '');
+    if (text.trim()) return text.trim().slice(0, 200);
+  }
+  return res.statusText?.trim() ? `${res.status} ${res.statusText}` : '요청에 실패했습니다.';
+}
+
+export type QuotationStatus = 'DRAFT' | 'FINALIZED' | 'SENT';
+
+export interface QuotationServiceItemDto {
+  id: string;
+  name: string;
+  unitPrice: number;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuotationLineItemDto {
+  id?: string;
+  catalogItemId?: string | null;
+  label: string;
+  unitPrice: number;
+  quantity: number;
+  lineAmount?: number;
+  sortOrder?: number;
+}
+
+export interface QuotationDto {
+  id: string;
+  quoteNumber: string;
+  status: QuotationStatus;
+  customerName: string;
+  customerPhone: string | null;
+  customerEmail: string | null;
+  customerAddress: string | null;
+  memo: string | null;
+  subtotal: number;
+  discountAmount: number;
+  total: number;
+  validUntil: string | null;
+  inquiryId: string | null;
+  sentAt: string | null;
+  pdfSecureUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lineItems: QuotationLineItemDto[];
+  createdBy?: { id: string; name: string; email: string; role: string } | null;
+  inquiry?: { id: string; inquiryNumber: string | null; customerName: string } | null;
+}
+
+export async function listQuotationServiceItems(
+  token: string,
+  opts?: { includeInactive?: boolean },
+): Promise<QuotationServiceItemDto[]> {
+  const path = opts?.includeInactive ? '/service-items/all' : '/service-items';
+  const res = await fetch(`${API}/quotations${path}`, { headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  const data = (await res.json()) as { items: QuotationServiceItemDto[] };
+  return data.items;
+}
+
+export async function createQuotationServiceItem(
+  token: string,
+  body: { name: string; unitPrice: number; description?: string | null; sortOrder?: number },
+): Promise<QuotationServiceItemDto> {
+  const res = await fetch(`${API}/quotations/service-items`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<QuotationServiceItemDto>;
+}
+
+export async function updateQuotationServiceItem(
+  token: string,
+  id: string,
+  body: Partial<{
+    name: string;
+    unitPrice: number;
+    description: string | null;
+    sortOrder: number;
+    isActive: boolean;
+  }>,
+): Promise<QuotationServiceItemDto> {
+  const res = await fetch(`${API}/quotations/service-items/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<QuotationServiceItemDto>;
+}
+
+export async function deleteQuotationServiceItem(
+  token: string,
+  id: string,
+  password: string,
+): Promise<void> {
+  const res = await fetch(`${API}/quotations/service-items/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: headers(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+}
+
+export async function listQuotations(
+  token: string,
+  params?: { limit?: number; offset?: number; customerName?: string; status?: QuotationStatus },
+): Promise<{ items: QuotationDto[]; total: number }> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set('limit', String(params.limit));
+  if (params?.offset != null) qs.set('offset', String(params.offset));
+  if (params?.customerName?.trim()) qs.set('customerName', params.customerName.trim());
+  if (params?.status) qs.set('status', params.status);
+  const q = qs.toString();
+  const res = await fetch(`${API}/quotations${q ? `?${q}` : ''}`, { headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<{ items: QuotationDto[]; total: number }>;
+}
+
+export async function getQuotation(token: string, id: string): Promise<QuotationDto> {
+  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}`, {
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<QuotationDto>;
+}
+
+export async function createQuotation(
+  token: string,
+  body: {
+    customerName: string;
+    customerPhone?: string | null;
+    customerEmail?: string | null;
+    customerAddress?: string | null;
+    memo?: string | null;
+    discountAmount?: number;
+    validUntil?: string | null;
+    lineItems: QuotationLineItemDto[];
+  },
+): Promise<QuotationDto> {
+  const res = await fetch(`${API}/quotations`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<QuotationDto>;
+}
+
+export async function updateQuotation(
+  token: string,
+  id: string,
+  body: Partial<{
+    customerName: string;
+    customerPhone: string | null;
+    customerEmail: string | null;
+    customerAddress: string | null;
+    memo: string | null;
+    discountAmount: number;
+    validUntil: string | null;
+    status: QuotationStatus;
+    lineItems: QuotationLineItemDto[];
+  }>,
+): Promise<QuotationDto> {
+  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<QuotationDto>;
+}
+
+export async function deleteQuotation(token: string, id: string, password: string): Promise<void> {
+  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: headers(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+}
+
+export async function downloadQuotationPdf(token: string, id: string): Promise<Blob> {
+  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}/pdf`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.blob();
+}
+
+export async function sendQuotationEmail(
+  token: string,
+  id: string,
+  to?: string,
+): Promise<QuotationDto> {
+  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}/send-email`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(to ? { to } : {}),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  const data = (await res.json()) as { quotation: QuotationDto };
+  return data.quotation;
+}
