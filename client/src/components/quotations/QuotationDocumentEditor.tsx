@@ -107,6 +107,17 @@ function resolveQuotationTitle(
   return formatQuotationDocumentTitle(company?.companyName ?? '');
 }
 
+function isCustomLineCell(
+  li: EditableQuotationLine,
+  catalog: QuotationServiceItemDto[],
+): boolean {
+  if (catalog.length === 0) return true;
+  if (li.catalogItemId) return false;
+  return catalogSelectValue(li) === '__custom__';
+}
+
+const docCellSelect = `${docCellInput} bg-white cursor-pointer appearance-auto`;
+
 export function QuotationDocumentEditor({
   quoteNumber,
   createdAt,
@@ -171,6 +182,45 @@ export function QuotationDocumentEditor({
       label: item.name,
       unitPrice: String(item.unitPrice),
     });
+  }
+
+  function renderItemCell(li: EditableQuotationLine, idx: number) {
+    if (isCustomLineCell(li, catalog)) {
+      return (
+        <input
+          className={docCellInput}
+          placeholder="품목명 입력"
+          value={li.label}
+          onChange={(e) =>
+            updateLineAt(idx, {
+              catalogItemId: null,
+              label: e.target.value,
+            })
+          }
+          onBlur={(e) => {
+            if (!e.target.value.trim()) {
+              updateLineAt(idx, { catalogItemId: null, label: '', unitPrice: '' });
+            }
+          }}
+        />
+      );
+    }
+
+    return (
+      <select
+        className={docCellSelect}
+        value={catalogSelectValue(li)}
+        onChange={(e) => handleCatalogSelectAt(idx, e.target.value)}
+      >
+        <option value="">품목 선택…</option>
+        {catalog.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+        <option value="__custom__">직접 입력</option>
+      </select>
+    );
   }
 
   function removeLineAt(index: number) {
@@ -380,48 +430,7 @@ export function QuotationDocumentEditor({
                             {idx + 1}
                           </td>
                           <td className={`${gridCell} px-1 py-1 align-middle`}>
-                            {catalog.length > 0 ? (
-                              <div className="space-y-1">
-                                <select
-                                  className={`${docCellInput} bg-white`}
-                                  value={catalogSelectValue(li)}
-                                  onChange={(e) =>
-                                    handleCatalogSelectAt(idx, e.target.value)
-                                  }
-                                >
-                                  <option value="">품목 선택…</option>
-                                  {catalog.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      {c.name}
-                                    </option>
-                                  ))}
-                                  <option value="__custom__">직접 입력</option>
-                                </select>
-                                {(!li.catalogItemId ||
-                                  catalogSelectValue(li) === '__custom__') && (
-                                  <input
-                                    className={docCellInput}
-                                    placeholder="품목명"
-                                    value={li.label}
-                                    onChange={(e) =>
-                                      updateLineAt(idx, {
-                                        catalogItemId: null,
-                                        label: e.target.value,
-                                      })
-                                    }
-                                  />
-                                )}
-                              </div>
-                            ) : (
-                              <input
-                                className={docCellInput}
-                                placeholder="품목명"
-                                value={li.label}
-                                onChange={(e) =>
-                                  updateLineAt(idx, { label: e.target.value })
-                                }
-                              />
-                            )}
+                            {renderItemCell(li, idx)}
                           </td>
                           <td className={`${gridCell} px-1 py-1 align-middle`}>
                             <input
