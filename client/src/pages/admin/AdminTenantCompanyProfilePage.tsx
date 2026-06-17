@@ -75,34 +75,45 @@ export function AdminTenantCompanyProfilePage() {
     void load();
   }, [load]);
 
-  const handleSave = async () => {
+  const handleSave = async (scope: 'all' | 'company' | 'smtp' = 'all') => {
     if (!token) return;
     setBusy(true);
     setErr(null);
     setMsg(null);
     const portNum = parseInt(smtpPort, 10);
+    const companyPayload = {
+      companyName,
+      representativeName,
+      businessRegistrationNo,
+      addressLine,
+      phone,
+      fax,
+      contactEmail,
+    };
+    const smtpPayload = {
+      host: smtpHost,
+      port: Number.isFinite(portNum) ? portNum : 587,
+      secure: smtpSecure,
+      user: smtpUser,
+      from: smtpFrom,
+      ...(smtpPassword ? { password: smtpPassword } : {}),
+    };
     try {
-      const dto = await patchTenantCompanyProfile(token, {
-        companyRegistration: {
-          companyName,
-          representativeName,
-          businessRegistrationNo,
-          addressLine,
-          phone,
-          fax,
-          contactEmail,
-        },
-        smtp: {
-          host: smtpHost,
-          port: Number.isFinite(portNum) ? portNum : 587,
-          secure: smtpSecure,
-          user: smtpUser,
-          from: smtpFrom,
-          ...(smtpPassword ? { password: smtpPassword } : {}),
-        },
-      });
+      const patch =
+        scope === 'company'
+          ? { companyRegistration: companyPayload }
+          : scope === 'smtp'
+            ? { smtp: smtpPayload }
+            : { companyRegistration: companyPayload, smtp: smtpPayload };
+      const dto = await patchTenantCompanyProfile(token, patch);
       hydrate(dto);
-      setMsg('저장했습니다.');
+      setMsg(
+        scope === 'company'
+          ? '사업자 정보를 저장했습니다.'
+          : scope === 'smtp'
+            ? '메일 설정을 저장했습니다.'
+            : '저장했습니다.',
+      );
     } catch (e) {
       setErr(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -137,7 +148,7 @@ export function AdminTenantCompanyProfilePage() {
   const smtpReady = profile?.smtp.configured;
 
   return (
-    <div className="min-w-0 w-full max-w-3xl space-y-6">
+    <div className="min-w-0 w-full max-w-3xl space-y-6 pb-24">
       <div>
         <h1 className="text-xl font-semibold text-gray-800">업체등록정보</h1>
         <p className="mt-1 text-sm text-gray-500">
@@ -224,6 +235,16 @@ export function AdminTenantCompanyProfilePage() {
               placeholder="contact@company.com"
             />
           </label>
+        </div>
+        <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleSave('company')}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {busy ? '저장 중…' : '사업자 정보 저장'}
+          </button>
         </div>
       </section>
 
@@ -372,10 +393,10 @@ export function AdminTenantCompanyProfilePage() {
           <button
             type="button"
             disabled={busy}
-            onClick={() => void handleSave()}
+            onClick={() => void handleSave('smtp')}
             className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
           >
-            저장
+            {busy ? '저장 중…' : '메일 설정 저장'}
           </button>
         </div>
       </section>
@@ -410,6 +431,27 @@ export function AdminTenantCompanyProfilePage() {
       {guideOpen && (
         <TenantSmtpSetupGuideModal companyName={companyName} onClose={() => setGuideOpen(false)} />
       )}
+
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+        <div className="mx-auto flex max-w-3xl flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleSave('all')}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {busy ? '저장 중…' : '전체 저장'}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !smtpReady}
+            onClick={() => void handleTestEmail()}
+            className="rounded-md border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-900 hover:bg-indigo-100 disabled:opacity-50"
+          >
+            테스트 발송
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -42,12 +42,13 @@ function mergeCompanyRegistration(
   patch: Partial<TenantCompanyRegistrationConfig> | undefined,
 ): TenantCompanyRegistrationConfig | undefined {
   if (!patch) return existing;
-  const merged: TenantCompanyRegistrationConfig = { ...existing, ...patch };
+  const merged: TenantCompanyRegistrationConfig = { ...(existing ?? {}), ...patch };
   for (const key of Object.keys(merged) as (keyof TenantCompanyRegistrationConfig)[]) {
     const v = merged[key];
     if (typeof v === 'string') {
       const t = v.trim();
       if (t) merged[key] = t;
+      else if (existing?.[key]) merged[key] = existing[key];
       else delete merged[key];
     }
   }
@@ -59,22 +60,22 @@ function mergeSmtpStored(
   patch: TenantCompanyProfilePatch['smtp'] | undefined,
 ): TenantSmtpConfigStored | undefined {
   if (!patch) return existing;
-  const next: TenantSmtpConfigStored = { ...existing };
+  const next: TenantSmtpConfigStored = { ...(existing ?? {}) };
 
   if (patch.host !== undefined) {
     const h = patch.host.trim();
     if (h) next.host = h;
-    else delete next.host;
+    else if (!existing?.host) delete next.host;
   }
   if (patch.user !== undefined) {
     const u = patch.user.trim();
     if (u) next.user = u;
-    else delete next.user;
+    else if (!existing?.user) delete next.user;
   }
   if (patch.from !== undefined) {
     const f = patch.from.trim();
     if (f) next.from = f;
-    else delete next.from;
+    else if (!existing?.from) delete next.from;
   }
   if (patch.port !== undefined && patch.port !== null) {
     next.port = Math.min(65535, Math.max(1, Math.round(patch.port)));
@@ -137,8 +138,8 @@ export async function patchTenantCompanyProfile(
   if (body.companyRegistration !== undefined) {
     patchConfig.companyRegistration = companyRegistration ?? {};
   }
-  if (body.smtp !== undefined) {
-    patchConfig.smtp = smtp ?? {};
+  if (body.smtp !== undefined && smtp !== undefined) {
+    patchConfig.smtp = smtp;
   }
   if (Object.keys(patchConfig).length === 0) {
     return getTenantCompanyProfile(tenantId);
