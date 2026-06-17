@@ -11,10 +11,7 @@ import {
   type QuotationServiceItemDto,
   type QuotationVatMode,
 } from '../../api/quotations';
-import {
-  fetchTenantCompanyProfile,
-  type TenantCompanyRegistration,
-} from '../../api/tenantCompanyProfile';
+import type { TenantCompanyRegistration } from '../../api/tenantCompanyProfile';
 import { QuotationDocumentEditor } from '../../components/quotations/QuotationDocumentEditor';
 import { QuotationEmailPanel } from '../../components/quotations/QuotationEmailPanel';
 import { QuotationPdfActions } from '../../components/quotations/QuotationPdfActions';
@@ -93,6 +90,10 @@ export function AdminQuotationEditorPage() {
         ),
       );
       setFooterNotice(defaults.config.footerNotice);
+      setCompany(defaults.companyRegistration);
+      setCompanyNameMissing(!defaults.companyRegistration.companyName?.trim());
+      setSmtpReady(defaults.smtp.configured);
+      setGlobalSmtpFallback(defaults.globalSmtpFallbackAvailable);
       if (isNew) {
         if (defaults.validUntilDefault) setValidUntil(defaults.validUntilDefault);
         if (defaults.catalog.length > 0) {
@@ -102,19 +103,6 @@ export function AdminQuotationEditorPage() {
     },
     [isNew, seedOperatingCompanyId],
   );
-
-  const loadPreconditions = useCallback(async () => {
-    if (!token) return;
-    try {
-      const profile = await fetchTenantCompanyProfile(token);
-      setCompany(profile.companyRegistration);
-      setCompanyNameMissing(!profile.companyRegistration.companyName?.trim());
-      setSmtpReady(profile.smtp.configured);
-      setGlobalSmtpFallback(profile.globalSmtpFallbackAvailable);
-    } catch {
-      /* optional */
-    }
-  }, [token]);
 
   const loadNewDefaults = useCallback(async () => {
     if (!token || !isNew) return;
@@ -199,10 +187,6 @@ export function AdminQuotationEditorPage() {
       setLoading(false);
     }
   }, [token, isNew, id, applyEditorDefaults]);
-
-  useEffect(() => {
-    void loadPreconditions();
-  }, [loadPreconditions]);
 
   useEffect(() => {
     void loadNewDefaults();

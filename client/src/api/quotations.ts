@@ -1,3 +1,7 @@
+import type {
+  TenantCompanyRegistration,
+  TenantSmtpSettingsPublic,
+} from '@shared/tenantCompanyProfile';
 import { API } from './apiPrefix';
 
 function headers(token: string): HeadersInit {
@@ -45,6 +49,10 @@ export interface QuotationEditorDefaultsDto {
   config: QuotationConfigDto;
   validUntilDefault: string | null;
   operatingCompanies: QuotationEditorOperatingCompanyDto[];
+  /** 견적서 공급자 — 마케터도 editor-defaults로 조회 (admin 전용 API 불필요) */
+  companyRegistration: TenantCompanyRegistration;
+  smtp: TenantSmtpSettingsPublic;
+  globalSmtpFallbackAvailable: boolean;
 }
 
 export interface QuotationServiceItemDto {

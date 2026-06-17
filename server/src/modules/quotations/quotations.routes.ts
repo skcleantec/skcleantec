@@ -40,6 +40,7 @@ import {
   listQuotationEditorOperatingCompanies,
   resolveQuotationOperatingCompanyId,
 } from './quotationDocumentTitle.service.js';
+import { getTenantCompanyProfile } from '../tenants/tenantCompanyProfile.service.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -146,13 +147,14 @@ router.put('/config', adminOnly, async (req, res) => {
 router.get('/editor-defaults', async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
-  const [items, config, operatingCompanies] = await Promise.all([
+  const [items, config, operatingCompanies, tenantProfile] = await Promise.all([
     prisma.quotationServiceItem.findMany({
       where: { tenantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
     getOrCreateQuotationConfig(prisma, tenantId),
     listQuotationEditorOperatingCompanies(prisma, tenantId),
+    getTenantCompanyProfile(tenantId),
   ]);
   const validUntilDefault =
     config.defaultValidDays != null && config.defaultValidDays > 0
@@ -163,6 +165,9 @@ router.get('/editor-defaults', async (req, res) => {
     config: serializeQuotationConfig(config),
     validUntilDefault,
     operatingCompanies,
+    companyRegistration: tenantProfile.companyRegistration,
+    smtp: tenantProfile.smtp,
+    globalSmtpFallbackAvailable: tenantProfile.globalSmtpFallbackAvailable,
   });
 });
 
