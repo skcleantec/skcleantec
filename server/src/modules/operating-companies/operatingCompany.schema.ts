@@ -2,6 +2,8 @@
  * OperatingCompany.config 파싱 — shared/operatingCompanyConfig.ts 와 동기화
  */
 
+import type { TenantCompanyRegistrationConfig } from '../tenants/tenantConfig.schema.js';
+
 /** shared/operatingCompanyConfig.ts OPERATING_COMPANY_BADGE_COLOR_KEYS 와 동기화 */
 export const OPERATING_COMPANY_BADGE_COLOR_KEYS = [
   'indigo',
@@ -36,6 +38,7 @@ export type OperatingCompanyConfig = {
   branding?: OperatingCompanyBrandingConfig;
   orderForm?: OperatingCompanyOrderFormConfig;
   inquiry?: OperatingCompanyInquiryConfig;
+  companyRegistration?: Partial<TenantCompanyRegistrationConfig>;
 };
 
 const MAX_STRING = 512;
@@ -88,6 +91,51 @@ function parseInquiry(raw: unknown): OperatingCompanyConfig['inquiry'] | undefin
   return { numberPrefix };
 }
 
+const COMPANY_REG_KEYS = [
+  'companyName',
+  'representativeName',
+  'businessRegistrationNo',
+  'addressLine',
+  'phone',
+  'fax',
+  'contactEmail',
+] as const satisfies readonly (keyof TenantCompanyRegistrationConfig)[];
+
+function parseCompanyRegistration(
+  raw: unknown,
+): OperatingCompanyConfig['companyRegistration'] | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null || (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0)) {
+    return {};
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const o = raw as Record<string, unknown>;
+  const out: Partial<TenantCompanyRegistrationConfig> = {};
+  for (const key of COMPANY_REG_KEYS) {
+    const v = trimOptionalString(o[key], MAX_STRING);
+    if (v) out[key] = v;
+  }
+  return Object.keys(out).length > 0 ? out : {};
+}
+
+function mergeCompanyRegistrationSection(
+  existing: OperatingCompanyConfig['companyRegistration'] | undefined,
+  patch: OperatingCompanyConfig['companyRegistration'] | undefined,
+): OperatingCompanyConfig['companyRegistration'] | undefined {
+  if (patch === undefined) return existing;
+  if (!patch || Object.keys(patch).length === 0) return undefined;
+  const merged: Partial<TenantCompanyRegistrationConfig> = { ...(existing ?? {}), ...patch };
+  for (const key of COMPANY_REG_KEYS) {
+    const v = merged[key];
+    if (typeof v === 'string') {
+      const t = v.trim();
+      if (t) merged[key] = t;
+      else delete merged[key];
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
 export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfig {
   if (raw == null) return {};
   if (typeof raw !== 'object' || Array.isArray(raw)) {
@@ -101,6 +149,9 @@ export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfi
   if (branding) out.branding = branding;
   if (orderForm) out.orderForm = orderForm;
   if (inquiry) out.inquiry = inquiry;
+  if ('companyRegistration' in o) {
+    out.companyRegistration = parseCompanyRegistration(o.companyRegistration) ?? {};
+  }
   return out;
 }
 
@@ -112,6 +163,10 @@ export function mergeOperatingCompanyConfig(
     branding: patch.branding !== undefined ? patch.branding : existing.branding,
     orderForm: patch.orderForm !== undefined ? patch.orderForm : existing.orderForm,
     inquiry: patch.inquiry !== undefined ? patch.inquiry : existing.inquiry,
+    companyRegistration:
+      patch.companyRegistration !== undefined
+        ? mergeCompanyRegistrationSection(existing.companyRegistration, patch.companyRegistration)
+        : existing.companyRegistration,
   };
 }
 
@@ -120,6 +175,9 @@ export function operatingCompanyConfigToJson(config: OperatingCompanyConfig): Re
   if (config.branding && Object.keys(config.branding).length > 0) out.branding = config.branding;
   if (config.orderForm && Object.keys(config.orderForm).length > 0) out.orderForm = config.orderForm;
   if (config.inquiry && Object.keys(config.inquiry).length > 0) out.inquiry = config.inquiry;
+  if (config.companyRegistration && Object.keys(config.companyRegistration).length > 0) {
+    out.companyRegistration = config.companyRegistration;
+  }
   return out;
 }
 

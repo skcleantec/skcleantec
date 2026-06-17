@@ -1,4 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { resolveCompanyRegistration } from '../../lib/resolveCompanyRegistration.js';
+import type { TenantCompanyRegistrationConfig } from '../tenants/tenantConfig.schema.js';
 import {
   getDefaultOperatingCompanyId,
 } from '../operating-companies/operatingCompany.service.js';
@@ -19,15 +21,19 @@ export type QuotationOperatingCompanySummary = {
   displayName: string;
   slug: string;
   isDefault: boolean;
+  companyRegistration: TenantCompanyRegistrationConfig;
 };
 
-export function serializeQuotationOperatingCompany(row: {
-  id: string;
-  name: string;
-  slug: string;
-  isDefault: boolean;
-  config: unknown;
-}): QuotationOperatingCompanySummary {
+export function serializeQuotationOperatingCompany(
+  row: {
+    id: string;
+    name: string;
+    slug: string;
+    isDefault: boolean;
+    config: unknown;
+  },
+  tenantCompanyRegistration: TenantCompanyRegistrationConfig = {},
+): QuotationOperatingCompanySummary {
   const config = parseOperatingCompanyConfig(row.config);
   return {
     id: row.id,
@@ -35,6 +41,10 @@ export function serializeQuotationOperatingCompany(row: {
     displayName: config.branding?.displayName?.trim() || row.name,
     slug: row.slug,
     isDefault: row.isDefault,
+    companyRegistration: resolveCompanyRegistration(
+      config.companyRegistration,
+      tenantCompanyRegistration,
+    ),
   };
 }
 
@@ -105,6 +115,7 @@ export async function resolveQuotationOperatingCompanyId(
 export async function listQuotationEditorOperatingCompanies(
   db: Db,
   tenantId: string,
+  tenantCompanyRegistration: TenantCompanyRegistrationConfig = {},
 ): Promise<QuotationOperatingCompanySummary[]> {
   const rows = await db.operatingCompany.findMany({
     where: { tenantId, isActive: true },
@@ -117,5 +128,5 @@ export async function listQuotationEditorOperatingCompanies(
       config: true,
     },
   });
-  return rows.map(serializeQuotationOperatingCompany);
+  return rows.map((row) => serializeQuotationOperatingCompany(row, tenantCompanyRegistration));
 }

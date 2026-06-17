@@ -2,6 +2,8 @@
  * 영업 업체(OperatingCompany) L2 설정 — `OperatingCompany.config`
  */
 
+import type { TenantCompanyRegistration } from './tenantCompanyProfile.js';
+
 /** 배지 팔레트 키 — `client/src/utils/operatingCompanyBadgeColors.ts` 와 동기화 */
 export const OPERATING_COMPANY_BADGE_COLOR_KEYS = [
   'indigo',
@@ -36,6 +38,8 @@ export type OperatingCompanyConfig = {
   branding?: OperatingCompanyBrandingConfig;
   orderForm?: OperatingCompanyOrderFormConfig;
   inquiry?: OperatingCompanyInquiryConfig;
+  /** 견적서 등 공급자 표시 — 미입력 필드는 테넌트 기본 사업자 정보로 보완 */
+  companyRegistration?: Partial<TenantCompanyRegistration>;
 };
 
 export const EMPTY_OPERATING_COMPANY_CONFIG: OperatingCompanyConfig = {};

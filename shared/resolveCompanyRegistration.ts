@@ -1,0 +1,25 @@
+import type { TenantCompanyRegistration } from './tenantCompanyProfile.js';
+
+/** 브랜드별 사업자 정보 — 필드별로 브랜드 값 우선, 없으면 테넌트 기본값 */
+export function resolveCompanyRegistration(
+  brand: Partial<TenantCompanyRegistration> | undefined | null,
+  tenant: TenantCompanyRegistration,
+): TenantCompanyRegistration {
+  const t = tenant ?? {};
+  const b = brand ?? {};
+  const pick = (key: keyof TenantCompanyRegistration): string | undefined => {
+    const brandVal = b[key]?.trim();
+    if (brandVal) return brandVal;
+    const tenantVal = t[key]?.trim();
+    return tenantVal || undefined;
+  };
+  return {
+    companyName: pick('companyName'),
+    representativeName: pick('representativeName'),
+    businessRegistrationNo: pick('businessRegistrationNo'),
+    addressLine: pick('addressLine'),
+    phone: pick('phone'),
+    fax: pick('fax'),
+    contactEmail: pick('contactEmail'),
+  };
+}

@@ -42,6 +42,7 @@ export interface QuotationEditorOperatingCompanyDto {
   displayName: string;
   slug: string;
   isDefault: boolean;
+  companyRegistration: TenantCompanyRegistration;
 }
 
 export interface QuotationEditorDefaultsDto {
@@ -49,8 +50,8 @@ export interface QuotationEditorDefaultsDto {
   config: QuotationConfigDto;
   validUntilDefault: string | null;
   operatingCompanies: QuotationEditorOperatingCompanyDto[];
-  /** 견적서 공급자 — 마케터도 editor-defaults로 조회 (admin 전용 API 불필요) */
-  companyRegistration: TenantCompanyRegistration;
+  /** 테넌트 기본 사업자 — 브랜드별 값이 없을 때 보완용 */
+  tenantCompanyRegistration: TenantCompanyRegistration;
   smtp: TenantSmtpSettingsPublic;
   globalSmtpFallbackAvailable: boolean;
 }

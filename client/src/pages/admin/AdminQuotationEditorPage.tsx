@@ -40,6 +40,15 @@ function pickDefaultOperatingCompanyId(
   return companies.find((c) => c.isDefault)?.id ?? companies[0]?.id ?? '';
 }
 
+function companyForOperatingCompany(
+  companies: QuotationEditorOperatingCompanyDto[],
+  operatingCompanyId: string,
+  tenantFallback: TenantCompanyRegistration,
+): TenantCompanyRegistration {
+  const brand = companies.find((c) => c.id === operatingCompanyId);
+  return brand?.companyRegistration ?? tenantFallback;
+}
+
 export function AdminQuotationEditorPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -56,6 +65,8 @@ export function AdminQuotationEditorPage() {
   const [seedOperatingCompanyId, setSeedOperatingCompanyId] = useState<string | null>(null);
   const [footerNotice, setFooterNotice] = useState<string | null>(null);
   const [company, setCompany] = useState<TenantCompanyRegistration | null>(null);
+  const [tenantCompanyRegistration, setTenantCompanyRegistration] =
+    useState<TenantCompanyRegistration>({});
   const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('DRAFT');
@@ -80,18 +91,26 @@ export function AdminQuotationEditorPage() {
   const [globalSmtpFallback, setGlobalSmtpFallback] = useState(false);
 
   const applyEditorDefaults = useCallback(
-    (defaults: Awaited<ReturnType<typeof fetchQuotationEditorDefaults>>) => {
+    (
+      defaults: Awaited<ReturnType<typeof fetchQuotationEditorDefaults>>,
+      preferredOperatingCompanyId?: string | null,
+    ) => {
       setCatalog(defaults.catalog);
       setOperatingCompanies(defaults.operatingCompanies);
-      setOperatingCompanyId((prev) =>
-        pickDefaultOperatingCompanyId(
-          defaults.operatingCompanies,
-          prev || seedOperatingCompanyId,
-        ),
+      setTenantCompanyRegistration(defaults.tenantCompanyRegistration);
+      const nextOperatingCompanyId = pickDefaultOperatingCompanyId(
+        defaults.operatingCompanies,
+        preferredOperatingCompanyId ?? seedOperatingCompanyId,
       );
+      setOperatingCompanyId(nextOperatingCompanyId);
+      const resolvedCompany = companyForOperatingCompany(
+        defaults.operatingCompanies,
+        nextOperatingCompanyId,
+        defaults.tenantCompanyRegistration,
+      );
+      setCompany(resolvedCompany);
+      setCompanyNameMissing(!resolvedCompany.companyName?.trim());
       setFooterNotice(defaults.config.footerNotice);
-      setCompany(defaults.companyRegistration);
-      setCompanyNameMissing(!defaults.companyRegistration.companyName?.trim());
       setSmtpReady(defaults.smtp.configured);
       setGlobalSmtpFallback(defaults.globalSmtpFallbackAvailable);
       if (isNew) {
@@ -144,7 +163,7 @@ export function AdminQuotationEditorPage() {
         getQuotation(token, id),
         fetchQuotationEditorDefaults(token),
       ]);
-      applyEditorDefaults(defaults);
+      applyEditorDefaults(defaults, row.operatingCompanyId);
       setQuoteNumber(row.quoteNumber);
       setCreatedAt(row.createdAt);
       setStatus(row.status);
@@ -166,9 +185,6 @@ export function AdminQuotationEditorPage() {
       setDiscountAmount(row.discountAmount > 0 ? String(row.discountAmount) : '');
       setVatMode(row.vatMode ?? 'VAT_SEPARATE');
       setValidUntil(row.validUntil ?? '');
-      setOperatingCompanyId(
-        pickDefaultOperatingCompanyId(defaults.operatingCompanies, row.operatingCompanyId),
-      );
       setOperatingCompanies(defaults.operatingCompanies);
       const mapped =
         row.lineItems.length > 0
@@ -199,6 +215,20 @@ export function AdminQuotationEditorPage() {
   useEffect(() => {
     void loadQuotation();
   }, [loadQuotation]);
+
+  const handleOperatingCompanyChange = useCallback(
+    (nextId: string) => {
+      setOperatingCompanyId(nextId);
+      const resolved = companyForOperatingCompany(
+        operatingCompanies,
+        nextId,
+        tenantCompanyRegistration,
+      );
+      setCompany(resolved);
+      setCompanyNameMissing(!resolved.companyName?.trim());
+    },
+    [operatingCompanies, tenantCompanyRegistration],
+  );
 
   const totals = useMemo(() => {
     let subtotal = 0;
@@ -338,7 +368,7 @@ export function AdminQuotationEditorPage() {
         company={company}
         operatingCompanies={operatingCompanies}
         operatingCompanyId={operatingCompanyId}
-        onOperatingCompanyChange={setOperatingCompanyId}
+        onOperatingCompanyChange={handleOperatingCompanyChange}
         customerName={customerName}
         customerPhone={customerPhone}
         customerEmail={customerEmail}

@@ -147,14 +147,14 @@ router.put('/config', adminOnly, async (req, res) => {
 router.get('/editor-defaults', async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
-  const [items, config, operatingCompanies, tenantProfile] = await Promise.all([
+  const tenantProfile = await getTenantCompanyProfile(tenantId);
+  const [items, config, operatingCompanies] = await Promise.all([
     prisma.quotationServiceItem.findMany({
       where: { tenantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
     getOrCreateQuotationConfig(prisma, tenantId),
-    listQuotationEditorOperatingCompanies(prisma, tenantId),
-    getTenantCompanyProfile(tenantId),
+    listQuotationEditorOperatingCompanies(prisma, tenantId, tenantProfile.companyRegistration),
   ]);
   const validUntilDefault =
     config.defaultValidDays != null && config.defaultValidDays > 0
@@ -165,7 +165,7 @@ router.get('/editor-defaults', async (req, res) => {
     config: serializeQuotationConfig(config),
     validUntilDefault,
     operatingCompanies,
-    companyRegistration: tenantProfile.companyRegistration,
+    tenantCompanyRegistration: tenantProfile.companyRegistration,
     smtp: tenantProfile.smtp,
     globalSmtpFallbackAvailable: tenantProfile.globalSmtpFallbackAvailable,
   });

@@ -1,5 +1,6 @@
 import type { PrismaClient, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { resolveOperatingCompanyRegistration } from '../operating-companies/operatingCompanyCompanyRegistration.js';
 import { getTenantCompanyProfile } from '../tenants/tenantCompanyProfile.service.js';
 import { buildQuotationPdfBuffer } from './quotation.pdf.service.js';
 import { uploadQuotationPdfBuffer } from './quotation.pdfUpload.service.js';
@@ -21,11 +22,11 @@ export async function loadQuotationPdfOptions(
 ): Promise<QuotationPdfBuildOptions> {
   const config = await getOrCreateQuotationConfig(db, tenantId);
   const profile = await getTenantCompanyProfile(tenantId);
+  const companyRegistration = row
+    ? resolveOperatingCompanyRegistration(row.operatingCompany, profile.companyRegistration)
+    : profile.companyRegistration;
   const documentTitle = row
-    ? resolveQuotationDocumentTitle(
-        row.operatingCompany,
-        profile.companyRegistration.companyName,
-      )
+    ? resolveQuotationDocumentTitle(row.operatingCompany, companyRegistration.companyName)
     : null;
   return {
     documentTitle,
@@ -39,11 +40,15 @@ export async function buildQuotationPdfForRow(
   pdfOptions?: QuotationPdfBuildOptions,
 ): Promise<Buffer> {
   const profile = await getTenantCompanyProfile(tenantId);
+  const companyRegistration = resolveOperatingCompanyRegistration(
+    row.operatingCompany,
+    profile.companyRegistration,
+  );
   const opts = pdfOptions ?? (await loadQuotationPdfOptions(prisma, tenantId, row));
   const documentTitle =
     opts.documentTitle?.trim() ||
-    resolveQuotationDocumentTitle(row.operatingCompany, profile.companyRegistration.companyName);
-  return buildQuotationPdfBuffer(row, profile.companyRegistration, {
+    resolveQuotationDocumentTitle(row.operatingCompany, companyRegistration.companyName);
+  return buildQuotationPdfBuffer(row, companyRegistration, {
     documentTitle,
     footerNotice: opts.footerNotice,
   });
@@ -75,10 +80,14 @@ export async function generateAndStoreQuotationPdf(
 
   const pdfOptions = await loadQuotationPdfOptions(db, tenantId, row);
   const profile = await getTenantCompanyProfile(tenantId);
+  const companyRegistration = resolveOperatingCompanyRegistration(
+    row.operatingCompany,
+    profile.companyRegistration,
+  );
   const documentTitle =
     pdfOptions.documentTitle?.trim() ||
-    resolveQuotationDocumentTitle(row.operatingCompany, profile.companyRegistration.companyName);
-  const buffer = await buildQuotationPdfBuffer(row, profile.companyRegistration, {
+    resolveQuotationDocumentTitle(row.operatingCompany, companyRegistration.companyName);
+  const buffer = await buildQuotationPdfBuffer(row, companyRegistration, {
     documentTitle,
     footerNotice: pdfOptions.footerNotice,
   });

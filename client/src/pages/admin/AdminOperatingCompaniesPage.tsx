@@ -11,6 +11,12 @@ import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBa
 import { OperatingCompanyBadgeColorPicker } from '../../components/admin/OperatingCompanyBadgeColorPicker';
 import type { OperatingCompanyBadgeColorKey } from '../../utils/operatingCompanyBadgeColors';
 import type { OperatingCompanyConfig } from '../../api/operatingCompanies';
+import {
+  companyRegistrationFromForm,
+  emptyCompanyRegistrationForm,
+  OperatingCompanyRegistrationFields,
+} from '../../components/admin/OperatingCompanyRegistrationFields';
+import type { TenantCompanyRegistration } from '@shared/tenantCompanyProfile';
 
 type BrandForm = {
   name: string;
@@ -19,6 +25,7 @@ type BrandForm = {
   numberPrefix: string;
   publicSubtitle: string;
   badgeColorKey: OperatingCompanyBadgeColorKey | '';
+  companyRegistration: TenantCompanyRegistration;
 };
 
 function emptyCreateForm(): BrandForm {
@@ -29,6 +36,7 @@ function emptyCreateForm(): BrandForm {
     numberPrefix: '',
     publicSubtitle: '',
     badgeColorKey: '',
+    companyRegistration: emptyCompanyRegistrationForm(),
   };
 }
 
@@ -76,6 +84,7 @@ export function AdminOperatingCompaniesPage() {
       numberPrefix: row.config.inquiry?.numberPrefix ?? '',
       publicSubtitle: row.config.orderForm?.publicSubtitle ?? '',
       badgeColorKey: row.config.branding?.badgeColorKey ?? '',
+      companyRegistration: emptyCompanyRegistrationForm(row.config.companyRegistration),
     });
   };
 
@@ -83,10 +92,12 @@ export function AdminOperatingCompaniesPage() {
     const branding: NonNullable<OperatingCompanyConfig['branding']> = {};
     if (f.displayName.trim()) branding.displayName = f.displayName.trim();
     if (f.badgeColorKey) branding.badgeColorKey = f.badgeColorKey;
+    const companyRegistration = companyRegistrationFromForm(f.companyRegistration);
     return {
       branding: Object.keys(branding).length > 0 ? branding : undefined,
       orderForm: f.publicSubtitle.trim() ? { publicSubtitle: f.publicSubtitle.trim() } : undefined,
       inquiry: f.numberPrefix.trim() ? { numberPrefix: f.numberPrefix.trim() } : undefined,
+      companyRegistration,
     };
   };
 
@@ -331,7 +342,7 @@ export function AdminOperatingCompaniesPage() {
 
       {showCreate ? (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
+          <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <h2 className="font-semibold text-gray-900">영업 브랜드 등록</h2>
               <ModalCloseButton onClick={() => setShowCreate(false)} />
@@ -398,6 +409,11 @@ export function AdminOperatingCompaniesPage() {
                   />
                 </div>
               </div>
+              <OperatingCompanyRegistrationFields
+                idPrefix="create-oc-reg"
+                value={form.companyRegistration}
+                onChange={(companyRegistration) => setForm((f) => ({ ...f, companyRegistration }))}
+              />
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
@@ -421,7 +437,7 @@ export function AdminOperatingCompaniesPage() {
 
       {editing ? (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
+          <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <h2 className="font-semibold text-gray-900">영업 브랜드 수정</h2>
               <ModalCloseButton onClick={() => setEditing(null)} />
@@ -485,6 +501,11 @@ export function AdminOperatingCompaniesPage() {
                   />
                 </div>
               </div>
+              <OperatingCompanyRegistrationFields
+                idPrefix="edit-oc-reg"
+                value={editForm.companyRegistration}
+                onChange={(companyRegistration) => setEditForm((f) => ({ ...f, companyRegistration }))}
+              />
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"

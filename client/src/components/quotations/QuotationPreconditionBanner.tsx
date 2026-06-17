@@ -17,14 +17,21 @@ export function QuotationPreconditionBanner({
     <div className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-fluid-sm text-amber-950 space-y-1.5">
       {companyNameMissing && (
         <p>
-          PDF 상단에 표시할 <strong>상호(업체명)</strong>이 없습니다.{' '}
+          PDF 공급자 <strong>상호</strong>가 없습니다.{' '}
+          <Link
+            to="/admin/team-leaders/operating-companies"
+            className="font-medium text-amber-900 underline underline-offset-2 hover:no-underline"
+          >
+            영업 브랜드
+          </Link>
+          에서 사업자 정보를 입력하거나,{' '}
           <Link
             to="/admin/team-leaders/company-profile"
             className="font-medium text-amber-900 underline underline-offset-2 hover:no-underline"
           >
-            업체등록정보
+            업체 기본 사업자 정보
           </Link>
-          에서 입력해 주세요.
+          를 설정해 주세요.
         </p>
       )}
       {!smtpReady && !globalSmtpFallback && (
