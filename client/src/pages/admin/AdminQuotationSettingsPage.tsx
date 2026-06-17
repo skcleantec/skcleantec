@@ -3,7 +3,10 @@ import { getToken } from '../../stores/auth';
 import {
   createQuotationServiceItem,
   deleteQuotationServiceItem,
+  fetchQuotationConfig,
   listQuotationServiceItems,
+  moveQuotationServiceItem,
+  updateQuotationConfig,
   updateQuotationServiceItem,
   type QuotationServiceItemDto,
 } from '../../api/quotations';
@@ -39,14 +42,25 @@ export function AdminQuotationSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<QuotationServiceItemDto | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
+  const [footerNotice, setFooterNotice] = useState('');
+  const [defaultValidDays, setDefaultValidDays] = useState('');
+  const [configSaving, setConfigSaving] = useState(false);
+  const [movingId, setMovingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const list = await listQuotationServiceItems(token, { includeInactive: true });
+      const [list, config] = await Promise.all([
+        listQuotationServiceItems(token, { includeInactive: true }),
+        fetchQuotationConfig(token),
+      ]);
       setItems(list);
+      setFooterNotice(config.footerNotice ?? '');
+      setDefaultValidDays(
+        config.defaultValidDays != null ? String(config.defaultValidDays) : '',
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : '목록을 불러올 수 없습니다.');
     } finally {
@@ -112,6 +126,45 @@ export function AdminQuotationSettingsPage() {
     }
   }
 
+  async function handleSaveConfig() {
+    if (!token) return;
+    const daysRaw = defaultValidDays.trim();
+    let defaultValidDaysVal: number | null = null;
+    if (daysRaw) {
+      const n = parseInt(daysRaw, 10);
+      if (!Number.isFinite(n) || n < 0) {
+        alert('기본 유효기간(일)을 올바르게 입력해 주세요.');
+        return;
+      }
+      defaultValidDaysVal = n;
+    }
+    setConfigSaving(true);
+    try {
+      await updateQuotationConfig(token, {
+        footerNotice: footerNotice.trim() || null,
+        defaultValidDays: defaultValidDaysVal,
+      });
+      alert('서식 설정을 저장했습니다.');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
+    } finally {
+      setConfigSaving(false);
+    }
+  }
+
+  async function handleMove(id: string, direction: 'up' | 'down') {
+    if (!token) return;
+    setMovingId(id);
+    try {
+      const list = await moveQuotationServiceItem(token, id, direction);
+      setItems(list);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '순서 변경에 실패했습니다.');
+    } finally {
+      setMovingId(null);
+    }
+  }
+
   async function handleDelete() {
     if (!token || !deleteTarget) return;
     if (!deletePassword.trim()) {
@@ -146,17 +199,71 @@ export function AdminQuotationSettingsPage() {
       </div>
 
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+
+      <section className="border rounded-lg p-4 mb-6 bg-white">
+        <h2 className="font-medium text-gray-900 mb-3">PDF 서식</h2>
+        <label className="block text-sm mb-3">
+          <span className="text-gray-700">하단 고정 안내</span>
+          <textarea
+            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+            rows={3}
+            placeholder="예: 본 견적은 발행일로부터 7일간 유효합니다."
+            value={footerNotice}
+            onChange={(e) => setFooterNotice(e.target.value)}
+          />
+        </label>
+        <label className="block text-sm mb-3 max-w-xs">
+          <span className="text-gray-700">새 견적 기본 유효기간(일)</span>
+          <input
+            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+            inputMode="numeric"
+            placeholder="비워 두면 미적용"
+            value={defaultValidDays}
+            onChange={(e) => setDefaultValidDays(e.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={configSaving || loading}
+          onClick={() => void handleSaveConfig()}
+          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded disabled:opacity-50"
+        >
+          {configSaving ? '저장 중…' : '서식 저장'}
+        </button>
+      </section>
+
+      <h2 className="font-medium text-gray-900 mb-2">서비스 항목</h2>
       {loading ? (
         <p className="text-sm text-gray-500">불러오는 중…</p>
       ) : items.length === 0 ? (
         <p className="text-sm text-gray-500">등록된 서비스 항목이 없습니다.</p>
       ) : (
         <ul className="space-y-2">
-          {items.map((row) => (
+          {items.map((row, idx) => (
             <li
               key={row.id}
               className={`border rounded-lg p-3 flex flex-wrap gap-2 items-center ${row.isActive ? 'bg-white' : 'bg-gray-50 opacity-70'}`}
             >
+              <span className="flex gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={movingId != null || idx === 0}
+                  onClick={() => void handleMove(row.id, 'up')}
+                  className="px-1 py-0.5 text-[10px] border rounded disabled:opacity-30"
+                  aria-label="위로"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  disabled={movingId != null || idx === items.length - 1}
+                  onClick={() => void handleMove(row.id, 'down')}
+                  className="px-1 py-0.5 text-[10px] border rounded disabled:opacity-30"
+                  aria-label="아래로"
+                >
+                  ↓
+                </button>
+              </span>
               <div className="flex-1 min-w-[140px]">
                 <div className="font-medium text-gray-900">{row.name}</div>
                 <div className="text-sm text-gray-600">{row.unitPrice.toLocaleString('ko-KR')}원</div>

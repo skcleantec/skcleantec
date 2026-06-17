@@ -17,6 +17,7 @@ function formatDateKst(isoOrDate: string | Date | null | undefined): string {
 export async function buildQuotationPdfBuffer(
   quotation: QuotationRow,
   company: TenantCompanyRegistrationConfig | undefined,
+  options?: { footerNotice?: string | null },
 ): Promise<Buffer> {
   const fontPath = resolvePdfKoreanFontPath();
 
@@ -138,6 +139,12 @@ export async function buildQuotationPdfBuffer(
       doc.fontSize(9).fillColor('#333').text('비고', { underline: true });
       doc.moveDown(0.2);
       doc.text(quotation.memo.trim(), { lineGap: 2 });
+    }
+
+    const footer = options?.footerNotice?.trim();
+    if (footer) {
+      doc.moveDown(0.8);
+      doc.fontSize(8).fillColor('#555').text(footer, { lineGap: 2 });
     }
 
     doc.end();

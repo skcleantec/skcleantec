@@ -21,6 +21,20 @@ async function readError(res: Response): Promise<string> {
 
 export type QuotationStatus = 'DRAFT' | 'FINALIZED' | 'SENT';
 
+export type QuotationDatePreset = 'today' | 'all' | 'month' | 'day';
+
+export interface QuotationConfigDto {
+  footerNotice: string | null;
+  defaultValidDays: number | null;
+  updatedAt: string;
+}
+
+export interface QuotationEditorDefaultsDto {
+  catalog: QuotationServiceItemDto[];
+  config: QuotationConfigDto;
+  validUntilDefault: string | null;
+}
+
 export interface QuotationServiceItemDto {
   id: string;
   name: string;
@@ -122,15 +136,70 @@ export async function deleteQuotationServiceItem(
   if (!res.ok) throw new Error(await readError(res));
 }
 
+export async function moveQuotationServiceItem(
+  token: string,
+  id: string,
+  direction: 'up' | 'down',
+): Promise<QuotationServiceItemDto[]> {
+  const res = await fetch(`${API}/quotations/service-items/${encodeURIComponent(id)}/move`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ direction }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  const data = (await res.json()) as { items: QuotationServiceItemDto[] };
+  return data.items;
+}
+
+export async function fetchQuotationConfig(token: string): Promise<QuotationConfigDto> {
+  const res = await fetch(`${API}/quotations/config`, { headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<QuotationConfigDto>;
+}
+
+export async function updateQuotationConfig(
+  token: string,
+  body: Partial<{ footerNotice: string | null; defaultValidDays: number | null }>,
+): Promise<QuotationConfigDto> {
+  const res = await fetch(`${API}/quotations/config`, {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<QuotationConfigDto>;
+}
+
+export async function fetchQuotationEditorDefaults(
+  token: string,
+): Promise<QuotationEditorDefaultsDto> {
+  const res = await fetch(`${API}/quotations/editor-defaults`, { headers: headers(token) });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<QuotationEditorDefaultsDto>;
+}
+
 export async function listQuotations(
   token: string,
-  params?: { limit?: number; offset?: number; customerName?: string; status?: QuotationStatus },
+  params?: {
+    limit?: number;
+    offset?: number;
+    customerName?: string;
+    status?: QuotationStatus | '';
+    datePreset?: QuotationDatePreset;
+    month?: string;
+    day?: string;
+  },
 ): Promise<{ items: QuotationDto[]; total: number }> {
   const qs = new URLSearchParams();
   if (params?.limit != null) qs.set('limit', String(params.limit));
   if (params?.offset != null) qs.set('offset', String(params.offset));
   if (params?.customerName?.trim()) qs.set('customerName', params.customerName.trim());
   if (params?.status) qs.set('status', params.status);
+  if (params?.datePreset && params.datePreset !== 'all') {
+    qs.set('datePreset', params.datePreset);
+    if (params.datePreset === 'month' && params.month) qs.set('month', params.month);
+    if (params.datePreset === 'day' && params.day) qs.set('day', params.day);
+  }
   const q = qs.toString();
   const res = await fetch(`${API}/quotations${q ? `?${q}` : ''}`, { headers: headers(token) });
   if (!res.ok) throw new Error(await readError(res));

@@ -9,9 +9,15 @@ import {
 } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { getTenantCompanyProfile } from '../tenants/tenantCompanyProfile.service.js';
+import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { allocateNextQuotationNumber } from './quotationNumber.js';
 import { buildQuotationPdfBuffer } from './quotation.pdf.service.js';
 import { sendQuotationEmail } from './quotation.email.service.js';
+import {
+  getOrCreateQuotationConfig,
+  kstYmdPlusDays,
+  serializeQuotationConfig,
+} from './quotationConfig.service.js';
 import {
   computeLineAmount,
   computeQuotationTotals,
@@ -62,6 +68,73 @@ async function requireActorPassword(
   }
   return true;
 }
+
+async function loadPdfFooterNotice(tenantId: string): Promise<string | null> {
+  const config = await getOrCreateQuotationConfig(prisma, tenantId);
+  return config.footerNotice?.trim() || null;
+}
+
+/** 견적 서식·기본값 */
+router.get('/config', async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
+  const config = await getOrCreateQuotationConfig(prisma, tenantId);
+  res.json(serializeQuotationConfig(config));
+});
+
+router.put('/config', adminOnly, async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
+  const body = req.body as {
+    footerNotice?: string | null;
+    defaultValidDays?: number | null;
+  };
+  const existing = await getOrCreateQuotationConfig(prisma, tenantId);
+  const patch: import('@prisma/client').Prisma.QuotationConfigUpdateInput = {};
+  if (body.footerNotice !== undefined) {
+    patch.footerNotice =
+      typeof body.footerNotice === 'string' && body.footerNotice.trim()
+        ? body.footerNotice.trim()
+        : null;
+  }
+  if (body.defaultValidDays !== undefined) {
+    if (body.defaultValidDays === null) {
+      patch.defaultValidDays = null;
+    } else if (
+      typeof body.defaultValidDays === 'number' &&
+      Number.isFinite(body.defaultValidDays)
+    ) {
+      patch.defaultValidDays = Math.max(0, Math.min(365, Math.round(body.defaultValidDays)));
+    }
+  }
+  const updated = await prisma.quotationConfig.update({
+    where: { id: existing.id },
+    data: patch,
+  });
+  res.json(serializeQuotationConfig(updated));
+});
+
+/** 새 견적 작성 화면용 — 카탈로그·기본 유효기간 */
+router.get('/editor-defaults', async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
+  const [items, config] = await Promise.all([
+    prisma.quotationServiceItem.findMany({
+      where: { tenantId, isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    }),
+    getOrCreateQuotationConfig(prisma, tenantId),
+  ]);
+  const validUntilDefault =
+    config.defaultValidDays != null && config.defaultValidDays > 0
+      ? kstYmdPlusDays(config.defaultValidDays)
+      : null;
+  res.json({
+    catalog: items.map(serializeServiceItem),
+    config: serializeQuotationConfig(config),
+    validUntilDefault,
+  });
+});
 
 /** 견적 설정 — 서비스 항목 목록 (활성만) */
 router.get('/service-items', async (req, res) => {
@@ -147,6 +220,42 @@ router.patch('/service-items/:id', adminOnly, async (req, res) => {
   res.json(serializeServiceItem(updated));
 });
 
+router.post('/service-items/:id/move', adminOnly, async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
+  const { id } = req.params;
+  const direction = (req.body as { direction?: string }).direction;
+  if (direction !== 'up' && direction !== 'down') {
+    res.status(400).json({ error: 'direction은 up 또는 down 이어야 합니다.' });
+    return;
+  }
+  const items = await prisma.quotationServiceItem.findMany({
+    where: { tenantId },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+  const idx = items.findIndex((r) => r.id === id);
+  if (idx < 0) {
+    res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+    return;
+  }
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= items.length) {
+    res.status(400).json({ error: '더 이상 이동할 수 없습니다.' });
+    return;
+  }
+  const a = items[idx];
+  const b = items[swapIdx];
+  await prisma.$transaction([
+    prisma.quotationServiceItem.update({ where: { id: a.id }, data: { sortOrder: b.sortOrder } }),
+    prisma.quotationServiceItem.update({ where: { id: b.id }, data: { sortOrder: a.sortOrder } }),
+  ]);
+  const refreshed = await prisma.quotationServiceItem.findMany({
+    where: { tenantId },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+  res.json({ items: refreshed.map(serializeServiceItem) });
+});
+
 router.delete('/service-items/:id', adminOnly, async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
@@ -177,6 +286,11 @@ router.get('/', async (req, res) => {
   const customerName =
     typeof req.query.customerName === 'string' ? req.query.customerName.trim() : '';
   const statusRaw = typeof req.query.status === 'string' ? req.query.status.trim() : '';
+  const createdRange = createdAtRangeFromQuery({
+    datePreset: typeof req.query.datePreset === 'string' ? req.query.datePreset : undefined,
+    month: typeof req.query.month === 'string' ? req.query.month : undefined,
+    day: typeof req.query.day === 'string' ? req.query.day : undefined,
+  });
 
   const where: import('@prisma/client').Prisma.QuotationWhereInput = { tenantId };
   if (customerName) {
@@ -184,6 +298,9 @@ router.get('/', async (req, res) => {
   }
   if (statusRaw === 'DRAFT' || statusRaw === 'FINALIZED' || statusRaw === 'SENT') {
     where.status = statusRaw;
+  }
+  if (createdRange) {
+    where.createdAt = { gte: createdRange.gte, lte: createdRange.lte };
   }
 
   const [total, rows] = await Promise.all([
@@ -444,7 +561,8 @@ router.get('/:id/pdf', async (req, res) => {
     return;
   }
   const profile = await getTenantCompanyProfile(tenantId);
-  const buffer = await buildQuotationPdfBuffer(row, profile.companyRegistration);
+  const footerNotice = await loadPdfFooterNotice(tenantId);
+  const buffer = await buildQuotationPdfBuffer(row, profile.companyRegistration, { footerNotice });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
     'Content-Disposition',
@@ -477,7 +595,10 @@ router.post('/:id/send-email', async (req, res) => {
 
   const profile = await getTenantCompanyProfile(tenantId);
   const companyName = profile.companyRegistration.companyName?.trim() || '견적서';
-  const pdfBuffer = await buildQuotationPdfBuffer(row, profile.companyRegistration);
+  const footerNotice = await loadPdfFooterNotice(tenantId);
+  const pdfBuffer = await buildQuotationPdfBuffer(row, profile.companyRegistration, {
+    footerNotice,
+  });
 
   const sent = await sendQuotationEmail({
     tenantId,

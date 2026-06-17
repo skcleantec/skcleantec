@@ -1,15 +1,21 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   deleteQuotation,
   listQuotations,
+  type QuotationDatePreset,
   type QuotationDto,
   type QuotationStatus,
 } from '../../api/quotations';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
-
-const PAGE_SIZE = 30;
+import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
+import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import {
+  clampListPage,
+  parseInquiryListPageSize,
+  parseListPage,
+} from '../../utils/listPagination';
 
 const STATUS_LABEL: Record<QuotationStatus, string> = {
   DRAFT: '작성 중',
@@ -17,28 +23,74 @@ const STATUS_LABEL: Record<QuotationStatus, string> = {
   SENT: '발송됨',
 };
 
+const STATUS_OPTIONS: { value: '' | QuotationStatus; label: string }[] = [
+  { value: '', label: '전체 상태' },
+  { value: 'DRAFT', label: '작성 중' },
+  { value: 'FINALIZED', label: '확정' },
+  { value: 'SENT', label: '발송됨' },
+];
+
+function kstMonthKeyNow(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+}
+
+function kstYmdNow(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
 export function AdminQuotationsListPage() {
   const token = getToken();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const datePreset = (searchParams.get('datePreset') as QuotationDatePreset | null) ?? 'all';
+  const monthKey = searchParams.get('month') ?? kstMonthKeyNow();
+  const dayKey = searchParams.get('day') ?? kstYmdNow();
+  const customerName = searchParams.get('customerName') ?? '';
+  const statusFilter = (searchParams.get('status') as QuotationStatus | '') ?? '';
+  const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
+  const page = parseListPage(searchParams.get('page'));
+
   const [items, setItems] = useState<QuotationDto[]>([]);
   const [total, setTotal] = useState(0);
-  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchName, setSearchName] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<QuotationDto | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  const safePage = useMemo(
+    () => clampListPage(page, total, pageSize),
+    [page, total, pageSize],
+  );
+
+  const patchParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [k, v] of Object.entries(patch)) {
+          if (v == null || v === '') next.delete(k);
+          else next.set(k, v);
+        }
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
+    const offset = (safePage - 1) * pageSize;
     try {
       const data = await listQuotations(token, {
-        limit: PAGE_SIZE,
+        limit: pageSize,
         offset,
-        customerName: appliedSearch || undefined,
+        customerName: customerName.trim() || undefined,
+        status: statusFilter || undefined,
+        datePreset,
+        month: datePreset === 'month' ? monthKey : undefined,
+        day: datePreset === 'day' ? dayKey : undefined,
       });
       setItems(data.items);
       setTotal(data.total);
@@ -47,17 +99,11 @@ export function AdminQuotationsListPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, offset, appliedSearch]);
+  }, [token, safePage, pageSize, customerName, statusFilter, datePreset, monthKey, dayKey]);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setOffset(0);
-    setAppliedSearch(searchName.trim());
-  }
 
   async function handleDelete() {
     if (!token || !deleteTarget) return;
@@ -78,11 +124,8 @@ export function AdminQuotationsListPage() {
     }
   }
 
-  const page = Math.floor(offset / PAGE_SIZE) + 1;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
   return (
-    <div className="max-w-4xl mx-auto px-3 py-4 sm:px-4">
+    <div className="max-w-5xl mx-auto px-3 py-4 sm:px-4">
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <h1 className="text-lg font-semibold text-gray-900">견적서</h1>
         <Link
@@ -93,127 +136,193 @@ export function AdminQuotationsListPage() {
         </Link>
       </div>
 
-      <form onSubmit={handleSearch} className="flex gap-2 mb-4">
-        <input
-          className="flex-1 border rounded px-2 py-1.5 text-sm"
-          placeholder="상대 이름 검색"
-          value={searchName}
-          onChange={(e) => setSearchName(e.target.value)}
-        />
-        <button type="submit" className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
-          검색
-        </button>
-      </form>
-
-      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-      {loading ? (
-        <p className="text-sm text-gray-500">불러오는 중…</p>
-      ) : items.length === 0 ? (
-        <p className="text-sm text-gray-500">견적서가 없습니다.</p>
-      ) : (
-        <>
-          <div className="hidden sm:block overflow-x-auto border rounded-lg">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left">
-                <tr>
-                  <th className="px-3 py-2">견적번호</th>
-                  <th className="px-3 py-2">상대</th>
-                  <th className="px-3 py-2">합계</th>
-                  <th className="px-3 py-2">상태</th>
-                  <th className="px-3 py-2">작성일</th>
-                  <th className="px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => (
-                  <tr key={row.id} className="border-t hover:bg-gray-50">
-                    <td className="px-3 py-2 font-mono text-xs">{row.quoteNumber}</td>
-                    <td className="px-3 py-2">{row.customerName}</td>
-                    <td className="px-3 py-2">{row.total.toLocaleString('ko-KR')}원</td>
-                    <td className="px-3 py-2">{STATUS_LABEL[row.status]}</td>
-                    <td className="px-3 py-2 text-gray-600">
-                      {new Date(row.createdAt).toLocaleDateString('ko-KR')}
-                    </td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap">
-                      <Link
-                        to={`/admin/inquiries/quotations/${row.id}`}
-                        className="text-blue-600 hover:underline mr-2"
-                      >
-                        열기
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeleteTarget(row);
-                          setDeletePassword('');
-                        }}
-                        className="text-red-600 hover:underline text-xs"
-                      >
-                        삭제
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="rounded-lg border border-gray-200 bg-white mb-4">
+        <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-3 py-3 sm:px-4">
+          <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
+              <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">작성일</span>
+              <div className="inline-flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm shrink-0">
+                  {(
+                    [
+                      ['today', '오늘'],
+                      ['all', '전체'],
+                      ['month', '월별'],
+                      ['day', '일별'],
+                    ] as const
+                  ).map(([key, label], i) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => patchParams({ datePreset: key, page: '1' })}
+                      className={`px-3 py-1.5 font-medium ${i > 0 ? 'border-l border-gray-300' : ''} ${
+                        datePreset === key ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {datePreset === 'month' && (
+                  <YearMonthSelect
+                    value={monthKey}
+                    onChange={(v) => patchParams({ month: v, page: '1' })}
+                    idPrefix="quotation-list-month"
+                    className="items-center"
+                  />
+                )}
+                {datePreset === 'day' && (
+                  <YmdSelect
+                    value={dayKey}
+                    onChange={(v) => patchParams({ day: v, page: '1' })}
+                    idPrefix="quotation-list-day"
+                    className="items-center"
+                  />
+                )}
+              </div>
+            </div>
+            <ListPaginationBar
+              mode="summary"
+              page={safePage}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={(p) => patchParams({ page: String(p) })}
+              onPageSizeChange={(s) => patchParams({ pageSize: String(s), page: '1' })}
+              className="shrink-0"
+            />
           </div>
 
-          <ul className="sm:hidden space-y-2">
-            {items.map((row) => (
-              <li key={row.id} className="border rounded-lg p-3 bg-white">
-                <div className="flex justify-between gap-2">
-                  <span className="font-medium">{row.customerName}</span>
-                  <span className="text-xs text-gray-500">{STATUS_LABEL[row.status]}</span>
-                </div>
-                <div className="text-xs font-mono text-gray-500 mt-0.5">{row.quoteNumber}</div>
-                <div className="text-sm mt-1">{row.total.toLocaleString('ko-KR')}원</div>
-                <div className="flex gap-2 mt-2">
-                  <Link
-                    to={`/admin/inquiries/quotations/${row.id}`}
-                    className="text-sm text-blue-600"
-                  >
-                    열기
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDeleteTarget(row);
-                      setDeletePassword('');
-                    }}
-                    className="text-sm text-red-600"
-                  >
-                    삭제
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="block text-sm min-w-0 flex-1 sm:max-w-xs">
+              <span className="text-gray-600 text-xs">상대 이름</span>
+              <input
+                className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+                value={customerName}
+                onChange={(e) => patchParams({ customerName: e.target.value, page: '1' })}
+                placeholder="검색"
+              />
+            </label>
+            <label className="block text-sm sm:w-36">
+              <span className="text-gray-600 text-xs">상태</span>
+              <select
+                className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+                value={statusFilter}
+                onChange={(e) =>
+                  patchParams({ status: e.target.value || null, page: '1' })
+                }
+              >
+                {STATUS_OPTIONS.map((o) => (
+                  <option key={o.value || 'all'} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 mt-4 text-sm">
-              <button
-                type="button"
-                disabled={offset <= 0}
-                onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-                className="px-2 py-1 border rounded disabled:opacity-40"
-              >
-                이전
-              </button>
-              <span>
-                {page} / {totalPages} ({total}건)
-              </span>
-              <button
-                type="button"
-                disabled={offset + PAGE_SIZE >= total}
-                onClick={() => setOffset((o) => o + PAGE_SIZE)}
-                className="px-2 py-1 border rounded disabled:opacity-40"
-              >
-                다음
-              </button>
+        {error && <p className="px-4 py-3 text-sm text-red-600">{error}</p>}
+        {loading ? (
+          <p className="px-4 py-8 text-sm text-gray-500">불러오는 중…</p>
+        ) : items.length === 0 ? (
+          <p className="px-4 py-8 text-sm text-gray-500">견적서가 없습니다.</p>
+        ) : (
+          <>
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-left">
+                  <tr>
+                    <th className="px-3 py-2">견적번호</th>
+                    <th className="px-3 py-2">상대</th>
+                    <th className="px-3 py-2 text-right">합계</th>
+                    <th className="px-3 py-2">상태</th>
+                    <th className="px-3 py-2">작성일</th>
+                    <th className="px-3 py-2">발송일</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((row) => (
+                    <tr key={row.id} className="border-t hover:bg-gray-50">
+                      <td className="px-3 py-2 font-mono text-xs">{row.quoteNumber}</td>
+                      <td className="px-3 py-2">{row.customerName}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {row.total.toLocaleString('ko-KR')}원
+                      </td>
+                      <td className="px-3 py-2">{STATUS_LABEL[row.status]}</td>
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                        {new Date(row.createdAt).toLocaleDateString('ko-KR')}
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                        {row.sentAt
+                          ? new Date(row.sentAt).toLocaleDateString('ko-KR')
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        <Link
+                          to={`/admin/inquiries/quotations/${row.id}`}
+                          className="text-blue-600 hover:underline mr-2"
+                        >
+                          열기
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteTarget(row);
+                            setDeletePassword('');
+                          }}
+                          className="text-red-600 hover:underline text-xs"
+                        >
+                          삭제
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </>
-      )}
+
+            <ul className="sm:hidden divide-y">
+              {items.map((row) => (
+                <li key={row.id} className="p-3">
+                  <div className="flex justify-between gap-2">
+                    <span className="font-medium">{row.customerName}</span>
+                    <span className="text-xs text-gray-500">{STATUS_LABEL[row.status]}</span>
+                  </div>
+                  <div className="text-xs font-mono text-gray-500 mt-0.5">{row.quoteNumber}</div>
+                  <div className="text-sm mt-1 tabular-nums">{row.total.toLocaleString('ko-KR')}원</div>
+                  <div className="flex gap-2 mt-2">
+                    <Link
+                      to={`/admin/inquiries/quotations/${row.id}`}
+                      className="text-sm text-blue-600"
+                    >
+                      열기
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteTarget(row);
+                        setDeletePassword('');
+                      }}
+                      className="text-sm text-red-600"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <ListPaginationBar
+        page={safePage}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={(p) => patchParams({ page: String(p) })}
+        onPageSizeChange={(s) => patchParams({ pageSize: String(s), page: '1' })}
+      />
 
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
