@@ -389,6 +389,7 @@ export function TeamLayout() {
         <div className="hidden lg:block absolute -bottom-[20%] -right-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-blue-500/16 to-sky-500/10 blur-[100px] opacity-80" />
         <div className="hidden lg:block absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-[800px] h-[350px] rounded-full bg-indigo-500/8 blur-[120px] opacity-80" />
       </div>
+      <div className="staff-top-safe sticky top-0 z-40 shrink-0">
       {rosterAckBanner ? (
         <RosterAckBanner
           payload={rosterAckBanner}
@@ -396,7 +397,7 @@ export function TeamLayout() {
           showThai={!isExternalPartner}
         />
       ) : null}
-      <header className="sticky top-0 z-40 pt-[env(safe-area-inset-top)] shadow-md theme-dark-header">
+      <header className="shadow-md theme-dark-header">
         <div className="max-w-6xl mx-auto px-4 py-2.5 flex flex-col gap-2 min-w-0">
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
@@ -483,6 +484,7 @@ export function TeamLayout() {
           </DarkHeaderNavScroll>
         </div>
       </header>
+      </div>
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null }}>
           <Outlet />

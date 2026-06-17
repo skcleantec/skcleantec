@@ -56,7 +56,8 @@ async function loginTeam(page: Page, creds: Credentials): Promise<void> {
   const DEBUG_SHOT = path.join(OUTPUT_DIR, 'debug_team_login.png');
 
   async function fillAndSubmit(crewMode: boolean): Promise<void> {
-    await page.goto(`${creds.baseUrl}/team/login`, { waitUntil: 'networkidle' });
+    // /team/login 은 /login 으로 리다이렉트됨 (App.tsx 참조)
+    await page.goto(`${creds.baseUrl}/login`, { waitUntil: 'networkidle' });
 
     if (crewMode) {
       const toggle = await page.$('button[role="switch"]');
@@ -86,17 +87,17 @@ async function loginTeam(page: Page, creds: Credentials): Promise<void> {
     else await pwField.press('Enter');
   }
 
-  // 1차: 크루 모드 (토글 ON)
-  await fillAndSubmit(true);
-  try {
-    await page.waitForURL((url) => !url.includes('/team/login'), { timeout: 15_000 });
-    return;
-  } catch { /* 실패 → 일반 팀장 모드 시도 */ }
-
-  // 2차: 일반 팀장 모드
+  // 1차: 일반 팀장 모드 (크루 모드 OFF) — /team/* 으로 이동하면 성공
   await fillAndSubmit(false);
   try {
-    await page.waitForURL((url) => !url.includes('/team/login'), { timeout: 15_000 });
+    await page.waitForURL((url) => url.includes('/team/') || url.includes('/crew'), { timeout: 15_000 });
+    return;
+  } catch { /* 실패 → 크루 모드 시도 */ }
+
+  // 2차: 크루 모드 (토글 ON) — /crew 로 이동하면 성공
+  await fillAndSubmit(true);
+  try {
+    await page.waitForURL((url) => url.includes('/team/') || url.includes('/crew'), { timeout: 15_000 });
     return;
   } catch { /* 최종 실패 */ }
 
@@ -128,8 +129,8 @@ async function capturePage(
       await page.waitForSelector(pageDef.waitSelector, { timeout: 10_000 }).catch(() => {});
     }
 
-    // 렌더링 안정화 대기
-    await page.waitForTimeout(1_200);
+    // 렌더링 안정화 대기 (SPA API 응답 후 렌더링까지 여유)
+    await page.waitForTimeout(2_500);
 
     await page.screenshot({ path: mainPath, fullPage: true });
 

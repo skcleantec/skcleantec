@@ -119,10 +119,11 @@ export function CrewLayout() {
         <div className="hidden lg:block absolute -bottom-[20%] -right-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-blue-500/16 to-sky-500/10 blur-[100px] opacity-80" />
         <div className="hidden lg:block absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-[800px] h-[350px] rounded-full bg-indigo-500/8 blur-[120px] opacity-80" />
       </div>
+      <div className="staff-top-safe shrink-0 relative z-20">
       {rosterAckBanner ? (
         <RosterAckBanner payload={rosterAckBanner} onDismiss={dismissRosterAckBanner} />
       ) : null}
-      <header className="relative z-20 shrink-0 shadow-md theme-dark-header">
+      <header className="shadow-md theme-dark-header">
         <div className="max-w-4xl mx-auto px-4 py-2.5 flex flex-col gap-2 min-w-0">
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="min-w-0 flex-1 leading-tight">
@@ -276,6 +277,7 @@ export function CrewLayout() {
           </nav>
         </div>
       </header>
+      </div>
       <main className="staff-app-surface relative z-10 flex-1 min-h-0 min-w-0 max-w-4xl w-full mx-auto px-3 py-2.5 sm:px-4 sm:py-4 overflow-y-auto">
         <Outlet context={outletCtx} />
       </main>

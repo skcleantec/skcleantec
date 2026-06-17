@@ -1,5 +1,5 @@
 /** HelpPage / client/public/help/data.json 과 동일 */
-export type HelpRole = 'admin' | 'crew';
+export type HelpRole = 'admin' | 'team';
 
 export type HelpScreenEntry = {
   role: HelpRole;

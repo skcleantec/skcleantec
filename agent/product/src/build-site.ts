@@ -31,8 +31,8 @@ async function readJsonFile<T>(filePath: string, label: string): Promise<T> {
 
 function assertCapture(entry: HelpCaptureEntry, index: number): HelpCaptureEntry {
   const prefix = `captures[${index}]`;
-  if (entry.role !== 'admin' && entry.role !== 'crew') {
-    throw new Error(`${prefix}: role 은 admin 또는 crew 여야 합니다.`);
+  if (entry.role !== 'admin' && entry.role !== 'team') {
+    throw new Error(`${prefix}: role 은 admin 또는 team 여야 합니다.`);
   }
   if (!String(entry.module ?? '').trim()) throw new Error(`${prefix}: module 이 필요합니다.`);
   if (!String(entry.title ?? '').trim()) throw new Error(`${prefix}: title 이 필요합니다.`);

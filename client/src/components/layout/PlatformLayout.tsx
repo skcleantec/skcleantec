@@ -85,7 +85,7 @@ export function PlatformLayout() {
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 lg:hidden">
+        <header className="staff-top-safe flex min-h-14 shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 pb-2 lg:hidden">
           <button
             type="button"
             className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"

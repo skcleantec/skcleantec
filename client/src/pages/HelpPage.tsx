@@ -96,7 +96,7 @@ export function HelpPage() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900 text-white">
+      <header className="border-b border-slate-800 bg-slate-900 text-white staff-top-safe">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div>
             <p className="text-fluid-xs uppercase tracking-wider text-slate-400">청소비서 도움말</p>

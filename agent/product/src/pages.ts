@@ -220,49 +220,81 @@ export const ADMIN_PAGES: PageDef[] = [
 ];
 
 // ────────────────────────────────────────
-// 크루(현장팀원) 페이지  (/crew/*)
-// 로그인: /team/login 에서 "크루 계정 로그인" 토글 ON 후 크루 ID/PW 입력
+// 팀장 페이지  (/team/*)
+// 로그인: /team/login 에서 아이디·비밀번호 입력 (크루 모드 OFF)
 // ────────────────────────────────────────
 export const TEAM_PAGES: PageDef[] = [
   {
     role: 'team',
-    module: '홈',
+    module: '일정',
     moduleOrder: 1,
-    title: '크루 홈',
-    path: '/crew',
-    hint: '크루가 앱에 접속하면 처음 보이는 화면. 오늘 배정된 현장 요약, 출퇴근 상태 확인.',
+    title: '오늘 일정 (대시보드)',
+    path: '/team/dashboard',
+    hint: '팀장이 가장 먼저 보는 화면. 오늘 배정된 현장 목록, 고객 주소·특이사항 요약.',
+    waitSelector: '[class*="dashboard"], [class*="schedule"], [class*="assignment"], main',
   },
   {
     role: 'team',
     module: '일정',
-    moduleOrder: 2,
-    title: '현장 일정',
-    path: '/crew/schedule',
-    hint: '크루에게 배정된 청소 현장 일정 목록. 날짜별 현장 주소·시간 확인.',
+    moduleOrder: 1,
+    title: '배정 목록',
+    path: '/team/assignments',
+    hint: '팀장에게 배정된 전체 접수 목록. 날짜·상태별 필터, 상세 정보 확인.',
+    waitSelector: '[class*="list"], [class*="table"], [class*="assignment"], main',
   },
   {
     role: 'team',
-    module: '출퇴근',
+    module: '일정',
+    moduleOrder: 1,
+    title: '스케줄 달력',
+    path: '/team/schedule',
+    hint: '월간 달력. 팀장 본인의 배정 일정을 날짜별로 확인.',
+    waitSelector: '[class*="calendar"], [class*="schedule"], table, main',
+  },
+  {
+    role: 'team',
+    module: 'C/S',
+    moduleOrder: 2,
+    title: 'C/S (고객 문의)',
+    path: '/team/cs',
+    hint: '팀장이 처리해야 할 고객 문의·재방문 요청 확인 화면.',
+    waitSelector: '[class*="cs"], [class*="list"], main',
+  },
+  {
+    role: 'team',
+    module: '전자계약',
     moduleOrder: 3,
-    title: '출퇴근 달력',
-    path: '/crew/roster',
-    hint: '월간 출퇴근 기록 달력. 날짜를 선택하면 해당일 출퇴근 상세 내역 확인.',
+    title: '전자계약 목록',
+    path: '/team/e-contracts',
+    hint: '본인 관할 전자계약서 목록. 서명 요청·완료 상태 확인.',
+    waitSelector: '[class*="contract"], [class*="list"], main',
   },
   {
     role: 'team',
     module: '정산',
     moduleOrder: 4,
-    title: '정산 내역',
-    path: '/crew/settlement',
-    hint: '크루 본인의 급여·정산 내역 확인 화면. 월별 지급 금액 조회.',
+    title: '외부 정산',
+    path: '/team/settlement',
+    hint: '팀장 본인의 정산 내역 확인.',
+    waitSelector: '[class*="settlement"], [class*="payroll"], main',
   },
   {
     role: 'team',
-    module: '설정',
+    module: '휴무 신청',
     moduleOrder: 5,
-    title: '설정',
-    path: '/crew/settings',
-    hint: '크루 개인 설정. 알림 수신 설정, 비밀번호 변경 등.',
+    title: '휴무 신청',
+    path: '/team/dayoffs',
+    hint: '팀장이 휴무를 신청하고 관리자 승인을 기다리는 화면.',
+    waitSelector: '[class*="dayoff"], [class*="holiday"], [class*="calendar"], main',
+  },
+  {
+    role: 'team',
+    module: '메시지',
+    moduleOrder: 6,
+    title: '메시지',
+    path: '/team/messages',
+    hint: '관리자에게 메시지 전송. 1:1 채팅 화면.',
+    waitSelector: '[class*="message"], [class*="chat"], main',
   },
 ];
 

@@ -3,9 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsx src/build-site.ts"
+    "setup": "playwright install chromium",
+    "capture": "node --import tsx/esm src/index.ts capture",
+    "build": "node --import tsx/esm src/index.ts build"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright": "^1.44.0"
   },
   "devDependencies": {
+    "@types/node": "^20.14.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

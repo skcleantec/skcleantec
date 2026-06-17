@@ -118,6 +118,11 @@ html, body {
   color: #f1f5f9 !important;
 }
 
+/** PWA(standalone) — iOS/Android 상태 표시줄(시계·신호) 아래로 GNB 시작 */
+.staff-top-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 /* Header brand text & headings */
 .theme-dark-header h1,
 .theme-dark-header h1 span,
