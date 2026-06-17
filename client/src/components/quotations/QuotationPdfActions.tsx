@@ -92,33 +92,43 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled 
       </button>
 
       {previewOpen && previewUrl && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/50 p-2 sm:p-4">
-          <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-3 py-2">
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/50 p-2 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !loading) closePreview();
+          }}
+        >
+          <div
+            className="relative mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-xl border border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalCloseButton onClick={closePreview} disabled={loading} />
+            <div className="border-b border-gray-100 px-3 py-2 pr-12">
               <h2 className="text-sm font-semibold">
                 PDF 미리보기 {quoteNumber ? `— ${quoteNumber}` : ''}
               </h2>
-              <ModalCloseButton onClick={closePreview} />
             </div>
             <iframe
               title="견적서 PDF 미리보기"
               src={previewUrl}
               className="min-h-0 flex-1 w-full border-0 bg-gray-100"
             />
-            <div className="flex justify-end gap-2 border-t px-3 py-2">
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-3 py-2">
               <button
                 type="button"
-                onClick={() => void handleDownload()}
-                className="px-3 py-1.5 text-sm border rounded"
+                disabled={loading}
+                onClick={closePreview}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                다운로드
+                취소
               </button>
               <button
                 type="button"
-                onClick={closePreview}
-                className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded"
+                disabled={loading}
+                onClick={() => void handleDownload()}
+                className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded disabled:opacity-50"
               >
-                닫기
+                다운로드
               </button>
             </div>
           </div>

@@ -325,30 +325,50 @@ export function AdminQuotationsListPage() {
       />
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
-          <div className="bg-white w-full sm:max-w-sm rounded-t-xl sm:rounded-xl shadow-lg p-4">
-            <div className="flex items-center justify-between mb-2">
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !deleting) setDeleteTarget(null);
+          }}
+        >
+          <div
+            className="relative w-full sm:max-w-sm rounded-t-xl sm:rounded-xl bg-white shadow-lg border border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalCloseButton onClick={() => setDeleteTarget(null)} disabled={deleting} />
+            <div className="border-b border-gray-100 px-4 pb-3 pt-4 pr-12">
               <h2 className="font-semibold text-red-700">견적서 삭제</h2>
-              <ModalCloseButton onClick={() => setDeleteTarget(null)} />
             </div>
-            <p className="text-sm text-gray-600 mb-3">
-              {deleteTarget.quoteNumber} — {deleteTarget.customerName}
-            </p>
-            <input
-              type="password"
-              className="w-full border rounded px-2 py-1.5 text-sm mb-3"
-              placeholder="로그인 비밀번호"
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-            />
-            <button
-              type="button"
-              disabled={deleting}
-              onClick={() => void handleDelete()}
-              className="w-full py-2 bg-red-600 text-white rounded text-sm disabled:opacity-50"
-            >
-              {deleting ? '삭제 중…' : '삭제 확인'}
-            </button>
+            <div className="p-4">
+              <p className="text-sm text-gray-600 mb-3">
+                {deleteTarget.quoteNumber} — {deleteTarget.customerName}
+              </p>
+              <input
+                type="password"
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                placeholder="로그인 비밀번호"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void handleDelete()}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded disabled:opacity-50"
+              >
+                {deleting ? '삭제 중…' : '삭제'}
+              </button>
+            </div>
           </div>
         </div>
       )}
