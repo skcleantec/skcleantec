@@ -214,6 +214,7 @@ export async function listQuotations(
     datePreset?: QuotationDatePreset;
     month?: string;
     day?: string;
+    inquiryId?: string;
   },
 ): Promise<{ items: QuotationDto[]; total: number }> {
   const qs = new URLSearchParams();
@@ -221,6 +222,7 @@ export async function listQuotations(
   if (params?.offset != null) qs.set('offset', String(params.offset));
   if (params?.customerName?.trim()) qs.set('customerName', params.customerName.trim());
   if (params?.status) qs.set('status', params.status);
+  if (params?.inquiryId?.trim()) qs.set('inquiryId', params.inquiryId.trim());
   if (params?.datePreset && params.datePreset !== 'all') {
     qs.set('datePreset', params.datePreset);
     if (params.datePreset === 'month' && params.month) qs.set('month', params.month);
@@ -250,6 +252,7 @@ export async function createQuotation(
     memo?: string | null;
     discountAmount?: number;
     validUntil?: string | null;
+    inquiryId?: string | null;
     lineItems: QuotationLineItemDto[];
   },
 ): Promise<QuotationDto> {
@@ -274,6 +277,7 @@ export async function updateQuotation(
     discountAmount: number;
     validUntil: string | null;
     status: QuotationStatus;
+    inquiryId?: string | null;
     lineItems: QuotationLineItemDto[];
   }>,
 ): Promise<QuotationDto> {

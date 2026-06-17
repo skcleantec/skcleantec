@@ -33,6 +33,7 @@ import {
   serializeServiceItem,
   verifyActorPassword,
 } from './quotations.service.js';
+import { resolveQuotationInquiryId } from './quotationInquiry.service.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -323,6 +324,11 @@ router.get('/', async (req, res) => {
   if (createdRange) {
     where.createdAt = { gte: createdRange.gte, lte: createdRange.lte };
   }
+  const inquiryIdRaw =
+    typeof req.query.inquiryId === 'string' ? req.query.inquiryId.trim() : '';
+  if (inquiryIdRaw) {
+    where.inquiryId = inquiryIdRaw;
+  }
 
   const [total, rows] = await Promise.all([
     prisma.quotation.count({ where }),
@@ -381,6 +387,12 @@ router.post('/', async (req, res) => {
       : 0;
   const { subtotal, total } = computeQuotationTotals(linesParsed, discountAmount);
 
+  const inquiryIdResolved = await resolveQuotationInquiryId(prisma, tenantId, body.inquiryId);
+  if (inquiryIdResolved === 'INVALID') {
+    res.status(400).json({ error: '연결할 접수를 찾을 수 없습니다.' });
+    return;
+  }
+
   const row = await prisma.$transaction(async (tx) => {
     const quoteNumber = await allocateNextQuotationNumber(tx, tenantId);
     return tx.quotation.create({
@@ -406,8 +418,7 @@ router.post('/', async (req, res) => {
         discountAmount,
         total,
         validUntil: validUntilParsed,
-        inquiryId:
-          typeof body.inquiryId === 'string' && body.inquiryId.trim() ? body.inquiryId.trim() : null,
+        inquiryId: inquiryIdResolved,
         createdById: auth.userId,
         lineItems: {
           create: linesParsed.map((li, i) => ({
@@ -481,6 +492,16 @@ router.patch('/:id', async (req, res) => {
       : existing.discountAmount;
   const { subtotal, total } = computeQuotationTotals(linesParsed, discountAmount);
 
+  let patchInquiryId: string | null | undefined = undefined;
+  if (body.inquiryId !== undefined) {
+    const resolved = await resolveQuotationInquiryId(prisma, tenantId, body.inquiryId);
+    if (resolved === 'INVALID') {
+      res.status(400).json({ error: '연결할 접수를 찾을 수 없습니다.' });
+      return;
+    }
+    patchInquiryId = resolved;
+  }
+
   const statusRaw = body.status;
   const nextStatus =
     statusRaw === 'DRAFT' || statusRaw === 'FINALIZED' || statusRaw === 'SENT'
@@ -539,12 +560,7 @@ router.patch('/:id', async (req, res) => {
         total,
         validUntil: validUntilParsed,
         status: nextStatus,
-        inquiryId:
-          body.inquiryId !== undefined
-            ? typeof body.inquiryId === 'string' && body.inquiryId.trim()
-              ? body.inquiryId.trim()
-              : null
-            : undefined,
+        inquiryId: patchInquiryId,
       },
       include: quotationInclude,
     });

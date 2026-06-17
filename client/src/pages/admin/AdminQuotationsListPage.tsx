@@ -234,6 +234,7 @@ export function AdminQuotationsListPage() {
                   <tr>
                     <th className="px-3 py-2">견적번호</th>
                     <th className="px-3 py-2">상대</th>
+                    <th className="px-3 py-2">접수</th>
                     <th className="px-3 py-2 text-right">합계</th>
                     <th className="px-3 py-2">상태</th>
                     <th className="px-3 py-2">작성일</th>
@@ -246,6 +247,9 @@ export function AdminQuotationsListPage() {
                     <tr key={row.id} className="border-t hover:bg-gray-50">
                       <td className="px-3 py-2 font-mono text-xs">{row.quoteNumber}</td>
                       <td className="px-3 py-2">{row.customerName}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600 font-mono">
+                        {row.inquiry?.inquiryNumber ?? '—'}
+                      </td>
                       <td className="px-3 py-2 text-right tabular-nums">
                         {row.total.toLocaleString('ko-KR')}원
                       </td>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { getToken } from '../../stores/auth';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { getInquiry } from '../../api/inquiries';
 import {
   createQuotation,
   fetchQuotationEditorDefaults,
@@ -16,14 +16,21 @@ import { QuotationLineItemsEditor } from '../../components/quotations/QuotationL
 import { QuotationPdfActions } from '../../components/quotations/QuotationPdfActions';
 import { QuotationPreconditionBanner } from '../../components/quotations/QuotationPreconditionBanner';
 import {
+  buildInquiryQuotationPrefill,
+  inquiryLabelFromRow,
+} from '../../components/quotations/inquiryQuotationPrefill';
+import {
   emptyQuotationLine,
   parsePriceInt,
   parseQty,
   type EditableQuotationLine,
 } from '../../components/quotations/quotationLineUtils';
+import { getToken } from '../../stores/auth';
 
 export function AdminQuotationEditorPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const seedInquiryId = searchParams.get('inquiryId')?.trim() || null;
   const isNew = id === 'new' || !id;
   const navigate = useNavigate();
   const token = getToken();
@@ -31,6 +38,8 @@ export function AdminQuotationEditorPage() {
   const [catalog, setCatalog] = useState<QuotationServiceItemDto[]>([]);
   const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('DRAFT');
+  const [linkedInquiryId, setLinkedInquiryId] = useState<string | null>(null);
+  const [linkedInquiryLabel, setLinkedInquiryLabel] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -71,6 +80,22 @@ export function AdminQuotationEditorPage() {
     }
   }, [token, isNew]);
 
+  const loadInquirySeed = useCallback(async () => {
+    if (!token || !isNew || !seedInquiryId) return;
+    try {
+      const row = await getInquiry(token, seedInquiryId);
+      const prefill = buildInquiryQuotationPrefill(row);
+      if (prefill.customerName) setCustomerName(prefill.customerName);
+      if (prefill.customerPhone) setCustomerPhone(prefill.customerPhone);
+      if (prefill.customerAddress) setCustomerAddress(prefill.customerAddress);
+      if (prefill.memo) setMemo(prefill.memo);
+      setLinkedInquiryId(seedInquiryId);
+      setLinkedInquiryLabel(inquiryLabelFromRow(row));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '접수 정보를 불러올 수 없습니다.');
+    }
+  }, [token, isNew, seedInquiryId]);
+
   const loadQuotation = useCallback(async () => {
     if (!token || isNew || !id) return;
     setLoading(true);
@@ -90,6 +115,14 @@ export function AdminQuotationEditorPage() {
       setMemo(row.memo ?? '');
       setSentAt(row.sentAt);
       setLastEmailedAt(row.lastEmailedAt);
+      setLinkedInquiryId(row.inquiryId);
+      setLinkedInquiryLabel(
+        row.inquiry
+          ? row.inquiry.inquiryNumber
+            ? `${row.inquiry.inquiryNumber} · ${row.inquiry.customerName}`
+            : row.inquiry.customerName
+          : null,
+      );
       setDiscountAmount(row.discountAmount > 0 ? String(row.discountAmount) : '');
       setValidUntil(row.validUntil ?? '');
       setLines(
@@ -117,6 +150,10 @@ export function AdminQuotationEditorPage() {
   useEffect(() => {
     void loadNewDefaults();
   }, [loadNewDefaults]);
+
+  useEffect(() => {
+    void loadInquirySeed();
+  }, [loadInquirySeed]);
 
   useEffect(() => {
     void loadQuotation();
@@ -178,6 +215,7 @@ export function AdminQuotationEditorPage() {
         discountAmount: disc,
         validUntil: validUntil.trim() || null,
         lineItems,
+        ...(linkedInquiryId ? { inquiryId: linkedInquiryId } : {}),
         ...(finalize ? { status: 'FINALIZED' as const } : {}),
       };
 
@@ -219,6 +257,12 @@ export function AdminQuotationEditorPage() {
           <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">확정</span>
         )}
       </div>
+
+      {linkedInquiryLabel && (
+        <p className="mb-3 text-sm text-blue-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+          접수 연동: <span className="font-medium">{linkedInquiryLabel}</span>
+        </p>
+      )}
 
       <QuotationPreconditionBanner
         companyNameMissing={companyNameMissing}
