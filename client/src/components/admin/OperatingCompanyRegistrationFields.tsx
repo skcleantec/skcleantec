@@ -82,7 +82,7 @@ export function OperatingCompanyRegistrationFields({ value, onChange, idPrefix =
 }
 
 function pickRegistrationFields(
-  source: Partial<TenantCompanyRegistration> | undefined,
+  source?: Partial<TenantCompanyRegistration>,
 ): TenantCompanyRegistration {
   return {
     companyName: source?.companyName ?? '',
@@ -95,15 +95,31 @@ function pickRegistrationFields(
   };
 }
 
+const COMPANY_REG_TEXT_KEYS = [
+  'companyName',
+  'representativeName',
+  'businessRegistrationNo',
+  'addressLine',
+  'phone',
+  'fax',
+  'contactEmail',
+] as const satisfies readonly (keyof TenantCompanyRegistration)[];
+
 export function companyRegistrationFromForm(
   value: TenantCompanyRegistration,
 ): Partial<TenantCompanyRegistration> | undefined {
   const out: Partial<TenantCompanyRegistration> = {};
-  for (const [key, raw] of Object.entries(value) as [keyof TenantCompanyRegistration, string][]) {
+  for (const key of COMPANY_REG_TEXT_KEYS) {
+    const raw = value[key];
+    if (typeof raw !== 'string') continue;
     const trimmed = raw.trim();
     if (trimmed) out[key] = trimmed;
   }
   return Object.keys(out).length > 0 ? out : {};
 }
 
-export { pickRegistrationFields as emptyCompanyRegistrationForm };
+export function emptyCompanyRegistrationForm(
+  source?: Partial<TenantCompanyRegistration>,
+): TenantCompanyRegistration {
+  return pickRegistrationFields(source);
+}

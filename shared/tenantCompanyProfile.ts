@@ -35,7 +35,9 @@ export type TenantCompanyProfileDto = {
 };
 
 export type TenantCompanyProfilePatch = {
-  companyRegistration?: Partial<TenantCompanyRegistration> & {
+  companyRegistration?: Partial<
+    Omit<TenantCompanyRegistration, 'sealPublicId' | 'sealSecureUrl' | 'sealDisplayWidthPx'>
+  > & {
     sealPublicId?: string | null;
     sealSecureUrl?: string | null;
     sealDisplayWidthPx?: number | null;

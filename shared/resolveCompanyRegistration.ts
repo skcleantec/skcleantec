@@ -8,10 +8,12 @@ export function resolveCompanyRegistration(
 ): TenantCompanyRegistration {
   const t = tenant ?? {};
   const b = brand ?? {};
-  const pick = (key: keyof TenantCompanyRegistration): string | undefined => {
-    const brandVal = b[key]?.trim();
+  const pick = (
+    key: Exclude<keyof TenantCompanyRegistration, 'sealDisplayWidthPx'>,
+  ): string | undefined => {
+    const brandVal = typeof b[key] === 'string' ? b[key].trim() : '';
     if (brandVal) return brandVal;
-    const tenantVal = t[key]?.trim();
+    const tenantVal = typeof t[key] === 'string' ? t[key].trim() : '';
     return tenantVal || undefined;
   };
   return {
