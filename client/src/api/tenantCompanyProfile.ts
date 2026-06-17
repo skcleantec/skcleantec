@@ -1,4 +1,5 @@
 import type {
+  TenantCompanyRegistration,
   TenantCompanyProfileDto,
   TenantCompanyProfilePatch,
 } from '@shared/tenantCompanyProfile';
@@ -48,4 +49,8 @@ export async function sendTenantCompanyProfileTestEmail(
   if (!res.ok) throw new Error(data.error ?? '테스트 메일 발송에 실패했습니다.');
 }
 
-export type { TenantCompanyProfileDto, TenantCompanyProfilePatch };
+export type {
+  TenantCompanyRegistration,
+  TenantCompanyProfileDto,
+  TenantCompanyProfilePatch,
+};
