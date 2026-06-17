@@ -6,7 +6,7 @@ import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
 import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
-import { resolveTenantSlugForLoginForm } from '../utils/loginTenantSlug';
+import { resolveTenantSlugForLoginForm, sanitizeLoginTenantSlug } from '../utils/loginTenantSlug';
 import { saveTenantSlug } from '../utils/tenantSlug';
 import {
   loadSavedLoginCredentials,
@@ -128,7 +128,7 @@ export function LoginPage() {
       setEmail(saved.loginId);
       setPassword(saved.password);
       if (saved.crewMode) setCrewLoginMode(true);
-      setTenantSlug(saved.tenantSlug || slugFromEnv);
+      setTenantSlug(sanitizeLoginTenantSlug(saved.tenantSlug) || slugFromEnv);
     } else {
       setTenantSlug(slugFromEnv);
     }
@@ -141,7 +141,7 @@ export function LoginPage() {
       if (saved?.remember && saved.crewMode === next) {
         setEmail(saved.loginId);
         setPassword(saved.password);
-        setTenantSlug(saved.tenantSlug || resolveTenantSlugForLoginForm());
+        setTenantSlug(sanitizeLoginTenantSlug(saved.tenantSlug) || resolveTenantSlugForLoginForm());
       }
       return next;
     });
