@@ -3,6 +3,7 @@ import type {
   QuotationServiceItemDto,
 } from '../../api/quotations';
 import type { TenantCompanyRegistration } from '../../api/tenantCompanyProfile';
+import { resolveQuotationSealDisplayWidth } from '@shared/quotationSeal';
 import type { QuotationVatMode } from '@shared/quotationVat';
 import { computeLineAmounts, vatModeLabel } from '@shared/quotationVat';
 import { formatQuotationDocumentTitle } from '@shared/quotationDocument';
@@ -82,7 +83,6 @@ function companyLines(c: TenantCompanyRegistration | null): string[] {
   if (!c) return ['—'];
   return [
     c.companyName?.trim() || '—',
-    c.representativeName?.trim() ? `대표 ${c.representativeName.trim()}` : null,
     c.businessRegistrationNo?.trim() ? `사업자 ${c.businessRegistrationNo.trim()}` : null,
     c.addressLine?.trim() ?? null,
     c.phone?.trim() ? `Tel ${c.phone.trim()}` : null,
@@ -231,6 +231,9 @@ export function QuotationDocumentEditor({
   const templateLines = linesForTemplateDisplay(lines);
 
   const supplierLines = companyLines(company);
+  const sealWidth = resolveQuotationSealDisplayWidth(company?.sealDisplayWidthPx);
+  const sealUrl = company?.sealSecureUrl?.trim() || null;
+  const repName = company?.representativeName?.trim() || null;
   const documentTitle = resolveQuotationTitle(operatingCompanies, operatingCompanyId, company);
   const showBrandSelector = operatingCompanies.length > 1;
 
@@ -297,7 +300,25 @@ export function QuotationDocumentEditor({
                 <div className="border border-slate-300 bg-[#f9fafb] p-3 min-h-[100px]">
                   <p className="text-[10px] font-bold text-slate-500 mb-2 tracking-wide">공급자</p>
                   <div className="space-y-0.5 text-[12px] text-slate-800">
-                    {supplierLines.map((line) => (
+                    {supplierLines[0] && supplierLines[0] !== '—' ? (
+                      <p>{supplierLines[0]}</p>
+                    ) : supplierLines[0] === '—' ? (
+                      <p>—</p>
+                    ) : null}
+                    {repName ? (
+                      <p className="flex items-center gap-2 flex-wrap">
+                        <span>대표 {repName}</span>
+                        {sealUrl ? (
+                          <img
+                            src={sealUrl}
+                            alt="직인"
+                            width={sealWidth}
+                            className="inline-block h-auto max-h-12 object-contain"
+                          />
+                        ) : null}
+                      </p>
+                    ) : null}
+                    {supplierLines.slice(1).map((line) => (
                       <p key={line}>{line}</p>
                     ))}
                   </div>

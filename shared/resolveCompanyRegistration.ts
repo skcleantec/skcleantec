@@ -1,4 +1,5 @@
 import type { TenantCompanyRegistration } from './tenantCompanyProfile.js';
+import { resolveQuotationSealDisplayWidth } from './quotationSeal.js';
 
 /** 브랜드별 사업자 정보 — 필드별로 브랜드 값 우선, 없으면 테넌트 기본값 */
 export function resolveCompanyRegistration(
@@ -21,5 +22,13 @@ export function resolveCompanyRegistration(
     phone: pick('phone'),
     fax: pick('fax'),
     contactEmail: pick('contactEmail'),
+    sealPublicId: pick('sealPublicId'),
+    sealSecureUrl: pick('sealSecureUrl'),
+    sealDisplayWidthPx:
+      typeof b.sealDisplayWidthPx === 'number' && Number.isFinite(b.sealDisplayWidthPx)
+        ? resolveQuotationSealDisplayWidth(b.sealDisplayWidthPx)
+        : typeof t.sealDisplayWidthPx === 'number' && Number.isFinite(t.sealDisplayWidthPx)
+          ? resolveQuotationSealDisplayWidth(t.sealDisplayWidthPx)
+          : undefined,
   };
 }

@@ -4,9 +4,16 @@ import {
   fetchTenantCompanyProfile,
   patchTenantCompanyProfile,
   sendTenantCompanyProfileTestEmail,
+  uploadTenantCompanySeal,
   type TenantCompanyProfileDto,
 } from '../../api/tenantCompanyProfile';
 import { getToken } from '../../stores/auth';
+import {
+  QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT,
+  QUOTATION_SEAL_DISPLAY_WIDTH_MAX,
+  QUOTATION_SEAL_DISPLAY_WIDTH_MIN,
+  QUOTATION_SEAL_SOURCE_PX,
+} from '@shared/quotationSeal';
 import { TenantSmtpFieldLabel } from '../../components/admin/TenantSmtpFieldLabel';
 import {
   PROVIDER_PRESETS,
@@ -28,6 +35,11 @@ export function AdminTenantCompanyProfilePage() {
   const [phone, setPhone] = useState('');
   const [fax, setFax] = useState('');
   const [contactEmail, setContactEmail] = useState('');
+  const [sealPreviewUrl, setSealPreviewUrl] = useState<string | null>(null);
+  const [sealDisplayWidthPx, setSealDisplayWidthPx] = useState(
+    String(QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT),
+  );
+  const [sealBusy, setSealBusy] = useState(false);
 
   const [smtpHost, setSmtpHost] = useState('');
   const [smtpPort, setSmtpPort] = useState('587');
@@ -49,6 +61,10 @@ export function AdminTenantCompanyProfilePage() {
     setPhone(c.phone ?? '');
     setFax(c.fax ?? '');
     setContactEmail(c.contactEmail ?? '');
+    setSealPreviewUrl(c.sealSecureUrl?.trim() || null);
+    setSealDisplayWidthPx(
+      String(c.sealDisplayWidthPx ?? QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT),
+    );
     setSmtpHost(dto.smtp.host);
     setSmtpPort(String(dto.smtp.port || 587));
     setSmtpSecure(dto.smtp.secure);
@@ -75,6 +91,91 @@ export function AdminTenantCompanyProfilePage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const parseSealWidth = (): number | 'bad' | 'default' => {
+    const raw = sealDisplayWidthPx.trim();
+    if (!raw) return 'default';
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n)) return 'bad';
+    if (n < QUOTATION_SEAL_DISPLAY_WIDTH_MIN || n > QUOTATION_SEAL_DISPLAY_WIDTH_MAX) return 'bad';
+    return n;
+  };
+
+  const handleSealUpload = async (file: File) => {
+    if (!token) return;
+    if (file.type !== 'image/png') {
+      setErr('직인은 PNG 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    const sealW = parseSealWidth();
+    if (sealW === 'bad') {
+      setErr(`직인 표시 크기는 ${QUOTATION_SEAL_DISPLAY_WIDTH_MIN}~${QUOTATION_SEAL_DISPLAY_WIDTH_MAX} px만 가능합니다.`);
+      return;
+    }
+    setSealBusy(true);
+    setErr(null);
+    try {
+      const up = await uploadTenantCompanySeal(file, token, file.name || `seal_${Date.now()}.png`);
+      const dto = await patchTenantCompanyProfile(token, {
+        companyRegistration: {
+          sealPublicId: up.publicId,
+          sealSecureUrl: up.secureUrl,
+          ...(sealW === 'default' ? {} : { sealDisplayWidthPx: sealW }),
+        },
+      });
+      hydrate(dto);
+      setSuccessModal('직인 이미지를 저장했습니다.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '직인 업로드 실패');
+    } finally {
+      setSealBusy(false);
+    }
+  };
+
+  const handleSealRemove = async () => {
+    if (!token || !window.confirm('직인 이미지를 제거할까요?')) return;
+    setSealBusy(true);
+    setErr(null);
+    try {
+      const dto = await patchTenantCompanyProfile(token, {
+        companyRegistration: {
+          sealPublicId: null,
+          sealSecureUrl: null,
+          sealDisplayWidthPx: null,
+        },
+      });
+      hydrate(dto);
+      setSuccessModal('직인을 제거했습니다.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '직인 제거 실패');
+    } finally {
+      setSealBusy(false);
+    }
+  };
+
+  const handleSealWidthSave = async () => {
+    if (!token || !sealPreviewUrl) return;
+    const sealW = parseSealWidth();
+    if (sealW === 'bad') {
+      setErr(`직인 표시 크기는 ${QUOTATION_SEAL_DISPLAY_WIDTH_MIN}~${QUOTATION_SEAL_DISPLAY_WIDTH_MAX} px만 가능합니다.`);
+      return;
+    }
+    setSealBusy(true);
+    setErr(null);
+    try {
+      const dto = await patchTenantCompanyProfile(token, {
+        companyRegistration: {
+          sealDisplayWidthPx: sealW === 'default' ? null : sealW,
+        },
+      });
+      hydrate(dto);
+      setSuccessModal('직인 표시 크기를 저장했습니다.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '저장 실패');
+    } finally {
+      setSealBusy(false);
+    }
+  };
 
   const handleSave = async (scope: 'all' | 'company' | 'smtp' = 'all') => {
     if (!token) return;
@@ -182,6 +283,84 @@ export function AdminTenantCompanyProfilePage() {
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
+          <div className="block sm:col-span-2 rounded-lg border border-gray-100 bg-gray-50/80 p-4 space-y-3">
+            <div>
+              <span className="text-sm font-medium text-gray-800">견적서 직인 (PNG)</span>
+              <p className="mt-1 text-xs text-gray-500 leading-relaxed">
+                대표자명 옆에 표시됩니다. 권장 원본:{' '}
+                <strong>{QUOTATION_SEAL_SOURCE_PX}×{QUOTATION_SEAL_SOURCE_PX}px</strong> 정사각 PNG
+                (투명 배경). 화면·PDF 표시 너비 기본 {QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT}px.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="block text-sm">
+                <span className="text-gray-700">표시 너비 (px)</span>
+                <input
+                  type="number"
+                  min={QUOTATION_SEAL_DISPLAY_WIDTH_MIN}
+                  max={QUOTATION_SEAL_DISPLAY_WIDTH_MAX}
+                  value={sealDisplayWidthPx}
+                  onChange={(e) => setSealDisplayWidthPx(e.target.value)}
+                  className="mt-1 w-24 rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={sealBusy || !sealPreviewUrl}
+                onClick={() => void handleSealWidthSave()}
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                표시 크기 저장
+              </button>
+              <button
+                type="button"
+                disabled={sealBusy}
+                onClick={() => document.getElementById('tenant-company-seal-file')?.click()}
+                className="rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                {sealBusy ? '처리 중…' : sealPreviewUrl ? '직인 교체' : '직인 업로드'}
+              </button>
+              <input
+                id="tenant-company-seal-file"
+                type="file"
+                accept="image/png"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) void handleSealUpload(f);
+                }}
+              />
+              {sealPreviewUrl ? (
+                <button
+                  type="button"
+                  disabled={sealBusy}
+                  onClick={() => void handleSealRemove()}
+                  className="rounded-md border border-rose-200 px-3 py-2 text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                >
+                  직인 제거
+                </button>
+              ) : null}
+            </div>
+            {sealPreviewUrl ? (
+              <div className="flex items-center gap-3 pt-1">
+                <span className="text-xs text-gray-500">미리보기 (대표 옆)</span>
+                <span className="inline-flex items-center gap-2 text-sm text-gray-800">
+                  대표 {representativeName.trim() || '○○○'}
+                  <img
+                    src={sealPreviewUrl}
+                    alt="직인 미리보기"
+                    width={
+                      Number(sealDisplayWidthPx) > 0
+                        ? Number(sealDisplayWidthPx)
+                        : QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT
+                    }
+                    className="inline-block h-auto max-h-14 object-contain"
+                  />
+                </span>
+              </div>
+            ) : null}
+          </div>
           <label className="block">
             <span className="text-sm font-medium text-gray-800">사업자등록번호</span>
             <input

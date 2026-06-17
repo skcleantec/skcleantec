@@ -99,6 +99,8 @@ const COMPANY_REG_KEYS = [
   'phone',
   'fax',
   'contactEmail',
+  'sealPublicId',
+  'sealSecureUrl',
 ] as const satisfies readonly (keyof TenantCompanyRegistrationConfig)[];
 
 function parseCompanyRegistration(
@@ -112,8 +114,11 @@ function parseCompanyRegistration(
   const o = raw as Record<string, unknown>;
   const out: Partial<TenantCompanyRegistrationConfig> = {};
   for (const key of COMPANY_REG_KEYS) {
-    const v = trimOptionalString(o[key], MAX_STRING);
+    const v = trimOptionalString(o[key], key === 'sealSecureUrl' ? 2048 : key === 'sealPublicId' ? 512 : MAX_STRING);
     if (v) out[key] = v;
+  }
+  if (typeof o.sealDisplayWidthPx === 'number' && Number.isFinite(o.sealDisplayWidthPx)) {
+    out.sealDisplayWidthPx = Math.min(96, Math.max(32, Math.round(o.sealDisplayWidthPx)));
   }
   return Object.keys(out).length > 0 ? out : {};
 }
@@ -132,6 +137,11 @@ function mergeCompanyRegistrationSection(
       if (t) merged[key] = t;
       else delete merged[key];
     }
+  }
+  if (typeof merged.sealDisplayWidthPx === 'number' && Number.isFinite(merged.sealDisplayWidthPx)) {
+    merged.sealDisplayWidthPx = Math.min(96, Math.max(32, Math.round(merged.sealDisplayWidthPx)));
+  } else {
+    delete merged.sealDisplayWidthPx;
   }
   return Object.keys(merged).length > 0 ? merged : undefined;
 }

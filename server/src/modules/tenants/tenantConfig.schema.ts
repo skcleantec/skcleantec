@@ -16,7 +16,7 @@ export type TenantInquiryConfig = {
   numberPrefix?: string;
 };
 
-/** 업체등록정보 — 사업자·연락처 */
+/** 업체등록정보 — 사업자·연락처·견적 직인 */
 export type TenantCompanyRegistrationConfig = {
   companyName?: string;
   representativeName?: string;
@@ -25,6 +25,9 @@ export type TenantCompanyRegistrationConfig = {
   phone?: string;
   fax?: string;
   contactEmail?: string;
+  sealPublicId?: string;
+  sealSecureUrl?: string;
+  sealDisplayWidthPx?: number;
 };
 
 /** SMTP — passEnc는 서버 전용 (암호화 저장) */
@@ -136,6 +139,12 @@ function parseCompanyRegistration(raw: unknown): TenantConfig['companyRegistrati
   const phone = trimOptionalString(o.phone, 32);
   const fax = trimOptionalString(o.fax, 32);
   const contactEmail = trimOptionalString(o.contactEmail, MAX_STRING);
+  const sealPublicId = trimOptionalString(o.sealPublicId, 512);
+  const sealSecureUrl = trimOptionalString(o.sealSecureUrl, 2048);
+  let sealDisplayWidthPx: number | undefined;
+  if (typeof o.sealDisplayWidthPx === 'number' && Number.isFinite(o.sealDisplayWidthPx)) {
+    sealDisplayWidthPx = Math.min(96, Math.max(32, Math.round(o.sealDisplayWidthPx)));
+  }
   if (
     !companyName &&
     !representativeName &&
@@ -143,7 +152,10 @@ function parseCompanyRegistration(raw: unknown): TenantConfig['companyRegistrati
     !addressLine &&
     !phone &&
     !fax &&
-    !contactEmail
+    !contactEmail &&
+    !sealPublicId &&
+    !sealSecureUrl &&
+    sealDisplayWidthPx === undefined
   ) {
     return undefined;
   }
@@ -155,6 +167,9 @@ function parseCompanyRegistration(raw: unknown): TenantConfig['companyRegistrati
     phone,
     fax,
     contactEmail,
+    sealPublicId,
+    sealSecureUrl,
+    sealDisplayWidthPx,
   };
 }
 

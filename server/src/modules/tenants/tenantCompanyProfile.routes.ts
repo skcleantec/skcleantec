@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
+import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
+import { tenantCompanySealFolder } from '../../lib/quotationSeal.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireTenantIdFromAuth } from './tenantScope.helpers.js';
 import {
@@ -38,6 +40,37 @@ router.patch('/', async (req, res) => {
       return;
     }
     throw e;
+  }
+});
+
+/** POST /api/admin/tenant-company-profile/seal-upload-sign */
+router.post('/seal-upload-sign', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  try {
+    if (!isCloudinaryConfigured()) {
+      res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
+      return;
+    }
+    const folder = tenantCompanySealFolder(tenantId);
+    const ts = Math.round(Date.now() / 1000);
+    const paramsToSign: Record<string, string | number> = { timestamp: ts, folder };
+    const cfg = cloudinary.config();
+    if (!cfg.api_secret) {
+      res.status(503).json({ error: '저장 설정이 불완전합니다.' });
+      return;
+    }
+    const signature = cloudinary.utils.api_sign_request(paramsToSign, cfg.api_secret);
+    res.json({
+      cloudName: cfg.cloud_name,
+      apiKey: cfg.api_key,
+      timestamp: ts,
+      signature,
+      folder,
+    });
+  } catch (e) {
+    console.error('[tenant-company-profile] seal upload-sign', e);
+    res.status(500).json({ error: '업로드 서명에 실패했습니다.' });
   }
 });
 

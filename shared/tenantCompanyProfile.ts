@@ -3,6 +3,8 @@
  * SMTP 비밀번호는 서버에서만 암호화 저장 — API에는 노출하지 않음
  */
 
+import type { QuotationSealFields } from './quotationSealFields.js';
+
 export type TenantCompanyRegistration = {
   companyName?: string;
   representativeName?: string;
@@ -12,7 +14,7 @@ export type TenantCompanyRegistration = {
   fax?: string;
   /** 업체 대표 연락 이메일 (발송 SMTP 발신 주소와 다를 수 있음) */
   contactEmail?: string;
-};
+} & QuotationSealFields;
 
 /** API 응답용 — 비밀번호 제외 */
 export type TenantSmtpSettingsPublic = {
@@ -33,7 +35,11 @@ export type TenantCompanyProfileDto = {
 };
 
 export type TenantCompanyProfilePatch = {
-  companyRegistration?: Partial<TenantCompanyRegistration>;
+  companyRegistration?: Partial<TenantCompanyRegistration> & {
+    sealPublicId?: string | null;
+    sealSecureUrl?: string | null;
+    sealDisplayWidthPx?: number | null;
+  };
   smtp?: {
     host?: string;
     port?: number | null;

@@ -1,3 +1,4 @@
+import { resolveQuotationSealDisplayWidth, tenantCompanySealLooksValid } from '../../lib/quotationSeal.js';
 import { encryptTenantSecret } from '../../lib/tenantSecretCrypto.js';
 import {
   isGlobalSmtpConfigured,
@@ -40,18 +41,60 @@ export type TenantCompanyProfilePatch = {
 function mergeCompanyRegistration(
   existing: TenantCompanyRegistrationConfig | undefined,
   patch: Partial<TenantCompanyRegistrationConfig> | undefined,
+  tenantId: string,
 ): TenantCompanyRegistrationConfig | undefined {
   if (!patch) return existing;
   const merged: TenantCompanyRegistrationConfig = { ...(existing ?? {}), ...patch };
-  for (const key of Object.keys(merged) as (keyof TenantCompanyRegistrationConfig)[]) {
-    const v = merged[key];
+
+  for (const key of [
+    'companyName',
+    'representativeName',
+    'businessRegistrationNo',
+    'addressLine',
+    'phone',
+    'fax',
+    'contactEmail',
+    'sealPublicId',
+    'sealSecureUrl',
+  ] as const) {
+    if (!(key in patch)) continue;
+    const v = patch[key];
+    if (v === null || v === undefined) {
+      delete merged[key];
+      continue;
+    }
     if (typeof v === 'string') {
       const t = v.trim();
       if (t) merged[key] = t;
-      else if (existing?.[key]) merged[key] = existing[key];
       else delete merged[key];
     }
   }
+
+  if ('sealDisplayWidthPx' in patch) {
+    if (patch.sealDisplayWidthPx === null || patch.sealDisplayWidthPx === undefined) {
+      delete merged.sealDisplayWidthPx;
+    } else if (typeof patch.sealDisplayWidthPx === 'number' && Number.isFinite(patch.sealDisplayWidthPx)) {
+      merged.sealDisplayWidthPx = resolveQuotationSealDisplayWidth(patch.sealDisplayWidthPx);
+    }
+  }
+
+  const pid = merged.sealPublicId?.trim();
+  const surl = merged.sealSecureUrl?.trim();
+  if (pid || surl) {
+    if (!pid || !surl || !tenantCompanySealLooksValid(pid, surl, tenantId)) {
+      throw Object.assign(new Error('seal_invalid'), {
+        code: 'bad_request' as const,
+        message: '직인 이미지 정보가 올바르지 않습니다. 다시 업로드해 주세요.',
+      });
+    }
+    merged.sealPublicId = pid.slice(0, 512);
+    merged.sealSecureUrl = surl.slice(0, 2048);
+  } else {
+    delete merged.sealPublicId;
+    delete merged.sealSecureUrl;
+    delete merged.sealDisplayWidthPx;
+  }
+
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
@@ -131,6 +174,7 @@ export async function patchTenantCompanyProfile(
   const companyRegistration = mergeCompanyRegistration(
     existing.companyRegistration,
     body.companyRegistration,
+    tenantId,
   );
   const smtp = mergeSmtpStored(existing.smtp, body.smtp);
 
