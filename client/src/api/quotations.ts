@@ -25,6 +25,7 @@ export type QuotationDatePreset = 'today' | 'all' | 'month' | 'day';
 
 export interface QuotationConfigDto {
   footerNotice: string | null;
+  documentTitle: string | null;
   defaultValidDays: number | null;
   updatedAt: string;
 }
@@ -159,7 +160,11 @@ export async function fetchQuotationConfig(token: string): Promise<QuotationConf
 
 export async function updateQuotationConfig(
   token: string,
-  body: Partial<{ footerNotice: string | null; defaultValidDays: number | null }>,
+  body: Partial<{
+    footerNotice: string | null;
+    documentTitle: string | null;
+    defaultValidDays: number | null;
+  }>,
 ): Promise<QuotationConfigDto> {
   const res = await fetch(`${API}/quotations/config`, {
     method: 'PUT',
@@ -269,8 +274,13 @@ export async function deleteQuotation(token: string, id: string, password: strin
   if (!res.ok) throw new Error(await readError(res));
 }
 
-export async function downloadQuotationPdf(token: string, id: string): Promise<Blob> {
-  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}/pdf`, {
+export async function downloadQuotationPdf(
+  token: string,
+  id: string,
+  opts?: { preview?: boolean },
+): Promise<Blob> {
+  const qs = opts?.preview ? '?inline=1' : '';
+  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}/pdf${qs}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error(await readError(res));

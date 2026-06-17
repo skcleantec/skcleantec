@@ -13,11 +13,13 @@ export async function getOrCreateQuotationConfig(db: Db, tenantId: string) {
 
 export function serializeQuotationConfig(row: {
   footerNotice: string | null;
+  documentTitle: string | null;
   defaultValidDays: number | null;
   updatedAt: Date;
 }) {
   return {
     footerNotice: row.footerNotice,
+    documentTitle: row.documentTitle,
     defaultValidDays: row.defaultValidDays,
     updatedAt: row.updatedAt.toISOString(),
   };

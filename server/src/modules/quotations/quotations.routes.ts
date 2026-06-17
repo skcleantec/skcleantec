@@ -11,8 +11,10 @@ import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { getTenantCompanyProfile } from '../tenants/tenantCompanyProfile.service.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { allocateNextQuotationNumber } from './quotationNumber.js';
-import { buildQuotationPdfBuffer } from './quotation.pdf.service.js';
 import { sendQuotationEmail } from './quotation.email.service.js';
+import {
+  generateAndStoreQuotationPdf,
+} from './quotationPdfBuild.service.js';
 import {
   getOrCreateQuotationConfig,
   kstYmdPlusDays,
@@ -69,11 +71,6 @@ async function requireActorPassword(
   return true;
 }
 
-async function loadPdfFooterNotice(tenantId: string): Promise<string | null> {
-  const config = await getOrCreateQuotationConfig(prisma, tenantId);
-  return config.footerNotice?.trim() || null;
-}
-
 /** 견적 서식·기본값 */
 router.get('/config', async (req, res) => {
   const tenantId = requireTenant(req, res);
@@ -87,6 +84,7 @@ router.put('/config', adminOnly, async (req, res) => {
   if (!tenantId) return;
   const body = req.body as {
     footerNotice?: string | null;
+    documentTitle?: string | null;
     defaultValidDays?: number | null;
   };
   const existing = await getOrCreateQuotationConfig(prisma, tenantId);
@@ -95,6 +93,12 @@ router.put('/config', adminOnly, async (req, res) => {
     patch.footerNotice =
       typeof body.footerNotice === 'string' && body.footerNotice.trim()
         ? body.footerNotice.trim()
+        : null;
+  }
+  if (body.documentTitle !== undefined) {
+    patch.documentTitle =
+      typeof body.documentTitle === 'string' && body.documentTitle.trim()
+        ? body.documentTitle.trim().slice(0, 40)
         : null;
   }
   if (body.defaultValidDays !== undefined) {
@@ -529,6 +533,22 @@ router.patch('/:id', async (req, res) => {
     });
   });
 
+  if (nextStatus === 'FINALIZED' || nextStatus === 'SENT') {
+    try {
+      await generateAndStoreQuotationPdf(prisma, id, tenantId);
+      const refreshed = await prisma.quotation.findFirst({
+        where: { id, tenantId },
+        include: quotationInclude,
+      });
+      if (refreshed) {
+        res.json(serializeQuotation(refreshed));
+        return;
+      }
+    } catch (e) {
+      console.error('[quotation] pdf store on finalize failed', e);
+    }
+  }
+
   res.json(serializeQuotation(row));
 });
 
@@ -552,30 +572,39 @@ router.delete('/:id', async (req, res) => {
 router.get('/:id/pdf', async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
-  const row = await prisma.quotation.findFirst({
-    where: { id: req.params.id, tenantId },
-    include: quotationInclude,
-  });
-  if (!row) {
-    res.status(404).json({ error: '견적서를 찾을 수 없습니다.' });
-    return;
+  const { id } = req.params;
+  const inline =
+    req.query.inline === '1' ||
+    req.query.inline === 'true' ||
+    req.query.preview === '1';
+  try {
+    const { buffer } = await generateAndStoreQuotationPdf(prisma, id, tenantId);
+    const row = await prisma.quotation.findFirst({
+      where: { id, tenantId },
+      select: { quoteNumber: true },
+    });
+    if (!row) {
+      res.status(404).json({ error: '견적서를 찾을 수 없습니다.' });
+      return;
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `${inline ? 'inline' : 'attachment'}; filename="quotation_${row.quoteNumber}.pdf"`,
+    );
+    res.send(buffer);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'PDF 생성에 실패했습니다.';
+    res.status(404).json({ error: msg });
   }
-  const profile = await getTenantCompanyProfile(tenantId);
-  const footerNotice = await loadPdfFooterNotice(tenantId);
-  const buffer = await buildQuotationPdfBuffer(row, profile.companyRegistration, { footerNotice });
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="quotation_${row.quoteNumber}.pdf"`,
-  );
-  res.send(buffer);
 });
 
 router.post('/:id/send-email', async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
+  const { id } = req.params;
   const row = await prisma.quotation.findFirst({
-    where: { id: req.params.id, tenantId },
+    where: { id, tenantId },
     include: quotationInclude,
   });
   if (!row) {
@@ -595,10 +624,15 @@ router.post('/:id/send-email', async (req, res) => {
 
   const profile = await getTenantCompanyProfile(tenantId);
   const companyName = profile.companyRegistration.companyName?.trim() || '견적서';
-  const footerNotice = await loadPdfFooterNotice(tenantId);
-  const pdfBuffer = await buildQuotationPdfBuffer(row, profile.companyRegistration, {
-    footerNotice,
-  });
+
+  let pdfBuffer: Buffer;
+  try {
+    const built = await generateAndStoreQuotationPdf(prisma, id, tenantId);
+    pdfBuffer = built.buffer;
+  } catch (e) {
+    res.status(500).json({ error: 'PDF 생성에 실패했습니다.' });
+    return;
+  }
 
   const sent = await sendQuotationEmail({
     tenantId,

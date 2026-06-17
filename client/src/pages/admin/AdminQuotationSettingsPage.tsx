@@ -43,6 +43,7 @@ export function AdminQuotationSettingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<QuotationServiceItemDto | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [footerNotice, setFooterNotice] = useState('');
+  const [documentTitle, setDocumentTitle] = useState('');
   const [defaultValidDays, setDefaultValidDays] = useState('');
   const [configSaving, setConfigSaving] = useState(false);
   const [movingId, setMovingId] = useState<string | null>(null);
@@ -58,6 +59,7 @@ export function AdminQuotationSettingsPage() {
       ]);
       setItems(list);
       setFooterNotice(config.footerNotice ?? '');
+      setDocumentTitle(config.documentTitle ?? '');
       setDefaultValidDays(
         config.defaultValidDays != null ? String(config.defaultValidDays) : '',
       );
@@ -142,6 +144,7 @@ export function AdminQuotationSettingsPage() {
     try {
       await updateQuotationConfig(token, {
         footerNotice: footerNotice.trim() || null,
+        documentTitle: documentTitle.trim() || null,
         defaultValidDays: defaultValidDaysVal,
       });
       alert('서식 설정을 저장했습니다.');
@@ -202,6 +205,16 @@ export function AdminQuotationSettingsPage() {
 
       <section className="border rounded-lg p-4 mb-6 bg-white">
         <h2 className="font-medium text-gray-900 mb-3">PDF 서식</h2>
+        <label className="block text-sm mb-3 max-w-xs">
+          <span className="text-gray-700">문서 제목 (PDF 상단)</span>
+          <input
+            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+            placeholder="기본: 견적서"
+            maxLength={40}
+            value={documentTitle}
+            onChange={(e) => setDocumentTitle(e.target.value)}
+          />
+        </label>
         <label className="block text-sm mb-3">
           <span className="text-gray-700">하단 고정 안내</span>
           <textarea

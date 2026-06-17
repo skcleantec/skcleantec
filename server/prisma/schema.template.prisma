@@ -1434,6 +1434,8 @@ model QuotationConfig {
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   /// PDF 하단 고정 안내 (예: 견적 유효 7일)
   footerNotice     String?  @map("footer_notice") @db.Text
+  /// PDF 상단 문서 제목 (기본: 견적서)
+  documentTitle    String?  @map("document_title") @db.VarChar(40)
   /// 새 견적 작성 시 유효기간 기본 일수 (null이면 미적용)
   defaultValidDays Int?     @map("default_valid_days")
   updatedAt        DateTime @updatedAt @map("updated_at")

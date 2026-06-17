@@ -3,6 +3,8 @@ import { resolvePdfKoreanFontPath } from '../inquiry-inspection/inquiryInspectio
 import type { TenantCompanyRegistrationConfig } from '../tenants/tenantConfig.schema.js';
 import type { QuotationRow } from './quotations.service.js';
 
+type PdfDoc = InstanceType<typeof PDFDocument>;
+
 function formatWon(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
 }
@@ -14,12 +16,28 @@ function formatDateKst(isoOrDate: string | Date | null | undefined): string {
   return d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
 }
 
+function drawBox(
+  doc: PdfDoc,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  fill?: string,
+) {
+  if (fill) {
+    doc.save().rect(x, y, w, h).fill(fill).restore();
+  }
+  doc.rect(x, y, w, h).stroke('#cccccc');
+}
+
 export async function buildQuotationPdfBuffer(
   quotation: QuotationRow,
   company: TenantCompanyRegistrationConfig | undefined,
-  options?: { footerNotice?: string | null },
+  options?: { footerNotice?: string | null; documentTitle?: string | null },
 ): Promise<Buffer> {
   const fontPath = resolvePdfKoreanFontPath();
+  const title = options?.documentTitle?.trim() || '견적서';
+  const companyName = company?.companyName?.trim() || '—';
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 48, size: 'A4' });
@@ -34,117 +52,131 @@ export async function buildQuotationPdfBuffer(
       console.warn('[quotation-pdf] Korean font not found — set INSPECTION_PDF_FONT_PATH');
     }
 
-    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-    const companyName = company?.companyName?.trim() || '견적서';
-    const rightX = doc.page.margins.left + pageWidth * 0.55;
+    const ml = doc.page.margins.left;
+    const pageWidth = doc.page.width - ml - doc.page.margins.right;
 
-    doc.fontSize(18).text('견 적 서', { align: 'center' });
-    doc.moveDown(0.3);
-    doc.fontSize(10).fillColor('#444').text(`견적번호: ${quotation.quoteNumber}`, { align: 'center' });
-    doc.moveDown(0.8);
+    doc.fontSize(20).fillColor('#111').text(title, { align: 'center' });
+    doc.moveDown(0.25);
+    doc.fontSize(10).fillColor('#555').text(`No. ${quotation.quoteNumber}`, { align: 'center' });
+    doc.moveDown(0.9);
 
-    doc.fontSize(11).fillColor('#111');
-    doc.text(companyName, doc.page.margins.left, doc.y, { width: pageWidth * 0.5 });
-    const headerTop = doc.y - doc.currentLineHeight();
-    doc.fontSize(9).fillColor('#333');
-    let rightY = headerTop;
-    const rightLines: string[] = [];
-    if (company?.representativeName?.trim()) {
-      rightLines.push(`대표: ${company.representativeName.trim()}`);
-    }
-    if (company?.businessRegistrationNo?.trim()) {
-      rightLines.push(`사업자등록번호: ${company.businessRegistrationNo.trim()}`);
-    }
-    if (company?.addressLine?.trim()) {
-      rightLines.push(`주소: ${company.addressLine.trim()}`);
-    }
-    if (company?.phone?.trim()) {
-      rightLines.push(`전화: ${company.phone.trim()}`);
-    }
-    if (company?.fax?.trim()) {
-      rightLines.push(`팩스: ${company.fax.trim()}`);
-    }
-    if (company?.contactEmail?.trim()) {
-      rightLines.push(`이메일: ${company.contactEmail.trim()}`);
-    }
-    for (const line of rightLines) {
-      doc.text(line, rightX, rightY, { width: pageWidth * 0.45, align: 'right' });
-      rightY += doc.currentLineHeight() + 2;
-    }
-    doc.y = Math.max(doc.y, rightY);
-    doc.moveDown(1);
+    const boxH = 88;
+    const boxW = (pageWidth - 12) / 2;
+    const boxY = doc.y;
 
-    doc.fontSize(10).fillColor('#111');
-    doc.text(`수신: ${quotation.customerName}`, { underline: false });
-    if (quotation.customerPhone?.trim()) doc.text(`연락처: ${quotation.customerPhone.trim()}`);
-    if (quotation.customerAddress?.trim()) doc.text(`주소: ${quotation.customerAddress.trim()}`);
-    doc.text(`작성일: ${formatDateKst(quotation.createdAt)}`);
-    if (quotation.validUntil) {
-      doc.text(`유효기간: ${formatDateKst(quotation.validUntil)} 까지`);
-    }
-    doc.moveDown(0.8);
+    drawBox(doc, ml, boxY, boxW, boxH, '#f9fafb');
+    drawBox(doc, ml + boxW + 12, boxY, boxW, boxH, '#f9fafb');
 
-    const colNo = doc.page.margins.left;
-    const colLabel = colNo + 24;
-    const colQty = colNo + pageWidth * 0.55;
-    const colUnit = colNo + pageWidth * 0.68;
-    const colAmt = colNo + pageWidth * 0.82;
-    const rowH = 20;
+    doc.fontSize(8).fillColor('#666');
+    doc.text('공급자', ml + 8, boxY + 6);
+    doc.text('공급받는자', ml + boxW + 20, boxY + 6);
 
-    doc.rect(colNo, doc.y, pageWidth, rowH).fill('#e5e7eb');
-    doc.fillColor('#111').fontSize(9);
-    const tableTop = doc.y + 5;
-    doc.text('No', colNo + 4, tableTop, { width: 20 });
-    doc.text('항목', colLabel, tableTop, { width: pageWidth * 0.48 });
-    doc.text('수량', colQty, tableTop, { width: 40, align: 'right' });
-    doc.text('단가', colUnit, tableTop, { width: 60, align: 'right' });
-    doc.text('금액', colAmt, tableTop, { width: 70, align: 'right' });
-    doc.y = tableTop + rowH;
-
-    quotation.lineItems.forEach((li, idx) => {
-      if (doc.y > doc.page.height - 120) doc.addPage();
-      const y = doc.y;
-      doc.fillColor('#333').fontSize(9);
-      doc.text(String(idx + 1), colNo + 4, y, { width: 20 });
-      doc.text(li.label, colLabel, y, { width: pageWidth * 0.48 });
-      doc.text(String(li.quantity), colQty, y, { width: 40, align: 'right' });
-      doc.text(formatWon(li.unitPrice), colUnit, y, { width: 60, align: 'right' });
-      doc.text(formatWon(li.lineAmount), colAmt, y, { width: 70, align: 'right' });
-      doc.y = y + rowH;
-    });
-
-    doc.moveDown(0.5);
-    const summaryX = colNo + pageWidth * 0.55;
     doc.fontSize(9).fillColor('#111');
-    doc.text(`소계: ${formatWon(quotation.subtotal)}`, summaryX, doc.y, {
-      width: pageWidth * 0.45,
+    let leftY = boxY + 18;
+    const leftLines = [
+      companyName,
+      company?.representativeName?.trim() ? `대표 ${company.representativeName.trim()}` : null,
+      company?.businessRegistrationNo?.trim()
+        ? `사업자 ${company.businessRegistrationNo.trim()}`
+        : null,
+      company?.addressLine?.trim() ?? null,
+      company?.phone?.trim() ? `Tel ${company.phone.trim()}` : null,
+      company?.contactEmail?.trim() ?? null,
+    ].filter(Boolean) as string[];
+    for (const line of leftLines) {
+      doc.text(line, ml + 8, leftY, { width: boxW - 16, lineGap: 1 });
+      leftY += doc.currentLineHeight() + 1;
+    }
+
+    let rightY = boxY + 18;
+    const rightLines = [
+      quotation.customerName,
+      quotation.customerPhone?.trim() ? `Tel ${quotation.customerPhone.trim()}` : null,
+      quotation.customerEmail?.trim() ?? null,
+      quotation.customerAddress?.trim() ?? null,
+    ].filter(Boolean) as string[];
+    for (const line of rightLines) {
+      doc.text(line, ml + boxW + 20, rightY, { width: boxW - 16, lineGap: 1 });
+      rightY += doc.currentLineHeight() + 1;
+    }
+
+    doc.y = boxY + boxH + 14;
+    doc.fontSize(9).fillColor('#333');
+    doc.text(`작성일: ${formatDateKst(quotation.createdAt)}`, ml);
+    if (quotation.validUntil) {
+      doc.text(`유효기간: ${formatDateKst(quotation.validUntil)} 까지`, ml);
+    }
+    doc.moveDown(0.6);
+
+    const colNo = ml;
+    const colLabel = ml + 22;
+    const colQty = ml + pageWidth * 0.58;
+    const colUnit = ml + pageWidth * 0.72;
+    const colAmt = ml + pageWidth * 0.86;
+    const rowH = 18;
+
+    const tableTop = doc.y;
+    drawBox(doc, colNo, tableTop, pageWidth, rowH, '#e5e7eb');
+    doc.fillColor('#111').fontSize(8.5);
+    const hdrY = tableTop + 5;
+    doc.text('No', colNo + 4, hdrY, { width: 16 });
+    doc.text('품목', colLabel, hdrY, { width: pageWidth * 0.5 });
+    doc.text('수량', colQty, hdrY, { width: 36, align: 'right' });
+    doc.text('단가', colUnit, hdrY, { width: 56, align: 'right' });
+    doc.text('금액', colAmt, hdrY, { width: 64, align: 'right' });
+
+    let rowY = tableTop + rowH;
+    quotation.lineItems.forEach((li, idx) => {
+      if (rowY > doc.page.height - 140) {
+        doc.addPage();
+        rowY = doc.page.margins.top;
+      }
+      drawBox(doc, colNo, rowY, pageWidth, rowH);
+      doc.fillColor('#333').fontSize(8.5);
+      const ty = rowY + 5;
+      doc.text(String(idx + 1), colNo + 4, ty, { width: 16 });
+      doc.text(li.label, colLabel, ty, { width: pageWidth * 0.5 });
+      doc.text(String(li.quantity), colQty, ty, { width: 36, align: 'right' });
+      doc.text(formatWon(li.unitPrice), colUnit, ty, { width: 56, align: 'right' });
+      doc.text(formatWon(li.lineAmount), colAmt, ty, { width: 64, align: 'right' });
+      rowY += rowH;
+    });
+    doc.y = rowY + 8;
+
+    const summaryX = ml + pageWidth * 0.52;
+    doc.fontSize(9).fillColor('#111');
+    doc.text(`소계  ${formatWon(quotation.subtotal)}`, summaryX, doc.y, {
+      width: pageWidth * 0.48,
       align: 'right',
     });
     if (quotation.discountAmount > 0) {
-      doc.text(`할인: -${formatWon(quotation.discountAmount)}`, summaryX, doc.y, {
-        width: pageWidth * 0.45,
+      doc.text(`할인  -${formatWon(quotation.discountAmount)}`, summaryX, doc.y, {
+        width: pageWidth * 0.48,
         align: 'right',
       });
     }
-    doc.fontSize(11);
-    doc.text(`합계: ${formatWon(quotation.total)}`, summaryX, doc.y, {
-      width: pageWidth * 0.45,
+    doc.fontSize(12);
+    doc.text(`합계  ${formatWon(quotation.total)}`, summaryX, doc.y, {
+      width: pageWidth * 0.48,
       align: 'right',
     });
     doc.fontSize(8).fillColor('#666');
-    doc.text('(부가세 별도)', summaryX, doc.y, { width: pageWidth * 0.45, align: 'right' });
+    doc.text('(부가세 별도)', summaryX, doc.y, { width: pageWidth * 0.48, align: 'right' });
 
     if (quotation.memo?.trim()) {
-      doc.moveDown(1);
-      doc.fontSize(9).fillColor('#333').text('비고', { underline: true });
-      doc.moveDown(0.2);
-      doc.text(quotation.memo.trim(), { lineGap: 2 });
+      doc.moveDown(0.8);
+      doc.fontSize(9).fillColor('#333').text('비고', ml, doc.y, { underline: true });
+      doc.moveDown(0.15);
+      doc.text(quotation.memo.trim(), ml, doc.y, { width: pageWidth, lineGap: 2 });
     }
+
+    doc.moveDown(1);
+    doc.fontSize(9).fillColor('#111').text('위와 같이 견적합니다.', ml, doc.y, { align: 'center' });
 
     const footer = options?.footerNotice?.trim();
     if (footer) {
-      doc.moveDown(0.8);
-      doc.fontSize(8).fillColor('#555').text(footer, { lineGap: 2 });
+      doc.moveDown(0.6);
+      doc.fontSize(8).fillColor('#555').text(footer, ml, doc.y, { width: pageWidth, lineGap: 2 });
     }
 
     doc.end();

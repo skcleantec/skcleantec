@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   createQuotation,
-  downloadQuotationPdf,
   fetchQuotationEditorDefaults,
   getQuotation,
   sendQuotationEmail,
@@ -14,6 +13,7 @@ import {
 import { fetchTenantCompanyProfile } from '../../api/tenantCompanyProfile';
 import { QuotationCustomerFields } from '../../components/quotations/QuotationCustomerFields';
 import { QuotationLineItemsEditor } from '../../components/quotations/QuotationLineItemsEditor';
+import { QuotationPdfActions } from '../../components/quotations/QuotationPdfActions';
 import { QuotationPreconditionBanner } from '../../components/quotations/QuotationPreconditionBanner';
 import {
   emptyQuotationLine,
@@ -196,24 +196,6 @@ export function AdminQuotationEditorPage() {
     }
   }
 
-  async function handleDownloadPdf() {
-    if (!token || isNew || !id) {
-      alert('먼저 저장해 주세요.');
-      return;
-    }
-    try {
-      const blob = await downloadQuotationPdf(token, id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `견적서_${quoteNumber ?? id}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'PDF 다운로드에 실패했습니다.');
-    }
-  }
-
   async function handleSendEmail() {
     if (!token || isNew || !id) {
       alert('먼저 저장해 주세요.');
@@ -361,14 +343,13 @@ export function AdminQuotationEditorPage() {
         >
           확정 저장
         </button>
-        {!isNew && (
-          <button
-            type="button"
-            onClick={() => void handleDownloadPdf()}
-            className="px-4 py-2 border rounded text-sm"
-          >
-            PDF 다운로드
-          </button>
+        {!isNew && id && (
+          <QuotationPdfActions
+            token={token ?? ''}
+            quotationId={id}
+            quoteNumber={quoteNumber}
+            disabled={saving}
+          />
         )}
       </div>
     </div>
