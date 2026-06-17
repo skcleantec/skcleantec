@@ -4,6 +4,7 @@ import {
   parseQuotationVatMode,
   type QuotationVatMode,
 } from './quotationVat.js';
+import { serializeQuotationOperatingCompany } from './quotationDocumentTitle.service.js';
 
 export type { QuotationVatMode };
 export { computeQuotationVatAmounts, parseQuotationVatMode };
@@ -80,12 +81,22 @@ export const quotationInclude = {
   lineItems: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] as const },
   createdBy: { select: { id: true, name: true, email: true, role: true } },
   inquiry: { select: { id: true, inquiryNumber: true, customerName: true } },
+  operatingCompany: {
+    select: { id: true, name: true, slug: true, isDefault: true, config: true },
+  },
 } satisfies Prisma.QuotationInclude;
 
 export type QuotationRow = Quotation & {
   lineItems: QuotationLineItem[];
   createdBy: { id: string; name: string; email: string; role: string } | null;
   inquiry: { id: string; inquiryNumber: string | null; customerName: string } | null;
+  operatingCompany: {
+    id: string;
+    name: string;
+    slug: string;
+    isDefault: boolean;
+    config: unknown;
+  } | null;
 };
 
 export function serializeQuotation(row: QuotationRow) {
@@ -109,6 +120,10 @@ export function serializeQuotation(row: QuotationRow) {
     validUntil: row.validUntil ? row.validUntil.toISOString().slice(0, 10) : null,
     inquiryId: row.inquiryId,
     inquiry: row.inquiry,
+    operatingCompanyId: row.operatingCompanyId,
+    operatingCompany: row.operatingCompany
+      ? serializeQuotationOperatingCompany(row.operatingCompany)
+      : null,
     createdBy: row.createdBy,
     sentAt: row.sentAt?.toISOString() ?? null,
     lastEmailedAt: row.lastEmailedAt?.toISOString() ?? null,

@@ -6,6 +6,7 @@ import {
   fetchQuotationEditorDefaults,
   getQuotation,
   updateQuotation,
+  type QuotationEditorOperatingCompanyDto,
   type QuotationLineItemDto,
   type QuotationServiceItemDto,
   type QuotationVatMode,
@@ -34,6 +35,14 @@ import { QuotationStatusBadge, qUi } from '../../components/quotations/quotation
 import { computeQuotationVatAmounts } from '@shared/quotationVat';
 import { getToken } from '../../stores/auth';
 
+function pickDefaultOperatingCompanyId(
+  companies: QuotationEditorOperatingCompanyDto[],
+  preferredId?: string | null,
+): string {
+  if (preferredId && companies.some((c) => c.id === preferredId)) return preferredId;
+  return companies.find((c) => c.isDefault)?.id ?? companies[0]?.id ?? '';
+}
+
 export function AdminQuotationEditorPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -43,7 +52,11 @@ export function AdminQuotationEditorPage() {
   const token = getToken();
 
   const [catalog, setCatalog] = useState<QuotationServiceItemDto[]>([]);
-  const [documentTitle, setDocumentTitle] = useState('견적서');
+  const [operatingCompanies, setOperatingCompanies] = useState<QuotationEditorOperatingCompanyDto[]>(
+    [],
+  );
+  const [operatingCompanyId, setOperatingCompanyId] = useState('');
+  const [seedOperatingCompanyId, setSeedOperatingCompanyId] = useState<string | null>(null);
   const [footerNotice, setFooterNotice] = useState<string | null>(null);
   const [company, setCompany] = useState<TenantCompanyRegistration | null>(null);
   const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
@@ -72,7 +85,13 @@ export function AdminQuotationEditorPage() {
   const applyEditorDefaults = useCallback(
     (defaults: Awaited<ReturnType<typeof fetchQuotationEditorDefaults>>) => {
       setCatalog(defaults.catalog);
-      setDocumentTitle(defaults.config.documentTitle?.trim() || '견적서');
+      setOperatingCompanies(defaults.operatingCompanies);
+      setOperatingCompanyId((prev) =>
+        pickDefaultOperatingCompanyId(
+          defaults.operatingCompanies,
+          prev || seedOperatingCompanyId,
+        ),
+      );
       setFooterNotice(defaults.config.footerNotice);
       if (isNew) {
         if (defaults.validUntilDefault) setValidUntil(defaults.validUntilDefault);
@@ -81,7 +100,7 @@ export function AdminQuotationEditorPage() {
         }
       }
     },
-    [isNew],
+    [isNew, seedOperatingCompanyId],
   );
 
   const loadPreconditions = useCallback(async () => {
@@ -116,6 +135,11 @@ export function AdminQuotationEditorPage() {
       if (prefill.customerPhone) setCustomerPhone(prefill.customerPhone);
       if (prefill.customerAddress) setCustomerAddress(prefill.customerAddress);
       if (prefill.memo) setMemo(prefill.memo);
+      const inquiryOcId =
+        typeof row.operatingCompanyId === 'string' && row.operatingCompanyId.trim()
+          ? row.operatingCompanyId.trim()
+          : null;
+      if (inquiryOcId) setSeedOperatingCompanyId(inquiryOcId);
       setLinkedInquiryId(seedInquiryId);
       setLinkedInquiryLabel(inquiryLabelFromRow(row));
     } catch (e) {
@@ -154,6 +178,10 @@ export function AdminQuotationEditorPage() {
       setDiscountAmount(row.discountAmount > 0 ? String(row.discountAmount) : '');
       setVatMode(row.vatMode ?? 'VAT_SEPARATE');
       setValidUntil(row.validUntil ?? '');
+      setOperatingCompanyId(
+        pickDefaultOperatingCompanyId(defaults.operatingCompanies, row.operatingCompanyId),
+      );
+      setOperatingCompanies(defaults.operatingCompanies);
       const mapped =
         row.lineItems.length > 0
           ? row.lineItems.map((li) => ({
@@ -247,6 +275,7 @@ export function AdminQuotationEditorPage() {
         discountAmount: disc,
         validUntil: validUntil.trim() || null,
         vatMode,
+        operatingCompanyId: operatingCompanyId || null,
         lineItems,
         ...(linkedInquiryId ? { inquiryId: linkedInquiryId } : {}),
         ...(finalize ? { status: 'FINALIZED' as const } : {}),
@@ -320,10 +349,12 @@ export function AdminQuotationEditorPage() {
       )}
 
       <QuotationDocumentEditor
-        documentTitle={documentTitle}
         quoteNumber={quoteNumber}
         createdAt={createdAt}
         company={company}
+        operatingCompanies={operatingCompanies}
+        operatingCompanyId={operatingCompanyId}
+        onOperatingCompanyChange={setOperatingCompanyId}
         customerName={customerName}
         customerPhone={customerPhone}
         customerEmail={customerEmail}

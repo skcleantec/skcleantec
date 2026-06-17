@@ -45,7 +45,6 @@ export function AdminQuotationSettingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<QuotationServiceItemDto | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [footerNotice, setFooterNotice] = useState('');
-  const [documentTitle, setDocumentTitle] = useState('');
   const [defaultEmailSubject, setDefaultEmailSubject] = useState('');
   const [defaultEmailBody, setDefaultEmailBody] = useState('');
   const [defaultValidDays, setDefaultValidDays] = useState('');
@@ -63,7 +62,6 @@ export function AdminQuotationSettingsPage() {
       ]);
       setItems(list);
       setFooterNotice(config.footerNotice ?? '');
-      setDocumentTitle(config.documentTitle ?? '');
       setDefaultEmailSubject(config.defaultEmailSubject ?? '');
       setDefaultEmailBody(config.defaultEmailBody ?? '');
       setDefaultValidDays(
@@ -150,7 +148,6 @@ export function AdminQuotationSettingsPage() {
     try {
       await updateQuotationConfig(token, {
         footerNotice: footerNotice.trim() || null,
-        documentTitle: documentTitle.trim() || null,
         defaultEmailSubject: defaultEmailSubject.trim() || null,
         defaultEmailBody: defaultEmailBody.trim() || null,
         defaultValidDays: defaultValidDaysVal,
@@ -227,16 +224,10 @@ export function AdminQuotationSettingsPage() {
           <p className={`${qUi.sectionSubtitle} mt-0.5`}>견적서 PDF와 이메일 발송 기본값입니다.</p>
         </div>
 
-        <label className="block sm:max-w-sm">
-          <span className={qUi.label}>문서 제목 (PDF 상단)</span>
-          <input
-            className={qUi.input}
-            placeholder="기본: 견적서"
-            maxLength={40}
-            value={documentTitle}
-            onChange={(e) => setDocumentTitle(e.target.value)}
-          />
-        </label>
+        <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-fluid-xs text-slate-600">
+          문서 제목은 선택한 <strong className="font-semibold text-slate-800">영업 브랜드명 + 견적서</strong>
+          로 자동 표시됩니다. (예: SK클린텍 견적서)
+        </div>
 
         <label className="block">
           <span className={qUi.label}>하단 고정 안내</span>

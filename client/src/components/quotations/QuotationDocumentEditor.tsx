@@ -1,13 +1,20 @@
-import type { QuotationServiceItemDto } from '../../api/quotations';
+import type {
+  QuotationEditorOperatingCompanyDto,
+  QuotationServiceItemDto,
+} from '../../api/quotations';
 import type { TenantCompanyRegistration } from '../../api/tenantCompanyProfile';
 import type { QuotationVatMode } from '@shared/quotationVat';
-import { vatModeLabel } from '@shared/quotationVat';
+import { computeLineAmounts, vatModeLabel } from '@shared/quotationVat';
+import { formatQuotationDocumentTitle } from '@shared/quotationDocument';
 import {
   catalogSelectValue,
   emptyQuotationLine,
   lineAmountFromEditable,
+  linesForTemplateDisplay,
+  QUOTATION_TEMPLATE_MIN_ROWS,
   type EditableQuotationLine,
 } from './quotationLineUtils';
+import { A4ScaledSheet } from './A4ScaledSheet';
 
 /** A4 (210×297mm) — PDFKit margin 48pt와 동일한 화면 여백 */
 const A4_WIDTH = '210mm';
@@ -21,10 +28,12 @@ const docCellInput =
   'w-full min-w-0 bg-white/90 border border-slate-200/80 rounded-sm px-1.5 py-1 text-[12px] text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200';
 
 type Props = {
-  documentTitle: string;
   quoteNumber: string | null;
   createdAt: string | null;
   company: TenantCompanyRegistration | null;
+  operatingCompanies: QuotationEditorOperatingCompanyDto[];
+  operatingCompanyId: string;
+  onOperatingCompanyChange: (id: string) => void;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -77,11 +86,30 @@ function companyLines(c: TenantCompanyRegistration | null): string[] {
   ].filter(Boolean) as string[];
 }
 
+function resolveSelectedBrand(
+  companies: QuotationEditorOperatingCompanyDto[],
+  operatingCompanyId: string,
+): QuotationEditorOperatingCompanyDto | null {
+  return companies.find((c) => c.id === operatingCompanyId) ?? null;
+}
+
+function resolveQuotationTitle(
+  companies: QuotationEditorOperatingCompanyDto[],
+  operatingCompanyId: string,
+  company: TenantCompanyRegistration | null,
+): string {
+  const brand = resolveSelectedBrand(companies, operatingCompanyId);
+  if (brand) return formatQuotationDocumentTitle(brand.displayName || brand.name);
+  return formatQuotationDocumentTitle(company?.companyName ?? '');
+}
+
 export function QuotationDocumentEditor({
-  documentTitle,
   quoteNumber,
   createdAt,
   company,
+  operatingCompanies,
+  operatingCompanyId,
+  onOperatingCompanyChange,
   customerName,
   customerPhone,
   customerEmail,
@@ -108,106 +136,98 @@ export function QuotationDocumentEditor({
   onMemoChange,
   footerNotice,
 }: Props) {
-  function addFromCatalog(itemId: string) {
-    const item = catalog.find((c) => c.id === itemId);
-    if (!item) return;
-    if (lines.some((l) => l.catalogItemId === itemId)) return;
-    onLinesChange([...lines, emptyQuotationLine(item)]);
+  function addRow() {
+    onLinesChange([...lines, emptyQuotationLine()]);
   }
 
-  function handleCatalogSelect(lineKey: string, value: string) {
+  function updateLineAt(index: number, patch: Partial<EditableQuotationLine>) {
+    if (index < lines.length) {
+      onLinesChange(lines.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+      return;
+    }
+    const next = [...lines];
+    while (next.length <= index) next.push(emptyQuotationLine());
+    next[index] = { ...next[index], ...patch };
+    onLinesChange(next);
+  }
+
+  function handleCatalogSelectAt(index: number, value: string) {
     if (value === '__custom__') {
-      updateLine(lineKey, { catalogItemId: null });
+      updateLineAt(index, { catalogItemId: null });
       return;
     }
     if (!value) {
-      updateLine(lineKey, { catalogItemId: null, label: '', unitPrice: '' });
+      updateLineAt(index, { catalogItemId: null, label: '', unitPrice: '' });
       return;
     }
     const item = catalog.find((c) => c.id === value);
     if (!item) return;
-    updateLine(lineKey, {
+    updateLineAt(index, {
       catalogItemId: item.id,
       label: item.name,
       unitPrice: String(item.unitPrice),
     });
   }
 
-  const availableCatalog = catalog.filter(
-    (c) => !lines.some((l) => l.catalogItemId === c.id),
-  );
-
-  function updateLine(key: string, patch: Partial<EditableQuotationLine>) {
-    onLinesChange(lines.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  function removeLineAt(index: number) {
+    if (lines.length <= QUOTATION_TEMPLATE_MIN_ROWS) return;
+    onLinesChange(lines.filter((_, i) => i !== index));
   }
 
-  function removeLine(key: string) {
-    if (lines.length <= 1) return;
-    onLinesChange(lines.filter((row) => row.key !== key));
-  }
+  const templateLines = linesForTemplateDisplay(lines);
 
   const supplierLines = companyLines(company);
+  const documentTitle = resolveQuotationTitle(operatingCompanies, operatingCompanyId, company);
+  const showBrandSelector = operatingCompanies.length > 1;
 
   return (
     <div className="min-w-0 space-y-3">
       <p className="text-center text-fluid-2xs text-slate-500 px-2">
-        A4 공문 양식(210×297mm)에 직접 입력합니다. 좁은 화면에서는 가로로 스크롤할 수 있습니다.
+        A4 공문 양식(210×297mm)에 직접 입력합니다. 좁은 화면에서는 전체가 비율에 맞게 축소되어
+        표시됩니다.
       </p>
+      {catalog.length === 0 && (
+        <p className="text-center text-fluid-2xs text-amber-800 px-2">
+          견적 설정에 서비스 항목을 등록하면 품목명이 자동으로 맞춰집니다.
+        </p>
+      )}
 
-      {/* 편집 도구 — 용지 바깥 */}
-      <div className="flex flex-wrap items-center justify-center gap-2 px-2">
-        {availableCatalog.length > 0 && (
-          <select
-            className="max-w-[220px] rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-xs text-slate-700 shadow-sm"
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) {
-                addFromCatalog(e.target.value);
-                e.target.value = '';
-              }
-            }}
-          >
-            <option value="">+ 견적 설정 항목</option>
-            {availableCatalog.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        )}
-        <button
-          type="button"
-          onClick={() => onLinesChange([...lines, emptyQuotationLine()])}
-          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+      {/* A4 용지 — 모바일에서 전체 축소, PC에서는 실제 크기 */}
+      <div className="bg-slate-100/90 rounded-xl py-3 px-2 sm:py-4 sm:px-4">
+        <A4ScaledSheet
+          sheetClassName="shrink-0 bg-white text-slate-900 shadow-lg shadow-slate-400/20 border border-slate-300 flex flex-col box-border"
+          sheetStyle={{
+            width: A4_WIDTH,
+            minHeight: A4_MIN_HEIGHT,
+            paddingTop: DOC_MARGIN,
+            paddingBottom: DOC_MARGIN,
+            paddingLeft: DOC_MARGIN,
+            paddingRight: DOC_MARGIN,
+          }}
+          aria-label="견적서 A4 양식"
         >
-          + 직접 입력 행
-        </button>
-        {catalog.length === 0 && (
-          <span className="text-fluid-2xs text-amber-800">
-            견적 설정에 서비스 항목을 등록하면 품목명이 자동으로 맞춰집니다.
-          </span>
-        )}
-      </div>
-
-      {/* A4 용지 — 가로 스크롤 허용, 크기 고정 */}
-      <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 bg-slate-100/90 rounded-xl py-4">
-        <div className="flex justify-center min-w-min">
-          <article
-            className="shrink-0 bg-white text-slate-900 shadow-lg shadow-slate-400/20 border border-slate-300 flex flex-col box-border"
-            style={{
-              width: A4_WIDTH,
-              minHeight: A4_MIN_HEIGHT,
-              paddingTop: DOC_MARGIN,
-              paddingBottom: DOC_MARGIN,
-              paddingLeft: DOC_MARGIN,
-              paddingRight: DOC_MARGIN,
-            }}
-            aria-label="견적서 A4 양식"
-          >
             {/* ── 상단(머리말) 고정 구역 ── */}
             <header className="shrink-0 text-center border-b border-slate-200 pb-5 mb-5">
-              <h2 className="text-[22px] font-bold tracking-[0.2em] text-slate-900">
-                {documentTitle.trim() || '견 적 서'}
+              {showBrandSelector && (
+                <div className="mb-3 flex justify-center">
+                  <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-[11px] text-slate-600 shadow-sm">
+                    <span className="font-medium whitespace-nowrap">영업 브랜드</span>
+                    <select
+                      className="min-w-[140px] max-w-[220px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-800 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200"
+                      value={operatingCompanyId}
+                      onChange={(e) => onOperatingCompanyChange(e.target.value)}
+                    >
+                      {operatingCompanies.map((oc) => (
+                        <option key={oc.id} value={oc.id}>
+                          {oc.displayName || oc.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+              <h2 className="text-[20px] font-bold tracking-wide text-slate-900">
+                {documentTitle}
               </h2>
               {quoteNumber && (
                 <p className="mt-2 text-[11px] text-slate-500 font-mono tabular-nums tracking-wide">
@@ -295,44 +315,61 @@ export function QuotationDocumentEditor({
                 </label>
               </div>
 
-              {/* 품목 표 */}
-              <div className="overflow-x-auto -mx-0.5 mb-4">
+              {/* 품목 표 — 고정 행 서식 */}
+              <div className="overflow-x-auto -mx-0.5 mb-4 rounded-md overflow-hidden border border-slate-300 shadow-sm">
                 <table className="w-full border-collapse text-[12px]">
                   <thead>
-                    <tr className="bg-[#e5e7eb]">
-                      <th className="w-9 border border-slate-300 px-1 py-1.5 text-center text-[10px] font-bold text-slate-700">
+                    <tr className="bg-gradient-to-r from-slate-800 to-slate-700 text-white">
+                      <th className="w-9 border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
                         No
                       </th>
-                      <th className="border border-slate-300 px-2 py-1.5 text-left text-[10px] font-bold text-slate-700">
+                      <th className="border-r border-slate-600/50 px-2 py-2 text-left text-[10px] font-bold tracking-wide">
                         품목
                       </th>
-                      <th className="w-14 border border-slate-300 px-1 py-1.5 text-center text-[10px] font-bold text-slate-700">
+                      <th className="w-12 border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
                         수량
                       </th>
-                      <th className="w-[72px] border border-slate-300 px-1 py-1.5 text-center text-[10px] font-bold text-slate-700">
+                      <th className="w-[68px] border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
                         단가
                       </th>
-                      <th className="w-[76px] border border-slate-300 px-1 py-1.5 text-center text-[10px] font-bold text-slate-700">
+                      <th className="w-[68px] border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
+                        부가세
+                      </th>
+                      <th className="w-[76px] border-r border-slate-600/50 px-1 py-2 text-center text-[10px] font-bold tracking-wide">
                         금액
                       </th>
-                      <th className="w-7 border border-slate-300" aria-label="삭제" />
+                      <th className="w-7 px-0.5 py-2" aria-label="삭제" />
                     </tr>
                   </thead>
                   <tbody>
-                    {lines.map((li, idx) => {
-                      const amount = lineAmountFromEditable(li);
+                    {templateLines.map((li, idx) => {
+                      const supply = lineAmountFromEditable(li);
+                      const lineCalc =
+                        supply != null
+                          ? computeLineAmounts(supply, vatMode)
+                          : { supply: 0, vatAmount: 0, grandAmount: 0 };
+                      const isBlankRow = supply == null && !li.label.trim();
+                      const canDelete = lines.length > QUOTATION_TEMPLATE_MIN_ROWS && idx < lines.length;
+
                       return (
-                        <tr key={li.key}>
-                          <td className="border border-slate-300 px-1 py-1 text-center text-[11px] text-slate-500 tabular-nums align-middle">
+                        <tr
+                          key={li.key}
+                          className={`border-t border-slate-200 ${
+                            idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/90'
+                          } ${isBlankRow ? 'bg-slate-50/40' : ''} hover:bg-sky-50/30 transition-colors`}
+                        >
+                          <td className="border-r border-slate-200 px-1 py-1.5 text-center text-[11px] font-medium text-slate-500 tabular-nums align-middle">
                             {idx + 1}
                           </td>
-                          <td className="border border-slate-300 px-0.5 py-0.5 align-middle">
+                          <td className="border-r border-slate-200 px-1 py-1 align-middle">
                             {catalog.length > 0 ? (
                               <div className="space-y-1">
                                 <select
-                                  className={docCellInput}
+                                  className={`${docCellInput} bg-white`}
                                   value={catalogSelectValue(li)}
-                                  onChange={(e) => handleCatalogSelect(li.key, e.target.value)}
+                                  onChange={(e) =>
+                                    handleCatalogSelectAt(idx, e.target.value)
+                                  }
                                 >
                                   <option value="">품목 선택…</option>
                                   {catalog.map((c) => (
@@ -342,13 +379,14 @@ export function QuotationDocumentEditor({
                                   ))}
                                   <option value="__custom__">직접 입력</option>
                                 </select>
-                                {(!li.catalogItemId || catalogSelectValue(li) === '__custom__') && (
+                                {(!li.catalogItemId ||
+                                  catalogSelectValue(li) === '__custom__') && (
                                   <input
                                     className={docCellInput}
-                                    placeholder="품목명 직접 입력"
+                                    placeholder="품목명"
                                     value={li.label}
                                     onChange={(e) =>
-                                      updateLine(li.key, {
+                                      updateLineAt(idx, {
                                         catalogItemId: null,
                                         label: e.target.value,
                                       })
@@ -361,47 +399,72 @@ export function QuotationDocumentEditor({
                                 className={docCellInput}
                                 placeholder="품목명"
                                 value={li.label}
-                                onChange={(e) => updateLine(li.key, { label: e.target.value })}
+                                onChange={(e) =>
+                                  updateLineAt(idx, { label: e.target.value })
+                                }
                               />
                             )}
                           </td>
-                          <td className="border border-slate-300 px-0.5 py-0.5 align-middle">
+                          <td className="border-r border-slate-200 px-1 py-1 align-middle">
                             <input
-                              className={`${docCellInput} text-center tabular-nums`}
+                              className={`${docCellInput} text-center tabular-nums bg-white`}
                               inputMode="numeric"
-                              placeholder="1"
+                              placeholder="—"
                               value={li.quantity}
-                              onChange={(e) => updateLine(li.key, { quantity: e.target.value })}
+                              onChange={(e) =>
+                                updateLineAt(idx, { quantity: e.target.value })
+                              }
                             />
                           </td>
-                          <td className="border border-slate-300 px-0.5 py-0.5 align-middle">
+                          <td className="border-r border-slate-200 px-1 py-1 align-middle">
                             <input
-                              className={`${docCellInput} text-right tabular-nums`}
+                              className={`${docCellInput} text-right tabular-nums bg-white`}
                               inputMode="numeric"
-                              placeholder="0"
+                              placeholder="—"
                               value={li.unitPrice}
-                              onChange={(e) => updateLine(li.key, { unitPrice: e.target.value })}
+                              onChange={(e) =>
+                                updateLineAt(idx, { unitPrice: e.target.value })
+                              }
                             />
                           </td>
-                          <td className="border border-slate-300 px-1.5 py-1 text-right text-[11px] tabular-nums text-slate-800 align-middle">
-                            {amount != null ? `${amount.toLocaleString('ko-KR')}원` : '—'}
+                          <td className="border-r border-slate-200 px-1.5 py-1.5 text-right text-[11px] tabular-nums align-middle text-indigo-700/90 font-medium">
+                            {supply != null
+                              ? `${lineCalc.vatAmount.toLocaleString('ko-KR')}원`
+                              : '—'}
                           </td>
-                          <td className="border border-slate-300 px-0.5 py-0.5 text-center align-middle">
-                            <button
-                              type="button"
-                              disabled={lines.length <= 1}
-                              onClick={() => removeLine(li.key)}
-                              className="text-[10px] text-rose-600 hover:text-rose-800 disabled:opacity-30 leading-none"
-                              aria-label="행 삭제"
-                            >
-                              ✕
-                            </button>
+                          <td className="border-r border-slate-200 px-1.5 py-1.5 text-right text-[11px] tabular-nums align-middle font-semibold text-slate-900">
+                            {supply != null
+                              ? `${lineCalc.grandAmount.toLocaleString('ko-KR')}원`
+                              : '—'}
+                          </td>
+                          <td className="px-0.5 py-1 text-center align-middle">
+                            {canDelete ? (
+                              <button
+                                type="button"
+                                onClick={() => removeLineAt(idx)}
+                                className="text-[10px] text-rose-600 hover:text-rose-800 leading-none"
+                                aria-label="행 삭제"
+                              >
+                                ✕
+                              </button>
+                            ) : null}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
+                <div className="border-t border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100/80 px-2 py-2 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-lg font-light leading-none text-slate-600 shadow-sm transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+                    aria-label="품목 행 추가"
+                    title="품목 행 추가"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
 
               {/* 비고 */}
@@ -501,8 +564,7 @@ export function QuotationDocumentEditor({
                 )}
               </footer>
             </div>
-          </article>
-        </div>
+        </A4ScaledSheet>
       </div>
     </div>
   );

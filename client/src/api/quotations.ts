@@ -32,10 +32,19 @@ export interface QuotationConfigDto {
   updatedAt: string;
 }
 
+export interface QuotationEditorOperatingCompanyDto {
+  id: string;
+  name: string;
+  displayName: string;
+  slug: string;
+  isDefault: boolean;
+}
+
 export interface QuotationEditorDefaultsDto {
   catalog: QuotationServiceItemDto[];
   config: QuotationConfigDto;
   validUntilDefault: string | null;
+  operatingCompanies: QuotationEditorOperatingCompanyDto[];
 }
 
 export interface QuotationServiceItemDto {
@@ -94,6 +103,8 @@ export interface QuotationDto {
   grandTotal: number;
   validUntil: string | null;
   inquiryId: string | null;
+  operatingCompanyId: string | null;
+  operatingCompany: QuotationEditorOperatingCompanyDto | null;
   sentAt: string | null;
   lastEmailedAt: string | null;
   pdfSecureUrl: string | null;
@@ -258,6 +269,7 @@ export async function createQuotation(
     discountAmount?: number;
     validUntil?: string | null;
     inquiryId?: string | null;
+    operatingCompanyId?: string | null;
     vatMode?: QuotationVatMode;
     lineItems: QuotationLineItemDto[];
   },
@@ -285,6 +297,7 @@ export async function updateQuotation(
     status: QuotationStatus;
     vatMode?: QuotationVatMode;
     inquiryId?: string | null;
+    operatingCompanyId?: string | null;
     lineItems: QuotationLineItemDto[];
   }>,
 ): Promise<QuotationDto> {

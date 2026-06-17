@@ -4,9 +4,12 @@ import type { TenantCompanyRegistrationConfig } from '../tenants/tenantConfig.sc
 import type { QuotationRow } from './quotations.service.js';
 import {
   computeQuotationVatAmounts,
+  computeLineAmounts,
   vatModeLabel,
   type QuotationVatMode,
 } from './quotationVat.js';
+
+const QUOTATION_TEMPLATE_MIN_ROWS = 8;
 
 type PdfDoc = InstanceType<typeof PDFDocument>;
 
@@ -205,34 +208,46 @@ export async function buildQuotationPdfBuffer(
     doc.moveDown(0.6);
 
     const colNo = ml;
-    const colLabel = ml + 22;
-    const colQty = ml + pageWidth * 0.58;
-    const colUnit = ml + pageWidth * 0.72;
-    const colAmt = ml + pageWidth * 0.86;
+    const colLabel = ml + 20;
+    const colQty = ml + pageWidth * 0.44;
+    const colUnit = ml + pageWidth * 0.54;
+    const colVat = ml + pageWidth * 0.68;
+    const colAmt = ml + pageWidth * 0.82;
 
     const tableTop = doc.y;
-    drawBox(doc, colNo, tableTop, pageWidth, ROW_H, '#e5e7eb');
-    doc.fillColor('#111').fontSize(8.5);
+    drawBox(doc, colNo, tableTop, pageWidth, ROW_H, '#475569');
+    doc.fillColor('#ffffff').fontSize(8);
     const hdrY = tableTop + 5;
-    doc.text('No', colNo + 4, hdrY, { width: 16 });
-    doc.text('품목', colLabel, hdrY, { width: pageWidth * 0.5 });
-    doc.text('수량', colQty, hdrY, { width: 36, align: 'right' });
-    doc.text('단가', colUnit, hdrY, { width: 56, align: 'right' });
-    doc.text('금액', colAmt, hdrY, { width: 64, align: 'right' });
+    doc.text('No', colNo + 3, hdrY, { width: 16 });
+    doc.text('품목', colLabel, hdrY, { width: pageWidth * 0.4 });
+    doc.text('수량', colQty, hdrY, { width: 32, align: 'right' });
+    doc.text('단가', colUnit, hdrY, { width: 48, align: 'right' });
+    doc.text('부가세', colVat, hdrY, { width: 48, align: 'right' });
+    doc.text('금액', colAmt, hdrY, { width: 56, align: 'right' });
 
+    const displayCount = Math.max(QUOTATION_TEMPLATE_MIN_ROWS, quotation.lineItems.length);
     let rowY = tableTop + ROW_H;
-    quotation.lineItems.forEach((li, idx) => {
+    for (let idx = 0; idx < displayCount; idx++) {
       rowY = ensureRowSpace(doc, rowY);
-      drawBox(doc, colNo, rowY, pageWidth, ROW_H);
+      const li = quotation.lineItems[idx];
+      const isBlank = !li;
+      const rowFill = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+      drawBox(doc, colNo, rowY, pageWidth, ROW_H, rowFill);
       doc.fillColor('#333').fontSize(8.5);
       const ty = rowY + 5;
-      doc.text(String(idx + 1), colNo + 4, ty, { width: 16 });
-      doc.text(li.label, colLabel, ty, { width: pageWidth * 0.5 });
-      doc.text(String(li.quantity), colQty, ty, { width: 36, align: 'right' });
-      doc.text(formatWon(li.unitPrice), colUnit, ty, { width: 56, align: 'right' });
-      doc.text(formatWon(li.lineAmount), colAmt, ty, { width: 64, align: 'right' });
+      doc.text(String(idx + 1), colNo + 3, ty, { width: 16 });
+      if (!isBlank) {
+        const lineCalc = computeLineAmounts(li.lineAmount, vatMode);
+        doc.text(li.label, colLabel, ty, { width: pageWidth * 0.4 });
+        doc.text(String(li.quantity), colQty, ty, { width: 32, align: 'right' });
+        doc.text(formatWon(li.unitPrice), colUnit, ty, { width: 48, align: 'right' });
+        doc.fillColor('#4338ca');
+        doc.text(formatWon(lineCalc.vatAmount), colVat, ty, { width: 48, align: 'right' });
+        doc.fillColor('#111');
+        doc.text(formatWon(lineCalc.grandAmount), colAmt, ty, { width: 56, align: 'right' });
+      }
       rowY += ROW_H;
-    });
+    }
 
     // 비고 — 합계 블록 위 공간에 표시
     if (quotation.memo?.trim()) {

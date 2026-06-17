@@ -35,6 +35,10 @@ import {
   parseQuotationVatMode,
 } from './quotations.service.js';
 import { resolveQuotationInquiryId } from './quotationInquiry.service.js';
+import {
+  listQuotationEditorOperatingCompanies,
+  resolveQuotationOperatingCompanyId,
+} from './quotationDocumentTitle.service.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -141,12 +145,13 @@ router.put('/config', adminOnly, async (req, res) => {
 router.get('/editor-defaults', async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
-  const [items, config] = await Promise.all([
+  const [items, config, operatingCompanies] = await Promise.all([
     prisma.quotationServiceItem.findMany({
       where: { tenantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
     getOrCreateQuotationConfig(prisma, tenantId),
+    listQuotationEditorOperatingCompanies(prisma, tenantId),
   ]);
   const validUntilDefault =
     config.defaultValidDays != null && config.defaultValidDays > 0
@@ -156,6 +161,7 @@ router.get('/editor-defaults', async (req, res) => {
     catalog: items.map(serializeServiceItem),
     config: serializeQuotationConfig(config),
     validUntilDefault,
+    operatingCompanies,
   });
 });
 
@@ -395,6 +401,15 @@ router.post('/', async (req, res) => {
     return;
   }
 
+  const operatingCompanyIdResolved = await resolveQuotationOperatingCompanyId(prisma, tenantId, {
+    bodyValue: body.operatingCompanyId,
+    inquiryId: inquiryIdResolved,
+  });
+  if (operatingCompanyIdResolved === 'INVALID') {
+    res.status(400).json({ error: '영업 브랜드를 찾을 수 없습니다.' });
+    return;
+  }
+
   const row = await prisma.$transaction(async (tx) => {
     const quoteNumber = await allocateNextQuotationNumber(tx, tenantId);
     return tx.quotation.create({
@@ -422,6 +437,7 @@ router.post('/', async (req, res) => {
         vatMode,
         validUntil: validUntilParsed,
         inquiryId: inquiryIdResolved,
+        operatingCompanyId: operatingCompanyIdResolved,
         createdById: auth.userId,
         lineItems: {
           create: linesParsed.map((li, i) => ({
@@ -507,6 +523,20 @@ router.patch('/:id', async (req, res) => {
     patchInquiryId = resolved;
   }
 
+  const nextInquiryId = patchInquiryId !== undefined ? patchInquiryId : existing.inquiryId;
+  const operatingCompanyIdResolved =
+    body.operatingCompanyId !== undefined
+      ? await resolveQuotationOperatingCompanyId(prisma, tenantId, {
+          bodyValue: body.operatingCompanyId,
+          inquiryId: nextInquiryId,
+          existingId: existing.operatingCompanyId,
+        })
+      : undefined;
+  if (operatingCompanyIdResolved === 'INVALID') {
+    res.status(400).json({ error: '영업 브랜드를 찾을 수 없습니다.' });
+    return;
+  }
+
   const statusRaw = body.status;
   const nextStatus =
     statusRaw === 'DRAFT' || statusRaw === 'FINALIZED' || statusRaw === 'SENT'
@@ -567,6 +597,8 @@ router.patch('/:id', async (req, res) => {
         validUntil: validUntilParsed,
         status: nextStatus,
         inquiryId: patchInquiryId,
+        operatingCompanyId:
+          operatingCompanyIdResolved !== undefined ? operatingCompanyIdResolved : undefined,
       },
       include: quotationInclude,
     });

@@ -265,6 +265,7 @@ model OperatingCompany {
   inquiries         Inquiry[]
   orderForms        OrderForm[]
   dailyCounters     DailyInquiryCounter[]
+  quotations        Quotation[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -1391,6 +1392,8 @@ model Quotation {
   validUntil      DateTime?       @map("valid_until") @db.Date
   inquiryId       String?         @map("inquiry_id")
   inquiry         Inquiry?        @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  operatingCompanyId String?      @map("operating_company_id")
+  operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: SetNull)
   createdById     String?         @map("created_by_id")
   createdBy       User?           @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   sentAt          DateTime?       @map("sent_at")

@@ -39,7 +39,18 @@ export function emptyQuotationLine(catalog?: QuotationServiceItemDto): EditableQ
     catalogItemId: catalog?.id ?? null,
     label: catalog?.name ?? '',
     unitPrice: catalog ? String(catalog.unitPrice) : '',
-    quantity: '1',
+    quantity: catalog ? '1' : '',
+  };
+}
+
+/** 품목표 서식용 빈 행 (수량·단가 미입력) */
+export function emptyTemplatePaddingLine(): EditableQuotationLine {
+  return {
+    key: newLineKey(),
+    catalogItemId: null,
+    label: '',
+    unitPrice: '',
+    quantity: '',
   };
 }
 
@@ -67,4 +78,14 @@ export function catalogSelectValue(line: EditableQuotationLine): string {
   if (line.catalogItemId) return line.catalogItemId;
   if (line.label.trim()) return '__custom__';
   return '';
+}
+
+/** A4 견적서 품목표 최소 행 수 (빈 행 포함 서식) */
+export const QUOTATION_TEMPLATE_MIN_ROWS = 8;
+
+export function linesForTemplateDisplay(lines: EditableQuotationLine[]): EditableQuotationLine[] {
+  const min = Math.max(QUOTATION_TEMPLATE_MIN_ROWS, lines.length);
+  const out = [...lines];
+  while (out.length < min) out.push(emptyTemplatePaddingLine());
+  return out;
 }

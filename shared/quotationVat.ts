@@ -21,3 +21,14 @@ export function parseQuotationVatMode(raw: unknown): QuotationVatMode {
   if (raw === 'TAX_FREE' || raw === 'VAT_SEPARATE') return raw;
   return 'VAT_SEPARATE';
 }
+
+/** 행별 공급가·부가세·합계(금액) */
+export function computeLineAmounts(
+  supplyAmount: number,
+  vatMode: QuotationVatMode,
+): { supply: number; vatAmount: number; grandAmount: number } {
+  const supply = Math.max(0, Math.round(supplyAmount));
+  const vatAmount =
+    vatMode === 'VAT_SEPARATE' ? Math.round(supply * QUOTATION_VAT_RATE) : 0;
+  return { supply, vatAmount, grandAmount: supply + vatAmount };
+}

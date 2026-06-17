@@ -12,6 +12,7 @@ import {
   serializeQuotation,
   type QuotationRow,
 } from './quotations.service.js';
+import { resolveQuotationBrandDisplayName } from './quotationDocumentTitle.service.js';
 
 export type QuotationEmailSendInput = {
   tenantId: string;
@@ -38,7 +39,11 @@ export async function executeQuotationEmailSend(
   }
 
   const profile = await getTenantCompanyProfile(input.tenantId);
-  const companyName = profile.companyRegistration.companyName?.trim() || '견적서';
+  const companyName =
+    resolveQuotationBrandDisplayName(
+      row.operatingCompany,
+      profile.companyRegistration.companyName,
+    ) || '견적서';
   const config = await getOrCreateQuotationConfig(prisma, input.tenantId);
   const { subject, body } = buildQuotationEmailContent({
     quotation: row,
@@ -119,7 +124,11 @@ export async function buildQuotationEmailDefaultsForRow(
   row: QuotationRow,
 ): Promise<{ subject: string; body: string }> {
   const profile = await getTenantCompanyProfile(tenantId);
-  const companyName = profile.companyRegistration.companyName?.trim() || '견적서';
+  const companyName =
+    resolveQuotationBrandDisplayName(
+      row.operatingCompany,
+      profile.companyRegistration.companyName,
+    ) || '견적서';
   const config = await getOrCreateQuotationConfig(prisma, tenantId);
   return buildQuotationEmailContent({ quotation: row, companyName, config });
 }
