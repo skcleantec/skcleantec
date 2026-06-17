@@ -1348,6 +1348,11 @@ enum QuotationStatus {
   SENT
 }
 
+enum QuotationVatMode {
+  TAX_FREE
+  VAT_SEPARATE
+}
+
 /// 견적 설정 — 서비스 항목 카탈로그 (발주서 EstimateOption 과 별개)
 model QuotationServiceItem {
   id          String   @id @default(uuid())
@@ -1382,6 +1387,7 @@ model Quotation {
   subtotal        Int             @default(0)
   discountAmount  Int             @default(0) @map("discount_amount")
   total           Int             @default(0)
+  vatMode         QuotationVatMode @default(VAT_SEPARATE) @map("vat_mode")
   validUntil      DateTime?       @map("valid_until") @db.Date
   inquiryId       String?         @map("inquiry_id")
   inquiry         Inquiry?        @relation(fields: [inquiryId], references: [id], onDelete: SetNull)

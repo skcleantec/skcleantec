@@ -1,4 +1,5 @@
 import type { QuotationRow } from './quotations.service.js';
+import { computeQuotationVatAmounts, vatModeLabel, type QuotationVatMode } from './quotationVat.js';
 
 export const QUOTATION_EMAIL_PLACEHOLDER_HELP =
   '{{customerName}}, {{quoteNumber}}, {{total}}, {{companyName}}, {{validUntil}}';
@@ -24,10 +25,16 @@ export function buildQuotationEmailVars(
   quotation: QuotationRow,
   companyName: string,
 ): QuotationEmailVars {
+  const vatMode = (quotation.vatMode ?? 'VAT_SEPARATE') as QuotationVatMode;
+  const { grandTotal } = computeQuotationVatAmounts(quotation.total, vatMode);
+  const totalLabel =
+    vatMode === 'VAT_SEPARATE'
+      ? `${grandTotal.toLocaleString('ko-KR')} (${vatModeLabel(vatMode)}, VAT 포함)`
+      : `${grandTotal.toLocaleString('ko-KR')} (${vatModeLabel(vatMode)})`;
   return {
     customerName: quotation.customerName,
     quoteNumber: quotation.quoteNumber,
-    total: quotation.total.toLocaleString('ko-KR'),
+    total: totalLabel,
     companyName,
     validUntil: quotation.validUntil
       ? quotation.validUntil.toISOString().slice(0, 10)

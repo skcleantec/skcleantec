@@ -42,3 +42,29 @@ export function emptyQuotationLine(catalog?: QuotationServiceItemDto): EditableQ
     quantity: '1',
   };
 }
+
+/** 견적 설정에 등록된 활성 항목으로 초기 행 구성 */
+export function linesFromCatalog(catalog: QuotationServiceItemDto[]): EditableQuotationLine[] {
+  if (catalog.length === 0) return [emptyQuotationLine()];
+  return catalog.map((item) => emptyQuotationLine(item));
+}
+
+/** 저장된 catalogItemId 기준으로 품목명·단가를 설정 카탈로그와 동기화 */
+export function syncLinesWithCatalog(
+  lines: EditableQuotationLine[],
+  catalog: QuotationServiceItemDto[],
+): EditableQuotationLine[] {
+  const byId = new Map(catalog.map((c) => [c.id, c]));
+  return lines.map((li) => {
+    if (!li.catalogItemId) return li;
+    const item = byId.get(li.catalogItemId);
+    if (!item) return li;
+    return { ...li, label: item.name, unitPrice: String(item.unitPrice) };
+  });
+}
+
+export function catalogSelectValue(line: EditableQuotationLine): string {
+  if (line.catalogItemId) return line.catalogItemId;
+  if (line.label.trim()) return '__custom__';
+  return '';
+}

@@ -1,4 +1,12 @@
 import type { Prisma, Quotation, QuotationLineItem, QuotationServiceItem } from '@prisma/client';
+import {
+  computeQuotationVatAmounts,
+  parseQuotationVatMode,
+  type QuotationVatMode,
+} from './quotationVat.js';
+
+export type { QuotationVatMode };
+export { computeQuotationVatAmounts, parseQuotationVatMode };
 
 export type QuotationLineInput = {
   catalogItemId?: string | null;
@@ -81,6 +89,8 @@ export type QuotationRow = Quotation & {
 };
 
 export function serializeQuotation(row: QuotationRow) {
+  const vatMode = row.vatMode as QuotationVatMode;
+  const { vatAmount, grandTotal } = computeQuotationVatAmounts(row.total, vatMode);
   return {
     id: row.id,
     quoteNumber: row.quoteNumber,
@@ -93,6 +103,9 @@ export function serializeQuotation(row: QuotationRow) {
     subtotal: row.subtotal,
     discountAmount: row.discountAmount,
     total: row.total,
+    vatMode,
+    vatAmount,
+    grandTotal,
     validUntil: row.validUntil ? row.validUntil.toISOString().slice(0, 10) : null,
     inquiryId: row.inquiryId,
     inquiry: row.inquiry,

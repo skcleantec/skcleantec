@@ -49,6 +49,8 @@ export interface QuotationServiceItemDto {
   updatedAt: string;
 }
 
+export type QuotationVatMode = 'TAX_FREE' | 'VAT_SEPARATE';
+
 export interface QuotationLineItemDto {
   id?: string;
   catalogItemId?: string | null;
@@ -87,6 +89,9 @@ export interface QuotationDto {
   subtotal: number;
   discountAmount: number;
   total: number;
+  vatMode: QuotationVatMode;
+  vatAmount: number;
+  grandTotal: number;
   validUntil: string | null;
   inquiryId: string | null;
   sentAt: string | null;
@@ -253,6 +258,7 @@ export async function createQuotation(
     discountAmount?: number;
     validUntil?: string | null;
     inquiryId?: string | null;
+    vatMode?: QuotationVatMode;
     lineItems: QuotationLineItemDto[];
   },
 ): Promise<QuotationDto> {
@@ -277,6 +283,7 @@ export async function updateQuotation(
     discountAmount: number;
     validUntil: string | null;
     status: QuotationStatus;
+    vatMode?: QuotationVatMode;
     inquiryId?: string | null;
     lineItems: QuotationLineItemDto[];
   }>,

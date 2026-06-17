@@ -32,6 +32,7 @@ import {
   serializeQuotationEmailLog,
   serializeServiceItem,
   verifyActorPassword,
+  parseQuotationVatMode,
 } from './quotations.service.js';
 import { resolveQuotationInquiryId } from './quotationInquiry.service.js';
 
@@ -386,6 +387,7 @@ router.post('/', async (req, res) => {
       ? Math.max(0, Math.round(body.discountAmount))
       : 0;
   const { subtotal, total } = computeQuotationTotals(linesParsed, discountAmount);
+  const vatMode = parseQuotationVatMode(body.vatMode);
 
   const inquiryIdResolved = await resolveQuotationInquiryId(prisma, tenantId, body.inquiryId);
   if (inquiryIdResolved === 'INVALID') {
@@ -417,6 +419,7 @@ router.post('/', async (req, res) => {
         subtotal,
         discountAmount,
         total,
+        vatMode,
         validUntil: validUntilParsed,
         inquiryId: inquiryIdResolved,
         createdById: auth.userId,
@@ -491,6 +494,8 @@ router.patch('/:id', async (req, res) => {
       ? Math.max(0, Math.round(body.discountAmount))
       : existing.discountAmount;
   const { subtotal, total } = computeQuotationTotals(linesParsed, discountAmount);
+  const nextVatMode =
+    body.vatMode !== undefined ? parseQuotationVatMode(body.vatMode) : (existing.vatMode as import('./quotationVat.js').QuotationVatMode);
 
   let patchInquiryId: string | null | undefined = undefined;
   if (body.inquiryId !== undefined) {
@@ -558,6 +563,7 @@ router.patch('/:id', async (req, res) => {
         subtotal,
         discountAmount,
         total,
+        vatMode: nextVatMode,
         validUntil: validUntilParsed,
         status: nextStatus,
         inquiryId: patchInquiryId,

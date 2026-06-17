@@ -8,6 +8,7 @@ import {
   updateQuotation,
   type QuotationLineItemDto,
   type QuotationServiceItemDto,
+  type QuotationVatMode,
 } from '../../api/quotations';
 import {
   fetchTenantCompanyProfile,
@@ -23,11 +24,14 @@ import {
 } from '../../components/quotations/inquiryQuotationPrefill';
 import {
   emptyQuotationLine,
+  linesFromCatalog,
   parsePriceInt,
   parseQty,
+  syncLinesWithCatalog,
   type EditableQuotationLine,
 } from '../../components/quotations/quotationLineUtils';
 import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
+import { computeQuotationVatAmounts } from '@shared/quotationVat';
 import { getToken } from '../../stores/auth';
 
 export function AdminQuotationEditorPage() {
@@ -53,6 +57,7 @@ export function AdminQuotationEditorPage() {
   const [customerAddress, setCustomerAddress] = useState('');
   const [memo, setMemo] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
+  const [vatMode, setVatMode] = useState<QuotationVatMode>('VAT_SEPARATE');
   const [validUntil, setValidUntil] = useState('');
   const [lines, setLines] = useState<EditableQuotationLine[]>([emptyQuotationLine()]);
   const [loading, setLoading] = useState(!isNew);
@@ -69,7 +74,12 @@ export function AdminQuotationEditorPage() {
       setCatalog(defaults.catalog);
       setDocumentTitle(defaults.config.documentTitle?.trim() || '견적서');
       setFooterNotice(defaults.config.footerNotice);
-      if (isNew && defaults.validUntilDefault) setValidUntil(defaults.validUntilDefault);
+      if (isNew) {
+        if (defaults.validUntilDefault) setValidUntil(defaults.validUntilDefault);
+        if (defaults.catalog.length > 0) {
+          setLines(linesFromCatalog(defaults.catalog));
+        }
+      }
     },
     [isNew],
   );
@@ -142,8 +152,9 @@ export function AdminQuotationEditorPage() {
           : null,
       );
       setDiscountAmount(row.discountAmount > 0 ? String(row.discountAmount) : '');
+      setVatMode(row.vatMode ?? 'VAT_SEPARATE');
       setValidUntil(row.validUntil ?? '');
-      setLines(
+      const mapped =
         row.lineItems.length > 0
           ? row.lineItems.map((li) => ({
               key: li.id ?? `line-${li.label}`,
@@ -152,8 +163,8 @@ export function AdminQuotationEditorPage() {
               unitPrice: String(li.unitPrice),
               quantity: String(li.quantity),
             }))
-          : [emptyQuotationLine()],
-      );
+          : linesFromCatalog(defaults.catalog);
+      setLines(syncLinesWithCatalog(mapped, defaults.catalog));
     } catch (e) {
       setError(e instanceof Error ? e.message : '견적서를 불러올 수 없습니다.');
     } finally {
@@ -184,13 +195,15 @@ export function AdminQuotationEditorPage() {
       const q = parseQty(li.quantity);
       if (p != null && q != null) subtotal += p * q;
     }
-    const disc = parsePriceInt(discountAmount) ?? 0;
-    return { subtotal, total: Math.max(0, subtotal - disc) };
-  }, [lines, discountAmount]);
+    const discountNum = parsePriceInt(discountAmount) ?? 0;
+    const supplyTotal = Math.max(0, subtotal - discountNum);
+    const { vatAmount, grandTotal } = computeQuotationVatAmounts(supplyTotal, vatMode);
+    return { subtotal, discountNum, supplyTotal, vatAmount, grandTotal };
+  }, [lines, discountAmount, vatMode]);
 
-  function buildLinePayload(): QuotationLineItemDto[] | null {
+  function buildLinePayload(fromLines: EditableQuotationLine[]): QuotationLineItemDto[] | null {
     const out: QuotationLineItemDto[] = [];
-    for (const li of lines) {
+    for (const li of fromLines) {
       if (!li.label.trim()) continue;
       const unitPrice = parsePriceInt(li.unitPrice);
       const quantity = parseQty(li.quantity);
@@ -211,7 +224,8 @@ export function AdminQuotationEditorPage() {
       alert('공급받는자 이름을 입력해 주세요.');
       return;
     }
-    const lineItems = buildLinePayload();
+    const normalizedLines = syncLinesWithCatalog(lines, catalog);
+    const lineItems = buildLinePayload(normalizedLines);
     if (lineItems == null) {
       alert('단가·수량을 올바르게 입력해 주세요.');
       return;
@@ -232,6 +246,7 @@ export function AdminQuotationEditorPage() {
         memo: memo.trim() || null,
         discountAmount: disc,
         validUntil: validUntil.trim() || null,
+        vatMode,
         lineItems,
         ...(linkedInquiryId ? { inquiryId: linkedInquiryId } : {}),
         ...(finalize ? { status: 'FINALIZED' as const } : {}),
@@ -325,7 +340,12 @@ export function AdminQuotationEditorPage() {
         discountAmount={discountAmount}
         onDiscountAmountChange={setDiscountAmount}
         subtotal={totals.subtotal}
-        total={totals.total}
+        discountNum={totals.discountNum}
+        supplyTotal={totals.supplyTotal}
+        vatMode={vatMode}
+        onVatModeChange={setVatMode}
+        vatAmount={totals.vatAmount}
+        grandTotal={totals.grandTotal}
         memo={memo}
         onMemoChange={setMemo}
         footerNotice={footerNotice}

@@ -1,6 +1,9 @@
 import type { QuotationServiceItemDto } from '../../api/quotations';
 import type { TenantCompanyRegistration } from '../../api/tenantCompanyProfile';
+import type { QuotationVatMode } from '@shared/quotationVat';
+import { vatModeLabel } from '@shared/quotationVat';
 import {
+  catalogSelectValue,
   emptyQuotationLine,
   lineAmountFromEditable,
   type EditableQuotationLine,
@@ -38,7 +41,12 @@ type Props = {
   discountAmount: string;
   onDiscountAmountChange: (v: string) => void;
   subtotal: number;
-  total: number;
+  discountNum: number;
+  supplyTotal: number;
+  vatMode: QuotationVatMode;
+  onVatModeChange: (mode: QuotationVatMode) => void;
+  vatAmount: number;
+  grandTotal: number;
   memo: string;
   onMemoChange: (v: string) => void;
   footerNotice: string | null;
@@ -90,7 +98,12 @@ export function QuotationDocumentEditor({
   discountAmount,
   onDiscountAmountChange,
   subtotal,
-  total,
+  discountNum,
+  supplyTotal,
+  vatMode,
+  onVatModeChange,
+  vatAmount,
+  grandTotal,
   memo,
   onMemoChange,
   footerNotice,
@@ -98,8 +111,31 @@ export function QuotationDocumentEditor({
   function addFromCatalog(itemId: string) {
     const item = catalog.find((c) => c.id === itemId);
     if (!item) return;
+    if (lines.some((l) => l.catalogItemId === itemId)) return;
     onLinesChange([...lines, emptyQuotationLine(item)]);
   }
+
+  function handleCatalogSelect(lineKey: string, value: string) {
+    if (value === '__custom__') {
+      updateLine(lineKey, { catalogItemId: null });
+      return;
+    }
+    if (!value) {
+      updateLine(lineKey, { catalogItemId: null, label: '', unitPrice: '' });
+      return;
+    }
+    const item = catalog.find((c) => c.id === value);
+    if (!item) return;
+    updateLine(lineKey, {
+      catalogItemId: item.id,
+      label: item.name,
+      unitPrice: String(item.unitPrice),
+    });
+  }
+
+  const availableCatalog = catalog.filter(
+    (c) => !lines.some((l) => l.catalogItemId === c.id),
+  );
 
   function updateLine(key: string, patch: Partial<EditableQuotationLine>) {
     onLinesChange(lines.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -111,7 +147,6 @@ export function QuotationDocumentEditor({
   }
 
   const supplierLines = companyLines(company);
-  const discountNum = parseInt(discountAmount.replace(/,/g, ''), 10) || 0;
 
   return (
     <div className="min-w-0 space-y-3">
@@ -121,7 +156,7 @@ export function QuotationDocumentEditor({
 
       {/* 편집 도구 — 용지 바깥 */}
       <div className="flex flex-wrap items-center justify-center gap-2 px-2">
-        {catalog.length > 0 && (
+        {availableCatalog.length > 0 && (
           <select
             className="max-w-[220px] rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-xs text-slate-700 shadow-sm"
             defaultValue=""
@@ -132,8 +167,8 @@ export function QuotationDocumentEditor({
               }
             }}
           >
-            <option value="">+ 카탈로그 항목</option>
-            {catalog.map((c) => (
+            <option value="">+ 견적 설정 항목</option>
+            {availableCatalog.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
@@ -145,8 +180,13 @@ export function QuotationDocumentEditor({
           onClick={() => onLinesChange([...lines, emptyQuotationLine()])}
           className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
         >
-          + 빈 행
+          + 직접 입력 행
         </button>
+        {catalog.length === 0 && (
+          <span className="text-fluid-2xs text-amber-800">
+            견적 설정에 서비스 항목을 등록하면 품목명이 자동으로 맞춰집니다.
+          </span>
+        )}
       </div>
 
       {/* A4 용지 — 가로 스크롤 허용, 크기 고정 */}
@@ -287,12 +327,43 @@ export function QuotationDocumentEditor({
                             {idx + 1}
                           </td>
                           <td className="border border-slate-300 px-0.5 py-0.5 align-middle">
-                            <input
-                              className={docCellInput}
-                              placeholder="품목명"
-                              value={li.label}
-                              onChange={(e) => updateLine(li.key, { label: e.target.value })}
-                            />
+                            {catalog.length > 0 ? (
+                              <div className="space-y-1">
+                                <select
+                                  className={docCellInput}
+                                  value={catalogSelectValue(li)}
+                                  onChange={(e) => handleCatalogSelect(li.key, e.target.value)}
+                                >
+                                  <option value="">품목 선택…</option>
+                                  {catalog.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                                  <option value="__custom__">직접 입력</option>
+                                </select>
+                                {(!li.catalogItemId || catalogSelectValue(li) === '__custom__') && (
+                                  <input
+                                    className={docCellInput}
+                                    placeholder="품목명 직접 입력"
+                                    value={li.label}
+                                    onChange={(e) =>
+                                      updateLine(li.key, {
+                                        catalogItemId: null,
+                                        label: e.target.value,
+                                      })
+                                    }
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <input
+                                className={docCellInput}
+                                placeholder="품목명"
+                                value={li.label}
+                                onChange={(e) => updateLine(li.key, { label: e.target.value })}
+                              />
+                            )}
                           </td>
                           <td className="border border-slate-300 px-0.5 py-0.5 align-middle">
                             <input
@@ -333,37 +404,6 @@ export function QuotationDocumentEditor({
                 </table>
               </div>
 
-              {/* 합계 */}
-              <div className="flex justify-end mb-4">
-                <div className="w-[200px] space-y-0.5 text-[12px]">
-                  <div className="flex justify-between text-slate-600 tabular-nums">
-                    <span>소계</span>
-                    <span>{subtotal.toLocaleString('ko-KR')}원</span>
-                  </div>
-                  <label className="flex justify-between items-center gap-2 text-slate-600">
-                    <span>할인</span>
-                    <input
-                      className="w-[72px] rounded-sm border border-slate-200 bg-white px-1.5 py-0.5 text-right text-[11px] tabular-nums focus:border-slate-500 focus:outline-none"
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={discountAmount}
-                      onChange={(e) => onDiscountAmountChange(e.target.value)}
-                    />
-                  </label>
-                  {discountNum > 0 && (
-                    <div className="flex justify-between text-slate-600 tabular-nums text-[11px]">
-                      <span />
-                      <span>-{discountNum.toLocaleString('ko-KR')}원</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-baseline pt-1.5 border-t border-slate-400 font-bold text-slate-900 tabular-nums">
-                    <span>합계</span>
-                    <span className="text-[15px]">{total.toLocaleString('ko-KR')}원</span>
-                  </div>
-                  <p className="text-right text-[10px] text-slate-500">(부가세 별도)</p>
-                </div>
-              </div>
-
               {/* 비고 */}
               <div className="mb-2">
                 <p className="text-[12px] font-bold text-slate-700 underline underline-offset-2 mb-1">
@@ -378,8 +418,79 @@ export function QuotationDocumentEditor({
                 />
               </div>
 
-              {/* ── 하단(꼬리말) 고정 구역 — 짧은 내용일 때 용지 하단 정렬 ── */}
-              <footer className="shrink-0 mt-auto pt-6 border-t border-slate-100">
+              {/* ── 하단 합계·과세 (공문 하단 고정) ── */}
+              <footer className="shrink-0 mt-auto pt-4 border-t border-slate-200">
+                <div className="mb-3 space-y-1 text-[11px] text-slate-600 tabular-nums text-right">
+                  <div className="flex justify-end gap-8">
+                    <span>소계</span>
+                    <span className="w-24">{subtotal.toLocaleString('ko-KR')}원</span>
+                  </div>
+                  <label className="flex justify-end items-center gap-8">
+                    <span>할인</span>
+                    <input
+                      className="w-24 rounded-sm border border-slate-200 bg-white px-1.5 py-0.5 text-right text-[11px] tabular-nums focus:border-slate-500 focus:outline-none"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={discountAmount}
+                      onChange={(e) => onDiscountAmountChange(e.target.value)}
+                    />
+                  </label>
+                  {discountNum > 0 && (
+                    <div className="flex justify-end gap-8 text-slate-500">
+                      <span />
+                      <span className="w-24">-{discountNum.toLocaleString('ko-KR')}원</span>
+                    </div>
+                  )}
+                </div>
+
+                <fieldset className="mb-3">
+                  <legend className="text-[11px] font-semibold text-slate-600 mb-1.5">과세 구분</legend>
+                  <div className="flex flex-wrap gap-4 text-[12px] text-slate-800">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="quotation-vat-mode"
+                        checked={vatMode === 'TAX_FREE'}
+                        onChange={() => onVatModeChange('TAX_FREE')}
+                        className="border-slate-300 text-slate-900"
+                      />
+                      면세
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="quotation-vat-mode"
+                        checked={vatMode === 'VAT_SEPARATE'}
+                        onChange={() => onVatModeChange('VAT_SEPARATE')}
+                        className="border-slate-300 text-slate-900"
+                      />
+                      부가세 별도 (10%)
+                    </label>
+                  </div>
+                </fieldset>
+
+                <div className="grid grid-cols-3 border border-slate-300 text-center text-[12px] mb-2">
+                  <div className="border-r border-slate-300 bg-[#f3f4f6] py-2">
+                    <p className="text-[10px] font-bold text-slate-500 mb-1">공급가액</p>
+                    <p className="font-semibold tabular-nums text-slate-900">
+                      {supplyTotal.toLocaleString('ko-KR')}원
+                    </p>
+                  </div>
+                  <div className="border-r border-slate-300 bg-[#f3f4f6] py-2">
+                    <p className="text-[10px] font-bold text-slate-500 mb-1">부가세</p>
+                    <p className="font-semibold tabular-nums text-slate-900">
+                      {vatAmount.toLocaleString('ko-KR')}원
+                    </p>
+                  </div>
+                  <div className="bg-[#e5e7eb] py-2">
+                    <p className="text-[10px] font-bold text-slate-600 mb-1">합계금액</p>
+                    <p className="text-[14px] font-bold tabular-nums text-slate-900">
+                      {grandTotal.toLocaleString('ko-KR')}원
+                    </p>
+                  </div>
+                </div>
+                <p className="text-right text-[10px] text-slate-500 mb-4">({vatModeLabel(vatMode)})</p>
+
                 <p className="text-center text-[13px] text-slate-800 font-medium tracking-wide">
                   위와 같이 견적합니다.
                 </p>
