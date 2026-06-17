@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   createQuotationServiceItem,
@@ -11,6 +12,7 @@ import {
   type QuotationServiceItemDto,
 } from '../../api/quotations';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { qUi } from '../../components/quotations/quotationUi';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 
 const HELP =
@@ -194,197 +196,244 @@ export function AdminQuotationSettingsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-3 py-4 sm:px-4">
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <h1 className="text-lg font-semibold text-gray-900">견적 설정</h1>
-        <HelpTooltip text={HELP} />
-        <button
-          type="button"
-          onClick={openCreate}
-          className="ml-auto px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
+    <div className={qUi.pageRootNarrow}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className={qUi.breadcrumb}>
+            <Link to="/admin/inquiries/quotations" className={qUi.breadcrumbLink}>
+              견적 목록
+            </Link>
+            {' · '}
+            설정
+          </p>
+          <div className="flex items-center gap-2">
+            <h1 className={qUi.pageTitle}>견적 설정</h1>
+            <HelpTooltip text={HELP} />
+          </div>
+          <p className={qUi.pageDesc}>
+            PDF 서식·이메일 기본값과 견적 작성 시 사용할 서비스 항목 카탈로그를 관리합니다.
+          </p>
+        </div>
+        <button type="button" onClick={openCreate} className={`${qUi.btnPrimary} shrink-0`}>
           + 항목 추가
         </button>
       </div>
 
-      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      {error && <p className={qUi.alertError} role="alert">{error}</p>}
 
-      <section className="border rounded-lg p-4 mb-6 bg-white">
-        <h2 className="font-medium text-gray-900 mb-3">PDF 서식</h2>
-        <label className="block text-sm mb-3 max-w-xs">
-          <span className="text-gray-700">문서 제목 (PDF 상단)</span>
+      <section className={`${qUi.cardBody} space-y-5`}>
+        <div>
+          <h2 className={qUi.sectionTitle}>PDF 서식</h2>
+          <p className={`${qUi.sectionSubtitle} mt-0.5`}>견적서 PDF와 이메일 발송 기본값입니다.</p>
+        </div>
+
+        <label className="block sm:max-w-sm">
+          <span className={qUi.label}>문서 제목 (PDF 상단)</span>
           <input
-            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+            className={qUi.input}
             placeholder="기본: 견적서"
             maxLength={40}
             value={documentTitle}
             onChange={(e) => setDocumentTitle(e.target.value)}
           />
         </label>
-        <label className="block text-sm mb-3">
-          <span className="text-gray-700">하단 고정 안내</span>
+
+        <label className="block">
+          <span className={qUi.label}>하단 고정 안내</span>
           <textarea
-            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+            className={qUi.textarea}
             rows={3}
             placeholder="예: 본 견적은 발행일로부터 7일간 유효합니다."
             value={footerNotice}
             onChange={(e) => setFooterNotice(e.target.value)}
           />
         </label>
-        <label className="block text-sm mb-3 max-w-xs">
-          <span className="text-gray-700">새 견적 기본 유효기간(일)</span>
+
+        <label className="block sm:max-w-xs">
+          <span className={qUi.label}>새 견적 기본 유효기간(일)</span>
           <input
-            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+            className={qUi.input}
             inputMode="numeric"
             placeholder="비워 두면 미적용"
             value={defaultValidDays}
             onChange={(e) => setDefaultValidDays(e.target.value)}
           />
         </label>
-        <h3 className="font-medium text-sm text-gray-900 mb-2 mt-4">이메일 기본값</h3>
-        <p className="text-xs text-gray-500 mb-2">
-          치환: {'{{customerName}}'}, {'{{quoteNumber}}'}, {'{{total}}'}, {'{{companyName}}'},{' '}
-          {'{{validUntil}}'}
-        </p>
-        <label className="block text-sm mb-3">
-          <span className="text-gray-700">기본 제목</span>
-          <input
-            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
-            placeholder="비워 두면 시스템 기본값"
-            maxLength={200}
-            value={defaultEmailSubject}
-            onChange={(e) => setDefaultEmailSubject(e.target.value)}
-          />
-        </label>
-        <label className="block text-sm mb-3">
-          <span className="text-gray-700">기본 본문</span>
-          <textarea
-            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
-            rows={5}
-            placeholder="비워 두면 시스템 기본값"
-            value={defaultEmailBody}
-            onChange={(e) => setDefaultEmailBody(e.target.value)}
-          />
-        </label>
+
+        <div className="border-t border-slate-100 pt-4 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">이메일 기본값</h3>
+            <p className="text-fluid-2xs text-slate-500 mt-1">
+              치환: {'{{customerName}}'}, {'{{quoteNumber}}'}, {'{{total}}'}, {'{{companyName}}'},{' '}
+              {'{{validUntil}}'}
+            </p>
+          </div>
+
+          <label className="block">
+            <span className={qUi.label}>기본 제목</span>
+            <input
+              className={qUi.input}
+              placeholder="비워 두면 시스템 기본값"
+              maxLength={200}
+              value={defaultEmailSubject}
+              onChange={(e) => setDefaultEmailSubject(e.target.value)}
+            />
+          </label>
+
+          <label className="block">
+            <span className={qUi.label}>기본 본문</span>
+            <textarea
+              className={qUi.textarea}
+              rows={5}
+              placeholder="비워 두면 시스템 기본값"
+              value={defaultEmailBody}
+              onChange={(e) => setDefaultEmailBody(e.target.value)}
+            />
+          </label>
+        </div>
+
         <button
           type="button"
           disabled={configSaving || loading}
           onClick={() => void handleSaveConfig()}
-          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded disabled:opacity-50"
+          className={qUi.btnPrimary}
         >
           {configSaving ? '저장 중…' : '서식 저장'}
         </button>
       </section>
 
-      <h2 className="font-medium text-gray-900 mb-2">서비스 항목</h2>
-      {loading ? (
-        <p className="text-sm text-gray-500">불러오는 중…</p>
-      ) : items.length === 0 ? (
-        <p className="text-sm text-gray-500">등록된 서비스 항목이 없습니다.</p>
-      ) : (
-        <ul className="space-y-2">
-          {items.map((row, idx) => (
-            <li
-              key={row.id}
-              className={`border rounded-lg p-3 flex flex-wrap gap-2 items-center ${row.isActive ? 'bg-white' : 'bg-gray-50 opacity-70'}`}
-            >
-              <span className="flex gap-0.5 shrink-0">
-                <button
-                  type="button"
-                  disabled={movingId != null || idx === 0}
-                  onClick={() => void handleMove(row.id, 'up')}
-                  className="px-1 py-0.5 text-[10px] border rounded disabled:opacity-30"
-                  aria-label="위로"
+      <section className="space-y-3">
+        <div>
+          <h2 className={qUi.sectionTitle}>서비스 항목</h2>
+          <p className={`${qUi.sectionSubtitle} mt-0.5`}>
+            견적 작성 시 카탈로그에서 불러올 항목입니다. 순서는 ↑↓로 조정합니다.
+          </p>
+        </div>
+
+        <div className={qUi.card}>
+          {loading ? (
+            <p className={qUi.emptyState}>불러오는 중…</p>
+          ) : items.length === 0 ? (
+            <div className={qUi.emptyState}>
+              <p>등록된 서비스 항목이 없습니다.</p>
+              <button type="button" onClick={openCreate} className={`${qUi.btnPrimary} mt-4`}>
+                첫 항목 추가
+              </button>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {items.map((row, idx) => (
+                <li
+                  key={row.id}
+                  className={`px-4 py-4 sm:px-5 flex flex-wrap gap-3 items-center ${!row.isActive ? 'opacity-60 bg-slate-50/50' : ''}`}
                 >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  disabled={movingId != null || idx === items.length - 1}
-                  onClick={() => void handleMove(row.id, 'down')}
-                  className="px-1 py-0.5 text-[10px] border rounded disabled:opacity-30"
-                  aria-label="아래로"
-                >
-                  ↓
-                </button>
-              </span>
-              <div className="flex-1 min-w-[140px]">
-                <div className="font-medium text-gray-900">{row.name}</div>
-                <div className="text-sm text-gray-600">{row.unitPrice.toLocaleString('ko-KR')}원</div>
-                {row.description && (
-                  <div className="text-xs text-gray-500 mt-0.5">{row.description}</div>
-                )}
-              </div>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => openEdit(row)}
-                  className="px-2 py-1 text-xs border rounded hover:bg-gray-50"
-                >
-                  수정
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteTarget(row);
-                    setDeletePassword('');
-                  }}
-                  className="px-2 py-1 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50"
-                >
-                  삭제
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+                  <span className="flex gap-1 shrink-0">
+                    <button
+                      type="button"
+                      disabled={movingId != null || idx === 0}
+                      onClick={() => void handleMove(row.id, 'up')}
+                      className={`${qUi.btnChip} !px-2 !py-0.5`}
+                      aria-label="위로"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={movingId != null || idx === items.length - 1}
+                      onClick={() => void handleMove(row.id, 'down')}
+                      className={`${qUi.btnChip} !px-2 !py-0.5`}
+                      aria-label="아래로"
+                    >
+                      ↓
+                    </button>
+                  </span>
+
+                  <div className="flex-1 min-w-[140px]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-slate-900">{row.name}</span>
+                      {!row.isActive && (
+                        <span className="text-[11px] font-medium rounded-full bg-slate-100 text-slate-600 px-2 py-0.5">
+                          비활성
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-fluid-sm text-slate-600 mt-0.5 tabular-nums">
+                      {row.unitPrice.toLocaleString('ko-KR')}원
+                    </p>
+                    {row.description && (
+                      <p className="text-fluid-xs text-slate-500 mt-0.5">{row.description}</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 shrink-0">
+                    <button type="button" onClick={() => openEdit(row)} className={qUi.btnSecondary}>
+                      수정
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteTarget(row);
+                        setDeletePassword('');
+                      }}
+                      className={qUi.btnDanger}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
 
       {modalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
+          className={qUi.modalOverlay}
           onClick={(e) => {
             if (e.target === e.currentTarget && !saving) setModalOpen(false);
           }}
         >
           <div
-            className="relative w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-xl sm:rounded-xl bg-white shadow-lg border border-gray-200"
+            className={`${qUi.modalPanel} max-h-[90vh] overflow-y-auto`}
             onClick={(e) => e.stopPropagation()}
           >
             <ModalCloseButton onClick={() => setModalOpen(false)} disabled={saving} />
-            <div className="border-b border-gray-100 px-4 pb-3 pt-4 pr-12">
-              <h2 className="font-semibold text-gray-900">{editing ? '항목 수정' : '항목 추가'}</h2>
+            <div className={qUi.modalHeader}>
+              <h2 className="font-semibold text-slate-900">{editing ? '항목 수정' : '항목 추가'}</h2>
             </div>
-            <div className="p-4 space-y-3">
-              <label className="block text-sm">
-                <span className="text-gray-700">서비스명 *</span>
+            <div className="p-4 space-y-4">
+              <label className="block">
+                <span className={qUi.label}>서비스명 *</span>
                 <input
-                  className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+                  className={qUi.input}
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 />
               </label>
-              <label className="block text-sm">
-                <span className="text-gray-700">단가(원) *</span>
+              <label className="block">
+                <span className={qUi.label}>단가(원) *</span>
                 <input
-                  className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+                  className={qUi.input}
                   inputMode="numeric"
                   value={form.unitPrice}
                   onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))}
                 />
               </label>
-              <label className="block text-sm">
-                <span className="text-gray-700">설명 (선택)</span>
+              <label className="block">
+                <span className={qUi.label}>설명 (선택)</span>
                 <textarea
-                  className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+                  className={qUi.textarea}
                   rows={2}
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 />
               </label>
               {editing && (
-                <label className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2 text-fluid-sm text-slate-700">
                   <input
                     type="checkbox"
+                    className="rounded border-slate-300"
                     checked={form.isActive}
                     onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
                   />
@@ -392,12 +441,12 @@ export function AdminQuotationSettingsPage() {
                 </label>
               )}
             </div>
-            <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
+            <div className={qUi.modalFooter}>
               <button
                 type="button"
                 disabled={saving}
                 onClick={() => setModalOpen(false)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className={qUi.btnSecondary}
               >
                 취소
               </button>
@@ -405,7 +454,7 @@ export function AdminQuotationSettingsPage() {
                 type="button"
                 disabled={saving}
                 onClick={() => void handleSave()}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded disabled:opacity-50"
+                className={qUi.btnPrimary}
               >
                 {saving ? '저장 중…' : editing ? '수정' : '저장'}
               </button>
@@ -416,37 +465,37 @@ export function AdminQuotationSettingsPage() {
 
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
+          className={qUi.modalOverlay}
           onClick={(e) => {
             if (e.target === e.currentTarget && !saving) setDeleteTarget(null);
           }}
         >
-          <div
-            className="relative w-full sm:max-w-sm rounded-t-xl sm:rounded-xl bg-white shadow-lg border border-gray-200"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className={`${qUi.modalPanel} sm:max-w-sm`} onClick={(e) => e.stopPropagation()}>
             <ModalCloseButton onClick={() => setDeleteTarget(null)} disabled={saving} />
-            <div className="border-b border-gray-100 px-4 pb-3 pt-4 pr-12">
-              <h2 className="font-semibold text-red-700">항목 삭제</h2>
+            <div className={qUi.modalHeader}>
+              <h2 className="font-semibold text-rose-700">항목 삭제</h2>
             </div>
             <div className="p-4">
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="text-fluid-sm text-slate-600 mb-3">
                 「{deleteTarget.name}」을(를) 삭제합니다. 비밀번호를 입력해 주세요.
               </p>
-              <input
-                type="password"
-                className="w-full border rounded px-2 py-1.5 text-sm"
-                placeholder="로그인 비밀번호"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-              />
+              <label className="block">
+                <span className={qUi.label}>로그인 비밀번호</span>
+                <input
+                  type="password"
+                  className={qUi.input}
+                  placeholder="비밀번호 입력"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                />
+              </label>
             </div>
-            <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
+            <div className={qUi.modalFooter}>
               <button
                 type="button"
                 disabled={saving}
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className={qUi.btnSecondary}
               >
                 취소
               </button>
@@ -454,7 +503,7 @@ export function AdminQuotationSettingsPage() {
                 type="button"
                 disabled={saving}
                 onClick={() => void handleDelete()}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded disabled:opacity-50"
+                className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
               >
                 {saving ? '삭제 중…' : '삭제'}
               </button>

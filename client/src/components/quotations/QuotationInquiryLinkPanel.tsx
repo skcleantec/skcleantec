@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listQuotations, type QuotationDto } from '../../api/quotations';
-
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: '작성 중',
-  FINALIZED: '확정',
-  SENT: '발송됨',
-};
+import { QuotationStatusBadge, qUi } from './quotationUi';
 
 type Props = {
   token: string;
@@ -49,40 +44,37 @@ export function QuotationInquiryLinkPanel({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-gray-600">
+        <p className="text-fluid-xs text-slate-600">
           {inquiryNumber ? (
-            <span className="font-medium text-gray-800 tabular-nums">{inquiryNumber}</span>
+            <span className="font-medium text-slate-800 tabular-nums">{inquiryNumber}</span>
           ) : null}
           {customerName ? (
             <span className={inquiryNumber ? ' ml-1' : ''}>{customerName}</span>
           ) : null}
           {!inquiryNumber && !customerName ? '이 접수에 연결된 견적서' : ' — 견적서'}
         </p>
-        <Link
-          to={newHref}
-          className="shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-        >
+        <Link to={newHref} className={`${qUi.btnPrimary} !px-3 !py-1.5 !text-xs shrink-0`}>
           + 견적서 만들기
         </Link>
       </div>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-fluid-xs text-rose-600" role="alert">{error}</p>}
 
       {loading ? (
-        <p className="text-xs text-gray-500">견적 목록 불러오는 중…</p>
+        <p className="text-fluid-xs text-slate-500">견적 목록 불러오는 중…</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-gray-500">연결된 견적서가 없습니다.</p>
+        <p className="text-fluid-xs text-slate-500">연결된 견적서가 없습니다.</p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {items.map((row) => (
             <li key={row.id}>
               <Link
                 to={`/admin/inquiries/quotations/${row.id}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50/80 px-3 py-2 text-xs hover:bg-white"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/60 bg-slate-50/50 px-3 py-2.5 text-fluid-xs hover:bg-white hover:shadow-sm transition-all"
               >
-                <span className="font-mono text-gray-800">{row.quoteNumber}</span>
-                <span className="text-gray-600">{STATUS_LABEL[row.status] ?? row.status}</span>
-                <span className="tabular-nums text-gray-700">
+                <span className="font-mono font-medium text-slate-800 tabular-nums">{row.quoteNumber}</span>
+                <QuotationStatusBadge status={row.status} />
+                <span className="tabular-nums font-medium text-slate-700">
                   {row.total.toLocaleString('ko-KR')}원
                 </span>
               </Link>

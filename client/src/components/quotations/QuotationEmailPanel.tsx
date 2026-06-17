@@ -6,6 +6,7 @@ import {
   sendQuotationEmail,
   type QuotationEmailLogDto,
 } from '../../api/quotations';
+import { QuotationStatusBadge, qUi } from './quotationUi';
 
 type Props = {
   token: string;
@@ -125,16 +126,14 @@ export function QuotationEmailPanel({
   const isSent = status === 'SENT';
 
   return (
-    <section className="border rounded-lg p-3 mb-6 space-y-3">
+    <section className={`${qUi.cardBody} space-y-4`}>
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-medium text-sm">이메일 발송</h2>
-        {isSent && (
-          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded">발송됨</span>
-        )}
+        <h2 className={qUi.sectionTitle}>이메일 발송</h2>
+        {isSent && <QuotationStatusBadge status="SENT" />}
       </div>
 
       {(sentAt || lastEmailedAt) && (
-        <div className="text-xs text-gray-600 space-y-0.5">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-fluid-xs text-slate-600 space-y-0.5">
           {sentAt && <div>최초 발송: {formatDt(sentAt)}</div>}
           {lastEmailedAt && sentAt !== lastEmailedAt && (
             <div>최근 발송: {formatDt(lastEmailedAt)}</div>
@@ -142,11 +141,11 @@ export function QuotationEmailPanel({
         </div>
       )}
 
-      <label className="block text-sm">
-        <span className="text-gray-700">수신 이메일</span>
+      <label className="block">
+        <span className={qUi.label}>수신 이메일</span>
         <input
           type="email"
-          className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+          className={qUi.input}
           placeholder="수신 이메일"
           value={emailTo}
           onChange={(e) => setEmailTo(e.target.value)}
@@ -154,10 +153,10 @@ export function QuotationEmailPanel({
         />
       </label>
 
-      <label className="block text-sm">
-        <span className="text-gray-700">제목</span>
+      <label className="block">
+        <span className={qUi.label}>제목</span>
         <input
-          className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+          className={qUi.input}
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           disabled={!canEmail || loadingDefaults}
@@ -165,10 +164,10 @@ export function QuotationEmailPanel({
         />
       </label>
 
-      <label className="block text-sm">
-        <span className="text-gray-700">본문</span>
+      <label className="block">
+        <span className={qUi.label}>본문</span>
         <textarea
-          className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+          className={qUi.textarea}
           rows={5}
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -181,7 +180,7 @@ export function QuotationEmailPanel({
           type="button"
           disabled={sending || !canEmail}
           onClick={() => void handleSend(false)}
-          className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded disabled:opacity-50"
+          className={qUi.btnSuccess}
           title={!canEmail ? 'SMTP 설정 필요' : undefined}
         >
           {sending ? '발송 중…' : 'PDF 첨부 발송'}
@@ -191,7 +190,7 @@ export function QuotationEmailPanel({
             type="button"
             disabled={sending || !canEmail}
             onClick={() => void handleSend(true)}
-            className="px-3 py-1.5 text-sm border rounded disabled:opacity-50"
+            className={qUi.btnSecondary}
           >
             재발송
           </button>
@@ -200,35 +199,39 @@ export function QuotationEmailPanel({
           type="button"
           disabled={loadingDefaults}
           onClick={() => void loadDefaults()}
-          className="px-3 py-1.5 text-sm border rounded disabled:opacity-50"
+          className={qUi.btnGhost}
         >
           기본값 불러오기
         </button>
       </div>
 
-      <div>
-        <h3 className="text-sm font-medium text-gray-800 mb-2">발송 이력</h3>
+      <div className="border-t border-slate-100 pt-4">
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">발송 이력</h3>
         {loadingLogs ? (
-          <p className="text-xs text-gray-500">불러오는 중…</p>
+          <p className="text-fluid-xs text-slate-500">불러오는 중…</p>
         ) : logs.length === 0 ? (
-          <p className="text-xs text-gray-500">발송 이력이 없습니다.</p>
+          <p className="text-fluid-xs text-slate-500">발송 이력이 없습니다.</p>
         ) : (
           <ul className="space-y-2 max-h-48 overflow-y-auto">
             {logs.map((log) => (
               <li
                 key={log.id}
-                className={`text-xs border rounded p-2 ${log.success ? 'bg-gray-50' : 'bg-red-50 border-red-100'}`}
+                className={`text-fluid-xs rounded-xl border p-3 ${
+                  log.success
+                    ? 'border-slate-200/60 bg-slate-50/60'
+                    : 'border-rose-200 bg-rose-50/80'
+                }`}
               >
                 <div className="flex flex-wrap justify-between gap-1">
-                  <span className="font-medium truncate">{log.to}</span>
-                  <span className="text-gray-500 shrink-0">{formatDt(log.sentAt)}</span>
+                  <span className="font-medium text-slate-800 truncate">{log.to}</span>
+                  <span className="text-slate-500 shrink-0 tabular-nums">{formatDt(log.sentAt)}</span>
                 </div>
-                <div className="text-gray-700 mt-0.5 truncate">{log.subject}</div>
+                <div className="text-slate-600 mt-0.5 truncate">{log.subject}</div>
                 {log.sentBy && (
-                  <div className="text-gray-500 mt-0.5">발송: {log.sentBy.name}</div>
+                  <div className="text-slate-500 mt-0.5">발송: {log.sentBy.name}</div>
                 )}
                 {!log.success && log.errorMessage && (
-                  <div className="text-red-600 mt-0.5">{log.errorMessage}</div>
+                  <div className="text-rose-700 mt-0.5">{log.errorMessage}</div>
                 )}
               </li>
             ))}

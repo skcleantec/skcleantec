@@ -1,3 +1,5 @@
+import { qUi } from './quotationUi';
+
 type Props = {
   customerName: string;
   customerPhone: string;
@@ -24,48 +26,55 @@ export function QuotationCustomerFields({
   onValidUntilChange,
 }: Props) {
   return (
-    <section className="space-y-3">
-      <h2 className="font-medium text-gray-900">상대방 정보</h2>
-      <label className="block text-sm">
-        <span className="text-gray-700">이름 *</span>
+    <section className={`${qUi.cardBody} space-y-4`}>
+      <div>
+        <h2 className={qUi.sectionTitle}>상대방 정보</h2>
+        <p className={`${qUi.sectionSubtitle} mt-0.5`}>견적서에 표시될 고객·거래처 정보입니다.</p>
+      </div>
+
+      <label className="block">
+        <span className={qUi.label}>이름 *</span>
         <input
-          className="mt-1 w-full border rounded px-2 py-1.5"
+          className={qUi.input}
           value={customerName}
           onChange={(e) => onCustomerNameChange(e.target.value)}
         />
       </label>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <label className="block text-sm">
-          <span className="text-gray-700">연락처</span>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <label className="block">
+          <span className={qUi.label}>연락처</span>
           <input
-            className="mt-1 w-full border rounded px-2 py-1.5"
+            className={qUi.input}
             value={customerPhone}
             onChange={(e) => onCustomerPhoneChange(e.target.value)}
           />
         </label>
-        <label className="block text-sm">
-          <span className="text-gray-700">이메일</span>
+        <label className="block">
+          <span className={qUi.label}>이메일</span>
           <input
             type="email"
-            className="mt-1 w-full border rounded px-2 py-1.5"
+            className={qUi.input}
             value={customerEmail}
             onChange={(e) => onCustomerEmailChange(e.target.value)}
           />
         </label>
       </div>
-      <label className="block text-sm">
-        <span className="text-gray-700">주소</span>
+
+      <label className="block">
+        <span className={qUi.label}>주소</span>
         <input
-          className="mt-1 w-full border rounded px-2 py-1.5"
+          className={qUi.input}
           value={customerAddress}
           onChange={(e) => onCustomerAddressChange(e.target.value)}
         />
       </label>
-      <label className="block text-sm">
-        <span className="text-gray-700">유효기간</span>
+
+      <label className="block sm:max-w-xs">
+        <span className={qUi.label}>유효기간</span>
         <input
           type="date"
-          className="mt-1 w-full border rounded px-2 py-1.5"
+          className={qUi.input}
           value={validUntil}
           onChange={(e) => onValidUntilChange(e.target.value)}
         />

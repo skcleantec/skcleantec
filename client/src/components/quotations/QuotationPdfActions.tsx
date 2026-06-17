@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { downloadQuotationPdf } from '../../api/quotations';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
+import { qUi } from './quotationUi';
 
 type Props = {
   token: string;
@@ -78,7 +79,7 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled 
         type="button"
         disabled={disabled || loading}
         onClick={() => void handlePreview()}
-        className="px-4 py-2 border rounded text-sm disabled:opacity-50"
+        className={qUi.btnSecondary}
       >
         PDF 미리보기
       </button>
@@ -86,7 +87,7 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled 
         type="button"
         disabled={disabled || loading}
         onClick={() => void handleDownload()}
-        className="px-4 py-2 border rounded text-sm disabled:opacity-50"
+        className={qUi.btnSecondary}
       >
         PDF 다운로드
       </button>
@@ -99,34 +100,34 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled 
           }}
         >
           <div
-            className="relative mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-xl border border-gray-200"
+            className="relative mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-hidden rounded-2xl bg-white shadow-xl border border-slate-200/60"
             onClick={(e) => e.stopPropagation()}
           >
             <ModalCloseButton onClick={closePreview} disabled={loading} />
-            <div className="border-b border-gray-100 px-3 py-2 pr-12">
-              <h2 className="text-sm font-semibold">
+            <div className="border-b border-slate-100 px-4 py-3 pr-12">
+              <h2 className="text-sm font-semibold text-slate-900">
                 PDF 미리보기 {quoteNumber ? `— ${quoteNumber}` : ''}
               </h2>
             </div>
             <iframe
               title="견적서 PDF 미리보기"
               src={previewUrl}
-              className="min-h-0 flex-1 w-full border-0 bg-gray-100"
+              className="min-h-0 flex-1 w-full border-0 bg-slate-100"
             />
-            <div className="flex justify-end gap-2 border-t border-gray-100 px-3 py-2">
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
               <button
                 type="button"
                 disabled={loading}
                 onClick={closePreview}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className={qUi.btnSecondary}
               >
-                취소
+                닫기
               </button>
               <button
                 type="button"
                 disabled={loading}
                 onClick={() => void handleDownload()}
-                className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded disabled:opacity-50"
+                className={qUi.btnPrimary}
               >
                 다운로드
               </button>
@@ -134,7 +135,7 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled 
           </div>
         </div>
       )}
-      {error && !previewOpen && <span className="text-xs text-red-600">{error}</span>}
+      {error && !previewOpen && <span className="text-fluid-2xs text-rose-600">{error}</span>}
     </>
   );
 }

@@ -25,6 +25,7 @@ import {
   parseQty,
   type EditableQuotationLine,
 } from '../../components/quotations/quotationLineUtils';
+import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
 import { getToken } from '../../stores/auth';
 
 export function AdminQuotationEditorPage() {
@@ -236,31 +237,41 @@ export function AdminQuotationEditorPage() {
   }
 
   if (loading) {
-    return <p className="p-4 text-sm text-gray-500">불러오는 중…</p>;
+    return (
+      <div className={qUi.pageRootNarrow}>
+        <p className={qUi.emptyState}>불러오는 중…</p>
+      </div>
+    );
   }
 
   const canEmail = smtpReady || globalSmtpFallback;
 
   return (
-    <div className="max-w-3xl mx-auto px-3 py-4 sm:px-4 pb-24">
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Link to="/admin/inquiries/quotations" className="text-sm text-blue-600 hover:underline">
-          ← 목록
-        </Link>
-        <h1 className="text-lg font-semibold text-gray-900 ml-1">
-          {isNew ? '새 견적서' : quoteNumber ?? '견적서'}
-        </h1>
-        {!isNew && status === 'SENT' && (
-          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded">발송됨</span>
-        )}
-        {!isNew && status === 'FINALIZED' && (
-          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">확정</span>
+    <div className={`${qUi.pageRootNarrow} pb-24`}>
+      <div className="space-y-1">
+        <p className={qUi.breadcrumb}>
+          <Link to="/admin/inquiries/quotations" className={qUi.breadcrumbLink}>
+            견적 목록
+          </Link>
+          {' · '}
+          {isNew ? '새 견적서' : '편집'}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className={qUi.pageTitle}>
+            {isNew ? '새 견적서' : quoteNumber ?? '견적서'}
+          </h1>
+          {!isNew && (status === 'SENT' || status === 'FINALIZED') && (
+            <QuotationStatusBadge status={status} />
+          )}
+        </div>
+        {!isNew && (
+          <p className={qUi.pageDesc}>상대 정보·항목을 수정한 뒤 저장하거나 PDF·이메일로 발송합니다.</p>
         )}
       </div>
 
       {linkedInquiryLabel && (
-        <p className="mb-3 text-sm text-blue-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-          접수 연동: <span className="font-medium">{linkedInquiryLabel}</span>
+        <p className={qUi.alertInfo}>
+          접수 연동: <span className="font-semibold">{linkedInquiryLabel}</span>
         </p>
       )}
 
@@ -270,9 +281,9 @@ export function AdminQuotationEditorPage() {
         globalSmtpFallback={globalSmtpFallback}
       />
 
-      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      {error && <p className={qUi.alertError} role="alert">{error}</p>}
 
-      <div className="space-y-6 mb-6">
+      <div className="space-y-4">
         <QuotationCustomerFields
           customerName={customerName}
           customerPhone={customerPhone}
@@ -287,81 +298,90 @@ export function AdminQuotationEditorPage() {
         />
 
         <QuotationLineItemsEditor lines={lines} catalog={catalog} onChange={setLines} />
-      </div>
 
-      <section className="border rounded-lg p-3 bg-gray-50 mb-6 text-sm space-y-1">
-        <div className="flex justify-between">
-          <span>소계</span>
-          <span className="tabular-nums">{totals.subtotal.toLocaleString('ko-KR')}원</span>
-        </div>
-        <label className="flex justify-between items-center gap-2">
-          <span>할인</span>
-          <input
-            className="w-28 border rounded px-2 py-1 text-right tabular-nums"
-            inputMode="numeric"
-            value={discountAmount}
-            onChange={(e) => setDiscountAmount(e.target.value)}
-          />
-        </label>
-        <div className="flex justify-between font-semibold text-base pt-1 border-t">
-          <span>합계 (VAT 별도)</span>
-          <span className="tabular-nums">{totals.total.toLocaleString('ko-KR')}원</span>
-        </div>
-      </section>
+        <section className={`${qUi.cardBody} space-y-3`}>
+          <h2 className={qUi.sectionTitle}>합계</h2>
+          <div className="flex justify-between text-fluid-sm text-slate-600">
+            <span>소계</span>
+            <span className="tabular-nums font-medium text-slate-800">
+              {totals.subtotal.toLocaleString('ko-KR')}원
+            </span>
+          </div>
+          <label className="flex justify-between items-center gap-3 text-fluid-sm">
+            <span className="text-slate-600 shrink-0">할인</span>
+            <input
+              className={`${qUi.input} w-32 text-right tabular-nums`}
+              inputMode="numeric"
+              value={discountAmount}
+              onChange={(e) => setDiscountAmount(e.target.value)}
+            />
+          </label>
+          <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+            <span className="font-semibold text-slate-900">합계 (VAT 별도)</span>
+            <span className="text-lg font-bold tabular-nums text-slate-900">
+              {totals.total.toLocaleString('ko-KR')}원
+            </span>
+          </div>
+        </section>
 
-      <label className="block text-sm mb-6">
-        <span className="text-gray-700">비고 (견적서 본문)</span>
-        <textarea
-          className="mt-1 w-full border rounded px-2 py-1.5"
-          rows={3}
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-        />
-      </label>
+        <section className={`${qUi.cardBody}`}>
+          <label className="block">
+            <span className={qUi.label}>비고 (견적서 본문)</span>
+            <textarea
+              className={qUi.textarea}
+              rows={3}
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+            />
+          </label>
+        </section>
 
-      {!isNew && id && token && (
-        <QuotationEmailPanel
-          token={token}
-          quotationId={id}
-          status={status}
-          customerEmail={customerEmail}
-          sentAt={sentAt}
-          lastEmailedAt={lastEmailedAt}
-          canEmail={canEmail}
-          onSent={(patch) => {
-            setStatus(patch.status);
-            setCustomerEmail(patch.customerEmail ?? '');
-            setSentAt(patch.sentAt);
-            setLastEmailedAt(patch.lastEmailedAt);
-          }}
-        />
-      )}
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex flex-wrap gap-2 justify-center sm:static sm:border-0 sm:p-0 sm:justify-start">
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void handleSave(false)}
-          className="px-4 py-2 bg-blue-600 text-white rounded text-sm disabled:opacity-50"
-        >
-          {saving ? '저장 중…' : '저장'}
-        </button>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void handleSave(true)}
-          className="px-4 py-2 border rounded text-sm disabled:opacity-50"
-        >
-          확정 저장
-        </button>
-        {!isNew && id && (
-          <QuotationPdfActions
-            token={token ?? ''}
+        {!isNew && id && token && (
+          <QuotationEmailPanel
+            token={token}
             quotationId={id}
-            quoteNumber={quoteNumber}
-            disabled={saving}
+            status={status}
+            customerEmail={customerEmail}
+            sentAt={sentAt}
+            lastEmailedAt={lastEmailedAt}
+            canEmail={canEmail}
+            onSent={(patch) => {
+              setStatus(patch.status);
+              setCustomerEmail(patch.customerEmail ?? '');
+              setSentAt(patch.sentAt);
+              setLastEmailedAt(patch.lastEmailedAt);
+            }}
           />
         )}
+      </div>
+
+      <div className={qUi.stickyActionBar}>
+        <div className="mx-auto flex max-w-4xl flex-wrap gap-2 justify-center sm:justify-start">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void handleSave(false)}
+            className={qUi.btnPrimary}
+          >
+            {saving ? '저장 중…' : '저장'}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void handleSave(true)}
+            className={qUi.btnSecondary}
+          >
+            확정 저장
+          </button>
+          {!isNew && id && (
+            <QuotationPdfActions
+              token={token ?? ''}
+              quotationId={id}
+              quoteNumber={quoteNumber}
+              disabled={saving}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

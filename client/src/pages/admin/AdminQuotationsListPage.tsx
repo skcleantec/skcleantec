@@ -9,6 +9,7 @@ import {
   type QuotationStatus,
 } from '../../api/quotations';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import {
@@ -16,12 +17,6 @@ import {
   parseInquiryListPageSize,
   parseListPage,
 } from '../../utils/listPagination';
-
-const STATUS_LABEL: Record<QuotationStatus, string> = {
-  DRAFT: '작성 중',
-  FINALIZED: '확정',
-  SENT: '발송됨',
-};
 
 const STATUS_OPTIONS: { value: '' | QuotationStatus; label: string }[] = [
   { value: '', label: '전체 상태' },
@@ -125,24 +120,33 @@ export function AdminQuotationsListPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-3 py-4 sm:px-4">
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <h1 className="text-lg font-semibold text-gray-900">견적서</h1>
-        <Link
-          to="/admin/inquiries/quotations/new"
-          className="ml-auto px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
+    <div className={qUi.pageRoot}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className={qUi.breadcrumb}>
+            <Link to="/admin/inquiries" className={qUi.breadcrumbLink}>
+              서비스접수
+            </Link>
+            {' · '}
+            견적서
+          </p>
+          <h1 className={qUi.pageTitle}>견적 목록</h1>
+          <p className={qUi.pageDesc}>
+            작성한 견적서를 조회·수정하고 PDF 발송 이력을 확인합니다.
+          </p>
+        </div>
+        <Link to="/admin/inquiries/quotations/new" className={`${qUi.btnPrimary} shrink-0`}>
           + 새 견적서
         </Link>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white mb-4">
-        <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/90 px-3 py-3 sm:px-4">
-          <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className={qUi.card}>
+        <div className={qUi.filterBar}>
+          <div className="flex flex-col gap-3 min-w-0 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
             <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
-              <span className="text-fluid-2xs font-semibold text-gray-700 shrink-0">작성일</span>
+              <span className="text-fluid-2xs font-semibold text-slate-700 shrink-0">작성일</span>
               <div className="inline-flex flex-wrap items-center gap-2">
-                <div className="inline-flex rounded border border-gray-300 overflow-hidden text-fluid-sm shrink-0">
+                <div className={qUi.segmentWrap}>
                   {(
                     [
                       ['today', '오늘'],
@@ -155,9 +159,7 @@ export function AdminQuotationsListPage() {
                       key={key}
                       type="button"
                       onClick={() => patchParams({ datePreset: key, page: '1' })}
-                      className={`px-3 py-1.5 font-medium ${i > 0 ? 'border-l border-gray-300' : ''} ${
-                        datePreset === key ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
+                      className={qUi.segmentBtn(datePreset === key, i > 0)}
                     >
                       {label}
                     </button>
@@ -193,23 +195,21 @@ export function AdminQuotationsListPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <label className="block text-sm min-w-0 flex-1 sm:max-w-xs">
-              <span className="text-gray-600 text-xs">상대 이름</span>
+            <label className="block min-w-0 flex-1 sm:max-w-xs">
+              <span className={qUi.label}>상대 이름</span>
               <input
-                className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+                className={qUi.input}
                 value={customerName}
                 onChange={(e) => patchParams({ customerName: e.target.value, page: '1' })}
-                placeholder="검색"
+                placeholder="이름으로 검색"
               />
             </label>
-            <label className="block text-sm sm:w-36">
-              <span className="text-gray-600 text-xs">상태</span>
+            <label className="block sm:w-40">
+              <span className={qUi.label}>상태</span>
               <select
-                className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+                className={qUi.select}
                 value={statusFilter}
-                onChange={(e) =>
-                  patchParams({ status: e.target.value || null, page: '1' })
-                }
+                onChange={(e) => patchParams({ status: e.target.value || null, page: '1' })}
               >
                 {STATUS_OPTIONS.map((o) => (
                   <option key={o.value || 'all'} value={o.value}>
@@ -221,64 +221,79 @@ export function AdminQuotationsListPage() {
           </div>
         </div>
 
-        {error && <p className="px-4 py-3 text-sm text-red-600">{error}</p>}
+        {error && <p className={`mx-4 mt-4 ${qUi.alertError}`} role="alert">{error}</p>}
+
         {loading ? (
-          <p className="px-4 py-8 text-sm text-gray-500">불러오는 중…</p>
+          <p className={qUi.emptyState}>불러오는 중…</p>
         ) : items.length === 0 ? (
-          <p className="px-4 py-8 text-sm text-gray-500">견적서가 없습니다.</p>
+          <div className={qUi.emptyState}>
+            <p>견적서가 없습니다.</p>
+            <Link
+              to="/admin/inquiries/quotations/new"
+              className={`${qUi.btnPrimary} mt-4 inline-flex`}
+            >
+              첫 견적서 작성
+            </Link>
+          </div>
         ) : (
           <>
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-left">
+            <div className="hidden lg:block overflow-x-auto">
+              <table className={qUi.table}>
+                <thead>
                   <tr>
-                    <th className="px-3 py-2">견적번호</th>
-                    <th className="px-3 py-2">상대</th>
-                    <th className="px-3 py-2">접수</th>
-                    <th className="px-3 py-2 text-right">합계</th>
-                    <th className="px-3 py-2">상태</th>
-                    <th className="px-3 py-2">작성일</th>
-                    <th className="px-3 py-2">최근 발송</th>
-                    <th className="px-3 py-2" />
+                    <th className={qUi.th}>견적번호</th>
+                    <th className={qUi.th}>상대</th>
+                    <th className={qUi.th}>접수</th>
+                    <th className={`${qUi.th} text-right`}>합계</th>
+                    <th className={qUi.th}>상태</th>
+                    <th className={qUi.th}>작성일</th>
+                    <th className={qUi.th}>최근 발송</th>
+                    <th className={qUi.th} />
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((row) => (
-                    <tr key={row.id} className="border-t hover:bg-gray-50">
-                      <td className="px-3 py-2 font-mono text-xs">{row.quoteNumber}</td>
-                      <td className="px-3 py-2">{row.customerName}</td>
-                      <td className="px-3 py-2 text-xs text-gray-600 font-mono">
+                    <tr key={row.id} className={qUi.tr}>
+                      <td className={`${qUi.td} font-mono text-fluid-2xs tabular-nums`}>
+                        {row.quoteNumber}
+                      </td>
+                      <td className={`${qUi.td} font-medium text-slate-900`}>{row.customerName}</td>
+                      <td className={`${qUi.td} font-mono text-fluid-2xs text-slate-500`}>
                         {row.inquiry?.inquiryNumber ?? '—'}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
+                      <td className={`${qUi.td} text-right tabular-nums font-medium text-slate-900`}>
                         {row.total.toLocaleString('ko-KR')}원
                       </td>
-                      <td className="px-3 py-2">{STATUS_LABEL[row.status]}</td>
-                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                      <td className={qUi.td}>
+                        <QuotationStatusBadge status={row.status} />
+                      </td>
+                      <td className={`${qUi.td} text-slate-500 whitespace-nowrap`}>
                         {new Date(row.createdAt).toLocaleDateString('ko-KR')}
                       </td>
-                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                      <td className={`${qUi.td} text-slate-500 whitespace-nowrap`}>
                         {(row.lastEmailedAt ?? row.sentAt)
                           ? new Date(row.lastEmailedAt ?? row.sentAt!).toLocaleDateString('ko-KR')
                           : '—'}
                       </td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">
-                        <Link
-                          to={`/admin/inquiries/quotations/${row.id}`}
-                          className="text-blue-600 hover:underline mr-2"
-                        >
-                          열기
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDeleteTarget(row);
-                            setDeletePassword('');
-                          }}
-                          className="text-red-600 hover:underline text-xs"
-                        >
-                          삭제
-                        </button>
+                      <td className={`${qUi.td} whitespace-nowrap`}>
+                        <div className="inline-flex items-center justify-center gap-1.5">
+                          <Link
+                            to={`/admin/inquiries/quotations/${row.id}`}
+                            className={qUi.btnChip}
+                          >
+                            열기
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteTarget(row);
+                              setDeletePassword('');
+                            }}
+                            className={qUi.btnDanger}
+                          >
+                            삭제
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -286,19 +301,31 @@ export function AdminQuotationsListPage() {
               </table>
             </div>
 
-            <ul className="sm:hidden divide-y">
+            <ul className="lg:hidden divide-y divide-slate-100 p-3 space-y-3">
               {items.map((row) => (
-                <li key={row.id} className="p-3">
-                  <div className="flex justify-between gap-2">
-                    <span className="font-medium">{row.customerName}</span>
-                    <span className="text-xs text-gray-500">{STATUS_LABEL[row.status]}</span>
+                <li key={row.id} className={qUi.mobileCard}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 truncate">{row.customerName}</p>
+                      <p className="mt-0.5 font-mono text-fluid-2xs text-slate-500 tabular-nums">
+                        {row.quoteNumber}
+                      </p>
+                    </div>
+                    <QuotationStatusBadge status={row.status} />
                   </div>
-                  <div className="text-xs font-mono text-gray-500 mt-0.5">{row.quoteNumber}</div>
-                  <div className="text-sm mt-1 tabular-nums">{row.total.toLocaleString('ko-KR')}원</div>
-                  <div className="flex gap-2 mt-2">
+                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-fluid-xs text-slate-500">
+                    <span className="tabular-nums font-medium text-slate-800">
+                      {row.total.toLocaleString('ko-KR')}원
+                    </span>
+                    <span>{new Date(row.createdAt).toLocaleDateString('ko-KR')}</span>
+                    {row.inquiry?.inquiryNumber && (
+                      <span className="font-mono">접수 {row.inquiry.inquiryNumber}</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex gap-2">
                     <Link
                       to={`/admin/inquiries/quotations/${row.id}`}
-                      className="text-sm text-blue-600"
+                      className={`${qUi.btnSecondary} flex-1 text-center`}
                     >
                       열기
                     </Link>
@@ -308,7 +335,7 @@ export function AdminQuotationsListPage() {
                         setDeleteTarget(row);
                         setDeletePassword('');
                       }}
-                      className="text-sm text-red-600"
+                      className={qUi.btnDanger}
                     >
                       삭제
                     </button>
@@ -330,37 +357,39 @@ export function AdminQuotationsListPage() {
 
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
+          className={qUi.modalOverlay}
           onClick={(e) => {
             if (e.target === e.currentTarget && !deleting) setDeleteTarget(null);
           }}
         >
-          <div
-            className="relative w-full sm:max-w-sm rounded-t-xl sm:rounded-xl bg-white shadow-lg border border-gray-200"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className={`${qUi.modalPanel} sm:max-w-sm`} onClick={(e) => e.stopPropagation()}>
             <ModalCloseButton onClick={() => setDeleteTarget(null)} disabled={deleting} />
-            <div className="border-b border-gray-100 px-4 pb-3 pt-4 pr-12">
-              <h2 className="font-semibold text-red-700">견적서 삭제</h2>
+            <div className={qUi.modalHeader}>
+              <h2 className="font-semibold text-rose-700">견적서 삭제</h2>
             </div>
             <div className="p-4">
-              <p className="text-sm text-gray-600 mb-3">
-                {deleteTarget.quoteNumber} — {deleteTarget.customerName}
+              <p className="text-fluid-sm text-slate-600 mb-3">
+                <span className="font-mono font-medium text-slate-800">{deleteTarget.quoteNumber}</span>
+                {' — '}
+                {deleteTarget.customerName}
               </p>
-              <input
-                type="password"
-                className="w-full border rounded px-2 py-1.5 text-sm"
-                placeholder="로그인 비밀번호"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-              />
+              <label className="block">
+                <span className={qUi.label}>로그인 비밀번호</span>
+                <input
+                  type="password"
+                  className={qUi.input}
+                  placeholder="비밀번호 입력"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                />
+              </label>
             </div>
-            <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
+            <div className={qUi.modalFooter}>
               <button
                 type="button"
                 disabled={deleting}
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className={qUi.btnSecondary}
               >
                 취소
               </button>
@@ -368,7 +397,7 @@ export function AdminQuotationsListPage() {
                 type="button"
                 disabled={deleting}
                 onClick={() => void handleDelete()}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded disabled:opacity-50"
+                className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
               >
                 {deleting ? '삭제 중…' : '삭제'}
               </button>

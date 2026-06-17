@@ -14,13 +14,13 @@ export function QuotationPreconditionBanner({
   if (!companyNameMissing && (smtpReady || globalSmtpFallback)) return null;
 
   return (
-    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 space-y-1">
+    <div className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-fluid-sm text-amber-950 space-y-1.5">
       {companyNameMissing && (
         <p>
           PDF 상단에 표시할 <strong>상호(업체명)</strong>이 없습니다.{' '}
           <Link
             to="/admin/team-leaders/company-profile"
-            className="text-blue-700 underline hover:no-underline"
+            className="font-medium text-amber-900 underline underline-offset-2 hover:no-underline"
           >
             업체등록정보
           </Link>
@@ -32,7 +32,7 @@ export function QuotationPreconditionBanner({
           이메일 발송을 위해 SMTP 설정이 필요합니다.{' '}
           <Link
             to="/admin/team-leaders/company-profile"
-            className="text-blue-700 underline hover:no-underline"
+            className="font-medium text-amber-900 underline underline-offset-2 hover:no-underline"
           >
             업체등록정보 → SMTP
           </Link>
