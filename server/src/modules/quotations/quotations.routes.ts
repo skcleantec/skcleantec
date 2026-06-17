@@ -8,10 +8,12 @@ import {
   type AuthPayload,
 } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
-import { getTenantCompanyProfile } from '../tenants/tenantCompanyProfile.service.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { allocateNextQuotationNumber } from './quotationNumber.js';
-import { sendQuotationEmail } from './quotation.email.service.js';
+import {
+  buildQuotationEmailDefaultsForRow,
+  executeQuotationEmailSend,
+} from './quotationEmailSend.service.js';
 import {
   generateAndStoreQuotationPdf,
 } from './quotationPdfBuild.service.js';
@@ -27,6 +29,7 @@ import {
   parseQuotationLineInputs,
   quotationInclude,
   serializeQuotation,
+  serializeQuotationEmailLog,
   serializeServiceItem,
   verifyActorPassword,
 } from './quotations.service.js';
@@ -86,6 +89,8 @@ router.put('/config', adminOnly, async (req, res) => {
     footerNotice?: string | null;
     documentTitle?: string | null;
     defaultValidDays?: number | null;
+    defaultEmailSubject?: string | null;
+    defaultEmailBody?: string | null;
   };
   const existing = await getOrCreateQuotationConfig(prisma, tenantId);
   const patch: import('@prisma/client').Prisma.QuotationConfigUpdateInput = {};
@@ -110,6 +115,18 @@ router.put('/config', adminOnly, async (req, res) => {
     ) {
       patch.defaultValidDays = Math.max(0, Math.min(365, Math.round(body.defaultValidDays)));
     }
+  }
+  if (body.defaultEmailSubject !== undefined) {
+    patch.defaultEmailSubject =
+      typeof body.defaultEmailSubject === 'string' && body.defaultEmailSubject.trim()
+        ? body.defaultEmailSubject.trim().slice(0, 200)
+        : null;
+  }
+  if (body.defaultEmailBody !== undefined) {
+    patch.defaultEmailBody =
+      typeof body.defaultEmailBody === 'string' && body.defaultEmailBody.trim()
+        ? body.defaultEmailBody.trim()
+        : null;
   }
   const updated = await prisma.quotationConfig.update({
     where: { id: existing.id },
@@ -569,6 +586,42 @@ router.delete('/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+router.get('/:id/email-defaults', async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
+  const row = await prisma.quotation.findFirst({
+    where: { id: req.params.id, tenantId },
+    include: quotationInclude,
+  });
+  if (!row) {
+    res.status(404).json({ error: '견적서를 찾을 수 없습니다.' });
+    return;
+  }
+  const defaults = await buildQuotationEmailDefaultsForRow(tenantId, row);
+  res.json(defaults);
+});
+
+router.get('/:id/email-logs', async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
+  const { id } = req.params;
+  const exists = await prisma.quotation.findFirst({
+    where: { id, tenantId },
+    select: { id: true },
+  });
+  if (!exists) {
+    res.status(404).json({ error: '견적서를 찾을 수 없습니다.' });
+    return;
+  }
+  const logs = await prisma.quotationEmailLog.findMany({
+    where: { tenantId, quotationId: id },
+    orderBy: { sentAt: 'desc' },
+    take: 50,
+    include: { sentBy: { select: { id: true, name: true } } },
+  });
+  res.json({ items: logs.map(serializeQuotationEmailLog) });
+});
+
 router.get('/:id/pdf', async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
@@ -602,17 +655,18 @@ router.get('/:id/pdf', async (req, res) => {
 router.post('/:id/send-email', async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
+  const auth = (req as unknown as { user: AuthPayload }).user;
   const { id } = req.params;
   const row = await prisma.quotation.findFirst({
     where: { id, tenantId },
-    include: quotationInclude,
+    select: { customerEmail: true },
   });
   if (!row) {
     res.status(404).json({ error: '견적서를 찾을 수 없습니다.' });
     return;
   }
 
-  const body = req.body as { to?: string };
+  const body = req.body as { to?: string; subject?: string | null; body?: string | null };
   const to =
     (typeof body.to === 'string' && body.to.trim()) ||
     row.customerEmail?.trim() ||
@@ -622,36 +676,62 @@ router.post('/:id/send-email', async (req, res) => {
     return;
   }
 
-  const profile = await getTenantCompanyProfile(tenantId);
-  const companyName = profile.companyRegistration.companyName?.trim() || '견적서';
-
-  let pdfBuffer: Buffer;
-  try {
-    const built = await generateAndStoreQuotationPdf(prisma, id, tenantId);
-    pdfBuffer = built.buffer;
-  } catch (e) {
-    res.status(500).json({ error: 'PDF 생성에 실패했습니다.' });
-    return;
-  }
-
-  const sent = await sendQuotationEmail({
+  const result = await executeQuotationEmailSend({
     tenantId,
-    quotation: row,
+    userId: auth.userId,
+    quotationId: id,
     to,
-    pdfBuffer,
-    companyName,
+    subject: body.subject,
+    body: body.body,
   });
-  if (!sent) {
-    res.status(503).json({ error: 'SMTP가 설정되지 않았습니다. 업체등록정보에서 메일 설정을 확인해주세요.' });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json({ ok: true, quotation: result.quotation });
+});
+
+router.post('/:id/resend-email', async (req, res) => {
+  const tenantId = requireTenant(req, res);
+  if (!tenantId) return;
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const { id } = req.params;
+  const row = await prisma.quotation.findFirst({
+    where: { id, tenantId },
+    select: { customerEmail: true, status: true },
+  });
+  if (!row) {
+    res.status(404).json({ error: '견적서를 찾을 수 없습니다.' });
+    return;
+  }
+  if (row.status !== 'SENT') {
+    res.status(400).json({ error: '발송된 견적서만 재발송할 수 있습니다.' });
     return;
   }
 
-  const updated = await prisma.quotation.update({
-    where: { id: row.id },
-    data: { status: 'SENT', sentAt: new Date(), customerEmail: to },
-    include: quotationInclude,
+  const body = req.body as { to?: string; subject?: string | null; body?: string | null };
+  const to =
+    (typeof body.to === 'string' && body.to.trim()) ||
+    row.customerEmail?.trim() ||
+    '';
+  if (!to) {
+    res.status(400).json({ error: '수신 이메일을 입력해주세요.' });
+    return;
+  }
+
+  const result = await executeQuotationEmailSend({
+    tenantId,
+    userId: auth.userId,
+    quotationId: id,
+    to,
+    subject: body.subject,
+    body: body.body,
   });
-  res.json({ ok: true, quotation: serializeQuotation(updated) });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json({ ok: true, quotation: result.quotation });
 });
 
 export default router;

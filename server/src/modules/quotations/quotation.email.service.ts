@@ -5,17 +5,12 @@ export async function sendQuotationEmail(params: {
   tenantId: string;
   quotation: QuotationRow;
   to: string;
+  subject: string;
+  body: string;
   pdfBuffer: Buffer;
-  companyName: string;
 }): Promise<boolean> {
-  const { tenantId, quotation, to, pdfBuffer, companyName } = params;
-  const subject = `[${companyName}] 견적서 ${quotation.quoteNumber} — ${quotation.customerName}`;
-  const text =
-    `${quotation.customerName} 고객님, 안녕하세요.\n\n` +
-    `요청하신 견적서(${quotation.quoteNumber})를 첨부드립니다.\n` +
-    `합계: ${quotation.total.toLocaleString('ko-KR')}원 (부가세 별도)\n\n` +
-    `문의 사항이 있으시면 연락 주시기 바랍니다.\n\n` +
-    `${companyName}`;
+  const { tenantId, quotation, to, subject, body, pdfBuffer } = params;
+  const text = body;
 
   try {
     return await sendMailForTenant(tenantId, {

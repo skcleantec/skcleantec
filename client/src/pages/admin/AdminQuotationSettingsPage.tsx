@@ -44,6 +44,8 @@ export function AdminQuotationSettingsPage() {
   const [deletePassword, setDeletePassword] = useState('');
   const [footerNotice, setFooterNotice] = useState('');
   const [documentTitle, setDocumentTitle] = useState('');
+  const [defaultEmailSubject, setDefaultEmailSubject] = useState('');
+  const [defaultEmailBody, setDefaultEmailBody] = useState('');
   const [defaultValidDays, setDefaultValidDays] = useState('');
   const [configSaving, setConfigSaving] = useState(false);
   const [movingId, setMovingId] = useState<string | null>(null);
@@ -60,6 +62,8 @@ export function AdminQuotationSettingsPage() {
       setItems(list);
       setFooterNotice(config.footerNotice ?? '');
       setDocumentTitle(config.documentTitle ?? '');
+      setDefaultEmailSubject(config.defaultEmailSubject ?? '');
+      setDefaultEmailBody(config.defaultEmailBody ?? '');
       setDefaultValidDays(
         config.defaultValidDays != null ? String(config.defaultValidDays) : '',
       );
@@ -145,6 +149,8 @@ export function AdminQuotationSettingsPage() {
       await updateQuotationConfig(token, {
         footerNotice: footerNotice.trim() || null,
         documentTitle: documentTitle.trim() || null,
+        defaultEmailSubject: defaultEmailSubject.trim() || null,
+        defaultEmailBody: defaultEmailBody.trim() || null,
         defaultValidDays: defaultValidDaysVal,
       });
       alert('서식 설정을 저장했습니다.');
@@ -233,6 +239,31 @@ export function AdminQuotationSettingsPage() {
             placeholder="비워 두면 미적용"
             value={defaultValidDays}
             onChange={(e) => setDefaultValidDays(e.target.value)}
+          />
+        </label>
+        <h3 className="font-medium text-sm text-gray-900 mb-2 mt-4">이메일 기본값</h3>
+        <p className="text-xs text-gray-500 mb-2">
+          치환: {'{{customerName}}'}, {'{{quoteNumber}}'}, {'{{total}}'}, {'{{companyName}}'},{' '}
+          {'{{validUntil}}'}
+        </p>
+        <label className="block text-sm mb-3">
+          <span className="text-gray-700">기본 제목</span>
+          <input
+            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+            placeholder="비워 두면 시스템 기본값"
+            maxLength={200}
+            value={defaultEmailSubject}
+            onChange={(e) => setDefaultEmailSubject(e.target.value)}
+          />
+        </label>
+        <label className="block text-sm mb-3">
+          <span className="text-gray-700">기본 본문</span>
+          <textarea
+            className="mt-1 w-full border rounded px-2 py-1.5 text-sm"
+            rows={5}
+            placeholder="비워 두면 시스템 기본값"
+            value={defaultEmailBody}
+            onChange={(e) => setDefaultEmailBody(e.target.value)}
           />
         </label>
         <button

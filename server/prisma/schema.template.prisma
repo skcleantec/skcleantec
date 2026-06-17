@@ -111,6 +111,7 @@ model Tenant {
   quotations Quotation[]
   quotationDailyCounters QuotationDailyCounter[]
   quotationConfigs QuotationConfig[]
+  quotationEmailLogs QuotationEmailLog[]
   professionalSpecialtyOptions ProfessionalSpecialtyOption[]
   orderFormTemplates OrderFormTemplate[]
   orderFormTemplateFields OrderFormTemplateField[]
@@ -404,6 +405,7 @@ model User {
   orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
   quotationsCreated             Quotation[]            @relation("QuotationCreatedBy")
+  quotationEmailsSent           QuotationEmailLog[]    @relation("QuotationEmailSentBy")
   reviewPaybacksHandled         ReviewPaybackRequest[] @relation("ReviewPaybackHandledBy")
   orderFollowupLogsAsActor      OrderFollowupLog[]     @relation("OrderFollowupLogActor")
   orderFormDeleteLogsAsActor    OrderFormDeleteLog[]   @relation("OrderFormDeleteLogActor")
@@ -1386,12 +1388,14 @@ model Quotation {
   createdById     String?         @map("created_by_id")
   createdBy       User?           @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   sentAt          DateTime?       @map("sent_at")
+  lastEmailedAt   DateTime?       @map("last_emailed_at")
   pdfPublicId     String?         @map("pdf_public_id") @db.VarChar(512)
   pdfSecureUrl    String?         @map("pdf_secure_url") @db.VarChar(2048)
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
   lineItems QuotationLineItem[]
+  emailLogs QuotationEmailLog[]
 
   @@unique([tenantId, quoteNumber])
   @@index([tenantId, createdAt])
@@ -1437,10 +1441,35 @@ model QuotationConfig {
   /// PDF 상단 문서 제목 (기본: 견적서)
   documentTitle    String?  @map("document_title") @db.VarChar(40)
   /// 새 견적 작성 시 유효기간 기본 일수 (null이면 미적용)
-  defaultValidDays Int?     @map("default_valid_days")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  defaultValidDays     Int?     @map("default_valid_days")
+  /// 이메일 기본 제목 (플레이스홀더: {{companyName}}, {{quoteNumber}}, {{customerName}} 등)
+  defaultEmailSubject  String?  @map("default_email_subject") @db.VarChar(200)
+  /// 이메일 기본 본문
+  defaultEmailBody     String?  @map("default_email_body") @db.Text
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("quotation_config")
+}
+
+/// 견적서 이메일 발송 이력
+model QuotationEmailLog {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  quotationId  String   @map("quotation_id")
+  to           String   @db.VarChar(254)
+  subject      String   @db.VarChar(500)
+  bodyPreview  String?  @map("body_preview") @db.Text
+  sentById     String?  @map("sent_by_id")
+  sentAt       DateTime @default(now()) @map("sent_at")
+  success      Boolean  @default(true)
+  errorMessage String?  @map("error_message") @db.VarChar(500)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  sentBy    User?     @relation("QuotationEmailSentBy", fields: [sentById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, quotationId, sentAt])
+  @@map("quotation_email_logs")
 }
 
 model OrderFormConfig {

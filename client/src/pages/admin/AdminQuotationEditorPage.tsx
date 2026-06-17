@@ -5,13 +5,13 @@ import {
   createQuotation,
   fetchQuotationEditorDefaults,
   getQuotation,
-  sendQuotationEmail,
   updateQuotation,
   type QuotationLineItemDto,
   type QuotationServiceItemDto,
 } from '../../api/quotations';
 import { fetchTenantCompanyProfile } from '../../api/tenantCompanyProfile';
 import { QuotationCustomerFields } from '../../components/quotations/QuotationCustomerFields';
+import { QuotationEmailPanel } from '../../components/quotations/QuotationEmailPanel';
 import { QuotationLineItemsEditor } from '../../components/quotations/QuotationLineItemsEditor';
 import { QuotationPdfActions } from '../../components/quotations/QuotationPdfActions';
 import { QuotationPreconditionBanner } from '../../components/quotations/QuotationPreconditionBanner';
@@ -41,8 +41,8 @@ export function AdminQuotationEditorPage() {
   const [lines, setLines] = useState<EditableQuotationLine[]>([emptyQuotationLine()]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [emailTo, setEmailTo] = useState('');
-  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sentAt, setSentAt] = useState<string | null>(null);
+  const [lastEmailedAt, setLastEmailedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [companyNameMissing, setCompanyNameMissing] = useState(false);
   const [smtpReady, setSmtpReady] = useState(false);
@@ -86,9 +86,10 @@ export function AdminQuotationEditorPage() {
       setCustomerName(row.customerName);
       setCustomerPhone(row.customerPhone ?? '');
       setCustomerEmail(row.customerEmail ?? '');
-      setEmailTo(row.customerEmail ?? '');
       setCustomerAddress(row.customerAddress ?? '');
       setMemo(row.memo ?? '');
+      setSentAt(row.sentAt);
+      setLastEmailedAt(row.lastEmailedAt);
       setDiscountAmount(row.discountAmount > 0 ? String(row.discountAmount) : '');
       setValidUntil(row.validUntil ?? '');
       setLines(
@@ -196,33 +197,6 @@ export function AdminQuotationEditorPage() {
     }
   }
 
-  async function handleSendEmail() {
-    if (!token || isNew || !id) {
-      alert('먼저 저장해 주세요.');
-      return;
-    }
-    if (!smtpReady && !globalSmtpFallback) {
-      alert('SMTP가 설정되지 않았습니다. 업체등록정보에서 메일 설정을 확인해 주세요.');
-      return;
-    }
-    const to = emailTo.trim() || customerEmail.trim();
-    if (!to) {
-      alert('수신 이메일을 입력해 주세요.');
-      return;
-    }
-    setSendingEmail(true);
-    try {
-      const updated = await sendQuotationEmail(token, id, to);
-      setStatus(updated.status);
-      setCustomerEmail(updated.customerEmail ?? to);
-      alert('이메일을 발송했습니다.');
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '이메일 발송에 실패했습니다.');
-    } finally {
-      setSendingEmail(false);
-    }
-  }
-
   if (loading) {
     return <p className="p-4 text-sm text-gray-500">불러오는 중…</p>;
   }
@@ -301,29 +275,22 @@ export function AdminQuotationEditorPage() {
         />
       </label>
 
-      {!isNew && (
-        <section className="border rounded-lg p-3 mb-6">
-          <h2 className="font-medium text-sm mb-2">이메일 발송</h2>
-          <div className="flex flex-wrap gap-2">
-            <input
-              type="email"
-              className="flex-1 min-w-[160px] border rounded px-2 py-1.5 text-sm"
-              placeholder="수신 이메일"
-              value={emailTo}
-              onChange={(e) => setEmailTo(e.target.value)}
-              disabled={!canEmail}
-            />
-            <button
-              type="button"
-              disabled={sendingEmail || !canEmail}
-              onClick={() => void handleSendEmail()}
-              className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded disabled:opacity-50"
-              title={!canEmail ? 'SMTP 설정 필요' : undefined}
-            >
-              {sendingEmail ? '발송 중…' : 'PDF 첨부 발송'}
-            </button>
-          </div>
-        </section>
+      {!isNew && id && token && (
+        <QuotationEmailPanel
+          token={token}
+          quotationId={id}
+          status={status}
+          customerEmail={customerEmail}
+          sentAt={sentAt}
+          lastEmailedAt={lastEmailedAt}
+          canEmail={canEmail}
+          onSent={(patch) => {
+            setStatus(patch.status);
+            setCustomerEmail(patch.customerEmail ?? '');
+            setSentAt(patch.sentAt);
+            setLastEmailedAt(patch.lastEmailedAt);
+          }}
+        />
       )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex flex-wrap gap-2 justify-center sm:static sm:border-0 sm:p-0 sm:justify-start">

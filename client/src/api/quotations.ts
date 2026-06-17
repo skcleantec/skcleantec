@@ -27,6 +27,8 @@ export interface QuotationConfigDto {
   footerNotice: string | null;
   documentTitle: string | null;
   defaultValidDays: number | null;
+  defaultEmailSubject: string | null;
+  defaultEmailBody: string | null;
   updatedAt: string;
 }
 
@@ -57,6 +59,22 @@ export interface QuotationLineItemDto {
   sortOrder?: number;
 }
 
+export interface QuotationEmailLogDto {
+  id: string;
+  to: string;
+  subject: string;
+  bodyPreview: string | null;
+  sentAt: string;
+  success: boolean;
+  errorMessage: string | null;
+  sentBy: { id: string; name: string } | null;
+}
+
+export interface QuotationEmailDefaultsDto {
+  subject: string;
+  body: string;
+}
+
 export interface QuotationDto {
   id: string;
   quoteNumber: string;
@@ -72,6 +90,7 @@ export interface QuotationDto {
   validUntil: string | null;
   inquiryId: string | null;
   sentAt: string | null;
+  lastEmailedAt: string | null;
   pdfSecureUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -164,6 +183,8 @@ export async function updateQuotationConfig(
     footerNotice: string | null;
     documentTitle: string | null;
     defaultValidDays: number | null;
+    defaultEmailSubject: string | null;
+    defaultEmailBody: string | null;
   }>,
 ): Promise<QuotationConfigDto> {
   const res = await fetch(`${API}/quotations/config`, {
@@ -287,15 +308,65 @@ export async function downloadQuotationPdf(
   return res.blob();
 }
 
+export async function fetchQuotationEmailDefaults(
+  token: string,
+  id: string,
+): Promise<QuotationEmailDefaultsDto> {
+  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}/email-defaults`, {
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<QuotationEmailDefaultsDto>;
+}
+
+export async function fetchQuotationEmailLogs(
+  token: string,
+  id: string,
+): Promise<QuotationEmailLogDto[]> {
+  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}/email-logs`, {
+    headers: headers(token),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  const data = (await res.json()) as { items: QuotationEmailLogDto[] };
+  return data.items;
+}
+
+export type QuotationEmailSendPayload = {
+  to?: string;
+  subject?: string;
+  body?: string;
+};
+
 export async function sendQuotationEmail(
   token: string,
   id: string,
-  to?: string,
+  payload?: QuotationEmailSendPayload | string,
 ): Promise<QuotationDto> {
+  const body =
+    typeof payload === 'string'
+      ? { to: payload }
+      : payload && Object.keys(payload).length > 0
+        ? payload
+        : {};
   const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}/send-email`, {
     method: 'POST',
     headers: headers(token),
-    body: JSON.stringify(to ? { to } : {}),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  const data = (await res.json()) as { quotation: QuotationDto };
+  return data.quotation;
+}
+
+export async function resendQuotationEmail(
+  token: string,
+  id: string,
+  payload?: QuotationEmailSendPayload,
+): Promise<QuotationDto> {
+  const res = await fetch(`${API}/quotations/${encodeURIComponent(id)}/resend-email`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(payload ?? {}),
   });
   if (!res.ok) throw new Error(await readError(res));
   const data = (await res.json()) as { quotation: QuotationDto };

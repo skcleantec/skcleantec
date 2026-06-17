@@ -237,7 +237,7 @@ export function AdminQuotationsListPage() {
                     <th className="px-3 py-2 text-right">합계</th>
                     <th className="px-3 py-2">상태</th>
                     <th className="px-3 py-2">작성일</th>
-                    <th className="px-3 py-2">발송일</th>
+                    <th className="px-3 py-2">최근 발송</th>
                     <th className="px-3 py-2" />
                   </tr>
                 </thead>
@@ -254,8 +254,8 @@ export function AdminQuotationsListPage() {
                         {new Date(row.createdAt).toLocaleDateString('ko-KR')}
                       </td>
                       <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
-                        {row.sentAt
-                          ? new Date(row.sentAt).toLocaleDateString('ko-KR')
+                        {(row.lastEmailedAt ?? row.sentAt)
+                          ? new Date(row.lastEmailedAt ?? row.sentAt!).toLocaleDateString('ko-KR')
                           : '—'}
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">

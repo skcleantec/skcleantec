@@ -98,6 +98,7 @@ export function serializeQuotation(row: QuotationRow) {
     inquiry: row.inquiry,
     createdBy: row.createdBy,
     sentAt: row.sentAt?.toISOString() ?? null,
+    lastEmailedAt: row.lastEmailedAt?.toISOString() ?? null,
     pdfSecureUrl: row.pdfSecureUrl,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -123,6 +124,28 @@ export function serializeServiceItem(row: QuotationServiceItem) {
     isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function serializeQuotationEmailLog(row: {
+  id: string;
+  to: string;
+  subject: string;
+  bodyPreview: string | null;
+  sentAt: Date;
+  success: boolean;
+  errorMessage: string | null;
+  sentBy: { id: string; name: string } | null;
+}) {
+  return {
+    id: row.id,
+    to: row.to,
+    subject: row.subject,
+    bodyPreview: row.bodyPreview,
+    sentAt: row.sentAt.toISOString(),
+    success: row.success,
+    errorMessage: row.errorMessage,
+    sentBy: row.sentBy,
   };
 }
 

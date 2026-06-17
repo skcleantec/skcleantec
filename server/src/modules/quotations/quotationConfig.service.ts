@@ -15,12 +15,16 @@ export function serializeQuotationConfig(row: {
   footerNotice: string | null;
   documentTitle: string | null;
   defaultValidDays: number | null;
+  defaultEmailSubject: string | null;
+  defaultEmailBody: string | null;
   updatedAt: Date;
 }) {
   return {
     footerNotice: row.footerNotice,
     documentTitle: row.documentTitle,
     defaultValidDays: row.defaultValidDays,
+    defaultEmailSubject: row.defaultEmailSubject,
+    defaultEmailBody: row.defaultEmailBody,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
