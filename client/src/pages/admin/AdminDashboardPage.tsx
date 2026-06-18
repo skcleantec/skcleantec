@@ -6,6 +6,7 @@ import { getToken } from '../../stores/auth';
 import { DashboardChangeHistory } from '../../components/admin/DashboardChangeHistory';
 import { DashboardOpsHourlyStrip } from '../../components/admin/DashboardOpsHourlyStrip';
 import { TelemarketingSessionBlock } from '../../components/admin/TelemarketingSessionBlock';
+import { DashboardTenantSubscriptionBlock } from '../../components/admin/DashboardTenantSubscriptionBlock';
 
 function formatCurrency(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -84,7 +85,10 @@ export function AdminDashboardPage() {
         </div>
       )}
 
-      <TelemarketingSessionBlock />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DashboardTenantSubscriptionBlock />
+        <TelemarketingSessionBlock />
+      </div>
 
       <DashboardOpsHourlyStrip />
 
