@@ -41,6 +41,7 @@ export type TenantSmtpConfigStored = {
 };
 
 import type { OperatingCompanyPolicy } from '../operating-companies/operatingCompanyPolicy.js';
+import { parseSmtpConfigStored } from '../../lib/smtpConfigStored.js';
 import {
   sanitizeTenantInspectionAreaItems,
   type TenantInspectionTemplateConfig,
@@ -173,25 +174,6 @@ function parseCompanyRegistration(raw: unknown): TenantConfig['companyRegistrati
   };
 }
 
-function parseSmtpStored(raw: unknown): TenantConfig['smtp'] | undefined {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
-  const o = raw as Record<string, unknown>;
-  const host = trimOptionalString(o.host, MAX_STRING);
-  const user = trimOptionalString(o.user, MAX_STRING);
-  const from = trimOptionalString(o.from, MAX_STRING);
-  const passEnc = trimOptionalString(o.passEnc, 2048);
-  let port: number | undefined;
-  if (typeof o.port === 'number' && Number.isFinite(o.port)) {
-    port = Math.min(65535, Math.max(1, Math.round(o.port)));
-  } else if (typeof o.port === 'string' && o.port.trim()) {
-    const n = parseInt(o.port, 10);
-    if (Number.isFinite(n)) port = Math.min(65535, Math.max(1, n));
-  }
-  const secure = o.secure === true;
-  if (!host && !user && !from && !passEnc && port === undefined) return undefined;
-  return { host, port, secure, user, from, passEnc };
-}
-
 /** DB JSON → 검증된 TenantConfig (알 수 없는 키는 무시) */
 export function parseTenantConfig(raw: unknown): TenantConfig {
   if (raw == null) return {};
@@ -205,7 +187,7 @@ export function parseTenantConfig(raw: unknown): TenantConfig {
   const operatingCompanyPolicy = parseOperatingCompanyPolicySection(o.operatingCompanyPolicy);
   const inspection = parseInspection(o.inspection);
   const companyRegistration = parseCompanyRegistration(o.companyRegistration);
-  const smtp = parseSmtpStored(o.smtp);
+  const smtp = parseSmtpConfigStored(o.smtp);
   const out: TenantConfig = {};
   if (branding) out.branding = branding;
   if (orderForm) out.orderForm = orderForm;

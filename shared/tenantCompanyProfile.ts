@@ -32,9 +32,22 @@ export type TenantCompanyProfileDto = {
   smtp: TenantSmtpSettingsPublic;
   /** Railway 등 서버 전역 SMTP fallback 사용 가능 여부 */
   globalSmtpFallbackAvailable: boolean;
+  /** 활성 영업 브랜드별 SMTP (없으면 공통 기본 사용) */
+  operatingCompanySmtpSettings: OperatingCompanySmtpSetting[];
+};
+
+export type OperatingCompanySmtpSetting = {
+  id: string;
+  name: string;
+  displayName: string;
+  smtp: TenantSmtpSettingsPublic;
+  hasOwnSmtp: boolean;
+  effectiveConfigured: boolean;
 };
 
 export type TenantCompanyProfilePatch = {
+  /** 지정 시 해당 브랜드 config.smtp 만 수정 (공통 기본은 operatingCompanyId 생략) */
+  operatingCompanyId?: string | null;
   companyRegistration?: Partial<
     Omit<TenantCompanyRegistration, 'sealPublicId' | 'sealSecureUrl' | 'sealDisplayWidthPx'>
   > & {

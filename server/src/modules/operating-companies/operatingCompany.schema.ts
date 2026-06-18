@@ -2,7 +2,11 @@
  * OperatingCompany.config 파싱 — shared/operatingCompanyConfig.ts 와 동기화
  */
 
-import type { TenantCompanyRegistrationConfig } from '../tenants/tenantConfig.schema.js';
+import { parseSmtpConfigStored } from '../../lib/smtpConfigStored.js';
+import type {
+  TenantCompanyRegistrationConfig,
+  TenantSmtpConfigStored,
+} from '../tenants/tenantConfig.schema.js';
 
 /** shared/operatingCompanyConfig.ts OPERATING_COMPANY_BADGE_COLOR_KEYS 와 동기화 */
 export const OPERATING_COMPANY_BADGE_COLOR_KEYS = [
@@ -39,6 +43,7 @@ export type OperatingCompanyConfig = {
   orderForm?: OperatingCompanyOrderFormConfig;
   inquiry?: OperatingCompanyInquiryConfig;
   companyRegistration?: Partial<TenantCompanyRegistrationConfig>;
+  smtp?: TenantSmtpConfigStored;
 };
 
 const MAX_STRING = 512;
@@ -162,6 +167,8 @@ export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfi
   if ('companyRegistration' in o) {
     out.companyRegistration = parseCompanyRegistration(o.companyRegistration) ?? {};
   }
+  const smtp = parseSmtpConfigStored(o.smtp);
+  if (smtp) out.smtp = smtp;
   return out;
 }
 
@@ -177,6 +184,7 @@ export function mergeOperatingCompanyConfig(
       patch.companyRegistration !== undefined
         ? mergeCompanyRegistrationSection(existing.companyRegistration, patch.companyRegistration)
         : existing.companyRegistration,
+    smtp: patch.smtp !== undefined ? patch.smtp : existing.smtp,
   };
 }
 
@@ -187,6 +195,9 @@ export function operatingCompanyConfigToJson(config: OperatingCompanyConfig): Re
   if (config.inquiry && Object.keys(config.inquiry).length > 0) out.inquiry = config.inquiry;
   if (config.companyRegistration && Object.keys(config.companyRegistration).length > 0) {
     out.companyRegistration = config.companyRegistration;
+  }
+  if (config.smtp && Object.keys(config.smtp).length > 0) {
+    out.smtp = config.smtp;
   }
   return out;
 }

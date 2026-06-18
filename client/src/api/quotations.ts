@@ -43,6 +43,8 @@ export interface QuotationEditorOperatingCompanyDto {
   slug: string;
   isDefault: boolean;
   companyRegistration: TenantCompanyRegistration;
+  smtp: TenantSmtpSettingsPublic;
+  smtpEffectiveConfigured: boolean;
 }
 
 export interface QuotationEditorDefaultsDto {

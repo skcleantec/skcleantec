@@ -2,6 +2,8 @@ import type {
   TenantCompanyRegistration,
   TenantCompanyProfileDto,
   TenantCompanyProfilePatch,
+  OperatingCompanySmtpSetting,
+  TenantSmtpSettingsPublic,
 } from '@shared/tenantCompanyProfile';
 
 const API = import.meta.env.VITE_API_URL ?? '/api';
@@ -86,11 +88,15 @@ export async function uploadTenantCompanySeal(
 export async function sendTenantCompanyProfileTestEmail(
   token: string,
   to: string,
+  operatingCompanyId?: string | null,
 ): Promise<void> {
   const res = await fetch(`${API}/admin/tenant-company-profile/test-email`, {
     method: 'POST',
     headers: adminHeaders(token),
-    body: JSON.stringify({ to }),
+    body: JSON.stringify({
+      to,
+      ...(operatingCompanyId ? { operatingCompanyId } : {}),
+    }),
   });
   const data = (await res.json()) as { ok?: boolean; error?: string };
   if (!res.ok) throw new Error(data.error ?? '테스트 메일 발송에 실패했습니다.');
@@ -100,4 +106,6 @@ export type {
   TenantCompanyRegistration,
   TenantCompanyProfileDto,
   TenantCompanyProfilePatch,
+  OperatingCompanySmtpSetting,
+  TenantSmtpSettingsPublic,
 };

@@ -5,15 +5,17 @@ import {
   TenantSmtpSetupGuideModal,
 } from '../../components/admin/TenantSmtpSetupGuideModal';
 import { CompanyProfileSuccessModal } from './CompanyProfileSuccessModal';
-import { useTenantCompanyProfileForm } from './useTenantCompanyProfileForm';
+import { useOutboundEmailSettingsForm } from './useOutboundEmailSettingsForm';
 
 export function AdminTenantCompanyOutboundEmailPage() {
-  const form = useTenantCompanyProfileForm();
+  const form = useOutboundEmailSettingsForm();
   const [guideOpen, setGuideOpen] = useState(false);
 
   if (form.loading) {
     return <div className="p-8 text-center text-gray-500 text-sm">불러오는 중…</div>;
   }
+
+  const isBrandScope = Boolean(form.smtpScope);
 
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6 pb-8">
@@ -24,6 +26,49 @@ export function AdminTenantCompanyOutboundEmailPage() {
         </p>
       </div>
 
+      {form.hasOperatingCompanies ? (
+        <section className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
+          <p className="text-xs font-medium text-gray-600 mb-2">설정 대상</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => form.selectScope('')}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                !form.smtpScope
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              공통 기본
+            </button>
+            {form.operatingCompanies.map((oc) => (
+              <button
+                key={oc.id}
+                type="button"
+                onClick={() => form.selectScope(oc.id)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                  form.smtpScope === oc.id
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {oc.displayName}
+              </button>
+            ))}
+          </div>
+          {isBrandScope ? (
+            <p className="mt-2 text-xs text-gray-500 leading-relaxed">
+              <span className="font-medium text-gray-700">{form.scopeLabel}</span> 전용 SMTP입니다.
+              비워 두거나 저장하지 않으면 <span className="font-medium">공통 기본</span> 설정으로 발송됩니다.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-gray-500 leading-relaxed">
+              브랜드별 전용 SMTP가 없을 때 사용하는 기본 설정입니다.
+            </p>
+          )}
+        </section>
+      ) : null}
+
       {form.err ? (
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">
           {form.err}
@@ -33,18 +78,27 @@ export function AdminTenantCompanyOutboundEmailPage() {
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold text-gray-900">SMTP 설정</h2>
+            <h2 className="text-base font-semibold text-gray-900">
+              SMTP 설정{form.hasOperatingCompanies ? ` · ${form.scopeLabel}` : ''}
+            </h2>
             <p className="mt-1 text-xs text-gray-500 leading-relaxed">
               Gmail·네이버 등에서 앱 비밀번호(또는 메일 전용 비밀번호)를 준비해 주세요.
-              {form.profile?.globalSmtpFallbackAvailable ? (
+              {form.profile?.globalSmtpFallbackAvailable && !isBrandScope ? (
                 <span className="block mt-1 text-amber-800">
                   서버 기본 SMTP가 있어 아래를 비워 두면 플랫폼 계정으로 발송될 수 있습니다. 고객에게는 업체
                   이름·메일로 보내려면 여기서 설정하세요.
                 </span>
               ) : null}
+              {isBrandScope && !form.smtpReady && form.effectiveConfigured ? (
+                <span className="block mt-1 text-sky-800">
+                  이 브랜드 전용 SMTP는 없지만, 공통 기본(또는 서버 기본)으로 발송 가능합니다.
+                </span>
+              ) : null}
             </p>
             {form.smtpReady ? (
               <p className="mt-2 text-xs font-medium text-emerald-700">설정 완료 — 발송 가능</p>
+            ) : form.effectiveConfigured ? (
+              <p className="mt-2 text-xs font-medium text-sky-700">공통 기본 SMTP로 발송됩니다</p>
             ) : (
               <p className="mt-2 text-xs font-medium text-amber-700">미설정 — 메일이 발송되지 않습니다</p>
             )}
@@ -185,7 +239,7 @@ export function AdminTenantCompanyOutboundEmailPage() {
       <section className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 sm:p-5 space-y-3">
         <h3 className="text-sm font-semibold text-gray-900">테스트 메일 발송</h3>
         <p className="text-xs text-gray-600">
-          저장한 뒤, 위 설정으로 본인 메일함에 테스트 메일을 보내 연결을 확인할 수 있습니다.
+          저장한 뒤, {form.scopeLabel} 설정으로 본인 메일함에 테스트 메일을 보내 연결을 확인할 수 있습니다.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <label className="flex-1">

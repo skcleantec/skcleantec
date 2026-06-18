@@ -13,19 +13,23 @@ export async function sendQuotationEmail(params: {
   const text = body;
 
   try {
-    return await sendMailForTenant(tenantId, {
-      to,
-      subject,
-      text,
-      html: text.replace(/\n/g, '<br>'),
-      attachments: [
-        {
-          filename: `견적서_${quotation.quoteNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
-        },
-      ],
-    });
+    return await sendMailForTenant(
+      tenantId,
+      {
+        to,
+        subject,
+        text,
+        html: text.replace(/\n/g, '<br>'),
+        attachments: [
+          {
+            filename: `견적서_${quotation.quoteNumber}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ],
+      },
+      quotation.operatingCompanyId,
+    );
   } catch (e) {
     console.error('[quotation-email] send failed', formatSmtpSendError(e), e);
     throw e;

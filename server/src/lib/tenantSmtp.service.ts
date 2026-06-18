@@ -2,6 +2,9 @@ import type { TenantSmtpConfigStored } from '../modules/tenants/tenantConfig.sch
 import { decryptTenantSecret } from './tenantSecretCrypto.js';
 import { isSmtpConfigured as isGlobalSmtpConfigured, type MailSendInput } from './mailer.js';
 import { getTenantConfig } from '../modules/tenants/tenantConfig.service.js';
+import { prisma } from './prisma.js';
+import { parseOperatingCompanyConfig } from '../modules/operating-companies/operatingCompany.schema.js';
+import { smtpConfigStoredComplete } from './smtpConfigStored.js';
 
 export type ResolvedSmtpTransport = {
   host: string;
@@ -54,11 +57,7 @@ export function formatSmtpSendError(e: unknown): string {
 }
 
 function storedSmtpComplete(stored: TenantSmtpConfigStored | undefined): boolean {
-  if (!stored) return false;
-  const host = stored.host?.trim();
-  const from = stored.from?.trim();
-  const passEnc = stored.passEnc?.trim();
-  return Boolean(host && from && passEnc);
+  return smtpConfigStoredComplete(stored);
 }
 
 export function smtpPublicFromStored(stored: TenantSmtpConfigStored | undefined): {
@@ -121,19 +120,58 @@ export function resolveGlobalSmtpTransport(): ResolvedSmtpTransport | null {
   };
 }
 
-export async function resolveSmtpTransportForTenant(tenantId: string): Promise<ResolvedSmtpTransport | null> {
+export function resolveEffectiveSmtpConfigured(
+  brandStored: TenantSmtpConfigStored | undefined,
+  tenantStored: TenantSmtpConfigStored | undefined,
+  globalAvailable: boolean,
+): boolean {
+  if (storedSmtpComplete(brandStored)) return true;
+  if (storedSmtpComplete(tenantStored)) return true;
+  return globalAvailable;
+}
+
+async function loadOperatingCompanySmtpStored(
+  tenantId: string,
+  operatingCompanyId: string,
+): Promise<TenantSmtpConfigStored | undefined> {
+  const row = await prisma.operatingCompany.findFirst({
+    where: { id: operatingCompanyId, tenantId },
+    select: { config: true },
+  });
+  if (!row) return undefined;
+  return parseOperatingCompanyConfig(row.config).smtp;
+}
+
+export async function resolveSmtpTransportForTenant(
+  tenantId: string,
+  operatingCompanyId?: string | null,
+): Promise<ResolvedSmtpTransport | null> {
   const config = await getTenantConfig(tenantId);
+
+  if (operatingCompanyId) {
+    const brandStored = await loadOperatingCompanySmtpStored(tenantId, operatingCompanyId);
+    const brand = resolveStoredSmtpTransport(brandStored);
+    if (brand) return brand;
+  }
+
   const tenant = resolveStoredSmtpTransport(config.smtp);
   if (tenant) return tenant;
   return resolveGlobalSmtpTransport();
 }
 
-export async function isSmtpConfiguredForTenant(tenantId: string): Promise<boolean> {
-  return (await resolveSmtpTransportForTenant(tenantId)) != null;
+export async function isSmtpConfiguredForTenant(
+  tenantId: string,
+  operatingCompanyId?: string | null,
+): Promise<boolean> {
+  return (await resolveSmtpTransportForTenant(tenantId, operatingCompanyId)) != null;
 }
 
-export async function sendMailForTenant(tenantId: string, input: MailSendInput): Promise<boolean> {
-  const transport = await resolveSmtpTransportForTenant(tenantId);
+export async function sendMailForTenant(
+  tenantId: string,
+  input: MailSendInput,
+  operatingCompanyId?: string | null,
+): Promise<boolean> {
+  const transport = await resolveSmtpTransportForTenant(tenantId, operatingCompanyId);
   if (!transport) return false;
   await sendMailWithTransport(transport, input);
   return true;
@@ -161,13 +199,20 @@ export async function sendMailWithTransport(
   });
 }
 
-/** 테스트 발송 — tenant SMTP만 사용 (global fallback 없음) */
+/** 테스트 발송 — 지정 SMTP만 사용 (global fallback 없음) */
 export async function sendTestMailWithTenantSmtp(
   tenantId: string,
   to: string,
+  operatingCompanyId?: string | null,
 ): Promise<boolean> {
-  const config = await getTenantConfig(tenantId);
-  const transport = resolveStoredSmtpTransport(config.smtp);
+  let stored: TenantSmtpConfigStored | undefined;
+  if (operatingCompanyId) {
+    stored = await loadOperatingCompanySmtpStored(tenantId, operatingCompanyId);
+  } else {
+    const config = await getTenantConfig(tenantId);
+    stored = config.smtp;
+  }
+  const transport = resolveStoredSmtpTransport(stored);
   if (!transport) return false;
   await sendMailWithTransport(transport, {
     to,

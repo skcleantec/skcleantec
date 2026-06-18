@@ -41,6 +41,7 @@ import {
   resolveQuotationOperatingCompanyId,
 } from './quotationDocumentTitle.service.js';
 import { getTenantCompanyProfile } from '../tenants/tenantCompanyProfile.service.js';
+import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -148,13 +149,20 @@ router.get('/editor-defaults', async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const tenantProfile = await getTenantCompanyProfile(tenantId);
+  const tenantConfig = await getTenantConfig(tenantId);
   const [items, config, operatingCompanies] = await Promise.all([
     prisma.quotationServiceItem.findMany({
       where: { tenantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
     getOrCreateQuotationConfig(prisma, tenantId),
-    listQuotationEditorOperatingCompanies(prisma, tenantId, tenantProfile.companyRegistration),
+    listQuotationEditorOperatingCompanies(
+      prisma,
+      tenantId,
+      tenantProfile.companyRegistration,
+      tenantConfig.smtp,
+      tenantProfile.globalSmtpFallbackAvailable,
+    ),
   ]);
   const validUntilDefault =
     config.defaultValidDays != null && config.defaultValidDays > 0

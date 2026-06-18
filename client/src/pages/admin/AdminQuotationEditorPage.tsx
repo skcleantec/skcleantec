@@ -11,7 +11,7 @@ import {
   type QuotationServiceItemDto,
   type QuotationVatMode,
 } from '../../api/quotations';
-import type { TenantCompanyRegistration } from '../../api/tenantCompanyProfile';
+import type { TenantCompanyRegistration, TenantSmtpSettingsPublic } from '../../api/tenantCompanyProfile';
 import { QuotationDocumentEditor } from '../../components/quotations/QuotationDocumentEditor';
 import { QuotationEmailPanel } from '../../components/quotations/QuotationEmailPanel';
 import { QuotationPdfActions } from '../../components/quotations/QuotationPdfActions';
@@ -47,6 +47,17 @@ function companyForOperatingCompany(
 ): TenantCompanyRegistration {
   const brand = companies.find((c) => c.id === operatingCompanyId);
   return brand?.companyRegistration ?? tenantFallback;
+}
+
+function computeSmtpReadyForBrand(
+  operatingCompanyId: string,
+  companies: QuotationEditorOperatingCompanyDto[],
+  tenantSmtp: TenantSmtpSettingsPublic,
+  globalFallback: boolean,
+): boolean {
+  const brand = companies.find((c) => c.id === operatingCompanyId);
+  if (brand) return brand.smtpEffectiveConfigured;
+  return tenantSmtp.configured || globalFallback;
 }
 
 export function AdminQuotationEditorPage() {
@@ -87,6 +98,15 @@ export function AdminQuotationEditorPage() {
   const [lastEmailedAt, setLastEmailedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [companyNameMissing, setCompanyNameMissing] = useState(false);
+  const [tenantSmtp, setTenantSmtp] = useState<TenantSmtpSettingsPublic>({
+    host: '',
+    port: 587,
+    secure: false,
+    user: '',
+    from: '',
+    passwordConfigured: false,
+    configured: false,
+  });
   const [smtpReady, setSmtpReady] = useState(false);
   const [globalSmtpFallback, setGlobalSmtpFallback] = useState(false);
 
@@ -111,8 +131,16 @@ export function AdminQuotationEditorPage() {
       setCompany(resolvedCompany);
       setCompanyNameMissing(!resolvedCompany.companyName?.trim());
       setFooterNotice(defaults.config.footerNotice);
-      setSmtpReady(defaults.smtp.configured);
+      setTenantSmtp(defaults.smtp);
       setGlobalSmtpFallback(defaults.globalSmtpFallbackAvailable);
+      setSmtpReady(
+        computeSmtpReadyForBrand(
+          nextOperatingCompanyId,
+          defaults.operatingCompanies,
+          defaults.smtp,
+          defaults.globalSmtpFallbackAvailable,
+        ),
+      );
       if (isNew) {
         if (defaults.validUntilDefault) setValidUntil(defaults.validUntilDefault);
         if (defaults.catalog.length > 0) {
@@ -226,8 +254,16 @@ export function AdminQuotationEditorPage() {
       );
       setCompany(resolved);
       setCompanyNameMissing(!resolved.companyName?.trim());
+      setSmtpReady(
+        computeSmtpReadyForBrand(
+          nextId,
+          operatingCompanies,
+          tenantSmtp,
+          globalSmtpFallback,
+        ),
+      );
     },
-    [operatingCompanies, tenantCompanyRegistration],
+    [operatingCompanies, tenantCompanyRegistration, tenantSmtp, globalSmtpFallback],
   );
 
   const totals = useMemo(() => {

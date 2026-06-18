@@ -33,6 +33,10 @@ router.patch('/', async (req, res) => {
     res.json(profile);
   } catch (e) {
     const err = e as { code?: string; message?: string };
+    if (err.code === 'not_found') {
+      res.status(404).json({ error: err.message ?? '영업 브랜드를 찾을 수 없습니다.' });
+      return;
+    }
     if (err.code === 'bad_request') {
       res.status(400).json({
         error: err.message ?? '요청을 처리할 수 없습니다.',
@@ -79,8 +83,10 @@ router.post('/test-email', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
   const to = typeof req.body?.to === 'string' ? req.body.to : '';
+  const operatingCompanyId =
+    typeof req.body?.operatingCompanyId === 'string' ? req.body.operatingCompanyId : null;
   try {
-    await sendTenantCompanyProfileTestEmail(tenantId, to);
+    await sendTenantCompanyProfileTestEmail(tenantId, to, operatingCompanyId);
     res.json({ ok: true });
   } catch (e) {
     const err = e as { code?: string };

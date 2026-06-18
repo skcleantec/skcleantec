@@ -1,9 +1,15 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { resolveCompanyRegistration } from '../../lib/resolveCompanyRegistration.js';
 import type { TenantCompanyRegistrationConfig } from '../tenants/tenantConfig.schema.js';
+import type { TenantSmtpSettingsPublic } from '../tenants/tenantCompanyProfile.service.js';
 import {
   getDefaultOperatingCompanyId,
 } from '../operating-companies/operatingCompany.service.js';
+import {
+  resolveEffectiveSmtpConfigured,
+  smtpPublicFromStored,
+  isGlobalSmtpConfigured,
+} from '../../lib/tenantSmtp.service.js';
 import { parseOperatingCompanyConfig } from '../operating-companies/operatingCompany.schema.js';
 
 /** @see shared/quotationDocument.ts */
@@ -22,6 +28,8 @@ export type QuotationOperatingCompanySummary = {
   slug: string;
   isDefault: boolean;
   companyRegistration: TenantCompanyRegistrationConfig;
+  smtp: TenantSmtpSettingsPublic;
+  smtpEffectiveConfigured: boolean;
 };
 
 export function serializeQuotationOperatingCompany(
@@ -33,8 +41,12 @@ export function serializeQuotationOperatingCompany(
     config: unknown;
   },
   tenantCompanyRegistration: TenantCompanyRegistrationConfig = {},
+  tenantSmtpStored?: import('../tenants/tenantConfig.schema.js').TenantSmtpConfigStored,
+  globalSmtpAvailable?: boolean,
 ): QuotationOperatingCompanySummary {
   const config = parseOperatingCompanyConfig(row.config);
+  const globalAvailable = globalSmtpAvailable ?? isGlobalSmtpConfigured();
+  const brandSmtp = smtpPublicFromStored(config.smtp);
   return {
     id: row.id,
     name: row.name,
@@ -44,6 +56,12 @@ export function serializeQuotationOperatingCompany(
     companyRegistration: resolveCompanyRegistration(
       config.companyRegistration,
       tenantCompanyRegistration,
+    ),
+    smtp: brandSmtp,
+    smtpEffectiveConfigured: resolveEffectiveSmtpConfigured(
+      config.smtp,
+      tenantSmtpStored,
+      globalAvailable,
     ),
   };
 }
@@ -116,6 +134,8 @@ export async function listQuotationEditorOperatingCompanies(
   db: Db,
   tenantId: string,
   tenantCompanyRegistration: TenantCompanyRegistrationConfig = {},
+  tenantSmtpStored?: import('../tenants/tenantConfig.schema.js').TenantSmtpConfigStored,
+  globalSmtpAvailable?: boolean,
 ): Promise<QuotationOperatingCompanySummary[]> {
   const rows = await db.operatingCompany.findMany({
     where: { tenantId, isActive: true },
@@ -128,5 +148,12 @@ export async function listQuotationEditorOperatingCompanies(
       config: true,
     },
   });
-  return rows.map((row) => serializeQuotationOperatingCompany(row, tenantCompanyRegistration));
+  return rows.map((row) =>
+    serializeQuotationOperatingCompany(
+      row,
+      tenantCompanyRegistration,
+      tenantSmtpStored,
+      globalSmtpAvailable,
+    ),
+  );
 }
