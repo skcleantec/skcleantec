@@ -14,7 +14,7 @@ import {
 } from '../../api/reviewPayback';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
-import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
+import { ImageThumbLightbox, type ImageGallerySlide } from '../ui/ImageThumbLightbox';
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 import { usePaginatedListQuery } from '../../hooks/usePaginatedListQuery';
 import { useInboxRealtime, useReviewPaybackRealtime } from '../../hooks/useInboxRealtime';
@@ -64,27 +64,65 @@ function reviewImagesForRow(row: ReviewPaybackListItem): ReviewPaybackImageItem[
   return [];
 }
 
-function ReviewCaptureThumbs({
-  images,
-  thumbClassName,
-}: {
-  images: ReviewPaybackImageItem[];
-  thumbClassName: string;
-}) {
+function buildReviewGallerySlides(images: ReviewPaybackImageItem[]): ImageGallerySlide[] {
+  return images.map((img, idx) => ({
+    src: img.url,
+    alt: `리뷰 캡처 ${idx + 1}`,
+    title: `리뷰 캡처 ${idx + 1}`,
+  }));
+}
+
+/** 목록 — 대표 1장 + 추가 장수 표시 */
+function ReviewCaptureListPreview({ images }: { images: ReviewPaybackImageItem[] }) {
   if (images.length === 0) return <span className="text-gray-400">—</span>;
+  const slides = buildReviewGallerySlides(images);
+  const extra = images.length - 1;
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1">
-      {images.map((img, idx) => (
-        <ImageThumbLightbox
-          key={`${img.url}-${idx}`}
-          src={img.url}
-          alt={`리뷰 캡처 ${idx + 1}`}
-          thumbClassName={thumbClassName}
-        />
-      ))}
-      {images.length > 1 ? (
-        <span className="text-[10px] text-gray-500 tabular-nums">{images.length}장</span>
+    <div className="relative mx-auto inline-flex h-12 w-12 shrink-0">
+      <ImageThumbLightbox
+        src={images[0].url}
+        alt="리뷰 캡처"
+        thumbClassName="h-12 w-12 object-cover"
+        buttonClassName="block h-12 w-12 overflow-hidden rounded-lg border border-slate-100 bg-gray-50 p-0 shadow-sm ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
+        gallerySlides={slides}
+        galleryIndex={0}
+      />
+      {extra > 0 ? (
+        <span
+          className="pointer-events-none absolute -bottom-0.5 -right-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-slate-900/90 px-1 text-[10px] font-bold leading-none text-white tabular-nums ring-2 ring-white"
+          title={`총 ${images.length}장`}
+          aria-label={`외 ${extra}장`}
+        >
+          +{extra}
+        </span>
       ) : null}
+    </div>
+  );
+}
+
+/** 상세 — 썸네일 그리드 + 라이트박스 갤러리 */
+function ReviewCaptureDetailGallery({ images }: { images: ReviewPaybackImageItem[] }) {
+  if (images.length === 0) {
+    return <p className="text-fluid-xs text-gray-400">캡처 없음</p>;
+  }
+  const slides = buildReviewGallerySlides(images);
+  return (
+    <div>
+      <p className="mb-2 text-fluid-xs font-medium text-gray-600 tabular-nums">리뷰 캡처 {images.length}장</p>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        {images.map((img, idx) => (
+          <ImageThumbLightbox
+            key={`${img.url}-${idx}`}
+            src={img.url}
+            alt={`리뷰 캡처 ${idx + 1}`}
+            thumbClassName="aspect-square h-full w-full object-cover"
+            buttonClassName="block aspect-square w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
+            gallerySlides={slides}
+            galleryIndex={idx}
+            showDownload
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -357,10 +395,7 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                         <span className="tabular-nums text-slate-500 font-normal">{row.accountNumberMasked}</span>
                       </td>
                       <td className="px-2 py-2.5 text-center">
-                        <ReviewCaptureThumbs
-                          images={reviewImagesForRow(row)}
-                          thumbClassName="mx-auto h-12 w-12 object-cover rounded-lg border border-slate-100 shadow-sm"
-                        />
+                        <ReviewCaptureListPreview images={reviewImagesForRow(row)} />
                       </td>
                       <td className="px-2 py-2.5 text-center">
                         <span
@@ -443,10 +478,7 @@ export function AdminReviewPaybackPanel({ token }: Props) {
                   {row.bankName} · <span className="tabular-nums font-normal text-slate-500">{row.accountNumberMasked}</span>
                 </p>
                 <div className="mt-3.5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                  <ReviewCaptureThumbs
-                    images={reviewImagesForRow(row)}
-                    thumbClassName="h-12 w-12 object-cover rounded-lg shadow-sm border border-slate-100"
-                  />
+                  <ReviewCaptureListPreview images={reviewImagesForRow(row)} />
                   {row.inquiry?.id ? (
                     <Link
                       to={`/admin/inquiries?openInquiry=${encodeURIComponent(row.inquiry.id)}`}
@@ -486,30 +518,14 @@ export function AdminReviewPaybackPanel({ token }: Props) {
 
       {detail ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-4 shadow-xl">
             <h2 className="text-fluid-base font-semibold text-gray-900">{detail.customerName} — 페이백 상세</h2>
             <p className="mt-1 text-fluid-xs text-gray-500 tabular-nums">{displayPhone(detail.customerPhone)}</p>
             {detail.inquiry?.inquiryNumber ? (
               <p className="mt-1 text-fluid-xs text-gray-500">접수 {detail.inquiry.inquiryNumber}</p>
             ) : null}
-            <div className="mt-3 space-y-2">
-              <ReviewCaptureThumbs
-                images={reviewImagesForRow(detail)}
-                thumbClassName="max-h-40 w-auto max-w-full object-contain"
-              />
-              <div className="flex flex-wrap gap-2">
-                {reviewImagesForRow(detail).map((img, idx) => (
-                  <a
-                    key={`${img.url}-${idx}`}
-                    href={img.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-fluid-xs text-blue-700 hover:underline"
-                  >
-                    원본 {idx + 1}
-                  </a>
-                ))}
-              </div>
+            <div className="mt-3">
+              <ReviewCaptureDetailGallery images={reviewImagesForRow(detail)} />
             </div>
             <p className="mt-3 text-fluid-sm text-gray-800">
               {detail.bankName} ·{' '}
