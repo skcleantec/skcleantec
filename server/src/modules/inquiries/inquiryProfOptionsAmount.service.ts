@@ -31,19 +31,12 @@ export type InquiryProfOptionsReviewRow = {
 export function resolveProfOptionsAmountReviewPendingForDisplay(
   row: InquiryProfOptionsReviewRow,
 ): boolean {
-  if (row.profOptionsAmountReviewPending) return true;
-
   if (row.orderForm?.submittedAt == null) return false;
 
   const selections = parseProfessionalOptionSelectionsRaw(row.professionalOptionIds);
   if (selections.length === 0) return false;
 
-  const formTotal = row.orderForm.totalAmount;
-  if (formTotal == null) return false;
-
-  const serviceTotal = row.serviceTotalAmount ?? formTotal;
-  if (serviceTotal !== formTotal) return false;
-
+  /** 반영된 전문시공 extraCharge가 있으면 DB 플래그와 무관하게 완료 */
   if (
     row.extraCharges?.some((c) =>
       String(c.description).trim().startsWith(PROF_OPTION_EXTRA_CHARGE_PREFIX),
@@ -54,7 +47,13 @@ export function resolveProfOptionsAmountReviewPendingForDisplay(
 
   if ((row.additionalReceipts?.length ?? 0) > 0) return false;
 
-  return true;
+  const formTotal = row.orderForm.totalAmount;
+  if (formTotal == null) return false;
+
+  const serviceTotal = row.serviceTotalAmount ?? formTotal;
+  if (serviceTotal !== formTotal) return false;
+
+  return row.profOptionsAmountReviewPending || true;
 }
 
 export function attachProfOptionsReviewStatusDisplay<T extends InquiryProfOptionsReviewRow>(
@@ -321,11 +320,20 @@ export async function applyProfOptionAmountsToInquiry(params: {
   const unpricedLabels: string[] = [];
   const linesToCreate: ProfOptionExtraChargeLine[] = [];
   for (const draft of drafts) {
-    const amount = amountByOptionId.has(draft.optionId)
-      ? amountByOptionId.get(draft.optionId)!
-      : draft.standardAmount;
-    if (amount <= 0) {
-      if (draft.requiresManualAmount) {
+    const explicit = amountByOptionId.has(draft.optionId);
+    const amount = explicit ? amountByOptionId.get(draft.optionId)! : draft.standardAmount;
+    if (amount < 0) {
+      throw new Error('INVALID_AMOUNT');
+    }
+    if (amount === 0) {
+      if (explicit) {
+        /** 마케터가 0원으로 확정(기본 견적 포함·무료 옵션 등) */
+        linesToCreate.push({
+          optionId: draft.optionId,
+          description: draft.description,
+          amount: 0,
+        });
+      } else if (draft.requiresManualAmount) {
         unpricedLabels.push(draft.quantity > 1 ? `${draft.label} × ${draft.quantity}` : draft.label);
       }
       continue;
@@ -355,7 +363,8 @@ export async function applyProfOptionAmountsToInquiry(params: {
     )?.sortOrder ?? -1) + 1;
 
   for (const line of linesToCreate) {
-    if (existingDesc.has(line.description)) {
+    const descKey = line.description.trim();
+    if (existingDesc.has(descKey)) {
       skippedCount += 1;
       continue;
     }
@@ -368,7 +377,7 @@ export async function applyProfOptionAmountsToInquiry(params: {
         createdById: params.actorId,
       },
     });
-    existingDesc.add(line.description);
+    existingDesc.add(descKey);
     createdCount += 1;
     void recordExtraChargeChangeLog({
       inquiryId: params.inquiryId,

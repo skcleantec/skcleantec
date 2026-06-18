@@ -99,11 +99,10 @@ export function ProfOptionsAmountReviewApplyPanel(props: {
           alert(`「${line.label}」 금액이 올바르지 않습니다.`);
           return;
         }
-        if (amount === 0) continue;
         payload.push({ optionId: line.optionId, amount });
       }
       if (payload.length === 0) {
-        alert('반영할 청구 금액(1원 이상)을 입력해 주세요.');
+        alert('반영할 옵션의 청구 금액을 입력해 주세요. (추가 금액 없음은 0 입력)');
         return;
       }
       const result = await applyInquiryProfOptionAmounts(token, inquiryId, payload);

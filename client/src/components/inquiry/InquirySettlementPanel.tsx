@@ -54,13 +54,35 @@ interface Props {
 }
 
 function formatWon(n: number): string {
-  return `${n.toLocaleString('ko-KR')}원`;
+  const v = Number.isFinite(n) ? n : 0;
+  return `${v.toLocaleString('ko-KR')}원`;
 }
 
 function formatWonSigned(n: number): string {
-  if (n > 0) return `+${n.toLocaleString('ko-KR')}원`;
-  if (n < 0) return `-${Math.abs(n).toLocaleString('ko-KR')}원`;
+  const v = Number.isFinite(n) ? n : 0;
+  if (v > 0) return `+${v.toLocaleString('ko-KR')}원`;
+  if (v < 0) return `-${Math.abs(v).toLocaleString('ko-KR')}원`;
   return '0원';
+}
+
+function coerceWonAmount(v: unknown): number {
+  if (v == null || v === '') return 0;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+}
+
+function resolveCollectibleBaseBalance(
+  serviceTotalAmount: number | null | undefined,
+  serviceDepositAmount: number | null | undefined,
+  serviceBalanceAmount: number | null | undefined,
+): number | null {
+  if (serviceBalanceAmount != null && Number.isFinite(Number(serviceBalanceAmount))) {
+    return coerceWonAmount(serviceBalanceAmount);
+  }
+  const total = coerceWonAmount(serviceTotalAmount);
+  const deposit = coerceWonAmount(serviceDepositAmount);
+  if (total > 0 && deposit >= 0) return Math.max(0, total - deposit);
+  return null;
 }
 
 /** "40,000" / "40000" / "4만" / "4만5천" / "4.5만" / "-2만" 등 한글 약어도 허용 */
@@ -373,7 +395,7 @@ export function InquirySettlementPanel({
       id: x.id,
       inquiryId,
       description: x.description,
-      amount: x.amount,
+      amount: coerceWonAmount(x.amount),
       sortOrder: x.sortOrder ?? 0,
       createdAt: x.createdAt ?? new Date().toISOString(),
       updatedAt: x.updatedAt ?? new Date().toISOString(),
@@ -394,7 +416,7 @@ export function InquirySettlementPanel({
       id: x.id,
       inquiryId,
       description: x.description,
-      amount: x.amount,
+      amount: coerceWonAmount(x.amount),
       settlementChannel: coerceArcSettlementChannel(x.settlementChannel),
       sortOrder: x.sortOrder ?? 0,
       createdAt: x.createdAt ?? new Date().toISOString(),
@@ -412,6 +434,39 @@ export function InquirySettlementPanel({
   const [channelReminderOpen, setChannelReminderOpen] = useState(false);
 
   useEffect(() => {
+    if (!initialExtraCharges?.length) return;
+    setItems(
+      initialExtraCharges.map((x) => ({
+        id: x.id,
+        inquiryId,
+        description: x.description,
+        amount: coerceWonAmount(x.amount),
+        sortOrder: x.sortOrder ?? 0,
+        createdAt: x.createdAt ?? new Date().toISOString(),
+        updatedAt: x.updatedAt ?? new Date().toISOString(),
+        createdBy: x.createdBy ?? null,
+      })),
+    );
+  }, [inquiryId, initialExtraCharges]);
+
+  useEffect(() => {
+    if (!initialAdditionalReceipts?.length) return;
+    setArcItems(
+      initialAdditionalReceipts.map((x) => ({
+        id: x.id,
+        inquiryId,
+        description: x.description,
+        amount: coerceWonAmount(x.amount),
+        settlementChannel: coerceArcSettlementChannel(x.settlementChannel),
+        sortOrder: x.sortOrder ?? 0,
+        createdAt: x.createdAt ?? new Date().toISOString(),
+        updatedAt: x.updatedAt ?? new Date().toISOString(),
+        createdBy: x.createdBy ?? null,
+      })),
+    );
+  }, [inquiryId, initialAdditionalReceipts]);
+
+  useEffect(() => {
     if (readOnly) return;
     if (!token) return;
     // 초기값이 있으면 건너뛰고, 없으면 조회
@@ -420,7 +475,14 @@ export function InquirySettlementPanel({
     (async () => {
       try {
         const rows = await extraListApi(token, inquiryId);
-        if (!cancelled) setItems(rows);
+        if (!cancelled) {
+          setItems(
+            rows.map((r) => ({
+              ...r,
+              amount: coerceWonAmount(r.amount),
+            })),
+          );
+        }
       } catch {
         /* 레거시 추가 금액 미표시 — 추가결재 본문은 계속 사용 */
       }
@@ -453,18 +515,21 @@ export function InquirySettlementPanel({
 
   /** 예전 InquiryExtraCharge 로 저장된 금액만 잔금·총액에 반영된 합계 (신규 입력 UI 없음) */
   const legacyExtraTotals = useMemo(() => {
-    const legacySum = items.reduce((s, x) => s + x.amount, 0);
-    const total = serviceTotalAmount ?? 0;
+    const legacySum = items.reduce((s, x) => s + coerceWonAmount(x.amount), 0);
+    const total = coerceWonAmount(serviceTotalAmount);
     const grand = total + legacySum;
     return { legacySum, grand };
   }, [items, serviceTotalAmount]);
 
-  const arcSumTotal = useMemo(() => arcItems.reduce((s, x) => s + x.amount, 0), [arcItems]);
+  const arcSumTotal = useMemo(
+    () => arcItems.reduce((s, x) => s + coerceWonAmount(x.amount), 0),
+    [arcItems],
+  );
   /** 회사가 고객에게 거둘 추가 미수에만 포함. 현장결재는 이미 팀장 수금으로 잔금에서 제외 */
   const arcCompanyDepositSum = useMemo(
     () =>
       arcItems.reduce(
-        (s, x) => s + (x.settlementChannel === 'COMPANY_DEPOSIT' ? x.amount : 0),
+        (s, x) => s + (x.settlementChannel === 'COMPANY_DEPOSIT' ? coerceWonAmount(x.amount) : 0),
         0,
       ),
     [arcItems],
@@ -472,17 +537,23 @@ export function InquirySettlementPanel({
   const arcFieldReceivedSum = useMemo(
     () =>
       arcItems.reduce(
-        (s, x) => s + (x.settlementChannel === 'FIELD_RECEIVED' ? x.amount : 0),
+        (s, x) => s + (x.settlementChannel === 'FIELD_RECEIVED' ? coerceWonAmount(x.amount) : 0),
         0,
       ),
     [arcItems],
   );
 
+  const resolvedBaseBalance = resolveCollectibleBaseBalance(
+    serviceTotalAmount,
+    serviceDepositAmount,
+    serviceBalanceAmount,
+  );
+
   /** DB 서비스 잔금 + 회사입금 추가결재 + 레거시 현장 추가 */
   const collectibleBalanceAmount =
-    (serviceBalanceAmount ?? 0) + arcCompanyDepositSum + legacyExtraTotals.legacySum;
+    (resolvedBaseBalance ?? 0) + arcCompanyDepositSum + legacyExtraTotals.legacySum;
   const hasCollectibleBalance =
-    serviceBalanceAmount != null ||
+    resolvedBaseBalance != null ||
     arcSumTotal !== 0 ||
     legacyExtraTotals.legacySum !== 0;
 
@@ -599,9 +670,9 @@ export function InquirySettlementPanel({
   );
 
   const totalDisplay =
-    serviceTotalAmount != null ? formatWon(serviceTotalAmount) : '—';
+    serviceTotalAmount != null ? formatWon(coerceWonAmount(serviceTotalAmount)) : '—';
   const depositDisplay =
-    serviceDepositAmount != null ? formatWon(serviceDepositAmount) : '—';
+    serviceDepositAmount != null ? formatWon(coerceWonAmount(serviceDepositAmount)) : '—';
   const balanceDisplay = hasCollectibleBalance ? formatWon(collectibleBalanceAmount) : '—';
 
   return (
