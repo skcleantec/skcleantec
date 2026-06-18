@@ -147,7 +147,7 @@ router.post('/resend-email', async (req, res) => {
   }
   if (!(await isSmtpConfiguredForTenant(tenantId))) {
     res.status(503).json({
-      error: 'SMTP가 설정되지 않았습니다. 관리자 전용 → 사용자 등록 → 업체등록정보에서 SMTP를 설정하세요.',
+      error: 'SMTP가 설정되지 않았습니다. 관리자 전용 → 업체등록정보 → 발송이메일에서 SMTP를 설정하세요.',
     });
     return;
   }

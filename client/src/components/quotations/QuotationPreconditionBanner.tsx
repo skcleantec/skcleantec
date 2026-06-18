@@ -26,7 +26,7 @@ export function QuotationPreconditionBanner({
           </Link>
           에서 사업자 정보를 입력하거나,{' '}
           <Link
-            to="/admin/team-leaders/company-profile"
+            to="/admin/team-leaders/company-profile/business"
             className="font-medium text-amber-900 underline underline-offset-2 hover:no-underline"
           >
             업체 기본 사업자 정보
@@ -38,10 +38,10 @@ export function QuotationPreconditionBanner({
         <p>
           이메일 발송을 위해 SMTP 설정이 필요합니다.{' '}
           <Link
-            to="/admin/team-leaders/company-profile"
+            to="/admin/team-leaders/company-profile/outbound-email"
             className="font-medium text-amber-900 underline underline-offset-2 hover:no-underline"
           >
-            업체등록정보 → SMTP
+            발송 이메일 설정
           </Link>
           를 확인해 주세요. PDF 다운로드는 가능합니다.
         </p>
