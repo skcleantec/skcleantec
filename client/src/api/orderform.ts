@@ -15,6 +15,15 @@ export interface OrderFormCreatedBy {
   role: string;
 }
 
+export type OrderFormSubmissionEmailStatus = 'SENT' | 'FAILED' | 'SKIPPED_NO_SMTP';
+
+export interface OrderFormSubmissionEmailInfo {
+  status: OrderFormSubmissionEmailStatus;
+  toEmail: string;
+  lastError: string | null;
+  sentAt: string | null;
+}
+
 export interface OrderForm {
   id: string;
   token: string;
@@ -22,6 +31,8 @@ export interface OrderForm {
   customerName: string;
   /** 발급 시 입력(선택) — 고객 발주서 전화란 프리필 */
   customerPhone?: string | null;
+  /** 고객 제출 시 입력 */
+  customerEmail?: string | null;
   totalAmount: number;
   depositAmount: number;
   balanceAmount: number;
@@ -38,6 +49,7 @@ export interface OrderForm {
   createdBy?: OrderFormCreatedBy | null;
   operatingCompanyId?: string | null;
   operatingCompany?: { id: string; slug: string; name: string } | null;
+  submissionEmail?: OrderFormSubmissionEmailInfo | null;
 }
 
 /** 고객 공개 화면 — 영업 브랜드 표시명·부제 */
@@ -73,6 +85,7 @@ export interface OrderFormCustomerSubmissionSnapshotV1 {
     addressDetail: string | null;
     customerPhone: string;
     customerPhone2: string;
+    customerEmail: string;
     areaPyeong: number | null;
     areaBasis: string;
     /** 전용면적 기준 시 평수(과거 스냅샷은 exclusiveAreaSqm만 있을 수 있음) */
@@ -154,6 +167,7 @@ export interface PendingInquiryPrefill {
   customerName: string;
   customerPhone: string;
   customerPhone2: string | null;
+  customerEmail: string | null;
   address: string;
   addressDetail: string | null;
   areaPyeong: number | null;
@@ -245,6 +259,7 @@ export interface OrderFormPublicEditable {
   /** 발주서가 대기 접수에 연결된 경우 고객 입력 폼에 반영 */
   pendingInquiry?: PendingInquiryPrefill | null;
   publicBranding?: PublicOperatingCompanyBranding | null;
+  submissionEmail?: OrderFormSubmissionEmailInfo | null;
   submittedAt?: null;
 }
 
@@ -258,6 +273,7 @@ export interface OrderFormPublicSubmitted {
   customerSubmissionSnapshot: unknown | null;
   formConfig?: OrderFormConfigPublic;
   publicBranding?: PublicOperatingCompanyBranding | null;
+  submissionEmail?: OrderFormSubmissionEmailInfo | null;
 }
 
 export type OrderFormPublic = OrderFormPublicEditable | OrderFormPublicSubmitted;
@@ -428,6 +444,7 @@ export async function createOrderForm(
 export interface OrderFormPrefillPayload {
   customerName?: string;
   customerPhone?: string;
+  customerEmail?: string;
   customerPhone2?: string;
   address?: string;
   addressDetail?: string;
@@ -577,6 +594,7 @@ export async function submitOrderForm(
     addressDetail?: string;
     customerPhone: string;
     customerPhone2: string;
+    customerEmail: string;
     /** 공급·전용 모두 평 단위. 전용일 때는 exclusiveAreaSqm 생략(null). */
     areaPyeong?: number | null;
     areaBasis: string;
@@ -609,6 +627,25 @@ export async function submitOrderForm(
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '제출에 실패했습니다.');
   }
+}
+
+export async function resendOrderFormSubmissionEmail(
+  authToken: string,
+  orderFormId: string,
+): Promise<{ ok: boolean; status: OrderFormSubmissionEmailStatus; submissionEmail: OrderFormSubmissionEmailInfo | null }> {
+  const res = await fetch(`${API}/orderforms/${encodeURIComponent(orderFormId)}/resend-submission-email`, {
+    method: 'POST',
+    headers: headers(authToken),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((body as { error?: string }).error || '확인 메일 재발송에 실패했습니다.');
+  }
+  return body as {
+    ok: boolean;
+    status: OrderFormSubmissionEmailStatus;
+    submissionEmail: OrderFormSubmissionEmailInfo | null;
+  };
 }
 
 /** 공개: 고객 발주서 — 전문 시공 옵션 (활성만) */

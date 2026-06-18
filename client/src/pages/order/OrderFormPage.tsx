@@ -126,6 +126,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     customerName: string;
     customerPhone: string;
     customerPhoneSecondary: string;
+    customerEmail: string;
     address: string;
     addressDetail: string;
     propertyType: string;
@@ -150,6 +151,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     customerName: '',
     customerPhone: '',
     customerPhoneSecondary: '',
+    customerEmail: '',
     address: '',
     addressDetail: '',
     propertyType: '',
@@ -490,7 +492,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             : {};
         // 커스텀 항목 선입력 오버레이(표준 키 제외)
         const STD = new Set([
-          'customerName', 'customerPhone', 'customerPhone2', 'address', 'addressDetail',
+          'customerName', 'customerPhone', 'customerEmail', 'customerPhone2', 'address', 'addressDetail',
           'propertyType', 'buildingType', 'moveInDate', 'moveInDateUndecided',
           'roomCount', 'balconyCount', 'bathroomCount', 'kitchenCount', 'specialNotes', 'isOneRoom',
           'professionalOptionIds',
@@ -511,6 +513,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           customerName: pfStr('customerName') ?? (p?.customerName || data.customerName),
           customerPhone: pfStr('customerPhone') ?? (issuedPhone || (p?.customerPhone ?? '').trim() || ''),
           customerPhoneSecondary: pfStr('customerPhone2') ?? p?.customerPhone2 ?? '',
+          customerEmail: pfStr('customerEmail') ?? p?.customerEmail ?? '',
           address: pfStr('address') ?? p?.address ?? '',
           addressDetail: pfStr('addressDetail') ?? p?.addressDetail ?? '',
           propertyType: pfStr('propertyType') ?? p?.propertyType ?? '',
@@ -665,6 +668,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       }
       if (!form.customerPhone?.trim()) throw new Error('대표 전화번호를 입력해주세요.');
       if (!form.customerPhoneSecondary?.trim()) throw new Error('보조 전화번호를 입력해주세요.');
+      const emailTrim = form.customerEmail.trim().toLowerCase();
+      if (!emailTrim) throw new Error('이메일을 입력해 주세요.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+        throw new Error('이메일 형식이 올바르지 않습니다.');
+      }
       if (!form.propertyType) throw new Error('건축물 유형을 선택해주세요.');
       const areaLockedByAdmin = isOrderFormAreaLockedFromOrder(order);
       let submitAreaPyeong: number | null = null;
@@ -750,6 +758,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         addressDetail: form.addressDetail.trim() || undefined,
         customerPhone: form.customerPhone.trim(),
         customerPhone2: form.customerPhoneSecondary.trim(),
+        customerEmail: emailTrim,
         areaPyeong: submitAreaPyeong,
         areaBasis: submitAreaBasis,
         exclusiveAreaSqm: submitExclusiveSqm,
@@ -788,6 +797,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     return {
       customerName: form.customerName.trim() || undefined,
       customerPhone: form.customerPhone.trim() || undefined,
+      customerEmail: form.customerEmail.trim().toLowerCase() || undefined,
       customerPhone2: form.customerPhoneSecondary.trim() || undefined,
       address: isRealCustomerAddress(form.address.trim()) ? form.address.trim() : undefined,
       addressDetail: form.addressDetail.trim() || undefined,
@@ -944,6 +954,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         inquiryNumber={submittedReceipt.inquiryNumber}
         snapshot={submittedReceipt.customerSubmissionSnapshot}
         formConfig={submittedReceipt.formConfig}
+        submissionEmail={submittedReceipt.submissionEmail}
         headerRight={<CloseButton />}
       />
     );
@@ -1208,6 +1219,19 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               onChange={(e) => setForm((f) => ({ ...f, customerPhoneSecondary: e.target.value }))}
               placeholder="예: 배우자, 가족 연락처"
               disabled={lockKey('customerPhone2')}
+            />
+            <label className="block text-xs text-gray-600 mb-1 mt-3">이메일 (필수) *</label>
+            <p className="text-xs text-gray-600 mb-2 leading-relaxed">
+              접수 확인 메일을 보내드립니다. 정확한 주소를 입력해 주세요.
+            </p>
+            <input
+              type="email"
+              className={clsWithLock('customerEmail', inputCls)}
+              value={form.customerEmail}
+              onChange={(e) => setForm((f) => ({ ...f, customerEmail: e.target.value }))}
+              placeholder="example@email.com"
+              autoComplete="email"
+              disabled={lockKey('customerEmail')}
             />
           </div>
 

@@ -17,6 +17,7 @@ import { isOrderFormPendingPlaceholderAddress } from '../../lib/orderFormPending
 export const PREFILL_STANDARD_KEYS = [
   'customerName',
   'customerPhone',
+  'customerEmail',
   'customerPhone2',
   'address',
   'addressDetail',

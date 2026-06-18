@@ -115,6 +115,7 @@ model Tenant {
   professionalSpecialtyOptions ProfessionalSpecialtyOption[]
   orderFormTemplates OrderFormTemplate[]
   orderFormTemplateFields OrderFormTemplateField[]
+  orderFormSubmissionEmailLogs OrderFormSubmissionEmailLog[]
   operatingCompanies OperatingCompany[]
   userOperatingCompanies UserOperatingCompany[]
   partnershipsAsLow TenantPartnership[] @relation("TenantPartnershipLow")
@@ -891,6 +892,8 @@ model Inquiry {
   nickname        String?      @map("nickname")
   customerPhone   String       @map("customer_phone")
   customerPhone2  String?      @map("customer_phone_2")
+  /// 고객 발주서 제출 시 입력 — 접수 확인 메일 수신
+  customerEmail   String?      @map("customer_email") @db.VarChar(320)
   address         String
   addressDetail   String?      @map("address_detail")
   /// 도로명 등 지오코딩 입력과 동일한 문자열(변경 시에만 카카오·Nominatim 재조회)
@@ -1753,6 +1756,8 @@ model OrderForm {
   customerName    String   @map("customer_name")
   /// 발급 시 관리자가 넣는 대표 연락처(선택) — 고객 발주서 전화란에 자동 반영
   customerPhone   String?  @map("customer_phone")
+  /// 고객 제출 시 입력 — 접수 확인 메일 수신
+  customerEmail   String?  @map("customer_email") @db.VarChar(320)
   totalAmount     Int      @map("total_amount")
   depositAmount   Int      @default(20000) @map("deposit_amount")
   balanceAmount   Int      @map("balance_amount")
@@ -1785,6 +1790,7 @@ model OrderForm {
   inquiries  Inquiry[]
   photos     OrderFormPhoto[]
   reviewPaybackRequest ReviewPaybackRequest?
+  submissionEmailLog OrderFormSubmissionEmailLog?
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
@@ -1808,6 +1814,32 @@ model OrderFormPhoto {
 
   @@index([orderFormId, createdAt])
   @@map("order_form_photos")
+}
+
+/// 고객 발주서 제출 확인 메일 발송 이력(브랜드 SMTP 전용, 발주서당 1행)
+enum OrderFormSubmissionEmailStatus {
+  SENT
+  FAILED
+  SKIPPED_NO_SMTP
+}
+
+model OrderFormSubmissionEmailLog {
+  id                 String                         @id @default(uuid())
+  tenantId           String                         @map("tenant_id")
+  tenant             Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderFormId        String                         @unique @map("order_form_id")
+  orderForm          OrderForm                      @relation(fields: [orderFormId], references: [id], onDelete: Cascade)
+  operatingCompanyId String?                        @map("operating_company_id")
+  toEmail            String                         @map("to_email") @db.VarChar(320)
+  status             OrderFormSubmissionEmailStatus
+  attemptCount       Int                            @default(1) @map("attempt_count")
+  lastError          String?                        @map("last_error") @db.Text
+  sentAt             DateTime?                      @map("sent_at")
+  createdAt          DateTime                       @default(now()) @map("created_at")
+  updatedAt          DateTime                       @updatedAt @map("updated_at")
+
+  @@index([tenantId, status])
+  @@map("order_form_submission_email_logs")
 }
 
 /// 발주서 삭제 로그 (관리자/마케터, 비밀번호 검증 후 삭제 시 기록)

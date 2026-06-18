@@ -80,6 +80,12 @@ import {
   overlayPrefillOntoSubmitBody,
 } from './orderFormPrefill.js';
 import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes } from './orderFormOneRoom.js';
+import { assertValidCustomerEmail } from '../../lib/customerEmail.js';
+import {
+  queueOrderFormSubmissionConfirmationEmail,
+  sendOrderFormSubmissionConfirmationEmail,
+  serializeSubmissionEmailLog,
+} from './orderFormSubmissionEmail.service.js';
 
 const router = Router();
 
@@ -578,6 +584,7 @@ function mapPendingInquiry(row: {
   customerName: string;
   customerPhone: string;
   customerPhone2: string | null;
+  customerEmail: string | null;
   address: string;
   addressDetail: string | null;
   areaPyeong: number | null;
@@ -602,6 +609,7 @@ function mapPendingInquiry(row: {
     customerName: row.customerName,
     customerPhone: row.customerPhone,
     customerPhone2: row.customerPhone2,
+    customerEmail: row.customerEmail,
     address: addressForForm,
     addressDetail: row.addressDetail,
     areaPyeong: row.areaPyeong,
@@ -860,6 +868,9 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
         inquiries: { take: 1 },
         createdBy: orderFormCreatedBySelect,
         operatingCompany: { select: orderFormOperatingCompanySelect },
+        submissionEmailLog: {
+          select: { status: true, toEmail: true, lastError: true, sentAt: true },
+        },
       },
     }),
     prisma.user.findMany({
@@ -881,7 +892,11 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
   }));
 
   const items = await attachReviewPaybackTokensToOrderForms(prisma, list);
-  res.json({ items, issuers: issuerOptions, total });
+  const itemsWithEmail = items.map(({ submissionEmailLog, ...row }) => ({
+    ...row,
+    submissionEmail: serializeSubmissionEmailLog(submissionEmailLog),
+  }));
+  res.json({ items: itemsWithEmail, issuers: issuerOptions, total });
 });
 
 /** 관리자/마케터: 고객 제출 원본 스냅샷(제출 시점 저장 JSON). 미제출이거나 레거시면 null */
@@ -905,6 +920,73 @@ router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (r
   res.json({
     submittedAt: row.submittedAt,
     snapshot: row.customerSubmissionSnapshot ?? null,
+  });
+});
+
+/** 관리자/마케터: 고객 제출 확인 메일 재발송(브랜드 SMTP) */
+router.post('/:id/resend-submission-email', authMiddleware, adminOrMarketer, async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const rawId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  if (!/^[0-9a-f-]{36}$/i.test(rawId)) {
+    res.status(400).json({ error: '유효한 발주서 id가 필요합니다.' });
+    return;
+  }
+  const form = await prisma.orderForm.findFirst({
+    where: { id: rawId, tenantId, token: excludeDesignerPreviewTokens },
+    select: {
+      id: true,
+      submittedAt: true,
+      customerEmail: true,
+      customerName: true,
+      operatingCompanyId: true,
+      preferredDate: true,
+      preferredTime: true,
+      totalAmount: true,
+      depositAmount: true,
+      balanceAmount: true,
+    },
+  });
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  if (!form.submittedAt) {
+    res.status(400).json({ error: '제출 완료된 발주서만 확인 메일을 발송할 수 있습니다.' });
+    return;
+  }
+  const email = form.customerEmail?.trim() ?? '';
+  if (!email) {
+    res.status(400).json({ error: '고객 이메일이 없습니다. 제출 원본을 확인해 주세요.' });
+    return;
+  }
+  const linkedInquiry = await prisma.inquiry.findFirst({
+    where: { tenantId, orderFormId: form.id },
+    orderBy: { createdAt: 'desc' },
+    select: { inquiryNumber: true },
+  });
+  const status = await sendOrderFormSubmissionConfirmationEmail({
+    tenantId,
+    orderFormId: form.id,
+    operatingCompanyId: form.operatingCompanyId,
+    customerEmail: email,
+    customerName: form.customerName,
+    inquiryNumber: linkedInquiry?.inquiryNumber ?? null,
+    preferredDateYmd: form.preferredDate?.trim() || '',
+    preferredTime: form.preferredTime?.trim() || '',
+    totalAmount: form.totalAmount,
+    depositAmount: form.depositAmount,
+    balanceAmount: form.balanceAmount,
+  });
+  const log = await prisma.orderFormSubmissionEmailLog.findFirst({
+    where: { tenantId, orderFormId: form.id },
+    select: { status: true, toEmail: true, lastError: true, sentAt: true },
+  });
+  res.json({
+    ok: status === 'SENT',
+    status,
+    submissionEmail: serializeSubmissionEmailLog(log),
   });
 });
 
@@ -1881,6 +1963,10 @@ router.get('/by-token/:token', async (req, res) => {
       orderBy: { createdAt: 'desc' },
       select: { inquiryNumber: true },
     });
+    const emailLog = await prisma.orderFormSubmissionEmailLog.findFirst({
+      where: { tenantId: form.tenantId, orderFormId: form.id },
+      select: { status: true, toEmail: true, lastError: true, sentAt: true },
+    });
     const formConfig = await getOrCreateOrderFormConfig(prisma, form.tenantId);
     const publicBranding = await resolvePublicBrandingForCustomer({
       db: prisma,
@@ -1897,6 +1983,7 @@ router.get('/by-token/:token', async (req, res) => {
       customerSubmissionSnapshot: form.customerSubmissionSnapshot ?? null,
       formConfig: resolvedPublicFormConfig(formConfig),
       publicBranding,
+      submissionEmail: serializeSubmissionEmailLog(emailLog),
     });
     return;
   }
@@ -1913,6 +2000,7 @@ router.post('/submit/:token', async (req, res) => {
     addressDetail?: string;
     customerPhone: string;
     customerPhone2: string;
+    customerEmail: string;
     /** 공급면적(분양평수)일 때만 필수 */
     areaPyeong?: number | string | null;
     areaBasis: string;
@@ -1985,6 +2073,14 @@ router.post('/submit/:token', async (req, res) => {
 
   if (!body.customerPhone2 || !String(body.customerPhone2).trim()) {
     res.status(400).json({ error: '보조 전화번호를 입력해주세요.' });
+    return;
+  }
+
+  let customerEmailNorm: string;
+  try {
+    customerEmailNorm = assertValidCustomerEmail(body.customerEmail);
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message || '이메일을 입력해 주세요.' });
     return;
   }
 
@@ -2187,6 +2283,7 @@ router.post('/submit/:token', async (req, res) => {
           : null,
       customerPhone: String(body.customerPhone ?? ''),
       customerPhone2: String(body.customerPhone2).trim(),
+      customerEmail: customerEmailNorm,
       areaPyeong: areaPyeongOut,
       areaBasis: areaBasisNorm,
       exclusiveAreaSqm,
@@ -2237,6 +2334,7 @@ router.post('/submit/:token', async (req, res) => {
           customerName: body.customerName || form.customerName,
           customerPhone: body.customerPhone,
           customerPhone2: String(body.customerPhone2).trim(),
+          customerEmail: customerEmailNorm,
           address: body.address,
           addressDetail: body.addressDetail || null,
           areaPyeong: areaPyeongOut,
@@ -2277,6 +2375,7 @@ router.post('/submit/:token', async (req, res) => {
         data: {
           submittedAt,
           customerSpecialNotes,
+          customerEmail: customerEmailNorm,
           /** 발주서 목록 「예약일」열 — 고객 제출 값을 접수와 동일하게 반영 */
           preferredDate: useDateStr,
           preferredTime: useTimeStr,
@@ -2315,6 +2414,7 @@ router.post('/submit/:token', async (req, res) => {
           customerName: body.customerName || form.customerName,
           customerPhone: body.customerPhone,
           customerPhone2: String(body.customerPhone2).trim(),
+          customerEmail: customerEmailNorm,
           address: body.address,
           addressDetail: body.addressDetail || null,
           areaPyeong: areaPyeongOut,
@@ -2354,6 +2454,7 @@ router.post('/submit/:token', async (req, res) => {
         data: {
           submittedAt,
           customerSpecialNotes,
+          customerEmail: customerEmailNorm,
           preferredDate: useDateStr,
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
@@ -2401,6 +2502,40 @@ router.post('/submit/:token', async (req, res) => {
     if (leaderIds.length > 0) {
       notifyInboxRefresh(leaderIds);
     }
+  }
+
+  const emailTarget = await prisma.orderForm.findFirst({
+    where: { id: form.id, tenantId: submitTenantId },
+    select: {
+      id: true,
+      customerName: true,
+      operatingCompanyId: true,
+      preferredDate: true,
+      preferredTime: true,
+      totalAmount: true,
+      depositAmount: true,
+      balanceAmount: true,
+    },
+  });
+  const emailInquiry = await prisma.inquiry.findFirst({
+    where: { tenantId: submitTenantId, orderFormId: form.id },
+    orderBy: { createdAt: 'desc' },
+    select: { inquiryNumber: true },
+  });
+  if (emailTarget) {
+    queueOrderFormSubmissionConfirmationEmail({
+      tenantId: submitTenantId,
+      orderFormId: emailTarget.id,
+      operatingCompanyId: emailTarget.operatingCompanyId,
+      customerEmail: customerEmailNorm,
+      customerName: String(body.customerName || form.customerName).trim() || form.customerName,
+      inquiryNumber: emailInquiry?.inquiryNumber ?? null,
+      preferredDateYmd: useDateStr,
+      preferredTime: useTimeStr,
+      totalAmount: emailTarget.totalAmount,
+      depositAmount: emailTarget.depositAmount,
+      balanceAmount: emailTarget.balanceAmount,
+    });
   }
 
   res.json({ ok: true });

@@ -18,6 +18,7 @@ import {
   deleteOrderForm,
   getFormConfig,
   getAdminOrderFormPhotos,
+  resendOrderFormSubmissionEmail,
   type OrderForm,
   type OrderFormIssuerOption,
   type OrderFormListDatePreset,
@@ -48,6 +49,22 @@ import { OrderFormPage } from '../order/OrderFormPage';
 type Tab = 'issue' | 'followup' | 'list';
 
 const VALID_TABS: Tab[] = ['issue', 'followup', 'list'];
+
+function orderFormSubmissionEmailHint(o: OrderForm): string | null {
+  if (!o.submittedAt || !o.submissionEmail) return null;
+  if (o.submissionEmail.status === 'SENT') return '확인 메일 발송됨';
+  if (o.submissionEmail.status === 'FAILED') return '확인 메일 실패';
+  if (o.submissionEmail.status === 'SKIPPED_NO_SMTP') return '브랜드 SMTP 미설정';
+  return null;
+}
+
+function canResendOrderFormSubmissionEmail(o: OrderForm): boolean {
+  return Boolean(
+    o.submittedAt &&
+      o.submissionEmail &&
+      (o.submissionEmail.status === 'FAILED' || o.submissionEmail.status === 'SKIPPED_NO_SMTP'),
+  );
+}
 
 function parseTabParam(raw: string | null): Tab {
   if (raw && VALID_TABS.includes(raw as Tab)) return raw as Tab;
@@ -186,6 +203,7 @@ export function AdminOrderFormPage() {
   const [loading, setLoading] = useState(false);
   const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
+  const [resendEmailBusyId, setResendEmailBusyId] = useState<string | null>(null);
 
   const listFilterKey = useMemo(
     () =>
@@ -317,6 +335,23 @@ export function AdminOrderFormPage() {
       })
       .finally(() => setLoading(false));
   }, [token, listFilters, setTotal, orderForms.length, preserveScroll]);
+
+  const handleResendSubmissionEmail = async (order: OrderForm) => {
+    if (!token || !canResendOrderFormSubmissionEmail(order)) return;
+    setResendEmailBusyId(order.id);
+    setError(null);
+    try {
+      const r = await resendOrderFormSubmissionEmail(token, order.id);
+      if (!r.ok) {
+        setError(r.submissionEmail?.lastError || '확인 메일 재발송에 실패했습니다.');
+      }
+      refreshOrderForms();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '확인 메일 재발송에 실패했습니다.');
+    } finally {
+      setResendEmailBusyId(null);
+    }
+  };
 
   const refreshMsgConfig = () => {
     if (!token) return;
@@ -953,6 +988,18 @@ export function AdminOrderFormPage() {
                             >
                               {o.submittedAt ? '제출완료' : '미제출'}
                             </span>
+                            {orderFormSubmissionEmailHint(o) ? (
+                              <span
+                                className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
+                                  o.submissionEmail?.status === 'SENT'
+                                    ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200/50'
+                                    : 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/50'
+                                }`}
+                                title={o.submissionEmail?.lastError ?? undefined}
+                              >
+                                {orderFormSubmissionEmailHint(o)}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                         <div className="mt-3.5 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2.5 [&>button]:py-1.5 [&>button]:text-[11px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300">
@@ -1000,6 +1047,16 @@ export function AdminOrderFormPage() {
                               className="!text-violet-750 !bg-violet-50/30 !border-violet-100"
                             >
                               제출원본
+                            </button>
+                          ) : null}
+                          {canResendOrderFormSubmissionEmail(o) ? (
+                            <button
+                              type="button"
+                              disabled={resendEmailBusyId === o.id}
+                              onClick={() => void handleResendSubmissionEmail(o)}
+                              className="!text-amber-800 !bg-amber-50/50 !border-amber-100"
+                            >
+                              {resendEmailBusyId === o.id ? '발송 중…' : '메일 재발송'}
                             </button>
                           ) : null}
                           <button
@@ -1090,9 +1147,23 @@ export function AdminOrderFormPage() {
                               </td>
                               <td className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center xl:px-1.5 xl:py-2.5">
                                 {o.submittedAt ? (
-                                  <span className="text-fluid-2xs font-semibold text-green-700 bg-green-50 ring-1 ring-green-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
-                                    제출완료
-                                  </span>
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className="text-fluid-2xs font-semibold text-green-700 bg-green-50 ring-1 ring-green-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
+                                      제출완료
+                                    </span>
+                                    {orderFormSubmissionEmailHint(o) ? (
+                                      <span
+                                        className={`text-fluid-2xs rounded px-1.5 py-0.5 xl:text-fluid-xs ${
+                                          o.submissionEmail?.status === 'SENT'
+                                            ? 'text-sky-700 bg-sky-50 ring-1 ring-sky-200/50'
+                                            : 'text-amber-800 bg-amber-50 ring-1 ring-amber-200/50'
+                                        }`}
+                                        title={o.submissionEmail?.lastError ?? undefined}
+                                      >
+                                        {orderFormSubmissionEmailHint(o)}
+                                      </span>
+                                    ) : null}
+                                  </div>
                                 ) : (
                                   <span className="text-fluid-2xs text-slate-500 bg-slate-50 ring-1 ring-slate-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
                                     미제출
@@ -1137,6 +1208,17 @@ export function AdminOrderFormPage() {
                                       className="!text-emerald-700 !bg-emerald-50/40 !border-emerald-100"
                                     >
                                       작성
+                                    </button>
+                                  ) : null}
+                                  {canResendOrderFormSubmissionEmail(o) ? (
+                                    <button
+                                      type="button"
+                                      disabled={resendEmailBusyId === o.id}
+                                      onClick={() => void handleResendSubmissionEmail(o)}
+                                      className="!text-amber-800 !bg-amber-50/50 !border-amber-100"
+                                      title={o.submissionEmail?.lastError ?? '확인 메일 재발송'}
+                                    >
+                                      {resendEmailBusyId === o.id ? '발송 중…' : '메일 재발송'}
                                     </button>
                                   ) : null}
                                   <button

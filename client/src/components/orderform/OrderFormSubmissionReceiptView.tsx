@@ -18,9 +18,14 @@ export function OrderFormSubmissionReceiptView(props: {
   inquiryNumber: string | null;
   snapshot: unknown | null;
   formConfig?: OrderFormConfigPublic;
+  submissionEmail?: {
+    status: 'SENT' | 'FAILED' | 'SKIPPED_NO_SMTP';
+    toEmail: string;
+    lastError?: string | null;
+  } | null;
   headerRight?: React.ReactNode;
 }) {
-  const { token, customerName, submittedAt, inquiryNumber, snapshot, formConfig, headerRight } = props;
+  const { token, customerName, submittedAt, inquiryNumber, snapshot, formConfig, submissionEmail, headerRight } = props;
   const [photos, setPhotos] = useState<OrderFormPhotoItem[]>([]);
   const [preview, setPreview] = useState<OrderFormPhotoItem | null>(null);
 
@@ -58,6 +63,19 @@ export function OrderFormSubmissionReceiptView(props: {
           <p className="mt-3 text-fluid-xs text-gray-500">
             이 링크를 저장해 두시면 제출 내용을 다시 확인할 수 있습니다.
           </p>
+          {submissionEmail?.toEmail ? (
+            <p className="mt-2 text-fluid-xs text-gray-600">
+              {submissionEmail.status === 'SENT'
+                ? `입력하신 이메일(${submissionEmail.toEmail})로 접수 확인 메일을 발송했습니다.`
+                : submissionEmail.status === 'FAILED'
+                  ? `접수는 완료되었으나 확인 메일 발송에 실패했습니다. 스팸함을 확인하거나 업체에 문의해 주세요.`
+                  : `접수는 완료되었습니다. 확인 메일은 업체 메일 설정 후 발송됩니다.`}
+            </p>
+          ) : (
+            <p className="mt-2 text-fluid-xs text-gray-600">
+              입력하신 이메일로 접수 확인 메일을 보내드립니다.
+            </p>
+          )}
         </div>
 
         <div className="mb-4 rounded-lg border border-gray-200 bg-white px-4 py-3 text-fluid-sm">

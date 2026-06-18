@@ -223,4 +223,16 @@ export async function sendTestMailWithTenantSmtp(
   return true;
 }
 
+/**
+ * 고객 발주서 제출 확인 메일 — 영업 브랜드 SMTP만 사용(테넌트·전역 폴백 없음).
+ */
+export async function resolveSmtpTransportForOrderFormCustomerEmail(
+  tenantId: string,
+  operatingCompanyId: string | null | undefined,
+): Promise<ResolvedSmtpTransport | null> {
+  if (!operatingCompanyId) return null;
+  const stored = await loadOperatingCompanySmtpStored(tenantId, operatingCompanyId);
+  return resolveStoredSmtpTransport(stored);
+}
+
 export { isGlobalSmtpConfigured };

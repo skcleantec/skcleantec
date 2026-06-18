@@ -101,6 +101,9 @@ export function OrderFormSubmissionSnapshotContent(props: {
           <OrderFormSnapshotRow label="보조 연락처">
             {snapshot.fields.customerPhone2?.trim() ? snapshot.fields.customerPhone2 : '—'}
           </OrderFormSnapshotRow>
+          <OrderFormSnapshotRow label="이메일">
+            {snapshot.fields.customerEmail?.trim() ? snapshot.fields.customerEmail : '—'}
+          </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="주소">{snapshot.fields.address}</OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="상세주소">
             {snapshot.fields.addressDetail?.trim() ? snapshot.fields.addressDetail : '—'}
