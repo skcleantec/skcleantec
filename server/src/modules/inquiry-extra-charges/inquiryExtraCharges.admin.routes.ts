@@ -11,7 +11,9 @@ import {
   extraChargeUpdateLine,
   extraChargeDeleteLine,
 } from './inquiryExtraCharges.service.js';
+import { clearProfOptionsAmountReviewPending } from '../inquiries/inquiryProfOptionsAmount.service.js';
 import { canAdminOrMarketerViewInquiry } from '../inquiry-cleaning-photos/inquiryCleaningPhotos.access.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router({ mergeParams: true });
 
@@ -71,6 +73,8 @@ router.post('/', async (req, res) => {
     actorId: user.userId,
     line: extraChargeAddLine(created.description, created.amount),
   }).catch((e) => console.error('[extra-charge] changeLog add', e));
+  const tenantId = getTenantIdFromAuth(user);
+  if (tenantId) void clearProfOptionsAmountReviewPending(tenantId, inquiryId);
   res.status(201).json({ item: serializeExtraCharge(created) });
 });
 

@@ -29,6 +29,11 @@ import {
   whereMarketerStatsInquiriesOnDay,
 } from './inquiryMarketerOverview.js';
 import {
+  applyProfOptionAmountsToInquiry,
+  clearProfOptionsAmountReviewPending,
+  shouldClearProfOptionsAmountReviewOnPatch,
+} from './inquiryProfOptionsAmount.service.js';
+import {
   buildAmountDateChangeLines,
   buildInquiryPatchData,
   projectAfterPatch,
@@ -593,6 +598,36 @@ router.delete('/:id', adminOrMarketer, async (req, res) => {
   res.json({ ok: true });
 });
 
+/** 관리자·마케터: 고객 선택 전문 시공 옵션 단가 → 추가 청소(extraCharges) 반영 */
+router.post('/:id/apply-prof-option-amounts', async (req, res) => {
+  const { id } = req.params;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  if (user.role !== 'ADMIN' && user.role !== 'MARKETER') {
+    res.status(403).json({ error: '권한이 없습니다.' });
+    return;
+  }
+  try {
+    const result = await applyProfOptionAmountsToInquiry({
+      tenantId,
+      inquiryId: id,
+      actorId: user.userId,
+    });
+    res.json(result);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'NOT_FOUND') {
+      res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+      return;
+    }
+    console.error('[inquiries apply-prof-option-amounts]', e);
+    res.status(500).json({ error: '옵션 금액 반영에 실패했습니다.' });
+  }
+});
+
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const body = req.body as Record<string, unknown>;
@@ -1112,6 +1147,10 @@ router.patch('/:id', async (req, res) => {
     if (beforeTeam.length > 0 && beforeTxt !== afterTxt) {
       lines.push(`팀장 배정: ${beforeTxt} → ${afterTxt}`);
     }
+  }
+
+  if (shouldClearProfOptionsAmountReviewOnPatch(inquiry, data)) {
+    data.profOptionsAmountReviewPending = false;
   }
 
   try {

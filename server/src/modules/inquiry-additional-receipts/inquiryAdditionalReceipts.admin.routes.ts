@@ -9,7 +9,9 @@ import {
   validateAdditionalReceiptInput,
   validateSettlementChannelInput,
 } from './inquiryAdditionalReceipts.service.js';
+import { clearProfOptionsAmountReviewPending } from '../inquiries/inquiryProfOptionsAmount.service.js';
 import { canAdminOrMarketerViewInquiry } from '../inquiry-cleaning-photos/inquiryCleaningPhotos.access.js';
+import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 const router = Router({ mergeParams: true });
 
@@ -65,6 +67,8 @@ router.post('/', async (req, res) => {
     include: { createdBy: { select: { id: true, name: true } } },
   });
   void notifyAdditionalReceiptChanged(inquiryId);
+  const tenantId = getTenantIdFromAuth(user);
+  if (tenantId) void clearProfOptionsAmountReviewPending(tenantId, inquiryId);
   res.status(201).json({ item: serializeAdditionalReceipt(created) });
 });
 

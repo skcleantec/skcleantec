@@ -152,6 +152,27 @@ export async function updateInquiry(
   return res.json();
 }
 
+/** 고객 선택 전문 시공 옵션 단가 → 접수 추가 청소(extraCharges) 반영 */
+export async function applyInquiryProfOptionAmounts(
+  token: string,
+  inquiryId: string,
+): Promise<{
+  createdCount: number;
+  skippedCount: number;
+  unpricedLabels: string[];
+  profOptionsAmountReviewPending: boolean;
+}> {
+  const res = await fetch(`${API}/inquiries/${encodeURIComponent(inquiryId)}/apply-prof-option-amounts`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '옵션 금액 반영에 실패했습니다.');
+  }
+  return res.json();
+}
+
 /** 같은 예약일(KST) 접수 간 팀원 이름 교환 — 상세 form과 동일 응답 */
 export async function swapInquiryCrewWithPartner(
   token: string,

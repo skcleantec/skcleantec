@@ -26,6 +26,7 @@ import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { getUserCustomCalendars, type UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
 import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
+import { ProfOptionsAmountReviewBadge } from '../../components/inquiry/ProfOptionsAmountReviewNotice';
 import {
   DEFAULT_INTERNAL_CUSTOMER_TONE,
   normalizeInternalCustomerTone,
@@ -486,6 +487,8 @@ interface InquiryItem {
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;
   serviceBalanceAmount?: number | null;
+  /** 고객 추가 시공 선택 — 마케터 금액 확정 대기 */
+  profOptionsAmountReviewPending?: boolean;
   extraCharges?: Array<{
     id: string;
     description: string;
@@ -1621,6 +1624,7 @@ export function AdminInquiriesPage() {
                   changeLogs: d.changeLogs ?? [],
                   extraCharges: d.extraCharges ?? [],
                   additionalReceipts: d.additionalReceipts ?? [],
+                  profOptionsAmountReviewPending: d.profOptionsAmountReviewPending,
                 }
               : prev,
           );
@@ -2727,6 +2731,9 @@ export function AdminInquiriesPage() {
                             {item.tenantShare ? (
                               <TenantInquiryShareBadge share={item.tenantShare} compact />
                             ) : null}
+                            {item.profOptionsAmountReviewPending ? (
+                              <ProfOptionsAmountReviewBadge />
+                            ) : null}
                           </div>
                           {item.scheduleMemo?.trim() ? (
                             <p
@@ -2775,9 +2782,12 @@ export function AdminInquiriesPage() {
                               : undefined
                           }
                         >
-                          {inquiryListStatusBadgeText(item)}
-                        </span>
-                      </div>
+                            {inquiryListStatusBadgeText(item)}
+                            </span>
+                            {item.profOptionsAmountReviewPending ? (
+                              <ProfOptionsAmountReviewBadge />
+                            ) : null}
+                          </div>
                     </div>
                     <div
                       className="border-t border-slate-100 bg-slate-50/60 px-3 py-2"
@@ -3264,6 +3274,11 @@ export function AdminInquiriesPage() {
                         >
                           발주서 · 미제출
                         </span>
+                      ) : null}
+                      {item.profOptionsAmountReviewPending ? (
+                        <div className="mt-1 flex justify-center">
+                          <ProfOptionsAmountReviewBadge />
+                        </div>
                       ) : null}
                     </td>
                     {hasInspectionModule ? (

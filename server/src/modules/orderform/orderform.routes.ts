@@ -1667,6 +1667,8 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
       data.specialNotes = source.specialNotes;
       data.professionalOptionIds =
         source.professionalOptionIds == null ? Prisma.JsonNull : source.professionalOptionIds;
+      const profSelCount = parseProfessionalOptionSelectionsRaw(source.professionalOptionIds).length;
+      data.profOptionsAmountReviewPending = profSelCount > 0;
     } else {
       data.customerName = form.customerName;
       if (form.customerPhone) data.customerPhone = form.customerPhone;
@@ -2358,6 +2360,7 @@ router.post('/submit/:token', async (req, res) => {
           source: '발주서',
           status: 'RECEIVED',
           professionalOptionIds: professionalOptionIdsJson,
+          profOptionsAmountReviewPending: professionalSelections.length > 0,
         },
       });
       if (existingPending.status !== 'RECEIVED') {
@@ -2439,6 +2442,7 @@ router.post('/submit/:token', async (req, res) => {
           status: 'RECEIVED',
           orderFormId: form.id,
           professionalOptionIds: professionalOptionIdsJson,
+          profOptionsAmountReviewPending: professionalSelections.length > 0,
         },
         select: { id: true },
       });

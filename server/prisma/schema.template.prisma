@@ -964,6 +964,8 @@ model Inquiry {
   internalCustomerTone InternalCustomerTone @default(NORMAL) @map("internal_customer_tone")
   /// 전문 시공 옵션 id 목록(JSON 배열 문자열)
   professionalOptionIds Json? @map("professional_option_ids")
+  /// 고객이 발주서에서 추가 시공 옵션 선택 — 마케터 금액·추가결재 확정 전 true
+  profOptionsAmountReviewPending Boolean @default(false) @map("prof_options_amount_review_pending")
 
   orderForm   OrderForm?          @relation(fields: [orderFormId], references: [id])
   createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -987,6 +989,7 @@ model Inquiry {
   @@index([createdById])
   @@index([tenantId, createdAt])
   @@index([tenantId, operatingCompanyId, createdAt])
+  @@index([tenantId, profOptionsAmountReviewPending])
   @@unique([tenantId, inquiryNumber])
   @@map("inquiries")
 }

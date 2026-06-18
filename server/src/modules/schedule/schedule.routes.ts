@@ -78,6 +78,7 @@ const scheduleListSelectLite = {
   crewMemberCount: true,
   crewMemberNote: true,
   professionalOptionIds: true,
+  profOptionsAmountReviewPending: true,
   serviceTotalAmount: true,
   serviceDepositAmount: true,
   serviceBalanceAmount: true,
