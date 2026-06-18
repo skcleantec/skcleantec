@@ -224,15 +224,13 @@ export async function sendTestMailWithTenantSmtp(
 }
 
 /**
- * 고객 발주서 제출 확인 메일 — 영업 브랜드 SMTP만 사용(테넌트·전역 폴백 없음).
+ * 고객 발주서 제출 확인 메일 — 견적서와 동일: 브랜드 SMTP 우선, 비어 있으면 공통(테넌트) → 전역.
  */
 export async function resolveSmtpTransportForOrderFormCustomerEmail(
   tenantId: string,
   operatingCompanyId: string | null | undefined,
 ): Promise<ResolvedSmtpTransport | null> {
-  if (!operatingCompanyId) return null;
-  const stored = await loadOperatingCompanySmtpStored(tenantId, operatingCompanyId);
-  return resolveStoredSmtpTransport(stored);
+  return resolveSmtpTransportForTenant(tenantId, operatingCompanyId ?? undefined);
 }
 
 export { isGlobalSmtpConfigured };

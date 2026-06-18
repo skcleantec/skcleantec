@@ -54,7 +54,7 @@ function orderFormSubmissionEmailHint(o: OrderForm): string | null {
   if (!o.submittedAt || !o.submissionEmail) return null;
   if (o.submissionEmail.status === 'SENT') return '확인 메일 발송됨';
   if (o.submissionEmail.status === 'FAILED') return '확인 메일 실패';
-  if (o.submissionEmail.status === 'SKIPPED_NO_SMTP') return '브랜드 SMTP 미설정';
+  if (o.submissionEmail.status === 'SKIPPED_NO_SMTP') return '발송 SMTP 미설정';
   return null;
 }
 

@@ -98,7 +98,7 @@ export async function sendOrderFormSubmissionConfirmationEmail(
       operatingCompanyId: input.operatingCompanyId,
       toEmail,
       status: 'SKIPPED_NO_SMTP',
-      lastError: '영업 브랜드 SMTP가 설정되지 않았습니다.',
+      lastError: '발송 SMTP가 설정되지 않았습니다. (영업 브랜드 또는 공통 기본)',
       sentAt: null,
       incrementAttempt: true,
     });

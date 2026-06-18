@@ -923,7 +923,7 @@ router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (r
   });
 });
 
-/** 관리자/마케터: 고객 제출 확인 메일 재발송(브랜드 SMTP) */
+/** 관리자/마케터: 고객 제출 확인 메일 재발송(브랜드 → 공통 SMTP) */
 router.post('/:id/resend-submission-email', authMiddleware, adminOrMarketer, async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
