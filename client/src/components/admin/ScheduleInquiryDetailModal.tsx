@@ -6,7 +6,6 @@ import {
   getInquiry,
   swapInquiryCrewWithPartner,
   updateInquiry,
-  applyInquiryProfOptionAmounts,
 } from '../../api/inquiries';
 import { createOrderFollowup } from '../../api/orderFollowups';
 import {
@@ -35,7 +34,7 @@ import {
   type TeamLeaderAssignmentSurface,
 } from '../../utils/inquiryServiceZoneAssignment';
 import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../orderform/OrderFormTemplateInfo';
-import { ProfOptionsAmountReviewBanner } from '../inquiry/ProfOptionsAmountReviewNotice';
+import { ProfOptionsAmountReviewApplyPanel } from '../inquiry/ProfOptionsAmountReviewNotice';
 import { AddressSearch } from '../forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 import {
@@ -695,7 +694,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [crewSwapPartnerId, setCrewSwapPartnerId] = useState('');
   const [crewSwapPickMyName, setCrewSwapPickMyName] = useState('');
   const [crewSwapPickPartnerName, setCrewSwapPickPartnerName] = useState('');
-  const [applyingProfOptionAmounts, setApplyingProfOptionAmounts] = useState(false);
   const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
   const [marketerQuickValue, setMarketerQuickValue] = useState('');
   const [copyHint, setCopyHint] = useState<string | null>(null);
@@ -1614,28 +1612,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     token,
   ]);
 
-  const handleApplyProfOptionAmounts = async () => {
-    if (!token || !item) return;
-    setApplyingProfOptionAmounts(true);
-    try {
-      const result = await applyInquiryProfOptionAmounts(token, item.id);
-      if (result.unpricedLabels.length > 0) {
-        alert(
-          `단가가 없는 옵션이 있습니다: ${result.unpricedLabels.join(', ')}\n총액·예약금·잔금을 직접 수정하거나 추가결재를 입력한 뒤 저장해 주세요.`,
-        );
-      } else if (result.createdCount > 0) {
-        alert(`전문 시공 옵션 ${result.createdCount}건을 추가 금액에 반영했습니다.`);
-      } else if (result.skippedCount > 0) {
-        alert('이미 반영된 항목이거나 새로 추가할 단가 옵션이 없습니다.');
-      }
-      await onInquiryRefresh?.();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '옵션 금액 반영에 실패했습니다.');
-    } finally {
-      setApplyingProfOptionAmounts(false);
-    }
-  };
-
   const handleSave = async () => {
     if (!token) {
       alert('로그인이 필요합니다.');
@@ -2020,10 +1996,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         {item?.orderForm?.customerAnswers ? (
           <OrderFormCustomAnswers template={item.orderForm.template} answers={item.orderForm.customerAnswers} />
         ) : null}
-        {!isCreate && item?.profOptionsAmountReviewPending ? (
-          <ProfOptionsAmountReviewBanner
-            applying={applyingProfOptionAmounts}
-            onApply={() => void handleApplyProfOptionAmounts()}
+        {!isCreate && item?.profOptionsAmountReviewPending && token ? (
+          <ProfOptionsAmountReviewApplyPanel
+            token={token}
+            inquiryId={item.id}
+            onApplied={async () => {
+              await onInquiryRefresh?.();
+            }}
           />
         ) : null}
         <AdminScheduleDetailSection title="고객 · 주소" sectionAnchor="customer">

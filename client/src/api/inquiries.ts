@@ -152,10 +152,39 @@ export async function updateInquiry(
   return res.json();
 }
 
+/** 고객 선택 전문 시공 옵션 — 표준가·청구가 미리보기 */
+export type ProfOptionAmountLinePreview = {
+  optionId: string;
+  label: string;
+  quantity: number;
+  standardUnitAmount: number;
+  standardAmount: number;
+  description: string;
+  requiresManualAmount: boolean;
+  alreadyApplied: boolean;
+  appliedAmount: number | null;
+};
+
+export async function getInquiryProfOptionAmountLines(
+  token: string,
+  inquiryId: string,
+): Promise<{ lines: ProfOptionAmountLinePreview[] }> {
+  const res = await fetch(
+    `${API}/inquiries/${encodeURIComponent(inquiryId)}/prof-option-amount-lines`,
+    { headers: headers(token) },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '옵션 금액 미리보기에 실패했습니다.');
+  }
+  return res.json();
+}
+
 /** 고객 선택 전문 시공 옵션 단가 → 접수 추가 청소(extraCharges) 반영 */
 export async function applyInquiryProfOptionAmounts(
   token: string,
   inquiryId: string,
+  lines?: Array<{ optionId: string; amount: number }>,
 ): Promise<{
   createdCount: number;
   skippedCount: number;
@@ -165,6 +194,7 @@ export async function applyInquiryProfOptionAmounts(
   const res = await fetch(`${API}/inquiries/${encodeURIComponent(inquiryId)}/apply-prof-option-amounts`, {
     method: 'POST',
     headers: headers(token),
+    body: JSON.stringify(lines?.length ? { lines } : {}),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

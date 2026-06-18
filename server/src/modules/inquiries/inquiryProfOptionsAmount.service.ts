@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   parseProfessionalOptionSelectionsRaw,
+  filterActiveProfessionalOptionSelections,
   type ProfessionalOptionSelectionInput,
 } from '../orderform/specialtyOptions.js';
 import {
@@ -73,6 +74,96 @@ function resolveSelectionUnitAmount(
   return priceAmount != null && priceAmount > 0 ? priceAmount : 0;
 }
 
+export type ProfOptionAmountLineDraft = {
+  optionId: string;
+  label: string;
+  quantity: number;
+  standardUnitAmount: number;
+  standardAmount: number;
+  description: string;
+  requiresManualAmount: boolean;
+};
+
+export type ProfOptionAmountLinePreview = ProfOptionAmountLineDraft & {
+  alreadyApplied: boolean;
+  appliedAmount: number | null;
+};
+
+export async function buildProfOptionAmountLineDrafts(
+  prisma: PrismaClient,
+  tenantId: string,
+  professionalOptionIds: unknown,
+): Promise<ProfOptionAmountLineDraft[]> {
+  const rawSelections = parseProfessionalOptionSelectionsRaw(professionalOptionIds);
+  const selections = await filterActiveProfessionalOptionSelections(
+    prisma,
+    tenantId,
+    rawSelections,
+  );
+  if (selections.length === 0) return [];
+
+  const ids = selections.map((s) => s.id);
+  const rows = await prisma.professionalSpecialtyOption.findMany({
+    where: { tenantId, id: { in: ids } },
+    select: { id: true, label: true, priceAmount: true, isActive: true },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  const drafts: ProfOptionAmountLineDraft[] = [];
+  for (const sel of selections) {
+    const row = byId.get(sel.id);
+    if (!row) continue;
+    const standardUnitAmount = resolveSelectionUnitAmount(sel, row.priceAmount);
+    const standardAmount = standardUnitAmount > 0 ? standardUnitAmount * sel.quantity : 0;
+    const qtyPart = sel.quantity > 1 ? ` × ${sel.quantity}` : '';
+    drafts.push({
+      optionId: sel.id,
+      label: row.label,
+      quantity: sel.quantity,
+      standardUnitAmount,
+      standardAmount,
+      description: `${PROF_OPTION_EXTRA_CHARGE_PREFIX}${row.label}${qtyPart}`,
+      requiresManualAmount: standardAmount <= 0,
+    });
+  }
+  return drafts;
+}
+
+export async function previewProfOptionAmountLinesForInquiry(params: {
+  tenantId: string;
+  inquiryId: string;
+}): Promise<{ lines: ProfOptionAmountLinePreview[] }> {
+  const inquiry = await prisma.inquiry.findFirst({
+    where: { id: params.inquiryId, tenantId: params.tenantId },
+    select: { professionalOptionIds: true },
+  });
+  if (!inquiry) throw new Error('NOT_FOUND');
+
+  const drafts = await buildProfOptionAmountLineDrafts(
+    prisma,
+    params.tenantId,
+    inquiry.professionalOptionIds,
+  );
+  const existing = await prisma.inquiryExtraCharge.findMany({
+    where: { inquiryId: params.inquiryId },
+    select: { description: true, amount: true },
+  });
+  const existingByDesc = new Map(
+    existing.map((r) => [r.description.trim(), r.amount] as const),
+  );
+
+  return {
+    lines: drafts.map((d) => {
+      const appliedAmount = existingByDesc.get(d.description.trim()) ?? null;
+      return {
+        ...d,
+        alreadyApplied: appliedAmount != null,
+        appliedAmount,
+      };
+    }),
+  };
+}
+
 export type ProfOptionExtraChargeLine = {
   optionId: string;
   description: string;
@@ -84,33 +175,16 @@ export async function buildProfOptionExtraChargeLines(
   tenantId: string,
   professionalOptionIds: unknown,
 ): Promise<{ priced: ProfOptionExtraChargeLine[]; unpricedLabels: string[] }> {
-  const selections = parseProfessionalOptionSelectionsRaw(professionalOptionIds);
-  if (selections.length === 0) return { priced: [], unpricedLabels: [] };
-
-  const ids = selections.map((s) => s.id);
-  const rows = await prisma.professionalSpecialtyOption.findMany({
-    where: { tenantId, id: { in: ids } },
-    select: { id: true, label: true, priceAmount: true, isActive: true },
-  });
-  const byId = new Map(rows.map((r) => [r.id, r]));
-
+  const drafts = await buildProfOptionAmountLineDrafts(prisma, tenantId, professionalOptionIds);
   const priced: ProfOptionExtraChargeLine[] = [];
   const unpricedLabels: string[] = [];
-
-  for (const sel of selections) {
-    const row = byId.get(sel.id);
-    if (!row) continue;
-    const unit = resolveSelectionUnitAmount(sel, row.priceAmount);
-    const lineTotal = unit > 0 ? unit * sel.quantity : 0;
-    const qtyPart = sel.quantity > 1 ? ` × ${sel.quantity}` : '';
-    const description = `${PROF_OPTION_EXTRA_CHARGE_PREFIX}${row.label}${qtyPart}`;
-    if (lineTotal > 0) {
-      priced.push({ optionId: sel.id, description, amount: lineTotal });
+  for (const d of drafts) {
+    if (d.standardAmount > 0) {
+      priced.push({ optionId: d.optionId, description: d.description, amount: d.standardAmount });
     } else {
-      unpricedLabels.push(`${row.label}${qtyPart}`);
+      unpricedLabels.push(d.quantity > 1 ? `${d.label} × ${d.quantity}` : d.label);
     }
   }
-
   return { priced, unpricedLabels };
 }
 
@@ -153,6 +227,8 @@ export async function applyProfOptionAmountsToInquiry(params: {
   tenantId: string;
   inquiryId: string;
   actorId: string;
+  /** optionId별 청구 금액(원). 미입력 시 카탈로그 표준가 */
+  lineAmounts?: Array<{ optionId: string; amount: number }>;
 }): Promise<{
   createdCount: number;
   skippedCount: number;
@@ -171,11 +247,45 @@ export async function applyProfOptionAmountsToInquiry(params: {
     throw new Error('NOT_FOUND');
   }
 
-  const { priced, unpricedLabels } = await buildProfOptionExtraChargeLines(
+  const drafts = await buildProfOptionAmountLineDrafts(
     prisma,
     params.tenantId,
     inquiry.professionalOptionIds,
   );
+  const amountByOptionId = new Map<string, number>();
+  if (params.lineAmounts?.length) {
+    const allowedIds = new Set(drafts.map((d) => d.optionId));
+    for (const row of params.lineAmounts) {
+      const optionId = String(row.optionId ?? '').trim();
+      if (!optionId || !allowedIds.has(optionId)) {
+        throw new Error('INVALID_LINE');
+      }
+      const amount = Math.trunc(Number(row.amount));
+      if (!Number.isFinite(amount) || amount < 0) {
+        throw new Error('INVALID_AMOUNT');
+      }
+      amountByOptionId.set(optionId, amount);
+    }
+  }
+
+  const unpricedLabels: string[] = [];
+  const linesToCreate: ProfOptionExtraChargeLine[] = [];
+  for (const draft of drafts) {
+    const amount = amountByOptionId.has(draft.optionId)
+      ? amountByOptionId.get(draft.optionId)!
+      : draft.standardAmount;
+    if (amount <= 0) {
+      if (draft.requiresManualAmount) {
+        unpricedLabels.push(draft.quantity > 1 ? `${draft.label} × ${draft.quantity}` : draft.label);
+      }
+      continue;
+    }
+    linesToCreate.push({
+      optionId: draft.optionId,
+      description: draft.description,
+      amount,
+    });
+  }
 
   const existing = await prisma.inquiryExtraCharge.findMany({
     where: { inquiryId: params.inquiryId },
@@ -194,7 +304,7 @@ export async function applyProfOptionAmountsToInquiry(params: {
       })
     )?.sortOrder ?? -1) + 1;
 
-  for (const line of priced) {
+  for (const line of linesToCreate) {
     if (existingDesc.has(line.description)) {
       skippedCount += 1;
       continue;

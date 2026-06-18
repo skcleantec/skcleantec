@@ -32,6 +32,7 @@ import {
   applyProfOptionAmountsToInquiry,
   attachProfOptionsAmountReviewPendingDisplay,
   clearProfOptionsAmountReviewPending,
+  previewProfOptionAmountLinesForInquiry,
   shouldClearProfOptionsAmountReviewOnPatch,
 } from './inquiryProfOptionsAmount.service.js';
 import {
@@ -602,8 +603,8 @@ router.delete('/:id', adminOrMarketer, async (req, res) => {
   res.json({ ok: true });
 });
 
-/** 관리자·마케터: 고객 선택 전문 시공 옵션 단가 → 추가 청소(extraCharges) 반영 */
-router.post('/:id/apply-prof-option-amounts', async (req, res) => {
+/** 관리자·마케터: 고객 선택 전문 시공 옵션 — 표준가·청구가 미리보기 */
+router.get('/:id/prof-option-amount-lines', async (req, res) => {
   const { id } = req.params;
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
@@ -616,15 +617,58 @@ router.post('/:id/apply-prof-option-amounts', async (req, res) => {
     return;
   }
   try {
+    const result = await previewProfOptionAmountLinesForInquiry({ tenantId, inquiryId: id });
+    res.json(result);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'NOT_FOUND') {
+      res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+      return;
+    }
+    console.error('[inquiries prof-option-amount-lines]', e);
+    res.status(500).json({ error: '옵션 금액 미리보기에 실패했습니다.' });
+  }
+});
+
+/** 관리자·마케터: 고객 선택 전문 시공 옵션 단가 → 추가 청소(extraCharges) 반영 */
+router.post('/:id/apply-prof-option-amounts', async (req, res) => {
+  const { id } = req.params;
+  const body = (req.body ?? {}) as { lines?: unknown };
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  if (user.role !== 'ADMIN' && user.role !== 'MARKETER') {
+    res.status(403).json({ error: '권한이 없습니다.' });
+    return;
+  }
+  let lineAmounts: Array<{ optionId: string; amount: number }> | undefined;
+  if (body.lines !== undefined) {
+    if (!Array.isArray(body.lines)) {
+      res.status(400).json({ error: 'lines 배열 형식이 올바르지 않습니다.' });
+      return;
+    }
+    lineAmounts = body.lines.map((row) => {
+      const r = row as { optionId?: unknown; amount?: unknown };
+      return { optionId: String(r.optionId ?? ''), amount: Number(r.amount) };
+    });
+  }
+  try {
     const result = await applyProfOptionAmountsToInquiry({
       tenantId,
       inquiryId: id,
       actorId: user.userId,
+      lineAmounts,
     });
     res.json(result);
   } catch (e) {
     if (e instanceof Error && e.message === 'NOT_FOUND') {
       res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+      return;
+    }
+    if (e instanceof Error && (e.message === 'INVALID_LINE' || e.message === 'INVALID_AMOUNT')) {
+      res.status(400).json({ error: '옵션·금액 입력이 올바르지 않습니다.' });
       return;
     }
     console.error('[inquiries apply-prof-option-amounts]', e);
