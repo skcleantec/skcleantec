@@ -134,7 +134,14 @@ export async function createOperatingCompany(
 
   let config: OperatingCompanyConfig = {};
   if (body.config !== undefined) {
-    config = parseOperatingCompanyConfig(body.config);
+    try {
+      config = mergeOperatingCompanyConfig({}, parseOperatingCompanyConfig(body.config), tenantId);
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('companyRegistration.seal')) {
+        throw new OperatingCompanyValidationError(e.message);
+      }
+      throw e;
+    }
   }
 
   const row = await db.operatingCompany.create({
@@ -195,8 +202,19 @@ export async function updateOperatingCompany(
 
   if (body.config !== undefined) {
     const patch = parseOperatingCompanyConfig(body.config);
-    const merged = mergeOperatingCompanyConfig(parseOperatingCompanyConfig(existing.config), patch);
-    data.config = operatingCompanyConfigToJson(merged) as Prisma.InputJsonValue;
+    try {
+      const merged = mergeOperatingCompanyConfig(
+        parseOperatingCompanyConfig(existing.config),
+        patch,
+        tenantId,
+      );
+      data.config = operatingCompanyConfigToJson(merged) as Prisma.InputJsonValue;
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('companyRegistration.seal')) {
+        throw new OperatingCompanyValidationError(e.message);
+      }
+      throw e;
+    }
   }
 
   const nextIsActive = body.isActive === false ? false : body.isActive === true ? true : existing.isActive;

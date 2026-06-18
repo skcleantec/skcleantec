@@ -3,6 +3,7 @@
  */
 
 import { parseSmtpConfigStored } from '../../lib/smtpConfigStored.js';
+import { resolveQuotationSealDisplayWidth, tenantCompanySealLooksValid } from '../../lib/quotationSeal.js';
 import type {
   TenantCompanyRegistrationConfig,
   TenantSmtpConfigStored,
@@ -119,13 +120,58 @@ function parseCompanyRegistration(
   const o = raw as Record<string, unknown>;
   const out: Partial<TenantCompanyRegistrationConfig> = {};
   for (const key of COMPANY_REG_KEYS) {
+    if (!(key in o)) continue;
+    if (o[key] === null) {
+      out[key] = '';
+      continue;
+    }
     const v = trimOptionalString(o[key], key === 'sealSecureUrl' ? 2048 : key === 'sealPublicId' ? 512 : MAX_STRING);
     if (v) out[key] = v;
+    else if (key === 'sealPublicId' || key === 'sealSecureUrl') out[key] = '';
   }
-  if (typeof o.sealDisplayWidthPx === 'number' && Number.isFinite(o.sealDisplayWidthPx)) {
-    out.sealDisplayWidthPx = Math.min(96, Math.max(32, Math.round(o.sealDisplayWidthPx)));
+  if ('sealDisplayWidthPx' in o) {
+    if (o.sealDisplayWidthPx === null) {
+      delete out.sealDisplayWidthPx;
+    } else if (typeof o.sealDisplayWidthPx === 'number' && Number.isFinite(o.sealDisplayWidthPx)) {
+      out.sealDisplayWidthPx = resolveQuotationSealDisplayWidth(o.sealDisplayWidthPx);
+    }
   }
   return Object.keys(out).length > 0 ? out : {};
+}
+
+function finalizeCompanyRegistrationSection(
+  reg: Partial<TenantCompanyRegistrationConfig> | undefined,
+  tenantId: string,
+): OperatingCompanyConfig['companyRegistration'] | undefined {
+  if (!reg || Object.keys(reg).length === 0) return undefined;
+  const merged: Partial<TenantCompanyRegistrationConfig> = { ...reg };
+  for (const key of COMPANY_REG_KEYS) {
+    const v = merged[key];
+    if (typeof v === 'string') {
+      const t = v.trim();
+      if (t) merged[key] = t;
+      else delete merged[key];
+    }
+  }
+  const pid = merged.sealPublicId?.trim();
+  const surl = merged.sealSecureUrl?.trim();
+  if (pid || surl) {
+    if (!pid || !surl || !tenantCompanySealLooksValid(pid, surl, tenantId)) {
+      throw new Error('companyRegistration.seal이 올바르지 않습니다. 직인을 다시 업로드해 주세요.');
+    }
+    merged.sealPublicId = pid.slice(0, 512);
+    merged.sealSecureUrl = surl.slice(0, 2048);
+    if (typeof merged.sealDisplayWidthPx === 'number' && Number.isFinite(merged.sealDisplayWidthPx)) {
+      merged.sealDisplayWidthPx = resolveQuotationSealDisplayWidth(merged.sealDisplayWidthPx);
+    } else {
+      delete merged.sealDisplayWidthPx;
+    }
+  } else {
+    delete merged.sealPublicId;
+    delete merged.sealSecureUrl;
+    delete merged.sealDisplayWidthPx;
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 function mergeCompanyRegistrationSection(
@@ -133,7 +179,7 @@ function mergeCompanyRegistrationSection(
   patch: OperatingCompanyConfig['companyRegistration'] | undefined,
 ): OperatingCompanyConfig['companyRegistration'] | undefined {
   if (patch === undefined) return existing;
-  if (!patch || Object.keys(patch).length === 0) return undefined;
+  if (!patch || Object.keys(patch).length === 0) return existing;
   const merged: Partial<TenantCompanyRegistrationConfig> = { ...(existing ?? {}), ...patch };
   for (const key of COMPANY_REG_KEYS) {
     const v = merged[key];
@@ -143,9 +189,18 @@ function mergeCompanyRegistrationSection(
       else delete merged[key];
     }
   }
-  if (typeof merged.sealDisplayWidthPx === 'number' && Number.isFinite(merged.sealDisplayWidthPx)) {
-    merged.sealDisplayWidthPx = Math.min(96, Math.max(32, Math.round(merged.sealDisplayWidthPx)));
-  } else {
+  if ('sealDisplayWidthPx' in patch) {
+    if (patch.sealDisplayWidthPx === undefined) {
+      // no-op unless seal removed
+    } else if (typeof patch.sealDisplayWidthPx === 'number' && Number.isFinite(patch.sealDisplayWidthPx)) {
+      merged.sealDisplayWidthPx = resolveQuotationSealDisplayWidth(patch.sealDisplayWidthPx);
+    } else {
+      delete merged.sealDisplayWidthPx;
+    }
+  }
+  if (!merged.sealPublicId?.trim() || !merged.sealSecureUrl?.trim()) {
+    delete merged.sealPublicId;
+    delete merged.sealSecureUrl;
     delete merged.sealDisplayWidthPx;
   }
   return Object.keys(merged).length > 0 ? merged : undefined;
@@ -175,8 +230,9 @@ export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfi
 export function mergeOperatingCompanyConfig(
   existing: OperatingCompanyConfig,
   patch: OperatingCompanyConfig,
+  tenantId?: string,
 ): OperatingCompanyConfig {
-  return {
+  const merged: OperatingCompanyConfig = {
     branding: patch.branding !== undefined ? patch.branding : existing.branding,
     orderForm: patch.orderForm !== undefined ? patch.orderForm : existing.orderForm,
     inquiry: patch.inquiry !== undefined ? patch.inquiry : existing.inquiry,
@@ -186,6 +242,10 @@ export function mergeOperatingCompanyConfig(
         : existing.companyRegistration,
     smtp: patch.smtp !== undefined ? patch.smtp : existing.smtp,
   };
+  if (tenantId && merged.companyRegistration) {
+    merged.companyRegistration = finalizeCompanyRegistrationSection(merged.companyRegistration, tenantId);
+  }
+  return merged;
 }
 
 export function operatingCompanyConfigToJson(config: OperatingCompanyConfig): Record<string, unknown> {
