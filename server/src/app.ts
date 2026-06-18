@@ -46,6 +46,7 @@ import tenantCompanyProfileRoutes from './modules/tenants/tenantCompanyProfile.r
 import tenantRoutes from './modules/tenants/tenant.routes.js';
 import platformAuthRoutes from './modules/platform/platformAuth.routes.js';
 import platformTenantsRoutes from './modules/platform/platformTenants.routes.js';
+import platformSupportAccessRoutes from './modules/platform/platformSupportAccess.routes.js';
 import platformTenantPartnershipsRoutes from './modules/platform/platformTenantPartnerships.routes.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
@@ -64,6 +65,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/platform/auth', platformAuthRoutes);
 app.use('/api/platform/tenants', platformTenantsRoutes);
+app.use('/api/platform/support-access', platformSupportAccessRoutes);
 app.use('/api/platform/tenant-partnerships', platformTenantPartnershipsRoutes);
 app.use('/api/tenant', tenantRoutes);
 app.use('/api/inquiries', inquiriesRoutes);

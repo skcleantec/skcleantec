@@ -245,6 +245,23 @@ model PlatformUser {
   @@map("platform_users")
 }
 
+/// 플랫폼 운영 — 모든 테넌트 관리자(/admin) 로그인용 글로벌 지원 계정
+model TenantSupportAccess {
+  id           String    @id @default(uuid())
+  loginId      String    @unique @map("login_id") @db.VarChar(48)
+  passwordHash String    @map("password_hash")
+  name         String    @db.VarChar(64)
+  memo         String?   @db.Text
+  isActive     Boolean   @default(true) @map("is_active")
+  lastUsedAt   DateTime? @map("last_used_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  shadowUsers User[]
+
+  @@map("tenant_support_access")
+}
+
 /// 테넌트 내 영업 브랜드(운영 업체) — SK클린텍·타나클린 등. 타업체(ExternalCompany)와 별개.
 model OperatingCompany {
   id        String   @id @default(uuid())
@@ -380,6 +397,9 @@ model User {
   staffIdCardUrl      String? @map("staff_id_card_url") @db.VarChar(2048)
   /// 접수 변경 이력 알림 — 이 사용자가 변경 이력을 마지막으로 확인한 시각. 이후 생성분이 미확인 알림.
   changeLogSeenAt     DateTime? @map("change_log_seen_at")
+  /// 플랫폼 지원 접속 — 테넌트별 자동 생성 ADMIN (목록·일반 로그인에서 숨김)
+  platformSupportAccessId String? @map("platform_support_access_id")
+  platformSupportAccess   TenantSupportAccess? @relation(fields: [platformSupportAccessId], references: [id], onDelete: SetNull)
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
   assignmentsGiven     Assignment[] @relation("AdminAssignments")
@@ -441,7 +461,9 @@ model User {
   eContractIssuancesAsTeamLeader EContractIssuance[] @relation("EContractIssuanceTeamLeader")
 
   @@unique([tenantId, email])
+  @@unique([tenantId, platformSupportAccessId])
   @@index([tenantId, role, isActive])
+  @@index([platformSupportAccessId])
   @@map("users")
 }
 

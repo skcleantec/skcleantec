@@ -206,6 +206,7 @@ export function AdminLayout() {
   const fabTopRef = useRef<number | null>(null);
   const [showStagingDbImportMenu, setShowStagingDbImportMenu] = useState(false);
   const [showVolumeStatsMenu, setShowVolumeStatsMenu] = useState(false);
+  const [isPlatformSupportAccess, setIsPlatformSupportAccess] = useState(false);
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
   const [tenantPlan, setTenantPlan] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
@@ -268,6 +269,7 @@ export function AdminLayout() {
       setMeVehicleNumber(null);
       setTeamPreviewLink(false);
       setShowStagingDbImportMenu(false);
+      setIsPlatformSupportAccess(false);
       setTenantFeatures(null);
       setTenantPlan(null);
       setTenantName(null);
@@ -285,6 +287,7 @@ export function AdminLayout() {
         vehicleNumber?: string | null;
         showStagingDbImport?: boolean;
         showVolumeStats?: boolean;
+        isPlatformSupportAccess?: boolean;
         features?: string[];
         tenant?: { plan?: string; name?: string; displayName?: string } | null;
       }) => {
@@ -296,6 +299,7 @@ export function AdminLayout() {
         setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
         setShowStagingDbImportMenu(Boolean(u.showStagingDbImport));
         setShowVolumeStatsMenu(Boolean(u.showVolumeStats));
+        setIsPlatformSupportAccess(Boolean(u.isPlatformSupportAccess));
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
         setTenantPlan(typeof u.tenant?.plan === 'string' ? u.tenant.plan : null);
         setTenantName(
@@ -950,6 +954,12 @@ export function AdminLayout() {
       </header>
       </div>
       <main className="staff-app-surface relative z-10 max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+        {isPlatformSupportAccess ? (
+          <div className="mb-4 rounded-lg border border-violet-300 bg-violet-50 px-4 py-2.5 text-sm text-violet-900">
+            플랫폼 <strong className="font-semibold">지원 접속</strong> 모드입니다. 장애 확인·복구 목적으로만
+            사용하고, 작업 후 로그아웃해 주세요.
+          </div>
+        ) : null}
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan }}>
           <Outlet />
         </TenantCapabilitiesProvider>

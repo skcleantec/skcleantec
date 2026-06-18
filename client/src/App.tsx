@@ -81,6 +81,7 @@ import {
   PlatformTenantListPage,
   PlatformTenantCreatePage,
   PlatformTenantDetailPage,
+  PlatformSupportAccessPage,
   HelpPage,
 } from './routes/lazyPages';
 
@@ -107,6 +108,7 @@ function App() {
           <Route path="tenants" element={<SuspensePage><PlatformTenantListPage /></SuspensePage>} />
           <Route path="tenants/new" element={<SuspensePage><PlatformTenantCreatePage /></SuspensePage>} />
           <Route path="tenants/:id" element={<SuspensePage><PlatformTenantDetailPage /></SuspensePage>} />
+          <Route path="support-access" element={<SuspensePage><PlatformSupportAccessPage /></SuspensePage>} />
           <Route index element={<Navigate to="tenants" replace />} />
         </Route>
         <Route path="/admin/login" element={<Navigate to="/login" replace />} />

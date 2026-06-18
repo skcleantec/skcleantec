@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
+import { PLATFORM_SUPPORT_USER_WHERE } from './tenantSupportAccess.constants.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 
 export type PlatformTenantAdmin = {
@@ -38,7 +39,7 @@ async function assertTenantExists(tenantId: string) {
 export async function listTenantAdminsForPlatform(tenantId: string): Promise<PlatformTenantAdmin[]> {
   await assertTenantExists(tenantId);
   const rows = await prisma.user.findMany({
-    where: { tenantId, role: 'ADMIN' },
+    where: { tenantId, role: 'ADMIN', ...PLATFORM_SUPPORT_USER_WHERE },
     select: {
       id: true,
       email: true,
@@ -55,7 +56,7 @@ export async function listTenantAdminsForPlatform(tenantId: string): Promise<Pla
 export async function adminLoginIdsSummaryForTenants(tenantIds: string[]) {
   if (tenantIds.length === 0) return new Map<string, string[]>();
   const rows = await prisma.user.findMany({
-    where: { tenantId: { in: tenantIds }, role: 'ADMIN', isActive: true },
+    where: { tenantId: { in: tenantIds }, role: 'ADMIN', isActive: true, ...PLATFORM_SUPPORT_USER_WHERE },
     select: { tenantId: true, email: true, isTenantOwner: true, createdAt: true },
     orderBy: [{ isTenantOwner: 'desc' }, { createdAt: 'asc' }],
   });
@@ -118,7 +119,7 @@ export async function updateTenantAdminForPlatform(
 ) {
   await assertTenantExists(tenantId);
   const existing = await prisma.user.findFirst({
-    where: { id: adminId, tenantId, role: 'ADMIN' },
+    where: { id: adminId, tenantId, role: 'ADMIN', ...PLATFORM_SUPPORT_USER_WHERE },
     select: {
       id: true,
       email: true,

@@ -20,9 +20,29 @@ import { DEFAULT_TENANT_SLUG } from '../tenants/tenant.constants.js';
 import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 import {
+  findActiveTenantSupportAccess,
+  ensureSupportShadowUser,
+  touchTenantSupportAccessLastUsed,
+} from '../platform/tenantSupportAccess.service.js';
+import {
   listOperatingCompanies,
   listUserOperatingCompanies,
 } from '../operating-companies/operatingCompany.service.js';
+
+async function loginViaTenantSupportAccess(
+  loginId: string,
+  password: string,
+  tenant: { id: string },
+) {
+  const support = await findActiveTenantSupportAccess(loginId);
+  if (!support) return null;
+  const valid = await bcrypt.compare(password, support.passwordHash);
+  if (!valid) return null;
+  const user = await ensureSupportShadowUser(support, tenant.id);
+  if (!user.isActive) return null;
+  await touchTenantSupportAccessLastUsed(support.id);
+  return user;
+}
 
 /** 활성 크루 그룹 — 로그인·미리보기 공통 조회 (tenantId 있으면 해당 업체로 한정) */
 async function findActiveCrewGroupByLoginId(loginId: string, tenantId?: string) {
@@ -93,9 +113,17 @@ async function loginWithPassword(req: Request, res: Response) {
     throw e;
   }
 
-  const user = await prisma.user.findUnique({
+  let user = await prisma.user.findUnique({
     where: { tenantId_email: { tenantId: tenant.id, email: loginId } },
   });
+
+  if (!user || !user.isActive) {
+    const supportUser = await loginViaTenantSupportAccess(loginId, password, tenant);
+    if (supportUser) {
+      user = supportUser;
+    }
+  }
+
   if (!user || !user.isActive) {
     if (tenant.slug !== DEFAULT_TENANT_SLUG) {
       const defaultTenant = await prisma.tenant.findUnique({
@@ -147,14 +175,22 @@ async function loginWithPassword(req: Request, res: Response) {
     role: user.role,
     tenantId: tenant.id,
     isTenantOwner: user.role === 'ADMIN' ? user.isTenantOwner : undefined,
+    isPlatformSupportAccess: user.platformSupportAccessId ? true : undefined,
   };
   const token = jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
   } as jwt.SignOptions);
   const tenantConfig = await getTenantConfig(tenant.id);
+  const isSupport = Boolean(user.platformSupportAccessId);
   res.json({
     token,
-    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    user: {
+      id: user.id,
+      email: isSupport ? loginId : user.email,
+      name: user.name,
+      role: user.role,
+      isPlatformSupportAccess: isSupport || undefined,
+    },
     tenant: tenantSummary(tenant, tenantConfig.branding?.displayName),
   });
 }
@@ -182,6 +218,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       staffIdCardUrl: true,
       hireDate: true,
       isTenantOwner: true,
+      platformSupportAccessId: true,
       tenantId: true,
     },
   });
@@ -189,6 +226,14 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
+  const supportLoginId = user.platformSupportAccessId
+    ? (
+        await prisma.tenantSupportAccess.findUnique({
+          where: { id: user.platformSupportAccessId },
+          select: { loginId: true },
+        })
+      )?.loginId
+    : null;
   const tenant = tenantId
     ? await prisma.tenant.findUnique({
         where: { id: tenantId },
@@ -214,11 +259,13 @@ router.get('/me', authMiddleware, async (req, res) => {
       : { staffIdCardUrl: null as string | null, hireDate: null as Date | null };
   res.json({
     ...user,
+    email: supportLoginId ?? user.email,
     staffIdCardUrl: r.staffIdCardUrl,
     hireDate: r.hireDate,
     allowSelfDayOffEdit: user.role === 'TEAM_LEADER' ? user.allowSelfDayOffEdit : true,
     isSuperAdmin: isTenantOwnerAdmin({ ...auth, isTenantOwner: user.isTenantOwner }),
     isTenantOwner: user.isTenantOwner,
+    isPlatformSupportAccess: Boolean(user.platformSupportAccessId),
     showStagingDbImport: userMayUseStagingDbImport(user.role, user.email),
     showVolumeStats: userIsPlatformOperator(user.role, user.email),
     tenant: tenant ? tenantSummary(tenant, (config as { branding?: { displayName?: string } }).branding?.displayName) : null,

@@ -15,6 +15,8 @@ export interface AuthPayload {
   tenantId?: string;
   /** ADMIN 전용 — 업체 소유자(히스토리 삭제·광고 채널 설정 등) */
   isTenantOwner?: boolean;
+  /** 플랫폼 지원 접속 — 모든 테넌트 /admin 장애 대응용 */
+  isPlatformSupportAccess?: boolean;
   /** TEAM_CREW_GROUP 전용 — JWT에 포함 */
   crewGroupId?: string;
   crewViewerRole?: CrewViewerRole;
