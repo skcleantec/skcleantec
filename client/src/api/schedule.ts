@@ -65,6 +65,8 @@ export interface ScheduleItem {
   professionalOptionIds?: unknown;
   /** 고객 추가 시공 선택 — 마케터 금액 확정 대기 */
   profOptionsAmountReviewPending?: boolean;
+  /** 전문 시공 옵션 금액 확정 완료 */
+  profOptionsAmountReviewCompleted?: boolean;
   /** 정산용(접수 건). 없으면 orderForm 금액으로 표시만 보조 */
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;

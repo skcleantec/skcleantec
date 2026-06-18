@@ -26,7 +26,10 @@ import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { getUserCustomCalendars, type UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
 import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
-import { ProfOptionsAmountReviewBadge } from '../../components/inquiry/ProfOptionsAmountReviewNotice';
+import {
+  ProfOptionsAmountReviewBadge,
+  ProfOptionsAmountReviewCompletedBadge,
+} from '../../components/inquiry/ProfOptionsAmountReviewNotice';
 import {
   DEFAULT_INTERNAL_CUSTOMER_TONE,
   normalizeInternalCustomerTone,
@@ -489,6 +492,8 @@ interface InquiryItem {
   serviceBalanceAmount?: number | null;
   /** 고객 추가 시공 선택 — 마케터 금액 확정 대기 */
   profOptionsAmountReviewPending?: boolean;
+  /** 전문 시공 옵션 금액 확정 완료 */
+  profOptionsAmountReviewCompleted?: boolean;
   extraCharges?: Array<{
     id: string;
     description: string;
@@ -544,6 +549,12 @@ function isInquiryLinkedOrderFormPendingSubmit(item: InquiryItem): boolean {
 
 function inquiryListStatusBadgeText(item: InquiryItem): string {
   return STATUS_LABELS[statusValueForPicker(item)] ?? item.status;
+}
+
+function InquiryProfOptionsReviewListBadge({ item }: { item: InquiryItem }) {
+  if (item.profOptionsAmountReviewPending) return <ProfOptionsAmountReviewBadge />;
+  if (item.profOptionsAmountReviewCompleted) return <ProfOptionsAmountReviewCompletedBadge />;
+  return null;
 }
 
 /** 모바일 카드 목록 — 표와 동일한 강조(대기·해피콜 톤) */
@@ -1625,6 +1636,7 @@ export function AdminInquiriesPage() {
                   extraCharges: d.extraCharges ?? [],
                   additionalReceipts: d.additionalReceipts ?? [],
                   profOptionsAmountReviewPending: d.profOptionsAmountReviewPending,
+                  profOptionsAmountReviewCompleted: d.profOptionsAmountReviewCompleted,
                 }
               : prev,
           );
@@ -2731,9 +2743,7 @@ export function AdminInquiriesPage() {
                             {item.tenantShare ? (
                               <TenantInquiryShareBadge share={item.tenantShare} compact />
                             ) : null}
-                            {item.profOptionsAmountReviewPending ? (
-                              <ProfOptionsAmountReviewBadge />
-                            ) : null}
+                            <InquiryProfOptionsReviewListBadge item={item} />
                           </div>
                           {item.scheduleMemo?.trim() ? (
                             <p
@@ -2784,9 +2794,7 @@ export function AdminInquiriesPage() {
                         >
                             {inquiryListStatusBadgeText(item)}
                             </span>
-                            {item.profOptionsAmountReviewPending ? (
-                              <ProfOptionsAmountReviewBadge />
-                            ) : null}
+                            <InquiryProfOptionsReviewListBadge item={item} />
                           </div>
                     </div>
                     <div
@@ -3275,9 +3283,9 @@ export function AdminInquiriesPage() {
                           발주서 · 미제출
                         </span>
                       ) : null}
-                      {item.profOptionsAmountReviewPending ? (
+                      {item.profOptionsAmountReviewPending || item.profOptionsAmountReviewCompleted ? (
                         <div className="mt-1 flex justify-center">
-                          <ProfOptionsAmountReviewBadge />
+                          <InquiryProfOptionsReviewListBadge item={item} />
                         </div>
                       ) : null}
                     </td>

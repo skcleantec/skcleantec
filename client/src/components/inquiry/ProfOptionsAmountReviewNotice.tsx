@@ -18,6 +18,17 @@ export function ProfOptionsAmountReviewBadge({ className = '' }: BadgeProps) {
   );
 }
 
+export function ProfOptionsAmountReviewCompletedBadge({ className = '' }: BadgeProps) {
+  return (
+    <span
+      className={`inline-flex shrink-0 rounded-md bg-emerald-100 px-2 py-0.5 text-fluid-2xs font-semibold text-emerald-900 ring-1 ring-emerald-200/80 ${className}`}
+      title="전문 시공 옵션 추가 금액이 반영되었거나 계약 금액이 확정되었습니다."
+    >
+      금액 설정 완료
+    </span>
+  );
+}
+
 function formatWon(n: number): string {
   return `${Number(n).toLocaleString('ko-KR')}원`;
 }

@@ -30,8 +30,8 @@ import {
 } from './inquiryMarketerOverview.js';
 import {
   applyProfOptionAmountsToInquiry,
-  attachProfOptionsAmountReviewPendingDisplay,
-  clearProfOptionsAmountReviewPending,
+  attachProfOptionsReviewStatusDisplay,
+  enrichInquiriesProfOptionsReviewStatus,
   previewProfOptionAmountLinesForInquiry,
   shouldClearProfOptionsAmountReviewOnPatch,
 } from './inquiryProfOptionsAmount.service.js';
@@ -467,7 +467,10 @@ router.get('/', async (req, res) => {
   const itemsWithDistance = itemsWithPaybackToken.map((row) => attachDistanceFromJuanForInquiry(row));
   const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
   const itemsWithInspection = attachInspectionSummaries(itemsWithShare);
-  const itemsWithProfReview = itemsWithInspection.map(attachProfOptionsAmountReviewPendingDisplay);
+  const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(
+    prisma,
+    itemsWithInspection,
+  );
   res.json({
     items: mapInquiriesInternalToneForRole(itemsWithProfReview, user.role),
     total,
@@ -545,7 +548,7 @@ router.get('/:id', async (req, res) => {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
-  const detail = attachProfOptionsAmountReviewPendingDisplay(
+  const detail = attachProfOptionsReviewStatusDisplay(
     attachInternalCustomerToneForRole(
       attachDistanceFromJuanForInquiry(inquiryFresh),
       user.role,

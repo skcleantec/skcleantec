@@ -57,13 +57,55 @@ export function resolveProfOptionsAmountReviewPendingForDisplay(
   return true;
 }
 
+export function attachProfOptionsReviewStatusDisplay<T extends InquiryProfOptionsReviewRow>(
+  row: T,
+): T & { profOptionsAmountReviewPending: boolean; profOptionsAmountReviewCompleted: boolean } {
+  const pending = resolveProfOptionsAmountReviewPendingForDisplay(row);
+  const hasSelections =
+    parseProfessionalOptionSelectionsRaw(row.professionalOptionIds).length > 0;
+  const completed = Boolean(
+    hasSelections && row.orderForm?.submittedAt != null && !pending,
+  );
+  return {
+    ...row,
+    profOptionsAmountReviewPending: pending,
+    profOptionsAmountReviewCompleted: completed,
+  };
+}
+
+/** @deprecated 목록은 enrichInquiriesProfOptionsReviewStatus 사용 */
 export function attachProfOptionsAmountReviewPendingDisplay<T extends InquiryProfOptionsReviewRow>(
   row: T,
 ): T {
-  return {
-    ...row,
-    profOptionsAmountReviewPending: resolveProfOptionsAmountReviewPendingForDisplay(row),
-  };
+  return attachProfOptionsReviewStatusDisplay(row);
+}
+
+/** 목록 API — extraCharges 미포함 시 DB 조회로 반영 여부 보정 */
+export async function enrichInquiriesProfOptionsReviewStatus<
+  T extends InquiryProfOptionsReviewRow & { id: string },
+>(prisma: PrismaClient, rows: T[]): Promise<
+  Array<T & { profOptionsAmountReviewPending: boolean; profOptionsAmountReviewCompleted: boolean }>
+> {
+  if (rows.length === 0) return [];
+  const ids = rows.map((r) => r.id);
+  const profExtraRows = await prisma.inquiryExtraCharge.findMany({
+    where: {
+      inquiryId: { in: ids },
+      description: { startsWith: PROF_OPTION_EXTRA_CHARGE_PREFIX },
+    },
+    select: { inquiryId: true },
+  });
+  const inquiryIdsWithProfExtra = new Set(profExtraRows.map((r) => r.inquiryId));
+
+  return rows.map((row) => {
+    const rowForResolve: InquiryProfOptionsReviewRow = inquiryIdsWithProfExtra.has(row.id)
+      ? { ...row, extraCharges: [{ description: PROF_OPTION_EXTRA_CHARGE_PREFIX }] }
+      : row;
+    return attachProfOptionsReviewStatusDisplay(rowForResolve) as T & {
+      profOptionsAmountReviewPending: boolean;
+      profOptionsAmountReviewCompleted: boolean;
+    };
+  });
 }
 
 function resolveSelectionUnitAmount(
@@ -188,14 +230,22 @@ export async function buildProfOptionExtraChargeLines(
   return { priced, unpricedLabels };
 }
 
-export async function clearProfOptionsAmountReviewPending(
+export async function markProfOptionsAmountReviewComplete(
   tenantId: string,
   inquiryId: string,
 ): Promise<void> {
   await prisma.inquiry.updateMany({
-    where: { id: inquiryId, tenantId, profOptionsAmountReviewPending: true },
+    where: { id: inquiryId, tenantId },
     data: { profOptionsAmountReviewPending: false },
   });
+}
+
+/** @deprecated markProfOptionsAmountReviewComplete 사용 */
+export async function clearProfOptionsAmountReviewPending(
+  tenantId: string,
+  inquiryId: string,
+): Promise<void> {
+  await markProfOptionsAmountReviewComplete(tenantId, inquiryId);
 }
 
 export function shouldClearProfOptionsAmountReviewOnPatch(
@@ -327,9 +377,11 @@ export async function applyProfOptionAmountsToInquiry(params: {
     }).catch((e) => console.error('[prof-options-amount] changeLog', e));
   }
 
-  const shouldClear = unpricedLabels.length === 0;
-  if (shouldClear) {
-    await clearProfOptionsAmountReviewPending(params.tenantId, params.inquiryId);
+  const allDraftLinesSettled =
+    drafts.length === 0 ||
+    drafts.every((d) => existingDesc.has(d.description.trim()));
+  if (unpricedLabels.length === 0 && allDraftLinesSettled) {
+    await markProfOptionsAmountReviewComplete(params.tenantId, params.inquiryId);
   }
 
   const row = await prisma.inquiry.findUnique({
