@@ -1109,11 +1109,23 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         {order && !isCreate && (
           <div className="mb-6 p-4 bg-white border border-gray-200 rounded text-sm">
             <p className="font-medium text-gray-900">
-              총 금액 {(order.totalAmount ?? 0).toLocaleString()}원{' '}
+              기본 서비스 견적 {(order.totalAmount ?? 0).toLocaleString()}원{' '}
               <span className="whitespace-pre-line align-top">
                 {orderFormConfigLine(order.formConfig?.priceLabel, ORDER_FORM_CONFIG_DEFAULTS.priceLabel)}
               </span>
             </p>
+            {profSelectionSummary.sum > 0 ? (
+              <p className="text-gray-700 mt-1 tabular-nums">
+                추가 시공 합계 {profSelectionSummary.sum.toLocaleString()}원
+              </p>
+            ) : null}
+            {profSelectionSummary.sum > 0 ? (
+              <p className="text-gray-900 font-semibold mt-1 tabular-nums">
+                총 예상 금액{' '}
+                {((order.totalAmount ?? 0) + profSelectionSummary.sum).toLocaleString()}원
+                <span className="ml-1 text-xs font-normal text-gray-600">(서비스 + 추가 시공)</span>
+              </p>
+            ) : null}
             <p className="text-gray-600 mt-1">
               잔금 {(order.balanceAmount ?? 0).toLocaleString()}원, 예약금{' '}
               {(order.depositAmount ?? 0).toLocaleString()}원
@@ -1123,18 +1135,25 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 {order.formConfig.reviewEventText.trim()}
               </p>
             ) : null}
-            {order.optionNote && (
+            {order.optionNote?.trim() && profSelectionSummary.sum <= 0 ? (
               <p className="text-gray-600 mt-2">추가: {order.optionNote}</p>
-            )}
+            ) : null}
             {profSelectionSummary.rows.length > 0 ? (
               <div className="mt-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-medium text-gray-800 mb-1.5">전문 시공 선택 내역</p>
+                <p className="text-xs font-medium text-gray-800 mb-1.5">
+                  {profSelectionSummary.sum > 0 ? '추가 시공 옵션 (금액 포함)' : '전문 시공 선택 내역'}
+                </p>
                 <ProfOptionSelectionSummary
                   rows={profSelectionSummary.rows}
                   sum={profSelectionSummary.sum}
                   className="text-xs text-gray-600"
+                  hideSumLine={profSelectionSummary.sum > 0}
                 />
               </div>
+            ) : order.optionNote?.trim() ? (
+              <p className="text-gray-600 mt-2 text-xs whitespace-pre-line">
+                추가 옵션 안내: {order.optionNote}
+              </p>
             ) : null}
           </div>
         )}

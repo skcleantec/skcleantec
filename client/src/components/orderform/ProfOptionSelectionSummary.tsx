@@ -5,6 +5,8 @@ type Props = {
   sum: number;
   emptyText?: string;
   className?: string;
+  /** 상위에서 합계·총액을 이미 표시할 때 중복 숨김 */
+  hideSumLine?: boolean;
 };
 
 export function ProfOptionSelectionSummary({
@@ -12,6 +14,7 @@ export function ProfOptionSelectionSummary({
   sum,
   emptyText = '선택된 전문 시공 옵션이 없습니다.',
   className = '',
+  hideSumLine = false,
 }: Props) {
   if (rows.length === 0) {
     return <span className="text-gray-500">{emptyText}</span>;
@@ -28,7 +31,7 @@ export function ProfOptionSelectionSummary({
           </li>
         ))}
       </ul>
-      {sum > 0 ? (
+      {sum > 0 && !hideSumLine ? (
         <p className="text-[11px] font-medium text-gray-700 mt-2 tabular-nums">
           추가 금액 합계 {sum.toLocaleString('ko-KR')}원
         </p>

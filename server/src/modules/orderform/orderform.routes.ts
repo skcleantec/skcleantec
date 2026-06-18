@@ -23,6 +23,7 @@ import {
   type GuideSection,
 } from './guideDefaults.js';
 import {
+  buildProfOptionIssuedSummaryParts,
   filterActiveProfessionalOptionSelections,
   normalizeHexColor,
   parseProfessionalOptionSelectionsRaw,
@@ -2245,6 +2246,18 @@ router.post('/submit/:token', async (req, res) => {
   const profLabelById = new Map(profLabelRows.map((r) => [r.id, r.label]));
   const professionalOptionLabels = professionalIds.map((id) => profLabelById.get(id) ?? id);
 
+  const profIssuedSummary = await buildProfOptionIssuedSummaryParts(
+    prisma,
+    submitTenantId,
+    professionalOptionIdsJson,
+  );
+  const profOptionsExtraSum = profIssuedSummary.extraSum;
+  const grandTotalAmount = form.totalAmount + profOptionsExtraSum;
+  const snapshotProfOptionLabels =
+    profIssuedSummary.parts.length > 0
+      ? profIssuedSummary.parts.map((p) => p.displayLine)
+      : professionalOptionLabels;
+
   // 동적 템플릿 추가 항목 — 답변 정규화 + 라벨 부여(스냅샷 보존, 템플릿 변경에 안전)
   const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
   const customAnswers = submitTemplate
@@ -2305,13 +2318,16 @@ router.post('/submit/:token', async (req, res) => {
       moveInDateUndecided: moveInUndecided,
       specialNotes: customerSpecialNotes,
       professionalOptionIds: [...professionalOptionIdsJson],
-      professionalOptionLabels,
+      professionalOptionLabels: snapshotProfOptionLabels,
     },
     issuedSummary: {
       totalAmount: form.totalAmount,
       depositAmount: form.depositAmount,
       balanceAmount: form.balanceAmount,
       optionNote: form.optionNote,
+      profOptionsExtraSum,
+      grandTotalAmount,
+      profOptionGuideLines: profIssuedSummary.guideLines,
     },
   };
 

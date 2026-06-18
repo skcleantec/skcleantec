@@ -180,9 +180,22 @@ export function OrderFormSubmissionSnapshotContent(props: {
       <section>
         <h3 className="mb-1 text-fluid-sm font-semibold text-gray-900">금액 안내</h3>
         <div className="rounded-lg border border-gray-200 bg-white px-3">
-          <OrderFormSnapshotRow label="총액">
+          <OrderFormSnapshotRow label="기본 서비스 견적">
             {snapshot.issuedSummary.totalAmount.toLocaleString('ko-KR')}원
           </OrderFormSnapshotRow>
+          {(snapshot.issuedSummary.profOptionsExtraSum ?? 0) > 0 ? (
+            <OrderFormSnapshotRow label="추가 시공 합계">
+              {snapshot.issuedSummary.profOptionsExtraSum!.toLocaleString('ko-KR')}원
+            </OrderFormSnapshotRow>
+          ) : null}
+          {(snapshot.issuedSummary.grandTotalAmount ?? 0) >
+          snapshot.issuedSummary.totalAmount ? (
+            <OrderFormSnapshotRow label="총 예상 금액">
+              <span className="font-semibold text-gray-900">
+                {snapshot.issuedSummary.grandTotalAmount!.toLocaleString('ko-KR')}원
+              </span>
+            </OrderFormSnapshotRow>
+          ) : null}
           <OrderFormSnapshotRow label="예약금">
             {snapshot.issuedSummary.depositAmount.toLocaleString('ko-KR')}원
           </OrderFormSnapshotRow>
@@ -190,11 +203,21 @@ export function OrderFormSubmissionSnapshotContent(props: {
             {snapshot.issuedSummary.balanceAmount.toLocaleString('ko-KR')}원
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="추가 옵션 안내">
-            {snapshot.issuedSummary.optionNote?.trim()
-              ? snapshot.issuedSummary.optionNote
-              : snapshot.fields.professionalOptionLabels.length > 0
-                ? '상담사가 연락드리겠습니다.'
-                : '—'}
+            {snapshot.issuedSummary.profOptionGuideLines &&
+            snapshot.issuedSummary.profOptionGuideLines.length > 0 ? (
+              <span className="whitespace-pre-line text-left">
+                {snapshot.issuedSummary.profOptionGuideLines.map((l) => `· ${l}`).join('\n')}
+                {(snapshot.issuedSummary.profOptionsExtraSum ?? 0) > 0
+                  ? `\n추가 시공 합계 ${snapshot.issuedSummary.profOptionsExtraSum!.toLocaleString('ko-KR')}원`
+                  : ''}
+              </span>
+            ) : snapshot.issuedSummary.optionNote?.trim() ? (
+              snapshot.issuedSummary.optionNote
+            ) : snapshot.fields.professionalOptionLabels.length > 0 ? (
+              '상담사가 연락드리겠습니다.'
+            ) : (
+              '—'
+            )}
           </OrderFormSnapshotRow>
         </div>
       </section>

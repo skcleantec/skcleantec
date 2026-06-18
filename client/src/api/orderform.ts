@@ -111,6 +111,9 @@ export interface OrderFormCustomerSubmissionSnapshotV1 {
     depositAmount: number;
     balanceAmount: number;
     optionNote: string | null;
+    profOptionsExtraSum?: number;
+    grandTotalAmount?: number;
+    profOptionGuideLines?: string[];
   };
 }
 

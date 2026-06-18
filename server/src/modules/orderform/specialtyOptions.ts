@@ -172,27 +172,80 @@ export async function formatProfessionalOptionsMemoLine(
   tenantId: string,
   raw: unknown,
 ): Promise<string | null> {
-  const selections = parseProfessionalOptionSelectionsRaw(raw);
-  if (!selections.length) return null;
+  const built = await buildProfOptionIssuedSummaryParts(prisma, tenantId, raw);
+  if (built.parts.length === 0) return null;
+  return `전문 시공: ${built.parts.map((p) => p.displayLine).join(', ')}`;
+}
+
+export type ProfOptionIssuedSummaryPart = {
+  optionId: string;
+  label: string;
+  quantity: number;
+  unitAmount: number;
+  lineTotal: number;
+  displayLine: string;
+};
+
+/** 고객 금액 안내·제출 스냅샷 — 마케터 unitAmount·카탈로그 단가 반영 */
+export async function buildProfOptionIssuedSummaryParts(
+  prisma: PrismaClient,
+  tenantId: string,
+  raw: unknown,
+): Promise<{ parts: ProfOptionIssuedSummaryPart[]; extraSum: number; guideLines: string[] }> {
+  const selections = await filterActiveProfessionalOptionSelections(
+    prisma,
+    tenantId,
+    parseProfessionalOptionSelectionsRaw(raw),
+  );
+  if (!selections.length) {
+    return { parts: [], extraSum: 0, guideLines: [] };
+  }
   const ids = selections.map((s) => s.id);
   const rows = await prisma.professionalSpecialtyOption.findMany({
     where: { tenantId, id: { in: ids } },
-    select: { id: true, label: true, priceAmount: true, priceHint: true },
+    select: { id: true, label: true, priceAmount: true, priceHint: true, isActive: true },
   });
-  const labelById = new Map(rows.map((r) => [r.id, r] as const));
-  const parts = selections.map((sel) => {
-    const r = labelById.get(sel.id);
-    if (!r) return sel.id;
-    const unit = resolveUnitAmount(sel, r.priceAmount);
-    const qty = sel.quantity > 1 ? `×${sel.quantity}` : '';
-    if (unit > 0) {
-      const line = unit * sel.quantity;
-      return `${r.label}${qty}(${unit.toLocaleString('ko-KR')}원${sel.quantity > 1 ? `·${line.toLocaleString('ko-KR')}원` : ''})`;
+  const byId = new Map(rows.map((r) => [r.id, r] as const));
+  const parts: ProfOptionIssuedSummaryPart[] = [];
+  let extraSum = 0;
+  for (const sel of selections) {
+    const r = byId.get(sel.id);
+    if (!r || !r.isActive) continue;
+    const unitAmount = resolveUnitAmount(sel, r.priceAmount);
+    const lineTotal = unitAmount > 0 ? unitAmount * sel.quantity : 0;
+    extraSum += lineTotal;
+    const qtyPart = sel.quantity > 1 ? ` × ${sel.quantity}` : '';
+    const unitPart = unitAmount > 0 ? ` · 건당 ${unitAmount.toLocaleString('ko-KR')}원` : '';
+    const totalPart = lineTotal > 0 ? ` · ${lineTotal.toLocaleString('ko-KR')}원` : '';
+    const hint = !unitAmount && r.priceHint ? ` (${r.priceHint})` : '';
+    parts.push({
+      optionId: sel.id,
+      label: r.label,
+      quantity: sel.quantity,
+      unitAmount,
+      lineTotal,
+      displayLine: `${r.label}${qtyPart}${unitPart}${totalPart}${hint}`.trim(),
+    });
+  }
+  const guideLines = parts.map((p) => p.displayLine);
+  return { parts, extraSum, guideLines };
+}
+
+export function formatProfOptionIssuedSummaryGuideText(
+  optionNote: string | null | undefined,
+  guideLines: string[],
+  extraSum: number,
+): string {
+  const note = optionNote?.trim() ?? '';
+  if (guideLines.length > 0) {
+    const body = guideLines.map((l) => `· ${l}`).join('\n');
+    if (extraSum > 0) {
+      return `${body}\n추가 시공 합계 ${extraSum.toLocaleString('ko-KR')}원`;
     }
-    if (r.priceHint) return `${r.label}${qty}(${r.priceHint})`;
-    return `${r.label}${qty}`;
-  });
-  return `전문 시공: ${parts.join(', ')}`;
+    return body;
+  }
+  if (note) return note;
+  return '—';
 }
 
 export function normalizeHexColor(input: string): string | null {

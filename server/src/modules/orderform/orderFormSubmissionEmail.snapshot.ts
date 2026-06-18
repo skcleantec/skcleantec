@@ -34,6 +34,12 @@ export type OrderFormSubmissionSnapshotV1 = {
     depositAmount: number;
     balanceAmount: number;
     optionNote: string | null;
+    /** 추가 시공 옵션 합계(원) — totalAmount 에 더한 값 */
+    profOptionsExtraSum?: number;
+    /** 서비스 견적 + 추가 시공 */
+    grandTotalAmount?: number;
+    /** 추가 옵션 안내 줄(라벨·단가·금액) */
+    profOptionGuideLines?: string[];
   };
 };
 
@@ -129,11 +135,21 @@ function moveInText(f: OrderFormSubmissionSnapshotV1['fields']): string {
   return '—';
 }
 
-/** 마케터 추가사항(optionNote) 우선, 없고 고객 전문옵션 선택 시 상담 안내 */
+/** 마케터 추가사항(optionNote) · 확정된 추가 시공 단가 안내 */
 export function buildIssuedSummaryOptionGuideText(
   optionNote: string | null | undefined,
   professionalOptionLabels: string[],
+  profOptionGuideLines?: string[],
+  profOptionsExtraSum?: number,
 ): string {
+  if (profOptionGuideLines && profOptionGuideLines.length > 0) {
+    const body = profOptionGuideLines.map((l) => `· ${l}`).join('\n');
+    const sum = profOptionsExtraSum ?? 0;
+    if (sum > 0) {
+      return `${body}\n추가 시공 합계 ${formatWon(sum)}`;
+    }
+    return body;
+  }
   const note = optionNote?.trim() ?? '';
   if (note) return note;
   if ((professionalOptionLabels ?? []).length > 0) return CUSTOMER_PROF_OPTION_CONTACT_MESSAGE;
@@ -199,12 +215,25 @@ export function buildEmailDetailSections(
   sections.push({
     title: '금액 안내',
     rows: [
-      { label: '총액', value: formatWon(issued.totalAmount) },
+      { label: '기본 서비스 견적', value: formatWon(issued.totalAmount) },
+      ...(issued.profOptionsExtraSum != null && issued.profOptionsExtraSum > 0
+        ? [{ label: '추가 시공 합계', value: formatWon(issued.profOptionsExtraSum) }]
+        : []),
+      ...(issued.grandTotalAmount != null &&
+      issued.profOptionsExtraSum != null &&
+      issued.profOptionsExtraSum > 0
+        ? [{ label: '총 예상 금액', value: formatWon(issued.grandTotalAmount) }]
+        : []),
       { label: '예약금', value: formatWon(issued.depositAmount) },
       { label: '잔금', value: formatWon(issued.balanceAmount) },
       {
         label: '추가 옵션 안내',
-        value: buildIssuedSummaryOptionGuideText(issued.optionNote, profLabels),
+        value: buildIssuedSummaryOptionGuideText(
+          issued.optionNote,
+          profLabels,
+          issued.profOptionGuideLines,
+          issued.profOptionsExtraSum,
+        ),
       },
     ],
   });
