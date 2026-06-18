@@ -740,6 +740,8 @@ export function AdminInquiriesPage() {
     item: InquiryItem;
   } | null>(null);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
+  /** 상세 API 로드 중 — 목록 행으로 모달을 먼저 띄우지 않음(금액 설정 패널 깜빡임 방지) */
+  const [editOpeningId, setEditOpeningId] = useState<string | null>(null);
   const [inquiryEditPreferredCalOpen, setInquiryEditPreferredCalOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     customerName: '',
@@ -1599,7 +1601,7 @@ export function AdminInquiriesPage() {
     }
   };
 
-  const openEdit = (item: InquiryItem) => {
+  const applyEditState = (item: InquiryItem) => {
     setEditItem(item);
     const notesCtx = { specialNotes: item.specialNotes, orderForm: item.orderForm };
     omitSpecialNotesIfLegacyUnchangedRef.current =
@@ -1619,16 +1621,17 @@ export function AdminInquiriesPage() {
       preferredTime: item.preferredTime || '',
       preferredTimeDetail: item.preferredTimeDetail || '',
       memo: item.memo || '',
-      teamLeaderIds:
-        initialTeamLeaderIdsForEdit(item.assignments),
+      teamLeaderIds: initialTeamLeaderIdsForEdit(item.assignments),
       crewMemberCount: item.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(item.crewMemberNote),
       status: item.status,
       customerPhone2: item.customerPhone2 || '',
       propertyType: item.propertyType || '',
-      isOneRoom: Boolean(item.isOneRoom) || detectOneRoomFromNotes(
-        effectiveCustomerOrderNotes({ specialNotes: item.specialNotes, orderForm: item.orderForm }),
-      ),
+      isOneRoom:
+        Boolean(item.isOneRoom) ||
+        detectOneRoomFromNotes(
+          effectiveCustomerOrderNotes({ specialNotes: item.specialNotes, orderForm: item.orderForm }),
+        ),
       areaBasis: item.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(item),
       buildingType: item.buildingType || '',
@@ -1644,29 +1647,38 @@ export function AdminInquiriesPage() {
       createdById: item.createdBy?.id ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(item.internalCustomerTone),
     });
-    // 목록은 경량화되어 changeLogs·extraCharges·additionalReceipts 를 싣지 않는다.
-    // 편집 모달의 변경이력·추가청구·추가결재 패널은 상세 API로 보강(목록에서 진입한 경우만).
-    if (token && item.changeLogs === undefined) {
-      void getInquiry(token, item.id)
-        .then((raw) => {
-          const d = raw as Partial<InquiryItem>;
-          setEditItem((prev) =>
-            prev && prev.id === item.id
-              ? {
-                  ...prev,
-                  changeLogs: d.changeLogs ?? [],
-                  extraCharges: d.extraCharges ?? [],
-                  additionalReceipts: d.additionalReceipts ?? [],
-                  profOptionsAmountReviewPending: d.profOptionsAmountReviewPending,
-                  profOptionsAmountReviewCompleted: d.profOptionsAmountReviewCompleted,
-                }
-              : prev,
-          );
-        })
-        .catch(() => {
-          /* 보강 실패해도 편집 기본 정보는 표시 */
-        });
+  };
+
+  const syncListRowProfReviewFromDetail = (inquiry: InquiryItem) => {
+    setItems((prev) =>
+      patchInquiryProfReviewInList(prev, inquiry.id, {
+        profOptionsAmountReviewPending: inquiry.profOptionsAmountReviewPending,
+        profOptionsAmountReviewCompleted: inquiry.profOptionsAmountReviewCompleted,
+        additionalReceipts: inquiry.additionalReceipts,
+      }),
+    );
+  };
+
+  /** @param opts.hydrated true — 이미 GET /inquiries/:id 상세(배지·추가결재 포함) */
+  const openEdit = (item: InquiryItem, opts?: { hydrated?: boolean }) => {
+    if (opts?.hydrated || !token) {
+      applyEditState(item);
+      if (opts?.hydrated) syncListRowProfReviewFromDetail(item);
+      return;
     }
+    setEditOpeningId(item.id);
+    void (async () => {
+      try {
+        const raw = await getInquiry(token, item.id);
+        const inquiry = raw as unknown as InquiryItem;
+        applyEditState(inquiry);
+        syncListRowProfReviewFromDetail(inquiry);
+      } catch {
+        applyEditState(item);
+      } finally {
+        setEditOpeningId(null);
+      }
+    })();
   };
 
   useEffect(() => {
@@ -1731,7 +1743,7 @@ export function AdminInquiriesPage() {
       await refresh(true);
       const raw = await getInquiry(token, editItem.id);
       const updated = raw as unknown as InquiryItem;
-      openEdit(updated);
+      openEdit(updated, { hydrated: true });
       setOrderForceMatchOpen(false);
     } catch (e) {
       alert(e instanceof Error ? e.message : '강제 매칭에 실패했습니다.');
@@ -1750,7 +1762,7 @@ export function AdminInquiriesPage() {
       try {
         const raw = await getInquiry(token, openInquiryId);
         if (cancelled) return;
-        openEdit(raw as unknown as InquiryItem);
+        openEdit(raw as unknown as InquiryItem, { hydrated: true });
         navigate('/admin/inquiries', { replace: true });
       } catch {
         if (!cancelled) navigate('/admin/inquiries', { replace: true });
@@ -4665,7 +4677,20 @@ export function AdminInquiriesPage() {
           document.body
         )}
 
-      {editItem && token && (
+      {editOpeningId ? (
+        <div
+          className="fixed inset-0 z-[490] flex items-center justify-center bg-black/15"
+          role="status"
+          aria-live="polite"
+          aria-label="접수 상세 불러오는 중"
+        >
+          <span className="rounded-xl bg-white px-4 py-2.5 text-fluid-sm font-medium text-slate-800 shadow-lg">
+            접수 상세 불러오는 중…
+          </span>
+        </div>
+      ) : null}
+
+      {editItem && token && !editOpeningId && (
         <ScheduleInquiryDetailModal
           mode="edit"
           token={token}
@@ -4689,14 +4714,7 @@ export function AdminInquiriesPage() {
             try {
               const raw = await getInquiry(token, editItem.id);
               const inquiry = raw as unknown as InquiryItem;
-              openEdit(inquiry);
-              setItems((prev) =>
-                patchInquiryProfReviewInList(prev, inquiry.id, {
-                  profOptionsAmountReviewPending: inquiry.profOptionsAmountReviewPending,
-                  profOptionsAmountReviewCompleted: inquiry.profOptionsAmountReviewCompleted,
-                  additionalReceipts: inquiry.additionalReceipts,
-                }),
-              );
+              openEdit(inquiry, { hydrated: true });
               await refresh(false);
             } catch {
               await refresh(false);

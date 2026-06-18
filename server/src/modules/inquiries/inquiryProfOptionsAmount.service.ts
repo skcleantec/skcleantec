@@ -80,7 +80,11 @@ export function resolveProfOptionsAmountReviewPendingForDisplay(
   const serviceTotal = row.serviceTotalAmount ?? formTotal;
   if (serviceTotal !== formTotal) return false;
 
-  return row.profOptionsAmountReviewPending || true;
+  /** 반영 API·마케터 확정으로 DB 플래그가 내려갔으면 완료 (0원 확정 포함) */
+  if (row.profOptionsAmountReviewPending === false) return false;
+
+  /** 제출 시 true 로 올라간 건 — 아직 반영·총액 조정 없음 */
+  return true;
 }
 
 export function attachProfOptionsReviewStatusDisplay<T extends InquiryProfOptionsReviewRow>(
@@ -136,13 +140,24 @@ export async function enrichInquiriesProfOptionsReviewStatus<
   ]);
 
   return rows.map((row) => {
-    const rowForResolve: InquiryProfOptionsReviewRow = inquiryIdsWithProfApplied.has(row.id)
-      ? {
-          ...row,
-          extraCharges: [{ description: PROF_OPTION_EXTRA_CHARGE_PREFIX }],
-          additionalReceipts: [{ id: 'prof-applied', description: PROF_OPTION_EXTRA_CHARGE_PREFIX }],
-        }
-      : row;
+    const profApplied = inquiryIdsWithProfApplied.has(row.id);
+    const rowForResolve: InquiryProfOptionsReviewRow =
+      profApplied || row.profOptionsAmountReviewPending === false
+        ? {
+            ...row,
+            profOptionsAmountReviewPending: profApplied
+              ? false
+              : row.profOptionsAmountReviewPending,
+            ...(profApplied
+              ? {
+                  extraCharges: [{ description: PROF_OPTION_EXTRA_CHARGE_PREFIX }],
+                  additionalReceipts: [
+                    { id: 'prof-applied', description: PROF_OPTION_EXTRA_CHARGE_PREFIX },
+                  ],
+                }
+              : {}),
+          }
+        : row;
     return attachProfOptionsReviewStatusDisplay(rowForResolve) as T & {
       profOptionsAmountReviewPending: boolean;
       profOptionsAmountReviewCompleted: boolean;
@@ -430,6 +445,25 @@ export async function applyProfOptionAmountsToInquiry(params: {
     }
     if (line.zeroConfirmOnly) {
       confirmedZeroOptionIds.add(line.optionId);
+      if (!existingDesc.has(descKey)) {
+        const legacySort =
+          ((
+            await prisma.inquiryExtraCharge.findFirst({
+              where: { inquiryId: params.inquiryId },
+              orderBy: { sortOrder: 'desc' },
+              select: { sortOrder: true },
+            })
+          )?.sortOrder ?? -1) + 1;
+        await prisma.inquiryExtraCharge.create({
+          data: {
+            inquiryId: params.inquiryId,
+            description: line.description,
+            amount: 0,
+            sortOrder: legacySort,
+            createdById: params.actorId,
+          },
+        });
+      }
       existingDesc.add(descKey);
       continue;
     }
