@@ -37,7 +37,15 @@ export async function fetchTenantSubscription(token: string): Promise<TenantSubs
   const res = await fetch(`${API}/admin/tenant-subscription`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const data = (await res.json()) as TenantSubscriptionDto & { error?: string };
+  let data: TenantSubscriptionDto & { error?: string };
+  try {
+    data = (await res.json()) as TenantSubscriptionDto & { error?: string };
+  } catch {
+    throw new Error('가입 정보를 불러오지 못했습니다.');
+  }
   if (!res.ok) throw new Error(data.error ?? '가입 정보를 불러오지 못했습니다.');
+  if (!data?.tenant || !Array.isArray(data.usage)) {
+    throw new Error('가입 정보 응답 형식이 올바르지 않습니다.');
+  }
   return data;
 }

@@ -264,7 +264,8 @@ function destroyBucketIfIdle(token: string) {
     bucket.connectionListeners.size > 0 ||
     bucket.celebrationListeners.size > 0 ||
     bucket.rosterAckListeners.size > 0 ||
-    bucket.changeLogListeners.size > 0
+    bucket.changeLogListeners.size > 0 ||
+    bucket.reviewPaybackListeners.size > 0
   )
     return;
   bucket.tearDown = true;
