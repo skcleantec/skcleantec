@@ -10,7 +10,7 @@ type Props = {
   title?: string;
 };
 
-/** 내부 전용 — 고객명 옆 😊/😈 (미설정이면 렌더 안 함) */
+/** 내부 전용 — 고객명 옆 👼/😈 (미설정이면 렌더 안 함) */
 export function InternalCustomerToneEmoji({ tone, className = '', title }: Props) {
   if (!hasInternalCustomerToneDisplay(tone)) return null;
   const emoji = internalCustomerToneEmoji(tone);

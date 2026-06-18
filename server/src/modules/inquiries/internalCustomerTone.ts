@@ -23,7 +23,7 @@ export function parseInternalCustomerToneInput(raw: unknown): InternalCustomerTo
 export function internalCustomerToneEmoji(tone: InternalCustomerTone): string {
   switch (tone) {
     case 'GOOD':
-      return '😊';
+      return '👼';
     case 'BAD':
       return '😈';
     default:

@@ -6,7 +6,7 @@ export const INTERNAL_CUSTOMER_TONE_OPTIONS: ReadonlyArray<{
   emoji: string;
   label: string;
 }> = [
-  { value: 'GOOD', emoji: '😊', label: '좋은 고객' },
+  { value: 'GOOD', emoji: '👼', label: '좋은 고객' },
   { value: 'BAD', emoji: '😈', label: '악성 고객' },
 ] as const;
 
@@ -21,7 +21,7 @@ export function normalizeInternalCustomerTone(raw: unknown): InternalCustomerTon
 
 /** 목록·고객명 옆 — NORMAL·미설정이면 빈 문자열 */
 export function internalCustomerToneEmoji(tone: InternalCustomerTone | null | undefined): string {
-  if (tone === 'GOOD') return '😊';
+  if (tone === 'GOOD') return '👼';
   if (tone === 'BAD') return '😈';
   return '';
 }

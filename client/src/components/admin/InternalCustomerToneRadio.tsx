@@ -10,7 +10,7 @@ type Props = {
   name?: string;
 };
 
-/** 발주서 발급·접수 수정 — 내부 고객 등급 라디오 (선택 사항, 😊/😈만) */
+/** 발주서 발급·접수 수정 — 내부 고객 등급 라디오 (선택 사항, 👼/😈만) */
 export function InternalCustomerToneRadio({
   value,
   onChange,
