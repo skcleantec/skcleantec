@@ -677,6 +677,28 @@ function initialTeamLeaderIdsForEdit(assignments: InquiryItem['assignments']): s
   return assignments.map((a) => a.teamLeader.id);
 }
 
+function patchInquiryProfReviewInList(
+  items: InquiryItem[],
+  inquiryId: string,
+  patch: Pick<
+    InquiryItem,
+    'profOptionsAmountReviewPending' | 'profOptionsAmountReviewCompleted' | 'additionalReceipts'
+  >,
+): InquiryItem[] {
+  return sortInquiryListRows(
+    items.map((it) =>
+      it.id === inquiryId
+        ? {
+            ...it,
+            profOptionsAmountReviewPending: patch.profOptionsAmountReviewPending ?? false,
+            profOptionsAmountReviewCompleted: patch.profOptionsAmountReviewCompleted ?? false,
+            additionalReceipts: patch.additionalReceipts ?? it.additionalReceipts,
+          }
+        : it,
+    ),
+  );
+}
+
 export function AdminInquiriesPage() {
   const token = getToken();
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
@@ -1190,8 +1212,8 @@ export function AdminInquiriesPage() {
     marketerOverviewAfterListRef.current = false;
   }, [token]);
 
-  const refresh = (showLoading = false) => {
-    if (!token) return;
+  const refresh = (showLoading = false): Promise<void> => {
+    if (!token) return Promise.resolve();
     beginListRefresh({
       showLoading,
       itemCount: items.length,
@@ -1253,7 +1275,7 @@ export function AdminInquiriesPage() {
     }
     params.limit = listPageSize;
     params.offset = (listPage - 1) * listPageSize;
-    getInquiries(token, params)
+    return getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
         setItems(sortInquiryListRows(res.items));
         setTotal(res.total);
@@ -4666,11 +4688,52 @@ export function AdminInquiriesPage() {
             if (!token || !editItem) return;
             try {
               const raw = await getInquiry(token, editItem.id);
-              openEdit(raw as unknown as InquiryItem);
-              refresh(false);
+              const inquiry = raw as unknown as InquiryItem;
+              openEdit(inquiry);
+              setItems((prev) =>
+                patchInquiryProfReviewInList(prev, inquiry.id, {
+                  profOptionsAmountReviewPending: inquiry.profOptionsAmountReviewPending,
+                  profOptionsAmountReviewCompleted: inquiry.profOptionsAmountReviewCompleted,
+                  additionalReceipts: inquiry.additionalReceipts,
+                }),
+              );
+              await refresh(false);
             } catch {
-              refresh(false);
+              await refresh(false);
             }
+          }}
+          onProfOptionsApplied={async (result) => {
+            if (!editItem) return;
+            const mergedArc = [...(editItem.additionalReceipts ?? [])];
+            const arcIds = new Set(mergedArc.map((r) => r.id));
+            for (const row of result.createdAdditionalReceipts) {
+              if (arcIds.has(row.id)) continue;
+              mergedArc.push({
+                id: row.id,
+                description: row.description,
+                amount: row.amount,
+                settlementChannel:
+                  row.settlementChannel === 'FIELD_RECEIVED' ? 'FIELD_RECEIVED' : 'COMPANY_DEPOSIT',
+                sortOrder: row.sortOrder,
+                createdAt: row.createdAt,
+                updatedAt: row.updatedAt,
+                createdBy: row.createdBy,
+              });
+            }
+            const patched: InquiryItem = {
+              ...editItem,
+              profOptionsAmountReviewPending: result.profOptionsAmountReviewPending,
+              profOptionsAmountReviewCompleted: result.profOptionsAmountReviewCompleted,
+              additionalReceipts: mergedArc,
+            };
+            setEditItem(patched);
+            setItems((prev) =>
+              patchInquiryProfReviewInList(prev, editItem.id, {
+                profOptionsAmountReviewPending: result.profOptionsAmountReviewPending,
+                profOptionsAmountReviewCompleted: result.profOptionsAmountReviewCompleted,
+                additionalReceipts: mergedArc,
+              }),
+            );
           }}
           serviceZones={serviceZones}
           customCalendars={customCalendars}

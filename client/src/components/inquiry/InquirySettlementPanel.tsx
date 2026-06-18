@@ -501,7 +501,14 @@ export function InquirySettlementPanel({
     (async () => {
       try {
         const rows = await arcApi.list(token, inquiryId);
-        if (!cancelled) setArcItems(rows);
+        if (!cancelled) {
+          setArcItems(
+            rows.map((r) => ({
+              ...r,
+              amount: coerceWonAmount(r.amount),
+            })),
+          );
+        }
       } catch (e) {
         if (!cancelled)
           setArcError(e instanceof Error ? e.message : '추가결재 목록을 불러올 수 없습니다.');

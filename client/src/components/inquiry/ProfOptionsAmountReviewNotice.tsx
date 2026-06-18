@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   applyInquiryProfOptionAmounts,
   getInquiryProfOptionAmountLines,
+  type ApplyProfOptionAmountsResult,
   type ProfOptionAmountLinePreview,
 } from '../../api/inquiries';
 
@@ -41,7 +42,7 @@ function defaultChargeAmount(line: ProfOptionAmountLinePreview): string {
 export function ProfOptionsAmountReviewApplyPanel(props: {
   token: string;
   inquiryId: string;
-  onApplied?: () => void | Promise<void>;
+  onApplied?: (result: ApplyProfOptionAmountsResult) => void | Promise<void>;
 }) {
   const { token, inquiryId, onApplied } = props;
   const [lines, setLines] = useState<ProfOptionAmountLinePreview[]>([]);
@@ -111,11 +112,13 @@ export function ProfOptionsAmountReviewApplyPanel(props: {
           `단가 미설정 옵션: ${result.unpricedLabels.join(', ')}\n해당 항목은 금액을 입력한 뒤 다시 반영하거나, 총액·추가결재로 처리해 주세요.`,
         );
       } else if (result.createdCount > 0) {
-        alert(`전문 시공 옵션 ${result.createdCount}건을 추가 금액에 반영했습니다.`);
+        alert(`전문 시공 옵션 ${result.createdCount}건을 추가결재에 반영했습니다.`);
       } else if (result.skippedCount > 0) {
         alert('이미 반영된 항목만 있거나 새로 추가할 항목이 없습니다.');
+      } else if (result.profOptionsAmountReviewCompleted) {
+        alert('옵션 금액 확인이 완료되었습니다.');
       }
-      await onApplied?.();
+      await onApplied?.(result);
       await loadLines();
     } catch (e) {
       alert(e instanceof Error ? e.message : '옵션 금액 반영에 실패했습니다.');
@@ -130,7 +133,7 @@ export function ProfOptionsAmountReviewApplyPanel(props: {
       <p className="mt-1.5 text-fluid-xs leading-relaxed text-amber-900/90">
         발주서·카탈로그 금액은 <span className="font-medium">표준가</span>입니다. 할인·협의가 있으면{' '}
         <span className="font-medium">청구 금액</span>을 수정한 뒤 반영하세요. 반영 위치는 아래{' '}
-        <span className="font-medium">결제 금액 내역 → 예전 방식 현장 추가 금액</span>입니다.
+        <span className="font-medium">결제 금액 내역 → 추가결재</span>입니다.
       </p>
 
       {loading ? (

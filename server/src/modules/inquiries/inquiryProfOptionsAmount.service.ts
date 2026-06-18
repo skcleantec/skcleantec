@@ -21,8 +21,43 @@ export type InquiryProfOptionsReviewRow = {
     submittedAt: Date | string | null;
   } | null;
   extraCharges?: Array<{ description: string }>;
-  additionalReceipts?: Array<{ id: string }>;
+  additionalReceipts?: Array<{ id: string; description?: string }>;
 };
+
+async function loadProfOptionAppliedAmountByDescription(
+  inquiryId: string,
+): Promise<Map<string, number>> {
+  const [extras, arcs] = await Promise.all([
+    prisma.inquiryExtraCharge.findMany({
+      where: { inquiryId, description: { startsWith: PROF_OPTION_EXTRA_CHARGE_PREFIX } },
+      select: { description: true, amount: true },
+    }),
+    prisma.inquiryAdditionalReceipt.findMany({
+      where: { inquiryId, description: { startsWith: PROF_OPTION_EXTRA_CHARGE_PREFIX } },
+      select: { description: true, amount: true },
+    }),
+  ]);
+  const byDesc = new Map<string, number>();
+  for (const row of [...extras, ...arcs]) {
+    byDesc.set(row.description.trim(), row.amount);
+  }
+  return byDesc;
+}
+
+function inquiryHasProfOptionAmountApplied(row: InquiryProfOptionsReviewRow): boolean {
+  if (
+    row.extraCharges?.some((c) =>
+      String(c.description).trim().startsWith(PROF_OPTION_EXTRA_CHARGE_PREFIX),
+    )
+  ) {
+    return true;
+  }
+  return Boolean(
+    row.additionalReceipts?.some((c) =>
+      String(c.description ?? '').trim().startsWith(PROF_OPTION_EXTRA_CHARGE_PREFIX),
+    ),
+  );
+}
 
 /**
  * 목록·상세 표시용 — DB 플래그가 false여도
@@ -36,16 +71,8 @@ export function resolveProfOptionsAmountReviewPendingForDisplay(
   const selections = parseProfessionalOptionSelectionsRaw(row.professionalOptionIds);
   if (selections.length === 0) return false;
 
-  /** 반영된 전문시공 extraCharge가 있으면 DB 플래그와 무관하게 완료 */
-  if (
-    row.extraCharges?.some((c) =>
-      String(c.description).trim().startsWith(PROF_OPTION_EXTRA_CHARGE_PREFIX),
-    )
-  ) {
-    return false;
-  }
-
-  if ((row.additionalReceipts?.length ?? 0) > 0) return false;
+  /** 반영된 전문시공 항목(extraCharge·추가결재)이 있으면 DB 플래그와 무관하게 완료 */
+  if (inquiryHasProfOptionAmountApplied(row)) return false;
 
   const formTotal = row.orderForm.totalAmount;
   if (formTotal == null) return false;
@@ -87,18 +114,34 @@ export async function enrichInquiriesProfOptionsReviewStatus<
 > {
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
-  const profExtraRows = await prisma.inquiryExtraCharge.findMany({
-    where: {
-      inquiryId: { in: ids },
-      description: { startsWith: PROF_OPTION_EXTRA_CHARGE_PREFIX },
-    },
-    select: { inquiryId: true },
-  });
-  const inquiryIdsWithProfExtra = new Set(profExtraRows.map((r) => r.inquiryId));
+  const [profExtraRows, profArcRows] = await Promise.all([
+    prisma.inquiryExtraCharge.findMany({
+      where: {
+        inquiryId: { in: ids },
+        description: { startsWith: PROF_OPTION_EXTRA_CHARGE_PREFIX },
+      },
+      select: { inquiryId: true },
+    }),
+    prisma.inquiryAdditionalReceipt.findMany({
+      where: {
+        inquiryId: { in: ids },
+        description: { startsWith: PROF_OPTION_EXTRA_CHARGE_PREFIX },
+      },
+      select: { inquiryId: true },
+    }),
+  ]);
+  const inquiryIdsWithProfApplied = new Set([
+    ...profExtraRows.map((r) => r.inquiryId),
+    ...profArcRows.map((r) => r.inquiryId),
+  ]);
 
   return rows.map((row) => {
-    const rowForResolve: InquiryProfOptionsReviewRow = inquiryIdsWithProfExtra.has(row.id)
-      ? { ...row, extraCharges: [{ description: PROF_OPTION_EXTRA_CHARGE_PREFIX }] }
+    const rowForResolve: InquiryProfOptionsReviewRow = inquiryIdsWithProfApplied.has(row.id)
+      ? {
+          ...row,
+          extraCharges: [{ description: PROF_OPTION_EXTRA_CHARGE_PREFIX }],
+          additionalReceipts: [{ id: 'prof-applied', description: PROF_OPTION_EXTRA_CHARGE_PREFIX }],
+        }
       : row;
     return attachProfOptionsReviewStatusDisplay(rowForResolve) as T & {
       profOptionsAmountReviewPending: boolean;
@@ -185,13 +228,7 @@ export async function previewProfOptionAmountLinesForInquiry(params: {
     params.tenantId,
     inquiry.professionalOptionIds,
   );
-  const existing = await prisma.inquiryExtraCharge.findMany({
-    where: { inquiryId: params.inquiryId },
-    select: { description: true, amount: true },
-  });
-  const existingByDesc = new Map(
-    existing.map((r) => [r.description.trim(), r.amount] as const),
-  );
+  const existingByDesc = await loadProfOptionAppliedAmountByDescription(params.inquiryId);
 
   return {
     lines: drafts.map((d) => {
@@ -283,6 +320,18 @@ export async function applyProfOptionAmountsToInquiry(params: {
   skippedCount: number;
   unpricedLabels: string[];
   profOptionsAmountReviewPending: boolean;
+  profOptionsAmountReviewCompleted: boolean;
+  createdAdditionalReceipts: Array<{
+    id: string;
+    inquiryId: string;
+    description: string;
+    amount: number;
+    settlementChannel: string;
+    sortOrder: number;
+    createdAt: string;
+    updatedAt: string;
+    createdBy: { id: string; name: string } | null;
+  }>;
 }> {
   const inquiry = await prisma.inquiry.findFirst({
     where: { id: params.inquiryId, tenantId: params.tenantId },
@@ -318,7 +367,8 @@ export async function applyProfOptionAmountsToInquiry(params: {
   }
 
   const unpricedLabels: string[] = [];
-  const linesToCreate: ProfOptionExtraChargeLine[] = [];
+  type LineToApply = ProfOptionExtraChargeLine & { zeroConfirmOnly?: boolean };
+  const linesToApply: LineToApply[] = [];
   for (const draft of drafts) {
     const explicit = amountByOptionId.has(draft.optionId);
     const amount = explicit ? amountByOptionId.get(draft.optionId)! : draft.standardAmount;
@@ -327,58 +377,86 @@ export async function applyProfOptionAmountsToInquiry(params: {
     }
     if (amount === 0) {
       if (explicit) {
-        /** 마케터가 0원으로 확정(기본 견적 포함·무료 옵션 등) */
-        linesToCreate.push({
+        linesToApply.push({
           optionId: draft.optionId,
           description: draft.description,
           amount: 0,
+          zeroConfirmOnly: true,
         });
       } else if (draft.requiresManualAmount) {
         unpricedLabels.push(draft.quantity > 1 ? `${draft.label} × ${draft.quantity}` : draft.label);
       }
       continue;
     }
-    linesToCreate.push({
+    linesToApply.push({
       optionId: draft.optionId,
       description: draft.description,
       amount,
     });
   }
 
-  const existing = await prisma.inquiryExtraCharge.findMany({
-    where: { inquiryId: params.inquiryId },
-    select: { description: true },
-  });
-  const existingDesc = new Set(existing.map((r) => r.description.trim()));
+  const existingDesc = new Set(
+    [...(await loadProfOptionAppliedAmountByDescription(params.inquiryId)).keys()],
+  );
+  const confirmedZeroOptionIds = new Set<string>();
 
   let createdCount = 0;
   let skippedCount = 0;
+  const createdAdditionalReceipts: Array<{
+    id: string;
+    inquiryId: string;
+    description: string;
+    amount: number;
+    settlementChannel: string;
+    sortOrder: number;
+    createdAt: string;
+    updatedAt: string;
+    createdBy: { id: string; name: string } | null;
+  }> = [];
   let sortOrder =
     ((
-      await prisma.inquiryExtraCharge.findFirst({
+      await prisma.inquiryAdditionalReceipt.findFirst({
         where: { inquiryId: params.inquiryId },
         orderBy: { sortOrder: 'desc' },
         select: { sortOrder: true },
       })
     )?.sortOrder ?? -1) + 1;
 
-  for (const line of linesToCreate) {
+  for (const line of linesToApply) {
     const descKey = line.description.trim();
     if (existingDesc.has(descKey)) {
       skippedCount += 1;
       continue;
     }
-    await prisma.inquiryExtraCharge.create({
+    if (line.zeroConfirmOnly) {
+      confirmedZeroOptionIds.add(line.optionId);
+      existingDesc.add(descKey);
+      continue;
+    }
+    const created = await prisma.inquiryAdditionalReceipt.create({
       data: {
         inquiryId: params.inquiryId,
         description: line.description,
         amount: line.amount,
+        settlementChannel: 'COMPANY_DEPOSIT',
         sortOrder: sortOrder++,
         createdById: params.actorId,
       },
+      include: { createdBy: { select: { id: true, name: true } } },
     });
     existingDesc.add(descKey);
     createdCount += 1;
+    createdAdditionalReceipts.push({
+      id: created.id,
+      inquiryId: created.inquiryId,
+      description: created.description,
+      amount: created.amount,
+      settlementChannel: created.settlementChannel,
+      sortOrder: created.sortOrder,
+      createdAt: created.createdAt.toISOString(),
+      updatedAt: created.updatedAt.toISOString(),
+      createdBy: created.createdBy,
+    });
     void recordExtraChargeChangeLog({
       inquiryId: params.inquiryId,
       actorId: params.actorId,
@@ -388,20 +466,49 @@ export async function applyProfOptionAmountsToInquiry(params: {
 
   const allDraftLinesSettled =
     drafts.length === 0 ||
-    drafts.every((d) => existingDesc.has(d.description.trim()));
+    drafts.every(
+      (d) => existingDesc.has(d.description.trim()) || confirmedZeroOptionIds.has(d.optionId),
+    );
   if (unpricedLabels.length === 0 && allDraftLinesSettled) {
     await markProfOptionsAmountReviewComplete(params.tenantId, params.inquiryId);
   }
 
-  const row = await prisma.inquiry.findUnique({
-    where: { id: params.inquiryId },
-    select: { profOptionsAmountReviewPending: true },
+  const inquiryRow = await prisma.inquiry.findFirst({
+    where: { id: params.inquiryId, tenantId: params.tenantId },
+    select: {
+      profOptionsAmountReviewPending: true,
+      professionalOptionIds: true,
+      serviceTotalAmount: true,
+      orderForm: { select: { submittedAt: true, totalAmount: true } },
+    },
   });
+  const [extraCharges, additionalReceipts] = inquiryRow
+    ? await Promise.all([
+        prisma.inquiryExtraCharge.findMany({
+          where: { inquiryId: params.inquiryId },
+          select: { description: true },
+        }),
+        prisma.inquiryAdditionalReceipt.findMany({
+          where: { inquiryId: params.inquiryId },
+          select: { id: true, description: true },
+        }),
+      ])
+    : [[], []];
+  const status = inquiryRow
+    ? attachProfOptionsReviewStatusDisplay({
+        ...inquiryRow,
+        profOptionsAmountReviewPending: inquiryRow.profOptionsAmountReviewPending,
+        extraCharges,
+        additionalReceipts,
+      })
+    : null;
 
   return {
     createdCount,
     skippedCount,
     unpricedLabels,
-    profOptionsAmountReviewPending: row?.profOptionsAmountReviewPending ?? false,
+    profOptionsAmountReviewPending: status?.profOptionsAmountReviewPending ?? false,
+    profOptionsAmountReviewCompleted: status?.profOptionsAmountReviewCompleted ?? false,
+    createdAdditionalReceipts,
   };
 }

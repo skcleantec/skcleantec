@@ -455,6 +455,10 @@ export type ScheduleInquiryDetailModalProps =
       onSaved: () => void;
       /** 레거시 추가 금액·추가결재 등 별도 API 저장 후 `item`을 다시 맞출 때(예: getInquiry 후 setState) */
       onInquiryRefresh?: () => void | Promise<void>;
+      /** 전문 시공 옵션 금액 반영 직후 — 목록·결제 패널 즉시 갱신용 */
+      onProfOptionsApplied?: (
+        result: import('../../api/inquiries').ApplyProfOptionAmountsResult,
+      ) => void | Promise<void>;
       /** 스케줄 월 뷰에서만 전달. 해당 예약일·팀장별 당일 배정 건수(표시만, DB 없음) */
       leaderAssignmentCountsByLeaderId?: Map<string, number>;
       /** 스케줄 월 뷰 — 같은 예약일 접수 목록(슬롯별 이미 배정된 팀장 제외용) */
@@ -645,6 +649,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const onInquiryRefresh = isCreate
     ? undefined
     : (props as { onInquiryRefresh?: () => void | Promise<void> }).onInquiryRefresh;
+  const onProfOptionsApplied = isCreate
+    ? undefined
+    : (props as {
+        onProfOptionsApplied?: (
+          result: import('../../api/inquiries').ApplyProfOptionAmountsResult,
+        ) => void | Promise<void>;
+      }).onProfOptionsApplied;
   const leaderAssignmentCountsByLeaderId = !isCreate
     ? (props as { leaderAssignmentCountsByLeaderId?: Map<string, number> }).leaderAssignmentCountsByLeaderId
     : undefined;
@@ -2000,7 +2011,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           <ProfOptionsAmountReviewApplyPanel
             token={token}
             inquiryId={item.id}
-            onApplied={async () => {
+            onApplied={async (result) => {
+              await onProfOptionsApplied?.(result);
               await onInquiryRefresh?.();
             }}
           />
@@ -2784,6 +2796,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             sectionAnchor="extra-charges"
           >
             <InquirySettlementPanel
+              key={`settlement-${item.id}-${item.additionalReceipts?.length ?? 0}-${item.additionalReceipts?.map((r) => r.id).join(',') ?? ''}-${item.extraCharges?.length ?? 0}`}
               inquiryId={item.id}
               token={token}
               mode="admin"

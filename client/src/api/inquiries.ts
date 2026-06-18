@@ -180,17 +180,31 @@ export async function getInquiryProfOptionAmountLines(
   return res.json();
 }
 
-/** 고객 선택 전문 시공 옵션 단가 → 접수 추가 청소(extraCharges) 반영 */
-export async function applyInquiryProfOptionAmounts(
-  token: string,
-  inquiryId: string,
-  lines?: Array<{ optionId: string; amount: number }>,
-): Promise<{
+export type ApplyProfOptionAmountsResult = {
   createdCount: number;
   skippedCount: number;
   unpricedLabels: string[];
   profOptionsAmountReviewPending: boolean;
-}> {
+  profOptionsAmountReviewCompleted: boolean;
+  createdAdditionalReceipts: Array<{
+    id: string;
+    inquiryId: string;
+    description: string;
+    amount: number;
+    settlementChannel: string;
+    sortOrder: number;
+    createdAt: string;
+    updatedAt: string;
+    createdBy: { id: string; name: string } | null;
+  }>;
+};
+
+/** 고객 선택 전문 시공 옵션 단가 → 접수 추가결재 반영 */
+export async function applyInquiryProfOptionAmounts(
+  token: string,
+  inquiryId: string,
+  lines?: Array<{ optionId: string; amount: number }>,
+): Promise<ApplyProfOptionAmountsResult> {
   const res = await fetch(`${API}/inquiries/${encodeURIComponent(inquiryId)}/apply-prof-option-amounts`, {
     method: 'POST',
     headers: headers(token),
