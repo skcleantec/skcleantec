@@ -681,6 +681,30 @@ export function AdminOrderFormPage() {
                   />
                 </div>
               </div>
+              {token ? (
+                <div className="mt-5 border-t border-gray-100 pt-5">
+                  <p className="mb-3 text-fluid-2xs leading-relaxed text-gray-500">
+                    선택한 양식이 그대로 아래에 표시됩니다. 상담 내용을 미리 채우면 그 항목은 고객 화면에서 잠겨(수정 불가) 보이고, 비워 둔 항목은 고객이 직접 작성합니다.
+                  </p>
+                  {!issueTemplatesLoaded ? (
+                    <p className="py-6 text-center text-fluid-sm text-gray-500">발주서 양식 불러오는 중…</p>
+                  ) : (
+                    <OrderFormPage
+                      key={`issue-${issueTemplateId}-${pendingLinkId}-${issueFormKey}`}
+                      editor={{
+                        authToken: token,
+                        inline: true,
+                        create: {
+                          templateId: issueTemplateId || undefined,
+                          pendingInquiryId: pendingLinkId || undefined,
+                          internalCustomerTone: issueInternalCustomerTone,
+                          onCreated: handleOrderCreated,
+                        },
+                      }}
+                    />
+                  )}
+                </div>
+              ) : null}
               {newOrder ? (
                 <div
                   ref={issueCompleteRef}
@@ -743,30 +767,6 @@ export function AdminOrderFormPage() {
                       </details>
                     </div>
                   </div>
-                </div>
-              ) : null}
-              {token ? (
-                <div className="mt-5 border-t border-gray-100 pt-5">
-                  <p className="mb-3 text-fluid-2xs leading-relaxed text-gray-500">
-                    선택한 양식이 그대로 아래에 표시됩니다. 상담 내용을 미리 채우면 그 항목은 고객 화면에서 잠겨(수정 불가) 보이고, 비워 둔 항목은 고객이 직접 작성합니다.
-                  </p>
-                  {!issueTemplatesLoaded ? (
-                    <p className="py-6 text-center text-fluid-sm text-gray-500">발주서 양식 불러오는 중…</p>
-                  ) : (
-                    <OrderFormPage
-                      key={`issue-${issueTemplateId}-${pendingLinkId}-${issueFormKey}`}
-                      editor={{
-                        authToken: token,
-                        inline: true,
-                        create: {
-                          templateId: issueTemplateId || undefined,
-                          pendingInquiryId: pendingLinkId || undefined,
-                          internalCustomerTone: issueInternalCustomerTone,
-                          onCreated: handleOrderCreated,
-                        },
-                      }}
-                    />
-                  )}
                 </div>
               ) : null}
             </div>
