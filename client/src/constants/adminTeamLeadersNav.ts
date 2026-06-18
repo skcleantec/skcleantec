@@ -7,6 +7,12 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
     label: '업체등록정보',
     children: [
       {
+        to: '/admin/team-leaders/company-profile/subscription',
+        end: true,
+        label: '가입정보',
+        title: '청소비서 플랜·서비스·사용량',
+      },
+      {
         to: '/admin/team-leaders/company-profile/business',
         end: true,
         label: '사업자정보',

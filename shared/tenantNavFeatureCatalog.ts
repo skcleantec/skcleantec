@@ -83,6 +83,7 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
     subtitle: 'GNB · 관리자 전용 (ADMIN)',
     adminOnly: true,
     rows: [
+      { label: '가입정보', path: '/admin/team-leaders/company-profile/subscription', moduleId: null, group: '업체등록정보' },
       { label: '사업자정보', path: '/admin/team-leaders/company-profile/business', moduleId: null, group: '업체등록정보' },
       {
         label: '발송이메일',

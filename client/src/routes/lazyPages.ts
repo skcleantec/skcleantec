@@ -129,6 +129,11 @@ export const AdminTenantPartnerSettlementPage = lazyWithRetry(() =>
 export const AdminOperatingCompaniesPage = lazyWithRetry(() =>
   import('../pages/admin/AdminOperatingCompaniesPage').then((m) => ({ default: m.AdminOperatingCompaniesPage }))
 );
+export const AdminTenantSubscriptionPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminTenantSubscriptionPage').then((m) => ({
+    default: m.AdminTenantSubscriptionPage,
+  }))
+);
 export const AdminTenantCompanyBusinessPage = lazyWithRetry(() =>
   import('../pages/admin/AdminTenantCompanyBusinessPage').then((m) => ({
     default: m.AdminTenantCompanyBusinessPage,

@@ -75,6 +75,29 @@ export function modulesForPlan(plan: string): TenantFeatureModuleId[] {
   return [...p.modules];
 }
 
+/** @see shared/tenantSubscriptionUsage.ts — 동기화 */
+export type TenantUsageMetricId = 'activeUsers' | 'inquiriesThisMonth' | 'operatingBrands';
+
+export const TENANT_USAGE_METRIC_LABELS: Record<TenantUsageMetricId, string> = {
+  activeUsers: '활성 업무 계정',
+  inquiriesThisMonth: '이번 달 접수',
+  operatingBrands: '영업 브랜드',
+};
+
+export const TENANT_PLAN_USAGE_LIMITS: Record<
+  TenantPlanId,
+  Record<TenantUsageMetricId, number | null>
+> = {
+  starter: { activeUsers: 10, inquiriesThisMonth: 500, operatingBrands: 1 },
+  standard: { activeUsers: 30, inquiriesThisMonth: 2_000, operatingBrands: 3 },
+  premium: { activeUsers: null, inquiriesThisMonth: null, operatingBrands: null },
+};
+
+export function usageLimitForPlan(plan: string, metric: TenantUsageMetricId): number | null {
+  const p = plan in TENANT_PLAN_USAGE_LIMITS ? (plan as TenantPlanId) : 'standard';
+  return TENANT_PLAN_USAGE_LIMITS[p][metric];
+}
+
 export function isKnownFeatureModuleId(id: string): id is TenantFeatureModuleId {
   return id in TENANT_FEATURE_MODULES;
 }
