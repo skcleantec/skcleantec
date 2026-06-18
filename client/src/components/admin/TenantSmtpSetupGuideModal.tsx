@@ -1,5 +1,8 @@
 import { ModalCloseButton } from './ModalCloseButton';
 
+/** Google 계정 앱 비밀번호 발급 (2단계 인증 필요) */
+const GOOGLE_APP_PASSWORDS_URL = 'https://myaccount.google.com/apppasswords';
+
 type Props = {
   onClose: () => void;
   companyName?: string;
@@ -81,7 +84,16 @@ export function TenantSmtpSetupGuideModal({ onClose, companyName }: Props) {
                 <dt className="font-medium">앱 비밀번호</dt>
                 <dd className="text-blue-900/80">
                   Gmail 등에서 「메일 프로그램 연결」용으로 따로 발급하는 16자리 비밀번호입니다. 일반
-                  로그인 비밀번호와 다릅니다.
+                  로그인 비밀번호와 다릅니다.{' '}
+                  <a
+                    href={GOOGLE_APP_PASSWORDS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-indigo-700 underline underline-offset-2 hover:text-indigo-900"
+                  >
+                    Google 앱 비밀번호 발급 바로가기
+                  </a>
+                  <span className="text-blue-900/70"> (2단계 인증 필요)</span>
                 </dd>
               </div>
             </dl>
@@ -97,6 +109,16 @@ export function TenantSmtpSetupGuideModal({ onClose, companyName }: Props) {
                     서버 {p.host} · 포트 {p.port} · SSL {p.secure ? '사용' : '미사용'}
                   </p>
                   <p className="mt-1 text-gray-600 leading-relaxed">{p.note}</p>
+                  {p.name === 'Gmail' ? (
+                    <a
+                      href={GOOGLE_APP_PASSWORDS_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-100"
+                    >
+                      Google 앱 비밀번호 발급 →
+                    </a>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -108,7 +130,15 @@ export function TenantSmtpSetupGuideModal({ onClose, companyName }: Props) {
               <li>Google 계정에서 2단계 인증을 켭니다.</li>
               <li>
                 Google 계정 → 보안 → 「앱 비밀번호」에서 메일용 비밀번호를 발급합니다. (16자리, 공백
-                없이 입력)
+                없이 입력){' '}
+                <a
+                  href={GOOGLE_APP_PASSWORDS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-indigo-700 underline underline-offset-2 hover:text-indigo-900"
+                >
+                  앱 비밀번호 발급 페이지 열기
+                </a>
               </li>
               <li>
                 아래 항목을 입력합니다.
