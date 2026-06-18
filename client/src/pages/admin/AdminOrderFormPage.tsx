@@ -68,11 +68,9 @@ function orderFormSubmissionEmailColumnTitle(o: OrderForm): string | undefined {
 }
 
 function canResendOrderFormSubmissionEmail(o: OrderForm): boolean {
-  return Boolean(
-    o.submittedAt &&
-      o.submissionEmail &&
-      (o.submissionEmail.status === 'FAILED' || o.submissionEmail.status === 'SKIPPED_NO_SMTP'),
-  );
+  if (!o.submittedAt) return false;
+  const email = o.customerEmail?.trim() || o.submissionEmail?.toEmail?.trim();
+  return Boolean(email);
 }
 
 function parseTabParam(raw: string | null): Tab {
@@ -1065,7 +1063,7 @@ export function AdminOrderFormPage() {
                               onClick={() => void handleResendSubmissionEmail(o)}
                               className="!text-amber-800 !bg-amber-50/50 !border-amber-100"
                             >
-                              {resendEmailBusyId === o.id ? '발송 중…' : '메일 재발송'}
+                              {resendEmailBusyId === o.id ? '발송 중…' : '강제 재발송'}
                             </button>
                           ) : null}
                           <button
@@ -1173,17 +1171,34 @@ export function AdminOrderFormPage() {
                                 className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center xl:px-1.5 xl:py-2.5"
                                 title={orderFormSubmissionEmailColumnTitle(o)}
                               >
-                                <span
-                                  className={`text-fluid-2xs rounded px-1.5 py-0.5 xl:text-fluid-xs ${
-                                    !o.submittedAt
-                                      ? 'text-slate-400'
-                                      : o.submissionEmail?.status === 'SENT'
-                                        ? 'font-semibold text-sky-700 bg-sky-50 ring-1 ring-sky-200/50'
-                                        : 'font-medium text-amber-800 bg-amber-50 ring-1 ring-amber-200/50'
-                                  }`}
-                                >
-                                  {orderFormSubmissionEmailColumnLabel(o)}
-                                </span>
+                                <div className="flex flex-col items-center gap-1">
+                                  <span
+                                    className={`text-fluid-2xs rounded px-1.5 py-0.5 xl:text-fluid-xs ${
+                                      !o.submittedAt
+                                        ? 'text-slate-400'
+                                        : o.submissionEmail?.status === 'SENT'
+                                          ? 'font-semibold text-sky-700 bg-sky-50 ring-1 ring-sky-200/50'
+                                          : 'font-medium text-amber-800 bg-amber-50 ring-1 ring-amber-200/50'
+                                    }`}
+                                  >
+                                    {orderFormSubmissionEmailColumnLabel(o)}
+                                  </span>
+                                  {canResendOrderFormSubmissionEmail(o) ? (
+                                    <button
+                                      type="button"
+                                      disabled={resendEmailBusyId === o.id}
+                                      onClick={() => void handleResendSubmissionEmail(o)}
+                                      className="text-fluid-2xs font-medium text-sky-700 underline-offset-2 hover:underline disabled:opacity-50 xl:text-fluid-xs"
+                                      title={
+                                        o.submissionEmail?.status === 'SENT'
+                                          ? '이미 발송된 확인 메일을 다시 보냅니다.'
+                                          : (o.submissionEmail?.lastError ?? '확인 메일 강제 재발송')
+                                      }
+                                    >
+                                      {resendEmailBusyId === o.id ? '발송 중…' : '강제 재발송'}
+                                    </button>
+                                  ) : null}
+                                </div>
                               </td>
                               <td
                                 className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center tabular-nums text-slate-500 xl:px-1.5 xl:py-2.5"
@@ -1231,9 +1246,13 @@ export function AdminOrderFormPage() {
                                       disabled={resendEmailBusyId === o.id}
                                       onClick={() => void handleResendSubmissionEmail(o)}
                                       className="!text-amber-800 !bg-amber-50/50 !border-amber-100"
-                                      title={o.submissionEmail?.lastError ?? '확인 메일 재발송'}
+                                      title={
+                                        o.submissionEmail?.status === 'SENT'
+                                          ? '이미 발송된 확인 메일을 다시 보냅니다.'
+                                          : (o.submissionEmail?.lastError ?? '확인 메일 강제 재발송')
+                                      }
                                     >
-                                      {resendEmailBusyId === o.id ? '발송 중…' : '메일 재발송'}
+                                      {resendEmailBusyId === o.id ? '발송 중…' : '강제 재발송'}
                                     </button>
                                   ) : null}
                                   <button
