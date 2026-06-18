@@ -1,18 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
 import { ADMIN_TEAM_LEADERS_NAV_ITEMS } from '../../constants/adminTeamLeadersNav';
-import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
+import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
+import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
+import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
 
 const ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-team-leaders-side-nav-collapsed';
 
-function MobileTeamLeadersSubNavTabs() {
+function MobileTeamLeadersSubNavTabs({ items }: { items: AdminSideNavItem[] }) {
   return (
     <>
-      {ADMIN_TEAM_LEADERS_NAV_ITEMS.flatMap((item) => {
+      {items.flatMap((item) => {
         if (item.type === 'link') {
           return (
             <NavLink
@@ -45,7 +47,13 @@ function MobileTeamLeadersSubNavTabs() {
 /** 관리자 전용(/admin/team-leaders/*) — PC: 왼쪽 접이식 사이드 / 모바일: 가로 하위 탭 */
 export function AdminTeamLeadersLayout() {
   const token = getToken();
+  const { features } = useTenantCapabilities();
   const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other' | 'network_error'>('loading');
+
+  const navItems = useMemo(
+    () => filterAdminSideNavItems(ADMIN_TEAM_LEADERS_NAV_ITEMS, features),
+    [features],
+  );
 
   const probeAdmin = useCallback(() => {
     const t = getToken();
@@ -108,7 +116,7 @@ export function AdminTeamLeadersLayout() {
     <div className="min-w-0 w-full max-w-full">
       <div className="lg:hidden">
         <AdminSubNavScroll aria-label="관리자 전용 하위 메뉴">
-          <MobileTeamLeadersSubNavTabs />
+          <MobileTeamLeadersSubNavTabs items={navItems} />
         </AdminSubNavScroll>
       </div>
 
@@ -116,7 +124,7 @@ export function AdminTeamLeadersLayout() {
         <div className="shrink-0">
           <AdminCollapsibleSectionSideNav
             title="관리자 전용"
-            items={ADMIN_TEAM_LEADERS_NAV_ITEMS}
+            items={navItems}
             aria-label="관리자 전용 하위 메뉴"
             collapseStorageKey={ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY}
           />

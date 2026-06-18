@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
@@ -6,6 +6,8 @@ import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
 import { getAdminAdvertisingNavItems } from '../../constants/adminAdvertisingNav';
 import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
+import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
+import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
 
 const ADMIN_ADVERTISING_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-advertising-side-nav-collapsed';
 
@@ -33,6 +35,7 @@ function MobileAdvertisingSubNavTabs({ items }: { items: ReturnType<typeof getAd
 export function AdminAdvertisingLayout() {
   const token = getToken();
   const location = useLocation();
+  const { features } = useTenantCapabilities();
   const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'marketer' | 'other' | 'network_error'>(
     'loading'
   );
@@ -104,7 +107,10 @@ export function AdminAdvertisingLayout() {
     return <Navigate to="/admin/advertising" replace />;
   }
 
-  const navItems = getAdminAdvertisingNavItems(isAdmin);
+  const navItems = useMemo(
+    () => filterAdminSideNavItems(getAdminAdvertisingNavItems(isAdmin), features),
+    [isAdmin, features],
+  );
 
   return (
     <div className="min-w-0 w-full max-w-full">

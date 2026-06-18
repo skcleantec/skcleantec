@@ -12,6 +12,7 @@ import {
   type PlatformTenantFeatureRow,
 } from '../../api/platformTenants';
 import { PlatformTenantAdminsSection } from './PlatformTenantAdminsSection';
+import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
 import { getPlatformToken } from '../../stores/platformAuth';
 import {
   EMPTY_TENANT_CONFIG_FORM,
@@ -28,7 +29,6 @@ import {
   INPUT_BASE,
   PlanBadge,
   PlatformAlert,
-  PlatformToggle,
   StatusBadge,
 } from '../../utils/platformUi';
 
@@ -511,7 +511,8 @@ export function PlatformTenantDetailPage() {
               <div>
                 <h2 className="text-base font-semibold text-gray-900">기능 모듈 개별 설정</h2>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  플랜 외 개별 기능을 on/off 할 수 있습니다. core 모듈은 잠겨 있습니다.
+                  테넌트 GNB·하위 메뉴를 카테고리별로 보고, 연결된 기능 모듈을 on/off 할 수 있습니다. core
+                  모듈은 잠겨 있습니다.
                 </p>
               </div>
               <button
@@ -523,33 +524,11 @@ export function PlatformTenantDetailPage() {
                 플랜 기본값으로 재설정
               </button>
             </div>
-            <ul className="mt-3 divide-y divide-gray-100">
-              {features.map((f) => (
-                <li key={f.moduleId} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <div className="text-sm text-gray-900">{f.label}</div>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-400">
-                      <span className="font-mono">{f.moduleId}</span>
-                      {f.locked ? (
-                        <span className="inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
-                          core · 잠금
-                        </span>
-                      ) : null}
-                      {!f.inPlan ? (
-                        <span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600">
-                          플랜 외
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <PlatformToggle
-                    checked={f.enabled}
-                    disabled={f.locked}
-                    onChange={() => toggleFeature(f.moduleId)}
-                  />
-                </li>
-              ))}
-            </ul>
+            <PlatformTenantFeatureCatalog
+              features={features}
+              onToggle={toggleFeature}
+              disabled={saving}
+            />
             <div className="flex justify-end border-t border-gray-100 pt-3">
               <button
                 type="button"

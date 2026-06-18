@@ -231,16 +231,19 @@ export async function buildQuotationPdfBuffer(
         }
         if (repName) {
           const repText = `대표 ${repName}`;
-          const textWidth = sealBuf ? boxW - 16 - sealPt - 6 : boxW - 16;
-          doc.text(repText, ml + 8, leftY, { width: textWidth, lineGap: 1 });
+          const textX = ml + 8;
+          doc.text(repText, textX, leftY, { lineBreak: false });
+          const textW = doc.widthOfString(repText);
+          let rowH = doc.currentLineHeight();
           if (sealBuf) {
             try {
-              doc.image(sealBuf, ml + boxW - 8 - sealPt, leftY - 2, { width: sealPt });
+              doc.image(sealBuf, textX + textW + 3, leftY - 3, { width: sealPt });
+              rowH = Math.max(rowH, sealPt - 2);
             } catch {
               /* ignore broken image */
             }
           }
-          leftY += doc.currentLineHeight() + 1;
+          leftY += rowH + 1;
         }
         const tailLines = [
           company?.businessRegistrationNo?.trim()

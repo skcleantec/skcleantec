@@ -1,19 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { ADMIN_INQUIRIES_NAV_ITEMS } from '../../constants/adminInquiriesNav';
-import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
+import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 import { getToken } from '../../stores/auth';
 import { getReviewPaybackUnseenCount } from '../../api/reviewPayback';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
+import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
 
 const ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-inquiries-side-nav-collapsed';
 const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
 
-function MobileInquirySubNavTabs({ reviewPaybackBadge }: { reviewPaybackBadge: number }) {
+function MobileInquirySubNavTabs({
+  items,
+  reviewPaybackBadge,
+}: {
+  items: AdminSideNavItem[];
+  reviewPaybackBadge: number;
+}) {
   return (
     <>
-      {ADMIN_INQUIRIES_NAV_ITEMS.flatMap((item) => {
+      {items.flatMap((item) => {
         if (item.type === 'link') {
           const badge = item.to === REVIEW_PAYBACK_PATH ? reviewPaybackBadge : 0;
           return (
@@ -59,6 +67,7 @@ function MobileInquirySubNavTabs({ reviewPaybackBadge }: { reviewPaybackBadge: n
 /** 접수목록(/admin/inquiries/*) — PC: 왼쪽 계층 메뉴 / 모바일: 가로 하위 탭 */
 export function AdminInquiriesLayout() {
   const token = getToken();
+  const { features } = useTenantCapabilities();
   const [reviewPaybackBadge, setReviewPaybackBadge] = useState(0);
 
   const refreshBadge = useCallback(async () => {
@@ -77,22 +86,21 @@ export function AdminInquiriesLayout() {
 
   useInboxRealtime(token, () => void refreshBadge(), Boolean(token));
 
-  const navItems = useMemo(
-    () =>
-      ADMIN_INQUIRIES_NAV_ITEMS.map((item) => {
-        if (item.type === 'link' && item.to === REVIEW_PAYBACK_PATH) {
-          return { ...item, badge: reviewPaybackBadge };
-        }
-        return item;
-      }),
-    [reviewPaybackBadge],
-  );
+  const navItems = useMemo(() => {
+    const withBadge = ADMIN_INQUIRIES_NAV_ITEMS.map((item) => {
+      if (item.type === 'link' && item.to === REVIEW_PAYBACK_PATH) {
+        return { ...item, badge: reviewPaybackBadge };
+      }
+      return item;
+    });
+    return filterAdminSideNavItems(withBadge, features);
+  }, [reviewPaybackBadge, features]);
 
   return (
     <div className="min-w-0 w-full max-w-full">
       <div className="lg:hidden">
         <AdminSubNavScroll aria-label="서비스접수 하위 메뉴">
-          <MobileInquirySubNavTabs reviewPaybackBadge={reviewPaybackBadge} />
+          <MobileInquirySubNavTabs items={navItems} reviewPaybackBadge={reviewPaybackBadge} />
         </AdminSubNavScroll>
       </div>
 

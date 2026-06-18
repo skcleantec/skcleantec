@@ -79,6 +79,35 @@ function formatValidUntil(ymd: string): string {
   return d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
 }
 
+function RepresentativeWithSeal({
+  repName,
+  sealUrl,
+  sealWidth,
+  className = 'text-[12px] text-slate-800',
+}: {
+  repName: string;
+  sealUrl: string | null;
+  sealWidth: number;
+  className?: string;
+}) {
+  return (
+    <p className={`leading-snug ${className}`}>
+      <span className="whitespace-nowrap">
+        대표 {repName}
+        {sealUrl ? (
+          <img
+            src={sealUrl}
+            alt=""
+            width={sealWidth}
+            className="inline-block align-middle ml-0.5 object-contain"
+            style={{ width: sealWidth, height: 'auto', maxHeight: sealWidth, verticalAlign: 'middle' }}
+          />
+        ) : null}
+      </span>
+    </p>
+  );
+}
+
 function companyLines(c: TenantCompanyRegistration | null): string[] {
   if (!c) return ['—'];
   return [
@@ -306,17 +335,11 @@ export function QuotationDocumentEditor({
                       <p>—</p>
                     ) : null}
                     {repName ? (
-                      <p className="flex items-center gap-2 flex-wrap">
-                        <span>대표 {repName}</span>
-                        {sealUrl ? (
-                          <img
-                            src={sealUrl}
-                            alt="직인"
-                            width={sealWidth}
-                            className="inline-block h-auto max-h-12 object-contain"
-                          />
-                        ) : null}
-                      </p>
+                      <RepresentativeWithSeal
+                        repName={repName}
+                        sealUrl={sealUrl}
+                        sealWidth={sealWidth}
+                      />
                     ) : null}
                     {supplierLines.slice(1).map((line) => (
                       <p key={line}>{line}</p>

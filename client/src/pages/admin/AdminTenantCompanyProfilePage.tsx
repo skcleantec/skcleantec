@@ -345,17 +345,29 @@ export function AdminTenantCompanyProfilePage() {
             {sealPreviewUrl ? (
               <div className="flex items-center gap-3 pt-1">
                 <span className="text-xs text-gray-500">미리보기 (대표 옆)</span>
-                <span className="inline-flex items-center gap-2 text-sm text-gray-800">
+                <span className="text-sm text-gray-800 whitespace-nowrap">
                   대표 {representativeName.trim() || '○○○'}
                   <img
                     src={sealPreviewUrl}
-                    alt="직인 미리보기"
+                    alt=""
                     width={
                       Number(sealDisplayWidthPx) > 0
                         ? Number(sealDisplayWidthPx)
                         : QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT
                     }
-                    className="inline-block h-auto max-h-14 object-contain"
+                    className="inline-block align-middle ml-0.5 object-contain"
+                    style={{
+                      width:
+                        Number(sealDisplayWidthPx) > 0
+                          ? Number(sealDisplayWidthPx)
+                          : QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT,
+                      height: 'auto',
+                      maxHeight:
+                        Number(sealDisplayWidthPx) > 0
+                          ? Number(sealDisplayWidthPx)
+                          : QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT,
+                      verticalAlign: 'middle',
+                    }}
                   />
                 </span>
               </div>
