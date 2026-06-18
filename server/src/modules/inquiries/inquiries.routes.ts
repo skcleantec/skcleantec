@@ -78,6 +78,7 @@ import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { syncInquiryAddressGeo } from './inquiryAddressGeoSync.js';
+import { validateInquiryAddressForStatus } from '../../lib/orderFormPendingAddress.js';
 import { scheduleBackgroundGeoHydrate } from './inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
 import { notifyAfterInquiryPatch } from '../push/inquiryTeamWebPush.js';
@@ -637,6 +638,20 @@ router.patch('/:id', async (req, res) => {
   const data = buildInquiryPatchData(body);
   const tentativeMergedStatus: InquiryStatus =
     data.status !== undefined ? (data.status as InquiryStatus) : inquiry.status;
+  const mergedAddress =
+    data.address !== undefined
+      ? typeof data.address === 'string'
+        ? data.address
+        : inquiry.address
+      : inquiry.address;
+  const addressStatusError = validateInquiryAddressForStatus(
+    tentativeMergedStatus,
+    mergedAddress,
+  );
+  if (addressStatusError) {
+    res.status(400).json({ error: addressStatusError });
+    return;
+  }
 
   /** 취소·보류: 담당 팀장·팀원 없이 유지(배정 행 삭제, 팀원 필드 비움). teamLeaderIds 없이 PATCH만 와도 동기화되도록 wantsTeamSync 강제 */
   if (tentativeMergedStatus === 'CANCELLED' || tentativeMergedStatus === 'ON_HOLD') {
@@ -1323,6 +1338,13 @@ router.post('/', async (req, res) => {
     rawStatus && CREATE_STATUSES.includes(rawStatus as InquiryStatus)
       ? (rawStatus as InquiryStatus)
       : 'RECEIVED';
+
+  const createAddress = String(body.address ?? '').trim();
+  const createAddressError = validateInquiryAddressForStatus(status, createAddress);
+  if (createAddressError) {
+    res.status(400).json({ error: createAddressError });
+    return;
+  }
 
   let crewMemberCount: number | null = null;
   if (body.crewMemberCount !== undefined && body.crewMemberCount !== null && body.crewMemberCount !== '') {

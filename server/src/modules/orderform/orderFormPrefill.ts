@@ -11,6 +11,7 @@ import {
   parseProfessionalOptionSelectionsRaw,
   serializeProfessionalOptionSelectionsJson,
 } from './specialtyOptions.js';
+import { isOrderFormPendingPlaceholderAddress } from '../../lib/orderFormPendingAddress.js';
 
 /** prefillAnswers 로 다루는 표준(시스템) 항목 키 — 제출 body 필드명과 동일하게 맞춘다 */
 export const PREFILL_STANDARD_KEYS = [
@@ -102,8 +103,12 @@ export function buildPrefillFromPayload(
       continue;
     }
     // 문자열 표준 키
-    if (typeof raw === 'string' && raw.trim()) out[key] = raw.trim();
-    else if (typeof raw === 'number') out[key] = raw;
+    if (typeof raw === 'string') {
+      const t = raw.trim();
+      if (!t) continue;
+      if (key === 'address' && isOrderFormPendingPlaceholderAddress(t)) continue;
+      out[key] = t;
+    } else if (typeof raw === 'number') out[key] = raw;
   }
 
   // 커스텀 답변

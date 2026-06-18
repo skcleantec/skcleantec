@@ -35,6 +35,11 @@ import { resolveInquiryOperatingCompanyId } from '../operating-companies/operati
 import { resolvePublicBrandingForCustomer } from '../operating-companies/publicOperatingCompanyBranding.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import {
+  ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS,
+  isOrderFormPendingPlaceholderAddress,
+  customerFormAddressFromInquiry,
+} from '../../lib/orderFormPendingAddress.js';
+import {
   recordInquiryStatusEvent,
   recordInquiryStatusTransition,
 } from '../inquiries/inquiryStatusEvent.js';
@@ -102,7 +107,7 @@ function respondPublicTenantAccessError(res: import('express').Response, e: unkn
 const VALID_ORDER_TIME_SLOTS = new Set(['오전', '오후', '사이청소']);
 
 /** 목록 연동용 접수 생성 시 주소 미수집 표시. 미제출 발주서 삭제 시 해당 접수는 삭제한다. */
-const STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER = '(발주서 링크 발급)';
+const STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER = ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS;
 
 function preferredDateYmdToKstNoon(ymdRaw: string | undefined): Date | null {
   const ymd = ymdRaw?.trim();
@@ -592,8 +597,7 @@ function mapPendingInquiry(row: {
   memo: string | null;
 }) {
   // 일반 발급으로 자동 생성된 플레이스홀더 주소는 고객에게 빈 값으로 노출(주소 검색 가능하게)
-  const addressForForm =
-    row.address?.trim() === STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER ? '' : row.address;
+  const addressForForm = customerFormAddressFromInquiry(row.address);
   return {
     customerName: row.customerName,
     customerPhone: row.customerPhone,
@@ -1948,7 +1952,7 @@ router.post('/submit/:token', async (req, res) => {
   const prefillLockedKeys = lockedKeysFromPrefill(form.prefillAnswers);
 
   const addressTrim = body.address != null ? String(body.address).trim() : '';
-  if (!addressTrim) {
+  if (!addressTrim || isOrderFormPendingPlaceholderAddress(addressTrim)) {
     res.status(400).json({ error: '「주소 검색」 버튼으로 주소를 선택해 주세요.' });
     return;
   }

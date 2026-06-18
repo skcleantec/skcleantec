@@ -54,7 +54,8 @@ import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { buildSlotOccupiedLeaderIdsForDay } from '../../utils/scheduleSlotOccupancy';
 import { formatPreferredDateInputYmd, formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
-import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { formatInquirySourceLabel, inquiryEditFormAddress, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { isRealCustomerAddress } from '@shared/orderFormPendingAddress';
 import {
   formatInquiryAreaKoShortFromEditStrings,
   inquiryAreaEditFormStringsFromItem,
@@ -873,7 +874,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       customerName: it.customerName,
       nickname: it.nickname || '',
       customerPhone: it.customerPhone,
-      address: it.address,
+      address: inquiryEditFormAddress(it.address),
       addressDetail: it.addressDetail || '',
       roomCount: it.roomCount != null ? String(it.roomCount) : '',
       bathroomCount: it.bathroomCount != null ? String(it.bathroomCount) : '',
@@ -1222,7 +1223,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       customerName: it.customerName,
       nickname: it.nickname || '',
       customerPhone: it.customerPhone,
-      address: it.address,
+      address: inquiryEditFormAddress(it.address),
       addressDetail: it.addressDetail || '',
       roomCount: it.roomCount != null ? String(it.roomCount) : '',
       bathroomCount: it.bathroomCount != null ? String(it.bathroomCount) : '',
@@ -1623,8 +1624,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       alert('연락처를 입력해주세요.');
       return;
     }
-    if (!isExternalIntakeMode && !editForm.address.trim()) {
-      alert('주소를 입력해주세요.');
+    if (!isExternalIntakeMode && !isRealCustomerAddress(editForm.address)) {
+      alert('주소를 입력해 주세요.');
       return;
     }
     if (

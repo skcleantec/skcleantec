@@ -84,9 +84,12 @@ import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import {
   addressListShortSiGu,
   formatInquirySourceLabel,
+  inquiryEditFormAddress,
+  inquiryListAddressFull,
   isInquirySourceHiddenFromUi,
   phoneListTwoLines,
 } from '../../utils/inquiryListDisplay';
+import { isRealCustomerAddress } from '@shared/orderFormPendingAddress';
 import {
   formatInquiryAreaKoLine,
   formatInquiryListAreaLabel,
@@ -1571,7 +1574,7 @@ export function AdminInquiriesPage() {
       customerName: item.customerName,
       nickname: item.nickname || '',
       customerPhone: item.customerPhone,
-      address: item.address,
+      address: inquiryEditFormAddress(item.address),
       addressDetail: item.addressDetail || '',
       roomCount: item.roomCount != null ? String(item.roomCount) : '',
       bathroomCount: item.bathroomCount != null ? String(item.bathroomCount) : '',
@@ -1948,8 +1951,8 @@ export function AdminInquiriesPage() {
         setSaving(false);
         return;
       }
-      if (!editForm.address.trim()) {
-        alert('주소를 입력해주세요.');
+      if (!isRealCustomerAddress(editForm.address)) {
+        alert('주소를 입력해 주세요.');
         setSaving(false);
         return;
       }
@@ -2683,7 +2686,7 @@ export function AdminInquiriesPage() {
             </p>
             <div className="flex flex-col gap-3 p-3">
               {items.map((item) => {
-                const addrFull = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
+                const addrFull = inquiryListAddressFull(item.address, item.addressDetail);
                 const addrShort = addressListShortSiGu(item.address);
                 const mobileSpecsTail = formatInquiryMobileSpecsTail(item);
                 return (
@@ -3200,7 +3203,7 @@ export function AdminInquiriesPage() {
                     </td>
                     <td
                       className={`min-w-0 px-1 py-0.5 align-middle text-center text-[10px] leading-tight text-slate-600 xl:px-1.5 xl:text-[11px] ${pBorder}`}
-                      title={`${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim()}
+                      title={inquiryListAddressFull(item.address, item.addressDetail)}
                     >
                       <span className="block truncate">{addressListShortSiGu(item.address)}</span>
                     </td>

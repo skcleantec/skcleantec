@@ -63,6 +63,9 @@ import { OrderFormSubmissionReceiptView } from '../../components/orderform/Order
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import type { PublicOperatingCompanyBranding } from '../../api/orderform';
+import {
+  isRealCustomerAddress,
+} from '@shared/orderFormPendingAddress';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -563,7 +566,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           }
         };
         const addrPrefillLocked =
-          !isEditor && typeof pf.address === 'string' && pf.address.trim().length > 0;
+          !isEditor &&
+          typeof pf.address === 'string' &&
+          isRealCustomerAddress(pf.address);
         setAddressConfirmedViaSearch(addrPrefillLocked);
         const fromForm = data.professionalOptions;
         if (fromForm && fromForm.length > 0) {
@@ -639,8 +644,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       };
 
       if (!form.customerName?.trim()) throw new Error('성함을 입력해주세요.');
-      if (!form.address?.trim()) throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
-      if (!isEditor && !prefillLocked('address') && !addressConfirmedViaSearch) {
+      if (!isRealCustomerAddress(form.address)) {
+        throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
+      }
+      const addressLockedByPrefill =
+        prefillLocked('address') && isRealCustomerAddress(form.address);
+      if (!isEditor && !addressLockedByPrefill && !addressConfirmedViaSearch) {
         throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
       }
       if (!prefillLocked('addressDetail') && !form.addressDetail.trim()) {
@@ -649,7 +658,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       if (
         !isEditor &&
         !addressConfirmedViaSearch &&
-        !prefillLocked('address') &&
+        !addressLockedByPrefill &&
         form.addressDetail.trim()
       ) {
         throw new Error('「주소 검색」으로 주소를 먼저 선택한 뒤 상세주소를 입력해 주세요.');
@@ -780,7 +789,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       customerName: form.customerName.trim() || undefined,
       customerPhone: form.customerPhone.trim() || undefined,
       customerPhone2: form.customerPhoneSecondary.trim() || undefined,
-      address: form.address.trim() || undefined,
+      address: isRealCustomerAddress(form.address.trim()) ? form.address.trim() : undefined,
       addressDetail: form.addressDetail.trim() || undefined,
       propertyType: form.propertyType || undefined,
       areaBasis: basisOk ? form.areaBasis : undefined,
