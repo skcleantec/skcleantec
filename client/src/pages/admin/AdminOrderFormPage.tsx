@@ -50,12 +50,21 @@ type Tab = 'issue' | 'followup' | 'list';
 
 const VALID_TABS: Tab[] = ['issue', 'followup', 'list'];
 
-function orderFormSubmissionEmailHint(o: OrderForm): string | null {
-  if (!o.submittedAt || !o.submissionEmail) return null;
-  if (o.submissionEmail.status === 'SENT') return '확인 메일 발송됨';
-  if (o.submissionEmail.status === 'FAILED') return '확인 메일 실패';
-  if (o.submissionEmail.status === 'SKIPPED_NO_SMTP') return '발송 SMTP 미설정';
-  return null;
+function orderFormSubmissionEmailColumnLabel(o: OrderForm): string {
+  if (!o.submittedAt) return '—';
+  if (o.submissionEmail?.status === 'SENT') return '메일발송';
+  return '미발송';
+}
+
+function orderFormSubmissionEmailColumnTitle(o: OrderForm): string | undefined {
+  if (!o.submittedAt) return undefined;
+  if (o.submissionEmail?.status === 'SENT') return '고객 이메일로 확인 메일이 발송되었습니다.';
+  const err = o.submissionEmail?.lastError?.trim();
+  if (err) return err;
+  if (!o.submissionEmail) return '제출 확인 메일 발송 기록이 없습니다.';
+  if (o.submissionEmail.status === 'FAILED') return '메일 발송에 실패했습니다.';
+  if (o.submissionEmail.status === 'SKIPPED_NO_SMTP') return '발송 SMTP가 설정되지 않았습니다.';
+  return '확인 메일이 아직 발송되지 않았습니다.';
 }
 
 function canResendOrderFormSubmissionEmail(o: OrderForm): boolean {
@@ -988,16 +997,16 @@ export function AdminOrderFormPage() {
                             >
                               {o.submittedAt ? '제출완료' : '미제출'}
                             </span>
-                            {orderFormSubmissionEmailHint(o) ? (
+                            {o.submittedAt ? (
                               <span
                                 className={`rounded-md px-2 py-0.5 text-fluid-2xs font-medium ${
                                   o.submissionEmail?.status === 'SENT'
                                     ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200/50'
                                     : 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/50'
                                 }`}
-                                title={o.submissionEmail?.lastError ?? undefined}
+                                title={orderFormSubmissionEmailColumnTitle(o)}
                               >
-                                {orderFormSubmissionEmailHint(o)}
+                                {orderFormSubmissionEmailColumnLabel(o)}
                               </span>
                             ) : null}
                           </div>
@@ -1076,13 +1085,14 @@ export function AdminOrderFormPage() {
                   <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
                     <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm">
                       <colgroup>
-                        <col className="w-[17%]" />
-                        <col className="w-[15%]" />
                         <col className="w-[11%]" />
-                        <col className="w-[12%]" />
-                        <col className="w-[10%]" />
                         <col className="w-[14%]" />
-                        <col className="w-[21%]" />
+                        <col className="w-[10%]" />
+                        <col className="w-[11%]" />
+                        <col className="w-[8%]" />
+                        <col className="w-[9%]" />
+                        <col className="w-[12%]" />
+                        <col className="w-[25%]" />
                       </colgroup>
                       <thead>
                         <tr className="border-b border-slate-200/60 bg-slate-50/80">
@@ -1102,6 +1112,9 @@ export function AdminOrderFormPage() {
                             상태
                           </th>
                           <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
+                            이메일발송
+                          </th>
+                          <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
                             발급일
                           </th>
                           <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
@@ -1119,7 +1132,7 @@ export function AdminOrderFormPage() {
                                 className="sticky left-0 z-10 min-w-0 border-b border-r border-slate-100/80 bg-white px-1.5 py-2 align-middle group-hover:bg-slate-50/80 xl:px-2 xl:py-2.5"
                                 title={o.customerName}
                               >
-                                <span className="block truncate text-left font-semibold text-slate-900 xl:text-fluid-xs">
+                                <span className="block truncate text-center font-semibold text-slate-900 xl:text-fluid-xs">
                                   {o.customerName}
                                 </span>
                               </td>
@@ -1147,28 +1160,30 @@ export function AdminOrderFormPage() {
                               </td>
                               <td className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center xl:px-1.5 xl:py-2.5">
                                 {o.submittedAt ? (
-                                  <div className="flex flex-col items-center gap-1">
-                                    <span className="text-fluid-2xs font-semibold text-green-700 bg-green-50 ring-1 ring-green-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
-                                      제출완료
-                                    </span>
-                                    {orderFormSubmissionEmailHint(o) ? (
-                                      <span
-                                        className={`text-fluid-2xs rounded px-1.5 py-0.5 xl:text-fluid-xs ${
-                                          o.submissionEmail?.status === 'SENT'
-                                            ? 'text-sky-700 bg-sky-50 ring-1 ring-sky-200/50'
-                                            : 'text-amber-800 bg-amber-50 ring-1 ring-amber-200/50'
-                                        }`}
-                                        title={o.submissionEmail?.lastError ?? undefined}
-                                      >
-                                        {orderFormSubmissionEmailHint(o)}
-                                      </span>
-                                    ) : null}
-                                  </div>
+                                  <span className="text-fluid-2xs font-semibold text-green-700 bg-green-50 ring-1 ring-green-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
+                                    제출완료
+                                  </span>
                                 ) : (
                                   <span className="text-fluid-2xs text-slate-500 bg-slate-50 ring-1 ring-slate-200/50 rounded px-1.5 py-0.5 xl:text-fluid-xs">
                                     미제출
                                   </span>
                                 )}
+                              </td>
+                              <td
+                                className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center xl:px-1.5 xl:py-2.5"
+                                title={orderFormSubmissionEmailColumnTitle(o)}
+                              >
+                                <span
+                                  className={`text-fluid-2xs rounded px-1.5 py-0.5 xl:text-fluid-xs ${
+                                    !o.submittedAt
+                                      ? 'text-slate-400'
+                                      : o.submissionEmail?.status === 'SENT'
+                                        ? 'font-semibold text-sky-700 bg-sky-50 ring-1 ring-sky-200/50'
+                                        : 'font-medium text-amber-800 bg-amber-50 ring-1 ring-amber-200/50'
+                                  }`}
+                                >
+                                  {orderFormSubmissionEmailColumnLabel(o)}
+                                </span>
                               </td>
                               <td
                                 className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center tabular-nums text-slate-500 xl:px-1.5 xl:py-2.5"

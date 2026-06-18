@@ -2535,6 +2535,7 @@ router.post('/submit/:token', async (req, res) => {
       totalAmount: emailTarget.totalAmount,
       depositAmount: emailTarget.depositAmount,
       balanceAmount: emailTarget.balanceAmount,
+      customerSubmissionSnapshot: customerSubmissionSnapshot,
     });
   }
 

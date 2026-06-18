@@ -25,6 +25,8 @@ export type OrderFormSubmissionEmailSendInput = {
   totalAmount: number;
   depositAmount: number;
   balanceAmount: number;
+  /** 제출 직후 전달(없으면 DB 스냅샷 조회) */
+  customerSubmissionSnapshot?: unknown;
 };
 
 async function resolveBrandDisplayName(
@@ -106,15 +108,28 @@ export async function sendOrderFormSubmissionConfirmationEmail(
   }
 
   const brandDisplayName = await resolveBrandDisplayName(input.tenantId, input.operatingCompanyId);
+
+  let snapshot = input.customerSubmissionSnapshot;
+  if (snapshot == null) {
+    const snapRow = await prisma.orderForm.findFirst({
+      where: { id: input.orderFormId, tenantId: input.tenantId },
+      select: { customerSubmissionSnapshot: true },
+    });
+    snapshot = snapRow?.customerSubmissionSnapshot ?? null;
+  }
+
   const contentInput = {
     brandDisplayName,
     customerName: input.customerName,
     inquiryNumber: input.inquiryNumber,
-    preferredDateYmd: input.preferredDateYmd,
-    preferredTime: input.preferredTime,
-    totalAmount: input.totalAmount,
-    depositAmount: input.depositAmount,
-    balanceAmount: input.balanceAmount,
+    customerSubmissionSnapshot: snapshot,
+    fallback: {
+      preferredDateYmd: input.preferredDateYmd,
+      preferredTime: input.preferredTime,
+      totalAmount: input.totalAmount,
+      depositAmount: input.depositAmount,
+      balanceAmount: input.balanceAmount,
+    },
   };
   const subject = buildOrderFormSubmissionEmailSubject(contentInput);
   const text = buildOrderFormSubmissionEmailPlainText(contentInput);
