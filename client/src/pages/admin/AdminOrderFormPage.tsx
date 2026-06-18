@@ -13,6 +13,7 @@ import { usePaginatedListQuery } from '../../hooks/usePaginatedListQuery';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormFollowupPanel } from '../../components/order-followup/AdminOrderFormFollowupPanel';
 import { CustomerOrderSubmissionSnapshotModal } from '../../components/orderform/CustomerOrderSubmissionSnapshotModal';
+import { OrderFormListActionsModal } from '../../components/orderform/OrderFormListActionsModal';
 import {
   getOrderForms,
   deleteOrderForm,
@@ -127,6 +128,7 @@ export function AdminOrderFormPage() {
     items: OrderFormPhotoItem[];
     lightbox: OrderFormPhotoItem | null;
   }>(null);
+  const [listActionsOrder, setListActionsOrder] = useState<OrderForm | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<OrderForm | null>(null);
   useEffect(() => {
     if (inquiriesEmbed === 'list') {
@@ -276,6 +278,11 @@ export function AdminOrderFormPage() {
       listSubmitStatus !== 'all',
     [listDatePreset, listCustomerName, listCreatedById, listSubmitStatus]
   );
+
+  const listActionsOrderResolved = useMemo(() => {
+    if (!listActionsOrder) return null;
+    return orderForms.find((row) => row.id === listActionsOrder.id) ?? listActionsOrder;
+  }, [listActionsOrder, orderForms]);
 
   // 발급 폼 — 선택 양식의 폼을 인라인으로 렌더(OrderFormPage create 모드)
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
@@ -1009,69 +1016,13 @@ export function AdminOrderFormPage() {
                             ) : null}
                           </div>
                         </div>
-                        <div className="mt-3.5 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2.5 [&>button]:py-1.5 [&>button]:text-[11px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300">
+                        <div className="mt-3.5 flex justify-end border-t border-slate-100 pt-3">
                           <button
                             type="button"
-                            onClick={() => setPreviewModal({ kind: 'message', order: o })}
-                            className="!text-indigo-700 !bg-indigo-50/30 !border-indigo-100"
+                            onClick={() => setListActionsOrder(o)}
+                            className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-fluid-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50"
                           >
-                            메시지
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPreviewModal({ kind: 'link', order: o })}
-                            className="!text-slate-700"
-                          >
-                            링크
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openInNewTab(o)}
-                            className="!text-slate-600"
-                          >
-                            새 창
-                          </button>
-                          {!o.submittedAt ? (
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/admin/order-prefill/${o.id}`)}
-                              className="!text-emerald-700 !bg-emerald-50/40 !border-emerald-100"
-                            >
-                              작성
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => void openPhotosModal(o)}
-                            className="!text-emerald-700 !bg-emerald-50/40 !border-emerald-100"
-                          >
-                            사진
-                          </button>
-                          {o.submittedAt ? (
-                            <button
-                              type="button"
-                              onClick={() => setSubmissionViewer({ id: o.id, customerName: o.customerName })}
-                              className="!text-violet-750 !bg-violet-50/30 !border-violet-100"
-                            >
-                              제출원본
-                            </button>
-                          ) : null}
-                          {canResendOrderFormSubmissionEmail(o) ? (
-                            <button
-                              type="button"
-                              disabled={resendEmailBusyId === o.id}
-                              onClick={() => void handleResendSubmissionEmail(o)}
-                              className="!text-amber-800 !bg-amber-50/50 !border-amber-100"
-                            >
-                              {resendEmailBusyId === o.id ? '발송 중…' : '강제 재발송'}
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => openDeleteModal(o)}
-                            className="ml-auto !text-red-650 !bg-red-50/30 !border-red-100"
-                          >
-                            삭제
+                            설정
                           </button>
                         </div>
                       </div>
@@ -1083,14 +1034,14 @@ export function AdminOrderFormPage() {
                   <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
                     <table className="w-full table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm">
                       <colgroup>
-                        <col className="w-[11%]" />
-                        <col className="w-[14%]" />
+                        <col className="w-[12%]" />
+                        <col className="w-[13%]" />
                         <col className="w-[10%]" />
                         <col className="w-[11%]" />
                         <col className="w-[8%]" />
-                        <col className="w-[9%]" />
-                        <col className="w-[12%]" />
-                        <col className="w-[25%]" />
+                        <col className="w-[10%]" />
+                        <col className="w-[13%]" />
+                        <col className="w-[8%]" />
                       </colgroup>
                       <thead>
                         <tr className="border-b border-slate-200/60 bg-slate-50/80">
@@ -1116,7 +1067,7 @@ export function AdminOrderFormPage() {
                             발급일
                           </th>
                           <th className="px-1 py-2 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 xl:py-2.5 2xl:text-fluid-xs">
-                            링크
+                            관리
                           </th>
                         </tr>
                       </thead>
@@ -1183,21 +1134,6 @@ export function AdminOrderFormPage() {
                                   >
                                     {orderFormSubmissionEmailColumnLabel(o)}
                                   </span>
-                                  {canResendOrderFormSubmissionEmail(o) ? (
-                                    <button
-                                      type="button"
-                                      disabled={resendEmailBusyId === o.id}
-                                      onClick={() => void handleResendSubmissionEmail(o)}
-                                      className="text-fluid-2xs font-medium text-sky-700 underline-offset-2 hover:underline disabled:opacity-50 xl:text-fluid-xs"
-                                      title={
-                                        o.submissionEmail?.status === 'SENT'
-                                          ? '이미 발송된 확인 메일을 다시 보냅니다.'
-                                          : (o.submissionEmail?.lastError ?? '확인 메일 강제 재발송')
-                                      }
-                                    >
-                                      {resendEmailBusyId === o.id ? '발송 중…' : '강제 재발송'}
-                                    </button>
-                                  ) : null}
                                 </div>
                               </td>
                               <td
@@ -1208,79 +1144,14 @@ export function AdminOrderFormPage() {
                                   {formatDateCompactWithWeekday(o.createdAt)}
                                 </span>
                               </td>
-                              <td className="min-w-0 border-b border-slate-100/80 px-1.5 py-2 align-middle xl:px-2 xl:py-2.5">
-                                <div className="flex min-w-0 flex-wrap items-center justify-center gap-1 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-1 [&>button]:text-fluid-2xs [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300">
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewModal({ kind: 'message', order: o })}
-                                    className="!text-indigo-700 !bg-indigo-50/30 !border-indigo-100"
-                                  >
-                                    메시지
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewModal({ kind: 'link', order: o })}
-                                    className="!text-slate-700"
-                                  >
-                                    링크
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => openInNewTab(o)}
-                                    className="!text-slate-600"
-                                  >
-                                    새 창
-                                  </button>
-                                  {!o.submittedAt ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => navigate(`/admin/order-prefill/${o.id}`)}
-                                      className="!text-emerald-700 !bg-emerald-50/40 !border-emerald-100"
-                                    >
-                                      작성
-                                    </button>
-                                  ) : null}
-                                  {canResendOrderFormSubmissionEmail(o) ? (
-                                    <button
-                                      type="button"
-                                      disabled={resendEmailBusyId === o.id}
-                                      onClick={() => void handleResendSubmissionEmail(o)}
-                                      className="!text-amber-800 !bg-amber-50/50 !border-amber-100"
-                                      title={
-                                        o.submissionEmail?.status === 'SENT'
-                                          ? '이미 발송된 확인 메일을 다시 보냅니다.'
-                                          : (o.submissionEmail?.lastError ?? '확인 메일 강제 재발송')
-                                      }
-                                    >
-                                      {resendEmailBusyId === o.id ? '발송 중…' : '강제 재발송'}
-                                    </button>
-                                  ) : null}
-                                  <button
-                                    type="button"
-                                    onClick={() => void openPhotosModal(o)}
-                                    className="!text-emerald-700 !bg-emerald-50/40 !border-emerald-100"
-                                  >
-                                    사진
-                                  </button>
-                                  {o.submittedAt ? (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setSubmissionViewer({ id: o.id, customerName: o.customerName })
-                                      }
-                                      className="!text-violet-750 !bg-violet-50/30 !border-violet-100"
-                                    >
-                                      제출원본
-                                    </button>
-                                  ) : null}
-                                  <button
-                                    type="button"
-                                    onClick={() => openDeleteModal(o)}
-                                    className="!text-red-600 !bg-red-50/30 !border-red-100"
-                                  >
-                                    삭제
-                                  </button>
-                                </div>
+                              <td className="min-w-0 border-b border-slate-100/80 px-1 py-2 align-middle text-center xl:px-1.5 xl:py-2.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setListActionsOrder(o)}
+                                  className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-fluid-2xs font-semibold text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 xl:px-3 xl:py-1.5 xl:text-fluid-xs"
+                                >
+                                  설정
+                                </button>
                               </td>
                             </tr>
                           );
@@ -1300,7 +1171,7 @@ export function AdminOrderFormPage() {
                     {' '}
                     · 표는 고정 폭·말줄임으로 한 화면에 맞춤(매우 좁을 때만 하단 막대)
                   </span>
-                  <span className="lg:hidden"> · 카드에서 메시지·링크·새 창</span>
+                  <span className="lg:hidden"> · 카드에서 설정으로 관리</span>
                 </div>
                 <ListPaginationBar
                   mode="nav"
@@ -1375,6 +1246,29 @@ export function AdminOrderFormPage() {
           </div>,
           document.body
         )}
+      {listActionsOrderResolved ? (
+        <OrderFormListActionsModal
+          order={listActionsOrderResolved}
+          resendBusy={resendEmailBusyId === listActionsOrderResolved.id}
+          canResendEmail={canResendOrderFormSubmissionEmail(listActionsOrderResolved)}
+          onClose={() => setListActionsOrder(null)}
+          onPreviewMessage={() =>
+            setPreviewModal({ kind: 'message', order: listActionsOrderResolved })
+          }
+          onPreviewLink={() => setPreviewModal({ kind: 'link', order: listActionsOrderResolved })}
+          onOpenNewTab={() => openInNewTab(listActionsOrderResolved)}
+          onPrefill={() => navigate(`/admin/order-prefill/${listActionsOrderResolved.id}`)}
+          onPhotos={() => void openPhotosModal(listActionsOrderResolved)}
+          onSubmissionViewer={() =>
+            setSubmissionViewer({
+              id: listActionsOrderResolved.id,
+              customerName: listActionsOrderResolved.customerName,
+            })
+          }
+          onResendEmail={() => void handleResendSubmissionEmail(listActionsOrderResolved)}
+          onDelete={() => openDeleteModal(listActionsOrderResolved)}
+        />
+      ) : null}
       <CustomerOrderSubmissionSnapshotModal
         open={Boolean(submissionViewer)}
         onClose={() => setSubmissionViewer(null)}

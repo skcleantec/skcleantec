@@ -1,6 +1,8 @@
 import type { OrderFormCustomerSubmissionSnapshotV1 } from '../../api/orderform';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
-import { ORDER_FORM_PROFESSIONAL_OPTIONS_SHORT_LABEL } from '../../constants/orderFormProfessionalOptions';
+import {
+  ORDER_FORM_PROFESSIONAL_OPTIONS_MULTILINE_LABEL,
+} from '../../constants/orderFormProfessionalOptions';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 
 export function slotLabelForOrderForm(v: string): string {
@@ -159,8 +161,8 @@ export function OrderFormSubmissionSnapshotContent(props: {
             {snapshot.fields.specialNotes?.trim() ? snapshot.fields.specialNotes : '—'}
           </OrderFormSnapshotRow>
           <div className="border-b border-gray-100 py-2">
-            <div className="text-fluid-xs font-medium text-gray-500 sm:mb-1">
-              {ORDER_FORM_PROFESSIONAL_OPTIONS_SHORT_LABEL}
+            <div className="whitespace-pre-line text-fluid-xs font-medium text-gray-500 sm:mb-1">
+              {ORDER_FORM_PROFESSIONAL_OPTIONS_MULTILINE_LABEL}
             </div>
             {snapshot.fields.professionalOptionLabels.length === 0 ? (
               <span className="text-fluid-sm text-gray-700">선택 없음</span>
@@ -188,7 +190,11 @@ export function OrderFormSubmissionSnapshotContent(props: {
             {snapshot.issuedSummary.balanceAmount.toLocaleString('ko-KR')}원
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="추가 옵션 안내">
-            {snapshot.issuedSummary.optionNote?.trim() ? snapshot.issuedSummary.optionNote : '—'}
+            {snapshot.issuedSummary.optionNote?.trim()
+              ? snapshot.issuedSummary.optionNote
+              : snapshot.fields.professionalOptionLabels.length > 0
+                ? '상담사가 연락드리겠습니다.'
+                : '—'}
           </OrderFormSnapshotRow>
         </div>
       </section>

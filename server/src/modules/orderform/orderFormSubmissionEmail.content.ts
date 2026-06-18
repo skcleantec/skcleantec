@@ -92,10 +92,10 @@ function renderSectionHtml(section: { title: string; rows: EmailDetailRow[] }): 
   const rows = section.rows
     .map(
       (row) =>
-        `<tr><th style="padding:8px 12px;border-bottom:1px solid #e2e8f0;background:#f8fafc;text-align:left;font-weight:600;color:#475569;white-space:nowrap;vertical-align:top;width:38%">${escapeHtml(row.label)}</th><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;vertical-align:top">${escapeHtml(row.value)}</td></tr>`,
+        `<tr><th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;background:#f8fafc;text-align:left;font-weight:600;color:#475569;vertical-align:top;width:26%;max-width:112px;line-height:1.45;word-break:keep-all">${escapeHtml(row.label)}</th><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;vertical-align:top;line-height:1.5">${escapeHtml(row.value)}</td></tr>`,
     )
     .join('');
-  return `<h3 style="margin:20px 0 8px;font-size:15px;font-weight:700;color:#0f172a">${escapeHtml(section.title)}</h3><table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;font-size:14px">${rows}</table>`;
+  return `<h3 style="margin:20px 0 8px;font-size:15px;font-weight:700;color:#0f172a">${escapeHtml(section.title)}</h3><table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;font-size:14px;table-layout:fixed">${rows}</table>`;
 }
 
 export function buildOrderFormSubmissionEmailHtml(input: OrderFormSubmissionEmailContentInput): string {

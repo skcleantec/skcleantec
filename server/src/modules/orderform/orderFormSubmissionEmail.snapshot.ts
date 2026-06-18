@@ -39,7 +39,11 @@ export type OrderFormSubmissionSnapshotV1 = {
 
 export type EmailDetailRow = { label: string; value: string };
 
-const PROFESSIONAL_OPTIONS_LABEL = '전문 시공 유료옵션 (체크시 시공가능 팀장배정)';
+/** 이메일·영수증 좌측 라벨 — 줄바꿈으로 값 열 폭 확보 */
+export const PROFESSIONAL_OPTIONS_EMAIL_LABEL =
+  '전문 시공 유료옵션\n(체크시 시공가능 팀장배정)';
+
+const CUSTOMER_PROF_OPTION_CONTACT_MESSAGE = '상담사가 연락드리겠습니다.';
 
 const TIME_SLOT_LABELS: Record<string, string> = {
   오전: '오전',
@@ -125,6 +129,17 @@ function moveInText(f: OrderFormSubmissionSnapshotV1['fields']): string {
   return '—';
 }
 
+/** 마케터 추가사항(optionNote) 우선, 없고 고객 전문옵션 선택 시 상담 안내 */
+export function buildIssuedSummaryOptionGuideText(
+  optionNote: string | null | undefined,
+  professionalOptionLabels: string[],
+): string {
+  const note = optionNote?.trim() ?? '';
+  if (note) return note;
+  if ((professionalOptionLabels ?? []).length > 0) return CUSTOMER_PROF_OPTION_CONTACT_MESSAGE;
+  return '—';
+}
+
 export function buildEmailDetailSections(
   snapshot: unknown,
   inquiryNumber: string | null,
@@ -177,7 +192,7 @@ export function buildEmailDetailSections(
       { label: '시간대', value: TIME_SLOT_LABELS[f.preferredTime] ?? f.preferredTime },
       { label: '구체적 시각', value: dashIfEmpty(f.preferredTimeDetail) },
       { label: '특이사항', value: dashIfEmpty(f.specialNotes) },
-      { label: PROFESSIONAL_OPTIONS_LABEL, value: profValue },
+      { label: PROFESSIONAL_OPTIONS_EMAIL_LABEL, value: profValue },
     ],
   });
 
@@ -187,7 +202,10 @@ export function buildEmailDetailSections(
       { label: '총액', value: formatWon(issued.totalAmount) },
       { label: '예약금', value: formatWon(issued.depositAmount) },
       { label: '잔금', value: formatWon(issued.balanceAmount) },
-      { label: '추가 옵션 안내', value: dashIfEmpty(issued.optionNote) },
+      {
+        label: '추가 옵션 안내',
+        value: buildIssuedSummaryOptionGuideText(issued.optionNote, profLabels),
+      },
     ],
   });
 
