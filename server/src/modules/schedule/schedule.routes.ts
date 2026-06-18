@@ -12,6 +12,7 @@ import {
 } from '../inquiries/inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from '../inquiries/inquiryJuanDistance.js';
 import { mapInquiriesInternalToneForRole } from '../inquiries/internalCustomerTone.js';
+import { attachProfOptionsAmountReviewPendingDisplay } from '../inquiries/inquiryProfOptionsAmount.service.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
@@ -197,8 +198,9 @@ router.get('/', async (req, res) => {
 
   const itemsWithDistance = items.map((row) => attachDistanceFromJuanForInquiry(row));
   const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
+  const itemsWithProfReview = itemsWithShare.map(attachProfOptionsAmountReviewPendingDisplay);
   res.json({
-    items: mapInquiriesInternalToneForRole(itemsWithShare, user.role),
+    items: mapInquiriesInternalToneForRole(itemsWithProfReview, user.role),
   });
 });
 

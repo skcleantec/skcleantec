@@ -11,6 +11,60 @@ import {
 
 export const PROF_OPTION_EXTRA_CHARGE_PREFIX = '전문시공: ';
 
+export type InquiryProfOptionsReviewRow = {
+  profOptionsAmountReviewPending: boolean;
+  professionalOptionIds: unknown;
+  serviceTotalAmount: number | null;
+  orderForm?: {
+    totalAmount: number | null;
+    submittedAt: Date | string | null;
+  } | null;
+  extraCharges?: Array<{ description: string }>;
+  additionalReceipts?: Array<{ id: string }>;
+};
+
+/**
+ * 목록·상세 표시용 — DB 플래그가 false여도
+ * (고객 제출 + 전문 시공 선택 + 계약 총액이 발급 원금 그대로)이면 금액 확정 대기로 본다.
+ */
+export function resolveProfOptionsAmountReviewPendingForDisplay(
+  row: InquiryProfOptionsReviewRow,
+): boolean {
+  if (row.profOptionsAmountReviewPending) return true;
+
+  if (row.orderForm?.submittedAt == null) return false;
+
+  const selections = parseProfessionalOptionSelectionsRaw(row.professionalOptionIds);
+  if (selections.length === 0) return false;
+
+  const formTotal = row.orderForm.totalAmount;
+  if (formTotal == null) return false;
+
+  const serviceTotal = row.serviceTotalAmount ?? formTotal;
+  if (serviceTotal !== formTotal) return false;
+
+  if (
+    row.extraCharges?.some((c) =>
+      String(c.description).trim().startsWith(PROF_OPTION_EXTRA_CHARGE_PREFIX),
+    )
+  ) {
+    return false;
+  }
+
+  if ((row.additionalReceipts?.length ?? 0) > 0) return false;
+
+  return true;
+}
+
+export function attachProfOptionsAmountReviewPendingDisplay<T extends InquiryProfOptionsReviewRow>(
+  row: T,
+): T {
+  return {
+    ...row,
+    profOptionsAmountReviewPending: resolveProfOptionsAmountReviewPendingForDisplay(row),
+  };
+}
+
 function resolveSelectionUnitAmount(
   sel: ProfessionalOptionSelectionInput,
   priceAmount: number | null,
