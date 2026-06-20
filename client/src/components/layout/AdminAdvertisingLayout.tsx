@@ -40,6 +40,12 @@ export function AdminAdvertisingLayout() {
     'loading'
   );
 
+  const isAdmin = roleGate === 'admin';
+  const navItems = useMemo(
+    () => filterAdminSideNavItems(getAdminAdvertisingNavItems(isAdmin), features),
+    [isAdmin, features],
+  );
+
   const probe = useCallback(() => {
     const t = getToken();
     if (!t) {
@@ -102,15 +108,9 @@ export function AdminAdvertisingLayout() {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
-  const isAdmin = roleGate === 'admin';
   if (location.pathname.includes('/advertising/settings') && !isAdmin) {
     return <Navigate to="/admin/advertising" replace />;
   }
-
-  const navItems = useMemo(
-    () => filterAdminSideNavItems(getAdminAdvertisingNavItems(isAdmin), features),
-    [isAdmin, features],
-  );
 
   return (
     <div className="min-w-0 w-full max-w-full">
