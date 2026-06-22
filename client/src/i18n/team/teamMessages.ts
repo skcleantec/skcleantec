@@ -93,6 +93,7 @@ export const teamMessages = {
   'team.modal.row.assignedAt': { ko: '배정일시'},
   'team.modal.row.assigner': { ko: '배정자'},
   'team.modal.row.coLeaders': { ko: '공동 배정'},
+  'team.modal.coLeadersBanner': { ko: '팀장 공동 배정'},
   'team.modal.section.customerSite': { ko: '고객 · 현장'},
   'team.modal.row.phone': { ko: '연락처'},
   'team.modal.phoneSecondary': { ko: '보조'},

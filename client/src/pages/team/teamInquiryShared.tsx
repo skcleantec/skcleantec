@@ -566,6 +566,27 @@ export function coLeadersSummaryForViewer(item: InquiryItem, viewerId: string): 
   return others.length ? others.join(' · ') : '—';
 }
 
+/** 접수 상세 상단 — 공동 배정 팀장 강조 */
+export function TeamCoLeadersDetailBanner({
+  item,
+  viewerId,
+}: {
+  item: InquiryItem;
+  viewerId: string | null | undefined;
+}) {
+  if (!viewerId) return null;
+  const summary = coLeadersSummaryForViewer(item, viewerId);
+  if (summary === '—') return null;
+  return (
+    <div className="shrink-0 border-b border-blue-200 bg-blue-50 px-4 py-3" role="status">
+      <p className="text-fluid-xs font-semibold text-blue-900">
+        <TeamBiLine id="team.modal.coLeadersBanner" koClassName="text-fluid-xs font-semibold text-blue-900" />
+      </p>
+      <p className="mt-1 break-words text-fluid-sm font-semibold text-blue-950">{summary}</p>
+    </div>
+  );
+}
+
 /** 목록 카드 — 공동 배정 팀장이 있을 때만 한 줄 표시 */
 export function TeamCoLeadersListHint({
   item,
@@ -846,6 +867,7 @@ export function TeamInquiryDetailModal({
   }, [item]);
 
   const effectiveViewerId = viewerTeamLeaderId ?? viewerMe?.id ?? null;
+  const coLeadersSummary = effectiveViewerId ? coLeadersSummaryForViewer(item, effectiveViewerId) : null;
   const mine = effectiveViewerId ? myAssignmentForViewer(item, effectiveViewerId) : null;
   const primaryCustomerTitle = inquiryPrimaryCustomerLabel(item);
   const scheduleMemoTrim = item.scheduleMemo?.trim() ?? '';
@@ -914,6 +936,8 @@ export function TeamInquiryDetailModal({
           </div>
         </header>
 
+        <TeamCoLeadersDetailBanner item={item} viewerId={effectiveViewerId} />
+
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
           <div className="flex flex-col gap-4">
             <TeamModalSection
@@ -970,7 +994,7 @@ export function TeamInquiryDetailModal({
                 <TeamModalRow
                   label={<TeamBiLine id="team.modal.row.coLeaders" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
-                  <span className="text-gray-800">{coLeadersSummaryForViewer(item, effectiveViewerId)}</span>
+                  <span className="text-gray-800">{coLeadersSummary}</span>
                 </TeamModalRow>
               </TeamModalSection>
             ) : null}
