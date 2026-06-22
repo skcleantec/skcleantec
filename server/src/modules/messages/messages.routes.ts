@@ -18,15 +18,34 @@ const messageSenderSelect = { id: true, name: true, staffIdCardUrl: true } as co
 
 type MessageSenderDto = { id: string; name: string; staffIdCardUrl: string | null };
 
-async function resolveTeamPreviewExternalActor(
+/** ADMIN·MARKETER 팀 화면 미리보기 시 previewRole 쿼리로 실제 행위자(팀장·타업체)로 치환 — teamAuthMiddleware와 동일 */
+async function resolveTeamPreviewActor(
   req: { query: Record<string, unknown> },
   user: AuthPayload
 ): Promise<AuthPayload> {
-  const previewExternal =
-    req.query.previewRole === 'external' && (user.role === 'ADMIN' || user.role === 'MARKETER');
-  if (!previewExternal) return user;
+  const isStaff = user.role === 'ADMIN' || user.role === 'MARKETER';
+  if (!isStaff) return user;
 
   const tenantId = user.tenantId ?? null;
+  if (!tenantId) return user;
+
+  if (req.query.previewRole === 'team_leader') {
+    const tlId =
+      typeof req.query.previewTeamLeaderId === 'string' ? req.query.previewTeamLeaderId.trim() : '';
+    if (tlId) {
+      const target = await prisma.user.findFirst({
+        where: { id: tlId, tenantId, role: 'TEAM_LEADER', isActive: true },
+        select: { id: true, email: true },
+      });
+      if (target) {
+        return { userId: target.id, email: target.email, role: 'TEAM_LEADER', tenantId };
+      }
+    }
+    return user;
+  }
+
+  const previewExternal = req.query.previewRole === 'external';
+  if (!previewExternal) return user;
   const externalCompanyId =
     typeof req.query.externalCompanyId === 'string' ? req.query.externalCompanyId.trim() : '';
   const externalNameRaw =
@@ -244,7 +263,7 @@ router.get('/team-office', async (req, res) => {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
-  const { userId: myId, role } = await resolveTeamPreviewExternalActor(req as any, rawUser);
+  const { userId: myId, role } = await resolveTeamPreviewActor(req as any, rawUser);
   if (role !== 'TEAM_LEADER' && role !== 'EXTERNAL_PARTNER') {
     res.status(403).json({ error: '팀장·타업체만 사용할 수 있습니다.' });
     return;
@@ -316,7 +335,7 @@ router.post('/team-send', async (req, res) => {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
-  const { userId, role } = await resolveTeamPreviewExternalActor(req as any, rawUser);
+  const { userId, role } = await resolveTeamPreviewActor(req as any, rawUser);
   if (role !== 'TEAM_LEADER' && role !== 'EXTERNAL_PARTNER') {
     res.status(403).json({ error: '팀장·타업체만 전송할 수 있습니다.' });
     return;
