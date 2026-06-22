@@ -106,25 +106,61 @@ function AdminScheduleDetailSection({
   title,
   children,
   sectionAnchor,
+  collapsible = false,
+  defaultOpen = true,
 }: {
   title: string;
   children: ReactNode;
   /** 스크롤 점프용 앵커 — `data-inq-edit-section` + id 부여 */
   sectionAnchor?: string;
+  /** true면 summary로 접기·펼치기 (기본 defaultOpen) */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
   const sectionNo = getInquiryEditSectionNumber(sectionAnchor);
   const displayTitle = sectionNo != null ? `${sectionNo}. ${title}` : title;
+  const [open, setOpen] = useState(defaultOpen);
+
+  const shellClass =
+    'min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm';
+  const headerClass =
+    'border-b border-gray-200 bg-gray-50 px-4 py-2 text-fluid-xs font-semibold text-gray-600';
+  const bodyClass = 'p-4 sm:p-5';
+
+  if (!collapsible) {
+    return (
+      <section
+        className={shellClass}
+        id={sectionAnchor ? `inq-edit-sec-${sectionAnchor}` : undefined}
+        data-inq-edit-section={sectionAnchor ? '' : undefined}
+      >
+        <h3 className={headerClass}>{displayTitle}</h3>
+        <div className={bodyClass}>{children}</div>
+      </section>
+    );
+  }
 
   return (
     <section
-      className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+      className={shellClass}
       id={sectionAnchor ? `inq-edit-sec-${sectionAnchor}` : undefined}
       data-inq-edit-section={sectionAnchor ? '' : undefined}
     >
-      <h3 className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-fluid-xs font-semibold text-gray-600">
-        {displayTitle}
-      </h3>
-      <div className="p-4 sm:p-5">{children}</div>
+      <details
+        open={open}
+        onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+        className="group [&_summary::-webkit-details-marker]:hidden"
+      >
+        <summary className={`cursor-pointer list-none touch-manipulation ${headerClass}`}>
+          <span className="flex items-center justify-between gap-2">
+            <span>{displayTitle}</span>
+            <span className="shrink-0 text-[10px] font-normal text-gray-400" aria-hidden>
+              {open ? '접기 ▲' : '펼치기 ▼'}
+            </span>
+          </span>
+        </summary>
+        <div className={bodyClass}>{children}</div>
+      </details>
     </section>
   );
 }
@@ -2388,7 +2424,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         </AdminScheduleDetailSection>
 
         {!isCreate && item && item.status !== 'CANCELLED' && customCalendars && customCalendars.length > 0 && onCustomCalendarsChange ? (
-          <AdminScheduleDetailSection title="내 추가 캘린더" sectionAnchor="custom-calendars">
+          <AdminScheduleDetailSection
+            title="내 추가 캘린더"
+            sectionAnchor="custom-calendars"
+            collapsible
+            defaultOpen={false}
+          >
             <ScheduleCustomCalendarPinSection
               token={token}
               item={item}
