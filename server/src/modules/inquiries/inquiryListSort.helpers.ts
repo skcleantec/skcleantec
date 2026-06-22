@@ -6,19 +6,25 @@ import type { prisma } from '../../lib/prisma.js';
 import {
   isInquiryOrderFormPendingSubmit,
   sortInquiryListRows,
+  type InquiryListSortOptions,
+  DEFAULT_INQUIRY_LIST_SORT,
 } from '../../lib/inquiryListSort.js';
 
 export type InquiryListSortable = {
   status: string;
   createdAt: Date;
+  preferredDate: Date | null;
   happyCallCompletedAt: Date | null;
   orderForm: { submittedAt: Date | null; createdAt: Date } | null;
 };
 
 export { isInquiryOrderFormPendingSubmit };
 
-function sortInquiryListSortables<T extends InquiryListSortable>(rows: T[]): T[] {
-  return sortInquiryListRows(rows);
+function sortInquiryListSortables<T extends InquiryListSortable>(
+  rows: T[],
+  sort: InquiryListSortOptions,
+): T[] {
+  return sortInquiryListRows(rows, sort);
 }
 
 /** 발주서 미제출 — Prisma where (목록 상단 고정·필터 OR 용) */
@@ -38,14 +44,10 @@ const inquiryListSortSelect = {
   id: true,
   status: true,
   createdAt: true,
+  preferredDate: true,
   happyCallCompletedAt: true,
   orderForm: { select: { submittedAt: true, createdAt: true } },
 } as const;
-
-/** 미제출 tier — 최신순(접수일) */
-function sortPinnedPendingRows<T extends InquiryListSortable>(rows: T[]): T[] {
-  return [...rows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-}
 
 type PrismaClient = typeof prisma;
 
@@ -62,8 +64,10 @@ export async function fetchInquiryListPageSorted<TInclude extends Prisma.Inquiry
     include: TInclude;
     take: number;
     skip: number;
+    sort?: InquiryListSortOptions;
   },
 ): Promise<{ items: Prisma.InquiryGetPayload<{ include: TInclude }>[]; total: number }> {
+  const sort = args.sort ?? DEFAULT_INQUIRY_LIST_SORT;
   const [pendingSortRows, filteredSortRows] = await Promise.all([
     args.pinPendingWhere
       ? db.inquiry.findMany({ where: args.pinPendingWhere, select: inquiryListSortSelect })
@@ -72,11 +76,12 @@ export async function fetchInquiryListPageSorted<TInclude extends Prisma.Inquiry
   ]);
 
   const pendingIdSet = new Set(pendingSortRows.map((r) => r.id));
-  const pendingSorted = sortPinnedPendingRows(
+  const pendingSorted = sortInquiryListSortables(
     pendingSortRows.filter((r) => isInquiryOrderFormPendingSubmit(r)),
+    sort,
   );
   const filteredOnly = filteredSortRows.filter((r) => !pendingIdSet.has(r.id));
-  const filteredSorted = sortInquiryListSortables(filteredOnly);
+  const filteredSorted = sortInquiryListSortables(filteredOnly, sort);
 
   const merged = [...pendingSorted, ...filteredSorted];
   const total = merged.length;

@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
-import { sortInquiryListRows } from '@shared/inquiryListSort';
+import {
+  sortInquiryListRows,
+  parseInquiryListSortQuery,
+  defaultInquiryListSortDir,
+  DEFAULT_INQUIRY_LIST_SORT,
+  type InquiryListSortField,
+  type InquiryListSortOptions,
+} from '@shared/inquiryListSort';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal, flushSync } from 'react-dom';
 import {
@@ -43,6 +50,7 @@ import {
   InquiryListFieldQuickEditModal,
   type InquiryListQuickEditField,
 } from '../../components/admin/InquiryListFieldQuickEditModal';
+import { InquiryListSortTh } from '../../components/admin/InquiryListSortTh';
 import { AdminListIntakeModal, type AdminListIntakeResult } from '../../components/admin/AdminListIntakeModal';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { MarketerDailyInquiryModal } from '../../components/admin/MarketerDailyInquiryModal';
@@ -684,6 +692,7 @@ function patchInquiryProfReviewInList(
     InquiryItem,
     'profOptionsAmountReviewPending' | 'profOptionsAmountReviewCompleted' | 'additionalReceipts'
   >,
+  sort: InquiryListSortOptions = DEFAULT_INQUIRY_LIST_SORT,
 ): InquiryItem[] {
   return sortInquiryListRows(
     items.map((it) =>
@@ -696,6 +705,7 @@ function patchInquiryProfReviewInList(
           }
         : it,
     ),
+    sort,
   );
 }
 
@@ -721,6 +731,10 @@ export function AdminInquiriesPage() {
   const [listPage, setListPage] = useState(() => parseListPage(searchParams.get('page')));
   const [listPageSize, setListPageSize] = useState<InquiryListPageSize>(() =>
     parseInquiryListPageSize(searchParams.get('pageSize'))
+  );
+  const listSort = useMemo(
+    () => parseInquiryListSortQuery(searchParams.get('sortBy'), searchParams.get('sortDir')),
+    [searchParams],
   );
   const [loading, setLoading] = useState(true);
   const { preserveScroll, scrollToTop } = useStaffAppScrollPreserve();
@@ -1244,6 +1258,8 @@ export function AdminInquiriesPage() {
       inspectionStatus?: string;
       limit?: number;
       offset?: number;
+      sortBy?: 'createdAt' | 'preferredDate' | 'status';
+      sortDir?: 'asc' | 'desc';
     } = { datePreset: apiDatePreset };
     if (opsDrillParams) {
       params.fromYmd = opsDrillParams.fromYmd;
@@ -1277,9 +1293,16 @@ export function AdminInquiriesPage() {
     }
     params.limit = listPageSize;
     params.offset = (listPage - 1) * listPageSize;
+    if (
+      listSort.field !== DEFAULT_INQUIRY_LIST_SORT.field ||
+      listSort.dir !== DEFAULT_INQUIRY_LIST_SORT.dir
+    ) {
+      params.sortBy = listSort.field;
+      params.sortDir = listSort.dir;
+    }
     return getInquiries(token, params)
       .then((res: { items: InquiryItem[]; total: number }) => {
-        setItems(sortInquiryListRows(res.items));
+        setItems(sortInquiryListRows(res.items, listSort));
         setTotal(res.total);
         setApiError(null);
       })
@@ -1392,6 +1415,31 @@ export function AdminInquiriesPage() {
       );
     },
     [setSearchParams]
+  );
+
+  const handleListSort = useCallback(
+    (field: InquiryListSortField) => {
+      setListPage(1);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          const cur = parseInquiryListSortQuery(prev.get('sortBy'), prev.get('sortDir'));
+          const dir =
+            cur.field === field ? (cur.dir === 'asc' ? 'desc' : 'asc') : defaultInquiryListSortDir(field);
+          if (field === DEFAULT_INQUIRY_LIST_SORT.field && dir === DEFAULT_INQUIRY_LIST_SORT.dir) {
+            next.delete('sortBy');
+            next.delete('sortDir');
+          } else {
+            next.set('sortBy', field);
+            next.set('sortDir', dir);
+          }
+          next.delete('page');
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
   );
 
   const applyMarketerStatsListFilter = useCallback(
@@ -1520,6 +1568,8 @@ export function AdminInquiriesPage() {
         operatingCompanyFilterId,
         inspectionStatusFilter,
         inquiryListBump,
+        listSort.field,
+        listSort.dir,
       ].join('\0'),
     [
       statusFilter,
@@ -1534,6 +1584,8 @@ export function AdminInquiriesPage() {
       operatingCompanyFilterId,
       inspectionStatusFilter,
       inquiryListBump,
+      listSort.field,
+      listSort.dir,
     ]
   );
   const prevListFilterKeyRef = useRef<string | null>(null);
@@ -1655,7 +1707,7 @@ export function AdminInquiriesPage() {
         profOptionsAmountReviewPending: inquiry.profOptionsAmountReviewPending,
         profOptionsAmountReviewCompleted: inquiry.profOptionsAmountReviewCompleted,
         additionalReceipts: inquiry.additionalReceipts,
-      }),
+      }, listSort),
     );
   };
 
@@ -3111,9 +3163,14 @@ export function AdminInquiriesPage() {
               </colgroup>
               <thead>
                 <tr className="bg-slate-50/85 border-b border-slate-200/60">
-                  <th className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">
-                    접수일
-                  </th>
+                  <InquiryListSortTh
+                    label="접수일"
+                    field="createdAt"
+                    activeField={listSort.field}
+                    activeDir={listSort.dir}
+                    onSort={handleListSort}
+                    className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
+                  />
                   <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">접수자</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">고객</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">연락처</th>
@@ -3121,14 +3178,28 @@ export function AdminInquiriesPage() {
                   <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-[11px]">
                     평수
                   </th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">예약일</th>
+                  <InquiryListSortTh
+                    label="예약일"
+                    field="preferredDate"
+                    activeField={listSort.field}
+                    activeDir={listSort.dir}
+                    onSort={handleListSort}
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
+                  />
                   <th
                     className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs"
                     title="희망 시간대 · 인천 주안 기준 직선거리"
                   >
                     시간·거리
                   </th>
-                  <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">상태</th>
+                  <InquiryListSortTh
+                    label="상태"
+                    field="status"
+                    activeField={listSort.field}
+                    activeDir={listSort.dir}
+                    onSort={handleListSort}
+                    className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
+                  />
                   {hasInspectionModule ? (
                     <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">현장검수</th>
                   ) : null}
@@ -4750,7 +4821,7 @@ export function AdminInquiriesPage() {
                 profOptionsAmountReviewPending: result.profOptionsAmountReviewPending,
                 profOptionsAmountReviewCompleted: result.profOptionsAmountReviewCompleted,
                 additionalReceipts: mergedArc,
-              }),
+              }, listSort),
             );
           }}
           serviceZones={serviceZones}

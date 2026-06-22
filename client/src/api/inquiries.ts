@@ -91,6 +91,9 @@ export async function getInquiries(
     statusEvent?: string;
     limit?: number;
     offset?: number;
+    /** 목록 정렬 — 미제출 pin 아래 tier 정렬 (기본 createdAt desc) */
+    sortBy?: 'createdAt' | 'preferredDate' | 'status';
+    sortDir?: 'asc' | 'desc';
   }
 ) {
   const q = new URLSearchParams();
@@ -115,6 +118,8 @@ export async function getInquiries(
   if (params?.scheduleMonth) q.set('scheduleMonth', params.scheduleMonth);
   if (params?.scheduleDay) q.set('scheduleDay', params.scheduleDay);
   if (params?.inspectionStatus) q.set('inspectionStatus', params.inspectionStatus);
+  if (params?.sortBy) q.set('sortBy', params.sortBy);
+  if (params?.sortDir) q.set('sortDir', params.sortDir);
   const qs = q.toString();
   const res = await fetch(`${API}/inquiries${qs ? `?${qs}` : ''}`, {
     headers: headers(token),

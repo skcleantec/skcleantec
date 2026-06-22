@@ -32,7 +32,7 @@ alwaysApply: true
 
 ## 본문 목록 (미제출 pin 블록 **아래**)
 
-상태·취소 여부와 **무관하게** `createdAt` **최신순** (별도 tier 없음).
+pin·본문 각 tier 안에서 `sortBy`/`sortDir` 로 정렬한다. 기본은 `createdAt` **desc**. 허용 열: `createdAt`, `preferredDate`, `status` (`shared/inquiryListSort.ts`).
 
 ## 구현 위치
 

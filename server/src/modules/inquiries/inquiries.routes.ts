@@ -22,6 +22,7 @@ import {
   fetchInquiryListPageSorted,
   whereInquiryOrderFormPendingSubmit,
 } from './inquiryListSort.helpers.js';
+import { parseInquiryListSortQuery } from '../../lib/inquiryListSort.js';
 import {
   buildMarketerOverview,
   buildMarketerDailyOverview,
@@ -250,6 +251,8 @@ router.get('/', async (req, res) => {
     toYmd,
     kstHour: kstHourRaw,
     statusEvent,
+    sortBy,
+    sortDir,
   } = req.query;
   const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
   const statsDayRaw =
@@ -444,12 +447,15 @@ router.get('/', async (req, res) => {
     pinPendingWhere = { AND: pinClauses };
   }
 
+  const listSort = parseInquiryListSortQuery(sortBy, sortDir);
+
   const { items: itemsRaw, total } = await fetchInquiryListPageSorted(prisma, {
     where,
     pinPendingWhere,
     include: listInclude,
     take,
     skip,
+    sort: listSort,
   });
   /** 레거시 발주서 — 접수 목록 메시지 복사 시 페이백 토큰 lazy 발급 */
   const itemsWithPaybackToken = await Promise.all(
