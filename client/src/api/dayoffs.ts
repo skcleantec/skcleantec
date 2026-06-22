@@ -178,3 +178,41 @@ export async function getTeamHolidayCalendar(
   if (!res.ok) throw new Error('휴일 캘린더를 불러올 수 없습니다.');
   return res.json();
 }
+
+export type TeamLeaderDayOffRow = {
+  id: string;
+  name: string;
+  dayOff: boolean;
+};
+
+/** 관리·마케터: 해당일 팀장 휴무 목록 */
+export async function getTeamLeaderDayOffsForDate(
+  token: string,
+  date: string,
+): Promise<{ date: string; leaders: TeamLeaderDayOffRow[] }> {
+  const q = new URLSearchParams({ date }).toString();
+  const res = await fetch(withTeamPreviewQuery(`${API}/dayoffs/team-leader-day-offs?${q}`), {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? '팀장 휴무 목록을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+/** 관리·마케터: 해당일 팀장 휴무 일괄 저장 */
+export async function putTeamLeaderDayOffsForDate(
+  token: string,
+  payload: { date: string; leaders: Array<{ teamLeaderId: string; dayOff: boolean }> },
+): Promise<void> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/dayoffs/team-leader-day-offs`), {
+    method: 'PUT',
+    headers: headers(token),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? '팀장 휴무 저장에 실패했습니다.');
+  }
+}

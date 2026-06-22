@@ -710,4 +710,101 @@ router.put('/schedule-slot-to-adjustment', authMiddleware, adminOrMarketer, asyn
   res.json({ ok: true });
 });
 
+/** 관리·마케터: 해당일 팀장 휴무(강제·해제) 편집용 목록 */
+router.get('/team-leader-day-offs', authMiddleware, adminOrMarketer, async (req, res) => {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const { date } = req.query as { date?: string };
+  if (!date || !YMD.test(date)) {
+    res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
+    return;
+  }
+  const d = new Date(`${date}T12:00:00+09:00`);
+  const [teamLeadersRaw, dayOffRows] = await Promise.all([
+    prisma.user.findMany({
+      where: { tenantId, role: 'TEAM_LEADER', isActive: true },
+      select: { id: true, name: true, hireDate: true, resignationDate: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.userDayOff.findMany({
+      where: { date: d, teamLeader: { tenantId, isActive: true, role: 'TEAM_LEADER' } },
+      select: { teamLeaderId: true },
+    }),
+  ]);
+  const offIds = new Set(dayOffRows.map((r) => r.teamLeaderId));
+  const leaders = teamLeadersRaw
+    .filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, date))
+    .map((u) => ({ id: u.id, name: u.name, dayOff: offIds.has(u.id) }));
+  res.json({ date, leaders });
+});
+
+/** 관리·마케터: 해당일 팀장 휴무 일괄 저장 — 슬롯 계산(userDayOff)에 즉시 반영 */
+router.put('/team-leader-day-offs', authMiddleware, adminOrMarketer, async (req, res) => {
+  const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const body = req.body as {
+    date?: string;
+    leaders?: Array<{ teamLeaderId?: string; dayOff?: boolean }>;
+  };
+  if (!body.date || !YMD.test(body.date)) {
+    res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)를 입력해주세요.' });
+    return;
+  }
+  const items = Array.isArray(body.leaders) ? body.leaders : [];
+  const d = new Date(`${body.date}T12:00:00+09:00`);
+  const ymd = body.date;
+
+  const leaderIds = [...new Set(items.map((x) => x.teamLeaderId?.trim()).filter(Boolean))] as string[];
+  if (leaderIds.length > 0) {
+    const valid = await prisma.user.findMany({
+      where: {
+        tenantId,
+        id: { in: leaderIds },
+        role: 'TEAM_LEADER',
+        isActive: true,
+      },
+      select: { id: true, hireDate: true, resignationDate: true },
+    });
+    const validSet = new Set(
+      valid.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, ymd)).map((u) => u.id),
+    );
+    for (const id of leaderIds) {
+      if (!validSet.has(id)) {
+        res.status(400).json({ error: '유효하지 않은 팀장입니다.' });
+        return;
+      }
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const row of items) {
+      const teamLeaderId = row.teamLeaderId?.trim();
+      if (!teamLeaderId) continue;
+      if (row.dayOff) {
+        await tx.userDayOff.upsert({
+          where: { teamLeaderId_date: { teamLeaderId, date: d } },
+          create: { teamLeaderId, date: d },
+          update: {},
+        });
+        await tx.scheduleDayLeaderSlot.deleteMany({
+          where: { tenantId, date: d, teamLeaderId },
+        });
+      } else {
+        await tx.userDayOff.deleteMany({
+          where: { teamLeaderId, date: d },
+        });
+      }
+    }
+  });
+
+  scheduleStatsCache.deleteByPrefix(`ss:${tenantId}:`);
+  res.json({ ok: true });
+});
+
 export default router;

@@ -26,6 +26,7 @@ import { EditAppIcon } from '../../components/icons/EditAppIcon';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/ScheduleDayAssignmentSummaryModal';
 import { ScheduleDaySlotToAdjustModal } from '../../components/admin/ScheduleDaySlotToAdjustModal';
+import { ScheduleDayTeamLeaderAdjustModal } from '../../components/admin/ScheduleDayTeamLeaderAdjustModal';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
 import { getScheduleStats, type ScheduleStatsByDate, type AsCsScheduleListItem } from '../../api/dayoffs';
@@ -630,6 +631,7 @@ export function AdminSchedulePage() {
   const [closureBusy, setClosureBusy] = useState(false);
   const [assignmentSummaryOpen, setAssignmentSummaryOpen] = useState(false);
   const [slotToAdjustOpen, setSlotToAdjustOpen] = useState(false);
+  const [teamLeaderAdjustOpen, setTeamLeaderAdjustOpen] = useState(false);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [closureModalOpen, setClosureModalOpen] = useState(false);
   const [scheduleMapOpen, setScheduleMapOpen] = useState(false);
@@ -1773,6 +1775,17 @@ export function AdminSchedulePage() {
                         인원조정
                       </button>
                     )}
+                  {token &&
+                    selectedDate &&
+                    (meRole === 'ADMIN' || meRole === 'MARKETER') && (
+                      <button
+                        type="button"
+                        onClick={() => setTeamLeaderAdjustOpen(true)}
+                        className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-violet-300 bg-violet-50 text-violet-950 hover:bg-violet-100 leading-snug whitespace-nowrap"
+                      >
+                        팀장조정
+                      </button>
+                    )}
                   {token && selectedDate && (
                     <button
                       type="button"
@@ -2768,6 +2781,17 @@ export function AdminSchedulePage() {
           onSaved={() => {
             void fetchMonthData(false);
           }}
+        />
+      )}
+
+      {teamLeaderAdjustOpen && selectedDate && token && (
+        <ScheduleDayTeamLeaderAdjustModal
+          open={teamLeaderAdjustOpen}
+          onClose={() => setTeamLeaderAdjustOpen(false)}
+          dateYmd={selectedDate}
+          token={token}
+          stats={stats[selectedDate]}
+          onSaved={() => void fetchMonthData(false)}
         />
       )}
 
