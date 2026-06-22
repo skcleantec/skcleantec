@@ -40,6 +40,12 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
       { label: '발주서 발급', path: '/admin/inquiries/order-issue', moduleId: 'core_inquiries', group: '발주서' },
       { label: '발주서 양식', path: '/admin/inquiries/order-templates', moduleId: 'core_inquiries', group: '발주서' },
       {
+        label: '고객링크설정',
+        path: '/admin/inquiries/order-customer-link',
+        moduleId: 'core_inquiries',
+        group: '발주서',
+      },
+      {
         label: '발주서설정',
         path: '/admin/inquiries/order-customer-preview',
         moduleId: 'core_inquiries',

@@ -17,6 +17,11 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
         title: '발주서별 제목·아이콘·항목 직접 만들기(구글폼식)',
       },
       {
+        to: '/admin/inquiries/order-customer-link',
+        label: '고객링크설정',
+        title: '발주서 링크 안내 메시지 문구 편집·저장',
+      },
+      {
         to: '/admin/inquiries/order-customer-preview',
         label: '발주서설정',
         title: '공통 메시지·견적/전문시공 옵션 설정·미리보기',

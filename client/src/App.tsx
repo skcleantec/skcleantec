@@ -27,6 +27,7 @@ import {
   AdminMessagesPage,
   AdminOrderFormPage,
   AdminOrderFormCustomerPreviewPage,
+  AdminOrderFormCustomerLinkSettingsPage,
   AdminOrderFormTemplatesPage,
   AdminQuotationsListPage,
   AdminQuotationEditorPage,
@@ -135,6 +136,10 @@ function App() {
               element={<Navigate to="/admin/inquiries/order-customer-preview" replace />}
             />
             <Route path="order-templates" element={<SuspensePage><AdminOrderFormTemplatesPage /></SuspensePage>} />
+            <Route
+              path="order-customer-link"
+              element={<SuspensePage><AdminOrderFormCustomerLinkSettingsPage /></SuspensePage>}
+            />
             <Route path="order-customer-preview" element={<SuspensePage><AdminOrderFormCustomerPreviewPage /></SuspensePage>} />
             <Route path="quotations" element={<SuspensePage><AdminQuotationsListPage /></SuspensePage>} />
             <Route path="quotations/new" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />

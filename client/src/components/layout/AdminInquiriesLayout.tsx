@@ -52,7 +52,10 @@ function MobileInquirySubNavTabs({
             className={({ isActive }) =>
               adminSubNavTabClassName(
                 isActive,
-                child.to === '/admin/inquiries/order-customer-preview' ? 'shrink-0' : undefined,
+                child.to === '/admin/inquiries/order-customer-preview' ||
+                child.to === '/admin/inquiries/order-customer-link'
+                  ? 'shrink-0'
+                  : undefined,
               )
             }
           >

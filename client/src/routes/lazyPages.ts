@@ -29,6 +29,11 @@ export const AdminOrderFormCustomerPreviewPage = lazyWithRetry(() =>
     default: m.AdminOrderFormCustomerPreviewPage,
   }))
 );
+export const AdminOrderFormCustomerLinkSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminOrderFormCustomerLinkSettingsPage').then((m) => ({
+    default: m.AdminOrderFormCustomerLinkSettingsPage,
+  }))
+);
 export const AdminOrderFormTemplatesPage = lazyWithRetry(() =>
   import('../pages/admin/AdminOrderFormTemplatesPage').then((m) => ({ default: m.AdminOrderFormTemplatesPage }))
 );
