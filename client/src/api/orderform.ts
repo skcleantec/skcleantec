@@ -146,6 +146,15 @@ export interface OrderFormConfigPublic {
   timeSlotAckTitle?: string | null;
   timeSlotAckBody?: string | null;
   timeSlotAckConsentHint?: string | null;
+  /** 고객 링크 메시지 문구(링크 URL 제외) */
+  customerLinkTotalLine?: string | null;
+  customerLinkBalanceLine?: string | null;
+  customerLinkScheduleLine?: string | null;
+  customerLinkTimeDetailLine?: string | null;
+  customerLinkOrderIntro?: string | null;
+  customerLinkCsNotice?: string | null;
+  customerLinkCsUrlLabel?: string | null;
+  customerLinkPaybackBlock?: string | null;
 }
 
 export interface ProfessionalSpecialtyOptionDto {

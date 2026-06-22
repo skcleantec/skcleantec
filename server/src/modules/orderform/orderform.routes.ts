@@ -1927,6 +1927,32 @@ router.put('/form-config', authMiddleware, adminOnly, async (req, res) => {
         ...(body.timeSlotAckConsentHint != null && {
           timeSlotAckConsentHint: body.timeSlotAckConsentHint ? String(body.timeSlotAckConsentHint) : null,
         }),
+        ...(body.customerLinkTotalLine != null && {
+          customerLinkTotalLine: body.customerLinkTotalLine ? String(body.customerLinkTotalLine) : null,
+        }),
+        ...(body.customerLinkBalanceLine != null && {
+          customerLinkBalanceLine: body.customerLinkBalanceLine ? String(body.customerLinkBalanceLine) : null,
+        }),
+        ...(body.customerLinkScheduleLine != null && {
+          customerLinkScheduleLine: body.customerLinkScheduleLine ? String(body.customerLinkScheduleLine) : null,
+        }),
+        ...(body.customerLinkTimeDetailLine != null && {
+          customerLinkTimeDetailLine: body.customerLinkTimeDetailLine
+            ? String(body.customerLinkTimeDetailLine)
+            : null,
+        }),
+        ...(body.customerLinkOrderIntro != null && {
+          customerLinkOrderIntro: body.customerLinkOrderIntro ? String(body.customerLinkOrderIntro) : null,
+        }),
+        ...(body.customerLinkCsNotice != null && {
+          customerLinkCsNotice: body.customerLinkCsNotice ? String(body.customerLinkCsNotice) : null,
+        }),
+        ...(body.customerLinkCsUrlLabel != null && {
+          customerLinkCsUrlLabel: body.customerLinkCsUrlLabel ? String(body.customerLinkCsUrlLabel) : null,
+        }),
+        ...(body.customerLinkPaybackBlock != null && {
+          customerLinkPaybackBlock: body.customerLinkPaybackBlock ? String(body.customerLinkPaybackBlock) : null,
+        }),
       },
     });
     res.json(updated);

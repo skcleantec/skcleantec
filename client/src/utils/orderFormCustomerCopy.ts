@@ -4,8 +4,13 @@ import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
 } from '../constants/orderFormConfigDefaults';
+import {
+  applyCustomerLinkTemplate,
+  resolveCustomerLinkCopy,
+  type CustomerLinkCopyConfig,
+} from '@shared/orderFormCustomerLinkCopy';
 import { appendPublicQuery } from './publicTenantQuery';
-import { buildReviewPaybackMessageBlock, getReviewPaybackPublicUrl } from './reviewPaybackCustomerCopy';
+import { getReviewPaybackPublicUrl } from './reviewPaybackCustomerCopy';
 
 type FormMsgDefaultKey = keyof typeof ORDER_FORM_CONFIG_DEFAULTS;
 
@@ -37,10 +42,19 @@ export type FormMessagesState = Pick<
   | 'timeSlotAckTitle'
   | 'timeSlotAckBody'
   | 'timeSlotAckConsentHint'
+  | 'customerLinkTotalLine'
+  | 'customerLinkBalanceLine'
+  | 'customerLinkScheduleLine'
+  | 'customerLinkTimeDetailLine'
+  | 'customerLinkOrderIntro'
+  | 'customerLinkCsNotice'
+  | 'customerLinkCsUrlLabel'
+  | 'customerLinkPaybackBlock'
 >;
 
 /** API 응답을 편집용 상태로: 비어 있는 항목은 기본 문구로 채워 placeholder 없이 바로 수정 가능 */
 export function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessagesState {
+  const linkCopy = resolveCustomerLinkCopy(c);
   return {
     formTitle: withDefaultText(c.formTitle, 'formTitle'),
     priceLabel: withDefaultText(c.priceLabel, 'priceLabel'),
@@ -56,6 +70,22 @@ export function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessa
     timeSlotAckTitle: withDefaultText(c.timeSlotAckTitle, 'timeSlotAckTitle'),
     timeSlotAckBody: withDefaultText(c.timeSlotAckBody, 'timeSlotAckBody'),
     timeSlotAckConsentHint: withDefaultText(c.timeSlotAckConsentHint, 'timeSlotAckConsentHint'),
+    ...linkCopy,
+  };
+}
+
+export function customerLinkCopyPayloadFromEditor(
+  msg: Pick<FormMessagesState, keyof CustomerLinkCopyConfig>,
+): Record<keyof CustomerLinkCopyConfig, string | null> {
+  return {
+    customerLinkTotalLine: msg.customerLinkTotalLine || null,
+    customerLinkBalanceLine: msg.customerLinkBalanceLine || null,
+    customerLinkScheduleLine: msg.customerLinkScheduleLine || null,
+    customerLinkTimeDetailLine: msg.customerLinkTimeDetailLine || null,
+    customerLinkOrderIntro: msg.customerLinkOrderIntro || null,
+    customerLinkCsNotice: msg.customerLinkCsNotice || null,
+    customerLinkCsUrlLabel: msg.customerLinkCsUrlLabel || null,
+    customerLinkPaybackBlock: msg.customerLinkPaybackBlock || null,
   };
 }
 
@@ -120,21 +150,36 @@ export function buildOrderFormCustomerMessage(
   const footer1 = withDefaultText(msgConfig.footerNotice1, 'footerNotice1');
   const footer2 = footerNotice2ForMessage(msgConfig.footerNotice2);
   const paybackToken = order.reviewPaybackToken?.trim();
+  const linkCopy = resolveCustomerLinkCopy(msgConfig);
+  const amountFmt = order.totalAmount.toLocaleString('ko-KR');
+  const balanceFmt = order.balanceAmount.toLocaleString('ko-KR');
+  const depositFmt = order.depositAmount.toLocaleString('ko-KR');
 
   let msg = `${title}
 
-총 금액 ${order.totalAmount.toLocaleString('ko-KR')}원 ${priceLabel}
-잔금 ${order.balanceAmount.toLocaleString('ko-KR')}원, 예약금 ${order.depositAmount.toLocaleString('ko-KR')}원`;
+${applyCustomerLinkTemplate(linkCopy.customerLinkTotalLine, {
+  amount: amountFmt,
+  priceLabel,
+})}
+${applyCustomerLinkTemplate(linkCopy.customerLinkBalanceLine, {
+  balance: balanceFmt,
+  deposit: depositFmt,
+})}`;
   if (reviewText) msg += `\n${reviewText}`;
 
   if (order.preferredDate && order.preferredTime) {
     const slotLabel =
       ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === order.preferredTime)?.label ??
       order.preferredTime;
-    msg += `\n청소일시: ${order.preferredDate} (${slotLabel})`;
+    msg += `\n${applyCustomerLinkTemplate(linkCopy.customerLinkScheduleLine, {
+      date: order.preferredDate,
+      timeSlot: slotLabel,
+    })}`;
   }
   if (order.preferredTimeDetail?.trim()) {
-    msg += `\n희망 시각: ${order.preferredTimeDetail.trim()}`;
+    msg += `\n${applyCustomerLinkTemplate(linkCopy.customerLinkTimeDetailLine, {
+      timeDetail: order.preferredTimeDetail.trim(),
+    })}`;
   }
   if (order.optionNote) {
     msg += `\n${order.optionNote}`;
@@ -142,15 +187,14 @@ export function buildOrderFormCustomerMessage(
 
   msg += `
 
-아래 링크에서 예약확정서를 작성해 주세요.
+${linkCopy.customerLinkOrderIntro}
 ${link}
 
-청소 후 청소팀 태도, 고객 불편 관련 신고는 본사에 직접 요청해주시면 바로 시정처리 해드리겠습니다.
-신고 URL: ${csLink}`;
-  // 리뷰 안내 문구(reviewEventText)와 무관하게, 발급 시 부여된 토큰이 있으면 페이백 링크를 신고 URL 아래에 포함한다.
+${linkCopy.customerLinkCsNotice}
+${linkCopy.customerLinkCsUrlLabel} ${csLink}`;
   if (paybackToken) {
     const paybackLink = getReviewPaybackPublicUrl(paybackToken, origin, tenantSlug, brandSlug);
-    msg += `\n\n${buildReviewPaybackMessageBlock(paybackLink)}`;
+    msg += `\n\n${applyCustomerLinkTemplate(linkCopy.customerLinkPaybackBlock, { paybackLink })}`;
   }
 
   msg += `

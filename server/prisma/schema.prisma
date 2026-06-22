@@ -1528,6 +1528,15 @@ model OrderFormConfig {
   timeSlotAckBody        String? @map("time_slot_ack_body") @db.Text
   /// 고객 발주서 — 동의 버튼 상단 안내(노란 박스)
   timeSlotAckConsentHint String? @map("time_slot_ack_consent_hint") @db.Text
+  /// 고객 링크 메시지 — 금액·일정·안내 문구(링크 URL 제외). {{amount}} 등 치환
+  customerLinkTotalLine      String? @map("customer_link_total_line") @db.Text
+  customerLinkBalanceLine    String? @map("customer_link_balance_line") @db.Text
+  customerLinkScheduleLine   String? @map("customer_link_schedule_line") @db.Text
+  customerLinkTimeDetailLine String? @map("customer_link_time_detail_line") @db.Text
+  customerLinkOrderIntro     String? @map("customer_link_order_intro") @db.Text
+  customerLinkCsNotice       String? @map("customer_link_cs_notice") @db.Text
+  customerLinkCsUrlLabel     String? @map("customer_link_cs_url_label") @db.Text
+  customerLinkPaybackBlock   String? @map("customer_link_payback_block") @db.Text
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("order_form_config")
