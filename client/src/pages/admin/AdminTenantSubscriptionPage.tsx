@@ -113,7 +113,7 @@ export function AdminTenantSubscriptionPage() {
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6 pb-8">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">가입정보</h1>
+        <h1 className="text-xl font-semibold text-gray-800">계정 및 서비스 이용 현황</h1>
         <p className="mt-1 text-sm text-gray-500">
           청소비서 이용 플랜·활성 서비스·현재 사용량을 확인합니다.
         </p>

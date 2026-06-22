@@ -123,6 +123,7 @@ function App() {
           }
         >
           <Route path="dashboard" element={<SuspensePage><AdminDashboardPage /></SuspensePage>} />
+          <Route path="subscription" element={<SuspensePage><AdminTenantSubscriptionPage /></SuspensePage>} />
           <Route path="inquiries" element={<AdminInquiriesLayout />}>
             <Route index element={<SuspensePage><AdminInquiriesPage /></SuspensePage>} />
             <Route path="followup" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />

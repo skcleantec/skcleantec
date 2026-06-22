@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireTenantIdFromAuth } from './tenantScope.helpers.js';
 import { getTenantSubscriptionForAdmin } from './tenantSubscription.service.js';
 
 const router = Router();
 
-router.use(authMiddleware, adminOnly);
+router.use(authMiddleware, adminOrMarketer);
 
-/** GET /api/admin/tenant-subscription — 가입·플랜·사용 중 서비스·사용량 (관리자) */
+/** GET /api/admin/tenant-subscription — 가입·플랜·사용 중 서비스·사용량 (관리자·마케터) */
 router.get('/', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;

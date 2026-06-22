@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { TenantSubscriptionDto } from '../../api/tenantSubscription';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
 
@@ -227,6 +228,15 @@ export function DashboardTenantSubscriptionView({ data }: { data: TenantSubscrip
             unit="개"
           />
         </div>
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <Link
+          to="/admin/subscription"
+          className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+        >
+          자세히 보기
+        </Link>
       </div>
     </div>
   );
