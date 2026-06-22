@@ -39,6 +39,8 @@ import {
   ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS,
   isOrderFormPendingPlaceholderAddress,
   customerFormAddressFromInquiry,
+  isMarketerLockedOrderFormAddress,
+  parseAddressSelectedViaSearchFlag,
 } from '../../lib/orderFormPendingAddress.js';
 import {
   recordInquiryStatusEvent,
@@ -2024,6 +2026,8 @@ router.post('/submit/:token', async (req, res) => {
     isOneRoom?: boolean | string;
     professionalOptionIds?: unknown;
     answers?: unknown;
+    /** 마케터 주소 잠금이 아닐 때 true — 고객이 「주소 검색」으로 선택했음을 표시 */
+    addressSelectedViaSearch?: boolean | string;
   };
 
   const form = await prisma.orderForm.findUnique({ where: { token } });
@@ -2044,6 +2048,14 @@ router.post('/submit/:token', async (req, res) => {
 
   const addressTrim = body.address != null ? String(body.address).trim() : '';
   if (!addressTrim || isOrderFormPendingPlaceholderAddress(addressTrim)) {
+    res.status(400).json({ error: '「주소 검색」 버튼으로 주소를 선택해 주세요.' });
+    return;
+  }
+  const marketerAddressLocked = isMarketerLockedOrderFormAddress(form.prefillAnswers);
+  if (
+    !marketerAddressLocked &&
+    !parseAddressSelectedViaSearchFlag(body.addressSelectedViaSearch)
+  ) {
     res.status(400).json({ error: '「주소 검색」 버튼으로 주소를 선택해 주세요.' });
     return;
   }

@@ -64,6 +64,7 @@ import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGu
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import type { PublicOperatingCompanyBranding } from '../../api/orderform';
 import {
+  isMarketerLockedOrderFormAddress,
   isRealCustomerAddress,
 } from '@shared/orderFormPendingAddress';
 
@@ -514,8 +515,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           customerPhone: pfStr('customerPhone') ?? (issuedPhone || (p?.customerPhone ?? '').trim() || ''),
           customerPhoneSecondary: pfStr('customerPhone2') ?? p?.customerPhone2 ?? '',
           customerEmail: pfStr('customerEmail') ?? p?.customerEmail ?? '',
-          address: pfStr('address') ?? p?.address ?? '',
-          addressDetail: pfStr('addressDetail') ?? p?.addressDetail ?? '',
+          // 주소·상세주소는 마케터 prefill(잠금)만 초기값 — 접수 DB 값은 검색 우회 방지
+          address: pfStr('address') ?? '',
+          addressDetail: pfStr('addressDetail') ?? '',
           propertyType: pfStr('propertyType') ?? p?.propertyType ?? '',
           areaBasis: areaLockedOnIssue
             ? String(data.areaBasis).trim()
@@ -568,10 +570,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             setProfSelections(parseProfessionalOptionSelections(pfProf, catalog));
           }
         };
-        const addrPrefillLocked =
-          !isEditor &&
-          typeof pf.address === 'string' &&
-          isRealCustomerAddress(pf.address);
+        const addrPrefillLocked = !isEditor && isMarketerLockedOrderFormAddress(pf);
         setAddressConfirmedViaSearch(addrPrefillLocked);
         const fromForm = data.professionalOptions;
         if (fromForm && fromForm.length > 0) {
@@ -651,8 +650,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
       }
       const addressLockedByPrefill =
-        prefillLocked('address') && isRealCustomerAddress(form.address);
-      if (!isEditor && !addressLockedByPrefill && !addressConfirmedViaSearch) {
+        isMarketerLockedOrderFormAddress(prefillMap) &&
+        isRealCustomerAddress(form.address);
+      const addressViaSearchOk = addressLockedByPrefill || addressConfirmedViaSearch;
+      if (!isEditor && !addressViaSearchOk) {
         throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
       }
       if (!prefillLocked('addressDetail') && !form.addressDetail.trim()) {
@@ -756,6 +757,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         customerName: form.customerName.trim(),
         address: form.address.trim(),
         addressDetail: form.addressDetail.trim() || undefined,
+        addressSelectedViaSearch: !isEditor && addressViaSearchOk,
         customerPhone: form.customerPhone.trim(),
         customerPhone2: form.customerPhoneSecondary.trim(),
         customerEmail: emailTrim,

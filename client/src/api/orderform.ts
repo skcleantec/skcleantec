@@ -595,6 +595,8 @@ export async function submitOrderForm(
     customerName: string;
     address: string;
     addressDetail?: string;
+    /** 마케터 주소 잠금이 아닐 때 true — 「주소 검색」 경유 확인(서버 검증) */
+    addressSelectedViaSearch?: boolean;
     customerPhone: string;
     customerPhone2: string;
     customerEmail: string;

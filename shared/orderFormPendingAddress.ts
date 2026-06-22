@@ -49,3 +49,18 @@ export function customerFormAddressFromInquiry(
   if (isOrderFormPendingPlaceholderAddress(address)) return '';
   return (address ?? '').trim();
 }
+
+/**
+ * 마케터가 prefillAnswers 에 주소를 선입력(잠금)한 경우.
+ * 이 경우만 고객 발주서에서 「주소 검색」 없이 제출을 허용한다.
+ */
+export function isMarketerLockedOrderFormAddress(prefill: unknown): boolean {
+  if (!prefill || typeof prefill !== 'object') return false;
+  const raw = (prefill as Record<string, unknown>).address;
+  if (typeof raw !== 'string') return false;
+  return isRealCustomerAddress(raw);
+}
+
+export function parseAddressSelectedViaSearchFlag(raw: unknown): boolean {
+  return raw === true || raw === 'true' || String(raw ?? '') === '1';
+}

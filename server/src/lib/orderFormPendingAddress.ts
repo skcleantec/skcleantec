@@ -43,3 +43,14 @@ export function customerFormAddressFromInquiry(
   if (isOrderFormPendingPlaceholderAddress(address)) return '';
   return (address ?? '').trim();
 }
+
+export function isMarketerLockedOrderFormAddress(prefill: unknown): boolean {
+  if (!prefill || typeof prefill !== 'object') return false;
+  const raw = (prefill as Record<string, unknown>).address;
+  if (typeof raw !== 'string') return false;
+  return isRealCustomerAddress(raw);
+}
+
+export function parseAddressSelectedViaSearchFlag(raw: unknown): boolean {
+  return raw === true || raw === 'true' || String(raw ?? '') === '1';
+}
