@@ -4,6 +4,7 @@ import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
   getTeamSchedule,
+  getTeamMe,
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
@@ -24,6 +25,7 @@ import {
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
   formatTeamInquiryAreaSummary,
+  TeamCoLeadersListHint,
 } from './teamInquiryShared';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import type { ScheduleItem } from '../../api/schedule';
@@ -78,6 +80,7 @@ export function TeamSchedulePage() {
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
   const [mapModalItems, setMapModalItems] = useState<ScheduleItem[]>([]);
+  const [myId, setMyId] = useState<string | null>(null);
 
   useTeamOpenInquiryDeepLink(token, setDetailItem);
 
@@ -89,13 +92,15 @@ export function TeamSchedulePage() {
       const startedKey = capturePreviewKey();
       try {
         const { start, end } = getMonthRange(year, month);
-        const [inv, hc] = await Promise.all([
+        const [inv, hc, me] = await Promise.all([
           getTeamSchedule(token, start, end) as Promise<{ items: InquiryItem[] }>,
           getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
+          getTeamMe(token).catch(() => null) as Promise<{ id: string } | null>,
         ]);
         if (isPreviewFetchStale(startedKey)) return;
         setItems(inv.items);
         setHappyStats(hc);
+        setMyId(me?.id ?? null);
       } catch {
         if (isPreviewFetchStale(startedKey)) return;
         setItems([]);
@@ -338,6 +343,7 @@ export function TeamSchedulePage() {
                             <div className="text-fluid-xs text-gray-500 mt-0.5" title={formatCrewInfo(item)}>
                               {formatCrewInfo(item)}
                             </div>
+                            <TeamCoLeadersListHint item={item} viewerId={myId} />
                           </div>
                           <div className="shrink-0 flex flex-col items-end gap-1.5">
                             <button
@@ -390,6 +396,7 @@ export function TeamSchedulePage() {
       {detailItem && (
         <TeamInquiryDetailModal
           item={detailItem}
+          viewerTeamLeaderId={myId}
           onClose={() => setDetailItem(null)}
           enableHappyCall
           onInquiryPatched={(next) => setDetailItem(next)}

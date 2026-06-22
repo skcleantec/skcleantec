@@ -4,6 +4,7 @@ import {
   completeTeamHappyCall,
   getTeamHappyCallStats,
   getTeamInquiries,
+  getTeamMe,
   patchTeamInquiryPreferredDate,
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
@@ -20,6 +21,7 @@ import {
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
   formatTeamInquiryAreaSummary,
+  TeamCoLeadersListHint,
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
@@ -34,6 +36,7 @@ export function TeamDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
+  const [myId, setMyId] = useState<string | null>(null);
 
   useTeamOpenInquiryDeepLink(token, setDetailItem);
 
@@ -43,13 +46,15 @@ export function TeamDashboardPage() {
       if (!opts?.silent) setLoading(true);
       const startedKey = capturePreviewKey();
       try {
-        const [inv, hc] = await Promise.all([
+        const [inv, hc, me] = await Promise.all([
           getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
           getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
+          getTeamMe(token).catch(() => null) as Promise<{ id: string } | null>,
         ]);
         if (isPreviewFetchStale(startedKey)) return;
         setItems(inv.items);
         setHappyStats(hc);
+        setMyId(me?.id ?? null);
       } catch {
         if (isPreviewFetchStale(startedKey)) return;
         setItems([]);
@@ -206,6 +211,7 @@ export function TeamDashboardPage() {
                         {item.address}
                         {item.addressDetail ? ` ${item.addressDetail}` : ''}
                       </div>
+                      <TeamCoLeadersListHint item={item} viewerId={myId} />
                     </div>
                     <a
                       href={`tel:${item.customerPhone}`}
@@ -298,6 +304,7 @@ export function TeamDashboardPage() {
                               </span>
                               <TeamHappyCallBadge item={item} />
                             </div>
+                            <TeamCoLeadersListHint item={item} viewerId={myId} className="mt-1 text-fluid-2xs text-gray-600" />
                           </div>
                           <a
                             href={`tel:${item.customerPhone}`}
@@ -324,6 +331,7 @@ export function TeamDashboardPage() {
       {detailItem && (
         <TeamInquiryDetailModal
           item={detailItem}
+          viewerTeamLeaderId={myId}
           onClose={() => setDetailItem(null)}
           enableHappyCall
           onInquiryPatched={(next) => setDetailItem(next)}

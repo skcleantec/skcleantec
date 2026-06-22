@@ -27,6 +27,8 @@ import {
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
   formatTeamInquiryAreaSummary,
+  coLeadersSummaryForViewer,
+  TeamCoLeadersListHint,
 } from './teamInquiryShared';
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
@@ -61,19 +63,6 @@ function parseDateBasis(raw: string | null): DateBasis {
 
 function myAssignment(item: InquiryItem, myId: string) {
   return item.assignments.find((a) => a.teamLeader.id === myId);
-}
-
-function leaderLabel(u: InquiryItem['assignments'][0]['teamLeader']): string {
-  if (u.role === 'EXTERNAL_PARTNER') {
-    const tag = teamBiPlain('team.modal.externalPartnerTag');
-    return u.externalCompany?.name ? `${tag} ${u.externalCompany.name}` : `${tag} ${u.name}`;
-  }
-  return u.name;
-}
-
-function coLeadersSummary(item: InquiryItem, myId: string): string {
-  const others = item.assignments.filter((a) => a.teamLeader.id !== myId).map((a) => leaderLabel(a.teamLeader));
-  return others.length ? others.join(' · ') : '—';
 }
 
 function formatAssignedAt(iso?: string | null): string {
@@ -599,6 +588,7 @@ export function TeamAssignmentListPage() {
                     <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatCrewInfo(item)}>
                       {formatCrewInfo(item)}
                     </p>
+                    <TeamCoLeadersListHint item={item} viewerId={myId} />
                   </div>
                 );
               })}
@@ -796,9 +786,9 @@ export function TeamAssignmentListPage() {
                         ) : null}
                         <td
                           className={`align-middle py-2 px-2 text-gray-600 text-center max-w-[120px] truncate ${pBorder}`}
-                          title={coLeadersSummary(item, myId!)}
+                          title={coLeadersSummaryForViewer(item, myId!)}
                         >
-                          {coLeadersSummary(item, myId!)}
+                          {coLeadersSummaryForViewer(item, myId!)}
                         </td>
                       </tr>
                     );

@@ -559,11 +559,32 @@ function myAssignmentForViewer(item: InquiryItem, viewerId: string) {
   return item.assignments.find((a) => a.teamLeader.id === viewerId);
 }
 
-function coLeadersSummaryForViewer(item: InquiryItem, viewerId: string): string {
+export function coLeadersSummaryForViewer(item: InquiryItem, viewerId: string): string {
   const others = item.assignments
     .filter((a) => a.teamLeader.id !== viewerId)
     .map((a) => leaderLabelForAssignment(a.teamLeader));
   return others.length ? others.join(' · ') : '—';
+}
+
+/** 목록 카드 — 공동 배정 팀장이 있을 때만 한 줄 표시 */
+export function TeamCoLeadersListHint({
+  item,
+  viewerId,
+  className = 'mt-1.5 text-fluid-2xs text-gray-600',
+}: {
+  item: InquiryItem;
+  viewerId: string | null | undefined;
+  className?: string;
+}) {
+  if (!viewerId) return null;
+  const summary = coLeadersSummaryForViewer(item, viewerId);
+  if (summary === '—') return null;
+  return (
+    <p className={className} title={summary}>
+      <span className="text-gray-500">{teamBiPlain('team.assign.thCoLeaders')}</span>{' '}
+      <span className="font-medium text-gray-800">{summary}</span>
+    </p>
+  );
 }
 
 function TeamModalSection({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -824,7 +845,8 @@ export function TeamInquiryDetailModal({
     window.setTimeout(() => setShareCopyHint(null), 1800);
   }, [item]);
 
-  const mine = viewerTeamLeaderId ? myAssignmentForViewer(item, viewerTeamLeaderId) : null;
+  const effectiveViewerId = viewerTeamLeaderId ?? viewerMe?.id ?? null;
+  const mine = effectiveViewerId ? myAssignmentForViewer(item, effectiveViewerId) : null;
   const primaryCustomerTitle = inquiryPrimaryCustomerLabel(item);
   const scheduleMemoTrim = item.scheduleMemo?.trim() ?? '';
   const showScheduleMemoRow =
@@ -931,7 +953,7 @@ export function TeamInquiryDetailModal({
               ) : null}
             </TeamModalSection>
 
-            {viewerTeamLeaderId && mine ? (
+            {effectiveViewerId && mine ? (
               <TeamModalSection
                 title={<TeamBiLine id="team.modal.section.assignmentMine" koClassName="text-fluid-xs font-semibold text-gray-600" />}
               >
@@ -948,7 +970,7 @@ export function TeamInquiryDetailModal({
                 <TeamModalRow
                   label={<TeamBiLine id="team.modal.row.coLeaders" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
-                  <span className="text-gray-800">{coLeadersSummaryForViewer(item, viewerTeamLeaderId)}</span>
+                  <span className="text-gray-800">{coLeadersSummaryForViewer(item, effectiveViewerId)}</span>
                 </TeamModalRow>
               </TeamModalSection>
             ) : null}
