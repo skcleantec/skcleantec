@@ -106,17 +106,19 @@ const TEAM_SETTLEMENT_FIX = {
 };
 
 const raw = await readFile(DATA_PATH, 'utf8');
-const teamEntries = JSON.parse(raw).map((entry) => {
-  if (entry.path === '/team/settlement') {
-    return {
-      ...entry,
-      title: TEAM_SETTLEMENT_FIX.title,
-      summary: TEAM_SETTLEMENT_FIX.summary,
-      markdown: TEAM_SETTLEMENT_FIX.markdown,
-    };
-  }
-  return entry;
-});
+const teamEntries = JSON.parse(raw)
+  .filter((entry) => entry.role === 'team')
+  .map((entry) => {
+    if (entry.path === '/team/settlement') {
+      return {
+        ...entry,
+        title: TEAM_SETTLEMENT_FIX.title,
+        summary: TEAM_SETTLEMENT_FIX.summary,
+        markdown: TEAM_SETTLEMENT_FIX.markdown,
+      };
+    }
+    return entry;
+  });
 
 const merged = [...ADMIN_PAGES.map(adminEntry), ...teamEntries];
 await writeFile(DATA_PATH, `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
