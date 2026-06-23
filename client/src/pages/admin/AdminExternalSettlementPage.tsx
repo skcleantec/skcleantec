@@ -134,7 +134,13 @@ export function AdminExternalSettlementPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailMonth, setDetailMonth] = useState(kstTodayYmd().slice(0, 7));
   const [detailItems, setDetailItems] = useState<
-    Array<{ inquiryId: string; inquiryNumber: string | null; customerName: string; signedFeeAmount: number }>
+    Array<{
+      inquiryId: string;
+      inquiryNumber: string | null;
+      customerName: string;
+      signedFeeAmount: number;
+      viaMarketplace?: boolean;
+    }>
   >([]);
   const detailTotalFee = useMemo(
     () => detailItems.reduce((sum, it) => sum + (it.signedFeeAmount ?? 0), 0),
@@ -253,7 +259,8 @@ export function AdminExternalSettlementPage() {
           inquiryNumber: it.inquiryNumber,
           customerName: it.customerName,
           signedFeeAmount: it.signedFeeAmount,
-        }))
+          viaMarketplace: it.viaMarketplace,
+        })),
       );
     } catch {
       setDetailItems([]);
@@ -857,7 +864,14 @@ export function AdminExternalSettlementPage() {
                   <div className="lg:hidden space-y-2">
                     {detailItems.map((it, idx) => (
                       <div key={it.inquiryId} className="rounded border border-gray-200 p-3 text-xs">
-                        <p className="font-semibold text-gray-900">{idx + 1}. {it.customerName}</p>
+                        <p className="font-semibold text-gray-900">
+                          {idx + 1}. {it.customerName}
+                          {it.viaMarketplace ? (
+                            <span className="ml-1.5 inline-block rounded bg-violet-100 px-1 py-0.5 text-[10px] font-semibold text-violet-800">
+                              정보공유
+                            </span>
+                          ) : null}
+                        </p>
                         <p className="mt-1 text-gray-600">접수번호: {it.inquiryNumber ?? '-'}</p>
                         <p className="mt-1 flex items-center justify-between">
                           <span className="text-gray-500">수수료</span>
@@ -884,7 +898,14 @@ export function AdminExternalSettlementPage() {
                           <tr key={it.inquiryId} className="border-t border-gray-100">
                             <td className="px-3 py-2 text-center tabular-nums">{idx + 1}</td>
                             <td className="px-3 py-2 text-center tabular-nums">{it.inquiryNumber ?? '-'}</td>
-                            <td className="px-3 py-2 text-center">{it.customerName}</td>
+                            <td className="px-3 py-2 text-center">
+                              {it.customerName}
+                              {it.viaMarketplace ? (
+                                <span className="ml-1 inline-block rounded bg-violet-100 px-1 py-0.5 text-[10px] font-semibold text-violet-800">
+                                  정보공유
+                                </span>
+                              ) : null}
+                            </td>
                             <td className={`px-3 py-2 text-right tabular-nums font-semibold ${it.signedFeeAmount < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
                               {it.signedFeeAmount < 0 ? '-' : '+'}
                               {won(Math.abs(it.signedFeeAmount))}

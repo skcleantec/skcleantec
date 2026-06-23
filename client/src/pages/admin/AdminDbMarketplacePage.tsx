@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   listDbMarketplace,
+  getDbMarketplaceListing,
   type DbMarketplaceListTab,
   type DbMarketplaceMaskedItem,
 } from '../../api/dbMarketplace';
@@ -135,6 +136,22 @@ export function AdminDbMarketplacePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const openListingId = searchParams.get('openListing')?.trim() ?? '';
+
+  const clearOpenListingParam = useCallback(() => {
+    if (!searchParams.get('openListing')) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('openListing');
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!token || !openListingId) return;
+    void getDbMarketplaceListing(token, openListingId)
+      .then((item) => setSelectedRow(item))
+      .catch(() => {});
+  }, [token, openListingId]);
 
   const lastSilentRefreshRef = useRef(0);
   const silentRefresh = useCallback(() => {
@@ -292,7 +309,10 @@ export function AdminDbMarketplacePage() {
       {selectedRow ? (
         <DbMarketplaceListingDetailModal
           row={selectedRow}
-          onClose={() => setSelectedRow(null)}
+          onClose={() => {
+            setSelectedRow(null);
+            clearOpenListingParam();
+          }}
           onChanged={() => load({ silent: true })}
         />
       ) : null}

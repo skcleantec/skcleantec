@@ -1,5 +1,6 @@
 import type { Inquiry, Prisma, TenantInquiryShareDirection } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { loadMarketplaceConfirmedShareIdSet } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { getDefaultOperatingCompanyId } from '../operating-companies/operatingCompany.service.js';
 import {
@@ -287,19 +288,7 @@ export async function loadShareMetaMapForInquiries(
   });
 
   const shareIds = rows.map((r) => r.id);
-  const marketplaceShareIds = new Set<string>();
-  if (shareIds.length > 0) {
-    const linked = await prisma.inquiryDbListing.findMany({
-      where: {
-        tenantInquiryShareId: { in: shareIds },
-        status: 'CONFIRMED',
-      },
-      select: { tenantInquiryShareId: true },
-    });
-    for (const row of linked) {
-      if (row.tenantInquiryShareId) marketplaceShareIds.add(row.tenantInquiryShareId);
-    }
-  }
+  const marketplaceShareIds = await loadMarketplaceConfirmedShareIdSet(shareIds);
 
   const map = new Map<string, SerializedTenantInquiryShareMeta>();
   for (const row of rows) {

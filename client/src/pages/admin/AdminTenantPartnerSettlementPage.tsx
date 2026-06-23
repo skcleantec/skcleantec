@@ -59,6 +59,18 @@ export function AdminTenantPartnerSettlementPage() {
   const [historyPayments, setHistoryPayments] = useState<
     Array<{ id: string; amount: number; paidAt: string; memo: string | null; actorName: string | null }>
   >([]);
+  const [feeItemsOpen, setFeeItemsOpen] = useState(false);
+  const [feeItemsLoading, setFeeItemsLoading] = useState(false);
+  const [feeItems, setFeeItems] = useState<
+    Array<{
+      shareId: string;
+      inquiryNumber: string | null;
+      customerName: string;
+      signedFeeAmount: number;
+      isCancelled: boolean;
+      viaMarketplace?: boolean;
+    }>
+  >([]);
 
   const loadList = useCallback(async () => {
     if (!token) return;
@@ -146,6 +158,27 @@ export function AdminTenantPartnerSettlementPage() {
       setHistoryPayments([]);
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const openFeeItems = async (row: TenantPartnerSettlementOverviewRow) => {
+    if (!token) return;
+    setSelected(row);
+    setFeeItemsOpen(true);
+    setFeeItemsLoading(true);
+    const { from, to } = kstMonthRange();
+    try {
+      const detail = await getTenantPartnerSettlementDetail(token, {
+        role: tab,
+        partnerTenantId: row.partnerTenantId,
+        from,
+        to,
+      });
+      setFeeItems(detail.items);
+    } catch {
+      setFeeItems([]);
+    } finally {
+      setFeeItemsLoading(false);
     }
   };
 
@@ -280,6 +313,13 @@ export function AdminTenantPartnerSettlementPage() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => void openFeeItems(r)}
+                          className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700"
+                        >
+                          수수료
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => void openHistory(r)}
                           className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700"
                         >
@@ -351,6 +391,50 @@ export function AdminTenantPartnerSettlementPage() {
               >
                 {saving ? '저장 중…' : '저장'}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {feeItemsOpen && selected ? (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="relative w-full max-w-lg max-h-[85vh] overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col">
+            <div className="shrink-0 border-b px-5 py-4">
+              <ModalCloseButton onClick={() => setFeeItemsOpen(false)} />
+              <h2 className="pr-10 text-lg font-semibold text-gray-900">
+                {selected.partnerName} — 이번 달 수수료
+              </h2>
+              <p className="mt-1 text-xs text-gray-500">예약일 기준 · 정보공유 경유 건은 칩으로 표시됩니다.</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              {feeItemsLoading ? (
+                <p className="text-sm text-gray-500">불러오는 중...</p>
+              ) : feeItems.length === 0 ? (
+                <p className="text-sm text-gray-500">해당 기간 수수료 건이 없습니다.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {feeItems.map((it) => (
+                    <li key={it.shareId} className="rounded border border-gray-100 px-3 py-2 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium text-gray-900">
+                          {it.customerName}
+                          {it.inquiryNumber ? (
+                            <span className="ml-1 text-xs text-gray-500">({it.inquiryNumber})</span>
+                          ) : null}
+                        </span>
+                        <span className={`tabular-nums font-medium ${it.isCancelled ? 'text-gray-400 line-through' : ''}`}>
+                          {won(it.signedFeeAmount)}
+                        </span>
+                      </div>
+                      {it.viaMarketplace ? (
+                        <span className="mt-1 inline-block rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-800">
+                          정보공유
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>

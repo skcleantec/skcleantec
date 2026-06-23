@@ -5,6 +5,7 @@ import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
+import { loadMarketplaceConfirmedInquiryIdSet } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
 
 const router = Router();
 
@@ -670,6 +671,7 @@ router.get('/settlement/company-detail', async (req, res) => {
       isCancelled: false,
       feeAmount: r.externalTransferFee ?? 0,
       signedFeeAmount: r.externalTransferFee ?? 0,
+      viaMarketplace: false as boolean,
     })),
     ...cancelledRows.map((r) => ({
       inquiryId: r.id,
@@ -682,8 +684,15 @@ router.get('/settlement/company-detail', async (req, res) => {
       isCancelled: true,
       feeAmount: r.externalTransferFee ?? 0,
       signedFeeAmount: -(r.externalTransferFee ?? 0),
+      viaMarketplace: false as boolean,
     })),
   ].sort((a, b) => (b.preferredDate ?? '').localeCompare(a.preferredDate ?? ''));
+  const marketplaceInquiryIds = await loadMarketplaceConfirmedInquiryIdSet(
+    items.map((it) => it.inquiryId),
+  );
+  for (const it of items) {
+    if (marketplaceInquiryIds.has(it.inquiryId)) it.viaMarketplace = true;
+  }
   const inquiryCount = activeRows.length;
   const cancelledInquiryCount = cancelledRows.length;
   const totalFee = items.reduce((sum, it) => sum + it.signedFeeAmount, 0);

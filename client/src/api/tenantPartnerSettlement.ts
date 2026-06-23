@@ -84,6 +84,7 @@ export async function getTenantPartnerSettlementDetail(
     customerName: string;
     signedFeeAmount: number;
     isCancelled: boolean;
+    viaMarketplace?: boolean;
   }>;
 }> {
   const q = new URLSearchParams({

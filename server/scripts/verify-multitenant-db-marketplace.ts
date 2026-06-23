@@ -1,8 +1,11 @@
 /**
- * DB 마켓(정보공유) 검증 — 마스킹·금액·API 격리
+ * DB 마켓(정보공유) 검증 — 마스킹·금액·API 격리·기능 게이트
  * 실행: cd server && npm run verify:multitenant:db-marketplace
  */
 import 'dotenv/config';
+import bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
+import { DEFAULT_TENANT_ID, DEFAULT_TENANT_SLUG } from '../src/modules/tenants/tenant.constants.js';
 import {
   maskMarketplaceCustomerName,
   maskMarketplaceAddressRegion,
@@ -12,8 +15,20 @@ import {
   computeMarketplaceExpiresAt,
   DB_MARKETPLACE_LISTING_TTL_DAYS,
 } from '../src/lib/dbMarketplacePolicy.js';
+import {
+  loadMarketplaceConfirmedInquiryIdSet,
+  loadMarketplaceConfirmedShareIdSet,
+} from '../src/modules/db-marketplace/dbMarketplaceSettlementMeta.js';
 
 const API = process.env.VERIFY_API_BASE ?? 'http://127.0.0.1:3000/api';
+
+const VERIFY_TENANT_ID = 'b0000000-0000-4000-8000-000000000003';
+const VERIFY_TENANT_SLUG = 'verify-db-market-co';
+const PASSWORD = 'verify-mt-1234';
+const USER_A_EMAIL = 'db-market-verify-a@internal';
+const USER_B_EMAIL = 'db-market-verify-b@internal';
+
+const prisma = new PrismaClient();
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(`ASSERT: ${message}`);
@@ -39,7 +54,36 @@ function verifyMaskAndAmount(): void {
   console.log('✓ mask & display amount helpers');
 }
 
-async function verifyTeamApiGate(): Promise<void> {
+async function verifySettlementMetaHelpers(): Promise<void> {
+  const shareSet = await loadMarketplaceConfirmedShareIdSet([]);
+  assert(shareSet.size === 0, 'empty share ids');
+  const inquirySet = await loadMarketplaceConfirmedInquiryIdSet([]);
+  assert(inquirySet.size === 0, 'empty inquiry ids');
+  console.log('✓ settlement meta helpers');
+}
+
+async function login(tenantSlug: string, email: string, password: string): Promise<string> {
+  const res = await fetch(`${API}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tenantSlug, email, password }),
+  });
+  const body = (await res.json().catch(() => ({}))) as { token?: string; error?: string };
+  if (!res.ok || !body.token) {
+    throw new Error(`login failed (${tenantSlug}/${email}): ${body.error ?? res.status}`);
+  }
+  return body.token;
+}
+
+async function ensureFeature(tenantId: string, enabled: boolean): Promise<void> {
+  await prisma.tenantFeature.upsert({
+    where: { tenantId_moduleId: { tenantId, moduleId: 'mod_db_marketplace' } },
+    update: { enabled },
+    create: { tenantId, moduleId: 'mod_db_marketplace', enabled },
+  });
+}
+
+async function verifyApiIsolation(): Promise<void> {
   let health: Response;
   try {
     health = await fetch(`${API}/health`);
@@ -76,15 +120,90 @@ async function verifyTeamApiGate(): Promise<void> {
     `platform db-marketplace requires auth (${platformList.status})`,
   );
   console.log('✓ platform db-marketplace API auth gate');
+
+  const hash = await bcrypt.hash(PASSWORD, 10);
+  const tenantA = await prisma.tenant.findUnique({ where: { id: DEFAULT_TENANT_ID } });
+  assert(Boolean(tenantA), `기본 tenant(${DEFAULT_TENANT_SLUG}) 없음`);
+
+  await prisma.tenant.upsert({
+    where: { slug: VERIFY_TENANT_SLUG },
+    update: { status: 'ACTIVE', plan: 'premium' },
+    create: {
+      id: VERIFY_TENANT_ID,
+      slug: VERIFY_TENANT_SLUG,
+      name: 'DB마켓 검증업체',
+      status: 'ACTIVE',
+      plan: 'premium',
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: DEFAULT_TENANT_ID, email: USER_A_EMAIL } },
+    update: { passwordHash: hash, isActive: true, role: 'ADMIN' },
+    create: {
+      tenantId: DEFAULT_TENANT_ID,
+      email: USER_A_EMAIL,
+      passwordHash: hash,
+      name: 'DB마켓검증A',
+      role: 'ADMIN',
+    },
+  });
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: VERIFY_TENANT_ID, email: USER_B_EMAIL } },
+    update: { passwordHash: hash, isActive: true, role: 'ADMIN' },
+    create: {
+      tenantId: VERIFY_TENANT_ID,
+      email: USER_B_EMAIL,
+      passwordHash: hash,
+      name: 'DB마켓검증B',
+      role: 'ADMIN',
+    },
+  });
+
+  await ensureFeature(DEFAULT_TENANT_ID, false);
+  await ensureFeature(VERIFY_TENANT_ID, true);
+
+  const tokenA = await login(DEFAULT_TENANT_SLUG, USER_A_EMAIL, PASSWORD);
+  const tokenB = await login(VERIFY_TENANT_SLUG, USER_B_EMAIL, PASSWORD);
+
+  const offRes = await fetch(`${API}/db-marketplace`, {
+    headers: { Authorization: `Bearer ${tokenA}` },
+  });
+  assert(offRes.status === 403, `mod_db_marketplace off → 403 (${offRes.status})`);
+  console.log('✓ feature off → db-marketplace 403');
+
+  await ensureFeature(DEFAULT_TENANT_ID, true);
+
+  const onRes = await fetch(`${API}/db-marketplace`, {
+    headers: { Authorization: `Bearer ${tokenA}` },
+  });
+  assert(onRes.ok, `mod_db_marketplace on → 200 (${onRes.status})`);
+  console.log('✓ feature on → db-marketplace 200');
+
+  const crossRes = await fetch(`${API}/db-marketplace/00000000-0000-4000-8000-000000000099`, {
+    headers: { Authorization: `Bearer ${tokenB}` },
+  });
+  assert(
+    crossRes.status === 403 || crossRes.status === 404,
+    `cross-tenant listing detail blocked (${crossRes.status})`,
+  );
+  console.log('✓ cross-tenant listing id → 403/404');
+
+  void tokenA;
 }
 
 async function main(): Promise<void> {
   verifyMaskAndAmount();
-  await verifyTeamApiGate();
+  await verifySettlementMetaHelpers();
+  await verifyApiIsolation();
   console.log('verify:multitenant:db-marketplace OK');
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

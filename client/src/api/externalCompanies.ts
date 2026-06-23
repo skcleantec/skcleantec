@@ -180,6 +180,7 @@ export type ExternalSettlementCompanyDetail = {
     isCancelled: boolean;
     feeAmount: number;
     signedFeeAmount: number;
+    viaMarketplace?: boolean;
   }>;
 };
 

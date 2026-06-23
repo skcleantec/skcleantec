@@ -124,3 +124,12 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 - [x] 확정 상세 — 파트너·타업체 정산 화면 링크
 - [x] GNB 배지 — 관리자 구매 대기(`buyerPendingCount`), 타업체 인계 대기(`marketplacePendingCount`)
 - [x] `GET /db-marketplace/draft-count` — `buyerPendingCount` 추가
+
+### Phase 7 — 정산 E2E·딥링크·검증
+
+- [x] `dbMarketplaceSettlementMeta` — share·접수 ↔ CONFIRMED listing 조회
+- [x] 파트너·타업체 정산 상세/CSV — `viaMarketplace` (정보공유) 표시
+- [x] 파트너 정산 UI — 「수수료」내역 모달 + 정보공유 칩
+- [x] 타업체 정산 상세 — 정보공유 칩
+- [x] 정보공유 URL `?openListing=` 딥링크 (관리·팀)
+- [x] `verify:multitenant:db-marketplace` — 기능 게이트·교차 tenant 격리

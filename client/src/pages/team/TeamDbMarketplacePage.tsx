@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import {
   listTeamDbMarketplace,
+  getTeamDbMarketplaceListing,
   type DbMarketplaceMaskedItem,
   type TeamDbMarketplaceListTab,
 } from '../../api/dbMarketplace';
@@ -130,6 +131,22 @@ export function TeamDbMarketplacePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const openListingId = searchParams.get('openListing')?.trim() ?? '';
+
+  const clearOpenListingParam = useCallback(() => {
+    if (!searchParams.get('openListing')) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('openListing');
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!teamToken || !openListingId) return;
+    void getTeamDbMarketplaceListing(teamToken, openListingId)
+      .then((item) => setSelectedRow(item))
+      .catch(() => {});
+  }, [teamToken, openListingId]);
 
   const lastSilentRefreshRef = useRef(0);
   const silentRefresh = useCallback(() => {
@@ -286,7 +303,10 @@ export function TeamDbMarketplacePage() {
           row={selectedRow}
           apiMode="team"
           token={teamToken}
-          onClose={() => setSelectedRow(null)}
+          onClose={() => {
+            setSelectedRow(null);
+            clearOpenListingParam();
+          }}
           onChanged={() => load({ silent: true })}
         />
       ) : null}

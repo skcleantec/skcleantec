@@ -1,6 +1,7 @@
 import type { InquiryStatus, Prisma, TenantPartnerSettlementRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
+import { loadMarketplaceConfirmedShareIdSet } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
 
 export class TenantPartnerSettlementError extends Error {
   constructor(
@@ -241,6 +242,7 @@ export async function getSettlementPartnerDetail(opts: {
   const to = new Date(`${hiYmd}T23:59:59.999+09:00`);
 
   const shares = await loadSharesForRole(viewerTenantId, role);
+  const marketplaceShareIds = await loadMarketplaceConfirmedShareIdSet(shares.map((s) => s.id));
   const periodItems = shares
     .filter((s) => partnerIdForShare(s, role, viewerTenantId) === partnerTenantId)
     .filter((s) => {
@@ -260,6 +262,7 @@ export async function getSettlementPartnerDetail(opts: {
         isCancelled: s.sourceInquiry.status === 'CANCELLED' || s.targetInquiry.status === 'CANCELLED',
         feeAmount: s.transferFee ?? 0,
         signedFeeAmount: signed,
+        viaMarketplace: marketplaceShareIds.has(s.id),
       };
     })
     .sort((a, b) => (b.preferredDate ?? '').localeCompare(a.preferredDate ?? ''));
@@ -409,6 +412,7 @@ export async function buildSettlementExportCsv(opts: {
     '수수료',
     '부호수수료',
     '취소여부',
+    '정보공유',
   ];
   const rows = detail.items.map((it) =>
     [
@@ -423,6 +427,7 @@ export async function buildSettlementExportCsv(opts: {
       it.feeAmount,
       it.signedFeeAmount,
       it.isCancelled ? 'Y' : 'N',
+      it.viaMarketplace ? 'Y' : 'N',
     ]
       .map(csvEscapeCell)
       .join(','),
@@ -438,6 +443,7 @@ export async function buildSettlementExportCsv(opts: {
     '',
     '',
     detail.totalFee,
+    '',
     '',
   ].join(',');
   return `\uFEFF${header.join(',')}\n${rows.join('\n')}\n${summary}\n`;

@@ -216,6 +216,17 @@ export function DbMarketplaceListingDetailModal({
                   {d.buyerKind === 'PARTNER_TENANT' ? '파트너 정산 보기' : '타업체 정산 보기'}
                 </Link>
               ) : null}
+              <Link
+                to={
+                  apiMode === 'team'
+                    ? `/team/db-marketplace?openListing=${encodeURIComponent(d.id)}`
+                    : `/admin/db-marketplace?openListing=${encodeURIComponent(d.id)}`
+                }
+                className="mt-1 inline-block text-[11px] font-medium text-violet-700 hover:text-violet-900 underline"
+                onClick={onClose}
+              >
+                정보공유 목록에서 보기
+              </Link>
               <p className="text-[10px] text-emerald-800/80">
                 수수료(listingFee)는 기존 파트너·타업체 정산 집계에 반영됩니다.
               </p>
