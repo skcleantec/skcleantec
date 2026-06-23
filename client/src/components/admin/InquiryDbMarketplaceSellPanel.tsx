@@ -286,12 +286,20 @@ export function InquiryDbMarketplaceSellPanel({
       ) : null}
 
       {listing ? (
-        <Link
-          to={`/admin/db-marketplace?openListing=${encodeURIComponent(listing.id)}`}
-          className="inline-block text-[11px] font-medium text-violet-800 underline hover:text-violet-950"
-        >
-          정보공유 목록에서 보기
-        </Link>
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          <Link
+            to={`/admin/db-marketplace?openListing=${encodeURIComponent(listing.id)}`}
+            className="inline-block text-[11px] font-medium text-violet-800 underline hover:text-violet-950"
+          >
+            정보공유 목록에서 보기
+          </Link>
+          <Link
+            to={`/admin/schedule?openInquiry=${encodeURIComponent(inquiryId)}`}
+            className="inline-block text-[11px] font-medium text-sky-800 underline hover:text-sky-950"
+          >
+            스케줄에서 접수 보기
+          </Link>
+        </div>
       ) : null}
 
       {listing?.status === 'PENDING_SELLER' ? (

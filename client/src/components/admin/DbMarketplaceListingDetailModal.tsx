@@ -134,6 +134,11 @@ export function DbMarketplaceListingDetailModal({
       : `/admin/inquiries?openInquiry=${encodeURIComponent(d.targetInquiryId)}`;
   })();
 
+  const sellerSchedulePath =
+    d.status === 'CONFIRMED' && d.role === 'SELLER' && d.inquiryId && apiMode === 'admin'
+      ? `/admin/schedule?openInquiry=${encodeURIComponent(d.inquiryId)}`
+      : null;
+
   const settlementPath =
     d.status === 'CONFIRMED'
       ? d.buyerKind === 'PARTNER_TENANT'
@@ -211,6 +216,24 @@ export function DbMarketplaceListingDetailModal({
                 ) : (
                   <p className="text-[11px] text-gray-600">연결 접수 ID: {d.targetInquiryId}</p>
                 )
+              ) : linkedInquiryPath ? (
+                <Link
+                  to={linkedInquiryPath}
+                  className="inline-block text-[11px] font-medium text-sky-700 hover:text-sky-900 underline"
+                  onClick={onClose}
+                >
+                  판매 접수 보기
+                  {d.inquiryFull?.inquiryNumber ? ` (${d.inquiryFull.inquiryNumber})` : ''}
+                </Link>
+              ) : null}
+              {sellerSchedulePath ? (
+                <Link
+                  to={sellerSchedulePath}
+                  className="ml-2 inline-block text-[11px] font-medium text-sky-700 hover:text-sky-900 underline"
+                  onClick={onClose}
+                >
+                  스케줄에서 보기
+                </Link>
               ) : null}
               {settlementPath ? (
                 <Link

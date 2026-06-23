@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
-import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { getTeamMe, getTeamNavBadges, type TeamViewerMe } from '../../api/team';
@@ -102,9 +102,14 @@ function TeamNavLinks({
             <TeamBiInline id="team.layout.nav.marketplace" />
           </NavLink>
           {marketplacePendingCount > 0 ? (
-            <span className={navBadgeClass} aria-hidden title="인계 대기">
+            <Link
+              to={teamTo('/team/db-marketplace?tab=pending')}
+              className={navBadgeClass}
+              aria-label={`인계 대기 ${marketplacePendingCount}건`}
+              title="인계 대기 — 진행 중 탭"
+            >
               {marketplacePendingCount > 99 ? '99+' : marketplacePendingCount}
-            </span>
+            </Link>
           ) : null}
         </div>
       ) : null}

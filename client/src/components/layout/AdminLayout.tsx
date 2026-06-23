@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
 import { clearToken, getToken, subscribeAdminAuth } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAuth';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
@@ -941,30 +941,34 @@ export function AdminLayout() {
                             <span>{def.label}</span>
                           </NavLink>
                           {marketplaceSellerPendingCount > 0 ? (
-                            <span
-                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
-                              aria-hidden
-                              title="인계 대기"
+                            <Link
+                              to="/admin/db-marketplace?tab=pending"
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3 hover:bg-amber-300"
+                              aria-label={`인계 대기 ${marketplaceSellerPendingCount}건`}
+                              title="인계 대기 — 진행 중 탭"
                             >
                               {marketplaceSellerPendingCount > 99 ? '99+' : marketplaceSellerPendingCount}
-                            </span>
+                            </Link>
                           ) : null}
                           {marketplaceBuyerPendingCount > 0 ? (
-                            <span
-                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sky-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3"
-                              aria-hidden
-                              title="구매 신청 대기"
+                            <Link
+                              to="/admin/db-marketplace?tab=pending"
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sky-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3 hover:bg-sky-300"
+                              aria-label={`구매 신청 대기 ${marketplaceBuyerPendingCount}건`}
+                              title="구매 신청 대기 — 진행 중 탭"
                             >
                               {marketplaceBuyerPendingCount > 99 ? '99+' : marketplaceBuyerPendingCount}
-                            </span>
+                            </Link>
                           ) : null}
                           {marketplaceDraftCount > 0 ? (
-                            <span
-                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-violet-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3"
-                              aria-hidden
+                            <Link
+                              to="/admin/db-marketplace?tab=my_sales"
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-violet-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3 hover:bg-violet-300"
+                              aria-label={`장바구니 ${marketplaceDraftCount}건`}
+                              title="장바구니 — 내 판매 탭"
                             >
                               {marketplaceDraftCount}
-                            </span>
+                            </Link>
                           ) : null}
                         </div>
                       </div>

@@ -180,6 +180,29 @@ async function verifyApiIsolation(): Promise<void> {
   assert(onRes.ok, `mod_db_marketplace on → 200 (${onRes.status})`);
   console.log('✓ feature on → db-marketplace 200');
 
+  const draftCountRes = await fetch(`${API}/db-marketplace/draft-count`, {
+    headers: { Authorization: `Bearer ${tokenA}` },
+  });
+  assert(draftCountRes.ok, `draft-count ok (${draftCountRes.status})`);
+  const draftCountBody = (await draftCountRes.json()) as {
+    count?: number;
+    sellerPendingCount?: number;
+    buyerPendingCount?: number;
+  };
+  assert(typeof draftCountBody.count === 'number', 'draft-count.count number');
+  assert(typeof draftCountBody.sellerPendingCount === 'number', 'draft-count.sellerPendingCount number');
+  assert(typeof draftCountBody.buyerPendingCount === 'number', 'draft-count.buyerPendingCount number');
+  console.log('✓ draft-count shape');
+
+  const pendingTabRes = await fetch(`${API}/db-marketplace?tab=pending&limit=1`, {
+    headers: { Authorization: `Bearer ${tokenA}` },
+  });
+  assert(pendingTabRes.ok, `tab=pending list ok (${pendingTabRes.status})`);
+  const pendingBody = (await pendingTabRes.json()) as { items?: unknown[]; total?: number };
+  assert(Array.isArray(pendingBody.items), 'pending tab items array');
+  assert(typeof pendingBody.total === 'number', 'pending tab total number');
+  console.log('✓ tab=pending list');
+
   const crossRes = await fetch(`${API}/db-marketplace/00000000-0000-4000-8000-000000000099`, {
     headers: { Authorization: `Bearer ${tokenB}` },
   });

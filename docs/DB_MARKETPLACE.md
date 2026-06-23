@@ -141,3 +141,10 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 - [x] 접수 상세 판매 패널 — 정보공유 목록 링크 (`?openListing=`)
 - [x] 확정 상세 — 판매자(SELLER) 역할 판매 접수 `openInquiry` 링크
 - [x] `/admin/schedule?openInquiry=` 딥링크 (스케줄 접수 수정)
+
+### Phase 9 — GNB 배지 딥링크·스케줄 연계·검증
+
+- [x] 관리 GNB 배지 → 정보공유 탭 딥링크 (인계/구매 대기 → `tab=pending`, 장바구니 → `tab=my_sales`)
+- [x] 타업체 GNB 인계 대기 배지 → `/team/db-marketplace?tab=pending`
+- [x] 판매 패널·확정 상세 — 스케줄 `openInquiry` 링크
+- [x] `verify:multitenant:db-marketplace` — draft-count·pending 탭 API
