@@ -68,6 +68,7 @@ export const DEFAULT_NON_ADMIN_NAV_ORDER: AdminNavId[] = [
   'dashboard',
   'inquiries',
   'schedule',
+  'db-marketplace',
   'cs',
   'advertising',
   'messages',

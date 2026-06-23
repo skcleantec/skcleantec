@@ -7,9 +7,9 @@ export type DbMarketplaceAudienceRef = {
   externalCompanyId: string | null;
 };
 
-async function activeAdminUserIds(tenantId: string): Promise<string[]> {
+async function activeStaffAdminMarketerUserIds(tenantId: string): Promise<string[]> {
   const rows = await prisma.user.findMany({
-    where: { tenantId, role: 'ADMIN', isActive: true },
+    where: { tenantId, role: { in: ['ADMIN', 'MARKETER'] }, isActive: true },
     select: { id: true },
   });
   return rows.map((r) => r.id);
@@ -45,7 +45,7 @@ async function resolveDbMarketplaceWatcherUserIds(opts: {
     });
     for (const p of partnerships) {
       const partnerId = p.tenantLowId === opts.sellerTenantId ? p.tenantHighId : p.tenantLowId;
-      for (const id of await activeAdminUserIds(partnerId)) userIds.add(id);
+      for (const id of await activeStaffAdminMarketerUserIds(partnerId)) userIds.add(id);
     }
     const externalPartners = await prisma.user.findMany({
       where: {
@@ -59,7 +59,7 @@ async function resolveDbMarketplaceWatcherUserIds(opts: {
   } else {
     for (const a of opts.audiences) {
       if (a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId) {
-        for (const id of await activeAdminUserIds(a.partnerTenantId)) userIds.add(id);
+        for (const id of await activeStaffAdminMarketerUserIds(a.partnerTenantId)) userIds.add(id);
       }
       if (a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId) {
         for (const id of await externalPartnerUserIds(opts.sellerTenantId, a.externalCompanyId)) {
@@ -84,7 +84,7 @@ function mapAudiences(
 
 /** 판매자 테넌트 관리자만 — 장바구니 배지·내 판매 탭 */
 export async function notifyDbMarketplaceSellerAdmins(tenantId: string): Promise<void> {
-  const userIds = await activeAdminUserIds(tenantId);
+  const userIds = await activeStaffAdminMarketerUserIds(tenantId);
   if (userIds.length > 0) await notifyInboxRefresh(userIds);
 }
 
@@ -95,7 +95,7 @@ export async function notifyDbMarketplaceBroadcast(opts: {
   audiences: DbMarketplaceAudienceRef[];
 }): Promise<void> {
   const userIds = new Set<string>();
-  for (const id of await activeAdminUserIds(opts.sellerTenantId)) userIds.add(id);
+  for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
   for (const id of await resolveDbMarketplaceWatcherUserIds({
     sellerTenantId: opts.sellerTenantId,
     visibility: opts.visibility,
@@ -114,7 +114,7 @@ export async function notifyDbMarketplaceBuyerRequested(opts: {
   buyerExternalCompanyId: string | null;
 }): Promise<void> {
   const userIds = new Set<string>();
-  for (const id of await activeAdminUserIds(opts.sellerTenantId)) userIds.add(id);
+  for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
   for (const id of await resolveDbMarketplaceWatcherUserIds({
     sellerTenantId: opts.sellerTenantId,
     visibility: opts.visibility,
@@ -123,7 +123,7 @@ export async function notifyDbMarketplaceBuyerRequested(opts: {
     userIds.add(id);
   }
   if (opts.buyerTenantId) {
-    for (const id of await activeAdminUserIds(opts.buyerTenantId)) userIds.add(id);
+    for (const id of await activeStaffAdminMarketerUserIds(opts.buyerTenantId)) userIds.add(id);
   }
   if (opts.buyerExternalCompanyId) {
     for (const id of await externalPartnerUserIds(opts.sellerTenantId, opts.buyerExternalCompanyId)) {
@@ -140,10 +140,10 @@ export async function notifyDbMarketplaceConfirmed(opts: {
   buyerExternalCompanyId: string | null;
 }): Promise<void> {
   const userIds = new Set<string>();
-  for (const id of await activeAdminUserIds(opts.sellerTenantId)) userIds.add(id);
+  for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
 
   if (opts.buyerKind === 'PARTNER_TENANT' && opts.buyerTenantId) {
-    for (const id of await activeAdminUserIds(opts.buyerTenantId)) userIds.add(id);
+    for (const id of await activeStaffAdminMarketerUserIds(opts.buyerTenantId)) userIds.add(id);
   }
   if (opts.buyerKind === 'EXTERNAL_COMPANY' && opts.buyerExternalCompanyId) {
     for (const id of await externalPartnerUserIds(opts.sellerTenantId, opts.buyerExternalCompanyId)) {
@@ -163,7 +163,7 @@ export async function notifyDbMarketplaceSellerDeclined(opts: {
   buyerExternalCompanyId: string | null;
 }): Promise<void> {
   const userIds = new Set<string>();
-  for (const id of await activeAdminUserIds(opts.sellerTenantId)) userIds.add(id);
+  for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
   for (const id of await resolveDbMarketplaceWatcherUserIds({
     sellerTenantId: opts.sellerTenantId,
     visibility: opts.visibility,
@@ -172,7 +172,7 @@ export async function notifyDbMarketplaceSellerDeclined(opts: {
     userIds.add(id);
   }
   if (opts.buyerTenantId) {
-    for (const id of await activeAdminUserIds(opts.buyerTenantId)) userIds.add(id);
+    for (const id of await activeStaffAdminMarketerUserIds(opts.buyerTenantId)) userIds.add(id);
   }
   if (opts.buyerExternalCompanyId) {
     for (const id of await externalPartnerUserIds(opts.sellerTenantId, opts.buyerExternalCompanyId)) {
@@ -192,7 +192,7 @@ export async function notifyDbMarketplaceMessagePosted(opts: {
   authorUserId: string;
 }): Promise<void> {
   const userIds = new Set<string>();
-  for (const id of await activeAdminUserIds(opts.sellerTenantId)) userIds.add(id);
+  for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
   for (const id of await resolveDbMarketplaceWatcherUserIds({
     sellerTenantId: opts.sellerTenantId,
     visibility: opts.visibility,
@@ -201,7 +201,7 @@ export async function notifyDbMarketplaceMessagePosted(opts: {
     userIds.add(id);
   }
   if (opts.buyerTenantId) {
-    for (const id of await activeAdminUserIds(opts.buyerTenantId)) userIds.add(id);
+    for (const id of await activeStaffAdminMarketerUserIds(opts.buyerTenantId)) userIds.add(id);
   }
   if (opts.buyerExternalCompanyId) {
     for (const id of await externalPartnerUserIds(opts.sellerTenantId, opts.buyerExternalCompanyId)) {
@@ -222,7 +222,7 @@ export async function notifyDbMarketplaceHoldChanged(opts: {
   authorUserId: string | null;
 }): Promise<void> {
   const userIds = new Set<string>();
-  for (const id of await activeAdminUserIds(opts.sellerTenantId)) userIds.add(id);
+  for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
   for (const id of await resolveDbMarketplaceWatcherUserIds({
     sellerTenantId: opts.sellerTenantId,
     visibility: opts.visibility,
@@ -231,7 +231,7 @@ export async function notifyDbMarketplaceHoldChanged(opts: {
     userIds.add(id);
   }
   if (opts.buyerTenantId) {
-    for (const id of await activeAdminUserIds(opts.buyerTenantId)) userIds.add(id);
+    for (const id of await activeStaffAdminMarketerUserIds(opts.buyerTenantId)) userIds.add(id);
   }
   if (opts.buyerExternalCompanyId) {
     for (const id of await externalPartnerUserIds(opts.sellerTenantId, opts.buyerExternalCompanyId)) {

@@ -47,6 +47,8 @@ export default defineConfig(({ command, mode }) => {
       alias: {
         '@shared': path.join(repoRoot, 'shared'),
       },
+      /** shared/ 에 .js·.ts 공존 시 stale CJS .js 가 우선되지 않도록 */
+      extensions: ['.ts', '.tsx', '.mts', '.mjs', '.js', '.jsx', '.json'],
     },
     base: '/',
     build: {

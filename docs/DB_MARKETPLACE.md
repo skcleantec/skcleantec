@@ -71,7 +71,7 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 | 위치 | 내용 |
 |------|------|
 | GNB | **정보공유** + 장바구니(DRAFT) + 인계 대기(판매) + 구매 대기(파트너) 배지 |
-| `/admin/db-marketplace` | 구매 가능 / 내 판매 / 진행 중 / 확정 완료 |
+| `/admin/db-marketplace` | 구매 가능 / 내 판매 / 진행 중 / 확정 완료 (**관리자·마케터**) |
 | `/team/db-marketplace` | 타업체 — 구매 가능 / 인계 대기 / 확정 완료 + GNB 인계 대기 배지 |
 | `/platform/db-marketplace` | 플랫폼 — listing 메타·중지/해제 (PII 없음) |
 | 접수 상세 | `InquiryDbMarketplaceSellPanel` (직접 연계 블록과 분리) |

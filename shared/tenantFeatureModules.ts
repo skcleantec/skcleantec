@@ -78,7 +78,7 @@ export function hasFeature(enabled: readonly string[], moduleId: TenantFeatureMo
   return enabled.includes(moduleId);
 }
 
-/** 관리자 GNB id → 기능 모듈 (null = 플랜과 무관하게 항상 표시) */
+/** 관리자·마케터 GNB id → 기능 모듈 (null = 플랜과 무관하게 항상 표시) */
 export const ADMIN_NAV_MODULE_MAP = {
   dashboard: null,
   inquiries: 'core_inquiries',

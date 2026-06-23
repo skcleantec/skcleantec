@@ -27,6 +27,7 @@ const VERIFY_TENANT_SLUG = 'verify-db-market-co';
 const PASSWORD = 'verify-mt-1234';
 const USER_A_EMAIL = 'db-market-verify-a@internal';
 const USER_B_EMAIL = 'db-market-verify-b@internal';
+const USER_M_EMAIL = 'db-market-verify-m@internal';
 
 const prisma = new PrismaClient();
 
@@ -159,6 +160,17 @@ async function verifyApiIsolation(): Promise<void> {
       role: 'ADMIN',
     },
   });
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: DEFAULT_TENANT_ID, email: USER_M_EMAIL } },
+    update: { passwordHash: hash, isActive: true, role: 'MARKETER' },
+    create: {
+      tenantId: DEFAULT_TENANT_ID,
+      email: USER_M_EMAIL,
+      passwordHash: hash,
+      name: 'DB마켓검증M',
+      role: 'MARKETER',
+    },
+  });
 
   await ensureFeature(DEFAULT_TENANT_ID, false);
   await ensureFeature(VERIFY_TENANT_ID, true);
@@ -179,6 +191,13 @@ async function verifyApiIsolation(): Promise<void> {
   });
   assert(onRes.ok, `mod_db_marketplace on → 200 (${onRes.status})`);
   console.log('✓ feature on → db-marketplace 200');
+
+  const tokenM = await login(DEFAULT_TENANT_SLUG, USER_M_EMAIL, PASSWORD);
+  const marketerRes = await fetch(`${API}/db-marketplace?limit=1`, {
+    headers: { Authorization: `Bearer ${tokenM}` },
+  });
+  assert(marketerRes.ok, `marketer db-marketplace list ok (${marketerRes.status})`);
+  console.log('✓ marketer → db-marketplace 200');
 
   const draftCountRes = await fetch(`${API}/db-marketplace/draft-count`, {
     headers: { Authorization: `Bearer ${tokenA}` },
