@@ -36,6 +36,7 @@ import {
   filterExternalSettlementItemsBySearch,
 } from '../../lib/externalSettlementEffectiveDate.js';
 import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
+import { listOperatingCompanies } from '../operating-companies/operatingCompany.service.js';
 import {
   parseCrewMeetingPatchBody,
   validateCrewMeetingTimeForInquiry,
@@ -1588,10 +1589,19 @@ router.get('/external-settlement', async (req, res) => {
   const itemsTotal = filteredItems.length;
   const paymentsTotal = paymentsFull.length;
 
+  const operatingCompanies = await listOperatingCompanies(prisma, routeTenantId);
+
   res.json({
     month: loYmd.slice(0, 7),
     from: loYmd,
     to: hiYmd,
+    operatingCompanyId,
+    operatingCompanies: operatingCompanies.map((oc) => ({
+      id: oc.id,
+      name: oc.name,
+      displayName: oc.displayName,
+      isDefault: oc.isDefault,
+    })),
     externalCompanyId: companyId,
     externalCompanyName: companyName,
     inquiryCount,

@@ -4,6 +4,7 @@ import {
   getTeamExternalSettlement,
   getTeamMe,
   type TeamExternalSettlementResponse,
+  type TeamSettlementOperatingCompanyItem,
 } from '../../api/team';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -75,10 +76,12 @@ export function TeamExternalSettlementPage() {
   const listPage = activeTab === 'history' ? payPage : itemsPage;
   const listPageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
   const itemSearch = searchParams.get('itemSearch')?.trim() ?? '';
+  const operatingCompanyIdParam = searchParams.get('operatingCompanyId') ?? '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TeamExternalSettlementResponse | null>(null);
+  const [operatingCompanies, setOperatingCompanies] = useState<TeamSettlementOperatingCompanyItem[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
   const [previewCompanyId, setPreviewCompanyId] = useState('');
   const [previewCompanyName, setPreviewCompanyName] = useState('');
@@ -104,6 +107,34 @@ export function TeamExternalSettlementPage() {
     [setSearchParams],
   );
 
+  const resolvedOperatingCompanyId = useMemo(() => {
+    if (
+      operatingCompanyIdParam &&
+      operatingCompanies.some((oc) => oc.id === operatingCompanyIdParam)
+    ) {
+      return operatingCompanyIdParam;
+    }
+    const fromDefault = operatingCompanies.find((oc) => oc.isDefault)?.id;
+    if (fromDefault) return fromDefault;
+    return operatingCompanies[0]?.id ?? operatingCompanyIdParam;
+  }, [operatingCompanyIdParam, operatingCompanies]);
+
+  useEffect(() => {
+    if (!resolvedOperatingCompanyId) return;
+    if (operatingCompanyIdParam === resolvedOperatingCompanyId) return;
+    patchListParams((next) => {
+      next.set('operatingCompanyId', resolvedOperatingCompanyId);
+    });
+  }, [resolvedOperatingCompanyId, operatingCompanyIdParam, patchListParams]);
+
+  const setOperatingCompanyBrand = (id: string) => {
+    patchListParams((next) => {
+      next.set('operatingCompanyId', id);
+      next.delete('page');
+      next.delete('payPage');
+    });
+  };
+
   const listQueryKey = useMemo(
     () =>
       [
@@ -119,6 +150,7 @@ export function TeamExternalSettlementPage() {
         previewCompanyId,
         previewCompanyName,
         previewMode,
+        resolvedOperatingCompanyId,
       ].join('\0'),
     [
       datePreset,
@@ -133,6 +165,7 @@ export function TeamExternalSettlementPage() {
       previewCompanyId,
       previewCompanyName,
       previewMode,
+      resolvedOperatingCompanyId,
     ],
   );
 
@@ -170,8 +203,12 @@ export function TeamExternalSettlementPage() {
           search: itemSearch || undefined,
           externalCompanyId: isPreviewStaff && previewCompanyId ? previewCompanyId : undefined,
           externalCompanyName: isPreviewStaff && previewCompanyName ? previewCompanyName : undefined,
+          operatingCompanyId: resolvedOperatingCompanyId || undefined,
         });
         if (isPreviewFetchStale(startedKey)) return;
+        if (res.operatingCompanies?.length) {
+          setOperatingCompanies(res.operatingCompanies);
+        }
         setData(res);
         setError(null);
       } catch (e) {
@@ -187,7 +224,7 @@ export function TeamExternalSettlementPage() {
         if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
       }
     },
-    [listQueryKey, datePreset, monthKey, dayKey, itemsPage, payPage, listPageSize, itemSearch, navigate, previewCompanyId, previewCompanyName, previewMode, token, capturePreviewKey, isPreviewFetchStale]
+    [listQueryKey, datePreset, monthKey, dayKey, itemsPage, payPage, listPageSize, itemSearch, navigate, previewCompanyId, previewCompanyName, previewMode, resolvedOperatingCompanyId, token, capturePreviewKey, isPreviewFetchStale]
   );
 
   useEffect(() => {
@@ -254,6 +291,7 @@ export function TeamExternalSettlementPage() {
   const remainingAmount = data?.remainingAmount ?? 0;
   const lineItems = data?.items ?? [];
   const paymentRows = data?.payments ?? [];
+  const activeOperatingCompanies = operatingCompanies;
 
   if (loading) {
     return (
@@ -273,6 +311,33 @@ export function TeamExternalSettlementPage() {
           <TeamBiLine id="team.settlement.adminCancelNote" koClassName="text-fluid-xs text-gray-500" />
         </div>
       </div>
+
+      {activeOperatingCompanies.length > 1 ? (
+        <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1">
+          {activeOperatingCompanies.map((oc) => {
+            const active = oc.id === resolvedOperatingCompanyId;
+            return (
+              <button
+                key={oc.id}
+                type="button"
+                onClick={() => setOperatingCompanyBrand(oc.id)}
+                className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium transition-colors ${
+                  active ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {oc.displayName || oc.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : activeOperatingCompanies.length === 1 ? (
+        <p className="text-fluid-xs text-gray-500">
+          브랜드:{' '}
+          <span className="font-medium text-gray-700">
+            {activeOperatingCompanies[0].displayName || activeOperatingCompanies[0].name}
+          </span>
+        </p>
+      ) : null}
 
       <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-2 sm:p-3 min-w-0">
         <div className="flex w-full flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">

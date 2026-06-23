@@ -116,13 +116,23 @@ export type TeamExternalSettlementListParams = {
   payOffset?: number;
   externalCompanyId?: string;
   externalCompanyName?: string;
+  operatingCompanyId?: string;
   search?: string;
+};
+
+export type TeamSettlementOperatingCompanyItem = {
+  id: string;
+  name: string;
+  displayName: string;
+  isDefault?: boolean;
 };
 
 export interface TeamExternalSettlementResponse {
   month: string;
   from: string;
   to: string;
+  operatingCompanyId: string;
+  operatingCompanies?: TeamSettlementOperatingCompanyItem[];
   externalCompanyId: string;
   externalCompanyName: string | null;
   inquiryCount: number;
@@ -174,6 +184,7 @@ export async function getTeamExternalSettlement(
   if (params.payOffset != null) q.set('payOffset', String(params.payOffset));
   if (params.externalCompanyId) q.set('externalCompanyId', params.externalCompanyId);
   if (params.externalCompanyName) q.set('externalCompanyName', params.externalCompanyName);
+  if (params.operatingCompanyId?.trim()) q.set('operatingCompanyId', params.operatingCompanyId.trim());
   if (params.search?.trim()) q.set('search', params.search.trim());
   const res = await fetch(withTeamPreviewQuery(`${API}/team/external-settlement?${q}`), {
     headers: headers(token),
@@ -187,7 +198,7 @@ export async function getTeamExternalSettlement(
 
 export async function postTeamExternalSettlementPayment(
   token: string,
-  params: { externalCompanyId: string; amount: number; memo?: string }
+  params: { externalCompanyId: string; amount: number; memo?: string; operatingCompanyId?: string }
 ): Promise<void> {
   const res = await fetch(withTeamPreviewQuery(`${API}/team/external-settlement/payments`), {
     method: 'POST',
