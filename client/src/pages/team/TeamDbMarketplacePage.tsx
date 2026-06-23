@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useSearchParams } from 'react-router-dom';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import {
+  bulkTeamBuyerConfirmDbMarketplace,
   listTeamDbMarketplace,
   getTeamDbMarketplaceListing,
   type DbMarketplaceMaskedItem,
@@ -9,10 +10,16 @@ import {
 } from '../../api/dbMarketplace';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { DbMarketplaceListingDetailModal } from '../../components/admin/DbMarketplaceListingDetailModal';
+import { DbMarketplaceBulkResultModal } from '../../components/admin/DbMarketplaceBulkResultModal';
 import {
   formatMarketplaceCleaningSummary,
   formatMarketplaceSchedule,
 } from '../../utils/dbMarketplaceDisplay';
+import {
+  canBulkBuyMarketplaceItem,
+  marketplaceBulkSelectDisabledReason,
+} from '../../utils/dbMarketplaceBulk';
+import { DB_MARKETPLACE_BULK_MAX } from '@shared/dbMarketplacePolicy';
 import {
   clampListPage,
   parseInquiryListPageSize,
@@ -51,16 +58,37 @@ function cleaningSummary(row: DbMarketplaceMaskedItem): string {
 function MarketplaceRowCard({
   row,
   onOpen,
+  selectable,
+  selected,
+  onToggleSelect,
 }: {
   row: DbMarketplaceMaskedItem;
   onOpen: () => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
+  const disabledReason = selectable ? marketplaceBulkSelectDisabledReason(row, 'buy') : null;
+  const canSelect = selectable && !disabledReason;
+
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:bg-gray-50"
-    >
+    <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      {selectable ? (
+        <label className="flex shrink-0 items-start pt-0.5">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={selected}
+            disabled={!canSelect}
+            title={disabledReason ?? undefined}
+            onChange={(e) => {
+              e.stopPropagation();
+              if (canSelect && onToggleSelect) onToggleSelect();
+            }}
+          />
+        </label>
+      ) : null}
+      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left hover:opacity-90">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-fluid-sm font-semibold text-slate-900">
@@ -79,7 +107,8 @@ function MarketplaceRowCard({
           </p>
         </div>
       </div>
-    </button>
+      </button>
+    </div>
   );
 }
 
@@ -95,6 +124,16 @@ export function TeamDbMarketplacePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<DbMarketplaceMaskedItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{
+    title: string;
+    successLabel: string;
+    successCount: number;
+    failed: Array<{ id: string; error: string }>;
+  } | null>(null);
+
+  const selectable = tab === 'available';
 
   const offset = (page - 1) * pageSize;
 
@@ -119,6 +158,10 @@ export function TeamDbMarketplacePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [tab, page, pageSize]);
 
   const openListingId = searchParams.get('openListing')?.trim() ?? '';
 
@@ -169,12 +212,75 @@ export function TeamDbMarketplacePage() {
 
   const tabLabel = useMemo(() => TAB_OPTIONS.find((t) => t.id === tab)?.label ?? '', [tab]);
 
+  const selectableOnPage = useMemo(() => items.filter(canBulkBuyMarketplaceItem), [items]);
+  const allPageSelected =
+    selectableOnPage.length > 0 && selectableOnPage.every((r) => selectedIds.has(r.id));
+  const selectedCount = selectedIds.size;
+
+  const toggleRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllPage = () => {
+    if (allPageSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const r of selectableOnPage) next.delete(r.id);
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const r of selectableOnPage) next.add(r.id);
+        return next;
+      });
+    }
+  };
+
+  const runBulkBuy = async () => {
+    if (!teamToken || selectedCount === 0) return;
+    if (selectedCount > DB_MARKETPLACE_BULK_MAX) {
+      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 신청할 수 있습니다.`);
+      return;
+    }
+    if (
+      !window.confirm(
+        `선택 ${selectedCount}건에 구매를 신청(갖고가기)합니다. 발주 업체 인계 확정 후 전체 DB가 공개됩니다. 계속할까요?`,
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await bulkTeamBuyerConfirmDbMarketplace(teamToken, [...selectedIds]);
+      setSelectedIds(new Set());
+      setBulkResult({
+        title: '일괄 갖고가기 결과',
+        successLabel: '구매 신청 완료',
+        successCount: result.requested.length,
+        failed: result.failed,
+      });
+      load({ silent: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '일괄 갖고가기 실패');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   return (
-    <div className="min-w-0 w-full max-w-full space-y-4">
+    <div className="min-w-0 w-full max-w-full space-y-4 pb-24">
       <div>
         <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
         <p className="mt-1 text-fluid-xs text-gray-600">
-          구매 전에는 시·구 주소와 표시금액(잔금−수수료)만 확인할 수 있습니다. 발주 업체 인계 확정 후 전체 DB가 공개됩니다.
+          {tab === 'available'
+            ? '여러 건을 선택해 한 번에 갖고갈 수 있습니다. 구매 전에는 시·구 주소와 표시금액만 확인됩니다.'
+            : '발주 업체 인계 확정 후 전체 DB가 공개됩니다.'}
         </p>
       </div>
 
@@ -218,6 +324,7 @@ export function TeamDbMarketplacePage() {
         <div className="mt-4 hidden lg:block overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[640px]">
             <colgroup>
+              {selectable ? <col className="w-[36px]" /> : null}
               <col className="w-[16%]" />
               <col className="w-[18%]" />
               <col className="w-[28%]" />
@@ -227,6 +334,17 @@ export function TeamDbMarketplacePage() {
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+                {selectable ? (
+                  <th className="px-1 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      aria-label="현재 페이지 전체 선택"
+                      checked={allPageSelected}
+                      onChange={toggleAllPage}
+                      disabled={selectableOnPage.length === 0}
+                    />
+                  </th>
+                ) : null}
                 <th className="px-2 py-2 text-center">고객</th>
                 <th className="px-2 py-2 text-center">지역</th>
                 <th className="px-2 py-2 text-center">청소 요약</th>
@@ -236,12 +354,28 @@ export function TeamDbMarketplacePage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((row) => (
+              {items.map((row) => {
+                const canSelect = canBulkBuyMarketplaceItem(row);
+                const disabledReason = selectable ? marketplaceBulkSelectDisabledReason(row, 'buy') : null;
+                return (
                 <tr
                   key={row.id}
                   className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                   onClick={() => setSelectedRow(row)}
                 >
+                  {selectable ? (
+                    <td className="px-1 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(row.id)}
+                        disabled={!canSelect}
+                        title={disabledReason ?? undefined}
+                        onChange={() => {
+                          if (canSelect) toggleRow(row.id);
+                        }}
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-2 py-2 text-center truncate" title={row.customerNameMasked}>
                     {row.customerNameMasked}
                   </td>
@@ -261,7 +395,8 @@ export function TeamDbMarketplacePage() {
                     </span>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -270,7 +405,14 @@ export function TeamDbMarketplacePage() {
 
         <div className="mt-4 space-y-3 lg:hidden">
           {items.map((row) => (
-            <MarketplaceRowCard key={row.id} row={row} onOpen={() => setSelectedRow(row)} />
+            <MarketplaceRowCard
+              key={row.id}
+              row={row}
+              onOpen={() => setSelectedRow(row)}
+              selectable={selectable}
+              selected={selectedIds.has(row.id)}
+              onToggleSelect={() => toggleRow(row.id)}
+            />
           ))}
         </div>
 
@@ -285,6 +427,40 @@ export function TeamDbMarketplacePage() {
           />
         ) : null}
       </div>
+
+      {selectedCount > 0 && selectable ? (
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-3 shadow-lg">
+          <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-2">
+            <p className="text-fluid-xs font-medium text-slate-900">{selectedCount}건 선택</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-xs text-gray-700"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                선택 해제
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                className="rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50"
+                onClick={() => void runBulkBuy()}
+              >
+                갖고가기
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <DbMarketplaceBulkResultModal
+        open={bulkResult != null}
+        onClose={() => setBulkResult(null)}
+        title={bulkResult?.title ?? ''}
+        successLabel={bulkResult?.successLabel ?? ''}
+        successCount={bulkResult?.successCount ?? 0}
+        failed={bulkResult?.failed ?? []}
+      />
 
       {selectedRow && teamToken ? (
         <DbMarketplaceListingDetailModal

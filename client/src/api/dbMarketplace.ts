@@ -13,7 +13,7 @@ export type InquiryDbListingMeta = {
   status: Exclude<DbMarketplaceListingStatus, 'WITHDRAWN'>;
 };
 
-export type DbMarketplaceListTab = 'available' | 'my_sales' | 'pending' | 'confirmed';
+export type DbMarketplaceListTab = 'available' | 'cart' | 'my_sales' | 'pending' | 'confirmed';
 
 export type DbMarketplaceAudienceItem = {
   id: string;
@@ -110,6 +110,9 @@ export type DbMarketplaceMaskedItem = {
   moveInDate: string | null;
   moveInDateUndecided: boolean;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
+  /** 판매자 목록(cart·my_sales) 전용 */
+  listingFee?: number;
+  inquiryId?: string;
 };
 
 export type DbMarketplaceAudienceInput = {
@@ -180,6 +183,58 @@ export async function updateDbMarketplaceAudience(
   });
   const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
   return data.listing;
+}
+
+export type DbMarketplaceBulkFailed = { id: string; error: string };
+
+export type DbMarketplaceBulkPublishResult = {
+  published: Array<{ id: string; inquiryId?: string; displayAmount?: number | null }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkBuyerConfirmResult = {
+  requested: Array<{ id: string; inquiryId?: string; sellerTenantName?: string; displayAmount?: number | null }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export async function bulkPublishDbMarketplace(
+  token: string,
+  body: {
+    listingIds: string[];
+    visibility: 'ALL' | 'SELECTED';
+    audiences: DbMarketplaceAudienceInput[];
+  },
+): Promise<DbMarketplaceBulkPublishResult> {
+  const res = await fetch(`${API}/db-marketplace/bulk/publish`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  return parseJson(res);
+}
+
+export async function bulkBuyerConfirmDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkBuyerConfirmResult> {
+  const res = await fetch(`${API}/db-marketplace/bulk/buyer-confirm`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
+export async function bulkTeamBuyerConfirmDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkBuyerConfirmResult> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/db-marketplace/bulk/buyer-confirm`), {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
 }
 
 export async function publishDbMarketplaceListing(

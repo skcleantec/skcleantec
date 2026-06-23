@@ -35,6 +35,10 @@ import {
   notifyDbMarketplaceBroadcast,
   notifyDbMarketplaceSellerAdmins,
 } from './dbMarketplaceNotify.service.js';
+import {
+  bulkConfirmDbListingBuyer,
+  bulkPublishDbListings,
+} from './dbMarketplaceBulk.service.js';
 
 const router = Router();
 
@@ -80,6 +84,46 @@ router.post('/draft', async (req, res) => {
     const row = await upsertDbListingDraft(tenantId, inquiryId, body.listingFee);
     await notifyDbMarketplaceSellerAdmins(tenantId);
     res.json({ listing: serializeSellerListing(row) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/bulk/publish', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const body = req.body as {
+    listingIds?: unknown;
+    visibility?: unknown;
+    audiences?: unknown;
+  };
+  try {
+    const result = await bulkPublishDbListings(
+      tenantId,
+      body.listingIds,
+      body.visibility,
+      body.audiences,
+    );
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/bulk/buyer-confirm', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const body = req.body as { listingIds?: unknown };
+  try {
+    const result = await bulkConfirmDbListingBuyer(body.listingIds, {
+      kind: 'PARTNER_TENANT',
+      tenantId,
+      userId: auth.userId,
+    });
+    res.json(result);
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;

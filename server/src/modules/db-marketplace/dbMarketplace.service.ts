@@ -45,10 +45,10 @@ const LISTING_INCLUDE = {
   audiences: true,
 } as const;
 
-export type DbMarketplaceListTab = 'available' | 'my_sales' | 'pending' | 'confirmed';
+export type DbMarketplaceListTab = 'available' | 'cart' | 'my_sales' | 'pending' | 'confirmed';
 
 function parseTab(raw: unknown): DbMarketplaceListTab {
-  if (raw === 'my_sales' || raw === 'pending' || raw === 'confirmed') return raw;
+  if (raw === 'cart' || raw === 'my_sales' || raw === 'pending' || raw === 'confirmed') return raw;
   return 'available';
 }
 
@@ -491,8 +491,10 @@ function buildListWhere(
   tab: DbMarketplaceListTab,
 ): Prisma.InquiryDbListingWhereInput {
   switch (tab) {
+    case 'cart':
+      return { tenantId, status: 'DRAFT' };
     case 'my_sales':
-      return { tenantId };
+      return { tenantId, status: { not: 'DRAFT' } };
     case 'pending':
       return {
         OR: [
@@ -554,7 +556,7 @@ export async function listDbMarketplaceListings(
   let where: Prisma.InquiryDbListingWhereInput;
 
   if (opts?.viewerExternalCompanyId) {
-    if (tab === 'my_sales') {
+    if (tab === 'my_sales' || tab === 'cart') {
       return { items: [], total: 0, limit, offset };
     }
     where = buildExternalPartnerListWhere(tenantId, tab, opts.viewerExternalCompanyId);
@@ -562,13 +564,18 @@ export async function listDbMarketplaceListings(
     where = buildListWhere(tenantId, tab);
   }
 
+  const listOrderBy: Prisma.InquiryDbListingOrderByWithRelationInput[] =
+    tab === 'cart'
+      ? [{ updatedAt: 'desc' }]
+      : [{ publishedAt: 'desc' }, { createdAt: 'desc' }];
+
   const [rows, total] = await Promise.all([
     prisma.inquiryDbListing.findMany({
       where,
       include: LISTING_INCLUDE,
       take: limit,
       skip: offset,
-      orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+      orderBy: listOrderBy,
     }),
     prisma.inquiryDbListing.count({ where }),
   ]);
@@ -600,7 +607,7 @@ export async function listDbMarketplaceListings(
         viewerRole: role,
         buyer: role === 'VIEWER' ? buyerCtx : null,
       });
-      return buildMaskedListingDto({
+      const masked = buildMaskedListingDto({
         id: row.id,
         sellerTenantId: row.tenantId,
         sellerTenantName: row.tenant.name,
@@ -615,6 +622,10 @@ export async function listDbMarketplaceListings(
         role,
         hold,
       });
+      if (role === 'SELLER') {
+        return { ...masked, listingFee: row.listingFee, inquiryId: row.inquiryId };
+      }
+      return masked;
     })
     .sort((a, b) => {
       const rankDiff = listingStatusSortRank(a.status) - listingStatusSortRank(b.status);

@@ -9,6 +9,9 @@ export const DB_MARKETPLACE_LISTING_TTL_DAYS = 30;
 /** OPEN listing 구매 전 검토 예약(hold) 유지 시간(분) */
 export const DB_MARKETPLACE_HOLD_MINUTES = 30;
 
+/** 일괄 게시·일괄 갖고가기 1회 최대 건수 */
+export const DB_MARKETPLACE_BULK_MAX = 50;
+
 export function computeMarketplaceExpiresAt(from: Date = new Date()): Date {
   const d = new Date(from);
   d.setUTCDate(d.getUTCDate() + DB_MARKETPLACE_LISTING_TTL_DAYS);

@@ -962,7 +962,7 @@ export function AdminLayout() {
                           ) : null}
                           {marketplaceDraftCount > 0 ? (
                             <Link
-                              to="/admin/db-marketplace?tab=my_sales"
+                              to="/admin/db-marketplace?tab=cart"
                               className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-violet-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3 hover:bg-violet-300"
                               aria-label={`장바구니 ${marketplaceDraftCount}건`}
                               title="장바구니 — 내 판매 탭"

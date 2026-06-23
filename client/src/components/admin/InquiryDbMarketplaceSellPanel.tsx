@@ -12,9 +12,8 @@ import {
   type DbMarketplaceAudienceInput,
   type DbMarketplaceSellerListing,
 } from '../../api/dbMarketplace';
-import { listExternalCompanies } from '../../api/externalCompanies';
-import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { computeMarketplaceDisplayAmount } from '@shared/dbMarketplaceAmount';
+import { DbMarketplaceAudiencePickerModal } from './DbMarketplaceAudiencePickerModal';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 
@@ -52,8 +51,6 @@ export function InquiryDbMarketplaceSellPanel({
   const [visibility, setVisibility] = useState<'ALL' | 'SELECTED'>('ALL');
   const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([]);
   const [selectedExternalIds, setSelectedExternalIds] = useState<string[]>([]);
-  const [partnerships, setPartnerships] = useState<TenantPartnershipItem[]>([]);
-  const [externalCompanies, setExternalCompanies] = useState<{ id: string; name: string }[]>([]);
   const [showAudienceModal, setShowAudienceModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -72,14 +69,8 @@ export function InquiryDbMarketplaceSellPanel({
       }
       setError(null);
       try {
-        const [listingRow, partnerRes, extRes] = await Promise.all([
-          getDbListingByInquiry(token, inquiryId),
-          listTenantPartnerships(token),
-          listExternalCompanies(token),
-        ]);
+        const listingRow = await getDbListingByInquiry(token, inquiryId);
         setListing(listingRow);
-        setPartnerships(partnerRes.items.filter((p) => p.status === 'ACTIVE'));
-        setExternalCompanies(extRes.items.map((e) => ({ id: e.id, name: e.name })));
         if (listingRow) {
           setListingFeeInput(listingRow.listingFee.toLocaleString('ko-KR'));
           setVisibility(listingRow.visibility);
@@ -152,23 +143,31 @@ export function InquiryDbMarketplaceSellPanel({
     }
   };
 
-  const buildAudiences = (): DbMarketplaceAudienceInput[] => {
-    const out: DbMarketplaceAudienceInput[] = [];
-    for (const id of selectedPartnerIds) {
-      out.push({ audienceKind: 'PARTNER_TENANT', partnerTenantId: id });
-    }
-    for (const id of selectedExternalIds) {
-      out.push({ audienceKind: 'EXTERNAL_COMPANY', externalCompanyId: id });
-    }
-    return out;
-  };
-
-  const saveAudience = async () => {
+  const saveAudience = async (value: {
+    visibility: 'ALL' | 'SELECTED';
+    audiences: DbMarketplaceAudienceInput[];
+  }) => {
     if (!token || !listing) return;
     setBusy(true);
     try {
-      const row = await updateDbMarketplaceAudience(token, listing.id, visibility, buildAudiences());
+      const row = await updateDbMarketplaceAudience(
+        token,
+        listing.id,
+        value.visibility,
+        value.audiences,
+      );
       setListing(row);
+      setVisibility(value.visibility);
+      setSelectedPartnerIds(
+        value.audiences
+          .filter((a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId)
+          .map((a) => a.partnerTenantId as string),
+      );
+      setSelectedExternalIds(
+        value.audiences
+          .filter((a) => a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId)
+          .map((a) => a.externalCompanyId as string),
+      );
       setShowAudienceModal(false);
     } catch (e) {
       alert(e instanceof Error ? e.message : '노출 대상 저장 실패');
@@ -235,11 +234,6 @@ export function InquiryDbMarketplaceSellPanel({
     }
   };
 
-  const partnerOptions = partnerships.map((p) => ({
-    id: p.partner.id,
-    name: p.partner.name,
-  }));
-
   const canEdit = !disabled && listing?.status !== 'CONFIRMED' && listing?.status !== 'PENDING_SELLER';
 
   return (
@@ -288,7 +282,7 @@ export function InquiryDbMarketplaceSellPanel({
       {listing ? (
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           <Link
-            to={`/admin/db-marketplace?openListing=${encodeURIComponent(listing.id)}`}
+            to={`/admin/db-marketplace?tab=${listing.status === 'DRAFT' ? 'cart' : 'my_sales'}&openListing=${encodeURIComponent(listing.id)}`}
             className="inline-block text-[11px] font-medium text-violet-800 underline hover:text-violet-950"
           >
             정보공유 목록에서 보기
@@ -388,84 +382,16 @@ export function InquiryDbMarketplaceSellPanel({
       ) : null}
 
       {showAudienceModal ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl space-y-3">
-            <p className="text-fluid-sm font-semibold text-slate-900">노출 대상</p>
-            <div className="flex gap-2">
-              {(['ALL', 'SELECTED'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setVisibility(v)}
-                  className={`rounded-lg px-3 py-1.5 text-[11px] font-medium ${
-                    visibility === v ? 'bg-slate-900 text-white' : 'border border-gray-200 text-gray-600'
-                  }`}
-                >
-                  {v === 'ALL' ? '모두' : '업체 선택'}
-                </button>
-              ))}
-            </div>
-            {visibility === 'SELECTED' ? (
-              <div className="max-h-48 overflow-y-auto space-y-2 text-[11px]">
-                {partnerOptions.length > 0 ? (
-                  <div>
-                    <p className="font-medium text-gray-700 mb-1">파트너</p>
-                    {partnerOptions.map((p) => (
-                      <label key={p.id} className="flex items-center gap-2 py-0.5">
-                        <input
-                          type="checkbox"
-                          checked={selectedPartnerIds.includes(p.id)}
-                          onChange={(e) => {
-                            setSelectedPartnerIds((prev) =>
-                              e.target.checked ? [...prev, p.id] : prev.filter((x) => x !== p.id),
-                            );
-                          }}
-                        />
-                        {p.name}
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-                {externalCompanies.length > 0 ? (
-                  <div>
-                    <p className="font-medium text-gray-700 mb-1">타업체</p>
-                    {externalCompanies.map((e) => (
-                      <label key={e.id} className="flex items-center gap-2 py-0.5">
-                        <input
-                          type="checkbox"
-                          checked={selectedExternalIds.includes(e.id)}
-                          onChange={(ev) => {
-                            setSelectedExternalIds((prev) =>
-                              ev.target.checked ? [...prev, e.id] : prev.filter((x) => x !== e.id),
-                            );
-                          }}
-                        />
-                        {e.name}
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg px-3 py-1.5 text-[11px] text-gray-600"
-                onClick={() => setShowAudienceModal(false)}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                className="rounded-lg bg-violet-700 px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50"
-                onClick={() => void saveAudience()}
-              >
-                저장
-              </button>
-            </div>
-          </div>
-        </div>
+        <DbMarketplaceAudiencePickerModal
+          open={showAudienceModal}
+          onClose={() => setShowAudienceModal(false)}
+          busy={busy}
+          confirmLabel="저장"
+          initialVisibility={visibility}
+          initialPartnerIds={selectedPartnerIds}
+          initialExternalIds={selectedExternalIds}
+          onConfirm={saveAudience}
+        />
       ) : null}
     </div>
   );

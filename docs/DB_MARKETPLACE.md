@@ -188,3 +188,17 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 - [x] buyer-confirm hold 검증·해제
 - [x] 관리·팀 상세 UI
 - [x] verify·문서
+
+### Phase 12 — 일괄 게시·일괄 갖고가기
+
+| 항목 | 정책 |
+|------|------|
+| 판매 장바구니 | `tab=cart` — `DRAFT`만, 체크박스 + 공통 audience + `POST /bulk/publish` |
+| 파트너 구매 | `tab=available` — 체크박스 + `POST /bulk/buyer-confirm` |
+| 타업체 구매 | `/team/db-marketplace` available + `POST /team/.../bulk/buyer-confirm` |
+| 상한 | 1회 **50건** (`DB_MARKETPLACE_BULK_MAX`) |
+| 부분 실패 | 건별 성공·실패 목록 반환, 트랜잭션은 listing 1건 단위 |
+
+- [x] bulk API + cart 탭 + GNB → `?tab=cart`
+- [x] 관리·팀 UI 체크박스 + 하단 액션 바
+- [x] `DbMarketplaceAudiencePickerModal` 공통화

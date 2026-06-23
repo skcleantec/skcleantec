@@ -11,6 +11,7 @@ import {
   serializeSellerListing,
 } from './dbMarketplace.service.js';
 import { confirmDbListingBuyer } from './dbMarketplaceConfirm.service.js';
+import { bulkConfirmDbListingBuyer } from './dbMarketplaceBulk.service.js';
 import {
   listDbListingMessages,
   postDbListingMessage,
@@ -73,6 +74,32 @@ router.get('/', async (req, res) => {
     { viewerExternalCompanyId: ext.me!.externalCompanyId },
   );
   res.json(result);
+});
+
+router.post('/bulk/buyer-confirm', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+
+  const ext = await requireExternalPartner(auth, tenantId);
+  if (ext.error) {
+    res.status(ext.status).json({ error: ext.error });
+    return;
+  }
+
+  const body = req.body as { listingIds?: unknown };
+  try {
+    const result = await bulkConfirmDbListingBuyer(body.listingIds, {
+      kind: 'EXTERNAL_COMPANY',
+      tenantId,
+      userId: auth.userId,
+      externalCompanyId: ext.me!.externalCompanyId!,
+    });
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
 });
 
 router.get('/:id', async (req, res) => {
