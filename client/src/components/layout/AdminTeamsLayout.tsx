@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
+import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
 import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 
@@ -18,7 +19,7 @@ export function AdminTeamsLayout() {
     }
     setRoleGate('loading');
     void getMe(t)
-      .then((u: { role?: string }) => setRoleGate(u.role === 'ADMIN' ? 'admin' : 'other'))
+      .then((u) => setRoleGate(resolveEffectiveStaffAdminFromMe(u) ? 'admin' : 'other'))
       .catch((e: unknown) => {
         if (isAuthSessionExpiredError(e)) {
           clearToken();

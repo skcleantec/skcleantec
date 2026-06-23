@@ -487,6 +487,8 @@ export type ScheduleInquiryDetailModalProps =
       professionalCatalog: ProfessionalSpecialtyOption[];
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
+      /** ADMIN 또는 마케터 관리자 승격 */
+      currentUserStaffAdmin?: boolean;
       marketerOptions?: UserItem[];
       meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
@@ -518,6 +520,8 @@ export type ScheduleInquiryDetailModalProps =
       professionalCatalog: ProfessionalSpecialtyOption[];
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
+      /** ADMIN 또는 마케터 관리자 승격 */
+      currentUserStaffAdmin?: boolean;
       marketerOptions?: UserItem[];
       meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
@@ -679,6 +683,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     professionalCatalog,
     scheduleStatsByDate,
     currentUserRole,
+    currentUserStaffAdmin,
     marketerOptions,
     meUser,
     onClose,
@@ -713,7 +718,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     'inquiry-list';
   const activeServiceZoneId =
     (props as { activeServiceZoneId?: string | null }).activeServiceZoneId ?? null;
-  const canEditMarketer = currentUserRole === 'ADMIN';
+  const canEditMarketer = currentUserStaffAdmin === true || currentUserRole === 'ADMIN';
 
   const [saving, setSaving] = useState(false);
   const [externalIntake, setExternalIntake] = useState(false);
@@ -799,7 +804,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         const { items } = await listOperatingCompanies(token);
         if (cancelled) return;
         const active = items.filter((oc) => oc.isActive);
-        if (currentUserRole === 'ADMIN') {
+        if (currentUserStaffAdmin === true || currentUserRole === 'ADMIN') {
           setOperatingCompanyOptions(active);
           return;
         }
@@ -1725,7 +1730,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     setSaving(true);
     try {
       const patch = buildPatchFromEditForm(editForm, {
-        includeCreatedById: currentUserRole === 'ADMIN',
+        includeCreatedById: currentUserStaffAdmin === true || currentUserRole === 'ADMIN',
       }) as Record<string, unknown>;
       const requestedStatus = String(patch.status ?? '');
       const isCancelConfirm = requestedStatus === 'CANCEL_CONFIRMED';

@@ -109,6 +109,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '페이지 설정',
       },
       {
+        to: '/admin/team-leaders/staff-access',
+        label: '직원권한',
+        title: '마케터 관리자 권한',
+      },
+      {
         to: '/admin/team-leaders/operating-policy',
         label: '브랜드정책',
         title: '영업 브랜드 운영 정책',

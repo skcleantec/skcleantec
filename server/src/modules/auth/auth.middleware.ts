@@ -1,7 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
 import { isTenantOwnerAdmin } from './tenantOwner.js';
+import { userHasStaffAdminAccess } from './staffAdminAccess.service.js';
 
 export type CrewViewerRole = 'LEADER' | 'MEMBER';
 
@@ -53,9 +54,33 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
 }
 
 export function adminOnly(req: Request, res: Response, next: NextFunction) {
+  void (async () => {
+    try {
+      const user = (req as Request & { user?: AuthPayload }).user;
+      if (!user) {
+        res.status(403).json({ error: '관리자 권한이 필요합니다.' });
+        return;
+      }
+      if (user.role === 'ADMIN') {
+        next();
+        return;
+      }
+      if (user.role === 'MARKETER' && (await userHasStaffAdminAccess(user))) {
+        next();
+        return;
+      }
+      res.status(403).json({ error: '관리자 권한이 필요합니다.' });
+    } catch (e) {
+      next(e);
+    }
+  })();
+}
+
+/** JWT role=ADMIN 만 — 마케터 승격 설정 등 (승격된 마케터 제외) */
+export function adminRoleOnly(req: Request, res: Response, next: NextFunction) {
   const user = (req as Request & { user?: AuthPayload }).user;
   if (!user || user.role !== 'ADMIN') {
-    res.status(403).json({ error: '관리자 권한이 필요합니다.' });
+    res.status(403).json({ error: '관리자 계정만 할 수 있습니다.' });
     return;
   }
   next();

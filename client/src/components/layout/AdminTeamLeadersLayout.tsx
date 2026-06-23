@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
+import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
 import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
 import { ADMIN_TEAM_LEADERS_NAV_ITEMS } from '../../constants/adminTeamLeadersNav';
 import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSectionSideNav';
@@ -63,7 +64,7 @@ export function AdminTeamLeadersLayout() {
     }
     setRoleGate('loading');
     void getMe(t)
-      .then((u: { role?: string }) => setRoleGate(u.role === 'ADMIN' ? 'admin' : 'other'))
+      .then((u) => setRoleGate(resolveEffectiveStaffAdminFromMe(u) ? 'admin' : 'other'))
       .catch((e: unknown) => {
         if (isAuthSessionExpiredError(e)) {
           clearToken();

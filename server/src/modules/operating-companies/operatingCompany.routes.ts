@@ -14,6 +14,7 @@ import {
   getOperatingCompanyPolicyFromService,
   resolveOperatingCompanyPolicy,
 } from './operatingCompanyPolicy.js';
+import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.service.js';
 import type { OperatingCompanyPolicy } from './operatingCompanyPolicy.js';
 
@@ -23,9 +24,10 @@ router.use(authMiddleware);
 router.use(adminOrMarketer);
 
 router.get('/', async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
   if (!tenantId) return;
-  const includeInactive = (req as unknown as { user: AuthPayload }).user.role === 'ADMIN';
+  const includeInactive = await userHasStaffAdminAccess(auth);
   const items = await listOperatingCompanies(prisma, tenantId, { includeInactive });
   res.json({ items });
 });
@@ -64,7 +66,8 @@ router.get('/my', async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, auth);
   if (!tenantId) return;
-  if (auth.role === 'ADMIN') {
+  const isStaffAdmin = await userHasStaffAdminAccess(auth);
+  if (isStaffAdmin) {
     const items = await listOperatingCompanies(prisma, tenantId);
     res.json({
       items: items.map((oc) => ({ ...oc, isPrimary: oc.isDefault })),

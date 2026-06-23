@@ -160,6 +160,11 @@ export const AdminOperatingCompanyPolicyPage = lazyWithRetry(() =>
     default: m.AdminOperatingCompanyPolicyPage,
   }))
 );
+export const AdminStaffAccessSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminStaffAccessSettingsPage').then((m) => ({
+    default: m.AdminStaffAccessSettingsPage,
+  }))
+);
 export const AdminExternalSettlementPage = lazyWithRetry(() =>
   import('../pages/admin/AdminExternalSettlementPage').then((m) => ({ default: m.AdminExternalSettlementPage }))
 );

@@ -46,6 +46,7 @@ import {
   sanitizeTenantInspectionAreaItems,
   type TenantInspectionTemplateConfig,
 } from '../../lib/inquiryInspectionTenantTemplate.js';
+import type { TenantAccessConfig } from '../../lib/staffAccess.js';
 
 export type TenantConfig = {
   branding?: TenantBrandingConfig;
@@ -55,6 +56,7 @@ export type TenantConfig = {
   inspection?: TenantInspectionTemplateConfig;
   companyRegistration?: TenantCompanyRegistrationConfig;
   smtp?: TenantSmtpConfigStored;
+  access?: TenantAccessConfig;
 };
 
 const MAX_STRING = 512;
@@ -174,6 +176,13 @@ function parseCompanyRegistration(raw: unknown): TenantConfig['companyRegistrati
   };
 }
 
+function parseAccess(raw: unknown): TenantConfig['access'] | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.marketerAdminAccess !== 'boolean') return undefined;
+  return { marketerAdminAccess: o.marketerAdminAccess };
+}
+
 /** DB JSON → 검증된 TenantConfig (알 수 없는 키는 무시) */
 export function parseTenantConfig(raw: unknown): TenantConfig {
   if (raw == null) return {};
@@ -188,6 +197,7 @@ export function parseTenantConfig(raw: unknown): TenantConfig {
   const inspection = parseInspection(o.inspection);
   const companyRegistration = parseCompanyRegistration(o.companyRegistration);
   const smtp = parseSmtpConfigStored(o.smtp);
+  const access = parseAccess(o.access);
   const out: TenantConfig = {};
   if (branding) out.branding = branding;
   if (orderForm) out.orderForm = orderForm;
@@ -196,6 +206,7 @@ export function parseTenantConfig(raw: unknown): TenantConfig {
   if (inspection) out.inspection = inspection;
   if (companyRegistration) out.companyRegistration = companyRegistration;
   if (smtp) out.smtp = smtp;
+  if (access) out.access = access;
   return out;
 }
 
@@ -215,6 +226,7 @@ export function mergeTenantConfig(existing: TenantConfig, patch: TenantConfig): 
         ? patch.companyRegistration
         : existing.companyRegistration,
     smtp: patch.smtp !== undefined ? patch.smtp : existing.smtp,
+    access: patch.access !== undefined ? { ...existing.access, ...patch.access } : existing.access,
   };
 }
 
@@ -232,6 +244,9 @@ export function tenantConfigToJson(config: TenantConfig): Record<string, unknown
   }
   if (config.smtp && Object.keys(config.smtp).length > 0) {
     out.smtp = config.smtp;
+  }
+  if (config.access && typeof config.access.marketerAdminAccess === 'boolean') {
+    out.access = { marketerAdminAccess: config.access.marketerAdminAccess };
   }
   return out;
 }

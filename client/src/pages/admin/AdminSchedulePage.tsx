@@ -29,6 +29,7 @@ import { ScheduleDaySlotToAdjustModal } from '../../components/admin/ScheduleDay
 import { ScheduleDayTeamLeaderAdjustModal } from '../../components/admin/ScheduleDayTeamLeaderAdjustModal';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
+import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
 import { getScheduleStats, type ScheduleStatsByDate, type AsCsScheduleListItem } from '../../api/dayoffs';
 import {
   getAssignableScheduleUsers,
@@ -627,6 +628,7 @@ export function AdminSchedulePage() {
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   const [meRole, setMeRole] = useState<string | null>(null);
+  const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(false);
   const [meUser, setMeUser] = useState<{
     id: string;
     role: string;
@@ -893,12 +895,14 @@ export function AdminSchedulePage() {
   useEffect(() => {
     if (!token) {
       setMeRole(null);
+      setEffectiveStaffAdmin(false);
       return;
     }
     getMe(token)
       .then((u: { id?: string; role?: string; name?: string; email?: string }) => {
         const role = typeof u.role === 'string' ? u.role : null;
         setMeRole(role);
+        setEffectiveStaffAdmin(resolveEffectiveStaffAdminFromMe(u));
         if (u.id && u.name && role)
           setMeUser({
             id: u.id,
@@ -910,19 +914,20 @@ export function AdminSchedulePage() {
       })
       .catch(() => {
         setMeRole(null);
+        setEffectiveStaffAdmin(false);
         setMeUser(null);
       });
   }, [token]);
 
   useEffect(() => {
-    if (!token || meRole !== 'ADMIN') {
+    if (!token || !effectiveStaffAdmin) {
       setMarketers([]);
       return;
     }
     getInquiryCreatorOptions(token)
       .then(setMarketers)
       .catch(() => setMarketers([]));
-  }, [token, meRole]);
+  }, [token, effectiveStaffAdmin]);
 
   useEffect(() => {
     if (!token) {
@@ -1832,7 +1837,7 @@ export function AdminSchedulePage() {
                       배정현황
                     </button>
                   )}
-                  {meRole === 'ADMIN' && token && (
+                  {effectiveStaffAdmin && token && (
                     <>
                       <button
                         type="button"
@@ -2684,6 +2689,7 @@ export function AdminSchedulePage() {
           professionalCatalog={profCatalog}
           scheduleStatsByDate={stats}
           currentUserRole={meRole}
+          currentUserStaffAdmin={effectiveStaffAdmin}
           marketerOptions={marketers}
           meUser={meUser}
           leaderAssignmentCountsByLeaderId={detailLeaderAssignmentCounts}
@@ -2728,6 +2734,7 @@ export function AdminSchedulePage() {
           professionalCatalog={profCatalog}
           scheduleStatsByDate={stats}
           currentUserRole={meRole}
+          currentUserStaffAdmin={effectiveStaffAdmin}
           marketerOptions={marketers}
           meUser={meUser}
           onClose={() => setCreateInquiryModalDate(null)}

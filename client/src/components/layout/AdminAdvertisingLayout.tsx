@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
+import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
 import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
 import { getAdminAdvertisingNavItems } from '../../constants/adminAdvertisingNav';
 import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
@@ -54,10 +55,12 @@ export function AdminAdvertisingLayout() {
     }
     setRoleGate('loading');
     void getMe(t)
-      .then((u: { role?: string }) => {
-        const r = u.role;
-        if (r === 'ADMIN') setRoleGate('admin');
-        else if (r === 'MARKETER') setRoleGate('marketer');
+      .then((u) => {
+        if (resolveEffectiveStaffAdminFromMe(u)) {
+          setRoleGate('admin');
+          return;
+        }
+        if (u.role === 'MARKETER') setRoleGate('marketer');
         else setRoleGate('other');
       })
       .catch((e: unknown) => {

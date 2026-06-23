@@ -12,6 +12,7 @@ import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAut
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
 import {
   useInboxRealtime,
   useInquiryCelebrateRealtime,
@@ -209,6 +210,7 @@ export function AdminLayout() {
   const navScrollRef = useRef<HTMLDivElement>(null);
   const navInnerRef = useRef<HTMLElement>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
+  const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(false);
   const [meName, setMeName] = useState<string | null>(null);
   const [mePhone, setMePhone] = useState<string | null>(null);
   const [meVehicleNumber, setMeVehicleNumber] = useState<string | null>(null);
@@ -278,6 +280,7 @@ export function AdminLayout() {
     const token = getToken();
     if (!token) {
       setMeRole(null);
+      setEffectiveStaffAdmin(false);
       setMeName(null);
       setMePhone(null);
       setMeVehicleNumber(null);
@@ -302,12 +305,15 @@ export function AdminLayout() {
         showStagingDbImport?: boolean;
         showVolumeStats?: boolean;
         isPlatformSupportAccess?: boolean;
+        effectiveStaffAdminAccess?: boolean;
+        marketerAdminAccess?: boolean;
         features?: string[];
         tenant?: { plan?: string; name?: string; displayName?: string } | null;
       }) => {
         if (cancelled) return;
         const role = typeof u.role === 'string' ? u.role : null;
         setMeRole(role);
+        setEffectiveStaffAdmin(resolveEffectiveStaffAdminFromMe(u));
         setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
         setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
         setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
@@ -333,6 +339,7 @@ export function AdminLayout() {
         if (cancelled) return;
         if (isAuthSessionExpiredError(e)) {
           setMeRole(null);
+          setEffectiveStaffAdmin(false);
           setMeName(null);
           setMePhone(null);
           setMeVehicleNumber(null);
@@ -357,11 +364,10 @@ export function AdminLayout() {
 
   useEffect(() => {
     if (!meRole) return;
-    const isAdmin = meRole === 'ADMIN';
-    setNavOrder(loadAdminNavOrder(isAdmin, tenantFeatures));
-  }, [meRole, tenantFeatures]);
+    setNavOrder(loadAdminNavOrder(effectiveStaffAdmin, tenantFeatures));
+  }, [meRole, effectiveStaffAdmin, tenantFeatures]);
 
-  const navCtx = { isAdmin: meRole === 'ADMIN', enabledModules: tenantFeatures };
+  const navCtx = { isAdmin: effectiveStaffAdmin, enabledModules: tenantFeatures };
 
   const handleNavDragStart = (e: React.DragEvent, id: AdminNavId) => {
     setDraggingNavId(id);
@@ -384,11 +390,11 @@ export function AdminLayout() {
     if (!raw || !(raw in ADMIN_NAV_DEF)) return;
     const dragId = raw as AdminNavId;
     if (dragId === targetId) return;
-    const isAdmin = meRole === 'ADMIN';
+    const isStaffAdminNav = effectiveStaffAdmin;
     if (!canShowAdminNavItem(dragId, navCtx) || !canShowAdminNavItem(targetId, navCtx)) return;
     setNavOrder((prev) => {
       const next = insertBefore(prev, dragId, targetId);
-      saveAdminNavOrder(isAdmin, next);
+      saveAdminNavOrder(isStaffAdminNav, next);
       return next;
     });
     setDraggingNavId(null);

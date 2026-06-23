@@ -25,6 +25,7 @@ export type TenantInquiryConfig = {
 };
 
 import type { TenantInspectionTemplateConfig } from './inquiryInspectionTenantTemplate.js';
+import type { TenantAccessConfig } from './staffAccess.js';
 
 export type TenantConfig = {
   branding?: TenantBrandingConfig;
@@ -34,6 +35,8 @@ export type TenantConfig = {
   operatingCompanyPolicy?: OperatingCompanyPolicy;
   /** 현장 검수 체크리스트 세부 항목 템플릿 */
   inspection?: TenantInspectionTemplateConfig;
+  /** 직원 권한 — 마케터 관리자 승격 등 */
+  access?: TenantAccessConfig;
 };
 
 export const EMPTY_TENANT_CONFIG: TenantConfig = {};

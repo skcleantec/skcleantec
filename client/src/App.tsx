@@ -66,6 +66,7 @@ import {
   AdminTenantCompanyBusinessPage,
   AdminTenantCompanyOutboundEmailPage,
   AdminOperatingCompanyPolicyPage,
+  AdminStaffAccessSettingsPage,
   AdminExternalSettlementPage,
   AdminPageSettingsPage,
   AdminInspectionTemplatePage,
@@ -182,6 +183,7 @@ function App() {
               element={<SuspensePage><AdminTenantCompanyOutboundEmailPage /></SuspensePage>}
             />
             <Route path="operating-policy" element={<SuspensePage><AdminOperatingCompanyPolicyPage /></SuspensePage>} />
+            <Route path="staff-access" element={<SuspensePage><AdminStaffAccessSettingsPage /></SuspensePage>} />
             <Route
               path="inspection-template"
               element={
