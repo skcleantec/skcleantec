@@ -123,12 +123,16 @@ export function DbMarketplaceListingDetailModal({
 
   const d = detail ?? (row as DbMarketplaceListingDetail);
 
-  const linkedInquiryPath =
-    d.targetInquiryId && d.status === 'CONFIRMED'
-      ? apiMode === 'team'
-        ? `/team/assignments?openInquiry=${encodeURIComponent(d.targetInquiryId)}`
-        : `/admin/inquiries?openInquiry=${encodeURIComponent(d.targetInquiryId)}`
-      : null;
+  const linkedInquiryPath = (() => {
+    if (d.status !== 'CONFIRMED') return null;
+    if (d.role === 'SELLER' && d.inquiryId) {
+      return `/admin/inquiries?openInquiry=${encodeURIComponent(d.inquiryId)}`;
+    }
+    if (!d.targetInquiryId) return null;
+    return apiMode === 'team'
+      ? `/team/assignments?openInquiry=${encodeURIComponent(d.targetInquiryId)}`
+      : `/admin/inquiries?openInquiry=${encodeURIComponent(d.targetInquiryId)}`;
+  })();
 
   const settlementPath =
     d.status === 'CONFIRMED'
@@ -201,6 +205,7 @@ export function DbMarketplaceListingDetailModal({
                     onClick={onClose}
                   >
                     연결 접수 보기
+                    {d.role === 'SELLER' ? ' (판매 접수)' : ''}
                     {d.inquiryFull?.inquiryNumber ? ` (${d.inquiryFull.inquiryNumber})` : ''}
                   </Link>
                 ) : (

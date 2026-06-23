@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime, useChangeLogRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import {
@@ -602,6 +602,7 @@ export function AdminSchedulePage() {
   const token = getToken();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -657,6 +658,38 @@ export function AdminSchedulePage() {
     setScheduleDetailInquiryIdForOrderFab(detailItem?.id ?? null);
     return () => setScheduleDetailInquiryIdForOrderFab(null);
   }, [detailItem?.id]);
+
+  /** `/admin/schedule?openInquiry=` — 정보공유·타 화면에서 스케줄 접수 상세 복원 */
+  const openInquiryId = searchParams.get('openInquiry');
+  useEffect(() => {
+    if (!openInquiryId || !token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await getInquiry(token, openInquiryId);
+        if (cancelled) return;
+        setDetailItem(raw as unknown as ScheduleItem);
+        const preferred = formatPreferredDateInputYmd(
+          (raw as { preferredDate?: string | null }).preferredDate ?? null,
+        );
+        if (preferred) {
+          const [y, m] = preferred.split('-').map(Number);
+          if (y && m) {
+            setYear(y);
+            setMonth(m);
+            setSelectedDate(preferred);
+          }
+        }
+        navigate('/admin/schedule', { replace: true });
+      } catch {
+        if (!cancelled) navigate('/admin/schedule', { replace: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openInquiryId만 트리거
+  }, [openInquiryId, token]);
 
   const fetchMonthData = useCallback(
     async (showLoading: boolean) => {

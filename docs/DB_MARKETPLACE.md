@@ -133,3 +133,11 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 - [x] 타업체 정산 상세 — 정보공유 칩
 - [x] 정보공유 URL `?openListing=` 딥링크 (관리·팀)
 - [x] `verify:multitenant:db-marketplace` — 기능 게이트·교차 tenant 격리
+
+### Phase 8 — 직접 연계 UX 통합·만료 재게시·딥링크
+
+- [x] 접수 상세 — 파트너 직접 연계 → 「정보공유로 등록하기」(수수료·파트너 prefill)
+- [x] `InquiryDbMarketplaceSellPanel` — EXPIRED 「다시 게시」 버튼
+- [x] 접수 상세 판매 패널 — 정보공유 목록 링크 (`?openListing=`)
+- [x] 확정 상세 — 판매자(SELLER) 역할 판매 접수 `openInquiry` 링크
+- [x] `/admin/schedule?openInquiry=` 딥링크 (스케줄 접수 수정)

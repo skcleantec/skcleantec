@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   confirmDbMarketplaceSeller,
@@ -17,10 +18,17 @@ import { computeMarketplaceDisplayAmount } from '@shared/dbMarketplaceAmount';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 
+export type DbMarketplaceExchangePrefill = {
+  listingFee?: number;
+  partnerTenantId?: string;
+};
+
 type Props = {
   inquiryId: string;
   serviceBalanceAmount: number | null | undefined;
   disabled?: boolean;
+  /** 파트너 직접 연계 폼 → 정보공유 등록 시 1회 적용 */
+  exchangePrefill?: DbMarketplaceExchangePrefill | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -32,7 +40,12 @@ const STATUS_LABEL: Record<string, string> = {
   EXPIRED: '만료',
 };
 
-export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount, disabled }: Props) {
+export function InquiryDbMarketplaceSellPanel({
+  inquiryId,
+  serviceBalanceAmount,
+  disabled,
+  exchangePrefill,
+}: Props) {
   const token = getToken();
   const [listing, setListing] = useState<DbMarketplaceSellerListing | null>(null);
   const [listingFeeInput, setListingFeeInput] = useState('');
@@ -93,6 +106,21 @@ export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount,
   useEffect(() => {
     void load();
   }, [load]);
+
+  const lastPrefillKeyRef = useRef('');
+  useEffect(() => {
+    if (!exchangePrefill) return;
+    const key = JSON.stringify(exchangePrefill);
+    if (lastPrefillKeyRef.current === key) return;
+    lastPrefillKeyRef.current = key;
+    if (exchangePrefill.listingFee != null && Number.isFinite(exchangePrefill.listingFee)) {
+      setListingFeeInput(exchangePrefill.listingFee.toLocaleString('ko-KR'));
+    }
+    if (exchangePrefill.partnerTenantId) {
+      setVisibility('SELECTED');
+      setSelectedPartnerIds([exchangePrefill.partnerTenantId]);
+    }
+  }, [exchangePrefill]);
 
   const lastSilentRefreshRef = useRef(0);
   const silentRefresh = useCallback(() => {
@@ -257,6 +285,15 @@ export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount,
         </p>
       ) : null}
 
+      {listing ? (
+        <Link
+          to={`/admin/db-marketplace?openListing=${encodeURIComponent(listing.id)}`}
+          className="inline-block text-[11px] font-medium text-violet-800 underline hover:text-violet-950"
+        >
+          정보공유 목록에서 보기
+        </Link>
+      ) : null}
+
       {listing?.status === 'PENDING_SELLER' ? (
         <div className="flex flex-wrap gap-2">
           <button
@@ -314,14 +351,16 @@ export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount,
                 >
                   노출 대상
                 </button>
-                {(listing.status === 'DRAFT' || listing.status === 'WITHDRAWN') && (
+                {(listing.status === 'DRAFT' ||
+                  listing.status === 'WITHDRAWN' ||
+                  listing.status === 'EXPIRED') && (
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => void publish()}
                     className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-50"
                   >
-                    정보공유 게시
+                    {listing.status === 'EXPIRED' ? '다시 게시' : '정보공유 게시'}
                   </button>
                 )}
                 {listing.status === 'OPEN' && (

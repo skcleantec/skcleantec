@@ -102,7 +102,7 @@ import { createTenantInquiryShare } from '../../api/tenantInquiryShare';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
 import { InquiryDbMarketplaceBadge } from './InquiryDbMarketplaceBadge';
-import { InquiryDbMarketplaceSellPanel } from './InquiryDbMarketplaceSellPanel';
+import { InquiryDbMarketplaceSellPanel, type DbMarketplaceExchangePrefill } from './InquiryDbMarketplaceSellPanel';
 
 function AdminScheduleDetailSection({
   title,
@@ -760,6 +760,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [tenantShareTransferFee, setTenantShareTransferFee] = useState('');
   const [tenantShareCustomerScheduleOnly, setTenantShareCustomerScheduleOnly] = useState(false);
   const [tenantShareBusy, setTenantShareBusy] = useState(false);
+  const marketplacePanelRef = useRef<HTMLDivElement>(null);
+  const [marketplaceExchangePrefill, setMarketplaceExchangePrefill] =
+    useState<DbMarketplaceExchangePrefill | null>(null);
   /** 구데이터: 고객 특이사항만 접수 specialNotes에 있음 — 저장 시 빈 관리자 메모로 덮어쓰지 않도록 PATCH에서 specialNotes 제외 */
   const omitSpecialNotesIfLegacyUnchangedRef = useRef(false);
   const [fetchedScheduleStatsByDate, setFetchedScheduleStatsByDate] = useState<
@@ -1662,6 +1665,23 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     token,
   ]);
 
+  const handleRegisterViaMarketplace = useCallback(() => {
+    const feeRaw = tenantShareTransferFee.replace(/,/g, '').trim();
+    let listingFee: number | undefined;
+    if (feeRaw !== '') {
+      const n = parseInt(feeRaw, 10);
+      if (!Number.isNaN(n) && n >= 0) listingFee = n;
+    }
+    const partnership = tenantSharePartnerships.find((p) => p.id === tenantSharePartnershipId);
+    setMarketplaceExchangePrefill({
+      listingFee,
+      partnerTenantId: partnership?.partner.id,
+    });
+    requestAnimationFrame(() => {
+      marketplacePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [tenantSharePartnershipId, tenantSharePartnerships, tenantShareTransferFee]);
+
   const handleSave = async () => {
     if (!token) {
       alert('로그인이 필요합니다.');
@@ -2527,6 +2547,21 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <p className="text-[11px] text-gray-600 leading-relaxed">
                 연결된 파트너 업체 접수 목록에 같은 건을 복제합니다. 타업체 담당·수수료와 별도입니다.
               </p>
+              {hasDbMarketplace && !item.tenantShare ? (
+                <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-2.5 space-y-2">
+                  <p className="text-[11px] text-violet-900 leading-relaxed">
+                    특정 파트너 한 곳이 아니라 여러 업체에 공개하려면{' '}
+                    <strong>정보공유(마켓)</strong>를 이용하세요. 구매자가 선택한 뒤 양쪽 확정됩니다.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRegisterViaMarketplace}
+                    className="w-full rounded-lg border border-violet-300 bg-white px-3 py-2 text-[11px] font-medium text-violet-900 hover:bg-violet-50"
+                  >
+                    정보공유로 등록하기
+                  </button>
+                </div>
+              ) : null}
               {item.tenantShare ? (
                 <div className="space-y-1.5">
                   <TenantInquiryShareBadge share={item.tenantShare} />
@@ -2603,11 +2638,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           ) : null}
           {!isCreate && hasDbMarketplace && item ? (
-            <div className="sm:col-span-2">
+            <div ref={marketplacePanelRef} className="sm:col-span-2">
               <InquiryDbMarketplaceSellPanel
                 inquiryId={item.id}
                 serviceBalanceAmount={item.serviceBalanceAmount}
                 disabled={!!item.tenantShare}
+                exchangePrefill={marketplaceExchangePrefill}
               />
             </div>
           ) : null}
