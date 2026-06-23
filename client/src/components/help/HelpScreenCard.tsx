@@ -91,14 +91,24 @@ export function HelpScreenCard({ entry, canEdit, onUpdated }: HelpScreenCardProp
     }
   };
 
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = async (file: File, insertIntoMarkdown = false) => {
     if (!canEdit) return;
     setUploadingImage(true);
     try {
       const result = await uploadHelpScreenshot(file);
-      await updateHelpContent(entry.role, entry.path, { screenshotFile: result.filename });
-      alert('스크린샷 업로드 완료!');
-      onUpdated?.();
+      
+      if (insertIntoMarkdown) {
+        // 마크다운에 이미지 문법 삽입
+        const imageMarkdown = `\n\n![${file.name.replace(/\.[^/.]+$/, '')}](${result.filename})\n\n`;
+        const newMarkdown = editMarkdown + imageMarkdown;
+        setEditMarkdown(newMarkdown);
+        alert('이미지가 마크다운에 삽입되었습니다!');
+      } else {
+        // 대표 스크린샷으로 설정
+        await updateHelpContent(entry.role, entry.path, { screenshotFile: result.filename });
+        alert('대표 스크린샷 업로드 완료!');
+        onUpdated?.();
+      }
     } catch (err) {
       alert((err as Error).message);
     } finally {
@@ -128,14 +138,16 @@ export function HelpScreenCard({ entry, canEdit, onUpdated }: HelpScreenCardProp
                   ✏️ 편집
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingImage}
-                className="rounded-lg bg-green-500 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-green-600 disabled:opacity-50"
-              >
-                📷 이미지 {uploadingImage ? '...' : ''}
-              </button>
+              {!editing ? (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="rounded-lg bg-green-500 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-green-600 disabled:opacity-50"
+                >
+                  📷 대표 {uploadingImage ? '...' : ''}
+                </button>
+              ) : null}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -143,7 +155,7 @@ export function HelpScreenCard({ entry, canEdit, onUpdated }: HelpScreenCardProp
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file);
+                  if (file) handleImageUpload(file, false);
                   e.target.value = '';
                 }}
               />
@@ -156,15 +168,38 @@ export function HelpScreenCard({ entry, canEdit, onUpdated }: HelpScreenCardProp
 
       {editing ? (
         <div className="border-t border-slate-100 px-4 py-4 sm:px-6 sm:py-5 bg-slate-50">
-          <label className="block mb-2 text-fluid-sm font-semibold text-slate-700">
-            마크다운 편집
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-fluid-sm font-semibold text-slate-700">
+              마크다운 편집
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (file) handleImageUpload(file, true);
+                };
+                input.click();
+              }}
+              disabled={uploadingImage}
+              className="rounded-lg bg-green-500 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-green-600 disabled:opacity-50"
+            >
+              📷 이미지 삽입 {uploadingImage ? '...' : ''}
+            </button>
+          </div>
           <textarea
             value={editMarkdown}
             onChange={(e) => setEditMarkdown(e.target.value)}
             rows={20}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="마크다운 문법을 사용하세요. 이미지: ![설명](파일명.png)"
           />
+          <div className="mt-2 text-fluid-xs text-slate-500">
+            💡 이미지 삽입 버튼을 누르면 자동으로 <code className="bg-slate-200 px-1 rounded">![](파일명.png)</code> 문법이 추가됩니다.
+          </div>
           <div className="mt-3 flex gap-2">
             <button
               type="button"

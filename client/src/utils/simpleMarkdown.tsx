@@ -27,7 +27,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   return parts.length ? parts : [text];
 }
 
-/** 경량 markdown — ## 헤더, **볼드**, - 리스트, 빈 줄 단락, 1. 숫자 리스트 */
+/** 경량 markdown — ## 헤더, **볼드**, - 리스트, 빈 줄 단락, 1. 숫자 리스트, ![이미지](파일명) */
 export function SimpleMarkdown({ source }: { source: string }) {
   if (!source || typeof source !== 'string') {
     return <div className="text-fluid-sm text-slate-500">내용이 없습니다.</div>;
@@ -51,6 +51,31 @@ export function SimpleMarkdown({ source }: { source: string }) {
 
         const first = lines[0] ?? '';
 
+        // ![이미지](파일명) — 단독 줄
+        const imageMatch = first.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        if (imageMatch && lines.length === 1) {
+          const [, alt, filename] = imageMatch;
+          const imageUrl = filename.startsWith('http') 
+            ? filename 
+            : `/help/screenshots/${encodeURIComponent(filename)}`;
+          
+          return (
+            <figure key={`img-${blockIdx}`} className="my-6">
+              <img
+                src={imageUrl}
+                alt={alt || '스크린샷'}
+                className="max-w-full rounded-lg border border-slate-200 shadow-sm"
+                loading="lazy"
+              />
+              {alt ? (
+                <figcaption className="mt-2 text-center text-fluid-xs text-slate-500">
+                  {alt}
+                </figcaption>
+              ) : null}
+            </figure>
+          );
+        }
+
         // ## 헤더
         if (first.startsWith('## ')) {
           return (
@@ -60,6 +85,18 @@ export function SimpleMarkdown({ source }: { source: string }) {
             >
               {renderInline(first.slice(3), `h-${blockIdx}`)}
             </h3>
+          );
+        }
+
+        // ### 서브 헤더
+        if (first.startsWith('### ')) {
+          return (
+            <h4
+              key={`h4-${blockIdx}`}
+              className="text-fluid-sm font-semibold text-slate-800 pt-1 first:pt-0"
+            >
+              {renderInline(first.slice(4), `h4-${blockIdx}`)}
+            </h4>
           );
         }
 
