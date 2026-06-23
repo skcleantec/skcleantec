@@ -274,4 +274,13 @@ export type MarketplaceListingDetailDto = MarketplaceListingMaskedDto & {
   sellerConfirmedAt: string | null;
   inquiryFull: MarketplaceListingFullInquiryDto | null;
   targetInquiryId: string | null;
+  /** 판매자(내 판매) 상세 — 노출 대상 업체 */
+  audiences?: Array<{
+    id: string;
+    audienceKind: string;
+    partnerTenantId: string | null;
+    partnerTenantName: string | null;
+    externalCompanyId: string | null;
+    externalCompanyName: string | null;
+  }>;
 };

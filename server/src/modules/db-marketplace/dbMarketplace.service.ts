@@ -688,7 +688,12 @@ export async function getDbMarketplaceListingById(
       buyerExternalCompany: { select: { id: true, name: true } },
       holdBuyerTenant: { select: { id: true, name: true } },
       holdBuyerExternalCompany: { select: { id: true, name: true } },
-      audiences: true,
+      audiences: {
+        include: {
+          partnerTenant: { select: { id: true, name: true } },
+          externalCompany: { select: { id: true, name: true } },
+        },
+      },
     },
   });
   if (!row) throw new DbMarketplaceError('항목을 찾을 수 없습니다.', 404);
@@ -764,6 +769,18 @@ export async function getDbMarketplaceListingById(
     sellerConfirmedAt: row.sellerConfirmedAt?.toISOString() ?? null,
     inquiryFull: showFull ? buildFullInquiryDto(row.inquiry) : null,
     targetInquiryId,
+    ...(isSeller
+      ? {
+          audiences: (row.audiences ?? []).map((a) => ({
+            id: a.id,
+            audienceKind: a.audienceKind,
+            partnerTenantId: a.partnerTenantId,
+            partnerTenantName: a.partnerTenant?.name ?? null,
+            externalCompanyId: a.externalCompanyId,
+            externalCompanyName: a.externalCompany?.name ?? null,
+          })),
+        }
+      : {}),
   };
 
   return detail;

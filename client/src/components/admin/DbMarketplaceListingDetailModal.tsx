@@ -25,6 +25,45 @@ import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { ModalCloseButton } from './ModalCloseButton';
 import { DbMarketplaceCleaningDetailCard } from './DbMarketplaceCleaningDetailCard';
 import { DB_MARKETPLACE_HOLD_MINUTES } from '@shared/dbMarketplacePolicy';
+import type { DbMarketplaceAudienceItem } from '../../api/dbMarketplace';
+
+function DbMarketplacePublishAudienceBlock({
+  visibility,
+  audiences,
+}: {
+  visibility: 'ALL' | 'SELECTED';
+  audiences?: DbMarketplaceAudienceItem[];
+}) {
+  return (
+    <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-3 space-y-2">
+      <p className="text-fluid-xs font-semibold text-violet-950">게시 대상</p>
+      {visibility === 'ALL' ? (
+        <p className="text-[11px] leading-relaxed text-violet-900">
+          연결된 전체 파트너·등록 타업체에 노출됩니다.
+        </p>
+      ) : audiences && audiences.length > 0 ? (
+        <ul className="space-y-1.5">
+          {audiences.map((a) => (
+            <li key={a.id} className="flex flex-wrap items-center gap-1.5 text-[11px] text-violet-950">
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                  a.audienceKind === 'PARTNER_TENANT'
+                    ? 'bg-sky-100 text-sky-800'
+                    : 'bg-amber-100 text-amber-900'
+                }`}
+              >
+                {a.audienceKind === 'PARTNER_TENANT' ? '파트너' : '타업체'}
+              </span>
+              <span className="font-medium">{a.partnerTenantName ?? a.externalCompanyName ?? '—'}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-[11px] text-gray-500">지정된 업체가 없습니다.</p>
+      )}
+    </div>
+  );
+}
 
 type Props = {
   row: DbMarketplaceMaskedItem;
@@ -281,6 +320,10 @@ export function DbMarketplaceListingDetailModal({
               </p>
             ) : null}
           </div>
+
+          {d.role === 'SELLER' ? (
+            <DbMarketplacePublishAudienceBlock visibility={d.visibility} audiences={d.audiences} />
+          ) : null}
 
           {d.inquiryFull ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-1">

@@ -86,6 +86,8 @@ export type DbMarketplaceListingDetail = DbMarketplaceMaskedItem & {
   sellerConfirmedAt: string | null;
   inquiryFull: DbMarketplaceFullInquiry | null;
   targetInquiryId: string | null;
+  /** 판매자 상세 — 게시 대상 업체 */
+  audiences?: DbMarketplaceAudienceItem[];
 };
 
 export type DbMarketplaceMaskedItem = {
