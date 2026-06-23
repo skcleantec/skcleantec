@@ -12,6 +12,10 @@ import {
   postDbMarketplaceMessage,
   listTeamDbMarketplaceMessages,
   postTeamDbMarketplaceMessage,
+  holdDbMarketplaceListing,
+  releaseDbMarketplaceHold,
+  holdTeamDbMarketplaceListing,
+  releaseTeamDbMarketplaceHold,
   type DbMarketplaceListingDetail,
   type DbMarketplaceListingMessage,
   type DbMarketplaceMaskedItem,
@@ -19,6 +23,7 @@ import {
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { ModalCloseButton } from './ModalCloseButton';
+import { DB_MARKETPLACE_HOLD_MINUTES } from '@shared/dbMarketplacePolicy';
 
 type Props = {
   row: DbMarketplaceMaskedItem;
@@ -114,6 +119,38 @@ export function DbMarketplaceListingDetailModal({
 
   const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
+
+  const runReleaseHold = async () => {
+    if (!token) return;
+    setBusy(true);
+    try {
+      await (apiMode === 'team'
+        ? releaseTeamDbMarketplaceHold(token, row.id)
+        : releaseDbMarketplaceHold(token, row.id));
+      loadDetail({ silent: true });
+      onChanged();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '예약 해제 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runHold = async () => {
+    if (!token) return;
+    setBusy(true);
+    try {
+      await (apiMode === 'team'
+        ? holdTeamDbMarketplaceListing(token, row.id)
+        : holdDbMarketplaceListing(token, row.id));
+      loadDetail({ silent: true });
+      onChanged();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '검토 예약 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const runBuyerConfirm = async () => {
     if (!token || !window.confirm('이 DB를 갖고가겠습니까? 판매자 인계 확정 후 전체 정보가 공개됩니다.')) return;
@@ -375,16 +412,57 @@ export function DbMarketplaceListingDetailModal({
             </div>
           ) : null}
 
+          {d.status === 'OPEN' && d.role === 'SELLER' && d.holdActive ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+              {d.holdBuyerName ?? '다른 업체'}가 검토 예약 중입니다.
+              {d.heldUntil
+                ? ` (~${new Date(d.heldUntil).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}까지)`
+                : null}
+            </p>
+          ) : null}
+
           <div className="flex flex-wrap gap-2 pt-2">
             {d.status === 'OPEN' && d.role === 'VIEWER' && !d.platformSuspended ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void runBuyerConfirm()}
-                className="rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50"
-              >
-                갖고가기
-              </button>
+              <>
+                {d.holdActive && !d.holdIsMine ? (
+                  <p className="w-full text-[11px] text-amber-800">
+                    다른 업체가 검토 예약 중입니다.
+                    {d.heldUntil
+                      ? ` (${new Date(d.heldUntil).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}까지)`
+                      : null}
+                  </p>
+                ) : null}
+                {!d.holdActive ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void runHold()}
+                    className="rounded-lg border border-violet-300 px-4 py-2 text-fluid-xs font-medium text-violet-900 hover:bg-violet-50 disabled:opacity-50"
+                  >
+                    {DB_MARKETPLACE_HOLD_MINUTES}분 검토 예약
+                  </button>
+                ) : null}
+                {d.holdIsMine ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void runReleaseHold()}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    검토 예약 해제
+                  </button>
+                ) : null}
+                {(!d.holdActive || d.holdIsMine) && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void runBuyerConfirm()}
+                    className="rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50"
+                  >
+                    갖고가기
+                  </button>
+                )}
+              </>
             ) : null}
             {d.status === 'PENDING_SELLER' && d.role === 'SELLER' && apiMode === 'admin' ? (
               <>

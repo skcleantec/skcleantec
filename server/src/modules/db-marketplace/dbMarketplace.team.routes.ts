@@ -15,6 +15,11 @@ import {
   listDbListingMessages,
   postDbListingMessage,
 } from './dbMarketplaceMessages.service.js';
+import {
+  buildMarketplaceHoldView,
+  createDbListingHold,
+  releaseDbListingHold,
+} from './dbMarketplaceHold.service.js';
 
 const router = Router();
 
@@ -147,6 +152,64 @@ router.post('/:id/messages', async (req, res) => {
       body,
     );
     res.json({ item });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/hold', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+
+  const ext = await requireExternalPartner(auth, tenantId);
+  if (ext.error) {
+    res.status(ext.status).json({ error: ext.error });
+    return;
+  }
+
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  const buyer = {
+    kind: 'EXTERNAL_COMPANY' as const,
+    tenantId,
+    userId: auth.userId,
+    externalCompanyId: ext.me!.externalCompanyId!,
+  };
+  try {
+    const row = await createDbListingHold(listingId, buyer);
+    const hold = buildMarketplaceHoldView({
+      listing: row,
+      viewerRole: 'VIEWER',
+      buyer,
+    });
+    res.json({ hold });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.delete('/:id/hold', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+
+  const ext = await requireExternalPartner(auth, tenantId);
+  if (ext.error) {
+    res.status(ext.status).json({ error: ext.error });
+    return;
+  }
+
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    await releaseDbListingHold(listingId, {
+      kind: 'EXTERNAL_COMPANY',
+      tenantId,
+      userId: auth.userId,
+      externalCompanyId: ext.me!.externalCompanyId!,
+    });
+    res.json({ ok: true });
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;

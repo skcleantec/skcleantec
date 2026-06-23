@@ -209,6 +209,13 @@ async function verifyApiIsolation(): Promise<void> {
   assert(msgAuth.status === 401 || msgAuth.status === 403, `messages requires auth (${msgAuth.status})`);
   console.log('✓ messages API auth gate');
 
+  const holdAuth = await fetch(`${API}/db-marketplace/test-id/hold`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer invalid-token' },
+  });
+  assert(holdAuth.status === 401 || holdAuth.status === 403, `hold requires auth (${holdAuth.status})`);
+  console.log('✓ hold API auth gate');
+
   const crossRes = await fetch(`${API}/db-marketplace/00000000-0000-4000-8000-000000000099`, {
     headers: { Authorization: `Bearer ${tokenB}` },
   });

@@ -18,6 +18,10 @@ export type MarketplaceListingMaskedDto = {
   publishedAt: string | null;
   expiresAt: string | null;
   platformSuspended: boolean;
+  holdActive: boolean;
+  holdIsMine: boolean;
+  heldUntil: string | null;
+  holdBuyerName: string | null;
   customerNameMasked: string;
   addressRegion: string;
   propertyType: string | null;
@@ -82,6 +86,12 @@ export function buildMaskedListingDto(input: {
   platformSuspendedAt?: Date | null;
   inquiry: InquiryMaskFields;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
+  hold?: {
+    holdActive: boolean;
+    holdIsMine: boolean;
+    heldUntil: string | null;
+    holdBuyerName: string | null;
+  };
 }): MarketplaceListingMaskedDto {
   const displayAmount =
     input.displayAmount ??
@@ -97,6 +107,10 @@ export function buildMaskedListingDto(input: {
     publishedAt: input.publishedAt?.toISOString() ?? null,
     expiresAt: input.expiresAt?.toISOString() ?? null,
     platformSuspended: input.platformSuspendedAt != null,
+    holdActive: input.hold?.holdActive ?? false,
+    holdIsMine: input.hold?.holdIsMine ?? false,
+    heldUntil: input.hold?.heldUntil ?? null,
+    holdBuyerName: input.hold?.holdBuyerName ?? null,
     customerNameMasked: maskMarketplaceCustomerName(input.inquiry.customerName),
     addressRegion: maskMarketplaceAddressRegion(input.inquiry.address),
     propertyType: input.inquiry.propertyType,

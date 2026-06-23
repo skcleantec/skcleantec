@@ -83,6 +83,10 @@ export type DbMarketplaceMaskedItem = {
   publishedAt: string | null;
   expiresAt: string | null;
   platformSuspended: boolean;
+  holdActive: boolean;
+  holdIsMine: boolean;
+  heldUntil: string | null;
+  holdBuyerName: string | null;
   customerNameMasked: string;
   addressRegion: string;
   propertyType: string | null;
@@ -356,4 +360,49 @@ export async function postTeamDbMarketplaceMessage(
   );
   const data = await parseJson<{ item: DbMarketplaceListingMessage }>(res);
   return data.item;
+}
+
+export type DbMarketplaceHoldState = {
+  holdActive: boolean;
+  holdIsMine: boolean;
+  heldUntil: string | null;
+  holdBuyerName: string | null;
+};
+
+export async function holdDbMarketplaceListing(
+  token: string,
+  listingId: string,
+): Promise<{ hold: DbMarketplaceHoldState }> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/hold`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  return parseJson(res);
+}
+
+export async function releaseDbMarketplaceHold(token: string, listingId: string): Promise<void> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/hold`, {
+    method: 'DELETE',
+    headers: headers(token),
+  });
+  await parseJson(res);
+}
+
+export async function holdTeamDbMarketplaceListing(
+  token: string,
+  listingId: string,
+): Promise<{ hold: DbMarketplaceHoldState }> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}/hold`),
+    { method: 'POST', headers: headers(token) },
+  );
+  return parseJson(res);
+}
+
+export async function releaseTeamDbMarketplaceHold(token: string, listingId: string): Promise<void> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}/hold`),
+    { method: 'DELETE', headers: headers(token) },
+  );
+  await parseJson(res);
 }

@@ -14,6 +14,11 @@ import {
 import {
   expireStaleOpenDbListings,
 } from './dbMarketplaceExpire.service.js';
+import {
+  buildMarketplaceHoldView,
+  releaseExpiredDbListingHolds,
+} from './dbMarketplaceHold.service.js';
+import type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 import { computeMarketplaceExpiresAt } from '../../lib/dbMarketplacePolicy.js';
 import {
   buildMaskedListingDto,
@@ -258,6 +263,11 @@ export async function publishDbListing(tenantId: string, listingId: string) {
       expiredAt: null,
       expiresAt: computeMarketplaceExpiresAt(now),
       platformSuspendedAt: null,
+      holdBuyerKind: null,
+      holdBuyerTenantId: null,
+      holdBuyerExternalCompanyId: null,
+      holdByUserId: null,
+      heldUntil: null,
     },
     include: LISTING_INCLUDE,
   });
@@ -277,6 +287,11 @@ export async function withdrawDbListing(tenantId: string, listingId: string) {
     data: {
       status: 'WITHDRAWN',
       withdrawnAt: new Date(),
+      holdBuyerKind: null,
+      holdBuyerTenantId: null,
+      holdBuyerExternalCompanyId: null,
+      holdByUserId: null,
+      heldUntil: null,
     },
     include: LISTING_INCLUDE,
   });
@@ -456,6 +471,21 @@ function buildListWhere(
   }
 }
 
+function resolveBuyerContextForViewer(
+  tenantId: string,
+  opts?: { viewerExternalCompanyId?: string | null },
+): DbMarketplaceBuyerContext | null {
+  if (opts?.viewerExternalCompanyId) {
+    return {
+      kind: 'EXTERNAL_COMPANY',
+      tenantId,
+      userId: '',
+      externalCompanyId: opts.viewerExternalCompanyId,
+    };
+  }
+  return { kind: 'PARTNER_TENANT', tenantId, userId: '' };
+}
+
 export async function listDbMarketplaceListings(
   tenantId: string,
   tabRaw: unknown,
@@ -464,6 +494,7 @@ export async function listDbMarketplaceListings(
   opts?: { viewerExternalCompanyId?: string | null },
 ) {
   await expireStaleOpenDbListings();
+  await releaseExpiredDbListingHolds();
   const tab = parseTab(tabRaw);
   const limit = Math.min(Math.max(Number(limitRaw) || 30, 1), 100);
   const offset = Math.max(Number(offsetRaw) || 0, 0);
@@ -498,9 +529,18 @@ export async function listDbMarketplaceListings(
         )
       : rows;
 
+  const buyerCtx = resolveBuyerContextForViewer(tenantId, opts);
   const items = filtered
-    .map((row) =>
-      buildMaskedListingDto({
+    .map((row) => {
+      const role = resolveListRoleForViewer(tenantId, row, {
+        externalCompanyId: opts?.viewerExternalCompanyId,
+      });
+      const hold = buildMarketplaceHoldView({
+        listing: row,
+        viewerRole: role,
+        buyer: role === 'VIEWER' ? buyerCtx : null,
+      });
+      return buildMaskedListingDto({
         id: row.id,
         sellerTenantId: row.tenantId,
         sellerTenantName: row.tenant.name,
@@ -512,11 +552,10 @@ export async function listDbMarketplaceListings(
         expiresAt: row.expiresAt,
         platformSuspendedAt: row.platformSuspendedAt,
         inquiry: row.inquiry,
-        role: resolveListRoleForViewer(tenantId, row, {
-          externalCompanyId: opts?.viewerExternalCompanyId,
-        }),
-      }),
-    )
+        role,
+        hold,
+      });
+    })
     .sort((a, b) => {
       const rankDiff = listingStatusSortRank(a.status) - listingStatusSortRank(b.status);
       if (rankDiff !== 0) return rankDiff;
@@ -534,6 +573,7 @@ export async function getDbMarketplaceListingById(
   opts?: { viewerExternalCompanyId?: string | null },
 ) {
   await expireStaleOpenDbListings();
+  await releaseExpiredDbListingHolds();
   const row = await prisma.inquiryDbListing.findFirst({
     where: { id: listingId },
     include: {
@@ -541,6 +581,8 @@ export async function getDbMarketplaceListingById(
       tenant: { select: { id: true, name: true } },
       buyerTenant: { select: { id: true, name: true } },
       buyerExternalCompany: { select: { id: true, name: true } },
+      holdBuyerTenant: { select: { id: true, name: true } },
+      holdBuyerExternalCompany: { select: { id: true, name: true } },
       audiences: true,
     },
   });
@@ -559,6 +601,25 @@ export async function getDbMarketplaceListingById(
     throw new DbMarketplaceError('조회 권한이 없습니다.', 403);
   }
 
+  const role = isExternalBuyer ? 'BUYER' : resolveListRole(viewerTenantId, row);
+  const buyerCtx =
+    role === 'VIEWER' || role === 'BUYER'
+      ? opts?.viewerExternalCompanyId
+        ? ({
+            kind: 'EXTERNAL_COMPANY',
+            tenantId: viewerTenantId,
+            userId: '',
+            externalCompanyId: opts.viewerExternalCompanyId,
+          } satisfies DbMarketplaceBuyerContext)
+        : ({ kind: 'PARTNER_TENANT', tenantId: viewerTenantId, userId: '' } satisfies DbMarketplaceBuyerContext)
+      : null;
+
+  const hold = buildMarketplaceHoldView({
+    listing: row,
+    viewerRole: role,
+    buyer: buyerCtx,
+  });
+
   const masked = buildMaskedListingDto({
     id: row.id,
     sellerTenantId: row.tenantId,
@@ -571,7 +632,8 @@ export async function getDbMarketplaceListingById(
     expiresAt: row.expiresAt,
     platformSuspendedAt: row.platformSuspendedAt,
     inquiry: row.inquiry,
-    role: isExternalBuyer ? 'BUYER' : resolveListRole(viewerTenantId, row),
+    role,
+    hold,
   });
 
   const showFull = row.status === 'CONFIRMED' && (isSeller || isBuyer || isExternalBuyer);

@@ -27,6 +27,11 @@ import {
   postDbListingMessage,
 } from './dbMarketplaceMessages.service.js';
 import {
+  buildMarketplaceHoldView,
+  createDbListingHold,
+  releaseDbListingHold,
+} from './dbMarketplaceHold.service.js';
+import {
   notifyDbMarketplaceBroadcast,
   notifyDbMarketplaceSellerAdmins,
 } from './dbMarketplaceNotify.service.js';
@@ -196,6 +201,55 @@ router.post('/:id/seller-confirm', async (req, res) => {
       listing: serializeSellerListing(result.listing),
       targetInquiryId: result.targetInquiryId,
     });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/hold', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const peek = await prisma.inquiryDbListing.findFirst({
+      where: { id: listingId },
+      select: { tenantId: true },
+    });
+    if (peek?.tenantId === tenantId) {
+      res.status(400).json({ error: '자사 DB는 검토 예약할 수 없습니다.' });
+      return;
+    }
+    const row = await createDbListingHold(listingId, {
+      kind: 'PARTNER_TENANT',
+      tenantId,
+      userId: auth.userId,
+    });
+    const hold = buildMarketplaceHoldView({
+      listing: row,
+      viewerRole: 'VIEWER',
+      buyer: { kind: 'PARTNER_TENANT', tenantId, userId: auth.userId },
+    });
+    res.json({ hold });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.delete('/:id/hold', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    await releaseDbListingHold(listingId, {
+      kind: 'PARTNER_TENANT',
+      tenantId,
+      userId: auth.userId,
+    });
+    res.json({ ok: true });
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;

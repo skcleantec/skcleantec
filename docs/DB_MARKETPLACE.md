@@ -60,6 +60,7 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 | POST | `/:id/buyer-confirm`, `/:id/seller-confirm`, `/:id/seller-decline` | 2–4 |
 | GET | `/draft-count` (장바구니 + 인계 대기 + 구매 대기 건수) | 1, 4, 6 |
 | GET/POST | `/:id/messages` | 10 |
+| POST/DELETE | `/:id/hold` | 11 |
 | GET/POST | `/api/team/db-marketplace/*` (타업체 EXTERNAL_PARTNER) | 2–3, 10 |
 | GET/POST | `/api/platform/db-marketplace/*` (플랫폼 중지·목록, PII 없음) | 5 |
 
@@ -167,10 +168,22 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 - [x] 관리·팀 상세 모달 Q&A UI
 - [x] verify·문서 마무리
 
-### Phase 11 — 예약(hold) *(정의만, 미착수)*
+### Phase 11 — 예약(hold)
 
-**후보**: 구매 확정 전 **일시 hold**(타 구매자 차단) — `OPEN` 상태 race·만료·거절 정책과 충돌 검토 필요. Q&A(Phase 10) 안정화 후 착수.
+**목적**: `갖고가기` 직전 **30분 일시 검토 예약** — 동시에 한 업체만 `OPEN` listing에 hold 가능, 타 구매자는 `갖고가기`·hold 불가.
 
-- [ ] hold 정책 확정(기간·1인·자동 해제)
-- [ ] 상태 또는 `heldUntil` 필드 설계
-- [ ] UI·API
+| 항목 | 정책 |
+|------|------|
+| 대상 | `OPEN` + 플랫폼 중지 아님 |
+| 기간 | **30분** (`heldUntil`, lazy 자동 해제) |
+| 1 listing | **1 hold** — 타 업체 hold 중이면 409 |
+| 본인 hold | 재요청 시 **연장**(30분 재계산), `갖고가기` 가능 |
+| 해제 | hold 본인 `DELETE /hold`, 만료 lazy, `WITHDRAWN`·재게시·`buyer-confirm` 시 필드 초기화 |
+| 판매자 UI | hold 중 **구매자명** 표시(검토 예약 안내) |
+| API | `POST/DELETE /api/db-marketplace/:id/hold`, 팀 동일 |
+| 실시간 | `inbox:refresh` → 목록·상세 silent 재조회 |
+
+- [x] migration + hold API
+- [x] buyer-confirm hold 검증·해제
+- [x] 관리·팀 상세 UI
+- [x] verify·문서

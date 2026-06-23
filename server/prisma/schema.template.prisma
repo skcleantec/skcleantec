@@ -157,6 +157,7 @@ model Tenant {
   inquiryDbListings InquiryDbListing[]
   inquiryDbListingAudiencesAsPartner InquiryDbListingAudience[] @relation("ListingAudiencePartnerTenant")
   inquiryDbListingsAsBuyer InquiryDbListing[] @relation("ListingBuyerTenant")
+  inquiryDbListingsHeldAsBuyer InquiryDbListing[] @relation("ListingHoldBuyerTenant")
   inquiryDbListingMessages InquiryDbListingMessage[]
 
   @@map("tenants")
@@ -277,6 +278,11 @@ model InquiryDbListing {
   sellerConfirmedAt         DateTime?                  @map("seller_confirmed_at")
   buyerConfirmedByUserId    String?                    @map("buyer_confirmed_by_user_id")
   sellerConfirmedByUserId   String?                    @map("seller_confirmed_by_user_id")
+  holdBuyerKind             InquiryDbListingBuyerKind? @map("hold_buyer_kind")
+  holdBuyerTenantId         String?                    @map("hold_buyer_tenant_id")
+  holdBuyerExternalCompanyId String?                   @map("hold_buyer_external_company_id")
+  holdByUserId              String?                    @map("hold_by_user_id")
+  heldUntil                 DateTime?                  @map("held_until")
   tenantInquiryShareId      String?                    @map("tenant_inquiry_share_id")
   createdAt                 DateTime                   @default(now()) @map("created_at")
   updatedAt                 DateTime                   @updatedAt @map("updated_at")
@@ -285,11 +291,15 @@ model InquiryDbListing {
   inquiry              Inquiry                   @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
   buyerTenant          Tenant?                   @relation("ListingBuyerTenant", fields: [buyerTenantId], references: [id], onDelete: SetNull)
   buyerExternalCompany ExternalCompany?          @relation(fields: [buyerExternalCompanyId], references: [id], onDelete: SetNull)
+  holdBuyerTenant      Tenant?                   @relation("ListingHoldBuyerTenant", fields: [holdBuyerTenantId], references: [id], onDelete: SetNull)
+  holdBuyerExternalCompany ExternalCompany?      @relation("ListingHoldExternalCompany", fields: [holdBuyerExternalCompanyId], references: [id], onDelete: SetNull)
+  holdByUser           User?                     @relation("DbListingHoldByUser", fields: [holdByUserId], references: [id], onDelete: SetNull)
   audiences            InquiryDbListingAudience[]
   messages             InquiryDbListingMessage[]
 
   @@index([tenantId, status, publishedAt])
   @@index([status, publishedAt])
+  @@index([status, heldUntil])
   @@index([buyerTenantId, status])
   @@map("inquiry_db_listings")
 }
@@ -437,6 +447,7 @@ model ExternalCompany {
   payrollLedgerManualExpenseTargets PayrollAccountLedgerManualEntry[]
   dbListingAudiences InquiryDbListingAudience[]
   dbListingsAsBuyer InquiryDbListing[]
+  dbListingsHeldAsBuyer InquiryDbListing[] @relation("ListingHoldExternalCompany")
 
   @@index([tenantId, isActive])
   @@map("external_companies")
@@ -549,6 +560,7 @@ model User {
   tenantPartnerSettlementPaymentsAsActor TenantPartnerSettlementPayment[] @relation("TenantPartnerSettlementPaymentActor")
   tenantPartnerSettlementResetsAsActor TenantPartnerSettlementReset[] @relation("TenantPartnerSettlementResetActor")
   dbListingMessagesAuthored            InquiryDbListingMessage[]      @relation("DbListingMessageAuthor")
+  dbListingHoldsCreated                InquiryDbListing[]             @relation("DbListingHoldByUser")
   operatingCompanyMemberships UserOperatingCompany[]
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
   customCalendarInquiryPins     UserCustomCalendarInquiryPin[]
