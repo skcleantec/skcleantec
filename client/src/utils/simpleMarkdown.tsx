@@ -27,47 +27,80 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   return parts.length ? parts : [text];
 }
 
-/** 경량 markdown — ## 헤더, **볼드**, - 리스트, 빈 줄 단락 */
+/** 경량 markdown — ## 헤더, **볼드**, - 리스트, 빈 줄 단락, 1. 숫자 리스트 */
 export function SimpleMarkdown({ source }: { source: string }) {
-  const blocks = source.replace(/\r\n/g, '\n').split(/\n\n+/);
+  if (!source || typeof source !== 'string') {
+    return <div className="text-fluid-sm text-slate-500">내용이 없습니다.</div>;
+  }
+
+  const normalized = source.replace(/\r\n/g, '\n').trim();
+  if (!normalized) {
+    return <div className="text-fluid-sm text-slate-500">내용이 없습니다.</div>;
+  }
+
+  const blocks = normalized.split(/\n\n+/);
 
   return (
-    <div className="space-y-3 text-fluid-sm text-slate-700 leading-relaxed">
+    <div className="space-y-4 text-fluid-sm text-slate-700 leading-relaxed">
       {blocks.map((block, blockIdx) => {
-        const lines = block.split('\n').filter((line) => line.trim() !== '');
+        const trimmed = block.trim();
+        if (!trimmed) return null;
+
+        const lines = trimmed.split('\n').map((line) => line.trim()).filter((line) => line !== '');
         if (lines.length === 0) return null;
 
         const first = lines[0] ?? '';
+
+        // ## 헤더
         if (first.startsWith('## ')) {
           return (
             <h3
               key={`h-${blockIdx}`}
-              className="text-fluid-base font-semibold text-slate-900 pt-1 first:pt-0"
+              className="text-fluid-base font-semibold text-slate-900 pt-2 first:pt-0"
             >
               {renderInline(first.slice(3), `h-${blockIdx}`)}
             </h3>
           );
         }
 
+        // - 리스트
         if (lines.every((line) => line.startsWith('- '))) {
           return (
-            <ul key={`ul-${blockIdx}`} className="list-disc space-y-1 pl-5 marker:text-slate-400">
+            <ul key={`ul-${blockIdx}`} className="list-disc space-y-1.5 pl-6 marker:text-slate-400">
               {lines.map((line, lineIdx) => (
-                <li key={`li-${blockIdx}-${lineIdx}`}>{renderInline(line.slice(2), `li-${blockIdx}-${lineIdx}`)}</li>
+                <li key={`li-${blockIdx}-${lineIdx}`} className="pl-1">
+                  {renderInline(line.slice(2), `li-${blockIdx}-${lineIdx}`)}
+                </li>
               ))}
             </ul>
           );
         }
 
+        // 1. 숫자 리스트
+        if (lines.every((line) => /^\d+\.\s/.test(line))) {
+          return (
+            <ol key={`ol-${blockIdx}`} className="list-decimal space-y-1.5 pl-6 marker:text-slate-400">
+              {lines.map((line, lineIdx) => {
+                const content = line.replace(/^\d+\.\s*/, '');
+                return (
+                  <li key={`oli-${blockIdx}-${lineIdx}`} className="pl-1">
+                    {renderInline(content, `oli-${blockIdx}-${lineIdx}`)}
+                  </li>
+                );
+              })}
+            </ol>
+          );
+        }
+
+        // 일반 단락
         return (
-          <p key={`p-${blockIdx}`} className="whitespace-pre-wrap">
+          <div key={`p-${blockIdx}`} className="space-y-1">
             {lines.map((line, lineIdx) => (
-              <span key={`pl-${blockIdx}-${lineIdx}`}>
-                {lineIdx > 0 ? <br /> : null}
+              <p key={`pl-${blockIdx}-${lineIdx}`}>
                 {renderInline(line, `pl-${blockIdx}-${lineIdx}`)}
-              </span>
+              </p>
             ))}
-          </p>
+          </div>
         );
       })}
     </div>
