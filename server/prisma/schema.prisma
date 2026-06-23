@@ -519,11 +519,13 @@ model User {
   /// 고객 대면용 사원증 이미지(Cloudinary). 팀장·마케터 — 관리자 업로드.
   staffIdCardPublicId String? @map("staff_id_card_public_id") @db.VarChar(512)
   staffIdCardUrl      String? @map("staff_id_card_url") @db.VarChar(2048)
-  /// 접수 변경 이력 알림 — 이 사용자가 변경 이력을 마지막으로 확인한 시각. 이후 생성분이 미확인 알림.
+  /// 접수 변경 이력 알림 — 이 사용자가 변경 이력를 마지막으로 확인한 시각. 이후 생성분이 미확인 알림.
   changeLogSeenAt     DateTime? @map("change_log_seen_at")
   /// 플랫폼 지원 접속 — 테넌트별 자동 생성 ADMIN (목록·일반 로그인에서 숨김)
   platformSupportAccessId String? @map("platform_support_access_id")
   platformSupportAccess   TenantSupportAccess? @relation(fields: [platformSupportAccessId], references: [id], onDelete: SetNull)
+  /// 마케터 관리자 권한 — 관리자 전용 페이지 제외, 배정·삭제 등 관리자 작업 가능
+  hasAdminPrivileges  Boolean @default(false) @map("has_admin_privileges")
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
   assignmentsGiven     Assignment[] @relation("AdminAssignments")

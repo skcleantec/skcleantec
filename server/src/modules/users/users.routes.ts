@@ -700,6 +700,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     hireDate?: string | null;
     resignationDate?: string | null;
     allowSelfDayOffEdit?: boolean;
+    hasAdminPrivileges?: boolean;
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null | string;
@@ -783,6 +784,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     hireDate?: Date | null;
     resignationDate?: Date | null;
     allowSelfDayOffEdit?: boolean;
+    hasAdminPrivileges?: boolean;
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null;
@@ -869,6 +871,14 @@ router.patch('/:id', adminOnly, async (req, res) => {
       return;
     }
     data.allowSelfDayOffEdit = Boolean(body.allowSelfDayOffEdit);
+  }
+
+  if (body.hasAdminPrivileges !== undefined) {
+    if (existing.role !== 'MARKETER') {
+      res.status(400).json({ error: '관리자 권한은 마케터 계정만 변경할 수 있습니다.' });
+      return;
+    }
+    data.hasAdminPrivileges = Boolean(body.hasAdminPrivileges);
   }
 
   const payrollRoleOk =
