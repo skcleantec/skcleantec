@@ -5,6 +5,11 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  buildDashboardMarkdown,
+  buildInquiriesMarkdown,
+  buildScheduleMarkdown,
+} from './detailed-help-content.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(__dirname, '..');
@@ -63,6 +68,18 @@ function buildMarkdown(roleLabel, page) {
 }
 
 function adminEntry(page) {
+  // 상세 마크다운이 있는 화면은 개별 함수 사용
+  let markdown;
+  if (page.path === '/admin/dashboard') {
+    markdown = buildDashboardMarkdown();
+  } else if (page.path === '/admin/inquiries') {
+    markdown = buildInquiriesMarkdown();
+  } else if (page.path === '/admin/schedule') {
+    markdown = buildScheduleMarkdown();
+  } else {
+    markdown = buildMarkdown('관리자(마케터)', page);
+  }
+
   return {
     role: 'admin',
     module: page.module,
@@ -71,7 +88,7 @@ function adminEntry(page) {
     path: page.path,
     screenshotFile: page.screenshotFile,
     summary: page.hint,
-    markdown: buildMarkdown('관리자(마케터)', page),
+    markdown,
   };
 }
 
