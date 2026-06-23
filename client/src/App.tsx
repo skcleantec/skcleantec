@@ -59,6 +59,7 @@ import {
   AdminExternalCompaniesPage,
   AdminTenantPartnersPage,
   AdminTenantPartnerSettlementPage,
+  AdminDbMarketplacePage,
   AdminOperatingCompaniesPage,
   AdminTenantSubscriptionPage,
   AdminTenantCompanyBusinessPage,
@@ -147,6 +148,14 @@ function App() {
             <Route path="quotations/:id" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />
           </Route>
           <Route path="schedule" element={<SuspensePage><AdminSchedulePage /></SuspensePage>} />
+          <Route
+            path="db-marketplace"
+            element={
+              <FeatureGate module="mod_db_marketplace">
+                <SuspensePage><AdminDbMarketplacePage /></SuspensePage>
+              </FeatureGate>
+            }
+          />
           <Route path="service-zones" element={<SuspensePage><AdminServiceZonesPage /></SuspensePage>} />
           <Route path="team-leaders" element={<AdminTeamLeadersLayout />}>
             <Route index element={<SuspensePage><AdminTeamLeadersPage /></SuspensePage>} />

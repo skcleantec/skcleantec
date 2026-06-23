@@ -101,6 +101,7 @@ import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/te
 import { createTenantInquiryShare } from '../../api/tenantInquiryShare';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
+import { InquiryDbMarketplaceSellPanel } from './InquiryDbMarketplaceSellPanel';
 
 function AdminScheduleDetailSection({
   title,
@@ -751,6 +752,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     AssignableScheduleUsersResponse['policy']
   >({ assignmentMode: 'relaxed', teamLeaderListMode: 'tenant_all_read' });
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
+  const hasDbMarketplace = useHasTenantFeature('mod_db_marketplace');
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const [tenantSharePartnerships, setTenantSharePartnerships] = useState<TenantPartnershipItem[]>([]);
   const [tenantSharePartnershipId, setTenantSharePartnershipId] = useState('');
@@ -2592,6 +2594,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   </button>
                 </>
               )}
+            </div>
+          ) : null}
+          {!isCreate && hasDbMarketplace && item ? (
+            <div className="sm:col-span-2">
+              <InquiryDbMarketplaceSellPanel
+                inquiryId={item.id}
+                serviceBalanceAmount={item.serviceBalanceAmount}
+                disabled={!!item.tenantShare}
+              />
             </div>
           ) : null}
           <div className="sm:col-span-2">

@@ -39,6 +39,8 @@ import { AdminVolumeStatsButton } from '../admin/AdminVolumeStatsButton';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
+import { hasFeature } from '@shared/tenantFeatureModules';
+import { getDbMarketplaceDraftCount } from '../../api/dbMarketplace';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -174,6 +176,15 @@ function AdminNavIcon({ id, className }: { id: string; className?: string }) {
       </svg>
     );
   }
+  if (id === 'db-marketplace') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="9" cy="20" r="1.5" fill="currentColor" stroke="none" />
+        <circle cx="17" cy="20" r="1.5" fill="currentColor" stroke="none" />
+        <path d="M3 4h2l2.5 11h9.5l2.2-7H7.5" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -188,6 +199,7 @@ export function AdminLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [reviewPaybackUnseenCount, setReviewPaybackUnseenCount] = useState(0);
+  const [marketplaceDraftCount, setMarketplaceDraftCount] = useState(0);
   const [reviewPaybackToast, setReviewPaybackToast] = useState<string | null>(null);
   const reviewPaybackToastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [showNavMoreLeft, setShowNavMoreLeft] = useState(false);
@@ -404,7 +416,12 @@ export function AdminLayout() {
         setReviewPaybackUnseenCount(r.reviewPaybackUnseenCount);
       })
       .catch(() => {});
-  }, []);
+    if (tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace')) {
+      void getDbMarketplaceDraftCount(token)
+        .then(setMarketplaceDraftCount)
+        .catch(() => setMarketplaceDraftCount(0));
+    }
+  }, [tenantFeatures]);
 
   useReviewPaybackRealtime(
     adminToken,
@@ -875,6 +892,40 @@ export function AdminLayout() {
                               aria-hidden
                             >
                               {reviewPaybackUnseenCount > 99 ? '99+' : reviewPaybackUnseenCount}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (id === 'db-marketplace') {
+                    return (
+                      <div
+                        key={id}
+                        className={rowClass}
+                        onDragOver={handleNavDragOver}
+                        onDrop={(e) => handleNavDrop(e, id)}
+                      >
+                        {dragHandle}
+                        <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+                          <NavLink
+                            to={def.to}
+                            className={navClass}
+                            aria-label={
+                              marketplaceDraftCount > 0
+                                ? `${def.label}, 장바구니 ${marketplaceDraftCount}건`
+                                : def.label
+                            }
+                          >
+                            <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
+                            <span>{def.label}</span>
+                          </NavLink>
+                          {marketplaceDraftCount > 0 ? (
+                            <span
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-violet-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3"
+                              aria-hidden
+                            >
+                              {marketplaceDraftCount}
                             </span>
                           ) : null}
                         </div>

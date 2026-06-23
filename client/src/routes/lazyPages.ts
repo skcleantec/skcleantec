@@ -131,6 +131,9 @@ export const AdminTenantPartnerSettlementPage = lazyWithRetry(() =>
     default: m.AdminTenantPartnerSettlementPage,
   }))
 );
+export const AdminDbMarketplacePage = lazyWithRetry(() =>
+  import('../pages/admin/AdminDbMarketplacePage').then((m) => ({ default: m.AdminDbMarketplacePage }))
+);
 export const AdminOperatingCompaniesPage = lazyWithRetry(() =>
   import('../pages/admin/AdminOperatingCompaniesPage').then((m) => ({ default: m.AdminOperatingCompaniesPage }))
 );

@@ -1,0 +1,48 @@
+---
+description: DB 마켓(정보공유) 구현 시 필수 — 마스킹·금액·양쪽 확정·직접 연계 분리
+globs: "server/src/modules/db-marketplace/**,client/src/**/*DbMarketplace*,client/src/**/*dbMarketplace*,shared/dbMarketplaceAmount.ts,shared/marketplaceListingMask.ts,docs/DB_MARKETPLACE.md"
+alwaysApply: false
+---
+
+# DB 마켓(정보공유) 구현 규칙
+
+> **단일 기준 문서**: `docs/DB_MARKETPLACE.md`  
+> **직접 연계와 분리**: `mod_tenant_exchange` / `TenantInquiryShare` — 마켓과 **혼합 UI·API 금지**.  
+> **격리**: `.cursor/rules/multitenant-safety.mdc` 항상 적용.  
+> **접수 판매 UI**: `.cursor/rules/inquiry-edit-dual-surface-sync.mdc` — `ScheduleInquiryDetailModal` 기준.
+
+---
+
+## 확정 정책 (요약)
+
+1. **구매 전 금액**: `displayAmount = 잔금(serviceBalanceAmount) − listingFee` **만** 노출. 총액·예약금·수수료 **비노출**.
+2. **구매 전 PII**: 이름 마스킹, 주소 **시·구(군)**, 전화·이메일 **비노출**. 청소·일정 필드는 **전부 노출**.
+3. **양쪽 확정** 후에만 mirror/타업체 배정·정산·전체 DB 공개.
+4. **CONFIRMED 후** 판매자·구매자 임의 취소·환불 **없음** (고객 접수 취소는 기존 sync 규칙).
+5. **직접 연계**(`mod_tenant_exchange`)와 **마켓**(`mod_db_marketplace`) **병행·분리**.
+
+---
+
+## 아키텍처
+
+- 모듈: `server/src/modules/db-marketplace/`
+- 기능 게이트: `requireFeature('mod_db_marketplace')`
+- 마스킹·금액: `shared/marketplaceListingMask.ts`, `shared/dbMarketplaceAmount.ts`
+- 확정 시 파트너: `tenantInquiryShare.service` 재사용 (Phase 2)
+- 확정 시 타업체: 기존 external 배정·`externalTransferFee` (Phase 2)
+
+---
+
+## 목록 정렬
+
+- `OPEN` · `PENDING_SELLER` **항상 최상단**, 그 아래 `CONFIRMED` 등.
+- 관리 목록: `ListPaginationBar` + URL 쿼리 — `.cursor/rules/admin-list-filters-pagination.mdc`
+
+---
+
+## 금지
+
+- 마켓 목록·상세에 총액·수수료 노출
+- `CONFIRMED` 역분개·환불 API (고객 취소 외)
+- 직접 연계 UI를 마켓 블록과 합치기
+- id-only listing mutate (tenantId 스코프 필수)

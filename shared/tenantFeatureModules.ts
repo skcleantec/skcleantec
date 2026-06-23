@@ -14,6 +14,7 @@ export const TENANT_FEATURE_MODULES = {
   mod_e_contract: { label: '전자계약', tier: 'premium' as const, defaultOn: false },
   mod_external_co: { label: '타업체·외부정산', tier: 'standard' as const, defaultOn: true },
   mod_tenant_exchange: { label: '파트너 접수 연계', tier: 'standard' as const, defaultOn: false },
+  mod_db_marketplace: { label: '정보공유(DB 마켓)', tier: 'standard' as const, defaultOn: false },
   mod_crew: { label: '크루(현장)', tier: 'standard' as const, defaultOn: true },
   mod_team_stats: { label: '팀장 통계', tier: 'standard' as const, defaultOn: true },
   mod_inspection: { label: '현장 검수', tier: 'standard' as const, defaultOn: true },
@@ -36,6 +37,7 @@ export const TENANT_PLANS = {
       'mod_cs',
       'mod_external_co',
       'mod_tenant_exchange',
+      'mod_db_marketplace',
       'mod_crew',
       'mod_team_stats',
       'mod_inspection',
@@ -51,6 +53,7 @@ export const TENANT_PLANS = {
       'mod_cs',
       'mod_external_co',
       'mod_tenant_exchange',
+      'mod_db_marketplace',
       'mod_crew',
       'mod_team_stats',
       'mod_inspection',
@@ -84,6 +87,7 @@ export const ADMIN_NAV_MODULE_MAP = {
   cs: 'mod_cs',
   advertising: 'mod_advertising',
   messages: 'core_messages',
+  'db-marketplace': 'mod_db_marketplace',
 } as const satisfies Record<string, TenantFeatureModuleId | null>;
 
 export type AdminNavFeatureId = keyof typeof ADMIN_NAV_MODULE_MAP;

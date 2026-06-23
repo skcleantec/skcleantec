@@ -1,0 +1,133 @@
+import { Router } from 'express';
+import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireFeature } from '../tenants/requireTenantFeature.js';
+import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
+import {
+  countDbListingDrafts,
+  DbMarketplaceError,
+  getDbListingForInquiry,
+  getDbMarketplaceListingById,
+  listDbMarketplaceListings,
+  publishDbListing,
+  serializeSellerListing,
+  updateDbListingAudience,
+  upsertDbListingDraft,
+  withdrawDbListing,
+} from './dbMarketplace.service.js';
+
+const router = Router();
+
+router.use(authMiddleware, adminOnly, requireFeature('mod_db_marketplace'));
+
+function mapError(res: import('express').Response, e: unknown): boolean {
+  if (e instanceof DbMarketplaceError) {
+    res.status(e.status).json({ error: e.message });
+    return true;
+  }
+  return false;
+}
+
+router.get('/draft-count', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const count = await countDbListingDrafts(tenantId);
+  res.json({ count });
+});
+
+router.get('/by-inquiry/:inquiryId', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const inquiryId = typeof req.params.inquiryId === 'string' ? req.params.inquiryId : '';
+  const row = await getDbListingForInquiry(tenantId, inquiryId);
+  res.json({ listing: row ? serializeSellerListing(row) : null });
+});
+
+router.post('/draft', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const body = req.body as { inquiryId?: unknown; listingFee?: unknown };
+  const inquiryId = typeof body.inquiryId === 'string' ? body.inquiryId.trim() : '';
+  if (!inquiryId) {
+    res.status(400).json({ error: '접수를 선택해 주세요.' });
+    return;
+  }
+  try {
+    const row = await upsertDbListingDraft(tenantId, inquiryId, body.listingFee);
+    res.json({ listing: serializeSellerListing(row) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.patch('/:id/audience', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  const body = req.body as { visibility?: unknown; audiences?: unknown };
+  try {
+    const row = await updateDbListingAudience(
+      tenantId,
+      listingId,
+      body.visibility,
+      body.audiences,
+    );
+    res.json({ listing: serializeSellerListing(row) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/publish', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const row = await publishDbListing(tenantId, listingId);
+    res.json({ listing: serializeSellerListing(row) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/withdraw', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const row = await withdrawDbListing(tenantId, listingId);
+    res.json({ listing: serializeSellerListing(row) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.get('/', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const result = await listDbMarketplaceListings(
+    tenantId,
+    req.query.tab,
+    req.query.limit,
+    req.query.offset,
+  );
+  res.json(result);
+});
+
+router.get('/:id', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const item = await getDbMarketplaceListingById(tenantId, listingId);
+    res.json({ item });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+export default router;

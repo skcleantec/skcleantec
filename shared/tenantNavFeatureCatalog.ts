@@ -63,6 +63,12 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
     rows: [{ label: '스케줄', path: '/admin/schedule', moduleId: 'core_schedule' }],
   },
   {
+    id: 'db-marketplace',
+    label: '정보공유',
+    subtitle: 'GNB · 정보공유',
+    rows: [{ label: '정보공유', path: '/admin/db-marketplace', moduleId: 'mod_db_marketplace' }],
+  },
+  {
     id: 'cs',
     label: 'C/S 관리',
     subtitle: 'GNB · C/S 관리',
