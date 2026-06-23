@@ -3,6 +3,8 @@
  * 실제 코드 분석 기반으로 작성
  */
 
+import { buildInquiriesDetailedMarkdown } from './detailed-help-inquiries.mjs';
+
 export function buildDashboardMarkdown() {
   return [
     '## 화면 소개',
@@ -68,7 +70,10 @@ export function buildDashboardMarkdown() {
   ].join('\n');
 }
 
-export function buildInquiriesMarkdown() {
+// 이전 버전 (간략) - 초상세 버전으로 대체됨
+export { buildInquiriesDetailedMarkdown };
+
+export function buildInquiriesMarkdown_OLD() {
   return [
     '## 화면 소개',
     '',

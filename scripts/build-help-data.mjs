@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   buildDashboardMarkdown,
-  buildInquiriesMarkdown,
+  buildInquiriesDetailedMarkdown,
   buildScheduleMarkdown,
 } from './detailed-help-content.mjs';
 
@@ -73,7 +73,7 @@ function adminEntry(page) {
   if (page.path === '/admin/dashboard') {
     markdown = buildDashboardMarkdown();
   } else if (page.path === '/admin/inquiries') {
-    markdown = buildInquiriesMarkdown();
+    markdown = buildInquiriesDetailedMarkdown();
   } else if (page.path === '/admin/schedule') {
     markdown = buildScheduleMarkdown();
   } else {
