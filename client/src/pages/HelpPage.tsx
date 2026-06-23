@@ -156,32 +156,6 @@ export function HelpPage() {
                 );
               })}
             </nav>
-
-            {/* 역할 선택 (사용법에서만, 같은 줄) */}
-            {mainCategory === 'usage' ? (
-              <div className="flex items-center gap-2">
-                {(['admin', 'team'] as const).map((role) => {
-                  const isActive = selectedRole === role;
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => changeRole(role)}
-                      className={`
-                        rounded-lg px-3 py-1.5 text-fluid-xs font-medium transition-all
-                        ${
-                          isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-                        }
-                      `}
-                    >
-                      {HELP_ROLE_LABELS[role]}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
           </div>
 
           {/* 검색 (사용법에서만, 하단 별도 줄) */}
@@ -221,13 +195,40 @@ export function HelpPage() {
                   groups={groups}
                   activeModule={activeModule}
                   onModuleClick={setActiveModule}
+                  selectedRole={selectedRole}
+                  onRoleChange={changeRole}
                 />
               </aside>
 
               {/* 메인 콘텐츠 */}
               <main className="flex-1 min-w-0">
-                {/* 모바일 모듈 선택 드롭다운 */}
-                <div className="mb-6 lg:hidden">
+                {/* 모바일 역할 선택 + 모듈 선택 */}
+                <div className="mb-6 space-y-3 lg:hidden">
+                  {/* 역할 선택 */}
+                  <div className="flex rounded-lg bg-white p-1 shadow-sm ring-1 ring-slate-200">
+                    {(['admin', 'team'] as const).map((role) => {
+                      const isActive = selectedRole === role;
+                      return (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => changeRole(role)}
+                          className={`
+                            flex-1 rounded-md px-3 py-2 text-fluid-sm font-semibold transition-all
+                            ${
+                              isActive
+                                ? 'bg-slate-900 text-white'
+                                : 'text-slate-600 hover:bg-slate-100'
+                            }
+                          `}
+                        >
+                          {HELP_ROLE_LABELS[role]}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 모듈 선택 드롭다운 */}
                   <HelpMobileModuleSelect
                     groups={groups}
                     activeModule={activeModule}

@@ -1,13 +1,21 @@
-import type { HelpModuleGroup } from '../../types/helpContent';
-import { helpModuleDomId } from '../../utils/helpContent';
+import type { HelpModuleGroup, HelpRole } from '../../types/helpContent';
+import { helpModuleDomId, HELP_ROLE_LABELS } from '../../utils/helpContent';
 
 type HelpSidebarProps = {
   groups: HelpModuleGroup[];
   activeModule: string | null;
   onModuleClick: (module: string) => void;
+  selectedRole: HelpRole;
+  onRoleChange: (role: HelpRole) => void;
 };
 
-export function HelpSidebar({ groups, activeModule, onModuleClick }: HelpSidebarProps) {
+export function HelpSidebar({ 
+  groups, 
+  activeModule, 
+  onModuleClick,
+  selectedRole,
+  onRoleChange
+}: HelpSidebarProps) {
   const scrollToModule = (module: string) => {
     onModuleClick(module);
     const el = document.getElementById(helpModuleDomId(module));
@@ -15,12 +23,38 @@ export function HelpSidebar({ groups, activeModule, onModuleClick }: HelpSidebar
   };
 
   return (
-    <aside className="sticky top-20 h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4 border-b border-slate-200 pb-3">
+    <aside className="sticky top-20 h-fit rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* 역할 선택 */}
+      <div className="border-b border-slate-200 p-3">
+        <div className="flex rounded-lg bg-slate-100 p-1">
+          {(['admin', 'team'] as const).map((role) => {
+            const isActive = selectedRole === role;
+            return (
+              <button
+                key={role}
+                type="button"
+                onClick={() => onRoleChange(role)}
+                className={`
+                  flex-1 rounded-md px-3 py-2 text-fluid-sm font-semibold transition-all
+                  ${
+                    isActive
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }
+                `}
+              >
+                {HELP_ROLE_LABELS[role]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="border-b border-slate-200 p-4 pb-3">
         <h2 className="text-lg font-bold text-slate-900">📑 목차</h2>
       </div>
 
-      <nav aria-label="모듈 목록">
+      <nav aria-label="모듈 목록" className="p-3">
         {groups.length === 0 ? (
           <p className="px-2 py-3 text-fluid-xs text-slate-500">표시할 항목이 없습니다.</p>
         ) : (
