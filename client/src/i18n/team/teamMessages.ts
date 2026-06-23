@@ -9,6 +9,7 @@ export const teamMessages = {
   'team.layout.nav.assignmentsShort': { ko: '배정'},
   'team.layout.nav.schedule': { ko: '스케줄'},
   'team.layout.nav.settlement': { ko: '정산'},
+  'team.layout.nav.marketplace': { ko: '정보공유'},
   'team.layout.nav.dayoffs': { ko: '휴무일'},
   'team.layout.nav.cs': { ko: 'C/S'},
   'team.layout.nav.messages': { ko: '메시지'},

@@ -51,6 +51,7 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 | POST | `/:id/withdraw` | 1 |
 | GET | `/`, `/:id`, `/by-inquiry/:inquiryId`, `/draft-count` | 1 |
 | POST | `/:id/buyer-confirm`, `/:id/seller-confirm` | 2 |
+| GET/POST | `/api/team/db-marketplace/*` (타업체 EXTERNAL_PARTNER) | 2–3 |
 
 ---
 
@@ -60,6 +61,7 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 |------|------|
 | GNB | **정보공유** + 장바구니(DRAFT) 배지 |
 | `/admin/db-marketplace` | 구매 가능 / 내 판매 / 진행 중 / 확정 완료 |
+| `/team/db-marketplace` | 타업체 — 구매 가능 / 인계 대기 / 확정 완료 |
 | 접수 상세 | `InquiryDbMarketplaceSellPanel` (직접 연계 블록과 분리) |
 
 ---
@@ -82,5 +84,6 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 
 ### Phase 3 — 타업체 GNB·UX
 
-- [ ] EXTERNAL_PARTNER 정보공유
-- [ ] verify 스크립트
+- [x] EXTERNAL_PARTNER 정보공유 (`/team/db-marketplace` + GNB)
+- [x] WebSocket `inbox:refresh` + silent 재조회 (관리·타업체)
+- [x] `verify:multitenant:db-marketplace` 스크립트

@@ -1,4 +1,5 @@
 import { API } from './apiPrefix';
+import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 
 function headers(token: string) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -221,4 +222,42 @@ export async function confirmDbMarketplaceSeller(
     headers: headers(token),
   });
   return parseJson(res);
+}
+
+export type TeamDbMarketplaceListTab = 'available' | 'pending' | 'confirmed';
+
+export async function listTeamDbMarketplace(
+  token: string,
+  params: { tab?: TeamDbMarketplaceListTab; limit?: number; offset?: number },
+): Promise<{ items: DbMarketplaceMaskedItem[]; total: number; limit: number; offset: number }> {
+  const q = new URLSearchParams();
+  if (params.tab) q.set('tab', params.tab);
+  if (params.limit != null) q.set('limit', String(params.limit));
+  if (params.offset != null) q.set('offset', String(params.offset));
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/db-marketplace?${q}`), { headers: headers(token) });
+  return parseJson(res);
+}
+
+export async function getTeamDbMarketplaceListing(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceListingDetail> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}`),
+    { headers: headers(token) },
+  );
+  const data = await parseJson<{ item: DbMarketplaceListingDetail }>(res);
+  return data.item;
+}
+
+export async function confirmTeamDbMarketplaceBuyer(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceSellerListing> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}/buyer-confirm`),
+    { method: 'POST', headers: headers(token) },
+  );
+  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
+  return data.listing;
 }

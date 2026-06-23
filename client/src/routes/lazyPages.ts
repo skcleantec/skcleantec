@@ -76,6 +76,9 @@ export const TeamPostCleanPhotoPage = lazyWithRetry(() =>
 export const TeamExternalSettlementPage = lazyWithRetry(() =>
   import('../pages/team/TeamExternalSettlementPage').then((m) => ({ default: m.TeamExternalSettlementPage }))
 );
+export const TeamDbMarketplacePage = lazyWithRetry(() =>
+  import('../pages/team/TeamDbMarketplacePage').then((m) => ({ default: m.TeamDbMarketplacePage }))
+);
 export const TeamEContractListPage = lazyWithRetry(() =>
   import('../pages/team/TeamEContractListPage').then((m) => ({ default: m.TeamEContractListPage }))
 );

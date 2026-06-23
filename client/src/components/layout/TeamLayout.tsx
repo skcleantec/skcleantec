@@ -21,6 +21,7 @@ import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { DarkHeaderNavScroll } from './DarkHeaderNavScroll';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
+import { hasFeature } from '@shared/tenantFeatureModules';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -45,6 +46,7 @@ function TeamNavLinks({
   navClass,
   isExternalPartner,
   hideTeamDayoffs,
+  showDbMarketplace,
   newAssignmentCount,
   csPendingCount,
   unreadCount,
@@ -54,6 +56,7 @@ function TeamNavLinks({
   navClass: ({ isActive }: { isActive: boolean }) => string;
   isExternalPartner: boolean;
   hideTeamDayoffs: boolean;
+  showDbMarketplace: boolean;
   newAssignmentCount: number;
   csPendingCount: number;
   unreadCount: number;
@@ -88,6 +91,12 @@ function TeamNavLinks({
         <NavLink to={teamTo('/team/settlement')} className={navClass}>
           <TeamNavIcon type="settlement" className="w-4 h-4 mr-1.5 shrink-0" />
           <TeamBiInline id="team.layout.nav.settlement" />
+        </NavLink>
+      ) : null}
+      {showDbMarketplace ? (
+        <NavLink to={teamTo('/team/db-marketplace')} className={navClass}>
+          <TeamNavIcon type="marketplace" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id="team.layout.nav.marketplace" />
         </NavLink>
       ) : null}
       {!hideTeamDayoffs ? (
@@ -130,7 +139,7 @@ function TeamNavLinks({
   );
 }
 
-function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 'schedule' | 'settlement' | 'dayoffs' | 'cs' | 'messages' | 'e-contracts'; className?: string }) {
+function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 'schedule' | 'settlement' | 'marketplace' | 'dayoffs' | 'cs' | 'messages' | 'e-contracts'; className?: string }) {
   if (type === 'dashboard') {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -165,6 +174,15 @@ function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
         <line x1="1" y1="10" x2="23" y2="10" />
+      </svg>
+    );
+  }
+  if (type === 'marketplace') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="9" cy="21" r="1" />
+        <circle cx="20" cy="21" r="1" />
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
       </svg>
     );
   }
@@ -352,6 +370,8 @@ export function TeamLayout() {
   );
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
+  const showDbMarketplace =
+    isExternalPartner && Boolean(tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace'));
   let previewQuery = '';
   if (previewExternal) {
     const q = new URLSearchParams({
@@ -371,12 +391,13 @@ export function TeamLayout() {
   const navShared = {
     isExternalPartner,
     hideTeamDayoffs,
+    showDbMarketplace,
     newAssignmentCount,
     csPendingCount,
     unreadCount,
   };
 
-  const mobileNavHintKey = `${location.pathname}|${isExternalPartner}|${hideTeamDayoffs}|${newAssignmentCount}|${csPendingCount}|${unreadCount}`;
+  const mobileNavHintKey = `${location.pathname}|${isExternalPartner}|${hideTeamDayoffs}|${showDbMarketplace}|${newAssignmentCount}|${csPendingCount}|${unreadCount}`;
 
   const showStaffIdCardDrawer =
     Boolean(staffIdCardUrl) && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER');

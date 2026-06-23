@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type {
   InquiryDbListingAudienceKind,
+  InquiryDbListingBuyerKind,
   InquiryDbListingStatus,
   InquiryDbListingVisibility,
   Prisma,
@@ -313,11 +314,59 @@ async function viewerCanSeeListing(
 
 function resolveListRole(
   tenantId: string,
-  listing: { tenantId: string; buyerTenantId: string | null; status: InquiryDbListingStatus },
+  listing: { tenantId: string; buyerTenantId: string | null },
 ): 'SELLER' | 'BUYER' | 'VIEWER' {
   if (listing.tenantId === tenantId) return 'SELLER';
   if (listing.buyerTenantId === tenantId) return 'BUYER';
   return 'VIEWER';
+}
+
+function resolveListRoleForViewer(
+  tenantId: string,
+  listing: {
+    tenantId: string;
+    buyerTenantId: string | null;
+    buyerKind: InquiryDbListingBuyerKind | null;
+    buyerExternalCompanyId: string | null;
+  },
+  opts?: { externalCompanyId?: string | null },
+): 'SELLER' | 'BUYER' | 'VIEWER' {
+  if (
+    opts?.externalCompanyId &&
+    listing.tenantId === tenantId &&
+    listing.buyerKind === 'EXTERNAL_COMPANY' &&
+    listing.buyerExternalCompanyId === opts.externalCompanyId
+  ) {
+    return 'BUYER';
+  }
+  return resolveListRole(tenantId, listing);
+}
+
+function buildExternalPartnerListWhere(
+  tenantId: string,
+  tab: DbMarketplaceListTab,
+  externalCompanyId: string,
+): Prisma.InquiryDbListingWhereInput {
+  const visibilityOr: Prisma.InquiryDbListingWhereInput[] = [
+    { visibility: 'ALL' },
+    {
+      visibility: 'SELECTED',
+      audiences: { some: { externalCompanyId } },
+    },
+  ];
+  switch (tab) {
+    case 'pending':
+      return { tenantId, status: 'PENDING_SELLER', buyerExternalCompanyId: externalCompanyId };
+    case 'confirmed':
+      return { tenantId, status: 'CONFIRMED', buyerExternalCompanyId: externalCompanyId };
+    case 'available':
+    default:
+      return {
+        tenantId,
+        status: { in: ['OPEN', 'PENDING_SELLER'] },
+        OR: visibilityOr,
+      };
+  }
 }
 
 function buildListWhere(
@@ -367,20 +416,15 @@ export async function listDbMarketplaceListings(
   const tab = parseTab(tabRaw);
   const limit = Math.min(Math.max(Number(limitRaw) || 30, 1), 100);
   const offset = Math.max(Number(offsetRaw) || 0, 0);
-  let where = buildListWhere(tenantId, tab);
+  let where: Prisma.InquiryDbListingWhereInput;
 
-  if (opts?.viewerExternalCompanyId && tab === 'available') {
-    where = {
-      tenantId,
-      status: { in: ['OPEN', 'PENDING_SELLER'] },
-      OR: [
-        { visibility: 'ALL' },
-        {
-          visibility: 'SELECTED',
-          audiences: { some: { externalCompanyId: opts.viewerExternalCompanyId } },
-        },
-      ],
-    };
+  if (opts?.viewerExternalCompanyId) {
+    if (tab === 'my_sales') {
+      return { items: [], total: 0, limit, offset };
+    }
+    where = buildExternalPartnerListWhere(tenantId, tab, opts.viewerExternalCompanyId);
+  } else {
+    where = buildListWhere(tenantId, tab);
   }
 
   const [rows, total] = await Promise.all([
@@ -415,7 +459,9 @@ export async function listDbMarketplaceListings(
         displayAmount: row.displayAmount,
         publishedAt: row.publishedAt,
         inquiry: row.inquiry,
-        role: resolveListRole(tenantId, row),
+        role: resolveListRoleForViewer(tenantId, row, {
+          externalCompanyId: opts?.viewerExternalCompanyId,
+        }),
       }),
     )
     .sort((a, b) => {

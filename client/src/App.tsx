@@ -42,6 +42,7 @@ import {
   TeamPreCleanPhotoPage,
   TeamPostCleanPhotoPage,
   TeamExternalSettlementPage,
+  TeamDbMarketplacePage,
   TeamEContractListPage,
   OrderFormPage,
   OrderFormPrefillEditorPage,
@@ -278,6 +279,16 @@ function App() {
           <Route path="schedule" element={<SuspensePage><TeamSchedulePage /></SuspensePage>} />
           <Route path="dayoffs" element={<SuspensePage><TeamDayOffsPage /></SuspensePage>} />
           <Route path="settlement" element={<SuspensePage><TeamExternalSettlementPage /></SuspensePage>} />
+          <Route
+            path="db-marketplace"
+            element={
+              <FeatureGate module="mod_db_marketplace" redirectTo="/team/dashboard">
+                <SuspensePage>
+                  <TeamDbMarketplacePage />
+                </SuspensePage>
+              </FeatureGate>
+            }
+          />
           <Route path="cs" element={<SuspensePage><TeamCsPage /></SuspensePage>} />
           <Route path="messages" element={<SuspensePage><TeamMessagesPage /></SuspensePage>} />
           <Route path="e-contracts" element={<SuspensePage><TeamEContractListPage /></SuspensePage>} />

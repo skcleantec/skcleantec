@@ -4,6 +4,8 @@ import {
   confirmDbMarketplaceBuyer,
   confirmDbMarketplaceSeller,
   getDbMarketplaceListing,
+  confirmTeamDbMarketplaceBuyer,
+  getTeamDbMarketplaceListing,
   type DbMarketplaceListingDetail,
   type DbMarketplaceMaskedItem,
 } from '../../api/dbMarketplace';
@@ -15,10 +17,18 @@ type Props = {
   row: DbMarketplaceMaskedItem;
   onClose: () => void;
   onChanged: () => void;
+  apiMode?: 'admin' | 'team';
+  token?: string | null;
 };
 
-export function DbMarketplaceListingDetailModal({ row, onClose, onChanged }: Props) {
-  const token = getToken();
+export function DbMarketplaceListingDetailModal({
+  row,
+  onClose,
+  onChanged,
+  apiMode = 'admin',
+  token: tokenProp,
+}: Props) {
+  const token = tokenProp ?? getToken();
   const [detail, setDetail] = useState<DbMarketplaceListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -31,14 +41,17 @@ export function DbMarketplaceListingDetailModal({ row, onClose, onChanged }: Pro
         setLoading(true);
       }
       setError(null);
-      void getDbMarketplaceListing(token, row.id)
+      void (apiMode === 'team'
+        ? getTeamDbMarketplaceListing(token, row.id)
+        : getDbMarketplaceListing(token, row.id)
+      )
         .then(setDetail)
         .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'))
         .finally(() => {
           if (!opts?.silent) setLoading(false);
         });
     },
-    [token, row.id],
+    [token, row.id, apiMode],
   );
 
   useEffect(() => {
@@ -61,7 +74,9 @@ export function DbMarketplaceListingDetailModal({ row, onClose, onChanged }: Pro
     if (!token || !window.confirm('이 DB를 갖고가겠습니까? 판매자 인계 확정 후 전체 정보가 공개됩니다.')) return;
     setBusy(true);
     try {
-      await confirmDbMarketplaceBuyer(token, row.id);
+      await (apiMode === 'team'
+        ? confirmTeamDbMarketplaceBuyer(token, row.id)
+        : confirmDbMarketplaceBuyer(token, row.id));
       onChanged();
       onClose();
     } catch (e) {
@@ -159,7 +174,7 @@ export function DbMarketplaceListingDetailModal({ row, onClose, onChanged }: Pro
                 갖고가기
               </button>
             ) : null}
-            {d.status === 'PENDING_SELLER' && d.role === 'SELLER' ? (
+            {d.status === 'PENDING_SELLER' && d.role === 'SELLER' && apiMode === 'admin' ? (
               <button
                 type="button"
                 disabled={busy}

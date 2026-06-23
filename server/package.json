@@ -33,6 +33,7 @@
     "verify:multitenant:phase4": "tsx scripts/verify-multitenant-phase4.ts",
     "verify:multitenant:phase5": "tsx scripts/verify-multitenant-phase5.ts",
     "verify:multitenant:tenant-exchange": "tsx scripts/verify-multitenant-tenant-exchange.ts",
+    "verify:multitenant:db-marketplace": "tsx scripts/verify-multitenant-db-marketplace.ts",
     "verify:review-payback:phase1": "tsx scripts/verify-review-payback-phase1.ts",
     "verify:review-payback:phase2-db": "tsx scripts/verify-review-payback-phase2-db.ts",
     "verify:review-payback:phase3": "tsx scripts/verify-review-payback-phase3.ts",
