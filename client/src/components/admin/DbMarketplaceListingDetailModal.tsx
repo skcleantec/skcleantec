@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getToken } from '../../stores/auth';
 import {
   confirmDbMarketplaceBuyer,
@@ -7,6 +7,8 @@ import {
   type DbMarketplaceListingDetail,
   type DbMarketplaceMaskedItem,
 } from '../../api/dbMarketplace';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { ModalCloseButton } from './ModalCloseButton';
 
 type Props = {
@@ -22,15 +24,38 @@ export function DbMarketplaceListingDetailModal({ row, onClose, onChanged }: Pro
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const loadDetail = useCallback(
+    (opts?: { silent?: boolean }) => {
+      if (!token) return;
+      if (!opts?.silent) {
+        setLoading(true);
+      }
+      setError(null);
+      void getDbMarketplaceListing(token, row.id)
+        .then(setDetail)
+        .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'))
+        .finally(() => {
+          if (!opts?.silent) setLoading(false);
+        });
+    },
+    [token, row.id],
+  );
+
   useEffect(() => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    void getDbMarketplaceListing(token, row.id)
-      .then(setDetail)
-      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'))
-      .finally(() => setLoading(false));
-  }, [token, row.id]);
+    loadDetail();
+  }, [loadDetail]);
+
+  const lastSilentRefreshRef = useRef(0);
+  const silentRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSilentRefreshRef.current < 4000) return;
+    lastSilentRefreshRef.current = now;
+    loadDetail({ silent: true });
+    onChanged();
+  }, [loadDetail, onChanged]);
+
+  const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
+  useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
 
   const runBuyerConfirm = async () => {
     if (!token || !window.confirm('이 DB를 갖고가겠습니까? 판매자 인계 확정 후 전체 정보가 공개됩니다.')) return;
@@ -75,7 +100,7 @@ export function DbMarketplaceListingDetailModal({ row, onClose, onChanged }: Pro
           <ModalCloseButton onClick={onClose} />
         </div>
         <div className="p-4 space-y-3 text-fluid-xs">
-          {loading ? <p className="text-gray-500">불러오는 중…</p> : null}
+          {loading && !detail ? <p className="text-gray-500">불러오는 중…</p> : null}
           {error ? <p className="text-red-600">{error}</p> : null}
 
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-1">
@@ -100,8 +125,14 @@ export function DbMarketplaceListingDetailModal({ row, onClose, onChanged }: Pro
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-1">
               <p className="font-semibold text-emerald-900">확정 완료 — 전체 DB</p>
               <p>고객 {d.inquiryFull.customerName}</p>
-              <p>{d.inquiryFull.customerPhone}{d.inquiryFull.customerPhone2 ? ` / ${d.inquiryFull.customerPhone2}` : ''}</p>
-              <p>{d.inquiryFull.address}{d.inquiryFull.addressDetail ? ` ${d.inquiryFull.addressDetail}` : ''}</p>
+              <p>
+                {d.inquiryFull.customerPhone}
+                {d.inquiryFull.customerPhone2 ? ` / ${d.inquiryFull.customerPhone2}` : ''}
+              </p>
+              <p>
+                {d.inquiryFull.address}
+                {d.inquiryFull.addressDetail ? ` ${d.inquiryFull.addressDetail}` : ''}
+              </p>
               {d.inquiryFull.serviceBalanceAmount != null ? (
                 <p className="tabular-nums">
                   잔금 {d.inquiryFull.serviceBalanceAmount.toLocaleString('ko-KR')}원

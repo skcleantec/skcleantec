@@ -19,6 +19,10 @@ import {
   confirmDbListingBuyer,
   confirmDbListingSeller,
 } from './dbMarketplaceConfirm.service.js';
+import {
+  notifyDbMarketplaceBroadcast,
+  notifyDbMarketplaceSellerAdmins,
+} from './dbMarketplaceNotify.service.js';
 
 const router = Router();
 
@@ -58,6 +62,7 @@ router.post('/draft', async (req, res) => {
   }
   try {
     const row = await upsertDbListingDraft(tenantId, inquiryId, body.listingFee);
+    await notifyDbMarketplaceSellerAdmins(tenantId);
     res.json({ listing: serializeSellerListing(row) });
   } catch (e) {
     if (mapError(res, e)) return;
@@ -77,6 +82,15 @@ router.patch('/:id/audience', async (req, res) => {
       body.visibility,
       body.audiences,
     );
+    if (row.status === 'OPEN') {
+      await notifyDbMarketplaceBroadcast({
+        sellerTenantId: tenantId,
+        visibility: row.visibility,
+        audiences: row.audiences,
+      });
+    } else {
+      await notifyDbMarketplaceSellerAdmins(tenantId);
+    }
     res.json({ listing: serializeSellerListing(row) });
   } catch (e) {
     if (mapError(res, e)) return;
@@ -90,6 +104,11 @@ router.post('/:id/publish', async (req, res) => {
   const listingId = typeof req.params.id === 'string' ? req.params.id : '';
   try {
     const row = await publishDbListing(tenantId, listingId);
+    await notifyDbMarketplaceBroadcast({
+      sellerTenantId: tenantId,
+      visibility: row.visibility,
+      audiences: row.audiences,
+    });
     res.json({ listing: serializeSellerListing(row) });
   } catch (e) {
     if (mapError(res, e)) return;
@@ -103,6 +122,11 @@ router.post('/:id/withdraw', async (req, res) => {
   const listingId = typeof req.params.id === 'string' ? req.params.id : '';
   try {
     const row = await withdrawDbListing(tenantId, listingId);
+    await notifyDbMarketplaceBroadcast({
+      sellerTenantId: tenantId,
+      visibility: row.visibility,
+      audiences: row.audiences,
+    });
     res.json({ listing: serializeSellerListing(row) });
   } catch (e) {
     if (mapError(res, e)) return;

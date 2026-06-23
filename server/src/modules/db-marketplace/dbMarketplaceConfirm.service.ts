@@ -100,6 +100,7 @@ export async function confirmDbListingBuyer(listingId: string, buyer: DbMarketpl
     return tx.inquiryDbListing.findUniqueOrThrow({
       where: { id: listingId },
       include: {
+        audiences: true,
         tenant: { select: { id: true, name: true } },
         buyerTenant: { select: { id: true, name: true } },
         buyerExternalCompany: { select: { id: true, name: true } },
@@ -107,7 +108,13 @@ export async function confirmDbListingBuyer(listingId: string, buyer: DbMarketpl
     });
   });
 
-  await notifyDbMarketplaceBuyerRequested({ sellerTenantId: updated.tenantId });
+  await notifyDbMarketplaceBuyerRequested({
+    sellerTenantId: updated.tenantId,
+    visibility: updated.visibility,
+    audiences: updated.audiences,
+    buyerTenantId: updated.buyerTenantId,
+    buyerExternalCompanyId: updated.buyerExternalCompanyId,
+  });
 
   return updated;
 }

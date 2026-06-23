@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getToken } from '../../stores/auth';
 import {
   confirmDbMarketplaceSeller,
@@ -13,6 +13,8 @@ import {
 import { listExternalCompanies } from '../../api/externalCompanies';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { computeMarketplaceDisplayAmount } from '@shared/dbMarketplaceAmount';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 
 type Props = {
   inquiryId: string;
@@ -47,43 +49,59 @@ export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount,
     Number(listingFeeInput.replace(/,/g, '')) || 0,
   );
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [listingRow, partnerRes, extRes] = await Promise.all([
-        getDbListingByInquiry(token, inquiryId),
-        listTenantPartnerships(token),
-        listExternalCompanies(token),
-      ]);
-      setListing(listingRow);
-      setPartnerships(partnerRes.items.filter((p) => p.status === 'ACTIVE'));
-      setExternalCompanies(extRes.items.map((e) => ({ id: e.id, name: e.name })));
-      if (listingRow) {
-        setListingFeeInput(listingRow.listingFee.toLocaleString('ko-KR'));
-        setVisibility(listingRow.visibility);
-        setSelectedPartnerIds(
-          listingRow.audiences
-            .filter((a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId)
-            .map((a) => a.partnerTenantId as string),
-        );
-        setSelectedExternalIds(
-          listingRow.audiences
-            .filter((a) => a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId)
-            .map((a) => a.externalCompanyId as string),
-        );
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!token) return;
+      if (!opts?.silent) {
+        setLoading(true);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '불러오기 실패');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, inquiryId]);
+      setError(null);
+      try {
+        const [listingRow, partnerRes, extRes] = await Promise.all([
+          getDbListingByInquiry(token, inquiryId),
+          listTenantPartnerships(token),
+          listExternalCompanies(token),
+        ]);
+        setListing(listingRow);
+        setPartnerships(partnerRes.items.filter((p) => p.status === 'ACTIVE'));
+        setExternalCompanies(extRes.items.map((e) => ({ id: e.id, name: e.name })));
+        if (listingRow) {
+          setListingFeeInput(listingRow.listingFee.toLocaleString('ko-KR'));
+          setVisibility(listingRow.visibility);
+          setSelectedPartnerIds(
+            listingRow.audiences
+              .filter((a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId)
+              .map((a) => a.partnerTenantId as string),
+          );
+          setSelectedExternalIds(
+            listingRow.audiences
+              .filter((a) => a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId)
+              .map((a) => a.externalCompanyId as string),
+          );
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '불러오기 실패');
+      } finally {
+        if (!opts?.silent) setLoading(false);
+      }
+    },
+    [token, inquiryId],
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const lastSilentRefreshRef = useRef(0);
+  const silentRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSilentRefreshRef.current < 4000) return;
+    lastSilentRefreshRef.current = now;
+    void load({ silent: true });
+  }, [load]);
+
+  const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
+  useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
 
   const saveDraft = async () => {
     if (!token) return;

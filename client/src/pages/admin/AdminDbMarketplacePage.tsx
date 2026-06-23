@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -13,6 +13,8 @@ import {
   parseInquiryListPageSize,
   parseListPage,
 } from '../../utils/listPagination';
+import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 
 const TAB_OPTIONS: { id: DbMarketplaceListTab; label: string }[] = [
   { id: 'available', label: '구매 가능' },
@@ -108,22 +110,40 @@ export function AdminDbMarketplacePage() {
 
   const offset = (page - 1) * pageSize;
 
-  const load = useCallback(() => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    void listDbMarketplace(token, { tab, limit: pageSize, offset })
-      .then((r) => {
-        setItems(r.items);
-        setTotal(r.total);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'))
-      .finally(() => setLoading(false));
-  }, [token, tab, pageSize, offset]);
+  const load = useCallback(
+    (opts?: { silent?: boolean }) => {
+      if (!token) return;
+      if (!opts?.silent) {
+        setLoading(true);
+      }
+      setError(null);
+      void listDbMarketplace(token, { tab, limit: pageSize, offset })
+        .then((r) => {
+          setItems(r.items);
+          setTotal(r.total);
+        })
+        .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'))
+        .finally(() => {
+          if (!opts?.silent) setLoading(false);
+        });
+    },
+    [token, tab, pageSize, offset],
+  );
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const lastSilentRefreshRef = useRef(0);
+  const silentRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSilentRefreshRef.current < 4000) return;
+    lastSilentRefreshRef.current = now;
+    load({ silent: true });
+  }, [load]);
+
+  const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
+  useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
 
   const setTab = (next: DbMarketplaceListTab) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -271,7 +291,7 @@ export function AdminDbMarketplacePage() {
         <DbMarketplaceListingDetailModal
           row={selectedRow}
           onClose={() => setSelectedRow(null)}
-          onChanged={load}
+          onChanged={() => load({ silent: true })}
         />
       ) : null}
     </div>
