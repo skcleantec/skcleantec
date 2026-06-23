@@ -3,11 +3,16 @@ import {
   notifyDbMarketplaceBroadcast,
   notifyDbMarketplaceSellerAdmins,
 } from './dbMarketplaceNotify.service.js';
-import { confirmDbListingBuyer } from './dbMarketplaceConfirm.service.js';
+import {
+  confirmDbListingBuyer,
+  confirmDbListingSeller,
+  declineDbListingSeller,
+} from './dbMarketplaceConfirm.service.js';
 import {
   DbMarketplaceError,
   publishDbListing,
   updateDbListingAudience,
+  withdrawDbListing,
 } from './dbMarketplace.service.js';
 import type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 
@@ -30,6 +35,21 @@ export type DbMarketplaceBulkPublishResult = {
 
 export type DbMarketplaceBulkBuyerConfirmResult = {
   requested: DbMarketplaceBulkItemResult[];
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkWithdrawResult = {
+  withdrawn: DbMarketplaceBulkItemResult[];
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkSellerConfirmResult = {
+  confirmed: Array<DbMarketplaceBulkItemResult & { targetInquiryId: string | null }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkSellerDeclineResult = {
+  declined: DbMarketplaceBulkItemResult[];
   failed: DbMarketplaceBulkFailed[];
 };
 
@@ -112,4 +132,105 @@ export async function bulkConfirmDbListingBuyer(
   }
 
   return { requested, failed };
+}
+
+export async function bulkWithdrawDbListings(
+  tenantId: string,
+  listingIdsRaw: unknown,
+): Promise<DbMarketplaceBulkWithdrawResult> {
+  const listingIds = parseListingIds(listingIdsRaw);
+  const withdrawn: DbMarketplaceBulkItemResult[] = [];
+  const failed: DbMarketplaceBulkFailed[] = [];
+
+  for (const id of listingIds) {
+    try {
+      const row = await withdrawDbListing(tenantId, id);
+      await notifyDbMarketplaceBroadcast({
+        sellerTenantId: tenantId,
+        visibility: row.visibility,
+        audiences: row.audiences,
+      });
+      withdrawn.push({
+        id: row.id,
+        inquiryId: row.inquiryId,
+        displayAmount: row.displayAmount,
+      });
+    } catch (e) {
+      failed.push({
+        id,
+        error: e instanceof DbMarketplaceError ? e.message : '게시 철회 실패',
+      });
+    }
+  }
+
+  if (withdrawn.length > 0) {
+    await notifyDbMarketplaceSellerAdmins(tenantId);
+  }
+
+  return { withdrawn, failed };
+}
+
+export async function bulkConfirmDbListingSeller(
+  tenantId: string,
+  sellerUserId: string,
+  listingIdsRaw: unknown,
+): Promise<DbMarketplaceBulkSellerConfirmResult> {
+  const listingIds = parseListingIds(listingIdsRaw);
+  const confirmed: DbMarketplaceBulkSellerConfirmResult['confirmed'] = [];
+  const failed: DbMarketplaceBulkFailed[] = [];
+
+  for (const id of listingIds) {
+    try {
+      const result = await confirmDbListingSeller(tenantId, sellerUserId, id);
+      confirmed.push({
+        id: result.listing.id,
+        inquiryId: result.listing.inquiryId,
+        displayAmount: result.listing.displayAmount,
+        targetInquiryId: result.targetInquiryId,
+      });
+    } catch (e) {
+      failed.push({
+        id,
+        error: e instanceof DbMarketplaceError ? e.message : '인계 확정 실패',
+      });
+    }
+  }
+
+  if (confirmed.length > 0) {
+    await notifyDbMarketplaceSellerAdmins(tenantId);
+  }
+
+  return { confirmed, failed };
+}
+
+export async function bulkDeclineDbListingSeller(
+  tenantId: string,
+  sellerUserId: string,
+  listingIdsRaw: unknown,
+): Promise<DbMarketplaceBulkSellerDeclineResult> {
+  const listingIds = parseListingIds(listingIdsRaw);
+  const declined: DbMarketplaceBulkItemResult[] = [];
+  const failed: DbMarketplaceBulkFailed[] = [];
+
+  for (const id of listingIds) {
+    try {
+      const row = await declineDbListingSeller(tenantId, sellerUserId, id);
+      declined.push({
+        id: row.id,
+        inquiryId: row.inquiryId,
+        displayAmount: row.displayAmount,
+      });
+    } catch (e) {
+      failed.push({
+        id,
+        error: e instanceof DbMarketplaceError ? e.message : '구매 신청 거절 실패',
+      });
+    }
+  }
+
+  if (declined.length > 0) {
+    await notifyDbMarketplaceSellerAdmins(tenantId);
+  }
+
+  return { declined, failed };
 }

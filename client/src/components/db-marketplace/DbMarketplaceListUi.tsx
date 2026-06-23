@@ -4,7 +4,7 @@ import {
   formatMarketplaceCleaningSummary,
   formatMarketplaceSchedule,
 } from '../../utils/dbMarketplaceDisplay';
-import { marketplaceBulkSelectDisabledReason } from '../../utils/dbMarketplaceBulk';
+import { marketplaceBulkSelectDisabledReason, type DbMarketplaceBulkMode } from '../../utils/dbMarketplaceBulk';
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: '장바구니',
@@ -74,7 +74,7 @@ export function DbMarketplaceBulkActionBar({
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur shadow-lg pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto flex max-w-4xl flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <p className="text-fluid-xs font-medium text-slate-900">{selectedCount}건 선택</p>
-        <div className="flex w-full gap-2 sm:w-auto">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
           <button
             type="button"
             className="min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-fluid-xs text-gray-700 sm:flex-none sm:min-h-0"
@@ -103,7 +103,7 @@ export function DbMarketplaceRowCard({
   selectable: boolean;
   selected: boolean;
   onToggleSelect: () => void;
-  bulkMode: 'publish' | 'buy' | null;
+  bulkMode: DbMarketplaceBulkMode | null;
   showSeller: boolean;
 }) {
   const disabledReason =

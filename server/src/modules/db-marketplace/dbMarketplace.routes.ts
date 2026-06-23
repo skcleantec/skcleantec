@@ -38,7 +38,10 @@ import {
 } from './dbMarketplaceNotify.service.js';
 import {
   bulkConfirmDbListingBuyer,
+  bulkConfirmDbListingSeller,
+  bulkDeclineDbListingSeller,
   bulkPublishDbListings,
+  bulkWithdrawDbListings,
 } from './dbMarketplaceBulk.service.js';
 
 const router = Router();
@@ -131,6 +134,47 @@ router.post('/bulk/buyer-confirm', async (req, res) => {
       tenantId,
       userId: auth.userId,
     });
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/bulk/withdraw', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const body = req.body as { listingIds?: unknown };
+  try {
+    const result = await bulkWithdrawDbListings(tenantId, body.listingIds);
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/bulk/seller-confirm', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const body = req.body as { listingIds?: unknown };
+  try {
+    const result = await bulkConfirmDbListingSeller(tenantId, auth.userId, body.listingIds);
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/bulk/seller-decline', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const body = req.body as { listingIds?: unknown };
+  try {
+    const result = await bulkDeclineDbListingSeller(tenantId, auth.userId, body.listingIds);
     res.json(result);
   } catch (e) {
     if (mapError(res, e)) return;

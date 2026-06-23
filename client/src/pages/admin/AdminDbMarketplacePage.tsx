@@ -4,6 +4,9 @@ import { getToken } from '../../stores/auth';
 import {
   bulkBuyerConfirmDbMarketplace,
   bulkPublishDbMarketplace,
+  bulkSellerConfirmDbMarketplace,
+  bulkSellerDeclineDbMarketplace,
+  bulkWithdrawDbMarketplace,
   listDbMarketplace,
   getDbMarketplaceListing,
   type DbMarketplaceAudienceInput,
@@ -25,9 +28,9 @@ import {
   formatMarketplaceSchedule,
 } from '../../utils/dbMarketplaceDisplay';
 import {
-  canBulkBuyMarketplaceItem,
-  canBulkPublishMarketplaceItem,
+  canBulkSelectMarketplaceItem,
   marketplaceBulkSelectDisabledReason,
+  type DbMarketplaceBulkMode,
 } from '../../utils/dbMarketplaceBulk';
 import {
   clampListPage,
@@ -97,7 +100,16 @@ export function AdminDbMarketplacePage() {
     failed: Array<{ id: string; error: string }>;
   } | null>(null);
 
-  const bulkMode = tab === 'cart' ? 'publish' : tab === 'available' ? 'buy' : null;
+  const bulkMode: DbMarketplaceBulkMode | null =
+    tab === 'cart'
+      ? 'publish'
+      : tab === 'available'
+        ? 'buy'
+        : tab === 'my_sales'
+          ? 'withdraw'
+          : tab === 'pending'
+            ? 'seller_confirm'
+            : null;
   const selectable = bulkMode != null;
   const showSellerColumn = tab !== 'cart';
 
@@ -180,9 +192,8 @@ export function AdminDbMarketplacePage() {
 
   const canSelectRow = useCallback(
     (row: DbMarketplaceMaskedItem) => {
-      if (bulkMode === 'publish') return canBulkPublishMarketplaceItem(row);
-      if (bulkMode === 'buy') return canBulkBuyMarketplaceItem(row);
-      return false;
+      if (!bulkMode) return false;
+      return canBulkSelectMarketplaceItem(row, bulkMode);
     },
     [bulkMode],
   );
@@ -281,15 +292,111 @@ export function AdminDbMarketplacePage() {
     }
   };
 
+  const runBulkWithdraw = async () => {
+    if (!token || selectedCount === 0) return;
+    if (selectedCount > DB_MARKETPLACE_BULK_MAX) {
+      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`);
+      return;
+    }
+    if (!window.confirm(`선택 ${selectedCount}건의 게시를 철회할까요?`)) return;
+    setBulkBusy(true);
+    try {
+      const result = await bulkWithdrawDbMarketplace(token, [...selectedIds]);
+      setSelectedIds(new Set());
+      setBulkResult({
+        title: '일괄 게시 철회 결과',
+        successLabel: '철회 완료',
+        successCount: result.withdrawn.length,
+        failed: result.failed,
+      });
+      load({ silent: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '일괄 철회 실패');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkSellerConfirm = async () => {
+    if (!token || selectedCount === 0) return;
+    if (selectedCount > DB_MARKETPLACE_BULK_MAX) {
+      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`);
+      return;
+    }
+    if (
+      !window.confirm(
+        `선택 ${selectedCount}건을 구매자에게 인계 확정합니다. 확정 후 취소·환불할 수 없습니다. 계속할까요?`,
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await bulkSellerConfirmDbMarketplace(token, [...selectedIds]);
+      setSelectedIds(new Set());
+      setBulkResult({
+        title: '일괄 인계 확정 결과',
+        successLabel: '인계 확정 완료',
+        successCount: result.confirmed.length,
+        failed: result.failed,
+      });
+      load({ silent: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '일괄 인계 확정 실패');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkSellerDecline = async () => {
+    if (!token || selectedCount === 0) return;
+    if (selectedCount > DB_MARKETPLACE_BULK_MAX) {
+      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`);
+      return;
+    }
+    if (
+      !window.confirm(`선택 ${selectedCount}건의 구매 신청을 거절하고 다시 게시 상태로 되돌릴까요?`)
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await bulkSellerDeclineDbMarketplace(token, [...selectedIds]);
+      setSelectedIds(new Set());
+      setBulkResult({
+        title: '일괄 구매 신청 거절 결과',
+        successLabel: '거절 완료',
+        successCount: result.declined.length,
+        failed: result.failed,
+      });
+      load({ silent: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '일괄 거절 실패');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const tabDescription = useMemo(() => {
+    switch (tab) {
+      case 'cart':
+        return '장바구니에 담은 DB를 선택해 노출 업체를 지정하고 한 번에 게시할 수 있습니다.';
+      case 'available':
+        return '여러 건을 선택해 한 번에 갖고갈 수 있습니다. 구매 전에는 시·구 주소와 표시금액(잔금−수수료)만 노출됩니다.';
+      case 'my_sales':
+        return '게시 중인 DB를 선택해 한 번에 게시 철회할 수 있습니다.';
+      case 'pending':
+        return '인계 대기(판매) 건을 선택해 일괄 인계 확정 또는 구매 신청 거절할 수 있습니다.';
+      default:
+        return '확정 후 전체 DB가 공개됩니다.';
+    }
+  }, [tab]);
+
   return (
     <div className={`min-w-0 w-full max-w-full space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
       <div>
         <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
-        <p className="mt-1 text-fluid-xs text-gray-600">
-          {tab === 'cart'
-            ? '장바구니에 담은 DB를 선택해 노출 업체를 지정하고 한 번에 게시할 수 있습니다.'
-            : '구매 전에는 시·구 주소와 표시금액(잔금−수수료)만 노출됩니다. 확정 후 전체 DB가 공개됩니다.'}
-        </p>
+        <p className="mt-1 text-fluid-xs text-gray-600">{tabDescription}</p>
       </div>
 
       <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
@@ -448,7 +555,7 @@ export function AdminDbMarketplacePage() {
             <span className="sm:hidden">노출 지정 · 게시</span>
             <span className="hidden sm:inline">노출 업체 지정 · 게시하기</span>
           </button>
-        ) : (
+        ) : bulkMode === 'buy' ? (
           <button
             type="button"
             disabled={bulkBusy}
@@ -457,6 +564,34 @@ export function AdminDbMarketplacePage() {
           >
             갖고가기
           </button>
+        ) : bulkMode === 'withdraw' ? (
+          <button
+            type="button"
+            disabled={bulkBusy}
+            className="min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:min-h-0 sm:flex-none"
+            onClick={() => void runBulkWithdraw()}
+          >
+            게시 철회
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              className="min-h-[2.75rem] flex-1 rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 sm:min-h-0 sm:flex-none"
+              onClick={() => void runBulkSellerConfirm()}
+            >
+              인계 확정
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              className="min-h-[2.75rem] flex-1 rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:min-h-0 sm:flex-none"
+              onClick={() => void runBulkSellerDecline()}
+            >
+              구매 신청 거절
+            </button>
+          </>
         )}
       </DbMarketplaceBulkActionBar>
       ) : null}

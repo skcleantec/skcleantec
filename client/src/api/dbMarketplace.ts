@@ -214,6 +214,21 @@ export type DbMarketplaceBulkBuyerConfirmResult = {
   failed: DbMarketplaceBulkFailed[];
 };
 
+export type DbMarketplaceBulkWithdrawResult = {
+  withdrawn: Array<{ id: string; inquiryId?: string; displayAmount?: number | null }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkSellerConfirmResult = {
+  confirmed: Array<{ id: string; inquiryId?: string; displayAmount?: number | null; targetInquiryId?: string | null }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkSellerDeclineResult = {
+  declined: Array<{ id: string; inquiryId?: string; displayAmount?: number | null }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
 export async function bulkPublishDbMarketplace(
   token: string,
   body: {
@@ -235,6 +250,42 @@ export async function bulkBuyerConfirmDbMarketplace(
   listingIds: string[],
 ): Promise<DbMarketplaceBulkBuyerConfirmResult> {
   const res = await fetch(`${API}/db-marketplace/bulk/buyer-confirm`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
+export async function bulkWithdrawDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkWithdrawResult> {
+  const res = await fetch(`${API}/db-marketplace/bulk/withdraw`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
+export async function bulkSellerConfirmDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkSellerConfirmResult> {
+  const res = await fetch(`${API}/db-marketplace/bulk/seller-confirm`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
+export async function bulkSellerDeclineDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkSellerDeclineResult> {
+  const res = await fetch(`${API}/db-marketplace/bulk/seller-decline`, {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({ listingIds }),
