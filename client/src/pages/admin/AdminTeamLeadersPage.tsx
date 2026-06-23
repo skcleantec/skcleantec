@@ -135,6 +135,7 @@ type EditFormState = {
   password: string;
   hireDate: string;
   resignationDate: string;
+  hasAdminPrivileges: boolean;
   payrollMonthlySalary: string;
   payrollPayDay: string;
   teamLeaderGeneralSettlementMode: '' | TeamLeaderGeneralSettlementModeApi;
@@ -150,6 +151,7 @@ function emptyEditForm(): EditFormState {
     password: '',
     hireDate: '',
     resignationDate: '',
+    hasAdminPrivileges: false,
     payrollMonthlySalary: '',
     payrollPayDay: '',
     teamLeaderGeneralSettlementMode: '',
@@ -422,6 +424,7 @@ export function AdminTeamLeadersPage() {
       password: '',
       hireDate: item.hireDate ?? '',
       resignationDate: item.resignationDate ?? '',
+      hasAdminPrivileges: Boolean(item.hasAdminPrivileges),
       payrollMonthlySalary:
         item.payrollMonthlySalary != null ? String(item.payrollMonthlySalary) : '',
       payrollPayDay: item.payrollPayDay != null ? String(item.payrollPayDay) : '',
@@ -460,6 +463,7 @@ export function AdminTeamLeadersPage() {
         teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
         teamLeaderGeneralSettlementValue?: number | null;
         teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
+        hasAdminPrivileges?: boolean;
         operatingCompanyIds?: string[];
         primaryOperatingCompanyId?: string;
         serviceZoneIds?: string[];
@@ -558,6 +562,10 @@ export function AdminTeamLeadersPage() {
         }
         payload.operatingCompanyIds = editOcForm.operatingCompanyIds;
         payload.primaryOperatingCompanyId = editOcForm.primaryOperatingCompanyId;
+      }
+
+      if (editingUser.role === 'MARKETER') {
+        payload.hasAdminPrivileges = editForm.hasAdminPrivileges;
       }
 
       await updateUser(token, editingUser.id, payload);
@@ -926,6 +934,11 @@ export function AdminTeamLeadersPage() {
                       <div className="min-w-0">
                         <p className="truncate text-left text-fluid-xs text-gray-600" title={`${item.name} · ${item.email} · ${item.phone || '연락처 없음'}`}>
                           <span className="font-semibold text-gray-900">{item.name}</span>
+                          {item.hasAdminPrivileges ? (
+                            <span className="ml-1.5 inline-flex rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800">
+                              관리자권한
+                            </span>
+                          ) : null}
                           <span className="mx-1 text-gray-400">·</span>
                           <span>{item.email}</span>
                           <span className="mx-1 text-gray-400">·</span>
@@ -968,11 +981,12 @@ export function AdminTeamLeadersPage() {
 
               <div className="hidden lg:block">
                 <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-                  <table className="w-full border-collapse text-fluid-sm min-w-[760px]">
+                  <table className="w-full border-collapse text-fluid-sm min-w-[860px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">아이디</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">이름</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">관리자권한</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">브랜드</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">연락처</th>
                         <th className="px-4 py-3 text-center font-medium text-gray-700 whitespace-nowrap">월 급여</th>
@@ -985,6 +999,15 @@ export function AdminTeamLeadersPage() {
                         <tr key={item.id} className="border-b border-gray-100">
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.email}</td>
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.name}</td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                            {item.hasAdminPrivileges ? (
+                              <span className="inline-flex rounded bg-blue-100 px-2 py-0.5 text-fluid-2xs font-medium text-blue-800">
+                                부여
+                              </span>
+                            ) : (
+                              <span className="text-fluid-2xs text-gray-400">—</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-center">
                             <OperatingCompanyBadges items={item.operatingCompanies} />
                           </td>
@@ -1792,6 +1815,27 @@ export function AdminTeamLeadersPage() {
                 )}
                 {(editingUser.role === 'MARKETER' || editingUser.role === 'OFFICE_STAFF') && (
                   <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+                    {editingUser.role === 'MARKETER' ? (
+                      <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-slate-200 bg-white p-3">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={editForm.hasAdminPrivileges}
+                          onChange={(e) =>
+                            setEditForm((p) => ({ ...p, hasAdminPrivileges: e.target.checked }))
+                          }
+                        />
+                        <span className="min-w-0 text-left">
+                          <span className="block text-fluid-sm font-medium text-gray-900">
+                            관리자 업무 권한 부여
+                          </span>
+                          <span className="mt-1 block text-fluid-2xs text-gray-500 leading-snug">
+                            켜면 이 마케터는 사용자 등록·팀장/타업체 관리·정산·광고비 설정 등 관리자 업무 메뉴와
+                            배정·삭제 API를 사용할 수 있습니다. 관리자 전용(직원 권한 설정 변경 등)은 ADMIN만 가능합니다.
+                          </span>
+                        </span>
+                      </label>
+                    ) : null}
                     <div>
                       <p className="text-fluid-xs font-medium text-gray-800">
                         {editingUser.role === 'OFFICE_STAFF' ? '사무직' : '직원(마케터)'} · 월 급여표

@@ -1,26 +1,23 @@
 import type { AuthPayload } from './auth.middleware.js';
-import { getTenantConfig } from '../tenants/tenantConfig.service.js';
-import { isMarketerAdminAccessEnabled } from '../../lib/staffAccess.js';
-
-export async function resolveMarketerAdminAccessForTenant(tenantId: string | undefined): Promise<boolean> {
-  if (!tenantId) return false;
-  const config = await getTenantConfig(tenantId);
-  return isMarketerAdminAccessEnabled(config);
-}
+import { prisma } from '../../lib/prisma.js';
 
 export async function userHasStaffAdminAccess(user: AuthPayload | undefined): Promise<boolean> {
   if (!user) return false;
   if (user.role === 'ADMIN') return true;
-  if (user.role !== 'MARKETER') return false;
-  return resolveMarketerAdminAccessForTenant(user.tenantId);
+  if (user.role !== 'MARKETER' || !user.tenantId) return false;
+  const row = await prisma.user.findFirst({
+    where: { id: user.userId, tenantId: user.tenantId },
+    select: { hasAdminPrivileges: true },
+  });
+  return row?.hasAdminPrivileges === true;
 }
 
-export function userHasStaffAdminAccessWithConfig(
+export function userHasStaffAdminAccessWithFlag(
   user: AuthPayload | undefined,
-  config: unknown,
+  hasAdminPrivileges: boolean | null | undefined,
 ): boolean {
   if (!user) return false;
   if (user.role === 'ADMIN') return true;
   if (user.role !== 'MARKETER') return false;
-  return isMarketerAdminAccessEnabled(config);
+  return hasAdminPrivileges === true;
 }
