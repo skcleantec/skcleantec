@@ -12,16 +12,28 @@ import {
 } from '../utils/helpContent';
 import { checkHelpEditPermission } from '../api/help';
 
+type MainCategory = 'usage' | 'inquiry' | 'notice';
+
+const MAIN_CATEGORIES: { id: MainCategory; label: string }[] = [
+  { id: 'usage', label: '사용법' },
+  { id: 'inquiry', label: '고객문의' },
+  { id: 'notice', label: '공지사항' },
+];
+
 export function HelpPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = (searchParams.get('category') || 'usage') as MainCategory;
+  const roleParam = searchParams.get('role') || '';
+  const searchQuery = searchParams.get('q') || '';
+
+  const [mainCategory, setMainCategory] = useState<MainCategory>(categoryParam);
   const [entries, setEntries] = useState<Awaited<ReturnType<typeof fetchHelpContent>>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
 
-  const role = parseHelpRole(searchParams.get('role'));
-  const query = searchParams.get('q') ?? '';
+  const selectedRole = useMemo(() => parseHelpRole(roleParam), [roleParam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,177 +68,258 @@ export function HelpPage() {
       .catch(() => {});
   }, []);
 
-  const filtered = useMemo(() => filterHelpEntries(entries, role, query), [entries, role, query]);
-
-  const moduleGroups = useMemo(() => groupHelpByModule(filtered), [filtered]);
-
-  const moduleNames = useMemo(() => moduleGroups.map((g) => g.module), [moduleGroups]);
-
-  const moduleOrderByName = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const g of moduleGroups) map.set(g.module, g.moduleOrder);
-    return map;
-  }, [moduleGroups]);
-
-  const setRole = useCallback(
-    (next: HelpRole) => {
-      setSearchParams(
-        (prev) => {
-          const p = new URLSearchParams(prev);
-          p.set('role', next);
-          return p;
-        },
-        { replace: true }
-      );
+  const changeMainCategory = useCallback(
+    (newCategory: MainCategory) => {
+      setMainCategory(newCategory);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('category', newCategory);
+        if (newCategory !== 'usage') {
+          next.delete('role');
+          next.delete('q');
+        }
+        return next;
+      });
       setActiveModule(null);
     },
     [setSearchParams]
   );
 
-  const setQuery = useCallback(
-    (next: string) => {
-      setSearchParams(
-        (prev) => {
-          const p = new URLSearchParams(prev);
-          if (next.trim()) p.set('q', next);
-          else p.delete('q');
-          return p;
-        },
-        { replace: true }
-      );
+  const changeRole = useCallback(
+    (newRole: HelpRole) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('role', newRole);
+        next.delete('q');
+        return next;
+      });
+      setActiveModule(null);
     },
     [setSearchParams]
   );
 
-  const scrollToModule = useCallback((module: string) => {
-    setActiveModule(module);
-    const el = document.getElementById(helpModuleDomId(module));
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+  const changeSearch = useCallback(
+    (query: string) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (query.trim()) {
+          next.set('q', query);
+        } else {
+          next.delete('q');
+        }
+        return next;
+      });
+    },
+    [setSearchParams]
+  );
+
+  const filtered = useMemo(
+    () => filterHelpEntries(entries, selectedRole, searchQuery),
+    [entries, selectedRole, searchQuery]
+  );
+
+  const groups = useMemo(() => groupHelpByModule(filtered), [filtered]);
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900 text-white staff-top-safe">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <div>
-            <p className="text-fluid-xs uppercase tracking-wider text-slate-400">청소비서 도움말</p>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">화면별 사용법</h1>
-          </div>
-          <a
-            href="/login"
-            className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-fluid-xs font-medium hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-          >
-            로그인으로
-          </a>
-        </div>
-      </header>
-
-      <div className="mx-auto flex max-w-7xl min-h-[calc(100vh-4.5rem)]">
-        <HelpSidebar
-          role={role}
-          onRoleChange={setRole}
-          modules={moduleNames}
-          moduleOrderByName={moduleOrderByName}
-          activeModule={activeModule}
-          onModuleClick={scrollToModule}
-          className="hidden w-64 shrink-0 lg:flex lg:sticky lg:top-0 lg:h-[calc(100vh-4.5rem)]"
-        />
-
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:py-6">
-          <div className="mb-5 space-y-3">
-            <div className="lg:hidden">
-              <div className="flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200" role="tablist">
-                {(['admin', 'team'] as HelpRole[]).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    role="tab"
-                    aria-selected={role === r}
-                    onClick={() => setRole(r)}
-                    className={`flex-1 rounded-lg px-2 py-2 text-fluid-xs font-medium ${
-                      role === r ? 'bg-slate-900 text-white' : 'text-slate-600'
-                    }`}
-                  >
-                    {HELP_ROLE_LABELS[r]}
-                  </button>
-                ))}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* 상단 헤더 */}
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-sm shadow-sm">
+        <div className="mx-auto max-w-screen-2xl px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                  📚 도움말
+                </h1>
+                <p className="mt-1 text-fluid-sm text-slate-600">SK클린텍 사용 가이드</p>
               </div>
             </div>
 
-            <label className="block">
-              <span className="sr-only">검색</span>
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="화면 이름·내용 검색…"
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-fluid-sm text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-              />
-            </label>
+            {/* 메인 카테고리 탭 (최상단) */}
+            <nav className="flex gap-2 border-b border-slate-200 pb-3">
+              {MAIN_CATEGORIES.map((cat) => {
+                const isActive = mainCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => changeMainCategory(cat.id)}
+                    className={`
+                      relative rounded-t-lg px-5 py-2.5 text-fluid-sm font-semibold transition-all
+                      ${
+                        isActive
+                          ? 'bg-slate-900 text-white shadow-md'
+                          : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }
+                    `}
+                  >
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </nav>
 
-            {!loading && !error ? (
-              <p className="text-fluid-xs text-slate-500">
-                {HELP_ROLE_LABELS[role]} · {query.trim() ? `검색 ${filtered.length}건` : `총 ${filtered.length}화면`}
-              </p>
+            {/* 역할 선택 탭 (사용법에서만 표시) */}
+            {mainCategory === 'usage' ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <nav className="flex gap-2">
+                  {(['admin', 'team'] as const).map((role) => {
+                    const isActive = selectedRole === role;
+                    return (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => changeRole(role)}
+                        className={`
+                          rounded-lg px-4 py-2 text-fluid-sm font-semibold transition-all
+                          ${
+                            isActive
+                              ? 'bg-blue-600 text-white shadow-md'
+                              : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          }
+                        `}
+                      >
+                        {HELP_ROLE_LABELS[role]}
+                      </button>
+                    );
+                  })}
+                </nav>
+
+                {/* 검색 */}
+                <div className="flex-1 max-w-md">
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => changeSearch(e.target.value)}
+                    placeholder="화면 이름·내용 검색..."
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2 text-fluid-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
             ) : null}
-
-            <HelpMobileModuleSelect
-              modules={moduleNames}
-              moduleOrderByName={moduleOrderByName}
-              value={activeModule ?? ''}
-              onChange={(module) => {
-                if (module) scrollToModule(module);
-              }}
-            />
           </div>
+        </div>
+      </header>
 
-          {loading ? (
-            <p className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-fluid-sm text-slate-500">
-              불러오는 중…
-            </p>
-          ) : error ? (
-            <p className="rounded-2xl border border-red-200 bg-red-50 p-6 text-fluid-sm text-red-700" role="alert">
-              {error}
-            </p>
-          ) : moduleGroups.length === 0 ? (
-            <p className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-fluid-sm text-slate-500">
-              {query.trim()
-                ? '검색 결과가 없습니다.'
-                : `${HELP_ROLE_LABELS[role]} 도움말이 아직 없습니다.`}
-            </p>
-          ) : (
-            <div className="space-y-10">
-              {moduleGroups.map((group) => (
-                <section
-                  key={group.module}
-                  id={helpModuleDomId(group.module)}
-                  className="scroll-mt-24"
-                  aria-labelledby={`${helpModuleDomId(group.module)}-title`}
-                >
-                  <div className="mb-4 flex items-end justify-between gap-2 border-b border-slate-200 pb-2">
-                    <h2
-                      id={`${helpModuleDomId(group.module)}-title`}
-                      className="text-xl font-semibold tracking-tight text-slate-900"
-                    >
-                      {group.module}
-                    </h2>
-                    <span className="text-fluid-2xs text-slate-400">{group.items.length}화면</span>
-                  </div>
-                  <div className="space-y-4">
-                    {group.items.map((entry) => (
-                      <HelpScreenCard
-                        key={`${entry.path}-${entry.title}`}
-                        entry={entry}
-                        canEdit={canEdit}
-                        onUpdated={refreshEntries}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
+      {/* 메인 콘텐츠 영역 */}
+      <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
+        {mainCategory === 'usage' ? (
+          loading ? (
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <div className="text-center">
+                <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-600" />
+                <p className="mt-4 text-fluid-sm text-slate-600">불러오는 중...</p>
+              </div>
             </div>
-          )}
-        </main>
+          ) : error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+              <p className="text-fluid-sm font-semibold text-red-700">{error}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+              {/* 왼쪽 사이드바 (PC) */}
+              <aside className="hidden lg:block lg:w-64 lg:shrink-0">
+                <HelpSidebar
+                  groups={groups}
+                  activeModule={activeModule}
+                  onModuleClick={setActiveModule}
+                />
+              </aside>
+
+              {/* 메인 콘텐츠 */}
+              <main className="flex-1 min-w-0">
+                {/* 모바일 모듈 선택 드롭다운 */}
+                <div className="mb-6 lg:hidden">
+                  <HelpMobileModuleSelect
+                    groups={groups}
+                    activeModule={activeModule}
+                    onModuleChange={setActiveModule}
+                  />
+                </div>
+
+                {groups.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
+                    <p className="text-fluid-sm text-slate-500">
+                      {searchQuery ? '검색 결과가 없습니다.' : '도움말 콘텐츠가 없습니다.'}
+                    </p>
+                  </div>
+                ) : (
+                  groups.map((group) => (
+                    <section key={group.module} id={helpModuleDomId(group.module)} className="mb-8">
+                      <div className="mb-4 flex items-baseline justify-between border-b border-slate-200 pb-2">
+                        <h2 className="text-xl font-bold tracking-tight text-slate-900">
+                          {group.module}
+                        </h2>
+                        {searchQuery ? (
+                          <span className="text-fluid-xs text-slate-500">
+                            {group.items.length}건
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="space-y-4">
+                        {group.items.map((entry) => (
+                          <HelpScreenCard
+                            key={`${entry.path}-${entry.title}`}
+                            entry={entry}
+                            canEdit={canEdit}
+                            onUpdated={refreshEntries}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))
+                )}
+              </main>
+            </div>
+          )
+        ) : mainCategory === 'inquiry' ? (
+          <div className="mx-auto max-w-3xl">
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">고객문의</h2>
+              <p className="text-slate-600 mb-6">
+                궁금하신 사항이 있으시면 아래 연락처로 문의해주세요.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">📞</div>
+                  <div>
+                    <p className="font-semibold text-slate-900">전화 문의</p>
+                    <p className="text-slate-600">1234-5678 (평일 09:00 - 18:00)</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">✉️</div>
+                  <div>
+                    <p className="font-semibold text-slate-900">이메일 문의</p>
+                    <p className="text-slate-600">support@skcleanteck.com</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mx-auto max-w-3xl">
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">공지사항</h2>
+              <div className="space-y-4">
+                <div className="border-b border-slate-200 pb-4">
+                  <p className="text-fluid-sm text-slate-500 mb-1">2026.06.23</p>
+                  <h3 className="font-semibold text-slate-900">헬프 페이지 편집 기능 추가</h3>
+                  <p className="text-slate-600 mt-2">
+                    관리자가 헬프 페이지에서 직접 스크린샷과 내용을 편집할 수 있습니다.
+                  </p>
+                </div>
+                <div className="border-b border-slate-200 pb-4">
+                  <p className="text-fluid-sm text-slate-500 mb-1">2026.06.22</p>
+                  <h3 className="font-semibold text-slate-900">DB 장터 장바구니 기능 추가</h3>
+                  <p className="text-slate-600 mt-2">
+                    여러 접수를 한 번에 선택하여 게시하거나 갖고가기할 수 있습니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
