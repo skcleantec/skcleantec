@@ -30,6 +30,8 @@ export type SerializedTenantInquiryShareMeta = {
   sourceInquiryNumberSnapshot: string | null;
   sharedAt: string;
   syncStatus: 'ACTIVE' | 'PAUSED' | 'REVOKED';
+  /** 정보공유(마켓) 확정 후 생성된 share */
+  viaMarketplace: boolean;
 };
 
 type ShareRow = {
@@ -58,7 +60,11 @@ function partnerFromShare(row: ShareRow, viewerTenantId: string) {
   };
 }
 
-export function serializeShareMeta(row: ShareRow, viewerTenantId: string): SerializedTenantInquiryShareMeta {
+export function serializeShareMeta(
+  row: ShareRow,
+  viewerTenantId: string,
+  opts?: { viaMarketplace?: boolean },
+): SerializedTenantInquiryShareMeta {
   const { role, partner } = partnerFromShare(row, viewerTenantId);
   return {
     id: row.id,
@@ -70,6 +76,7 @@ export function serializeShareMeta(row: ShareRow, viewerTenantId: string): Seria
     sourceInquiryNumberSnapshot: row.sourceInquiryNumberSnapshot,
     sharedAt: row.sharedAt.toISOString(),
     syncStatus: row.syncStatus,
+    viaMarketplace: opts?.viaMarketplace ?? false,
   };
 }
 
@@ -279,9 +286,26 @@ export async function loadShareMetaMapForInquiries(
     include: shareMetaInclude,
   });
 
+  const shareIds = rows.map((r) => r.id);
+  const marketplaceShareIds = new Set<string>();
+  if (shareIds.length > 0) {
+    const linked = await prisma.inquiryDbListing.findMany({
+      where: {
+        tenantInquiryShareId: { in: shareIds },
+        status: 'CONFIRMED',
+      },
+      select: { tenantInquiryShareId: true },
+    });
+    for (const row of linked) {
+      if (row.tenantInquiryShareId) marketplaceShareIds.add(row.tenantInquiryShareId);
+    }
+  }
+
   const map = new Map<string, SerializedTenantInquiryShareMeta>();
   for (const row of rows) {
-    const meta = serializeShareMeta(row, viewerTenantId);
+    const meta = serializeShareMeta(row, viewerTenantId, {
+      viaMarketplace: marketplaceShareIds.has(row.id),
+    });
     if (row.sourceInquiryId && ids.includes(row.sourceInquiryId)) {
       map.set(row.sourceInquiryId, meta);
     }

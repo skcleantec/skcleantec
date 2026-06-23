@@ -126,12 +126,13 @@ export async function getDbMarketplaceDraftCount(token: string): Promise<number>
 
 export async function getDbMarketplaceNavCounts(
   token: string,
-): Promise<{ draftCount: number; sellerPendingCount: number }> {
+): Promise<{ draftCount: number; sellerPendingCount: number; buyerPendingCount: number }> {
   const res = await fetch(`${API}/db-marketplace/draft-count`, { headers: headers(token) });
-  const data = await parseJson<{ count: number; sellerPendingCount?: number }>(res);
+  const data = await parseJson<{ count: number; sellerPendingCount?: number; buyerPendingCount?: number }>(res);
   return {
     draftCount: data.count,
     sellerPendingCount: data.sellerPendingCount ?? 0,
+    buyerPendingCount: data.buyerPendingCount ?? 0,
   };
 }
 

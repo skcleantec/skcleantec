@@ -58,7 +58,7 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 | POST | `/:id/withdraw` | 1 |
 | GET | `/`, `/:id`, `/by-inquiry/:inquiryId`, `/draft-count` | 1 |
 | POST | `/:id/buyer-confirm`, `/:id/seller-confirm`, `/:id/seller-decline` | 2–4 |
-| GET | `/draft-count` (장바구니 + 인계 대기 건수) | 1, 4 |
+| GET | `/draft-count` (장바구니 + 인계 대기 + 구매 대기 건수) | 1, 4, 6 |
 | GET/POST | `/api/team/db-marketplace/*` (타업체 EXTERNAL_PARTNER) | 2–3 |
 | GET/POST | `/api/platform/db-marketplace/*` (플랫폼 중지·목록, PII 없음) | 5 |
 
@@ -68,10 +68,12 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 
 | 위치 | 내용 |
 |------|------|
-| GNB | **정보공유** + 장바구니(DRAFT) 배지 + 인계 대기(PENDING_SELLER) 배지 |
+| GNB | **정보공유** + 장바구니(DRAFT) + 인계 대기(판매) + 구매 대기(파트너) 배지 |
 | `/admin/db-marketplace` | 구매 가능 / 내 판매 / 진행 중 / 확정 완료 |
-| `/team/db-marketplace` | 타업체 — 구매 가능 / 인계 대기 / 확정 완료 |
+| `/team/db-marketplace` | 타업체 — 구매 가능 / 인계 대기 / 확정 완료 + GNB 인계 대기 배지 |
+| `/platform/db-marketplace` | 플랫폼 — listing 메타·중지/해제 (PII 없음) |
 | 접수 상세 | `InquiryDbMarketplaceSellPanel` (직접 연계 블록과 분리) |
+| 연계 배지 | `TenantInquiryShareBadge` — 정보공유 경유 share 표시 |
 
 ---
 
@@ -113,3 +115,12 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 - [x] `platformSuspendedAt` — 구매 차단, 판매자 UI 안내
 - [x] 플랫폼 API (PII 없음) — 목록·중지·해제
 - [x] 만료 건 재게시 (EXPIRED → OPEN)
+
+### Phase 6 — 플랫폼 UI·정산 연계·배지
+
+- [x] 플랫폼 콘솔 `/platform/db-marketplace` — listing 목록·중지/해제 UI
+- [x] `TenantInquiryShareMeta.viaMarketplace` — 마켓 확정 share 구분
+- [x] `TenantInquiryShareBadge` — 「정보공유」칩
+- [x] 확정 상세 — 파트너·타업체 정산 화면 링크
+- [x] GNB 배지 — 관리자 구매 대기(`buyerPendingCount`), 타업체 인계 대기(`marketplacePendingCount`)
+- [x] `GET /db-marketplace/draft-count` — `buyerPendingCount` 추가

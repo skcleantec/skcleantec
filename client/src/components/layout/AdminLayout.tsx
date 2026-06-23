@@ -201,6 +201,7 @@ export function AdminLayout() {
   const [reviewPaybackUnseenCount, setReviewPaybackUnseenCount] = useState(0);
   const [marketplaceDraftCount, setMarketplaceDraftCount] = useState(0);
   const [marketplaceSellerPendingCount, setMarketplaceSellerPendingCount] = useState(0);
+  const [marketplaceBuyerPendingCount, setMarketplaceBuyerPendingCount] = useState(0);
   const [reviewPaybackToast, setReviewPaybackToast] = useState<string | null>(null);
   const reviewPaybackToastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [showNavMoreLeft, setShowNavMoreLeft] = useState(false);
@@ -419,13 +420,15 @@ export function AdminLayout() {
       .catch(() => {});
     if (tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace')) {
       void getDbMarketplaceNavCounts(token)
-        .then(({ draftCount, sellerPendingCount }) => {
+        .then(({ draftCount, sellerPendingCount, buyerPendingCount }) => {
           setMarketplaceDraftCount(draftCount);
           setMarketplaceSellerPendingCount(sellerPendingCount);
+          setMarketplaceBuyerPendingCount(buyerPendingCount);
         })
         .catch(() => {
           setMarketplaceDraftCount(0);
           setMarketplaceSellerPendingCount(0);
+          setMarketplaceBuyerPendingCount(0);
         });
     }
   }, [tenantFeatures]);
@@ -919,10 +922,16 @@ export function AdminLayout() {
                             to={def.to}
                             className={navClass}
                             aria-label={
-                              marketplaceDraftCount > 0 || marketplaceSellerPendingCount > 0
+                              marketplaceDraftCount > 0 ||
+                              marketplaceSellerPendingCount > 0 ||
+                              marketplaceBuyerPendingCount > 0
                                 ? `${def.label}, 장바구니 ${marketplaceDraftCount}건${
                                     marketplaceSellerPendingCount > 0
                                       ? `, 인계 대기 ${marketplaceSellerPendingCount}건`
+                                      : ''
+                                  }${
+                                    marketplaceBuyerPendingCount > 0
+                                      ? `, 구매 대기 ${marketplaceBuyerPendingCount}건`
                                       : ''
                                   }`
                                 : def.label
@@ -935,8 +944,18 @@ export function AdminLayout() {
                             <span
                               className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
                               aria-hidden
+                              title="인계 대기"
                             >
                               {marketplaceSellerPendingCount > 99 ? '99+' : marketplaceSellerPendingCount}
+                            </span>
+                          ) : null}
+                          {marketplaceBuyerPendingCount > 0 ? (
+                            <span
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sky-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3"
+                              aria-hidden
+                              title="구매 신청 대기"
+                            >
+                              {marketplaceBuyerPendingCount > 99 ? '99+' : marketplaceBuyerPendingCount}
                             </span>
                           ) : null}
                           {marketplaceDraftCount > 0 ? (

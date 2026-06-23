@@ -286,6 +286,7 @@ export async function getTeamNavBadges(token: string): Promise<{
   csPendingCount: number;
   newAssignmentCount: number;
   eContractPendingCount: number;
+  marketplacePendingCount: number;
 }> {
   const res = await fetch(withTeamPreviewQuery(`${API}/team/nav-badges`), { headers: headers(token) });
   if (!res.ok) throw new Error('배지 정보를 불러올 수 없습니다.');
@@ -295,6 +296,7 @@ export async function getTeamNavBadges(token: string): Promise<{
     csPendingCount: Number(j.csPendingCount) || 0,
     newAssignmentCount: Number(j.newAssignmentCount) || 0,
     eContractPendingCount: Number(j.eContractPendingCount) || 0,
+    marketplacePendingCount: Number(j.marketplacePendingCount) || 0,
   };
 }
 

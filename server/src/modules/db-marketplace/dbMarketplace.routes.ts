@@ -6,6 +6,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   countDbListingDrafts,
   countDbListingPendingSeller,
+  countDbListingPendingBuyer,
   DbMarketplaceError,
   getDbListingForInquiry,
   getDbMarketplaceListingById,
@@ -41,11 +42,12 @@ function mapError(res: import('express').Response, e: unknown): boolean {
 router.get('/draft-count', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
-  const [count, sellerPendingCount] = await Promise.all([
+  const [count, sellerPendingCount, buyerPendingCount] = await Promise.all([
     countDbListingDrafts(tenantId),
     countDbListingPendingSeller(tenantId),
+    countDbListingPendingBuyer(tenantId),
   ]);
-  res.json({ count, sellerPendingCount });
+  res.json({ count, sellerPendingCount, buyerPendingCount });
 });
 
 router.get('/by-inquiry/:inquiryId', async (req, res) => {

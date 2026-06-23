@@ -10,6 +10,7 @@ export type TenantInquiryShareMeta = {
   sourceInquiryNumberSnapshot: string | null;
   sharedAt: string;
   syncStatus: 'ACTIVE' | 'PAUSED' | 'REVOKED';
+  viaMarketplace?: boolean;
 };
 
 function headers(token: string) {

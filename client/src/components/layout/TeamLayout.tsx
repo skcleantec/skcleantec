@@ -50,6 +50,7 @@ function TeamNavLinks({
   newAssignmentCount,
   csPendingCount,
   unreadCount,
+  marketplacePendingCount,
   compact,
 }: {
   teamTo: (path: string) => string;
@@ -60,6 +61,7 @@ function TeamNavLinks({
   newAssignmentCount: number;
   csPendingCount: number;
   unreadCount: number;
+  marketplacePendingCount: number;
   compact?: boolean;
 }) {
   return (
@@ -94,10 +96,17 @@ function TeamNavLinks({
         </NavLink>
       ) : null}
       {showDbMarketplace ? (
-        <NavLink to={teamTo('/team/db-marketplace')} className={navClass}>
-          <TeamNavIcon type="marketplace" className="w-4 h-4 mr-1.5 shrink-0" />
-          <TeamBiInline id="team.layout.nav.marketplace" />
-        </NavLink>
+        <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
+          <NavLink to={teamTo('/team/db-marketplace')} className={navClass}>
+            <TeamNavIcon type="marketplace" className="w-4 h-4 mr-1.5 shrink-0" />
+            <TeamBiInline id="team.layout.nav.marketplace" />
+          </NavLink>
+          {marketplacePendingCount > 0 ? (
+            <span className={navBadgeClass} aria-hidden title="인계 대기">
+              {marketplacePendingCount > 99 ? '99+' : marketplacePendingCount}
+            </span>
+          ) : null}
+        </div>
       ) : null}
       {!hideTeamDayoffs ? (
         <NavLink to={teamTo('/team/dayoffs')} className={navClass}>
@@ -236,6 +245,7 @@ export function TeamLayout() {
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [newAssignmentCount, setNewAssignmentCount] = useState(0);
   const [eContractPendingCount, setEContractPendingCount] = useState(0);
+  const [marketplacePendingCount, setMarketplacePendingCount] = useState(0);
   const [rosterAckBanner, setRosterAckBanner] = useState<RosterAckPayload | null>(null);
   const [staffIdCardUrl, setStaffIdCardUrl] = useState<string | null>(null);
   const [hireDateIso, setHireDateIso] = useState<string | null>(null);
@@ -307,6 +317,7 @@ export function TeamLayout() {
         setCsPendingCount(r.csPendingCount);
         setNewAssignmentCount(r.newAssignmentCount ?? 0);
         setEContractPendingCount(r.eContractPendingCount ?? 0);
+        setMarketplacePendingCount(r.marketplacePendingCount ?? 0);
       })
       .catch(() => {});
   }, [previewKey, capturePreviewKey, isPreviewFetchStale]);
@@ -395,9 +406,10 @@ export function TeamLayout() {
     newAssignmentCount,
     csPendingCount,
     unreadCount,
+    marketplacePendingCount,
   };
 
-  const mobileNavHintKey = `${location.pathname}|${isExternalPartner}|${hideTeamDayoffs}|${showDbMarketplace}|${newAssignmentCount}|${csPendingCount}|${unreadCount}`;
+  const mobileNavHintKey = `${location.pathname}|${isExternalPartner}|${hideTeamDayoffs}|${showDbMarketplace}|${newAssignmentCount}|${csPendingCount}|${unreadCount}|${marketplacePendingCount}`;
 
   const showStaffIdCardDrawer =
     Boolean(staffIdCardUrl) && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER');

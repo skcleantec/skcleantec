@@ -294,6 +294,27 @@ export async function countDbListingPendingSeller(tenantId: string): Promise<num
   });
 }
 
+/** 파트너 구매자 — 판매자 인계 대기(타 업체 listing 구매 신청 후) */
+export async function countDbListingPendingBuyer(tenantId: string): Promise<number> {
+  return prisma.inquiryDbListing.count({
+    where: { buyerTenantId: tenantId, status: 'PENDING_SELLER' },
+  });
+}
+
+/** 타업체 — 구매 신청 후 판매자 인계 대기 */
+export async function countDbListingPendingForExternalBuyer(
+  tenantId: string,
+  externalCompanyId: string,
+): Promise<number> {
+  return prisma.inquiryDbListing.count({
+    where: {
+      tenantId,
+      status: 'PENDING_SELLER',
+      buyerExternalCompanyId: externalCompanyId,
+    },
+  });
+}
+
 async function viewerCanSeeListing(
   tenantId: string,
   listing: {

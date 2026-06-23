@@ -6,6 +6,7 @@ export type PlatformNavItem = {
 
 export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
   { label: '업체 관리', to: '/platform/tenants', icon: '🏢' },
+  { label: '정보공유', to: '/platform/db-marketplace', icon: '🛒' },
   { label: '지원 접속', to: '/platform/support-access', icon: '🔑' },
   // { label: '플랜 설정', to: '/platform/plans', icon: '📋' },
   // { label: '공지 발송', to: '/platform/notices', icon: '📢' },

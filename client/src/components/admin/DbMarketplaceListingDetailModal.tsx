@@ -130,6 +130,17 @@ export function DbMarketplaceListingDetailModal({
         : `/admin/inquiries?openInquiry=${encodeURIComponent(d.targetInquiryId)}`
       : null;
 
+  const settlementPath =
+    d.status === 'CONFIRMED'
+      ? d.buyerKind === 'PARTNER_TENANT'
+        ? '/admin/team-leaders/tenant-partner-settlement'
+        : d.buyerKind === 'EXTERNAL_COMPANY'
+          ? apiMode === 'team'
+            ? '/team/settlement'
+            : '/admin/team-leaders/external-settlement'
+          : null
+      : null;
+
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
       <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl">
@@ -196,6 +207,18 @@ export function DbMarketplaceListingDetailModal({
                   <p className="text-[11px] text-gray-600">연결 접수 ID: {d.targetInquiryId}</p>
                 )
               ) : null}
+              {settlementPath ? (
+                <Link
+                  to={settlementPath}
+                  className="mt-1 inline-block text-[11px] font-medium text-indigo-700 hover:text-indigo-900 underline"
+                  onClick={onClose}
+                >
+                  {d.buyerKind === 'PARTNER_TENANT' ? '파트너 정산 보기' : '타업체 정산 보기'}
+                </Link>
+              ) : null}
+              <p className="text-[10px] text-emerald-800/80">
+                수수료(listingFee)는 기존 파트너·타업체 정산 집계에 반영됩니다.
+              </p>
             </div>
           ) : (
             <p className="text-[11px] text-gray-500">

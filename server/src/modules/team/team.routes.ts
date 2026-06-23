@@ -45,6 +45,7 @@ import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
 import { countPendingIssuancesForTeamLeader, listIssuancesByTeamLeader, parseEContractListQuery } from '../e-contract/eContract.service.js';
+import { countDbListingPendingForExternalBuyer } from '../db-marketplace/dbMarketplace.service.js';
 import {
   listTeamAssignmentsPaginated,
   parseTeamAssignmentListQuery,
@@ -360,7 +361,27 @@ async function attachProfessionalOptions<T extends object>(
 
 /** 팀장 GNB: 미읽 메시지 + 담당 미처리(접수) C/S + 미확인 배정(상세 미조회) — 한 요청으로 병렬 COUNT */
 router.get('/nav-badges', async (req, res) => {
-  const { userId, role } = (req as unknown as { user: AuthPayload }).user;
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const { userId, role } = auth;
+  const tenantId = getTenantIdFromAuth(auth) ?? null;
+
+  let marketplacePendingCount = 0;
+  if (role === UserRole.EXTERNAL_PARTNER && tenantId) {
+    const [features, me] = await Promise.all([
+      getEffectiveEnabledModules(tenantId),
+      prisma.user.findFirst({
+        where: { id: userId, tenantId },
+        select: { externalCompanyId: true },
+      }),
+    ]);
+    if (features.includes('mod_db_marketplace') && me?.externalCompanyId) {
+      marketplacePendingCount = await countDbListingPendingForExternalBuyer(
+        tenantId,
+        me.externalCompanyId,
+      );
+    }
+  }
+
   const [unreadCount, csPendingCount, newAssignmentCount, eContractPendingCount] = await Promise.all([
     prisma.message.count({
       where: { receiverId: userId, readAt: null },
@@ -382,7 +403,7 @@ router.get('/nav-badges', async (req, res) => {
     }),
     role === UserRole.TEAM_LEADER ? countPendingIssuancesForTeamLeader(userId) : Promise.resolve(0),
   ]);
-  res.json({ unreadCount, csPendingCount, newAssignmentCount, eContractPendingCount });
+  res.json({ unreadCount, csPendingCount, newAssignmentCount, eContractPendingCount, marketplacePendingCount });
 });
 
 router.get('/e-contracts/issuances', async (req, res) => {

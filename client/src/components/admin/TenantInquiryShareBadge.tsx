@@ -9,15 +9,20 @@ type Props = {
 
 export function TenantInquiryShareBadge({ share, className = '', compact = false }: Props) {
   const isSource = share.role === 'SOURCE';
+  const viaMarketplace = Boolean(share.viaMarketplace);
   const label = isSource
     ? `🔗 ${share.partnerName}에 연계`
     : `📥 ${share.partnerName}에서 연계`;
   const sourceNo = share.sourceInquiryNumberSnapshot?.trim();
   const title = isSource
-    ? '수정 시 파트너 업체에도 반영됩니다(고객·일정·금액 등). 완료·취소는 양쪽 자동 반영됩니다.'
-    : sourceNo
-      ? `원 접수번호: ${sourceNo}`
-      : undefined;
+    ? viaMarketplace
+      ? '정보공유(마켓) 확정 후 연계된 접수입니다. 수정 시 파트너 업체에도 반영됩니다.'
+      : '수정 시 파트너 업체에도 반영됩니다(고객·일정·금액 등). 완료·취소는 양쪽 자동 반영됩니다.'
+    : viaMarketplace
+      ? '정보공유(마켓) 확정 후 연계받은 접수입니다.'
+      : sourceNo
+        ? `원 접수번호: ${sourceNo}`
+        : undefined;
 
   return (
     <span
@@ -29,6 +34,11 @@ export function TenantInquiryShareBadge({ share, className = '', compact = false
       title={title}
     >
       <span className="truncate">{label}</span>
+      {viaMarketplace ? (
+        <span className="shrink-0 rounded bg-violet-100 px-1 text-[9px] font-semibold text-violet-800">
+          정보공유
+        </span>
+      ) : null}
       {!isSource && sourceNo && !compact ? (
         <span className="shrink-0 tabular-nums text-gray-600">({sourceNo})</span>
       ) : null}
