@@ -315,7 +315,7 @@ export async function countDbListingPendingForExternalBuyer(
   });
 }
 
-async function viewerCanSeeListing(
+export async function viewerCanSeeListing(
   tenantId: string,
   listing: {
     tenantId: string;

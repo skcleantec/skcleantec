@@ -11,6 +11,10 @@ import {
   serializeSellerListing,
 } from './dbMarketplace.service.js';
 import { confirmDbListingBuyer } from './dbMarketplaceConfirm.service.js';
+import {
+  listDbListingMessages,
+  postDbListingMessage,
+} from './dbMarketplaceMessages.service.js';
 
 const router = Router();
 
@@ -82,6 +86,66 @@ router.get('/:id', async (req, res) => {
     const item = await getDbMarketplaceListingById(tenantId, listingId, {
       viewerExternalCompanyId: ext.me!.externalCompanyId,
     });
+    res.json({ item });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.get('/:id/messages', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+
+  const ext = await requireExternalPartner(auth, tenantId);
+  if (ext.error) {
+    res.status(ext.status).json({ error: ext.error });
+    return;
+  }
+
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const result = await listDbListingMessages(
+      {
+        kind: 'EXTERNAL',
+        tenantId,
+        userId: auth.userId,
+        externalCompanyId: ext.me!.externalCompanyId!,
+      },
+      listingId,
+    );
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/messages', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+
+  const ext = await requireExternalPartner(auth, tenantId);
+  if (ext.error) {
+    res.status(ext.status).json({ error: ext.error });
+    return;
+  }
+
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  const body = (req.body as { body?: unknown })?.body;
+  try {
+    const item = await postDbListingMessage(
+      {
+        kind: 'EXTERNAL',
+        tenantId,
+        userId: auth.userId,
+        externalCompanyId: ext.me!.externalCompanyId!,
+      },
+      listingId,
+      body,
+    );
     res.json({ item });
   } catch (e) {
     if (mapError(res, e)) return;

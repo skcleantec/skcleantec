@@ -23,6 +23,10 @@ import {
   declineDbListingSeller,
 } from './dbMarketplaceConfirm.service.js';
 import {
+  listDbListingMessages,
+  postDbListingMessage,
+} from './dbMarketplaceMessages.service.js';
+import {
   notifyDbMarketplaceBroadcast,
   notifyDbMarketplaceSellerAdmins,
 } from './dbMarketplaceNotify.service.js';
@@ -208,6 +212,42 @@ router.get('/', async (req, res) => {
     req.query.offset,
   );
   res.json(result);
+});
+
+router.get('/:id/messages', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const result = await listDbListingMessages(
+      { kind: 'STAFF', tenantId, userId: auth.userId },
+      listingId,
+    );
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/messages', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  const body = (req.body as { body?: unknown })?.body;
+  try {
+    const item = await postDbListingMessage(
+      { kind: 'STAFF', tenantId, userId: auth.userId },
+      listingId,
+      body,
+    );
+    res.json({ item });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
 });
 
 router.get('/:id', async (req, res) => {

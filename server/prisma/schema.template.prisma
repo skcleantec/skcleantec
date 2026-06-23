@@ -81,6 +81,11 @@ enum InquiryDbListingBuyerKind {
   EXTERNAL_COMPANY
 }
 
+enum InquiryDbListingMessageAuthorRole {
+  SELLER
+  BUYER
+}
+
 enum PlatformRole {
   SUPER_ADMIN
   SUPPORT
@@ -152,6 +157,7 @@ model Tenant {
   inquiryDbListings InquiryDbListing[]
   inquiryDbListingAudiencesAsPartner InquiryDbListingAudience[] @relation("ListingAudiencePartnerTenant")
   inquiryDbListingsAsBuyer InquiryDbListing[] @relation("ListingBuyerTenant")
+  inquiryDbListingMessages InquiryDbListingMessage[]
 
   @@map("tenants")
 }
@@ -280,6 +286,7 @@ model InquiryDbListing {
   buyerTenant          Tenant?                   @relation("ListingBuyerTenant", fields: [buyerTenantId], references: [id], onDelete: SetNull)
   buyerExternalCompany ExternalCompany?          @relation(fields: [buyerExternalCompanyId], references: [id], onDelete: SetNull)
   audiences            InquiryDbListingAudience[]
+  messages             InquiryDbListingMessage[]
 
   @@index([tenantId, status, publishedAt])
   @@index([status, publishedAt])
@@ -303,6 +310,25 @@ model InquiryDbListingAudience {
   @@index([partnerTenantId])
   @@index([externalCompanyId])
   @@map("inquiry_db_listing_audiences")
+}
+
+/// DB 마켓 listing 구매 전 문의(Q&A)
+model InquiryDbListingMessage {
+  id           String                            @id @default(uuid())
+  tenantId     String                            @map("tenant_id")
+  listingId    String                            @map("listing_id")
+  authorUserId String                            @map("author_user_id")
+  authorRole   InquiryDbListingMessageAuthorRole @map("author_role")
+  body         String                            @db.Text
+  createdAt    DateTime                          @default(now()) @map("created_at")
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  listing InquiryDbListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  author  User             @relation("DbListingMessageAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([listingId, createdAt])
+  @@index([tenantId, listingId])
+  @@map("inquiry_db_listing_messages")
 }
 
 /// 플랜 대비 per-tenant 모듈 on/off 오버라이드
@@ -522,6 +548,7 @@ model User {
   externalCompanySettlementPaymentsAsActor ExternalCompanySettlementPayment[] @relation("ExternalCompanySettlementPaymentActor")
   tenantPartnerSettlementPaymentsAsActor TenantPartnerSettlementPayment[] @relation("TenantPartnerSettlementPaymentActor")
   tenantPartnerSettlementResetsAsActor TenantPartnerSettlementReset[] @relation("TenantPartnerSettlementResetActor")
+  dbListingMessagesAuthored            InquiryDbListingMessage[]      @relation("DbListingMessageAuthor")
   operatingCompanyMemberships UserOperatingCompany[]
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
   customCalendarInquiryPins     UserCustomCalendarInquiryPin[]

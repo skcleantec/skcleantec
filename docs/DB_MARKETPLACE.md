@@ -59,7 +59,8 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 | GET | `/`, `/:id`, `/by-inquiry/:inquiryId`, `/draft-count` | 1 |
 | POST | `/:id/buyer-confirm`, `/:id/seller-confirm`, `/:id/seller-decline` | 2–4 |
 | GET | `/draft-count` (장바구니 + 인계 대기 + 구매 대기 건수) | 1, 4, 6 |
-| GET/POST | `/api/team/db-marketplace/*` (타업체 EXTERNAL_PARTNER) | 2–3 |
+| GET/POST | `/:id/messages` | 10 |
+| GET/POST | `/api/team/db-marketplace/*` (타업체 EXTERNAL_PARTNER) | 2–3, 10 |
 | GET/POST | `/api/platform/db-marketplace/*` (플랫폼 중지·목록, PII 없음) | 5 |
 
 ---
@@ -148,3 +149,28 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 - [x] 타업체 GNB 인계 대기 배지 → `/team/db-marketplace?tab=pending`
 - [x] 판매 패널·확정 상세 — 스케줄 `openInquiry` 링크
 - [x] `verify:multitenant:db-marketplace` — draft-count·pending 탭 API
+
+### Phase 10 — 구매 전 문의(Q&A)
+
+**목적**: `갖고가기`(구매 확정) 전에 판매자·구매 후보가 **마스킹된 listing 컨텍스트** 안에서 질의·응답한다. 전화·이메일 등 PII 직접 교환은 UI·운영 안내로 금지(자동 검열 없음).
+
+| 항목 | 정책 |
+|------|------|
+| 작성 가능 상태 | `OPEN` — 노출 대상 전원 · `PENDING_SELLER` — 판매자 + 신청 구매자만 |
+| 읽기 | 위와 동일 + `CONFIRMED` 시 당사자(판매·구매) **이력 조회만** |
+| 작성 불가 | `DRAFT` / `WITHDRAWN` / `EXPIRED` / 플랫폼 중지 |
+| 데이터 | `InquiryDbListingMessage` — listingId, authorTenantId, authorUserId, authorRole(SELLER/BUYER), body |
+| API | `GET/POST /api/db-marketplace/:id/messages`, 팀 `/api/team/db-marketplace/:id/messages` |
+| 실시간 | `inbox:refresh` → 상세 모달 silent 재조회 |
+
+- [x] migration + messages API
+- [x] 관리·팀 상세 모달 Q&A UI
+- [x] verify·문서 마무리
+
+### Phase 11 — 예약(hold) *(정의만, 미착수)*
+
+**후보**: 구매 확정 전 **일시 hold**(타 구매자 차단) — `OPEN` 상태 race·만료·거절 정책과 충돌 검토 필요. Q&A(Phase 10) 안정화 후 착수.
+
+- [ ] hold 정책 확정(기간·1인·자동 해제)
+- [ ] 상태 또는 `heldUntil` 필드 설계
+- [ ] UI·API

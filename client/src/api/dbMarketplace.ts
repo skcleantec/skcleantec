@@ -295,3 +295,65 @@ export async function confirmTeamDbMarketplaceBuyer(
   const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
   return data.listing;
 }
+
+export type DbMarketplaceListingMessage = {
+  id: string;
+  authorRole: 'SELLER' | 'BUYER';
+  authorName: string;
+  authorTenantId: string;
+  body: string;
+  createdAt: string;
+  canWrite: boolean;
+};
+
+export async function listDbMarketplaceMessages(
+  token: string,
+  listingId: string,
+): Promise<{ items: DbMarketplaceListingMessage[]; canWrite: boolean }> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/messages`, {
+    headers: headers(token),
+  });
+  return parseJson(res);
+}
+
+export async function postDbMarketplaceMessage(
+  token: string,
+  listingId: string,
+  body: string,
+): Promise<DbMarketplaceListingMessage> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/messages`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ body }),
+  });
+  const data = await parseJson<{ item: DbMarketplaceListingMessage }>(res);
+  return data.item;
+}
+
+export async function listTeamDbMarketplaceMessages(
+  token: string,
+  listingId: string,
+): Promise<{ items: DbMarketplaceListingMessage[]; canWrite: boolean }> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}/messages`),
+    { headers: headers(token) },
+  );
+  return parseJson(res);
+}
+
+export async function postTeamDbMarketplaceMessage(
+  token: string,
+  listingId: string,
+  body: string,
+): Promise<DbMarketplaceListingMessage> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}/messages`),
+    {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify({ body }),
+    },
+  );
+  const data = await parseJson<{ item: DbMarketplaceListingMessage }>(res);
+  return data.item;
+}

@@ -8,7 +8,12 @@ import {
   getDbMarketplaceListing,
   confirmTeamDbMarketplaceBuyer,
   getTeamDbMarketplaceListing,
+  listDbMarketplaceMessages,
+  postDbMarketplaceMessage,
+  listTeamDbMarketplaceMessages,
+  postTeamDbMarketplaceMessage,
   type DbMarketplaceListingDetail,
+  type DbMarketplaceListingMessage,
   type DbMarketplaceMaskedItem,
 } from '../../api/dbMarketplace';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -35,6 +40,14 @@ export function DbMarketplaceListingDetailModal({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<DbMarketplaceListingMessage[]>([]);
+  const [canWriteMessages, setCanWriteMessages] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+
+  const showQna =
+    row.status === 'OPEN' || row.status === 'PENDING_SELLER' || row.status === 'CONFIRMED';
 
   const loadDetail = useCallback(
     (opts?: { silent?: boolean }) => {
@@ -60,14 +73,44 @@ export function DbMarketplaceListingDetailModal({
     loadDetail();
   }, [loadDetail]);
 
+  const loadMessages = useCallback(
+    (opts?: { silent?: boolean }) => {
+      if (!token || !showQna) return;
+      if (!opts?.silent) setMessagesLoading(true);
+      void (apiMode === 'team'
+        ? listTeamDbMarketplaceMessages(token, row.id)
+        : listDbMarketplaceMessages(token, row.id)
+      )
+        .then((r) => {
+          setMessages(r.items);
+          setCanWriteMessages(r.canWrite);
+          setMessagesError(null);
+        })
+        .catch((e) => {
+          setMessages([]);
+          setCanWriteMessages(false);
+          setMessagesError(e instanceof Error ? e.message : '문의 불러오기 실패');
+        })
+        .finally(() => {
+          if (!opts?.silent) setMessagesLoading(false);
+        });
+    },
+    [token, row.id, apiMode, showQna],
+  );
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
+
   const lastSilentRefreshRef = useRef(0);
   const silentRefresh = useCallback(() => {
     const now = Date.now();
     if (now - lastSilentRefreshRef.current < 4000) return;
     lastSilentRefreshRef.current = now;
     loadDetail({ silent: true });
+    loadMessages({ silent: true });
     onChanged();
-  }, [loadDetail, onChanged]);
+  }, [loadDetail, loadMessages, onChanged]);
 
   const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
@@ -116,6 +159,22 @@ export function DbMarketplaceListingDetailModal({
       onClose();
     } catch (e) {
       alert(e instanceof Error ? e.message : '거절 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!token || !messageInput.trim()) return;
+    setBusy(true);
+    try {
+      await (apiMode === 'team'
+        ? postTeamDbMarketplaceMessage(token, row.id, messageInput.trim())
+        : postDbMarketplaceMessage(token, row.id, messageInput.trim()));
+      setMessageInput('');
+      loadMessages({ silent: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '등록 실패');
     } finally {
       setBusy(false);
     }
@@ -264,6 +323,57 @@ export function DbMarketplaceListingDetailModal({
               확정 전에는 시·구 주소와 표시금액만 확인할 수 있습니다.
             </p>
           )}
+
+          {showQna ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2">
+              <p className="text-fluid-xs font-semibold text-slate-900">구매 전 문의</p>
+              <p className="text-[10px] text-gray-500 leading-relaxed">
+                전화·이메일·주소 전체 등 연락처는 적지 마세요. 갖고가기 전 질문·답변만 남겨 주세요.
+              </p>
+              {messagesLoading && messages.length === 0 ? (
+                <p className="text-[11px] text-gray-500">문의 불러오는 중…</p>
+              ) : null}
+              {messagesError ? <p className="text-[11px] text-red-600">{messagesError}</p> : null}
+              <div className="max-h-44 overflow-y-auto space-y-2 rounded-lg bg-gray-50 p-2">
+                {messages.map((m) => (
+                  <div key={m.id} className="text-[11px]">
+                    <p className="font-medium text-slate-800">
+                      {m.authorRole === 'SELLER' ? '판매' : '구매'} · {m.authorName}
+                      <span className="ml-2 font-normal text-gray-400">
+                        {new Date(m.createdAt).toLocaleString('ko-KR')}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 whitespace-pre-wrap text-gray-700">{m.body}</p>
+                  </div>
+                ))}
+                {messages.length === 0 && !messagesLoading && !messagesError ? (
+                  <p className="text-[11px] text-gray-400">아직 문의가 없습니다.</p>
+                ) : null}
+              </div>
+              {canWriteMessages ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    rows={3}
+                    maxLength={2000}
+                    placeholder="문의 내용을 입력하세요"
+                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-[11px]"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || !messageInput.trim()}
+                    onClick={() => void sendMessage()}
+                    className="rounded-lg bg-slate-800 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    문의 등록
+                  </button>
+                </div>
+              ) : d.status === 'CONFIRMED' ? (
+                <p className="text-[10px] text-gray-500">확정 완료 — 문의 이력만 조회합니다.</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-2 pt-2">
             {d.status === 'OPEN' && d.role === 'VIEWER' && !d.platformSuspended ? (

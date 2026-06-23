@@ -181,3 +181,33 @@ export async function notifyDbMarketplaceSellerDeclined(opts: {
   }
   if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
 }
+
+/** listing Q&A 등록 — 판매자·시청자·구매 신청자(해당 시) 갱신 */
+export async function notifyDbMarketplaceMessagePosted(opts: {
+  sellerTenantId: string;
+  visibility: string;
+  audiences: DbMarketplaceAudienceRef[];
+  buyerTenantId: string | null;
+  buyerExternalCompanyId: string | null;
+  authorUserId: string;
+}): Promise<void> {
+  const userIds = new Set<string>();
+  for (const id of await activeAdminUserIds(opts.sellerTenantId)) userIds.add(id);
+  for (const id of await resolveDbMarketplaceWatcherUserIds({
+    sellerTenantId: opts.sellerTenantId,
+    visibility: opts.visibility,
+    audiences: mapAudiences(opts.audiences),
+  })) {
+    userIds.add(id);
+  }
+  if (opts.buyerTenantId) {
+    for (const id of await activeAdminUserIds(opts.buyerTenantId)) userIds.add(id);
+  }
+  if (opts.buyerExternalCompanyId) {
+    for (const id of await externalPartnerUserIds(opts.sellerTenantId, opts.buyerExternalCompanyId)) {
+      userIds.add(id);
+    }
+  }
+  userIds.delete(opts.authorUserId);
+  if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+}
