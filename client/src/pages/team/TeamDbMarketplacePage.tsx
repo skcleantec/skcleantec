@@ -12,6 +12,12 @@ import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { DbMarketplaceListingDetailModal } from '../../components/admin/DbMarketplaceListingDetailModal';
 import { DbMarketplaceBulkResultModal } from '../../components/admin/DbMarketplaceBulkResultModal';
 import {
+  DbMarketplaceBulkActionBar,
+  DbMarketplaceRowCard,
+  DbMarketplaceTabBar,
+  dbMarketplacePageBottomClass,
+} from '../../components/db-marketplace/DbMarketplaceListUi';
+import {
   formatMarketplaceCleaningSummary,
   formatMarketplaceSchedule,
 } from '../../utils/dbMarketplaceDisplay';
@@ -53,63 +59,6 @@ function parseTeamTab(raw: string | null): TeamDbMarketplaceListTab {
 
 function cleaningSummary(row: DbMarketplaceMaskedItem): string {
   return formatMarketplaceCleaningSummary(row);
-}
-
-function MarketplaceRowCard({
-  row,
-  onOpen,
-  selectable,
-  selected,
-  onToggleSelect,
-}: {
-  row: DbMarketplaceMaskedItem;
-  onOpen: () => void;
-  selectable?: boolean;
-  selected?: boolean;
-  onToggleSelect?: () => void;
-}) {
-  const disabledReason = selectable ? marketplaceBulkSelectDisabledReason(row, 'buy') : null;
-  const canSelect = selectable && !disabledReason;
-
-  return (
-    <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      {selectable ? (
-        <label className="flex shrink-0 items-start pt-0.5">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={selected}
-            disabled={!canSelect}
-            title={disabledReason ?? undefined}
-            onChange={(e) => {
-              e.stopPropagation();
-              if (canSelect && onToggleSelect) onToggleSelect();
-            }}
-          />
-        </label>
-      ) : null}
-      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left hover:opacity-90">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-fluid-sm font-semibold text-slate-900">
-            {row.customerNameMasked}
-            <span className="ml-2 font-normal text-gray-500">{row.addressRegion}</span>
-          </p>
-          <p className="mt-1 text-fluid-xs text-gray-600">{cleaningSummary(row)}</p>
-          <p className="mt-1 text-fluid-xs text-gray-500">{formatMarketplaceSchedule(row)}</p>
-        </div>
-        <div className="text-right shrink-0">
-          <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_CLASS[row.status] ?? ''}`}>
-            {STATUS_LABEL[row.status] ?? row.status}
-          </span>
-          <p className="mt-2 text-fluid-sm font-semibold tabular-nums text-slate-900">
-            {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
-          </p>
-        </div>
-      </div>
-      </button>
-    </div>
-  );
 }
 
 export function TeamDbMarketplacePage() {
@@ -274,7 +223,7 @@ export function TeamDbMarketplacePage() {
   };
 
   return (
-    <div className="min-w-0 w-full max-w-full space-y-4 pb-24">
+    <div className={`min-w-0 w-full max-w-full space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
       <div>
         <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
         <p className="mt-1 text-fluid-xs text-gray-600">
@@ -284,20 +233,7 @@ export function TeamDbMarketplacePage() {
         </p>
       </div>
 
-      <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1">
-        {TAB_OPTIONS.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => setTab(opt.id)}
-            className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium transition-colors ${
-              tab === opt.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <ListPaginationBar
@@ -321,7 +257,7 @@ export function TeamDbMarketplacePage() {
           </p>
         ) : null}
 
-        <div className="mt-4 hidden lg:block overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[640px]">
             <colgroup>
               {selectable ? <col className="w-[36px]" /> : null}
@@ -401,17 +337,17 @@ export function TeamDbMarketplacePage() {
           </table>
         </div>
 
-        <p className="mt-2 text-center text-[11px] text-gray-500 lg:hidden">표는 좌우로 스크롤할 수 있습니다.</p>
-
         <div className="mt-4 space-y-3 lg:hidden">
           {items.map((row) => (
-            <MarketplaceRowCard
+            <DbMarketplaceRowCard
               key={row.id}
               row={row}
               onOpen={() => setSelectedRow(row)}
               selectable={selectable}
               selected={selectedIds.has(row.id)}
               onToggleSelect={() => toggleRow(row.id)}
+              bulkMode={selectable ? 'buy' : null}
+              showSeller={false}
             />
           ))}
         </div>
@@ -428,29 +364,17 @@ export function TeamDbMarketplacePage() {
         ) : null}
       </div>
 
-      {selectedCount > 0 && selectable ? (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-3 shadow-lg">
-          <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-2">
-            <p className="text-fluid-xs font-medium text-slate-900">{selectedCount}건 선택</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-xs text-gray-700"
-                onClick={() => setSelectedIds(new Set())}
-              >
-                선택 해제
-              </button>
-              <button
-                type="button"
-                disabled={bulkBusy}
-                className="rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50"
-                onClick={() => void runBulkBuy()}
-              >
-                갖고가기
-              </button>
-            </div>
-          </div>
-        </div>
+      {selectable ? (
+        <DbMarketplaceBulkActionBar selectedCount={selectedCount} onClear={() => setSelectedIds(new Set())}>
+          <button
+            type="button"
+            disabled={bulkBusy}
+            className="min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none"
+            onClick={() => void runBulkBuy()}
+          >
+            갖고가기
+          </button>
+        </DbMarketplaceBulkActionBar>
       ) : null}
 
       <DbMarketplaceBulkResultModal

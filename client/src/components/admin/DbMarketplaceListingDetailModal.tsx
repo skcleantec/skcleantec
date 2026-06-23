@@ -288,12 +288,12 @@ export function DbMarketplaceListingDetailModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
+      <div className="flex w-full max-w-lg max-h-[min(90vh,100dvh)] flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-xl">
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
           <h2 className="text-fluid-sm font-semibold text-slate-900">정보공유 상세</h2>
           <ModalCloseButton onClick={onClose} />
         </div>
-        <div className="p-4 space-y-3 text-fluid-xs">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4 space-y-3 text-fluid-xs" style={{ WebkitOverflowScrolling: 'touch' }}>
           {loading && !detail ? <p className="text-gray-500">불러오는 중…</p> : null}
           {error ? <p className="text-red-600">{error}</p> : null}
 
@@ -303,7 +303,7 @@ export function DbMarketplaceListingDetailModal({
             </p>
           ) : null}
 
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-1">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-1.5 break-words">
             <p>
               <span className="text-gray-500">판매 업체</span> {d.sellerTenantName}
             </p>
@@ -463,7 +463,8 @@ export function DbMarketplaceListingDetailModal({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className="sticky bottom-0 -mx-4 border-t border-gray-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {d.status === 'OPEN' && d.role === 'VIEWER' && !d.platformSuspended ? (
               <>
                 {d.holdActive && !d.holdIsMine ? (
@@ -479,7 +480,7 @@ export function DbMarketplaceListingDetailModal({
                     type="button"
                     disabled={busy}
                     onClick={() => void runHold()}
-                    className="rounded-lg border border-violet-300 px-4 py-2 text-fluid-xs font-medium text-violet-900 hover:bg-violet-50 disabled:opacity-50"
+                    className="min-h-[2.75rem] w-full rounded-lg border border-violet-300 px-4 py-2 text-fluid-xs font-medium text-violet-900 hover:bg-violet-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
                   >
                     {DB_MARKETPLACE_HOLD_MINUTES}분 검토 예약
                   </button>
@@ -489,7 +490,7 @@ export function DbMarketplaceListingDetailModal({
                     type="button"
                     disabled={busy}
                     onClick={() => void runReleaseHold()}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    className="min-h-[2.75rem] w-full rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
                   >
                     검토 예약 해제
                   </button>
@@ -499,7 +500,7 @@ export function DbMarketplaceListingDetailModal({
                     type="button"
                     disabled={busy}
                     onClick={() => void runBuyerConfirm()}
-                    className="rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50"
+                    className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:w-auto sm:min-h-0"
                   >
                     갖고가기
                   </button>
@@ -512,7 +513,7 @@ export function DbMarketplaceListingDetailModal({
                   type="button"
                   disabled={busy}
                   onClick={() => void runSellerConfirm()}
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                  className="min-h-[2.75rem] w-full rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto sm:min-h-0"
                 >
                   인계 확정
                 </button>
@@ -520,7 +521,7 @@ export function DbMarketplaceListingDetailModal({
                   type="button"
                   disabled={busy}
                   onClick={() => void runSellerDecline()}
-                  className="rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+                  className="min-h-[2.75rem] w-full rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
                 >
                   구매 신청 거절
                 </button>
@@ -528,11 +529,12 @@ export function DbMarketplaceListingDetailModal({
             ) : null}
             <button
               type="button"
-              className="rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs text-gray-700"
+              className="min-h-[2.75rem] w-full rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs text-gray-700 sm:w-auto sm:min-h-0"
               onClick={onClose}
             >
               닫기
             </button>
+            </div>
           </div>
         </div>
       </div>

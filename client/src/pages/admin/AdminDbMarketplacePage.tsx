@@ -15,6 +15,12 @@ import { DbMarketplaceListingDetailModal } from '../../components/admin/DbMarket
 import { DbMarketplaceAudiencePickerModal } from '../../components/admin/DbMarketplaceAudiencePickerModal';
 import { DbMarketplaceBulkResultModal } from '../../components/admin/DbMarketplaceBulkResultModal';
 import {
+  DbMarketplaceBulkActionBar,
+  DbMarketplaceRowCard,
+  DbMarketplaceTabBar,
+  dbMarketplacePageBottomClass,
+} from '../../components/db-marketplace/DbMarketplaceListUi';
+import {
   formatMarketplaceCleaningSummary,
   formatMarketplaceSchedule,
 } from '../../utils/dbMarketplaceDisplay';
@@ -67,76 +73,6 @@ function parseAdminTab(raw: string | null): DbMarketplaceListTab {
 
 function cleaningSummary(row: DbMarketplaceMaskedItem): string {
   return formatMarketplaceCleaningSummary(row);
-}
-
-function MarketplaceRowCard({
-  row,
-  onOpen,
-  selectable,
-  selected,
-  onToggleSelect,
-  bulkMode,
-  showSeller,
-}: {
-  row: DbMarketplaceMaskedItem;
-  onOpen: () => void;
-  selectable: boolean;
-  selected: boolean;
-  onToggleSelect: () => void;
-  bulkMode: 'publish' | 'buy' | null;
-  showSeller: boolean;
-}) {
-  const disabledReason =
-    bulkMode && selectable ? marketplaceBulkSelectDisabledReason(row, bulkMode) : null;
-  const canSelect = selectable && !disabledReason;
-
-  return (
-    <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      {selectable ? (
-        <label className="flex shrink-0 items-start pt-0.5">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={selected}
-            disabled={!canSelect}
-            title={disabledReason ?? undefined}
-            onChange={(e) => {
-              e.stopPropagation();
-              if (canSelect) onToggleSelect();
-            }}
-          />
-        </label>
-      ) : null}
-      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left hover:opacity-90">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-fluid-sm font-semibold text-slate-900">
-              {row.customerNameMasked}
-              <span className="ml-2 font-normal text-gray-500">{row.addressRegion}</span>
-            </p>
-            <p className="mt-1 text-fluid-xs text-gray-600">{cleaningSummary(row)}</p>
-            <p className="mt-1 text-fluid-xs text-gray-500">{formatMarketplaceSchedule(row)}</p>
-            {row.listingFee != null ? (
-              <p className="mt-1 text-fluid-xs text-gray-500 tabular-nums">
-                수수료 {row.listingFee.toLocaleString('ko-KR')}원
-              </p>
-            ) : null}
-          </div>
-          <div className="text-right shrink-0">
-            <span
-              className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_CLASS[row.status] ?? ''}`}
-            >
-              {STATUS_LABEL[row.status] ?? row.status}
-            </span>
-            <p className="mt-2 text-fluid-sm font-semibold tabular-nums text-slate-900">
-              {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
-            </p>
-            {showSeller ? <p className="text-[11px] text-gray-500">{row.sellerTenantName}</p> : null}
-          </div>
-        </div>
-      </button>
-    </div>
-  );
 }
 
 export function AdminDbMarketplacePage() {
@@ -346,7 +282,7 @@ export function AdminDbMarketplacePage() {
   };
 
   return (
-    <div className="min-w-0 w-full max-w-full space-y-4 pb-24">
+    <div className={`min-w-0 w-full max-w-full space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
       <div>
         <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
         <p className="mt-1 text-fluid-xs text-gray-600">
@@ -356,20 +292,7 @@ export function AdminDbMarketplacePage() {
         </p>
       </div>
 
-      <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1">
-        {TAB_OPTIONS.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => setTab(opt.id)}
-            className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium transition-colors ${
-              tab === opt.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <ListPaginationBar
@@ -391,7 +314,7 @@ export function AdminDbMarketplacePage() {
           <p className="mt-6 p-8 text-center text-fluid-sm text-gray-500">{tabLabel} 항목이 없습니다.</p>
         ) : null}
 
-        <div className="mt-4 hidden lg:block overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[720px]">
             <colgroup>
               {selectable ? <col className="w-[36px]" /> : null}
@@ -488,7 +411,7 @@ export function AdminDbMarketplacePage() {
 
         <div className="mt-4 space-y-3 lg:hidden">
           {items.map((row) => (
-            <MarketplaceRowCard
+            <DbMarketplaceRowCard
               key={row.id}
               row={row}
               onOpen={() => setSelectedRow(row)}
@@ -513,40 +436,29 @@ export function AdminDbMarketplacePage() {
         ) : null}
       </div>
 
-      {selectedCount > 0 && bulkMode ? (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-3 shadow-lg">
-          <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-2">
-            <p className="text-fluid-xs font-medium text-slate-900">{selectedCount}건 선택</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-gray-300 px-3 py-2 text-fluid-xs text-gray-700"
-                onClick={() => setSelectedIds(new Set())}
-              >
-                선택 해제
-              </button>
-              {bulkMode === 'publish' ? (
-                <button
-                  type="button"
-                  disabled={bulkBusy}
-                  className="rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50"
-                  onClick={() => setAudienceModalOpen(true)}
-                >
-                  노출 업체 지정 · 게시하기
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={bulkBusy}
-                  className="rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50"
-                  onClick={() => void runBulkBuy()}
-                >
-                  갖고가기
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+      {bulkMode ? (
+        <DbMarketplaceBulkActionBar selectedCount={selectedCount} onClear={() => setSelectedIds(new Set())}>
+        {bulkMode === 'publish' ? (
+          <button
+            type="button"
+            disabled={bulkBusy}
+            className="min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none sm:px-4"
+            onClick={() => setAudienceModalOpen(true)}
+          >
+            <span className="sm:hidden">노출 지정 · 게시</span>
+            <span className="hidden sm:inline">노출 업체 지정 · 게시하기</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={bulkBusy}
+            className="min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none"
+            onClick={() => void runBulkBuy()}
+          >
+            갖고가기
+          </button>
+        )}
+      </DbMarketplaceBulkActionBar>
       ) : null}
 
       <DbMarketplaceAudiencePickerModal
