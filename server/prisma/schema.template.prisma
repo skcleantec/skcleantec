@@ -1002,6 +1002,7 @@ enum InternalCustomerTone {
   GOOD
   NORMAL
   BAD
+  ELDERLY
 }
 
 model Inquiry {

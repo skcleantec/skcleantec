@@ -17,6 +17,7 @@ import {
   type OrderFormPublicTemplate,
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
+import { internalCustomerToneForApi, type InternalCustomerTone } from '../../constants/internalCustomerTone';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS, isPreferredTimeDetailRequired, labelForTimeSlot, type OrderTimeSlot } from '../../constants/orderFormSchedule';
 import {
@@ -100,7 +101,7 @@ export interface OrderFormEditorContext {
   create?: {
     templateId?: string;
     pendingInquiryId?: string;
-    internalCustomerTone?: string;
+    internalCustomerTone?: InternalCustomerTone;
     onCreated: (order: OrderForm) => void;
   };
   /** 관리자 화면 임베드(크롬리스: 전체화면·고정바·푸터 제거) */
@@ -902,10 +903,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         preferredTimeDetail: form.preferredTimeDetail.trim() || undefined,
         ...(areaPyeongNum != null ? { areaPyeong: areaPyeongNum, areaBasis: form.areaBasis } : {}),
         pendingInquiryId: editor.create.pendingInquiryId || undefined,
-        internalCustomerTone:
-          editor.create.internalCustomerTone === 'GOOD' || editor.create.internalCustomerTone === 'BAD'
-            ? editor.create.internalCustomerTone
-            : undefined,
+        internalCustomerTone: internalCustomerToneForApi(editor.create.internalCustomerTone),
         templateId: editor.create.templateId || undefined,
       });
       await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());

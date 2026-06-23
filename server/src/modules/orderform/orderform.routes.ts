@@ -1092,7 +1092,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
     preferredTime?: string;
     preferredTimeDetail?: string;
     pendingInquiryId?: string;
-    /** 대기 접수 연결 시 접수에 저장 — GOOD|NORMAL|BAD, 기본 NORMAL */
+    /** 대기 접수 연결 시 접수에 저장 — GOOD|NORMAL|BAD|ELDERLY, 기본 NORMAL */
     internalCustomerTone?: string;
     operatingCompanyId?: string;
     areaPyeong?: unknown;

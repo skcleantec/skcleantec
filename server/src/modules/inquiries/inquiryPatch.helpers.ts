@@ -179,7 +179,7 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
       data.internalCustomerTone = 'NORMAL';
     } else {
       const s = String(v).trim().toUpperCase();
-      if (s === 'GOOD' || s === 'NORMAL' || s === 'BAD') {
+      if (s === 'GOOD' || s === 'NORMAL' || s === 'BAD' || s === 'ELDERLY') {
         data.internalCustomerTone = s;
       }
     }
