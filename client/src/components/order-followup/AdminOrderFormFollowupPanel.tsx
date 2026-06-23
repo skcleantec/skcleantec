@@ -427,23 +427,31 @@ export function AdminOrderFormFollowupPanel({
   const [deleteTarget, setDeleteTarget] = useState<OrderFollowupItem | null>(null);
   const [memoView, setMemoView] = useState<OrderFollowupItem | null>(null);
 
+  const itemsLengthRef = useRef(items.length);
+  itemsLengthRef.current = items.length;
+
+  const listQueryKey = useMemo(
+    () => `${listFilterKey}\0${listPage}\0${listPageSize}`,
+    [listFilterKey, listPage, listPageSize]
+  );
+  const prevListQueryKeyRef = useRef<string | null>(null);
+
   /**
    * 목록 재조회.
    * - 기본: 로딩 스피너로 테이블을 갈아끼움(필터·초기 로드).
    * - silent: 테이블 유지(편집/부재+1/삭제 후) — 스크롤 위치가 맨 위로 튀는 현상 방지.
    */
   const load = useCallback(
-    async (opts?: { status?: OrderFollowupStatus | ''; silent?: boolean; scrollToTop?: boolean }) => {
+    async (opts?: { status?: OrderFollowupStatus | ''; silent?: boolean }) => {
       const silent = opts?.silent === true;
-      if (!silent && opts?.scrollToTop) scrollToTop();
       if (!silent) {
         beginListRefresh({
           showLoading: true,
-          itemCount: items.length,
+          itemCount: itemsLengthRef.current,
           setLoading,
           preserveScroll,
         });
-      } else if (items.length > 0) {
+      } else if (itemsLengthRef.current > 0) {
         preserveScroll();
       }
       setError(null);
@@ -506,15 +514,20 @@ export function AdminOrderFormFollowupPanel({
       listPageSize,
       opsRange,
       setTotal,
-      items.length,
       preserveScroll,
-      scrollToTop,
     ]
   );
 
+  /** 필터·페이지 변경 시에만 맨 위로 — 저장 등 silent 재조회 후 load 재생성으로 스크롤이 튀지 않게 한다. */
   useEffect(() => {
-    void load({ scrollToTop: true });
-  }, [load]);
+    const prev = prevListQueryKeyRef.current;
+    prevListQueryKeyRef.current = listQueryKey;
+    if (prev !== null && prev !== listQueryKey) {
+      scrollToTop();
+    }
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- listQueryKey·token만 구독(AdminInquiriesPage와 동일)
+  }, [token, listQueryKey]);
 
   /** 예전에 다른 상태로 필터를 둔 경우 — 이 화면에서는 부재·보류만 (대시보드 drill-down 예외) */
   useEffect(() => {
@@ -633,6 +646,7 @@ export function AdminOrderFormFollowupPanel({
         preferredMoveInCleaningDate: editPreferredYmd.trim() || null,
         goldDb: editGoldDb,
       });
+      preserveScroll();
       setEdit(null);
       await load({ silent: true });
     } catch (e) {
@@ -647,6 +661,7 @@ export function AdminOrderFormFollowupPanel({
     setDeferSaving(true);
     try {
       await deferOrderFollowup(token, deferTarget.id, deferNote.trim());
+      preserveScroll();
       setDeferTarget(null);
       setDeferNote('');
       await load({ silent: true });
@@ -662,6 +677,7 @@ export function AdminOrderFormFollowupPanel({
   const confirmDelete = async (password: string) => {
     if (!deleteTarget) return;
     await deleteOrderFollowup(token, deleteTarget.id, password);
+    preserveScroll();
     if (edit?.id === deleteTarget.id) setEdit(null);
     setLogFor((prev) => (prev?.id === deleteTarget.id ? null : prev));
     setDeleteTarget(null);
