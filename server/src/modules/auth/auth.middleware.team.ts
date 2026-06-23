@@ -86,6 +86,7 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
         userId: target.id,
         email: target.email,
         role: 'EXTERNAL_PARTNER',
+        tenantId: sessionTenantId,
       };
     } else if (previewTeamLeaderFlag) {
       const tlId = q.previewTeamLeaderId!.trim();
@@ -106,6 +107,7 @@ export async function teamAuthMiddleware(req: Request, res: Response, next: Next
         userId: target.id,
         email: target.email,
         role: 'TEAM_LEADER',
+        tenantId: sessionTenantId,
       };
     }
     (req as Request & {
