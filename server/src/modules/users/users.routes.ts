@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
-import type { TeamLeaderGeneralSettlementMode } from '@prisma/client';
+import type { TeamLeaderGeneralSettlementMode, MarketerAdminLevel } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
@@ -41,6 +41,7 @@ import {
 } from '../operating-companies/userOperatingCompany.service.js';
 import { allowedTeamLeaderIdsForInquiryBrand } from '../operating-companies/operatingCompanyAssignment.js';
 import { getOperatingCompanyPolicyFromService } from '../operating-companies/operatingCompanyPolicy.js';
+import { parseMarketerAdminLevel } from '../../lib/marketerAdminLevel.js';
 
 const router = Router();
 
@@ -250,7 +251,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
       hireDate: true,
       resignationDate: true,
       allowSelfDayOffEdit: true,
-      hasAdminPrivileges: true,
+      marketerAdminLevel: true,
       payrollMonthlySalary: true,
       payrollPayDay: true,
       teamLeaderGeneralSettlementMode: true,
@@ -292,7 +293,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
         hireDate: true,
         resignationDate: true,
         allowSelfDayOffEdit: true,
-        hasAdminPrivileges: true,
+        marketerAdminLevel: true,
         payrollMonthlySalary: true,
         payrollPayDay: true,
         teamLeaderGeneralSettlementMode: true,
@@ -340,7 +341,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
       externalCompanyId: u.externalCompany?.id ?? null,
       externalCompanyName: u.externalCompany?.name ?? null,
       allowSelfDayOffEdit: u.role === 'TEAM_LEADER' ? u.allowSelfDayOffEdit : true,
-      hasAdminPrivileges: u.role === 'MARKETER' ? u.hasAdminPrivileges : false,
+      marketerAdminLevel: u.role === 'MARKETER' ? u.marketerAdminLevel : 'NONE',
       payrollMonthlySalary: u.payrollMonthlySalary ?? null,
       payrollPayDay: u.payrollPayDay ?? null,
       teamLeaderGeneralSettlementMode: u.teamLeaderGeneralSettlementMode ?? null,
@@ -703,7 +704,9 @@ router.patch('/:id', adminOnly, async (req, res) => {
     hireDate?: string | null;
     resignationDate?: string | null;
     allowSelfDayOffEdit?: boolean;
+    /** @deprecated marketerAdminLevel 사용 */
     hasAdminPrivileges?: boolean;
+    marketerAdminLevel?: MarketerAdminLevel | string;
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null | string;
@@ -787,7 +790,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     hireDate?: Date | null;
     resignationDate?: Date | null;
     allowSelfDayOffEdit?: boolean;
-    hasAdminPrivileges?: boolean;
+    marketerAdminLevel?: MarketerAdminLevel;
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null;
@@ -876,12 +879,25 @@ router.patch('/:id', adminOnly, async (req, res) => {
     data.allowSelfDayOffEdit = Boolean(body.allowSelfDayOffEdit);
   }
 
-  if (body.hasAdminPrivileges !== undefined) {
+  if (body.marketerAdminLevel !== undefined || body.hasAdminPrivileges !== undefined) {
+    if (authUser.role !== 'ADMIN') {
+      res.status(403).json({ error: '마케터 권한 설정은 관리자(ADMIN)만 변경할 수 있습니다.' });
+      return;
+    }
     if (existing.role !== 'MARKETER') {
       res.status(400).json({ error: '관리자 권한은 마케터 계정만 변경할 수 있습니다.' });
       return;
     }
-    data.hasAdminPrivileges = Boolean(body.hasAdminPrivileges);
+    if (body.marketerAdminLevel !== undefined) {
+      const level = parseMarketerAdminLevel(body.marketerAdminLevel);
+      if (!level) {
+        res.status(400).json({ error: 'marketerAdminLevel은 NONE, LIMITED, FULL 중 하나여야 합니다.' });
+        return;
+      }
+      data.marketerAdminLevel = level;
+    } else {
+      data.marketerAdminLevel = body.hasAdminPrivileges ? ('LIMITED' as MarketerAdminLevel) : ('NONE' as MarketerAdminLevel);
+    }
   }
 
   const payrollRoleOk =
@@ -996,7 +1012,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     hireDate: true,
     resignationDate: true,
     allowSelfDayOffEdit: true,
-    hasAdminPrivileges: true,
+    marketerAdminLevel: true,
     payrollMonthlySalary: true,
     payrollPayDay: true,
     teamLeaderGeneralSettlementMode: true,
@@ -1014,7 +1030,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     res.json({
       ...u,
       allowSelfDayOffEdit: u.role === 'TEAM_LEADER' ? u.allowSelfDayOffEdit : true,
-      hasAdminPrivileges: u.role === 'MARKETER' ? u.hasAdminPrivileges : false,
+      marketerAdminLevel: u.role === 'MARKETER' ? u.marketerAdminLevel : 'NONE',
       payrollMonthlySalary: u.payrollMonthlySalary ?? null,
       payrollPayDay: u.payrollPayDay ?? null,
       teamLeaderGeneralSettlementMode: u.teamLeaderGeneralSettlementMode ?? null,
@@ -1052,7 +1068,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
   res.json({
     ...updated,
     allowSelfDayOffEdit: updated.role === 'TEAM_LEADER' ? updated.allowSelfDayOffEdit : true,
-    hasAdminPrivileges: updated.role === 'MARKETER' ? updated.hasAdminPrivileges : false,
+    marketerAdminLevel: updated.role === 'MARKETER' ? updated.marketerAdminLevel : 'NONE',
     payrollMonthlySalary: updated.payrollMonthlySalary ?? null,
     payrollPayDay: updated.payrollPayDay ?? null,
     teamLeaderGeneralSettlementMode: updated.teamLeaderGeneralSettlementMode ?? null,

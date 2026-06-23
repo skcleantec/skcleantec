@@ -3,10 +3,13 @@
  * 변경: shared/staffAccess.ts 수정 후 동기화.
  */
 
-/** L1 Tenant.config.access — 직원 권한 정책 */
+import type { MarketerAdminLevel } from './marketerAdminLevel.js';
+import { hasMarketerFullAdminAccess } from './marketerAdminLevel.js';
+
+/** L1 Tenant.config.access — 직원 권한 정책 (레거시 테넌트 전역 설정) */
 
 export type TenantAccessConfig = {
-  /** true: MARKETER도 ADMIN과 동일한 업무 API·관리 메뉴 (업체 소유자 전용 기능 제외) */
+  /** @deprecated per-user marketerAdminLevel 사용. true면 레거시 호환용 FULL 취급 */
   marketerAdminAccess?: boolean;
 };
 
@@ -16,11 +19,13 @@ export function isMarketerAdminAccessEnabled(config: unknown): boolean {
   return access?.marketerAdminAccess === true;
 }
 
-/** ADMIN 또는 (MARKETER + 테넌트 승격 설정) */
+/** ADMIN 또는 (MARKETER + FULL) — GNB 관리자 전용 메뉴 */
 export function hasEffectiveStaffAdminAccess(
   role: string | null | undefined,
-  marketerAdminAccess: boolean,
+  marketerAdminLevel: MarketerAdminLevel | boolean | null | undefined,
 ): boolean {
-  if (role === 'ADMIN') return true;
-  return role === 'MARKETER' && marketerAdminAccess;
+  if (typeof marketerAdminLevel === 'boolean') {
+    return hasMarketerFullAdminAccess(role, marketerAdminLevel ? 'FULL' : 'NONE');
+  }
+  return hasMarketerFullAdminAccess(role, marketerAdminLevel ?? 'NONE');
 }

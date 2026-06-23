@@ -28,7 +28,7 @@ import {
   listOperatingCompanies,
   listUserOperatingCompanies,
 } from '../operating-companies/operatingCompany.service.js';
-import { userHasStaffAdminAccessWithFlag } from './staffAdminAccess.service.js';
+import { userHasStaffAdminAccessWithLevel } from './staffAdminAccess.service.js';
 
 async function loginViaTenantSupportAccess(
   loginId: string,
@@ -221,7 +221,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       isTenantOwner: true,
       platformSupportAccessId: true,
       tenantId: true,
-      hasAdminPrivileges: true,
+      marketerAdminLevel: true,
     },
   });
   if (!user) {
@@ -244,8 +244,13 @@ router.get('/me', authMiddleware, async (req, res) => {
     : null;
   const features = tenantId ? await getEffectiveEnabledModules(tenantId) : [];
   const config = tenantId ? await getTenantConfig(tenantId) : {};
-  const marketerAdminAccess = user.role === 'MARKETER' ? user.hasAdminPrivileges : false;
-  const effectiveStaffAdminAccess = userHasStaffAdminAccessWithFlag(auth, user.hasAdminPrivileges);
+  const marketerAdminLevel = user.role === 'MARKETER' ? user.marketerAdminLevel : 'NONE';
+  const effectiveStaffAdminAccess = userHasStaffAdminAccessWithLevel(auth, marketerAdminLevel);
+  const marketerOperationalAdminAccess =
+    user.role === 'ADMIN' ||
+    (user.role === 'MARKETER' && (marketerAdminLevel === 'LIMITED' || marketerAdminLevel === 'FULL'));
+  /** @deprecated per-user level — FULL만 true */
+  const marketerAdminAccess = effectiveStaffAdminAccess;
   const operatingCompaniesResolved = tenantId
     ? effectiveStaffAdminAccess
       ? (await listOperatingCompanies(prisma, tenantId)).map((oc) => ({
@@ -272,7 +277,9 @@ router.get('/me', authMiddleware, async (req, res) => {
     isPlatformSupportAccess: Boolean(user.platformSupportAccessId),
     showStagingDbImport: userMayUseStagingDbImport(user.role, user.email),
     showVolumeStats: userIsPlatformOperator(user.role, user.email),
-    hasAdminPrivileges: user.hasAdminPrivileges,
+    marketerAdminLevel: user.role === 'MARKETER' ? user.marketerAdminLevel : 'NONE',
+    marketerOperationalAdminAccess,
+    hasAdminPrivileges: marketerOperationalAdminAccess,
     marketerAdminAccess,
     effectiveStaffAdminAccess,
     tenant: tenant ? tenantSummary(tenant, (config as { branding?: { displayName?: string } }).branding?.displayName) : null,

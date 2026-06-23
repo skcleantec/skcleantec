@@ -13,6 +13,8 @@ import {
   type TeamLeaderGeneralSettlementModeApi,
   type UserItem,
 } from '../../api/users';
+import type { MarketerAdminLevel } from '@shared/marketerAdminLevel';
+import { MARKETER_ADMIN_LEVEL_LABEL } from '@shared/marketerAdminLevel';
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
@@ -135,7 +137,7 @@ type EditFormState = {
   password: string;
   hireDate: string;
   resignationDate: string;
-  hasAdminPrivileges: boolean;
+  marketerAdminLevel: MarketerAdminLevel;
   payrollMonthlySalary: string;
   payrollPayDay: string;
   teamLeaderGeneralSettlementMode: '' | TeamLeaderGeneralSettlementModeApi;
@@ -151,7 +153,7 @@ function emptyEditForm(): EditFormState {
     password: '',
     hireDate: '',
     resignationDate: '',
-    hasAdminPrivileges: false,
+    marketerAdminLevel: 'NONE',
     payrollMonthlySalary: '',
     payrollPayDay: '',
     teamLeaderGeneralSettlementMode: '',
@@ -173,6 +175,26 @@ function userRegisterTabLabel(id: UserRegisterTabId): string {
   if (id === 'marketer') return '마케터';
   if (id === 'office') return '사무직';
   return '퇴사자';
+}
+
+function resolveMarketerAdminLevel(item: UserItem): MarketerAdminLevel {
+  if (item.marketerAdminLevel === 'LIMITED' || item.marketerAdminLevel === 'FULL') {
+    return item.marketerAdminLevel;
+  }
+  return item.hasAdminPrivileges ? 'LIMITED' : 'NONE';
+}
+
+function marketerAdminLevelBadge(level: MarketerAdminLevel) {
+  if (level === 'NONE') return null;
+  const cls =
+    level === 'FULL'
+      ? 'bg-blue-100 text-blue-800'
+      : 'bg-sky-100 text-sky-800';
+  return (
+    <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>
+      {level === 'FULL' ? '전체' : '일부'}
+    </span>
+  );
 }
 
 export function AdminTeamLeadersPage() {
@@ -424,7 +446,12 @@ export function AdminTeamLeadersPage() {
       password: '',
       hireDate: item.hireDate ?? '',
       resignationDate: item.resignationDate ?? '',
-      hasAdminPrivileges: Boolean(item.hasAdminPrivileges),
+      marketerAdminLevel:
+        item.marketerAdminLevel === 'LIMITED' || item.marketerAdminLevel === 'FULL'
+          ? item.marketerAdminLevel
+          : item.hasAdminPrivileges
+            ? 'LIMITED'
+            : 'NONE',
       payrollMonthlySalary:
         item.payrollMonthlySalary != null ? String(item.payrollMonthlySalary) : '',
       payrollPayDay: item.payrollPayDay != null ? String(item.payrollPayDay) : '',
@@ -463,7 +490,7 @@ export function AdminTeamLeadersPage() {
         teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
         teamLeaderGeneralSettlementValue?: number | null;
         teamLeaderAdditionalReceiptCompanyShareBps?: number | null;
-        hasAdminPrivileges?: boolean;
+        marketerAdminLevel?: MarketerAdminLevel;
         operatingCompanyIds?: string[];
         primaryOperatingCompanyId?: string;
         serviceZoneIds?: string[];
@@ -565,7 +592,7 @@ export function AdminTeamLeadersPage() {
       }
 
       if (editingUser.role === 'MARKETER') {
-        payload.hasAdminPrivileges = editForm.hasAdminPrivileges;
+        payload.marketerAdminLevel = editForm.marketerAdminLevel;
       }
 
       await updateUser(token, editingUser.id, payload);
@@ -934,11 +961,10 @@ export function AdminTeamLeadersPage() {
                       <div className="min-w-0">
                         <p className="truncate text-left text-fluid-xs text-gray-600" title={`${item.name} · ${item.email} · ${item.phone || '연락처 없음'}`}>
                           <span className="font-semibold text-gray-900">{item.name}</span>
-                          {item.hasAdminPrivileges ? (
-                            <span className="ml-1.5 inline-flex rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800">
-                              관리자권한
-                            </span>
-                          ) : null}
+                          {(() => {
+                            const badge = marketerAdminLevelBadge(resolveMarketerAdminLevel(item));
+                            return badge ? <span className="ml-1.5">{badge}</span> : null;
+                          })()}
                           <span className="mx-1 text-gray-400">·</span>
                           <span>{item.email}</span>
                           <span className="mx-1 text-gray-400">·</span>
@@ -1000,13 +1026,10 @@ export function AdminTeamLeadersPage() {
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.email}</td>
                           <td className="px-4 py-3 text-center text-gray-800 whitespace-nowrap">{item.name}</td>
                           <td className="px-4 py-3 text-center whitespace-nowrap">
-                            {item.hasAdminPrivileges ? (
-                              <span className="inline-flex rounded bg-blue-100 px-2 py-0.5 text-fluid-2xs font-medium text-blue-800">
-                                부여
-                              </span>
-                            ) : (
-                              <span className="text-fluid-2xs text-gray-400">—</span>
-                            )}
+                            {(() => {
+                              const badge = marketerAdminLevelBadge(resolveMarketerAdminLevel(item));
+                              return badge ?? <span className="text-fluid-2xs text-gray-400">—</span>;
+                            })()}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <OperatingCompanyBadges items={item.operatingCompanies} />
@@ -1816,25 +1839,60 @@ export function AdminTeamLeadersPage() {
                 {(editingUser.role === 'MARKETER' || editingUser.role === 'OFFICE_STAFF') && (
                   <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
                     {editingUser.role === 'MARKETER' ? (
-                      <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-slate-200 bg-white p-3">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5"
-                          checked={editForm.hasAdminPrivileges}
-                          onChange={(e) =>
-                            setEditForm((p) => ({ ...p, hasAdminPrivileges: e.target.checked }))
-                          }
-                        />
-                        <span className="min-w-0 text-left">
-                          <span className="block text-fluid-sm font-medium text-gray-900">
-                            관리자 업무 권한 부여
-                          </span>
-                          <span className="mt-1 block text-fluid-2xs text-gray-500 leading-snug">
-                            켜면 이 마케터는 사용자 등록·팀장/타업체 관리·정산·광고비 설정 등 관리자 업무 메뉴와
-                            배정·삭제 API를 사용할 수 있습니다. 관리자 전용(직원 권한 설정 변경 등)은 ADMIN만 가능합니다.
-                          </span>
-                        </span>
-                      </label>
+                      <fieldset className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                        <legend className="px-1 text-fluid-sm font-medium text-gray-900">
+                          관리자 권한
+                        </legend>
+                        <p className="text-fluid-2xs text-gray-500 leading-snug">
+                          마케터별로 운영 권한 범위를 선택합니다. 설정 변경은 ADMIN 계정만 가능합니다.
+                        </p>
+                        {(
+                          [
+                            {
+                              value: 'NONE' as const,
+                              title: MARKETER_ADMIN_LEVEL_LABEL.NONE,
+                              hint: '일반 마케터 — 기본 접수·발주 업무만',
+                            },
+                            {
+                              value: 'LIMITED' as const,
+                              title: MARKETER_ADMIN_LEVEL_LABEL.LIMITED,
+                              hint: '배정·삭제·접수 고급 수정 등 — 관리자 전용 메뉴(사용자 등록·정산 설정 등)는 제외',
+                            },
+                            {
+                              value: 'FULL' as const,
+                              title: MARKETER_ADMIN_LEVEL_LABEL.FULL,
+                              hint: '관리자와 동일 업무 메뉴·API — ADMIN 전용·업체 소유자 기능은 제외',
+                            },
+                          ] as const
+                        ).map((opt) => (
+                          <label
+                            key={opt.value}
+                            className={`flex items-start gap-3 cursor-pointer rounded-lg border p-3 ${
+                              editForm.marketerAdminLevel === opt.value
+                                ? 'border-slate-400 bg-slate-50'
+                                : 'border-gray-200 bg-white'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="marketerAdminLevel"
+                              className="mt-0.5"
+                              checked={editForm.marketerAdminLevel === opt.value}
+                              onChange={() =>
+                                setEditForm((p) => ({ ...p, marketerAdminLevel: opt.value }))
+                              }
+                            />
+                            <span className="min-w-0 text-left">
+                              <span className="block text-fluid-sm font-medium text-gray-900">
+                                {opt.title}
+                              </span>
+                              <span className="mt-1 block text-fluid-2xs text-gray-500 leading-snug">
+                                {opt.hint}
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                      </fieldset>
                     ) : null}
                     <div>
                       <p className="text-fluid-xs font-medium text-gray-800">

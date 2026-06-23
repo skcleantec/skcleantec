@@ -1,4 +1,5 @@
 import { API } from './apiPrefix';
+import type { MarketerAdminLevel } from '@shared/marketerAdminLevel';
 import type { UserOperatingCompanySummary } from './operatingCompanies';
 
 function headers(token: string) {
@@ -22,7 +23,9 @@ export interface UserItem {
   resignationDate?: string | null;
   /** 팀장만: 본인 휴무일 등록·삭제 허용(관리자 설정) */
   allowSelfDayOffEdit?: boolean;
-  /** 마케터만: 관리자 전용 메뉴 제외, 배정·삭제 등 관리자 업무 권한 */
+  /** 마케터만: NONE | LIMITED(일부) | FULL(전체) */
+  marketerAdminLevel?: MarketerAdminLevel;
+  /** @deprecated marketerAdminLevel 사용 */
   hasAdminPrivileges?: boolean;
   /** 팀장·마케터·사무직: 월 급여표용 고정 월급(원). 미설정 시 표에서 제외 또는 0 처리는 서버·화면 규칙 따름 */
   payrollMonthlySalary?: number | null;
@@ -178,6 +181,7 @@ export async function updateUser(
     hireDate?: string | null;
     resignationDate?: string | null;
     allowSelfDayOffEdit?: boolean;
+    marketerAdminLevel?: MarketerAdminLevel;
     hasAdminPrivileges?: boolean;
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
