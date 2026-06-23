@@ -26,6 +26,8 @@
     "deploy:ensure-platform-admin": "tsx scripts/ensure-platform-admin.ts",
     "db:seed:unassigned-month": "tsx prisma/seed-unassigned-month-test.ts",
     "db:purge:unassigned-month-test": "tsx prisma/seed-unassigned-month-test.ts --purge",
+    "db:seed:db-marketplace-test": "tsx prisma/seed-db-marketplace-test.ts",
+    "db:purge:db-marketplace-test": "tsx prisma/seed-db-marketplace-test.ts --purge",
     "db:check-admin": "tsx scripts/check-admin.ts",
     "verify:multitenant:phase1": "tsx scripts/verify-multitenant-phase1.ts",
     "verify:multitenant:phase2": "tsx scripts/verify-multitenant-phase2.ts",

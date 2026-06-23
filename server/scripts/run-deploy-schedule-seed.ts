@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { PrismaClient } from '@prisma/client';
 import { runMarMayScheduleSeed } from './schedule-mar-may-seed.logic.js';
 import { runUnassignedMonthDashboardSeed } from './seed-unassigned-month-dashboard.logic.js';
+import { runDbMarketplaceTestSeed } from './seed-db-marketplace-test.logic.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = path.join(__dirname, '../deploy-seed.config.json');
@@ -27,6 +28,9 @@ type DeploySeedConfig = {
   unassignedMonthDashboardTest?: {
     enabled?: boolean;
     count?: number;
+  };
+  dbMarketplaceTest?: {
+    enabled?: boolean;
   };
 };
 
@@ -63,6 +67,12 @@ async function main() {
       const count = Math.max(1, Number(u.count) || 20);
       console.log(`[deploy-seed] unassignedMonthDashboardTest 실행 (count=${count})`);
       await runUnassignedMonthDashboardSeed(prisma, { count });
+    }
+
+    if (cfg.dbMarketplaceTest?.enabled) {
+      ran = true;
+      console.log('[deploy-seed] dbMarketplaceTest 실행');
+      await runDbMarketplaceTestSeed(prisma);
     }
 
     if (!ran) {

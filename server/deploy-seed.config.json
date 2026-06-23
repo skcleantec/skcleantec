@@ -8,5 +8,9 @@
   "unassignedMonthDashboardTest": {
     "enabled": false,
     "count": 20
+  },
+  "dbMarketplaceTest": {
+    "enabled": false,
+    "_note": "정보공유 마켓 QA — true 시 [정보공유마켓테스트] 태그 데이터 재생성. 1회 실행 후 false"
   }
 }
