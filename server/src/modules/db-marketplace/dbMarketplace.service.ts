@@ -439,6 +439,10 @@ function resolveListRoleForViewer(
   ) {
     return 'BUYER';
   }
+  /** 타업체는 호스트 테넌트 소속이지만 마켓 판매자가 아님 — 구매자(VIEWER/BUYER)만 */
+  if (opts?.externalCompanyId && listing.tenantId === tenantId) {
+    return 'VIEWER';
+  }
   return resolveListRole(tenantId, listing);
 }
 
@@ -698,7 +702,7 @@ export async function getDbMarketplaceListingById(
   });
   if (!row) throw new DbMarketplaceError('항목을 찾을 수 없습니다.', 404);
 
-  const isSeller = row.tenantId === viewerTenantId;
+  const isActualSeller = row.tenantId === viewerTenantId && !opts?.viewerExternalCompanyId;
   const isBuyer = row.buyerTenantId === viewerTenantId;
   const isExternalBuyer =
     !!opts?.viewerExternalCompanyId &&
@@ -707,11 +711,15 @@ export async function getDbMarketplaceListingById(
   const canSee = await viewerCanSeeListing(viewerTenantId, row, {
     externalCompanyId: opts?.viewerExternalCompanyId,
   });
-  if (!canSee && !isSeller && !isBuyer && !isExternalBuyer) {
+  if (!canSee && !isActualSeller && !isBuyer && !isExternalBuyer) {
     throw new DbMarketplaceError('조회 권한이 없습니다.', 403);
   }
 
-  const role = isExternalBuyer ? 'BUYER' : resolveListRole(viewerTenantId, row);
+  const role = isExternalBuyer
+    ? 'BUYER'
+    : resolveListRoleForViewer(viewerTenantId, row, {
+        externalCompanyId: opts?.viewerExternalCompanyId,
+      });
   const buyerCtx =
     role === 'VIEWER' || role === 'BUYER'
       ? opts?.viewerExternalCompanyId
@@ -746,7 +754,7 @@ export async function getDbMarketplaceListingById(
     hold,
   });
 
-  const showFull = row.status === 'CONFIRMED' && (isSeller || isBuyer || isExternalBuyer);
+  const showFull = row.status === 'CONFIRMED' && (isActualSeller || isBuyer || isExternalBuyer);
 
   let targetInquiryId: string | null = null;
   if (row.status === 'CONFIRMED' && row.tenantInquiryShareId && isBuyer) {
@@ -756,7 +764,7 @@ export async function getDbMarketplaceListingById(
     });
     targetInquiryId = share?.targetInquiryId ?? null;
   }
-  if (row.status === 'CONFIRMED' && row.buyerKind === 'EXTERNAL_COMPANY' && (isSeller || isExternalBuyer)) {
+  if (row.status === 'CONFIRMED' && row.buyerKind === 'EXTERNAL_COMPANY' && (isActualSeller || isExternalBuyer)) {
     targetInquiryId = row.inquiryId;
   }
 
@@ -769,7 +777,7 @@ export async function getDbMarketplaceListingById(
     sellerConfirmedAt: row.sellerConfirmedAt?.toISOString() ?? null,
     inquiryFull: showFull ? buildFullInquiryDto(row.inquiry) : null,
     targetInquiryId,
-    ...(isSeller
+    ...(isActualSeller
       ? {
           audiences: (row.audiences ?? []).map((a) => ({
             id: a.id,

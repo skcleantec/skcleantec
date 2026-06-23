@@ -321,7 +321,7 @@ export function DbMarketplaceListingDetailModal({
             ) : null}
           </div>
 
-          {d.role === 'SELLER' ? (
+          {d.role === 'SELLER' && apiMode === 'admin' ? (
             <DbMarketplacePublishAudienceBlock visibility={d.visibility} audiences={d.audiences} />
           ) : null}
 
