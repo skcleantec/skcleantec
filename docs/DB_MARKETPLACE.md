@@ -28,10 +28,14 @@
 DRAFT → OPEN → PENDING_SELLER → CONFIRMED
          ↓              ↓ (판매자 거절)
       WITHDRAWN        OPEN
+         ↓ (30일 경과, OPEN만)
+      EXPIRED → (재게시) OPEN
 ```
 
 - `OPEN`만 철회 가능(구매 신청 없을 때).
 - `PENDING_SELLER`에서 판매자 **구매 신청 거절** → `OPEN` 복귀(구매자 정보 초기화).
+- **게시 30일** 경과 시 `OPEN` → `EXPIRED` (PENDING_SELLER는 유지).
+- **플랫폼 중지**(`platformSuspendedAt`) 시 구매 신청 차단 — 판매자·플랫폼 API로 해제.
 
 목록 정렬: `OPEN` · `PENDING_SELLER` 최상단.
 
@@ -56,6 +60,7 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 | POST | `/:id/buyer-confirm`, `/:id/seller-confirm`, `/:id/seller-decline` | 2–4 |
 | GET | `/draft-count` (장바구니 + 인계 대기 건수) | 1, 4 |
 | GET/POST | `/api/team/db-marketplace/*` (타업체 EXTERNAL_PARTNER) | 2–3 |
+| GET/POST | `/api/platform/db-marketplace/*` (플랫폼 중지·목록, PII 없음) | 5 |
 
 ---
 
@@ -98,4 +103,13 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 - [x] GNB 인계 대기(PENDING_SELLER) 배지
 - [x] 접수·스케줄 목록 `InquiryDbMarketplaceBadge`
 - [x] 확정 상세 연결 접수 링크 (`openInquiry` 딥링크)
-- [ ] 만료(`EXPIRED`), 플랫폼 강제 중지 (후속)
+- [x] 만료(`EXPIRED`) — 게시 후 30일, OPEN 자동 만료
+- [x] 플랫폼 강제 중지 (`/api/platform/db-marketplace/:id/suspend|resume`)
+
+### Phase 5 — 만료·플랫폼 중지
+
+- [x] `EXPIRED` 상태 + `expiresAt` / `expiredAt` (게시 30일)
+- [x] 목록·상세 조회 시 OPEN 만료 lazy 처리
+- [x] `platformSuspendedAt` — 구매 차단, 판매자 UI 안내
+- [x] 플랫폼 API (PII 없음) — 목록·중지·해제
+- [x] 만료 건 재게시 (EXPIRED → OPEN)

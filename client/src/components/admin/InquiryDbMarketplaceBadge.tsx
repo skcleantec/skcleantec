@@ -13,6 +13,7 @@ const STATUS_LABEL: Record<InquiryDbListingMeta['status'], string> = {
   OPEN: '정보공유 게시',
   PENDING_SELLER: '정보공유 인계대기',
   CONFIRMED: '정보공유 확정',
+  EXPIRED: '정보공유 만료',
 };
 
 export function InquiryDbMarketplaceBadge({ dbListing, className = '', compact = false }: Props) {

@@ -16,6 +16,8 @@ export type MarketplaceListingMaskedDto = {
   visibility: string;
   displayAmount: number | null;
   publishedAt: string | null;
+  expiresAt: string | null;
+  platformSuspended: boolean;
   customerNameMasked: string;
   addressRegion: string;
   propertyType: string | null;
@@ -76,6 +78,8 @@ export function buildMaskedListingDto(input: {
   listingFee: number;
   displayAmount: number | null;
   publishedAt: Date | null;
+  expiresAt?: Date | null;
+  platformSuspendedAt?: Date | null;
   inquiry: InquiryMaskFields;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
 }): MarketplaceListingMaskedDto {
@@ -91,6 +95,8 @@ export function buildMaskedListingDto(input: {
     visibility: input.visibility,
     displayAmount,
     publishedAt: input.publishedAt?.toISOString() ?? null,
+    expiresAt: input.expiresAt?.toISOString() ?? null,
+    platformSuspended: input.platformSuspendedAt != null,
     customerNameMasked: maskMarketplaceCustomerName(input.inquiry.customerName),
     addressRegion: maskMarketplaceAddressRegion(input.inquiry.address),
     propertyType: input.inquiry.propertyType,
@@ -120,7 +126,9 @@ export function listingStatusSortRank(status: string): number {
   if (status === 'PENDING_SELLER') return 1;
   if (status === 'DRAFT') return 2;
   if (status === 'CONFIRMED') return 3;
-  return 4;
+  if (status === 'EXPIRED') return 4;
+  if (status === 'WITHDRAWN') return 5;
+  return 6;
 }
 
 export const INQUIRY_FULL_SELECT = {

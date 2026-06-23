@@ -50,6 +50,7 @@ import platformAuthRoutes from './modules/platform/platformAuth.routes.js';
 import platformTenantsRoutes from './modules/platform/platformTenants.routes.js';
 import platformSupportAccessRoutes from './modules/platform/platformSupportAccess.routes.js';
 import platformTenantPartnershipsRoutes from './modules/platform/platformTenantPartnerships.routes.js';
+import platformDbMarketplaceRoutes from './modules/db-marketplace/platformDbMarketplace.routes.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
 
@@ -69,6 +70,7 @@ app.use('/api/platform/auth', platformAuthRoutes);
 app.use('/api/platform/tenants', platformTenantsRoutes);
 app.use('/api/platform/support-access', platformSupportAccessRoutes);
 app.use('/api/platform/tenant-partnerships', platformTenantPartnershipsRoutes);
+app.use('/api/platform/db-marketplace', platformDbMarketplaceRoutes);
 app.use('/api/tenant', tenantRoutes);
 app.use('/api/inquiries', inquiriesRoutes);
 app.use('/api/dashboard', dashboardRoutes);

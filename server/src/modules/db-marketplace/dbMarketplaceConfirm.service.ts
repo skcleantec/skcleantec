@@ -9,6 +9,7 @@ import {
   notifyDbMarketplaceConfirmed,
   notifyDbMarketplaceSellerDeclined,
 } from './dbMarketplaceNotify.service.js';
+import { expireStaleOpenDbListings } from './dbMarketplaceExpire.service.js';
 
 export type DbMarketplaceBuyerContext =
   | { kind: 'PARTNER_TENANT'; tenantId: string; userId: string }
@@ -19,6 +20,7 @@ async function assertBuyerCanViewListing(
     tenantId: string;
     status: string;
     visibility: string;
+    platformSuspendedAt?: Date | null;
     audiences: Array<{
       audienceKind: string;
       partnerTenantId: string | null;
@@ -29,6 +31,9 @@ async function assertBuyerCanViewListing(
 ): Promise<void> {
   if (listing.status !== 'OPEN') {
     throw new DbMarketplaceError('구매 신청할 수 없는 상태입니다.', 400);
+  }
+  if (listing.platformSuspendedAt) {
+    throw new DbMarketplaceError('플랫폼에 의해 일시 중지된 건입니다.', 403);
   }
 
   if (buyer.kind === 'PARTNER_TENANT') {
@@ -64,6 +69,7 @@ async function assertBuyerCanViewListing(
 }
 
 export async function confirmDbListingBuyer(listingId: string, buyer: DbMarketplaceBuyerContext) {
+  await expireStaleOpenDbListings();
   const now = new Date();
 
   const updated = await prisma.$transaction(async (tx) => {

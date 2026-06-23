@@ -12,6 +12,10 @@ import {
   parseListingFeeInput,
 } from '../../lib/dbMarketplaceAmount.js';
 import {
+  expireStaleOpenDbListings,
+} from './dbMarketplaceExpire.service.js';
+import { computeMarketplaceExpiresAt } from '../../lib/dbMarketplacePolicy.js';
+import {
   buildMaskedListingDto,
   buildFullInquiryDto,
   INQUIRY_FULL_SELECT,
@@ -111,7 +115,12 @@ export async function upsertDbListingDraft(
   assertPublishableBalance(inquiry, listingFee);
 
   const existing = inquiry.dbListing;
-  if (existing && existing.status !== 'DRAFT' && existing.status !== 'WITHDRAWN') {
+  if (
+    existing &&
+    existing.status !== 'DRAFT' &&
+    existing.status !== 'WITHDRAWN' &&
+    existing.status !== 'EXPIRED'
+  ) {
     throw new DbMarketplaceError('이미 게시 중이거나 확정된 건은 장바구니를 수정할 수 없습니다.', 400);
   }
 
@@ -153,7 +162,12 @@ export async function updateDbListingAudience(
     where: { id: listingId, tenantId },
   });
   if (!listing) throw new DbMarketplaceError('판매 항목을 찾을 수 없습니다.', 404);
-  if (listing.status !== 'DRAFT' && listing.status !== 'OPEN' && listing.status !== 'WITHDRAWN') {
+  if (
+    listing.status !== 'DRAFT' &&
+    listing.status !== 'OPEN' &&
+    listing.status !== 'WITHDRAWN' &&
+    listing.status !== 'EXPIRED'
+  ) {
     throw new DbMarketplaceError('진행 중인 건은 노출 대상을 변경할 수 없습니다.', 400);
   }
 
@@ -218,7 +232,7 @@ export async function publishDbListing(tenantId: string, listingId: string) {
     include: { inquiry: { select: { serviceBalanceAmount: true } } },
   });
   if (!listing) throw new DbMarketplaceError('판매 항목을 찾을 수 없습니다.', 404);
-  if (listing.status !== 'DRAFT' && listing.status !== 'WITHDRAWN') {
+  if (listing.status !== 'DRAFT' && listing.status !== 'WITHDRAWN' && listing.status !== 'EXPIRED') {
     throw new DbMarketplaceError('게시할 수 없는 상태입니다.', 400);
   }
 
@@ -233,13 +247,17 @@ export async function publishDbListing(tenantId: string, listingId: string) {
     if (count === 0) throw new DbMarketplaceError('노출 대상을 선택해 주세요.', 400);
   }
 
+  const now = new Date();
   return prisma.inquiryDbListing.update({
     where: { id: listingId, tenantId },
     data: {
       status: 'OPEN',
       displayAmount,
-      publishedAt: new Date(),
+      publishedAt: now,
       withdrawnAt: null,
+      expiredAt: null,
+      expiresAt: computeMarketplaceExpiresAt(now),
+      platformSuspendedAt: null,
     },
     include: LISTING_INCLUDE,
   });
@@ -282,6 +300,7 @@ async function viewerCanSeeListing(
     tenantId: string;
     status: InquiryDbListingStatus;
     visibility: InquiryDbListingVisibility;
+    platformSuspendedAt?: Date | null;
     buyerTenantId?: string | null;
     buyerExternalCompanyId?: string | null;
     audiences: Array<{
@@ -300,7 +319,10 @@ async function viewerCanSeeListing(
       if (listing.buyerExternalCompanyId && listing.buyerExternalCompanyId !== opts.externalCompanyId) {
         if (listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED') return false;
       }
-      if (listing.visibility === 'ALL') return listing.status === 'OPEN' || listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED';
+      if (listing.visibility === 'ALL') {
+        if (listing.status === 'OPEN' && listing.platformSuspendedAt) return false;
+        return listing.status === 'OPEN' || listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED';
+      }
       return listing.audiences.some(
         (a) => a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId === opts.externalCompanyId,
       );
@@ -311,6 +333,7 @@ async function viewerCanSeeListing(
     return true;
   }
   if (listing.status !== 'OPEN' && listing.status !== 'PENDING_SELLER') return false;
+  if (listing.status === 'OPEN' && listing.platformSuspendedAt) return false;
   if (listing.visibility === 'ALL') return true;
   for (const a of listing.audiences) {
     if (a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId === tenantId) return true;
@@ -419,6 +442,7 @@ export async function listDbMarketplaceListings(
   offsetRaw: unknown,
   opts?: { viewerExternalCompanyId?: string | null },
 ) {
+  await expireStaleOpenDbListings();
   const tab = parseTab(tabRaw);
   const limit = Math.min(Math.max(Number(limitRaw) || 30, 1), 100);
   const offset = Math.max(Number(offsetRaw) || 0, 0);
@@ -464,6 +488,8 @@ export async function listDbMarketplaceListings(
         listingFee: row.listingFee,
         displayAmount: row.displayAmount,
         publishedAt: row.publishedAt,
+        expiresAt: row.expiresAt,
+        platformSuspendedAt: row.platformSuspendedAt,
         inquiry: row.inquiry,
         role: resolveListRoleForViewer(tenantId, row, {
           externalCompanyId: opts?.viewerExternalCompanyId,
@@ -486,6 +512,7 @@ export async function getDbMarketplaceListingById(
   listingId: string,
   opts?: { viewerExternalCompanyId?: string | null },
 ) {
+  await expireStaleOpenDbListings();
   const row = await prisma.inquiryDbListing.findFirst({
     where: { id: listingId },
     include: {
@@ -520,6 +547,8 @@ export async function getDbMarketplaceListingById(
     listingFee: row.listingFee,
     displayAmount: row.displayAmount,
     publishedAt: row.publishedAt,
+    expiresAt: row.expiresAt,
+    platformSuspendedAt: row.platformSuspendedAt,
     inquiry: row.inquiry,
     role: isExternalBuyer ? 'BUYER' : resolveListRole(viewerTenantId, row),
   });
@@ -576,6 +605,8 @@ export function serializeSellerListing(row: {
   status: string;
   visibility: string;
   publishedAt: Date | null;
+  expiresAt?: Date | null;
+  platformSuspendedAt?: Date | null;
   buyerKind?: string | null;
   buyerTenantId?: string | null;
   buyerExternalCompanyId?: string | null;
@@ -600,6 +631,8 @@ export function serializeSellerListing(row: {
     status: row.status,
     visibility: row.visibility,
     publishedAt: row.publishedAt?.toISOString() ?? null,
+    expiresAt: row.expiresAt?.toISOString() ?? null,
+    platformSuspendedAt: row.platformSuspendedAt?.toISOString() ?? null,
     buyerKind: row.buyerKind ?? null,
     buyerTenantId: row.buyerTenantId ?? null,
     buyerExternalCompanyId: row.buyerExternalCompanyId ?? null,

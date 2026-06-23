@@ -29,6 +29,7 @@ const STATUS_LABEL: Record<string, string> = {
   PENDING_SELLER: '구매자 확정 · 인계 대기',
   CONFIRMED: '확정 완료',
   WITHDRAWN: '철회됨',
+  EXPIRED: '만료',
 };
 
 export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount, disabled }: Props) {
@@ -231,6 +232,22 @@ export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount,
             ? ` · 표시금액 ${listing.displayAmount.toLocaleString('ko-KR')}원`
             : ''}
         </p>
+      ) : null}
+
+      {listing?.platformSuspendedAt ? (
+        <p className="text-[11px] font-medium text-red-700">
+          플랫폼에 의해 일시 중지되었습니다. 구매 신청이 차단됩니다.
+        </p>
+      ) : null}
+
+      {listing?.status === 'OPEN' && listing.expiresAt ? (
+        <p className="text-[11px] text-gray-600">
+          게시 만료: {new Date(listing.expiresAt).toLocaleDateString('ko-KR')}
+        </p>
+      ) : null}
+
+      {listing?.status === 'EXPIRED' ? (
+        <p className="text-[11px] text-gray-600">게시 기간이 만료되었습니다. 다시 게시할 수 있습니다.</p>
       ) : null}
 
       {listing?.buyerName ? (

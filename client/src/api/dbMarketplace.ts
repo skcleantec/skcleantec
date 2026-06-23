@@ -5,7 +5,8 @@ function headers(token: string) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
-export type DbMarketplaceListingStatus = 'DRAFT' | 'OPEN' | 'PENDING_SELLER' | 'CONFIRMED' | 'WITHDRAWN';
+export type DbMarketplaceListingStatus =
+  'DRAFT' | 'OPEN' | 'PENDING_SELLER' | 'CONFIRMED' | 'WITHDRAWN' | 'EXPIRED';
 
 export type InquiryDbListingMeta = {
   listingId: string;
@@ -32,6 +33,8 @@ export type DbMarketplaceSellerListing = {
   visibility: 'ALL' | 'SELECTED';
   publishedAt: string | null;
   buyerKind?: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY' | null;
+  expiresAt?: string | null;
+  platformSuspendedAt?: string | null;
   buyerTenantId?: string | null;
   buyerExternalCompanyId?: string | null;
   buyerName?: string | null;
@@ -78,6 +81,8 @@ export type DbMarketplaceMaskedItem = {
   visibility: 'ALL' | 'SELECTED';
   displayAmount: number | null;
   publishedAt: string | null;
+  expiresAt: string | null;
+  platformSuspended: boolean;
   customerNameMasked: string;
   addressRegion: string;
   propertyType: string | null;

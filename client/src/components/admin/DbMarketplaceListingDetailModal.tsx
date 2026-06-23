@@ -141,6 +141,12 @@ export function DbMarketplaceListingDetailModal({
           {loading && !detail ? <p className="text-gray-500">불러오는 중…</p> : null}
           {error ? <p className="text-red-600">{error}</p> : null}
 
+          {d.platformSuspended ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
+              플랫폼에 의해 일시 중지된 건입니다. 구매 신청할 수 없습니다.
+            </p>
+          ) : null}
+
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-1">
             <p>
               <span className="text-gray-500">판매 업체</span> {d.sellerTenantName}
@@ -198,7 +204,7 @@ export function DbMarketplaceListingDetailModal({
           )}
 
           <div className="flex flex-wrap gap-2 pt-2">
-            {d.status === 'OPEN' && d.role === 'VIEWER' ? (
+            {d.status === 'OPEN' && d.role === 'VIEWER' && !d.platformSuspended ? (
               <button
                 type="button"
                 disabled={busy}

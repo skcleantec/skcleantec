@@ -63,6 +63,7 @@ enum InquiryDbListingStatus {
   PENDING_SELLER
   CONFIRMED
   WITHDRAWN
+  EXPIRED
 }
 
 enum InquiryDbListingVisibility {
@@ -259,6 +260,9 @@ model InquiryDbListing {
   visibility                InquiryDbListingVisibility @default(ALL)
   publishedAt               DateTime?                  @map("published_at")
   withdrawnAt               DateTime?                  @map("withdrawn_at")
+  expiresAt                 DateTime?                  @map("expires_at")
+  expiredAt                 DateTime?                  @map("expired_at")
+  platformSuspendedAt       DateTime?                  @map("platform_suspended_at")
   confirmedAt               DateTime?                  @map("confirmed_at")
   buyerKind                 InquiryDbListingBuyerKind? @map("buyer_kind")
   buyerTenantId             String?                    @map("buyer_tenant_id")

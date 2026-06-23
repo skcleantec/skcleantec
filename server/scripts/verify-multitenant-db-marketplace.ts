@@ -8,6 +8,10 @@ import {
   maskMarketplaceAddressRegion,
 } from '../src/lib/marketplaceListingMask.js';
 import { computeMarketplaceDisplayAmount } from '../src/lib/dbMarketplaceAmount.js';
+import {
+  computeMarketplaceExpiresAt,
+  DB_MARKETPLACE_LISTING_TTL_DAYS,
+} from '../src/lib/dbMarketplacePolicy.js';
 
 const API = process.env.VERIFY_API_BASE ?? 'http://127.0.0.1:3000/api';
 
@@ -27,6 +31,10 @@ function verifyMaskAndAmount(): void {
   assert(computeMarketplaceDisplayAmount(500_000, 50_000) === 450_000, 'display amount');
   assert(computeMarketplaceDisplayAmount(null, 10_000) === null, 'null balance');
   assert(computeMarketplaceDisplayAmount(5_000, 10_000) === null, 'negative display blocked');
+
+  const exp = computeMarketplaceExpiresAt(new Date('2026-01-01T00:00:00.000Z'));
+  assert(exp.getUTCDate() === 31, 'expiresAt +30 days');
+  assert(DB_MARKETPLACE_LISTING_TTL_DAYS === 30, 'ttl days');
 
   console.log('✓ mask & display amount helpers');
 }
@@ -59,6 +67,15 @@ async function verifyTeamApiGate(): Promise<void> {
     `seller-decline requires auth (${adminDecline.status})`,
   );
   console.log('✓ seller-decline API auth gate');
+
+  const platformList = await fetch(`${API}/platform/db-marketplace`, {
+    headers: { Authorization: 'Bearer invalid-token' },
+  });
+  assert(
+    platformList.status === 401 || platformList.status === 403,
+    `platform db-marketplace requires auth (${platformList.status})`,
+  );
+  console.log('✓ platform db-marketplace API auth gate');
 }
 
 async function main(): Promise<void> {

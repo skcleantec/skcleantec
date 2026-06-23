@@ -29,6 +29,7 @@ const STATUS_LABEL: Record<string, string> = {
   PENDING_SELLER: '인계 대기',
   CONFIRMED: '확정 완료',
   WITHDRAWN: '철회',
+  EXPIRED: '만료',
 };
 
 const STATUS_CLASS: Record<string, string> = {
@@ -37,6 +38,7 @@ const STATUS_CLASS: Record<string, string> = {
   PENDING_SELLER: 'bg-amber-100 text-amber-800',
   CONFIRMED: 'bg-emerald-100 text-emerald-800',
   WITHDRAWN: 'bg-gray-200 text-gray-600',
+  EXPIRED: 'bg-gray-100 text-gray-700',
 };
 
 function formatPreferredDate(iso: string | null): string {
