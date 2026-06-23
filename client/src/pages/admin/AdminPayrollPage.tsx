@@ -46,6 +46,7 @@ import {
   type PayrollExternalSettlementReceivedResponse,
 } from '../../api/adminPayroll';
 import { listExternalCompanies, type ExternalCompanyListItem } from '../../api/externalCompanies';
+import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
@@ -689,6 +690,8 @@ export function AdminPayrollPage() {
   }, [searchParams, setSearchParams]);
 
   const [month, setMonth] = useState(() => kstMonthKeyNow());
+  const operatingCompanyIdParam = searchParams.get('operatingCompanyId') ?? '';
+  const [operatingCompanies, setOperatingCompanies] = useState<OperatingCompanyItem[]>([]);
   const [data, setData] = useState<PayrollSheetResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -825,6 +828,57 @@ export function AdminPayrollPage() {
     useState<PayrollExternalSettlementReceivedResponse | null>(null);
   /** 정산 탭 수입 카드 · 타업체 정산완료 내역 — 기본 접힘 */
   const [externalSettlementExpanded, setExternalSettlementExpanded] = useState(false);
+
+  const activeOperatingCompanies = useMemo(
+    () => operatingCompanies.filter((oc) => oc.isActive),
+    [operatingCompanies],
+  );
+
+  const resolvedOperatingCompanyId = useMemo(() => {
+    if (
+      operatingCompanyIdParam &&
+      activeOperatingCompanies.some((oc) => oc.id === operatingCompanyIdParam)
+    ) {
+      return operatingCompanyIdParam;
+    }
+    const fromDefault = activeOperatingCompanies.find((oc) => oc.isDefault)?.id;
+    if (fromDefault) return fromDefault;
+    return activeOperatingCompanies[0]?.id ?? operatingCompanyIdParam;
+  }, [operatingCompanyIdParam, activeOperatingCompanies]);
+
+  const setOperatingCompanyBrand = useCallback(
+    (id: string) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('operatingCompanyId', id);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  useEffect(() => {
+    if (!token) return;
+    listOperatingCompanies(token)
+      .then((r) => setOperatingCompanies(r.items ?? []))
+      .catch(() => setOperatingCompanies([]));
+  }, [token]);
+
+  useEffect(() => {
+    if (!resolvedOperatingCompanyId) return;
+    if (operatingCompanyIdParam === resolvedOperatingCompanyId) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('operatingCompanyId', resolvedOperatingCompanyId);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [resolvedOperatingCompanyId, operatingCompanyIdParam, setSearchParams]);
 
   const closeCrewExpenseDetail = useCallback(() => {
     setCrewExpenseDetailId(null);
@@ -1054,7 +1108,7 @@ export function AdminPayrollPage() {
         setAccountLedgerError(null);
       }
       try {
-        const ledger = await getPayrollAccountLedger(token, month);
+        const ledger = await getPayrollAccountLedger(token, month, resolvedOperatingCompanyId || undefined);
         if (stale?.()) return;
         setAccountLedger(ledger);
         if (!silent) setAccountLedgerError(null);
@@ -1068,7 +1122,7 @@ export function AdminPayrollPage() {
         if (!stale?.() && !silent) setAccountLedgerLoading(false);
       }
     },
-    [token, month],
+    [token, month, resolvedOperatingCompanyId],
   );
 
   useEffect(() => {
@@ -1110,12 +1164,12 @@ export function AdminPayrollPage() {
       if (payrollTab === 'settlement') {
         try {
           const [inc, dep, ext] = await Promise.all([
-            getPayrollIncomeSummary(token, month),
+            getPayrollIncomeSummary(token, month, resolvedOperatingCompanyId || undefined),
             getPayrollIncomeDeposits(token, month).catch(() => ({
               month,
               items: [] as PayrollIncomeDepositItem[],
             })),
-            getPayrollExternalSettlementReceived(token, month).catch(() => ({
+            getPayrollExternalSettlementReceived(token, month, resolvedOperatingCompanyId || undefined).catch(() => ({
               month,
               monthLabel: '',
               paymentCount: 0,
@@ -1144,7 +1198,7 @@ export function AdminPayrollPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, month, payrollTab, loadExpenseForward, refreshAccountLedger]);
+  }, [token, month, payrollTab, loadExpenseForward, refreshAccountLedger, resolvedOperatingCompanyId]);
 
   const silentReloadPayroll = useCallback(async () => {
     if (!token) return;
@@ -1180,12 +1234,12 @@ export function AdminPayrollPage() {
       if (payrollTab === 'settlement') {
         try {
           const [inc, dep, ext] = await Promise.all([
-            getPayrollIncomeSummary(token, month),
+            getPayrollIncomeSummary(token, month, resolvedOperatingCompanyId || undefined),
             getPayrollIncomeDeposits(token, month).catch(() => ({
               month,
               items: [] as PayrollIncomeDepositItem[],
             })),
-            getPayrollExternalSettlementReceived(token, month).catch(() => ({
+            getPayrollExternalSettlementReceived(token, month, resolvedOperatingCompanyId || undefined).catch(() => ({
               month,
               monthLabel: '',
               paymentCount: 0,
@@ -1205,7 +1259,7 @@ export function AdminPayrollPage() {
       /* 무음 실패 무시 */
     }
     await refreshAccountLedger({ silent: true });
-  }, [token, month, payrollTab, refreshAccountLedger]);
+  }, [token, month, payrollTab, refreshAccountLedger, resolvedOperatingCompanyId]);
 
   useInboxRealtime(token, silentReloadPayroll, Boolean(token));
 
@@ -1223,12 +1277,12 @@ export function AdminPayrollPage() {
     setIncomeDepositItems([]);
     setExternalSettlementReceived(null);
     void Promise.all([
-      getPayrollIncomeSummary(token, month),
+      getPayrollIncomeSummary(token, month, resolvedOperatingCompanyId || undefined),
       getPayrollIncomeDeposits(token, month).catch(() => ({
         month,
         items: [] as PayrollIncomeDepositItem[],
       })),
-      getPayrollExternalSettlementReceived(token, month).catch(() => ({
+      getPayrollExternalSettlementReceived(token, month, resolvedOperatingCompanyId || undefined).catch(() => ({
         month,
         monthLabel: '',
         paymentCount: 0,
@@ -1258,7 +1312,7 @@ export function AdminPayrollPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, payrollTab, month]);
+  }, [token, payrollTab, month, resolvedOperatingCompanyId]);
 
   useEffect(() => {
     if (!token || !crewExpenseDetailId) {
@@ -1471,6 +1525,14 @@ export function AdminPayrollPage() {
       }
     );
   }, [externalSettlementReceived, month, data?.monthLabel]);
+
+  const externalSettlementAdminLink = useMemo(() => {
+    const q = resolvedOperatingCompanyId
+      ? `?operatingCompanyId=${encodeURIComponent(resolvedOperatingCompanyId)}`
+      : '';
+    return `/admin/external-settlement${q}`;
+  }, [resolvedOperatingCompanyId]);
+
   const submitAdminPersonalExpense = useCallback(async () => {
     if (!token) return;
     const parsed = parseInt(adminPersonalExpenseAmountInput.replace(/,/g, '').trim(), 10);
@@ -1840,6 +1902,36 @@ export function AdminPayrollPage() {
               ))}
             </nav>
 
+            {(payrollTab === 'settlement' || payrollTab === 'inout') && activeOperatingCompanies.length > 1 ? (
+              <div className="px-2 sm:px-3 pt-2 border-b border-gray-100 bg-white">
+                <p className="text-fluid-2xs text-gray-500 mb-1.5">영업 브랜드 (수입·접수 매출·타업체 정산 입금)</p>
+                <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1">
+                  {activeOperatingCompanies.map((oc) => {
+                    const active = oc.id === resolvedOperatingCompanyId;
+                    return (
+                      <button
+                        key={oc.id}
+                        type="button"
+                        onClick={() => setOperatingCompanyBrand(oc.id)}
+                        className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium transition-colors ${
+                          active ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+                        }`}
+                      >
+                        {oc.displayName || oc.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (payrollTab === 'settlement' || payrollTab === 'inout') && activeOperatingCompanies.length === 1 ? (
+              <p className="px-2 sm:px-3 pt-2 text-fluid-xs text-gray-500 border-b border-gray-100 bg-white">
+                영업 브랜드:{' '}
+                <span className="font-medium text-gray-700">
+                  {activeOperatingCompanies[0].displayName || activeOperatingCompanies[0].name}
+                </span>
+              </p>
+            ) : null}
+
             <div className="px-2 sm:px-3 py-3 space-y-3 min-w-0">
               {payrollTab === 'settlement' && expenseSummary ? (
                 <>
@@ -2203,7 +2295,7 @@ export function AdminPayrollPage() {
                   <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
                     <strong className="text-gray-800">{data.monthLabel}</strong> 기준 급여표 인건비입니다. 타업체 대금·기타
                     비용은{' '}
-                    <Link to="/admin/external-settlement" className="text-blue-700 underline underline-offset-2 font-medium">
+                    <Link to={externalSettlementAdminLink} className="text-blue-700 underline underline-offset-2 font-medium">
                       타업체 정산
                     </Link>
                     에서 확인해 주세요.
@@ -2219,6 +2311,12 @@ export function AdminPayrollPage() {
                         <p className="text-fluid-2xs text-gray-600 mt-1 leading-snug">
                           예약일(KST)이 해당 월에 속하는 접수만 집계합니다. 상태가 취소·보류인 건은 제외합니다. 아래 합계는 「서비스 총액」이
                           입력된 접수만 더합니다.
+                          {activeOperatingCompanies.length > 0 ? (
+                            <>
+                              {' '}
+                              선택한 영업 브랜드 접수만 포함합니다.
+                            </>
+                          ) : null}
                         </p>
                       </div>
                   {incomeLoading ? (
@@ -2297,7 +2395,7 @@ export function AdminPayrollPage() {
                         <p className="text-fluid-2xs text-gray-600 leading-tight">
                           「타업체 정산」화면에서 정산완료 처리한 금액 중, <strong className="text-gray-800">정산일(KST)</strong>이 선택한
                           귀속 월({data.monthLabel})에 포함되는 건만 집계합니다. 세부 등록·추가 처리는{' '}
-                          <Link to="/admin/external-settlement" className="text-blue-700 underline underline-offset-2 font-medium">
+                          <Link to={externalSettlementAdminLink} className="text-blue-700 underline underline-offset-2 font-medium">
                             타업체 정산
                           </Link>
                           에서 하세요.
@@ -3076,7 +3174,7 @@ export function AdminPayrollPage() {
                         </div>
                         <span className="text-fluid-2xs text-gray-600 sm:text-right sm:max-w-[55%]">
                           해당 귀속 월(<strong className="text-gray-800">{data.monthLabel}</strong>) · 일자 순 · 현금 잔액은
-                          입금·지급 기준
+                          입금·지급 기준. 「접수 매출」「타업체 정산 입금」만 선택 영업 브랜드 기준이며, 급여·지출 등 나머지는 테넌트 전체입니다.
                         </span>
                       </div>
                     </div>

@@ -7,6 +7,16 @@ function headers(token: string) {
   };
 }
 
+function payrollQuery(month: string, operatingCompanyId?: string): string {
+  const params = new URLSearchParams();
+  const mk = month.trim();
+  if (/^\d{4}-\d{2}$/.test(mk)) params.set('month', mk);
+  const oc = operatingCompanyId?.trim();
+  if (oc) params.set('operatingCompanyId', oc);
+  const s = params.toString();
+  return s ? `?${s}` : '';
+}
+
 export type PayrollSheetRow = {
   kind: 'POOL_MEMBER' | 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
   id: string;
@@ -163,16 +173,22 @@ export async function getPayrollExpenseForward(token: string): Promise<PayrollEx
 export type PayrollIncomeSummaryResponse = {
   month: string;
   monthLabel: string;
+  operatingCompanyId?: string;
   inquiryCount: number;
   inquiriesWithTotalAmount: number;
   inquiriesMissingTotalAmount: number;
   serviceTotalSum: number;
 };
 
-export async function getPayrollIncomeSummary(token: string, month: string): Promise<PayrollIncomeSummaryResponse> {
-  const mk = month.trim();
-  const q = /^\d{4}-\d{2}$/.test(mk) ? `?month=${encodeURIComponent(mk)}` : '';
-  const res = await fetch(`${API}/admin/payroll/income-summary${q}`, { headers: headers(token) });
+export async function getPayrollIncomeSummary(
+  token: string,
+  month: string,
+  operatingCompanyId?: string,
+): Promise<PayrollIncomeSummaryResponse> {
+  const res = await fetch(
+    `${API}/admin/payroll/income-summary${payrollQuery(month, operatingCompanyId)}`,
+    { headers: headers(token) },
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '수입 집계를 불러올 수 없습니다.');
@@ -198,6 +214,7 @@ export type PayrollAccountLedgerLine = {
 export type PayrollAccountLedgerResponse = {
   month: string;
   monthLabel: string;
+  operatingCompanyId?: string;
   lines: PayrollAccountLedgerLine[];
   totals: {
     cashIn: number;
@@ -211,10 +228,12 @@ export type PayrollAccountLedgerResponse = {
 export async function getPayrollAccountLedger(
   token: string,
   month: string,
+  operatingCompanyId?: string,
 ): Promise<PayrollAccountLedgerResponse> {
-  const mk = month.trim();
-  const q = /^\d{4}-\d{2}$/.test(mk) ? `?month=${encodeURIComponent(mk)}` : '';
-  const res = await fetch(`${API}/admin/payroll/account-ledger${q}`, { headers: headers(token) });
+  const res = await fetch(
+    `${API}/admin/payroll/account-ledger${payrollQuery(month, operatingCompanyId)}`,
+    { headers: headers(token) },
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '수입·지출 내역을 불러올 수 없습니다.');
@@ -284,6 +303,7 @@ export type PayrollExternalSettlementReceivedItem = {
 export type PayrollExternalSettlementReceivedResponse = {
   month: string;
   monthLabel: string;
+  operatingCompanyId?: string;
   paymentCount: number;
   totalAmount: number;
   items: PayrollExternalSettlementReceivedItem[];
@@ -292,10 +312,12 @@ export type PayrollExternalSettlementReceivedResponse = {
 export async function getPayrollExternalSettlementReceived(
   token: string,
   month: string,
+  operatingCompanyId?: string,
 ): Promise<PayrollExternalSettlementReceivedResponse> {
-  const mk = month.trim();
-  const q = /^\d{4}-\d{2}$/.test(mk) ? `?month=${encodeURIComponent(mk)}` : '';
-  const res = await fetch(`${API}/admin/payroll/external-settlement-received${q}`, { headers: headers(token) });
+  const res = await fetch(
+    `${API}/admin/payroll/external-settlement-received${payrollQuery(month, operatingCompanyId)}`,
+    { headers: headers(token) },
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '타업체 정산 내역을 불러올 수 없습니다.');

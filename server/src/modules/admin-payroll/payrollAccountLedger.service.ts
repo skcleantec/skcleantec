@@ -46,6 +46,7 @@ export async function buildPayrollAccountLedger(
   prisma: PrismaClient,
   tenantId: string,
   monthKey: string,
+  operatingCompanyId?: string,
 ): Promise<{
   month: string;
   monthLabel: string;
@@ -65,6 +66,7 @@ export async function buildPayrollAccountLedger(
 
   const statusWhere = {
     tenantId,
+    ...(operatingCompanyId ? { operatingCompanyId } : {}),
     preferredDate: { gte: range.gte, lte: range.lte },
     status: { notIn: [InquiryStatus.CANCELLED, InquiryStatus.ON_HOLD] },
   };
@@ -89,6 +91,7 @@ export async function buildPayrollAccountLedger(
       where: {
         paidAt: { gte: range.gte, lte: range.lte },
         externalCompany: { tenantId },
+        ...(operatingCompanyId ? { operatingCompanyId } : {}),
       },
       orderBy: [{ paidAt: 'asc' }, { id: 'asc' }],
       include: { externalCompany: { select: { name: true } } },

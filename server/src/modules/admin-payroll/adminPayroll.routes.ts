@@ -47,6 +47,7 @@ import {
   listPayrollIncomeDepositsForMonth,
 } from './payrollIncomeDeposit.service.js';
 import { buildPayrollAccountLedger } from './payrollAccountLedger.service.js';
+import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
 import {
   createPayrollAccountLedgerManualEntry,
   deletePayrollAccountLedgerManualEntryById,
@@ -100,8 +101,16 @@ router.get('/income-summary', async (req: Request, res: Response) => {
       return;
     }
 
+    const operatingCompanyId = await resolveSettlementOperatingCompanyId(
+      res,
+      tenantId,
+      req.query.operatingCompanyId,
+    );
+    if (!operatingCompanyId) return;
+
     const statusWhere = {
       tenantId,
+      operatingCompanyId,
       preferredDate: { gte: range.gte, lte: range.lte },
       status: { notIn: [InquiryStatus.CANCELLED, InquiryStatus.ON_HOLD] },
     };
@@ -124,6 +133,7 @@ router.get('/income-summary', async (req: Request, res: Response) => {
     res.json({
       month: monthKey,
       monthLabel: payrollMonthLabelFromKey(monthKey),
+      operatingCompanyId,
       inquiryCount,
       inquiriesWithTotalAmount,
       inquiriesMissingTotalAmount: Math.max(0, inquiryCount - inquiriesWithTotalAmount),
@@ -150,9 +160,17 @@ router.get('/external-settlement-received', async (req: Request, res: Response) 
       return;
     }
 
+    const operatingCompanyId = await resolveSettlementOperatingCompanyId(
+      res,
+      tenantId,
+      req.query.operatingCompanyId,
+    );
+    if (!operatingCompanyId) return;
+
     const rows = await prisma.externalCompanySettlementPayment.findMany({
       where: {
         paidAt: { gte: range.gte, lte: range.lte },
+        operatingCompanyId,
         externalCompany: { tenantId },
       },
       orderBy: [{ paidAt: 'desc' }, { id: 'desc' }],
@@ -171,6 +189,7 @@ router.get('/external-settlement-received', async (req: Request, res: Response) 
     res.json({
       month: monthKey,
       monthLabel: payrollMonthLabelFromKey(monthKey),
+      operatingCompanyId,
       paymentCount: rows.length,
       totalAmount,
       items: rows.map((r) => ({
@@ -197,8 +216,14 @@ router.get('/account-ledger', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
       return;
     }
-    const payload = await buildPayrollAccountLedger(prisma, tenantId, monthKey);
-    res.json(payload);
+    const operatingCompanyId = await resolveSettlementOperatingCompanyId(
+      res,
+      tenantId,
+      req.query.operatingCompanyId,
+    );
+    if (!operatingCompanyId) return;
+    const payload = await buildPayrollAccountLedger(prisma, tenantId, monthKey, operatingCompanyId);
+    res.json({ ...payload, operatingCompanyId });
   } catch (e) {
     if (e instanceof Error && e.message === 'INVALID_MONTH') {
       res.status(400).json({ error: '유효하지 않은 월입니다.' });
