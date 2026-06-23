@@ -101,6 +101,7 @@ import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/te
 import { createTenantInquiryShare } from '../../api/tenantInquiryShare';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
+import { InquiryDbMarketplaceBadge } from './InquiryDbMarketplaceBadge';
 import { InquiryDbMarketplaceSellPanel } from './InquiryDbMarketplaceSellPanel';
 
 function AdminScheduleDetailSection({
@@ -1868,6 +1869,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   {item?.tenantShare ? (
                     <span className="ml-2">
                       <TenantInquiryShareBadge share={item.tenantShare} />
+                    </span>
+                  ) : null}
+                  {item?.dbListing ? (
+                    <span className="ml-2">
+                      <InquiryDbMarketplaceBadge dbListing={item.dbListing} />
                     </span>
                   ) : null}
                   {item?.inquiryNumber ? (

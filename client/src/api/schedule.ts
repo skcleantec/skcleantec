@@ -120,6 +120,8 @@ export interface ScheduleItem {
   distanceFromJuanKm?: number | null;
   /** 파트너 접수 연계 — 송신·수신 배지용 */
   tenantShare?: TenantInquiryShareMeta | null;
+  /** 정보공유(DB 마켓) 판매 상태 */
+  dbListing?: import('./dbMarketplace').InquiryDbListingMeta | null;
   /** 과거 현장 추가 금액(InquiryExtraCharge). 신규 추가결재는 additionalReceipts */
   extraCharges?: Array<{
     id: string;

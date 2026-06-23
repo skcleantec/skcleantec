@@ -109,6 +109,10 @@ import {
   attachTenantShareMetaToInquiries,
   attachTenantShareMetaToInquiry,
 } from '../tenant-partners/tenantInquiryShareMeta.js';
+import {
+  attachDbListingMetaToInquiries,
+  attachDbListingMetaToInquiry,
+} from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 import { stampTenantShareCancelFeeDirection } from '../tenant-partners/tenantPartnerSettlement.service.js';
 import { syncTenantShareAfterInquiryPatch } from '../tenant-partners/tenantInquirySync.service.js';
 
@@ -472,7 +476,8 @@ router.get('/', async (req, res) => {
   // DB에 저장 → 다음 로드부터 저장된 좌표가 즉시 표시된다.
   const itemsWithDistance = itemsWithPaybackToken.map((row) => attachDistanceFromJuanForInquiry(row));
   const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
-  const itemsWithInspection = attachInspectionSummaries(itemsWithShare);
+  const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithShare);
+  const itemsWithInspection = attachInspectionSummaries(itemsWithDbListing);
   const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(
     prisma,
     itemsWithInspection,
@@ -560,7 +565,9 @@ router.get('/:id', async (req, res) => {
       user.role,
     ),
   );
-  res.json(await attachTenantShareMetaToInquiry(tenantId, detail));
+  res.json(
+    await attachDbListingMetaToInquiry(tenantId, await attachTenantShareMetaToInquiry(tenantId, detail)),
+  );
 });
 
 /** 접수별 현장 청소 전·후 사진 (Cloudinary) — 목록·업로드·삭제 */
@@ -1404,7 +1411,9 @@ router.patch('/:id', async (req, res) => {
     attachDistanceFromJuanForInquiry(updated),
     user.role,
   );
-  res.json(await attachTenantShareMetaToInquiry(tenantId, patched));
+  res.json(
+    await attachDbListingMetaToInquiry(tenantId, await attachTenantShareMetaToInquiry(tenantId, patched)),
+  );
 });
 
 const CREATE_STATUSES: InquiryStatus[] = [

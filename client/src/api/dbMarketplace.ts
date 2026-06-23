@@ -7,6 +7,11 @@ function headers(token: string) {
 
 export type DbMarketplaceListingStatus = 'DRAFT' | 'OPEN' | 'PENDING_SELLER' | 'CONFIRMED' | 'WITHDRAWN';
 
+export type InquiryDbListingMeta = {
+  listingId: string;
+  status: Exclude<DbMarketplaceListingStatus, 'WITHDRAWN'>;
+};
+
 export type DbMarketplaceListTab = 'available' | 'my_sales' | 'pending' | 'confirmed';
 
 export type DbMarketplaceAudienceItem = {
@@ -112,6 +117,17 @@ export async function getDbMarketplaceDraftCount(token: string): Promise<number>
   const res = await fetch(`${API}/db-marketplace/draft-count`, { headers: headers(token) });
   const data = await parseJson<{ count: number }>(res);
   return data.count;
+}
+
+export async function getDbMarketplaceNavCounts(
+  token: string,
+): Promise<{ draftCount: number; sellerPendingCount: number }> {
+  const res = await fetch(`${API}/db-marketplace/draft-count`, { headers: headers(token) });
+  const data = await parseJson<{ count: number; sellerPendingCount?: number }>(res);
+  return {
+    draftCount: data.count,
+    sellerPendingCount: data.sellerPendingCount ?? 0,
+  };
 }
 
 export async function getDbListingByInquiry(
@@ -222,6 +238,18 @@ export async function confirmDbMarketplaceSeller(
     headers: headers(token),
   });
   return parseJson(res);
+}
+
+export async function declineDbMarketplaceSeller(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceSellerListing> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/seller-decline`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
+  return data.listing;
 }
 
 export type TeamDbMarketplaceListTab = 'available' | 'pending' | 'confirmed';

@@ -44,6 +44,7 @@ import {
 } from '../../constants/internalCustomerTone';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
+import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
 import {
@@ -480,6 +481,7 @@ interface InquiryItem {
   crewMemberNote?: string | null;
   externalTransferFee?: number | null;
   tenantShare?: import('../../api/tenantInquiryShare').TenantInquiryShareMeta | null;
+  dbListing?: import('../../api/dbMarketplace').InquiryDbListingMeta | null;
   /** 접수를 등록한 마케터(개별 접수·POST 시 설정) */
   createdBy?: { id: string; name: string; phone?: string | null } | null;
   orderForm?: {
@@ -2826,8 +2828,14 @@ export function AdminInquiriesPage() {
                               </span>
                             ) : null}
                             <OperatingCompanyBadge company={item.operatingCompany} />
-                            {item.tenantShare ? (
-                              <TenantInquiryShareBadge share={item.tenantShare} compact />
+                      {item.tenantShare ? (
+                        <TenantInquiryShareBadge share={item.tenantShare} compact />
+                      ) : null}
+                      {item.dbListing ? (
+                        <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact />
+                      ) : null}
+                            {item.dbListing ? (
+                              <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact />
                             ) : null}
                             <InquiryProfOptionsReviewListBadge item={item} />
                           </div>
@@ -3275,6 +3283,11 @@ export function AdminInquiriesPage() {
                       {item.tenantShare ? (
                         <span className="mt-0.5 block">
                           <TenantInquiryShareBadge share={item.tenantShare} compact />
+                        </span>
+                      ) : null}
+                      {item.dbListing ? (
+                        <span className="mt-0.5 block">
+                          <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact />
                         </span>
                       ) : null}
                     </td>

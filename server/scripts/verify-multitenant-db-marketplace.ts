@@ -49,6 +49,16 @@ async function verifyTeamApiGate(): Promise<void> {
   });
   assert(res.status === 401 || res.status === 403, `team marketplace requires auth (${res.status})`);
   console.log('✓ team marketplace API auth gate');
+
+  const adminDecline = await fetch(`${API}/db-marketplace/test-id/seller-decline`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer invalid-token' },
+  });
+  assert(
+    adminDecline.status === 401 || adminDecline.status === 403,
+    `seller-decline requires auth (${adminDecline.status})`,
+  );
+  console.log('✓ seller-decline API auth gate');
 }
 
 async function main(): Promise<void> {

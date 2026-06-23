@@ -7,6 +7,7 @@ import { DbMarketplaceError } from './dbMarketplace.service.js';
 import {
   notifyDbMarketplaceBuyerRequested,
   notifyDbMarketplaceConfirmed,
+  notifyDbMarketplaceSellerDeclined,
 } from './dbMarketplaceNotify.service.js';
 
 export type DbMarketplaceBuyerContext =
@@ -274,4 +275,60 @@ export async function confirmDbListingSeller(
   });
 
   return { listing: confirmed, targetInquiryId };
+}
+
+export async function declineDbListingSeller(
+  sellerTenantId: string,
+  _sellerUserId: string,
+  listingId: string,
+) {
+  const listing = await prisma.inquiryDbListing.findFirst({
+    where: { id: listingId, tenantId: sellerTenantId },
+    include: { audiences: true },
+  });
+  if (!listing) throw new DbMarketplaceError('판매 항목을 찾을 수 없습니다.', 404);
+  if (listing.status !== 'PENDING_SELLER') {
+    throw new DbMarketplaceError('구매 신청을 거절할 수 없는 상태입니다.', 400);
+  }
+  if (!listing.buyerConfirmedAt) {
+    throw new DbMarketplaceError('구매자 확정이 필요합니다.', 400);
+  }
+
+  const buyerTenantId = listing.buyerTenantId;
+  const buyerExternalCompanyId = listing.buyerExternalCompanyId;
+
+  const updatedCount = await prisma.inquiryDbListing.updateMany({
+    where: { id: listingId, tenantId: sellerTenantId, status: 'PENDING_SELLER' },
+    data: {
+      status: 'OPEN',
+      buyerKind: null,
+      buyerTenantId: null,
+      buyerExternalCompanyId: null,
+      buyerConfirmedAt: null,
+      buyerConfirmedByUserId: null,
+    },
+  });
+  if (updatedCount.count !== 1) {
+    throw new DbMarketplaceError('거절 처리에 실패했습니다. 상태를 확인해 주세요.', 409);
+  }
+
+  const updated = await prisma.inquiryDbListing.findUniqueOrThrow({
+    where: { id: listingId },
+    include: {
+      audiences: true,
+      tenant: { select: { id: true, name: true } },
+      buyerTenant: { select: { id: true, name: true } },
+      buyerExternalCompany: { select: { id: true, name: true } },
+    },
+  });
+
+  await notifyDbMarketplaceSellerDeclined({
+    sellerTenantId,
+    visibility: listing.visibility,
+    audiences: listing.audiences,
+    buyerTenantId,
+    buyerExternalCompanyId,
+  });
+
+  return updated;
 }

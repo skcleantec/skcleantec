@@ -17,6 +17,7 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { attachTenantShareMetaToInquiries } from '../tenant-partners/tenantInquiryShareMeta.js';
+import { attachDbListingMetaToInquiries } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 
 const router = Router();
 
@@ -198,7 +199,8 @@ router.get('/', async (req, res) => {
 
   const itemsWithDistance = items.map((row) => attachDistanceFromJuanForInquiry(row));
   const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
-  const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(prisma, itemsWithShare);
+  const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithShare);
+  const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(prisma, itemsWithDbListing);
   res.json({
     items: mapInquiriesInternalToneForRole(itemsWithProfReview, user.role),
   });

@@ -26,9 +26,12 @@
 
 ```
 DRAFT → OPEN → PENDING_SELLER → CONFIRMED
-         ↓
-      WITHDRAWN (OPEN만, 구매 신청 없을 때)
+         ↓              ↓ (판매자 거절)
+      WITHDRAWN        OPEN
 ```
+
+- `OPEN`만 철회 가능(구매 신청 없을 때).
+- `PENDING_SELLER`에서 판매자 **구매 신청 거절** → `OPEN` 복귀(구매자 정보 초기화).
 
 목록 정렬: `OPEN` · `PENDING_SELLER` 최상단.
 
@@ -50,7 +53,8 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 | POST | `/:id/publish` | 1 |
 | POST | `/:id/withdraw` | 1 |
 | GET | `/`, `/:id`, `/by-inquiry/:inquiryId`, `/draft-count` | 1 |
-| POST | `/:id/buyer-confirm`, `/:id/seller-confirm` | 2 |
+| POST | `/:id/buyer-confirm`, `/:id/seller-confirm`, `/:id/seller-decline` | 2–4 |
+| GET | `/draft-count` (장바구니 + 인계 대기 건수) | 1, 4 |
 | GET/POST | `/api/team/db-marketplace/*` (타업체 EXTERNAL_PARTNER) | 2–3 |
 
 ---
@@ -59,7 +63,7 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 
 | 위치 | 내용 |
 |------|------|
-| GNB | **정보공유** + 장바구니(DRAFT) 배지 |
+| GNB | **정보공유** + 장바구니(DRAFT) 배지 + 인계 대기(PENDING_SELLER) 배지 |
 | `/admin/db-marketplace` | 구매 가능 / 내 판매 / 진행 중 / 확정 완료 |
 | `/team/db-marketplace` | 타업체 — 구매 가능 / 인계 대기 / 확정 완료 |
 | 접수 상세 | `InquiryDbMarketplaceSellPanel` (직접 연계 블록과 분리) |
@@ -87,3 +91,11 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 - [x] EXTERNAL_PARTNER 정보공유 (`/team/db-marketplace` + GNB)
 - [x] WebSocket `inbox:refresh` + silent 재조회 (관리·타업체)
 - [x] `verify:multitenant:db-marketplace` 스크립트
+
+### Phase 4 — 거절·배지·UX
+
+- [x] 판매자 구매 신청 거절 (`POST /:id/seller-decline`) → `OPEN` 복귀
+- [x] GNB 인계 대기(PENDING_SELLER) 배지
+- [x] 접수·스케줄 목록 `InquiryDbMarketplaceBadge`
+- [x] 확정 상세 연결 접수 링크 (`openInquiry` 딥링크)
+- [ ] 만료(`EXPIRED`), 플랫폼 강제 중지 (후속)

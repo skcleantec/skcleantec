@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   confirmDbMarketplaceBuyer,
   confirmDbMarketplaceSeller,
+  declineDbMarketplaceSeller,
   getDbMarketplaceListing,
   confirmTeamDbMarketplaceBuyer,
   getTeamDbMarketplaceListing,
@@ -105,7 +107,28 @@ export function DbMarketplaceListingDetailModal({
     }
   };
 
+  const runSellerDecline = async () => {
+    if (!token || !window.confirm('구매 신청을 거절하고 다시 게시 상태로 되돌릴까요?')) return;
+    setBusy(true);
+    try {
+      await declineDbMarketplaceSeller(token, row.id);
+      onChanged();
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '거절 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const d = detail ?? (row as DbMarketplaceListingDetail);
+
+  const linkedInquiryPath =
+    d.targetInquiryId && d.status === 'CONFIRMED'
+      ? apiMode === 'team'
+        ? `/team/assignments?openInquiry=${encodeURIComponent(d.targetInquiryId)}`
+        : `/admin/inquiries?openInquiry=${encodeURIComponent(d.targetInquiryId)}`
+      : null;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
@@ -154,7 +177,18 @@ export function DbMarketplaceListingDetailModal({
                 </p>
               ) : null}
               {d.targetInquiryId ? (
-                <p className="text-[11px] text-gray-600">연결 접수 ID: {d.targetInquiryId}</p>
+                linkedInquiryPath ? (
+                  <Link
+                    to={linkedInquiryPath}
+                    className="inline-block text-[11px] font-medium text-sky-700 hover:text-sky-900 underline"
+                    onClick={onClose}
+                  >
+                    연결 접수 보기
+                    {d.inquiryFull?.inquiryNumber ? ` (${d.inquiryFull.inquiryNumber})` : ''}
+                  </Link>
+                ) : (
+                  <p className="text-[11px] text-gray-600">연결 접수 ID: {d.targetInquiryId}</p>
+                )
               ) : null}
             </div>
           ) : (
@@ -175,14 +209,24 @@ export function DbMarketplaceListingDetailModal({
               </button>
             ) : null}
             {d.status === 'PENDING_SELLER' && d.role === 'SELLER' && apiMode === 'admin' ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void runSellerConfirm()}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-              >
-                인계 확정
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void runSellerConfirm()}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                >
+                  인계 확정
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void runSellerDecline()}
+                  className="rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+                >
+                  구매 신청 거절
+                </button>
+              </>
             ) : null}
             <button
               type="button"

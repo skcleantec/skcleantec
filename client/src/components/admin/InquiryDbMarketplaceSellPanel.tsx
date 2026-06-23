@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getToken } from '../../stores/auth';
 import {
   confirmDbMarketplaceSeller,
+  declineDbMarketplaceSeller,
   getDbListingByInquiry,
   publishDbMarketplaceListing,
   updateDbMarketplaceAudience,
@@ -190,6 +191,21 @@ export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount,
     }
   };
 
+  const sellerDecline = async () => {
+    if (!token || !listing) return;
+    if (!window.confirm('구매 신청을 거절하고 다시 게시 상태로 되돌릴까요?')) return;
+    setBusy(true);
+    try {
+      const updated = await declineDbMarketplaceSeller(token, listing.id);
+      setListing(updated);
+      alert('구매 신청을 거절했습니다. 다시 게시 중입니다.');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '거절 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const partnerOptions = partnerships.map((p) => ({
     id: p.partner.id,
     name: p.partner.name,
@@ -225,14 +241,24 @@ export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount,
       ) : null}
 
       {listing?.status === 'PENDING_SELLER' ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void sellerConfirm()}
-          className="w-full rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-        >
-          인계 확정
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void sellerConfirm()}
+            className="flex-1 min-w-[8rem] rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          >
+            인계 확정
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void sellerDecline()}
+            className="flex-1 min-w-[8rem] rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+          >
+            구매 신청 거절
+          </button>
+        </div>
       ) : null}
 
       {canEdit ? (

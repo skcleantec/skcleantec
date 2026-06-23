@@ -153,3 +153,31 @@ export async function notifyDbMarketplaceConfirmed(opts: {
 
   if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
 }
+
+/** 판매자 구매 신청 거절 — OPEN 복귀, 판매자·구매자·시청자 갱신 */
+export async function notifyDbMarketplaceSellerDeclined(opts: {
+  sellerTenantId: string;
+  visibility: string;
+  audiences: DbMarketplaceAudienceRef[];
+  buyerTenantId: string | null;
+  buyerExternalCompanyId: string | null;
+}): Promise<void> {
+  const userIds = new Set<string>();
+  for (const id of await activeAdminUserIds(opts.sellerTenantId)) userIds.add(id);
+  for (const id of await resolveDbMarketplaceWatcherUserIds({
+    sellerTenantId: opts.sellerTenantId,
+    visibility: opts.visibility,
+    audiences: mapAudiences(opts.audiences),
+  })) {
+    userIds.add(id);
+  }
+  if (opts.buyerTenantId) {
+    for (const id of await activeAdminUserIds(opts.buyerTenantId)) userIds.add(id);
+  }
+  if (opts.buyerExternalCompanyId) {
+    for (const id of await externalPartnerUserIds(opts.sellerTenantId, opts.buyerExternalCompanyId)) {
+      userIds.add(id);
+    }
+  }
+  if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+}

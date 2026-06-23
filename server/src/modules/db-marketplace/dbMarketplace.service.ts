@@ -270,6 +270,12 @@ export async function countDbListingDrafts(tenantId: string): Promise<number> {
   });
 }
 
+export async function countDbListingPendingSeller(tenantId: string): Promise<number> {
+  return prisma.inquiryDbListing.count({
+    where: { tenantId, status: 'PENDING_SELLER' },
+  });
+}
+
 async function viewerCanSeeListing(
   tenantId: string,
   listing: {

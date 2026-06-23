@@ -5,6 +5,7 @@ import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   countDbListingDrafts,
+  countDbListingPendingSeller,
   DbMarketplaceError,
   getDbListingForInquiry,
   getDbMarketplaceListingById,
@@ -18,6 +19,7 @@ import {
 import {
   confirmDbListingBuyer,
   confirmDbListingSeller,
+  declineDbListingSeller,
 } from './dbMarketplaceConfirm.service.js';
 import {
   notifyDbMarketplaceBroadcast,
@@ -39,8 +41,11 @@ function mapError(res: import('express').Response, e: unknown): boolean {
 router.get('/draft-count', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
-  const count = await countDbListingDrafts(tenantId);
-  res.json({ count });
+  const [count, sellerPendingCount] = await Promise.all([
+    countDbListingDrafts(tenantId),
+    countDbListingPendingSeller(tenantId),
+  ]);
+  res.json({ count, sellerPendingCount });
 });
 
 router.get('/by-inquiry/:inquiryId', async (req, res) => {
@@ -153,6 +158,20 @@ router.post('/:id/buyer-confirm', async (req, res) => {
       tenantId,
       userId: auth.userId,
     });
+    res.json({ listing: serializeSellerListing(listing) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/seller-decline', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const listing = await declineDbListingSeller(tenantId, auth.userId, listingId);
     res.json({ listing: serializeSellerListing(listing) });
   } catch (e) {
     if (mapError(res, e)) return;

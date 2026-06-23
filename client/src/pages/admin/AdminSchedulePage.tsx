@@ -46,6 +46,7 @@ import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneung
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
+import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
 import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
@@ -399,6 +400,9 @@ function ScheduleDayListItem({
             ) : null}
             {item.tenantShare ? (
               <TenantInquiryShareBadge share={item.tenantShare} compact className="shrink-0" />
+            ) : null}
+            {item.dbListing ? (
+              <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact className="shrink-0" />
             ) : null}
             {isExternalIntake && (
               <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[9px] font-semibold text-fuchsia-800">
