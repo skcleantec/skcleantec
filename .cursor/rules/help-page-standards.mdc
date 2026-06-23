@@ -1,0 +1,226 @@
+# 헬프 페이지 — 구조·디자인·편집 규칙 (필수)
+
+> **적용 범위**: `/help` 페이지 (`client/src/pages/HelpPage.tsx`, 관련 컴포넌트)
+
+## 핵심 원칙
+
+- **3단 구조**: 최상단 메인 메뉴 → 왼쪽 상세 메뉴 → 오른쪽 콘텐츠
+- **심플한 상단**: 다크 브랜드 컬러(`slate-900`), 얇은 높이, 고정 헤더
+- **편집 권한**: 개발자(`pyo` 이메일) 또는 플랫폼 관리자만 스크린샷·마크다운 편집 가능
+- **일관성**: 청소비서 브랜드 컬러·디자인 시스템 준수
+
+---
+
+## 1. 페이지 구조 (필수 — 변경 금지)
+
+### 1.1 최상단 메인 메뉴 (고정 프레임)
+
+```
+┌─────────────────────────────────────────────┐
+│ 📚 청소비서 도움말  [사용법][고객문의][공지사항] │ ← sticky top-0
+└─────────────────────────────────────────────┘
+```
+
+- **위치**: `sticky top-0 z-30`
+- **배경**: `bg-slate-900` (다크 브랜드 컬러)
+- **높이**: `py-2.5` (얇게 유지)
+- **메뉴 구성**:
+  - `usage` (사용법): 역할별 기능 가이드
+  - `inquiry` (고객문의): FAQ, 연락처
+  - `notice` (공지사항): 업데이트, 신규 기능
+
+### 1.2 사용법 탭 — 2단 레이아웃
+
+```
+┌─────────────────┬──────────────────────┐
+│ [관리자][팀장]  │                      │
+├─────────────────┤  메인 콘텐츠         │
+│ 📑 목차         │  (스크린샷 + 마크다운) │
+│ · 접수 관리     │                      │
+│ · 발주서 관리   │                      │
+└─────────────────┴──────────────────────┘
+```
+
+**왼쪽 사이드바** (`HelpSidebar.tsx`):
+- **역할 선택**: 최상단 토글 (`slate-100` 배경, 활성 시 흰색)
+- **목차**: 모듈별 리스트 (`sticky top-20`)
+- **PC만 표시**: `hidden lg:block lg:w-64`
+
+**오른쪽 콘텐츠**:
+- 화면별 가이드 카드 (`HelpScreenCard.tsx`)
+- 스크린샷 + 마크다운 렌더링
+- 편집 권한 있으면 편집 버튼 표시
+
+### 1.3 모바일 적응
+
+- 역할 선택: 콘텐츠 상단에 전체 폭 토글
+- 목차: 드롭다운 셀렉트 (`HelpMobileModuleSelect`)
+- 검색: 상단 헤더 하단 별도 줄
+
+---
+
+## 2. 디자인 시스템 (필수)
+
+### 2.1 상단 헤더 (고정)
+
+```typescript
+// 배경·텍스트
+bg-slate-900       // 다크 브랜드 배경
+text-white         // 타이틀
+
+// 메인 메뉴 탭
+활성:   bg-white text-slate-900 shadow-md
+비활성: text-slate-300 hover:bg-slate-800 hover:text-white
+
+// 높이
+py-2.5  // 얇게 유지 (py-4 이상 금지)
+```
+
+### 2.2 왼쪽 사이드바
+
+```typescript
+// 역할 선택 토글
+bg-slate-100  // 배경
+활성:   bg-white text-slate-900 shadow-sm
+비활성: text-slate-600 hover:text-slate-900
+
+// 목차 항목
+활성:   bg-blue-600 text-white
+비활성: text-slate-700 hover:bg-slate-100
+```
+
+### 2.3 콘텐츠 카드
+
+- 배경: `bg-white`
+- 테두리: `border-slate-200`
+- 그림자: `shadow-sm`
+- 둥근 모서리: `rounded-2xl`
+
+### 2.4 금지 사항
+
+- ❌ 상단 헤더 높이를 두껍게 만들지 않는다 (`py-4` 이상)
+- ❌ 브랜드 컬러(`slate-900`)를 다른 색으로 바꾸지 않는다
+- ❌ 3단 구조(메인 메뉴 → 상세 메뉴 → 콘텐츠)를 깨지 않는다
+- ❌ 역할 선택을 상단 헤더로 다시 이동시키지 않는다
+
+---
+
+## 3. 스크린샷·마크다운 편집 (서버·클라이언트)
+
+### 3.1 권한 체크 (서버)
+
+```typescript
+// server/src/modules/help/help.routes.ts
+function requireHelpEditPermission(req: any, res: Response, next: NextFunction) {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const isPyo = user.email?.toLowerCase().startsWith('pyo');
+  const isPlatformAdmin = user.platformRole === 'ADMIN';
+
+  if (!isPyo && !isPlatformAdmin) {
+    return res.status(403).json({ error: '헬프 편집 권한이 없습니다.' });
+  }
+  next();
+}
+```
+
+### 3.2 서버 API
+
+- `POST /api/help/upload-screenshot`: 이미지 업로드 (multer, 10MB 제한)
+- `PATCH /api/help/:role/:encodedPath`: 마크다운·스크린샷 경로 업데이트
+- `DELETE /api/help/screenshot/:filename`: 스크린샷 삭제
+
+**저장 위치**: `client/public/help/screenshots/`  
+**파일명**: `{timestamp}_{원본파일명}`
+
+### 3.3 클라이언트 편집 UI
+
+```typescript
+// HelpScreenCard.tsx
+<HelpScreenCard 
+  entry={entry}
+  canEdit={canEdit}  // checkHelpEditPermission() 결과
+  onUpdated={refreshEntries}
+/>
+```
+
+**편집 버튼** (권한 있을 때만 표시):
+- **✏️ 편집**: 마크다운 textarea 토글
+- **📷 이미지**: 파일 선택 → 자동 업로드
+
+**저장 후**: `data.json` 업데이트 → 페이지 새로고침
+
+---
+
+## 4. 데이터 구조 (`data.json`)
+
+```json
+[
+  {
+    "role": "admin" | "team",
+    "module": "접수 관리",
+    "moduleOrder": 1,
+    "title": "서비스접수 목록",
+    "path": "/admin/inquiries",
+    "screenshotFile": "1719123456_screenshot.png",
+    "summary": "접수 등록·조회·수정",
+    "markdown": "## 화면 소개\n\n접수를 관리하는 화면입니다..."
+  }
+]
+```
+
+**생성**: `scripts/build-help-data.mjs` (admin 자동 생성 + team 수동)  
+**위치**: `client/public/help/data.json`
+
+---
+
+## 5. URL·상태 관리
+
+### 5.1 URL 쿼리 파라미터
+
+- `category`: `usage` | `inquiry` | `notice` (기본: `usage`)
+- `role`: `admin` | `team` (사용법 탭에만)
+- `q`: 검색어 (사용법 탭에만)
+
+### 5.2 새로고침 유지
+
+- 브라우저 새로고침 시 **URL 기준으로 복원**
+- 메뉴·역할·검색 조건이 모두 URL에 반영
+- **`.cursor/rules/routing-url-persistence.mdc`** 준수
+
+---
+
+## 6. 참고 파일
+
+| 항목 | 경로 |
+|---|---|
+| 메인 페이지 | `client/src/pages/HelpPage.tsx` |
+| 사이드바 | `client/src/components/help/HelpSidebar.tsx` |
+| 카드 컴포넌트 | `client/src/components/help/HelpScreenCard.tsx` |
+| 서버 API | `server/src/modules/help/help.routes.ts` |
+| 클라 API | `client/src/api/help.ts` |
+| 데이터 빌드 | `scripts/build-help-data.mjs` |
+| 상세 가이드 | `scripts/detailed-help-inquiries.mjs` (접수 목록 예시) |
+
+---
+
+## 7. 변경 시 체크리스트
+
+- [ ] 3단 구조(메인 메뉴·상세 메뉴·콘텐츠)가 유지되는가?
+- [ ] 상단 헤더가 고정(`sticky`)되고 얇은가(`py-2.5`)?
+- [ ] 역할 선택이 왼쪽 사이드바 최상단에 있는가?
+- [ ] 브랜드 컬러(`slate-900` 헤더)가 유지되는가?
+- [ ] 편집 권한이 pyo/관리자만으로 제한되는가?
+- [ ] URL에 카테고리·역할·검색이 반영되는가?
+- [ ] PC와 모바일 모두 테스트했는가?
+
+---
+
+## 8. 금지 (다시 도입하지 않음)
+
+- 상단 헤더에 역할 선택 버튼 두기
+- 헤더 높이를 두껍게 만들기 (`py-4` 이상)
+- 브랜드 컬러 변경 (흰색 배경 등)
+- 편집 권한을 일반 사용자에게 열기
+- 클라이언트에만 데이터 저장 (서버 `data.json` 동기화 필수)
