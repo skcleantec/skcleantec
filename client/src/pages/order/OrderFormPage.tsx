@@ -1174,7 +1174,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
 
           <div>
-            <label className={reqLabelCls}>2. 주소 *</label>
+            <label className={reqLabelCls}>2. 주소(청소해야할 위치) *</label>
             <p className="text-xs text-gray-600 mb-2 leading-relaxed">
               「주소 검색」으로 도로명·지번을 선택한 뒤, 아래에 상세주소를 입력해 주세요.
             </p>
