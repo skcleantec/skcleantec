@@ -524,6 +524,8 @@ model User {
   /// 플랫폼 지원 접속 — 테넌트별 자동 생성 ADMIN (목록·일반 로그인에서 숨김)
   platformSupportAccessId String? @map("platform_support_access_id")
   platformSupportAccess   TenantSupportAccess? @relation(fields: [platformSupportAccessId], references: [id], onDelete: SetNull)
+  /// 마케터 관리자 권한 — 관리자 전용 페이지 제외, 배정·삭제 등 관리자 작업 가능
+  hasAdminPrivileges  Boolean @default(false) @map("has_admin_privileges")
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
   assignmentsGiven     Assignment[] @relation("AdminAssignments")
