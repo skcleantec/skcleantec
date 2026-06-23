@@ -404,6 +404,8 @@ model OperatingCompany {
   orderForms        OrderForm[]
   dailyCounters     DailyInquiryCounter[]
   quotations        Quotation[]
+  externalSettlementPayments ExternalCompanySettlementPayment[]
+  externalSettlementResets   ExternalCompanySettlementReset[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -453,33 +455,37 @@ model ExternalCompany {
   @@map("external_companies")
 }
 
-/// 타업체 정산 지급(부분/전체) 이력 1행
+/// 타업체 정산 지급(부분/전체) 이력 1행 — 영업 브랜드별 분리
 model ExternalCompanySettlementPayment {
   id                String   @id @default(uuid())
   externalCompanyId String   @map("external_company_id")
+  operatingCompanyId String  @map("operating_company_id")
   amount            Int
   paidAt            DateTime @default(now()) @map("paid_at")
   memo              String?  @db.Text
   actorId           String?  @map("actor_id")
 
-  externalCompany ExternalCompany @relation(fields: [externalCompanyId], references: [id], onDelete: Cascade)
-  actor           User?           @relation("ExternalCompanySettlementPaymentActor", fields: [actorId], references: [id], onDelete: SetNull)
+  externalCompany   ExternalCompany   @relation(fields: [externalCompanyId], references: [id], onDelete: Cascade)
+  operatingCompany  OperatingCompany  @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  actor             User?             @relation("ExternalCompanySettlementPaymentActor", fields: [actorId], references: [id], onDelete: SetNull)
 
-  @@index([externalCompanyId, paidAt])
+  @@index([externalCompanyId, operatingCompanyId, paidAt])
   @@map("external_company_settlement_payments")
 }
 
-/// 타업체 정산 완료 후 관리자가 수수료 누적을 초기화할 때마다 1행
+/// 타업체 정산 완료 후 관리자가 수수료 누적을 초기화할 때마다 1행 — 영업 브랜드별
 model ExternalCompanySettlementReset {
   id                  String   @id @default(uuid())
   externalCompanyId   String   @map("external_company_id")
+  operatingCompanyId  String   @map("operating_company_id")
   resetAt             DateTime @default(now()) @map("reset_at")
   actorId             String?  @map("actor_id")
 
-  externalCompany ExternalCompany @relation(fields: [externalCompanyId], references: [id], onDelete: Cascade)
-  actor            User?          @relation("ExternalCompanySettlementResetActor", fields: [actorId], references: [id], onDelete: SetNull)
+  externalCompany  ExternalCompany  @relation(fields: [externalCompanyId], references: [id], onDelete: Cascade)
+  operatingCompany OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  actor            User?            @relation("ExternalCompanySettlementResetActor", fields: [actorId], references: [id], onDelete: SetNull)
 
-  @@index([externalCompanyId, resetAt])
+  @@index([externalCompanyId, operatingCompanyId, resetAt])
   @@map("external_company_settlement_resets")
 }
 

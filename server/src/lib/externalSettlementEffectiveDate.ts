@@ -135,6 +135,7 @@ type SettlementInquiryRowWithAssignments = Prisma.InquiryGetPayload<{
 type FetchExternalSettlementPeriodBase = {
   tenantId: string;
   externalCompanyId: string;
+  operatingCompanyId: string;
   from: Date;
   to: Date;
 };
@@ -178,6 +179,7 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
     prisma.inquiry.findMany({
       where: {
         tenantId: opts.tenantId,
+        operatingCompanyId: opts.operatingCompanyId,
         externalTransferFee: { not: null },
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
         assignments: assignmentSome,
@@ -189,6 +191,7 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
     prisma.inquiry.findMany({
       where: {
         tenantId: opts.tenantId,
+        operatingCompanyId: opts.operatingCompanyId,
         status: 'CANCELLED',
         externalTransferFee: { not: null },
         AND: [
@@ -227,6 +230,7 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
 export async function computeSignedExternalFeeBeforeDate(opts: {
   tenantId: string;
   externalCompanyId: string;
+  operatingCompanyId: string;
   before: Date;
 }): Promise<number> {
   const confirmAtMap = await loadMarketplaceExternalConfirmAtMap(opts.tenantId, {
@@ -242,6 +246,7 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
     prisma.inquiry.findMany({
       where: {
         tenantId: opts.tenantId,
+        operatingCompanyId: opts.operatingCompanyId,
         externalTransferFee: { not: null },
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
         assignments: assignmentSome,
@@ -251,6 +256,7 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
     prisma.inquiry.findMany({
       where: {
         tenantId: opts.tenantId,
+        operatingCompanyId: opts.operatingCompanyId,
         status: 'CANCELLED',
         externalTransferFee: { not: null },
         OR: [

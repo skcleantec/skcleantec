@@ -35,6 +35,7 @@ import {
   fetchExternalSettlementInquiriesForCompanyPeriod,
   filterExternalSettlementItemsBySearch,
 } from '../../lib/externalSettlementEffectiveDate.js';
+import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
 import {
   parseCrewMeetingPatchBody,
   validateCrewMeetingTimeForInquiry,
@@ -1255,6 +1256,13 @@ router.get('/external-settlement', async (req, res) => {
     return;
   }
 
+  const operatingCompanyId = await resolveSettlementOperatingCompanyId(
+    res,
+    routeTenantId,
+    req.query.operatingCompanyId,
+  );
+  if (!operatingCompanyId) return;
+
   const q = req.query as Record<string, unknown>;
   const { from, to, loYmd, hiYmd } = settlementPreferredRangeFromQuery({
     datePreset: typeof q.datePreset === 'string' ? q.datePreset : undefined,
@@ -1269,6 +1277,7 @@ router.get('/external-settlement', async (req, res) => {
   const { activeRows, cancelledRows } = await fetchExternalSettlementInquiriesForCompanyPeriod({
     tenantId: routeTenantId,
     externalCompanyId: companyId,
+    operatingCompanyId,
     from,
     to,
     includeAssignmentLabels: true,
@@ -1353,17 +1362,18 @@ router.get('/external-settlement', async (req, res) => {
   const signedBeforeRange = await computeSignedExternalFeeBeforeDate({
     tenantId: routeTenantId,
     externalCompanyId: companyId,
+    operatingCompanyId,
     before: from,
   });
 
   const paidBeforeAgg = await prisma.externalCompanySettlementPayment.aggregate({
-    where: { externalCompanyId: companyId, paidAt: { lt: from } },
+    where: { externalCompanyId: companyId, operatingCompanyId, paidAt: { lt: from } },
     _sum: { amount: true },
   });
   const paidBeforeRange = paidBeforeAgg._sum.amount ?? 0;
 
   const paymentRows = await prisma.externalCompanySettlementPayment.findMany({
-    where: { externalCompanyId: companyId, paidAt: { gte: from, lte: to } },
+    where: { externalCompanyId: companyId, operatingCompanyId, paidAt: { gte: from, lte: to } },
     orderBy: [{ paidAt: 'desc' }],
     select: {
       id: true,
@@ -1374,7 +1384,7 @@ router.get('/external-settlement', async (req, res) => {
     },
   });
   const periodPaidAgg = await prisma.externalCompanySettlementPayment.aggregate({
-    where: { externalCompanyId: companyId, paidAt: { gte: from, lte: to } },
+    where: { externalCompanyId: companyId, operatingCompanyId, paidAt: { gte: from, lte: to } },
     _sum: { amount: true },
   });
   const periodPaidAmount = periodPaidAgg._sum.amount ?? 0;
@@ -1391,6 +1401,8 @@ router.get('/external-settlement', async (req, res) => {
   const yearToDt = new Date(`${yToYmd}T23:59:59.999+09:00`);
 
   const extSomeActive = {
+    tenantId: routeTenantId,
+    operatingCompanyId,
     assignments: {
       some: { teamLeader: { role: 'EXTERNAL_PARTNER' as const, externalCompanyId: companyId } },
     },
@@ -1415,6 +1427,8 @@ router.get('/external-settlement', async (req, res) => {
     }),
     prisma.inquiry.aggregate({
       where: {
+        tenantId: routeTenantId,
+        operatingCompanyId,
         status: 'CANCELLED',
         externalTransferFee: { not: null },
         preferredDate: { gte: yearFromDt, lte: yearToDt },
@@ -1442,6 +1456,8 @@ router.get('/external-settlement', async (req, res) => {
     }),
     prisma.inquiry.aggregate({
       where: {
+        tenantId: routeTenantId,
+        operatingCompanyId,
         status: 'CANCELLED',
         externalTransferFee: { not: null },
         preferredDate: { lt: yearFromDt },
@@ -1459,15 +1475,15 @@ router.get('/external-settlement', async (req, res) => {
       _sum: { externalTransferFee: true },
     }),
     prisma.externalCompanySettlementPayment.aggregate({
-      where: { externalCompanyId: companyId, paidAt: { lt: yearFromDt } },
+      where: { externalCompanyId: companyId, operatingCompanyId, paidAt: { lt: yearFromDt } },
       _sum: { amount: true },
     }),
     prisma.externalCompanySettlementPayment.aggregate({
-      where: { externalCompanyId: companyId, paidAt: { gte: yearFromDt, lte: yearToDt } },
+      where: { externalCompanyId: companyId, operatingCompanyId, paidAt: { gte: yearFromDt, lte: yearToDt } },
       _sum: { amount: true },
     }),
     prisma.externalCompanySettlementPayment.findFirst({
-      where: { externalCompanyId: companyId },
+      where: { externalCompanyId: companyId, operatingCompanyId },
       orderBy: { paidAt: 'desc' },
       select: { amount: true, paidAt: true },
     }),
@@ -1490,6 +1506,8 @@ router.get('/external-settlement', async (req, res) => {
   const [activeRowsCumulative, cancelledRowsCumulative, allPaymentsChrono] = await Promise.all([
     prisma.inquiry.findMany({
       where: {
+        tenantId: routeTenantId,
+        operatingCompanyId,
         externalTransferFee: { not: null },
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
         assignments: {
@@ -1506,6 +1524,8 @@ router.get('/external-settlement', async (req, res) => {
     }),
     prisma.inquiry.findMany({
       where: {
+        tenantId: routeTenantId,
+        operatingCompanyId,
         status: 'CANCELLED',
         externalTransferFee: { not: null },
         OR: [
@@ -1527,7 +1547,7 @@ router.get('/external-settlement', async (req, res) => {
       },
     }),
     prisma.externalCompanySettlementPayment.findMany({
-      where: { externalCompanyId: companyId },
+      where: { externalCompanyId: companyId, operatingCompanyId },
       orderBy: [{ paidAt: 'asc' as const }, { id: 'asc' as const }],
       select: { id: true, amount: true },
     }),
@@ -1602,17 +1622,25 @@ router.get('/external-settlement', async (req, res) => {
 
 /** 관리자/마케터: 타업체 정산완료(부분 지급) 기록 */
 router.post('/external-settlement/payments', async (req, res) => {
-  const viewer = (req as unknown as {
-    teamViewer?: { userId: string; role: string };
-    user: AuthPayload;
-  }).teamViewer;
-  const actorId = viewer?.userId ?? (req as unknown as { user: AuthPayload }).user.userId;
-  const actorRole = viewer?.role ?? (req as unknown as { user: AuthPayload }).user.role;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const actorId = user.userId;
+  const actorRole = user.role;
   if (actorRole !== 'ADMIN' && actorRole !== 'MARKETER') {
     res.status(403).json({ error: '정산완료 기록은 관리자/마케터만 처리할 수 있습니다.' });
     return;
   }
-  const body = req.body as { externalCompanyId?: string; amount?: number; memo?: string; paidDate?: string };
+  const routeTenantId = getTenantIdFromAuth(user) ?? (await resolveTeamContextTenantId(user));
+  if (!routeTenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const body = req.body as {
+    externalCompanyId?: string;
+    operatingCompanyId?: string;
+    amount?: number;
+    memo?: string;
+    paidDate?: string;
+  };
   const externalCompanyId = typeof body.externalCompanyId === 'string' ? body.externalCompanyId.trim() : '';
   const amount = Number(body.amount);
   const memo = typeof body.memo === 'string' ? body.memo.trim() : '';
@@ -1634,16 +1662,23 @@ router.post('/external-settlement/payments', async (req, res) => {
   }
   const amountInt = Math.trunc(amount);
   const co = await prisma.externalCompany.findFirst({
-    where: { id: externalCompanyId, isActive: true },
+    where: { id: externalCompanyId, tenantId: routeTenantId, isActive: true },
     select: { id: true },
   });
   if (!co) {
     res.status(404).json({ error: '타업체를 찾을 수 없습니다.' });
     return;
   }
+  const operatingCompanyId = await resolveSettlementOperatingCompanyId(
+    res,
+    routeTenantId,
+    body.operatingCompanyId,
+  );
+  if (!operatingCompanyId) return;
   const row = await prisma.externalCompanySettlementPayment.create({
     data: {
       externalCompanyId,
+      operatingCompanyId,
       amount: amountInt,
       memo: memo || null,
       actorId,

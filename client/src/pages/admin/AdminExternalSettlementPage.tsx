@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { getToken } from '../../stores/auth';
+import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import {
   getExternalSettlementCompanyDetail,
   getExternalSettlementCompanyOverviewList,
@@ -97,13 +99,22 @@ function mergeHistoryRows(prev: HistoryRow[], next: HistoryRow[]): HistoryRow[] 
   return Array.from(map.values()).sort((a, b) => b.paidAt.localeCompare(a.paidAt));
 }
 
+function historyCacheKey(externalCompanyId: string, operatingCompanyId: string): string {
+  return `${externalCompanyId}|${operatingCompanyId}`;
+}
+
 export function AdminExternalSettlementPage() {
   const token = getToken();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<ExternalSettlementCompanyOverviewRow[]>([]);
   const [loading, setLoading] = useState(false);
   const { preserveScroll } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
+  const [operatingCompanies, setOperatingCompanies] = useState<OperatingCompanyItem[]>([]);
+  const [operatingCompanyId, setOperatingCompanyId] = useState(
+    () => searchParams.get('operatingCompanyId') ?? ''
+  );
 
   const [selected, setSelected] = useState<ExternalSettlementCompanyOverviewRow | null>(null);
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -161,8 +172,47 @@ export function AdminExternalSettlementPage() {
     [detailAllItems],
   );
 
-  const loadList = useCallback(async () => {
+  const activeOperatingCompanies = useMemo(
+    () => operatingCompanies.filter((oc) => oc.isActive),
+    [operatingCompanies],
+  );
+
+  const resolvedOperatingCompanyId = useMemo(() => {
+    if (operatingCompanyId && activeOperatingCompanies.some((oc) => oc.id === operatingCompanyId)) {
+      return operatingCompanyId;
+    }
+    const fromDefault = activeOperatingCompanies.find((oc) => oc.isDefault)?.id;
+    if (fromDefault) return fromDefault;
+    return activeOperatingCompanies[0]?.id ?? '';
+  }, [operatingCompanyId, activeOperatingCompanies]);
+
+  useEffect(() => {
     if (!token) return;
+    listOperatingCompanies(token)
+      .then((r) => setOperatingCompanies(r.items ?? []))
+      .catch(() => setOperatingCompanies([]));
+  }, [token]);
+
+  useEffect(() => {
+    if (!resolvedOperatingCompanyId) return;
+    if (operatingCompanyId === resolvedOperatingCompanyId) return;
+    setOperatingCompanyId(resolvedOperatingCompanyId);
+  }, [operatingCompanyId, resolvedOperatingCompanyId]);
+
+  useEffect(() => {
+    if (!resolvedOperatingCompanyId) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('operatingCompanyId', resolvedOperatingCompanyId);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [resolvedOperatingCompanyId, setSearchParams]);
+
+  const loadList = useCallback(async () => {
+    if (!token || !resolvedOperatingCompanyId) return;
     beginListRefresh({
       showLoading: true,
       itemCount: rows.length,
@@ -171,7 +221,7 @@ export function AdminExternalSettlementPage() {
     });
     setError(null);
     try {
-      const r = await getExternalSettlementCompanyOverviewList(token);
+      const r = await getExternalSettlementCompanyOverviewList(token, resolvedOperatingCompanyId);
       setRows(r.items);
     } catch (e) {
       setRows([]);
@@ -179,7 +229,7 @@ export function AdminExternalSettlementPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, rows.length, preserveScroll]);
+  }, [token, resolvedOperatingCompanyId, rows.length, preserveScroll]);
 
   useEffect(() => {
     void loadList();
@@ -203,10 +253,11 @@ export function AdminExternalSettlementPage() {
   };
 
   const openHistoryModal = async (row: ExternalSettlementCompanyOverviewRow) => {
-    if (!token) return;
+    if (!token || !resolvedOperatingCompanyId) return;
     setSelected(row);
     setHistoryModalOpen(true);
-    const cached = historyCacheByCompany[row.externalCompanyId];
+    const cacheKey = historyCacheKey(row.externalCompanyId, resolvedOperatingCompanyId);
+    const cached = historyCacheByCompany[cacheKey];
     if (cached) {
       setHistoryRows(cached);
       setHistoryLoading(false);
@@ -219,10 +270,11 @@ export function AdminExternalSettlementPage() {
         externalCompanyId: row.externalCompanyId,
         from: '2000-01-01',
         to: kstTodayYmd(),
+        operatingCompanyId: resolvedOperatingCompanyId,
       });
       const merged = mergeHistoryRows(cached ?? [], detail.payments);
       setHistoryRows(merged);
-      setHistoryCacheByCompany((prev) => ({ ...prev, [row.externalCompanyId]: merged }));
+      setHistoryCacheByCompany((prev) => ({ ...prev, [cacheKey]: merged }));
     } catch {
       if (!cached) setHistoryRows([]);
     } finally {
@@ -231,7 +283,7 @@ export function AdminExternalSettlementPage() {
   };
 
   const openPeriodModal = async (row: ExternalSettlementCompanyOverviewRow, targetYear = year) => {
-    if (!token) return;
+    if (!token || !resolvedOperatingCompanyId) return;
     setSelected(row);
     setPeriodModalOpen(true);
     setPeriodLoading(true);
@@ -239,6 +291,7 @@ export function AdminExternalSettlementPage() {
       const summary = await getExternalSettlementMonthlyOverview(token, {
         fromMonth: `${targetYear}-01`,
         toMonth: `${targetYear}-12`,
+        operatingCompanyId: resolvedOperatingCompanyId,
       });
       const items = summary.months.map((m) => {
         const c = m.companies.find((x) => x.externalCompanyId === row.externalCompanyId);
@@ -256,7 +309,7 @@ export function AdminExternalSettlementPage() {
   };
 
   const openDetailModal = async (row: ExternalSettlementCompanyOverviewRow, targetMonth = detailMonth) => {
-    if (!token) return;
+    if (!token || !resolvedOperatingCompanyId) return;
     setSelected(row);
     setDetailModalOpen(true);
     setDetailSearch('');
@@ -267,6 +320,7 @@ export function AdminExternalSettlementPage() {
         externalCompanyId: row.externalCompanyId,
         from: range.from,
         to: range.to,
+        operatingCompanyId: resolvedOperatingCompanyId,
       });
       setDetailAllItems(
         detail.items.map((it) => ({
@@ -327,7 +381,7 @@ export function AdminExternalSettlementPage() {
   };
 
   const submitPayment = async () => {
-    if (!token || !selected || !payConfirm) return;
+    if (!token || !selected || !payConfirm || !resolvedOperatingCompanyId) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -337,7 +391,9 @@ export function AdminExternalSettlementPage() {
         amount: payConfirm.inputAmount,
         memo: payMemoInput.trim() || undefined,
         paidDate: payYmd,
+        operatingCompanyId: resolvedOperatingCompanyId,
       });
+      const cacheKey = historyCacheKey(selected.externalCompanyId, resolvedOperatingCompanyId);
       const optimisticHistoryRow: HistoryRow = {
         id: result.payment.id,
         amount: result.payment.amount,
@@ -347,7 +403,7 @@ export function AdminExternalSettlementPage() {
       };
       setHistoryCacheByCompany((prev) => ({
         ...prev,
-        [selected.externalCompanyId]: mergeHistoryRows(prev[selected.externalCompanyId] ?? [], [optimisticHistoryRow]),
+        [cacheKey]: mergeHistoryRows(prev[cacheKey] ?? [], [optimisticHistoryRow]),
       }));
       if (historyModalOpen && historyRows.some((row) => row.id === optimisticHistoryRow.id) === false) {
         setHistoryRows((prev) => mergeHistoryRows(prev, [optimisticHistoryRow]));
@@ -368,9 +424,33 @@ export function AdminExternalSettlementPage() {
       <div>
         <h1 className="text-xl font-semibold text-gray-800">타업체 정산</h1>
         <p className="mt-1 text-sm text-gray-500">
-          업체를 선택한 뒤 정산 금액을 입력해 정산완료 처리합니다.
+          영업 브랜드별로 타업체 정산·지급 내역을 분리해 관리합니다.
         </p>
       </div>
+
+      {activeOperatingCompanies.length > 1 ? (
+        <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1">
+          {activeOperatingCompanies.map((oc) => {
+            const active = oc.id === resolvedOperatingCompanyId;
+            return (
+              <button
+                key={oc.id}
+                type="button"
+                onClick={() => setOperatingCompanyId(oc.id)}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  active ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {oc.displayName || oc.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : activeOperatingCompanies.length === 1 ? (
+        <p className="text-xs text-gray-500">
+          브랜드: <span className="font-medium text-gray-700">{activeOperatingCompanies[0].displayName || activeOperatingCompanies[0].name}</span>
+        </p>
+      ) : null}
 
       <div className="rounded-lg border border-gray-200 bg-white p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

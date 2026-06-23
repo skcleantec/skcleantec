@@ -9,6 +9,12 @@ function headers(token: string) {
   };
 }
 
+function appendOperatingCompanyId(params: URLSearchParams, operatingCompanyId?: string): URLSearchParams {
+  const id = operatingCompanyId?.trim();
+  if (id) params.set('operatingCompanyId', id);
+  return params;
+}
+
 export type ExternalCompanyListItem = {
   id: string;
   name: string;
@@ -102,9 +108,10 @@ export type ExternalSettlementCompanyOverviewRow = {
 export async function getExternalSettlementSummary(
   token: string,
   from: string,
-  to: string
+  to: string,
+  operatingCompanyId?: string
 ): Promise<ExternalSettlementSummary> {
-  const q = new URLSearchParams({ from, to }).toString();
+  const q = appendOperatingCompanyId(new URLSearchParams({ from, to }), operatingCompanyId).toString();
   const res = await fetch(`${API}/external-companies/settlement/summary?${q}`, {
     ...NO_STORE,
     headers: headers(token),
@@ -117,9 +124,14 @@ export async function getExternalSettlementSummary(
 }
 
 export async function getExternalSettlementCompanyOverviewList(
-  token: string
-): Promise<{ items: ExternalSettlementCompanyOverviewRow[] }> {
-  const res = await fetch(`${API}/external-companies/settlement/company-overview-list`, {
+  token: string,
+  operatingCompanyId?: string
+): Promise<{ operatingCompanyId: string; items: ExternalSettlementCompanyOverviewRow[] }> {
+  const q = appendOperatingCompanyId(new URLSearchParams(), operatingCompanyId).toString();
+  const url = q
+    ? `${API}/external-companies/settlement/company-overview-list?${q}`
+    : `${API}/external-companies/settlement/company-overview-list`;
+  const res = await fetch(url, {
     ...NO_STORE,
     headers: headers(token),
   });
@@ -209,8 +221,15 @@ export type ExternalSettlementMonthlyOverview = {
   };
 };
 
-export async function getExternalFeeAccruals(token: string): Promise<ExternalFeeAccrualsResponse> {
-  const res = await fetch(`${API}/external-companies/settlement/accruals`, { ...NO_STORE, headers: headers(token) });
+export async function getExternalFeeAccruals(
+  token: string,
+  operatingCompanyId?: string
+): Promise<ExternalFeeAccrualsResponse> {
+  const q = appendOperatingCompanyId(new URLSearchParams(), operatingCompanyId).toString();
+  const url = q
+    ? `${API}/external-companies/settlement/accruals?${q}`
+    : `${API}/external-companies/settlement/accruals`;
+  const res = await fetch(url, { ...NO_STORE, headers: headers(token) });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '누계를 불러올 수 없습니다.');
@@ -220,12 +239,15 @@ export async function getExternalFeeAccruals(token: string): Promise<ExternalFee
 
 export async function getExternalSettlementMonthlyOverview(
   token: string,
-  params: { fromMonth: string; toMonth: string }
+  params: { fromMonth: string; toMonth: string; operatingCompanyId?: string }
 ): Promise<ExternalSettlementMonthlyOverview> {
-  const q = new URLSearchParams({
-    fromMonth: params.fromMonth,
-    toMonth: params.toMonth,
-  }).toString();
+  const q = appendOperatingCompanyId(
+    new URLSearchParams({
+      fromMonth: params.fromMonth,
+      toMonth: params.toMonth,
+    }),
+    params.operatingCompanyId
+  ).toString();
   const res = await fetch(`${API}/external-companies/settlement/monthly-overview?${q}`, {
     ...NO_STORE,
     headers: headers(token),
@@ -239,13 +261,16 @@ export async function getExternalSettlementMonthlyOverview(
 
 export async function getExternalSettlementCompanyDetail(
   token: string,
-  params: { externalCompanyId: string; from: string; to: string; search?: string }
+  params: { externalCompanyId: string; from: string; to: string; search?: string; operatingCompanyId?: string }
 ): Promise<ExternalSettlementCompanyDetail> {
-  const q = new URLSearchParams({
-    externalCompanyId: params.externalCompanyId,
-    from: params.from,
-    to: params.to,
-  });
+  const q = appendOperatingCompanyId(
+    new URLSearchParams({
+      externalCompanyId: params.externalCompanyId,
+      from: params.from,
+      to: params.to,
+    }),
+    params.operatingCompanyId
+  );
   if (params.search?.trim()) q.set('search', params.search.trim());
   const res = await fetch(`${API}/external-companies/settlement/company-detail?${q.toString()}`, {
     ...NO_STORE,
@@ -258,11 +283,15 @@ export async function getExternalSettlementCompanyDetail(
   return res.json();
 }
 
-export async function postExternalFeeAccrualReset(token: string, externalCompanyId: string): Promise<void> {
+export async function postExternalFeeAccrualReset(
+  token: string,
+  externalCompanyId: string,
+  operatingCompanyId?: string
+): Promise<void> {
   const res = await fetch(`${API}/external-companies/settlement/reset-accrual`, {
     method: 'POST',
     headers: headers(token),
-    body: JSON.stringify({ externalCompanyId }),
+    body: JSON.stringify({ externalCompanyId, operatingCompanyId: operatingCompanyId?.trim() || undefined }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -272,7 +301,13 @@ export async function postExternalFeeAccrualReset(token: string, externalCompany
 
 export async function postExternalSettlementPayment(
   token: string,
-  params: { externalCompanyId: string; amount: number; memo?: string; paidDate?: string }
+  params: {
+    externalCompanyId: string;
+    amount: number;
+    memo?: string;
+    paidDate?: string;
+    operatingCompanyId?: string;
+  }
 ): Promise<{ ok: boolean; payment: { id: string; amount: number; paidAt: string } }> {
   const res = await fetch(`${API}/external-companies/settlement/payments`, {
     method: 'POST',
